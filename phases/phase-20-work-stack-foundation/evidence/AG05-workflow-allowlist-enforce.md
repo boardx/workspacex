@@ -19,7 +19,7 @@ Agent 在聊天 run 里调 `start_workflow({workflowId:"W0xx", input})`（deep-a
 
 | 命令 | 退出码 | 结果 |
 |---|---|---|
-| `nt.sh pnpm --filter api exec vitest run tests/agent/workflow-allowlist-enforce.test.ts`（feature verification） | 0 | 12/12 passed |
+| `nt.sh pnpm --filter api exec vitest run tests/agent/workflow-allowlist-enforce.test.ts`（feature verification） | 0 | 16/16 passed |
 | 反证：关掉网关分流（`if (false && …)`）后重跑同一文件 | 1 | 11 failed / 1 passed（仅接线断言通过） |
 | `nt.sh pnpm exec vitest run tests/agent/ tests/agent-run/ tests/workflow/ tests/kernel/permission-propagation-six-paths.test.ts tests/contract-single-source.test.ts` | 0 | 96 files / 581 tests passed |
 | `pnpm --filter @repo/contracts typecheck` | 0 | |
@@ -56,3 +56,16 @@ Agent 在聊天 run 里调 `start_workflow({workflowId:"W0xx", input})`（deep-a
 
 `WorkflowRuntimeService.dispatch` 在 agent run 的租约 ALS 上下文里被调用时，后台实例推进继承了该 run 的租约围栏，
 run 一结束实例的每个事务都抛 `agent_run_lease_lost`（实例永远停在 running）。现以 `withoutRunLease` 脱离该上下文。
+
+## 与 feature notes 的偏差（需人类知悉）
+
+notes 写「E3 断言：D002 请求 W027 被拒、W001 成功」。研究线 W001 目前不是 Runtime 内置 Definition（`builtInWorkflowDefinitions()`
+只含 demo、W027–W032、W002；W001 走 CT03 的 `runResearchToBrief`），所以「W001 成功」在今天的运行时上不可能：本测试断言
+W001 过白名单后由 WF03 如实返回 `workflow_not_found`；正向「建实例并运行」改由 D003→W027 证明。W001 进入运行时注册表后，
+把该断言改为 `status: "started"`。
+
+## 评审
+
+- 第 1 轮（rev-feature，SHA `9220b5a2f`）：ACCEPT，8 条 minor/nit。已修：②迁移边收窄到 `pending_tool_name='start_workflow'`
+  （+DB 反证用例）；③缺 toolCallId 时拒绝而非用 workflowId 兜底（+用例）；④存储不支持结果交回时按稳定码失败 run 而非静默挂起；
+  另补恢复路径（不叫醒人、approve ⇒「未发起」）与通用裁决通路拒绝伪造 edit 两条用例。①记录于本节。⑤⑥⑦⑧为可选/后续。

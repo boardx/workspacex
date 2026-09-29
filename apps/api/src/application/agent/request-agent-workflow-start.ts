@@ -136,7 +136,9 @@ export async function requestAgentWorkflowStart(
   if (!deps.workflows) return refused("workflow_runtime_unavailable", args.workflowId);
 
   // WorkflowRequestId 有长度上限（8–200）：run / 工具调用 id 摘要后拼接，稳定且有界。
-  const requestId = `agent-run:${createHash("sha256").update(`${cmd.runId}\u0000${cmd.toolCallId ?? args.workflowId}`).digest("hex").slice(0, 48)}`;
+  // 没有工具调用 id 就无法区分同一 run 内的两次合法调用（A1 会把第二次当重放）——如实拒绝，不发起。
+  if (!cmd.toolCallId) return refused("workflow_runtime_unavailable", args.workflowId);
+  const requestId = `agent-run:${createHash("sha256").update(`${cmd.runId}\u0000${cmd.toolCallId}`).digest("hex").slice(0, 48)}`;
   try {
     const started = await deps.workflows.start(cmd.orgId, ctx.requesterUserId, key, {
       agentId: ctx.agentId,

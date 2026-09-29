@@ -39,9 +39,15 @@ export async function handleWorkflowStartCall(
   });
   const args = parseWorkflowStartArgs(interrupted.argsSummary);
   const edited = JSON.stringify({ ...(args ?? {}), outcome });
-  const requeued = await deps.runs.requeueToolCallWithResult?.(orgId, runId, interrupted, edited);
+  if (!deps.runs.requeueToolCallWithResult) {
+    // 存储不支持把结果交回内核：不能让 run 悄悄停在 running，按稳定码失败（实例若已建由 WF03 负责）。
+    deps.log("workflow start result requeue unsupported", { runId, toolName: interrupted.toolName });
+    await deps.runs.failRun(orgId, runId, "MODEL_CALL_FAILED");
+    return { autoApproved: false };
+  }
+  const requeued = await deps.runs.requeueToolCallWithResult(orgId, runId, interrupted, edited);
   if (!requeued) {
-    // 输了竞态（取消/失败/被别处收走）或存储不支持这条边：不重试、不覆盖。实例（若已建）由 WF03 自己负责。
+    // 输了竞态（取消/失败/被别处收走）：不重试、不覆盖。实例（若已建）由 WF03 自己负责。
     deps.log("workflow start result requeue lost the race", { runId, toolName: interrupted.toolName });
   } else {
     deps.kick?.(orgId);

@@ -5,7 +5,7 @@
 -- 既有边只有两条能把 run 从中断处续上：`running → queued` 仅限 `pending_decision='approve'`（#3420：
 -- 已授权代批，原样执行），`awaiting_tool_permission → queued`（人裁决）。这里补一条同样收窄的边：
 -- `running → queued` 且 `pending_decision='edit'` **并且** 带着服务端算出的 `pending_edited_args`。
--- 没有参数的 edit 仍被拒绝；其余边一个字不动。
+-- 只限 `start_workflow`（服务端判定的工具），没有参数的 edit 仍被拒绝；其余边一个字不动。
 CREATE OR REPLACE FUNCTION wave2_agent_run_transition() RETURNS trigger AS $$
 BEGIN
   IF NEW.status = OLD.status THEN RETURN NEW; END IF;
@@ -35,7 +35,7 @@ BEGIN
      OR (OLD.status = 'paused' AND NEW.status = 'queued' AND NEW.checkpoint_resume AND NEW.paused_at IS NULL)
      OR (OLD.status = 'running' AND NEW.status = 'awaiting_tool_permission')   -- 引擎中断，等人表态
      OR (OLD.status = 'running' AND NEW.status = 'queued' AND NEW.pending_decision = 'approve')  -- issue #3420：已授权，网关代批后自动续跑
-     OR (OLD.status = 'running' AND NEW.status = 'queued' AND NEW.pending_decision = 'edit' AND NEW.pending_edited_args IS NOT NULL)  -- AG05：网关服务端完成工具调用，以 edit 交回结果
+     OR (OLD.status = 'running' AND NEW.status = 'queued' AND NEW.pending_decision = 'edit' AND NEW.pending_edited_args IS NOT NULL AND NEW.pending_tool_name = 'start_workflow')  -- AG05：网关服务端完成工具调用，以 edit 交回结果
      OR (OLD.status = 'awaiting_tool_permission' AND NEW.status = 'queued')    -- 人裁决后重新入队
      OR (OLD.status = 'writeback_pending' AND NEW.status = 'succeeded') THEN
     RETURN NEW;
