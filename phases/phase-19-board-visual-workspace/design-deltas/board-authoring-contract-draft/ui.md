@@ -1,5 +1,8 @@
 # 契约束 `board-authoring` — ① UI 待签核材料
 
+> **自检：本文件引用 8 张截图，目录下实际 8 张。**
+> 截图目录：`ui-preview/board-authoring/screenshots/`。
+
 > 覆盖候选：BV04（Sticky/Text 直接编辑与尺寸）、BV05（连续输入、批量、删除与基础 Undo/Redo）。这是待审 UI 材料，不表示束已签核或功能已验收。独立 mock 预览入口 `/preview/board-authoring` 已有[七态与窄屏浏览器截图](../../ui-preview/board-authoring/README.md)，但**没有可归属本束的正式 Board 路由截图**。不得用 mock 或旧 S01 Fabric 截图替代正式验收。
 
 依据：`requirements/02-object-authoring.md#R1-R12`、`requirements/05-collaboration-history.md`、`design-deltas/2026-09-29-board-authoring-bv04-bv05-draft.md`。正式入口是 `/studio/board/:boardId`；`/preview/board-workspace` 的 mock 不能证明正式路由行为。浏览页保留 Studio 导航，进入编辑器后使用全屏内容区、紧凑顶栏与底部触摸 dock。
@@ -28,6 +31,23 @@
 | success | 已选便签的浮动栏、属性变更与保存状态一致；Text 层级清楚 | `board-object-quick-actions`、`board-sticky-inspector-style`、`board-inspector-text` 已有；需真实截图 |
 
 额外必须出图的边界：IME composition 中、RTL/长文本、窄屏与软键盘、Tab 连续十张后的视角、粘贴 500 行预览、Delete→Undo 后同一 id 的可见对象。截图需注明 URL、viewport、Board 角色、代码 SHA、状态来源和是否接真服务；mock 截图必须标成 mock。
+
+## 设计截图索引（均为本地 mock）
+
+这组图来自 `/preview/board-authoring`，使用模拟数据与角色，未连接正式 Board 服务、Fabric/Yjs 或持久化。它们供① UI 方向评审，不能证明正式路由已实现或通过端到端验收。
+
+| 状态 | 截图 | 核对重点 |
+|---|---|---|
+| 默认，1440×900 | [默认选中 Sticky](../../ui-preview/board-authoring/screenshots/mock-default-1440.png) | 对象本体、浮动菜单与底部 dock |
+| 加载，1440×900 | [加载](../../ui-preview/board-authoring/screenshots/mock-loading-1440.png) | 打开白板时的进度与返回入口 |
+| 空白，1440×900 | [空白](../../ui-preview/board-authoring/screenshots/mock-empty-1440.png) | 第一张便签的直接入口 |
+| 校验失败，1440×900 | [501 行超限](../../ui-preview/board-authoring/screenshots/mock-validation-1440.png) | 保留输入并禁用生成 |
+| 依赖失败，1440×900 | [保存失败](../../ui-preview/board-authoring/screenshots/mock-dependency-failed-1440.png) | 失败说明与重试路径 |
+| 只读，1440×900 | [只读角色](../../ui-preview/board-authoring/screenshots/mock-denied-1440.png) | 阅读与写操作边界 |
+| 成功，1440×900 | [保存成功](../../ui-preview/board-authoring/screenshots/mock-success-1440.png) | 确认状态与属性展示 |
+| 默认，375×812 | [窄屏](../../ui-preview/board-authoring/screenshots/mock-default-375.png) | 便签、dock 与预览控件的避让 |
+
+正式路由的 IME、RTL/长文本、软键盘、批量 500 行、只读 ACL、失败重试、Delete→Undo 与双客户端证据仍待采集。
 
 ## 签核前必须裁决
 
