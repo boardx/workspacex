@@ -1374,9 +1374,9 @@ describe("lint-permission-paths: counter-proof", () => {
     // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
     // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
     // boundary rules). Ceiling recomputed as the combined total.
-    // 2026-09-29 merge of main (at 114) into EV04: EV04 adds pg-work-gate-status-repository.ts
-    // (pinned by tests/work-eval/gate-status-writeback.test.ts), so the ceiling moves 114 -> 115.
-    // Remove the EV04 increment with that test.
+    // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
+    // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
+    // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
     expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(115);
 
     const src = readFileSync(

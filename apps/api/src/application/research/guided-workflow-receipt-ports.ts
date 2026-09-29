@@ -16,6 +16,11 @@ export interface GuidedResearchNodeReceiptRepository {
     readonly requestId: string;
   }): Promise<GuidedResearchNodeReceiptReplay | null>;
 
+  /**
+   * 占位一条 receipt。返回 null = 本请求拿到了执行权；返回投影 = 与本请求**同指纹**的并发请求
+   * 已先一步完成，调用方直接回放。同指纹但仍在执行 → RESEARCH_WORKFLOW_BUSY；
+   * 异指纹 → RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH（WF07 review：竞态按指纹区分）。
+   */
   begin(input: {
     readonly orgId: OrgId;
     readonly sessionId: string;
@@ -23,7 +28,7 @@ export interface GuidedResearchNodeReceiptRepository {
     readonly node: string;
     readonly action: string;
     readonly payloadFingerprint: string;
-  }): Promise<void>;
+  }): Promise<GuidedResearchWorkflowProjection | null>;
 
   finalize(input: {
     readonly orgId: OrgId;
