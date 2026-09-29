@@ -79,7 +79,7 @@ export function MembersScreen({ state }: { state: UiState }) {
       <div className="flex flex-col gap-5">
         {/* 2026-08-11（菜单去重复查）：与「组织成员」（/org-admin/members，真实后端）
             的关系，同 canvas-template-screen.tsx / blueprint-screen.tsx 的「打开 X」链接
-            是同一套模式——本屏只做配额与「管理员看不到什么」，成员/邀请的**完整**读写
+            是同一套模式——本屏只做配额与「管理员看不到什么」，成员/邀请的完整读写
             （批准、拒绝、撤销双人复核等）仍只在那一屏，不在这里重做一遍状态机
             （F11 起下面的 `MemberInvitesPanel` 已经是真栈，但只做摘要 + 重发）。
             ⚠ 链接此前误指向 `/org-admin/preview`（原型/mock 版本，2026-09-03 后已停用）——
