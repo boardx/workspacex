@@ -140,10 +140,12 @@ describe("Markdown task execution", () => {
       await appendInterviewMarkdownDocument(session, { orgId:ORG,interviewId:ID,revisionId:REV,step:"experts",markdown:experts,title:"experts",evidenceMode:"simulated",references:[],expectedVersion:1 });
       await appendInterviewMarkdownDocument(session, { orgId:ORG,interviewId:ID,revisionId:REV,step:"outline",markdown:outline,title:"outline",evidenceMode:"simulated",references:[],expectedVersion:1 });
     });
-    let active = 0; let peak = 0; let release = () => {};
+    let active = 0; let peak = 0; let release = () => {}; let releaseFirst = () => {};
     let gate = new Promise<void>((resolve) => { release = resolve; });
-    const deps={repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,store,modelProvider:"test",modelId:"test",model:{complete:async()=>{
-      active++; peak=Math.max(peak,active); await gate; active--;
+    let firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const finish=vi.spyOn(store,"finish");
+    const deps={repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,store,modelProvider:"test",modelId:"test",model:{complete:async(request:{system:string})=>{
+      active++; peak=Math.max(peak,active); await (request.system.includes("expert-1")?firstGate:gate); active--;
       return { text:"### 模拟回答\n\n具体案例与不确定性。" };
     }}};
     const firstPromise=executeInterviewMarkdown(deps,{...input,expectedVersion:await version(),action:"start"});
@@ -151,10 +153,14 @@ describe("Markdown task execution", () => {
     const inFlight=(await reader.readCurrent(ORG,ID))!.execution!;
     expect(inFlight.tasks.filter(task=>task.status==="running").map(task=>task.expertId)).toEqual(expertIds.slice(0,5));
     expect(inFlight.tasks.filter(task=>task.status==="pending").map(task=>task.expertId)).toEqual(expertIds.slice(5));
+    releaseFirst();
+    await vi.waitFor(()=>expect(finish).toHaveBeenCalledTimes(1));
+    expect((await reader.readCurrent(ORG,ID))!.execution!.tasks.find(task=>task.expertId==="expert-1")?.status).toBe("completed");
+    expect(active).toBe(4);
     release();
     const first=await firstPromise;
     expect(first.execution?.tasks.filter(task=>task.status==="completed").map(task=>task.expertId)).toEqual(expertIds.slice(0,5));
-    gate=new Promise<void>((resolve)=>{release=resolve;});
+    gate=new Promise<void>((resolve)=>{release=resolve;});firstGate=gate;
     const secondPromise=executeInterviewMarkdown(deps,{...input,expectedVersion:first.version,action:"advance"});
     await vi.waitFor(()=>expect(active).toBe(3));
     release();

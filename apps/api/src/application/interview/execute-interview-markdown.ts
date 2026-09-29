@@ -15,7 +15,7 @@ export async function executeInterviewMarkdown(deps:GetDigitalInterviewDeps & {r
     const batch=await deps.store.claim(input);
     if(batch) {
       const authorized=await authorizeDigitalInterview(deps,viewer);
-      const results=await Promise.all(batch.tasks.map(async claim=>{
+      await Promise.all(batch.tasks.map(async claim=>{
         const disclosed=discloseDecided(claim.content,authorized.decision);
         if(!isDisclosed(disclosed)) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
         const content=disclosed.payload;
@@ -31,9 +31,8 @@ export async function executeInterviewMarkdown(deps:GetDigitalInterviewDeps & {r
           if(json||/^\s*```json\b/u.test(markdown)) markdown="";
           failed=!markdown.trim()||Boolean(result.cancelled||result.paused||result.interrupted||result.truncated);
         } catch {/* Failure is durable runtime metadata; partial text is retained when supplied. */}
-        return {expertId:claim.expertId,markdown,failed};
+        await deps.store.finish({...input,claimId:batch.claimId,results:[{expertId:claim.expertId,markdown,failed}]});
       }));
-      await deps.store.finish({...input,claimId:batch.claimId,results});
     }
   }
   return readInterviewMarkdown(deps,viewer);

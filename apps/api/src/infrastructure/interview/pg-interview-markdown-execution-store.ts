@@ -86,7 +86,7 @@ export class PgInterviewMarkdownExecutionStore implements InterviewMarkdownExecu
       if(sources.length!==row.sources.length||sources.some(d=>!row.sources.some(s=>s.documentId===d.documentId&&s.version===d.version))) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const running=row.tasks.filter(t=>t.status==="running");
       const resultIds=new Set(input.results.map(result=>result.expertId));
-      if(!running.length||resultIds.size!==input.results.length||running.length!==input.results.length||running.some(task=>!resultIds.has(task.expertId))) invalid();
+      if(!running.length||!input.results.length||resultIds.size!==input.results.length||input.results.some(result=>!running.some(task=>task.expertId===result.expertId))) invalid();
       for(const result of input.results) {
         const task=running.find(candidate=>candidate.expertId===result.expertId)!;
         task.status=result.failed?"failed":"completed";task.errorCode=result.failed?"AI_GENERATION_UNAVAILABLE":null;
@@ -96,7 +96,8 @@ export class PgInterviewMarkdownExecutionStore implements InterviewMarkdownExecu
       const previous=(await session.query<{markdown:string;version:number}>(`SELECT markdown,version_number AS version FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id])).rows[0];
       const appended=input.results.filter(result=>result.markdown.trim()).map(result=>`## [${result.expertId}](#expert-${result.expertId})\n\n${result.markdown}`).join("\n\n");
       if(appended) await appendInterviewMarkdownDocument(session,{orgId:input.orgId,interviewId:input.interviewId,revisionId:header.revision_id,step:"runs",title:"模拟访谈回答",markdown:`${previous?.markdown??"# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。"}\n\n${appended}`,evidenceMode:"simulated",references:sources.map((d,i)=>({anchor:`source-${i+1}`,documentId:d.documentId,version:d.version})),expectedVersion:previous?.version??0,status:row.status==="completed"?"completed":row.status==="failed"?"failed":"draft",failure:row.status==="failed"?{code:"AI_GENERATION_UNAVAILABLE",retryable:true}:null});
-      await session.query(`UPDATE interview_markdown_execution SET status=$3,tasks=$4::jsonb,claim_id=NULL,claim_expires_at=NULL,updated_at=now() WHERE org_id=$1 AND revision_id=$2`,[input.orgId,header.revision_id,row.status,JSON.stringify(row.tasks)]);
+      const claimFinished=!row.tasks.some(task=>task.status==="running");
+      await session.query(`UPDATE interview_markdown_execution SET status=$3,tasks=$4::jsonb,claim_id=$5,claim_expires_at=$6,updated_at=now() WHERE org_id=$1 AND revision_id=$2`,[input.orgId,header.revision_id,row.status,JSON.stringify(row.tasks),claimFinished?null:input.claimId,claimFinished?null:row.claim_expires_at]);
       await this.bump(session,input);
     });
   }
