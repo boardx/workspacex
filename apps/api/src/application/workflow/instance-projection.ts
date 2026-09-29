@@ -70,6 +70,13 @@ export function buildProjection(
       stage.status = "failed";
       stage.reasonCode = e.reasonCode;
       stage.finishedAt = e.createdAt;
+    } else if (e.type === "effect_blocked") {
+      // WF04：两种成因共用这一个事件类型，靠 reasonCode 区分——
+      // 权限类（E4）阶段本身可标 blocked_permission；effect_unreconciled（E1）是崩溃恢复对账
+      // 查不到结论，实例整体转 needs_attention（buildProjection 之外由 instance.status 体现），
+      // 阶段没有对应的枚举值，只记 reasonCode 留痕，不误报成"被权限拦下"。
+      stage.reasonCode = e.reasonCode;
+      if (e.reasonCode !== "effect_unreconciled") stage.status = "blocked_permission";
     }
   }
   // 产出链接只取「已记事件」的行：快照里 seq ≤ lastSeq 的一致视图。

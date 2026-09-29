@@ -23,6 +23,9 @@ const ALLOWED_TABLES = new Set([
 /** WF03：准入/角色适配器只读标识，表集合单列。 */
 const ACCESS_FILE = "src/infrastructure/workflow/pg-workflow-access.ts";
 const ACCESS_TABLES = new Set(["org_memberships", "agents", "agent_versions"]);
+/** WF04：能力授权配置只读，表集合单列。 */
+const CAPABILITY_FILE = "src/infrastructure/workflow/pg-effect-capability-authority.ts";
+const CAPABILITY_TABLES = new Set(["workflow_capability_grants"]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -46,6 +49,14 @@ describe("WF01 workflow repository permission boundary", () => {
     const tables = [...src.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/g)].map((m) => m[1]);
     for (const t of tables) expect(ACCESS_TABLES.has(t!), t).toBe(true);
     expect(src).not.toMatch(/\binstructions\b|\btool_policy\b/);
+  });
+
+  it("WF04 capability authority adapter names only workflow_capability_grants, never uses withoutTenant", () => {
+    const src = readFileSync(join(API, CAPABILITY_FILE), "utf8");
+    expect(src).not.toMatch(/withoutTenant/);
+    const tables = [...src.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/g)].map((m) => m[1]);
+    expect(tables.length).toBeGreaterThan(0);
+    for (const t of tables) expect(CAPABILITY_TABLES.has(t!), t).toBe(true);
   });
 
   // WF03 加了 HTTP 面（workflow-runtime.controller.ts）：它只经应用层门面（可见性在 instance-projection.ts 判），
