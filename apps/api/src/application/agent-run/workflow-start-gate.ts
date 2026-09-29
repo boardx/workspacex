@@ -9,7 +9,7 @@
  * 不走风险分级、不读常驻授权：白名单才是这件事的授权依据，拒绝时不会有任何人被问「要不要放行」。
  */
 import type { OrgId } from "../../domain/org-id";
-import { parseWorkflowStartArgs, requestAgentWorkflowStart, type AgentWorkflowStartOutcome } from "../agent/request-agent-workflow-start";
+import { requestAgentWorkflowStart, workflowStartEditedArgs, type AgentWorkflowStartOutcome } from "../agent/request-agent-workflow-start";
 import type { ExecuteAgentRunDeps } from "./execute-run";
 import { record } from "./record-run-step";
 import type { InterruptedToolCall } from "./tool-permission-gate";
@@ -28,6 +28,13 @@ export async function handleWorkflowStartCall(
   interrupted: InterruptedToolCall,
   ledger: { readonly seq: number; readonly modelStartedAt: string; readonly systemDigest: string; readonly system: string },
 ): Promise<{ readonly autoApproved: boolean }> {
+  if (!deps.runs.requeueToolCallWithResult) {
+    // 存储不支持把结果交回内核：不能让 run 悄悄停在 running，按稳定码失败；在 WF03 start 之前判，绝不先建实例再失败。
+    // KERNEL_UNAVAILABLE 而非 MODEL_CALL_FAILED：模型调用本身没出错，是结果交不回内核、流程也根本没发起。
+    deps.log("workflow start result requeue unsupported", { runId, toolName: interrupted.toolName });
+    await deps.runs.failRun(orgId, runId, "KERNEL_UNAVAILABLE");
+    return { autoApproved: false };
+  }
   const outcome = await requestAgentWorkflowStart(
     { runs: deps.runs, workflows: deps.workflowStarts, log: deps.log },
     { orgId, runId, toolCallId: interrupted.toolCallId, argsJson: interrupted.argsSummary },
@@ -37,14 +44,7 @@ export async function handleWorkflowStartCall(
     inputDigest: ledger.systemDigest, outputDigest: null, failureCode: null,
     planningNote: workflowStartAuditNote(outcome), inputFullContent: ledger.system,
   });
-  const args = parseWorkflowStartArgs(interrupted.argsSummary);
-  const edited = JSON.stringify({ ...(args ?? {}), outcome });
-  if (!deps.runs.requeueToolCallWithResult) {
-    // 存储不支持把结果交回内核：不能让 run 悄悄停在 running，按稳定码失败（实例若已建由 WF03 负责）。
-    deps.log("workflow start result requeue unsupported", { runId, toolName: interrupted.toolName });
-    await deps.runs.failRun(orgId, runId, "MODEL_CALL_FAILED");
-    return { autoApproved: false };
-  }
+  const edited = workflowStartEditedArgs(interrupted.argsSummary, outcome);
   const requeued = await deps.runs.requeueToolCallWithResult(orgId, runId, interrupted, edited);
   if (!requeued) {
     // 输了竞态（取消/失败/被别处收走）：不重试、不覆盖。实例（若已建）由 WF03 自己负责。

@@ -18,7 +18,7 @@ import { useOptionalSession, type SessionContextValue } from "@/components/sessi
 import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
-import { sanitizeReturnTo } from "@/lib/return-to";
+import { DEFAULT_LANDING, sanitizeReturnTo } from "@/lib/return-to";
 import { buildOrgSwitchUrl, forgetOrgSwitch, rememberOrgSwitch, takeOrgSwitchLanding, type OrgSwitchLanding } from "@/lib/org-switch";
 import { ShellBusyProvider, useShellBusyCount } from "@/lib/shell-busy";
 import {
@@ -110,7 +110,7 @@ function SessionAppShell({
     if (session.status !== "anonymous") return;
     const current = `${window.location.pathname}${window.location.search}`;
     const next = sanitizeReturnTo(current);
-    router.replace(next === "/projects" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
+    router.replace(next === DEFAULT_LANDING ? "/login" : `/login?next=${encodeURIComponent(next)}`);
   }, [router, session.status]);
 
   if (session.status === "loading" || session.status === "anonymous") {

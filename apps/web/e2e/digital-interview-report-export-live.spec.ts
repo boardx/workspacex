@@ -11,7 +11,7 @@ test("Word and print use only the current saved report Markdown revision", async
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/u);
+  await expect(page).toHaveURL(/\/home$/u);
   const token = await page.evaluate(() => window.localStorage.getItem("wsx.sessionToken"));
   expect(token).toBeTruthy();
   const headers = { authorization: `Bearer ${token}` };

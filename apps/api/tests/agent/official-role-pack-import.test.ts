@@ -10,13 +10,13 @@
  *   - 非管理员 → 403，DB 无新增行。
  */
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
-import { buildOfficialAgentRolePack, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
+import { buildOfficialAgentRolePack, officialRoleAvatarKeys, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -166,6 +166,9 @@ describe("official role pack import (AG03 / UC-3)", () => {
     expect(rows.find((r) => r.stable_name === "d003-product-manager")?.workflow_allowlist).toEqual(["W027", "W028", "W029", "W030", "W031", "W032"]);
     expect(rows.find((r) => r.stable_name === "d005-sales-representative")?.workflow_allowlist).toEqual(["W011", "W012", "W013", "W014", "W015", "W016", "W018"]);
     expect(rows.find((r) => r.stable_name === "d011-design-thinking-expert")?.workflow_allowlist).toEqual(["W027", "W028", "W029", "W031", "W002"]);
+    // 数字人肖像：每个官方角色落库的 avatar 就是 ROLE_SEEDS 声明的那张（60 格网格按角色名对应）。
+    expect(Object.fromEntries(rows.map((r) => [r.stable_name, (r.avatar as { key?: string } | null)?.key ?? null]))).toEqual(officialRoleAvatarKeys());
+    expect(rows.find((r) => r.stable_name === "d005-sales-representative")?.avatar).toEqual({ kind: "illustration", key: "dh-05-sales-representative", alt: "Sales Representative" });
 
     // toolPolicy 分类不产生任何授权：这个仓库目前没有任何工具授权/凭证表可写，落库的只有声明
     // 本身（agent_versions.tool_policy），断言它就是声明而不是别的什么被顺带授予了。
@@ -213,5 +216,14 @@ describe("official role pack import (AG03 / UC-3)", () => {
     expect(body.reasonCode).toBe("UNRESOLVED_SKILL_REF");
     expect(body.detail.missingIds).toEqual(["agent-skill-version-does-not-exist"]);
     expect(await counts()).toEqual({ agents: 0, agent_versions: 0 });
+  });
+});
+
+describe("dh portrait backfill migration (20260929150000)", () => {
+  it("backfills exactly the stableName → avatar that the 1.1.0 pack seeds declare (the SQL literal is a checked copy)", () => {
+    const sql = readFileSync(join(__dirname, "../../migrations/20260929150000_dh_portrait_avatars.sql"), "utf8");
+    const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
+    const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.avatar]));
+    expect(literal).toEqual(fromPack);
   });
 });

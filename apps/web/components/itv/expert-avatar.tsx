@@ -4,7 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { AVATAR_CHANGED_EVENT, AVATAR_KEYS, defaultExpertAvatar, loadExpertAvatar, readExpertAvatar, saveExpertAvatar, type ExpertAvatarContext } from "@/lib/interview-expert-avatar";
+import { AVATAR_CHANGED_EVENT, ILLUSTRATION_AVATAR_KEYS, defaultExpertAvatar, loadExpertAvatar, readExpertAvatar, saveExpertAvatar, type ExpertAvatarContext } from "@/lib/interview-expert-avatar";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { AvatarIllustration } from "@/components/ui/avatar-illustration";
 
@@ -48,7 +48,7 @@ export function ExpertAvatarEditor({ expertId, displayName, compact = false, con
         <DialogTitle>修改{displayName}头像</DialogTitle>
         <DialogDescription>{authenticated ? "选择插画头像，保存到当前账号并跨会话同步。头像偏好不改变专家档案或访谈证据。" : "选择插画头像。未登录预览仅保存在当前浏览器。"}</DialogDescription>
         <div className="grid grid-cols-5 gap-2" role="group" aria-label="头像库">
-          {AVATAR_KEYS.map((key, index) => <button key={key} type="button" aria-label={key === "robot" ? "机器人头像" : `人物头像 ${index + 1}`} aria-pressed={(selection ?? defaultExpertAvatar(expertId)) === key} onClick={() => setSelection(key)} className={cn("aspect-square rounded-xl border p-2 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", (selection ?? defaultExpertAvatar(expertId)) === key ? "border-primary bg-primary/10" : "border-border hover:bg-muted")}><AvatarIllustration avatarKey={key} /></button>)}
+          {ILLUSTRATION_AVATAR_KEYS.map((key, index) => <button key={key} type="button" aria-label={key === "robot" ? "机器人头像" : `人物头像 ${index + 1}`} aria-pressed={(selection ?? defaultExpertAvatar(expertId)) === key} onClick={() => setSelection(key)} className={cn("aspect-square rounded-xl border p-2 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", (selection ?? defaultExpertAvatar(expertId)) === key ? "border-primary bg-primary/10" : "border-border hover:bg-muted")}><AvatarIllustration avatarKey={key} /></button>)}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <div className="flex flex-wrap justify-between gap-2">

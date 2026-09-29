@@ -41,5 +41,5 @@ export async function loginAsDevRole(page: Page, role: DevModeOrgRole): Promise<
   await page.getByTestId("login-email").fill(account.email);
   await page.getByTestId("login-password").fill(account.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }

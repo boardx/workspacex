@@ -44,7 +44,7 @@ async function loginByKeyboard(page: import("@playwright/test").Page) {
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test.describe("keyboard chat：chat 核心任务全键盘可达", () => {

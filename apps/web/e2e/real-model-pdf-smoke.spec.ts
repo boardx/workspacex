@@ -221,7 +221,7 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 60_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 60_000 });
 }
 
 test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、无审批弹窗、无重复气泡、无兜底报错、连接不断", async ({ page }, testInfo) => {

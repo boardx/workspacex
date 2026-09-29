@@ -4,7 +4,7 @@ export type ReconciledRemoteRun =
  | {kind:"running"}
  | {kind:"success";completion:ModelCallCompletion}
  | {kind:"paused"|"cancelled"}
- | {kind:"approval";toolName:string;argsSummary:string|null;interrupt?:RestorableInterrupt}
+ | {kind:"approval";toolName:string;argsSummary:string|null;interrupt?:RestorableInterrupt;toolCallId?:string;toolArgsDigest?:string}
  | {kind:"failed";diagnostic:string}
  | {kind:"uncertain";diagnostic:string};
 export interface RemoteRunReconciler { reconcileExistingRun(threadId:string,remoteRunId:string,logicalRunId?:string,remoteThreadId?:string,runtimeProfile?:"legacy"|"native-v1"):Promise<ReconciledRemoteRun> }

@@ -8,7 +8,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto("/research");
   await expect(page.getByTestId("research-home-page")).toHaveAttribute("data-reference-layout", "research-list");
   await page.getByTestId("research-create").click();

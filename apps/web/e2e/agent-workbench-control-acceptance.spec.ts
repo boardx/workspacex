@@ -8,7 +8,7 @@ async function pendingApproval(page: Page) {
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
   await page.goto("/chat");
   const pending = page.waitForResponse(async response => {
     if (response.request().method() !== "GET" || !/\/agent-runs\/[^/?]+$/.test(new URL(response.url()).pathname) || !response.ok()) return false;
@@ -86,7 +86,7 @@ test("刷新和切换后仍处理同一持久审批请求", async ({ page }) => 
   await expect(page.getByTestId("restored-run-approval")).toBeVisible({ timeout: 60000 });
   expect(((await (await page.request.get(url, { headers })).json()) as Run).pendingApproval.permissionRequestId).toBe(run.pendingApproval.permissionRequestId);
   await page.goto("/projects");
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(taskUrl);
   const card = page.getByTestId("restored-run-approval");
   await expect(card).toBeVisible({ timeout: 60000 });

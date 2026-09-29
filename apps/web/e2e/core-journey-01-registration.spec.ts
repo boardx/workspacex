@@ -180,9 +180,12 @@ test("旅程①邀请注册：真实跨标签页锁保留先提交的密码登�
     await holder.evaluate(() => {
       (window as Window & { releaseSessionTestLock?: () => void }).releaseSessionTestLock?.();
     });
-    await expect(loginPage).toHaveURL(/\/projects$/);
+    // 密码登录的默认落点是组织首页 `/home`（docs/design/org-home-page/README.md）。
+    await expect(loginPage).toHaveURL(/\/home$/);
+    await expect(loginPage.getByTestId("home-screen")).toBeVisible();
     // E2（#4071）起新组织落地即带一个内置示例项目，列表不再是空态：真实加载完成的锚点是
     // 列表本身，且里面有那个示例项目（名字由 API 侧 SAMPLE_PROJECT_NAME 决定，这里只认「【示例】」前缀）。
+    await loginPage.goto("/projects");
     await expect(loginPage.getByTestId("projects-list")).toContainText("【示例】");
     await expect(invitePage.getByTestId("link-activate-success")).toContainText("当前登录账号已保留");
     expect(new URL(invitePage.url()).pathname).toBe("/auth/activate");

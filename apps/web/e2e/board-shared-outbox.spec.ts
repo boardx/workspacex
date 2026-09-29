@@ -29,7 +29,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const rows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
  const synced=(tab:Page)=>tab.getByText(/^已同步(?: · 序列 \d+)?$/);
  try{
-  await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);mark('authenticated');
+  await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');

@@ -45,7 +45,7 @@ async function loginAs(page: Page, email: string, password: string) {
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("org lead creates a project through the wizard, and PostgreSQL keeps it across a reload", async ({ page }) => {
