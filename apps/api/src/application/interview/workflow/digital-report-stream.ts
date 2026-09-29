@@ -2,6 +2,7 @@ import {
   DigitalReportStreamEvent,
   type DigitalReportStreamEvent as DigitalReportStreamEventValue,
 } from "@repo/contracts/interview";
+import { INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS } from "./digital-report-quality";
 
 export type ParsedDigitalReportStreamEvent = DigitalReportStreamEventValue;
 
@@ -27,6 +28,8 @@ export function buildDigitalInterviewReportSystemPrompt(minimumFindings: number)
 4. 原话证据：每个核心洞察至少引用一段简短原话，格式为“专家姓名（角色）：‘原话’”，并在同段说明对应问题。
 5. 可操作性：建议使用 P0/P1/P2，写明依据、负责人类型、近期动作、成功信号和风险。
 6. 专业表达：客观、克制、具体；识别共性、差异、矛盾、边界条件和反例，禁止空泛总结与同义重复。
+
+${INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS}
 
 输出协议：只输出 NDJSON，每行必须是一个完整 JSON 对象，不要代码围栏、前言或尾注。总报告控制在 4000-8000 个中文字符，优先保证结构完整、证据准确，避免冗长复述。
 - 第一行且仅一行：{"type":"meta","title":"具体、决策导向的报告标题","executiveSummary":"包含研究目的、样本边界、3-5项关键发现、主要分歧和首要建议的完整执行摘要"}

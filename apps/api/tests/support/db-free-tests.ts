@@ -26,6 +26,15 @@ export const DB_FREE_TEST_PREFIXES = [
   "tests/work-content/",
 ] as const;
 
+/**
+ * Explicit DB-backed files living under a DB-free prefix (CT03: the research-line e2e needs real
+ * PostgreSQL for receipts / permission recheck). Selecting one keeps the full DB setup; the guard
+ * below skips only these exact paths.
+ */
+export const DB_BACKED_UNDER_DB_FREE_PREFIX = ["tests/work-content/research-to-brief-e2e.test.ts"] as const;
+
+const isDbBackedException = (f: string) => (DB_BACKED_UNDER_DB_FREE_PREFIX as readonly string[]).includes(f);
+
 const DB_IMPORT = /from\s+["'](?:[^"']*support\/db(?:-[^"']*)?|pg)["']|\bcreateApp\s*\(/;
 
 function positionalFilters(argv: readonly string[]): string[] {
@@ -55,10 +64,11 @@ function walk(dir: string): string[] {
 export function selectionIsDbFree(apiDir: string, argv: readonly string[] = process.argv, cwd = process.cwd()): boolean {
   const filters = positionalFilters(argv).map(f => relative(apiDir, join(cwd, f)).split(sep).join("/"));
   if (filters.length === 0) return false;
-  if (!filters.every(f => DB_FREE_TEST_PREFIXES.some(p => f.startsWith(p)))) return false;
+  if (!filters.every(f => !isDbBackedException(f) && DB_FREE_TEST_PREFIXES.some(p => f.startsWith(p)))) return false;
   for (const prefix of DB_FREE_TEST_PREFIXES) {
     const files = prefix.endsWith("/") ? walk(join(apiDir, prefix)) : [join(apiDir, prefix)];
     for (const file of files.filter(f => f.endsWith(".ts"))) {
+      if (isDbBackedException(relative(apiDir, file).split(sep).join("/"))) continue;
       if (DB_IMPORT.test(readFileSync(file, "utf8"))) {
         throw new Error(`${relative(apiDir, file)} is under DB-free prefix ${prefix} but imports DB fixtures; move it or drop the prefix from tests/support/db-free-tests.ts`);
       }

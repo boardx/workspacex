@@ -30,6 +30,7 @@
       "plan-control": "/preview/plan-control"
     },
     "allowRoutes": [
+      "/home",
       "/preview/chat-knowledge-graph",
       "/studio/survey",
       "/brain",
@@ -63,6 +64,7 @@
       "design-workbench": "/studio/design-workbench"
     },
     "allowRoutes": [
+      "/home",
       "/admin",
       "/asset-governance",
       "/brain",
@@ -98,6 +100,7 @@
       "error-observability": "/preview/agent-kernel"
     },
     "allowRoutes": [
+      "/home",
       "/admin",
       "/asset-governance",
       "/brain",
@@ -131,6 +134,7 @@
       "chat-knowledge-graph": "/preview/chat-knowledge-graph"
     },
     "allowRoutes": [
+      "/home",
       "/admin",
       "/asset-governance",
       "/brain",

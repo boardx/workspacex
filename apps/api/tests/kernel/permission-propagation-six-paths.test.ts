@@ -1365,11 +1365,19 @@ describe("lint-permission-paths: counter-proof", () => {
     // import-official-agent-role-pack.ts before the repository is reached; pinned by
     // tests/agent/official-role-pack-import.test.ts) land on top of main's 107 -> 111.
     // Remove the matching increments with those tests.
-    // 2026-09-29 merge of main into EV04: ALLOWLIST is the union of both sides (112 entries, EV04 adds
-    // pg-work-gate-status-repository.ts, pinned by tests/work-eval/gate-status-writeback.test.ts);
-    // Measured total - boundary rules = 113 (main's 112 + EV04's 1), so the ceiling moves 112 -> 113.
-    // Remove the EV04 increment with that test.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(113);
+    // 2026-09-29 merge of main (AG01-04/WS/CT) into the WF04-WF08 branch: WF04 adds
+    // pg-effect-capability-authority.ts (workflow_capability_grants admin toggle, read only by
+    // effect-permission-recheck.ts) and WF06 adds pg-workflow-trigger-store.ts (triggerId ->
+    // org_id resolution via the non-tenant workflow_trigger_lookup, then withTenant only).
+    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts.
+    // Remove this increment with those entries if that guard test disappears.
+    // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
+    // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
+    // boundary rules). Ceiling recomputed as the combined total.
+    // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
+    // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
+    // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(115);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

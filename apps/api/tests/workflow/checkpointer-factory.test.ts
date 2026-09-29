@@ -32,9 +32,8 @@ function walk(dir: string): string[] {
   });
 }
 
-/** 引导式研究 / 数字访谈的旧 saver：WF07 迁移引导式研究；数字访谈迁移属 Stage 2（02 号文件 R6「不包含」）。 */
+/** 数字访谈的旧 saver：引导式研究已由 WF07 迁走；数字访谈迁移属 Stage 2（02 号文件 R6「不包含」）。 */
 const LEGACY_SAVERS = new Set([
-  "src/infrastructure/research/langgraph-guided-research-runtime.ts",
   "src/infrastructure/interview/workflow/langgraph-digital-interview-runtime.ts",
 ]);
 
