@@ -240,8 +240,12 @@ import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-fl
 import {
   SKILL_STARTER_IMPORT_REPOSITORY,
   SKILL_STARTER_PACK_SOURCE,
+  STARTER_PACK_GATE_JUDGE,
+  STARTER_PACK_IMPORT_FOLLOW_UP,
 } from "./application/skill-import/ports";
-import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { FileSkillStarterPackSource, resolveSkillStarterPackRoot } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { FsStarterPackGateJudge } from "./infrastructure/work-eval/fs-starter-pack-gate-judge";
+import { PublishBuiltInWorkflowsAfterImport } from "./infrastructure/workflow/publish-built-ins-after-import";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
 import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
@@ -1519,11 +1523,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // configures the verified pack source, while an unset source resolves no packs.
     {
       provide: SKILL_STARTER_PACK_SOURCE,
-      useFactory: () => new FileSkillStarterPackSource(process.env.SKILL_STARTER_PACK_ROOT),
+      useFactory: () => new FileSkillStarterPackSource(resolveSkillStarterPackRoot()),
     },
     {
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // EV04 × WS02：导入时用门脚本同一判定函数写入确定性门状态（仓库不在运行环境里则不判）。
+    { provide: STARTER_PACK_GATE_JUDGE, useFactory: () => new FsStarterPackGateJudge() },
+    // 导入之后发布变得可发布的内置 Workflow Definition（dev-mode 种子先于导入运行，否则它们永远未发布）。
+    {
+      provide: STARTER_PACK_IMPORT_FOLLOW_UP,
+      useFactory: (db: DatabasePort) => new PublishBuiltInWorkflowsAfterImport(db),
       inject: [DATABASE_PORT],
     },
     // Phase 20 WS03：Work Skill 目录读写（列表/搜索/详情 + 通道/后继 + 审计）。

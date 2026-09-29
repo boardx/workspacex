@@ -68,6 +68,8 @@ describe("starter import authorization structure", () => {
       "skill_versions",
       "skill_version_files",
       "skill_catalog_entries",
+      // EV04：导入时的确定性门判定（只补不盖）。
+      "skill_gate_records",
     ]));
   });
 });
@@ -272,7 +274,9 @@ describe("production-shaped empty state and authorization", () => {
 });
 
 describe("verified, transactional explicit import", () => {
-  it("persists NOT_FOUND provenance and replays the original failure after the pack appears", async () => {
+  it("persists NOT_FOUND provenance, but a same-key retry after the pack appears re-evaluates and succeeds", async () => {
+    // 失败不是终局：请求体只有 {packId, packVersion, idempotencyKey}，NOT_FOUND 取决于服务端配置/发货内容。
+    // 旧行为是同键重试原样重放 404，运维修好配置后这个键永远 404。成功才是终局（见下一条重放测试）。
     const request = {
       packId: "appears-later",
       packVersion: PACK_VERSION,
@@ -283,6 +287,11 @@ describe("verified, transactional explicit import", () => {
     expect(await first.json()).toMatchObject({ reasonCode: "SKILL_STARTER_PACK_NOT_FOUND" });
     expect((await counts()).starter_pack_imports).toBe(1);
 
+    // 同键再试、仍缺包 ⇒ 仍 404，且不新增 provenance 行。
+    const stillMissing = await importPack(ADMIN, request);
+    expect(stillMissing.status).toBe(404);
+    expect((await counts()).starter_pack_imports).toBe(1);
+
     writePack({
       packId: request.packId,
       packVersion: request.packVersion,
@@ -290,10 +299,15 @@ describe("verified, transactional explicit import", () => {
       name: "Appears later",
     });
     const retry = await importPack(ADMIN, request);
-    expect(retry.status).toBe(404);
-    expect(await retry.json()).toMatchObject({ reasonCode: "SKILL_STARTER_PACK_NOT_FOUND" });
-    expect((await counts()).skills).toBe(0);
+    expect(retry.status).toBe(201);
+    expect(await retry.json()).toMatchObject({ status: "succeeded", packId: request.packId });
+    expect((await counts()).skills).toBe(1);
     expect((await counts()).starter_pack_imports).toBe(1);
+
+    // 成功之后同键重试 ⇒ 重放成功结果（200），不再重新判定。
+    const replay = await importPack(ADMIN, request);
+    expect(replay.status).toBe(200);
+    expect((await counts()).skills).toBe(1);
   });
 
   it("imports Skills, immutable versions/files, provenance, and the catalog projection atomically", async () => {

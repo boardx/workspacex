@@ -104,34 +104,66 @@ describe("EV04 门状态展示", () => {
     await waitFor(() => expect(within(row).getByTestId("work-catalog-gate-summary")).toHaveTextContent("G4✓ G5✗"));
   });
 
-  it("详情抽屉：六枚徽章 + 原因 + 判定时间 + 评测版本 + subject vs baseline + evalSuiteId", async () => {
+  it("详情抽屉：G0–G5 六门逐行列出（ui.md testid）+ 原因 + 判定时间 + 评测版本 + subject vs baseline + evalSuiteId", async () => {
     install(() => json(evaluated()));
     const drawer = await openDrawer();
     const gates = within(drawer).getByTestId("work-skill-gates");
     await waitFor(() => expect(within(gates).getByTestId("work-gate-badges").children).toHaveLength(6));
-    for (const g of GATES) expect(within(gates).getByTestId(`work-gate-${g}`)).toHaveTextContent(g);
-    expect(within(gates).getByTestId("work-gate-G4")).toHaveAttribute("data-state", "pass");
-    const g5 = within(gates).getByTestId("work-gate-G5");
+    for (const g of GATES) {
+      expect(within(gates).getByTestId(`work-gate-badge-${g}`)).toHaveTextContent(g);
+      expect(within(gates).getByTestId(`work-gate-reason-${g}`)).toHaveTextContent("判定时间 2026-09-29 01:02 UTC");
+    }
+    expect(within(gates).getByTestId("work-gate-badge-G4")).toHaveAttribute("data-state", "pass");
+    const g5 = within(gates).getByTestId("work-gate-badge-G5");
     expect(g5).toHaveAttribute("data-state", "fail");
     expect(g5).toHaveTextContent("未通过");
-    expect(g5).toHaveTextContent("持平即失败");
+    expect(within(gates).getByTestId("work-gate-reason-G5")).toHaveTextContent("持平即失败");
     expect(within(g5).getByTitle(/判定时间 2026-09-29 01:02 UTC/)).toBeInTheDocument();
-    expect(within(gates).getByTestId("work-gate-meta")).toHaveTextContent("套件 S003");
-    expect(within(gates).getByTestId("work-gate-meta")).toHaveTextContent("评测版本 1.1.0");
-    expect(within(gates).getByTestId("work-gate-meta")).toHaveTextContent("2026-09-29 01:02 UTC");
-    expect(within(gates).getByTestId("work-gate-baseline")).toHaveTextContent("9/10 vs 6/10");
-    expect(within(gates).queryByTestId("work-gate-state-empty")).toBeNull();
+    expect(within(gates).getByTestId("work-gate-suite-id")).toHaveTextContent("S003");
+    expect(within(gates).getByTestId("work-gate-version")).toHaveTextContent("1.1.0");
+    expect(within(gates).getByTestId("work-gate-score")).toHaveTextContent("9/10 vs 6/10");
+    expect(within(gates).queryByTestId("work-gate-state-not-evaluated")).toBeNull();
+    // 不向成员展示原始机读码（ui.md：徽章只用四态文案）。
+    expect(gates).not.toHaveTextContent("NOT_BETTER_THAN_BASELINE");
     expect(within(gates).queryByRole("button")).toBeNull(); // R5：没有改门字段的入口
     expect(nonGetCalls).toEqual([]);
   });
 
-  it("新版本导入后（无记录）：六门「未评测」空态，不显示通过数", async () => {
+  it("导入时的确定性门判定（G0–G3 有结论、G4/G5 无报告即未通过）逐门如实渲染，不显示「未评测」", async () => {
+    install(() => json(evaluated({
+      gates: [
+        { gate: "G0", state: "pass", reasonCode: "OK", reason: "stableId S003 unique, listed, 1 entity doc" },
+        { gate: "G1", state: "pass", reasonCode: "OK", reason: "2 provenance entries complete, licenses allowed" },
+        { gate: "G2", state: "fail", reasonCode: "SCHEMA_INVALID", reason: "inputSchema is not a valid JSON Schema" },
+        { gate: "G3", state: "not_applicable", reasonCode: "NOT_REQUIRED_FOR_KIND", reason: "not required for this entity kind" },
+        { gate: "G4", state: "fail", reasonCode: "NO_SUITE", reason: "evals/work-stack/S003/suite.json not found (E1)" },
+        { gate: "G5", state: "fail", reasonCode: "PRIOR_GATE_FAILED", reason: "G0–G4 not all passed" },
+      ],
+      subjectPassed: null, baselinePassed: null, deterministicTotal: null,
+    })));
+    const drawer = await openDrawer();
+    const gates = within(drawer).getByTestId("work-skill-gates");
+    await waitFor(() => expect(within(gates).getByTestId("work-gate-badge-G0")).toHaveAttribute("data-state", "pass"));
+    expect(within(gates).getByTestId("work-gate-badge-G2")).toHaveAttribute("data-state", "fail");
+    expect(within(gates).getByTestId("work-gate-badge-G3")).toHaveTextContent("不适用");
+    expect(within(gates).getByTestId("work-gate-badge-G4")).toHaveTextContent("未通过");
+    expect(within(gates).getByTestId("work-gate-reason-G4")).toHaveTextContent("suite.json not found");
+    expect(within(gates).queryByTestId("work-gate-state-not-evaluated")).toBeNull();
+    expect(within(gates).getByTestId("work-gate-score")).toHaveTextContent("—");
+    for (const code of ["SCHEMA_INVALID", "NO_SUITE", "PRIOR_GATE_FAILED", "NOT_REQUIRED_FOR_KIND"]) expect(gates).not.toHaveTextContent(code);
+    await waitFor(() => expect(screen.getByTestId("work-catalog-gate-summary")).toHaveTextContent("G4✗ G5✗"));
+  });
+
+  it("新版本导入后（无记录）：六门「未评测」空态，不显示通过数，绝不渲染成通过", async () => {
     install(() => json(notEvaluated));
     const drawer = await openDrawer();
     const gates = within(drawer).getByTestId("work-skill-gates");
-    expect(await within(gates).findByTestId("work-gate-state-empty")).toHaveTextContent("未评测");
-    for (const g of GATES) expect(within(gates).getByTestId(`work-gate-${g}`)).toHaveAttribute("data-state", "not_evaluated");
-    expect(within(gates).queryByTestId("work-gate-baseline")).toBeNull();
+    expect(await within(gates).findByTestId("work-gate-state-not-evaluated")).toHaveTextContent("未评测");
+    for (const g of GATES) {
+      expect(within(gates).getByTestId(`work-gate-badge-${g}`)).toHaveAttribute("data-state", "not_evaluated");
+      expect(within(gates).getByTestId(`work-gate-badge-${g}`)).not.toHaveTextContent("通过");
+    }
+    expect(within(gates).getByTestId("work-gate-score")).toHaveTextContent("—");
     await waitFor(() => expect(screen.getByTestId("work-catalog-gate-summary")).toHaveTextContent("G4? G5?"));
   });
 
