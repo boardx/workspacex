@@ -127,6 +127,15 @@ describe("live research workspace", () => {
     })));
     expect(await screen.findByRole("button", { name: "搜索资料" })).toBeEnabled();
   });
+  it("requires a paused failed research session to resume before retrying", async () => {
+    const paused: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"],
+      controlStatus: "paused", planRevision: 3, errorCode: "RESEARCH_SEARCH_UNAVAILABLE",
+      tasks: [{ id: "t1", sectionId: "s1", query: "Grid policy", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }] };
+    vi.mocked(getResearchRuntime).mockResolvedValue(paused);
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "继续研究" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "继续重试" })).not.toBeInTheDocument();
+  });
 });
 
 describe("research request recovery", () => {

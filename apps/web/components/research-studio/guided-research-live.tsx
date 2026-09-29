@@ -294,7 +294,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
   const displayReport = draft?.node === "report" ? draft.value : state.report;
   const researchPending = state.tasks.some((task) => task.status === "pending" || (task.status === "running" && !expired));
   const researchFailed = state.tasks.some((task) => task.status === "failed");
-  const researchRetryAvailable = node === "research" && !researchPending && (researchFailed || expired || Boolean(error) || Boolean(state.errorCode));
+  const researchRetryAvailable = node === "research" && state.controlStatus !== "paused" && !researchPending && (researchFailed || expired || Boolean(error) || Boolean(state.errorCode));
   const researchRetryInAlert = researchRetryAvailable && Boolean(error || (node === state.currentNode && state.errorCode));
   const usableSources = state.sources.some((source) => source.decision !== "excluded");
   const partialResearch = node === "research" && researchFailed && !researchPending && usableSources;
