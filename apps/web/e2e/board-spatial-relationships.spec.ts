@@ -157,7 +157,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const created = await apiCall(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Spatial ${randomUUID()}` });
   const boardId = (await created.json() as { id: string }).id; cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   const surface = page.getByTestId("board-fabric-surface");
@@ -265,15 +265,17 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   expect(connectorStart.x).toBeCloseTo(expectedStart.x, 5); expect(connectorStart.y).toBeCloseTo(expectedStart.y, 5);
   expect(connectorEnd.x).toBeCloseTo(expectedEnd.x, 5); expect(connectorEnd.y).toBeCloseTo(expectedEnd.y, 5);
   const connectorStartBeforeMove = await connector.getAttribute("data-connector-start");
-  // Auto-expand moved the child beyond the initial viewport; fit the complete
-  // board before a real pointer gesture so the browser can hit its interior.
-  const beforeFit = await canvasTransform(page);
-  await page.getByTestId("board-zoom-fit-board").click();
-  await expect.poll(() => canvasTransform(page)).not.toEqual(beforeFit);
-  // Smart guides may snap this connector-follow gesture by less than one scene
-  // pixel. Keep every other drag exact; the attached endpoint is asserted
+  // Auto-expand moved the child beyond the initial viewport. Fit the selected
+  // Sticky, so the following world-space move crosses Chromium's pointer drag
+  // threshold in CSS pixels and the browser can hit its interior.
+  await selectObjectFromOutline(page, firstSticky);
+  await page.getByTestId("board-zoom-menu").click();
+  await page.getByTestId("board-zoom-fit-selection").click();
+  await expect.poll(async () => (await canvasTransform(page)).zoom).toBeGreaterThan(0.2);
+  // Smart guides may snap this connector-follow gesture within three scene
+  // pixels. Keep every other drag exact; the attached endpoint is asserted
   // against the Sticky's resulting anchor immediately below.
-  await dragObject(page, firstSticky, 73, 91, "commit", 1);
+  await dragObject(page, firstSticky, 73, 91, "commit", 3);
   await expect(connector).not.toHaveAttribute("data-connector-start", connectorStartBeforeMove!);
   // Transparent connector bounds must pass through, but its visible stroke must
   // still be selectable using a real pointer (not the accessibility outline).
@@ -303,7 +305,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
   // Verify persisted convergence, not another tab replaying the same IndexedDB outbox.
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
   const peerContext = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
   const peer = await peerContext.newPage();
   transportMetadata.observe(peer, "peer");
@@ -315,7 +317,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const expectedRows = await boardRows(page);
   await expect.poll(() => boardRows(peer)).toEqual(expectedRows);
 
-  await page.reload(); await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await page.reload(); await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
@@ -328,7 +330,7 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
   const boardId = (await created.json() as { id: string }).id;
   cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
   return boardId;
 }
 

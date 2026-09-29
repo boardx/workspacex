@@ -429,9 +429,8 @@ export default defineConfig({
         // Iteration 05 owns Panels, Groups, semantic Connectors, layer operations,
         // rotated transforms, and cross-client spatial persistence.
         "board-spatial-relationships.spec.ts",
-        // Candidate gates added by iterations 8–10: meeting-room following and
-        // vector Draw preview/cancellation. Storage/import owns a separate CI lane.
-        "board-meeting-room-acceptance.spec.ts",
+        // Draw preview/cancellation remains in smoke. The 30-minute meeting-room
+        // acceptance runs in its dedicated Board CI lane with a private ledger key.
         "board-drawing-live-preview.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,

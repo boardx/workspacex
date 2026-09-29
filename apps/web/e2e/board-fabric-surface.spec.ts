@@ -137,7 +137,8 @@ test("fabric surface viewport", async ({ page, request: api }) => {
 
   const surfaceBounds = await surface.boundingBox();
   expect(surfaceBounds).not.toBeNull();
-  await page.mouse.move(surfaceBounds!.x + surfaceBounds!.width - 96, surfaceBounds!.y + surfaceBounds!.height / 2);
+  // Stay on bare canvas: a selected object's floating toolbar can intercept wheel events.
+  await page.mouse.move(surfaceBounds!.x + 80, surfaceBounds!.y + 120);
   const zoomValue = page.getByTestId("board-zoom-value");
   const wheelToClamp = async (deltaY: number, expected: "5%" | "800%") => {
     for (let step = 0; step < 12 && await zoomValue.textContent() !== expected; step += 1) {
