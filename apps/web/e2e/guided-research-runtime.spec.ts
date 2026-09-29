@@ -61,7 +61,7 @@ test("research persists all five model-backed steps through the real UI, API and
       await preview.dblclick();
       const editor = page.getByTestId("guided-research-markdown-editor");
       await expect(editor).toBeVisible();
-      await editor.fill((await editor.inputValue()).replace(/目标：[^\n]+/, "目标：核实政策适用范围与实施约束"));
+      await editor.fill((await editor.inputValue()).replace(/^1、[^\n]+/m, "1、核实政策适用范围与实施约束"));
       const savedDraft = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
         && response.request().method() === "POST" && response.request().postDataJSON()?.action === "save");
       await page.getByRole("button", { name: "保存 Markdown", exact: true }).click();
