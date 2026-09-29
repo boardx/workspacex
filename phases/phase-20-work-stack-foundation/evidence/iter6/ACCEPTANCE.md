@@ -179,7 +179,7 @@ Result: 12 tests passed, EXIT 0
 
 ## End-to-end journey
 
-Journey spec: `evidence/iter6/journeys/iter6-ag06-escalate.spec.ts`
+Journey spec: `evidence/iter6/journeys/iter6-ag06-escalate.journey.ts`
 Stack: native (no Docker), ports web=25100 api=24100
 
 | Test | Result |

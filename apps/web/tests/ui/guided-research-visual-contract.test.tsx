@@ -172,7 +172,7 @@ describe("F180 signed guided-research visual contract", () => {
     await screen.findByTestId("research-flow-search");
     expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
     expect(screen.queryByText("查看全部来源与 Markdown")).not.toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "搜索得到的相关网址" })).toBeVisible();
+    expect(screen.getByRole("list", { name: "已获取的研究资料" })).toBeVisible();
     expect(screen.getByTestId("guided-research-source-workspace")).toBeVisible();
 
     search.unmount();

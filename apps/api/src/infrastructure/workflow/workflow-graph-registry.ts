@@ -23,18 +23,38 @@ const GraphState = Annotation.Root({
   outputs: Annotation<Record<string, string>>({ reducer: (a, b) => ({ ...a, ...b }), default: () => ({}) }),
 });
 
+/**
+ * WF07 —— 命令驱动图（如 `guided-research:1`）：图本体由其领域用例自己编译执行（交互式、每条命令推进一步），
+ * 只借用运行时的注册键、checkpointer 工厂与 workflow_receipts；线性驱动不运行它（get() 返回 null）。
+ */
+export interface CommandWorkflowGraph {
+  graphRef: string;
+  nodeIds: readonly string[];
+}
+
 export class WorkflowGraphRegistry implements WorkflowGraphCatalog {
   private readonly graphs = new Map<string, LinearWorkflowGraph>();
+  private readonly commandGraphs = new Map<string, CommandWorkflowGraph>();
 
-  constructor(graphs: readonly LinearWorkflowGraph[]) {
+  constructor(graphs: readonly LinearWorkflowGraph[], commandGraphs: readonly CommandWorkflowGraph[] = []) {
     for (const g of graphs) {
       if (this.graphs.has(g.graphRef)) throw new Error(`workflow graph ${g.graphRef} registered twice`);
       this.graphs.set(g.graphRef, g);
     }
+    for (const g of commandGraphs) {
+      if (this.graphs.has(g.graphRef) || this.commandGraphs.has(g.graphRef)) {
+        throw new Error(`workflow graph ${g.graphRef} registered twice`);
+      }
+      this.commandGraphs.set(g.graphRef, g);
+    }
   }
 
   nodeIdsOf(graphRef: string): readonly string[] | null {
-    return this.graphs.get(graphRef)?.stages.map((s) => s.stageId) ?? null;
+    return this.graphs.get(graphRef)?.stages.map((s) => s.stageId) ?? this.commandGraphs.get(graphRef)?.nodeIds ?? null;
+  }
+
+  has(graphRef: string): boolean {
+    return this.graphs.has(graphRef) || this.commandGraphs.has(graphRef);
   }
 
   get(graphRef: string): LinearWorkflowGraph | null {

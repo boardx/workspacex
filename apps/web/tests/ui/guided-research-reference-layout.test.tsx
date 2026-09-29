@@ -9,6 +9,7 @@ import { GuidedResearchSixStepShell } from "@/components/research-studio/guided-
 import { runtimeFixture } from "../guided-runtime-fixture";
 import { ResearchTopicInformation } from "@/components/research-studio/research-topic-information";
 import { ResearchChaptersWorkspace } from "@/components/research-studio/research-chapters-workspace";
+import { ResearchLoading } from "@/components/research-studio/guided-research-presentation";
 
 describe("guided research reference layout", () => {
   it("keeps topic essentials and offers a three-row freeform other field", () => {
@@ -129,6 +130,12 @@ describe("guided research reference layout", () => {
     expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
   });
 
+  it("uses plan language while the plan is being generated", () => {
+    render(<ResearchLoading node="outline" />);
+    expect(screen.getByRole("status")).toHaveTextContent("正在生成计划");
+    expect(screen.queryByText(/报告大纲|研究方向/)).not.toBeInTheDocument();
+  });
+
   it("shows next-step chapters and only relevant search URLs without a middle activity column", () => {
     const state = runtimeFixture("research");
     state.outline.push({ ...state.outline[0]!, id: "o2", title: "未启用章节", enabled: false, order: 1 });
@@ -145,11 +152,20 @@ describe("guided research reference layout", () => {
     expect(screen.queryByText("未启用章节")).not.toBeInTheDocument();
     expect(screen.queryByText(/个任务|已完成|检索失败/)).not.toBeInTheDocument();
     expect(within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByRole("list", { name: "已获取的研究资料" })).toHaveAttribute("aria-live", "polite");
     expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("title", "Retrieved evidence");
     expect(screen.queryByRole("heading", { name: "实时动态" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "研究洞察" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "潜在冲突 / 风险提示" })).not.toBeInTheDocument();
     expect(screen.getByTestId("guided-research-source-actions")).toContainElement(screen.getByRole("button", { name: "重试失败任务" }));
+  });
+  it("does not render an empty research-material placeholder before a source arrives", () => {
+    const state = runtimeFixture("research");
+    state.sources = [];
+    render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
+    expect(screen.queryByTestId("guided-research-source-evidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("尚未找到相关网址")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "已获取的研究资料", hidden: true })).toHaveAttribute("aria-live", "polite");
   });
   it("shows source descriptions and opens the URL on double click", () => {
     const state = runtimeFixture("research");

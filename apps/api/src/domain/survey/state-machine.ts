@@ -4,6 +4,7 @@ export type SurveyStatusCommand =
   | "prepare"
   | "withdraw"
   | "startCollection"
+  | "republish"
   | "close";
 
 const transitions: Readonly<
@@ -12,7 +13,7 @@ const transitions: Readonly<
   draft: { prepare: "ready" },
   ready: { withdraw: "draft", startCollection: "collecting" },
   collecting: { close: "closed" },
-  closed: {},
+  closed: { republish: "collecting" },
 };
 
 export class InvalidSurveyTransitionError extends Error {

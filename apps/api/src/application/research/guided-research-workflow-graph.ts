@@ -198,3 +198,13 @@ export function createGuidedResearchWorkflowGraph(input: {
     .addEdge("apply_command", END)
     .compile({ checkpointer: input.checkpointer });
 }
+
+/**
+ * WF07 —— 引导式研究在通用 Workflow Runtime 的图工厂注册键（ADR-118 第 8 条 Stage 1）。
+ * checkpoint 落 `langgraph_workflow`，`checkpoint_ns` = 本键，`thread_id` = sessionId（domain I-9）。
+ */
+export const GUIDED_RESEARCH_WORKFLOW_KEY = "guided-research";
+export const GUIDED_RESEARCH_WORKFLOW_VERSION = 1;
+export const GUIDED_RESEARCH_GRAPH_REF = `${GUIDED_RESEARCH_WORKFLOW_KEY}:${GUIDED_RESEARCH_WORKFLOW_VERSION}`;
+/** 图节点集合（发布校验 I-3：阶段 id 与图节点一一对应）。与 createGuidedResearchWorkflowGraph 同步。 */
+export const GUIDED_RESEARCH_GRAPH_NODE_IDS: readonly string[] = ["apply_command"];

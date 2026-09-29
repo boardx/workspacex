@@ -4,7 +4,7 @@
  * 形状与路径全部来自 `@repo/contracts` 的 `workSkillMeta`（单一事实源）；这一层不做权限判断，
  * 失败以 `ApiError` 原样抛给调用方（`canManageChannel` 由服务端给出，UI 只据此决定是否渲染入口）。
  */
-import { workSkillMeta } from "@repo/contracts";
+import { workEval, workSkillMeta } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -70,3 +70,15 @@ export async function updateWorkSkillCatalogEntry(
 
 /** 合法通道转移（R7），直接引用契约常量，不在前端复述。 */
 export const WORK_SKILL_CHANNEL_TRANSITIONS = workSkillMeta.WORK_SKILL_CHANNEL_TRANSITIONS;
+
+/* ── EV04：门状态（契约束 `work-eval`，getWorkGateStatus） ─────────────── */
+
+export type WorkGateView = z.infer<typeof workEval.WorkGateView>;
+export type WorkGateBadgeState = z.infer<typeof workEval.WorkGateBadgeState>;
+
+export async function getWorkGateStatus(skillId: string, versionId?: string): Promise<WorkGateView> {
+  return apiRequest<WorkGateView>(withId(workEval.operations.getWorkGateStatus.path, skillId), {
+    method: "GET",
+    query: { versionId },
+  });
+}

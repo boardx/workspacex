@@ -83,7 +83,8 @@ describe("guided research session routing and lifecycle", () => {
     expect(screen.getByRole("status")).toHaveTextContent("正在恢复");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     resolve(runtimeFixture("directions"));
-    expect(await screen.findByDisplayValue("政策方向")).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true");
   });
   it("hides a previous session immediately when the replacement is loading or unavailable", async () => {
@@ -102,7 +103,8 @@ describe("guided research session routing and lifecycle", () => {
     await screen.findByDisplayValue("储能研究");
     expect(screen.queryByText(/后续研究结果失效/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /确认研究主题/ }));
-    expect(screen.getByDisplayValue("政策方向")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     expect(window.location.pathname).toBe("/research/grs-live/topic");
     expect(navigate).not.toHaveBeenCalled();
   });
@@ -115,7 +117,7 @@ describe("guided research session routing and lifecycle", () => {
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "confirm", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ goal: "新的政策研究" }) } })));
     await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
-  it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
+  it.each(["directions", "outline"] as const)("keeps generated %s aligned to the current-step presentation", async (node) => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
     render(<GuidedResearchFlow step={node} sessionId="grs-live" />);
     if (node === "outline") {
@@ -124,9 +126,8 @@ describe("guided research session routing and lifecycle", () => {
       fireEvent.change(field, { target: { value: `${(field as HTMLTextAreaElement).value}\n人工修订` } });
       expect((field as HTMLTextAreaElement).value).toContain("人工修订");
     } else {
-      const field = await screen.findByDisplayValue("政策方向");
-      fireEvent.change(field, { target: { value: "人工修订" } });
-      expect(screen.getByDisplayValue("人工修订")).toBeInTheDocument();
+      expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+      expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     }
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
@@ -139,15 +140,37 @@ describe("guided research session routing and lifecycle", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("完成检索任务");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
   });
-  it("shows persisted search failures and retries failed work through the server", async () => {
-    const state = runtimeFixture("research"); state.tasks[0]!.status = "failed";
+  it("shows one primary continue action for a persisted search failure and disables duplicate retries", async () => {
+    const state = runtimeFixture("research");
+    state.tasks[0]!.status = "failed";
+    state.errorCode = "RESEARCH_SEARCH_UNAVAILABLE";
+    let resolveRetry!: (value: ReturnType<typeof runtimeFixture>) => void;
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    vi.mocked(executeResearchRuntime).mockReturnValue(new Promise((resolve) => { resolveRetry = resolve; }));
+    render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("检索服务暂时不可用");
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
+    const retry = screen.getByRole("button", { name: "继续重试" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    resolveRetry({ ...runtimeFixture("research"), version: 5 });
+    expect(await screen.findByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "继续重试" })).not.toBeInTheDocument());
+  });
+  it("offers the same continue action when a running search lease expired", async () => {
+    const state = runtimeFixture("research");
+    state.tasks[0]!.status = "running";
+    state.leaseUntil = "2020-01-01T00:00:00.000Z";
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("research"), version: 5 });
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
-    fireEvent.click(await screen.findByRole("button", { name: "重试失败任务" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("上次执行已中断");
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
-    expect(await screen.findByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
-    expect(screen.queryByRole("button", { name: "重试失败任务" })).not.toBeInTheDocument();
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");

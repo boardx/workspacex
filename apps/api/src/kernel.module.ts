@@ -1,3 +1,4 @@
+import { PLATFORM_ORG_ID, toOrgId } from "./domain/org-id";
 import { fileURLToPath } from 'node:url';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
@@ -244,6 +245,9 @@ import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-st
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
 import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
+import { WorkGateStatusController } from "./interface/controllers/work-gate-status.controller";
+import { PgWorkGateStatusRepository } from "./infrastructure/work-eval/pg-work-gate-status-repository";
+import { WORK_GATE_OFFICIAL_ORG, WORK_GATE_STATUS_REPOSITORY, type WorkGateOfficialOrg } from "./application/work-eval/work-gate-status";
 import { PgWorkSkillCatalogRepository } from "./infrastructure/skill/pg-work-skill-catalog-repository";
 import { WORK_SKILL_CATALOG_REPOSITORY } from "./application/skill/work-skill-catalog";
 import { TOOL_GRANT_READER } from "./application/skill/work-skill-readiness";
@@ -395,8 +399,9 @@ import { GuidedResearchController } from "./interface/controllers/guided-researc
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
 import { GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY, type GuidedResearchNodeReceiptRepository } from "./application/research/guided-workflow-receipt-ports";
-import { PgGuidedResearchNodeReceiptRepository } from "./infrastructure/research/pg-guided-research-node-receipt-repository";
-import { createGuidedResearchCheckpointer } from "./infrastructure/research/langgraph-guided-research-runtime";
+import { PgGuidedResearchWorkflowReceipts } from "./infrastructure/research/pg-guided-research-workflow-receipts";
+import { createWorkflowCheckpointerFactory } from "./infrastructure/workflow/workflow-checkpointer-factory";
+import { GUIDED_RESEARCH_GRAPH_REF } from "./application/research/guided-research-workflow-graph";
 import {
   GUIDED_RESEARCH_DIRECTION_GENERATOR,
   ModelGuidedResearchDirectionGenerator,
@@ -1120,6 +1125,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CapabilityController,
     SkillStarterImportController,
     WorkSkillCatalogController,
+    WorkGateStatusController,
     SkillUrlImportController,
     AgentUrlImportController,
     McpRemoteDiscoveryController,
@@ -1502,6 +1508,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgWorkSkillCatalogRepository(db),
       inject: [DATABASE_PORT],
     },
+    {
+      provide: WORK_GATE_STATUS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWorkGateStatusRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 EV04 I-10：官方平台组织目录 = PLATFORM_ORG_ID（不读环境变量）。
+    { provide: WORK_GATE_OFFICIAL_ORG, useValue: { orgId: () => toOrgId(PLATFORM_ORG_ID) } satisfies WorkGateOfficialOrg },
     // Phase 20 WS04：就绪性输入——本组织工具 × 能力分类授权快照。
     {
       provide: TOOL_GRANT_READER,
@@ -2681,7 +2694,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         receipts: GuidedResearchNodeReceiptRepository,
         directions: GuidedResearchDirectionGenerator,
         outlines: GuidedResearchOutlineGenerator,
-      ) => new GuidedResearchWorkflowService(receipts, createGuidedResearchCheckpointer(appConfig()), directions, outlines),
+      ) => {
+        // WF07：引导式研究 = `guided-research:1`，checkpoint 经通用运行时唯一 checkpointer 工厂（langgraph_workflow）。
+        const pool = new pgModule.Pool({ ...appConfig(), max: 5 });
+        const saver = createWorkflowCheckpointerFactory(pool).saverFor(GUIDED_RESEARCH_GRAPH_REF);
+        return new GuidedResearchWorkflowService(receipts, saver, directions, outlines, () => pool.end());
+      },
       inject: [
         GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
         GUIDED_RESEARCH_DIRECTION_GENERATOR,
@@ -2690,7 +2708,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgGuidedResearchNodeReceiptRepository(db),
+      useFactory: (db: DatabasePort) => new PgGuidedResearchWorkflowReceipts(db),
       inject: [DATABASE_PORT],
     },
     {
