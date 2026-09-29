@@ -28,7 +28,7 @@ async function loginAsAdmin(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("旅程②：组织管理员邀请一位新成员 → 受邀人用一次性链接激活账号 → 出现在成员列表里", async ({ page, browser }) => {

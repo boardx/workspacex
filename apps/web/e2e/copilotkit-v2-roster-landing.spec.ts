@@ -63,7 +63,7 @@ async function login(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 }
 
 /** 同本目录既有 v2 spec：先把 CopilotRuntime 路由与 `[threadId]` 动态段焐热。 */

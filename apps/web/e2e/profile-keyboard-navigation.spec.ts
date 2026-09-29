@@ -23,7 +23,7 @@ test.describe("keyboard profile：profile 核心任务全键盘可达", () => {
     await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.keyboardEmail);
     await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.keyboardPassword);
     await page.getByTestId("login-submit").click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/home$/);
 
     await page.goto("/profile");
     await expect(page.getByTestId("profile-screen")).toBeVisible();

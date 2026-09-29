@@ -48,7 +48,7 @@ async function login(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(REAL_MODEL_SMOKE.email);
   await page.getByTestId("login-password").fill(REAL_MODEL_SMOKE.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 60_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 60_000 });
 }
 
 /** 与 `real-model-office-matrix.spec.ts` 逐字同一条纪律（三道口子都已实测过）：

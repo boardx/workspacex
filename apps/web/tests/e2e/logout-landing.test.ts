@@ -60,12 +60,12 @@ describe("expectedPostLoginLanding：登录后落点由提交时 URL 上的 next
   it("登出落点带 next=/profile → 登录后回 /profile，不是 /projects", () => {
     expect(expectedPostLoginLanding(`${ORIGIN}/login?next=%2Fprofile`)).toBe("/profile");
   });
-  it("登出落点不带 next → /projects", () => {
-    expect(expectedPostLoginLanding(`${ORIGIN}/login`)).toBe("/projects");
+  it("登出落点不带 next → /home", () => {
+    expect(expectedPostLoginLanding(`${ORIGIN}/login`)).toBe("/home");
   });
-  it("与产品代码同一规则：外域 / 循环值被 sanitizeReturnTo 收敛成 /projects", () => {
-    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=https://evil.example`)).toBe("/projects");
-    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=%2Flogin`)).toBe("/projects");
+  it("与产品代码同一规则：外域 / 循环值被 sanitizeReturnTo 收敛成 /home", () => {
+    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=https://evil.example`)).toBe("/home");
+    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=%2Flogin`)).toBe("/home");
   });
 });
 

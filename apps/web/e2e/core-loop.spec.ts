@@ -71,7 +71,7 @@ async function loginAs(page: Page, email: string, password: string) {
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 async function loginAsAdmin(page: Page) {
@@ -112,7 +112,7 @@ test.describe("核心闭环八步", () => {
 
     // 「自动成为管理员」的第一半：注册完**直接就是登录态**，不必收邮件。
     // `bootstrap-first-user.ts` 直接置位 `emailVerifiedAt`，所以这一步不依赖邮件投递。
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/home$/);
 
     // 第二半：**库里**确实是管理员。只看 UI 会把「前端乐观渲染」也当成通过。
     //
@@ -163,7 +163,7 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("login-password").fill(user.password);
     await page.getByTestId("login-submit").click();
     await expect(page.getByTestId("login-error")).toBeVisible();
-    await expect(page).not.toHaveURL(/\/projects$/);
+    await expect(page).not.toHaveURL(/\/home$/);
 
     // 真实收发验证令牌：服务端确定性重算同一枚令牌（不是伪造/绕过），走真实的
     // `/auth/verify-email?token=...` 确认页。
@@ -171,7 +171,7 @@ test.describe("核心闭环八步", () => {
     expect(token, "库里必须有一枚待核销的验证令牌").not.toBeNull();
     await page.goto(`/auth/verify-email?token=${token}`);
     // 同一浏览器首次完成验证后自动建立会话，无需再次输入密码。
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/home$/);
   });
 
   /* ── 步骤 2：新增 Agent（已交付，#458 / PR #478）───────────────────────── */
@@ -290,7 +290,7 @@ test.describe("核心闭环八步", () => {
 
   test("步骤 5：已有用户登录 → 登出 → 重新登录，会话恢复", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/home$/);
 
     // 登出后受保护路由必须 fail-closed，不是「渲染一个空壳」。
     await page.context().clearCookies();
@@ -300,7 +300,7 @@ test.describe("核心闭环八步", () => {
 
     // 重新登录后会话真的恢复。
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/home$/);
   });
 
   /* ── 步骤 6：Chat 新增 / 删除 / 聊天 ──────────────────────────────────── */
