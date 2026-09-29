@@ -4,22 +4,26 @@ import type { WhiteboardCollaborationStore } from "../../application/whiteboard/
 import { WhiteboardRecoveryError, type WhiteboardRecoveryMetadata, type WhiteboardSnapshotSource } from "../../application/whiteboard/recovery-service";
 import type { Principal } from "../../domain/principal";
 import { discloseDecided,guard,isDisclosed } from "../../application/security/permission-filter";
-import { decideWhiteboardAccess } from "../../domain/whiteboard/access-decision";
+import { decideWhiteboardAccess, unionWhiteboardRole } from "../../domain/whiteboard/access-decision";
+import { NO_PROJECT_WHITEBOARD_ACCESS, type WhiteboardProjectAccess } from "../../application/whiteboard/project-access";
 
 function disclose<T>(boardId:string,role:"owner"|"editor"|"commenter"|"viewer",action:"read"|"write",payload:T):T {const result=discloseDecided(guard({kind:"whiteboard",id:boardId},payload),decideWhiteboardAccess({decisionId:`whiteboard:${boardId}:${action}`,role,action}));if(!isDisclosed(result))throw new WhiteboardRecoveryError("FORBIDDEN");return result.payload;}
 type RestoreResponse={epoch:number;seq:0;event:WhiteboardCollaborationEvent;auditEvents?:WhiteboardCollaborationEvent[]};
 const normalizeRestore=(response:RestoreResponse)=>({...response,auditEvents:response.auditEvents??[]});
 
 export class PgWhiteboardRecoveryAdapter implements WhiteboardRecoveryMetadata,WhiteboardSnapshotSource {
-  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore){}
+  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly projectAccess:WhiteboardProjectAccess=NO_PROJECT_WHITEBOARD_ACCESS){}
   private async access(session:TenantSession,p:Principal,boardId:string){
     const result=await session.query<{owner_id:string;archived:boolean}>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,boardId]);
     const row=result.rows[0];if(!row)throw new WhiteboardRecoveryError("NOT_FOUND");
     // Acquire the board lock before taking the membership statement snapshot.
     const members=row.owner_id===p.userId?null:await session.query<{role:string}>(`SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3`,[p.orgId,boardId,p.userId]);
-    const role=row.owner_id===p.userId?'owner':members?.rows[0]?.role;
+    const own=row.owner_id===p.userId?'owner':members?.rows[0]?.role;
+    // #4615: project source (resolveProjectLayer, same transaction), unioned with the board ACL.
+    const borrowed=own==='owner'||own==='editor'?null:await this.projectAccess.roleIn(session,{userId:p.userId,orgId:p.orgId,boardId});
+    const role=own??borrowed;
     if(!role||!['owner','editor','commenter','viewer'].includes(role))throw new WhiteboardRecoveryError("NOT_FOUND");
-    return{role:role as "owner"|"editor"|"commenter"|"viewer",archived:row.archived};
+    return{role:unionWhiteboardRole(role as "owner"|"editor"|"commenter"|"viewer",borrowed)??(role as "owner"|"editor"|"commenter"|"viewer"),archived:row.archived};
   }
   async head(p:Principal,boardId:string){return this.db.withTenant(p.orgId,async session=>{const access=await this.access(session,p,boardId),doc=await session.query<{epoch:number;seq:string}>(`SELECT epoch,seq FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`,[p.orgId,boardId]),row=disclose(boardId,access.role,"read",doc.rows[0]);return{...access,epoch:row?.epoch??1,seq:Number(row?.seq??0)};});}
   async snapshot(p:Principal,boardId:string,epoch:number,seq:number){const state=await this.collaboration.load(p,boardId);if(state.epoch!==epoch||state.seq!==seq)throw new WhiteboardRecoveryError("STALE_HEAD");return state.update;}

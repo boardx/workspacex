@@ -82,6 +82,16 @@ export const PROJECT_ACTIONS = [
   "content.indexFile",    // Rebuild derived search index; follows the same existing file-write roles.
   "content.renameFile",   // 改文件名（改名走契约，见 N-23）
   /**
+   * #4615（PROP-PROJECT-WORKSPACE-001 §3.2，2026-09-29 人类裁决 ④「项目成员自动可编辑挂在项目上的白板」）：
+   * 挂在项目上的白板，项目层给出的**编辑**来源。与白板自己的成员表取并集（`domain/whiteboard/access-decision.ts`
+   * 的 `projectWhiteboardRole` / `unionWhiteboardRole`），不是替代它。
+   * ⚠ 为什么不复用 `content.postNote`：那一条是工作坊**现场参与**（贴便签），刻意不进非工作坊白名单；
+   *   把它放开会顺带打开现场画布那一族端点。白板编辑是通用项目的内容写，单独一个动作词、单独一行白名单。
+   * 分组按 content.* 既有惯例：facilitator / groupLead / member 可写，observer 不可写（旁观者只读，
+   * 读用 `read.published`）。
+   */
+  "content.editWhiteboard",
+  /**
    * F45（files 束 · uc-22-4 `previewDeleteImpact`/`requestDeletion`）：「调用者是项目负责人」
    * 的具体形状。⚠ usecases.md 的 `pre` 写的是「项目负责人」，四值角色枚举里没有这个名字——
    * 按本文件 `facilitator` row 既有的定性（「controls the room」，本文件头一行）取
@@ -152,7 +162,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "agendaSegment.bindTemplate", "agendaSegment.bindSkill", "agendaSegment.create",
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile", "member.manage",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile", "content.editWhiteboard", "member.manage",
     "settings.manage",
     "artifact.requestDeletion", "artifact.complianceOps",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",
@@ -160,12 +170,12 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
   // Runs their own group. No room control: they cannot advance the stage for everyone.
   groupLead: [
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile", "content.editWhiteboard",
     "read.ownGroup", "read.allHands", "read.published",
   ],
   // Participates. Cannot submit on the group's behalf or confirm its nodes.
   member: [
-    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile", "content.editWhiteboard",
     "read.ownGroup", "read.allHands", "read.published",
   ],
   // Read-only, and narrower than "read": no raw transcript, no private chat, no own-group
@@ -209,6 +219,8 @@ export type ContainerKind = z.infer<typeof project.ProjectKind>;
  */
 export const NON_WORKSHOP_CONTAINER_ACTIONS: readonly ProjectAction[] = [
   "content.renameFile", "content.indexFile",
+  // #4615：通用项目里挂载的白板，负责人 / 协作者可编辑（人类裁决 ④）。
+  "content.editWhiteboard",
   "settings.manage",
   "artifact.requestDeletion", "artifact.complianceOps",
   "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",

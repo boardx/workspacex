@@ -148,6 +148,7 @@ function sources(): ProjectEvidenceSourcePort {
       sessionId: "g1", title: "储能政策研究",
       sources: [{ sourceId: "src1", title: "发改委通知", url: "https://x", summary: "2026 起并网补贴退坡" }],
     }]),
+    whiteboardsOf: async () => guard(ref, []),
     chatThreadProject: async () => null,
   };
 }
