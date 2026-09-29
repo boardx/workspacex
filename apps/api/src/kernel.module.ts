@@ -1093,6 +1093,9 @@ import { RecordingController } from "./interface/controllers/recording.controlle
 import pgModule from "pg";
 import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "./application/workflow/workflow-runtime-service";
+import { ModelContentSkillRunner } from "./application/work-content/content-skill-runner";
+import { PgSkillCatalogVersionResolver } from "./infrastructure/workflow/pg-skill-catalog-version-resolver";
+import { PgWorkflowAccess } from "./infrastructure/workflow/pg-workflow-access";
 import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
 import { createGeneralizedScheduleHandler } from "./infrastructure/workflow/workflow-scheduled-job-router";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
@@ -1223,8 +1226,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
     {
-      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT],
-      useFactory: (db: DatabasePort, logger: LoggerPort) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER],
+      useFactory: (db: DatabasePort, logger: LoggerPort, model: ModelCallPort, notifications: NotificationPublisher) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+        // CT06：Skill 版本从本组织 Work Skill 目录解析；内容线 Skill 以发起 Agent 固定版本的模型执行，
+        // PRD 经 effect-gateway 发布并通知发起人（W029）。
+        skills: new PgSkillCatalogVersionResolver(db),
+        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db)), notifications },
         onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
         replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
       }),

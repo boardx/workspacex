@@ -116,3 +116,18 @@ export function checkWorkflowAllowlisted(
     .sort();
   return { ok: false, code: "workflow_not_allowlisted", requestedWorkflowId: workflowId, handoffCandidates };
 }
+
+/**
+ * CT06 / E3：由 Runtime 的 Workflow key 找到受角色白名单约束的内容线 Workflow 稳定 ID（W0xx）。
+ * 不是内容线的 Workflow（演示 / 组织自建）返回 null —— 它们不受 `workflowAllowlist` 约束。
+ */
+export function contentWorkflowIdOfKey(
+  key: string,
+  catalogs: ReadonlyArray<ReadonlyArray<{ key: string; workflowId?: string; id?: string }>>,
+): string | null {
+  for (const list of catalogs) {
+    const hit = list.find((d) => d.key === key);
+    if (hit) return hit.workflowId ?? hit.id ?? null;
+  }
+  return null;
+}

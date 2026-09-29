@@ -49,7 +49,7 @@
 - out: 期望 58/19/4；`missing`、`unexpected`（W017 出现即进此）；每实体 `visibleCount=1` 且 `gateStatusPresent`；`ok` 全真才真。
 
 ### 白名单外发起（CT06，E3）
-- 走 `workflowRuntime.startInstance`，HTTP 403 `workflow_not_allowed`，body 附 `WorkflowNotAllowlistedHint{code: workflow_not_allowlisted, handoffCandidates}`（例 D011→W030 → `["D003"]`），不静默降级。
+- 走 `workflowRuntime.startInstance`（Runtime start 准入内判定，HTTP / 定时 / webhook 同一路径），HTTP 403 `workflow_not_allowed`，body = `WorkflowNotAllowedErrorBody`（`WorkflowErrorBody` + `allowlistHint: WorkflowNotAllowlistedHint{code: workflow_not_allowlisted, handoffCandidates}`）（例 D011→W030 → `["D003"]`），不静默降级。
 
 ## 二、内部用例（无 HTTP 面）
 

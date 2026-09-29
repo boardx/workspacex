@@ -6,6 +6,7 @@
  */
 import { Body, Controller, Get, Headers, HttpException, Inject, Param, Post, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
+import { operations as workContentOps, WorkflowNotAllowedErrorBody } from "@repo/contracts/work-content";
 import { WORKFLOW_WEBHOOK_HEADERS, WorkflowErrorBody, WorkflowRequestId, workflowRuntime, type WorkflowErrorCode } from "@repo/contracts/workflow-runtime";
 import { WorkflowCommandShapeError } from "../../application/workflow/instance-commands";
 import { WorkflowUseCaseError } from "../../application/workflow/workflow-errors";
@@ -45,6 +46,8 @@ function sendFailure(failure: unknown, res: Response): unknown {
   if (failure instanceof WorkflowUseCaseError) {
     const d = failure.details;
     res.status(HTTP_STATUS[failure.code]);
+    // CT06 / E3：白名单外发起 → 403 workflow_not_allowed，body 附 WorkflowNotAllowlistedHint（契约束 work-content）。
+    if (d.allowlistHint) return WorkflowNotAllowedErrorBody.parse({ code: failure.code, message: failure.code, allowlistHint: d.allowlistHint });
     return WorkflowErrorBody.parse({
       code: failure.code,
       message: failure.code,
@@ -83,6 +86,15 @@ export class WorkflowRuntimeController {
     assertPrincipal(principal);
     try {
       res.status(200).json(C.getInstance.out.parse(await this.runtime.get(principal.orgId, principal.userId, instanceId)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** CT06 UC-WC-3（契约束 work-content）：读内容线实例产出；可见性同 getInstance（看不到 = 404）。 */
+  @Get(workContentOps.getInstanceOutput.path)
+  async output(@CurrentPrincipal() principal: Principal, @Param("instanceId") instanceId: string, @Res() res: Response) {
+    assertPrincipal(principal);
+    try {
+      res.status(200).json(workContentOps.getInstanceOutput.out.parse(await this.runtime.contentOutput(principal.orgId, principal.userId, instanceId)));
     } catch (failure) { res.json(sendFailure(failure, res)); }
   }
 

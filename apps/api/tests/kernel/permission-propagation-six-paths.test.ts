@@ -1374,7 +1374,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
     // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
     // boundary rules). Ceiling recomputed as the combined total.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(114);
+    // 2026-09-29 CT06 adds pg-skill-catalog-version-resolver.ts (+1 -> 115): the Workflow Runtime's
+    // production SkillVersionResolverPort; it reads only a version label (skill_catalog_entries +
+    // published skill_versions.semantic_label) for start-time pinning, never Skill content, and
+    // nothing under src/interface/ imports it. Pinned by tests/work-content/problem-to-prd-e2e.test.ts.
+    // Remove this increment with that entry.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(115);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

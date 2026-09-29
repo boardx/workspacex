@@ -22,6 +22,7 @@ import {
   WorkflowStageId,
   WorkflowRequestId,
   CapabilityCategory,
+  WorkflowErrorBody,
 } from "./workflow-runtime";
 import { WorkflowStableId } from "./agent-role";
 
@@ -364,3 +365,11 @@ export const WorkflowNotAllowlistedHint = z
     handoffCandidates: z.array(DigitalHumanStableId), // 例：D011 请求 W030 → ["D003"]
   })
   .strict();
+
+/**
+ * E3 的 403 失败体：`workflowRuntime.startInstance` 的 `WorkflowErrorBody`（code = workflow_not_allowed）
+ * 附 `allowlistHint`。只在「Agent 可运行但 Workflow 不在其已发布白名单内」时出现。
+ */
+export const WorkflowNotAllowedErrorBody = WorkflowErrorBody.extend({
+  allowlistHint: WorkflowNotAllowlistedHint,
+}).strict();

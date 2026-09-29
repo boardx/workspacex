@@ -45,12 +45,15 @@ async function priorSkillOutputs(deps: ProblemToPrdGraphDeps, exec: StageExecuti
 function skillWork(deps: ProblemToPrdGraphDeps, stageId: string): StageWork {
   return async (exec) => {
     const prior = await priorSkillOutputs(deps, exec);
+    const instance = await deps.instances.find(exec.lease.orgId, exec.instanceId);
+    if (!instance) throw new Error(`instance ${exec.instanceId} not found`);
     const pins = exec.pinnedSkills.filter((p) => p.stageId === stageId);
     let output: Record<string, unknown> = {};
     for (const pin of pins) {
       output = await deps.skills.run({
         orgId: exec.lease.orgId,
         instanceId: exec.instanceId,
+        agentVersionId: instance.agentVersionId,
         workflowId: "W029",
         stageId,
         skillId: pin.stableId,
@@ -93,7 +96,11 @@ function effectWork(deps: ProblemToPrdGraphDeps, stageId: "persist" | "notify"):
       return { label: "W029/persist", content: { workflowId: "W029", stageId, prd, artifactRef: out.result.artifactRef } };
     }
     const persisted = await deps.outputs.find(orgId, exec.instanceId, "persist", 1);
-    const artifactRef = String(persisted?.content.artifactRef ?? "");
+    const artifactRef = persisted?.content.artifactRef;
+    // persist 已成功才会到 notify；读不到工件引用是不变量被破坏，失败而不是发一条空引用的通知。
+    if (typeof artifactRef !== "string" || artifactRef === "") {
+      throw new Error(`W029 notify: persist output of instance ${exec.instanceId} has no artifactRef`);
+    }
     const out = await deps.effects().execute(
       exec.lease,
       { ...base, effectKey: `notify-${artifactRef}`, capabilityCategory: "notify.inapp", fingerprint: artifactRef, args: { artifactRef } },
