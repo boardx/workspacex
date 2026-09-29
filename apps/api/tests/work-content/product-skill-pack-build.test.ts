@@ -1,27 +1,40 @@
 /**
  * product-skill-pack-build.test.ts —— Phase 20 CT04
- * （`05-content-lines.md` R3 步骤 5 / V1；契约束 `work-content`）。
+ * （`05-content-lines.md` R3 步骤 5 / R4 E1 / V1；契约束 `work-content`）。
  *
- * 断言 user_visible_behavior：D003 矩阵行 14 个 Skill 与 D011 矩阵行 9 个 Skill（并集去重）
- * 及 W030/W031/W032/W002 额外依赖，共 27 个 v2 实体按 SKILL.md + references/ 产出、构建脚本
- * 产出 starter-pack JSON，每个文件 digest=sha256、重复构建 digest 不变；篡改任一 SKILL.md 后
- * 构建退出非 0 并指名文件。D011 的 3 条 skillGap 不造新 Skill，故不在期望集合中。
+ * 断言 user_visible_behavior：27 个 v2 实体写成包并可被 WS02 导入端同一核验解析；D011 的 3 条
+ * skillGap 以 skillGaps 登记在角色包、不造新 Skill；构建可重复 digest 一致；manifest 缺 v2 ID /
+ * digest 不符 / 引用未 PASS 实体时构建（含 CLI 进程）退出非 0。
  *
- * 不连接数据库——本 feature 只是构建脚本 + 文件系统，纯函数级验证，与 CT01 同类。
+ * 不连接数据库——纯文件系统/纯函数 + 一次 CLI 子进程。
  */
 import { describe, expect, it } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import {
-  buildWorkProductPack,
+  buildWorkProductPack as buildRaw,
   DEFAULT_ROOT,
+  DEFAULT_V2_ROOT,
+  expectedStableIds,
+  publishedPackPath,
+  SKILL_GAPS_FILE,
+  type BuildOptions,
   PACK_ID,
   PACK_VERSION,
   WorkContentPackBuildError,
 } from "../../scripts/build-work-product-skill-pack";
 import { buildWorkResearchPack } from "../../scripts/build-work-research-skill-pack";
+import { verifySkillStarterPack } from "../../src/domain/skill/starter-pack";
+import { checkWorkSkillManifests } from "../../src/domain/skill/work-skill-import-check";
+import { FileSkillStarterPackSource } from "../../src/infrastructure/skill/file-skill-starter-pack-source";
+
+const EMPTY_OUT = mkdtempSync(join(tmpdir(), "work-product-out-"));
+/** 默认不带已发布产物（digest 一致性单独测），返回 pack。 */
+const buildWorkProductPack = (opts: BuildOptions | string = {}) =>
+  buildRaw({ outRoot: EMPTY_OUT, ...(typeof opts === "string" ? { root: opts } : opts) }).pack;
 
 /**
  * D003 矩阵行 14 个 Skill ∪ D011 矩阵行 9 个 Skill（去重）∪ W030/W031/W032/W002 额外依赖
@@ -47,7 +60,8 @@ function copyRootToTemp(): string {
 }
 
 describe("CT04 · 产品线 Skill 包作者化与导入（work-product starter-pack）", () => {
-  it("EXPECTED_STABLE_IDS 恰为 27 个实体：D003(14) ∪ D011(9) ∪ 额外依赖，去重不缺一", () => {
+  it("EXPECTED_STABLE_IDS 恰为 27 个实体，且与构建脚本从组合矩阵派生的期望集合一致", () => {
+    expect(expectedStableIds()).toEqual(EXPECTED_STABLE_IDS);
     expect(D003.length).toBe(14);
     expect(D011.length).toBe(9);
     expect(EXPECTED_STABLE_IDS.length).toBe(27);
@@ -94,6 +108,9 @@ describe("CT04 · 产品线 Skill 包作者化与导入（work-product starter-p
       expect(inProduct, `${stableId} 应在 work-product pack 中`).toBeDefined();
       expect(inResearch, `${stableId} 应在 work-research pack 中`).toBeDefined();
       expect(inProduct!.manifest.work).toEqual(inResearch!.manifest.work);
+      // 字节级：正文改一份不改另一份也要红（不是只比 metadata.work）。
+      const files = (s: typeof inProduct) => s!.files.map((f) => `${f.path}:${f.digest}`);
+      expect(files(inProduct)).toEqual(files(inResearch));
     }
   });
 
@@ -174,4 +191,131 @@ describe("CT04 · 产品线 Skill 包作者化与导入（work-product starter-p
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });
+
+  function expectBuildError(opts: BuildOptions): WorkContentPackBuildError {
+    let caught: unknown;
+    try {
+      buildRaw(opts);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(WorkContentPackBuildError);
+    return caught as WorkContentPackBuildError;
+  }
+
+  it("E1 缺 v2 ID：删掉一个 Skill 目录 ⇒ 拒绝整包并指名缺失实体（不生成半个 pack）", () => {
+    const tempRoot = copyRootToTemp();
+    try {
+      rmSync(resolve(tempRoot, "product-discovery"), { recursive: true });
+      const error = expectBuildError({ root: tempRoot, outRoot: EMPTY_OUT });
+      expect(error.issues.some((issue) => issue.fieldPath === "S061")).toBe(true);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("E1 多出/重复：拷贝一个 Skill 成第二个目录（同 stableId）⇒ 拒绝", () => {
+    const tempRoot = copyRootToTemp();
+    try {
+      cpSync(resolve(tempRoot, "prioritization"), resolve(tempRoot, "prioritization-copy"), { recursive: true });
+      const md = resolve(tempRoot, "prioritization-copy", "SKILL.md");
+      writeFileSync(md, readFileSync(md, "utf8").replace("name: prioritization", "name: prioritization-copy"));
+      const error = expectBuildError({ root: tempRoot, outRoot: EMPTY_OUT });
+      expect(error.issues.some((issue) => issue.file === "prioritization-copy/SKILL.md" && /重复/.test(issue.message))).toBe(true);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("E1 引用未 PASS 实体：某 Skill 的评审结论不是 PASS（或评审缺失）⇒ 拒绝并指名实体 ID", () => {
+    const v2 = mkdtempSync(join(tmpdir(), "work-product-v2-"));
+    try {
+      cpSync(resolve(DEFAULT_V2_ROOT, "DIGITALHUMAN-COMPOSITION-MATRIX.md"), resolve(v2, "DIGITALHUMAN-COMPOSITION-MATRIX.md"));
+      cpSync(resolve(DEFAULT_V2_ROOT, "reviews"), resolve(v2, "reviews"), { recursive: true });
+      const review = resolve(v2, "reviews", "S068.review.md");
+      writeFileSync(review, readFileSync(review, "utf8").replace("Verdict: PASS", "Verdict: REVISE"));
+      rmSync(resolve(v2, "reviews", "D011.review.md"));
+      const error = expectBuildError({ v2Root: v2, outRoot: EMPTY_OUT });
+      expect(error.issues.some((issue) => issue.fieldPath === "S068" && /REVISE/.test(issue.message))).toBe(true);
+      expect(error.issues.some((issue) => issue.fieldPath === "D011" && /缺失/.test(issue.message))).toBe(true);
+    } finally {
+      rmSync(v2, { recursive: true, force: true });
+    }
+  });
+
+  it("D011 的 3 条 skillGap 以 skillGaps 登记在角色包（与组合矩阵逐字一致），且不造新 Skill", () => {
+    const { skillGaps, pack } = buildRaw({ outRoot: EMPTY_OUT });
+    expect(skillGaps).toEqual({ D011: ["Persona/Journey facilitation", "HMW framing", "Prototype planning"] });
+    const names = pack.skills.map((s) => s.stableName.toLowerCase());
+    for (const gap of skillGaps.D011!) expect(names).not.toContain(gap.toLowerCase());
+
+    const tempRoot = copyRootToTemp();
+    try {
+      const file = resolve(tempRoot, SKILL_GAPS_FILE);
+      writeFileSync(file, JSON.stringify({ skillGaps: { D011: ["Persona/Journey facilitation", "HMW framing"] } }));
+      const error = expectBuildError({ root: tempRoot, outRoot: EMPTY_OUT });
+      expect(error.issues.some((issue) => issue.fieldPath === "skillGaps.D011")).toBe(true);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("E1 digest 不符：已发布产物被篡改（文件 digest 与内容不符）或与源不一致 ⇒ 拒绝", () => {
+    const out = mkdtempSync(join(tmpdir(), "work-product-pub-"));
+    try {
+      const { pack } = buildRaw({ outRoot: out });
+      const published = publishedPackPath(out);
+      cpSync(publishedPackPath(), published);
+      // 仓库里的已发布产物与源一致（否则仓库本身就是 digest 不符）。
+      expect(buildRaw({ outRoot: out }).pack.packDigest).toBe(pack.packDigest);
+
+      const tampered = JSON.parse(readFileSync(published, "utf8"));
+      tampered.skills[0].files[0].digest = "0".repeat(64);
+      writeFileSync(published, JSON.stringify(tampered));
+      expect(expectBuildError({ outRoot: out }).issues[0]!.fieldPath).toBe("digest");
+
+      // 源变了但版本没升：已发布产物自洽，但 packDigest 与本次构建不同。
+      const tempRoot = copyRootToTemp();
+      try {
+        cpSync(publishedPackPath(), published);
+        const md = resolve(tempRoot, "prioritization", "SKILL.md");
+        writeFileSync(md, `${readFileSync(md, "utf8")}\n<!-- edited -->\n`);
+        expect(expectBuildError({ root: tempRoot, outRoot: out }).issues[0]!.fieldPath).toBe("packDigest");
+      } finally {
+        rmSync(tempRoot, { recursive: true, force: true });
+      }
+    } finally {
+      rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  it("导入：已发布产物经 WS02 导入端同一读取 + 核验（FileSkillStarterPackSource → verifySkillStarterPack → checkWorkSkillManifests）通过", async () => {
+    expect(existsSync(publishedPackPath())).toBe(true);
+    const raw = await new FileSkillStarterPackSource(resolve(publishedPackPath(), "../..")).load(PACK_ID, PACK_VERSION);
+    const pack = verifySkillStarterPack(raw, { packId: PACK_ID, packVersion: PACK_VERSION });
+    expect(pack.skills.map((s) => s.name).sort()).toEqual(EXPECTED_STABLE_IDS);
+    const check = checkWorkSkillManifests(pack);
+    expect(check.kind).not.toBe("rejected");
+  });
+
+  it("CLI：缺一个 Skill 时进程退出码非 0 且不写出产物；完整源时退出 0 并写出可导入产物", () => {
+    const tsx = resolve(__dirname, "../../node_modules/.bin/tsx");
+    const script = resolve(__dirname, "../../scripts/build-work-product-skill-pack.ts");
+    const tempRoot = copyRootToTemp();
+    const out = mkdtempSync(join(tmpdir(), "work-product-cli-"));
+    try {
+      rmSync(resolve(tempRoot, "kpi-design"), { recursive: true });
+      const bad = spawnSync(tsx, [script], { env: { ...process.env, WORK_PRODUCT_PACK_ROOT: tempRoot, WORK_PRODUCT_PACK_OUT: out }, encoding: "utf8" });
+      expect(bad.status).not.toBe(0);
+      expect(bad.stderr).toContain("缺少该 v2 实体");
+      expect(existsSync(publishedPackPath(out))).toBe(false);
+
+      const good = spawnSync(tsx, [script], { env: { ...process.env, WORK_PRODUCT_PACK_ROOT: DEFAULT_ROOT, WORK_PRODUCT_PACK_OUT: out }, encoding: "utf8" });
+      expect(good.status).toBe(0);
+      verifySkillStarterPack(JSON.parse(readFileSync(publishedPackPath(out), "utf8")), { packId: PACK_ID, packVersion: PACK_VERSION });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+      rmSync(out, { recursive: true, force: true });
+    }
+  }, 60_000);
 });
