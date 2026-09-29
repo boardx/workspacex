@@ -104,10 +104,29 @@ it("retries the failed outline after expert confirmation instead of regenerating
   render(<InterviewMarkdownEditingStep interviewId="itv-retry" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={onContinue} />);
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("AI 暂时无法生成访谈问题");
-  fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("AI 服务暂时不可用");
+  expect(screen.getByRole("alert")).toHaveTextContent("专家选择与当前编辑均已保留");
+  fireEvent.click(screen.getByRole("button", { name: "重新生成问题" }));
   await vi.waitFor(() => expect(outlineCalls).toBe(2));
   await vi.waitFor(() => expect(onContinue).toHaveBeenCalledWith("outline"));
+});
+it("offers a safe return to expert selection when outline generation is unavailable", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const expertDocument = { ...source, markdown: "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n" };
+  const outlineDocument = { ...source, documentId: "outline-doc", step: "outline" as const, markdown: "" };
+  const envelope = { interviewId: "itv-outline-recovery", revisionId: "rev-outline-recovery", version: 2, documents: [expertDocument, outlineDocument], states: [{ documentId: expertDocument.documentId, status: "confirmed", failure: null }, { documentId: outlineDocument.documentId, status: "draft", failure: null }] };
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/outline/generate") && init.method === "POST") return new Response(JSON.stringify({ error: "dependency_unavailable", reasonCode: "AI_GENERATION_UNAVAILABLE" }), { status: 503 });
+    return new Response(JSON.stringify(envelope));
+  });
+  const onContinue = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-outline-recovery" step="outline" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={onContinue} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "生成访谈问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "生成访谈问题" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("AI 服务暂时不可用");
+  fireEvent.click(screen.getByRole("button", { name: "返回专家选择" }));
+  expect(onContinue).toHaveBeenCalledWith("experts");
 });
 it("expert search filters the maintained simulation library without impersonating the live directory", () => {
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
