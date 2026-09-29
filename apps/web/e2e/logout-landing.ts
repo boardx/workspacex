@@ -8,7 +8,7 @@
  *
  * 只接受这两种，不接受「任意查询串」也不接受「任意 origin」：外域落点、错误的回跳目标、
  * 外域回跳值、指回 /login 的循环值、重复的 `next`、多余参数、hash——都应在登出这一步红，而不是被登录后的
- * `sanitizeReturnTo` 静默收敛成 `/projects` 掩盖（独立审对 PR #2536 的两轮意见）。
+ * `sanitizeReturnTo` 静默收敛成默认落点掩盖（独立审对 PR #2536 的两轮意见）。
  *
  * 规则本身抽成纯函数，是为了让反例能在 vitest 里红给人看（`tests/e2e/logout-landing.test.ts`），
  * 而不是只写在注释里。

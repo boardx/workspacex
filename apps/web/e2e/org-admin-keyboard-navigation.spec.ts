@@ -58,7 +58,7 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminEmail);
     await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminPassword);
     await page.getByTestId("login-submit").click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/home$/);
 
     /* ── ⓪ 2026-09-20 权限 review 的**正面**落点（人类要求：「组织管理员才可以看到
        组织管理后台」）：这一位是组织 admin，所以左上角菜单里有「组织管理」、一级导航

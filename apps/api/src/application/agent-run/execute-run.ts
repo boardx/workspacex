@@ -90,6 +90,7 @@ import { buildDeepAgentKernelFields } from "./deep-agent-kernel-fields";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
+import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
 import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
 
 /**
@@ -367,6 +368,8 @@ export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
    * 缺省不注入 ⇒ `checkPendingInterjection` 恒为 no-op，行为与本 feature 之前逐字节相同。
    */
   readonly interjections?: InterjectionStore;
+  /** AG05 —— `start_workflow` 中断走的 WF03 start（生产 = `WorkflowRuntimeService`）。缺省 ⇒ 如实拒绝，不假装发起。 */
+  readonly workflowStarts?: AgentWorkflowStartPort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
   /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测

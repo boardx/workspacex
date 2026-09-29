@@ -404,6 +404,8 @@ export default {
       ...[
         "approval-requests", "artifacts", "citations", "messages", "presets",
         "projects", "tasks", "threads", "visibility", "asr-draft",
+        // 2026-09-29：契约里有、此前漏掉的三个 `/chat/*` 命名空间（`chat.ts`）。
+        "agent-runs", "observer-grants", "realtime-digital-human",
       ].flatMap((ns) => [
         { source: `${prefix}/chat/${ns}`, destination: `${apiOrigin}/chat/${ns}` },
         { source: `${prefix}/chat/${ns}/:path*`, destination: `${apiOrigin}/chat/${ns}/:path*` },
@@ -548,6 +550,40 @@ export default {
       //   （`C.operations.x.path`）而不是字面量字符串，扫描器看不见——这条的补法照
       //   `/system` 的先例：没有裸 `/platform` 路由，只补 `:path*`。
       { source: `${prefix}/platform/:path*`, destination: `${apiOrigin}/platform/:path*` },
+      // 2026-09-29：契约里定义、却一直没有同源代理规则的路由族。实测缺口：workflow-runtime
+      // 整族（`/workflow-instances`、`/workflow-approvals`、`/workflows/:key/instances`…）走
+      // `/__fullstack_api` 时被 Next 接住返回 404，运行列表 / 运行详情 / 审批列表 /「运行 Workflow」
+      // 全部报「操作失败」。`lint-rewrite-coverage` 只扫 controller 字面量，这些路径来自契约常量
+      // （`C.operations.x.path`）——与上面 `/platform` 同一个盲区。现在该 lint 也按
+      // `packages/contracts` 的 path 定义逐条核对（`lib/contract-rewrite-coverage.ts`），漏一条就红。
+      // 生产不受影响：云 ingress 把 `/api/` 整体剥前缀转给 API（`packages/cloud-deploy/src/nginx.ts`），
+      // 不按前缀枚举；缺口只在这份枚举式同源代理里。
+      // 同 `/organizations` 的做法，每族裸前缀与 `:path*` 各一条（将来补裸集合路由时不再踩坑）。
+      ...[
+        "workflow-instances", "workflow-approvals", "workflow-triggers", "agent-handoffs",
+        "agent-interrupts", "admin-access-log", "anomalies", "audit",
+        "blueprint-change-requests", "board", "call-chains", "context-packs",
+        "design-facet-definitions", "ingestion-runs", "live", "materialization-specs",
+        "materializations", "mcp-servers", "mcp-tools", "org",
+        "org-audit", "private-chats", "research-conclusions", "research-conflicts",
+        "routing-decisions", "security-policy", "skill-bindings", "skill-proposals",
+        "skill-suggestions", "task-permission-grants", "thread-skill-mounts", "tool-calls",
+      ].flatMap((head) => [
+        { source: `${prefix}/${head}`, destination: `${apiOrigin}/${head}` },
+        { source: `${prefix}/${head}/:path*`, destination: `${apiOrigin}/${head}/:path*` },
+      ]),
+      // `/workflows/*` 不能写 `:path*`：`apps/web/app/workflows/{runs,approvals,board}` 是前端页面，
+      // 其中 `runs/[instanceId]` 是动态路由，afterFiles 通配会把它整页代理走（#3492 同坑）。
+      // 只逐条写契约里的 API 形状。
+      { source: `${prefix}/workflows/:key/versions`, destination: `${apiOrigin}/workflows/:key/versions` },
+      { source: `${prefix}/workflows/:key/instances`, destination: `${apiOrigin}/workflows/:key/instances` },
+      { source: `${prefix}/workflows/catalog`, destination: `${apiOrigin}/workflows/catalog` },
+      { source: `${prefix}/workflows/catalog/:path*`, destination: `${apiOrigin}/workflows/catalog/:path*` },
+      // 管理面契约里的三族（`/admin/[module]` 是前端动态页，所以不写 `/admin/:path*`，同上面
+      // `/admin/skills`、`/admin/agents` 的逐条写法）。
+      { source: `${prefix}/admin/nav`, destination: `${apiOrigin}/admin/nav` },
+      { source: `${prefix}/admin/work-stack/:path*`, destination: `${apiOrigin}/admin/work-stack/:path*` },
+      { source: `${prefix}/admin/skill-development/:path*`, destination: `${apiOrigin}/admin/skill-development/:path*` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },

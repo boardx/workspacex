@@ -21,8 +21,10 @@ import {
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
-import { demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
-import { demoWorkflowGraph } from "./demo-workflow-graph";
+import type { WorkflowDefinitionVersionInput } from "@repo/contracts/workflow-runtime";
+import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../domain/work-content/product-workflow-definitions";
+import { DEMO_APPROVAL_WORKFLOW_DEFINITION, demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
+import { DEMO_WORKFLOW_DEFINITION, demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { productWorkflowGraphs } from "./product-workflow-graphs";
 import { problemToPrdGraph } from "./problem-to-prd-graph";
@@ -51,6 +53,18 @@ import {
  * 任何引用 Skill 的 Definition 在 start 时都诚实地得到 skill_version_unresolved（E5），不编造版本。
  */
 export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: async () => null };
+
+/**
+ * 代码自带的 Definition 元数据（与 `defaultWorkflowGraphs()` 的图一一对应）：演示 `demo-brief:1` / `demo-approval:1`
+ * 与产品线 W027–W032 / W002（CT05）。由 `publishBuiltInWorkflowDefinitions` 经 UC-WR-1 发布校验导入组织。
+ */
+export function builtInWorkflowDefinitions(): WorkflowDefinitionVersionInput[] {
+  return [
+    structuredClone(DEMO_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
+    structuredClone(DEMO_APPROVAL_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
+    ...PRODUCT_LINE_WORKFLOWS.map(toRuntimeDefinition),
+  ];
+}
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
   return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
@@ -135,8 +149,12 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
   const leadWriteBack = opts.leadWriteBack
     ? new LeadWriteBackService({ gateway: effectGateway, capability, events, leases, instances, ...opts.leadWriteBack })
     : null;
+  const definitions = new PgWorkflowDefinitionRepository(db);
   const service = new WorkflowRuntimeService({
-    definitions: new PgWorkflowDefinitionRepository(db),
+    definitions,
+    catalog: definitions,
+    queries: events,
+    graphs: registry,
     instances,
     skills: opts.skills ?? UNRESOLVED_SKILL_VERSIONS,
     receipts,

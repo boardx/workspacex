@@ -26,22 +26,9 @@ it("confirmed source is read-only and cannot spend a model call on regeneration"
   expect(await screen.findByRole("status")).toHaveTextContent("只读");
   expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeDisabled();
   expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "生成专家建议" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "生成专家建议" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "保存专家草稿" })).not.toBeInTheDocument();
   expect(posts).toEqual([]);
-});
-it("failed generation reconciles persisted partial text into a clean editor", async () => {
-  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
-  const failedMarkdown = "## [夜班护理角色](#expert-night-shift)\n\n已保存的部分画像。\n\n材料边界仍待核对。";
-  let failed = false;
-  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
-    if (init.method === "POST") { failed = true; return new Response(JSON.stringify({ message: "unavailable" }), { status: 503 }); }
-    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: failed ? 2 : 1, documents: [{ ...source, markdown: failed ? failedMarkdown : source.markdown }], states: [{ documentId: source.documentId, status: failed ? "failed" : "draft", failure: null }] }));
-  });
-  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: "生成专家建议" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "生成专家建议" }));
-  await screen.findByRole("alert");
-  expect(screen.getByTestId("itv-expert-draft-context").querySelector("pre")?.textContent).toBe(failedMarkdown);
 });
 it("keeps the complete failed Markdown visible when one expert heading parses", () => {
   const partial = "## [夜班护理角色](#expert-night-shift)\n\n专业角色：夜班护理。\n\n" + "未完成的材料边界与局限。".repeat(24);
@@ -86,17 +73,46 @@ it("a save conflict does not silently rebase local text onto another editor's ve
   render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "添加画像 张浩宇" }));
-  fireEvent.click(screen.getByRole("button", { name: "保存专家草稿" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
   await screen.findByRole("alert");
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: "保存专家草稿" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "保存专家草稿" }));
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
   await vi.waitFor(() => expect(writes).toHaveLength(2));
   expect(writes.map((write) => [write.expectedVersion, write.expectedDocumentVersion])).toEqual([[1, 1], [1, 1]]);
+});
+it("retries the failed outline after expert confirmation instead of regenerating immutable experts", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const expertMarkdown = "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n";
+  const expertDocument = { ...source, markdown: expertMarkdown };
+  const outlineDocument = { ...source, documentId: "outline-doc", step: "outline" as const, markdown: "" };
+  const draft = { interviewId: "itv-retry", revisionId: "rev-retry", version: 1, documents: [expertDocument, outlineDocument], states: [{ documentId: expertDocument.documentId, status: "draft", failure: null }, { documentId: outlineDocument.documentId, status: "draft", failure: null }] };
+  const confirmed = { ...draft, version: 2, states: [{ documentId: expertDocument.documentId, status: "confirmed", failure: null }, { documentId: outlineDocument.documentId, status: "draft", failure: null }] };
+  const generated = { ...confirmed, version: 3, documents: [expertDocument, { ...outlineDocument, markdown: "## [张浩宇](#expert-one)\n\n1. 最近一次使用 AI 发生了什么？" }] };
+  let outlineCalls = 0;
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) return new Response(JSON.stringify(confirmed));
+    if (url.endsWith("/outline/generate")) {
+      outlineCalls += 1;
+      return outlineCalls === 1
+        ? new Response(JSON.stringify({ error: "dependency_unavailable", reasonCode: "AI_GENERATION_UNAVAILABLE" }), { status: 503 })
+        : new Response(JSON.stringify(generated));
+    }
+    return new Response(JSON.stringify(outlineCalls ? confirmed : draft));
+  });
+  const onContinue = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-retry" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={onContinue} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("AI 暂时无法生成访谈问题");
+  fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+  await vi.waitFor(() => expect(outlineCalls).toBe(2));
+  await vi.waitFor(() => expect(onContinue).toHaveBeenCalledWith("outline"));
 });
 it("expert search filters the maintained simulation library without impersonating the live directory", () => {
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   expect(screen.getByText("97 位模拟画像")).toBeVisible();
-  expect(within(screen.getByTestId("itv-persona-card-persona-68ecb1289191bb24396f9bd4")).getByRole("img", { name: "技术专家专业图标" })).toBeVisible();
+  expect(within(screen.getByTestId("itv-persona-card-persona-68ecb1289191bb24396f9bd4")).getByRole("img", { name: "张浩宇的插画头像" })).toBeVisible();
   expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeVisible();
   fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "不存在的夜班专家" } });
   expect(screen.getByText("没有匹配的专家")).toBeVisible();
@@ -185,6 +201,31 @@ it("keeps AI virtual-expert proposals unsaved until human review and selection",
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   expect(change).toHaveBeenCalledTimes(1);
 });
+it("sends any non-empty description through AI virtual-expert generation", async () => {
+  const suggest = vi.fn().mockResolvedValue("# 客家研究者\n\n## 专业角色\n文化研究顾问\n\n## 专业领域\n客家文化\n\n## 研究关注\n迁徙与社区\n\n## 观点风格\n基于案例\n\n## 简介\n长期研究客家社群\n\n## 局限与材料边界\n仅用于模拟研究");
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onConfirm={vi.fn()} onSuggestVirtual={suggest} />);
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" }));
+  const generate = screen.getByRole("button", { name: "AI 生成专家画像" });
+  expect(generate).toBeDisabled();
+  fireEvent.change(screen.getByRole("textbox", { name: "想添加怎样的专家" }), { target: { value: "客家专家" } });
+  expect(generate).toBeEnabled();
+  fireEvent.click(generate);
+  await vi.waitFor(() => expect(suggest).toHaveBeenCalledWith("客家专家"));
+  expect(await screen.findByDisplayValue("客家研究者")).toBeVisible();
+});
+it("restores confirmed experts in the outline rail before questions exist", () => {
+  const expertsDocument = { ...source, markdown: "## [张浩宇](#expert-persona-68ecb1289191bb24396f9bd4)\n\n专业角色：AI 专家\n" };
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: "" }} expertsDocument={expertsDocument} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "张浩宇" })).toBeVisible();
+  expect(screen.getByRole("img", { name: "张浩宇的插画头像" })).toBeVisible();
+  expect(screen.getByText("尚无专家问题，请先生成访谈问题。")).toBeVisible();
+});
+it("shows generation progress with the confirmed expert count", () => {
+  const expertsDocument = { ...source, markdown: "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n\n## [王志远](#expert-two)\n\n专业角色：架构师\n" };
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: "" }} expertsDocument={expertsDocument} pending generating onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByRole("status")).toHaveTextContent("正在为 2 位专家生成问题");
+  expect(screen.getByRole("button", { name: "正在为 2 位专家生成问题…" })).toBeDisabled();
+});
 it("question edit preserves stable heading references and unrelated raw Markdown", () => {
   const raw = "前言\r\n\r\n## [采购专家](#expert-purchase)\r\n\r\n1. 最近一次发生了什么？\r\n\r\n## [财务专家](#expert-finance)\r\n\r\n1. 谁批准预算？\r\n";
   const change = vi.fn();
@@ -247,18 +288,31 @@ it("persists exactly the expert questions visible to the reviewer", () => {
     "## [采购](#expert-purchase)\n\n1. 谁提出采购？\n\n## [财务](#expert-finance)\n\n1. 谁批准预算？\n",
   );
 });
-it("generation cannot silently discard an unsaved expert Markdown edit", async () => {
+it("keeps expert selection focused on one confirm-and-generate action", () => {
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onConfirm={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: "生成专家建议" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "保存专家草稿" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeDisabled();
+});
+it("regenerates an existing empty outline from confirmed experts before navigating", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
-  const posts: string[] = [];
+  const expertDocument = { ...source, markdown: "## [张浩宇](#expert-persona-68ecb1289191bb24396f9bd4)\n\n专业角色：AI 专家\n" };
+  const emptyOutline = { ...source, documentId: "outline-doc", step: "outline" as const, version: 3, markdown: "# 访谈问题\n" };
+  const generatedOutline = { ...emptyOutline, version: 4, markdown: "## [张浩宇](#expert-persona-68ecb1289191bb24396f9bd4)\n\n1. 最近一次具体发生了什么？\n" };
+  const generatedBodies: unknown[] = [];
   vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
-    if (init.method === "POST") posts.push(url);
-    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: 1, documents: [source], states: [{ documentId: source.documentId, status: "draft", failure: null }] }));
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) return new Response(JSON.stringify({ interviewId: "itv-edits", revisionId: "rev-edits", version: 5, documents: [expertDocument, emptyOutline], states: [{ documentId: expertDocument.documentId, status: "confirmed", failure: null }, { documentId: emptyOutline.documentId, status: "draft", failure: null }] }));
+    if (url.endsWith("/outline/generate")) {
+      generatedBodies.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ interviewId: "itv-edits", revisionId: "rev-edits", version: 6, documents: [expertDocument, generatedOutline], states: [{ documentId: expertDocument.documentId, status: "confirmed", failure: null }, { documentId: generatedOutline.documentId, status: "draft", failure: null }] }));
+    }
+    return new Response(JSON.stringify({ interviewId: "itv-edits", revisionId: "rev-edits", version: 4, documents: [expertDocument, emptyOutline], states: [{ documentId: expertDocument.documentId, status: "draft", failure: null }, { documentId: emptyOutline.documentId, status: "draft", failure: null }] }));
   });
-  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "添加画像 张浩宇" }));
-  fireEvent.click(screen.getByRole("button", { name: "生成专家建议" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("先保存");
-  expect(screen.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
-  expect(posts).toEqual([]);
+  const onContinue = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={onContinue} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  await vi.waitFor(() => expect(onContinue).toHaveBeenCalledWith("outline"));
+  expect(generatedBodies).toEqual([{ expectedVersion: 5, expectedDocumentVersion: 3 }]);
 });

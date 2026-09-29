@@ -118,7 +118,7 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-outline");
     expect(card).toHaveTextContent("研究大纲");
-    expect(card).toHaveTextContent("第 3 / 5 步");
+    expect(card).toHaveTextContent("第 3 / 6 步");
     fireEvent.click(screen.getByRole("button", { name: "审阅研究大纲" }));
     expect(onStepChange).toHaveBeenCalledWith("outline", "grs-outline");
   });
@@ -171,6 +171,7 @@ describe("F168 guided research home live data", () => {
     expect(await screen.findByTestId("research-home-summary")).toHaveTextContent("进行中2");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理1");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
+    expect(screen.getByTestId("research-stage-grs-complete")).toHaveTextContent("第 6 / 6 步");
   });
 
   it("uses the status summary to filter the library and composes it with search", async () => {

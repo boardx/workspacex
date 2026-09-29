@@ -9,7 +9,21 @@ vi.mock('@/lib/survey/runtime-client',async(importOriginal)=>({...(await importO
 vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
+const openOptionalReport=()=>{
+ const report=screen.getByRole('group',{name:'分析报告（可选）'});
+ fireEvent.click(report.querySelector('summary')!);
+ return report;
+};
 describe('live survey workspace persistence',()=>{
+ it('puts real responses before the optional report area and keeps secondary operations grouped',async()=>{
+  request.mockResolvedValueOnce(runtime({responses:[]}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+  const responses=await screen.findByRole('region',{name:'答卷列表'});
+  const report=screen.getByRole('group',{name:'分析报告（可选）'});
+  expect(responses.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole('button',{name:'更多操作'})).toHaveAttribute('aria-expanded','false');
+  expect(screen.queryByRole('button',{name:'设计报告模板（可选）'})).not.toBeInTheDocument();
+ });
  it('preserves existing tags in canonical Markdown when applying an AI proposal without tags',async()=>{
   const original=runtime({tags:['客户调研']});
   request.mockResolvedValueOnce(original).mockResolvedValueOnce({markdown:'# AI 客户反馈\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}}).mockResolvedValueOnce(runtime({title:'AI 客户反馈',tags:['客户调研'],version:5}));
@@ -155,7 +169,7 @@ describe('live survey workspace persistence',()=>{
   await screen.findByRole('alert');
   expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft/design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  fireEvent.click(screen.getByRole('button',{name:'重试保存'}));
   await screen.findByText('修改已保存');
   expect(request.mock.calls.filter(([path,options])=>path==='/surveys' && options?.method==='POST')).toHaveLength(1);
  });
@@ -188,11 +202,22 @@ describe('live survey workspace persistence',()=>{
  it('shows optional report-template and latest-report readiness without blocking responses',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
-  const readiness=await screen.findByRole('region',{name:'报告准备状态'});
-  expect(readiness).toHaveTextContent('未设置（可选）');
+  await screen.findByRole('region',{name:'答卷列表'});
+  const readiness=openOptionalReport();
+  expect(readiness).toHaveTextContent('可直接使用默认模板');
   expect(readiness).toHaveTextContent('未生成');
   expect(screen.getByRole('region',{name:'答卷列表'})).toBeInTheDocument();
   expect(screen.getByRole('button',{name:'设计报告模板'})).toBeInTheDocument();
+ });
+ it('closes the optional actions menu after choosing an action',async()=>{
+ request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="design"/>);
+  await screen.findByRole('region',{name:'问卷设计画布'});
+  const trigger=screen.getByRole('button',{name:'更多操作'});
+  fireEvent.click(trigger);
+  expect(trigger).toHaveAttribute('aria-expanded','true');
+  fireEvent.click(screen.getByRole('button',{name:'设计报告模板（可选）'}));
+  expect(trigger).toHaveAttribute('aria-expanded','false');
  });
  it('uses a four-step AI import flow and enters a clean designer after applying Markdown',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce({markdown:'# AI 草稿\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}});
@@ -216,8 +241,22 @@ describe('live survey workspace persistence',()=>{
   expect(await screen.findByRole('alert')).toHaveTextContent('版本冲突');
   expect(screen.getByLabelText('问卷名称')).toHaveValue('尚未保存的新标题');
   expect(screen.getByText('有未保存修改')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('保存失败，修改仍保留');
+  expect(screen.getByRole('button',{name:'重试保存'})).toBeEnabled();
   expect(screen.queryByText('修改已保存')).not.toBeInTheDocument();
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4,documents:expect.objectContaining({design:expect.stringContaining('# 尚未保存的新标题')})})}),expect.anything());
+ });
+ it('shows a dedicated saving state while a manual save is pending',async()=>{
+  let finishSave:(value:SurveyRuntime)=>void=()=>undefined;
+  request.mockResolvedValueOnce(runtime()).mockReturnValueOnce(new Promise<SurveyRuntime>(resolve=>{finishSave=resolve;}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  await screen.findByDisplayValue('已保存问卷');
+  fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'等待保存的标题'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  expect(screen.getByRole('status')).toHaveTextContent('正在保存修改');
+  expect(screen.getByRole('button',{name:'保存中…'})).toBeDisabled();
+  await act(async()=>finishSave(runtime({title:'等待保存的标题',version:5})));
+  await screen.findByText('修改已保存');
  });
  it('accepts only the returned saved runtime, including its canonical title and version',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'服务端保存的标题',version:5}));
@@ -248,7 +287,8 @@ describe('live survey workspace persistence',()=>{
   const report={id:'report',title:'旧模板生成的报告',sections:[{id:'s',title:'真实章节',blocks:[]}],issues:[]};
   request.mockResolvedValueOnce(runtime({version:5,report,reportBasisVersion:3,answerRevision:0,reportBasisAnswerRevision:0,reportGeneratedAt:'2026-09-19T10:00:00.000Z'}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
-  expect(await screen.findByRole('region',{name:'报告准备状态'})).toHaveTextContent('模板或答卷已有更新，可重新生成报告');
+  await screen.findByRole('region',{name:'答卷列表'});
+  expect(openOptionalReport()).toHaveTextContent('模板或答卷已有更新，可重新生成报告');
  });
  it('keeps exports disabled with a clear privacy reason until the report reaches the sharing threshold',async()=>{
   const report={id:'report',title:'受保护报告',issues:[],sampleSummary:{total:4,pendingReview:0,excluded:1,included:3},sections:[{id:'s',title:'章节',blocks:[]}]};
@@ -285,7 +325,8 @@ describe('live survey workspace persistence',()=>{
   const response={id:'answer-1',analysis:'included' as const,quality:'normal' as const,role:'未填写',companySize:'未填写',submittedAt:'2026-09-20T11:00:00.000Z',durationSeconds:20,answers:[{questionId:'q1',value:'甲'}]};
   request.mockResolvedValueOnce(runtime({status:'closed',responses:[response]})).mockResolvedValueOnce(runtime({status:'closed',version:5,responses:[{...response,analysis:'excluded',exclusionReason:'重复测试提交'}]}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
-  expect(await screen.findByRole('region',{name:'报告准备状态'})).toHaveTextContent('尚未生成；不影响问卷发布和答卷回收');
+  await screen.findByRole('region',{name:'答卷列表'});
+  expect(openOptionalReport()).toHaveTextContent('尚未生成；可直接使用默认模板');
   fireEvent.click(await screen.findByRole('button',{name:'查看完整答卷'}));
   fireEvent.change(screen.getByLabelText('排除分析原因'),{target:{value:'重复测试提交'}});
   fireEvent.click(screen.getByRole('button',{name:'排除分析'}));

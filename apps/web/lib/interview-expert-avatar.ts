@@ -1,6 +1,6 @@
-import { AVATAR_KEYS, AvatarKey, ExpertAvatarPreference, type ExpertAvatarContext } from "@repo/contracts/interview-expert-avatar";
+import { AVATAR_KEYS, DIGITAL_HUMAN_AVATAR_KEYS, ILLUSTRATION_AVATAR_KEYS, AvatarKey, ExpertAvatarPreference, type ExpertAvatarContext } from "@repo/contracts/interview-expert-avatar";
 import { apiRequest, getStoredSessionToken } from "./api-client";
-export { AVATAR_KEYS };
+export { AVATAR_KEYS, DIGITAL_HUMAN_AVATAR_KEYS, ILLUSTRATION_AVATAR_KEYS };
 export type { ExpertAvatarContext };
 /** Presentation preferences, separate from agent profiles and research evidence. */
 export const AVATAR_CHANGED_EVENT = "itv-expert-avatar-changed";
@@ -33,7 +33,7 @@ export function isAvatarKey(value: string | null): value is string {
 export function defaultExpertAvatar(expertId: string): string {
   let hash = 2166136261;
   for (const character of expertId) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
-  return AVATAR_KEYS[hash % 24] ?? "person-1";
+  return ILLUSTRATION_AVATAR_KEYS[hash % 24] ?? "person-1";
 }
 
 export function readExpertAvatar(expertId: string, context?: ExpertAvatarContext): string {

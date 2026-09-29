@@ -113,7 +113,7 @@ test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   const userText = "DA-19 适配器真实回合测试";
   // 已知限制②（见文件头）：`@copilotkit/react-core/v2` 极少数渲染时序下会用空
@@ -235,7 +235,7 @@ test("CopilotRuntime 适配器真实转发 Authorization——清空 token 后�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");
@@ -297,7 +297,7 @@ test("DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fa
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   const MAX_ATTEMPTS = 4;
   let sawNonEmptyAssistantText = false;
@@ -405,7 +405,7 @@ test("DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
   await page.goto("/chat");
 
   const firstTurnText = "DA-19g 第一轮：记住这句暗号 ZEBRA-4471";

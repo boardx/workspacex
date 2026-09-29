@@ -3,24 +3,23 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { WorkflowNav } from "@/components/workflow/workflow-nav";
+import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 import { LiveBoardRunColumns } from "@/components/work-stack/board-run-card";
 import { listBoardRunCards } from "@/lib/board-run-cards-api";
 
 function BoardRuns() {
   const projectId = useSearchParams().get("projectId");
   return (
-    <>
-      <h1>{projectId ? "项目 Board · Workflow 运行" : "Board · Workflow 运行"}</h1>
+    <WorkflowPage title={projectId ? "项目 Board · Workflow 运行" : "Board · Workflow 运行"}>
       <LiveBoardRunColumns projectId={projectId} load={listBoardRunCards} />
-    </>
+    </WorkflowPage>
   );
 }
 
 export default function WorkflowBoardPage() {
   return (
     <AppShell previewRole={null} left={<WorkflowNav active="board" />}>
-      <Suspense fallback={<p>加载中…</p>}>
+      <Suspense fallback={<p className="p-6 text-12 text-muted-foreground">加载中…</p>}>
         <BoardRuns />
       </Suspense>
     </AppShell>

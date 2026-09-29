@@ -16,7 +16,7 @@ import { buildWorkContentPack, runWorkContentPackCli, type WorkContentPackSpec }
 export { WorkContentPackBuildError, checkCommittedPack } from "./work-content-pack";
 
 export const PACK_ID = "work-sales";
-export const PACK_VERSION = "1.0.0";
+export const PACK_VERSION = "1.0.1";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** repo-root-relative `skills/work-sales/`. */

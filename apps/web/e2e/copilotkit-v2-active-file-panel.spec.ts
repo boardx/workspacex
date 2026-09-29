@@ -104,7 +104,7 @@ test("ActiveFilePanel 真实解析 file_created/file_content_delta wire 帧并�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   const userText = "DA-13 活动文件工作台测试";
   const MAX_ATTEMPTS = 4;
@@ -208,7 +208,7 @@ test("ActiveFilePanel 缺席纪律：没有 file_created 事件时右栏不渲�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");

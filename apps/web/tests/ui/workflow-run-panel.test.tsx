@@ -118,27 +118,20 @@ describe("WorkflowRunPanel", () => {
     await waitFor(() => expect(api.getWorkflowInstance.mock.calls.length).toBeGreaterThan(before));
   });
 
-  it("失败可重试：失败阶段显示「从该阶段重试」，带 expectedStateVersion 调用；已完成阶段产出可见", async () => {
+  it("阶段重试入口隐藏：即使 canRetryStage=true，失败阶段也不渲染重试控件（运行时不支持重跑，API 桩保留）；已完成阶段产出可见", () => {
     const failed = proj({
       status: "failed",
       stages: [proj().stages[0]!, { ...proj().stages[1]!, status: "failed", reasonCode: "stage_attempts_exhausted" }],
     });
-    api.retryWorkflowStage.mockResolvedValue({ instanceId: "i1", stageId: "publish", attempt: 3, stateVersion: 6 });
     api.getWorkflowInstance.mockResolvedValue(failed);
     render(<WorkflowRunPanel instanceId="i1" initial={failed} />);
     expect(screen.getByTestId("workflow-output-o1")).toBeTruthy();
     expect(screen.queryByTestId("workflow-action-retry-draft")).toBeNull();
-    fireEvent.click(screen.getByTestId("workflow-action-retry-publish"));
-    await waitFor(() => expect(api.retryWorkflowStage).toHaveBeenCalledWith({ instanceId: "i1", stageId: "publish", expectedStateVersion: 5 }));
+    expect(screen.queryByTestId("workflow-action-retry-publish")).toBeNull();
+    expect(screen.queryByText("从该阶段重试")).toBeNull();
+    expect(api.retryWorkflowStage).not.toHaveBeenCalled();
     expect((screen.getByTestId("workflow-action-cancel") as HTMLButtonElement).disabled).toBe(true);
     expect(api.openWorkflowInstanceStream).not.toHaveBeenCalled(); // 终态不订阅
-  });
-
-  it("无重试权限：失败阶段不渲染重试按钮", () => {
-    const failed = proj({ status: "failed", viewerCapabilities: { canCancel: false, canRetryStage: false, canResume: false },
-      stages: [{ ...proj().stages[1]!, status: "failed" }] });
-    render(<WorkflowRunPanel instanceId="i1" initial={failed} />);
-    expect(screen.queryByTestId("workflow-action-retry-publish")).toBeNull();
   });
 
   it("取消：带 expectedStateVersion；409 state_version_conflict 用 latestProjection 刷新并提示", async () => {
@@ -245,7 +238,7 @@ describe("列表与入口", () => {
     api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 9 }));
     api.approveWorkflowGate.mockResolvedValue({ gate: gate({ decision: "approved" }), status: "running", stateVersion: 10 });
     render(<WorkflowApprovalList />);
-    fireEvent.click(await screen.findByTestId("workflow-approval-open-g1"));
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-i1-g1"));
     fireEvent.click(screen.getByTestId("workflow-approve"));
     await waitFor(() => expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "i1", gateId: "g1", expectedStateVersion: 9 }));
   });
@@ -295,11 +288,23 @@ describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
     api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 9 }));
     api.approveWorkflowGate.mockResolvedValue({ gate: gate({ decision: "approved" }), status: "running", stateVersion: 10 });
     render(<WorkflowApprovalList />);
-    fireEvent.click(await screen.findByTestId("workflow-approval-open-g1"));
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-i1-g1"));
     fireEvent.click(screen.getByTestId("workflow-approve"));
     expect(await screen.findByTestId("workflow-run-list-empty")).toBeTruthy();
     expect(api.listMyWorkflowApprovals).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId("workflow-approve")).toBeNull();
+  });
+
+  it("待我审批：不同运行共享同一 gateId 时只打开被点的抽屉，批准带对应 instanceId", async () => {
+    const item = (instanceId: string) => ({ instanceId, workflowKey: "demo-approval", definitionVersion: 1, agentId: "a1", initiatorUserId: "u1", gate: gate({ gateId: "publish-gate-1" }) });
+    api.listMyWorkflowApprovals.mockResolvedValue({ items: [item("run-a"), item("run-b")] });
+    api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 4 }));
+    api.approveWorkflowGate.mockResolvedValue({ gate: gate({ gateId: "publish-gate-1", decision: "approved" }), status: "running", stateVersion: 5 });
+    render(<WorkflowApprovalList />);
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-run-b-publish-gate-1"));
+    expect(screen.getAllByTestId("workflow-approve")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("workflow-approve"));
+    await waitFor(() => expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "run-b", gateId: "publish-gate-1", expectedStateVersion: 4 }));
   });
 
   it("入口：展开后由用户选择具体 Workflow，调 startInstance 并回调新实例", async () => {
@@ -314,6 +319,51 @@ describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
     fireEvent.click(screen.getByTestId("workflow-run-start-daily-digest"));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith("i9"));
     expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "daily-digest", version: 1, agentId: "a1", input: {} });
+  });
+
+  it("入口：无必填输入的 Workflow 不出表单，一键发起", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [
+      { key: "daily-digest", version: 1, title: "日报", inputSchema: { type: "object", properties: { note: { type: "string" } } } },
+    ] });
+    api.startWorkflowInstance.mockResolvedValue({ instanceId: "i8", status: "running", stateVersion: 1, definitionVersion: 1, pinnedSkills: [] });
+    const onStarted = vi.fn();
+    render(<WorkflowRunEntry agentId="a1" onStarted={onStarted} />);
+    fireEvent.click(await screen.findByTestId("workflow-run-entry"));
+    fireEvent.click(screen.getByTestId("workflow-run-start-daily-digest"));
+    expect(screen.queryByTestId("workflow-run-form-daily-digest")).toBeNull();
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("i8"));
+    expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "daily-digest", version: 1, agentId: "a1", input: {} });
+  });
+
+  it("入口：有必填输入时先出表单，空值给字段级错误且不发起；填好后带输入发起", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [
+      { key: "demo-brief", version: 1, title: "简报", inputSchema: {
+        type: "object", required: ["topic", "count"],
+        properties: { topic: { type: "string" }, count: { type: "integer" }, stageDelayMs: { type: "integer" } },
+      } },
+    ] });
+    api.startWorkflowInstance.mockResolvedValue({ instanceId: "i7", status: "running", stateVersion: 1, definitionVersion: 1, pinnedSkills: [] });
+    const onStarted = vi.fn();
+    render(<WorkflowRunEntry agentId="a1" onStarted={onStarted} />);
+    fireEvent.click(await screen.findByTestId("workflow-run-entry"));
+    fireEvent.click(screen.getByTestId("workflow-run-start-demo-brief"));
+    expect(screen.getByTestId("workflow-run-form-demo-brief")).toBeTruthy();
+    expect(screen.queryByTestId("workflow-run-input-stageDelayMs")).toBeNull();
+    expect(api.startWorkflowInstance).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("workflow-run-form-submit"));
+    expect(screen.getByTestId("workflow-run-input-error-topic").textContent).toBe("必填");
+    expect(screen.getByTestId("workflow-run-input-error-count").textContent).toBe("必填");
+    expect(api.startWorkflowInstance).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("workflow-run-input-topic"), { target: { value: "Q3 发布" } });
+    fireEvent.change(screen.getByTestId("workflow-run-input-count"), { target: { value: "1.5" } });
+    fireEvent.click(screen.getByTestId("workflow-run-form-submit"));
+    expect(screen.queryByTestId("workflow-run-input-error-topic")).toBeNull();
+    expect(screen.getByTestId("workflow-run-input-error-count").textContent).toBe("请输入整数");
+    expect(api.startWorkflowInstance).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("workflow-run-input-count"), { target: { value: "3" } });
+    fireEvent.click(screen.getByTestId("workflow-run-form-submit"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("i7"));
+    expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "demo-brief", version: 1, agentId: "a1", input: { topic: "Q3 发布", count: 3 } });
   });
 
   it("入口：startInstance 失败显示错误文案", async () => {

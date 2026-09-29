@@ -26,6 +26,7 @@ import { stringify } from "yaml";
 import { analyzeRewriteCoverage, staleAllowlistEntries } from "./lib/rewrite-coverage.ts";
 import { analyzeRewriteShadow, staleShadowAllowlistEntries } from "./lib/rewrite-shadow.ts";
 import { buildRewriteCoverageEvidence } from "./lib/rewrite-coverage-evidence.ts";
+import { analyzeContractRewriteCoverage } from "./lib/contract-rewrite-coverage.ts";
 
 // #2490：两个 CLI 旗标。
 //   --strict  扫不全（incomplete）也退出非 0。PR 门控必须带它：一道 required check 在
@@ -43,6 +44,7 @@ const CONTROLLERS = join(ROOT, "apps/api/src/interface/controllers");
 const NEXT_CONFIG = join(ROOT, "apps/web/next.config.mjs");
 const ALLOWLIST = join(ROOT, ".harness/state/rewrite-coverage-allowlist.json");
 const APP_DIR = join(ROOT, "apps/web/app");
+const CONTRACTS = join(ROOT, "packages/contracts/src");
 const SHADOW_ALLOWLIST = join(ROOT, ".harness/state/rewrite-shadow-allowlist.json");
 // 反向判定时喂给 next.config.mjs 的 apiOrigin。只用来认出「这条 destination 是往外代理的」，
 // 不会真的去连它——具体是哪个地址不影响判定（判据是 destination 带不带 protocol）。
@@ -52,6 +54,20 @@ const SHADOW_API_ORIGIN = "http://127.0.0.1:65535";
 // 不入库（.gitignore 里有注释解释理由，同 dep-graph.md 那条同一理由：
 // 提交一份会过期的快照只会误导，重跑一遍就是最新状态）。
 const EVIDENCE_INSTANCE = join(ROOT, ".harness/templates/instances/EVD-rewrite-coverage.yaml");
+
+/** `packages/contracts/src` 下全部非测试 .ts（递归）。契约路由的事实源。 */
+function readContracts(dir = CONTRACTS) {
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...readContracts(p));
+    else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) {
+      out.push({ file: p.slice(ROOT.length + 1), source: readFileSync(p, "utf8") });
+    }
+  }
+  return out;
+}
 
 function readControllers() {
   if (!existsSync(CONTROLLERS)) return [];
@@ -259,6 +275,32 @@ if (shadowReport.incomplete) {
     );
   }
   failed ||= shadowFailed;
+}
+
+// ───────────────────────── 契约方向：每条契约路由，同源代理够得到吗？（2026-09-29）
+//
+// 正方向只认 controller 里的字面量路径；路径来自契约常量的 controller（workflow-runtime、
+// platform…）它看不见。这里以 packages/contracts 的 `path:` 为事实源，逐条匹配求值后的规则。
+const contractReport = analyzeContractRewriteCoverage({
+  contracts: readContracts(),
+  rewrites: shadowReadReason ? [] : shadowRules,
+  allowlist,
+});
+if (contractReport.incomplete) {
+  console.warn(`! [contract-rewrite-coverage] 扫不全，本次不判定：${shadowReadReason ?? contractReport.incompleteReason}`);
+  if (STRICT) {
+    console.error("✗ [contract-rewrite-coverage] --strict：门控模式下「没做判断」不能当绿，退出非 0。");
+    failed = true;
+  }
+} else if (contractReport.gaps.length > 0) {
+  failed = true;
+  console.error(`✗ [contract-rewrite-coverage] ${contractReport.gaps.length} 条契约路由没有同源代理规则：`);
+  for (const gap of contractReport.gaps) {
+    console.error(`   · ${gap.path}（${gap.file}）—— 走同源代理会被 Next 接住返回 404`);
+  }
+  console.error("   在 apps/web/next.config.mjs 的 afterFiles 补对应规则（有前端页面同名的前缀逐条写，别写通配）。");
+} else {
+  console.log(`✓ [contract-rewrite-coverage] ${contractReport.routes.length} 条契约路由全部有同源代理规则`);
 }
 
 process.exit(failed ? 1 : 0);

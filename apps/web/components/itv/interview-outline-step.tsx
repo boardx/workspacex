@@ -46,8 +46,8 @@ function expertRole(expertId: string, directory: readonly DigitalExpertCatalogRo
   return body.match(/(?:^|\n)(?:#{1,6}\s*)?(?:专业角色|职业)(?:[：:]\s*|\s*\r?\n+)([^\r\n#]+)/u)?.[1]?.trim() || "未设置职业";
 }
 
-export function InterviewOutlineStep({ document, directory = [], expertsDocument, avatarContext, pending, onChange, onSave, onConfirm, onGenerate }: {
-  document: InterviewMarkdownDocument; pending: boolean; onChange: (markdown: string) => void;
+export function InterviewOutlineStep({ document, directory = [], expertsDocument, avatarContext, pending, generating = false, onChange, onSave, onConfirm, onGenerate }: {
+  document: InterviewMarkdownDocument; pending: boolean; generating?: boolean; onChange: (markdown: string) => void;
   onSave: () => void; onConfirm: () => void; onGenerate: () => void;
   directory?: readonly DigitalExpertCatalogRow[]; expertsDocument?: InterviewMarkdownDocument;
   avatarContext?: { interviewId: string; revisionId: string };
@@ -58,12 +58,17 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
     const link = block.links.find((item) => /^#expert-[^\s#]+$/u.test(item.url));
     return link ? [{ ...block, expertId: link.url.slice(8), displayName: link.text }] : [];
   });
+  const confirmedExperts = expertsDocument ? interviewMarkdown.projectInterviewMarkdownExperts(expertsDocument) : [];
+  const navigationExperts = groups.length ? groups.map((group) => ({ expertId: group.expertId, displayName: group.displayName, headingId: group.headingId }))
+    : confirmedExperts.map((expert) => ({ expertId: expert.expertId, displayName: expert.displayName, headingId: `pending-${expert.expertId}` }));
   const groupRefs = React.useRef(new Map<string, HTMLElement>());
   const chosen = groups.find((block) => block.headingId === active) ?? groups[0];
   const move = (direction: -1 | 1) => chosen ? moveOutlineGroup(document, chosen.headingId, direction) : null;
+  const generationLabel = `正在为 ${confirmedExperts.length} 位专家生成问题`;
   return <div data-testid="itv-markdown-outline"><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">访谈问题</h2><p className="mt-2 text-base leading-7 text-muted-foreground">按专家逐题确认访谈内容。</p>
+    {generating && <p role="status" aria-live="polite" className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">{generationLabel}，通常需要几十秒。当前专家选择与编辑会被保留。</p>}
     {chosen && <div className="mt-4 flex gap-2">{([-1, 1] as const).map((direction) => <Button key={direction} variant="outline" disabled={pending || move(direction) === null} onClick={() => { const next = move(direction); if (next !== null) { onChange(next); setActive(null); } }}>{direction === -1 ? "上移当前分组" : "下移当前分组"}</Button>)}</div>}
-    <div className="mt-6 grid items-start gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"><aside className="rounded-xl border border-border p-4 lg:sticky lg:top-5"><h3 className="font-semibold">访谈专家</h3><nav aria-label="访谈问题分组" className="mt-4 space-y-2">{groups.map((block) => <button key={block.headingId} type="button" aria-label={block.displayName} aria-current={chosen?.headingId === block.headingId ? "true" : undefined} onClick={() => { setActive(block.headingId); groupRefs.current.get(block.headingId)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={`flex w-full items-center gap-3 rounded-xl p-3 text-left focus-visible:ring-2 focus-visible:ring-ring ${chosen?.headingId === block.headingId ? "bg-muted" : "hover:bg-muted/50"}`}><ExpertAvatar expertId={block.expertId} displayName={block.displayName} className="size-10" context={avatarContext} /><span className="min-w-0"><strong className="block truncate text-sm">{block.displayName}</strong><span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{expertRole(block.expertId, directory, expertsDocument)}</span></span></button>)}</nav></aside>
+    <div className="mt-6 grid items-start gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"><aside className="rounded-xl border border-border p-4 lg:sticky lg:top-5"><h3 className="font-semibold">访谈专家</h3><nav aria-label="访谈问题分组" className="mt-4 space-y-2">{navigationExperts.map((block, index) => <button key={block.headingId} type="button" aria-label={block.displayName} aria-current={(chosen?.headingId === block.headingId || (!groups.length && index === 0)) ? "true" : undefined} onClick={() => { if (!groups.length) return; setActive(block.headingId); groupRefs.current.get(block.headingId)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={`flex w-full items-center gap-3 rounded-xl p-3 text-left focus-visible:ring-2 focus-visible:ring-ring ${(chosen?.headingId === block.headingId || (!groups.length && index === 0)) ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/50"}`}><ExpertAvatar expertId={block.expertId} displayName={block.displayName} className="size-10" context={avatarContext} /><span className="min-w-0"><strong className="block truncate text-sm">{block.displayName}</strong><span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{expertRole(block.expertId, directory, expertsDocument)}</span></span></button>)}</nav></aside>
       <section className="min-w-0 space-y-5">{groups.length ? groups.map((group) => {
         const questions = questionLines(document.markdown, group.contentStart, group.end);
         return <article key={group.headingId} ref={(node) => { if (node) groupRefs.current.set(group.headingId, node); else groupRefs.current.delete(group.headingId); }} className={`scroll-mt-5 rounded-xl border bg-background p-5 ${chosen?.headingId === group.headingId ? "border-primary/40 ring-1 ring-primary/15" : "border-border"}`}>
@@ -90,6 +95,6 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
         </article>;
       }) : <div className="rounded-xl border border-border p-5"><p className="py-12 text-center text-sm text-muted-foreground">尚无专家问题，请先生成访谈问题。</p></div>}</section>
     </div>
-    <footer className="mt-6 flex flex-wrap justify-end gap-3"><Button variant="outline" disabled={pending} onClick={onGenerate}>生成访谈问题</Button><Button variant="outline" disabled={pending || !document.markdown.trim()} onClick={onSave}>保存问题草稿</Button><Button variant="primary" disabled={pending || !groups.length} onClick={onConfirm}>确认问题并开始访谈</Button></footer>
+    <footer className="mt-6 flex flex-wrap justify-end gap-3"><Button variant="outline" disabled={pending} onClick={onGenerate}>{generating ? `${generationLabel}…` : "生成访谈问题"}</Button><Button variant="outline" disabled={pending || !document.markdown.trim()} onClick={onSave}>保存问题草稿</Button><Button variant="primary" disabled={pending || !groups.length} onClick={onConfirm}>确认问题并开始访谈</Button></footer>
   </div>;
 }

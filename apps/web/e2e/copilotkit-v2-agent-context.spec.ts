@@ -52,7 +52,7 @@ test("useAgentContext 探针真的出现在 /api/copilotkit/agent/:id/run 的上
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   const userText = "DA-19f useAgentContext 接线基座取证";
 

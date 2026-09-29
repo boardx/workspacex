@@ -7,7 +7,7 @@
  */
 import type { WorkflowDefinitionVersionView } from "@repo/contracts/workflow-runtime";
 import type { DatabasePort } from "../../application/ports/database.port";
-import type { WorkflowDefinitionRepository } from "../../application/workflow/workflow-ports";
+import type { WorkflowDefinitionCatalogPort, WorkflowDefinitionRepository } from "../../application/workflow/workflow-ports";
 import { toOrgId } from "../../domain/org-id";
 
 interface VersionRow {
@@ -21,7 +21,20 @@ interface VersionRow {
   published_at: Date | null;
 }
 
-export class PgWorkflowDefinitionRepository implements WorkflowDefinitionRepository {
+function toView(r: VersionRow): WorkflowDefinitionVersionView {
+  return {
+    key: r.key,
+    version: r.version,
+    graphRef: r.graph_ref,
+    title: r.title,
+    inputSchema: r.input_schema,
+    stages: r.stages,
+    status: r.status,
+    publishedAt: r.published_at ? r.published_at.toISOString() : null,
+  };
+}
+
+export class PgWorkflowDefinitionRepository implements WorkflowDefinitionRepository, WorkflowDefinitionCatalogPort {
   constructor(private readonly db: DatabasePort) {}
 
   definitionExists(orgId: string, key: string): Promise<boolean> {
@@ -39,17 +52,7 @@ export class PgWorkflowDefinitionRepository implements WorkflowDefinitionReposit
         [orgId, key, version],
       );
       const r = rows[0];
-      if (!r) return null;
-      return {
-        key: r.key,
-        version: r.version,
-        graphRef: r.graph_ref,
-        title: r.title,
-        inputSchema: r.input_schema,
-        stages: r.stages,
-        status: r.status,
-        publishedAt: r.published_at ? r.published_at.toISOString() : null,
-      };
+      return r ? toView(r) : null;
     });
   }
 
@@ -70,6 +73,25 @@ export class PgWorkflowDefinitionRepository implements WorkflowDefinitionReposit
          VALUES ($1, $2, $3, $4, $5, 'published', $6::jsonb, $7::jsonb, $8)`,
         [orgId, view.key, view.version, view.graphRef, view.title, JSON.stringify(view.stages), JSON.stringify(view.inputSchema), view.publishedAt],
       ),
+    );
+  }
+
+  /** UC-WR-2：每个 key 的最新 published 版本（DISTINCT ON，按 key 排序以稳定输出）。 */
+  listLatestPublished(orgId: string): Promise<WorkflowDefinitionVersionView[]> {
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const { rows } = await s.query<VersionRow>(
+        `SELECT DISTINCT ON (key) key, version, graph_ref, title, status, stages, input_schema, published_at
+           FROM workflow_definition_versions WHERE org_id = $1 AND status = 'published'
+          ORDER BY key, version DESC`,
+        [orgId],
+      );
+      return rows.map(toView);
+    });
+  }
+
+  async ensureDefinition(orgId: string, key: string): Promise<void> {
+    await this.db.withTenant(toOrgId(orgId), (s) =>
+      s.query("INSERT INTO workflow_definitions (org_id, key) VALUES ($1, $2) ON CONFLICT (org_id, key) DO NOTHING", [orgId, key]),
     );
   }
 }

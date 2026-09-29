@@ -107,9 +107,9 @@ export function GuidedResearchSixStepShell({
           </nav>
         </div>
       </header>
-      <main className="mx-auto min-w-0 max-w-[1440px] px-4 pb-8 pt-1 lg:px-8" data-reference-region="work-canvas" data-testid="guided-research-six-step-main">{main}</main>
+      <main className={cn("mx-auto min-w-0 max-w-[1440px] px-4 pt-1 lg:px-8", assistant ? "pb-24 md:pb-8" : "pb-8")} data-reference-region="work-canvas" data-testid="guided-research-six-step-main">{main}</main>
       <Dialog open={Boolean(leaveAction)} onOpenChange={(open) => { if (!open) setLeaveAction(null); }}><DialogContent><DialogTitle>研究内容尚未保存</DialogTitle><DialogDescription>离开会放弃当前页面未保存的修改。已保存的研究和报告不会被删除。</DialogDescription><div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setLeaveAction(null)}>继续编辑</Button><Button variant="primary" onClick={() => { const action = leaveAction; setLeaveAction(null); action?.(); }}>放弃修改并离开</Button></div></DialogContent></Dialog>
-      {assistant && <div className="fixed bottom-5 left-10 z-30"><Button variant="primary" className="h-10 rounded-full px-6 text-base shadow-lg" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Bot className="mr-2 size-6" />AI 助手</Button>{assistantOpen && <aside className="absolute bottom-14 left-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2.5rem))] overflow-y-auto rounded-xl border bg-card p-5 shadow-xl" data-testid="guided-research-six-step-assistant">{assistant}</aside>}</div>}
+      {assistant && <div className="fixed bottom-4 right-4 z-30 md:bottom-5 md:left-10 md:right-auto"><Button variant="primary" className="h-10 rounded-full px-5 text-base shadow-lg" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Bot className="mr-2 size-6" />AI 助手</Button>{assistantOpen && <aside className="absolute bottom-14 right-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border bg-card p-5 shadow-xl md:left-0 md:right-auto" data-testid="guided-research-six-step-assistant">{assistant}</aside>}</div>}
     </div>
   );
 }

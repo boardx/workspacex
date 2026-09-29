@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Brain, Users } from "lucide-react";
+import { Brain, Users, Workflow } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -139,6 +139,23 @@ export function TabGeneralOverview({ projectId, liveOverview, tabHref }: {
               <BrainStat label="冲突" value={brain.summary.conflicts} testId="project-general-overview-brain-conflicts" />
             </>
           )}
+        </a>
+      </section>
+
+      {/*
+        CT10：Workflow 运行卡住在 Board 读模型上，而任务看板（「待办」tab）是工作坊机制——通用项目没有这个 tab
+        （PROP-PROJECT-WORKSPACE-001 §3.4；`application/identity/project-layer.ts` 头注：看板走工作坊成员表）。
+        运行卡的只读投影（`listBoardRunCards`）对任何项目都按 WF03 canView 过滤，所以这里链到它的项目视图。
+      */}
+      <section>
+        <SectionTitle meta="本项目发起的 Workflow 运行（只读看板）">Workflow 运行</SectionTitle>
+        <a
+          href={`/workflows/board?projectId=${encodeURIComponent(projectId)}`}
+          data-testid="project-general-overview-workflow-runs"
+          className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-12 transition-colors duration-base hover:border-primary"
+        >
+          <Workflow aria-hidden className="h-4 w-4 text-muted-foreground" />
+          <span>查看运行看板</span>
         </a>
       </section>
     </div>

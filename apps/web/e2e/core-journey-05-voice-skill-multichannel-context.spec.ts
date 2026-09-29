@@ -31,7 +31,7 @@ async function loginAsFacilitator(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 → 同一转录不跨渠道漏进个人 chat", async ({ page }) => {

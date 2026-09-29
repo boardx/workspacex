@@ -30,7 +30,7 @@ import { ResearchChaptersWorkspace } from "./research-chapters-workspace";
 import { GuidedResearchPlanPanel } from "./guided-research-plan-panel";
 import { GuidedResearchSourceWorkspace } from "./guided-research-source-workspace";
 import { GuidedResearchReportWorkspace } from "./guided-research-report-workspace";
-import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
+import { parseGuidedResearchMarkdown, researchPlanTitle, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
 import { toGuidedResearchVisualStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
@@ -369,7 +369,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
           <ResearchTopicInformation brief={state.brief} disabled={busy || Boolean(proposal)} onDirtyChange={setTopicInformationDirty} onSave={(value) => void run("save", { node: "brief", draft: { node: "brief", value } })} />
         </>} />}
         {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft || markdownDirty} onConfirm={() => void run("confirm", { draft })}
-          plan={<div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace editOnDoubleClick confirmChanges onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} preview={<ol className="space-y-3" aria-label="研究计划">{draft.value.filter((item) => item.enabled).sort((left, right) => left.order - right.order).map((item, index) => <li key={item.id} className="rounded-lg border border-border px-4 py-3 font-medium">{index + 1}、{item.title}</li>)}</ol>} onSave={async (markdown) => {
+          plan={<div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace editOnDoubleClick confirmChanges onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} preview={<ol className="space-y-3" aria-label="研究计划">{draft.value.filter((item) => item.enabled).sort((left, right) => left.order - right.order).map((item, index) => <li key={item.id} className="rounded-lg border border-border px-4 py-3 font-medium">{index + 1}、{researchPlanTitle(item.title)}</li>)}</ol>} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: outlineDocument, markdown });
             if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
             const saved = await run("save", { draft: parsed.draft });

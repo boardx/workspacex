@@ -1,4 +1,5 @@
 import { ESCALATE_TOOL_NAME } from "@repo/contracts/agent-role";
+import { AGENT_WORKFLOW_START_TOOL_NAME } from "../agent/request-agent-workflow-start";
 import { validateInterruptDecision } from "./validate-interrupt-decision";
 /**
  * decideAgentRun（DA-07b，#1749，rubric D6）—— awaiting_tool_permission 的唯一出口。
@@ -75,6 +76,11 @@ export async function decideAgentRun(
   // decideEscalation 裁决；通用通路没有决策人身份校验，放行等于绕过 E6。
   if (beforeDisclosed.payload.pendingApproval?.toolName === ESCALATE_TOOL_NAME) {
     throw new AgentRunNotAwaitingToolPermissionError("escalation_requires_target_decider");
+  }
+  // AG05：start_workflow 的结果只由服务端（网关 / 恢复路径经 WF03 回执）算出。通用通路的 edit 等于让人编一个
+  // 「已发起」；approve 会执行模型原参数（含模型自填的 outcome）。两者都拒绝，只允许 reject。
+  if (beforeDisclosed.payload.pendingApproval?.toolName === AGENT_WORKFLOW_START_TOOL_NAME && input.decision !== "reject") {
+    throw new AgentRunNotAwaitingToolPermissionError("workflow_start_outcome_is_server_computed");
   }
   const form = beforeDisclosed.payload.pendingApproval?.interrupt;
   if (form && !validateInterruptDecision(form, input)) {

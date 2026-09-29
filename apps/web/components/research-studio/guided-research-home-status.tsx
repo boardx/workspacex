@@ -28,6 +28,7 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
   const missingEvidence = session.resumeStage === "report" && session.sourceCount === 0;
   return {
     ...stage,
+    step: completed ? 6 : stage.step,
     action: completed ? "查看研究报告" : failed ? "恢复研究" : stage.action,
     attention: failed || missingEvidence,
     attentionLabel: missingEvidence ? "证据缺口" : failed ? "流程中断" : null,
@@ -87,9 +88,9 @@ export function GuidedResearchCardProgress({ session }: { session: GuidedResearc
         <FileCheck2 className="size-4 text-muted-foreground" aria-hidden />
         <span className="text-base font-medium">{presentation.label}</span>
       </div>
-      <span className="text-base text-muted-foreground">第 {presentation.step} / 5 步</span>
+      <span className="text-base text-muted-foreground">第 {presentation.step} / 6 步</span>
     </div>
-    <Progress value={presentation.step} max={5} label={`研究流程：第 ${presentation.step} / 5 步，${presentation.label}`} tone={presentation.attention ? "destructive" : completed ? "primary" : "warning"} />
+    <Progress value={presentation.step} max={6} label={`研究流程：第 ${presentation.step} / 6 步，${presentation.label}`} tone={presentation.attention ? "destructive" : completed ? "primary" : "warning"} />
     <div className="flex items-center justify-between gap-3">
       <span className={presentation.attention ? "text-11 font-medium text-destructive" : "text-11 text-muted-foreground"}>{presentation.evidenceLabel}</span>
       {presentation.attentionLabel && <Badge tone="danger">{presentation.attentionLabel}</Badge>}

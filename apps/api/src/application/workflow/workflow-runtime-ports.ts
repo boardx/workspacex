@@ -99,3 +99,22 @@ export interface WorkflowRunDispatcher {
 export interface WorkflowExpiredLeaseScanner {
   expired(limit: number): Promise<Array<{ orgId: string; instanceId: string }>>;
 }
+
+/**
+ * UC-WR-5 / UC-WR-10 读侧：列实例行（业务行，不读 checkpoint）。可见性不在这里判——
+ * `initiatorUserId` 只是 SQL 预筛，应用层（instance-queries.ts）仍逐行按 canView / 审批人资格复核。
+ */
+export interface WorkflowInstanceQueryPort {
+  /** 按 (updatedAt desc, instanceId desc) 分页；`before` 为上一页最后一行的游标键。 */
+  listInstances(
+    orgId: string,
+    q: {
+      initiatorUserId: string | null;
+      statuses: readonly WorkflowInstanceStatus[] | null;
+      before: { updatedAt: string; instanceId: string } | null;
+      limit: number;
+    },
+  ): Promise<WorkflowInstanceState[]>;
+  /** 开过人工门（有 gate_opened 事件）的实例 id，新近优先；`openOnly` 只取仍在 awaiting_gate_decision 的。 */
+  listGateInstanceIds(orgId: string, q: { openOnly: boolean; limit: number }): Promise<string[]>;
+}

@@ -53,7 +53,7 @@ async function loginAs(page: Page, email: string, password: string): Promise<voi
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 /**

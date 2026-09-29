@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
+import { httpFailureText } from "@/lib/http-failure-text";
 import { DeniedState, EmptyState, ErrorState, LoadingSkeleton } from "@/components/work-stack/states";
 import {
   AGENT_ROLE_CATEGORIES,
@@ -101,7 +102,8 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
       (error: unknown) => {
         if (requestId.current !== id) return;
         if (error instanceof ApiError && error.status === 401) { setState({ kind: "denied" }); return; }
-        setState({ kind: "error", message: error instanceof Error ? error.message : "加载失败" });
+        // 不把 reasonCode / error.message 端上屏（曾显示「AGENT_NOT_FOUND」）：只说人话。
+        setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
       },
     );
   }, [fetchDirectory]);
