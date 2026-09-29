@@ -10,7 +10,11 @@ import type { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
 import { skillContentDigest, type SkillStarterPack } from "../../domain/skill/starter-pack";
 import { PLATFORM_ORG_ID } from "../../domain/org-id";
 
+/** `skill_gate_records.written_by`：导入时的门判定不是任何人的手工回写（I-9）。 */
+export const IMPORT_GATE_WRITER = "system:starter-pack-import";
+
 interface ImportRow {
+  id: string;
   status: "pending" | "succeeded" | "failed";
   payload_digest: string;
   result_json: SkillStarterImportResult | null;
@@ -23,7 +27,7 @@ async function findImport(
   idempotencyKey: string,
 ): Promise<ImportRow | null> {
   const found = await session.query<ImportRow>(
-    `SELECT status, payload_digest, result_json, failure_code
+    `SELECT id, status, payload_digest, result_json, failure_code
        FROM starter_pack_imports
       WHERE org_id = $1 AND idempotency_key = $2`,
     [orgId, idempotencyKey],
@@ -40,6 +44,17 @@ function existingOutcome(
     return { kind: "replayed", result: existing.result_json };
   }
   return { kind: "previous-failure", failureCode: existing.failure_code ?? "SKILL_STARTER_PACK_INVALID" };
+}
+
+/**
+ * 幂等约定：只有**成功**是终局，同键重试原样重放首次结果。失败只留 provenance、不是终局——
+ * 请求体只有 `{packId, packVersion, idempotencyKey}`，所有失败原因（pack 根目录没配、包文件缺失/
+ * 不合规、与已有 skill 冲突）都取决于**服务端**的配置与状态，而不是请求本身；把它们当终局缓存，
+ * 运维修好配置后同一个键永远重放旧失败（实测：`SKILL_STARTER_PACK_ROOT` 未配置 → 404，配好后
+ * 同键重试仍 404）。同键不同 payload 仍是 idempotency 冲突。
+ */
+function isRetryableFailure(existing: ImportRow, payloadDigest: string): boolean {
+  return existing.status === "failed" && existing.payload_digest === payloadDigest;
 }
 
 /**
@@ -130,11 +145,22 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
       await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [input.orgId]);
 
       const existing = await findImport(session, input.orgId, input.idempotencyKey);
-      if (existing) return existingOutcome(existing, input.payloadDigest);
+      // 失败不是终局（见 `isRetryableFailure`）：同键同摘要的失败记录被这次重试**接管**——
+      // 复用那一行（保留 id），状态回到 pending 重新判定；成功记录照旧重放。
+      const retrying = existing !== null && isRetryableFailure(existing, input.payloadDigest);
+      if (existing && !retrying) return existingOutcome(existing, input.payloadDigest);
 
-      const importId = `skill-import-${randomUUID()}`;
+      const importId = retrying ? existing.id : `skill-import-${randomUUID()}`;
       const importedAt = new Date().toISOString();
-      await session.query(
+      if (retrying) {
+        await session.query(
+          `UPDATE starter_pack_imports
+              SET status = 'pending', failure_code = NULL, result_json = NULL,
+                  pack_digest = $3, administrator_id = $4, imported_at = $5
+            WHERE id = $1 AND org_id = $2`,
+          [importId, input.orgId, input.pack.packDigest, input.actorId, importedAt],
+        );
+      } else await session.query(
         `INSERT INTO starter_pack_imports
           (id, org_id, pack_id, pack_version, pack_digest, payload_digest, idempotency_key,
            administrator_id, imported_at, status, result_json, failure_code)
@@ -210,7 +236,56 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         [input.orgId, stableNames, input.pack.packId],
       );
       const upgradeTargets = new Map(upgradeRows.rows.map((row) => [row.stable_name, row]));
-      const upgradeIds = upgradeRows.rows.map((row) => row.id);
+
+      /**
+       * **跨包共享**的同一个 skill（ADR-118：同一 stableName@version 只有一份内容）。
+       *
+       * 内容线 pack 故意共享实体：S063/S017/S157/S161 同在 work-product 与 work-research，
+       * S010 同在 work-research 与 work-sales——两份副本逐字节相同（build 测试核对）。此前血统只认
+       * 「同一个 pack_id」，于是先导 work-product 再导 work-research，共享的那几个 skill 撞上冲突检查
+       * ⇒ 整包 409 SKILL_STARTER_PACK_CONFLICT，一个组织永远装不齐三条内容线。
+       *
+       * 判据比「同名」窄得多，三条同时成立才复用（不新建 skill / 版本，不改任何行）：
+       *   · 那一行来自**另一个** starter-pack 的成功导入（血统，同 upgradeRows）——用户自建、URL 导入、
+       *     平台组织的行都不在任何本 org 导入的 skillIds 里，照旧冲突；
+       *   · 它有一个已发布版本的 `content_digest` **等于**本包这份的 digest——内容分叉（同名不同正文）
+       *     照旧 409，A 包的正文不会悄悄盖掉 B 包的；
+       *   · 显示名相同（名字也是内容的一部分）。
+       */
+      //
+      // 平台组织（`PLATFORM_ORG_ID`）的标准包 skill 同理：它们对每个组织都可见（platform-owned-skills），
+      // 组织再显式导入同一个标准包时，逐字相同的那几个就是「已经有了」——复用平台那一行，不另铸一份
+      // （另铸就是下方冲突检查要挡的同名重复）。只限普通 skill：Work Skill 的目录行属于本组织，
+      // 不能指向平台组织的 skill 行。
+      const sharedCandidates = await session.query<{
+        id: string; org_id: string; stable_name: string; name: string; version_id: string; content_digest: string;
+      }>(
+        `SELECT s.id, s.org_id, s.stable_name, s.name, v.id AS version_id, v.content_digest FROM skills s
+           JOIN skill_versions v ON v.skill_id = s.id AND v.org_id = s.org_id AND v.published
+          WHERE s.stable_name = ANY($2::text[]) AND s.id <> ALL($4::text[])
+            AND (
+              (s.org_id = $1 AND EXISTS (
+                SELECT 1 FROM starter_pack_imports i
+                 WHERE i.org_id = $1 AND i.pack_id <> $3 AND i.status = 'succeeded'
+                   AND i.result_json -> 'skillIds' @> to_jsonb(s.id)
+              ))
+              OR (s.org_id = $5 AND s.status = 'enabled')
+            )
+          ORDER BY (s.org_id = $1) DESC, v.created_at DESC, v.id DESC`,
+        [input.orgId, stableNames, input.pack.packId, upgradeRows.rows.map((row) => row.id), PLATFORM_ORG_ID],
+      );
+      const sharedTargets = new Map<string, { id: string; versionId: string }>();
+      for (const skill of input.pack.skills) {
+        if (upgradeTargets.has(skill.stableName)) continue;
+        const digest = skillContentDigest(skill);
+        const isWork = input.workManifests?.get(skill.stableName) !== undefined;
+        const hit = sharedCandidates.rows.find(
+          (row) => row.stable_name === skill.stableName && row.content_digest === digest && row.name === skill.name &&
+            (row.org_id === input.orgId || !isWork),
+        );
+        if (hit) sharedTargets.set(skill.stableName, { id: hit.id, versionId: hit.version_id });
+      }
+      const upgradeIds = [...upgradeRows.rows.map((row) => row.id), ...[...sharedTargets.values()].map((t) => t.id)];
 
       // ⚠ 同时对着 `PLATFORM_ORG_ID` 查——四个官方 skill（`skill-platform-*`）在
       // `listAll()`/`GET /skills` 里对每个组织都可见（design-delta `platform-owned-skills`
@@ -269,6 +344,13 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
       const skillIds: string[] = [];
       const versionIds: string[] = [];
       for (const skill of input.pack.skills) {
+        const shared = sharedTargets.get(skill.stableName);
+        if (shared) {
+          // 跨包共享、内容相同：复用已有 skill 与版本（幂等），本包不另铸一份。
+          skillIds.push(shared.id);
+          versionIds.push(shared.versionId);
+          continue;
+        }
         const existingSkill = upgradeTargets.get(skill.stableName);
         const digest = skillContentDigest(skill);
 
@@ -456,6 +538,22 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         })),
       });
 
+      // EV04：导入时的确定性门判定（只补不盖——该版本已有记录则保持，例如平台运营回写的完整评测）。
+      // digest 不对应本次落库版本的判定一律丢弃（与 write-back 的 digest-mismatch 同一判据）。
+      for (const [index, skill] of input.pack.skills.entries()) {
+        const status = input.gateStatuses?.get(skill.stableName);
+        if (!status || input.workManifests?.get(skill.stableName) === undefined) continue;
+        if (status.subjectVersionDigest !== `sha256:${skillContentDigest(skill)}`) continue;
+        await session.query(
+          `INSERT INTO skill_gate_records
+             (org_id, skill_id, skill_version_id, subject_version_digest, status, decided_at, written_by, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$8)
+           ON CONFLICT (org_id, skill_version_id) DO NOTHING`,
+          [input.orgId, skillIds[index], versionIds[index], status.subjectVersionDigest, JSON.stringify(status),
+            status.decidedAt, IMPORT_GATE_WRITER, importedAt],
+        );
+      }
+
       const result: SkillStarterImportResult = {
         importId,
         packId: input.pack.packId,
@@ -490,6 +588,12 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
                WHERE i.org_id = $1 AND i.pack_id = $3 AND i.status = 'succeeded'
                  AND i.result_json -> 'skillIds' @> to_jsonb(s.id)
             )
+            -- 跨包共享的 skill：另一个包也装过它，本包不再发货不等于没人发货——不下线。
+            AND NOT EXISTS (
+              SELECT 1 FROM starter_pack_imports o
+               WHERE o.org_id = $1 AND o.pack_id <> $3 AND o.status = 'succeeded'
+                 AND o.result_json -> 'skillIds' @> to_jsonb(s.id)
+            )
           RETURNING s.id`,
         [input.orgId, [...input.keepStableNames], input.packId],
       );
@@ -509,6 +613,16 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
     return this.db.withTenant(input.orgId, async (session) => {
       await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [input.orgId]);
       const existing = await findImport(session, input.orgId, input.idempotencyKey);
+      if (existing && isRetryableFailure(existing, input.payloadDigest)) {
+        // 同键重试又失败：更新为最新一次的失败原因（配置修好前后原因可能不同），不新增行。
+        await session.query(
+          `UPDATE starter_pack_imports
+              SET failure_code = $3, pack_digest = $4, administrator_id = $5, imported_at = $6
+            WHERE id = $1 AND org_id = $2`,
+          [existing.id, input.orgId, input.failureCode, input.packDigest, input.actorId, new Date().toISOString()],
+        );
+        return { kind: "previous-failure" as const, failureCode: input.failureCode };
+      }
       if (existing) {
         return existingOutcome(existing, input.payloadDigest);
       }

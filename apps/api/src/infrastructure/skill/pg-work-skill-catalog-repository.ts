@@ -12,6 +12,7 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import type {
   CatalogDetailRow,
   CatalogListQuery,
+  CatalogListRow,
   CatalogRow,
   CatalogUpdateOutcome,
   WorkSkillCatalogRepository,
@@ -90,7 +91,7 @@ async function readRow(session: TenantSession, orgId: string, skillId: string): 
 export class PgWorkSkillCatalogRepository implements WorkSkillCatalogRepository {
   constructor(private readonly db: DatabasePort) {}
 
-  async list(orgId: OrgId, query: CatalogListQuery): Promise<readonly CatalogRow[]> {
+  async list(orgId: OrgId, query: CatalogListQuery): Promise<readonly CatalogListRow[]> {
     return this.db.withTenant(orgId, async (session) => {
       const params: unknown[] = [orgId];
       const where = ["e.org_id = $1"];
@@ -123,7 +124,10 @@ export class PgWorkSkillCatalogRepository implements WorkSkillCatalogRepository 
           LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
-      return found.rows.map(toRow);
+      return found.rows.map((row) => ({
+        ...toRow(row),
+        dependencies: row.manifest.work?.dependencies ?? { required: [], optional: [] },
+      }));
     });
   }
 
