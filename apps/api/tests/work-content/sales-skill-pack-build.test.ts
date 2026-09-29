@@ -10,7 +10,7 @@
  * 不连接数据库——本 feature 只是构建脚本 + 文件系统，纯函数级验证，与 CT01 研究线测试同类。
  */
 import { describe, expect, it } from "vitest";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -259,5 +259,23 @@ describe("CT07 · 销售线 Skill 包构建（work-sales starter-pack）", () =>
     expect(sales.semanticVersion).toBe(research.semanticVersion);
     expect(sales.files).toEqual(research.files);
     expect(sales.manifest).toEqual(research.manifest);
+  });
+
+  it("跨内容线共享的每个 stableName（如 S009 与产品线、S010 与研究线）在各 pack 里逐字节相同——否则一个组织装不齐三条线", () => {
+    const root = resolve(DEFAULT_ROOT, "..", "starter-packs");
+    const latest = (packId: string) => {
+      const v = readdirSync(resolve(root, packId)).filter((f) => f.endsWith(".json")).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).pop()!;
+      return JSON.parse(readFileSync(resolve(root, packId, v), "utf8")) as { skills: { stableName: string; semanticVersion: string; files: unknown; manifest: unknown }[] };
+    };
+    const seen = new Map<string, { pack: string; skill: unknown }>();
+    const diverged: string[] = [];
+    for (const packId of ["work-product", "work-research", "work-sales"]) {
+      for (const skill of latest(packId).skills) {
+        const prior = seen.get(skill.stableName);
+        if (!prior) seen.set(skill.stableName, { pack: packId, skill });
+        else if (JSON.stringify(prior.skill) !== JSON.stringify(skill)) diverged.push(`${skill.stableName}: ${prior.pack} ≠ ${packId}`);
+      }
+    }
+    expect(diverged).toEqual([]);
   });
 });

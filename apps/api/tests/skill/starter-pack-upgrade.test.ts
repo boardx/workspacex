@@ -353,12 +353,47 @@ it("⑤ 反证：真正的重名冲突照旧被拒——放宽的只是升级目
   });
 }, 300000);
 
-it("⑦ 反证：**另一个包**带着同名 skill 进来仍判冲突——升级只认血统，不认名字", async () => {
+it("⑦ 反证：**另一个包**带着同名、但**正文不同**的 skill 进来仍判冲突——跨包只共享逐字相同的内容", async () => {
   const suffix = randomUUID().slice(0, 8);
   const mine = `upgrade-fixture-${suffix}`;
   const other = `other-pack-${suffix}`;
   const dir = mkdtempSync(join(tmpdir(), "wsx-pack-"));
-  // 两个**不同 packId** 的包，装着逐字相同的 skill（同 stableName / 同显示名）。
+  // 两个**不同 packId** 的包：同 stableName / 同显示名，但 other 取 1.1.2 的正文（web-artifact 改过）。
+  writeDerivedPack(dir, mine, "1.1.1", suffix);
+  writeDerivedPack(dir, other, "1.1.2", suffix);
+
+  try {
+    await withOrg(async (orgId, db) => {
+      const deps = {
+        identities: new PgIdentityRepository(db),
+        packs: new FileSkillStarterPackSource(dir),
+        imports: new PgSkillStarterImportRepository(db),
+      };
+      const run = (packId: string, packVersion: string) => importSkillStarterPack(deps, {
+        actorId: ADMIN, orgId: toOrgId(orgId), packId, packVersion,
+        idempotencyKey: `test:${packId}:${packVersion}`,
+      });
+
+      await run(mine, "1.1.1");
+      const before = await versionsOf(orgId, `web-artifact-${suffix}`);
+      expect(before).toHaveLength(1);
+
+      // 血统对不上、内容又分叉 ⇒ 必须是冲突，绝不能被当成「升级」把上一个包的正文盖掉。
+      // 这正是 `tests/skills/explicit-starter-import.test.ts` 那条
+      // 「never overwrites user/imported content」守的东西。
+      await expect(run(other, "1.1.2")).rejects.toBeInstanceOf(SkillStarterPackConflictError);
+      expect(await versionsOf(orgId, `web-artifact-${suffix}`)).toEqual(before);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 300000);
+
+it("⑧ 跨包共享：另一个包带着**逐字相同**的 skill 进来是幂等复用——不冲突、不新铸 skill/版本（ADR-118）", async () => {
+  const suffix = randomUUID().slice(0, 8);
+  const mine = `upgrade-fixture-${suffix}`;
+  const other = `other-pack-${suffix}`;
+  const dir = mkdtempSync(join(tmpdir(), "wsx-pack-"));
   writeDerivedPack(dir, mine, "1.1.1", suffix);
   writeDerivedPack(dir, other, "1.1.1", suffix);
 
@@ -374,15 +409,15 @@ it("⑦ 反证：**另一个包**带着同名 skill 进来仍判冲突——升�
         idempotencyKey: `test:${packId}:1.1.1`,
       });
 
-      await run(mine);
+      const first = await run(mine);
       const before = await versionsOf(orgId, `web-artifact-${suffix}`);
-      expect(before).toHaveLength(1);
-
-      // 血统对不上 ⇒ 必须是冲突，绝不能被当成「升级」把上一个包的正文盖掉。
-      // 这正是 `tests/skills/explicit-starter-import.test.ts` 那条
-      // 「never overwrites user/imported content」守的东西。
-      await expect(run(other)).rejects.toBeInstanceOf(SkillStarterPackConflictError);
+      const second = await run(other);
+      expect(second.created).toBe(true);
+      expect(second.result.skillIds).toEqual(first.result.skillIds);
+      expect(second.result.versionIds).toEqual(first.result.versionIds);
       expect(await versionsOf(orgId, `web-artifact-${suffix}`)).toEqual(before);
+      // 共享的 skill 不会因为其中一个包之后不再发货而被下线（另一个包仍装着它）。
+      expect(second.retiredSkillIds).toEqual([]);
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -82,6 +82,7 @@ export function LiveSurveyWorkspace({
   const [draft, setDraft] = React.useState<SurveyDraftInput | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [generatingReport, setGeneratingReport] = React.useState(false);
+  const [secondaryActionsOpen, setSecondaryActionsOpen] = React.useState(false);
   const [error, setError] = React.useState("");
   const [retryable, setRetryable] = React.useState(false);
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
@@ -327,19 +328,17 @@ export function LiveSurveyWorkspace({
                 : "正在加载"}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => selectStep("template")}
-        >设计报告模板（可选）</Button>
-        {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
-        {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
-        <Button
-          variant="outline"
-          disabled={busy || !runtime}
-          onClick={() => void refresh()}
-        >
-          刷新
-        </Button>
+        <div className="relative">
+          <Button variant="outline" aria-expanded={secondaryActionsOpen} aria-controls="survey-secondary-actions" onClick={() => setSecondaryActionsOpen(value => !value)}>更多操作</Button>
+          {secondaryActionsOpen && (
+            <div id="survey-secondary-actions" className="absolute right-0 top-full z-20 mt-2 flex min-w-52 flex-col gap-1 rounded-lg border border-border bg-card p-2 shadow-md">
+              <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("template"); }}>设计报告模板（可选）</Button>
+              {runtime && <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("report"); }}>分析报告（可选）</Button>}
+              {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
+              <Button variant="ghost" className="justify-start" disabled={busy || !runtime} onClick={() => { setSecondaryActionsOpen(false); void refresh(); }}>刷新</Button>
+            </div>
+          )}
+        </div>
         <Button
           disabled={busy || !draft || !dirty}
           onClick={() =>
@@ -355,14 +354,14 @@ export function LiveSurveyWorkspace({
         {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
         {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
       </div>
-      <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-auto px-5 py-2">
+      <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-x-auto px-5 py-2">
         {workflowSteps.map(([id, label], i) => (
           <button
             type="button"
             key={id}
             aria-label={`${i + 1}. ${label}`}
             onClick={() => selectStep(id)}
-            className={`flex min-w-28 flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${step === id ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
+            className={`flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 ${step === id ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
           >
             <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${step === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
             {label}
@@ -653,19 +652,6 @@ export function LiveSurveyWorkspace({
             </section>
           )}
           {step === "responses" && (<>
-            <section aria-label="报告准备状态" className="mx-5 mt-5 space-y-4 rounded-lg border border-border bg-card p-4">
-              <h2 className="text-16 font-semibold">分析报告（可选）</h2>
-              <p className="text-12 text-muted-foreground">先设计报告模板，再生成报告；跳过模板时使用默认样式。两者均不影响发布和查看答卷。</p>
-              <p className="text-12 text-muted-foreground">{runtime?.report
-                ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
-                : "尚未生成；不影响问卷发布和答卷回收"}</p>
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
-                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">模板状态</p><p className="mt-1 font-semibold">{draft.template.sections.length ? "已设置" : "未设置（可选）"}</p></div>
-                <span aria-hidden="true" className="hidden text-center text-18 md:block">→</span>
-                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">最近生成</p><p className="mt-1 font-semibold">{runtime?.report ? reportIsStale ? "已有旧报告，待更新" : "已生成" : "未生成"}</p></div>
-              </div>
-              <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
-            </section>
             <LiveResponseList
               surveyId={runtime?.id}
               responses={runtime?.responses ?? []}
@@ -710,6 +696,20 @@ export function LiveSurveyWorkspace({
                 })
               }
             />
+            <details aria-label="分析报告（可选）" className="group mx-5 mb-5 rounded-lg border border-border bg-card p-4">
+              <summary className="cursor-pointer list-none text-14 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span aria-hidden="true" className="mr-2 inline-block transition-transform group-open:rotate-90">›</span>
+                分析报告（可选）
+                <span className="ml-2 text-12 font-normal text-muted-foreground">{runtime?.report ? reportIsStale ? "待更新" : "已生成" : "未生成"}</span>
+              </summary>
+              <div className="mt-4 space-y-4 border-t border-border pt-4">
+                <p className="text-12 text-muted-foreground">报告不会影响答卷查看。样本不足时仅展示描述性结果，不生成行动结论。</p>
+                <p className="text-12 text-muted-foreground">{runtime?.report
+                  ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
+                  : "尚未生成；可直接使用默认模板"}</p>
+                <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
+              </div>
+            </details>
           </>)}
           {step === "report" && (
             <section className="mx-auto max-w-5xl space-y-5 p-5">

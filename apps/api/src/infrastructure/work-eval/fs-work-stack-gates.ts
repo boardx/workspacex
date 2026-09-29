@@ -147,6 +147,7 @@ function loadReports(repoRoot: string, suiteDir: string, warn: (l: string) => vo
 export function collectGateSubjects(repoRoot: string, evalsRoot = join(repoRoot, "evals/work-stack"), warn: (l: string) => void = () => {}): GateSubject[] {
   const packages = discoverWorkSkillPackages(repoRoot);
   const listed = listedIds(repoRoot);
+  const digests = new Map(packages.map(p => [p, skillPackageVersion(p.skillMd).digest]));
   return packages.map(pkg => {
     const suiteDir = join(evalsRoot, pkg.stableId);
     return {
@@ -155,11 +156,15 @@ export function collectGateSubjects(repoRoot: string, evalsRoot = join(repoRoot,
       sourcePath: posix(relative(repoRoot, pkg.skillMd)),
       manifest: pkg.manifest,
       manifestError: pkg.manifestError,
-      versionDigest: skillPackageVersion(pkg.skillMd).digest,
+      versionDigest: digests.get(pkg) ?? null,
       identity: {
         inList: listed.has(pkg.stableId),
         entityDocs: entityDocs(repoRoot, pkg.stableId),
-        duplicatePackages: packages.filter(o => o !== pkg && o.stableId === pkg.stableId).map(o => posix(relative(repoRoot, o.skillMd))),
+        // 同一实体在多个内容线 pack 里的**逐字节相同**副本（ADR-118：同一 stableName@version 只有一份内容，
+        // 如 S063 同在 work-product / work-research）不是身份冲突；只有内容分叉的同 ID 包才判 G0。
+        duplicatePackages: packages
+          .filter(o => o !== pkg && o.stableId === pkg.stableId && digests.get(o) !== digests.get(pkg))
+          .map(o => posix(relative(repoRoot, o.skillMd))),
       },
       suite: /^[SWD]\d{3}$/.test(pkg.stableId) ? loadSuite(suiteDir, pkg.stableId) : { state: "missing" as const },
       reports: /^[SWD]\d{3}$/.test(pkg.stableId) ? loadReports(repoRoot, suiteDir, warn) : [],

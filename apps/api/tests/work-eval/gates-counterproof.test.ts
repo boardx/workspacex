@@ -93,9 +93,14 @@ describe("lint-work-stack-gates counterproof (EV03, E10)", () => {
   });
 
   it("identity: duplicate stableId, unlisted id or unparseable manifest → G0 fail", async () => {
+    // 内容分叉的同 ID 副本 ⇒ G0 fail。
     const dup = goodRepo();
-    writeSkill(dup, s003Manifest(), "skills/standard-context/enterprise-search-copy");
+    writeSkill(dup, s003Manifest(), "skills/standard-context/enterprise-search-copy", "# Enterprise Search (forked copy)\n");
     expect(gate(dup, "G0")).toMatchObject({ exitCode: 1, outcome: "fail", reasonCode: "STABLE_ID_MISMATCH" });
+    // 逐字节相同的副本（内容线 pack 间共享同一实体，ADR-118）不是身份冲突。
+    const shared = goodRepo();
+    writeSkill(shared, s003Manifest(), "skills/standard-context/enterprise-search-copy");
+    expect(gate(shared, "G0")).toMatchObject({ outcome: "pass" });
 
     const unlisted = goodRepo();
     writeFileSync(join(unlisted, "requirements/work-stack-v2/WORK-STACK-320-LIST.md"), "| ✅ | S004 | Skill |\n");

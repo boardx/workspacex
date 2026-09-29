@@ -125,7 +125,7 @@ export class WorkSkillCatalogController {
   ) {}
 
   private get deps() {
-    return { identities: this.identities, catalog: this.catalog };
+    return { identities: this.identities, catalog: this.catalog, grants: this.grants };
   }
 
   @Get("/skills/catalog")

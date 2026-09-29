@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   NotFoundException,
+  Optional,
   Post,
   Res,
   UnprocessableEntityException,
@@ -26,8 +27,12 @@ import {
 import {
   SKILL_STARTER_IMPORT_REPOSITORY,
   SKILL_STARTER_PACK_SOURCE,
+  STARTER_PACK_GATE_JUDGE,
+  STARTER_PACK_IMPORT_FOLLOW_UP,
   type SkillStarterImportRepository,
   type SkillStarterPackSource,
+  type StarterPackGateJudge,
+  type StarterPackImportFollowUp,
 } from "../../application/skill-import/ports";
 import {
   IDENTITY_REPOSITORY,
@@ -57,6 +62,8 @@ export class SkillStarterImportController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(SKILL_STARTER_PACK_SOURCE) private readonly packs: SkillStarterPackSource,
     @Inject(SKILL_STARTER_IMPORT_REPOSITORY) private readonly imports: SkillStarterImportRepository,
+    @Optional() @Inject(STARTER_PACK_GATE_JUDGE) private readonly gateJudge?: StarterPackGateJudge,
+    @Optional() @Inject(STARTER_PACK_IMPORT_FOLLOW_UP) private readonly followUp?: StarterPackImportFollowUp,
   ) {}
 
   @Post("/admin/skills/starter-pack-imports")
@@ -68,7 +75,11 @@ export class SkillStarterImportController {
     assertPrincipal(principal);
     try {
       const imported = await importSkillStarterPack(
-        { identities: this.identities, packs: this.packs, imports: this.imports },
+        {
+          identities: this.identities, packs: this.packs, imports: this.imports,
+          ...(this.gateJudge ? { gateJudge: this.gateJudge } : {}),
+          ...(this.followUp ? { followUp: this.followUp } : {}),
+        },
         { actorId: principal.userId, orgId: principal.orgId, ...body },
       );
       response.status(imported.created ? HttpStatus.CREATED : HttpStatus.OK);
