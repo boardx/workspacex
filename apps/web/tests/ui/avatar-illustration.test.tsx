@@ -11,7 +11,9 @@ import { describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { Avatar } from "@/components/ui/avatar";
-import { AVATAR_KEYS } from "@/lib/interview-expert-avatar";
+import { AVATAR_KEYS, DIGITAL_HUMAN_AVATAR_KEYS, ILLUSTRATION_AVATAR_KEYS } from "@/lib/interview-expert-avatar";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 afterEach(() => cleanup());
 
@@ -53,7 +55,21 @@ describe("Avatar 插画头像支持（AG04）", () => {
     expect(node.querySelector("img")).toBeNull();
   });
 
-  it("覆盖全部 25 个合法 key，逐一渲染成功且互不相同（保持既有 25 键约定不漂移）", () => {
+  it("数字人肖像 key 渲染为同源静态 WebP，不走 SVG 画法", () => {
+    render(<Avatar initials="D" avatarKey="dh-05-sales-representative" />);
+    const node = screen.getByRole("img");
+    expect(node.getAttribute("data-avatar-key")).toBe("dh-05-sales-representative");
+    expect(node.querySelector("svg")).toBeNull();
+    expect(node.querySelector("img")?.getAttribute("src")).toBe("/avatars/digital-humans/dh-05-sales-representative.webp");
+  });
+
+  it("60 个数字人肖像 key 每个都有对应的 public 资源文件（key 集与资源不漂移）", () => {
+    expect(DIGITAL_HUMAN_AVATAR_KEYS).toHaveLength(60);
+    const missing = DIGITAL_HUMAN_AVATAR_KEYS.filter((key) => !existsSync(join(__dirname, "../../public/avatars/digital-humans", `${key}.webp`)));
+    expect(missing).toEqual([]);
+  });
+
+  it("覆盖全部合法 key（25 插画 + 60 肖像），逐一渲染成功且互不相同", () => {
     const rendered = new Set<string>();
     for (const key of AVATAR_KEYS) {
       const { unmount, container } = render(<Avatar initials="?" avatarKey={key} />);
@@ -61,7 +77,8 @@ describe("Avatar 插画头像支持（AG04）", () => {
       expect(screen.getByRole("img").getAttribute("data-avatar-key")).toBe(key);
       unmount();
     }
-    expect(AVATAR_KEYS).toHaveLength(25);
+    expect(ILLUSTRATION_AVATAR_KEYS).toHaveLength(25);
+    expect(AVATAR_KEYS).toHaveLength(85);
     expect(rendered.size).toBeGreaterThan(1);
   });
 });

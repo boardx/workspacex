@@ -23,11 +23,12 @@
  */
 import { createHash } from "node:crypto";
 import type { z } from "zod";
-import { wave2Runtime } from "@repo/contracts";
+import { agentRole, wave2Runtime } from "@repo/contracts";
 import type { OfficialAgentStarterPack } from "./starter-pack";
 
 export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.0.0";
+/** 1.1.0：四个官方角色挂上数字人肖像头像（`avatarKey`）；1.0.0 的 avatar 恒为 null。 */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.1.0";
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -42,6 +43,12 @@ interface RoleEntrySeed {
   readonly roleLabel: string;
   readonly stableName: string;
   readonly roleCategory: "research" | "product" | "sales" | "design" | "general";
+  /**
+   * 数字人肖像（`DIGITAL_HUMAN_AVATAR_KEYS`，60 格角色头像网格按角色名一一对应）。
+   * 「哪个官方角色用哪张肖像」只在这里声明；已导入 1.0.0 的组织由迁移
+   * `20260929150000_dh_portrait_avatars.sql` 回填（其字面量由 official-role-pack-import.test.ts 与本表核对）。
+   */
+  readonly avatarKey: z.infer<typeof agentRole.AgentAvatar>["key"];
   readonly workflowAllowlist: readonly string[];
   readonly toolPolicy: readonly string[];
   readonly instructions: string;
@@ -51,6 +58,7 @@ interface RoleEntrySeed {
 const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   {
     roleRef: "D002",
+    avatarKey: "dh-02-research-knowledge-analyst",
     roleLabel: "Research & Knowledge Analyst",
     stableName: "d002-research-knowledge-analyst",
     roleCategory: "research",
@@ -60,6 +68,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   },
   {
     roleRef: "D003",
+    avatarKey: "dh-03-product-manager",
     roleLabel: "Product Manager",
     stableName: "d003-product-manager",
     roleCategory: "product",
@@ -69,6 +78,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   },
   {
     roleRef: "D005",
+    avatarKey: "dh-05-sales-representative",
     roleLabel: "Sales Representative",
     stableName: "d005-sales-representative",
     roleCategory: "sales",
@@ -78,6 +88,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   },
   {
     roleRef: "D011",
+    avatarKey: "dh-11-design-thinking-expert",
     roleLabel: "Design Thinking Expert",
     stableName: "d011-design-thinking-expert",
     roleCategory: "design",
@@ -101,7 +112,7 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
     roleRef: seed.roleRef,
     roleLabel: seed.roleLabel,
     role: {
-      avatar: null,
+      avatar: { kind: "illustration", key: seed.avatarKey, alt: seed.roleLabel },
       roleCategory: seed.roleCategory,
       workflowAllowlist: [...seed.workflowAllowlist],
       delegationPolicy: { allowedTargets: [...DEFAULT_DELEGATION_POLICY.allowedTargets], maxDepth: DEFAULT_DELEGATION_POLICY.maxDepth, requireApproval: DEFAULT_DELEGATION_POLICY.requireApproval },
@@ -132,4 +143,9 @@ export function buildOfficialAgentRolePack(
  */
 export function officialRoleWorkflowAllowlists(): Readonly<Record<string, readonly string[]>> {
   return Object.fromEntries(ROLE_SEEDS.map((s) => [s.roleRef, [...s.workflowAllowlist]]));
+}
+
+/** 官方角色 stableName → 肖像 key（同一份 ROLE_SEEDS；供回填迁移的核对测试使用，不另立副本）。 */
+export function officialRoleAvatarKeys(): Readonly<Record<string, string>> {
+  return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, s.avatarKey]));
 }

@@ -1,14 +1,22 @@
 import * as React from "react";
 
 /**
- * Small, first-party SVG illustrations keyed by `AvatarKey` (`@repo/contracts/interview-expert-avatar`,
- * 25 values: `person-1`..`person-24` + `robot`). No remote image requests, no untrusted SVG injection.
+ * Small, first-party illustrations keyed by `AvatarKey` (`@repo/contracts/interview-expert-avatar`):
+ * 25 SVG keys (`person-1`..`person-24` + `robot`) plus the 60 digital-human portrait keys (`dh-*`,
+ * static WebP). No remote image requests, no untrusted SVG injection.
  *
  * 迁移自 `components/itv/expert-avatar.tsx`（AG04，`ui/avatar.tsx` 需要同一套插画渲染逻辑给
  * agent-role 目录卡片用，两处各画一份会立刻漂移——见 AGENTS.md「同一事实不得声明在两处」）。
  * `expert-avatar.tsx` 现在从这里重新导出，行为逐字不变。
  */
 export function AvatarIllustration({ avatarKey }: { avatarKey: string }) {
+  // Digital-human portraits (`dh-NN-<slug>`, `DIGITAL_HUMAN_AVATAR_KEYS`) are first-party static
+  // assets under `public/avatars/digital-humans/`; the key is already validated against the closed
+  // contract enum by every caller, so it never carries a caller-controlled URL.
+  if (avatarKey.startsWith("dh-")) {
+    // eslint-disable-next-line @next/next/no-img-element -- 256px first-party portrait, served as-is
+    return <img src={`/avatars/digital-humans/${avatarKey}.webp`} alt="" aria-hidden="true" loading="lazy" decoding="async" className="size-full object-cover" />;
+  }
   const index = avatarKey === "robot" ? 0 : Number(avatarKey.slice(7)) - 1;
   const hair = index % 6;
   const accessory = Math.floor(index / 6);
