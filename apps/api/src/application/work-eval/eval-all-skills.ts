@@ -9,8 +9,9 @@
  * - 每个 Skill 都得到一行汇总（评测/判定出错也不中断整批；该行 g5=not_evaluated 并给 error）；
  * - `writeBack`：把门脚本产出的 `WorkGateStatus` 原样回写；G5 pass 且目录通道 = candidate → PATCH verified
  *   （服务端再按门状态记录独立判定，UC-7）；已 verified 的不重复改，G5 未过的绝不改通道。
- * - 不变式（V14）：批后目录中 verified 且 G5 pass 的 Skill 数 = 汇总 `g5Pass`；
- *   汇总里 G5 未过却已是 verified 的行（历史遗留）单独列在 `verifiedWithoutG5`，不静默算进去。
+ * - 不变式（V14）：批后目录中 verified 的 Skill 数 = 汇总 `g5Pass`。`totals.verified` 按目录通道**独立**计数
+ *   （不与 g5 做交集），已 verified 但本轮 G5 未过的行列在 `verifiedWithoutG5`，且令整批非 0 退出
+ *   （不变式被破坏必须变红，不能只打一行警告；降级是人工 deprecate 决策，批处理不自动改通道）。
  */
 import type { WorkGateStatus } from "@repo/contracts/work-eval";
 
@@ -141,16 +142,19 @@ export async function runAllSkillsEval(input: {
     totals: {
       skills: rows.length,
       g5Pass: rows.filter((r) => r.g5 === "pass").length,
-      verified: rows.filter((r) => r.channel === "verified" && r.g5 === "pass").length,
+      verified: rows.filter((r) => r.channel === "verified").length,
       errors: rows.filter((r) => r.error !== null).length,
     },
     verifiedWithoutG5: rows.filter((r) => r.channel === "verified" && r.g5 !== "pass").map((r) => r.stableId),
   };
 }
 
-/** 批处理退出：有 error（含回写失败）→ 非 0；G5 fail 本身不算失败（是评测结论，不是运行故障）。 */
+/**
+ * 批处理退出：有 error（含回写失败）→ 非 0；已 verified 却 G5 未过（V14 不变式被破坏）→ 非 0。
+ * 候选 Skill 的 G5 fail 本身不算失败（是评测结论，不是运行故障）。
+ */
 export function batchFailed(summary: BatchSummary): boolean {
-  return summary.totals.errors > 0;
+  return summary.totals.errors > 0 || summary.verifiedWithoutG5.length > 0;
 }
 
 export function formatBatchSummary(summary: BatchSummary): string {

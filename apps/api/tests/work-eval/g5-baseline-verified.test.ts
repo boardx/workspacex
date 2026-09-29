@@ -8,6 +8,7 @@
  *   G5 pass → 200；G5 fail / 无记录 / 只有旧版本记录 → 409 WORK_EVAL_G5_NOT_PASSED，行与审计都不变；
  *   客户端自带 gateEvidenceRef 不再能放行（取代 WS03 临时判据）。
  * - 官方 Agent 绑定非 verified Skill → 422 UNRESOLVED_SKILL_REF，无 agent 行；verified 后同一绑定成功。
+ *   导入后再走 skill-pins 旁路 pin candidate Skill 到官方 Agent → 422 SKILL_VERSION_NOT_FOUND，版本不变。
  *
  * 真实 HTTP + 真实 PostgreSQL；目录行由真实 starter-pack 导入产生。
  */
@@ -216,5 +217,34 @@ describe("EV05 official Agent binding requires a verified Skill (ADR-119 #4, I-8
     const bound = await importAgents(packId);
     expect(bound.status).toBe(201);
     expect(await agentCount()).toBe(1);
+  });
+
+  it("pinning a candidate skill onto an official agent after import is rejected; verified pin succeeds", async () => {
+    const v3 = await currentVersion(ORG, S3);
+    const v4 = await currentVersion(ORG, S4);
+    await seedGateRecord(ORG, S3, "S003", "pass", ADMIN);
+    expect((await patch(S3, toVerified)).status).toBe(200);
+    const packId = `ev05-pin-${randomUUID().slice(0, 8)}`;
+    writeBindingPack(packId, v3.id, v3.digest.slice("sha256:".length));
+    expect((await importAgents(packId)).status).toBe(201);
+    const agent = await asApp(ORG, async (c) => (await c.query<{ id: string; published_version_id: string; catalog_source: string }>(
+      "SELECT id, published_version_id, catalog_source FROM agents WHERE org_id=$1", [ORG])).rows[0]!);
+    expect(agent.catalog_source).toBe("official");
+    expect(await channelOf(S4)).toBe("candidate");
+
+    const pin = (skillVersionIds: string[], expectedVersion: string) => fetch(`${base}/admin/agents/${agent.id}/skill-pins`, {
+      method: "POST",
+      headers: { "x-kernel-test-principal": `${ADMIN}:${ORG}`, "content-type": "application/json" },
+      body: JSON.stringify({ agentId: agent.id, skillVersionIds, expectedVersion }),
+    });
+    const rejected = await pin([v3.id, v4.id], agent.published_version_id);
+    expect(rejected.status).toBe(422);
+    expect(((await rejected.json()) as { reasonCode: string }).reasonCode).toBe("SKILL_VERSION_NOT_FOUND");
+    const unchanged = await asApp(ORG, async (c) => (await c.query<{ published_version_id: string }>(
+      "SELECT published_version_id FROM agents WHERE id=$1", [agent.id])).rows[0]!.published_version_id);
+    expect(unchanged).toBe(agent.published_version_id);
+
+    const ok = await pin([v3.id], agent.published_version_id);
+    expect(ok.status).toBe(201);
   });
 });

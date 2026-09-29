@@ -4,7 +4,7 @@
  *
  * - 批处理对每个 Skill 出一行汇总（subject/baseline 通过数、G5 结论），写 `_batch/<runId>.json`；
  * - 回写走真实 HTTP（平台运营凭据）：每个 Skill 当前版本得到门状态记录；
- * - 不变式：批后目录 verified 数 = 汇总中 G5 pass 数（持平/无基线/必过失败的不转 verified）；
+ * - 不变式：批后目录 verified 数 = 汇总中 G5 pass 数（持平/无基线/必过失败的不转 verified）；已 verified 却 G5 退化 → 非 0 退出；
  * - 目录里找不到的 Skill 记 error、不中断；--write-back 缺凭据 → WRITE_BACK_FAILED(4)；重跑幂等。
  * - 评测器（fs 侧）在临时仓上发现 Skill、跑回环评测（含 baseline）并由门脚本产出 WorkGateStatus。
  */
@@ -121,9 +121,10 @@ describe("EV05 --all-skills --baseline --write-back", () => {
     expect(s.rows.find((x) => x.stableId === "S004")!.g5ReasonCode).toBe("NOT_BETTER_THAN_BASELINE");
     expect(s.totals).toEqual({ skills: 3, g5Pass: 1, verified: 1, errors: 0 });
 
-    // 目录（成员视角）与汇总一致：verified 数 = G5 pass 数。
-    expect(await listed("verified")).toEqual(["S003"]);
-    expect((await listed("verified")).length).toBe(s.totals.g5Pass);
+    // 目录（成员视角，GET /skills/catalog 独立读回，不用汇总自己派生的 totals.verified）：verified 数 = G5 pass 数。
+    const verifiedInCatalog = await listed("verified");
+    expect(verifiedInCatalog).toEqual(s.rows.filter((x) => x.g5 === "pass").map((x) => x.stableId).sort());
+    expect(verifiedInCatalog.length).toBe(s.totals.g5Pass);
     expect(await listed("candidate")).toEqual(["S004", "S005"]);
     expect(await gateRecords()).toBe(3);
 
@@ -143,6 +144,20 @@ describe("EV05 --all-skills --baseline --write-back", () => {
     expect(second.exitCode).toBe(EXIT.OK);
     expect(second.summary!.totals).toMatchObject({ g5Pass: 2, verified: 2, errors: 0 });
     expect(await listed("verified")).toEqual(["S003", "S005"]);
+  });
+
+  it("an already-verified skill whose new G5 fails breaks V14 → listed in verifiedWithoutG5 and the batch exits non-zero", async () => {
+    const run = (runId: string, s003: G5Outcome) => runAllSkillsCommand({
+      repoRoot: evalsRoot, evalsRoot, baseline: true, writeBack: true, runId, ...quiet,
+      evaluator: stubEvaluator({ S003: s003, S004: "tie" }), catalog: catalog(),
+    });
+    expect((await run("batch-v1", "pass")).exitCode).toBe(EXIT.OK);
+    const regressed = await run("batch-v2", "tie");
+    expect(regressed.exitCode).toBe(EXIT.CASE_FAILED_OR_ERROR);
+    expect(regressed.summary!.verifiedWithoutG5).toEqual(["S003"]);
+    expect(regressed.summary!.totals).toMatchObject({ g5Pass: 0, verified: 1, errors: 0 });
+    // 批处理不自动降级（deprecate 是人工决策），但目录 verified 数 ≠ G5 pass 数被如实暴露为红。
+    expect((await listed("verified")).length).not.toBe(regressed.summary!.totals.g5Pass);
   });
 
   it("a skill missing from the catalog is reported as an error without stopping the batch (exit 1)", async () => {
