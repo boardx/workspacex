@@ -23,6 +23,7 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { z } from "zod";
+import { PLATFORM_ORG_ID, type OrgId } from "../../domain/org-id";
 import { WorkEvalErrorBody, WriteBackWorkGateStatus } from "@repo/contracts/work-eval";
 import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "../../application/auth/ports";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
@@ -76,6 +77,14 @@ function mapError(error: unknown): never {
   throw error;
 }
 
+/**
+ * I-10 官方平台组织 = `PLATFORM_ORG_ID`。`WORK_GATE_OFFICIAL_ORG_ID` 仅供隔离测试把一个一次性 org
+ * 当作官方目录（不能 reset 全局共享的 org-platform）；生产不设。
+ */
+function officialGateOrgId(): OrgId {
+  return (process.env.WORK_GATE_OFFICIAL_ORG_ID || PLATFORM_ORG_ID) as OrgId;
+}
+
 @Controller()
 export class WorkGateStatusController {
   constructor(
@@ -98,15 +107,22 @@ export class WorkGateStatusController {
     assertPrincipal(principal);
     // 鉴权先于校验与任何仓储调用（E9）。
     const isOperator = await this.operator(principal.userId);
-    if (!isOperator) return mapError(new WorkGatePlatformAdminRequiredError());
+    const officialOrgId = officialGateOrgId();
+    // I-10：仅平台运营、且仅官方平台组织目录（非官方组织的回写一律 403，不触达仓储）。
+    if (!isOperator || principal.orgId !== officialOrgId) return mapError(new WorkGatePlatformAdminRequiredError());
     const parsed = WriteBody.safeParse(raw);
-    if (!TextId.safeParse(skillId).success || !parsed.success) throw validationFailed("invalid gate status");
+    if (!TextId.safeParse(skillId).success) throw validationFailed("invalid skillId");
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      throw validationFailed(`invalid gate status${issue ? `: ${issue.path.join(".") || "(root)"} ${issue.message}` : ""}`);
+    }
     const requestDigest = createHash("sha256").update(JSON.stringify([skillId, parsed.data.status])).digest("hex");
     try {
       return await writeBackWorkGateStatus({ identities: this.identities, gateStatus: this.gateStatus }, {
         actorId: principal.userId,
         orgId: principal.orgId,
         isPlatformOperator: isOperator,
+        officialOrgId,
         skillId,
         status: parsed.data.status,
         idempotencyKey: parsed.data.idempotencyKey,

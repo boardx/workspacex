@@ -25,6 +25,8 @@ export interface GateStatusSnapshot {
   readonly currentDigest: string; // sha256:<hex>
   readonly version: { readonly id: string; readonly semanticLabel: string; readonly digest: string };
   readonly record: WorkGateStatus | null;
+  /** 该 Skill 是否有「别的版本」的门状态记录（E4：新版本导入后旧版本仍有记录 → 当前版本 stale）。 */
+  readonly otherVersionHasRecord: boolean;
 }
 
 export type GateWriteOutcome =
@@ -77,7 +79,8 @@ export function toGateView(snapshot: GateStatusSnapshot, isPlatformOperator: boo
     baselinePassed: record?.baselinePassed ?? null,
     deterministicTotal: record?.deterministicTotal ?? null,
     decidedAt: record?.decidedAt ?? null,
-    stale: record !== null && record.subjectVersionDigest !== snapshot.version.digest,
+    // V16 / E4：所示版本不是当前版本，或当前版本尚无记录而更早版本有记录 → 「当前版本尚未重评」。
+    stale: snapshot.version.digest !== snapshot.currentDigest || (record === null && snapshot.otherVersionHasRecord),
     canMarkVerified,
     markVerifiedBlockedReason: g5Pass ? null : g5.reasonCode,
   };
@@ -89,13 +92,15 @@ export async function writeBackWorkGateStatus(
     readonly actorId: string;
     readonly orgId: OrgId;
     readonly isPlatformOperator: boolean;
+    /** I-10：回写只落官方平台组织目录。 */
+    readonly officialOrgId: OrgId;
     readonly skillId: string;
     readonly status: WorkGateStatus;
     readonly idempotencyKey: string;
     readonly requestDigest: string;
   },
 ): Promise<GateView> {
-  if (!input.isPlatformOperator) throw new WorkGatePlatformAdminRequiredError();
+  if (!input.isPlatformOperator || input.orgId !== input.officialOrgId) throw new WorkGatePlatformAdminRequiredError();
   const outcome = await deps.gateStatus.writeBack({
     orgId: input.orgId,
     actorId: input.actorId,

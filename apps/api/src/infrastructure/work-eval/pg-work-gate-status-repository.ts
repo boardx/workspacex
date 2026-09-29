@@ -96,6 +96,10 @@ export class PgWorkGateStatusRepository implements WorkGateStatusRepository {
         "SELECT status FROM skill_gate_records WHERE org_id = $1 AND skill_id = $2 AND skill_version_id = $3",
         [orgId, skillId, selected.id],
       );
+      const others = await session.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM skill_gate_records WHERE org_id = $1 AND skill_id = $2 AND skill_version_id <> $3",
+        [orgId, skillId, selected.id],
+      );
       const parsed = rec.rows[0] ? WorkGateStatus.safeParse(rec.rows[0].status) : null;
       return {
         channel,
@@ -103,6 +107,7 @@ export class PgWorkGateStatusRepository implements WorkGateStatusRepository {
         currentDigest: digestOf(current.content_digest),
         version: { id: selected.id, semanticLabel: selected.semantic_label, digest: digestOf(selected.content_digest) },
         record: parsed?.success ? parsed.data : null,
+        otherVersionHasRecord: (others.rows[0]?.n ?? 0) > 0,
       };
     });
   }

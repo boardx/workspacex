@@ -100,9 +100,12 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
   await addCredential(OPS, OPS_EMAIL, "EV04 Ops");
   process.env.PLATFORM_SUPERUSER_EMAILS = OPS_EMAIL;
+  // I-10：隔离测试把一次性 ORG 当作官方平台组织目录（生产 = PLATFORM_ORG_ID）。
+  process.env.WORK_GATE_OFFICIAL_ORG_ID = ORG;
 }, 180_000);
 
 afterAll(async () => {
+  delete process.env.WORK_GATE_OFFICIAL_ORG_ID;
   if (ORIGINAL_WHITELIST === undefined) delete process.env.PLATFORM_SUPERUSER_EMAILS;
   else process.env.PLATFORM_SUPERUSER_EMAILS = ORIGINAL_WHITELIST;
   await app?.close();
@@ -197,6 +200,18 @@ describe("EV04 rejected write-backs change nothing", () => {
     });
   });
 
+  it("platform operator writing into a non-official org's catalog → 403, nothing written (I-10)", async () => {
+    const digest = await versionDigest(S3V1);
+    const recBefore = await records();
+    const res = await post(S3, { status: status(digest), idempotencyKey: randomUUID() }, OPS, OTHER_ORG);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("WORK_EVAL_PLATFORM_ADMIN_REQUIRED");
+    expect(await records()).toEqual(recBefore);
+    const otherRows = await asApp(OTHER_ORG, async (c) => (await c.query(
+      "SELECT 1 FROM skill_gate_records WHERE org_id=$1", [OTHER_ORG])).rows);
+    expect(otherRows).toHaveLength(0);
+  });
+
   it("hand-edited gate fields (missing gate / extra field / non-WorkGateStatus) → 422 (R5)", async () => {
     const digest = await versionDigest(S3V1);
     await expectUnchanged(async () => {
@@ -238,8 +253,11 @@ describe("EV04 new version import (A4 / I-2)", () => {
     expect(current.body.skillVersionId).not.toBe(S3V1);
     expect(current.body.gates.every((g: any) => g.state === "not_evaluated")).toBe(true);
     expect(current.body.decidedAt).toBeNull();
+    // V16 / E4：服务端产出 stale（当前版本尚未重评），不是只靠 UI 夹具注入。
+    expect(current.body.stale).toBe(true);
     const old = await get(S3, `?versionId=${S3V1}`);
     expect(old.status).toBe(200);
+    expect(old.body.stale).toBe(true);
     expect(old.body.semanticLabel).toBe("1.0.0");
     expect(old.body.gates.find((g: any) => g.gate === "G4").state).toBe("pass");
     expect(await records()).toHaveLength(1);
