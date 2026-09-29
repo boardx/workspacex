@@ -22,6 +22,7 @@ export const AGENT_ROLE_COLUMN_OF = {
   delegationPolicy: "delegation_policy",
   escalationPolicy: "escalation_policy",
   kpi: "kpi",
+  tags: "tags",
 } as const satisfies Record<(typeof agentRole.AGENT_ROLE_FROZEN_FIELDS)[number], string>;
 
 export const AGENT_ROLE_COLUMNS = Object.values(AGENT_ROLE_COLUMN_OF).join(", ");
@@ -34,6 +35,7 @@ export interface AgentRoleColumnsRow {
   readonly delegation_policy: unknown;
   readonly escalation_policy: unknown;
   readonly kpi: unknown;
+  readonly tags: readonly string[] | null;
 }
 
 /**
@@ -54,6 +56,7 @@ export function toRoleFieldsTolerant(row: AgentRoleColumnsRow, agentId: string):
     delegationPolicy: row.delegation_policy,
     escalationPolicy: row.escalation_policy,
     kpi: row.kpi,
+    tags: row.tags ?? [],
   };
   const shape = agentRole.AgentRoleFields.shape as Record<string, { safeParse(v: unknown): { success: boolean; data?: unknown } }>;
   const defaults = agentRole.AGENT_ROLE_FIELD_DEFAULTS as unknown as Record<string, unknown>;

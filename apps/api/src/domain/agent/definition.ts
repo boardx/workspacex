@@ -80,6 +80,7 @@ export interface AgentDefinition {
   readonly delegationPolicy: AgentRoleFieldsT["delegationPolicy"];
   readonly escalationPolicy: AgentRoleFieldsT["escalationPolicy"];
   readonly kpi: AgentRoleFieldsT["kpi"];
+  readonly tags: readonly string[];
 }
 
 /**

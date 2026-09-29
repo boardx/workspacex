@@ -28,7 +28,8 @@ import type { OfficialAgentStarterPack } from "./starter-pack";
 
 export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
 /** 1.1.0：四个官方角色挂上数字人肖像头像（`avatarKey`）；1.0.0 的 avatar 恒为 null。 */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.1.0";
+/** 1.2.0：四个官方角色带上中文标签（`tags`，目录/聊天选人按它筛选）。 */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.2.0";
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -49,6 +50,11 @@ interface RoleEntrySeed {
    * `20260929150000_dh_portrait_avatars.sql` 回填（其字面量由 official-role-pack-import.test.ts 与本表核对）。
    */
   readonly avatarKey: z.infer<typeof agentRole.AgentAvatar>["key"];
+  /**
+   * 数字人标签（契约 `AgentTags`）。已导入旧版包的组织由迁移 `20260929160000_agent_tags.sql`
+   * 回填（其字面量由 official-role-pack-import.test.ts 与本表核对）。
+   */
+  readonly tags: readonly string[];
   readonly workflowAllowlist: readonly string[];
   readonly toolPolicy: readonly string[];
   readonly instructions: string;
@@ -62,6 +68,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     roleLabel: "Research & Knowledge Analyst",
     stableName: "d002-research-knowledge-analyst",
     roleCategory: "research",
+    tags: ["调研", "知识管理", "分析"],
     workflowAllowlist: ["W001", "W060", "W009", "W006", "W057"],
     toolPolicy: ["knowledge.search"],
     instructions: "Run structured research, cite every claim to a retrievable source, and route findings into the org knowledge base without editorializing beyond what the evidence supports.",
@@ -72,6 +79,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     roleLabel: "Product Manager",
     stableName: "d003-product-manager",
     roleCategory: "product",
+    tags: ["产品", "需求", "规划"],
     workflowAllowlist: ["W027", "W028", "W029", "W030", "W031", "W032"],
     toolPolicy: ["knowledge.search"],
     instructions: "Turn discovery signals into prioritized problem statements and PRDs, keep the roadmap traceable to evidence, and hand off sprint-ready scope without silently narrowing it.",
@@ -82,6 +90,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     roleLabel: "Sales Representative",
     stableName: "d005-sales-representative",
     roleCategory: "sales",
+    tags: ["销售", "客户", "商机"],
     workflowAllowlist: ["W011", "W012", "W013", "W014", "W015", "W016", "W018"],
     toolPolicy: ["crm.read"],
     instructions: "Qualify leads, run the pipeline from first meeting to close, and keep every stage change grounded in the CRM record rather than a private recollection.",
@@ -92,6 +101,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     roleLabel: "Design Thinking Expert",
     stableName: "d011-design-thinking-expert",
     roleCategory: "design",
+    tags: ["设计", "创新", "用户研究"],
     workflowAllowlist: ["W027", "W028", "W029", "W031", "W002"],
     toolPolicy: ["knowledge.search"],
     instructions: "Facilitate discovery-to-opportunity and experiment loops, keep divergent options visible until a decision is made, and record the rationale next to the chosen option.",
@@ -118,6 +128,7 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
       delegationPolicy: { allowedTargets: [...DEFAULT_DELEGATION_POLICY.allowedTargets], maxDepth: DEFAULT_DELEGATION_POLICY.maxDepth, requireApproval: DEFAULT_DELEGATION_POLICY.requireApproval },
       escalationPolicy: { rules: [...DEFAULT_ESCALATION_POLICY.rules] },
       kpi: [],
+      tags: [...seed.tags],
     },
   };
 }
@@ -148,4 +159,9 @@ export function officialRoleWorkflowAllowlists(): Readonly<Record<string, readon
 /** 官方角色 stableName → 肖像 key（同一份 ROLE_SEEDS；供回填迁移的核对测试使用，不另立副本）。 */
 export function officialRoleAvatarKeys(): Readonly<Record<string, string>> {
   return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, s.avatarKey]));
+}
+
+/** 官方角色 stableName → 标签（同一份 ROLE_SEEDS；供标签回填迁移的核对测试使用，不另立副本）。 */
+export function officialRoleTags(): Readonly<Record<string, readonly string[]>> {
+  return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, [...s.tags]]));
 }

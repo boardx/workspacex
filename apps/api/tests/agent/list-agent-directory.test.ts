@@ -26,6 +26,7 @@ function row(over: Partial<AgentDirectoryRow> = {}): AgentDirectoryRow {
     roleLabel: "研究专家",
     avatar: null,
     roleCategory: "research",
+    tags: [],
     catalogSource: "official",
     workflowAllowlist: [],
     toolPolicyLength: 0,
