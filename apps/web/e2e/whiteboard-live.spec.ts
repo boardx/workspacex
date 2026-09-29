@@ -131,14 +131,14 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const viewerNote=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});
       await expect(viewerNote).toBeVisible({timeout:20_000});
       await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
-      await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
+      await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toHaveCount(0);
       await viewer.locator('[data-testid^="board-comment-indicator-"]').first().click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
     });
     await test.step('grant independent commenter access and persist a world-position anchored thread',async()=>{
       await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
       await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});await viewer.reload();await synced(viewer);
       const note=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await note.focus();await note.press('Enter');
-      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.locator('[data-testid^="board-comment-indicator-"]').first().click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
+      await expect(viewer.getByLabel('对象文字',{exact:true})).toHaveCount(0);await viewer.locator('[data-testid^="board-comment-indicator-"]').first().click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
       const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:640,y:360},body:'world anchored discussion',mentions:[],expectedRevision:0};
       await request(api,viewerToken!,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
       const comments=await request(api,viewerToken!,'GET',`/whiteboards/${boardId}/comments`);expect((await comments.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:640,y:360}}));
