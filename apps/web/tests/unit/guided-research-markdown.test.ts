@@ -13,6 +13,11 @@ const brief = {
 };
 
 describe("guided research Markdown artefacts", () => {
+  it("normalizes model-authored numeric prefixes so the plan never shows duplicate numbering", () => {
+    const document = serializeGuidedResearchMarkdown({ node: "outline", outline: [{ id: "o1", title: "1、并网政策研究", questions: ["政策是什么？"], enabled: true, order: 0 }] });
+    expect(document.markdown).toContain("## 1. 并网政策研究");
+    expect(document.markdown).not.toContain("## 1. 1、");
+  });
   it("serializes a brief with stable researcher-facing headings", () => {
     const document = serializeGuidedResearchMarkdown({ node: "brief", brief });
 

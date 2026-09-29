@@ -24,12 +24,37 @@ function fixture() {
   };
 }
 
+function readyFixture() {
+  const state = fixture();
+  state.completed = true;
+  state.sources.push({ ...state.sources[0]!, id: "src2", url: "https://example.com/second", document: { ...state.sources[0]!.document!, url: "https://example.com/second", contentHash: "b".repeat(64) } });
+  state.questionEvidence.push({ ...state.questionEvidence[0]!, sourceId: "src2" });
+  return state;
+}
+
 describe("research trust projection", () => {
   it("marks covered questions ready with traceable evidence", () => {
-    const result = projectResearchTrust(fixture());
-    expect(result.coverage[0]).toMatchObject({ status: "answered", evidenceIds: ["src1"] });
+    const result = projectResearchTrust(readyFixture());
+    expect(result.coverage[0]).toMatchObject({ status: "answered", evidenceIds: ["src1", "src2"] });
     expect(result.claimEvidence[0]).toMatchObject({ sourceId: "src1", quote: "Primary evidence text" });
     expect(result.publicationReadiness.status).toBe("ready");
+  });
+
+  it("does not mark a session ready before a report has been generated", () => {
+    const state = fixture();
+    state.report = null;
+    const result = projectResearchTrust(state);
+    expect(result.publicationReadiness).toMatchObject({ status: "limited" });
+    expect(result.publicationReadiness.blockers).toContain("报告尚未生成");
+  });
+
+  it("surfaces missing cross-validation without blocking an otherwise supported report", () => {
+    const state = fixture();
+    state.completed = true;
+    const result = projectResearchTrust(state);
+    expect(result.qualityScore.crossValidation).toBe(0);
+    expect(result.publicationReadiness.status).toBe("ready");
+    expect(result.publicationReadiness.warnings).toContain("关键结论尚未交叉验证");
   });
 
   it("keeps unsupported core questions limited", () => {

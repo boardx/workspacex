@@ -48,6 +48,10 @@ export type GuidedResearchMarkdownParseInput = {
 
 const briefHeadings = ["研究主题", "研究目标", "时间与地区", "重点关注"] as const;
 
+export function researchPlanTitle(title: string): string {
+  return title.replace(/^\s*(?:第\s*)?[一二三四五六七八九十百千万\d]+\s*[.、．)）:]\s*/, "").trim();
+}
+
 function section(markdown: string, heading: string): string | null {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = markdown.match(new RegExp(`(?:^|\\n)## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));
@@ -97,7 +101,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
     const sections = input.outline
       .slice()
       .sort((left, right) => left.order - right.order)
-      .map((item, index) => `## ${index + 1}. ${item.title}${item.enabled ? "" : "（未纳入）"}\n${item.objective ? `目标：${item.objective}\n\n` : ""}### 核心问题\n${item.questions.map((question) => `- ${question}`).join("\n")}${item.analysisApproach ? `\n\n### 分析方法\n${item.analysisApproach}` : ""}${item.expectedOutput ? `\n\n### 预期产出\n${item.expectedOutput}` : ""}${item.subsections?.length ? `\n\n### 子章节\n${item.subsections.map((section) => `- ${section.title}：${section.questions.join("；")}`).join("\n")}` : ""}`)
+      .map((item, index) => `## ${index + 1}. ${researchPlanTitle(item.title)}${item.enabled ? "" : "（未纳入）"}\n${item.objective ? `目标：${item.objective}\n\n` : ""}### 核心问题\n${item.questions.map((question) => `- ${question}`).join("\n")}${item.analysisApproach ? `\n\n### 分析方法\n${item.analysisApproach}` : ""}${item.expectedOutput ? `\n\n### 预期产出\n${item.expectedOutput}` : ""}${item.subsections?.length ? `\n\n### 子章节\n${item.subsections.map((section) => `- ${section.title}：${section.questions.join("；")}`).join("\n")}` : ""}`)
       .join("\n\n");
     return {
       node: "outline",

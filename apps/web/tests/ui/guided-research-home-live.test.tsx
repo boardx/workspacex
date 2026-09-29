@@ -118,7 +118,7 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-outline");
     expect(card).toHaveTextContent("研究大纲");
-    expect(card).toHaveTextContent("第 3 / 5 步");
+    expect(card).toHaveTextContent("第 3 / 6 步");
     fireEvent.click(screen.getByRole("button", { name: "审阅研究大纲" }));
     expect(onStepChange).toHaveBeenCalledWith("outline", "grs-outline");
   });
