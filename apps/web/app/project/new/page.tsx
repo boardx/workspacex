@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/shell/app-shell";
-import { NewProjectFlow, resolveNewProjectMode } from "@/components/project/new-project-flow";
+import { NewProjectFlow } from "@/components/project/new-project-flow";
 import { resolvePreviewRole } from "@/lib/identity";
 
 /**
@@ -20,7 +20,9 @@ export default function NewProjectPage({
   const previewRole = resolvePreviewRole(searchParams.as);
   return (
     <AppShell previewRole={previewRole}>
-      <NewProjectFlow mode={resolveNewProjectMode(searchParams.mode)} />
+      {/* ⚠ 在服务端就地解析 `?mode=`：`new-project-flow.tsx` 是 "use client" 模块，从服务端组件调它导出的
+          普通函数拿到的是客户端引用而不是函数，调用会让整页渲染失败（#4627 真栈 e2e 实测）。 */}
+      <NewProjectFlow mode={searchParams.mode === "workshop" ? "workshop" : "general"} />
     </AppShell>
   );
 }
