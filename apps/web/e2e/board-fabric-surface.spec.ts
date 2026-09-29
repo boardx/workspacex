@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
@@ -138,10 +138,17 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const surfaceBounds = await surface.boundingBox();
   expect(surfaceBounds).not.toBeNull();
   await page.mouse.move(surfaceBounds!.x + surfaceBounds!.width - 96, surfaceBounds!.y + surfaceBounds!.height / 2);
-  await page.mouse.wheel(0, 100_000);
-  await expect(page.getByTestId("board-zoom-value")).toHaveText("5%");
-  await page.mouse.wheel(0, -100_000);
-  await expect(page.getByTestId("board-zoom-value")).toHaveText("800%");
+  const zoomValue = page.getByTestId("board-zoom-value");
+  const wheelToClamp = async (deltaY: number, expected: "5%" | "800%") => {
+    for (let step = 0; step < 12 && await zoomValue.textContent() !== expected; step += 1) {
+      await page.mouse.wheel(0, deltaY);
+      await page.waitForTimeout(75);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    }
+    await expect(zoomValue).toHaveText(expected);
+  };
+  await wheelToClamp(2_000, "5%");
+  await wheelToClamp(-2_000, "800%");
 
   // The outline is intentionally screen-reader-only until keyboard focus enters
   // it. Exercise its real accessible interaction instead of clicking through the
@@ -168,7 +175,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
 });
 
 test("selected object inspector adapts to each widget and a narrow editor", async ({ page, request: api }, testInfo) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 1440, height: 800 });
   const token = await login(page);
   const created = await apiRequest(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Selected inspector ${randomUUID()}` });
   const board = await created.json() as { id: string; lifecycleRevision: number };
@@ -178,62 +185,108 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
 
   const editor = page.getByTestId("collaborative-editor");
   const inspector = page.getByTestId("board-context-toolbar");
+  const surface = page.getByTestId("board-fabric-surface");
+  const objectRows = page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
   const capture = async (name: string) => page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: false });
-  const latestObject = () => page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]').last();
-  const selectLatestAndExpand = async () => {
-    const object = latestObject();
-    await object.getByRole("button").focus();
-    await page.keyboard.press("Enter");
+  const objectIds = () => objectRows.evaluateAll((rows) => rows.map((row) => (row as HTMLElement).dataset.objectId!));
+  const expectCreatedObject = async (beforeIds: string[], kind: string, label: string) => {
+    await expect(objectRows, `${label} must create exactly one Fabric object`).toHaveCount(beforeIds.length + 1);
+    const createdIds = (await objectIds()).filter((id) => !beforeIds.includes(id));
+    expect(createdIds, `${label} must expose exactly one new object id`).toHaveLength(1);
+    const created = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${createdIds[0]}"]`);
+    await expect(created).toHaveAttribute("data-object-kind", kind);
+    return created;
+  };
+  const finishEditingAndSelect = async () => {
+    const input = page.getByTestId("board-thinking-editor");
+    await input.press("Escape");
+    await expect(input).toBeHidden();
+    const selectTool = page.getByTestId("board-tool-select");
+    await selectTool.click();
+    await expect(selectTool).toHaveAttribute("aria-pressed", "true");
+  };
+  const selectObject = async (object: Locator) => {
+    const selectTool = page.getByTestId("board-tool-select");
+    await selectTool.click();
+    await expect(selectTool).toHaveAttribute("aria-pressed", "true");
+    const objectButton = object.getByRole("button");
+    await objectButton.evaluate((element: HTMLElement) => element.click());
+    await expect(objectButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
     await expect(inspector).toBeVisible();
+    return object;
+  };
+  const expandInspector = async () => {
     if (await page.getByTestId("board-inspector-expand").count()) await page.getByTestId("board-inspector-expand").click();
     await expect(inspector).toHaveAttribute("data-expanded", "true");
+  };
+  const selectObjectAndExpand = async (object: Locator) => {
+    await selectObject(object);
+    await expandInspector();
     return object;
   };
 
+  const objectsBeforeSticky = await objectIds();
   await page.getByTestId("board-add-sticky").click();
-  await selectLatestAndExpand();
+  await expect(page.getByTestId("board-tool-picker")).toBeVisible();
+  await page.getByTestId("board-sticky-square").click();
+  await surface.click({ position: { x: 240, y: 180 } });
+  await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
+  await finishEditingAndSelect();
+  const stickyObject = await expectCreatedObject(objectsBeforeSticky, "sticky", "Sticky canvas gesture");
+  await selectObjectAndExpand(stickyObject);
   await expect(inspector).toContainText("便利贴");
   await expect(page.getByTestId("board-sticky-size-presets")).toBeVisible();
   await capture("selected-sticky-inspector");
   await page.getByTestId("board-inspector-close").click();
 
+  const objectsBeforeShape = await objectIds();
   await page.getByTestId("board-add-shape").click();
-  await selectLatestAndExpand();
+  const shapeObject = await expectCreatedObject(objectsBeforeShape, "shape", "Shape quick create");
+  await selectObjectAndExpand(shapeObject);
   await expect(inspector).toContainText("形状");
   await expect(page.getByTestId("board-shape-properties")).toBeVisible();
   await expect(page.getByLabel("形状填充色")).toBeVisible();
   await capture("selected-shape-inspector");
   await page.getByTestId("board-inspector-close").click();
 
+  const objectsBeforeText = await objectIds();
   await page.getByTestId("board-add-text").click();
-  await page.keyboard.press("Escape");
-  await selectLatestAndExpand();
+  await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
+  await finishEditingAndSelect();
+  const textObject = await expectCreatedObject(objectsBeforeText, "text", "Text quick create");
+  await selectObjectAndExpand(textObject);
   await expect(inspector).toContainText("文字");
-  await expect(page.getByTestId("board-widget-content-actions")).toBeVisible();
-  await expect(page.getByRole("button", { name: "编辑文字" })).toBeVisible();
+  await expect(inspector.getByTestId("board-widget-quick-format")).toBeVisible();
+  await expect(inspector.getByTestId("board-text-quick-bold")).toBeVisible();
+  await inspector.getByTestId("board-widget-advanced-format").locator("summary").click();
+  await expect(inspector.getByTestId("board-inspector-text")).toBeVisible();
   await capture("selected-text-inspector");
   await page.getByTestId("board-inspector-close").click();
 
+  const objectsBeforeImage = await objectIds();
   await page.getByTestId("board-add-image").click();
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
   await page.getByTestId("board-image-input").setInputFiles({ name: "inspector.png", mimeType: "image/png", buffer: png });
-  await expect(page.getByText(/图片已在当前浏览器会话中验证并显示/)).toBeVisible({ timeout: 15_000 });
-  await selectLatestAndExpand();
+  const imageObject = await expectCreatedObject(objectsBeforeImage, "image", "Image upload");
+  await selectObject(imageObject);
+  await expect(inspector).toHaveAttribute("aria-label", "图片快捷工具");
+  await expect(inspector.getByRole("toolbar", { name: "图片快捷操作" })).toBeVisible();
+  await expandInspector();
+  await expect(inspector).toHaveAttribute("aria-label", "图片属性");
   await expect(inspector).toContainText("图片");
   await expect(page.getByTestId("board-image-properties")).toBeVisible();
   await expect(page.getByLabel("图片裁剪宽度")).toBeVisible();
   await capture("selected-image-inspector");
   await page.getByTestId("board-inspector-close").click();
 
-  const objectRows = page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
-  const objectsBeforeFrame = await objectRows.count();
+  const objectsBeforeFrame = await objectIds();
   await page.getByTestId("board-add-frame").click();
   await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
-  await page.getByTestId("board-fabric-surface").click({ position: { x: 120, y: 100 } });
-  await expect(objectRows, "Frame canvas gesture must create exactly one Fabric object").toHaveCount(objectsBeforeFrame + 1);
-  await expect(latestObject()).toHaveAttribute("data-object-kind", "panel");
+  await surface.click({ position: { x: 120, y: 100 } });
+  const frameObject = await expectCreatedObject(objectsBeforeFrame, "panel", "Frame canvas gesture");
   await page.getByRole("button", { name: "Close frame tools" }).click();
-  await selectLatestAndExpand();
+  await selectObjectAndExpand(frameObject);
   await expect(inspector).toContainText("Frame / 区域");
   await expect(page.getByTestId("board-frame-size-presets")).toBeVisible();
   await capture("selected-frame-inspector");

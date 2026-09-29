@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
+const kernel = readFileSync(new URL('../../src/kernel.module.ts', import.meta.url), 'utf8');
+const websocketFixture = readFileSync(new URL('./collaboration-ws.test.ts', import.meta.url), 'utf8');
 const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'restoreDeletion', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'objectPrefix', 'readStored', 'writeStored', 'documentBytes', 'updateBytes', 'loadInTransaction', 'backfillLegacyBoard', 'backfillLegacyUpdatesInTransaction', 'backfillStorageInTransaction', 'compensateInTransaction'];
 
 function inspect(code: string): { methods: Map<string, string>; tables: Set<string>; sql: string[] } {
@@ -85,6 +87,69 @@ function audit(code: string): string[] {
   return errors;
 }
 
+function property(object: ts.ObjectLiteralExpression, name: string, file: ts.SourceFile): ts.PropertyAssignment | undefined {
+  return object.properties.find((entry): entry is ts.PropertyAssignment =>
+    ts.isPropertyAssignment(entry) && entry.name.getText(file).replace(/^['"]|['"]$/g, '') === name);
+}
+
+function newExpressions(node: ts.Node, className: string, file: ts.SourceFile): ts.NewExpression[] {
+  const expressions: ts.NewExpression[] = [];
+  const visit = (candidate: ts.Node): void => {
+    if (ts.isNewExpression(candidate) && candidate.expression.getText(file) === className) expressions.push(candidate);
+    ts.forEachChild(candidate, visit);
+  };
+  visit(node);
+  return expressions;
+}
+
+function objectStoreBindings(file: ts.SourceFile): Set<string> {
+  const bindings = new Set<string>();
+  for (const expression of newExpressions(file, 'FsObjectStore', file)) {
+    const parent = expression.parent;
+    if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) bindings.add(parent.name.text);
+    if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(parent.left)) bindings.add(parent.left.text);
+  }
+  return bindings;
+}
+
+function collaborationProviders(file: ts.SourceFile): ts.ObjectLiteralExpression[] {
+  const providers: ts.ObjectLiteralExpression[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isObjectLiteralExpression(node) && property(node, 'provide', file)?.initializer.getText(file) === 'WHITEBOARD_COLLABORATION_STORE') providers.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return providers;
+}
+
+function compositionAudit(kernelCode: string, fixtureCode: string): string[] {
+  const errors: string[] = [];
+  const kernelFile = ts.createSourceFile('kernel.module.ts', kernelCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const providers = collaborationProviders(kernelFile);
+  if (providers.length !== 1) {
+    errors.push('production collaboration provider');
+  } else {
+    const provider = providers[0]!;
+    const inject = property(provider, 'inject', kernelFile)?.initializer;
+    const factory = property(provider, 'useFactory', kernelFile)?.initializer;
+    const dependencies = inject && ts.isArrayLiteralExpression(inject) ? inject.elements.map(entry => entry.getText(kernelFile)) : [];
+    const parameters = factory && (ts.isArrowFunction(factory) || ts.isFunctionExpression(factory)) ? factory.parameters.map(parameter => parameter.name.getText(kernelFile)) : [];
+    const objectStoreIndex = dependencies.indexOf('OBJECT_STORE');
+    const stores = factory ? newExpressions(factory, 'PgWhiteboardCollaborationStore', kernelFile) : [];
+    const objectArgument = stores.length === 1 ? stores[0]!.arguments?.[3]?.getText(kernelFile) : undefined;
+    if (objectStoreIndex < 0 || parameters[objectStoreIndex] === undefined || objectArgument !== parameters[objectStoreIndex]) errors.push('production ObjectStore composition');
+  }
+
+  const fixtureFile = ts.createSourceFile('collaboration-ws.test.ts', fixtureCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const objectStores = objectStoreBindings(fixtureFile);
+  const collaborationStores = newExpressions(fixtureFile, 'PgWhiteboardCollaborationStore', fixtureFile);
+  if (objectStores.size === 0 || collaborationStores.length === 0 || collaborationStores.some(expression => {
+    const objectArgument = expression.arguments?.[3];
+    return !objectArgument || !ts.isIdentifier(objectArgument) || !objectStores.has(objectArgument.text);
+  })) errors.push('WebSocket fixture ObjectStore composition');
+  return errors;
+}
+
 describe('whiteboard collaboration repository permission exemption', () => {
   it('keeps tenant tables, ACL predicates, row locks and transaction ordering bounded', () => {
     expect(audit(source)).toEqual([]);
@@ -94,6 +159,23 @@ describe('whiteboard collaboration repository permission exemption', () => {
     const mutated = source.replace('await this.access(session, p, boardId, true);', '/* authorization removed */');
     expect(mutated).not.toBe(source);
     expect(audit(mutated)).toContain('commit: authorize before mutation');
+  });
+  it('composes the mandatory write ObjectStore in production and the real WebSocket fixture', () => {
+    expect(compositionAudit(kernel, websocketFixture)).toEqual([]);
+  });
+  it('rejects ObjectStore wiring regressions in production and the WebSocket fixture', () => {
+    const kernelFile = ts.createSourceFile('kernel.module.ts', kernel, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const inject = property(collaborationProviders(kernelFile)[0]!, 'inject', kernelFile)!.initializer;
+    const productionWithoutObjectStore = `${kernel.slice(0, inject.getStart(kernelFile))}[DATABASE_PORT]${kernel.slice(inject.end)}`;
+    const fixtureFile = ts.createSourceFile('collaboration-ws.test.ts', websocketFixture, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const fixtureStore = newExpressions(fixtureFile, 'PgWhiteboardCollaborationStore', fixtureFile)[0]!;
+    const thirdArgument = fixtureStore.arguments![2]!;
+    const fourthArgument = fixtureStore.arguments![3]!;
+    const fixtureWithoutObjectStore = websocketFixture.slice(0, thirdArgument.end) + websocketFixture.slice(fourthArgument.end);
+    expect(productionWithoutObjectStore).not.toBe(kernel);
+    expect(fixtureWithoutObjectStore).not.toBe(websocketFixture);
+    expect(compositionAudit(productionWithoutObjectStore, websocketFixture)).toContain('production ObjectStore composition');
+    expect(compositionAudit(kernel, fixtureWithoutObjectStore)).toContain('WebSocket fixture ObjectStore composition');
   });
   it('rejects an idempotency lookup no longer scoped to the actor', () => {
     const mutated = source.replaceAll('AND actor_id=$4 AND update_id=$5', 'AND update_id=$5');

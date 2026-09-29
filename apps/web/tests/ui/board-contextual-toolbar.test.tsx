@@ -134,8 +134,8 @@ it("groups the selected widget's frequent actions separately from detailed prope
   expect(screen.getByTestId("board-sticky-style-open")).toHaveClass("h-11","w-11");
   expect(screen.getByTestId("board-sticky-text-open")).toHaveClass("h-11","w-11");
   expect(screen.getByTestId("board-inspector-actions")).toHaveClass("min-h-11","min-w-11");
-  expect(screen.queryByTestId("board-inspector-expand")).toBeNull();
-  expect(screen.queryByTestId("board-inspector-close")).toBeNull();
+  expect(screen.getByTestId("board-inspector-expand")).toBeVisible();
+  expect(screen.getByTestId("board-inspector-close")).toBeVisible();
   expect(screen.queryByTestId("sticky-quick-color-yellow")).toBeNull();
   fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   expect(screen.getByTestId("board-sticky-inspector-style")).toBeVisible();
@@ -187,6 +187,29 @@ it("exposes the selected Text's common formatting and object actions before deta
   expect(onTextChange).toHaveBeenCalledWith({ preset: "body", bold: true });
 });
 
+it("keeps duplicate and delete available across a transient mutation block while preserving readonly and locked boundaries", () => {
+  const text: WhiteboardObject = { ...sticky, id: "text-actions", kind: "text", text: "Heading" };
+  const onDuplicate = vi.fn(), onDelete = vi.fn();
+  const props = { object: text, readOnly: true, objectActionsDisabled: false, actorId: "me", onStickyChange: vi.fn(), onTextChange: vi.fn(), onExperienceChange: vi.fn(), onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction: vi.fn(), onDuplicate, onDelete };
+  const { rerender } = render(<ObjectContextToolbar {...props} />);
+
+  expect(screen.getByTestId("board-text-quick-bold")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "复制对象" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "删除对象" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
+  fireEvent.click(screen.getByRole("button", { name: "删除对象" }));
+  expect(onDuplicate).toHaveBeenCalledOnce();
+  expect(onDelete).toHaveBeenCalledOnce();
+
+  rerender(<ObjectContextToolbar {...props} objectActionsDisabled />);
+  expect(screen.getByRole("button", { name: "复制对象" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "删除对象" })).toBeDisabled();
+
+  rerender(<ObjectContextToolbar {...props} readOnly={false} objectActionsDisabled={false} object={{ ...text, locked: true }} />);
+  expect(screen.getByRole("button", { name: "复制对象" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "删除对象" })).toBeDisabled();
+});
+
 it("shows shape-specific fill controls and common duplicate/delete actions for selected widgets", () => {
   const shape: WhiteboardObject = { ...sticky, id: "shape", kind: "rectangle", text: "Plan", style: { fill: "#FFFFFF", stroke: "#111111" } };
   const onStyleChange = vi.fn();
@@ -213,6 +236,8 @@ it("opens the matching object menu when a shape is selected on the Fabric board"
   expect(panel.style.left).toMatch(/px$/);
   expect(panel.style.top).toMatch(/px$/);
   expect(screen.getByTestId("board-object-fill-color")).toBeVisible();
+  expect(screen.getByRole("button", { name: "复制对象" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "删除对象" })).toBeEnabled();
   doc.destroy();
 });
 

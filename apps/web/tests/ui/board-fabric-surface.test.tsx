@@ -69,7 +69,14 @@ vi.mock("fabric", () => {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
     constructor() { probe.instances += 1; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
-    remove(object: MockProjectedObject) { probe.objects.splice(probe.objects.indexOf(object), 1); }
+    remove(object: MockProjectedObject) {
+      probe.objects.splice(probe.objects.indexOf(object), 1);
+      if (probe.active === object || probe.activeId === object.data?.boardObjectId) {
+        probe.active = null;
+        probe.activeId = null;
+        probe.handlers.get("selection:cleared")?.({ target: object });
+      }
+    }
     getObjects() { return probe.objects as Array<MockObject>; }
     on(name: string, handler: (event: { target?: MockProjectedObject }) => void) { probe.handlers.set(name, handler); }
     dispose() {} requestRenderAll() { probe.renderCalls += 1; } setDimensions() {}
@@ -370,6 +377,20 @@ describe("BoardFabricSurface", () => {
     const replacement = probe.objects.find((item) => item.data?.boardObjectId === square.id)!;
     expect(replacement).not.toBe(prior);
     expect(replacement.children?.[0]?.mockKind).toBe("circle");
+  });
+
+  it("preserves controlled selection while replacing an updated Panel projection", () => {
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "selected-panel", kind: "panel", panel: { title: "Frame", mode: "freeform", autoExpand: true, clipContent: false } };
+    const onSelectionChange = vi.fn();
+    const view = renderSurface({ objects: [panel], selectedObjectIds: [panel.id], onSelectionChange });
+    expect(probe.activeId).toBe(panel.id);
+    onSelectionChange.mockClear();
+
+    view.rerender(<BoardFabricSurface objects={[{ ...panel, revision: 2, panel: { ...panel.panel!, autoExpand: false } }]} selectedObjectIds={[panel.id]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={onSelectionChange} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+
+    expect(onSelectionChange).not.toHaveBeenCalledWith([], "canvas");
+    expect(probe.activeId).toBe(panel.id);
+    expect(screen.getByTestId(`board-a11y-object-${panel.id}`)).toHaveAttribute("aria-pressed", "true");
   });
 
   it("patches a remote rich-text style revision onto the existing Fabric object", () => {

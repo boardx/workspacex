@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { createSpatialWsMetadataRecorder } from "./support/board-spatial-ws-metadata";
@@ -55,14 +55,29 @@ async function canvasTransform(page: Page) {
   const surface = page.getByTestId("board-fabric-surface"), box = (await surface.boundingBox())!;
   return { box, zoom: Number(await surface.getAttribute("data-viewport-zoom")), panX: Number(await surface.getAttribute("data-viewport-pan-x")), panY: Number(await surface.getAttribute("data-viewport-pan-y")) };
 }
-async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: number, dy: number, outcome: "commit" | "reject" = "commit") {
-  await row.getByRole("button").focus(); await page.keyboard.press("Enter");
+async function selectObjectFromOutline(page: Page, row: Locator) {
+  await row.getByRole("button").focus();
+  await page.keyboard.press("Enter");
+  const editor = page.getByTestId("board-thinking-editor");
+  if (await editor.isVisible()) {
+    await editor.press("Escape");
+    await expect(editor).toBeHidden();
+  }
+}
+async function dragObject(
+  page: Page,
+  row: ReturnType<typeof objectRow>,
+  dx: number,
+  dy: number,
+  outcome: "commit" | "reject" = "commit",
+  sceneTolerance = 0,
+) {
+  await selectObjectFromOutline(page, row);
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const geometry = await geometryOf(row), { box, zoom, panX, panY } = await canvasTransform(page);
-  // Canonical geometry is top-left based. Close direct text editing before
-  // dragging the interior so the pointer reaches Fabric instead of the textarea.
-  await page.keyboard.press("Escape");
+  // Canonical geometry is top-left based. Inline editing was closed through
+  // the actual editor above so the pointer reaches Fabric instead of its textarea.
   const angle = geometry.rotation * Math.PI / 180;
   const localX = geometry.width / 4, localY = geometry.height / 2;
   const sceneCenter = {
@@ -73,24 +88,45 @@ async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: num
   const { from, to } = spatialPointerDrag(start, { x: dx, y: dy }, zoom);
   await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y, { steps: 10 }); await page.mouse.up();
   const expected = outcome === "commit" ? spatialDragPosition(geometry, from, to, zoom) : { x: geometry.x, y: geometry.y };
-  await expect.poll(async () => { const next = await geometryOf(row); return spatialMicroPosition(next); }).toEqual(spatialMicroPosition(expected));
-}
-async function openInspector(page: Page, properties = false) {
-  const dialog = page.getByRole("dialog", { name: "更多操作", exact: true });
-  if (!await dialog.isVisible()) {
-    const trigger = page.getByRole("button", { name: "更多操作", exact: true });
-    if (await trigger.count()) await trigger.click();
-    else {
-      const expand = page.getByTestId("board-inspector-expand");
-      if (await expand.count()) await expand.click();
-      await page.getByRole("button", { name: "更多操作", exact: true }).click();
-    }
+  if (sceneTolerance === 0) {
+    await expect.poll(async () => { const next = await geometryOf(row); return spatialMicroPosition(next); }).toEqual(spatialMicroPosition(expected));
+  } else {
+    await expect.poll(async () => {
+      const next = await geometryOf(row);
+      return Math.max(Math.abs(next.x - expected.x), Math.abs(next.y - expected.y));
+    }).toBeLessThanOrEqual(sceneTolerance);
   }
+}
+async function openInspector(page: Page, properties = false, dismissAfterTab = false) {
+  const visibleDialog = () => page.getByRole("dialog", { name: "更多操作", exact: true }).filter({ visible: true }).last();
+  if (!await visibleDialog().count()) {
+    let trigger = page.getByRole("button", { name: "更多操作", exact: true }).filter({ visible: true }).last();
+    if (!await trigger.count()) {
+      const expand = page.getByTestId("board-inspector-expand").filter({ visible: true }).last();
+      await expect(expand).toBeVisible();
+      await expand.click();
+      await expect(page.getByTestId("board-context-toolbar").filter({ visible: true }).last()).toBeVisible();
+      trigger = page.getByRole("button", { name: "更多操作", exact: true }).filter({ visible: true }).last();
+    }
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+  }
+  const dialog = visibleDialog();
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: properties ? "精确属性" : "操作", exact: true }).click();
+  if (properties && dismissAfterTab) {
+    // The tab controls which property surface is active, but the non-modal
+    // popover still sits above the selected object's panel. Close that Radix
+    // surface directly: a global Escape also clears the Board selection.
+    await dialog.getByRole("button", { name: "关闭更多操作", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId("board-panel-properties").filter({ visible: true }).last()).toBeVisible();
+  }
 }
 async function clickObjectAction(page: Page, name: string) {
   await openInspector(page);
-  await page.getByRole("dialog", { name: "更多操作", exact: true }).getByRole("button", { name, exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "更多操作", exact: true }).filter({ visible: true }).last();
+  await dialog.getByRole("button", { name, exact: true }).click();
 }
 async function geometries(page: Page): Promise<Geometry[]> {
   return page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => JSON.parse((row as HTMLElement).dataset.geometry!) as Geometry));
@@ -100,6 +136,18 @@ async function boardRows(page: Page) {
     const value = row as HTMLElement;
     return { id: value.dataset.objectId, geometry: value.dataset.geometry, parentId: value.dataset.parentId, zIndex: value.dataset.zIndex, from: value.dataset.connectorFrom, to: value.dataset.connectorTo, start: value.dataset.connectorStart, end: value.dataset.connectorEnd };
   }));
+}
+async function openStickyTool(page: Page) {
+  await page.getByTestId("board-add-sticky").click();
+  await expect(page.getByTestId("board-tool-picker")).toBeVisible();
+  await page.getByTestId("board-sticky-square").click();
+}
+async function exitCreationTool(page: Page) {
+  // Newly placed Stickies immediately enter inline editing. End that session
+  // before clicking dock or inspector controls so its textarea cannot intercept UI.
+  await page.keyboard.press("Escape");
+  await page.getByTestId("board-tool-select").click();
+  await expect(page.getByTestId("board-tool-picker")).toBeHidden();
 }
 
 test("multi-select transform, Panel clip/expand, connector preservation, and total z-order survive reload", async ({ page, request }) => {
@@ -115,14 +163,22 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const surface = page.getByTestId("board-fabric-surface");
   await page.getByTestId("board-add-frame").click();
   await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
-  await surface.click({ position: { x: 500, y: 350 } });
+  await page.getByTestId("board-frame-size-s").click();
+  // The Frame panel occupies the lower center of the editor. Use an exposed
+  // canvas point so the real Fabric mouse event, rather than panel chrome, owns it.
+  // The S size also keeps the whole Frame inside the later real marquee gesture.
+  await surface.click({ position: { x: 360, y: 320 } });
   await page.getByRole("button", { name: "Close frame tools" }).click();
   await expect(outline).toHaveCount(1);
-  await page.getByTestId("board-add-sticky").click();
+  await openStickyTool(page);
+  // A click on the Frame targets the existing Fabric object, so creation-on-blank
+  // intentionally does not run. Drag the real palette item to exercise tool-drop
+  // creation inside an existing Frame.
+  await page.getByTestId("board-sticky-square").dragTo(surface, { targetPosition: { x: 480, y: 300 } });
   await expect(outline).toHaveCount(2);
-  await page.getByTestId("board-sticky-square").dragTo(page.getByTestId("board-fabric-surface"), { targetPosition: { x: 1050, y: 500 } });
+  await surface.click({ position: { x: 1050, y: 500 } });
   await expect(outline).toHaveCount(3);
-  await page.getByTestId("board-tool-select").click();
+  await exitCreationTool(page);
 
   // Real marquee exercises Fabric ActiveSelection; matrix scale/rotation stays covered by
   // the renderer's deterministic Fabric tests until Iteration 06 normalizes its origin.
@@ -145,10 +201,16 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(firstSticky).toHaveAttribute("data-parent-id", panelId);
 
   // Panel policies are mutually exclusive. A rotated/absolute Fabric clipPath is projected for its child and blocks escape atomically.
-  await panel.getByRole("button").focus(); await page.keyboard.press("Enter");
-  await openInspector(page, true);
-  await page.getByLabel("自动扩展").uncheck(); await page.getByLabel("裁剪内容").check();
-  await expect(page.getByLabel("自动扩展")).toBeDisabled();
+  await selectObjectFromOutline(page, panel);
+  await openInspector(page, true, true);
+  const autoExpand = page.getByLabel("区域自动扩展", { exact: true });
+  const clipContent = page.getByLabel("区域裁剪内容", { exact: true });
+  await autoExpand.evaluate((element: HTMLInputElement) => element.click());
+  await expect(autoExpand).not.toBeChecked();
+  await expect(clipContent).toBeEnabled();
+  await clipContent.evaluate((element: HTMLInputElement) => element.click());
+  await expect(clipContent).toBeChecked();
+  await expect(autoExpand).toBeDisabled();
   await expect(firstSticky).toHaveAttribute("data-clip-parent-id", panelId);
   const clippedGeometry = await firstSticky.getAttribute("data-geometry");
   await dragObject(page, firstSticky, 620, 420, "reject");
@@ -156,19 +218,23 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
 
   // With auto-expand enabled, the same boundary crossing retains parentId and expands the Panel.
   const panelBeforeExpand = await geometryOf(panel);
-  await panel.getByRole("button").focus(); await page.keyboard.press("Enter");
-  await openInspector(page, true);
-  await page.getByLabel("裁剪内容").uncheck(); await page.getByLabel("自动扩展").check();
+  await selectObjectFromOutline(page, panel);
+  await openInspector(page, true, true);
+  await clipContent.evaluate((element: HTMLInputElement) => element.click());
+  await expect(clipContent).not.toBeChecked();
+  await expect(autoExpand).toBeEnabled();
+  await autoExpand.evaluate((element: HTMLInputElement) => element.click());
+  await expect(autoExpand).toBeChecked();
   await dragObject(page, firstSticky, 620, 320);
   const panelAfterExpand = await geometryOf(panel);
   expect(panelAfterExpand.width > panelBeforeExpand.width || panelAfterExpand.height > panelBeforeExpand.height).toBe(true);
   await expect(firstSticky).toHaveAttribute("data-parent-id", panelId);
 
   // A locked sibling keeps its exact zIndex while one-step layer movement swaps only one relative position.
-  await panel.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, panel);
   await clickObjectAction(page, "锁定");
   const lockedPanelZ = Number(await panel.getAttribute("data-z-index"));
-  await secondSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, secondSticky);
   await clickObjectAction(page, "置于底层");
   await clickObjectAction(page, "上移一层");
   // A locked anchor can make a one-step command a legitimate no-op at its
@@ -178,16 +244,16 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   for (const label of ["置于顶层", "下移一层", "置于底层"]) await clickObjectAction(page, label);
   const zBeforeReload = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => Number((row as HTMLElement).dataset.zIndex)));
   expect(new Set(zBeforeReload).size).toBe(zBeforeReload.length);
-  await panel.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, panel);
   await clickObjectAction(page, "解锁");
 
   // Explicit endpoint deletion keeps a free endpoint connector; the other attached end remains live.
-  await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, firstSticky);
   await page.getByTestId(`connector-handle-${firstId}-right`).evaluate(element => {
     const transfer = new DataTransfer(); (window as typeof window & { __boardConnectorTransfer?: DataTransfer }).__boardConnectorTransfer = transfer;
     element.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
   });
-  await secondSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, secondSticky);
   await page.getByTestId(`connector-handle-${secondId}-left`).evaluate(element => {
     const transfer = (window as typeof window & { __boardConnectorTransfer?: DataTransfer }).__boardConnectorTransfer!;
     element.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
@@ -204,11 +270,16 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const beforeFit = await canvasTransform(page);
   await page.getByTestId("board-zoom-fit-board").click();
   await expect.poll(() => canvasTransform(page)).not.toEqual(beforeFit);
-  await dragObject(page, firstSticky, 40, 30);
+  // Smart guides may snap this connector-follow gesture by less than one scene
+  // pixel. Keep every other drag exact; the attached endpoint is asserted
+  // against the Sticky's resulting anchor immediately below.
+  await dragObject(page, firstSticky, 73, 91, "commit", 1);
   await expect(connector).not.toHaveAttribute("data-connector-start", connectorStartBeforeMove!);
   // Transparent connector bounds must pass through, but its visible stroke must
   // still be selectable using a real pointer (not the accessibility outline).
   const movedStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
+  const expectedMovedStart = anchorPoint(await geometryOf(firstSticky), "right");
+  expect(movedStart.x).toBeCloseTo(expectedMovedStart.x, 5); expect(movedStart.y).toBeCloseTo(expectedMovedStart.y, 5);
   const movedEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
   const lineViewport = await canvasTransform(page);
   // The selected Sticky's floating toolbar can cover the midpoint. Click a
@@ -225,7 +296,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await page.mouse.click(strokePoint!.x, strokePoint!.y);
   await expect(connector.getByRole("button")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
-  await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, firstSticky);
   await openInspector(page);
   await page.getByTestId("board-delete-preserve-connectors").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
@@ -263,22 +334,23 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
 
 test("selection transform locks", async ({ page, request }) => {
   await openEmptyBoard(page, request, "Selection locks");
-  await page.getByTestId("board-add-sticky").click();
+  const surface = page.getByTestId("board-fabric-surface");
+  await openStickyTool(page);
+  await surface.click({ position: { x: 600, y: 350 } });
   const stickies = page.locator('[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]');
   await expect(stickies).toHaveCount(1);
   // Equal orderKeys are sorted by random UUID, not creation time. Capture the
   // center note's identity before adding the dragged note so their roles cannot swap.
   const lockedId = await stickies.first().getAttribute("data-object-id");
   if (!lockedId) throw new Error("Created sticky is missing its canonical object ID");
-  await page.getByTestId("board-sticky-square").dragTo(page.getByTestId("board-fabric-surface"), { targetPosition: { x: 950, y: 470 } });
-  await page.getByTestId("board-tool-select").click();
+  await surface.click({ position: { x: 950, y: 470 } });
+  await exitCreationTool(page);
   await expect(stickies).toHaveCount(2);
   const locked = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${lockedId}"]`);
   const free = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]:not([data-object-id="${lockedId}"])`);
   await expect(free).toHaveCount(1);
   const lockedBefore = await geometryOf(locked), freeBefore = await geometryOf(free);
-  await locked.getByRole("button").focus();
-  await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, locked);
   await clickObjectAction(page, "锁定");
   await openInspector(page);
   await expect(page.getByTestId("board-spatial-duplicate")).toBeDisabled();
@@ -297,15 +369,16 @@ test("selection transform locks", async ({ page, request }) => {
   await page.getByRole("button", { name: "撤销", exact: true }).click();
   await expect.poll(() => geometryOf(free)).toEqual(freeBefore);
   expect(await geometryOf(locked)).toEqual(lockedBefore);
-  await locked.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await selectObjectFromOutline(page, locked);
   await clickObjectAction(page, "解锁");
 });
 
 test("copy paste sanitization", async ({ page, request }) => {
   await openEmptyBoard(page, request, "Clipboard sanitization");
-  await page.getByTestId("board-add-sticky").click();
-  await page.keyboard.press("Escape");
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
+  await openStickyTool(page);
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 600, y: 350 } });
+  await exitCreationTool(page);
   await expect(outline).toHaveCount(1);
   const originalId = await objectRow(page, "sticky").getAttribute("data-object-id");
   const originalGeometry = await geometryOf(objectRow(page, "sticky"));
@@ -321,13 +394,23 @@ test("copy paste sanitization", async ({ page, request }) => {
   await expect(outline).toHaveCount(3);
   const selectedRow = page.locator('[data-testid="board-a11y-mirror"] li').filter({ has: page.locator('button[aria-pressed="true"]') }).first();
   const selectedId = (await selectedRow.getAttribute("data-object-id"))!, selectedBefore = await geometryOf(selectedRow);
+  // Rebind the canonical selection to this immutable ID, then leave inline text
+  // editing before the pointer gesture so the textarea cannot own mouse down.
+  await selectObjectFromOutline(page, selectedRow);
+  await expect(selectedRow.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const beforeAltIds = new Set(await page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]').evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.objectId!)));
   const surfaceTransform = await canvasTransform(page);
   // The three copies overlap by 24 px. Start in the selected copy's exposed
   // right strip so Fabric cannot retarget the Alt-drag to an older copy below.
-  const dragStart = { x: surfaceTransform.box.x + surfaceTransform.panX + (selectedBefore.x + selectedBefore.width - 12) * surfaceTransform.zoom, y: surfaceTransform.box.y + surfaceTransform.panY + (selectedBefore.y + selectedBefore.height / 2) * surfaceTransform.zoom };
+  const dragCandidates = [.75, .5, .25].map(vertical => ({ x: surfaceTransform.box.x + surfaceTransform.panX + (selectedBefore.x + selectedBefore.width - 12) * surfaceTransform.zoom, y: surfaceTransform.box.y + surfaceTransform.panY + (selectedBefore.y + selectedBefore.height * vertical) * surfaceTransform.zoom }));
+  const dragStart = await page.evaluate(points => points.find(point => {
+    const target = document.elementFromPoint(point.x, point.y);
+    return target?.tagName === "CANVAS" && Boolean(target.closest('[data-testid="board-fabric-surface"]'));
+  }), dragCandidates);
+  expect(dragStart, "Alt-drag must start on an unobscured Fabric canvas point inside the selected copy").toBeDefined();
   await page.keyboard.down("Alt");
-  await page.mouse.move(dragStart.x, dragStart.y); await page.mouse.down(); await page.mouse.move(dragStart.x + 36 * surfaceTransform.zoom, dragStart.y + 28 * surfaceTransform.zoom, { steps: 8 }); await page.mouse.up();
+  await page.mouse.move(dragStart!.x, dragStart!.y); await page.mouse.down(); await page.mouse.move(dragStart!.x + 36 * surfaceTransform.zoom, dragStart!.y + 28 * surfaceTransform.zoom, { steps: 8 }); await page.mouse.up();
   await page.keyboard.up("Alt");
   await expect(outline).toHaveCount(4);
   expect(await geometryOf(page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${selectedId}"]`))).toEqual(selectedBefore);
@@ -356,8 +439,9 @@ test("copy paste sanitization", async ({ page, request }) => {
 
 test("contextual controls availability", async ({ page, request }) => {
   await openEmptyBoard(page, request, "Context availability");
-  await page.getByTestId("board-add-sticky").click();
-  await page.keyboard.press("Escape");
+  await openStickyTool(page);
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 600, y: 350 } });
+  await exitCreationTool(page);
   await expect(page.getByRole("complementary", { name: "便利贴快捷工具" })).toBeVisible();
   await openInspector(page);
   const spatial = page.getByTestId("board-spatial-toolbar");

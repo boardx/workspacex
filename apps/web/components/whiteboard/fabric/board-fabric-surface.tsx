@@ -924,7 +924,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    withCanonicalProjectionBatch(registryRef.current.values(), () => {
+    const wasReconcilingSelection = reconcilingSelectionRef.current;
+    reconcilingSelectionRef.current = true;
+    try {
+      withCanonicalProjectionBatch(registryRef.current.values(), () => {
       const incoming = new Map(objects.map((object) => [object.id, object]));
       for (const [id, projected] of registryRef.current) {
         if (!incoming.has(id)) {
@@ -987,10 +990,16 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         }
       });
       stackingOrderRef.current = orderedIds;
-    }, (member) => {
-      const id = member.data?.boardObjectId;
-      return id ? registryRef.current.get(id) : undefined;
-    });
+      }, (member) => {
+        const id = member.data?.boardObjectId;
+        return id ? registryRef.current.get(id) : undefined;
+      });
+    } finally {
+      // Fabric synchronously clears its active selection when a rich projection
+      // is replaced. The controlled-selection effect below binds the replacement;
+      // do not publish that transient empty state to the canonical editor.
+      reconcilingSelectionRef.current = wasReconcilingSelection;
+    }
     setObjectScenes([...registryRef.current].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
     scheduleRender();
   }, [editingObjectId, objects, readOnly, scheduleRender]);
