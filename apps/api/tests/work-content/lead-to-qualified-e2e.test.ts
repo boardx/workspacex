@@ -67,6 +67,7 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
 
   /** 每次调用 = 一个新 worker 进程：新服务实例 + 新 lease（epoch+1），store 与 CRM 桩保持。 */
   async function runProcess(items: ApprovedLead[]) {
+    crm.dead = false; // 新进程：CRM 连接重新可用
     const gateway = makeGateway(receipts, leases, instances, grants);
     const svc = new LeadWriteBackService({ gateway, capability: grants, eligibility, crm, notify, events: instances as never });
     const lease = await leases.acquire({ orgId: ORG, instanceId: INSTANCE, holder: `w-${Math.random()}` });
@@ -121,6 +122,51 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
     expect(r.outcome).toBe("complete");
     expect(status()).toBe("succeeded");
     expect(crm.records.get("lead-1")!.writeKeys).toHaveLength(1);
+    expect(notify.sent).toHaveLength(1);
+  });
+
+  it("P3：两条写之间撤销 crm.write → 该条 forbidden、未写；其它条照写，实例 succeeded + with_holds", async () => {
+    // crm.write 查询序：#1 服务入口，#2/#3/#4 = 网关对 lead-1/2/3 的逐条 P3 重查；只在 #3 撤销。
+    grants.override = (category, n) => (category === "crm.write" && n === 3 ? { authorized: false, sideEffectCap: "read" } : undefined);
+    const r = await runProcess(Array.from({ length: N }, (_, i) => lead(i + 1)));
+    expect(grants.calls.get("crm.write")).toBe(N + 1);
+    expect(r.items.map((x) => x.outcome)).toEqual(["written", "forbidden", "written"]);
+    expect(crm.records.has("lead-2")).toBe(false);
+    expect(crm.writes).toBe(N - 1);
+    expect(instances.events.some((e) => e.type === "effect_blocked" && e.data.effectKey === "crm:lead-2")).toBe(true);
+    expect(r.status).toBe("succeeded");
+    expect(r.outcome).toBe("with_holds");
+    expect(status()).toBe("succeeded");
+  });
+
+  it("E11：单条工具异常 → 读回对账；已落库 → written，未落库查不到结论 → held，实例停在 needs_attention", async () => {
+    crm.failNext = { afterWrite: true };
+    const r1 = await runProcess([lead(1)]);
+    expect(r1.items[0]!.outcome).toBe("written");
+    expect(crm.writes).toBe(1);
+    expect(r1.status).toBe("succeeded");
+  });
+
+  it("E11/held：对账无结论 → held、不抛错；实例停在 needs_attention（终态），余条不再尝试同记 held，不追加 succeeded", async () => {
+    crm.failNext = { afterWrite: false };
+    const r2 = await runProcess([lead(2), lead(3)]);
+    expect(r2.items.map((x) => x.outcome)).toEqual(["held", "held"]);
+    expect(crm.writes).toBe(0);
+    expect(notify.sent).toHaveLength(0);
+    expect(r2.notified).toBe(false);
+    expect(r2.status).toBe("needs_attention");
+    expect(r2.outcome).toBe("with_holds");
+    expect(status()).toBe("needs_attention");
+    expect(instances.instances.get(INSTANCE)!.reasonCode).toBe("effect_unreconciled");
+    expect(instances.events.some((e) => e.type === "status_changed" && e.data.status === "succeeded")).toBe(false);
+  });
+
+  it("P4：发起人已无读权限 → 不发通知，但落 effect_blocked 事件可审计", async () => {
+    notify.readable = false;
+    const r = await runProcess([lead(1)]);
+    expect(r.notified).toBe(false);
+    expect(notify.sent).toHaveLength(0);
+    expect(instances.events.some((e) => e.type === "effect_blocked" && e.data.skipped === "recipient_cannot_read")).toBe(true);
   });
 
   it("E4：版本冲突 → 该条 conflict、未覆盖、带差异；其它条照写 → completed_with_holds", async () => {

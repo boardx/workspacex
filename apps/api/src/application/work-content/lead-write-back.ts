@@ -10,12 +10,23 @@
  *   绝不二次调用写入。
  * 组织未授权 `crm.write`（ADR-120 默认只读）→ 全部批准条目 `written_manual` + 人工核对清单（A5）。
  * 全部驳回 → 零副作用，实例 `rejected`（gate_denied，E7）。
+ * P3 在写前被网关拒绝 → 该条 `forbidden`，继续下一条（E5）。
+ * 单条工具异常（非租约/取消/实例不可用）→ 读回对账：确认已写 → `written`，否则 `held`（E11，不中断实例）。
+ * 任一条 `held`（对账无结论）→ 实例保持网关落的 needs_attention，不追加 succeeded。
  * 终局：runtime 状态只用 `succeeded`；`completed_with_holds` = succeeded + outcome `with_holds`（I-C9）。
  */
 import type { z } from "zod";
 import type { CrmWriteItemOutcome, WorkContentOutcome } from "@repo/contracts/work-content";
 import { W011 } from "../../domain/work-content/definitions/sales";
-import { EffectInFlightError, withinSideEffectCap, type EffectGateway, type EffectReconcilePort } from "../workflow/effect-gateway";
+import {
+  EffectCancelledError,
+  EffectInstanceUnavailableError,
+  EffectPermissionBlockedError,
+  withinSideEffectCap,
+  type EffectGateway,
+  type EffectReconcilePort,
+} from "../workflow/effect-gateway";
+import { WorkflowLeaseLostError } from "../workflow/workflow-errors";
 import type { EffectCapabilityAuthorityPort } from "../workflow/effect-permission-recheck";
 import type { WorkflowLease } from "../workflow/workflow-ports";
 import type { WorkflowEventStore } from "../workflow/workflow-runtime-ports";
@@ -83,7 +94,8 @@ export interface ManualChecklistRow {
 }
 
 export interface LeadWriteBackResult {
-  status: "succeeded" | "rejected";
+  /** `needs_attention`：有条目对账查不到结论（held），实例停在 needs_attention，不推进到 succeeded。 */
+  status: "succeeded" | "rejected" | "needs_attention";
   outcome: LeadWriteOutcome | null;
   items: LeadItemResult[];
   manualChecklist: ManualChecklistRow[];
@@ -139,17 +151,27 @@ export class LeadWriteBackService {
     const cap = await this.deps.capability.checkCapability(cmd.orgId, CRM_WRITE);
     const writeAuthorized = cap.authorized && withinSideEffectCap(WRITE_STAGE.sideEffect, cap.sideEffectCap);
 
+    // 对账无结论（held）时网关已把实例落成 needs_attention（终态，I-12）：此后网关拒绝一切副作用，
+    // 剩余条目不再尝试、同记 held（未写），不抛错中断；实例不推进到 succeeded，也不发通知。
+    let unreconciled = false;
     for (const item of approved) {
       if (!writeAuthorized) {
         manualChecklist.push({ itemId: item.itemId, company: item.company, fields: item.fields });
         results.push({ itemId: item.itemId, outcome: "written_manual", conflictDiff: null });
         continue;
       }
-      results.push(await this.writeOne(lease, cmd, item));
+      if (unreconciled) {
+        results.push({ itemId: item.itemId, outcome: "held", conflictDiff: null });
+        continue;
+      }
+      const r = await this.writeOne(lease, cmd, item);
+      if (r.outcome === "held") unreconciled = true;
+      results.push(r);
     }
 
-    const notified = await this.notify(lease, cmd, results);
     const outcome: LeadWriteOutcome = results.some((r) => HOLD_OUTCOMES.has(r.outcome)) ? "with_holds" : "complete";
+    if (unreconciled) return { status: "needs_attention", outcome, items: results, manualChecklist, notified: false };
+    const notified = await this.notify(lease, cmd, results);
     await this.deps.events.append(
       cmd.orgId,
       cmd.instanceId,
@@ -203,7 +225,11 @@ export class LeadWriteBackService {
       }
       return { itemId: item.itemId, outcome: "written", conflictDiff: null };
     } catch (err) {
-      if (!(err instanceof EffectInFlightError)) throw err;
+      // P3：网关已落 effect_blocked；按契约是该条 forbidden，不中断其它条（E5）。
+      if (err instanceof EffectPermissionBlockedError) return { itemId: item.itemId, outcome: "forbidden", conflictDiff: null };
+      // 租约丢失 / 取消 / 实例不可用是实例级事实，不能降级成单条结果。
+      if (err instanceof EffectCancelledError || err instanceof EffectInstanceUnavailableError || err instanceof WorkflowLeaseLostError) throw err;
+      // EffectInFlightError（崩溃恢复）与单条工具异常（E11）同走只读对账，绝不二次调用写入。
       const reconciler: EffectReconcilePort = { reconcile: () => this.deps.crm.hasWrite(cmd.orgId, writeKey) };
       const r = await this.deps.gateway.reconcile(effectCmd, reconciler);
       // 读回确认已写 → written；查不到结论 → held（实例由网关落 needs_attention，不重放写入）。
@@ -214,7 +240,16 @@ export class LeadWriteBackService {
   private async notify(lease: WorkflowLease, cmd: LeadWriteBackCommand, results: readonly LeadItemResult[]): Promise<boolean> {
     const cap = await this.deps.capability.checkCapability(cmd.orgId, NOTIFY_INAPP);
     if (!cap.authorized || !withinSideEffectCap(NOTIFY_STAGE.sideEffect, cap.sideEffectCap)) return false;
-    if (!(await this.deps.notify.canRead(cmd.orgId, cmd.initiatorUserId, cmd.instanceId))) return false; // P4
+    if (!(await this.deps.notify.canRead(cmd.orgId, cmd.initiatorUserId, cmd.instanceId))) {
+      // P4：收件人已无读权限 → 不发，但留审计事件，跳过可追溯。
+      await this.deps.events.append(cmd.orgId, cmd.instanceId, {
+        type: "effect_blocked",
+        stageId: NOTIFY_STAGE.stageId,
+        reasonCode: null,
+        data: { effectKey: "notify:initiator", capabilityCategory: NOTIFY_INAPP, skipped: "recipient_cannot_read" },
+      });
+      return false;
+    }
     const summary: Record<string, number> = {};
     for (const r of results) summary[r.outcome] = (summary[r.outcome] ?? 0) + 1;
     await this.deps.gateway.execute(

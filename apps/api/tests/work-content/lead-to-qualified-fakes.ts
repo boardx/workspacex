@@ -105,14 +105,28 @@ export class CrmStub implements TenantCrmPort {
   records = new Map<string, { version: string; fields: Record<string, unknown>; writeKeys: string[] }>();
   writes = 0;
   crashAfterWrites: number | null = null;
+  /** 进程已死：此后本进程内对 CRM 的任何调用都不会返回（新进程由 runProcess 复位）。 */
+  dead = false;
+  /** 下一次写入抛普通工具错误（E11）；`afterWrite` = 写已落库后才抛（超时类）。 */
+  failNext: { afterWrite: boolean } | null = null;
   seed(recordId: string, version: string, fields: Record<string, unknown>) {
     this.records.set(recordId, { version, fields, writeKeys: [] });
   }
+  private alive() {
+    if (this.dead) throw new ProcessKilled();
+  }
   async read(_orgId: string, recordId: string) {
+    this.alive();
     const r = this.records.get(recordId);
     return r ? { version: r.version, fields: r.fields } : null;
   }
   async writeIfVersion(i: { recordId: string; expectedVersion: string | null; fields: Record<string, unknown>; writeKey: string }) {
+    this.alive();
+    const fail = this.failNext;
+    if (fail && !fail.afterWrite) {
+      this.failNext = null;
+      throw new Error("crm 503");
+    }
     const cur = this.records.get(i.recordId) ?? null;
     if ((cur?.version ?? null) !== i.expectedVersion) return { ok: false as const, current: cur ? { version: cur.version, fields: cur.fields } : null };
     this.writes += 1;
@@ -120,11 +134,17 @@ export class CrmStub implements TenantCrmPort {
     this.records.set(i.recordId, { version, fields: { ...(cur?.fields ?? {}), ...i.fields }, writeKeys: [...(cur?.writeKeys ?? []), i.writeKey] });
     if (this.crashAfterWrites !== null && this.writes >= this.crashAfterWrites) {
       this.crashAfterWrites = null;
+      this.dead = true;
       throw new ProcessKilled();
+    }
+    if (fail?.afterWrite) {
+      this.failNext = null;
+      throw new Error("crm timeout after commit");
     }
     return { ok: true as const, version };
   }
   async hasWrite(_orgId: string, writeKey: string) {
+    this.alive();
     return [...this.records.values()].some((r) => r.writeKeys.includes(writeKey));
   }
 }
@@ -140,8 +160,9 @@ export class Eligibility implements LeadApproverEligibilityPort {
 
 export class NotifyStub implements InAppNotifyPort {
   sent: { recipientUserId: string; summary: Record<string, number> }[] = [];
+  readable = true;
   async canRead() {
-    return true;
+    return this.readable;
   }
   async send(i: { recipientUserId: string; summary: Record<string, number> }) {
     this.sent.push(i);
@@ -151,7 +172,15 @@ export class NotifyStub implements InAppNotifyPort {
 
 export class Grants implements EffectCapabilityAuthorityPort {
   map = new Map<string, CapabilityAuthorityCheck>();
+  /** 每个分类被查询的次数（第 n 次查询 = 第 n 个时点的授权状态）。 */
+  calls = new Map<string, number>();
+  /** 返回非 undefined 即覆盖该次查询结果（模拟两条写之间授权被撤销，测 P3）。 */
+  override: ((category: string, callNo: number) => CapabilityAuthorityCheck | undefined) | null = null;
   async checkCapability(_o: string, category: string) {
+    const n = (this.calls.get(category) ?? 0) + 1;
+    this.calls.set(category, n);
+    const o = this.override?.(category, n);
+    if (o) return o;
     return this.map.get(category) ?? { authorized: true, sideEffectCap: "read" as const }; // ADR-120 #2 默认只读
   }
 }
