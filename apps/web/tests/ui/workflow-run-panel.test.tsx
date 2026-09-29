@@ -118,27 +118,20 @@ describe("WorkflowRunPanel", () => {
     await waitFor(() => expect(api.getWorkflowInstance.mock.calls.length).toBeGreaterThan(before));
   });
 
-  it("失败可重试：失败阶段显示「从该阶段重试」，带 expectedStateVersion 调用；已完成阶段产出可见", async () => {
+  it("阶段重试入口隐藏：即使 canRetryStage=true，失败阶段也不渲染重试控件（运行时不支持重跑，API 桩保留）；已完成阶段产出可见", () => {
     const failed = proj({
       status: "failed",
       stages: [proj().stages[0]!, { ...proj().stages[1]!, status: "failed", reasonCode: "stage_attempts_exhausted" }],
     });
-    api.retryWorkflowStage.mockResolvedValue({ instanceId: "i1", stageId: "publish", attempt: 3, stateVersion: 6 });
     api.getWorkflowInstance.mockResolvedValue(failed);
     render(<WorkflowRunPanel instanceId="i1" initial={failed} />);
     expect(screen.getByTestId("workflow-output-o1")).toBeTruthy();
     expect(screen.queryByTestId("workflow-action-retry-draft")).toBeNull();
-    fireEvent.click(screen.getByTestId("workflow-action-retry-publish"));
-    await waitFor(() => expect(api.retryWorkflowStage).toHaveBeenCalledWith({ instanceId: "i1", stageId: "publish", expectedStateVersion: 5 }));
+    expect(screen.queryByTestId("workflow-action-retry-publish")).toBeNull();
+    expect(screen.queryByText("从该阶段重试")).toBeNull();
+    expect(api.retryWorkflowStage).not.toHaveBeenCalled();
     expect((screen.getByTestId("workflow-action-cancel") as HTMLButtonElement).disabled).toBe(true);
     expect(api.openWorkflowInstanceStream).not.toHaveBeenCalled(); // 终态不订阅
-  });
-
-  it("无重试权限：失败阶段不渲染重试按钮", () => {
-    const failed = proj({ status: "failed", viewerCapabilities: { canCancel: false, canRetryStage: false, canResume: false },
-      stages: [{ ...proj().stages[1]!, status: "failed" }] });
-    render(<WorkflowRunPanel instanceId="i1" initial={failed} />);
-    expect(screen.queryByTestId("workflow-action-retry-publish")).toBeNull();
   });
 
   it("取消：带 expectedStateVersion；409 state_version_conflict 用 latestProjection 刷新并提示", async () => {

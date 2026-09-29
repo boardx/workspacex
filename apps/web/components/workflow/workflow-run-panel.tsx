@@ -15,7 +15,6 @@ import {
   getWorkflowInstance,
   openWorkflowInstanceStream,
   resumeWorkflowInstance,
-  retryWorkflowStage,
   workflowErrorCode,
   type WorkflowInstanceProjection,
   type WorkflowSseEnvelope,
@@ -216,15 +215,10 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
                 ))}
               </ul>
             ) : null}
-            {s.status === "failed" && caps.canRetryStage && !busy ? (
-              <button
-                type="button"
-                data-testid={`workflow-action-retry-${s.stageId}`}
-                onClick={() => void run(() => retryWorkflowStage({ instanceId, stageId: s.stageId, expectedStateVersion: ev }))}
-              >
-                从该阶段重试
-              </button>
-            ) : null}
+            {/*
+              阶段重试不渲染入口（产品决定）：运行时还不能真正重跑一个阶段，`canRetryStage` 恒为 false，
+              API 桩（`retryStage`）保留。连禁用态按钮也不画——不给用户一个永远点不了的控件。
+            */}
           </li>
         ))}
       </ol>
