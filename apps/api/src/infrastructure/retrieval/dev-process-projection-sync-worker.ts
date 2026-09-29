@@ -13,6 +13,7 @@
  * 周期内任何失败只记日志，不抛出（不影响实例其他功能）。
  */
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import type { Client } from "pg";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 
 export const DEV_PROJECTION_SYNC_ORG_ENV = "WSX_DEV_PROJECTION_SYNC_ORG";
@@ -20,6 +21,18 @@ export const DEV_PROJECTION_SYNC_INTERVAL_ENV = "WSX_DEV_PROJECTION_SYNC_INTERVA
 export const DEV_PROJECTION_SYNC_CONFIG = Symbol("DevProjectionSyncConfig");
 export const DEV_PROJECTION_SYNC_RUNNER = Symbol("DevProjectionSyncRunner");
 const TRACE_ID = "dev-process-projection-sync";
+// Keep this repo-only module outside the production API compile graph. The sync worker is
+// disabled unless explicitly configured and is only supported from a full repository checkout.
+const PROJECTION_SYNC_MODULE_PATH = "../../../scripts/sync-dev-process-projection";
+
+interface ProjectionSyncModule {
+  buildRepoEdgeSet(orgId: string): readonly unknown[];
+  applyProjection(
+    client: Client,
+    orgId: string,
+    edges: readonly unknown[],
+  ): Promise<{ upserted: number; removed: number }>;
+}
 
 export interface DevProjectionSyncConfig {
   /** null ⇒ 关闭 */
@@ -41,7 +54,7 @@ export type ProjectionSyncRunner = (orgId: string) => Promise<{ edges: number; u
 /** 默认 runner：懒加载脚本（git / harness 依赖只在打开时才碰），独立 pg 连接。 */
 export const scriptProjectionSyncRunner: ProjectionSyncRunner = async (orgId) => {
   const [{ buildRepoEdgeSet, applyProjection }, pg, { migrationConfig }] = await Promise.all([
-    import("../../../scripts/sync-dev-process-projection"),
+    import(PROJECTION_SYNC_MODULE_PATH) as Promise<ProjectionSyncModule>,
     import("pg"),
     import("../db/pg-config"),
   ]);

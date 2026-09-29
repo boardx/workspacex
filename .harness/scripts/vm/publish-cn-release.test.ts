@@ -8,6 +8,7 @@ const apiDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/al
 const webDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/aliyun/images/web.Dockerfile"),"utf8");
 const agentDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/deep-agent-service/Dockerfile"),"utf8");
 const sandboxDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/skill-sandbox/Dockerfile"),"utf8");
+const projectionSyncWorker=readFileSync(resolve(import.meta.dirname,"../../../apps/api/src/infrastructure/retrieval/dev-process-projection-sync-worker.ts"),"utf8");
 const postgresAgeDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/api/docker/postgres-age/Dockerfile"),"utf8");
 const localEnvExample=readFileSync(resolve(import.meta.dirname,"../../config/local.env.example"),"utf8");
 
@@ -87,6 +88,13 @@ describe("China production release publisher",()=>{
     expect(apiDockerfile).toContain("test -r ../../packages/contracts/package.json");
     expect(apiDockerfile).toContain('find migrations -maxdepth 1 -type f -print -quit');
     expect(apiDockerfile).toContain("node --import tsx --input-type=module");
+  });
+  it("keeps checkout-only projection code outside the production API compile graph",()=>{
+    expect(projectionSyncWorker).toContain('const PROJECTION_SYNC_MODULE_PATH = "../../../scripts/sync-dev-process-projection";');
+    expect(projectionSyncWorker).toContain("import(PROJECTION_SYNC_MODULE_PATH)");
+    expect(projectionSyncWorker).not.toContain('import("../../../scripts/sync-dev-process-projection")');
+    expect(apiDockerfile).not.toMatch(/COPY .*\.harness/);
+    expect(apiDockerfile).not.toMatch(/COPY .*phases/);
   });
   it("copies pnpm patches into every workspace image before installing dependencies",()=>{
     for(const [dockerfile,patchesCopyLine] of [
