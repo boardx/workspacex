@@ -316,6 +316,51 @@ describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
     expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "daily-digest", version: 1, agentId: "a1", input: {} });
   });
 
+  it("入口：无必填输入的 Workflow 不出表单，一键发起", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [
+      { key: "daily-digest", version: 1, title: "日报", inputSchema: { type: "object", properties: { note: { type: "string" } } } },
+    ] });
+    api.startWorkflowInstance.mockResolvedValue({ instanceId: "i8", status: "running", stateVersion: 1, definitionVersion: 1, pinnedSkills: [] });
+    const onStarted = vi.fn();
+    render(<WorkflowRunEntry agentId="a1" onStarted={onStarted} />);
+    fireEvent.click(await screen.findByTestId("workflow-run-entry"));
+    fireEvent.click(screen.getByTestId("workflow-run-start-daily-digest"));
+    expect(screen.queryByTestId("workflow-run-form-daily-digest")).toBeNull();
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("i8"));
+    expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "daily-digest", version: 1, agentId: "a1", input: {} });
+  });
+
+  it("入口：有必填输入时先出表单，空值给字段级错误且不发起；填好后带输入发起", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [
+      { key: "demo-brief", version: 1, title: "简报", inputSchema: {
+        type: "object", required: ["topic", "count"],
+        properties: { topic: { type: "string" }, count: { type: "integer" }, stageDelayMs: { type: "integer" } },
+      } },
+    ] });
+    api.startWorkflowInstance.mockResolvedValue({ instanceId: "i7", status: "running", stateVersion: 1, definitionVersion: 1, pinnedSkills: [] });
+    const onStarted = vi.fn();
+    render(<WorkflowRunEntry agentId="a1" onStarted={onStarted} />);
+    fireEvent.click(await screen.findByTestId("workflow-run-entry"));
+    fireEvent.click(screen.getByTestId("workflow-run-start-demo-brief"));
+    expect(screen.getByTestId("workflow-run-form-demo-brief")).toBeTruthy();
+    expect(screen.queryByTestId("workflow-run-input-stageDelayMs")).toBeNull();
+    expect(api.startWorkflowInstance).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("workflow-run-form-submit"));
+    expect(screen.getByTestId("workflow-run-input-error-topic").textContent).toBe("必填");
+    expect(screen.getByTestId("workflow-run-input-error-count").textContent).toBe("必填");
+    expect(api.startWorkflowInstance).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("workflow-run-input-topic"), { target: { value: "Q3 发布" } });
+    fireEvent.change(screen.getByTestId("workflow-run-input-count"), { target: { value: "1.5" } });
+    fireEvent.click(screen.getByTestId("workflow-run-form-submit"));
+    expect(screen.queryByTestId("workflow-run-input-error-topic")).toBeNull();
+    expect(screen.getByTestId("workflow-run-input-error-count").textContent).toBe("请输入整数");
+    expect(api.startWorkflowInstance).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("workflow-run-input-count"), { target: { value: "3" } });
+    fireEvent.click(screen.getByTestId("workflow-run-form-submit"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("i7"));
+    expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "demo-brief", version: 1, agentId: "a1", input: { topic: "Q3 发布", count: 3 } });
+  });
+
   it("入口：startInstance 失败显示错误文案", async () => {
     api.listRunnableWorkflows.mockResolvedValue({ items: [{ key: "weekly-report", version: 3, title: "周报", inputSchema: {} }] });
     api.startWorkflowInstance.mockRejectedValue(new ApiError(403, null, { code: "workflow_not_allowed", message: "x" }));
