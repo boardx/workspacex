@@ -94,6 +94,9 @@ export function SurveyReportDocument({
 }: {
   report: survey.CompiledSurveyReport;
 }) {
+  const includedSample = report.sampleSummary?.included;
+  const isVerySmallSample = typeof includedSample === "number" && includedSample < 5;
+  const isExploratorySample = typeof includedSample === "number" && includedSample >= 5 && includedSample < 30;
   return (
     <article
       data-testid="survey-report-document"
@@ -103,6 +106,16 @@ export function SurveyReportDocument({
       {report.sampleSummary && <p className="mb-6 text-12 text-muted-foreground" data-testid="survey-report-sample-summary">
         样本口径：总答卷 {report.sampleSummary.total} · 待复核 {report.sampleSummary.pendingReview} · 已排除 {report.sampleSummary.excluded} · 纳入分析 {report.sampleSummary.included}
       </p>}
+      {isVerySmallSample && (
+        <p role="status" aria-label="低样本说明" className="mb-6 rounded-lg border border-warning/40 bg-warning/5 p-4 text-13 leading-6">
+          当前仅纳入 {includedSample} 份答卷，仅展示描述性结果，不代表目标人群，也不形成行动结论。建议先补充样本并核对原始反馈。
+        </p>
+      )}
+      {isExploratorySample && (
+        <p role="status" aria-label="探索性样本说明" className="mb-6 rounded-lg border border-warning/40 bg-warning/5 p-4 text-13 leading-6">
+          当前纳入 {includedSample} 份答卷，结果适合作为探索性线索，置信度有限，不宜直接外推至全部目标人群。建议结合补充样本或访谈继续验证。
+        </p>
+      )}
       {!report.sections.length && (
         <p className="text-muted-foreground">尚无报告章节</p>
       )}
@@ -120,7 +133,7 @@ export function SurveyReportDocument({
                 <div key={index} className="rounded-lg border border-border bg-muted/30 p-5">
                   <h3 className="mb-2 text-16 font-semibold text-primary">{insight.title}</h3>
                   <p className="text-14 leading-7">{insight.evidence}</p>
-                  <p className="mt-3 text-14 leading-7"><strong>建议行动：</strong>{insight.action}</p>
+                  <p className="mt-3 text-14 leading-7"><strong>{isVerySmallSample ? "后续核实：" : isExploratorySample ? "建议验证：" : "建议行动："}</strong>{insight.action}</p>
                 </div>
               ))}
             </div>

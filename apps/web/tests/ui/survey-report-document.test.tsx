@@ -54,6 +54,19 @@ describe('survey report document',()=>{
   expect(screen.getByTestId('survey-report-sample-summary')).toHaveTextContent('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');
   expect(screen.getByTestId('survey-report-block-sample-bar')).toHaveTextContent('仅正常质量答卷 · 实际样本量 8');
  });
+ it('keeps very small samples descriptive and does not present action advice as a conclusion',()=>{
+  const lowSample={...report,sampleSummary:{total:3,pendingReview:0,excluded:0,included:3}};
+  render(<SurveyReportDocument report={lowSample}/>);
+  expect(screen.getByRole('status',{name:'低样本说明'})).toHaveTextContent('仅展示描述性结果');
+  expect(screen.queryByText('建议行动：')).not.toBeInTheDocument();
+  expect(screen.getByText('核对具体经历')).toBeInTheDocument();
+ });
+ it('labels samples below 30 as exploratory and turns actions into validation suggestions',()=>{
+  render(<SurveyReportDocument report={report}/>);
+  expect(screen.getByRole('status',{name:'探索性样本说明'})).toHaveTextContent('置信度有限');
+  expect(screen.queryByText('建议行动：')).not.toBeInTheDocument();
+  expect(screen.getByText('建议验证：')).toBeInTheDocument();
+ });
  it('exports a genuine Word archive with every chapter',async()=>{
   const blob=await buildSurveyReportWord({...report,sections:report.sections.map(s=>({...s,blocks:s.blocks.filter(b=>!['bar','radar','line'].includes(b.type))}))});
   expect(blob.size).toBeGreaterThan(1000);
