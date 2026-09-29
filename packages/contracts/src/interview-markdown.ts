@@ -30,6 +30,22 @@ export const InterviewMarkdownDocument = z.object({
 });
 export type InterviewMarkdownDocument = z.infer<typeof InterviewMarkdownDocument>;
 
+export type InterviewReportAnalysisGap = "cross_answer_synthesis" | "decision_implication" | "boundary_or_counterevidence" | "verifiable_action";
+export type InterviewReportAnalysisAssessment = { readonly ok: boolean; readonly missing: readonly InterviewReportAnalysisGap[] };
+const REPORT_SYNTHESIS_SIGNALS = [/跨(?:回答|受访者|角色|专家|样本)(?:综合|归纳|分析|比较)/u, /共同(?:模式|主题|约束|需求|指向)/u, /(?:多位|两位|不同)(?:受访者|专家|角色).{0,24}(?:共同|一致|差异|分歧|互补)/u];
+const REPORT_DECISION_SIGNALS = [/决策影响(?:[：:]|[。.]|$)/mu, /(?:优先级|优先验证|应优先|暂缓|停止|继续|选择).{0,36}(?:因为|基于|依据|验证|行动|方案|投入)/u, /P[012][：:]/u, /成功信号(?:[：:]|[。.]|$)/mu];
+const REPORT_BOUNDARY_SIGNALS = [/边界(?:与反例)?(?:[：:]|[。.]|$)/mu, /(?:反例|反对证据|相反证据|负面案例)(?:[：:]|[。.]|$)/mu, /(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)/u];
+const REPORT_ACTION_SIGNALS = [/(?:下一步验证建议|建议行动|行动建议|验证计划)(?:[：:]|[。.]|$)/mu, /P[012][：:]/u, /(?:优先验证|可验证).{0,36}(?:行动|假设|方案)/u];
+const reportHasAny = (markdown: string, patterns: readonly RegExp[]) => patterns.some((pattern) => pattern.test(markdown));
+export function assessInterviewReportAnalysis(markdown: string): InterviewReportAnalysisAssessment {
+  const missing: InterviewReportAnalysisGap[] = [];
+  if (!reportHasAny(markdown, REPORT_SYNTHESIS_SIGNALS)) missing.push("cross_answer_synthesis");
+  if (!reportHasAny(markdown, REPORT_DECISION_SIGNALS)) missing.push("decision_implication");
+  if (!reportHasAny(markdown, REPORT_BOUNDARY_SIGNALS)) missing.push("boundary_or_counterevidence");
+  if (!reportHasAny(markdown, REPORT_ACTION_SIGNALS)) missing.push("verifiable_action");
+  return { ok: missing.length === 0, missing };
+}
+
 export const InterviewMarkdownExecution = z.object({
   status: z.enum(["running", "paused", "failed", "completed"]),
   tasks: z.array(z.object({
