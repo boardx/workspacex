@@ -1862,6 +1862,41 @@ export function CopilotKitV2PanelBody({
       };
     });
 
+  /**
+   * issue #4603 追加 —— 「用这个产出物继续」：AI 生成的文件不只是一次性附件，
+   * 用户下一步大概率想把它变成别的东西（演示文稿/模板）。复用 `FollowUpSuggestions`
+   * 已有的 `LocalSuggestionChip` 扩展点（与上面 `templateSuggestions` 同一套渲染，
+   * `onSelect` 同样直接 `send()`——真的发一条消息让 agent 去做，不是只填个输入框
+   * 假装有反应），与 `templateSuggestions` 合并进同一行、渲染在 composer 正上方
+   * （人类 2026-09-29 反馈：现有的「生成 PESTEL 分析」这类建议 chip 已经长这个样子，
+   * 新的产出物建议不该另起一行，要并进同一条）。只挂最近一份产出物，避免多个文件时
+   * 建议行无限增长；归档线程不给（与 `templateSuggestions` 同一条门，见上面
+   * 「归档线程不给追问建议」的注释）。
+   *
+   * 关闭态不进 `localStorage`（与 `dismissTemplateSuggestion` 不同）：这条建议天然
+   * 跟着「最近一份产出物」的 uri 走，换一份新文件它自己就会变成新的一条，不需要
+   * 跨刷新记住"关掉过"。
+   */
+  const latestProducedFile = producedActiveFiles.at(-1) ?? null;
+  const [dismissedProducedFileUri, setDismissedProducedFileUri] = React.useState<string | null>(null);
+  const producedFileSuggestions: readonly LocalSuggestionChip[] =
+    latestProducedFile === null || archived || latestProducedFile.uri === dismissedProducedFileUri
+      ? []
+      : [
+          {
+            id: "chat-produced-file-suggestion-slides",
+            label: "变成演示文稿",
+            onSelect: () => void send(`把「${latestProducedFile.name}」做成一份演示文稿`),
+            onDismiss: () => setDismissedProducedFileUri(latestProducedFile.uri),
+          },
+          {
+            id: "chat-produced-file-suggestion-template",
+            label: "存为可复用模板",
+            onSelect: () => void send(`把「${latestProducedFile.name}」存成可复用的模板`),
+            onDismiss: () => setDismissedProducedFileUri(latestProducedFile.uri),
+          },
+        ];
+
   // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
   // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
   // 也需要用到的这一份判断起个名字，不是新开一套判定。
@@ -2191,7 +2226,7 @@ export function CopilotKitV2PanelBody({
             agentId={threadId}
             disabled={agent.isRunning}
             onSelect={(text) => void send(text)}
-            localSuggestions={templateSuggestions}
+            localSuggestions={[...templateSuggestions, ...producedFileSuggestions]}
           />
         )}
         {personaFailure !== null ? (
