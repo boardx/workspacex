@@ -16,7 +16,7 @@
  * **第一个可见项目**作为锚点（`listProjects` 返回的 member 列表第一项），不是真正的
  * "跨全部项目"聚合；这是一个记录在案的过渡态，不是最终形态。
  */
-import { board } from "@repo/contracts";
+import { board, workContent } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -75,6 +75,8 @@ export async function getMyToday(projectId: string): Promise<GetMyTodayOut> {
 
 export interface ListTasksOut {
   cards: RenderedTaskCard[];
+  /** CT10：只读 Workflow 运行卡（形状单源 `@repo/contracts` work-content）；ID 与任务卡一起出现在 `columns` 里。 */
+  runCards?: z.infer<typeof workContent.BoardWorkflowRunCard>[];
   scope: "project" | "global";
   columns: { status: string; cardIds: string[] }[];
   collapsedInboxCount: number;

@@ -20,8 +20,8 @@ function run(over: Partial<VisibleRunSummary> = {}): VisibleRunSummary {
     status: "running",
     initiatorUserId: "u-alice",
     agents: [
-      { agentId: "ag-sales", digitalHumanId: null, displayName: "销售助理", avatarUrl: null },
-      { agentId: "ag-research", digitalHumanId: null, displayName: "研究员", avatarUrl: "https://x/a.png" },
+      { agentId: "ag-sales", digitalHumanId: "D005", displayName: "销售助理", avatarKey: "person-7", avatarUrl: null },
+      { agentId: "ag-research", digitalHumanId: null, displayName: "研究员", avatarKey: null, avatarUrl: "https://x/a.png" },
     ],
     projectId: "p-1",
     ...over,
@@ -177,5 +177,57 @@ describe("读权限谓词单源", () => {
     expect(src).toMatch(/import \{ canView \} from "\.\.\/workflow\/instance-projection"/);
     expect(src).not.toMatch(/initiatorUserId\s*===/);
     expect(src).not.toMatch(/===\s*"admin"/);
+  });
+});
+
+describe("任务 Board 读模型合并运行卡（GET /tasks → listTasks，UC-WC-7 第三步 / V7）", async () => {
+  const { BoardController } = await import("../../src/interface/controllers/board.controller");
+  const task = (id: string, status: "inbox" | "todo" | "done") => ({
+    id, title: id, status, sourceKind: "手工创建" as const, ownerUserId: "u-alice", executor: null, dueAt: null,
+    riskLevel: null, waitingOn: null, syncStatus: "synced" as const, projectId: "p-1", updatedAt: "2026-09-29T00:00:00Z",
+  });
+  const session = { query: async () => ({ rows: [] }) };
+  const db = { withTenant: async (_o: unknown, fn: (s: typeof session) => unknown) => fn(session), withoutTenant: async (fn: (s: typeof session) => unknown) => fn(session), close: async () => {} };
+  const tasks = { listVisibleWithin: async () => [task("t-inbox", "inbox"), task("t-todo", "todo")] };
+  const identity = (orgRole: string) => ({
+    findOrgMembership: async () => ({ orgRole }),
+    findProjectMembership: async () => ({ projectRole: "member", groupId: null }),
+  });
+  const runs = [
+    run({ instanceId: "wi-mine", initiatorUserId: "u-alice", status: "awaiting_gate_decision" }),
+    run({ instanceId: "wi-bob", initiatorUserId: "u-bob", status: "needs_attention" }),
+  ];
+  const seenProjects: (string | null)[] = [];
+  const runDeps = (role: "admin" | "member") => ({
+    runs: { listRuns: async (_o: string, p: string | null) => (seenProjects.push(p), runs) },
+    access: { orgRoleOf: async () => role },
+  });
+  const controller = (role: "admin" | "member") =>
+    new BoardController(tasks as any, {} as any, db as any, identity(role) as any, runDeps(role));
+  const principal = (userId: string) => ({ kind: "user", userId, orgId: "o" }) as never;
+  const reach = (cols: readonly { cardIds: readonly string[] }[], inbox: readonly string[] = []) =>
+    [...cols.flatMap((c) => c.cardIds), ...inbox].sort();
+
+  it("项目视图与全局视图都含运行卡，两视图卡 ID 集合相同；无权运行卡 ID 不存在", async () => {
+    const c = controller("member");
+    const proj = await c.list(principal("u-alice"), "project", "p-1");
+    const glob = await c.list(principal("u-alice"), "global", "p-1");
+    expect(proj.runCards.map((r) => r.id)).toEqual(["workflow_run:wi-mine"]);
+    expect(proj.noCardLoss).toBe(true);
+    const inboxIds = proj.cards.filter((x) => x.status === "inbox").map((x) => x.id);
+    expect(reach(proj.columns, inboxIds)).toEqual(reach(glob.columns));
+    expect(reach(glob.columns)).toEqual(["t-inbox", "t-todo", "workflow_run:wi-mine"]);
+    expect(reach(glob.columns)).not.toContain("workflow_run:wi-bob");
+    expect(proj.columns.find((col) => col.status === "review")!.cardIds).toEqual(["workflow_run:wi-mine"]);
+    // 运行卡是只读派生视图，不计入待办徽标
+    expect(proj.badgeCount).toBe(1);
+    expect(seenProjects.at(-1)).toBe("p-1");
+  });
+
+  it("管理员看到他人运行；needs_attention（终态）落 done 列带失败徽标", async () => {
+    const out = await controller("admin").list(principal("u-x"), "global", "p-1");
+    const bob = out.runCards.find((r) => r.instanceId === "wi-bob")!;
+    expect([bob.column, bob.badge]).toEqual(["done", "failed"]);
+    expect(out.columns.find((col) => col.status === "done")!.cardIds).toContain("workflow_run:wi-bob");
   });
 });

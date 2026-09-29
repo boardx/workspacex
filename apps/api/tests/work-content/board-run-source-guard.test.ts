@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 
 const API = fileURLToPath(new URL("../..", import.meta.url));
 const FILE = "src/infrastructure/board/pg-board-run-source.ts";
-const TABLES = new Set(["workflow_instances", "workflow_definition_versions", "workflow_events", "agents"]);
+const TABLES = new Set([
+  "workflow_instances", "workflow_definition_versions", "workflow_events", "workflow_receipts", "agents", "capability_listings",
+]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -20,7 +22,7 @@ function walk(dir: string): string[] {
 describe("CT10 board run source permission boundary", () => {
   const src = readFileSync(join(API, FILE), "utf8");
 
-  it("只读四张表、从不 withoutTenant、不取 Agent 指令或阶段产出", () => {
+  it("只读六张表、从不 withoutTenant、不取 Agent 指令或阶段产出", () => {
     expect(src).not.toMatch(/withoutTenant/);
     const tables = [...src.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/g)].map((m) => m[1]);
     expect(tables.length).toBeGreaterThan(0);

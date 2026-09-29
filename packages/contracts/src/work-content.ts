@@ -26,6 +26,7 @@ import {
   WorkflowErrorBody,
 } from "./workflow-runtime";
 import { WorkflowStableId } from "./agent-role";
+import { AvatarKey } from "./interview-expert-avatar";
 
 /* ── 基础标识（v2 实体编号；与 WORK-STACK-320-LIST.md 对齐） ─────────────── */
 
@@ -236,8 +237,18 @@ export const Phase1Reconciliation = z
 
 /* ── Board 只读运行卡（CT10） ──────────────────────────────────────────── */
 
+/**
+ * 参与 Agent。`avatarKey` = Agent 角色字段里的插画头像（agent-role `AgentAvatar.key`，Phase 20 起唯一在写的
+ * Agent 头像来源）；`avatarUrl` 预留给上传图片头像（Agent 目前没有这一来源，恒为 null）。两者皆空 → 首字母。
+ */
 export const BoardRunCardAgent = z
-  .object({ agentId: z.string(), digitalHumanId: DigitalHumanStableId.nullable(), displayName: z.string(), avatarUrl: z.string().nullable() })
+  .object({
+    agentId: z.string(),
+    digitalHumanId: DigitalHumanStableId.nullable(),
+    displayName: z.string(),
+    avatarKey: AvatarKey.nullable(),
+    avatarUrl: z.string().nullable(),
+  })
   .strict();
 
 export const BoardWorkflowRunCard = z

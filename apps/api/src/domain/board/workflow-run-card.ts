@@ -16,8 +16,15 @@ export type BoardWorkflowRunCard = z.infer<typeof workContent.BoardWorkflowRunCa
 export type BoardRunBadge = z.infer<typeof workContent.BoardRunBadge>;
 type InstanceStatus = z.infer<typeof workflowRuntime.WorkflowInstanceStatus>;
 type RunColumn = BoardWorkflowRunCard["column"];
+type RunCardAgentAvatarKey = BoardWorkflowRunCard["agents"][number]["avatarKey"] & string;
 
-/** I-C11：实例状态 → (列, 徽标)。穷举 Record，新增实例状态时编译期即红。 */
+/**
+ * I-C11：实例状态 → (列, 徽标)。穷举 Record，新增实例状态时编译期即红。
+ * 逐字对齐契约束 work-content `domain.md` I-C11（已签核）：`failed | cancelled | needs_attention → done`(badge failed)。
+ * `needs_attention` 在运行时语义里**是终态**（requirements/02-workflow-runtime.md R6「终态之一：succeeded / failed /
+ * cancelled / rejected / needs_attention」；E1/E11 置此态后实例不再自行推进，只能人工核对），因此属于 R8
+ * 「失败终态→done 带失败徽标」，不是待审阅（review 列只放等人决策、决策后实例会继续跑的两态）。
+ */
 const STATUS_MAP: Readonly<Record<InstanceStatus, { column: RunColumn; badge: BoardRunBadge }>> = {
   running: { column: "in_progress", badge: "in_progress" },
   cancelling: { column: "in_progress", badge: "in_progress" },
@@ -38,6 +45,7 @@ export interface RunCardAgent {
   readonly agentId: string;
   readonly digitalHumanId: string | null;
   readonly displayName: string;
+  readonly avatarKey: RunCardAgentAvatarKey | null;
   readonly avatarUrl: string | null;
 }
 

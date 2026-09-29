@@ -72,7 +72,7 @@ export function BoardRunCard({ card, onOpen }: { card: BoardRunCardData; onOpen?
       <div className="flex -space-x-1" data-testid="board-run-card-agents">
         {card.agents.length > 0
           ? card.agents.map((a) => (
-              <Avatar key={a.agentId} initials={initialsOf(a.displayName)} src={a.avatarUrl} tone="ai" size="sm" title={a.displayName} className="ring-1 ring-card" />
+              <Avatar key={a.agentId} initials={initialsOf(a.displayName)} avatarKey={a.avatarKey} src={a.avatarUrl} tone="ai" size="sm" title={a.displayName} className="ring-1 ring-card" />
             ))
           : <Avatar initials="人" tone="human" size="sm" title="发起人" className="ring-1 ring-card" />}
       </div>

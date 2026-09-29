@@ -2,6 +2,8 @@
  * CT10 —— Board 运行卡 UI（契约束 work-content ① UI §二；V7 / E10）。
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { TabTodo } from "@/components/project/tab-todo";
+import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { describe, expect, it, vi } from "vitest";
 import { BoardWorkflowRunCard } from "@repo/contracts/work-content";
 import { BoardRunCard, BoardRunColumns, LiveBoardRunColumns, type BoardRunCardData } from "@/components/work-stack/board-run-card";
@@ -19,8 +21,8 @@ function card(over: Partial<BoardRunCardData> = {}): BoardRunCardData {
     badge: "in_progress",
     initiatorUserId: "u-alice",
     agents: [
-      { agentId: "ag-sales", digitalHumanId: null, displayName: "销售助理", avatarUrl: null },
-      { agentId: "ag-research", digitalHumanId: null, displayName: "研究员", avatarUrl: null },
+      { agentId: "ag-sales", digitalHumanId: "D005", displayName: "销售助理", avatarKey: "person-7", avatarUrl: null },
+      { agentId: "ag-research", digitalHumanId: null, displayName: "研究员", avatarKey: null, avatarUrl: null },
     ],
     draggable: false,
     href: "/workflows/runs/wi-1",
@@ -52,6 +54,14 @@ describe("BoardRunCard", () => {
     const b = screen.getByTestId("board-run-card-badge");
     expect(b.textContent).toBe(label);
     expect(b.textContent).not.toContain(badge);
+  });
+
+  it("Agent 头像：有插画 key 渲染插画、否则首字母", () => {
+    render(<BoardRunCard card={card()} />);
+    const avatars = screen.getByTestId("board-run-card-agents").children;
+    expect(avatars[0]!.getAttribute("data-avatar-key")).toBe("person-7");
+    expect(avatars[1]!.getAttribute("data-avatar-key")).toBeNull();
+    expect(avatars[1]!.textContent).toBe("研究");
   });
 
   it("A1 无 Agent 时显示发起人占位头像", () => {
@@ -98,5 +108,29 @@ describe("LiveBoardRunColumns（接真实 API 客户端）", () => {
     expect(spy).toHaveBeenCalledWith("/board/workflow-run-cards", { query: { projectId: "p-1" } });
     expect(out.cards[0]!.id).toBe("workflow_run:wi-1");
     spy.mockRestore();
+  });
+});
+
+describe("任务 Board（项目待办看板）合并运行卡", () => {
+  it("服务端 columns 里的运行卡 ID 渲染为只读运行卡，与任务卡同列", async () => {
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok");
+    const task = { id: "t-1", title: "任务 t-1", status: "review", sourceKind: "手工创建", ownerUserId: "u1", executor: null, dueAt: null,
+      riskLevel: null, waitingOn: null, syncStatus: "synced", projectId: "p1" };
+    const run = card({ column: "review", badge: "awaiting_review", instanceStatus: "awaiting_gate_decision" });
+    const body = {
+      cards: [task], runCards: [run], scope: "project",
+      columns: [{ status: "todo", cardIds: [] }, { status: "in_progress", cardIds: [] }, { status: "review", cardIds: ["t-1", run.id] }, { status: "done", cardIds: [] }],
+      collapsedInboxCount: 0, badgeCount: 1, footer: { overdue: 0, dueToday: 0 }, noCardLoss: true,
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<TabTodo view="facilitator" projectId="p1" />);
+    const col = await screen.findByTestId("project-todo-column-review");
+    expect(within(col).getByTestId("project-todo-card-t-1")).toBeTruthy();
+    const runEl = within(col).getByTestId("board-run-card-wi-1");
+    expect(runEl.getAttribute("draggable")).toBe("false");
+    expect(within(runEl).getByTestId("board-run-card-badge").textContent).toBe("待审批");
+    expect(col.textContent).toContain("2");
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
   });
 });
