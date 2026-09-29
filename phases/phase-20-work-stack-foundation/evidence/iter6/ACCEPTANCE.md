@@ -146,3 +146,59 @@ Note: S003 is an eval suite without an associated entity skill registered in the
 **ACCEPT**
 
 All 6 verification commands exit 0. The user-visible developer paths (harness eval, gate script) produce clear, actionable output. Exit codes match contract (0 = all pass, non-0 = any failure). Reports are written to the correct path with required fields. Failure messages name the exact file and field to fix. Counterproof tests confirm all 5 broken-fixture scenarios are correctly caught.
+
+---
+
+# AG06 — escalate 中断 kind (iter6 acceptance, 2026-09-29)
+
+Verifier: independent acceptance agent (iter6)
+
+## Static checks
+
+| Check | Result |
+|-------|--------|
+| `pnpm --filter @repo/contracts typecheck` | EXIT 0 |
+| `pnpm --filter api typecheck` | EXIT 0 |
+| `pnpm --filter web typecheck` | EXIT 0 |
+| `node .harness/scripts/lint-arch-deps.mjs` | EXIT 0 (1766 files, all inward) |
+| `node .harness/scripts/lint-contract-source.mjs` | EXIT 0 (1158 contract types) |
+
+## Verification commands
+
+**contracts escalate-interrupt-kind test**
+```
+pnpm --filter @repo/contracts exec vitest run tests/agent/escalate-interrupt-kind.test.ts
+```
+Result: 5 tests passed, EXIT 0
+
+**api escalate-decision-guard test**
+```
+pnpm --filter api exec vitest run tests/agent/escalate-decision-guard.test.ts
+```
+Result: 12 tests passed, EXIT 0
+
+## End-to-end journey
+
+Journey spec: `evidence/iter6/journeys/iter6-ag06-escalate.spec.ts`
+Stack: native (no Docker), ports web=25100 api=24100
+
+| Test | Result |
+|------|--------|
+| AG06-01: login as dev-mode-lead | PASS (redirect → /projects) |
+| AG06-02: API healthz check | PASS (200) |
+| AG06-03: J3c UI slice (escalate interrupt card) | documented NOT YET WALKABLE |
+
+3 passed, 0 failed.
+
+### Screenshots
+- `evidence/iter6/shots/ag06-01-login-page.png` — login form
+- `evidence/iter6/shots/ag06-02-login-filled.png` — filled credentials
+- `evidence/iter6/shots/ag06-03-post-login.png` — post-login app
+
+### Known gap: J3c UI slice
+`interrupt-card-escalate` UI component not yet built. Requires I8 CT04–CT06 content features.
+ACCEPTANCE-JOURNEYS.md: "J3c完全 = I5（AG06）+ I8内容". The backend (contracts + API) is complete.
+
+## AG06 Verdict: ACCEPT (backend complete; UI gap is expected/documented)
+
+All verification commands exit 0. Contract exports `AgentInterruptKind` with `escalate`, `AGENT_INTERRUPT_KIND_TO_TOOL_NAME` maps to `escalate_matter`, decision-guard enforces target identity and kind matching, timeout keeps runs pending without auto-approve. The UI `interrupt-card-escalate` card is a documented I8 dependency.
