@@ -2,8 +2,7 @@
 import * as React from "react";
 import { listPersonalThreads } from "@/lib/live-chat";
 import { listProjects } from "@/lib/live-projects";
-import { listProjectMembers } from "@/lib/live-project-members";
-import { listNonWorkshopMembers } from "@/lib/live-project-collaborators";
+import { getHomeProjectPreviews } from "@/lib/live-home-project-previews";
 import { listGuidedResearchSessions } from "@/lib/live-guided-research-api";
 import { listMyDigitalInterviews } from "@/lib/live-interviews";
 import { surveyRequest } from "@/lib/survey/runtime-client";
@@ -31,7 +30,7 @@ export interface HomeProject {
   readonly name: string;
   readonly kind: "workshop" | "general";
   readonly tags: readonly string[];
-  /** `null` = 协作者列表没取到（无权限/失败）；`[]` = 确实只有自己或没人。 */
+  /** `null` = 我不是该项目成员（或没取到）；有值 ⟺ 我是成员。 */
   readonly collaborators: readonly HomeCollaborator[] | null;
 }
 export interface HomeResearch {
@@ -113,21 +112,11 @@ export function useHomeWork(orgId: string | null, enabled: boolean) {
   const projects = useLoad<HomeProject[]>(on ? async () => {
     const all = await listProjects(orgId);
     const active = all.filter((p) => p.readOnlyReason !== "archived").slice(0, LIMIT.projects);
-    return Promise.all(active.map(async (p): Promise<HomeProject> => {
-      let collaborators: HomeCollaborator[] | null = null;
-      try {
-        // 工作坊项目走成员表；一般项目（研究/洞察）成员表返回 null，改读协作者表。
-        const m = await listProjectMembers(p.id);
-        if (m.members !== null) {
-          collaborators = m.members.map((x) => ({ userId: x.userId, displayName: x.displayName }));
-        } else {
-          const c = await listNonWorkshopMembers(p.id);
-          collaborators = c.members.map((x) => ({ userId: x.userId, displayName: x.displayName }));
-        }
-      } catch {
-        collaborators = null;
-      }
-      return { id: p.id, name: p.name, kind: p.kind, tags: p.tags, collaborators };
+    // 协作者由服务端聚合：只有我有项目角色的项目才会出现在这里。取不到（失败）就当没有协作者信息，
+    // 项目卡照常显示——不因此把整组项目标成错误，也不再逐个项目去撞必然的 403。
+    const previews = await getHomeProjectPreviews().then((r) => new Map(r.items.map((i) => [i.projectId, i.members] as const))).catch(() => new Map<string, readonly HomeCollaborator[]>());
+    return active.map((p): HomeProject => ({
+      id: p.id, name: p.name, kind: p.kind, tags: p.tags, collaborators: previews.get(p.id) ?? null,
     }));
   } : null);
 
@@ -165,11 +154,12 @@ export interface HomeTasks {
 
 /**
  * 「当前任务」：`GET /tasks/today` 需要一个项目作锚点（后端还没做跨项目聚合，见
- * `lib/live-tasks.ts` 头注），与 `/tasks` 页同一处置——取第一个未归档项目。
- * 没有项目 / 取不到 ⇒ 由调用方显示真实空态或省略，不编任务。
+ * `lib/live-tasks.ts` 头注）。锚点取**我是成员的第一个项目**（`collaborators !== null` ⟺ 服务端
+ * 确认我在其中有项目角色）——不像 `/tasks` 页那样取列表第一项：那可能是我只「管理」而非成员的
+ * 项目，接口会必然 403。没有这样的项目 ⇒ 不发请求，显示真实空态，不编任务。
  */
 export function useHomeTasks(projects: Load<HomeProject[]>, enabled: boolean): Load<HomeTasks | null> {
-  const anchor = projects.status === "ready" ? (projects.items[0] ?? null) : undefined;
+  const anchor = projects.status === "ready" ? (projects.items.find((p) => p.collaborators !== null) ?? null) : undefined;
   const fetcher = enabled && anchor !== undefined
     ? async (): Promise<HomeTasks | null> => {
         if (anchor === null) return null;

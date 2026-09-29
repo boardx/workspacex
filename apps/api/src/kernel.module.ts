@@ -811,6 +811,7 @@ import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-rep
 import { HOME_CONFIG_REPOSITORY } from "./application/home/home-config-ports";
 import { PgHomeConfigRepository } from "./infrastructure/home/pg-home-config-repository";
 import { HomeConfigController } from "./interface/controllers/home-config.controller";
+import { HomeProjectPreviewsController } from "./interface/controllers/home-project-previews.controller";
 import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
 import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
@@ -1176,6 +1177,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ProjectInviteController,
     OrgAdminManagementController,
     HomeConfigController,
+  HomeProjectPreviewsController,
     PlatformAccessController,
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,

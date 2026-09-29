@@ -1025,6 +1025,35 @@ export const operations = {
   /* ═══════════ 非工作坊两类容器的成员（项目中枢 B3-T5，#4499；U-1 裁 B 的操作面） ═══════════ */
 
   /**
+   * `getHomeProjectPreviews` —— 首页「项目卡协作者」与「当前任务锚点」（ad-hoc，Refs #4698）。
+   *
+   * 服务端在进程内复用 `listProjects` + 工作坊成员表 / 研究·洞察协作者表两个既有用例，
+   * **只返回调用者在其中有项目角色的项目**；没有角色的项目直接略过——200 且不出现，
+   * 而不是让客户端逐个 `GET /projects/:id/members` 去撞必然的 403（组织 admin/lead 能在列表里
+   * 「管理」看到很多自己不是成员的项目，逐个探测既是噪音也会在服务端留下被拒记录）。
+   * 「出现在这里 ⟺ 我是该项目成员」，所以首页也用它当 `GET /tasks/today` 的项目锚点。
+   * 只带 `userId`/`displayName`（同两个成员接口已经对项目成员公开的那两个字段），不含角色/邮箱。
+   */
+  getHomeProjectPreviews: {
+    method: "GET",
+    path: "/home/project-previews",
+    in: z.object({}).strict(),
+    out: z
+      .object({
+        items: z.array(
+          z
+            .object({
+              projectId: z.string(),
+              members: z.array(z.object({ userId: z.string(), displayName: z.string() }).strict()),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
    * `listNonWorkshopMembers` —— 非工作坊（`general`）容器的协作者名单。
    *
    * ## 为什么是另一条路径而不是给 `listProjectMembers` 加分支
