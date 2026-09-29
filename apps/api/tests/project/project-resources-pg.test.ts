@@ -109,7 +109,7 @@ describe("PgProjectResourceRepository（真实 PG）", () => {
       expect(out.alreadyLinked).toBe(false);
     }
     const out = await listProjectResources(deps, asUser(OBSERVER));
-    expect(out.counts).toEqual({ survey: 1, guided_research: 1, personal_transcription: 1, interview: 1 });
+    expect(out.counts).toEqual({ survey: 1, guided_research: 1, personal_transcription: 1, interview: 1, whiteboard: 0, design: 0 });
     const byKind = Object.fromEntries(out.items.map((x) => [x.kind, x]));
     expect(byKind.survey).toMatchObject({ id: "s1", title: "问卷一", status: "collecting", ownerUserId: OWNER });
     expect(byKind.guided_research).toMatchObject({ id: "g1", title: "研究一", status: "outline", ownerUserId: OWNER });
@@ -168,5 +168,91 @@ describe("PgProjectResourceRepository（真实 PG）", () => {
     await addOrgMember(ORG, "u-stranger", "consultant", null);
     await expect(listProjectResources(deps, asUser("u-stranger"))).rejects.toMatchObject({ reasonCode: "NO_PROJECT_ROLE" });
     await expect(listProjectResources(deps, asUser(OWNER, "no-such-project"))).rejects.toMatchObject({ reasonCode: "NO_PROJECT_ROLE" });
+  });
+});
+
+/**
+ * #4615 W2 —— 访谈 / 白板 / 设计也走挂载表。
+ *   · 白板（`whiteboards.id` uuid，全局主键）与设计（`design_projects.id` 全局主键）挂上后出现在资源视图里，
+ *     标题 / 所有者 / 状态来自各自的表；归属规则同其它类型（不是自己的 ⇒ RESOURCE_NOT_FOUND；非 uuid 的白板 id 只是「不存在」）；
+ *   · 访谈「关联已有」：链接行 + 同步 `interview_sessions.project_id`；改挂到别的项目后原项目不再出现；
+ *     解挂 ⇒ 回到「不属于任何项目」（连同在本项目里新建时写下的 project_id）。
+ */
+describe("#4615 W2：访谈 / 白板 / 设计（真实 PG）", () => {
+  const BOARD = "4a1f6f0e-2b0c-4c52-9a7e-3d9c1b6e2f01";
+  const OTHER_BOARD = "4a1f6f0e-2b0c-4c52-9a7e-3d9c1b6e2f02";
+  const DESIGN = "dp-4615-w2-1";
+  const INTERVIEW_FREE = "i-4615-w2-free";
+
+  beforeEach(async () => {
+    await asApp(ORG, async (c) => {
+      await c.query(
+        `INSERT INTO whiteboards (id, org_id, owner_id, request_id, name) VALUES ($1, $2, $3, gen_random_uuid(), '项目白板')`,
+        [BOARD, ORG, OWNER],
+      );
+      await c.query(
+        `INSERT INTO whiteboards (id, org_id, owner_id, request_id, name) VALUES ($1, $2, $3, gen_random_uuid(), '别人的白板')`,
+        [OTHER_BOARD, ORG, OBSERVER],
+      );
+      await c.query(
+        `INSERT INTO design_projects (id, org_id, owner_id, name, template) VALUES ($1, $2, $3, '设计一', 'ui')`,
+        [DESIGN, ORG, OWNER],
+      );
+      await c.query(
+        `INSERT INTO interview_sessions (id, org_id, project_id, source_kind, title, created_by, digital_status)
+         VALUES ($1, $2, NULL, 'human', '独立访谈', $3, NULL)`,
+        [INTERVIEW_FREE, ORG, OWNER],
+      );
+    });
+  }, HOOK_TIMEOUT_MS);
+
+  const projectOf = async (interviewId: string) =>
+    (await asApp(ORG, (c) => c.query<{ project_id: string | null }>(
+      "SELECT project_id FROM interview_sessions WHERE org_id = $1 AND id = $2", [ORG, interviewId],
+    ))).rows[0]?.project_id ?? null;
+
+  it("白板 / 设计挂上后出现在资源视图，字段来自各自的表；六类计数含 0", async () => {
+    expect((await linkProjectResource(deps, { ...asUser(OWNER), kind: "whiteboard", resourceId: BOARD })).alreadyLinked).toBe(false);
+    expect((await linkProjectResource(deps, { ...asUser(OWNER), kind: "design", resourceId: DESIGN })).alreadyLinked).toBe(false);
+    const out = await listProjectResources(deps, asUser(OBSERVER));
+    expect(out.counts).toEqual({ survey: 0, guided_research: 0, personal_transcription: 0, interview: 1, whiteboard: 1, design: 1 });
+    const byKind = Object.fromEntries(out.items.map((x) => [x.kind, x]));
+    expect(byKind.whiteboard).toMatchObject({ id: BOARD, title: "项目白板", ownerUserId: OWNER, status: null });
+    expect(byKind.design).toMatchObject({ id: DESIGN, title: "设计一", ownerUserId: OWNER, status: null });
+  });
+
+  it("归属规则同其它类型：别人的白板 RESOURCE_NOT_FOUND；非 uuid 的白板 id 只是不存在", async () => {
+    await expect(linkProjectResource(deps, { ...asUser(OWNER), kind: "whiteboard", resourceId: OTHER_BOARD }))
+      .rejects.toMatchObject({ reasonCode: "RESOURCE_NOT_FOUND" });
+    expect(await repo.isOwnedResource(ORG_ID, "whiteboard", "not-a-uuid", OWNER)).toBe(false);
+    expect(await repo.isOwnedResource(ORG_ID, "whiteboard", BOARD, OWNER)).toBe(true);
+    expect(await repo.isOwnedResource(ORG_ID, "design", DESIGN, OBSERVER)).toBe(false);
+  });
+
+  it("访谈关联已有：链接行 + 同步 project_id；改挂到 B 后 A 里不再出现；解挂回到不属于任何项目", async () => {
+    const cmd = { ...asUser(OWNER), kind: "interview" as const, resourceId: INTERVIEW_FREE };
+    expect((await linkProjectResource(deps, cmd)).alreadyLinked).toBe(false);
+    expect(await projectOf(INTERVIEW_FREE)).toBe(P_A);
+    expect((await listProjectResources(deps, asUser(OWNER))).counts.interview).toBe(2);
+    expect((await linkProjectResource(deps, cmd)).alreadyLinked).toBe(true);
+
+    expect((await linkProjectResource(deps, { ...cmd, projectId: P_B })).alreadyLinked).toBe(false);
+    expect(await projectOf(INTERVIEW_FREE)).toBe(P_B);
+    expect((await listProjectResources(deps, asUser(OWNER))).counts.interview).toBe(1);
+    expect((await listProjectResources(deps, asUser(OWNER, P_B))).counts.interview).toBe(1);
+
+    expect(await unlinkProjectResource(deps, { ...cmd, projectId: P_B })).toEqual({ removed: true });
+    expect(await projectOf(INTERVIEW_FREE)).toBeNull();
+    expect((await listProjectResources(deps, asUser(OWNER, P_B))).counts.interview).toBe(0);
+  });
+
+  it("在项目里新建的访谈（只有 project_id、没有链接行）：关联即补链接行；解挂清掉 project_id", async () => {
+    const cmd = { ...asUser(OWNER), kind: "interview" as const, resourceId: "i1" };
+    expect((await linkProjectResource(deps, cmd)).alreadyLinked).toBe(false); // 补了一条链接行
+    expect(await projectOf("i1")).toBe(P_A);
+    expect((await listProjectResources(deps, asUser(OWNER))).counts.interview).toBe(1);
+    expect(await unlinkProjectResource(deps, cmd)).toEqual({ removed: true });
+    expect(await projectOf("i1")).toBeNull();
+    expect(await unlinkProjectResource(deps, cmd)).toEqual({ removed: false });
   });
 });

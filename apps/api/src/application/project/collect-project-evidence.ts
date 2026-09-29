@@ -1,5 +1,5 @@
 /**
- * 项目中枢 B3-T1（#4495）`collectProjectEvidence` —— 四个采集器的汇总入口。
+ * 项目中枢 B3-T1（#4495）`collectProjectEvidence` —— 采集器的汇总入口（#4615 起五个：+ 白板便签）。
  *
  * 对挂在某项目上的资源（`project_resource_links` 三类 + `interview_sessions.project_id`），把问卷答卷 /
  * 访谈片段 / 个人转写片段 / 深研来源写成证据单元（`ProjectEvidencePort.upsert`，幂等）。
@@ -18,13 +18,17 @@ import { collectResearchEvidence } from "./collect-evidence/research";
 import { collectSurveyEvidence } from "./collect-evidence/survey";
 import { sumResults, type CollectorDeps, type CollectResult } from "./collect-evidence/shared";
 import { collectTranscriptEvidence } from "./collect-evidence/transcript";
+import { collectWhiteboardEvidence } from "./collect-evidence/whiteboard";
 import type { ProjectEvidenceSourceKind } from "./project-evidence-ports";
 import type { ProjectLinkableResourceKind } from "./project-resource-ports";
 
-/** 本入口能采的四类（`chat_message` 走抽取器回填；`attachment` 本切片不采，见回报）。 */
+/**
+ * 本入口能采的五类（`chat_message` 走抽取器回填；`attachment` 本切片不采，见回报）。
+ * #4615：+ `whiteboard_note`（挂在项目上的白板里的便签 / 文本块）。
+ */
 export type CollectableEvidenceKind = Extract<
   ProjectEvidenceSourceKind,
-  "survey_response" | "interview_segment" | "transcript_segment" | "research_source"
+  "survey_response" | "interview_segment" | "transcript_segment" | "research_source" | "whiteboard_note"
 >;
 
 export const COLLECTABLE_EVIDENCE_KINDS: readonly CollectableEvidenceKind[] = [
@@ -32,20 +36,27 @@ export const COLLECTABLE_EVIDENCE_KINDS: readonly CollectableEvidenceKind[] = [
   "interview_segment",
   "transcript_segment",
   "research_source",
+  "whiteboard_note",
 ];
 
-/** 可挂载资源类型 → 它产出的证据来源。 */
-export const LINKABLE_KIND_TO_EVIDENCE: Record<ProjectLinkableResourceKind, CollectableEvidenceKind> = {
+/**
+ * 可挂载资源类型 → 它产出的证据来源。`null` = 第一版只挂载、不采证据（设计：PROP-PROJECT-WORKSPACE-001 §3.2
+ * 「设计内容进证据留第二版」）。
+ */
+export const LINKABLE_KIND_TO_EVIDENCE: Record<ProjectLinkableResourceKind, CollectableEvidenceKind | null> = {
   survey: "survey_response",
   guided_research: "research_source",
   personal_transcription: "transcript_segment",
+  interview: "interview_segment",
+  whiteboard: "whiteboard_note",
+  design: null,
 };
 
 export interface CollectProjectEvidenceInput {
   readonly orgId: OrgId;
   readonly projectId: string;
   readonly decision: PermissionDecision;
-  /** 缺省 = 四类全采。 */
+  /** 缺省 = 全部可采的类型。 */
   readonly kinds?: readonly CollectableEvidenceKind[];
 }
 
@@ -54,6 +65,7 @@ const COLLECTORS: Record<CollectableEvidenceKind, (deps: CollectorDeps, input: O
   interview_segment: collectInterviewEvidence,
   transcript_segment: collectTranscriptEvidence,
   research_source: collectResearchEvidence,
+  whiteboard_note: collectWhiteboardEvidence,
 };
 
 export async function collectProjectEvidence(
@@ -63,7 +75,7 @@ export async function collectProjectEvidence(
   const kinds = input.kinds ?? COLLECTABLE_EVIDENCE_KINDS;
   const zero: CollectResult = { scanned: 0, created: 0, refreshed: 0 };
   const out: Record<CollectableEvidenceKind, CollectResult> = {
-    survey_response: zero, interview_segment: zero, transcript_segment: zero, research_source: zero,
+    survey_response: zero, interview_segment: zero, transcript_segment: zero, research_source: zero, whiteboard_note: zero,
   };
   for (const kind of new Set(kinds)) {
     out[kind] = await COLLECTORS[kind](deps, { orgId: input.orgId, projectId: input.projectId, decision: input.decision });

@@ -42,7 +42,7 @@ export interface ResolveProjectLayerInput {
 const NO_PROJECT_ROLE: ProjectLayerInput = { role: null, groupId: null, isHost: false };
 
 export async function resolveProjectLayer(
-  repo: IdentityRepository,
+  repo: Pick<IdentityRepository, "findProjectMembership" | "findNonWorkshopStanding">,
   input: ResolveProjectLayerInput,
 ): Promise<ProjectLayerInput> {
   const workshop = await repo.findProjectMembership(input.userId, input.projectId, input.orgId);

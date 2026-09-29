@@ -1345,7 +1345,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
     // (another org sees none of these rows) and unauthenticated 401 are proven in
     // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(107);
+    // #4615 adds pg-whiteboard-project-access.ts (107 -> 108): the PROJECT source of whiteboard
+    // access reads only container identity (`project_resource_links` kind='whiteboard' +
+    // `projects.status`) on the whiteboard store's own locked session, and returns a role, never
+    // content; the role itself comes from resolveProjectLayer. Pinned by
+    // tests/whiteboard/project-access-guard.test.ts. Remove this increment with that test.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(108);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

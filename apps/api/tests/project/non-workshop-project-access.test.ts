@@ -197,7 +197,7 @@ describe("authorize()：项目层读两档身份（#4584 的根因修复）", ()
 /* ───────────────────────────── 用例面 ───────────────────────────── */
 
 const ZERO: Record<ProjectEvidenceSourceKind, number> = {
-  chat_message: 0, attachment: 0, survey_response: 0, interview_segment: 0, transcript_segment: 0, research_source: 0,
+  chat_message: 0, attachment: 0, survey_response: 0, interview_segment: 0, transcript_segment: 0, research_source: 0, whiteboard_note: 0,
 };
 const evidenceRow: ProjectEvidenceRow = {
   id: "ev1", projectId: RESEARCH, sourceKind: "interview_segment", resourceId: "r1", sourceRef: "s1",
