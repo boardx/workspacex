@@ -33,6 +33,7 @@
 import { chat } from "@repo/contracts";
 import type { z } from "zod";
 import type { PermissionDecision } from "../identity/permission-decision";
+import type { ContainerKind } from "../identity/project-role-matrix";
 import type { ProjectRole } from "../identity/roles";
 
 export type ChatVisibilityScope = z.infer<typeof chat.ChatVisibility>;
@@ -61,11 +62,33 @@ export interface ThreadFacts {
   readonly archived: boolean;
 }
 
-/** 判定要用到的读者属性。项目角色与组号来自 `project_memberships`。 */
+/**
+ * 判定要用到的读者属性。项目角色 / 组号 / 容器种类来自 `resolveProjectLayer`（#4615：工作坊行，或通用项目
+ * 两档身份映射到的矩阵行——同 `authorize()` 的项目层，唯一判据）。
+ */
 export interface ActorFacts {
   readonly userId: string;
   readonly projectRole: ProjectRole | null;
   readonly groupId: string | null;
+  /** 省略 = `workshop`（本字段出现之前的全部调用方）。 */
+  readonly containerKind?: ContainerKind;
+}
+
+/**
+ * #4615（PROP-PROJECT-WORKSPACE-001 §3.3）：非工作坊容器里对话只有两档可见范围——
+ * **仅自己**（`private`）与**项目内共享**（`plenary`）。没有分组，所以没有「组内共享」/「组员私聊」；
+ * 研究阶段的「团队可见」也不适用。取值仍是契约五值封闭枚举里的两个，不新增枚举值（不改契约）。
+ */
+export const NON_WORKSHOP_CHAT_SCOPES: readonly ChatVisibilityScope[] = ["private", "plenary"];
+
+const isNonWorkshop = (actor: ActorFacts): boolean => (actor.containerKind ?? "workshop") !== "workshop";
+
+/**
+ * 非工作坊容器里，调用方给的可见范围落到哪一档：`private` / `member-private` ⇒ 仅自己；其余 ⇒ 项目内共享。
+ * 缺省（新建时没给）⇒ 项目内共享——通用项目是一个共享工作空间，新会话默认给成员看。
+ */
+export function nonWorkshopChatScope(requested: string | null | undefined): ChatVisibilityScope {
+  return requested === "private" || requested === "member-private" ? "private" : "plenary";
 }
 
 export type DeniedLayer = "organization" | "project";
@@ -117,6 +140,14 @@ function scopeAllows(thread: ThreadFacts, actor: ActorFacts): boolean {
   const role = actor.projectRole;
   if (role === null) return false;
 
+  // #4615：非工作坊容器只认两档。其余三档（理论上写不进来，见 `mutate-thread.ts`）一律不可见——
+  // 方向是 fail closed：一条来路不明的「组内共享」线程，在没有组的容器里不该对任何人放宽。
+  if (isNonWorkshop(actor)) {
+    if (thread.visibilityScope === "private") return actor.userId === thread.createdBy;
+    if (thread.visibilityScope === "plenary") return true;
+    return false;
+  }
+
   const sameGroup = thread.groupId !== null && thread.groupId === actor.groupId;
   // I-6：跨组一律不可见，**引导师除外**。放在最前面，因为它对下面每一档都成立——
   // 写在各档内部就会漏掉后加的那一档，而漏掉的方向是放行。
@@ -158,6 +189,9 @@ function scopeAllows(thread: ThreadFacts, actor: ActorFacts): boolean {
  */
 export function chatReadAction(thread: ThreadFacts, actor: ActorFacts): string {
   if (actor.projectRole === "observer") return "read.published";
+  // #4615：非工作坊容器没有分组，`read.ownGroup` / `read.privateChat` 不在它的白名单里（`containerAllows`）。
+  // 两档都问「全场已共享」这一面：`private` 的「仅创建者」由上面的 `scopeAllows` 收窄，不靠矩阵动作。
+  if (isNonWorkshop(actor)) return "read.allHands";
   switch (thread.visibilityScope) {
     case "member-private":
       return "read.privateChat";
@@ -422,13 +456,20 @@ export function observerMayReadMessage(
  * 观察者恒为只读：写能力**不在集合里**，而不是「在集合里但标了 disabled」。
  * 后者会让「服务端不下发」退化成「服务端下发了一个提示」，而提示是可以被绕过的。
  */
-export function capabilitiesFor(role: ProjectRole | null): string[] {
+/**
+ * #4615：工作坊现场才有的两样写能力——改派到哪个组、停止哪个现场录音。非工作坊容器没有组、没有现场，
+ * **不下发**（不是禁用，是没有；同 `PERSONAL_THREAD_CAPABILITIES` 的处置）。
+ */
+const WORKSHOP_ONLY_CAPABILITIES: ReadonlySet<string> = new Set(["reassign", "recording.stop"]);
+
+export function capabilitiesFor(role: ProjectRole | null, containerKind: ContainerKind = "workshop"): string[] {
   if (role === null) return [];
   if (role === "observer") return [...CHAT_READ_CAPABILITIES];
   const writes: string[] = [];
   for (const cap of CHAT_WRITE_CAPABILITIES) {
     // 组员没有批准权（批准是引导师/负责人的动作），其余写能力人人有。
     if (cap === "approval.decide" && role === "member") continue;
+    if (containerKind !== "workshop" && WORKSHOP_ONLY_CAPABILITIES.has(cap)) continue;
     writes.push(cap);
   }
   return [...CHAT_READ_CAPABILITIES, ...writes];

@@ -1353,6 +1353,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
     // (another org sees none of these rows) and unauthenticated 401 are proven in
     // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
+    // #4615 adds pg-whiteboard-project-access.ts (+1 on top of main's 111 -> 112): the PROJECT source of whiteboard
+    // access reads only container identity (`project_resource_links` kind='whiteboard' +
+    // `projects.status`) on the whiteboard store's own locked session, and returns a role, never
+    // content; the role itself comes from resolveProjectLayer. Pinned by
+    // tests/whiteboard/project-access-guard.test.ts. Remove this increment with that test.
     // 2026-09-29 merge of main (WS/WF/EV/CT01) with the AG01/AG03/AG04 branch: the ceiling is
     // recomputed as the combined total. AG01's two entries (above), AG04's
     // pg-agent-directory-repository.ts (pinned by tests/agent/agent-directory-repo-guard.test.ts)
@@ -1364,9 +1369,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // pg-effect-capability-authority.ts (workflow_capability_grants admin toggle, read only by
     // effect-permission-recheck.ts) and WF06 adds pg-workflow-trigger-store.ts (triggerId ->
     // org_id resolution via the non-tenant workflow_trigger_lookup, then withTenant only).
-    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts;
-    // 111 -> 113. Remove this increment with those entries if that guard test disappears.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(113);
+    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts.
+    // Remove this increment with those entries if that guard test disappears.
+    // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
+    // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
+    // boundary rules). Ceiling recomputed as the combined total.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(114);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

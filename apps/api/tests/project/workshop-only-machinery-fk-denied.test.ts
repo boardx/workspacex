@@ -7,15 +7,16 @@
  *
  * `groups` / `project_memberships` 各加一列 `kind`，CHECK 钉死为常量 `'workshop'`，
  * 复合外键 `(project_id, kind) REFERENCES projects(id, kind)` 要求「这个 project_id
- * 在 `projects` 里的那一行，kind 恰好是 workshop」。研究项目/用户洞察容器的 `projects`
+ * 在 `projects` 里的那一行，kind 恰好是 workshop」。通用项目（`general`，#4615 起由原研究项目 /
+ * 用户洞察两类并入）容器的 `projects`
  * 行 `kind` 不是 `'workshop'`，复合外键自然找不到匹配行 —— 23503，与应用层判断无关。
  *
  * ## 反证顺序，逐条对应 subtype-exclusive-1to1.test.ts 的论证形状
  *
  *   ① 正向：工作坊容器下，两张表原样可写（不破坏任何既有写入路径 —— DEFAULT 'workshop' 兜底）
- *   ② 反证：研究项目容器下插 groups / project_memberships —— 23503（外键，不是应用层拒绝）
- *   ③ 反证：用户洞察容器下同上 —— 23503
- *   ④ 判别列不是摆设：显式声明 kind='research_project' 插入 —— CHECK 拒绝（23514），
+ *   ② 反证：general 容器下插 groups —— 23503（外键，不是应用层拒绝）
+ *   ③ 反证：general 容器下插 project_memberships —— 23503
+ *   ④ 判别列不是摆设：显式声明 kind='general' 插入 —— CHECK 拒绝（23514），
  *      与②③的 23503 可区分（CHECK 挡的是「值不在闭集」，FK 挡的是「值与容器不匹配」）
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -23,10 +24,9 @@ import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs } from "../suppo
 
 const ORG = "f128-fk-org";
 
-const SUBTYPE_TABLE: Record<"workshop" | "research_project" | "user_insight", string> = {
+const SUBTYPE_TABLE: Record<"workshop" | "general", string> = {
   workshop: "workshops",
-  research_project: "research_projects",
-  user_insight: "user_insights",
+  general: "general_projects",
 };
 
 async function sqlstateOf(fn: () => Promise<unknown>): Promise<string> {
@@ -41,7 +41,7 @@ async function sqlstateOf(fn: () => Promise<unknown>): Promise<string> {
 async function seedContainer(
   orgId: string,
   id: string,
-  kind: "workshop" | "research_project" | "user_insight",
+  kind: "workshop" | "general",
 ): Promise<void> {
   await asApp(orgId, async (c) => {
     await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,$3,$4)", [
@@ -105,7 +105,7 @@ describe("F128 workshop-only-machinery-fk-denied", () => {
     expect(membershipKind).toBe("workshop");
   });
 
-  it.each(["research_project", "user_insight"] as const)(
+  it.each(["general"] as const)(
     "反证：%s 容器下插 groups —— 被复合外键拒绝（23503），不是应用层报错",
     async (kind) => {
       const id = `${ORG}-groups-${kind}`;
@@ -124,7 +124,7 @@ describe("F128 workshop-only-machinery-fk-denied", () => {
     },
   );
 
-  it.each(["research_project", "user_insight"] as const)(
+  it.each(["general"] as const)(
     "反证：%s 容器下插 project_memberships —— 被复合外键拒绝（23503），不是应用层报错",
     async (kind) => {
       const id = `${ORG}-pm-${kind}`;
@@ -152,7 +152,7 @@ describe("F128 workshop-only-machinery-fk-denied", () => {
           ORG,
           id,
           "g",
-          "research_project",
+          "general",
         ]),
       ),
     );
@@ -162,7 +162,7 @@ describe("F128 workshop-only-machinery-fk-denied", () => {
       asApp(ORG, (c) =>
         c.query(
           "INSERT INTO project_memberships (user_id, project_id, org_id, project_role, kind) VALUES ($1,$2,$3,$4,$5)",
-          ["u-explicit", id, ORG, "member", "user_insight"],
+          ["u-explicit", id, ORG, "member", "general"],
         ),
       ),
     );
@@ -183,7 +183,7 @@ describe("F128 workshop-only-machinery-fk-denied", () => {
       ]),
     );
     const code = await sqlstateOf(() =>
-      asOwner((c) => c.query("UPDATE projects SET kind = 'research_project' WHERE id = $1", [id])),
+      asOwner((c) => c.query("UPDATE projects SET kind = 'general' WHERE id = $1", [id])),
     );
     expect(code).toBe("23503");
   });

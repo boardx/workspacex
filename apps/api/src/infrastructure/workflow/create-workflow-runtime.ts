@@ -13,6 +13,7 @@ import { WorkflowRuntimeService } from "../../application/workflow/workflow-runt
 import { demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
 import { demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
+import { productWorkflowGraphs } from "./product-workflow-graphs";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
 import { PgWorkflowExpiredLeaseScanner } from "./pg-workflow-expired-lease-scanner";
@@ -31,7 +32,7 @@ import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGrap
 export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: async () => null };
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
-  return [demoWorkflowGraph(), demoApprovalWorkflowGraph()];
+  return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
 }
 
 export interface WorkflowRuntimeOptions {
