@@ -1,8 +1,12 @@
 import type { IdentityRepository } from "../identity/ports";
+import type { WorkGateStatus } from "@repo/contracts/work-eval";
+import type { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
 import {
   importPayloadDigest,
   InvalidSkillStarterPackError,
+  skillContentDigest,
   verifySkillStarterPack,
+  type SkillStarterPack,
 } from "../../domain/skill/starter-pack";
 import type { OrgId } from "../../domain/org-id";
 import {
@@ -14,6 +18,8 @@ import type {
   SkillStarterImportRepository,
   SkillStarterImportResult,
   SkillStarterPackSource,
+  StarterPackGateJudge,
+  StarterPackImportFollowUp,
 } from "./ports";
 
 export class SkillStarterPackNotFoundError extends Error {}
@@ -44,6 +50,10 @@ export interface ImportSkillStarterPackDeps {
   readonly identities: IdentityRepository;
   readonly packs: SkillStarterPackSource;
   readonly imports: SkillStarterImportRepository;
+  /** 可选：导入时写入确定性门判定（见 `StarterPackGateJudge`）；缺省 ⇒ 目录显示「未评测」。 */
+  readonly gateJudge?: StarterPackGateJudge;
+  /** 可选：导入成功（含重放）后发布变得可发布的内置 Workflow Definition（见 `StarterPackImportFollowUp`）。 */
+  readonly followUp?: StarterPackImportFollowUp;
 }
 
 export interface ImportSkillStarterPackInput {
@@ -86,14 +96,15 @@ export async function importSkillStarterPack(
     payloadDigest,
   });
   if (existing.kind === "replayed") {
-    return { created: false, result: existing.result, retiredSkillIds: await retireSuperseded(deps, input, existing.result) };
+    const retiredSkillIds = await retireSuperseded(deps, input, existing.result);
+    await followUp(deps, input);
+    return { created: false, result: existing.result, retiredSkillIds };
   }
   if (existing.kind === "idempotency-conflict") {
     throw new SkillStarterImportIdempotencyConflictError();
   }
-  if (existing.kind === "previous-failure") {
-    throwRecordedFailure(existing.failureCode);
-  }
+  // `previous-failure`：失败不是终局（服务端配置/状态可能已修好），往下重新判定；
+  // 仓储在同一条 provenance 行上接管这次重试（见 pg 仓储 `isRetryableFailure`）。
 
   const raw = await deps.packs.load(input.packId, input.packVersion);
   if (raw === null) {
@@ -143,9 +154,12 @@ export async function importSkillStarterPack(
     payloadDigest,
     pack,
     workManifests: work.manifests,
+    gateStatuses: judgeGates(deps.gateJudge, pack, work.manifests),
   });
   if (outcome.kind === "created" || outcome.kind === "replayed") {
-    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds: await retireSuperseded(deps, input, outcome.result, pack) };
+    const retiredSkillIds = await retireSuperseded(deps, input, outcome.result, pack);
+    await followUp(deps, input);
+    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds };
   }
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();
   if (outcome.kind === "stable-id-conflict") {
@@ -158,6 +172,36 @@ export async function importSkillStarterPack(
     throw new SkillStarterImportIdempotencyConflictError();
   }
   throwRecordedFailure(outcome.failureCode);
+}
+
+/** 导入已提交；后续发布失败不改变导入结果（种子脚本可重跑补发布）。 */
+async function followUp(deps: ImportSkillStarterPackDeps, input: ImportSkillStarterPackInput): Promise<void> {
+  if (!deps.followUp) return;
+  try {
+    await deps.followUp.afterImport({ orgId: input.orgId, actorId: input.actorId });
+  } catch {
+    // 故意吞掉：见 `StarterPackImportFollowUp` 头注；实现侧自行记录日志。
+  }
+}
+
+/** 门判定失败绝不连累导入本身：判不出来 ⇒ 不写记录（目录如实「未评测」）。 */
+function judgeGates(
+  judge: StarterPackGateJudge | undefined,
+  pack: SkillStarterPack,
+  manifests: ReadonlyMap<string, WorkSkillManifest>,
+): ReadonlyMap<string, WorkGateStatus> | undefined {
+  if (!judge || manifests.size === 0) return undefined;
+  try {
+    return judge.judge({
+      packId: pack.packId,
+      skills: pack.skills.flatMap((skill) => {
+        const work = manifests.get(skill.stableName);
+        return work ? [{ stableName: skill.stableName, work, versionDigest: `sha256:${skillContentDigest(skill)}` }] : [];
+      }),
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 /**
