@@ -93,7 +93,10 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     const region = page.getByTestId("board-editor-region");
     const shellBounds = await region.locator("..").boundingBox();
     const regionBounds = await region.boundingBox();
-    const bannerBounds = await page.getByTestId("board-sync-banner").boundingBox();
+    const banner = page.getByTestId("board-sync-banner");
+    // boundingBox waits for a missing element; synchronized Boards intentionally
+    // remove this banner, so check visibility before measuring it.
+    const bannerBounds = await banner.isVisible() ? await banner.boundingBox() : null;
     const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();

@@ -110,7 +110,10 @@ test('visual and accessibility real object states, input and negative controls',
       let target: Awaited<ReturnType<typeof canonicalRows>>[number] | undefined;
       let point: Awaited<ReturnType<typeof objectPoint>> | undefined;
       for(const candidate of (await canonicalRows(page)).filter(row=>row.kind==='sticky').sort((a,b)=>a.text.length-b.text.length)){
-        const candidatePoint=await objectPoint(page,candidate.id);
+        // Some Stickies overlap panels, long text, or floating chrome. Keep
+        // trying actual exposed Fabric pixels instead of aborting on the first.
+        const candidatePoint=await objectPoint(page,candidate.id).catch(()=>null);
+        if(!candidatePoint)continue;
         await page.mouse.click(candidatePoint.x,candidatePoint.y);
         if(await page.getByTestId(`board-a11y-object-${candidate.id}`).getAttribute('aria-pressed')==='true'){target=candidate;point=candidatePoint;break;}
       }

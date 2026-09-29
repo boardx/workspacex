@@ -91,10 +91,13 @@ async function dragObject(
   if (sceneTolerance === 0) {
     await expect.poll(async () => { const next = await geometryOf(row); return spatialMicroPosition(next); }).toEqual(spatialMicroPosition(expected));
   } else {
+    // Smart guides operate in CSS pixels. The equivalent scene distance grows
+    // as the Board zooms out, so compare in the pointer's actual screen scale.
+    const allowedSceneError = Math.max(sceneTolerance, 5 / zoom + 1);
     await expect.poll(async () => {
       const next = await geometryOf(row);
       return Math.max(Math.abs(next.x - expected.x), Math.abs(next.y - expected.y));
-    }).toBeLessThanOrEqual(sceneTolerance);
+    }).toBeLessThanOrEqual(allowedSceneError);
   }
 }
 async function openInspector(page: Page, properties = false, dismissAfterTab = false) {
@@ -225,7 +228,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(autoExpand).toBeEnabled();
   await autoExpand.evaluate((element: HTMLInputElement) => element.click());
   await expect(autoExpand).toBeChecked();
-  await dragObject(page, firstSticky, 620, 320);
+  await dragObject(page, firstSticky, 620, 320, "commit", 1);
   const panelAfterExpand = await geometryOf(panel);
   expect(panelAfterExpand.width > panelBeforeExpand.width || panelAfterExpand.height > panelBeforeExpand.height).toBe(true);
   await expect(firstSticky).toHaveAttribute("data-parent-id", panelId);
