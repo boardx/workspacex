@@ -70,7 +70,7 @@ export function CapabilityEditionNote({ compact = false }: { readonly compact?: 
   if (compact) {
     return (
       <details data-testid="capability-edition-note" className="group px-1 text-11 text-muted-foreground">
-        <summary className="cursor-pointer select-none rounded-sm py-1 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <summary className="cursor-pointer select-none rounded-sm py-1 transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {title}（{absent.length} 项）
         </summary>
         <div className="pb-1 pl-2">{body}</div>

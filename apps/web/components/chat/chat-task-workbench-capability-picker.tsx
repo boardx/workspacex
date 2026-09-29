@@ -238,7 +238,7 @@ export function CapabilityCardList({
         {listings.length > 0 && visible.length === 0 ? (
           <div data-testid="chat-task-workbench-capability-empty" className="flex flex-col items-center gap-1 px-2 py-6 text-center">
             <p className="text-12 text-card-foreground">没有找到匹配的数字人</p>
-            <button type="button" className="text-11 text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setQuery(""); setTag(null); }}>
+            <button type="button" className="text-11 text-primary underline-offset-2 transition-colors duration-fast hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setQuery(""); setTag(null); }}>
               清除搜索与筛选
             </button>
           </div>
@@ -289,7 +289,7 @@ function DigitalHumanCard({
       data-agent-id={listing.id}
       onClick={() => onSelect(listing.id)}
       className={[
-        "flex w-full items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent",
+        "flex w-full items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground",
         isSelected ? "border-primary/60 bg-muted/60" : "border-transparent",
       ].join(" ")}
     >
