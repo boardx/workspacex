@@ -195,6 +195,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
     const source = screen.getByTestId("research-source-description-source1");
     expect(screen.getByText("检索得到的政策说明全文")).toBeInTheDocument();
+    expect(source).toHaveAttribute("title", "检索得到的政策说明全文");
     expect(screen.getByRole("link", { name: /政策说明/ })).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.getByRole("button", { name: "查看完整描述" })).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: "查看完整描述" }));
