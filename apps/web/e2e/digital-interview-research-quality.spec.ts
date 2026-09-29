@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { interviewMarkdown } from "@repo/contracts";
-import { MOCK_DIGITAL_EXPERTS, MOCK_EXPERT_ID_PREFIX, toDigitalExpertCatalogRow } from "../lib/mock/digital-expert-personas";
+import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "../lib/mock/digital-expert-personas";
 
 const view = {
   interviewId: "itv-quality-e2e", name: "采购决策研究", tags: ["用户研究"], topic: null,
@@ -64,8 +64,7 @@ test("expert avatar changes persist, reset and fit desktop/tablet/mobile", async
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(preference) });
   });
   await page.goto("/itv/itv-quality-e2e/experts");
-  const personaId = expert.expertId.slice(MOCK_EXPERT_ID_PREFIX.length);
-  const expertCard = page.getByTestId(`itv-persona-card-persona-${personaId}`);
+  const expertCard = page.getByTestId(`itv-expert-card-${expert.expertId}`);
   await expect(expertCard).toContainText(expert.role);
   await expertCard.getByRole("button", { name: `修改${expert.displayName}头像` }).click();
   const editor = page.getByRole("dialog", { name: `修改${expert.displayName}头像` });
