@@ -75,10 +75,10 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
       const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
       const objectId=(await editorNote.getAttribute('data-testid'))?.replace('board-a11y-object-','');expect(objectId).toBeTruthy();
-      const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({apiUrl,tokenValue,currentBoardId,requestId,commandsValue})=>{
-        const response=await fetch(`${apiUrl.replace(/\/$/,'')}/whiteboards/${currentBoardId}/commands`,{method:'POST',headers:{Authorization:`Bearer ${tokenValue}`,'Content-Type':'application/json'},body:JSON.stringify({requestId,epoch:1,commands:commandsValue})});
+      const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({tokenValue,currentBoardId,requestId,commandsValue})=>{
+        const response=await fetch(`/__fullstack_api/whiteboards/${currentBoardId}/commands`,{method:'POST',headers:{Authorization:`Bearer ${tokenValue}`,'Content-Type':'application/json'},body:JSON.stringify({requestId,epoch:1,commands:commandsValue})});
         return{ok:response.ok,status:response.status,body:await response.text()};
-      },{apiUrl:required('WHITEBOARD_API_URL'),tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
+      },{tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
       const [geometryResult,textResult]=await Promise.all([
         commandFromBrowser(owner,ownerToken!,[{type:'geometry',id:objectId,geometry:{x:640,y:360,width:180,height:140,rotation:9}}]),
         commandFromBrowser(editor,editorToken!,[{type:'text',id:objectId,index:0,deleteCount:'团队中文协作便签'.length,insert:'另一位成员的中文修改'}]),
