@@ -77,7 +77,7 @@
 | UC-WR-I1 取 saver | `WorkflowCheckpointerFactory` | `(graphRef, instanceId)` → saver（schema `langgraph_workflow`，共享池） | 无（唯一构造点，I-9） |
 | UC-WR-I2 执行副作用 | `EffectGateway.execute` | `(instanceId, stageId, effectKey, capabilityCategory, args)` → finalize 结果 + provenance | `workflow_lease_lost`、权限类 `WorkflowReasonCode` → `blocked_permission`、`cancel_requested` |
 | UC-WR-I3 崩溃恢复对账 | `EffectGateway.reconcile` | begun receipt → `reconciled` 或 `unresolved`（实例 `needs_attention`，`effect_unreconciled`） | 永不重放（I-14） |
-| UC-WR-I4 定时唤醒 | pg-boss handler | `WorkflowScheduledJobPayload{kind:'workflow',triggerId}`，作业 id 作 requestId，运行输入取触发器的 `default_input`（domain.md，作业本身不带 payload）→ UC-WR-3 | 同 UC-WR-3；原 agent-run payload 不受影响；触发器已不存在/非 `schedule` kind 时安静跳过（无调用方可回错误） |
+| UC-WR-I4 定时唤醒 | pg-boss handler | `WorkflowScheduledJobPayload{kind:'workflow',triggerId}`，作业 id 作 requestId → UC-WR-3 | 同 UC-WR-3；原 agent-run payload 不受影响 |
 | UC-WR-I5 引导式研究迁移 | 迁移脚本 + `guided-research@1` 注册 | `langgraph_interview` checkpoint → `langgraph_workflow`；receipt → `workflow_receipts` | 搬不动的会话只读保留并列入报告（E12） |
 
 引导式研究 controller 的 operations 路径与响应形状不变（`packages/contracts/src/research.ts` 现有定义），本束不新增其对外契约。

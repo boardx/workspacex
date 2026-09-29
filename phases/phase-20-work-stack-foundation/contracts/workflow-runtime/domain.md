@@ -26,7 +26,7 @@
 | WorkflowLease（`workflow_leases`） | `instance_id`, `holder`, `epoch`, `expires_at` | epoch CAS |
 | WorkflowEvent（`workflow_events`） | `instance_id`, `seq`, `type`, `state_version`, `payload` | 事件日志 |
 | WorkflowGate（随事件与 instance 投影） | `gate_id`, `stage_id`, `decision`, `decided_by`, `reason` | 人工门决定 |
-| WorkflowTrigger（`workflow_triggers`） | `org_id`, `kind`, `workflow_key`, `version`, `owner_user_id`, `agent_id`, `secret_ref`, `default_input` | 运行身份 = owner；`default_input`（WF06 落地补充）仅 `kind='schedule'` 使用——pg-boss 作业只有 `{kind:'workflow',triggerId}`，没有调用方 payload，运行输入在建触发器时冻结于此；`webhook` 触发器忽略该列，输入来自请求体（UC-WR-13） |
+| WorkflowTrigger（`workflow_triggers`） | `org_id`, `kind`, `workflow_key`, `version`, `owner_user_id`, `agent_id`, `secret_ref` | 运行身份 = owner |
 | checkpoint | schema `langgraph_workflow`，`checkpoint_ns = key:version`，`thread_id = instanceId` | 只存编排状态与指针 |
 
 表名以本节为准（02 号文件 R1 声明「名称以契约束 domain.md 为准」）。

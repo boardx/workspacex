@@ -5,7 +5,7 @@
  */
 import { Body, Controller, Get, Headers, HttpException, Inject, Param, Post, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
-import { WORKFLOW_WEBHOOK_HEADERS, WorkflowErrorBody, workflowRuntime, type WorkflowErrorCode } from "@repo/contracts/workflow-runtime";
+import { WORKFLOW_WEBHOOK_HEADERS, WorkflowErrorBody, WorkflowRequestId, workflowRuntime, type WorkflowErrorCode } from "@repo/contracts/workflow-runtime";
 import { WorkflowCommandShapeError } from "../../application/workflow/instance-commands";
 import { WorkflowUseCaseError } from "../../application/workflow/workflow-errors";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
@@ -101,8 +101,14 @@ export class WorkflowRuntimeController {
   }
 
   /**
-   * WF06 UC-WR-13：webhook 触发。无principal（调用方是外部系统，靠 HMAC 而非会话认证，@Public()）；
-   * 签名/时间戳/Idempotency-Key 来自头部（`WORKFLOW_WEBHOOK_HEADERS`），payload 是原始请求体。
+   * WF06 UC-WR-13：webhook 触发。无 principal（调用方是外部系统，靠 HMAC 而非会话认证，@Public()）；
+   * 签名/时间戳/Idempotency-Key 来自头部（`WORKFLOW_WEBHOOK_HEADERS`）。请求体由 main.ts 的
+   * raw 解析器交来 **原始字节**（Buffer）——签名覆盖原始字节（trigger-webhook.ts 文件头注），不做
+   * JSON 重序列化，也不把非对象体静默改成 `{}`。
+   *
+   * 头部形状错误的映射（显式，而非一律吞成 401）：
+   *   - 签名头缺失 / 时间戳头缺失或非正整数 → 401 webhook_signature_invalid（认证材料本身不成形）；
+   *   - Idempotency-Key 缺失或不符合 WorkflowRequestId → 422 trigger_input_invalid（请求形状错误，不是认证失败）。
    */
   @Public()
   @Post(C.triggerWebhook.path)
@@ -111,22 +117,18 @@ export class WorkflowRuntimeController {
     @Headers(WORKFLOW_WEBHOOK_HEADERS.signature) signature: string | undefined,
     @Headers(WORKFLOW_WEBHOOK_HEADERS.timestamp) timestampHeader: string | undefined,
     @Headers(WORKFLOW_WEBHOOK_HEADERS.idempotencyKey) idempotencyKey: string | undefined,
-    @Body() rawPayload: unknown,
+    @Body() body: unknown,
     @Res() res: Response,
   ) {
-    const parsed = C.triggerWebhook.in.safeParse({
-      triggerId,
-      signature: signature ?? "",
-      timestamp: Number(timestampHeader),
-      idempotencyKey: idempotencyKey ?? "",
-      payload: rawPayload && typeof rawPayload === "object" ? rawPayload : {},
-    });
-    if (!parsed.success) {
-      res.status(401).json(WorkflowErrorBody.parse({ code: "webhook_signature_invalid", message: "webhook_signature_invalid" }));
-      return;
-    }
+    const fail = (status: number, code: "webhook_signature_invalid" | "trigger_input_invalid") =>
+      res.status(status).json(WorkflowErrorBody.parse({ code, message: code }));
+    const timestamp = /^[0-9]{1,12}$/.test(timestampHeader ?? "") ? Number(timestampHeader) : NaN;
+    if (!signature || !Number.isSafeInteger(timestamp) || timestamp <= 0) return void fail(401, "webhook_signature_invalid");
+    if (!WorkflowRequestId.safeParse(idempotencyKey ?? "").success) return void fail(422, "trigger_input_invalid");
+    const rawBody = Buffer.isBuffer(body) ? body.toString("utf8") : "";
     try {
-      res.status(200).json(C.triggerWebhook.out.parse(await this.runtime.webhook(parsed.data)));
+      const out = await this.runtime.webhook({ triggerId, signature, timestamp, idempotencyKey: idempotencyKey!, rawBody });
+      res.status(200).json(C.triggerWebhook.out.parse(out));
     } catch (failure) { res.json(sendFailure(failure, res)); }
   }
 
