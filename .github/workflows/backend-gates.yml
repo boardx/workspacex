@@ -150,6 +150,8 @@ jobs:
         run: pnpm turbo run typecheck lint --filter=@repo/api
 
       # --strict：把「passing 的实现必须已合入 main」升为 FAIL。
+      # PR / main push 只审计本次改动影响的 phase。其他 phase 的审计缺口
+      # 留在对应模块，不阻断无关模块；手动 / tag 仍做全仓严格审计。
       # 实测：tag v0.1.8-staging 曾报 164 FAIL（=22 phase00+142 phase01，恰好全部
       # passing 数）——浅克隆没有 origin/main 这个 ref，doctor 把每一条 passing
       # 都判成「还不在 main 上」；deploy 的条件是 needs: gates，后果是 tag 触发的
@@ -162,7 +164,8 @@ jobs:
           # 现在「问不到」会判 UNREACHABLE 并在 --strict 下 exit 1，所以这里必须给它授权，
           # 与 harness-verify.yml 里那份非 strict 的 doctor 步骤对齐。
           GH_TOKEN: ${{ github.token }}
-        run: pnpm harness doctor --strict
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: node .harness/scripts/ci-change-scope.mjs doctor
 
       - name: 契约单源 / 洋葱分层
         run: |

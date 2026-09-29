@@ -164,10 +164,20 @@ jobs:
       # 本来就还没合，是鸡生蛋（backend-gates.yml 那份注释里记着同一个坑）。合并后的
       # backend-gates 仍然跑 --strict，两道互补：PR 拦伪造证据，合并后拦未落地。
       - name: 审计链体检
+        # Keep the full-repository findings visible on PRs. Only the scoped
+        # doctor below is a PR merge gate; main still requires the global audit.
+        continue-on-error: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
         env:
           # doctor 的 issue 检查走 gh；没有 token 时它自己降级为 WARN 而非阻断
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness doctor
+
+      - name: 本次改动 phase 审计链体检
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: node .harness/scripts/ci-change-scope.mjs doctor-soft
 
       # 签核第 ① 件的材料完整性：ui.md 引用的截图集合 == ui-preview/ 实存集合。
       # 放在 PR 门控而不是 backend-gates 的理由：它只读 phases/**，不需要 Docker/PG，
