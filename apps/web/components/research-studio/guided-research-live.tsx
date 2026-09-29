@@ -292,9 +292,10 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
   const proposal = !state.busy && !state.errorCode && state.proposal?.version === state.version && state.proposal.draft.node === node ? state.proposal : null;
   const proposalEdited = Boolean(proposal && JSON.stringify(draft) !== JSON.stringify(proposal.draft));
   const displayReport = draft?.node === "report" ? draft.value : state.report;
-  const researchPending = state.tasks.some((task) => task.status === "pending" || task.status === "running");
+  const researchPending = state.tasks.some((task) => task.status === "pending" || (task.status === "running" && !expired));
   const researchFailed = state.tasks.some((task) => task.status === "failed");
   const researchRetryAvailable = node === "research" && !researchPending && (researchFailed || expired || Boolean(error) || Boolean(state.errorCode));
+  const researchRetryInAlert = researchRetryAvailable && Boolean(error || (node === state.currentNode && state.errorCode));
   const usableSources = state.sources.some((source) => source.decision !== "excluded");
   const partialResearch = node === "research" && researchFailed && !researchPending && usableSources;
   const researchBlocked = node === "research" && (researchPending || !state.tasks.length || !usableSources);
@@ -379,7 +380,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
           state={state}
           actions={state.controlStatus === "paused"
             ? <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("resume", { expectedRevision: state.planRevision ?? 0, idempotencyKey: crypto.randomUUID() })}>继续研究</Button>
-            : <>{!researchRetryAvailable && (!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{!researchRetryAvailable && state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("retry")}>继续重试</Button>}</>}
+            : <>{!researchRetryAvailable && (!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{researchRetryAvailable && !researchRetryInAlert && <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("retry")}>继续重试</Button>}</>}
         />}
         {node === "report" && chaptersOpen && <ResearchChaptersWorkspace onDirtyChange={setChaptersDirty} runtime={state} disabled={busy} onSave={(value) => void run("save", { node: "outline", draft: { node: "outline", value } })} onOptimize={(value) => void run("message", { node: "outline", draft: { node: "outline", value }, message: "基于当前章节和已有研究证据优化章节结构、目标与小节，保留来源和证据局限。" })} onBack={() => navigateVisual("research")} onNext={() => navigateVisual("report")} />}
         {node === "report" && !chaptersOpen && reportDocument && <GuidedResearchReportWorkspace
