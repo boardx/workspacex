@@ -76,12 +76,12 @@ export const AgentInterruptKind = z.enum(["confirm_intent", "fill_params", "choo
 export type AgentInterruptKind = z.infer<typeof AgentInterruptKind>;
 
 /** kind → 工具名的映射，`InterruptRequest.toolName` 由此派生，不许两处手写。 */
-export const AGENT_INTERRUPT_KIND_TO_TOOL_NAME: Record<AgentInterruptKind, string> = {
+export const AGENT_INTERRUPT_KIND_TO_TOOL_NAME = {
   confirm_intent: AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent,
   fill_params: AGENT_INTERRUPTS_TOOL_NAMES.fillRunParams,
   choose_option: AGENT_INTERRUPTS_TOOL_NAMES.chooseExecutionOption,
   escalate: ESCALATE_MATTER_TOOL_NAME,
-};
+} as const satisfies Record<AgentInterruptKind, string>;
 
 /* ── 二、值对象（domain.md 三节）────────────────────────────────────── */
 

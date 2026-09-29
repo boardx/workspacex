@@ -18,12 +18,16 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { guardAgentInterruptDecision, type DecisionGuardInput } from "../../src/application/agent-interrupts/decision-guard";
 import { parseEscalateResumePayload } from "../../src/application/agent-interrupts/escalate-decision";
 import { raiseEscalation } from "../../src/application/agent-interrupts/decide-escalation";
+import { AgentRunNotAwaitingToolPermissionError, decideAgentRun } from "../../src/application/agent-run/decide-agent-run";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
 import type { ModelCallCompletion, ModelCallInput, ModelCallPort } from "../../src/application/agent-run/ports";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
+import { PgChatRepository } from "../../src/infrastructure/chat/pg-chat-repository";
+import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
+import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgEscalationStore } from "../../src/infrastructure/agent-interrupts/pg-escalation-store";
 import { sweepOrphanedRuns } from "../../src/infrastructure/agent-run/sweep-orphaned-runs";
 import { EscalationDecisionController } from "../../src/interface/controllers/escalation-decision.controller";
@@ -206,6 +210,40 @@ describe("AG06 escalate end-to-end (real DB, real route)", () => {
     expect(await call(OWNER, interruptId, { interruptId, decision: { decision: "reject", reason: "不批" } }))
       .toEqual({ status: 200, body: { interruptId, status: "rejected" } });
     expect((await runRow(id)).status).toBe("queued");
+  });
+
+  it("E6: the generic decideAgentRun route refuses an escalate interrupt (approve/edit/reject), run untouched", async () => {
+    const id = await seedRunningRun("run-ag06-generic");
+    await raiseEscalation({ runs }, { orgId: ORG, runId: id, policy: POLICY, matter: "budget_overrun", reason: "超预算", contextRefs: [] });
+    const permissionRequestId = (await runRow(id)).pending_permission_request_id!;
+    const deps = {
+      repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db), runs, kick,
+    };
+    kick.mockClear();
+    const attempts = [
+      { decision: "approve" as const },
+      { decision: "edit" as const, editedArgs: { decision: "resolve", decisionText: "我自己批" } },
+      { decision: "reject" as const },
+    ];
+    // 线程写者（非 target 的普通成员与请求人）都不能经通用通路裁决 escalate。
+    for (const userId of [MEMBER, REQUESTER]) {
+      for (const a of attempts) {
+        const err = await decideAgentRun(deps, { userId, orgId: ORG, runId: id, permissionRequestId, ...a }).catch((e) => e);
+        expect(err).toBeInstanceOf(AgentRunNotAwaitingToolPermissionError);
+        expect((err as AgentRunNotAwaitingToolPermissionError).status).toBe("escalation_requires_target_decider");
+      }
+    }
+    const after = await asApp(ORG, async (c) => (await c.query<{
+      status: string; pending_permission_request_id: string | null; pending_decision: string | null;
+      permission_decision_count: number; resolved_approvals: Record<string, unknown> | null;
+    }>(`SELECT status, pending_permission_request_id, pending_decision, permission_decision_count, resolved_approvals
+          FROM agent_runs WHERE id=$1`, [id])).rows[0]!);
+    expect(after.status).toBe("awaiting_tool_permission");
+    expect(after.pending_permission_request_id).toBe(permissionRequestId);
+    expect(after.pending_decision).toBeNull();
+    expect(after.permission_decision_count).toBe(0);
+    expect(Object.keys(after.resolved_approvals ?? {})).toEqual([]);
+    expect(kick).not.toHaveBeenCalled();
   });
 
   it("E7: the real timeout sweeper leaves an expired escalate pending and records no decision", async () => {

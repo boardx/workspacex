@@ -25,7 +25,7 @@ describe("AG06 escalate interrupt kind", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("escalate is not added to the Python-backed HITL tool list (runtime wiring out of scope)", () => {
+  it("escalate_matter stays out of AGENT_INTERRUPTS_TOOL_NAMES / DEFAULT_HITL_TOOL_NAMES (decided only via decideEscalation, never the generic HITL path)", () => {
     expect(AGENT_INTERRUPTS_TOOL_NAME_LIST).not.toContain(ESCALATE_MATTER_TOOL_NAME);
   });
 
