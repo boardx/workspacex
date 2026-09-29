@@ -1,4 +1,6 @@
+import type { WorkflowNotAllowlistedHint } from "@repo/contracts/work-content";
 import type { WorkflowErrorCode, WorkflowInstanceProjection, WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
+import type { z } from "zod";
 
 export class WorkflowUseCaseError extends Error {
   constructor(
@@ -10,6 +12,8 @@ export class WorkflowUseCaseError extends Error {
       latestProjection?: WorkflowInstanceProjection;
       /** A5：gate_already_decided 带已落定的门。 */
       decidedGate?: NonNullable<WorkflowInstanceProjection["openGate"]>;
+      /** CT06 / 契约束 work-content E3：Agent 可运行但 Workflow 不在其已发布白名单内（403 body 附 hint）。 */
+      allowlistHint?: z.infer<typeof WorkflowNotAllowlistedHint>;
     } = {},
   ) {
     super(message);

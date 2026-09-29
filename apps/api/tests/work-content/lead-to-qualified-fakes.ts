@@ -208,6 +208,7 @@ export class Grants implements EffectCapabilityAuthorityPort {
 export const allowAll: WorkflowAccessPort = {
   orgRoleOf: async () => "member",
   runnableAgentVersion: async (_o, _u, agentId) => `${agentId}-v1`,
+  workflowAllowlistRefusal: async () => null, // CT06: this fixture's Workflow is not role-allowlisted
 };
 
 export function makeGateway(receipts: MemReceipts, leases: MemLeases, instances: MemInstances, grants: Grants): EffectGateway {
