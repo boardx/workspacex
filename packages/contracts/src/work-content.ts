@@ -15,6 +15,7 @@
  * ⚠ 本文件暂未从 index.ts 导出（导出由独立步骤负责）。
  */
 import { z } from "zod";
+import { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 import {
   WorkflowInstanceStatus,
   WorkflowKey,
@@ -25,6 +26,7 @@ import {
   WorkflowErrorBody,
 } from "./workflow-runtime";
 import { WorkflowStableId } from "./agent-role";
+import { AvatarKey } from "./interview-expert-avatar";
 
 /* ── 基础标识（v2 实体编号；与 WORK-STACK-320-LIST.md 对齐） ─────────────── */
 
@@ -76,8 +78,8 @@ export const CrmWriteItemOutcome = z.enum([
 /** Board 运行卡状态徽标（R8）。列映射见 domain I-C11。 */
 export const BoardRunBadge = z.enum(["in_progress", "awaiting_review", "done", "rejected", "failed"]);
 
-/** Board 来源类型新增值（提案名；落地时加入 board.SourceKind 单源，本文件不另起第二份）。 */
-export const WORKFLOW_RUN_SOURCE_KIND = "workflow_run" as const;
+/** Board 来源类型新增值——单源在 board.SourceKind（CT10 落地），这里只转出。 */
+export { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 
 /* ── 产出 schema（结论必带证据：R7 / I-C6） ───────────────────────────── */
 
@@ -241,8 +243,18 @@ export const Phase1Reconciliation = z
 
 /* ── Board 只读运行卡（CT10） ──────────────────────────────────────────── */
 
+/**
+ * 参与 Agent。`avatarKey` = Agent 角色字段里的插画头像（agent-role `AgentAvatar.key`，Phase 20 起唯一在写的
+ * Agent 头像来源）；`avatarUrl` 预留给上传图片头像（Agent 目前没有这一来源，恒为 null）。两者皆空 → 首字母。
+ */
 export const BoardRunCardAgent = z
-  .object({ agentId: z.string(), digitalHumanId: DigitalHumanStableId.nullable(), displayName: z.string(), avatarUrl: z.string().nullable() })
+  .object({
+    agentId: z.string(),
+    digitalHumanId: DigitalHumanStableId.nullable(),
+    displayName: z.string(),
+    avatarKey: AvatarKey.nullable(),
+    avatarUrl: z.string().nullable(),
+  })
   .strict();
 
 export const BoardWorkflowRunCard = z

@@ -162,6 +162,11 @@
         "templates/update-interview-subjects"
       ]
     },
+    "BoardRunCardsController": {
+      "useCases": [
+        "board/list-board-run-cards"
+      ]
+    },
     "CanvasInstanceController": {
       "useCases": [
         "canvas/apply-sticky-change",
@@ -698,6 +703,13 @@
         "whiteboard/recovery-service"
       ],
       "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
+    },
+    "WorkflowRuntimeController": {
+      "useCases": [
+        "workflow/instance-commands",
+        "workflow/workflow-errors",
+        "workflow/workflow-runtime-service"
+      ]
     }
   },
   "routes": {
@@ -1939,7 +1951,8 @@
         "research",
         "templates",
         "viewer-role",
-        "whiteboard"
+        "whiteboard",
+        "work-content"
       ],
       "controllers": [
         "AgentRunController",
@@ -1951,6 +1964,7 @@
         "AuthRegistrationController",
         "BlueprintChangeRequestController",
         "BlueprintController",
+        "BoardRunCardsController",
         "CapabilityController",
         "ChatAttachmentController",
         "ChatController",
@@ -1987,7 +2001,8 @@
         "RecordingController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardTagController"
+        "WhiteboardTagController",
+        "WorkflowRuntimeController"
       ]
     },
     "/projects/[projectId]/canvas": {
@@ -3133,6 +3148,67 @@
     "/workflows/approvals": {
       "kind": "wired",
       "screen": "apps/web/app/workflows/approvals/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/workflows/board": {
+      "kind": "wired",
+      "screen": "apps/web/app/workflows/board/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
