@@ -10,7 +10,7 @@ import {
 import { formatRelativeTime, initialsOf } from "@/lib/home-format";
 import { interviewHref, researchVisualStage } from "@/components/home/use-home-work";
 import {
-  bannerArtifactIdFromUrl, isFormDirty, toFormState, toUpdateInput, validateForm,
+  bannerArtifactIdFromUrl, formToPreviewConfig, isFormDirty, toFormState, toUpdateInput, validateForm,
 } from "@/components/org-admin/home-config-form-model";
 import type { HomeConfig } from "@/lib/live-home-config";
 
@@ -139,6 +139,32 @@ describe("后台表单模型", () => {
     expect(f.bannerImageArtifactId).toBe("x1");
     expect(isFormDirty(f, f)).toBe(false);
     expect(isFormDirty(f, { ...f, title: "变了" })).toBe(true);
+  });
+});
+
+describe("后台预览配置（表单 → 首页视图配置）", () => {
+  it("未保存的改动直接体现：文案、入口开关、板块开关、图片 URL", () => {
+    const f = {
+      ...toFormState(BASE), title: " 新标题 ", bannerHeadline: "新主标题",
+      quickActionEnabled: { ...toFormState(BASE).quickActionEnabled, research: true, chat: false },
+      sections: { recentWork: false, currentTasks: true },
+      bannerImageUrl: "/organizations/o1/home-banner-file/unsaved",
+    };
+    const c = formToPreviewConfig(f, "o1");
+    expect(c.title).toBe("新标题");
+    expect(c.bannerHeadline).toBe("新主标题");
+    expect(c.quickActions.filter((a) => a.enabled).map((a) => a.key).sort()).toEqual(["research", "survey"]);
+    expect(c.sections).toEqual({ recentWork: false, currentTasks: true });
+    expect(c.bannerImageUrl).toBe("/organizations/o1/home-banner-file/unsaved");
+  });
+  it("自定义色：合法则带上，非法按没有色值（不画保存后不会出现的样子）；非 custom 预设不带色", () => {
+    const f = toFormState(BASE);
+    expect(formToPreviewConfig({ ...f, bannerPreset: "custom", bannerColorInput: "#1A2B3C" }, "o1").bannerColor).toBe("#1A2B3C");
+    expect(formToPreviewConfig({ ...f, bannerPreset: "custom", bannerColorInput: "#1A" }, "o1").bannerColor).toBeNull();
+    expect(formToPreviewConfig({ ...f, bannerPreset: "rose", bannerColorInput: "#1A2B3C" }, "o1").bannerColor).toBeNull();
+  });
+  it("产出的配置满足契约 HomeConfig 的形状", () => {
+    expect(homeConfig.HomeConfig.safeParse(formToPreviewConfig(toFormState(BASE), "o1")).success).toBe(true);
   });
 });
 

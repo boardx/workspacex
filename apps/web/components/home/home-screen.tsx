@@ -22,41 +22,19 @@ type ConfigState =
   | { status: "error"; message: string }
   | { status: "ready"; config: HomeConfig };
 
-export function HomeScreen(): JSX.Element {
-  const session = useSession();
-  const orgId = session.identity?.org.id ?? null;
-  const displayName = session.identity?.displayName ?? null;
-
-  const [state, setState] = React.useState<ConfigState>({ status: "loading" });
-  React.useEffect(() => {
-    if (orgId === null) return;
-    let cancelled = false;
-    getHomeConfig(orgId)
-      .then((config) => { if (!cancelled) setState({ status: "ready", config }); })
-      .catch((err: unknown) => { if (!cancelled) setState({ status: "error", message: describeHomeConfigFailure(err) }); });
-    return () => { cancelled = true; };
-  }, [orgId]);
-
-  const config = state.status === "ready" ? state.config : null;
-  const showRecent = config?.sections.recentWork ?? false;
-  const showTasks = config?.sections.currentTasks ?? false;
+/**
+ * 首页的整页视图：给定一份配置就渲染成员看到的样子。首页（`HomeScreen`）与后台配置屏的
+ * 「预览」标签共用它——预览喂的是表单里**未保存**的配置，所以预览即所见，不存在第二份布局。
+ * `orgId` 为空时不拉个人数据（只画配置部分）。
+ */
+export function HomeView({
+  config: c, orgId, displayName,
+}: { config: HomeConfig; orgId: string | null; displayName: string | null }): JSX.Element {
+  const showRecent = c.sections.recentWork;
+  const showTasks = c.sections.currentTasks;
   // 项目列表同时喂「继续你的工作」与「当前任务」，任一栏开着就要拉。
   const work = useHomeWork(orgId, showRecent || showTasks);
   const tasks = useHomeTasks(work.projects, showTasks);
-
-  if (state.status === "loading") {
-    return <div className="p-8 text-13 text-muted-foreground" data-testid="loading">正在加载首页…</div>;
-  }
-  if (state.status === "error") {
-    return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8">
-        <div className="text-13 text-destructive" data-testid="home-screen-error">{state.message}</div>
-        <FeedbackRow />
-      </div>
-    );
-  }
-
-  const { config: c } = state;
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8" data-testid="home-screen">
       <HomeBanner
@@ -76,4 +54,33 @@ export function HomeScreen(): JSX.Element {
       <FeedbackRow />
     </div>
   );
+}
+
+export function HomeScreen(): JSX.Element {
+  const session = useSession();
+  const orgId = session.identity?.org.id ?? null;
+  const displayName = session.identity?.displayName ?? null;
+
+  const [state, setState] = React.useState<ConfigState>({ status: "loading" });
+  React.useEffect(() => {
+    if (orgId === null) return;
+    let cancelled = false;
+    getHomeConfig(orgId)
+      .then((config) => { if (!cancelled) setState({ status: "ready", config }); })
+      .catch((err: unknown) => { if (!cancelled) setState({ status: "error", message: describeHomeConfigFailure(err) }); });
+    return () => { cancelled = true; };
+  }, [orgId]);
+
+  if (state.status === "loading") {
+    return <div className="p-8 text-13 text-muted-foreground" data-testid="loading">正在加载首页…</div>;
+  }
+  if (state.status === "error") {
+    return (
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8">
+        <div className="text-13 text-destructive" data-testid="home-screen-error">{state.message}</div>
+        <FeedbackRow />
+      </div>
+    );
+  }
+  return <HomeView config={state.config} orgId={orgId} displayName={displayName} />;
 }

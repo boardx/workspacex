@@ -83,3 +83,28 @@ export function toUpdateInput(form: HomeConfigFormState): Omit<UpdateHomeConfigI
     sections: form.sections,
   };
 }
+
+/**
+ * 表单（可能未保存、可能有不合法的自定义色）→ 首页视图用的配置，供后台「预览」标签渲染。
+ * 与真正保存后首页拿到的形状一致；自定义色非法时按「没有色值」渲染（首页 `HomeBanner`
+ * 对 custom 缺色同样回落预设），预览因此不会画出保存后不会出现的样子。
+ */
+export function formToPreviewConfig(form: HomeConfigFormState, orgId: string): HomeConfig {
+  const body = toUpdateInput(form);
+  return {
+    orgId,
+    title: body.title,
+    tagline: body.tagline,
+    bannerHeadline: body.bannerHeadline,
+    bannerTagline: body.bannerTagline,
+    bannerPreset: body.bannerPreset,
+    bannerColor: body.bannerColor !== null && isValidBannerColor(body.bannerColor) ? body.bannerColor : null,
+    bannerImageUrl: form.bannerImageUrl,
+    quickActions: body.quickActions,
+    recommendedCapabilities: body.recommendedCapabilities,
+    recommendedAgents: body.recommendedAgents,
+    sections: body.sections,
+    updatedAt: new Date(0).toISOString(),
+    updatedBy: null,
+  };
+}

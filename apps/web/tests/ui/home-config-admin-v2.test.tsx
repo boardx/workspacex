@@ -19,11 +19,23 @@ vi.mock("@/lib/live-home-config", async (importOriginal) => ({
   uploadHomeBanner,
 }));
 vi.mock("@/lib/agent-directory", () => ({ listAgentDirectory }));
+// 预览渲染真实的 HomeView；个人数据（对话/项目…）与本文件无关，挡住网络请求。
+vi.mock("@/components/home/use-home-work", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/home/use-home-work")>()),
+  useHomeWork: () => ({
+    threads: { status: "ready", items: [] }, projects: { status: "ready", items: [] },
+    research: { status: "ready", items: [] }, interviews: { status: "ready", items: [] }, surveys: { status: "ready", items: [] },
+  }),
+  useHomeTasks: () => ({ status: "ready", items: null }),
+}));
+vi.mock("@/components/feedback/feedback-provider", () => ({ useOptionalFeedback: () => null }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/live-skill", () => ({ listSkills }));
 
 import { BannerSection } from "@/components/org-admin/home-config-appearance-section";
 import { RecommendedAgentsSection, RecommendedSkillsSection } from "@/components/org-admin/home-config-recommend-sections";
 import { toFormState, type HomeConfigFormState } from "@/components/org-admin/home-config-form-model";
+import { HomePreviewPane } from "@/components/org-admin/home-config-screen";
 import type { HomeConfig } from "@/lib/live-home-config";
 
 const CONFIG: HomeConfig = {
@@ -186,5 +198,68 @@ describe("推荐 Skill 选择器", () => {
     fireEvent.click(await screen.findByTestId("home-config-picker-skill-s1"));
     expect(screen.queryByTestId("home-config-picker-skill-s2")).toBeNull();
     expect(latest.recommendedCapabilities).toEqual([{ kind: "skill", refId: "s1", name: "录音转写", note: null }]);
+  });
+});
+
+describe("预览首页（所见即所得）", () => {
+  const base = { orgId: "o1", displayName: "管理员", dirty: false, invalid: false, saving: false, status: null, onBack: vi.fn(), onSave: vi.fn() };
+
+  it("渲染的是表单里的值（含未保存），预览区 inert，不可点击/聚焦", () => {
+    const form = { ...toFormState(CONFIG), title: "未保存的标题", bannerHeadline: "未保存的主标题", dirty: true };
+    render(<HomePreviewPane {...base} form={form} dirty />);
+    const frame = screen.getByTestId("home-config-preview-frame");
+    expect(frame.hasAttribute("inert")).toBe(true);
+    expect(frame.textContent).toContain("未保存的标题");
+    expect(frame.textContent).toContain("未保存的主标题");
+    expect(frame.textContent).toContain("你好，管理员");
+    expect(screen.getByTestId("home-config-preview").textContent).toContain("预览包含尚未保存的更改");
+  });
+
+  it("没有改动时说明与已保存一致；关掉的板块在预览里也没有", () => {
+    const form = { ...toFormState(CONFIG), sections: { recentWork: false, currentTasks: false } };
+    render(<HomePreviewPane {...base} form={form} />);
+    expect(screen.getByTestId("home-config-preview").textContent).toContain("与已保存的首页一致");
+    expect(screen.queryByTestId("home-recent-work")).toBeNull();
+    expect(screen.queryByTestId("home-current-tasks")).toBeNull();
+  });
+
+  it("入口开关、自定义色、推荐都即时体现在预览里", () => {
+    const f0 = toFormState(CONFIG);
+    const form = {
+      ...f0, bannerPreset: "custom" as const, bannerColorInput: "#F5C518",
+      quickActionEnabled: { ...f0.quickActionEnabled, interview: true, chat: false },
+      recommendedAgents: [{ agentId: "a1", name: "小研", roleLabel: "研究员", avatarKey: "robot", note: null }],
+      recommendedCapabilities: [{ kind: "skill" as const, refId: "s1", name: "录音转写", note: null }],
+    };
+    render(<HomePreviewPane {...base} form={form} />);
+    expect(screen.getByTestId("home-quick-action-interview")).toBeTruthy();
+    expect(screen.queryByTestId("home-quick-action-chat")).toBeNull();
+    expect(screen.getByTestId("home-banner").getAttribute("data-banner-source")).toBe("custom");
+    expect(screen.getByTestId("home-agent-a1")).toBeTruthy();
+    expect(screen.getByTestId("home-recommended-skill-s1")).toBeTruthy();
+  });
+
+  it("表单不合法时提示并禁用保存；无改动时保存也禁用；可保存时点击触发保存", () => {
+    const form = toFormState(CONFIG);
+    const { rerender } = render(<HomePreviewPane {...base} form={form} invalid dirty />);
+    expect(screen.getByTestId("home-config-preview-invalid")).toBeTruthy();
+    expect((screen.getByTestId("home-config-preview-save") as HTMLButtonElement).disabled).toBe(true);
+    rerender(<HomePreviewPane {...base} form={form} />);
+    expect((screen.getByTestId("home-config-preview-save") as HTMLButtonElement).disabled).toBe(true);
+    rerender(<HomePreviewPane {...base} form={form} dirty />);
+    fireEvent.click(screen.getByTestId("home-config-preview-save"));
+    expect(base.onSave).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId("home-config-preview-back"));
+    expect(base.onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("保存结果在预览栏可见：成功 / 失败（人话）/ 保存中禁用", () => {
+    const form = toFormState(CONFIG);
+    const { rerender } = render(<HomePreviewPane {...base} form={form} dirty status={{ ok: true, text: "已保存" }} />);
+    expect(screen.getByTestId("home-config-preview-status").textContent).toBe("已保存");
+    rerender(<HomePreviewPane {...base} form={form} dirty status={{ ok: false, text: "首页配置仅组织管理员可编辑" }} />);
+    expect(screen.getByRole("alert").textContent).toContain("仅组织管理员");
+    rerender(<HomePreviewPane {...base} form={form} dirty saving />);
+    expect((screen.getByTestId("home-config-preview-save") as HTMLButtonElement).disabled).toBe(true);
   });
 });
