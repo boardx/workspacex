@@ -84,8 +84,8 @@ it("a generated report resolving after unmount cannot navigate or publish a vers
   api.generateInterviewMarkdown.mockImplementation(() => new Promise<InterviewMarkdownEnvelope>((resolve) => { finishReport = resolve; }));
   const report = vi.fn(); const version = vi.fn();
   const view = render(<InterviewMarkdownResultsStep interviewId="itv-execution-7" step="runs" runs={[]} onVersionChange={version} onReport={report} />);
-  await waitFor(() => expect(screen.getByRole("button", { name: "汇总报告" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "汇总报告" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "生成报告" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "生成报告" }));
   await waitFor(() => expect(api.generateInterviewMarkdown).toHaveBeenCalledWith("itv-execution-7", "report", { expectedVersion: 9, expectedDocumentVersion: 0 }));
   const notifications = version.mock.calls.length;
   view.unmount();

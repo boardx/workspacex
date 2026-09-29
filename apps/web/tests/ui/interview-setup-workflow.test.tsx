@@ -611,7 +611,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(screen.getByTestId("itv-workbench-step-experts")).toHaveTextContent("选择专家");
     expect(screen.getByTestId("itv-workbench-step-outline")).toHaveTextContent("专家提纲");
     expect(screen.getByTestId("itv-workbench-step-runs")).toHaveTextContent("开始访谈");
-    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("汇总报告");
+    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("生成报告");
 
     fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
     expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
