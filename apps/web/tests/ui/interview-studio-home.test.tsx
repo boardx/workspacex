@@ -114,6 +114,11 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     render(<InterviewStudioHome initialTab="history" />);
 
     expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
+    const header = screen.getByTestId("itv-home-header");
+    expect(header).toHaveClass("gap-5", "md:items-center", "md:justify-between");
+    expect(header).not.toHaveClass("rounded-2xl", "bg-gradient-to-br", "py-5", "md:py-7");
+    expect(within(header).getByRole("heading", { name: "用户访谈" })).toHaveClass("text-2xl", "md:text-3xl");
+    expect(await within(header).findByText("共 2 个项目")).toBeVisible();
     const card = await screen.findByTestId("itv-history-card-itv-1");
     expect(card).toHaveClass("min-h-64", "rounded-lg", "hover:shadow-md");
     // F19（视觉系统 token 升级）：Badge 圆角从单值 rounded-sm 迁移到语义化三档的

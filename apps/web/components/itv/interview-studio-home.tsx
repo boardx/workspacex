@@ -136,15 +136,17 @@ export function InterviewStudioHome({
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
       <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
-        <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-4" />
-        <header className="flex flex-wrap items-end justify-between gap-6 rounded-2xl bg-gradient-to-br from-muted/40 via-background to-background px-1 py-5 md:px-5 md:py-7">
-          <div className="min-w-0">
+        <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-3" />
+        <header data-testid="itv-home-header" className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 space-y-2">
             <p className="text-xs font-medium tracking-wide text-muted-foreground">用户研究平台 / 访谈</p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight text-foreground lg:text-5xl">用户访谈</h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground lg:text-lg">与专业角色深入对话，获得可追溯的研究洞察。</p>
+            <div className="flex flex-wrap items-baseline gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">用户访谈</h1>
+              {history.kind === "ready" && <span className="text-sm text-muted-foreground">共 {history.items.length} 个项目</span>}
+            </div>
+            <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">与专业角色深入对话，获得可追溯的研究洞察。</p>
           </div>
-          <div className="flex items-center gap-4">
-            {history.kind === "ready" && <span className="text-sm text-muted-foreground">共 {history.items.length} 个项目</span>}
+          <div className="flex items-center gap-3">
             <Button type="button" variant="primary" size="lg" data-testid="itv-create" onClick={createInterview}><Plus className="size-4" aria-hidden />新建访谈</Button>
           </div>
         </header>
