@@ -88,8 +88,8 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
           `INSERT INTO agents (
              id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,
              role_label,role_label_needs_confirmation,
-             avatar,role_category,catalog_source,workflow_allowlist,delegation_policy,escalation_policy,kpi
-           ) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false,$8::jsonb,$9,'official',$10::text[],$11::jsonb,$12::jsonb,$13::jsonb)`,
+             avatar,role_category,catalog_source,workflow_allowlist,delegation_policy,escalation_policy,kpi,tags
+           ) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false,$8::jsonb,$9,'official',$10::text[],$11::jsonb,$12::jsonb,$13::jsonb,$14::text[])`,
           [
             agentId, input.orgId, agent.stableName, agent.name, input.actorId, importedAt,
             agent.roleLabel,
@@ -99,6 +99,7 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
             JSON.stringify(agent.role.delegationPolicy),
             JSON.stringify(agent.role.escalationPolicy),
             JSON.stringify(agent.role.kpi),
+            [...agent.role.tags],
           ],
         );
         await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: agent.skillVersions.map((ref) => ref.versionId), modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });

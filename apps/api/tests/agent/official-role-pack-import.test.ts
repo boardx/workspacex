@@ -17,7 +17,8 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { FileAgentStarterPackSource } from "../../src/infrastructure/agent/file-agent-starter-pack-source";
-import { buildOfficialAgentRolePack, officialRoleAvatarKeys, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
+import { insertAgentVersionFromDraft } from "../../src/infrastructure/agent/agent-version-insert";
+import { buildOfficialAgentRolePack, officialRoleAvatarKeys, officialRoleTags, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -70,12 +71,13 @@ interface AgentRoleRow {
   readonly workflow_allowlist: string[];
   readonly role_label: string;
   readonly avatar: unknown;
+  readonly tags: string[];
 }
 
 async function roleRows(orgId = ORG): Promise<AgentRoleRow[]> {
   return asApp(orgId, async (client) => {
     const result = await client.query<AgentRoleRow>(
-      "SELECT stable_name, catalog_source, role_category, workflow_allowlist, role_label, avatar FROM agents WHERE org_id = $1 ORDER BY stable_name",
+      "SELECT stable_name, catalog_source, role_category, workflow_allowlist, role_label, avatar, tags FROM agents WHERE org_id = $1 ORDER BY stable_name",
       [orgId],
     );
     return result.rows;
@@ -105,6 +107,7 @@ function buildBrokenPack(input: { readonly packId: string; readonly overrides: P
       delegationPolicy: base.role.delegationPolicy,
       escalationPolicy: base.role.escalationPolicy,
       kpi: base.role.kpi,
+      tags: base.role.tags,
     },
   };
   const unsigned = { schemaVersion: 1 as const, packId: input.packId, packVersion: "1.0.0", agents: [unsignedAgent] };
@@ -169,6 +172,7 @@ describe("official role pack import (AG03 / UC-3)", () => {
     expect(rows.find((r) => r.stable_name === "d011-design-thinking-expert")?.workflow_allowlist).toEqual(["W027", "W028", "W029", "W031", "W002"]);
     // 数字人肖像：每个官方角色落库的 avatar 就是 ROLE_SEEDS 声明的那张（60 格网格按角色名对应）。
     expect(Object.fromEntries(rows.map((r) => [r.stable_name, (r.avatar as { key?: string } | null)?.key ?? null]))).toEqual(officialRoleAvatarKeys());
+    expect(Object.fromEntries(rows.map((r) => [r.stable_name, r.tags]))).toEqual(officialRoleTags());
     expect(rows.find((r) => r.stable_name === "d005-sales-representative")?.avatar).toEqual({ kind: "illustration", key: "dh-05-sales-representative", alt: "Sales Representative" });
 
     // toolPolicy 分类不产生任何授权：这个仓库目前没有任何工具授权/凭证表可写，落库的只有声明
@@ -251,5 +255,62 @@ describe("dh portrait backfill migration (20260929150000)", () => {
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.avatar]));
     expect(literal).toEqual(fromPack);
+  });
+});
+
+describe("agent tags backfill migration (20260929160000)", () => {
+  it("backfills exactly the stableName → tags that the 1.2.0 pack seeds declare (the SQL literal is a checked copy)", () => {
+    const sql = readFileSync(join(__dirname, "../../migrations/20260929160000_agent_tags.sql"), "utf8");
+    const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*ARRAY\[([^\]]*)\]\)/g)]
+      .map((m) => [m[1], [...m[2]!.matchAll(/'([^']+)'/g)].map((t) => t[1])]));
+    const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.tags]));
+    expect(Object.keys(literal)).toHaveLength(4);
+    expect(literal).toEqual(fromPack);
+  });
+});
+
+describe("agent tags round trip (PATCH role draft → publish → GET /agents/directory)", () => {
+  it("directory cards carry the pack tags, and an edited + published org agent's normalized tags", async () => {
+    const imported = await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
+    expect(imported.status).toBe(201);
+
+    const listed = await fetch(`${base}/agents/directory`, { headers: authFor(MEMBER) });
+    expect(listed.status).toBe(200);
+    const cards = (await listed.json() as { items: { agentId: string; name: string; tags: string[] }[] }).items;
+    expect(Object.fromEntries(cards.map((c) => [c.name, c.tags]))).toMatchObject({ "Sales Representative": ["销售", "客户", "商机"] });
+
+    // 标签也进搜索：q=商机 只命中销售。
+    const searched = await fetch(`${base}/agents/directory?q=${encodeURIComponent("商机")}`, { headers: authFor(MEMBER) });
+    expect((await searched.json() as { items: { name: string }[] }).items.map((c) => c.name)).toEqual(["Sales Representative"]);
+
+    // 官方 Agent 角色字段锁定（须克隆后改）：这里把一行改成组织自有，模拟克隆出的可编辑 Agent。
+    const target = cards.find((c) => c.name === "Sales Representative")!;
+    await asApp(ORG, (client) => client.query("UPDATE agents SET catalog_source = 'org' WHERE id = $1 AND org_id = $2", [target.agentId, ORG]));
+    const role = await fetch(`${base}/admin/agents/${target.agentId}/role`, { headers: authFor(ADMIN) });
+    const { version } = await role.json() as { version: number };
+
+    const tooMany = await fetch(`${base}/admin/agents/${target.agentId}/role`, {
+      method: "PATCH", headers: authFor(ADMIN),
+      body: JSON.stringify({ agentId: target.agentId, expectedVersion: version, patch: { tags: Array.from({ length: 11 }, (_, i) => `t${i}`) } }),
+    });
+    expect(tooMany.status).toBe(400);
+
+    const patched = await fetch(`${base}/admin/agents/${target.agentId}/role`, {
+      method: "PATCH", headers: authFor(ADMIN),
+      body: JSON.stringify({ agentId: target.agentId, expectedVersion: version, patch: { tags: [" 销售 ", "大客户", "销售"] } }),
+    });
+    expect(patched.status).toBe(200);
+    expect((await patched.json() as { draft: { tags: string[] } }).draft.tags).toEqual(["销售", "大客户"]);
+
+    // 目录读已发布快照：发布前仍是旧标签；发布（冻结当前草稿）后才是新标签。
+    const versionId = `agent-version-${randomUUID()}`;
+    await asApp(ORG, async (client) => {
+      const session = { query: (sql: string, params?: unknown[]) => client.query(sql, params) } as never;
+      await insertAgentVersionFromDraft(session, { versionId, orgId: ORG, agentId: target.agentId, semanticLabel: "1.2.1", instructionDigest: sha256("i"), instructions: "i", skillVersionIds: [], modelProvider: "dashscope", modelId: "qwen-plus", toolPolicy: [], creatorId: ADMIN, at: new Date().toISOString() });
+      await client.query("UPDATE agents SET published_version_id = $3 WHERE id = $1 AND org_id = $2", [target.agentId, ORG, versionId]);
+    });
+    const card = await fetch(`${base}/agents/directory/${target.agentId}`, { headers: authFor(MEMBER) });
+    expect(card.status).toBe(200);
+    expect((await card.json() as { tags: string[] }).tags).toEqual(["销售", "大客户"]);
   });
 });

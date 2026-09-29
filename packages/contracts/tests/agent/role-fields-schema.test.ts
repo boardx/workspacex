@@ -13,6 +13,7 @@ const valid = {
   delegationPolicy: { allowedTargets: ["D003"], maxDepth: 2, requireApproval: true },
   escalationPolicy: { rules: [{ matter: "预算超限", target: "project_owner" }] },
   kpi: [{ metric: "research.cycle_time", description: "单次调研周期" }],
+  tags: ["调研"],
 };
 
 describe("AG01 AgentRoleFields", () => {
@@ -45,5 +46,40 @@ describe("AG01 AgentRoleFields", () => {
     ["missing catalogSource", (({ catalogSource: _c, ...rest }) => rest)(valid)],
   ])("rejects %s", (_label, candidate) => {
     expect(R.AgentRoleFields.safeParse(candidate).success).toBe(false);
+  });
+});
+
+describe("AgentTags (数字人标签)", () => {
+  it("trims each tag and drops duplicates, keeping first-seen order", () => {
+    expect(R.AgentTags.parse([" 销售 ", "调研", "销售"])).toEqual(["销售", "调研"]);
+  });
+
+  it("accepts up to 10 tags of 1–20 chars, and an empty list", () => {
+    expect(R.AgentTags.safeParse([]).success).toBe(true);
+    expect(R.AgentTags.safeParse(Array.from({ length: 10 }, (_, i) => `标签${i}`)).success).toBe(true);
+    expect(R.AgentTags.safeParse(["x".repeat(20)]).success).toBe(true);
+  });
+
+  it("counts the cap after dedup: 11 entries that collapse to 10 are fine", () => {
+    expect(R.AgentTags.parse([...Array.from({ length: 10 }, (_, i) => `t${i}`), "t0"])).toHaveLength(10);
+  });
+
+  it.each([
+    ["blank tag", ["   "]],
+    ["empty tag", [""]],
+    ["tag over 20 chars", ["x".repeat(21)]],
+    ["11 distinct tags", Array.from({ length: 11 }, (_, i) => `t${i}`)],
+    ["non-string tag", [3]],
+  ])("rejects %s", (_label, candidate) => {
+    expect(R.AgentTags.safeParse(candidate).success).toBe(false);
+  });
+
+  it("directory card requires tags", () => {
+    const card = {
+      agentId: "a", versionId: "v", name: "n", initials: "N", roleLabel: "r", avatar: null,
+      roleCategory: null, catalogSource: "org", workflows: [], readiness: "ready",
+    };
+    expect(R.AgentDirectoryCard.safeParse(card).success).toBe(false);
+    expect(R.AgentDirectoryCard.safeParse({ ...card, tags: ["销售"] }).success).toBe(true);
   });
 });

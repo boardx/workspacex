@@ -37,6 +37,7 @@ const role = {
   delegationPolicy: { allowedTargets: ["D003"], maxDepth: 1, requireApproval: true },
   escalationPolicy: { rules: [{ matter: "预算超限", target: "org_admin" }] },
   kpi: [{ metric: "research.cycle_time", description: "单次调研周期" }],
+  tags: ["调研", "知识管理"],
 } as const satisfies R.AgentRoleFields;
 
 function draft(): AgentDefinition {
@@ -87,7 +88,7 @@ const ORG = "org-ag01-frozen";
 const ROLE_COLS = [
   ["avatar", "avatar"], ["roleCategory", "role_category"], ["catalogSource", "catalog_source"],
   ["workflowAllowlist", "workflow_allowlist"], ["delegationPolicy", "delegation_policy"],
-  ["escalationPolicy", "escalation_policy"], ["kpi", "kpi"],
+  ["escalationPolicy", "escalation_policy"], ["kpi", "kpi"], ["tags", "tags"],
 ] as const;
 const SELECT_ROLE = ROLE_COLS.map(([, c]) => c).join(",");
 
@@ -183,11 +184,14 @@ describe("AG01 agent_versions / agents migration", () => {
     ...[...R.EscalationTarget.options, "ceo"].map((t): [string, Record<string, unknown>] => [`escalate ${t}`, { escalationPolicy: { rules: [{ matter: "m", target: t }] } }]),
     ["escalation rules object", { escalationPolicy: { rules: {} } }],
     ["kpi object", { kpi: {} }],
+    ["tags 销售,调研", { tags: ["销售", "调研"] }],
+    ["tags 10 items", { tags: Array.from({ length: 10 }, (_, i) => `t${i}`) }],
+    ["tags 11 items", { tags: Array.from({ length: 11 }, (_, i) => `t${i}`) }],
     ["kpi 17 items", { kpi: Array.from({ length: 17 }, (_, i) => ({ metric: `m${i}`, description: "x" })) }],
   ];
 
   async function dbAccepts(table: "agents" | "agent_versions", id: string, f: Record<string, unknown>): Promise<boolean> {
-    const vals = ROLE_COLS.map(([k, c]) => (c === "workflow_allowlist" ? f[k]
+    const vals = ROLE_COLS.map(([k, c]) => (c === "workflow_allowlist" || c === "tags" ? f[k]
       : f[k] === null || c === "role_category" || c === "catalog_source" ? f[k] : JSON.stringify(f[k])));
     const cols = ROLE_COLS.map(([, c]) => c);
     try {
@@ -221,6 +225,8 @@ describe("AG01 agent_versions / agents migration", () => {
       ["avatar alt too long", { avatar: { kind: "illustration", key: "robot", alt: "x".repeat(121) } }],
       ["avatar extra key", { avatar: { kind: "illustration", key: "robot", alt: "x", svg: "<svg/>" } }],
       ["kpi metric uppercase", { kpi: [{ metric: "Bad Metric", description: "x" }] }],
+      ["tag too long", { tags: ["x".repeat(21)] }],
+      ["tag blank", { tags: ["   "] }],
       ["escalation matter empty", { escalationPolicy: { rules: [{ matter: "", target: "requester" }] } }],
     ];
     for (const [i, [label, over]] of wider.entries()) {
@@ -277,7 +283,7 @@ describe("AG01 product path: updateAgentRoleDraft → publish → agent_versions
   const patch = {
     avatar: role.avatar, roleCategory: role.roleCategory, workflowAllowlist: [...role.workflowAllowlist],
     delegationPolicy: structuredClone(role.delegationPolicy), escalationPolicy: structuredClone(role.escalationPolicy),
-    kpi: structuredClone(role.kpi),
+    kpi: structuredClone(role.kpi), tags: [...role.tags],
   } as unknown as Parameters<typeof updateAgentRoleDraft>[0]["patch"];
   const expectedOrg = { ...structuredClone(role), catalogSource: "org" };
 
