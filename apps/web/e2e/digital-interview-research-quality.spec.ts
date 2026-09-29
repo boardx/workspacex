@@ -453,8 +453,12 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     if (step === "outline") {
       const groups = page.getByRole("navigation", { name: "访谈问题分组" });
       await expect(groups.getByRole("button")).toHaveCount(5);
+      for (const candidate of auditExperts) {
+        await expect(page.getByRole("list", { name: `${candidate.displayName}访谈问题` })).toBeVisible();
+      }
+      await expect(page.getByRole("button", { name: "删除该专家问题" })).toHaveCount(0);
       await groups.getByRole("button", { name: auditExperts[4]!.displayName }).click();
-      await expect(page.getByRole("list", { name: `${auditExperts[4]!.displayName}访谈问题` })).toBeVisible();
+      await expect(groups.getByRole("button", { name: auditExperts[4]!.displayName })).toHaveAttribute("aria-current", "true");
       await groups.getByRole("button", { name: expert.displayName }).click();
     }
     if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
@@ -499,8 +503,9 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       await page.getByRole("dialog", { name: "添加虚拟专家" }).press("Escape");
     }
     if (step === "outline") {
-      await expect(page.getByRole("list", { name: `${expert.displayName}访谈问题` })).toBeVisible();
-      await expect(page.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("谁最终决定采购？");
+      const expertQuestions = page.getByRole("list", { name: `${expert.displayName}访谈问题` });
+      await expect(expertQuestions).toBeVisible();
+      await expect(expertQuestions.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("谁最终决定采购？");
     }
   }
   await page.getByTestId("itv-return-history").click();

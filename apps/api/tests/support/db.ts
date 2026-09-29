@@ -91,7 +91,55 @@ function postgresReady(): boolean {
   }
 }
 
+/**
+ * 本沙箱专用旁路（2026-09-28，phase-20 iter4）：容器里有 `docker` 二进制但没有 daemon
+ * （`/var/run/docker.sock` 不存在，且策略禁止本会话起 dockerd），同时预置了一个**原生**
+ * PostgreSQL 16，凭据/角色刻意配成与 `pg-config.ts` 的 fallback 完全一致
+ * （`postgres`/`postgres_dev`、`app_rw`/`app_rw_dev`），已装好 `vector`/`age` 扩展，唯独端口是
+ * 标准 5432 不是 compose 的 55432。
+ * `WORKSPACEX_NATIVE_POSTGRES=1` 时完全跳过 docker 编排，只用 `pg_isready` 探活 + `psql`
+ * 直连建库；不设置该变量的调用方（CI / 有 Docker 的本地开发）行为一字不变。
+ */
+const NATIVE_POSTGRES = process.env.WORKSPACEX_NATIVE_POSTGRES === "1";
+
+function nativePostgresReady(): boolean {
+  try {
+    execFileSync(
+      "pg_isready",
+      ["-h", process.env.PGHOST ?? "127.0.0.1", "-p", String(process.env.PGPORT ?? "55432")],
+      { stdio: "pipe" },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createDatabaseNative(): void {
+  if (DB === "workspacex") return; // 共享默认库假定已存在
+  const cfg = migrationConfig();
+  try {
+    execFileSync(
+      "psql",
+      ["-h", cfg.host, "-p", String(cfg.port), "-U", cfg.user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", `CREATE DATABASE ${DB}`],
+      { stdio: "pipe", env: { ...process.env, PGPASSWORD: cfg.password } },
+    );
+  } catch (e) {
+    const out = `${(e as { stdout?: Buffer | string }).stdout ?? ""}${(e as { stderr?: Buffer | string }).stderr ?? ""}`;
+    if (!/already exists|42P04/i.test(String(out))) throw e;
+  }
+}
+
 export function ensureDatabase(): void {
+  if (NATIVE_POSTGRES) {
+    if (!nativePostgresReady()) {
+      throw new Error(
+        "WORKSPACEX_NATIVE_POSTGRES=1 but PostgreSQL at PGHOST:PGPORT is not reachable (pg_isready failed)",
+      );
+    }
+    createDatabaseNative();
+    return;
+  }
   // `docker compose up` is NOT safe to call concurrently.
   //
   // vitest runs test files in parallel processes and every one of them calls this. When the

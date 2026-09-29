@@ -62,6 +62,7 @@ test("research persists all five model-backed steps through the real UI, API and
       const editor = page.getByTestId("guided-research-markdown-editor");
       await expect(editor).toBeVisible();
       await editor.fill((await editor.inputValue()).replace(/目标：[^\n]+/, "目标：核实政策适用范围与实施约束"));
+      await expect(page.getByRole("button", { name: "保存 Markdown", exact: true })).toBeEnabled();
       const savedDraft = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
         && response.request().method() === "POST" && response.request().postDataJSON()?.action === "save");
       await page.getByRole("button", { name: "保存 Markdown", exact: true }).click();
@@ -69,7 +70,9 @@ test("research persists all five model-backed steps through the real UI, API and
       expect((await savedDraft).ok()).toBe(true);
       await page.reload();
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
-      await expect(page.getByTestId("guided-research-markdown-preview")).toContainText(/核实政策适用范围与实施约束/);
+      await page.getByTestId("guided-research-markdown-preview").dblclick();
+      await expect(page.getByTestId("guided-research-markdown-editor")).toHaveValue(/目标：核实政策适用范围与实施约束/);
+      await page.getByRole("button", { name: "取消", exact: true }).click();
       await expect(page.getByTestId("guided-research-markdown-editor")).toHaveCount(0);
       await expect(page.getByTestId("research-intent-card")).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("research-plan-markdown.png"), fullPage: true });

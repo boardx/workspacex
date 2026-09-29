@@ -7,19 +7,23 @@ import { runtimeFixture } from "../guided-runtime-fixture";
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 describe("human confirmation in the durable model-backed workflow", () => {
-  it("saves edited directions with the server version and advances only after success", async () => {
+  it("keeps generated directions out of the topic step and advances with the saved server draft", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("directions"));
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("outline"), version: 5 });
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
-    fireEvent.change(await screen.findByDisplayValue("政策方向"), { target: { value: "人工编辑方向" } });
+    await screen.findByRole("textbox", { name: "研究主题" });
+    expect(screen.queryByText("研究方向（可选调整）")).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "下一步：研究计划" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 4, draft: { node: "directions", value: [expect.objectContaining({ title: "人工编辑方向" })] } })));
-    expect(await screen.findByTestId("guided-research-markdown-preview")).toHaveTextContent("政策章节");
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 4, draft: { node: "directions", value: [expect.objectContaining({ title: "政策方向" })] } })));
+    expect(await screen.findByTestId("guided-research-markdown-preview")).toHaveTextContent("1、政策章节");
   });
-  it("disables confirmation when every direction is disabled", async () => {
-    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("directions"));
+  it("still blocks confirmation when the saved direction draft is invalid", async () => {
+    const state = runtimeFixture("directions");
+    state.directions = state.directions.map((item) => ({ ...item, enabled: false }));
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("checkbox", { name: "纳入研究" }));
+    await screen.findByRole("textbox", { name: "研究主题" });
     expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeDisabled();
   });
   it("rejects an empty outline and confirms a complete edited outline", async () => {

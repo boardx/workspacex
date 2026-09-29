@@ -1365,7 +1365,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // import-official-agent-role-pack.ts before the repository is reached; pinned by
     // tests/agent/official-role-pack-import.test.ts) land on top of main's 107 -> 111.
     // Remove the matching increments with those tests.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(112);
+    // 2026-09-29 merge of main (AG01-04/WS/CT) into the WF04-WF08 branch: WF04 adds
+    // pg-effect-capability-authority.ts (workflow_capability_grants admin toggle, read only by
+    // effect-permission-recheck.ts) and WF06 adds pg-workflow-trigger-store.ts (triggerId ->
+    // org_id resolution via the non-tenant workflow_trigger_lookup, then withTenant only).
+    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts.
+    // Remove this increment with those entries if that guard test disappears.
+    // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
+    // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
+    // boundary rules). Ceiling recomputed as the combined total.
+    // 2026-09-29 merge of main (CT02 + WF04-08, at 114) into CT03: CT03 adds no allowlist
+    // entries, so the ceiling stays at main's 114.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(114);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
