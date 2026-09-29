@@ -23,7 +23,16 @@ import { PgWorkflowLeaseStore } from "./pg-workflow-lease-store";
 import { PgWorkflowReceiptStore } from "./pg-workflow-receipt-store";
 import { PgWorkflowTriggerStore } from "./pg-workflow-trigger-store";
 import { createWorkflowCheckpointerFactory } from "./workflow-checkpointer-factory";
-import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGraph } from "./workflow-graph-registry";
+import {
+  GUIDED_RESEARCH_GRAPH_NODE_IDS,
+  GUIDED_RESEARCH_GRAPH_REF,
+} from "../../application/research/guided-research-workflow-graph";
+import {
+  LangGraphWorkflowDriver,
+  WorkflowGraphRegistry,
+  type CommandWorkflowGraph,
+  type LinearWorkflowGraph,
+} from "./workflow-graph-registry";
 
 /**
  * Skill 版本解析：按 stableId 发布的 Skill 目录属于 work-skill-meta 束（尚未落库）。在它落地前，
@@ -33,6 +42,11 @@ export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: as
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
   return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
+}
+
+/** WF07：迁入通用运行时的命令驱动图（引导式研究 = `guided-research:1`）。 */
+export function defaultCommandWorkflowGraphs(): CommandWorkflowGraph[] {
+  return [{ graphRef: GUIDED_RESEARCH_GRAPH_REF, nodeIds: GUIDED_RESEARCH_GRAPH_NODE_IDS }];
 }
 
 export interface WorkflowRuntimeOptions {
@@ -59,7 +73,7 @@ class DispatchingEffectReconciler implements EffectReconcilePort {
 }
 
 export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: WorkflowRuntimeOptions = {}) {
-  const registry = new WorkflowGraphRegistry(opts.graphs ?? defaultWorkflowGraphs());
+  const registry = new WorkflowGraphRegistry(opts.graphs ?? defaultWorkflowGraphs(), defaultCommandWorkflowGraphs());
   const access = new PgWorkflowAccess(db);
   const receipts = new PgWorkflowReceiptStore(db);
   const leases = new PgWorkflowLeaseStore(db);

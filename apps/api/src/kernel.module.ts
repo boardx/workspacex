@@ -395,8 +395,9 @@ import { GuidedResearchController } from "./interface/controllers/guided-researc
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
 import { GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY, type GuidedResearchNodeReceiptRepository } from "./application/research/guided-workflow-receipt-ports";
-import { PgGuidedResearchNodeReceiptRepository } from "./infrastructure/research/pg-guided-research-node-receipt-repository";
-import { createGuidedResearchCheckpointer } from "./infrastructure/research/langgraph-guided-research-runtime";
+import { PgGuidedResearchWorkflowReceipts } from "./infrastructure/research/pg-guided-research-workflow-receipts";
+import { createWorkflowCheckpointerFactory } from "./infrastructure/workflow/workflow-checkpointer-factory";
+import { GUIDED_RESEARCH_GRAPH_REF } from "./application/research/guided-research-workflow-graph";
 import {
   GUIDED_RESEARCH_DIRECTION_GENERATOR,
   ModelGuidedResearchDirectionGenerator,
@@ -2676,7 +2677,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         receipts: GuidedResearchNodeReceiptRepository,
         directions: GuidedResearchDirectionGenerator,
         outlines: GuidedResearchOutlineGenerator,
-      ) => new GuidedResearchWorkflowService(receipts, createGuidedResearchCheckpointer(appConfig()), directions, outlines),
+      ) => {
+        // WF07：引导式研究 = `guided-research:1`，checkpoint 经通用运行时唯一 checkpointer 工厂（langgraph_workflow）。
+        const pool = new pgModule.Pool({ ...appConfig(), max: 5 });
+        const saver = createWorkflowCheckpointerFactory(pool).saverFor(GUIDED_RESEARCH_GRAPH_REF);
+        return new GuidedResearchWorkflowService(receipts, saver, directions, outlines, () => pool.end());
+      },
       inject: [
         GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
         GUIDED_RESEARCH_DIRECTION_GENERATOR,
@@ -2685,7 +2691,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgGuidedResearchNodeReceiptRepository(db),
+      useFactory: (db: DatabasePort) => new PgGuidedResearchWorkflowReceipts(db),
       inject: [DATABASE_PORT],
     },
     {
