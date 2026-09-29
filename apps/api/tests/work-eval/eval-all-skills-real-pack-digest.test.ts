@@ -63,6 +63,11 @@ afterAll(async () => {
 
 describe("EV05 write-back digest = imported content_digest (real pack, no digest stub)", () => {
   it("the gate-script digest of a real starter-pack skill is accepted by the EV04 write-back", async () => {
+    // 导入本身会为每个带门判定的技能写一条 system:starter-pack-import 记录（#4677）；
+    // 回写按 (org_id, skill_version_id) upsert，应覆盖 S003 那条而不是新增行。
+    const countRecords = async () => asApp(ORG, async (c) =>
+      Number((await c.query<{ n: string }>("SELECT count(*) AS n FROM skill_gate_records WHERE org_id = $1", [ORG])).rows[0]!.n));
+    const before = await countRecords();
     const fs = new FsBatchEntityEvaluator({ repoRoot: REPO, evalsRoot });
     const r = await runAllSkillsCommand({
       repoRoot: REPO, evalsRoot, baseline: true, writeBack: true, runId: "real-digest", ...quiet,
@@ -75,11 +80,19 @@ describe("EV05 write-back digest = imported content_digest (real pack, no digest
     expect(row.writtenBack).toBe(true);
     expect(r.exitCode).toBe(EXIT.OK);
 
-    const stored = await asApp(ORG, async (c) => (await c.query<{ digest: string; recorded: string }>(
-      `SELECT 'sha256:' || v.content_digest AS digest, g.subject_version_digest AS recorded
-         FROM skill_gate_records g JOIN skill_versions v ON v.id = g.skill_version_id
-        WHERE g.org_id = $1 AND g.status->>'stableId' = $2`, [ORG, "S003"])).rows);
+    const stored = await asApp(ORG, async (c) => (await c.query<{ digest: string; recorded: string; written_by: string }>(
+      `SELECT 'sha256:' || v.content_digest AS digest, g.subject_version_digest AS recorded, g.written_by
+         FROM skill_gate_records g
+         JOIN skill_versions v ON v.id = g.skill_version_id
+         JOIN skill_catalog_entries e ON e.org_id = g.org_id AND e.skill_id = g.skill_id
+        WHERE g.org_id = $1 AND e.stable_id = 'S003'`, [ORG])).rows);
     expect(stored).toHaveLength(1);
+    expect(stored[0]!.written_by).toBe(OPS);
     expect(stored[0]!.recorded).toBe(stored[0]!.digest);
+    // upsert 覆盖导入时的记录，不新增行；其余记录仍是导入写的。
+    expect(await countRecords()).toBe(before);
+    const operatorWritten = await asApp(ORG, async (c) => Number((await c.query<{ n: string }>(
+      "SELECT count(*) AS n FROM skill_gate_records WHERE org_id = $1 AND written_by <> 'system:starter-pack-import'", [ORG])).rows[0]!.n));
+    expect(operatorWritten).toBe(1);
   }, 180_000);
 });

@@ -9,7 +9,7 @@ test("failed upload and denied microphone preserve Markdown through a saved inte
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/u);
+  await expect(page).toHaveURL(/\/home$/u);
   await page.goto("/itv/new");
 
   const demand = "# 夜班交接研究\n\n## 研究目标\n核对护理人员最近一次交接班的真实困难。";

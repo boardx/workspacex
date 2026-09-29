@@ -17,6 +17,7 @@ import { AGENT_INTERRUPTS_TOOL_NAME_LIST } from "@repo/contracts/agent-interrupt
  */
 import type { ToolPermissionDecisionKind } from "@repo/contracts/plan-permissions";
 import type { OrgId } from "../../domain/org-id";
+import { AGENT_WORKFLOW_START_TOOL_NAME } from "../agent/request-agent-workflow-start";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { ResolveVisibilityDeps } from "../chat/resolve-visibility";
 import { resolveVisibility } from "../chat/resolve-visibility";
@@ -73,6 +74,10 @@ export async function decideToolPermission(
   }
   if (beforeDisclosed.payload.pendingApproval?.interrupt || AGENT_INTERRUPTS_TOOL_NAME_LIST.some((name) => name === beforeDisclosed.payload.pendingApproval?.toolName)) {
     throw new RunNotAwaitingToolPermissionError("form_decision_required");
+  }
+  // AG05：start_workflow 的结果只由服务端算出；放行（once/run/forever）等于执行模型原参数，只允许拒绝。
+  if (beforeDisclosed.payload.pendingApproval?.toolName === AGENT_WORKFLOW_START_TOOL_NAME && input.decision !== "deny") {
+    throw new RunNotAwaitingToolPermissionError("workflow_start_outcome_is_server_computed");
   }
   if (!deps.runs.decidePermissionRequest || !await deps.runs.decidePermissionRequest(
     input.orgId, input.runId, permissionRequestId, input.decision, input.userId,

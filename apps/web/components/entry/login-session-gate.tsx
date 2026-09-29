@@ -9,7 +9,7 @@ export function LoginSessionGate({ children, next }: { children: React.ReactNode
   const router = useRouter();
   const { status } = useSession();
   // ⚠ 已带有效会话直接访问 `/login?next=…`（例如深链跳转过来又恰好还登录着）
-  // 时也要回到 `next`，而不是一律落到 `/projects`——同一份净化规则见 `lib/return-to.ts`。
+  // 时也要回到 `next`，而不是一律落到默认落点 `/home`——同一份净化规则见 `lib/return-to.ts`。
   const target = sanitizeReturnTo(next);
 
   React.useEffect(() => {

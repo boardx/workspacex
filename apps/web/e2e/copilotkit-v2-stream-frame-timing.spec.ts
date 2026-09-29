@@ -79,7 +79,7 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");

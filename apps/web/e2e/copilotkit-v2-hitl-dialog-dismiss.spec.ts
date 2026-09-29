@@ -33,7 +33,7 @@ test("模态审批：Escape不裁决且审批不丢；重复拒绝只提交一�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
   await expect.poll(async () => (await page.request.get("/api/copilotkit/info")).status(), { timeout: 60_000 }).toBe(200);
   await page.goto("/chat");
   const decisions: string[] = [];

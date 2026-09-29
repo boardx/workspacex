@@ -62,3 +62,12 @@ def test_edit_refused_hands_chat_copy_without_code():
 def test_approve_without_outcome_means_not_started():
     texts = _resume({"type": "approve"}, "wf-approve")
     assert any("流程未发起" in t and "未创建任何实例" in t for t in texts)
+
+
+def test_outcome_is_not_model_visible():
+    class M(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            return self
+    tool = next(t for t in build_tools(M(messages=iter([]))) if t.name == "start_workflow")
+    visible = tool.tool_call_schema.model_json_schema()["properties"]
+    assert "outcome" not in visible and {"workflowId", "input"} <= set(visible)

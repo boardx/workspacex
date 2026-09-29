@@ -17,7 +17,7 @@ async function loginAsSeededUser(page: Page) {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("Agent 目录从左栏导航可达，不是只能敲 URL 进的孤岛", async ({ page }) => {

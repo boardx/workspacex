@@ -364,7 +364,10 @@ function RecommendedCapabilitiesSection({
 
   function addCapability(next: RecommendedCapability) {
     if (atMax) return;
-    onChange({ ...form, recommendedCapabilities: [...form.recommendedCapabilities, next] });
+    // 契约 `RecommendedCapability.name` 上限 60：更长的 agent/skill 名快照时截断，
+    // 否则整次保存会被后端 400 拒掉。
+    const snapshot = { ...next, name: next.name.slice(0, 60) };
+    onChange({ ...form, recommendedCapabilities: [...form.recommendedCapabilities, snapshot] });
   }
 
   function removeCapability(kind: RecommendedCapability["kind"], refId: string) {

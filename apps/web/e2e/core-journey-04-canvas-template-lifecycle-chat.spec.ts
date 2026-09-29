@@ -44,7 +44,7 @@ async function loginAsAdmin(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 async function loginAsFacilitator(page: Page): Promise<void> {
@@ -53,7 +53,7 @@ async function loginAsFacilitator(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("旅程④：管理员新建画布模板 → 加字段（测试）→ 发布 → 引导师在项目里真正绑定使用 → 该项目的 chat 可达", async ({ page }) => {

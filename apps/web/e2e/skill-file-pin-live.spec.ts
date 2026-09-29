@@ -19,7 +19,7 @@ test("real imported Skill survives multi-file save/reload and Agent pin restorat
     await page.goto("/login");
     await page.getByTestId("login-email").fill(process.env.STUDIO_LOGIN_EMAIL);
     await page.getByTestId("login-password").fill(process.env.STUDIO_LOGIN_PASSWORD);
-    await page.getByTestId("login-submit").click(); await expect(page).toHaveURL(/\/projects$/);
+    await page.getByTestId("login-submit").click(); await expect(page).toHaveURL(/\/home$/);
   }
   const unique = randomUUID();
   const source = process.env.STUDIO_SKILL_SOURCE_URL ?? "https://github.com/anthropics/skills/tree/main/skills/skill-creator";

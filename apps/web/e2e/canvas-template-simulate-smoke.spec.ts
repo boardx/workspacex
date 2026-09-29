@@ -39,7 +39,7 @@ async function loginAsAdmin(page: Page) {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("admin types a prompt into chat 模拟, gets a real model round trip back, and it renders on the canvas grid", async ({ page }) => {

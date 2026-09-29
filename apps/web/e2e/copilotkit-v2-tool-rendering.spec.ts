@@ -97,7 +97,7 @@ async function login(page: import("@playwright/test").Page): Promise<void> {
   );
   await page.getByTestId("login-submit").click();
   expect((await response).status(), "real UI login must succeed before chat assertions").toBe(200);
-  await page.waitForURL(/\/projects$/, { waitUntil: "domcontentloaded" });
+  await page.waitForURL(/\/home$/, { waitUntil: "domcontentloaded" });
 }
 
 /**

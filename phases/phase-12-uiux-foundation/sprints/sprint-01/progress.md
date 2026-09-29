@@ -75,7 +75,7 @@
     chat「发消息/切会话」与 profile「改资料并保存」本身就是要验证真实登录+持久化
     （R3 的 user_visible_behavior 逐字要求"端到端可复现"），裸配置的 webServer 只起
     `next dev`、没有 API/DB，登录表单必然打不通——**实测复现**：两条测试在裸配置下
-    100% 因 `toHaveURL(/\/projects$/)` 超时失败。已把两处都改成
+    100% 因 `toHaveURL(/\/home$/)` 超时失败。已把两处都改成
     `pnpm run verify:chat-read`/`verify:self-service-profile`（已挂真实登录+种子库的
     CI 门控命令），逐条命令实测跑绿（24/24、2/2）。同一模式的 `-c playwright.config.ts
     -g 'keyboard ...'` 还留在 F06/F16 的 verification 里，留给对应 feature 开工时处理。

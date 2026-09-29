@@ -13,20 +13,20 @@ describe("sanitizeReturnTo", () => {
   });
 
   it("空值回落到 fallback（默认 /projects）", () => {
-    expect(sanitizeReturnTo(null)).toBe("/projects");
-    expect(sanitizeReturnTo(undefined)).toBe("/projects");
-    expect(sanitizeReturnTo("")).toBe("/projects");
+    expect(sanitizeReturnTo(null)).toBe("/home");
+    expect(sanitizeReturnTo(undefined)).toBe("/home");
+    expect(sanitizeReturnTo("")).toBe("/home");
   });
 
   it("拒绝协议相对 / 跨域注入", () => {
-    expect(sanitizeReturnTo("//evil.com")).toBe("/projects");
-    expect(sanitizeReturnTo("https://evil.com/x")).toBe("/projects");
-    expect(sanitizeReturnTo("evil.com")).toBe("/projects");
+    expect(sanitizeReturnTo("//evil.com")).toBe("/home");
+    expect(sanitizeReturnTo("https://evil.com/x")).toBe("/home");
+    expect(sanitizeReturnTo("evil.com")).toBe("/home");
   });
 
   it("拒绝指回 /login 本身，避免登录成功后又跳回登录页的循环", () => {
-    expect(sanitizeReturnTo("/login")).toBe("/projects");
-    expect(sanitizeReturnTo("/login?next=%2Fprojects")).toBe("/projects");
+    expect(sanitizeReturnTo("/login")).toBe("/home");
+    expect(sanitizeReturnTo("/login?next=%2Fprojects")).toBe("/home");
   });
 
   it("支持自定义 fallback", () => {

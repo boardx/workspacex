@@ -31,7 +31,7 @@ async function triggerApproval(page: Page): Promise<{ run: PendingRun; runUrl: s
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
   await expect.poll(async () => (await page.request.get("/api/copilotkit/info")).status(), { timeout: 60_000 }).toBe(200);
   await page.goto("/chat");
   const pendingResponse = page.waitForResponse(async (response) => {

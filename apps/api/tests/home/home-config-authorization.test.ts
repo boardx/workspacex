@@ -117,7 +117,6 @@ describe("updateHomeConfig", () => {
     await addOrgMember(ORG, MEMBER, "consultant", null);
 
     const body = {
-      orgId: ORG,
       title: "Hijacked",
       tagline: null,
       bannerHeadline: "x",
@@ -142,7 +141,6 @@ describe("updateHomeConfig", () => {
     const out = await controller.update(
       ORG,
       {
-        orgId: ORG,
         title: "Key Set Check",
         tagline: null,
         bannerHeadline: "h",
