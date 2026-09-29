@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import SurveyPage from "@/app/studio/survey/page";
 import SurveyLayout from "@/app/studio/survey/layout";
 import SurveyWorkflowPage from "@/app/studio/survey/[surveyId]/page";
+import SurveyTemplateEditorPage from "@/app/studio/survey/templates/[templateId]/page";
 import { encodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
 
 const request = vi.hoisted(()=>vi.fn());
@@ -76,5 +77,13 @@ describe("Survey route layout", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("持久问卷读取失败");
     expect(request).toHaveBeenCalledWith("/surveys");
     expect(screen.queryByTestId("survey-resource-library")).not.toBeInTheDocument();
+  });
+
+  it("报告模板路由忽略 preview 后门并读取真实模板", async () => {
+    request.mockRejectedValueOnce(new Error("真实模板读取失败"));
+    render(<SurveyTemplateEditorPage params={{ templateId: "template-1" }} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("真实模板读取失败");
+    expect(request).toHaveBeenCalledWith("/surveys/templates/template-1");
+    expect(screen.queryByTestId("survey-template-editor")).not.toBeInTheDocument();
   });
 });

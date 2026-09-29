@@ -118,3 +118,22 @@ it("undoes and redoes designer changes with accessible toolbar controls", () => 
   fireEvent.click(screen.getByRole("button", { name: "重做最近修改" }));
   expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("修改后的问题");
 });
+
+it("clears local undo history when a template replaces the question set", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  function Designer() {
+    const [questions, setQuestions] = React.useState([
+      { ...createSurveyQuestion("short", "q1", 1), title: "原问题" },
+    ]);
+    return <>
+      <button type="button" onClick={() => setQuestions([{ ...createSurveyQuestion("single", "template-q1", 1), title: "模板问题" }])}>应用外部模板</button>
+      <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />
+    </>;
+  }
+  render(<Designer />);
+  fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "本地修改" } });
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "应用外部模板" }));
+  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("模板问题");
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
+});

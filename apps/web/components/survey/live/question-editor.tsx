@@ -74,6 +74,16 @@ export function SurveyQuestionEditor({
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
+  const lastEmittedSignature = React.useRef<string | null>(null);
+  const questionsSignature = JSON.stringify(questions);
+  React.useEffect(() => {
+    if (lastEmittedSignature.current === questionsSignature) {
+      lastEmittedSignature.current = null;
+      return;
+    }
+    setUndoStack([]);
+    setRedoStack([]);
+  }, [questionsSignature]);
   React.useEffect(() => {
     if (selectedQuestionId && questions.some((q) => q.id === selectedQuestionId))
       setId(selectedQuestionId);
@@ -83,6 +93,10 @@ export function SurveyQuestionEditor({
   const normalize = (all: SurveyWorkflowQuestion[]) =>
     all.map((q, i) => ({ ...q, order: i + 1 }));
   const snapshot = (all: SurveyWorkflowQuestion[]) => structuredClone(all);
+  const emit = (all: SurveyWorkflowQuestion[]) => {
+    lastEmittedSignature.current = JSON.stringify(all);
+    onChange(all);
+  };
   const change = (all: SurveyWorkflowQuestion[], recordHistory = true) => {
     const next = normalize(all);
     if (JSON.stringify(next) === JSON.stringify(questions)) return;
@@ -90,7 +104,7 @@ export function SurveyQuestionEditor({
       setUndoStack((stack) => [...stack, snapshot(questions)].slice(-50));
       setRedoStack([]);
     }
-    onChange(next);
+    emit(next);
   };
   const restoreSelection = (all: SurveyWorkflowQuestion[]) => {
     if (!all.some((item) => item.id === id)) setId(all[0]?.id);
@@ -102,7 +116,7 @@ export function SurveyQuestionEditor({
     setRedoStack((stack) => [...stack, snapshot(questions)].slice(-50));
     const next = normalize(previous);
     restoreSelection(next);
-    onChange(next);
+    emit(next);
   };
   const redo = () => {
     const nextSnapshot = redoStack.at(-1);
@@ -111,7 +125,7 @@ export function SurveyQuestionEditor({
     setUndoStack((stack) => [...stack, snapshot(questions)].slice(-50));
     const next = normalize(nextSnapshot);
     restoreSelection(next);
-    onChange(next);
+    emit(next);
   };
   const update = (next: SurveyWorkflowQuestion) => {
     const changed = JSON.stringify(next) !== JSON.stringify(question);
