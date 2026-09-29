@@ -3,6 +3,7 @@
  * interface 层（controller）只依赖本类（经 DI token），不 import infrastructure。
  */
 import type { WorkflowInstanceProjection } from "@repo/contracts/workflow-runtime";
+import type { EffectGateway } from "./effect-gateway";
 import { openEventStream, type WorkflowEventCursor } from "./event-stream";
 import { cancelInstance, resumeInstance, startInstance, type InstanceCommandDeps, type StartInstanceResponse, type StateResponse } from "./instance-commands";
 import { getInstanceProjection } from "./instance-projection";
@@ -22,6 +23,8 @@ export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "d
   hooks?: RunHooks;
   /** R3 过期 lease 接管的跨组织扫描；未提供时 takeOverExpired 为空操作。 */
   expiredLeases?: WorkflowExpiredLeaseScanner;
+  /** WF04（review #2）：透传给 `runInstance`，让崩溃恢复路径能对 `EffectInFlightError` 做 reconcile()。 */
+  effectGateway?: EffectGateway;
 }
 
 export class WorkflowRuntimeService {

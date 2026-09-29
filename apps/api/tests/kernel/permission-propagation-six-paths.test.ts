@@ -1345,7 +1345,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
     // (another org sees none of these rows) and unauthenticated 401 are proven in
     // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(107);
+    // Phase 20 WF04 adds pg-effect-capability-authority.ts (107 -> 108): workflow_capability_grants
+    // is an org-admin authorization toggle with no ObjectRef shape; the effect gateway rechecks
+    // it before every effect. Pinned by tests/workflow/pg-workflow-repo-guard.test.ts. Remove this
+    // increment with that test. (2026-09-29)
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(108);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
