@@ -139,15 +139,26 @@ describe("guided research session routing and lifecycle", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("完成检索任务");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
   });
-  it("shows persisted search failures and retries failed work through the server", async () => {
-    const state = runtimeFixture("research"); state.tasks[0]!.status = "failed";
+  it("shows one primary continue action for a persisted search failure and disables duplicate retries", async () => {
+    const state = runtimeFixture("research");
+    state.tasks[0]!.status = "failed";
+    state.errorCode = "RESEARCH_SEARCH_UNAVAILABLE";
+    let resolveRetry!: (value: ReturnType<typeof runtimeFixture>) => void;
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("research"), version: 5 });
+    vi.mocked(executeResearchRuntime).mockReturnValue(new Promise((resolve) => { resolveRetry = resolve; }));
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
-    fireEvent.click(await screen.findByRole("button", { name: "重试失败任务" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("检索服务暂时不可用");
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
+    const retry = screen.getByRole("button", { name: "继续重试" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    resolveRetry({ ...runtimeFixture("research"), version: 5 });
     expect(await screen.findByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
-    expect(screen.queryByRole("button", { name: "重试失败任务" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "继续重试" })).not.toBeInTheDocument());
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");
