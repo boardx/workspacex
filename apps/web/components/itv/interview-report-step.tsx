@@ -49,6 +49,7 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
     finally { setExporting(false); }
   }
   const report = { title: projection.headings[0]?.text ?? "研究报告", executiveSummary: projection.sections[0]?.text ?? "", markdown: document.markdown };
+  const quality = reportQuality(projection);
   return <div data-testid="itv-source-report">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
       <div><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">研究报告</h2><p className="mt-1 text-base leading-7 text-muted-foreground">文档版本 {document.version} · {document.evidenceMode === "simulated" ? "模拟访谈，需真人证据验证" : "证据资格以服务端审核为准"}</p></div>
@@ -74,8 +75,30 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
             ] as const).map(([id, label, value]) => <div key={id} data-testid={`itv-report-metric-${id}`} className="rounded-lg border border-border bg-muted/25 px-4 py-3"><dt className="text-xs leading-5 text-muted-foreground">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{value}</dd></div>)}
           </dl>
         </section>
+        <section data-testid="itv-report-quality" aria-label="报告质量检查" className={`mb-6 rounded-lg border p-4 text-sm ${quality.missing.length ? "border-warning/40 bg-warning/5" : "border-success/30 bg-success/5"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold">报告质量检查</h3>
+            <span className="text-xs font-medium">{quality.missing.length ? "待补齐" : "结构完整"}</span>
+          </div>
+          <p className="mt-1 leading-6 text-muted-foreground">检查报告是否包含跨回答综合、决策影响、分歧与反例、适用边界和可验证行动建议。此检查不替代人工复核。</p>
+          {quality.missing.length ? <p className="mt-2" data-testid="itv-report-quality-missing">缺少：{quality.missing.join("、")}</p> : <p className="mt-2" data-testid="itv-report-quality-complete">已包含关键分析结构。</p>}
+        </section>
         <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" longForm />
       </article>
     </div>
   </div>;
+}
+
+const QUALITY_SECTIONS = [
+  { label: "跨回答综合", titles: ["执行摘要", "研究结论摘要", "决策摘要", "综合结论"] },
+  { label: "决策影响", titles: ["决策影响", "业务影响", "研究结论"] },
+  { label: "分歧与反例", titles: ["分歧与反例", "争议点与风险", "反例", "反对证据"] },
+  { label: "适用边界", titles: ["专家边界", "边界与限制", "局限性", "不确定性与限制"] },
+  { label: "可验证行动建议", titles: ["建议行动", "下一步验证建议", "行动建议"] },
+] as const;
+
+function reportQuality(projection: interviewMarkdown.InterviewMarkdownProjection) {
+  const headings = projection.blocks.map((block) => block.title.trim().replace(/[：:]$/u, "").replace(/\s+/gu, ""));
+  const missing = QUALITY_SECTIONS.filter((section) => !section.titles.some((title) => headings.includes(title))).map((section) => section.label);
+  return { missing };
 }
