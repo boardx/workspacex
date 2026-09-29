@@ -16,6 +16,7 @@ import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { FileAgentStarterPackSource } from "../../src/infrastructure/agent/file-agent-starter-pack-source";
 import { buildOfficialAgentRolePack, officialRoleAvatarKeys, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
@@ -116,7 +117,7 @@ beforeAll(async () => {
   // WORKFLOW_DEFINITIONS_ROOT 故意不设：默认回退到仓库真实的
   // requirements/work-stack-v2/workflows/，D002/D003/D005/D011 的白名单因此用真实注册表校验。
 
-  writePack(OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION, buildOfficialAgentRolePack());
+  // 官方包故意**不**写到磁盘：开箱即用路径由 FileAgentStarterPackSource 从代码产出（实测 404 回归）。
   writePack("official-role-pack-bad-workflow", "1.0.0", buildBrokenPack({ packId: "official-role-pack-bad-workflow", overrides: { workflowAllowlist: ["W001", "W999"] } }));
   writePack("official-role-pack-bad-skill", "1.0.0", buildBrokenPack({ packId: "official-role-pack-bad-skill", overrides: { skillVersions: [{ versionId: "agent-skill-version-does-not-exist", digest: "a".repeat(64) }] } }));
 
@@ -216,6 +217,31 @@ describe("official role pack import (AG03 / UC-3)", () => {
     expect(body.reasonCode).toBe("UNRESOLVED_SKILL_REF");
     expect(body.detail.missingIds).toEqual(["agent-skill-version-does-not-exist"]);
     expect(await counts()).toEqual({ agents: 0, agent_versions: 0 });
+  });
+});
+
+describe("official role pack availability and failed-import retry", () => {
+  it("serves the built-in official pack from code when no pack root is configured", async () => {
+    const source = new FileAgentStarterPackSource(undefined);
+    expect(await source.load(OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION)).toEqual(buildOfficialAgentRolePack());
+    expect(await source.load(OFFICIAL_AGENT_ROLE_PACK_ID, "0.0.1")).toBeNull();
+    expect(await source.load("some-other-pack", "1.0.0")).toBeNull();
+  });
+
+  it("does not poison the idempotency key: a retry after a 404 succeeds once the pack is available", async () => {
+    const packId = "official-role-pack-late";
+    const idempotencyKey = randomUUID();
+    const missing = await postImport(ADMIN, { packId, packVersion: "1.0.0", idempotencyKey });
+    expect(missing.status).toBe(404);
+    writePack(packId, "1.0.0", buildBrokenPack({ packId, overrides: {} }));
+    const retry = await postImport(ADMIN, { packId, packVersion: "1.0.0", idempotencyKey });
+    expect(retry.status).toBe(201);
+    const replay = await postImport(ADMIN, { packId, packVersion: "1.0.0", idempotencyKey });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toEqual(await retry.json());
+    expect(await counts()).toEqual({ agents: 1, agent_versions: 1 });
+    const ledger = await asApp(ORG, (client) => client.query<{ status: string }>("SELECT status FROM agent_starter_pack_imports WHERE org_id = $1 AND idempotency_key = $2", [ORG, idempotencyKey]));
+    expect(ledger.rows).toEqual([{ status: "succeeded" }]);
   });
 });
 
