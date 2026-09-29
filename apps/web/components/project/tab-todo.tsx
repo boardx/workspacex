@@ -7,6 +7,9 @@ import { observerHidden, type ProjectRole } from "@/lib/project-workbench";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { listTasks, type ListTasksOut, type RenderedTaskCard, type RiskLevel } from "@/lib/live-tasks";
+import { BoardRunCard, type BoardRunCardData } from "@/components/work-stack/board-run-card";
+
+type BoardEntry = { kind: "task"; card: RenderedTaskCard } | { kind: "run"; card: BoardRunCardData };
 
 /**
  * 待办看板（项目中枢 B2-S2）——读真实任务板：`listTasks(projectId, "project")`。
@@ -39,12 +42,16 @@ export function TabTodo({ view, projectId }: { view: ProjectRole; readOnly?: boo
     return () => { active = false; };
   }, [projectId, isObserver]);
 
-  const byId = new Map((data?.cards ?? []).map((c) => [c.id, c]));
+  // CT10：服务端把只读 Workflow 运行卡 ID 与任务卡 ID 一起放进 `columns`；这里只按 ID 取回各自的卡体。
+  const byId = new Map<string, BoardEntry>([
+    ...(data?.cards ?? []).map((c): [string, BoardEntry] => [c.id, { kind: "task", card: c }]),
+    ...(data?.runCards ?? []).map((c): [string, BoardEntry] => [c.id, { kind: "run", card: c }]),
+  ]);
   const columns = (data?.columns ?? []).map((col) => ({
     status: col.status,
-    cards: col.cardIds.map((id) => byId.get(id)).filter((c): c is RenderedTaskCard => c !== undefined),
+    cards: col.cardIds.map((id) => byId.get(id)).filter((c): c is BoardEntry => c !== undefined),
   }));
-  const total = data?.cards.length ?? 0;
+  const total = byId.size;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-3 p-6" data-testid="project-todo">
@@ -79,7 +86,9 @@ export function TabTodo({ view, projectId }: { view: ProjectRole; readOnly?: boo
               </h4>
               {col.cards.length === 0 ? (
                 <p className="rounded-md border border-dashed border-border px-3 py-2 text-10 text-muted-foreground">空</p>
-              ) : col.cards.map((card) => <TodoCard key={card.id} card={card} />)}
+              ) : col.cards.map((entry) => entry.kind === "run"
+                ? <BoardRunCard key={entry.card.id} card={entry.card} />
+                : <TodoCard key={entry.card.id} card={entry.card} />)}
             </section>
           ))}
         </div>
