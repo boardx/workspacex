@@ -40,3 +40,18 @@ export function withLoopbackProviderAliases<P>(
   const taken = new Set(entries.map(([name]) => name));
   return [...entries, ...aliases.filter((a) => !taken.has(a)).map((a) => [a, loopbackPort] as const)];
 }
+
+/**
+ * 数字人能力（决策 B）：deep-agent 内核的 LLM 端点同样提供的 chat provider 名。内核与 chat 共用
+ * 同一个 `KERNEL_MODEL_*` 端点，所以 = 配置的 chat provider + 回环别名。**deep-agent 端口不可用**
+ * （`KERNEL_DEEP_AGENT_BASE_URL` 为空）⇒ 空集：不改路由，这些 Agent 照旧走 chat provider（无工具作答），
+ * 而不是改走一个必然 `MODEL_PROVIDER_NOT_CONFIGURED` 的端口。
+ */
+export function kernelServedProviders(
+  chatProvider: string,
+  aliases: readonly string[],
+  deepAgentBaseUrl: string,
+): ReadonlySet<string> {
+  if (deepAgentBaseUrl.trim() === "") return new Set();
+  return new Set([chatProvider, ...aliases].filter((p) => p !== ""));
+}

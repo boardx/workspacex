@@ -35,3 +35,18 @@ async function hasToolCapabilities(runs: AgentRunStore, orgId: OrgId, run: Claim
   const ctx = await runs.readRunWorkflowContext?.(orgId, run.runId);
   return (ctx?.workflowAllowlist.length ?? 0) > 0;
 }
+
+/**
+ * 同一判据的纯函数形态，供**恢复路径**（`PgRunRecovery`）判断「这条库里钉 dashscope 的 run
+ * 当时是不是经 deep-agent 运行时执行的」——是 ⇒ 按 deep-agent run 去读远端，而不是判 uncertain。
+ */
+export function executedViaKernelRuntime(input: {
+  readonly modelProvider: string;
+  readonly kernelServedProviders: ReadonlySet<string>;
+  readonly skillCount: number;
+  readonly workflowAllowlistCount: number;
+}): boolean {
+  if (input.modelProvider === DEEP_AGENT_PROVIDER_NAME) return true;
+  return input.kernelServedProviders.has(input.modelProvider)
+    && (input.skillCount > 0 || input.workflowAllowlistCount > 0);
+}

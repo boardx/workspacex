@@ -15,6 +15,7 @@ import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "../../src
 import { officialRoleWorkflowAllowlists } from "../../src/domain/agent/official-role-packs";
 import { toOrgId } from "../../src/domain/org-id";
 import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../src/domain/work-content/product-workflow-definitions";
+import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
 import { defaultWorkflowGraphs } from "../../src/infrastructure/workflow/create-workflow-runtime";
 import { PgSkillCatalogVersionResolver } from "../../src/infrastructure/workflow/pg-skill-catalog-version-resolver";
@@ -109,7 +110,7 @@ async function agentRequestsWorkflow(runId: string, workflowId: string): Promise
   ];
   await executeQueuedRuns(deps(), { orgId: ORG });
   if ((await runRow(runId)).status === "queued") await executeQueuedRuns(deps(), { orgId: ORG });
-  expect(calls).toHaveLength(2);
+  expect({ n: calls.length, row: await runRow(runId) }).toMatchObject({ n: 2 });
   for (const c of calls) expect({ p: c.modelProvider, m: c.modelId }, "经 deep-agent 运行时、模型仍是钉住的 qwen-plus").toEqual({ p: "deep-agent", m: "qwen-plus" });
   const resume = calls[1]!.resume as { decision: string; editedAction: { name: string; argsJson: string } };
   expect(resume).toMatchObject({ decision: "edit", editedAction: { name: "start_workflow" } });
@@ -175,5 +176,25 @@ describe("数字人能力（决策 B）：dashscope 钉住 + 白名单 ⇒ deep-
     await executeQueuedRuns(deps(), { orgId: ORG });
     expect(calls).toHaveLength(1);
     expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen-plus" });
+  });
+
+  it("恢复：经 deep-agent 运行时执行的 dashscope run（有白名单）按 deep-agent 读远端；普通 Agent 仍判 uncertain、不读远端", async () => {
+    const seen: string[] = [];
+    const remote = { reconcileExistingRun: async (_t: string, _r: string, runId: string) => { seen.push(runId); return { kind: "running" as const }; } };
+    for (const [id, agent] of [["run-dh-rec", D003], ["run-dh-rec-plain", PLAIN]] as const) {
+      await seedQueuedRun(id, agent);
+      await asApp(ORG, (c) => c.query(
+        "UPDATE agent_runs SET status='running', started_at=now()-interval '2 hours', remote_run_id=$2 WHERE id=$1", [id, `remote-${id}`]));
+    }
+    const served = new Set(["dashscope"]);
+    await new PgRunRecovery(e.db, runs, remote, undefined, undefined, undefined, served).tick(ORG);
+    expect(seen).toContain("run-dh-rec");
+    expect(seen).not.toContain("run-dh-rec-plain");
+    // 未声明内核可服务集合（deep-agent 端口不可用）⇒ 与此前一致：不读远端。
+    seen.length = 0;
+    await asApp(ORG, (c) => c.query("UPDATE agent_runs SET lease_expires_at=now()-interval '1 hour' WHERE id IN ('run-dh-rec','run-dh-rec-plain')"));
+    await new PgRunRecovery(e.db, runs, remote).tick(ORG);
+    expect(seen).toEqual([]);
+    await asApp(ORG, (c) => c.query("UPDATE agent_runs SET status='failed', error_code='RUN_INTERRUPTED' WHERE id IN ('run-dh-rec','run-dh-rec-plain')"));
   });
 });

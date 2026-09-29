@@ -536,7 +536,7 @@ import {
   BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
-import { readLoopbackProviderAliases, withLoopbackProviderAliases } from "./infrastructure/agent-run/loopback-provider-aliases";
+import { kernelServedProviders, readLoopbackProviderAliases, withLoopbackProviderAliases } from "./infrastructure/agent-run/loopback-provider-aliases";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AcceptMessageCarryOverDelivery } from "./infrastructure/agent-run/accept-message-carry-over-delivery";
 import { INTERJECTION_CARRY_OVER_DELIVERY, type InterjectionCarryOverDelivery } from "./application/agent-run/interjection-carry-over";
@@ -1487,7 +1487,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // issue #3420 —— 与 executor / 控制器共用**同一个** `TOOL_PERMISSION_GRANT_STORE`
       // 单例：恢复流程必须能看见用户刚刚在这条 run 上落下的「本 run 内都允许」，否则它
       // 会把同一个工具再问一遍（见 `pg-run-recovery.ts` 构造函数注释）。
-      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null, grants: ToolPermissionGrantStore) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig()), nativeOutputs ?? undefined, nativeSessions ?? undefined, grants),
+      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null, grants: ToolPermissionGrantStore) => {
+        const deepAgentConfig = readDeepAgentProviderConfig();
+        const chatConfig = readModelProviderConfig();
+        return new PgRunRecovery(db, runs, new DeepAgentModelProvider(deepAgentConfig), nativeOutputs ?? undefined, nativeSessions ?? undefined, grants,
+          kernelServedProviders(chatConfig.provider, readLoopbackProviderAliases(process.env, chatConfig), deepAgentConfig.baseUrl));
+      },
       inject: [DATABASE_PORT, AGENT_RUN_STORE, NATIVE_OUTPUT_STAGING, NATIVE_SESSION_OWNER, TOOL_PERMISSION_GRANT_STORE],
     },
     {
@@ -2102,12 +2107,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
         // 数字人能力（决策 B）：内核与 chat 共用同一个 KERNEL_MODEL_* 端点，所以它能跑的 provider 名 =
         // 配置的 chat provider + 回环别名。见 application/agent-run/capability-runtime-routing.ts。
-        const kernelServed = new Set([chatConfig.provider, ...loopbackAliases].filter((p) => p !== ""));
+        const deepAgentConfig = readDeepAgentProviderConfig();
+        const kernelServed = kernelServedProviders(chatConfig.provider, loopbackAliases, deepAgentConfig.baseUrl);
         // 回环/开发/CI 专用别名（生产无效：需显式 env + 回环 baseUrl），见 loopback-provider-aliases.ts。
         return new RoutingModelCallPort(new Map<string, ModelCallPort>(withLoopbackProviderAliases<ModelCallPort>([
           [chatConfig.provider, chatPort],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
-          [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
+          [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(deepAgentConfig)],
           /*
            * 2026-09-22 —— 本地版**不注册**这一家。否则图片生成 agent 的 run 会路由到它，
            * 而它在本地版拿到的是 `KERNEL_MODEL_API_KEY="ollama-local"`（给本机 Ollama 的

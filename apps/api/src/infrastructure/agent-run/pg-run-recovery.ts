@@ -10,8 +10,9 @@ import type { AgentRunStore } from "../../application/agent-run/ports";
 import type { ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
 import type { RemoteRunReconciler } from "../../application/agent-run/run-recovery";
 import { PgWorkflowReceiptStore } from "../workflow/pg-workflow-receipt-store";
+import { executedViaKernelRuntime } from "../../application/agent-run/capability-runtime-routing";
 import { withRunLease } from "../../application/agent-run/run-lease";
-interface RecoveryRow {id:string;thread_id:string;remote_run_id:string|null;remote_thread_id:string|null;lease_epoch:number;recovery_attempts:number;model_provider:string;runtime_profile:"legacy"|"native-v1"}
+interface RecoveryRow {id:string;thread_id:string;remote_run_id:string|null;remote_thread_id:string|null;lease_epoch:number;recovery_attempts:number;model_provider:string;skill_count:number;runtime_profile:"legacy"|"native-v1"}
 /** One bounded tenant-scoped batch. Lease expiry elects a reader of the existing
  * remote operation, never authorizes a fresh model/tool/sandbox submission. */
 export class PgRunRecovery {
@@ -22,7 +23,9 @@ export class PgRunRecovery {
    * 一律 `markAwaitingToolPermission` ⇒ 同一个工具把人第二次叫醒（#3420 实测形态）。
    * 可选：不注入 ⇒ 逐字回到改动前的行为（一律问人，fail closed，不会放宽任何东西）。
    */
-  constructor(private readonly db:DatabasePort,private readonly runs:AgentRunStore,private readonly remote:RemoteRunReconciler,private readonly nativeOutputs?:Pick<NativeOutputStaging,"listFiles">,private readonly nativeSessions?:NativeSessionOwner,private readonly grants?:ToolPermissionGrantStore){}
+  constructor(private readonly db:DatabasePort,private readonly runs:AgentRunStore,private readonly remote:RemoteRunReconciler,private readonly nativeOutputs?:Pick<NativeOutputStaging,"listFiles">,private readonly nativeSessions?:NativeSessionOwner,private readonly grants?:ToolPermissionGrantStore,
+    /** 数字人能力（决策 B）：经 deep-agent 运行时执行的 dashscope 等 run 同样按 deep-agent 恢复。缺省空集 ⇒ 与此前逐字相同。 */
+    private readonly kernelServed:ReadonlySet<string>=new Set()){}
   async tick(orgId:OrgId):Promise<number>{
     const candidates=await this.db.withTenant(orgId,async s=>(await s.query<RecoveryRow>(`
       UPDATE agent_runs r SET lease_epoch=lease_epoch+1,lease_expires_at=now()+($2::bigint * interval '1 millisecond'),
@@ -30,10 +33,14 @@ export class PgRunRecovery {
       WHERE r.org_id=$1 AND r.id IN (SELECT id FROM agent_runs WHERE org_id=$1 AND status='running'
         AND coalesce(lease_expires_at,coalesce(heartbeat_at,started_at)+($2::bigint * interval '1 millisecond'))<now()
         ORDER BY started_at,id LIMIT 10 FOR UPDATE SKIP LOCKED)
-      RETURNING id,thread_id,remote_run_id,remote_thread_id,lease_epoch,recovery_attempts,model_provider,runtime_profile`,[orgId,DEFAULT_STALE_RUNNING_THRESHOLD_MS])).rows);
+      RETURNING id,thread_id,remote_run_id,remote_thread_id,lease_epoch,recovery_attempts,model_provider,runtime_profile,
+        jsonb_array_length(coalesce(r.skill_version_ids,'[]'::jsonb))::int AS skill_count`,[orgId,DEFAULT_STALE_RUNNING_THRESHOLD_MS])).rows);
     for(const run of candidates){
       await withRunLease({orgId,runId:run.id,epoch:run.lease_epoch,verify:()=>this.runs.heartbeatRun?.(orgId,run.id)??Promise.resolve()},async()=>{
-        let result=run.model_provider!=="deep-agent"?{kind:"uncertain" as const,diagnostic:"provider_recovery_unsupported"}:
+        // 白名单与路由同源（`readRunWorkflowContext`）；只在可能相关时才读，普通 run 不多一次查询。
+        const allowlistCount=run.model_provider!=="deep-agent"&&this.kernelServed.has(run.model_provider)&&run.skill_count===0
+          ?((await this.runs.readRunWorkflowContext?.(orgId,run.id))?.workflowAllowlist.length??0):0;
+        let result=!executedViaKernelRuntime({modelProvider:run.model_provider,kernelServedProviders:this.kernelServed,skillCount:run.skill_count,workflowAllowlistCount:allowlistCount})?{kind:"uncertain" as const,diagnostic:"provider_recovery_unsupported"}:
           run.remote_run_id?await this.remote.reconcileExistingRun(run.thread_id,run.remote_run_id,run.id,run.remote_thread_id??undefined,run.runtime_profile):{kind:"uncertain" as const,diagnostic:"remote_run_id_not_recorded"};
         if (result.kind === "success" && run.runtime_profile === "native-v1" && !this.nativeOutputs) result = { kind: "uncertain", diagnostic: "native_output_delivery_unavailable" };
         let terminal = false;
