@@ -247,8 +247,10 @@ describe("真实仓库", () => {
       unconditionalBy: ["apps/web/e2e/support/board-import-report-fullstack.config.ts"],
     });
     expect(captured).toMatchObject({
-      verdict: "covered",
-      unconditionalBy: ["apps/web/e2e/support/board-vendor-captured-fullstack.config.ts"],
+      verdict: "conditional-exempt",
+      unconditionalBy: [],
+      conditionalBy: ["apps/web/e2e/support/board-vendor-captured-fullstack.config.ts"],
+      reason: expect.stringContaining("#4707"),
     });
   });
 

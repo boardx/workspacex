@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
+import { resolveObjectPath } from '../../api/src/infrastructure/storage/object-store-path';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 
 /** Real services only: no route interception, business mocks or injected test principals. */
@@ -184,6 +185,7 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
 
 test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
   const context=await browser.newContext({baseURL}),owner=await context.newPage();let boardId:string|undefined,token:string|undefined;
+  owner.setDefaultTimeout(15_000);
   try{
     token=await login(owner,'OWNER');const created=await request(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Offline undo ${randomUUID()}`});boardId=(await created.json() as {id:string}).id;
     const geometry={x:100,y:100,width:180,height:140,rotation:0},object=(id:string,text:string)=>({id,schemaVersion:1,kind:'sticky',geometry,text,style:{},parentId:null,orderKey:id});
@@ -194,14 +196,14 @@ test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
     await owner.goto(`/studio/board/${boardId}`);await synced(owner);
     await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeVisible();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
     await context.setOffline(true);await expect(owner.getByText(/连接中断/)).toBeVisible({timeout:20_000});
-    const target=owner.getByTestId('board-a11y-object-undo-target');await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中'}).click();await expect(target).toHaveCount(0);await expect(owner.getByTestId('board-a11y-object-undo-edge')).toHaveCount(0);
+    const target=owner.getByTestId('board-a11y-object-undo-target');await target.focus();await target.press('Enter');await owner.getByLabel('对象文字',{exact:true}).press('Escape');await owner.getByRole('button',{name:'删除对象'}).click();await expect(target).toHaveCount(0);await expect(owner.getByTestId('board-a11y-object-undo-edge')).toHaveCount(0);
     await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();await expect(owner.getByText('撤销已在本地应用，正在等待服务器确认')).toBeVisible();
     await context.setOffline(false);await owner.getByTestId('board-retry-sync').click();await expect(owner.getByText(/撤销已由服务器确认 · 序列/)).toBeVisible({timeout:30_000});
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
     const baseCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),baseManifest=(await baseCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number}}).manifest;
     await request(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:baseManifest.epoch,commands:[{type:'style',id:'undo-target',style:{fill:'#fde68a'}}]});
     const corruptCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),corruptManifest=(await corruptCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number;objectKey:string}}).manifest;
-    const objectRoot=process.env.WORKSPACEX_OBJECT_ROOT??join(tmpdir(),'workspacex-objects');await writeFile(join(objectRoot,corruptManifest.objectKey),new Uint8Array([9,9,9]));
+    const objectRoot=process.env.WORKSPACEX_OBJECT_ROOT??join(tmpdir(),'workspacex-objects');await writeFile(resolveObjectPath(objectRoot,corruptManifest.objectKey),new Uint8Array([9,9,9]));
     const restoredResponse=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints/${corruptManifest.checkpointId}/restore`,{requestId:randomUUID(),expectedEpoch:corruptManifest.epoch,expectedSeq:corruptManifest.seq});
     const restored=await restoredResponse.json() as {auditEvents:Array<{type:string;fallbackCheckpointId?:string;requestedCheckpointId?:string}>};expect(restored.auditEvents).toContainEqual(expect.objectContaining({type:'CheckpointFallbackUsed',fallbackCheckpointId:baseManifest.checkpointId,requestedCheckpointId:corruptManifest.checkpointId}));
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
