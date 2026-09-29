@@ -10,6 +10,8 @@
  * - 未授权 crm.write：written_manual + 人工核对清单、零写入（A5）。
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import { EffectCancelledError, EffectInstanceUnavailableError } from "../../src/application/workflow/effect-gateway";
+import { WorkflowLeaseLostError } from "../../src/application/workflow/workflow-errors";
 import { CrmWriteItemOutcome } from "@repo/contracts/work-content";
 import { LeadWriteBackService, type ApprovedLead, type LeadWriteBackCommand } from "../../src/application/work-content/lead-write-back";
 import { CrmStub, Eligibility, Grants, makeGateway, MemInstances, MemLeases, MemReceipts, NotifyStub, ProcessKilled } from "./lead-to-qualified-fakes";
@@ -66,10 +68,10 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
   });
 
   /** 每次调用 = 一个新 worker 进程：新服务实例 + 新 lease（epoch+1），store 与 CRM 桩保持。 */
-  async function runProcess(items: ApprovedLead[]) {
+  async function runProcess(items: ApprovedLead[], beforeRun?: () => Promise<void>) {
     crm.dead = false; // 新进程：CRM 连接重新可用
     const gateway = makeGateway(receipts, leases, instances, grants);
-    const svc = new LeadWriteBackService({ gateway, capability: grants, eligibility, crm, notify, events: instances as never });
+    const svc = new LeadWriteBackService({ gateway, capability: grants, eligibility, crm, notify, events: instances as never, leases, instances });
     const lease = await leases.acquire({ orgId: ORG, instanceId: INSTANCE, holder: `w-${Math.random()}` });
     const cmd: LeadWriteBackCommand = {
       orgId: ORG,
@@ -81,6 +83,7 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
       approvalRequestId: "req-g1",
       items,
     };
+    await beforeRun?.();
     return svc.run(lease, cmd);
   }
 
@@ -139,12 +142,13 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
     expect(status()).toBe("succeeded");
   });
 
-  it("E11：单条工具异常 → 读回对账；已落库 → written，未落库查不到结论 → held，实例停在 needs_attention", async () => {
+  it("E11：单条工具异常但写已落库 → 读回对账确认 written，实例 succeeded（held 分支见下一条）", async () => {
     crm.failNext = { afterWrite: true };
     const r1 = await runProcess([lead(1)]);
     expect(r1.items[0]!.outcome).toBe("written");
     expect(crm.writes).toBe(1);
     expect(r1.status).toBe("succeeded");
+    expect(status()).toBe("succeeded");
   });
 
   it("E11/held：对账无结论 → held、不抛错；实例停在 needs_attention（终态），余条不再尝试同记 held，不追加 succeeded", async () => {
@@ -201,6 +205,83 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
     expect(r.manualChecklist.map((m) => m.itemId)).toEqual(items.map((i) => i.itemId));
     expect(r.status).toBe("succeeded");
     expect(r.outcome).toBe("with_holds");
+    expect(status()).toBe("succeeded");
+  });
+  it("R3-10：写回过程中实例被取消 → 不覆盖成 succeeded，落 cancelled 并抛 EffectCancelledError", async () => {
+    // 最后一条 effect_finalized（通知）之后、终局追加之前，取消请求落下。
+    instances.beforeAppend = (e) => {
+      if (e.type === "effect_finalized" && e.data.effectKey === "notify:initiator") instances.instances.get(INSTANCE)!.status = "cancelling";
+    };
+    await expect(runProcess([lead(1)])).rejects.toBeInstanceOf(EffectCancelledError);
+    expect(status()).toBe("cancelled");
+    expect(instances.events.some((e) => e.type === "status_changed" && e.data.status === "succeeded")).toBe(false);
+  });
+
+  it("I-12：终局追加前实例已被他人落 needs_attention → 不覆盖，抛 EffectInstanceUnavailableError", async () => {
+    instances.beforeAppend = (e) => {
+      if (e.type === "effect_finalized" && e.data.effectKey === "notify:initiator") {
+        const inst = instances.instances.get(INSTANCE)!;
+        inst.status = "needs_attention";
+      }
+    };
+    await expect(runProcess([lead(1)])).rejects.toBeInstanceOf(EffectInstanceUnavailableError);
+    expect(status()).toBe("needs_attention");
+  });
+
+  it("驳回路径同样不覆盖取消：实例 cancelling → 落 cancelled，不落 rejected", async () => {
+    instances.instances.get(INSTANCE)!.status = "cancelling";
+    await expect(runProcess([lead(1, { decision: "reject" })])).rejects.toBeInstanceOf(EffectCancelledError);
+    expect(status()).toBe("cancelled");
+  });
+
+  it("僵尸 worker：lease 被新持有者接管后 → 不得落终态（WorkflowLeaseLostError），实例保持 running", async () => {
+    const r = runProcess([lead(1, { decision: "reject" })], async () => {
+      await leases.acquire({ orgId: ORG, instanceId: INSTANCE, holder: "w-new" });
+    });
+    await expect(r).rejects.toBeInstanceOf(WorkflowLeaseLostError);
+    expect(status()).toBe("running");
+  });
+
+  it("E5×E6：进程 1 已写 lead-1 后崩溃，恢复前撤销审批人资格 → lead-1 仍报 written（读回对账），无 P2 forbidden 审计", async () => {
+    const items = Array.from({ length: N }, (_, i) => lead(i + 1));
+    crm.crashAfterWrites = 1;
+    await expect(runProcess(items)).rejects.toBeInstanceOf(ProcessKilled);
+    eligibility.revoked.add("lead-1");
+    const r = await runProcess(items);
+    expect(r.items.find((x) => x.itemId === "lead-1")!.outcome).toBe("written");
+    expect(crm.writes).toBe(N);
+    expect(instances.events.some((e) => e.type === "effect_blocked" && e.data.effectKey === "crm:lead-1")).toBe(false);
+    expect(status()).toBe("succeeded");
+  });
+
+  it("E5：P2 与 P3 的 effect_blocked 使用同一 effectKey（crm:<itemId>）", async () => {
+    eligibility.revoked.add("lead-1");
+    await runProcess([lead(1)]);
+    const blocked = instances.events.filter((e) => e.type === "effect_blocked");
+    expect(blocked.map((e) => e.data.effectKey)).toEqual(["crm:lead-1"]);
+  });
+
+  it("E6/通知：通知已发、终局前崩溃；恢复时汇总变化（P3 改判）→ 通知 replay 不抛 idempotency_key_reused，不重发，实例落终态", async () => {
+    const items = [lead(1), lead(2)];
+    instances.crashBeforeStatus = "succeeded";
+    await expect(runProcess(items)).rejects.toBeInstanceOf(ProcessKilled);
+    expect(notify.sent).toHaveLength(1);
+    // 恢复进程：lead-2 的 P3 重查被拒 → 汇总与首次不同。
+    const before = grants.calls.get("crm.write") ?? 0;
+    grants.override = (category, n) => (category === "crm.write" && n === before + 3 ? { authorized: false, sideEffectCap: "read" } : undefined);
+    const r = await runProcess(items);
+    expect(r.status).toBe("succeeded");
+    expect(r.notified).toBe(true);
+    expect(notify.sent).toHaveLength(1);
+    expect(status()).toBe("succeeded");
+  });
+
+  it("E6/通知：发送后、receipt finalize 前崩溃 → 恢复只读对账（已发），不重发，实例 succeeded", async () => {
+    notify.crashAfterSend = true;
+    await expect(runProcess([lead(1)])).rejects.toBeInstanceOf(ProcessKilled);
+    const r = await runProcess([lead(1)]);
+    expect(r.notified).toBe(true);
+    expect(notify.sent).toHaveLength(1);
     expect(status()).toBe("succeeded");
   });
 });

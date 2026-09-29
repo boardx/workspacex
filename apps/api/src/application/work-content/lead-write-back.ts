@@ -14,12 +14,23 @@
  * 单条工具异常（非租约/取消/实例不可用）→ 读回对账：确认已写 → `written`，否则 `held`（E11，不中断实例）。
  * 任一条 `held`（对账无结论）→ 实例保持网关落的 needs_attention，不追加 succeeded。
  * 终局：runtime 状态只用 `succeeded`；`completed_with_holds` = succeeded + outcome `with_holds`（I-C9）。
+ *
+ * 2026-09-29 review 修订：
+ * - 终局追加（succeeded / rejected）前先断言 lease（僵尸 worker 不得落终态），再按实例当前
+ *   stateVersion 做 CAS：期间被取消 / 转 needs_attention / 被他人推进 → 不覆盖（R3-10、I-12），
+ *   `cancelling` 就地落 `cancelled` 并抛 `EffectCancelledError`；其余抛 `EffectInstanceUnavailableError`。
+ * - P2 在「该条 effect 尚无 receipt」时才重查：先前进程已 begin/finalize 的条目，其决定已提交，
+ *   恢复时交给网关 replay / reconcile 判定真实结果，不因 G1 后撤销资格而谎报 forbidden（E5×E6）。
+ * - P2 的 effect_blocked 与网关 P3 用同一个 effectKey（`crm:<itemId>`）。
+ * - 通知 effect 的指纹按实例确定（不随汇总变化）：恢复重算出不同汇总时 replay 首次结果，不抛
+ *   idempotency_key_reused 卡死实例；通知至多一次。
  */
 import type { z } from "zod";
 import type { CrmWriteItemOutcome, WorkContentOutcome } from "@repo/contracts/work-content";
 import { W011 } from "../../domain/work-content/definitions/sales";
 import {
   EffectCancelledError,
+  EffectInFlightError,
   EffectInstanceUnavailableError,
   EffectPermissionBlockedError,
   withinSideEffectCap,
@@ -27,8 +38,11 @@ import {
   type EffectReconcilePort,
 } from "../workflow/effect-gateway";
 import { WorkflowLeaseLostError } from "../workflow/workflow-errors";
+import type { WorkflowInstanceRepository, WorkflowLeaseStore } from "../workflow/workflow-ports";
 import type { EffectCapabilityAuthorityPort } from "../workflow/effect-permission-recheck";
 import type { WorkflowLease } from "../workflow/workflow-ports";
+import type { WorkflowInstanceStatus, WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
+import { WORKFLOW_TERMINAL_STATUSES } from "@repo/contracts/workflow-runtime";
 import type { WorkflowEventStore } from "../workflow/workflow-runtime-ports";
 
 export type CrmItemOutcome = z.infer<typeof CrmWriteItemOutcome>;
@@ -58,6 +72,8 @@ export interface LeadApproverEligibilityPort {
 export interface InAppNotifyPort {
   canRead(orgId: string, recipientUserId: string, instanceId: string): Promise<boolean>;
   send(input: { orgId: string; recipientUserId: string; instanceId: string; summary: Record<string, number> }): Promise<{ notificationId: string }>;
+  /** 只读对账：该实例是否已给发起人发过站内通知（崩溃恢复不重发，E6）。 */
+  hasSent(orgId: string, instanceId: string): Promise<boolean>;
 }
 
 export interface ApprovedLead {
@@ -109,6 +125,10 @@ export interface LeadWriteBackDeps {
   crm: TenantCrmPort;
   notify: InAppNotifyPort;
   events: WorkflowEventStore;
+  /** 终局追加前的 lease 围栏（与网关同一份 lease store）。 */
+  leases: WorkflowLeaseStore;
+  /** 终局 CAS 读实例当前 status / stateVersion（与网关同一份仓储）。 */
+  instances: WorkflowInstanceRepository;
 }
 
 const WRITE_STAGE = W011.stages.find((s) => s.stageId === "write_back")!;
@@ -138,12 +158,7 @@ export class LeadWriteBackService {
       .map((i) => ({ itemId: i.itemId, outcome: "rejected" as const, conflictDiff: null }));
 
     if (approved.length === 0) {
-      await this.deps.events.append(
-        cmd.orgId,
-        cmd.instanceId,
-        { type: "status_changed", stageId: "review", reasonCode: "gate_denied", data: { status: "rejected" } },
-        { status: "rejected", reasonCode: "gate_denied" },
-      );
+      await this.finish(lease, cmd, { type: "status_changed", stageId: "review", reasonCode: "gate_denied", data: { status: "rejected" } }, "rejected", "gate_denied");
       return { status: "rejected", outcome: null, items: results, manualChecklist: [], notified: false };
     }
 
@@ -172,26 +187,55 @@ export class LeadWriteBackService {
     const outcome: LeadWriteOutcome = results.some((r) => HOLD_OUTCOMES.has(r.outcome)) ? "with_holds" : "complete";
     if (unreconciled) return { status: "needs_attention", outcome, items: results, manualChecklist, notified: false };
     const notified = await this.notify(lease, cmd, results);
-    await this.deps.events.append(
-      cmd.orgId,
-      cmd.instanceId,
-      { type: "status_changed", stageId: null, reasonCode: null, data: { status: "succeeded", outcome } },
-      { status: "succeeded", reasonCode: null },
-    );
+    if (notified === "unresolved") return { status: "needs_attention", outcome, items: results, manualChecklist, notified: false };
+    await this.finish(lease, cmd, { type: "status_changed", stageId: null, reasonCode: null, data: { status: "succeeded", outcome } }, "succeeded", null);
     return { status: "succeeded", outcome, items: results, manualChecklist, notified };
   }
 
+  /**
+   * 终局状态追加：lease 围栏 + stateVersion CAS。不覆盖期间发生的取消 / 终态（R3-10、I-12）。
+   * lease 断言与 CAS 之间仍有极窄窗口；CAS 保证即便僵尸 worker 挤进窗口，也只能在实例状态未被
+   * 任何人改动时落终态——不会覆盖新持有者或取消方已落的状态。
+   */
+  private async finish(
+    lease: WorkflowLease,
+    cmd: LeadWriteBackCommand,
+    event: Parameters<WorkflowEventStore["append"]>[2],
+    status: WorkflowInstanceStatus,
+    reasonCode: WorkflowReasonCode | null,
+  ): Promise<void> {
+    await this.deps.leases.assertLease(lease);
+    const inst = await this.deps.instances.find(cmd.orgId, cmd.instanceId);
+    if (!inst) throw new EffectInstanceUnavailableError(cmd.instanceId, "workflow_not_found");
+    if (inst.status === "cancelling") {
+      const c = await this.deps.events.append(
+        cmd.orgId,
+        cmd.instanceId,
+        { type: "status_changed", stageId: event.stageId, reasonCode: "cancel_requested", data: { status: "cancelled" } },
+        { expectedStateVersion: inst.stateVersion, status: "cancelled", reasonCode: "cancel_requested" },
+      );
+      if (!c.ok) throw new EffectInstanceUnavailableError(cmd.instanceId, c.conflict);
+      throw new EffectCancelledError(cmd.instanceId, event.stageId ?? "", "terminal");
+    }
+    if (inst.status === "cancelled") throw new EffectCancelledError(cmd.instanceId, event.stageId ?? "", "terminal");
+    if (WORKFLOW_TERMINAL_STATUSES.includes(inst.status)) throw new EffectInstanceUnavailableError(cmd.instanceId, "instance_terminal");
+    const r = await this.deps.events.append(cmd.orgId, cmd.instanceId, event, { expectedStateVersion: inst.stateVersion, status, reasonCode });
+    if (!r.ok) throw new EffectInstanceUnavailableError(cmd.instanceId, r.conflict);
+  }
+
   private async writeOne(lease: WorkflowLease, cmd: LeadWriteBackCommand, item: ApprovedLead): Promise<LeadItemResult> {
-    if (!(await this.deps.eligibility.stillEligible(cmd.orgId, cmd.approverUserId, item.itemId))) {
+    const effectKey = `crm:${item.itemId}`;
+    // E5×E6：先前进程已 begin 过这一条 → 决定已提交，P2 不再否定它；真实结果由网关 replay / reconcile 给出。
+    const prior = await this.deps.gateway.effectReceiptStatus({ orgId: cmd.orgId, instanceId: cmd.instanceId, stageId: WRITE_STAGE.stageId, effectKey });
+    if (prior === null && !(await this.deps.eligibility.stillEligible(cmd.orgId, cmd.approverUserId, item.itemId))) {
       await this.deps.events.append(cmd.orgId, cmd.instanceId, {
         type: "effect_blocked",
         stageId: WRITE_STAGE.stageId,
         reasonCode: null,
-        data: { effectKey: item.itemId, capabilityCategory: CRM_WRITE, itemOutcome: "forbidden" },
+        data: { effectKey, capabilityCategory: CRM_WRITE, itemOutcome: "forbidden" },
       });
       return { itemId: item.itemId, outcome: "forbidden", conflictDiff: null };
     }
-    const effectKey = `crm:${item.itemId}`;
     const writeKey = `${cmd.instanceId}/${effectKey}`;
     const effectCmd = {
       orgId: cmd.orgId,
@@ -237,7 +281,7 @@ export class LeadWriteBackService {
     }
   }
 
-  private async notify(lease: WorkflowLease, cmd: LeadWriteBackCommand, results: readonly LeadItemResult[]): Promise<boolean> {
+  private async notify(lease: WorkflowLease, cmd: LeadWriteBackCommand, results: readonly LeadItemResult[]): Promise<boolean | "unresolved"> {
     const cap = await this.deps.capability.checkCapability(cmd.orgId, NOTIFY_INAPP);
     if (!cap.authorized || !withinSideEffectCap(NOTIFY_STAGE.sideEffect, cap.sideEffectCap)) return false;
     if (!(await this.deps.notify.canRead(cmd.orgId, cmd.initiatorUserId, cmd.instanceId))) {
@@ -252,25 +296,33 @@ export class LeadWriteBackService {
     }
     const summary: Record<string, number> = {};
     for (const r of results) summary[r.outcome] = (summary[r.outcome] ?? 0) + 1;
-    await this.deps.gateway.execute(
-      lease,
-      {
-        orgId: cmd.orgId,
-        instanceId: cmd.instanceId,
-        stageId: NOTIFY_STAGE.stageId,
-        workflowKey: W011.key,
-        effectKey: "notify:initiator",
-        capabilityCategory: NOTIFY_INAPP,
-        sideEffect: NOTIFY_STAGE.sideEffect,
-        initiatorUserId: cmd.initiatorUserId,
-        agentId: cmd.agentId,
-        agentVersionId: cmd.agentVersionId,
-        fingerprint: JSON.stringify(summary),
-        args: { recipientUserId: cmd.initiatorUserId, summary },
-        approvalRequestId: cmd.approvalRequestId,
-      },
-      async (args) => this.deps.notify.send({ orgId: cmd.orgId, recipientUserId: String(args.recipientUserId), instanceId: cmd.instanceId, summary }),
-    );
-    return true;
+    const notifyCmd = {
+      orgId: cmd.orgId,
+      instanceId: cmd.instanceId,
+      stageId: NOTIFY_STAGE.stageId,
+      workflowKey: W011.key,
+      effectKey: "notify:initiator",
+      capabilityCategory: NOTIFY_INAPP,
+      sideEffect: NOTIFY_STAGE.sideEffect,
+      initiatorUserId: cmd.initiatorUserId,
+      agentId: cmd.agentId,
+      agentVersionId: cmd.agentVersionId,
+      // 按实例确定：恢复时汇总可能不同（如条目改判），不能让它变成 idempotency_key_reused 卡死实例。
+      fingerprint: `${cmd.instanceId}/notify:initiator`,
+      args: { recipientUserId: cmd.initiatorUserId, summary },
+      approvalRequestId: cmd.approvalRequestId,
+    };
+    try {
+      await this.deps.gateway.execute(lease, notifyCmd, async (args) =>
+        this.deps.notify.send({ orgId: cmd.orgId, recipientUserId: String(args.recipientUserId), instanceId: cmd.instanceId, summary }),
+      );
+      return true;
+    } catch (err) {
+      if (!(err instanceof EffectInFlightError)) throw err;
+      // 先前进程发送后未 finalize：只读对账，绝不重发。查不到结论 → 网关落 needs_attention，这里如实抛出。
+      const r = await this.deps.gateway.reconcile(notifyCmd, { reconcile: () => this.deps.notify.hasSent(cmd.orgId, cmd.instanceId) });
+      // 查不到结论 → 网关已把实例落 needs_attention（终态）；如实上报，不追加 succeeded。
+      return r === "reconciled" ? true : "unresolved";
+    }
   }
 }

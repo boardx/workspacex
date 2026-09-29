@@ -37,7 +37,8 @@ export class MemReceipts implements WorkflowReceiptStore {
       return { kind: "begun" };
     }
     if (row.fingerprint !== key.fingerprint) throw new WorkflowUseCaseError("idempotency_key_reused", "reused");
-    if (row.status === "finalized") return { kind: "replay", stableResponse: row.stableResponse, checkpointId: row.checkpointId, instanceId: row.instanceId };
+    // 与 PgWorkflowReceiptStore 一致：reconciled 与 finalized 同走 replay。
+    if (row.status === "finalized" || row.status === "reconciled") return { kind: "replay", stableResponse: row.stableResponse, checkpointId: row.checkpointId, instanceId: row.instanceId };
     return { kind: "in_flight", instanceId: row.instanceId };
   }
   async finalize(key: WorkflowReceiptKey, r: { stableResponse: unknown; checkpointId: string | null; instanceId: string | null }) {
@@ -75,6 +76,10 @@ export class MemLeases implements WorkflowLeaseStore {
 export class MemInstances implements WorkflowInstanceRepository, Pick<WorkflowEventStore, "append"> {
   instances = new Map<string, PinnedWorkflowInstance & { reasonCode: WorkflowReasonCode | null }>();
   events: WorkflowEventInput[] = [];
+  /** 追加该状态的 status_changed 前进程被杀（测恢复）。 */
+  crashBeforeStatus: WorkflowInstanceStatus | null = null;
+  /** 追加第 n 条事件之前执行（模拟并发取消等外部状态变化）。 */
+  beforeAppend: ((event: WorkflowEventInput) => void) | null = null;
   async create(i: PinnedWorkflowInstance) {
     this.instances.set(i.instanceId, { ...i, reasonCode: null });
   }
@@ -85,11 +90,17 @@ export class MemInstances implements WorkflowInstanceRepository, Pick<WorkflowEv
     _orgId: string,
     id: string,
     event: WorkflowEventInput,
-    opts?: { status?: WorkflowInstanceStatus; reasonCode?: WorkflowReasonCode | null },
+    opts?: { expectedStateVersion?: number; status?: WorkflowInstanceStatus; reasonCode?: WorkflowReasonCode | null },
   ): Promise<WorkflowAppendResult> {
+    this.beforeAppend?.(event);
+    if (opts?.status && opts.status === this.crashBeforeStatus) {
+      this.crashBeforeStatus = null;
+      throw new ProcessKilled();
+    }
     const inst = this.instances.get(id);
     if (!inst) return { ok: false, conflict: "workflow_not_found" };
     if (WORKFLOW_TERMINAL_STATUSES.includes(inst.status)) return { ok: false, conflict: "instance_terminal" };
+    if (opts?.expectedStateVersion !== undefined && opts.expectedStateVersion !== inst.stateVersion) return { ok: false, conflict: "state_version_conflict" };
     this.events.push(event);
     inst.stateVersion += 1;
     if (opts?.status) {
@@ -161,11 +172,20 @@ export class Eligibility implements LeadApproverEligibilityPort {
 export class NotifyStub implements InAppNotifyPort {
   sent: { recipientUserId: string; summary: Record<string, number> }[] = [];
   readable = true;
+  /** 发送成功后、receipt finalize 前进程被杀（测恢复时通知不重发、不因汇总变化卡死）。 */
+  crashAfterSend = false;
   async canRead() {
     return this.readable;
   }
+  async hasSent() {
+    return this.sent.length > 0;
+  }
   async send(i: { recipientUserId: string; summary: Record<string, number> }) {
     this.sent.push(i);
+    if (this.crashAfterSend) {
+      this.crashAfterSend = false;
+      throw new ProcessKilled();
+    }
     return { notificationId: `n-${this.sent.length}` };
   }
 }
