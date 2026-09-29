@@ -20,6 +20,7 @@ import { resolve, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sha256, verifySkillStarterPack, type SkillStarterPack } from "../src/domain/skill/starter-pack";
 import { parseSkillFrontmatter } from "../src/domain/skill/skill-frontmatter";
+import { starterPackMediaType } from "../src/domain/skill/work-skill-content-digest";
 import {
   parseWorkSkillManifest,
   formatWorkSkillManifestIssue,
@@ -64,11 +65,7 @@ export function readPhaseOnePassIds(listPath: string = DEFAULT_ENTITY_LIST): Set
   return ids;
 }
 
-function mediaTypeFor(path: string): string {
-  if (path.endsWith(".md")) return "text/markdown";
-  if (path.endsWith(".json")) return "application/json";
-  return "application/octet-stream";
-}
+const mediaTypeFor = starterPackMediaType;
 
 /** 相对某个 skill 目录，递归列出全部文件（含 references/），排序固定以保证可重复构建。 */
 function listSkillFiles(skillDir: string, base = ""): string[] {
