@@ -7,6 +7,12 @@ import type pg from "pg";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { ComposedEffectPermissionRecheck } from "../../application/workflow/effect-permission-recheck";
 import { EffectGateway, type EffectReconcilePort } from "../../application/workflow/effect-gateway";
+import {
+  LeadWriteBackService,
+  type InAppNotifyPort,
+  type LeadApproverEligibilityPort,
+  type TenantCrmPort,
+} from "../../application/work-content/lead-write-back";
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
@@ -61,6 +67,19 @@ export interface WorkflowRuntimeOptions {
   takeoverIntervalMs?: number;
   /** WF04：按能力分类注册的只读对账实现（E1）；未注册的分类崩溃恢复时一律 unresolved。 */
   effectReconcilers?: Record<string, EffectReconcilePort>;
+  /**
+   * CT09：W011「线索到合格」写回段的租户侧端口（租户 CRM / 站内通知 / 审批人资格）。给了才合成
+   * `leadWriteBack`，并把 `crm.write` 的只读对账注册进网关（runInstance 通用恢复路径同样可用）。
+   */
+  leadWriteBack?: { crm: TenantCrmPort; notify: InAppNotifyPort; eligibility: LeadApproverEligibilityPort };
+}
+
+/** CT09：W011 写回的只读对账（writeKey = `instanceId/effectKey`，与 LeadWriteBackService 同一约定）。 */
+function leadWriteBackReconcilers(p: NonNullable<WorkflowRuntimeOptions["leadWriteBack"]>): Record<string, EffectReconcilePort> {
+  return {
+    "crm.write": { reconcile: (i) => p.crm.hasWrite(i.orgId, `${i.instanceId}/${i.effectKey}`) },
+    "notify.inapp": { reconcile: (i) => p.notify.hasSent(i.orgId, i.instanceId) },
+  };
 }
 
 /** 按能力分类分派对账实现；未注册的分类视为「查不到结论」（E1 → unresolved）。 */
@@ -79,14 +98,22 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
   const leases = new PgWorkflowLeaseStore(db);
   const events = new PgWorkflowEventStore(db);
   const instances = new PgWorkflowInstanceRepository(db);
+  const capability = new PgEffectCapabilityAuthority(db);
+  const reconcilers: Record<string, EffectReconcilePort> = {
+    ...(opts.leadWriteBack ? leadWriteBackReconcilers(opts.leadWriteBack) : {}),
+    ...(opts.effectReconcilers ?? {}),
+  };
   const effectGateway = new EffectGateway({
     leases,
     receipts,
     events,
     instances,
-    permission: new ComposedEffectPermissionRecheck(access, new PgEffectCapabilityAuthority(db)),
-    reconcile: opts.effectReconcilers ? new DispatchingEffectReconciler(opts.effectReconcilers) : undefined,
+    permission: new ComposedEffectPermissionRecheck(access, capability),
+    reconcile: Object.keys(reconcilers).length > 0 ? new DispatchingEffectReconciler(reconcilers) : undefined,
   });
+  const leadWriteBack = opts.leadWriteBack
+    ? new LeadWriteBackService({ gateway: effectGateway, capability, events, leases, instances, ...opts.leadWriteBack })
+    : null;
   const service = new WorkflowRuntimeService({
     definitions: new PgWorkflowDefinitionRepository(db),
     instances,
@@ -109,7 +136,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     // 不再是只有单测直接 `new EffectGateway(...)` 才会调用到的孤立代码。
     effectGateway,
   });
-  return { service, registry, effectGateway };
+  return { service, registry, effectGateway, leadWriteBack, leases };
 }
 
 /**

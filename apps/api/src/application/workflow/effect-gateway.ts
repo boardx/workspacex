@@ -29,7 +29,7 @@ import type { WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
 import { WorkflowSideEffectClass as WorkflowSideEffectClassSchema } from "@repo/contracts/workflow-runtime";
 import type { z } from "zod";
 import { isTerminal } from "./instance-projection";
-import type { WorkflowLease, WorkflowLeaseStore, WorkflowReceiptKey, WorkflowReceiptScope, WorkflowReceiptStore } from "./workflow-ports";
+import type { WorkflowLease, WorkflowLeaseStore, WorkflowReceiptKey, WorkflowReceiptRow, WorkflowReceiptScope, WorkflowReceiptStore } from "./workflow-ports";
 import type { WorkflowInstanceRepository } from "./workflow-ports";
 import type { WorkflowAppendResult, WorkflowEventStore } from "./workflow-runtime-ports";
 
@@ -281,6 +281,15 @@ export class EffectGateway {
     const r = await this.deps.events.append(cmd.orgId, cmd.instanceId, event, opts);
     if (!r.ok) throw new EffectInstanceUnavailableError(cmd.instanceId, r.conflict);
     return r;
+  }
+
+  /**
+   * 只读：该 effect 是否已经 begin 过（任一状态）。调用方据此判断「这一条的决定已在先前的进程里提交」，
+   * 恢复路径不再用当下的业务前置条件（如 CT09 的 P2 审批人资格）去否定一个可能已经发生的副作用。
+   */
+  async effectReceiptStatus(cmd: Pick<ExecuteEffectCommand, "orgId" | "instanceId" | "stageId" | "effectKey">): Promise<WorkflowReceiptRow["status"] | null> {
+    const row = await this.deps.receipts.find(cmd.orgId, "effect", requestKeyOf(cmd));
+    return row?.status ?? null;
   }
 
   /**
