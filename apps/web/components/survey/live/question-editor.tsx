@@ -69,6 +69,7 @@ export function SurveyQuestionEditor({
     index: number;
   }>();
   const [preview, setPreview] = React.useState(studioLayout);
+  const [trialMode, setTrialMode] = React.useState(false);
   const [editing, setEditing] = React.useState(!overviewFirst);
   const [previewDevice, setPreviewDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
   const [answers, setAnswers] = React.useState<
@@ -164,6 +165,40 @@ export function SurveyQuestionEditor({
   const outlineQuestions = normalizedOutlineSearch
     ? questions.filter((item) => `${item.order} ${item.title} ${item.chapterId}`.toLocaleLowerCase().includes(normalizedOutlineSearch))
     : questions;
+  if (studioLayout && trialMode) {
+    const trialQuestions = visibleSurveyQuestions(questions, answers);
+    return (
+      <section aria-label="问卷试填" className="flex min-h-0 flex-1 flex-col bg-muted/30 p-5 lg:h-full lg:overflow-hidden">
+        <div className="mx-auto flex w-full max-w-4xl shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
+          <div>
+            <p className="text-12 font-medium text-muted-foreground">受访者视角 · 不会提交答卷</p>
+            <h2 className="mt-1 text-18 font-semibold">试填模式</h2>
+          </div>
+          <Button type="button" variant="outline" onClick={() => setTrialMode(false)}>
+            退出试填
+          </Button>
+        </div>
+        <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto bg-background px-5 py-7">
+          <div className="mx-auto max-w-2xl space-y-7">
+            <header className="border-b border-border pb-6 text-center">
+              <h1 className="text-24 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h1>
+              <p className="mt-2 text-12 text-muted-foreground">请像受访者一样填写，检查题目顺序、选项与条件显示。</p>
+            </header>
+            {trialQuestions.length ? trialQuestions.map((item) => (
+              <SurveyQuestionRenderer
+                key={`${item.id}-${item.type}`}
+                question={item}
+                value={answers[item.id]}
+                onChange={(value) => setAnswers((current) => ({ ...current, [item.id]: value }))}
+              />
+            )) : (
+              <p className="py-16 text-center text-13 text-muted-foreground">当前没有可试填的题目。</p>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
   if (overviewFirst && !editing) {
     const answerQuestions = questions.filter(
       (item) => !["description", "page_break"].includes(item.type),
@@ -260,6 +295,9 @@ export function SurveyQuestionEditor({
         <div className="flex flex-wrap gap-2">
           {studioLayout && !locked && (
             <>
+              <Button type="button" variant="outline" onClick={() => setTrialMode(true)}>
+                试填问卷
+              </Button>
               <Button type="button" variant="outline" aria-label="撤销最近修改" disabled={!undoStack.length} onClick={undo}>
                 <Undo2 aria-hidden="true" className="h-4 w-4" />撤销
               </Button>

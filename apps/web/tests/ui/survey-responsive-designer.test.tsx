@@ -82,6 +82,31 @@ it("keeps desktop side panels fixed and makes the center canvas the primary scro
   expect(screen.getByTestId("survey-designer-canvas-scroll")).toHaveClass("lg:h-full", "lg:overflow-y-auto");
 });
 
+it("offers a focused trial fill that follows respondent visibility without editing the draft", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const first = { ...createSurveyQuestion("single", "q1", 1), title: "是否继续", options: ["是", "否"] };
+  const follow = { ...createSurveyQuestion("short", "q2", 2), title: "补充说明" };
+  follow.config = {
+    ...follow.config,
+    visibleWhen: [{ questionId: "q1", operator: "equals", value: first.config!.optionIds![0]! }],
+  };
+  const onChange = vi.fn();
+  render(<SurveyQuestionEditor studioLayout surveyTitle="试填问卷" questions={[first, follow]} onChange={onChange} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "试填问卷" }));
+  const trial = screen.getByRole("region", { name: "问卷试填" });
+  expect(within(trial).getByRole("heading", { name: "试填问卷" })).toBeInTheDocument();
+  expect(within(trial).getByRole("group", { name: "是否继续 *" })).toBeInTheDocument();
+  expect(within(trial).queryByRole("group", { name: "补充说明 *" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "题型工具箱" })).not.toBeInTheDocument();
+
+  fireEvent.click(within(trial).getByLabelText("是"));
+  expect(within(trial).getByRole("group", { name: "补充说明 *" })).toBeInTheDocument();
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "退出试填" }));
+  expect(screen.getByRole("heading", { name: "题型工具箱" })).toBeInTheDocument();
+});
+
 it("searches and reorders long questionnaires from the outline", () => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   function Designer() {
