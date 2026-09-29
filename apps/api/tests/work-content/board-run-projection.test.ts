@@ -116,6 +116,17 @@ describe("I-C12 先权限过滤再投影（listBoardRunCards）", () => {
     expect((await listBoardRunCards(deps(null), { orgId: "o", viewerUserId: "u-x" })).cards).toEqual([]);
   });
 
+  it("非管理员在运行源的 LIMIT 之前按发起人收窄；管理员不收窄", async () => {
+    const seen: (string | null)[] = [];
+    const mk = (role: "admin" | "member") => ({
+      runs: { listRuns: async (_o: string, _p: string | null, initiator: string | null) => (seen.push(initiator), runs) },
+      access: { orgRoleOf: async () => role },
+    });
+    await listBoardRunCards(mk("member"), { orgId: "o", viewerUserId: "u-alice" });
+    await listBoardRunCards(mk("admin"), { orgId: "o", viewerUserId: "u-x" });
+    expect(seen).toEqual(["u-alice", null]);
+  });
+
   it("输出满足 operation out schema", async () => {
     const out = await listBoardRunCards(deps("admin"), { orgId: "o", viewerUserId: "u-x" });
     expect(() => workContent.operations.listBoardRunCards.out.parse(out)).not.toThrow();

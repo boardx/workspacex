@@ -3,7 +3,8 @@
  *
  * 读四张表：workflow_instances（状态 / 发起人 / 发起 Agent）、workflow_definition_versions（title = Workflow 名）、
  * workflow_events 的 seq=1 instance_started（发起输入里的 projectId / 发起对象标签）、agents（参与 Agent 显示名）。
- * 权限过滤不在这里：application 层 listBoardRunCards 用 WF03 的 canView 过滤后才投影（I-C12）。
+ * 非管理员由调用方传 initiatorUserId 在 LIMIT 之前收窄；最终权限仍由 application 层 canView 过滤后才投影（I-C12）。
+ * 已知缺口：运行时尚未持久化交接链，agents 只含发起 Agent，avatarUrl / digitalHumanId 恒为 null。
  * 只返回标识与显示名，不返回任何 Agent 指令或阶段产出内容。
  */
 import type { DatabasePort } from "../../application/ports/database.port";
@@ -25,7 +26,7 @@ interface RunRow {
 export class PgBoardRunSource implements BoardRunSource {
   constructor(private readonly db: DatabasePort) {}
 
-  listRuns(orgId: string, projectId: string | null): Promise<VisibleRunSummary[]> {
+  listRuns(orgId: string, projectId: string | null, initiatorUserId: string | null): Promise<VisibleRunSummary[]> {
     return this.db.withTenant(toOrgId(orgId), async (s) => {
       const { rows } = await s.query<RunRow>(
         `SELECT i.id, i.status, i.initiator_user_id, i.agent_id,
@@ -39,9 +40,10 @@ export class PgBoardRunSource implements BoardRunSource {
            LEFT JOIN agents a ON a.org_id = i.org_id AND a.id = i.agent_id
           WHERE i.org_id = $1
             AND ($2::text IS NULL OR e.data->'input'->>'projectId' = $2)
+            AND ($3::text IS NULL OR i.initiator_user_id = $3)
           ORDER BY i.created_at DESC, i.id
           LIMIT 500`,
-        [orgId, projectId],
+        [orgId, projectId, initiatorUserId],
       );
       return rows.map((r) => ({
         instanceId: r.id,

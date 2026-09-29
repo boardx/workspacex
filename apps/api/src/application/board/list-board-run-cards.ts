@@ -13,8 +13,11 @@ import {
 } from "../../domain/board/workflow-run-card";
 
 export interface BoardRunSource {
-  /** 组织内候选运行（未过滤权限）；projectId 缺省 = 全局视图。 */
-  listRuns(orgId: string, projectId: string | null): Promise<VisibleRunSummary[]>;
+  /**
+   * 组织内候选运行；projectId 缺省 = 全局视图。initiatorUserId 非 null 时在库里先按发起人收窄
+   * （非管理员的可见集只可能是自己发起的，必须在 LIMIT 之前收窄，否则他人的新运行会把自己的挤掉）。
+   */
+  listRuns(orgId: string, projectId: string | null, initiatorUserId: string | null): Promise<VisibleRunSummary[]>;
 }
 
 export interface ListBoardRunCardsDeps {
@@ -28,9 +31,12 @@ export async function listBoardRunCards(
 ): Promise<{ cards: BoardWorkflowRunCard[] }> {
   const role = await deps.access.orgRoleOf(input.orgId, input.viewerUserId);
   if (role === null) return { cards: [] };
-  const candidates = await deps.runs.listRuns(input.orgId, input.projectId ?? null);
-  // 唯一读权限谓词：WF03 instance-projection 的 canView（不在此处另写一份）。
   const actor = { userId: input.viewerUserId, orgRole: role };
+  // SQL 预收窄：若 canView 对「他人发起」的运行为假（即非管理员），就只取本人发起的候选。
+  // 推导自 canView 本身，不另写角色判断；canView 仍是下面的最终守卫。
+  const seesOthers = canView({ initiatorUserId: "\u0000other" }, actor);
+  const candidates = await deps.runs.listRuns(input.orgId, input.projectId ?? null, seesOthers ? null : input.viewerUserId);
+  // 唯一读权限谓词：WF03 instance-projection 的 canView（不在此处另写一份）。
   const visible = candidates.filter((r) => canView(r, actor));
   return { cards: projectRunCards(visible) };
 }

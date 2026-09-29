@@ -79,6 +79,23 @@ describe("CT10 PgBoardRunSource + listBoardRunCards（真库）", () => {
     }
   });
 
+  it("他人 >500 条更新的运行不会把成员自己的卡挤出（LIMIT 前按发起人收窄）", async () => {
+    const cols = await asOwner(async (c) =>
+      (await c.query<{ column_name: string }>(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'workflow_instances' ORDER BY ordinal_position",
+      )).rows.map((r) => r.column_name));
+    const sel = cols.map((col) =>
+      col === "id" ? "'wi-ct10-bulk-' || g" : col === "initiator_user_id" ? "$3" : col === "created_at" ? "now() + g * interval '1 second'" : `i.${col}`);
+    await asOwner((c) => c.query(
+      `INSERT INTO workflow_instances (${cols.join(",")})
+         SELECT ${sel.join(",")} FROM workflow_instances i, generate_series(1, 520) g
+          WHERE i.org_id = $1 AND i.id = $2`,
+      [ORG, "wi-ct10-b", BOB],
+    ));
+    const { cards } = await listBoardRunCards(deps(), { orgId: ORG, viewerUserId: ALICE });
+    expect(ids(cards)).toEqual(["workflow_run:wi-ct10-a", "workflow_run:wi-ct10-c"]);
+  });
+
   it("非组织成员一张都没有", async () => {
     expect((await listBoardRunCards(deps(), { orgId: ORG, viewerUserId: "u-ct10-stranger" })).cards).toEqual([]);
   });

@@ -829,7 +829,7 @@
         "pnpm --filter web exec vitest run tests/ui/board-run-card.test.tsx"
       ],
       "evidence": "",
-      "notes": "第10轮。has_ui=true。投影是派生只读视图非第二事实源（R7）。UI 须随契约束 work-content 签核，先开发后补签。V7/E10 断言。"
+      "notes": "第10轮。has_ui=true。投影是派生只读视图非第二事实源（R7）。UI 须随契约束 work-content 签核，先开发后补签。V7/E10 断言。 已知缺口：(1) 运行时尚未持久化交接链，卡片 agents 只含发起 Agent，avatarUrl/digitalHumanId 恒为 null，ui.md:28「发起 Agent + 交接链」未完全覆盖；(2) 运行卡只出现在独立 /workflows/board 页，domain projectBoardWithRunCards 尚无生产调用方，未并入任务 Board 的项目/全局视图，『两视图同一 ID 集』仅在纯函数与 e2e 测试层证明。"
     },
     {
       "id": "CT11",
