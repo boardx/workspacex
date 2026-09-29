@@ -51,6 +51,54 @@ beforeEach(() => {
 });
 
 describe("live survey trusted publishing", () => {
+  it("republishes a closed active batch with the current version", async () => {
+    const closed = runtime({
+      status: "closed",
+      publication: { token: "closed-token", status: "closed", version: 4, expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions },
+      activeCollectionBatchId: "batch-1",
+      collectionBatches: [{ id: "batch-1", token: "closed-token", status: "closed", version: 4, createdAt: "2026-09-24T08:00:00.000Z", closedAt: "2026-09-25T08:00:00.000Z", expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions }],
+    });
+    const republished = runtime({
+      ...closed,
+      status: "collecting",
+      version: 5,
+      publication: { token: "fresh-token", status: "collecting", version: 4, expiresAt: "2026-10-29T10:00:00.000Z", questions: runtime().questions },
+      activeCollectionBatchId: "batch-2",
+      collectionBatches: [...closed.collectionBatches!, { id: "batch-2", token: "fresh-token", status: "collecting", version: 4, createdAt: "2026-09-29T08:00:00.000Z", closedAt: null, expiresAt: "2026-10-29T10:00:00.000Z", questions: runtime().questions }],
+    });
+    client.request.mockResolvedValueOnce(closed).mockResolvedValueOnce(republished);
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "再次发布" }));
+    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith(
+      "/surveys/survey-1/republish",
+      { method: "POST", body: { expectedVersion: 4 } },
+      expect.anything(),
+    ));
+    expect(await screen.findByText("问卷正在回收中")).toBeInTheDocument();
+  });
+
+  it("shows historical batches as read-only and filters their metrics", async () => {
+    const firstResponse = { id: "answer-1", submittedAt: "2026-09-24T08:00:00.000Z", durationSeconds: 45, role: "未填写", companySize: "未填写", answers: [], quality: "normal" as const, analysis: "included" as const, collectionBatchId: "batch-1" };
+    const secondResponse = { ...firstResponse, id: "answer-2", collectionBatchId: "batch-2" };
+    const published = runtime({
+      status: "collecting",
+      publication: { token: "fresh-token", status: "collecting", version: 4, expiresAt: "2026-10-29T10:00:00.000Z", questions: runtime().questions },
+      activeCollectionBatchId: "batch-2",
+      collectionBatches: [
+        { id: "batch-1", token: "closed-token", status: "closed", version: 4, createdAt: "2026-09-24T08:00:00.000Z", closedAt: "2026-09-25T08:00:00.000Z", expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions },
+        { id: "batch-2", token: "fresh-token", status: "collecting", version: 4, createdAt: "2026-09-29T08:00:00.000Z", closedAt: null, expiresAt: "2026-10-29T10:00:00.000Z", questions: runtime().questions },
+      ],
+      responses: [firstResponse, secondResponse],
+    });
+    client.request.mockResolvedValueOnce(published);
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.change(await screen.findByRole("combobox", { name: "回收批次" }), { target: { value: "batch-1" } });
+    expect(screen.getByText("历史批次只读")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "停止回收" })).not.toBeInTheDocument();
+    const metrics = screen.getByRole("region", { name: "回收数据" });
+    expect(within(metrics).getByText("已收到答卷").parentElement).toHaveTextContent("1");
+  });
+
   it("shows real valid-response counts and recent activity in the right column", async () => {
     const published = runtime({ status: "collecting", publication: { token: "token", status: "collecting", version: 4, expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions } });
     const response = { id: "answer-1", submittedAt: "2026-09-28T08:00:00.000Z", durationSeconds: 45, answers: [], quality: "review" as const, analysis: "included" as const };

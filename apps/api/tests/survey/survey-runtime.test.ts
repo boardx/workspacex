@@ -62,4 +62,32 @@ describe('persistent survey lifecycle',()=>{
     }).success).toBe(false);
   });
   it('denies expired and closed links and rejects empty reports',async()=>{const {service:s,advance}=setup();let m=await s.create(org,'owner',draft);await expect(s.report(org,'owner',m.id,m.version)).rejects.toThrow('invalid_report');m=await s.publish(org,'owner',m.id,m.version);advance();await expect(s.publicGet(m.publication!.token)).rejects.toThrow('expired');await expect(s.submit(m.publication!.token,answer)).rejects.toThrow('expired');m=await s.close(org,'owner',m.id,m.version);await expect(s.publicGet(m.publication!.token)).rejects.toThrow('closed');});
+  it('republishes into a fresh immutable batch and attributes answers by token',async()=>{
+    const {service:s}=setup();
+    let m=await s.create(org,'owner',draft);
+    m=await s.publish(org,'owner',m.id,m.version);
+    const firstToken=m.publication!.token;
+    const firstBatch=m.collectionBatches![0]!;
+    await s.submit(firstToken,answer);
+    m=await s.get(org,'owner',m.id);
+    const staleVersion=m.version-1;
+    m=await s.close(org,'owner',m.id,m.version);
+    await expect(s.republish(org,'owner',m.id,staleVersion)).rejects.toThrow('version_conflict');
+    m=await s.republish(org,'owner',m.id,m.version);
+    expect(m.collectionBatches).toHaveLength(2);
+    expect(m.collectionBatches![0]).toMatchObject({
+      id:firstBatch.id,
+      token:firstBatch.token,
+      questions:firstBatch.questions,
+      sourceSnapshot:firstBatch.sourceSnapshot,
+      status:'closed',
+    });
+    expect(m.collectionBatches![0]!.closedAt).not.toBeNull();
+    expect(m.collectionBatches![1]!.token).not.toBe(firstToken);
+    expect(m.responses[0]!.collectionBatchId).toBe(firstBatch.id);
+    await expect(s.publicGet(firstToken)).rejects.toThrow('closed');
+    await s.submit(m.publication!.token,{...answer,submissionId:'request-00002'});
+    m=await s.get(org,'owner',m.id);
+    expect(m.responses[1]!.collectionBatchId).toBe(m.collectionBatches![1]!.id);
+  });
 });

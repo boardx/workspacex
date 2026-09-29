@@ -139,6 +139,18 @@ export class SurveyService {
           ? "collecting"
           : "draft";
     model.anonymity ??= "anonymous";
+    if (model.publication && !model.collectionBatches?.length) {
+      const legacyBatchId = `legacy-${createHash("sha256").update(model.publication.token).digest("hex").slice(0, 24)}`;
+      model.collectionBatches = [{
+        ...structuredClone(model.publication),
+        id: legacyBatchId,
+        createdAt: model.updatedAt ?? this.now().toISOString(),
+        closedAt: model.publication.status === "closed"
+          ? model.updatedAt ?? this.now().toISOString()
+          : null,
+      }];
+      model.activeCollectionBatchId = legacyBatchId;
+    }
     model.source ??= this.sourceFromDraft(model, model.updatedAt ?? this.now().toISOString(), 1);
     for (const response of model.responses) {
       response.analysis ??= "included";
@@ -353,7 +365,7 @@ export class SurveyService {
     if (end.getTime() <= this.now().getTime())
       throw new SurveyError("expired");
     const token = `${Buffer.from(JSON.stringify([orgId, model.id])).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
-    const publication = {
+    const publication: NonNullable<SurveyRuntime["publication"]> = {
       token,
       status: "collecting",
       questions: structuredClone(model.questions),
@@ -570,8 +582,13 @@ export class SurveyService {
     }
   }
   private publicRecord(record: SurveyRecord, token: string) {
-    const p = record.model.publication;
-    if (!p || !timingSafeEqual(hash(p.token), hash(token)))
+    const p = record.model.collectionBatches?.find((batch) =>
+      timingSafeEqual(hash(batch.token), hash(token)),
+    ) ?? (record.model.publication &&
+      timingSafeEqual(hash(record.model.publication.token), hash(token))
+      ? record.model.publication
+      : null);
+    if (!p)
       throw new SurveyError("not_found");
     if (p.status !== "collecting") throw new SurveyError("closed");
     if (new Date(p.expiresAt).getTime() <= this.now().getTime())
@@ -675,7 +692,11 @@ export class SurveyService {
           companySize: input.companySize,
           durationSeconds: input.durationSeconds,
           answers: input.answers,
-          ...(r.model.activeCollectionBatchId ? { collectionBatchId: r.model.activeCollectionBatchId } : {}),
+          ...("id" in p && typeof p.id === "string"
+            ? { collectionBatchId: p.id }
+            : r.model.activeCollectionBatchId
+              ? { collectionBatchId: r.model.activeCollectionBatchId }
+              : {}),
         });
         r.receipts[receiptKey] = { hash: fingerprint, responseId, ...(browserHash ? {browserHash} : {}) };
         r.model.answerRevision++;
