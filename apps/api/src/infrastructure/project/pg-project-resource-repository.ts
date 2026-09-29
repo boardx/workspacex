@@ -29,8 +29,12 @@ interface ResourceSqlRow {
   linked_at: Date;
 }
 
-/** 三类可链接资源各自的表与 owner 列——`kind` 是闭合枚举，这里是它到表名的唯一映射。 */
-const OWNER_TABLE: Record<ProjectLinkableResourceKind, { table: string; owner: string }> = {
+/**
+ * 可链接资源各自的表与 owner 列——`kind` 是闭合枚举，这里是它到表名的唯一映射。
+ * ⚠ #4615 契约新增的 interview / whiteboard / design 暂无条目（链接表扩展属 W2 切片）：
+ *   `isOwnedResource` 对它们答 `false` ⇒ 用例抛 RESOURCE_NOT_FOUND，不会写出一条无主链接。
+ */
+const OWNER_TABLE: Partial<Record<ProjectLinkableResourceKind, { table: string; owner: string }>> = {
   survey: { table: "survey_workspaces", owner: "owner_id" },
   guided_research: { table: "guided_research_sessions", owner: "owner_user_id" },
   personal_transcription: { table: "personal_transcriptions", owner: "owner_user_id" },
@@ -86,6 +90,7 @@ export class PgProjectResourceRepository implements ProjectResourcePort {
 
   async isOwnedResource(orgId: OrgId, kind: ProjectLinkableResourceKind, resourceId: string, ownerUserId: string): Promise<boolean> {
     const t = OWNER_TABLE[kind];
+    if (t === undefined) return false;
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{ one: number }>(
         `SELECT 1 AS one FROM ${t.table} WHERE org_id = $1 AND id = $2 AND ${t.owner} = $3`,

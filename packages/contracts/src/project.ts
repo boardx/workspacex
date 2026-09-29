@@ -18,7 +18,8 @@
  *
  * ## 核心不变量（domain.md 有断言方式）
  *   · **三类独立容器**：`projects` 是超类型（**只有** id / org_id / name / status / kind，I-P33），
- *     `workshops` / `research_projects` / `user_insights` 三张 1:1 子类型表承载各自行为
+ *     `workshops` / `general_projects` 两张 1:1 子类型表承载各自行为（#4615 起原研究项目 /
+ *     用户洞察两类并为 `general`，迁移 `20260929050000_pw_w1_general_project_kind.sql`）
  *   · **子类型互斥**由 `UNIQUE(id, kind)` + 子表复合外键保证（I-P34 / U-9 A），
  *     **不是**靠「大家都小心」——纯 PK+FK 下一个容器同时挂两张子表完全合法
  *   · **四种项目角色只属工作坊**（I-P6 + 人类 2026-07-30 收窄裁决）；
@@ -428,7 +429,7 @@ export const ProjectMemberEntry = z
  * 非工作坊两类容器名单里的一条（`listNonWorkshopMembers`，#4499）。
  *
  * 字段名 `role` 而不是 `projectRole`：这**不是**工作坊的项目角色（I-P6 四角色只属工作坊），
- * 与 DB 列 `research_project_members.role` / `user_insight_members.role` 同名；沿用
+ * 与 DB 列 `general_project_members.role` 同名；沿用
  * `projectRole` 反而会把两档与四角色混成一个概念。`displayName` 同 `ProjectMemberEntry`。
  */
 export const NonWorkshopMemberEntry = z
@@ -1024,11 +1025,11 @@ export const operations = {
   /* ═══════════ 非工作坊两类容器的成员（项目中枢 B3-T5，#4499；U-1 裁 B 的操作面） ═══════════ */
 
   /**
-   * `listNonWorkshopMembers` —— `research_project` / `user_insight` 两类容器的协作者名单。
+   * `listNonWorkshopMembers` —— 非工作坊（`general`）容器的协作者名单。
    *
    * ## 为什么是另一条路径而不是给 `listProjectMembers` 加分支
    *
-   * 两类容器的成员表（`research_project_members` / `user_insight_members`）只有 `role`
+   * 非工作坊容器的成员表（`general_project_members`）只有 `role`
    * 两档，没有 `projectRole` / `isHost` / 分组——塞进 `ProjectMemberEntry` 就得替它编一个
    * 工作坊角色。形状不同的东西不共用一个 `out`；`/members` 三条继续**仅工作坊**。
    *

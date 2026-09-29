@@ -34,11 +34,17 @@ export const COLLECTABLE_EVIDENCE_KINDS: readonly CollectableEvidenceKind[] = [
   "research_source",
 ];
 
-/** 可挂载资源类型 → 它产出的证据来源。 */
-export const LINKABLE_KIND_TO_EVIDENCE: Record<ProjectLinkableResourceKind, CollectableEvidenceKind> = {
+/**
+ * 可挂载资源类型 → 它产出的证据来源。`null` = 该类挂上后暂无采集器
+ * （#4615 新增的 whiteboard / design 的采集属 W2 切片，这里只保持编译闭合）。
+ */
+export const LINKABLE_KIND_TO_EVIDENCE: Record<ProjectLinkableResourceKind, CollectableEvidenceKind | null> = {
   survey: "survey_response",
   guided_research: "research_source",
   personal_transcription: "transcript_segment",
+  interview: "interview_segment",
+  whiteboard: null,
+  design: null,
 };
 
 export interface CollectProjectEvidenceInput {
