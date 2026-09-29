@@ -1089,15 +1089,15 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         throw new SyntaxError("incomplete streamed report");
       }
       if (!hasRequiredStructure) {
+        if (!assessInterviewReportAnalysis(reportMarkdown).ok) {
+          throw new SyntaxError("report lacks decision-grade analysis");
+        }
         const normalizedMarkdown = buildFallbackReportMarkdown({
           topic: snapshot.workflow.topic ?? "未命名研究主题",
           answers: sourceAnswers,
           sections: reportSections,
           findings: reportFindings,
         });
-        if (!assessInterviewReportAnalysis(normalizedMarkdown).ok) {
-          throw new SyntaxError("report lacks decision-grade analysis");
-        }
         await this.db.withTenant(input.orgId, async (session) => {
           const attempt = await session.query(
             `UPDATE digital_interview_reports
