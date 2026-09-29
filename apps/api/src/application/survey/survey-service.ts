@@ -150,6 +150,9 @@ export class SurveyService {
           : null,
       }];
       model.activeCollectionBatchId = legacyBatchId;
+      for (const response of model.responses) {
+        response.collectionBatchId ??= legacyBatchId;
+      }
     }
     model.source ??= this.sourceFromDraft(model, model.updatedAt ?? this.now().toISOString(), 1);
     for (const response of model.responses) {

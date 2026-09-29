@@ -90,4 +90,17 @@ describe('persistent survey lifecycle',()=>{
     m=await s.get(org,'owner',m.id);
     expect(m.responses[1]!.collectionBatchId).toBe(m.collectionBatches![1]!.id);
   });
+  it('attributes untagged legacy responses to the hydrated publication batch',async()=>{
+    const {service:s,rows}=setup();
+    let m=await s.create(org,'owner',draft);
+    m=await s.publish(org,'owner',m.id,m.version);
+    await s.submit(m.publication!.token,answer);
+    const legacy=rows.get(org+':'+m.id)!.model;
+    delete legacy.collectionBatches;
+    delete legacy.activeCollectionBatchId;
+    delete legacy.responses[0]!.collectionBatchId;
+    const hydrated=await s.get(org,'owner',m.id);
+    expect(hydrated.collectionBatches).toHaveLength(1);
+    expect(hydrated.responses[0]!.collectionBatchId).toBe(hydrated.collectionBatches![0]!.id);
+  });
 });
