@@ -5,6 +5,10 @@ import { ModelCallError } from "../agent-run/ports";
 import type { GetDigitalInterviewDeps } from "./get-digital-interview";
 import { readInterviewMarkdown, type InterviewMarkdownReader } from "./read-interview-markdown";
 import { DigitalInterviewWorkflowError } from "./workflow/digital-interview-runtime.port";
+import {
+  assessInterviewReportAnalysis,
+  INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS,
+} from "./workflow/digital-report-quality";
 import { buildInterviewMarkdownModelContext } from "./workflow/interview-model-markdown";
 import type { OrgId } from "../../domain/org-id";
 
@@ -24,7 +28,7 @@ const instructions = {
   analysis: "包含研究目标、专家类型、研究范围、成功标准、建议、待验证假设。不要假装研究已经完成，不预设产品有效，问题应开放且非诱导。",
   experts: "建议 3–5 位互补的虚拟专业角色，每位使用二级标题 ## [角色名称](#expert-稳定ID)，稳定ID只含英文字母、数字、下划线和连字符且唯一。包含专业角色、领域、方法、能回答的问题、局限性。不得编造真实姓名、机构任职、荣誉或业绩。",
   outline: "按输入所有专家分组，每组只保留二级标题 ## [角色名称](#expert-稳定ID) 和一组连续编号的问题，不新增专家ID。每行严格使用“1. 问题？”格式，只写受访者可以直接回答的简短问题；不要输出背景、目的、说明、分类标题或问题解析。问题应覆盖最近一次行为、具体案例、反例和未来判断。",
-  report: "包含执行摘要、研究背景与方法、访谈对象、核心发现、关键引述、建议行动、局限性及附录。仅使用输入已有事实和引用，不编造来源，不把模拟内容宣称为真人证据。",
+  report: `包含执行摘要、研究背景与方法、访谈对象、核心发现、关键引述、建议行动、局限性及附录。仅使用输入已有事实和引用，不编造来源，不把模拟内容宣称为真人证据。\n${INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS}`,
 } as const;
 
 const expertHeading = /^## \[([^\]\r\n]+)\]\(#expert-([^\s)#]+)\)\s*$/gmu;
@@ -145,6 +149,9 @@ export async function generateInterviewMarkdown(
       const normalized = experts && normalizeGeneratedOutline(markdown, experts);
       if (!normalized) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
       markdown = normalized;
+    }
+    if (input.step === "report" && !assessInterviewReportAnalysis(markdown).ok) {
+      throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     }
   } catch (error) {
     if (error instanceof ModelCallError) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");

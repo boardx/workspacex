@@ -15,6 +15,7 @@ import {
   DigitalReportNdjsonDecoder,
   type ParsedDigitalReportStreamEvent,
 } from "../../../application/interview/workflow/digital-report-stream";
+import { assessInterviewReportAnalysis } from "../../../application/interview/workflow/digital-report-quality";
 import type { DigitalInterviewRepository } from "../../../application/interview/digital-interview-ports";
 import {
   DigitalInterviewWorkflowError,
@@ -142,7 +143,7 @@ function buildFallbackReportMarkdown(input: {
   const findingLines = findings.map((finding, index) => {
     const source = sourceById.get(`${finding.expertId}:${finding.questionId}`);
     const sourceLabel = source ? `${source.displayName}｜${source.question}` : `${finding.expertId}:${finding.questionId}`;
-    return `${index + 1}. **${finding.title}**：${finding.summary}\n   证据：${sourceLabel}`;
+    return `${index + 1}. **${finding.title}**\n   证据：${sourceLabel}；“${excerpt(source?.answer ?? finding.summary, 140)}”\n   分析：${finding.summary}\n   决策影响：将该发现纳入下一轮优先级判断，并用真实任务验证是否需要调整方案。\n   边界与反例：当前证据来自数字专家模拟回答，尚待真人样本与反向案例验证。`;
   });
   const distinctExpertCount = new Set(input.answers.map((answer) => answer.expertId)).size;
   const formalAppendix = [
@@ -156,6 +157,7 @@ function buildFallbackReportMarkdown(input: {
     "## 证据覆盖",
     sourceLines.join("\n"),
     "## 关键发现",
+    `跨回答综合：${distinctExpertCount > 1 ? "不同数字专家的回答共同指向以下决策主题，同时保留角色差异。" : "同一数字专家的多条回答共同指向以下决策主题；当前不能据此推断跨角色共识。"}`,
     findingLines.join("\n\n"),
     generatedNarrativeText || "当前模型已生成的正文不足以支撑额外主题展开；以上结论仅依据已完成回答。",
     "## 分歧与反例",
@@ -1087,6 +1089,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         throw new SyntaxError("incomplete streamed report");
       }
       if (!hasRequiredStructure) {
+        if (!assessInterviewReportAnalysis(reportMarkdown).ok) {
+          throw new SyntaxError("report lacks decision-grade analysis");
+        }
         const normalizedMarkdown = buildFallbackReportMarkdown({
           topic: snapshot.workflow.topic ?? "未命名研究主题",
           answers: sourceAnswers,
@@ -1104,6 +1109,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           );
           if (attempt.rows.length !== 1) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
         });
+      } else if (!assessInterviewReportAnalysis(reportMarkdown).ok) {
+        throw new SyntaxError("report lacks decision-grade analysis");
       }
     } catch (error) {
       console.error("[digital-interview-report] streaming generation failed", error);

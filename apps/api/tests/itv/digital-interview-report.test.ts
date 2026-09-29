@@ -5,6 +5,10 @@ import {
   DIGITAL_REPORT_REQUIRED_HEADINGS,
   DigitalReportNdjsonDecoder,
 } from "../../src/application/interview/workflow/digital-report-stream";
+import {
+  assessInterviewReportAnalysis,
+  INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS,
+} from "../../src/application/interview/workflow/digital-report-quality";
 
 describe("F06 digital interview report contract", () => {
   it("requires an explicit versioned confirmation and traceable exploratory findings", () => {
@@ -68,5 +72,39 @@ describe("F06 digital interview report contract", () => {
     expect(prompt).toContain("先输出 finding");
     expect(prompt).toContain("4000-8000 个中文字符");
     expect(prompt).toContain("数字专家模拟访谈");
+    expect(prompt).toContain(INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS);
+  });
+
+  it("accepts findings that connect evidence, interpretation, impact, and boundaries", () => {
+    const report = [
+      "## 关键发现",
+      "### 跨角色综合",
+      "证据：专家甲提到切换成本，专家乙补充审批延迟。",
+      "分析：两条回答共同指向流程割裂，而不是单一功能缺失。",
+      "决策影响：应优先验证统一入口，暂缓增加新的独立工具。",
+      "边界与反例：当前仅覆盖两类角色，财务团队是否同样受影响仍待验证。",
+      "## 分歧与反例",
+      "专家丙认为现有流程可用，置信度为中，需补充真实任务数据。",
+      "## 建议行动",
+      "P0：用真实任务验证统一入口，成功信号为完成时长下降。",
+    ].join("\n\n");
+
+    expect(assessInterviewReportAnalysis(report)).toEqual({ ok: true, missing: [] });
+  });
+
+  it("rejects a transcript-like report even when it has report headings", () => {
+    const report = [
+      "## 关键发现",
+      "专家甲说入口太多。专家乙说审批较慢。专家丙说希望更简单。",
+      "## 分歧与反例",
+      "专家回答有所不同。",
+      "## 建议行动",
+      "建议优化产品。",
+    ].join("\n\n");
+
+    expect(assessInterviewReportAnalysis(report)).toEqual({
+      ok: false,
+      missing: ["cross_answer_synthesis", "decision_implication", "boundary_or_counterevidence"],
+    });
   });
 });

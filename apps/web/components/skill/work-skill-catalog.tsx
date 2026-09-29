@@ -21,6 +21,7 @@ import {
   type WorkSkillChannel,
   type WorkSkillReadiness,
 } from "@/lib/live-work-skill";
+import { WorkGateStatusPanel, WorkGateSummaryBadge } from "./work-gate-status";
 
 /**
  * WS05 —— `/skill?screen=work-catalog` Work Skill 目录屏（R8；契约束 `work-skill-meta` ui.md）。
@@ -330,6 +331,7 @@ function CatalogScreen() {
                   </Badge>
                   <span className="text-muted-foreground">{RISK_LABEL[item.riskClass]}</span>
                   <ReadinessBadge readiness={item.readiness} />
+                  <WorkGateSummaryBadge skillId={item.skillId} />
                 </button>
               </li>
             ))}
@@ -569,22 +571,7 @@ function DetailBody({
         <p>语言：{m.locales.join("、")}；法域：{m.jurisdictions.join("、")}</p>
       </section>
 
-      <section className="flex flex-col gap-1" data-testid="work-skill-gates">
-        <h3 className="font-medium">评测套件 {m.evalSuiteId} · 门状态</h3>
-        {detail.gates.length === 0 ? (
-          <p className="text-muted-foreground">门判定尚未运行（占位）</p>
-        ) : (
-          <ul className="flex flex-wrap gap-1">
-            {detail.gates.map((g) => (
-              <li key={g.gate}>
-                <Badge tone={g.state === "passed" ? "success" : g.state === "failed" ? "danger" : "outline"}>
-                  {g.gate} · {g.state}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <WorkGateStatusPanel skillId={detail.skillId} />
 
       <section className="flex flex-col gap-1">
         <h3 className="font-medium">版本</h3>

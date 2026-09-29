@@ -24,6 +24,7 @@ import type { AgentSkillPinsRepository } from "../../application/agent-skill-pin
 
 interface AgentRow {
   readonly published_version_id: string | null;
+  readonly catalog_source: string;
 }
 
 interface VersionRow {
@@ -75,7 +76,7 @@ export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
       );
 
       const agentFound = await session.query<AgentRow>(
-        `SELECT published_version_id FROM agents WHERE id = $1 AND org_id = $2 FOR UPDATE`,
+        `SELECT published_version_id, catalog_source FROM agents WHERE id = $1 AND org_id = $2 FOR UPDATE`,
         [input.agentId, input.orgId],
       );
       const agentRow = agentFound.rows[0];
@@ -106,8 +107,16 @@ export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
        * 会让这次 pin 在写入时看似成功、却在下一次 chat 调用时才因
        * `SKILL_VERSION_UNAVAILABLE` 现出原形——那是本该在 pin 这一步就能截住的错误。
        */
+      // EV05 / ADR-119 #4（work-eval I-8）：官方 Agent（catalog_source='official'）只能绑定目录通道为
+      // verified 的 Skill——与官方角色包导入（pg-official-agent-role-pack-import-repository.ts）同一 JOIN；
+      // candidate / deprecated / 无目录行一律按"找不到可挂载的版本"拒绝，堵住导入后再 pin 的旁路。
+      const officialOnlyVerified = agentRow.catalog_source === "official";
       const skillVersionsFound = await session.query<{ id: string }>(
-        `SELECT id FROM skill_versions WHERE org_id = $1 AND id = ANY($2::text[]) AND published = true`,
+        officialOnlyVerified
+          ? `SELECT sv.id FROM skill_versions sv
+               JOIN skill_catalog_entries e ON e.org_id = sv.org_id AND e.skill_id = sv.skill_id AND e.channel = 'verified'
+              WHERE sv.org_id = $1 AND sv.id = ANY($2::text[]) AND sv.published = true`
+          : `SELECT id FROM skill_versions WHERE org_id = $1 AND id = ANY($2::text[]) AND published = true`,
         [input.orgId, [...input.skillVersionIds]],
       );
       const found = new Set(skillVersionsFound.rows.map((r) => r.id));

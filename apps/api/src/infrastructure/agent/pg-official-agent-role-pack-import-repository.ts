@@ -41,11 +41,18 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
       const importedAt = new Date().toISOString();
       await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',NULL,NULL)`, [importId, input.orgId, input.pack.packId, input.pack.packVersion, input.pack.packDigest, input.payloadDigest, input.idempotencyKey, input.actorId, importedAt]);
 
-      // UC-3 E2 后半：挂载的 skillVersions 必须在本组织已发布目录里且摘要一致，否则
+      // UC-3 E2 后半：挂载的 skillVersions 必须在本组织已发布目录里、Skill 为 verified 且摘要一致，否则
       // UNRESOLVED_SKILL_REF，事务回滚、DB 无新增行（下面的 INSERT 都还没跑）。
       const refs = input.pack.agents.flatMap((agent) => agent.skillVersions);
       if (refs.length) {
-        const found = await s.query<{ id: string; content_digest: string }>("SELECT id,content_digest FROM skill_versions WHERE org_id=$1 AND id=ANY($2::text[]) AND published=true", [input.orgId, refs.map((ref) => ref.versionId)]);
+        // EV05 / ADR-119 #4（work-eval I-8）：官方 Agent 只能绑定目录通道为 verified 的 Skill；
+        // 无目录行 / candidate / deprecated 一律视为无法解析（同一失败码 UNRESOLVED_SKILL_REF）。
+        const found = await s.query<{ id: string; content_digest: string }>(
+          `SELECT sv.id, sv.content_digest FROM skill_versions sv
+             JOIN skill_catalog_entries e ON e.org_id = sv.org_id AND e.skill_id = sv.skill_id AND e.channel = 'verified'
+            WHERE sv.org_id=$1 AND sv.id=ANY($2::text[]) AND sv.published=true`,
+          [input.orgId, refs.map((ref) => ref.versionId)],
+        );
         const byId = new Map(found.rows.map((row) => [row.id, row.content_digest]));
         const missingIds = refs.filter((ref) => byId.get(ref.versionId) !== ref.digest).map((ref) => ref.versionId);
         if (missingIds.length > 0) {
