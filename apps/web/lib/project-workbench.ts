@@ -52,48 +52,73 @@ export const PROJECT_SURFACES: ProjectSurface[] = [
 /* ─────────────────────── 标签页（= 工作台的「屏」） ─────────────────────── */
 
 export type ProjectTab =
-  | "overview" | "research" | "prep" | "live" | "results" | "todo" | "settings";
+  | "overview" | "content" | "brain" | "research" | "prep" | "live" | "results" | "todo" | "settings";
 
+/** 全部 tab 键（两种容器的并集）；`?tab=` 只认这些，其余落回概览。 */
 export const PROJECT_TABS: ProjectTab[] = [
-  "overview", "research", "prep", "live", "results", "todo", "settings",
+  "overview", "content", "brain", "research", "prep", "live", "results", "todo", "settings",
 ];
 
-/** 主标签定义（顺序、文案）。角标没有真实计数来源，不显示。 */
-export const TAB_DEFS: Array<{ key: ProjectTab; label: string }> = [
-  { key: "overview", label: "概览" },
-  { key: "research", label: "研究洞察" },
-  { key: "prep", label: "项目筹备" },
-  { key: "live", label: "现场协作" },
-  { key: "results", label: "成果沉淀" },
-  { key: "todo", label: "待办" },
-  { key: "settings", label: "设置" },
-];
+/** 容器种类（契约 `ProjectKind`：`workshop | general`）；`null` = 还没读到。 */
+export type ProjectContainerKind = z.infer<typeof project.ProjectKind>;
+
+type TabDef = { key: ProjectTab; label: string };
+
+/**
+ * #4615（PROP-PROJECT-WORKSPACE-001 §3.4）：**每种容器一份显式的主标签清单**——本表是 tab 结构的唯一事实源
+ * （取代原来「全量 7 个 − WORKSHOP_ONLY_TABS」的减法）。
+ *   - 工作坊：保持现状 7 个 tab（筹备 / 现场协作 / 待办背后的议程、分组、`project_memberships` 只属工作坊）。
+ *   - 通用项目：概览 / 内容 / 大脑 / 成果 / 设置——按「内容」组织，不再按工作坊阶段组织。
+ */
+export const TAB_DEFS_BY_KIND: Record<ProjectContainerKind, readonly TabDef[]> = {
+  workshop: [
+    { key: "overview", label: "概览" },
+    { key: "research", label: "研究洞察" },
+    { key: "prep", label: "项目筹备" },
+    { key: "live", label: "现场协作" },
+    { key: "results", label: "成果沉淀" },
+    { key: "todo", label: "待办" },
+    { key: "settings", label: "设置" },
+  ],
+  general: [
+    { key: "overview", label: "概览" },
+    { key: "content", label: "内容" },
+    { key: "brain", label: "大脑" },
+    { key: "results", label: "成果" },
+    { key: "settings", label: "设置" },
+  ],
+};
+
+/** 工作坊的主标签（历史导出名，等于 `TAB_DEFS_BY_KIND.workshop`）。 */
+export const TAB_DEFS: readonly TabDef[] = TAB_DEFS_BY_KIND.workshop;
 
 export function resolveProjectTab(raw: string | string[] | undefined): ProjectTab {
   const v = Array.isArray(raw) ? raw[0] : raw;
   return PROJECT_TABS.includes(v as ProjectTab) ? (v as ProjectTab) : "overview";
 }
 
-/** 容器种类（契约 `ProjectKind` 三值）；`null` = 还没读到。 */
-export type ProjectContainerKind = z.infer<typeof project.ProjectKind>;
-
-/**
- * #4584：只属工作坊的屏——「项目筹备」（定题分组 / 议程 / 会前任务）、「现场协作」（主持台 / 分组并行）、
- * 「待办」（按分组可见的看板）。它们背后的机制（议程环节、分组、`project_memberships`）对研究项目 /
- * 用户洞察两类容器在数据库层就不存在（F128 复合外键），服务端也按容器白名单关着；
- * 对这两类容器不给入口，而不是给一个点进去必 403 的 tab。
- */
-export const WORKSHOP_ONLY_TABS: readonly ProjectTab[] = ["prep", "live", "todo"];
-
-/** 该容器种类可见的主标签（顺序同 `TAB_DEFS`）。种类未知时按工作坊渲染，同 `TabSettings` 的处置。 */
-export function tabDefsForKind(kind: ProjectContainerKind | null): Array<{ key: ProjectTab; label: string }> {
-  if (kind === null || kind === "workshop") return TAB_DEFS;
-  return TAB_DEFS.filter((t) => !WORKSHOP_ONLY_TABS.includes(t.key));
+/** 该容器种类可见的主标签。种类未知（还没读到）时按工作坊渲染，同 `TabSettings` 的处置。 */
+export function tabDefsForKind(kind: ProjectContainerKind | null): readonly TabDef[] {
+  return TAB_DEFS_BY_KIND[kind ?? "workshop"];
 }
 
-/** URL 上的 tab 对该容器不可见（例如手敲 `?tab=live`）⇒ 落回概览，不渲染一个工作坊屏。 */
-export function resolveTabForKind(tab: ProjectTab, kind: ProjectContainerKind | null): ProjectTab {
-  return tabDefsForKind(kind).some((t) => t.key === tab) ? tab : "overview";
+/**
+ * 另一种容器的 tab 键落到本容器的哪个 tab（保 `?tab=` 链接稳定）：
+ * 各 Studio 的「← 返回项目」与大脑面板的证据引用都链 `?tab=research&sub=…`——通用项目里
+ * 「来源」（`sub=sources`）在「大脑」、其余资源子页在「内容」（`sub` 同时是内容的类型筛选）。
+ * 工作坊反过来：`content` / `brain` 落到「研究洞察」。其余不可见的键 ⇒ 概览。
+ */
+function aliasTab(tab: ProjectTab, kind: ProjectContainerKind, sub: string | null): ProjectTab | null {
+  if (kind === "general" && tab === "research") return sub === "sources" ? "brain" : "content";
+  if (kind === "workshop" && (tab === "content" || tab === "brain")) return "research";
+  return null;
+}
+
+/** URL 上的 tab 对该容器不可见（例如手敲 `?tab=live`）⇒ 先按别名表映射，映射不到落回概览。 */
+export function resolveTabForKind(tab: ProjectTab, kind: ProjectContainerKind | null, sub: string | null = null): ProjectTab {
+  const k = kind ?? "workshop";
+  if (tabDefsForKind(k).some((t) => t.key === tab)) return tab;
+  return aliasTab(tab, k, sub) ?? "overview";
 }
 
 /** 带左侧上下文子导航的标签（研究洞察 / 项目筹备 / 成果沉淀）。不带计数。 */
@@ -131,9 +156,14 @@ export const SUB_NAV: Partial<Record<ProjectTab, { section: string; items: Array
   },
 };
 
+/** 预览条 / 空态提示用的 tab 名（两种容器并集；通用项目的同键 tab 以其本身清单的文案为准，见 `tabLabelForKind`）。 */
 export const TAB_LABEL: Record<ProjectTab, string> = Object.fromEntries(
-  TAB_DEFS.map((t) => [t.key, t.label]),
+  [...TAB_DEFS_BY_KIND.general, ...TAB_DEFS_BY_KIND.workshop].map((t) => [t.key, t.label]),
 ) as Record<ProjectTab, string>;
+
+export function tabLabelForKind(tab: ProjectTab, kind: ProjectContainerKind | null): string {
+  return tabDefsForKind(kind).find((t) => t.key === tab)?.label ?? TAB_LABEL[tab];
+}
 
 /* ─────────────────────── 视角（= 项目角色，四种）的前端投影 ─────────────────────── */
 
@@ -216,7 +246,7 @@ export const NEW_PROJECT_OPTIONS = {
   linkedSources: {
     label: "关联研究来源（可选 · 决定能读哪些洞察与图谱）",
     placeholder: "不引用任何研究来源",
-    note: "把一个「研究项目 / 用户洞察」容器作为只读来源引用进来，工作坊便能读到它的洞察与图谱。这是跨容器引用，不是父子归属 —— Q-12 裁定三类独立容器（C+D），父子模型（E）未采纳。",
+    note: "把一个通用项目作为只读来源引用进来，工作坊便能读到它的洞察与图谱。这是跨项目引用，不是父子归属。",
   },
 } as const;
 
@@ -224,6 +254,8 @@ export const NEW_PROJECT_OPTIONS = {
 
 export const TAB_UC: Record<ProjectTab, string> = {
   overview: "uc-00-2 R3（项目概览）· uc-1-4 R5（多视角）",
+  content: "#4615 PROP-PROJECT-WORKSPACE-001 §3.4（通用项目 · 内容统一列表）",
+  brain: "#4615 PROP-PROJECT-WORKSPACE-001 §3.4（通用项目 · 来源 + 推演）",
   research: "uc-00-2 · 06-itv/uc-6-0 · 00-core/uc-0-2（复用研究/访谈域）",
   prep: "02-tpl/uc-2-2（套用蓝本新建 · 定题分组 · 议程环节三角色）",
   live: "05-rec/uc-5-1 · 07-canvas/uc-7-3（主持台全场 · 四组并行）",

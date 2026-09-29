@@ -25,7 +25,7 @@ vi.mock("@/lib/live-project-ai-settings", async (orig) => ({
 import { ProjectBrainPanel, closedEvidenceKinds, evidenceSourceKinds } from "@/components/project/project-brain-panel";
 
 const SCOPE = { kind: "project", id: "p1" } as const;
-const ALL = ["chat", "transcript", "survey", "interview", "research"] as const;
+const ALL = ["chat", "whiteboard", "transcript", "survey", "interview", "research"] as const;
 const claim = (id: string, kind: string, statement: string) => ({
   id, scope: SCOPE, kind, statement, status: "proposed", triState: "pending", confidence: 0.8, createdBy: "model", reviewedBy: null,
   supersedesClaimId: null, derivedFromClaimId: null, aboutObjectIds: [], supportingCount: 1, contradictingCount: 0, createdAt: "2026-09-27T00:00:00Z",
@@ -46,9 +46,9 @@ beforeEach(() => {
 
 describe("B3-T2 纯函数", () => {
   it("closedEvidenceKinds：关掉 chat 开关 ⇒ 对话与附件都关；null（没读到）⇒ 什么都不标", () => {
-    expect([...closedEvidenceKinds(["transcript", "survey", "interview", "research"])]).toEqual(["chat_message", "attachment"]);
+    expect([...closedEvidenceKinds(["whiteboard", "transcript", "survey", "interview", "research"])]).toEqual(["chat_message", "attachment"]);
     expect([...closedEvidenceKinds([...ALL])]).toEqual([]);
-    expect([...closedEvidenceKinds([])]).toHaveLength(6);
+    expect([...closedEvidenceKinds([])]).toHaveLength(7);
     expect([...closedEvidenceKinds(null)]).toEqual([]);
   });
   it("evidenceSourceKinds：按锚点 sourceKind 去重，顺序稳定（契约枚举顺序）", () => {
