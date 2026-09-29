@@ -17,6 +17,7 @@ import { changeTaskStatusWithWriteback } from "../../application/board/change-ta
 import { createTask, CreateTaskRejectedError } from "../../application/board/create-task";
 import { getMyToday } from "../../application/board/get-my-today";
 import { listTasks } from "../../application/board/list-tasks";
+import { BOARD_RUN_CARDS_DEPS, listBoardRunCards, type ListBoardRunCardsDeps } from "../../application/board/list-board-run-cards";
 import { TASK_REPOSITORY, TASK_STATUS_AUDIT_WRITER, type TaskRepository, type TaskStatusAuditWriter } from "../../application/board/ports";
 import { ManualSourceWriteback } from "../../application/board/writeback-port";
 import { IllegalTransitionError, TaskNotFoundError } from "../../application/board/errors";
@@ -43,6 +44,7 @@ export class BoardController {
     @Inject(TASK_STATUS_AUDIT_WRITER) private readonly audit: TaskStatusAuditWriter,
     @Inject(DATABASE_PORT) private readonly db: DatabasePort,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(BOARD_RUN_CARDS_DEPS) private readonly runCardDeps: ListBoardRunCardsDeps,
   ) {}
 
   /** Resolves the caller's board-visibility role for one project. Observer -> throw 403. */
@@ -80,8 +82,11 @@ export class BoardController {
     if (!projectId) throw new BadRequestException("PROJECT_ID_REQUIRED");
     const { role, groupId } = await this.resolveProjectRole(orgId, principal.userId, projectId);
 
+    // CT10：任务 Board 的两视图同时合并本项目内、已按 WF03 canView 过滤过的只读 Workflow 运行卡。
+    const runCards = async (q: { orgId: string; viewerUserId: string; projectId: string | null }) =>
+      (await listBoardRunCards(this.runCardDeps, q)).cards;
     return listTasks(
-      { db: this.db, tasks: this.tasks },
+      { db: this.db, tasks: this.tasks, runCards },
       { orgId, userId: principal.userId, scope, projectId, role, groupId, now: new Date() },
     );
   }

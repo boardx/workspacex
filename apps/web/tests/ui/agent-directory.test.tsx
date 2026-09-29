@@ -63,13 +63,24 @@ describe("AgentDirectory（成员目录）", () => {
     await waitFor(() => expect(screen.getByTestId("agent-directory-denied")).not.toBeNull());
   });
 
+  it("API 错误只显示人话，不把 reasonCode 端上屏（曾显示 AGENT_NOT_FOUND）", async () => {
+    const fetchDirectory = vi.fn().mockRejectedValue(new ApiError(404, "AGENT_NOT_FOUND", null));
+    render(<AgentDirectory fetchDirectory={fetchDirectory} />);
+    await waitFor(() => expect(screen.getByRole("alert")).not.toBeNull());
+    const text = screen.getByRole("alert").textContent ?? "";
+    expect(text).not.toContain("AGENT_NOT_FOUND");
+    expect(text).not.toMatch(/[A-Z]{3,}_[A-Z_]+/);
+    expect(text).toContain("角色目录加载失败");
+  });
+
   it("其它失败渲染错误态并可重试", async () => {
     const fetchDirectory = vi.fn()
       .mockRejectedValueOnce(new Error("network down"))
       .mockResolvedValueOnce([card({ agentId: "a1", name: "小析", roleCategory: "research" })]);
     render(<AgentDirectory fetchDirectory={fetchDirectory} />);
     await waitFor(() => expect(screen.getByRole("alert")).not.toBeNull());
-    expect(screen.getByRole("alert").textContent).toContain("network down");
+    expect(screen.getByRole("alert").textContent).not.toContain("network down");
+    expect(screen.getByRole("alert").textContent).toContain("网络连接出了问题");
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
   });

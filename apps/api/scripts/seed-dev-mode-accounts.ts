@@ -26,6 +26,13 @@
  * 每个邮箱已存在就跳过,不覆盖——避免误跑把已经在用的密码冲掉(与 `seed-dev-account.ts`
  * 同一约定)。
  *
+ * ## 内置 Workflow Definition
+ *
+ * 账号种完后把代码自带的 Workflow Definition（演示 demo-brief / demo-approval + 产品线 W0xx）导入这个组织：
+ * 走 `publishBuiltInWorkflowDefinitions`（= UC-WR-1 发布校验，以本组织 admin 身份），不绕过校验直接写库。
+ * 否则 `workflow_definitions` 为空，任何 Workflow 都无法从 UI / API 发起。Skill 引用在本组织目录里解析不到的
+ * （如尚未导入 starter pack 时的 W029）如实打印为 unavailable；导入 pack 后重跑本脚本即可发布（幂等）。
+ *
  * ## 用法
  *   WORKSPACEX_DEV_MODE=1 pnpm --filter api exec tsx scripts/seed-dev-mode-accounts.ts
  */
@@ -34,6 +41,11 @@ import { migrationConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
 import { newOrgId, newUserId, normalizeEmail } from "../src/domain/auth/registration";
+import { publishBuiltInWorkflowDefinitions } from "../src/application/workflow/publish-built-in-definitions";
+import { builtInWorkflowDefinitions, defaultCommandWorkflowGraphs, defaultWorkflowGraphs } from "../src/infrastructure/workflow/create-workflow-runtime";
+import { PgSkillCatalogVersionResolver } from "../src/infrastructure/workflow/pg-skill-catalog-version-resolver";
+import { PgWorkflowDefinitionRepository } from "../src/infrastructure/workflow/pg-workflow-definition-repository";
+import { WorkflowGraphRegistry } from "../src/infrastructure/workflow/workflow-graph-registry";
 
 assertDevModeAllowed();
 if (!isDevModeEnabled()) {
@@ -45,7 +57,7 @@ if (!isDevModeEnabled()) {
 const db = new PgDatabase(migrationConfig());
 const hasher = new BcryptPasswordHasher();
 
-await db.withoutTenant(async (s) => {
+const devOrgId = await db.withoutTenant(async (s) => {
   // 4 个账号共用一个组织:同一组织名下第一次跑就建组织,后续跑复用已建好的那个。
   const existingOrg = await s.query<{ id: string }>(
     "SELECT id FROM organizations WHERE name = $1 AND kind = 'organization' LIMIT 1",
@@ -94,7 +106,32 @@ await db.withoutTenant(async (s) => {
 
     console.log(`  已建：${email}，role=${account.role}，user_id=${userId}`);
   }
+  return orgId;
 });
+
+const adminRow = await db.withoutTenant((s) =>
+  s.query<{ user_id: string }>("SELECT user_id FROM org_memberships WHERE org_id = $1 AND org_role = 'admin' ORDER BY user_id LIMIT 1", [devOrgId]),
+);
+const adminUserId = adminRow.rows[0]?.user_id;
+if (!adminUserId) throw new Error(`组织 ${devOrgId} 没有 admin 成员，无法以管理员身份发布内置 Workflow Definition`);
+const definitions = new PgWorkflowDefinitionRepository(db);
+const results = await publishBuiltInWorkflowDefinitions(
+  {
+    definitions,
+    catalog: definitions,
+    graphs: new WorkflowGraphRegistry(defaultWorkflowGraphs(), defaultCommandWorkflowGraphs()),
+    skills: new PgSkillCatalogVersionResolver(db),
+    clock: { nowIso: () => new Date().toISOString() },
+  },
+  { orgId: devOrgId, actor: { userId: adminUserId, orgRole: "admin" }, definitions: builtInWorkflowDefinitions() },
+);
+for (const r of results) {
+  console.log(
+    r.outcome === "published"
+      ? `  Workflow 已发布：${r.key}@${r.version}`
+      : `  Workflow 不可用（Skill 引用未解析，导入 starter pack 后重跑）：${r.key}@${r.version} 缺 ${r.missingSkills.join(", ")}`,
+  );
+}
 
 console.log("done");
 process.exit(0);

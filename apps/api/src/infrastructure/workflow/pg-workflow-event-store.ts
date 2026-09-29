@@ -15,6 +15,7 @@ import type {
   WorkflowAppendResult,
   WorkflowEventInput,
   WorkflowEventStore,
+  WorkflowInstanceQueryPort,
   WorkflowInstanceState,
   WorkflowStageOutputRow,
   WorkflowStageOutputStore,
@@ -106,7 +107,7 @@ async function lockInstance(s: TenantSession, orgId: string, instanceId: string,
   return rows[0] ?? null;
 }
 
-export class PgWorkflowEventStore implements WorkflowEventStore {
+export class PgWorkflowEventStore implements WorkflowEventStore, WorkflowInstanceQueryPort {
   constructor(private readonly db: DatabasePort) {}
 
   append(
@@ -177,6 +178,44 @@ export class PgWorkflowEventStore implements WorkflowEventStore {
         [orgId, instanceId],
       );
       return { instance: toInstance(row), events: events.rows.map(toEvent), outputs: outputs.rows.map(toOutput) };
+    });
+  }
+
+  /** UC-WR-5：实例行分页（updated_at 截到毫秒 desc, id desc——游标是 ISO 毫秒串，比较同精度）。可见性复核在应用层。 */
+  listInstances(
+    orgId: string,
+    q: Parameters<WorkflowInstanceQueryPort["listInstances"]>[1],
+  ): Promise<WorkflowInstanceState[]> {
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const { rows } = await s.query<InstanceRow>(
+        `SELECT id, org_id, workflow_key, definition_version, graph_ref, pinned_skills, agent_id, agent_version_id,
+                initiator_user_id, trigger_kind, status, state_version, reason_code, created_at, updated_at
+           FROM workflow_instances
+          WHERE org_id = $1
+            AND ($2::text IS NULL OR initiator_user_id = $2)
+            AND ($3::text[] IS NULL OR status = ANY($3::text[]))
+            AND ($4::timestamptz IS NULL OR (date_trunc('milliseconds', updated_at), id) < ($4::timestamptz, $5::text))
+          ORDER BY date_trunc('milliseconds', updated_at) DESC, id DESC
+          LIMIT $6`,
+        [orgId, q.initiatorUserId, q.statuses ? [...q.statuses] : null, q.before?.updatedAt ?? null, q.before?.instanceId ?? "", q.limit],
+      );
+      return rows.map(toInstance);
+    });
+  }
+
+  /** UC-WR-10：开过人工门的实例 id（新近优先）。 */
+  listGateInstanceIds(orgId: string, q: { openOnly: boolean; limit: number }): Promise<string[]> {
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const { rows } = await s.query<{ id: string }>(
+        `SELECT i.id FROM workflow_instances i
+          WHERE i.org_id = $1
+            AND ($2::boolean IS FALSE OR i.status = 'awaiting_gate_decision')
+            AND EXISTS (SELECT 1 FROM workflow_events e WHERE e.org_id = i.org_id AND e.instance_id = i.id AND e.type = 'gate_opened')
+          ORDER BY i.updated_at DESC, i.id DESC
+          LIMIT $3`,
+        [orgId, q.openOnly, q.limit],
+      );
+      return rows.map((r) => r.id);
     });
   }
 }

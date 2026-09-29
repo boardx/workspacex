@@ -5,7 +5,7 @@ import { STANDARD_RUN_CANCEL_TOOL } from "@repo/contracts/standard-run-cancel";
 import { STANDARD_BROWSER_TOOLS } from "@repo/contracts/standard-browser-tools";
 import { STANDARD_SUBTASK_TOOL } from "@repo/contracts/standard-subtask-tools";
 import { STANDARD_REMEMBER_TOOL } from "@repo/contracts/standard-remember";
-import { AGENT_INTERRUPTS_TOOL_NAMES } from "@repo/contracts/agent-interrupts";
+import { AGENT_INTERRUPTS_TOOL_NAMES, ESCALATE_MATTER_TOOL_NAME } from "@repo/contracts/agent-interrupts";
 import { classifyToolRisk } from "../../domain/agent-run/tool-risk-tier";
 import { resolveSkillRiskLevels, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
 import { toOrgId } from "../../domain/org-id";
@@ -19,7 +19,7 @@ import type { NativeSessionOwner } from "./native-session-owner";
  * 旧的 `wx_memory_search / write / delete`（LangMem + 独立的 `workspacex_memory` 库，面板与 /brain 都看不见）
  * 已退出准入表：Python 侧 `native_candidate_tools` 不再构造它们。代码、表与已有数据保留，不删。
  */
-export const NATIVE_PROFILE_TOOLS = [STANDARD_ARTIFACT_DOWNLOAD_TOOL, STANDARD_RUN_STATUS_TOOL, STANDARD_RUN_CANCEL_TOOL, ...STANDARD_BROWSER_TOOLS, ...Object.values(AGENT_INTERRUPTS_TOOL_NAMES), "ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", STANDARD_REMEMBER_TOOL, "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_cite", "wx_canvas_read", "wx_canvas_update", "wx_document_parse", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "sql_db_query", "wx_skill_create_draft", "wx_schedule_create", "wx_schedule_list", "wx_schedule_cancel", "wx_image_generate", "wx_audio_transcribe", STANDARD_SUBTASK_TOOL] as const;
+export const NATIVE_PROFILE_TOOLS = [STANDARD_ARTIFACT_DOWNLOAD_TOOL, STANDARD_RUN_STATUS_TOOL, STANDARD_RUN_CANCEL_TOOL, ...STANDARD_BROWSER_TOOLS, ...Object.values(AGENT_INTERRUPTS_TOOL_NAMES), ESCALATE_MATTER_TOOL_NAME, "ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", STANDARD_REMEMBER_TOOL, "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_cite", "wx_canvas_read", "wx_canvas_update", "wx_document_parse", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "sql_db_query", "wx_skill_create_draft", "wx_schedule_create", "wx_schedule_list", "wx_schedule_cancel", "wx_image_generate", "wx_audio_transcribe", STANDARD_SUBTASK_TOOL] as const;
 /**
  * 准入表 → `interrupt_on` 的**唯一一次**计算。跨语言边界（`generated/native_profile_tools.json`，
  * 由 `scripts/generate-native-profile-tools.ts` 生成）和真实 provision 必须是同一个表达式算出来的：

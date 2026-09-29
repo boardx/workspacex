@@ -1,33 +1,19 @@
 import { AppShell } from "@/components/shell/app-shell";
-import { resolvePreviewState } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
-import { TasksContent } from "@/components/tasks/tasks-content";
-import { TasksLeftRail } from "@/components/tasks/left-rail";
-import { TasksWeekList } from "@/components/tasks/week-list";
+import { resolvePreviewRole } from "@/lib/identity";
+import { TodayBoardLive } from "@/components/tasks/today-board-live";
 
 /**
- * 任务看板 · 我的今天 —— UC-11.5（四语义分区）+ UC-11.6 入口（授权流）。
+ * 任务看板 · 我的今天 —— UC-11.5（四语义分区）。
  *
- * 服务端组件：读 searchParams 决定七态与预览视角。所有事件处理器都下沉到
- * `"use client"` 子组件（`TasksContent` 内部按登录态在真实数据/mock 演示间选择）。
+ * 只走真实数据：`AppShell` 不传 `identity`，顶栏身份/组织来自登录会话（未登录由壳层
+ * 跳 `/login`）；内容区 `TodayBoardLive` 只读 `GET /tasks/today`。
+ * 七态 mock 演示与原型左右栏已搬到 `/preview/tasks`，生产路径不再回落到 mock。
  */
-export default function TasksPage({
-  searchParams,
-}: {
-  searchParams: { state?: string; as?: string; org?: string };
-}) {
-  const state = resolvePreviewState(searchParams.state);
+export default function TasksPage({ searchParams }: { searchParams: { as?: string } }) {
   const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
-
   return (
-    <AppShell
-      identity={identity}
-      previewRole={previewRole}
-      left={<TasksLeftRail />}
-      right={<TasksWeekList />}
-    >
-      <TasksContent state={state} />
+    <AppShell previewRole={previewRole}>
+      <TodayBoardLive />
     </AppShell>
   );
 }

@@ -611,6 +611,9 @@ import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-
 import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-agent-role-label-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 import { AgentRoleController } from "./interface/controllers/agent-role.controller";
+import { EscalationDecisionController } from "./interface/controllers/escalation-decision.controller";
+import { ESCALATION_STORE } from "./application/agent-interrupts/decide-escalation";
+import { PgEscalationStore } from "./infrastructure/agent-interrupts/pg-escalation-store";
 import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
 import { PgAgentRoleDraftRepository } from "./infrastructure/agent/pg-agent-role-draft-repository";
 import { AgentDirectoryController } from "./interface/controllers/agent-directory.controller";
@@ -799,6 +802,10 @@ import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repos
 //   材料字节走同一个 `ObjectStore` 实例，键前缀 `org-avatars/` 区分即可。
 import { ORG_PROFILE_REPOSITORY } from "./application/auth/org-profile-ports";
 import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-repository";
+// 组织首页配置（ad-hoc feature，Refs #4634）。
+import { HOME_CONFIG_REPOSITORY } from "./application/home/home-config-ports";
+import { PgHomeConfigRepository } from "./infrastructure/home/pg-home-config-repository";
+import { HomeConfigController } from "./interface/controllers/home-config.controller";
 import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
 import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
@@ -1097,7 +1104,13 @@ import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/config
 import { RecordingController } from "./interface/controllers/recording.controller";
 import pgModule from "pg";
 import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
+import { BoardRunCardsController } from "./interface/controllers/board-run-cards.controller";
+import { BOARD_RUN_CARDS_DEPS, type ListBoardRunCardsDeps } from "./application/board/list-board-run-cards";
+import { PgBoardRunSource } from "./infrastructure/board/pg-board-run-source";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "./application/workflow/workflow-runtime-service";
+import { ModelContentSkillRunner } from "./application/work-content/content-skill-runner";
+import { PgSkillCatalogVersionResolver } from "./infrastructure/workflow/pg-skill-catalog-version-resolver";
+import { PgWorkflowAccess } from "./infrastructure/workflow/pg-workflow-access";
 import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
 import { createGeneralizedScheduleHandler } from "./infrastructure/workflow/workflow-scheduled-job-router";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
@@ -1109,6 +1122,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 @Module({
   controllers: [
     WorkflowRuntimeController,
+    BoardRunCardsController,
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
@@ -1156,6 +1170,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CheckinBoardController,
     ProjectInviteController,
     OrgAdminManagementController,
+    HomeConfigController,
     PlatformAccessController,
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,
@@ -1195,9 +1210,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     BoardController,
     AgentTrialRunController,
     SkillTrialRunController,
+    // ⚠ 必须排在 AgentController 之前：Express 按注册顺序匹配，`GET /agents/:agentId`
+    // 会把静态段 `GET /agents/directory` 当成 agentId="directory" 吃掉 → 404 AGENT_NOT_FOUND。
+    // 回归测试：tests/agent/agent-directory-route-order.test.ts。
+    AgentDirectoryController,
     AgentController,
     AgentRoleController,
-    AgentDirectoryController,
+    EscalationDecisionController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
@@ -1229,11 +1248,20 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
     {
-      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT],
-      useFactory: (db: DatabasePort, logger: LoggerPort) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER],
+      useFactory: (db: DatabasePort, logger: LoggerPort, model: ModelCallPort, notifications: NotificationPublisher) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+        // CT06：Skill 版本从本组织 Work Skill 目录解析；内容线 Skill 以发起 Agent 固定版本的模型执行，
+        // PRD 经 effect-gateway 发布并通知发起人（W029）。
+        skills: new PgSkillCatalogVersionResolver(db),
+        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db)), notifications },
         onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
         replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
       }),
+    },
+    // CT10：Board 运行卡读模型（候选运行 PG 读 + WF03 角色解析；权限过滤在应用层）。
+    {
+      provide: BOARD_RUN_CARDS_DEPS, inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort): ListBoardRunCardsDeps => ({ runs: new PgBoardRunSource(db), access: new PgWorkflowAccess(db) }),
     },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
@@ -1629,6 +1657,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
       inject: [DATABASE_PORT],
     },
+    { provide: ESCALATION_STORE, useFactory: (db: DatabasePort) => new PgEscalationStore(db), inject: [DATABASE_PORT] },
     {
       provide: AGENT_ROLE_DRAFT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
@@ -2811,6 +2840,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ORG_PROFILE_REPOSITORY,
       useFactory: (db: DatabasePort, store: ObjectStore) => new PgOrgProfileRepository(db, store),
       inject: [DATABASE_PORT, OBJECT_STORE],
+    },
+    // 组织首页配置（ad-hoc feature，Refs #4634）。
+    {
+      provide: HOME_CONFIG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgHomeConfigRepository(db),
+      inject: [DATABASE_PORT],
     },
     // #638 delta，迭代 2：`uploadOwnAvatar`/`updateOwnProfile` 的头像元数据仓储。
     {

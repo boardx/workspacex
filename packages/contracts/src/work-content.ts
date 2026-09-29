@@ -15,6 +15,7 @@
  * ⚠ 本文件暂未从 index.ts 导出（导出由独立步骤负责）。
  */
 import { z } from "zod";
+import { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 import {
   WorkflowInstanceStatus,
   WorkflowKey,
@@ -22,8 +23,10 @@ import {
   WorkflowStageId,
   WorkflowRequestId,
   CapabilityCategory,
+  WorkflowErrorBody,
 } from "./workflow-runtime";
 import { WorkflowStableId } from "./agent-role";
+import { AvatarKey } from "./interview-expert-avatar";
 
 /* ── 基础标识（v2 实体编号；与 WORK-STACK-320-LIST.md 对齐） ─────────────── */
 
@@ -75,8 +78,8 @@ export const CrmWriteItemOutcome = z.enum([
 /** Board 运行卡状态徽标（R8）。列映射见 domain I-C11。 */
 export const BoardRunBadge = z.enum(["in_progress", "awaiting_review", "done", "rejected", "failed"]);
 
-/** Board 来源类型新增值（提案名；落地时加入 board.SourceKind 单源，本文件不另起第二份）。 */
-export const WORKFLOW_RUN_SOURCE_KIND = "workflow_run" as const;
+/** Board 来源类型新增值——单源在 board.SourceKind（CT10 落地），这里只转出。 */
+export { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 
 /* ── 产出 schema（结论必带证据：R7 / I-C6） ───────────────────────────── */
 
@@ -123,6 +126,12 @@ export const PrdArtifact = z
   .strict();
 
 /** W013 新商机载荷：**只**允许这五个字段（V6）；amount/closeDate/stage 进 deferredProposals。 */
+/** W029 各 Skill 阶段产出（stage content 的 `output` 字段）的最小形状；PRD 装配时不符即失败，不猜。 */
+export const PrdFrameStageOutput = z.object({ problemStatement: z.string().min(1), evidenceRefs: z.array(z.string().min(1)), confidence: z.enum(["low", "medium", "high"]) });
+export const PrdPriorityStageOutput = z.object({ ranking: z.array(z.object({ id: z.string().min(1), priority: z.string().min(1) })) });
+export const PrdDraftStageOutput = z.object({ title: z.string().min(1), requirements: z.array(z.object({ id: z.string().min(1), text: z.string().min(1) })) });
+export const PrdKpiStageOutput = z.object({ kpis: z.array(z.object({ name: z.string().min(1), definition: z.string().min(1) })) });
+
 export const NewOpportunityPayload = z
   .object({
     accountId: z.string().min(1),
@@ -234,8 +243,18 @@ export const Phase1Reconciliation = z
 
 /* ── Board 只读运行卡（CT10） ──────────────────────────────────────────── */
 
+/**
+ * 参与 Agent。`avatarKey` = Agent 角色字段里的插画头像（agent-role `AgentAvatar.key`，Phase 20 起唯一在写的
+ * Agent 头像来源）；`avatarUrl` 预留给上传图片头像（Agent 目前没有这一来源，恒为 null）。两者皆空 → 首字母。
+ */
 export const BoardRunCardAgent = z
-  .object({ agentId: z.string(), digitalHumanId: DigitalHumanStableId.nullable(), displayName: z.string(), avatarUrl: z.string().nullable() })
+  .object({
+    agentId: z.string(),
+    digitalHumanId: DigitalHumanStableId.nullable(),
+    displayName: z.string(),
+    avatarKey: AvatarKey.nullable(),
+    avatarUrl: z.string().nullable(),
+  })
   .strict();
 
 export const BoardWorkflowRunCard = z
@@ -364,3 +383,11 @@ export const WorkflowNotAllowlistedHint = z
     handoffCandidates: z.array(DigitalHumanStableId), // 例：D011 请求 W030 → ["D003"]
   })
   .strict();
+
+/**
+ * E3 的 403 失败体：`workflowRuntime.startInstance` 的 `WorkflowErrorBody`（code = workflow_not_allowed）
+ * 附 `allowlistHint`。只在「Agent 可运行但 Workflow 不在其已发布白名单内」时出现。
+ */
+export const WorkflowNotAllowedErrorBody = WorkflowErrorBody.extend({
+  allowlistHint: WorkflowNotAllowlistedHint,
+}).strict();

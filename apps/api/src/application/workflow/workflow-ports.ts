@@ -17,6 +17,17 @@ export interface WorkflowDefinitionRepository {
   insertPublished(orgId: string, view: WorkflowDefinitionVersionView): Promise<void>;
 }
 
+/**
+ * UC-WR-2 读侧与内置 Definition 注册（dev-mode 种子）：与 `WorkflowDefinitionRepository` 分开声明，
+ * 不改动 WF01 既有端口形状。
+ */
+export interface WorkflowDefinitionCatalogPort {
+  /** 本组织每个 key 的最新 published 版本。 */
+  listLatestPublished(orgId: string): Promise<WorkflowDefinitionVersionView[]>;
+  /** 幂等建 `workflow_definitions` 行（(org_id,key) 已存在则不动）。 */
+  ensureDefinition(orgId: string, key: string): Promise<void>;
+}
+
 /** 解析 Skill 引用为已发布版本（按组织可见性）；不可解析返回 null。 */
 export interface SkillVersionResolverPort {
   resolve(orgId: string, stableId: string, versionRange: string): Promise<string | null>;

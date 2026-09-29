@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure } from "@/lib/design-failure";
 import { listProjects } from "@/lib/live-projects";
 import {
   changeTaskStatus, createTask, getMyToday,
@@ -109,7 +110,7 @@ function NewTaskForm({ projectId, ownerUserId, onCreated }: {
       setOpen(false);
       onCreated();
     } catch (e) {
-      setError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      setError(describeFailure(e));
     } finally {
       setSubmitting(false);
     }
@@ -163,6 +164,35 @@ function NewTaskForm({ projectId, ownerUserId, onCreated }: {
   );
 }
 
+/**
+ * 选「我的今天」的角色判定锚点项目。
+ *
+ * ⚠ 此前直接取 `listProjects()[0]`。但 `listProjects` 的入列理由有两种——「持有项目角色」
+ * 与「组织 lead/admin 管理」（`application/project/list-projects.ts`），而且会列出
+ * `general` 容器；`GET /tasks/today` 的角色判定只读工作坊的 `project_memberships`
+ * （`board.controller.ts` `resolveProjectRole`，看板是工作坊机制，见
+ * `application/identity/project-layer.ts` 头注）。于是 lead 的第一个项目只要是他
+ * 「管理」而非「加入」的、或是一个 `general` 容器，就稳定拿到 403 `NO_PROJECT_ROLE`，
+ * 屏上出现一行裸「HTTP 403」。
+ *
+ * 现在：只在工作坊项目里找，按列表顺序逐个试，403（无看板角色 / 观察者）跳过，
+ * 取第一个真正能读的；其它失败照常抛出。
+ */
+async function findBoardAnchor(
+  projects: readonly { id: string; kind: string }[],
+): Promise<{ projectId: string; today: GetMyTodayOut } | null> {
+  for (const p of projects) {
+    if (p.kind !== "workshop") continue;
+    try {
+      return { projectId: p.id, today: await getMyToday(p.id) };
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) continue;
+      throw e;
+    }
+  }
+  return null;
+}
+
 export function TodayBoardLive() {
   const { status, session } = useSession();
   const [projectId, setProjectId] = React.useState<string | null>(null);
@@ -171,6 +201,8 @@ export function TodayBoardLive() {
   /** 「这个组织还没有项目」与「有项目但没有任务」是两回事，界面上要分开说。 */
   const [noProject, setNoProject] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /** 组织里有项目、但没有一个是你持有看板角色的（见 `findBoardAnchor`）。 */
+  const [hasProjects, setHasProjects] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     if (status !== "authenticated" || !session) return;
@@ -178,9 +210,13 @@ export function TodayBoardLive() {
     setError(null);
     try {
       let pid = projectId;
+      let out: GetMyTodayOut | null = null;
       if (pid === null) {
         const projects = await listProjects(session.currentOrgId);
-        pid = projects[0]?.id ?? null;
+        setHasProjects(projects.length > 0);
+        const found = await findBoardAnchor(projects);
+        pid = found?.projectId ?? null;
+        out = found?.today ?? null;
         setProjectId(pid);
       }
       if (pid === null) {
@@ -194,10 +230,9 @@ export function TodayBoardLive() {
         return;
       }
       setNoProject(false);
-      const out = await getMyToday(pid);
-      setData(out);
+      setData(out ?? (await getMyToday(pid)));
     } catch (e) {
-      setError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      setError(describeFailure(e));
     } finally {
       setLoading(false);
     }
@@ -214,7 +249,7 @@ export function TodayBoardLive() {
       await changeTaskStatus(id, next);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : "推进失败");
+      setError(`推进失败：${describeFailure(e)}`);
     }
   };
 
@@ -227,7 +262,7 @@ export function TodayBoardLive() {
       await changeTaskStatus(id, target as never, "标记阻塞（前端演示按钮）");
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : "标记阻塞失败");
+      setError(`标记阻塞失败：${describeFailure(e)}`);
     }
   };
 
@@ -261,7 +296,9 @@ export function TodayBoardLive() {
           data-testid="tasks-live-no-project"
           className="rounded-lg border border-dashed border-border px-6 py-10 text-center"
         >
-          <p className="text-13 text-card-foreground">这里还没有任务，因为你还没有项目。</p>
+          <p className="text-13 text-card-foreground" data-testid="tasks-live-no-project-title">
+            {hasProjects ? "这里还没有任务，因为你还没有加入任何项目的看板。" : "这里还没有任务，因为你还没有项目。"}
+          </p>
           <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
             「我的今天」汇总的是各个项目里轮到你的事。先建一个项目，它就有内容了。
             <br />

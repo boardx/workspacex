@@ -3,6 +3,7 @@
  * 实现在 infrastructure/workflow；application 只声明形状（洋葱架构）。
  */
 import { type WorkflowInstanceStatus, type WorkflowReasonCode, type WorkflowSseEnvelope, WorkflowEventType as WorkflowEventTypeSchema } from "@repo/contracts/workflow-runtime";
+import type { WorkflowNotAllowlistedHint } from "@repo/contracts/work-content";
 import type { z } from "zod";
 import type { PinnedWorkflowInstance, WorkflowLease } from "./workflow-ports";
 
@@ -76,7 +77,15 @@ export interface WorkflowAccessPort {
   orgRoleOf(orgId: string, userId: string): Promise<"admin" | "member" | null>;
   /** 发起人可运行的已发布 Agent 版本；不可运行返回 null（→ workflow_not_allowed）。 */
   runnableAgentVersion(orgId: string, userId: string, agentId: string, workflowKey: string): Promise<string | null>;
+  /**
+   * CT06 / E3（契约束 work-content「白名单外发起」）：受角色白名单约束的 Workflow（内容线 W0xx）不在
+   * 该 Agent **已发布版本**冻结的 workflowAllowlist 内 → 返回可转交提示；其余（在白名单内 / 不受白名单
+   * 约束的 Workflow）返回 null。只在 runnableAgentVersion 已放行后调用。
+   */
+  workflowAllowlistRefusal(orgId: string, userId: string, agentId: string, workflowKey: string): Promise<WorkflowNotAllowlistedHintT | null>;
 }
+
+export type WorkflowNotAllowlistedHintT = z.infer<typeof WorkflowNotAllowlistedHint>;
 
 /** 把拿到 lease 的实例交给运行时 worker（进程内后台执行或测试里同步执行）。 */
 export interface WorkflowRunDispatcher {
@@ -89,4 +98,23 @@ export interface WorkflowRunDispatcher {
  */
 export interface WorkflowExpiredLeaseScanner {
   expired(limit: number): Promise<Array<{ orgId: string; instanceId: string }>>;
+}
+
+/**
+ * UC-WR-5 / UC-WR-10 读侧：列实例行（业务行，不读 checkpoint）。可见性不在这里判——
+ * `initiatorUserId` 只是 SQL 预筛，应用层（instance-queries.ts）仍逐行按 canView / 审批人资格复核。
+ */
+export interface WorkflowInstanceQueryPort {
+  /** 按 (updatedAt desc, instanceId desc) 分页；`before` 为上一页最后一行的游标键。 */
+  listInstances(
+    orgId: string,
+    q: {
+      initiatorUserId: string | null;
+      statuses: readonly WorkflowInstanceStatus[] | null;
+      before: { updatedAt: string; instanceId: string } | null;
+      limit: number;
+    },
+  ): Promise<WorkflowInstanceState[]>;
+  /** 开过人工门（有 gate_opened 事件）的实例 id，新近优先；`openOnly` 只取仍在 awaiting_gate_decision 的。 */
+  listGateInstanceIds(orgId: string, q: { openOnly: boolean; limit: number }): Promise<string[]>;
 }

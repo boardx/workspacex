@@ -71,19 +71,39 @@ export interface DecisionGuardInput {
   readonly pendingInterrupt: PendingInterrupt | null;
   readonly payload: ParsedResumePayload;
   readonly auditWritable: boolean;
+  /**
+   * AG06：仅 pending kind 为 `escalate` 时适用——决策人身份 + 目标人集合（由
+   * escalationPolicy.target 解析出的 requester / project owner / org admin 的用户 ID）。
+   * pending 为 escalate 却未提供 ⇒ fail closed 为 `ESCALATION_DECIDER_FORBIDDEN`。
+   */
+  readonly escalation?: {
+    readonly deciderId: string;
+    readonly eligibleDeciderIds: readonly string[];
+  };
 }
 
+/** AG06：decision-guard 的返回码 = 本束 8 码 ∪ escalate 专属的决策人身份拒绝码（agent-role 契约 E6）。 */
+export type DecisionGuardError = AgentInterruptError | "ESCALATION_DECIDER_FORBIDDEN";
+
 /** fail-closed：8 码任一命中即返回对应码；全部通过才返回 `null`（放行）。 */
-export function guardAgentInterruptDecision(input: DecisionGuardInput): AgentInterruptError | null {
+export function guardAgentInterruptDecision(input: DecisionGuardInput): DecisionGuardError | null {
   if (!input.visible) return "NOT_VISIBLE";
   if (!input.canWrite) return "NO_WRITE_ROLE";
   if (input.pendingInterrupt === null) return "NO_ACTIVE_INTERRUPT";
   if (input.payload === null) return "MALFORMED_RESUME_PAYLOAD";
   if (input.payload.impliedKind !== input.pendingInterrupt.kind) return "INTERRUPT_KIND_MISMATCH";
+  if (input.pendingInterrupt.kind === "escalate" && !isEligibleEscalationDecider(input.escalation)) {
+    return "ESCALATION_DECIDER_FORBIDDEN";
+  }
   if (input.payload.requestId !== null && input.payload.requestId !== input.pendingInterrupt.requestId) {
     return "STALE_INTERRUPT";
   }
   if (input.payload.selectedOptionFound === false) return "SELECTED_OPTION_NOT_FOUND";
   if (!input.auditWritable) return "AUDIT_SINK_UNAVAILABLE";
   return null;
+}
+
+function isEligibleEscalationDecider(escalation: DecisionGuardInput["escalation"]): boolean {
+  if (escalation === undefined || escalation.deciderId.length === 0) return false;
+  return escalation.eligibleDeciderIds.includes(escalation.deciderId);
 }

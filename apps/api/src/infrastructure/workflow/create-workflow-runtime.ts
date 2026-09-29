@@ -1,5 +1,7 @@
 /**
  * WF03 —— Workflow 运行时的生产合成：PG 端口 + 代码图注册表（含演示 Workflow）+ 唯一 checkpointer 工厂。
+ * CT06：给了 `content`（Skill 执行器 + 通知中心）时，W029 的占位图换成真正接线的 Problem-to-PRD 图
+ * （Skill 阶段执行、PRD 经 effect-gateway `artifact.write` 发布、`notify.inapp` 通知发起人）。
  */
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
@@ -7,6 +9,9 @@ import type pg from "pg";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { ComposedEffectPermissionRecheck } from "../../application/workflow/effect-permission-recheck";
 import { EffectGateway, type EffectReconcilePort } from "../../application/workflow/effect-gateway";
+import type { NotificationPublisher } from "../../application/notifications/notification-center";
+import type { ContentSkillRunnerPort } from "../../application/work-content/content-skill-runner";
+import { prdPublishedNotifier, publishPrdArtifact } from "../../application/work-content/prd-publication";
 import {
   LeadWriteBackService,
   type InAppNotifyPort,
@@ -16,10 +21,13 @@ import {
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
-import { demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
-import { demoWorkflowGraph } from "./demo-workflow-graph";
+import type { WorkflowDefinitionVersionInput } from "@repo/contracts/workflow-runtime";
+import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../domain/work-content/product-workflow-definitions";
+import { DEMO_APPROVAL_WORKFLOW_DEFINITION, demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
+import { DEMO_WORKFLOW_DEFINITION, demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { productWorkflowGraphs } from "./product-workflow-graphs";
+import { problemToPrdGraph } from "./problem-to-prd-graph";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
 import { PgWorkflowExpiredLeaseScanner } from "./pg-workflow-expired-lease-scanner";
@@ -46,6 +54,18 @@ import {
  */
 export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: async () => null };
 
+/**
+ * 代码自带的 Definition 元数据（与 `defaultWorkflowGraphs()` 的图一一对应）：演示 `demo-brief:1` / `demo-approval:1`
+ * 与产品线 W027–W032 / W002（CT05）。由 `publishBuiltInWorkflowDefinitions` 经 UC-WR-1 发布校验导入组织。
+ */
+export function builtInWorkflowDefinitions(): WorkflowDefinitionVersionInput[] {
+  return [
+    structuredClone(DEMO_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
+    structuredClone(DEMO_APPROVAL_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
+    ...PRODUCT_LINE_WORKFLOWS.map(toRuntimeDefinition),
+  ];
+}
+
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
   return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
 }
@@ -67,6 +87,8 @@ export interface WorkflowRuntimeOptions {
   takeoverIntervalMs?: number;
   /** WF04：按能力分类注册的只读对账实现（E1）；未注册的分类崩溃恢复时一律 unresolved。 */
   effectReconcilers?: Record<string, EffectReconcilePort>;
+  /** CT06：内容线执行接线（缺省 = 只注册 CT05 的占位图，Skill 不执行、不发布）。 */
+  content?: { skills: ContentSkillRunnerPort; notifications: NotificationPublisher };
   /**
    * CT09：W011「线索到合格」写回段的租户侧端口（租户 CRM / 站内通知 / 审批人资格）。给了才合成
    * `leadWriteBack`，并把 `crm.write` 的只读对账注册进网关（runInstance 通用恢复路径同样可用）。
@@ -92,12 +114,25 @@ class DispatchingEffectReconciler implements EffectReconcilePort {
 }
 
 export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: WorkflowRuntimeOptions = {}) {
-  const registry = new WorkflowGraphRegistry(opts.graphs ?? defaultWorkflowGraphs(), defaultCommandWorkflowGraphs());
   const access = new PgWorkflowAccess(db);
   const receipts = new PgWorkflowReceiptStore(db);
   const leases = new PgWorkflowLeaseStore(db);
   const events = new PgWorkflowEventStore(db);
   const instances = new PgWorkflowInstanceRepository(db);
+  const outputs = new PgWorkflowStageOutputStore(db);
+  let graphs = opts.graphs ?? defaultWorkflowGraphs();
+  if (opts.content) {
+    const prd = problemToPrdGraph({
+      skills: opts.content.skills,
+      outputs,
+      instances,
+      effects: () => effectGateway,
+      publishArtifact: publishPrdArtifact,
+      notify: prdPublishedNotifier(opts.content.notifications),
+    });
+    graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef), prd];
+  }
+  const registry = new WorkflowGraphRegistry(graphs, defaultCommandWorkflowGraphs());
   const capability = new PgEffectCapabilityAuthority(db);
   const reconcilers: Record<string, EffectReconcilePort> = {
     ...(opts.leadWriteBack ? leadWriteBackReconcilers(opts.leadWriteBack) : {}),
@@ -114,14 +149,18 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
   const leadWriteBack = opts.leadWriteBack
     ? new LeadWriteBackService({ gateway: effectGateway, capability, events, leases, instances, ...opts.leadWriteBack })
     : null;
+  const definitions = new PgWorkflowDefinitionRepository(db);
   const service = new WorkflowRuntimeService({
-    definitions: new PgWorkflowDefinitionRepository(db),
+    definitions,
+    catalog: definitions,
+    queries: events,
+    graphs: registry,
     instances,
     skills: opts.skills ?? UNRESOLVED_SKILL_VERSIONS,
     receipts,
     leases,
     events,
-    outputs: new PgWorkflowStageOutputStore(db),
+    outputs,
     access,
     expiredLeases: new PgWorkflowExpiredLeaseScanner(db),
     driver: new LangGraphWorkflowDriver(registry, createWorkflowCheckpointerFactory(pool)),

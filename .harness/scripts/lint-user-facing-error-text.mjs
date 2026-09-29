@@ -107,7 +107,6 @@ const LEGACY = new Map([
   ["apps/web/components/project/workshop-project-flow.tsx", 1],
   ["apps/web/components/projects/projects-screen.tsx", 3],
   ["apps/web/components/skill/skill-catalog-live.tsx", 1],
-  ["apps/web/components/tasks/today-board-live.tsx", 4],
   ["apps/web/components/tpl-designer/blueprint-designer-page-live.tsx", 1],
   ["apps/web/components/tpl/blueprint-list-screen-live.tsx", 1],
   ["apps/web/components/tpl/workflow-screen.tsx", 1],

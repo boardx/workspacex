@@ -65,6 +65,7 @@ export const ADMIN_NAV_TESTID: Record<AdminModuleKey, string> = {
   "org-members": "admin-nav-org-members",
   "org-invites": "admin-nav-org-invites",
   "org-profile": "admin-nav-org-profile",
+  "home-config": "admin-nav-home-config",
   "feedback-drafts": "admin-nav-feedback-drafts",
   inbox: "admin-nav-inbox",
   "design-workbench": "admin-nav-design-workbench",
