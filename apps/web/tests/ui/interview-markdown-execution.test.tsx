@@ -21,8 +21,8 @@ it("starting execution sends a freshly read source version rather than the initi
 it("persisted runtime tasks supply progress even when legacy runs are empty", async () => {
   api.initializeInterviewMarkdown.mockResolvedValue({ ...active, execution: { ...active.execution!, status: "paused" } });
   renderResults();
-  expect(await screen.findByRole("heading", { name: "nurse-7" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "doctor-8" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "查看nurse-7的模拟访谈" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "查看doctor-8的模拟访谈" })).toBeVisible();
   expect(screen.getByRole("progressbar", { name: "访谈整体进度" })).toHaveAttribute("aria-valuenow", "50");
   expect(screen.queryByText("暂无已登记访谈任务，不会显示示例进度。")).not.toBeInTheDocument();
 });
