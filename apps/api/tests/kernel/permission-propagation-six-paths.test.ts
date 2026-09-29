@@ -1392,7 +1392,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // 2026-09-29 merge of main (EV04 at 115) into AG06 (at 115): union = 116 entries.
     // 2026-09-29 merge of main (AG06 at 580776f3a, ceiling 116) into CT06 (ceiling 116): union =
     // main's 116 + CT06 pg-skill-catalog-version-resolver.ts = 117.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(117);
+    // 2026-09-29 ad-hoc home-config (#4660/#4661) adds pg-home-config-repository.ts (117 -> 118):
+    // `org_home_configs` is one row per org (banner text / quick-action toggles / recommended
+    // Agent·Skill name snapshots), no ObjectRef shape; both routes' admin gate runs in
+    // home-config.controller.ts before the repository is reached. Pinned by
+    // tests/home/home-config-authorization.test.ts. Remove this increment with that test.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(118);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
