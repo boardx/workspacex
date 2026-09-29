@@ -1395,9 +1395,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // 2026-09-29 merge of main (EV04 at 115) into AG06 (at 115): union = 116 entries.
     // 2026-09-29 merge of main (AG06 at 580776f3a, ceiling 116) into CT06 (ceiling 116): union =
     // main's 116 + CT06 pg-skill-catalog-version-resolver.ts = 117.
+    // 2026-09-29 ad-hoc home-config (#4660/#4661) adds pg-home-config-repository.ts (117 -> 118):
+    // `org_home_configs` is one row per org (banner text / quick-action toggles / recommended
+    // Agent·Skill name snapshots), no ObjectRef shape; both routes' admin gate runs in
+    // home-config.controller.ts before the repository is reached. Pinned by
+    // tests/home/home-config-authorization.test.ts. Remove this increment with that test.
     // 2026-09-29 merge of main (CT06 squash 20317fc7d, ceiling 117) into CT10: union =
     // main's 117 + CT10 pg-board-run-source.ts = 118 (measured).
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(118);
+    // 2026-09-29 merge of main (CT10 squash #4662, ceiling 118) into home-config (#4660/#4661,
+    // ceiling 118): union = main's 118 (includes CT10's pg-board-run-source.ts) + home-config's
+    // own pg-home-config-repository.ts (already counted above, this branch's ceiling was 118
+    // pre-merge) = 119 (measured: allowlisted=129, boundary rules=10, 129-10=119).
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(119);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -11,6 +11,7 @@ export * as project from "./project";
 export * as projectEvidence from "./project-evidence";
 export * as files from "./files";
 export * as orgAdmin from "./org-admin";
+export * as homeConfig from "./home-config";
 export * as assetGovernance from "./asset-governance";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";
