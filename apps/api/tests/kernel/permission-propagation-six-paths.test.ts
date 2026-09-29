@@ -1374,10 +1374,14 @@ describe("lint-permission-paths: counter-proof", () => {
     // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
     // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
     // boundary rules). Ceiling recomputed as the combined total.
+    // 2026-09-29 AG06 adds pg-escalation-store.ts (+1 -> 115): read-only identity data for the
+    // escalationPolicy-target decider check in decide-escalation.ts (E6). Pinned by
+    // tests/agent/escalate-decision-guard.test.ts. Remove this increment with that test.
     // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
     // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
     // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(115);
+    // 2026-09-29 merge of main (EV04 at 115) into AG06 (at 115): union = 116 entries.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(116);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
