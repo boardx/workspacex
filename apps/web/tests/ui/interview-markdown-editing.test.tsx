@@ -3,13 +3,20 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewExpertsStep } from "@/components/itv/interview-experts-step";
 import { InterviewOutlineStep, normalizeOutlineForPersistence } from "@/components/itv/interview-outline-step";
-import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdown-editing-step";
+import { InterviewMarkdownEditingStep, generationUnavailableMessage } from "@/components/itv/interview-markdown-editing-step";
 import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specialty-icon";
 import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
 import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 import { interviewMarkdown } from "@repo/contracts";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
+it("matches unavailable recovery copy to the failed generation step", () => {
+  expect(generationUnavailableMessage("experts")).toContain("未能生成专家建议");
+  expect(generationUnavailableMessage("experts")).toContain("重新生成专家");
+  expect(generationUnavailableMessage("experts")).not.toContain("重新生成问题");
+  expect(generationUnavailableMessage("outline")).toContain("未能生成访谈问题");
+  expect(generationUnavailableMessage("outline")).toContain("重新生成问题");
+});
 it("keeps each maintained category paired with a specialty icon without inventing missing records", () => {
   expect(INTERVIEW_PERSONAS).toHaveLength(97);
   expect(EXPERT_SPECIALTY_ICON_CATEGORIES.sort()).toEqual([...INTERVIEW_PERSONA_CATEGORIES].sort());

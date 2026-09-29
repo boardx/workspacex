@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button";
 import { InterviewExpertsStep } from "./interview-experts-step";
 import { InterviewOutlineStep, normalizeOutlineForPersistence } from "./interview-outline-step";
 
+export function generationUnavailableMessage(step: "experts" | "outline" | null) {
+  return step === "experts"
+    ? "AI 服务暂时不可用，未能生成专家建议。当前专家编辑已保留，你可以重新生成专家或稍后继续。"
+    : "AI 服务暂时不可用，未能生成访谈问题。专家选择与当前编辑均已保留，你可以重新生成问题或稍后继续。";
+}
+
 export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue }: {
   interviewId: string; step: "experts" | "outline"; onVersionChange: (version: number) => void;
   onDirtyChange: (dirty: boolean) => void; onContinue: (step: "experts" | "outline" | "runs") => void;
@@ -55,7 +61,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       setError(cause instanceof ApiError && cause.status === 409
         ? "版本冲突或文档已确认；当前编辑保留，不能覆盖确认版本。"
         : cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE"
-          ? "AI 服务暂时不可用，未能生成访谈问题。专家选择与当前编辑均已保留，你可以重新生成问题或稍后继续。"
+          ? generationUnavailableMessage(generationStep)
           : "操作未完成，当前编辑保留。请重试。");
       setRetryGenerationStep(cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE" ? generationStep : null);
     } finally { setPending(false); }
