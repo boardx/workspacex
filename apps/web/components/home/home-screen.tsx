@@ -8,7 +8,7 @@ import { useSession } from "@/components/session/session-provider";
 import { getHomeConfig, type HomeConfig, type QuickActionKey } from "@/lib/live-home-config";
 import { listProjects, type ListProjectsOut } from "@/lib/live-projects";
 import { listPersonalThreads } from "@/lib/live-chat";
-import { ApiError } from "@/lib/api-client";
+import { describeHomeConfigFailure } from "@/lib/home-config-failure";
 
 /**
  * 组织首页 —— 登录后的第一落点（束: home，导航项见 `lib/navigation.ts` 的 `key: "home"`）。
@@ -60,8 +60,7 @@ export function HomeScreen(): JSX.Element {
       .then((config) => { if (!cancelled) setState({ status: "ready", config }); })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const message = err instanceof ApiError ? (err.reasonCode ?? "首页配置加载失败") : "首页配置加载失败";
-        setState({ status: "error", message });
+        setState({ status: "error", message: describeHomeConfigFailure(err) });
       });
     listProjects(orgId)
       .then((out) => { if (!cancelled) setProjects(out); })

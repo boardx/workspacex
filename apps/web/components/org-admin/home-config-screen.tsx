@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StateShell, type UiState } from "@/components/state/state-shell";
-import { ApiError } from "@/lib/api-client";
+import { describeHomeConfigFailure } from "@/lib/home-config-failure";
 import { cn } from "@/lib/utils";
 import {
   getHomeConfig, updateHomeConfig,
@@ -75,15 +75,6 @@ function toFormState(config: HomeConfig): FormState {
   };
 }
 
-function describeFailure(failure: unknown): string {
-  if (failure instanceof ApiError) {
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    if (failure.status === 403) return "首页配置仅组织管理员可编辑（HTTP 403）。";
-    return `${failure.reasonCode ?? "加载失败"}（HTTP ${failure.status}）`;
-  }
-  return failure instanceof Error ? failure.message : "加载失败，请稍后重试。";
-}
-
 export function HomeConfigScreen() {
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -105,7 +96,7 @@ export function HomeConfigScreen() {
       setForm(toFormState(out));
       setState("default");
     } catch (err) {
-      setFailureMessage(describeFailure(err));
+      setFailureMessage(describeHomeConfigFailure(err));
       setState("dep-failed");
     }
   }, [orgId]);
@@ -156,7 +147,7 @@ export function HomeConfigScreen() {
       setForm(toFormState(out));
       setState("success");
     } catch (err) {
-      setFailureMessage(describeFailure(err));
+      setFailureMessage(describeHomeConfigFailure(err));
       setState("dep-failed");
     }
   }
