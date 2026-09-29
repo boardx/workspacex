@@ -14,6 +14,7 @@
  */
 import { SkillFileEditError, SkillFileEditConflict } from "@repo/contracts/skill-file-edit";
 import { WorkSkillErrorBody } from "@repo/contracts/work-skill-meta";
+import { WorkEvalErrorBody } from "@repo/contracts/work-eval";
 import { InterviewMarkdownReportReviewErrorCode } from "@repo/contracts/interview-markdown-report-review";
 import {
   type ArgumentsHost,
@@ -665,6 +666,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...artifactErrorOf(exception),
         ...prototypePatchRejectionOf(exception),
         ...workSkillErrorOf(exception),
+        ...workEvalErrorOf(exception),
       });
       return;
     }
@@ -707,5 +709,13 @@ function workSkillErrorOf(exception: HttpException): Partial<z.infer<typeof Work
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const parsed = WorkSkillErrorBody.safeParse((body as { workSkillError?: unknown }).workSkillError);
+  return parsed.success ? parsed.data : {};
+}
+
+/** Phase 20 EV04：`work-eval` 的错误体（契约 `WorkEvalErrorBody`），同上只放通过契约 parse 的值。 */
+function workEvalErrorOf(exception: HttpException): Partial<z.infer<typeof WorkEvalErrorBody>> {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const parsed = WorkEvalErrorBody.safeParse((body as { workEvalError?: unknown }).workEvalError);
   return parsed.success ? parsed.data : {};
 }

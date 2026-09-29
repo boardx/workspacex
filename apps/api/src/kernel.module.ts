@@ -242,6 +242,9 @@ import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-st
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
 import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
+import { WorkGateStatusController } from "./interface/controllers/work-gate-status.controller";
+import { PgWorkGateStatusRepository } from "./infrastructure/work-eval/pg-work-gate-status-repository";
+import { WORK_GATE_STATUS_REPOSITORY } from "./application/work-eval/work-gate-status";
 import { PgWorkSkillCatalogRepository } from "./infrastructure/skill/pg-work-skill-catalog-repository";
 import { WORK_SKILL_CATALOG_REPOSITORY } from "./application/skill/work-skill-catalog";
 import { TOOL_GRANT_READER } from "./application/skill/work-skill-readiness";
@@ -1104,6 +1107,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CapabilityController,
     SkillStarterImportController,
     WorkSkillCatalogController,
+    WorkGateStatusController,
     SkillUrlImportController,
     AgentUrlImportController,
     McpRemoteDiscoveryController,
@@ -1481,6 +1485,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: WORK_SKILL_CATALOG_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWorkSkillCatalogRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: WORK_GATE_STATUS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWorkGateStatusRepository(db),
       inject: [DATABASE_PORT],
     },
     // Phase 20 WS04：就绪性输入——本组织工具 × 能力分类授权快照。
