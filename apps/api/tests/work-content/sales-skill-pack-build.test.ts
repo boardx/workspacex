@@ -20,7 +20,10 @@ import {
   PACK_ID,
   PACK_VERSION,
   WorkContentPackBuildError,
+  checkCommittedPack,
+  specFor,
 } from "../../scripts/build-work-sales-skill-pack";
+import { serializePack } from "../../scripts/work-content-pack";
 
 /**
  * D005 销售线矩阵行的 14 个 Skill + W015/W016/W018 额外依赖的 4 个 Skill
@@ -183,5 +186,78 @@ describe("CT07 · 销售线 Skill 包构建（work-sales starter-pack）", () =>
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("引用格式合法但非第一阶段 PASS 的实体（S011，第二阶段）⇒ 构建失败并指名文件（E1 / I-C2）", () => {
+    const tempRoot = copyRootToTemp();
+    try {
+      const target = resolve(tempRoot, "prospecting", "SKILL.md");
+      const original = readFileSync(target, "utf8");
+      const tampered = original.replace("stableId: S024", "stableId: S011");
+      expect(tampered).not.toBe(original);
+      writeFileSync(target, tampered);
+      let caught: unknown;
+      try {
+        buildWorkSalesPack(tempRoot);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(WorkContentPackBuildError);
+      const issue = (caught as WorkContentPackBuildError).issues.find((i) => i.file === "prospecting/SKILL.md");
+      expect(issue?.message).toContain("S011");
+      expect(issue?.message).toContain("PASS");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("缺少覆盖集合中的一个实体（删掉 close-plan 目录）⇒ 构建失败并指名缺失 ID", () => {
+    const tempRoot = copyRootToTemp();
+    try {
+      const target = resolve(tempRoot, "close-plan", "SKILL.md");
+      const missingId = /stableId: (S\d{3})/.exec(readFileSync(target, "utf8"))![1]!;
+      rmSync(resolve(tempRoot, "close-plan"), { recursive: true, force: true });
+      let caught: unknown;
+      try {
+        buildWorkSalesPack(tempRoot);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(WorkContentPackBuildError);
+      expect((caught as WorkContentPackBuildError).issues.some((i) => i.fieldPath === "coverage" && i.message.includes(missingId))).toBe(true);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("已提交的 starter-pack JSON 与源重建字节一致；源被改而 JSON 未重建 ⇒ digest 不符", () => {
+    expect(checkCommittedPack(specFor())).toEqual([]);
+
+    const tempRoot = copyRootToTemp();
+    const committed = join(mkdtempSync(join(tmpdir(), "work-sales-committed-")), "1.0.0.json");
+    try {
+      writeFileSync(committed, serializePack(buildWorkSalesPack(tempRoot)));
+      expect(checkCommittedPack(specFor(tempRoot), committed)).toEqual([]);
+      const target = resolve(tempRoot, "outreach", "SKILL.md");
+      writeFileSync(target, `${readFileSync(target, "utf8")}\n<!-- drift -->\n`);
+      const issues = checkCommittedPack(specFor(tempRoot), committed);
+      expect(issues).toHaveLength(1);
+      expect(issues[0]!.fieldPath).toBe("packDigest");
+      expect(issues[0]!.message).toContain("digest 不符");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+      rmSync(resolve(committed, ".."), { recursive: true, force: true });
+    }
+  });
+
+  it("S010 与 CT01 研究线共享同一 stableName@version，两份内容必须逐字节相同（ADR-118 版本钉住）", () => {
+    const sales = buildWorkSalesPack().skills.find((s) => s.name === "S010")!;
+    const research = JSON.parse(
+      readFileSync(resolve(DEFAULT_ROOT, "..", "starter-packs", "work-research", "1.0.0.json"), "utf8"),
+    ).skills.find((s: { name: string }) => s.name === "S010");
+    expect(sales.stableName).toBe(research.stableName);
+    expect(sales.semanticVersion).toBe(research.semanticVersion);
+    expect(sales.files).toEqual(research.files);
+    expect(sales.manifest).toEqual(research.manifest);
   });
 });
