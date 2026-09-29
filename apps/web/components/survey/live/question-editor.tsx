@@ -70,6 +70,7 @@ export function SurveyQuestionEditor({
   }>();
   const [preview, setPreview] = React.useState(studioLayout);
   const [trialMode, setTrialMode] = React.useState(false);
+  const [trialPage, setTrialPage] = React.useState(0);
   const [editing, setEditing] = React.useState(!overviewFirst);
   const [previewDevice, setPreviewDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
   const [answers, setAnswers] = React.useState<
@@ -167,6 +168,15 @@ export function SurveyQuestionEditor({
     : questions;
   if (studioLayout && trialMode) {
     const trialQuestions = visibleSurveyQuestions(questions, answers);
+    const trialPages: SurveyWorkflowQuestion[][] = [[]];
+    for (const item of trialQuestions) {
+      if (item.type === "page_break") {
+        if (trialPages[trialPages.length - 1]!.length) trialPages.push([]);
+      } else {
+        trialPages[trialPages.length - 1]!.push(item);
+      }
+    }
+    const currentTrialPage = Math.min(trialPage, trialPages.length - 1);
     return (
       <section aria-label="问卷试填" className="flex min-h-0 flex-1 flex-col bg-muted/30 p-5 lg:h-full lg:overflow-hidden">
         <div className="mx-auto flex w-full max-w-4xl shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
@@ -174,7 +184,7 @@ export function SurveyQuestionEditor({
             <p className="text-12 font-medium text-muted-foreground">受访者视角 · 不会提交答卷</p>
             <h2 className="mt-1 text-18 font-semibold">试填模式</h2>
           </div>
-          <Button type="button" variant="outline" onClick={() => setTrialMode(false)}>
+          <Button type="button" variant="outline" onClick={() => { setTrialMode(false); setTrialPage(0); }}>
             退出试填
           </Button>
         </div>
@@ -184,7 +194,12 @@ export function SurveyQuestionEditor({
               <h1 className="text-24 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h1>
               <p className="mt-2 text-12 text-muted-foreground">请像受访者一样填写，检查题目顺序、选项与条件显示。</p>
             </header>
-            {trialQuestions.length ? trialQuestions.map((item) => (
+            {trialPages.length > 1 && (
+              <p className="text-12 text-muted-foreground" aria-live="polite">
+                第 {currentTrialPage + 1} / {trialPages.length} 页
+              </p>
+            )}
+            {trialPages[currentTrialPage]!.length ? trialPages[currentTrialPage]!.map((item) => (
               <SurveyQuestionRenderer
                 key={`${item.id}-${item.type}`}
                 question={item}
@@ -193,6 +208,20 @@ export function SurveyQuestionEditor({
               />
             )) : (
               <p className="py-16 text-center text-13 text-muted-foreground">当前没有可试填的题目。</p>
+            )}
+            {trialPages.length > 1 && (
+              <div className="flex flex-wrap gap-3 border-t border-border pt-5">
+                {currentTrialPage > 0 && (
+                  <Button type="button" variant="outline" onClick={() => setTrialPage(currentTrialPage - 1)}>
+                    上一页
+                  </Button>
+                )}
+                {currentTrialPage < trialPages.length - 1 && (
+                  <Button type="button" onClick={() => setTrialPage(currentTrialPage + 1)}>
+                    下一页
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -295,7 +324,7 @@ export function SurveyQuestionEditor({
         <div className="flex flex-wrap gap-2">
           {studioLayout && !locked && (
             <>
-              <Button type="button" variant="outline" onClick={() => setTrialMode(true)}>
+              <Button type="button" variant="outline" onClick={() => { setTrialPage(0); setTrialMode(true); }}>
                 试填问卷
               </Button>
               <Button type="button" variant="outline" aria-label="撤销最近修改" disabled={!undoStack.length} onClick={undo}>

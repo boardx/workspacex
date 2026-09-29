@@ -107,6 +107,28 @@ it("offers a focused trial fill that follows respondent visibility without editi
   expect(screen.getByRole("heading", { name: "题型工具箱" })).toBeInTheDocument();
 });
 
+it("paginates focused trial fill like the respondent form", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const first = { ...createSurveyQuestion("short", "q1", 1), title: "第一页问题" };
+  const divider = createSurveyQuestion("page_break", "page-2", 2);
+  const second = { ...createSurveyQuestion("short", "q2", 3), title: "第二页问题" };
+  render(<SurveyQuestionEditor studioLayout questions={[first, divider, second]} onChange={vi.fn()} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "试填问卷" }));
+  const trial = screen.getByRole("region", { name: "问卷试填" });
+  expect(within(trial).getByText("第 1 / 2 页")).toBeInTheDocument();
+  expect(within(trial).getByRole("group", { name: "第一页问题 *" })).toBeInTheDocument();
+  expect(within(trial).queryByRole("group", { name: "第二页问题 *" })).not.toBeInTheDocument();
+  expect(within(trial).queryByText("分页")).not.toBeInTheDocument();
+
+  fireEvent.click(within(trial).getByRole("button", { name: "下一页" }));
+  expect(within(trial).getByText("第 2 / 2 页")).toBeInTheDocument();
+  expect(within(trial).getByRole("group", { name: "第二页问题 *" })).toBeInTheDocument();
+  expect(within(trial).queryByRole("group", { name: "第一页问题 *" })).not.toBeInTheDocument();
+  fireEvent.click(within(trial).getByRole("button", { name: "上一页" }));
+  expect(within(trial).getByText("第 1 / 2 页")).toBeInTheDocument();
+});
+
 it("searches and reorders long questionnaires from the outline", () => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   function Designer() {
