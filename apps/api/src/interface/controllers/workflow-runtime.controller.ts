@@ -1,6 +1,7 @@
 /**
  * WF03 —— Workflow Runtime HTTP 面：UC-WR-3 start、UC-WR-4 get、UC-WR-6 SSE、UC-WR-7 cancel、UC-WR-8 resume；
- * WF05 UC-WR-11 approveGate / UC-WR-12 denyGate。
+ * WF05 UC-WR-11 approveGate / UC-WR-12 denyGate；UC-WR-1 publish、UC-WR-2 runnable、UC-WR-5 我的运行、
+ * UC-WR-9 retryStage、UC-WR-10 待我审批（读侧用例在 application/workflow/instance-queries.ts）。
  * 路径与载荷来自 `@repo/contracts/workflow-runtime`（单一事实源）；失败体为 WorkflowErrorBody。
  * 可见性判定在应用层（instance-projection.ts）：发起人 / 组织管理员可见，其余一律 404。
  */
@@ -9,6 +10,7 @@ import type { Response } from "express";
 import { operations as workContentOps, WorkflowNotAllowedErrorBody } from "@repo/contracts/work-content";
 import { WORKFLOW_WEBHOOK_HEADERS, WorkflowErrorBody, WorkflowRequestId, workflowRuntime, type WorkflowErrorCode } from "@repo/contracts/workflow-runtime";
 import { WorkflowCommandShapeError } from "../../application/workflow/instance-commands";
+import { parseListApprovalsQuery, parseListInstancesQuery } from "../../application/workflow/instance-queries";
 import { WorkflowUseCaseError } from "../../application/workflow/workflow-errors";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
 import type { Principal } from "../../domain/principal";
@@ -72,6 +74,63 @@ const POLL_MS = 150;
 @Controller()
 export class WorkflowRuntimeController {
   constructor(@Inject(WORKFLOW_RUNTIME_SERVICE) private readonly runtime: WorkflowRuntimeService) {}
+
+  /** UC-WR-1：组织管理员发布 Definition 版本。 */
+  @Post(C.publishDefinitionVersion.path)
+  async publish(@CurrentPrincipal() principal: Principal, @Param("key") key: string, @Body() raw: unknown, @Res() res: Response) {
+    assertPrincipal(principal);
+    try {
+      res.status(201).json(C.publishDefinitionVersion.out.parse(await this.runtime.publish(principal.orgId, principal.userId, key, raw)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** UC-WR-2：对某 Agent 可运行的 Workflow。 */
+  @Get(C.listRunnableWorkflows.path)
+  async runnable(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string, @Res() res: Response) {
+    assertPrincipal(principal);
+    try {
+      res.status(200).json(C.listRunnableWorkflows.out.parse(await this.runtime.listRunnable(principal.orgId, principal.userId, agentId)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** UC-WR-5：我的运行（`?status=a,b&cursor=&limit=`）。 */
+  @Get(C.listMyInstances.path)
+  async list(
+    @CurrentPrincipal() principal: Principal,
+    @Query() query: { status?: string | string[]; cursor?: string; limit?: string },
+    @Res() res: Response,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const q = parseListInstancesQuery(query);
+      res.status(200).json(C.listMyInstances.out.parse(await this.runtime.listInstances(principal.orgId, principal.userId, q)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** UC-WR-10：待我审批（`?includeDecided=true`）。 */
+  @Get(C.listMyApprovals.path)
+  async approvals(@CurrentPrincipal() principal: Principal, @Query() query: { includeDecided?: string }, @Res() res: Response) {
+    assertPrincipal(principal);
+    try {
+      const q = parseListApprovalsQuery(query);
+      res.status(200).json(C.listMyApprovals.out.parse(await this.runtime.listApprovals(principal.orgId, principal.userId, q.includeDecided)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** UC-WR-9：从阶段重试。 */
+  @Post(C.retryStage.path)
+  async retry(
+    @CurrentPrincipal() principal: Principal,
+    @Param("instanceId") instanceId: string,
+    @Param("stageId") stageId: string,
+    @Body() raw: unknown,
+    @Res() res: Response,
+  ) {
+    assertPrincipal(principal);
+    try {
+      await this.runtime.retryStage(principal.orgId, principal.userId, instanceId, stageId, raw);
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
 
   @Post(C.startInstance.path)
   async start(@CurrentPrincipal() principal: Principal, @Param("key") key: string, @Body() raw: unknown, @Res() res: Response) {

@@ -2,7 +2,7 @@
  * WF03 —— Workflow 运行时门面：把 start / cancel / resume / projection / SSE 读侧与后台 worker 绑到同一组端口上。
  * interface 层（controller）只依赖本类（经 DI token），不 import infrastructure。
  */
-import type { WorkflowInstanceProjection } from "@repo/contracts/workflow-runtime";
+import type { WorkflowDefinitionVersionView, WorkflowInstanceProjection, WorkflowInstanceStatus } from "@repo/contracts/workflow-runtime";
 import { deliverScheduledWorkflowTrigger, type ScheduledTriggerJob } from "./deliver-scheduled-trigger";
 import { triggerWebhook, type TriggerWebhookCommand, type TriggerWebhookResponse } from "./trigger-webhook";
 import type { WorkflowTriggerStore } from "./workflow-trigger-ports";
@@ -11,11 +11,22 @@ import { openEventStream, type WorkflowEventCursor } from "./event-stream";
 import { cancelInstance, resumeInstance, startInstance, type InstanceCommandDeps, type StartInstanceResponse, type StateResponse } from "./instance-commands";
 import { approveGate, denyGate, type GateDecisionResponse } from "./gate-commands";
 import { getContentInstanceOutput, type ContentInstanceOutput } from "../work-content/get-content-instance-output";
-import { getInstanceProjection } from "./instance-projection";
+import { getInstanceProjection, resolveActor } from "./instance-projection";
+import {
+  listMyApprovals,
+  listMyInstances,
+  listRunnableWorkflows,
+  retryStage,
+  type ApprovalItem,
+  type InstanceQueryDeps,
+  type ListInstancesResponse,
+  type RunnableItem,
+} from "./instance-queries";
+import { publishDefinitionVersion } from "./publish-definition-version";
 import { runInstance, type RunHooks, type WorkflowGraphDriver } from "./run-instance";
-import type { WorkflowLease } from "./workflow-ports";
+import type { WorkflowDefinitionCatalogPort, WorkflowGraphCatalog, WorkflowLease } from "./workflow-ports";
 import { WorkflowUseCaseError } from "./workflow-errors";
-import type { WorkflowExpiredLeaseScanner, WorkflowStageOutputStore } from "./workflow-runtime-ports";
+import type { WorkflowExpiredLeaseScanner, WorkflowInstanceQueryPort, WorkflowStageOutputStore } from "./workflow-runtime-ports";
 
 export const WORKFLOW_RUNTIME_SERVICE = Symbol("WORKFLOW_RUNTIME_SERVICE");
 
@@ -33,6 +44,12 @@ export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "d
   expiredLeases?: WorkflowExpiredLeaseScanner;
   /** WF04（review #2）：透传给 `runInstance`，让崩溃恢复路径能对 `EffectInFlightError` 做 reconcile()。 */
   effectGateway?: EffectGateway;
+  /** UC-WR-5 / UC-WR-10 读侧（实例行列表）；未接线时这两个列表用例抛错而不是静默返回空。 */
+  queries?: WorkflowInstanceQueryPort;
+  /** UC-WR-2 / 内置 Definition 注册读写侧。 */
+  catalog?: WorkflowDefinitionCatalogPort;
+  /** UC-WR-1 发布校验用的代码图注册表。 */
+  graphs?: WorkflowGraphCatalog;
   /** WF06：webhook 触发（UC-WR-13）与 pg-boss 定时唤醒（UC-WR-I4）共用的触发器读端口；未提供时两者都「不存在」。 */
   triggers?: WorkflowTriggerStore;
   /** WF06 webhook：当前时间（秒），测试注入。 */
@@ -61,6 +78,50 @@ export class WorkflowRuntimeService {
   /** WF06 UC-WR-I4：pg-boss `{kind:'workflow',triggerId}` 到期唤醒;非本函数认领的 payload / 触发器已不存在则安静跳过。 */
   deliverScheduledTrigger(job: ScheduledTriggerJob): Promise<void> {
     return deliverScheduledWorkflowTrigger({ ...this.commandDeps, triggers: this.triggers }, job);
+  }
+
+  /** UC-WR-1：组织管理员发布 Definition 版本；非成员/非管理员一律 workflow_not_found。 */
+  async publish(orgId: string, userId: string, pathKey: string, body: unknown): Promise<WorkflowDefinitionVersionView> {
+    const actor = await resolveActor(this.deps.access, orgId, userId);
+    return publishDefinitionVersion(
+      { definitions: this.deps.definitions, graphs: this.need(this.deps.graphs, "graphs"), skills: this.deps.skills, clock: { nowIso: () => new Date().toISOString() } },
+      { orgId, actor, pathKey, body },
+    );
+  }
+
+  /** UC-WR-2。 */
+  listRunnable(orgId: string, userId: string, agentId: string): Promise<{ items: RunnableItem[] }> {
+    return listRunnableWorkflows(this.queryDeps(), { orgId, userId, agentId });
+  }
+
+  /** UC-WR-5。 */
+  listInstances(orgId: string, userId: string, query: { status?: WorkflowInstanceStatus[]; cursor?: string; limit: number }): Promise<ListInstancesResponse> {
+    return listMyInstances(this.queryDeps(), { orgId, userId, query });
+  }
+
+  /** UC-WR-10。 */
+  listApprovals(orgId: string, userId: string, includeDecided: boolean): Promise<{ items: ApprovalItem[] }> {
+    return listMyApprovals(this.queryDeps(), { orgId, userId, includeDecided });
+  }
+
+  /** UC-WR-9（见 instance-queries.ts：运行时尚无重试执行路径，诚实返回 stage_not_retryable）。 */
+  retryStage(orgId: string, userId: string, instanceId: string, stageId: string, body: unknown): Promise<never> {
+    return retryStage(this.queryDeps(), { orgId, userId, instanceId, stageId, body });
+  }
+
+  private queryDeps(): InstanceQueryDeps {
+    return {
+      definitions: this.deps.definitions,
+      events: this.deps.events,
+      access: this.deps.access,
+      queries: this.need(this.deps.queries, "queries"),
+      catalog: this.need(this.deps.catalog, "catalog"),
+    };
+  }
+
+  private need<T>(v: T | undefined, name: string): T {
+    if (v === undefined) throw new Error(`WorkflowRuntimeService: ${name} port is not wired`);
+    return v;
   }
 
   cancel(orgId: string, userId: string, instanceId: string, body: unknown): Promise<StateResponse> {
