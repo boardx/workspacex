@@ -85,6 +85,7 @@ export const SurveyReportSectionSchema = z.object({
 
 export const SurveyResponseSchema = z.object({
   id: z.string().min(1),
+  collectionBatchId: z.string().min(1).optional(),
   submitter: z.string().optional(),
   role: z.string().min(1),
   companySize: z.string().min(1),
