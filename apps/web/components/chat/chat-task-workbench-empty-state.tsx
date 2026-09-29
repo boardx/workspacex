@@ -118,7 +118,7 @@ export function TaskWorkbenchEmptyState({
             type="button"
             data-testid={template.id}
             onClick={() => onUseTemplate(template.goal)}
-            className="flex items-center gap-3 rounded-card border border-border-subtle bg-card px-3.5 py-3 text-left text-12 leading-relaxed text-card-foreground transition-colors duration-fast hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-3 rounded-card border border-border-subtle bg-card px-3.5 py-3 text-left text-12 leading-relaxed text-card-foreground shadow-sm transition-colors duration-fast hover:border-primary/50 hover:bg-muted hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               aria-hidden="true"

@@ -1261,11 +1261,11 @@ export function CopilotKitV2Shell({
             或还没建线程时不渲染标题、只显示隐私提示，不编一个假标题。
         */}
         <div
-          className="flex min-h-0 shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2"
+          className="flex min-h-0 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-6 py-3"
           data-testid="copilotkit-v2-thread-topbar"
         >
           <span
-            className="min-w-0 truncate text-13 font-medium text-card-foreground"
+            className="min-w-0 truncate text-16 font-semibold text-card-foreground"
             data-testid="copilotkit-v2-thread-topbar-title"
           >
             {selectedThreadId === null
@@ -1273,7 +1273,7 @@ export function CopilotKitV2Shell({
               : cards.find((card) => card.id === selectedThreadId)?.title ?? (projectId ? "项目对话" : "个人对话")}
           </span>
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
             data-testid="copilotkit-v2-thread-topbar-visibility"
           >
             <Lock aria-hidden className="h-2.5 w-2.5" />
