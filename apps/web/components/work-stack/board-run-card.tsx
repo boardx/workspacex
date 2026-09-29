@@ -102,3 +102,31 @@ export function BoardRunColumns({ cards, onOpen }: { cards: readonly BoardRunCar
     </div>
   );
 }
+
+/**
+ * 接真实 API 的运行卡看板：全局视图不带 projectId，项目视图带 projectId（服务端同一用例、同一读权限谓词）。
+ * 失败只给通用文案，不渲染错误原文或原因码。
+ */
+export function LiveBoardRunColumns({
+  projectId,
+  load,
+}: {
+  projectId?: string | null;
+  load: (projectId: string | null) => Promise<{ cards: BoardRunCardData[] }>;
+}) {
+  const [cards, setCards] = React.useState<BoardRunCardData[] | null>(null);
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => {
+    let live = true;
+    setCards(null);
+    setFailed(false);
+    load(projectId ?? null)
+      .then((r) => { if (live) setCards(r.cards); })
+      .catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [projectId, load]);
+  if (failed) return <p role="alert" data-testid="board-run-cards-error">运行卡加载失败，请稍后重试。</p>;
+  if (cards === null) return <p data-testid="board-run-cards-loading">加载中…</p>;
+  if (cards.length === 0) return <p data-testid="board-run-cards-empty">暂无可见的 Workflow 运行。</p>;
+  return <BoardRunColumns cards={cards} />;
+}

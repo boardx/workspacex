@@ -1093,6 +1093,9 @@ import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/config
 import { RecordingController } from "./interface/controllers/recording.controller";
 import pgModule from "pg";
 import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
+import { BoardRunCardsController } from "./interface/controllers/board-run-cards.controller";
+import { BOARD_RUN_CARDS_DEPS, type ListBoardRunCardsDeps } from "./application/board/list-board-run-cards";
+import { PgBoardRunSource } from "./infrastructure/board/pg-board-run-source";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "./application/workflow/workflow-runtime-service";
 import { ModelContentSkillRunner } from "./application/work-content/content-skill-runner";
 import { PgSkillCatalogVersionResolver } from "./infrastructure/workflow/pg-skill-catalog-version-resolver";
@@ -1108,6 +1111,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 @Module({
   controllers: [
     WorkflowRuntimeController,
+    BoardRunCardsController,
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
@@ -1236,6 +1240,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
         replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
       }),
+    },
+    // CT10：Board 运行卡读模型（候选运行 PG 读 + WF03 角色解析；权限过滤在应用层）。
+    {
+      provide: BOARD_RUN_CARDS_DEPS, inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort): ListBoardRunCardsDeps => ({ runs: new PgBoardRunSource(db), access: new PgWorkflowAccess(db) }),
     },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches

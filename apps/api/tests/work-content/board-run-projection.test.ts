@@ -121,3 +121,50 @@ describe("I-C12 先权限过滤再投影（listBoardRunCards）", () => {
     expect(() => workContent.operations.listBoardRunCards.out.parse(out)).not.toThrow();
   });
 });
+
+describe("应用层项目过滤（listBoardRunCards 的 projectId）", () => {
+  const all = [
+    run({ instanceId: "wi-p1", projectId: "p-1" }),
+    run({ instanceId: "wi-p2", projectId: "p-2" }),
+    run({ instanceId: "wi-none", projectId: null }),
+  ];
+  function scopedDeps() {
+    const calls: (string | null)[] = [];
+    return {
+      calls,
+      deps: {
+        runs: { listRuns: async (_o: string, projectId: string | null) => (calls.push(projectId), projectId ? all.filter((r) => r.projectId === projectId) : all) },
+        access: { orgRoleOf: async () => "admin" as const },
+      },
+    };
+  }
+
+  it("projectId 原样下传给运行源；缺省为 null（全局）", async () => {
+    const s = scopedDeps();
+    const scoped = await listBoardRunCards(s.deps, { orgId: "o", viewerUserId: "u", projectId: "p-1" });
+    const global = await listBoardRunCards(s.deps, { orgId: "o", viewerUserId: "u" });
+    expect(s.calls).toEqual(["p-1", null]);
+    expect(scoped.cards.map((c) => c.id)).toEqual(["workflow_run:wi-p1"]);
+    expect(global.cards.map((c) => c.id)).toEqual(["workflow_run:wi-p1", "workflow_run:wi-p2", "workflow_run:wi-none"]);
+  });
+
+  it("经真实用例取回的卡，项目视图与全局视图可达卡 ID 集合相同", async () => {
+    for (const projectId of ["p-1", null]) {
+      const { cards } = await listBoardRunCards(scopedDeps().deps, { orgId: "o", viewerUserId: "u", projectId });
+      const res = projectBoardWithRunCards([{ id: "t-1", status: "todo" }], cards);
+      expect(res.noCardLoss).toBe(true);
+      expect([...allReachableCardIds(res.projectView)].sort()).toEqual([...allReachableCardIds(res.globalView)].sort());
+      for (const c of cards) expect(allReachableCardIds(res.projectView).has(c.id)).toBe(true);
+    }
+  });
+});
+
+describe("读权限谓词单源", () => {
+  it("listBoardRunCards 复用 WF03 canView，不内联第二份规则", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("../../src/application/board/list-board-run-cards.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/import \{ canView \} from "\.\.\/workflow\/instance-projection"/);
+    expect(src).not.toMatch(/initiatorUserId\s*===/);
+    expect(src).not.toMatch(/===\s*"admin"/);
+  });
+});

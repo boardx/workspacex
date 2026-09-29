@@ -1,10 +1,12 @@
 /**
  * CT10 —— Board 运行卡 UI（契约束 work-content ① UI §二；V7 / E10）。
  */
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { BoardWorkflowRunCard } from "@repo/contracts/work-content";
-import { BoardRunCard, BoardRunColumns, type BoardRunCardData } from "@/components/work-stack/board-run-card";
+import { BoardRunCard, BoardRunColumns, LiveBoardRunColumns, type BoardRunCardData } from "@/components/work-stack/board-run-card";
+import * as api from "@/lib/api-client";
+import { listBoardRunCards } from "@/lib/board-run-cards-api";
 
 function card(over: Partial<BoardRunCardData> = {}): BoardRunCardData {
   return BoardWorkflowRunCard.parse({
@@ -71,5 +73,30 @@ describe("BoardRunColumns", () => {
     expect(screen.getByTestId("board-run-column-count-done").textContent).toBe("1");
     expect(screen.queryByTestId("board-run-card-wi-hidden")).toBeNull();
     expect(document.querySelectorAll("[draggable='true']")).toHaveLength(0);
+  });
+});
+
+describe("LiveBoardRunColumns（接真实 API 客户端）", () => {
+  it("项目视图把 projectId 传给加载器并渲染服务端给出的卡", async () => {
+    const load = vi.fn(async () => ({ cards: [card()] }));
+    render(<LiveBoardRunColumns projectId="p-1" load={load} />);
+    expect(await screen.findByTestId("board-run-card-wi-1")).toBeTruthy();
+    expect(load).toHaveBeenCalledWith("p-1");
+  });
+
+  it("全局视图传 null；加载失败只给通用文案", async () => {
+    const load = vi.fn(async () => { throw new Error("secret_reason_code"); });
+    render(<LiveBoardRunColumns load={load} />);
+    await waitFor(() => expect(screen.getByTestId("board-run-cards-error")).toBeTruthy());
+    expect(load).toHaveBeenCalledWith(null);
+    expect(document.body.textContent).not.toContain("secret_reason_code");
+  });
+
+  it("listBoardRunCards 走契约路径并按 out schema 校验", async () => {
+    const spy = vi.spyOn(api, "apiRequest").mockResolvedValue({ cards: [card()] } as never);
+    const out = await listBoardRunCards("p-1");
+    expect(spy).toHaveBeenCalledWith("/board/workflow-run-cards", { query: { projectId: "p-1" } });
+    expect(out.cards[0]!.id).toBe("workflow_run:wi-1");
+    spy.mockRestore();
   });
 });
