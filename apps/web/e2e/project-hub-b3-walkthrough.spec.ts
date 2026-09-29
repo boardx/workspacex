@@ -186,16 +186,16 @@ test("第三批真栈走查：问卷答卷入证据 → 来源列表 / 大脑空
   await shot("06-sources-observer-redacted.png");
 });
 
-test("研究项目：负责人加协作者 → 协作者打开工作台（无工作坊专属 tab）→ 负责人移出后协作者被拒", async ({ page }) => {
+test("通用项目：负责人加协作者 → 协作者打开工作台（无工作坊专属 tab）→ 负责人移出后协作者被拒", async ({ page }) => {
   test.setTimeout(180_000);
   const shot = (name: string) => page.screenshot({ path: test.info().outputPath(name), fullPage: true });
 
-  // ① org lead 建研究项目：创建即把创建者写成负责人（pg-project-repository.ts），再经 T5 接口加 member 为协作者。
+  // ① org lead 建通用项目：创建即把创建者写成负责人（pg-project-repository.ts），再经 T5 接口加 member 为协作者。
   await loginAs(page, FULLSTACK_E2E.leadEmail, FULLSTACK_E2E.leadPassword);
   const project = await api<{ id: string; kind: string }>(page, "/projects", "POST", {
     orgId: FULLSTACK_E2E.orgId,
     name: `研究项目走查 ${Date.now()}`,
-    kind: "research_project",
+    kind: "general",
     blueprintVersionId: null,
   });
   expect(project.status, JSON.stringify(project.data)).toBe(201);
@@ -215,8 +215,9 @@ test("研究项目：负责人加协作者 → 协作者打开工作台（无工
   await page.goto(`/projects/${projectId}`);
   await expect(page.getByTestId("project-access-denied")).toHaveCount(0);
   await expect(page.getByTestId("project-tab-overview")).toBeVisible();
-  await expect(page.getByTestId("project-tab-research")).toBeVisible();
-  for (const tab of ["prep", "live", "todo"]) await expect(page.getByTestId(`project-tab-${tab}`)).toHaveCount(0);
+  await expect(page.getByTestId("project-tab-content")).toBeVisible();
+  await expect(page.getByTestId("project-tab-brain")).toBeVisible();
+  for (const tab of ["research", "prep", "live", "todo"]) await expect(page.getByTestId(`project-tab-${tab}`)).toHaveCount(0);
   await shot("11-research-project-collaborator-overview.png");
 
   // 研究 → 来源：证据区真实渲染（还没挂资源 ⇒ 空态，不是拒绝 / 错误）。
