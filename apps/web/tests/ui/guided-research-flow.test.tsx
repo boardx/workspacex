@@ -83,7 +83,8 @@ describe("guided research session routing and lifecycle", () => {
     expect(screen.getByRole("status")).toHaveTextContent("正在恢复");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     resolve(runtimeFixture("directions"));
-    expect(await screen.findByDisplayValue("政策方向")).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true");
   });
   it("hides a previous session immediately when the replacement is loading or unavailable", async () => {
@@ -102,7 +103,8 @@ describe("guided research session routing and lifecycle", () => {
     await screen.findByDisplayValue("储能研究");
     expect(screen.queryByText(/后续研究结果失效/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /确认研究主题/ }));
-    expect(screen.getByDisplayValue("政策方向")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     expect(window.location.pathname).toBe("/research/grs-live/topic");
     expect(navigate).not.toHaveBeenCalled();
   });
@@ -115,7 +117,7 @@ describe("guided research session routing and lifecycle", () => {
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "confirm", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ goal: "新的政策研究" }) } })));
     await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
-  it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
+  it.each(["directions", "outline"] as const)("keeps generated %s aligned to the current-step presentation", async (node) => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
     render(<GuidedResearchFlow step={node} sessionId="grs-live" />);
     if (node === "outline") {
@@ -124,9 +126,8 @@ describe("guided research session routing and lifecycle", () => {
       fireEvent.change(field, { target: { value: `${(field as HTMLTextAreaElement).value}\n人工修订` } });
       expect((field as HTMLTextAreaElement).value).toContain("人工修订");
     } else {
-      const field = await screen.findByDisplayValue("政策方向");
-      fireEvent.change(field, { target: { value: "人工修订" } });
-      expect(screen.getByDisplayValue("人工修订")).toBeInTheDocument();
+      expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+      expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     }
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
