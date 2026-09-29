@@ -61,8 +61,15 @@ export const AGENT_INTERRUPTS_TOOL_NAMES = {
   chooseExecutionOption: "choose_execution_option",
 } as const;
 
+/**
+ * AG06：Agent 命中 escalationPolicy 时发出的升级中断工具名（载荷见 agent-role.ts
+ * `EscalatePayload`）。刻意不并入 `AGENT_INTERRUPTS_TOOL_NAMES`——那份对象被原生工具
+ * 档案/HITL 豁免清单整体展开，escalate 的运行时接线不在 AG06 范围内。
+ */
+export const ESCALATE_MATTER_TOOL_NAME = "escalate_matter" as const;
+
 /** kind ↔ 工具名的判别集合，逐字对应 `domain.md` 四节 `InterruptRequest.kind`。 */
-export const AgentInterruptKind = z.enum(["confirm_intent", "fill_params", "choose_option"]);
+export const AgentInterruptKind = z.enum(["confirm_intent", "fill_params", "choose_option", "escalate"]);
 export type AgentInterruptKind = z.infer<typeof AgentInterruptKind>;
 
 /** kind → 工具名的映射，`InterruptRequest.toolName` 由此派生，不许两处手写。 */
@@ -70,6 +77,7 @@ export const AGENT_INTERRUPT_KIND_TO_TOOL_NAME: Record<AgentInterruptKind, strin
   confirm_intent: AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent,
   fill_params: AGENT_INTERRUPTS_TOOL_NAMES.fillRunParams,
   choose_option: AGENT_INTERRUPTS_TOOL_NAMES.chooseExecutionOption,
+  escalate: ESCALATE_MATTER_TOOL_NAME,
 };
 
 /* ── 二、值对象（domain.md 三节）────────────────────────────────────── */

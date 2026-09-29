@@ -17,6 +17,7 @@
  * - `AgentStarterPackEntry` 其余字段仍以 `./wave2-runtime` 为准；本文件只给出 toolPolicy 放宽后的形状与角色字段扩展。
  */
 import { z } from "zod";
+import { AGENT_INTERRUPT_KIND_TO_TOOL_NAME } from "./agent-interrupts";
 import { AvatarKey } from "./interview-expert-avatar";
 import { CapabilityCategory } from "./work-skill-meta";
 
@@ -133,7 +134,7 @@ export const AgentRoleImportFailureDetail = z.object({
 
 /** `AgentInterruptKind` 须追加 `escalate`，工具名映射在 agent-interrupts.ts 的 `AGENT_INTERRUPT_KIND_TO_TOOL_NAME` 里一处追加。 */
 export const ESCALATE_INTERRUPT_KIND = "escalate" as const;
-export const ESCALATE_TOOL_NAME = "escalate_matter" as const; // Q5：命名待签核
+export const ESCALATE_TOOL_NAME = AGENT_INTERRUPT_KIND_TO_TOOL_NAME[ESCALATE_INTERRUPT_KIND]; // Q5：命名待签核；映射单源在 agent-interrupts.ts
 export const EscalatePayload = z.object({
   matter: z.string().min(1).max(200),
   reason: z.string().min(1).max(2000),
