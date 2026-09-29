@@ -5,6 +5,7 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 WORKDIR /opt/workspacex
 RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm@9.15.0 --activate
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
+COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node apps/api ./apps/api
 COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox

@@ -88,6 +88,17 @@ describe("China production release publisher",()=>{
     expect(apiDockerfile).toContain('find migrations -maxdepth 1 -type f -print -quit');
     expect(apiDockerfile).toContain("node --import tsx --input-type=module");
   });
+  it("copies pnpm patches into every workspace image before installing dependencies",()=>{
+    for(const [dockerfile,patchesCopyLine] of [
+      [apiDockerfile,"COPY --chown=node:node patches ./patches"],
+      [webDockerfile,"COPY patches ./patches"],
+    ] as const){
+      const patchesCopy=dockerfile.indexOf(patchesCopyLine);
+      const install=dockerfile.indexOf("pnpm install --frozen-lockfile");
+      expect(patchesCopy).toBeGreaterThan(-1);
+      expect(patchesCopy).toBeLessThan(install);
+    }
+  });
   it("passes validated package indexes only to integrity-locked dependency installs",()=>{
     expect(source).toContain('npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}');
     expect(source).toContain('pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}');
