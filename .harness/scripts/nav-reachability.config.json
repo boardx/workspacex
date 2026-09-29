@@ -40,6 +40,7 @@
       "/studio/design-workbench",
       "/studio/feedback-drafts",
       "/studio/board",
+      "/agent",
       "/skill?screen=work-catalog"
     ],
     "linkExemptRoutes": {
@@ -83,7 +84,8 @@
       "/tasks",
       "/tpl",
       "/studio/board",
-      "/preview/chat-knowledge-graph"
+      "/preview/chat-knowledge-graph",
+      "/agent"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -119,7 +121,8 @@
       "/tasks",
       "/tpl",
       "/studio/board",
-      "/preview/chat-knowledge-graph"
+      "/preview/chat-knowledge-graph",
+      "/agent"
     ]
   },
   "phase-18-org-brain-knowledge-graph": {
@@ -151,7 +154,8 @@
       "/studio/feedback-drafts",
       "/studio/survey",
       "/tasks",
-      "/tpl"
+      "/tpl",
+      "/agent"
     ]
   }
 }

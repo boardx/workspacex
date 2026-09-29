@@ -1566,6 +1566,33 @@ export const streamOperations = {
     server: ChatAsrDraftServerFrame,
     err: ChatAsrDraftErrorReason,
   },
+  realtimeDigitalHuman: {
+    path: "/chat/realtime-digital-human",
+    bearerSubprotocolPrefix: "bearer.",
+    audio: {
+      inputSampleRate: 16_000,
+      outputSampleRate: 24_000,
+      channels: 1,
+      encoding: "pcm16le",
+    },
+    client: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("session.start"), boardId: z.string().min(1) }).strict(),
+      z.object({ type: z.literal("session.stop") }).strict(),
+      z.object({ type: z.literal("response.cancel") }).strict(),
+      z.object({ type: z.literal("conversation.text"), text: z.string().min(1).max(2_000) }).strict(),
+    ]),
+    server: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("session.ready"), model: z.string() }).strict(),
+      z.object({ type: z.literal("user.speech_started") }).strict(),
+      z.object({ type: z.literal("user.speech_stopped") }).strict(),
+      z.object({ type: z.literal("user.transcript"), text: z.string(), final: z.boolean() }).strict(),
+      z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean() }).strict(),
+      z.object({ type: z.literal("assistant.audio"), audio: z.string() }).strict(),
+      z.object({ type: z.literal("assistant.audio_done") }).strict(),
+      z.object({ type: z.literal("session.error"), message: z.string() }).strict(),
+      z.object({ type: z.literal("session.closed") }).strict(),
+    ]),
+  },
 } as const;
 
 export type StreamOperations = typeof streamOperations;

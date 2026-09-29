@@ -153,14 +153,15 @@ it('ships standard-methods 1.3.0 content: the platform org actually receives the
 }, 300000);
 
 /**
- * issue #4578 / #4589：standard-methods 1.4.0 新增 `design-methods`（设计方法卡片库，WX-S023），
- * 1.5.0 把它升到 1.1.0、加上可执行模板 `references/templates.md`。同上一条的纪律：钉**平台组织里生效版本的真实字节**等于仓库编辑源，不钉版本号——
+ * issue #4578 / #4589 / #4613：standard-methods 1.4.0 新增 `design-methods`（设计方法卡片库，WX-S023），
+ * 1.5.0 把它升到 1.1.0、加上可执行模板 `references/templates.md`，1.5.1 把它升到 1.1.1、修卡片「产出」
+ * 未指向画布模板导致模型绕过 canvas 的问题。同上一条的纪律：钉**平台组织里生效版本的真实字节**等于仓库编辑源，不钉版本号——
  * 「号升了、卡片没下发」或「只下发了 SKILL.md、卡片文件丢了」都会红在这里。
  */
 const designMethodsBytes = (path: string): number =>
   readFileSync(new URL(`../../../../skills/standard-methods/design-methods/${path}`, import.meta.url)).length;
 
-it('ships standard-methods 1.5.0 content: the platform org receives design-methods 1.1.0 with its index, all four card files and the executable templates', async () => {
+it('ships standard-methods 1.5.1 content: the platform org receives design-methods 1.1.1 with its index, all four card files and the executable templates', async () => {
   ensureDatabase(); await migrateOnce();
   const seeded = await ensurePlatformSkillCatalogSeeded();
   expect(seeded.ok).toBe(true);
@@ -174,7 +175,7 @@ it('ships standard-methods 1.5.0 content: the platform org receives design-metho
        JOIN skill_version_files f ON f.version_id = v.id AND f.org_id = v.org_id
       WHERE s.org_id = $1 AND s.stable_name = 'design-methods' AND v.published = true
       ORDER BY f.path COLLATE "C"`, [PLATFORM_ORG_ID]));
-  expect(rows.rows.every(r => r.name === '设计方法卡片库' && r.semantic_label === '1.1.0')).toBe(true);
+  expect(rows.rows.every(r => r.name === '设计方法卡片库' && r.semantic_label === '1.1.1')).toBe(true);
   const paths = ['SKILL.md', 'references/cards-define.md', 'references/cards-deliver.md', 'references/cards-develop.md',
     'references/cards-discover.md', 'references/method-index.md', 'references/templates.md'];
   expect(rows.rows.map(r => [r.path, r.bytes])).toEqual(paths.map(p => [p, designMethodsBytes(p)]));

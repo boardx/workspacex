@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import {
-  ArrowRight, BarChart3, ChevronDown, Clock3, FileText,
-  LayoutGrid, MoreHorizontal, Plus, Search,
+  ArrowRight, ChevronDown, Clock3, FileText,
+  MoreHorizontal, Plus, Search,
 } from "lucide-react";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { hasPendingAiImport } from "@/lib/survey/pending-ai-import";
 import { surveyPath } from "@/lib/survey/paths";
 import { encodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
 import { CreateSurveyDialog } from "./create-survey-dialog";
+import { SurveyLibraryNav } from "../library/survey-library-nav";
 
 function statusFor(item: SurveyRuntime) {
   if (item.publication?.status === "collecting") return { label: "发布中", tone: "success" } as const;
@@ -207,11 +208,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
-        <nav aria-label="问卷二级导航" className="survey-library-nav flex gap-2 overflow-x-auto rounded-xl border border-border bg-card p-3 lg:flex-col lg:self-start">
-          <Link aria-current="page" className="flex min-w-max items-center gap-3 rounded-lg bg-muted px-4 py-3 text-14 font-medium transition-colors hover:bg-muted" href="/studio/survey"><FileText aria-hidden="true" className="h-5 w-5" />我的问卷</Link>
-          <Link className="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted" href="/studio/survey?tab=modules"><LayoutGrid aria-hidden="true" className="h-5 w-5" />问卷模板</Link>
-          <Link className="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted" href="/studio/survey?tab=reports"><BarChart3 aria-hidden="true" className="h-5 w-5" />报告模板</Link>
-        </nav>
+        <SurveyLibraryNav active="surveys" />
 
         <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
           <div className="flex flex-wrap items-center gap-2" aria-label="标签筛选">

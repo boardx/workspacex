@@ -8,6 +8,7 @@ import { ChildCancellationStatus } from "./run-control";
  */
 import { z } from "zod";
 import { RestorableInterrupt } from "./agent-interrupts";
+import { AgentRoleImportError, AgentRolePackEntryExtension, StarterPackToolPolicy } from "./agent-role";
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const PackCoordinate = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -233,7 +234,8 @@ export const AgentStarterPackEntry = z.object({
   skillVersions: z.array(AgentSkillVersionReference),
   modelProvider: z.string().min(1).max(128),
   modelId: z.string().min(1).max(255),
-  toolPolicy: z.array(z.never()).max(0),
+  /** AG02 / ADR-120 #2：能力分类字符串数组（形状单源在 `./agent-role` 的 `StarterPackToolPolicy`），不携带授权。 */
+  toolPolicy: StarterPackToolPolicy,
 }).strict();
 
 export const UnsignedAgentStarterPack = z.object({
@@ -244,6 +246,27 @@ export const UnsignedAgentStarterPack = z.object({
 }).strict();
 
 export const AgentStarterPack = UnsignedAgentStarterPack.extend({
+  packDigest: Sha256,
+}).strict();
+
+/**
+ * AG03 · 官方角色包条目 = 基础 starter-pack 条目 + 角色扩展（`./agent-role` 的
+ * `AgentRolePackEntryExtension`：roleRef/roleLabel/role）。字段形状不在此处复述——用
+ * `.shape` 展开组合，`toolPolicy` 只保留基础条目那一份（扩展里的同名字段被排除）。
+ * 同一 `POST /admin/agents/starter-pack-imports` 端点按 pack 内容形状分流（entries 带
+ * `roleRef` 即为官方角色包），不另开端点（UC-3）。
+ */
+const { toolPolicy: _officialToolPolicyOmitted, ...officialRoleEntryShape } = AgentRolePackEntryExtension.shape;
+export const OfficialAgentStarterPackEntry = z.object({
+  ...AgentStarterPackEntry.shape,
+  ...officialRoleEntryShape,
+}).strict();
+
+export const UnsignedOfficialAgentStarterPack = UnsignedAgentStarterPack.extend({
+  agents: z.array(OfficialAgentStarterPackEntry).min(1),
+}).strict();
+
+export const OfficialAgentStarterPack = UnsignedOfficialAgentStarterPack.extend({
   packDigest: Sha256,
 }).strict();
 
@@ -774,7 +797,8 @@ export const operations = {
       idempotencyKey: z.string().min(1).max(255),
     }).strict(),
     out: AgentStarterImportResult,
-    err: AgentStarterImportError.options,
+    /** AG03：同端点分流出的官方角色包导入额外失败码（`UNRESOLVED_WORKFLOW_REF`/`UNRESOLVED_SKILL_REF`/`AGENT_STARTER_TOOL_POLICY_INVALID`）。 */
+    err: [...AgentStarterImportError.options, ...AgentRoleImportError.options],
   },
   /** ⚠ 草案，未签核 —— 见上方 `SkillVersionEditResult` 处的说明。 */
   editSkillVersionContent: {

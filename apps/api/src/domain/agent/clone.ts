@@ -23,7 +23,10 @@
  * and `TOOL_AUTH_SCOPE_RANK` in `@repo/contracts` (I-28′ / I-29′). A second ranking here
  * would be a sixth instance of "the same fact in two places" -- on a security boundary.
  */
+import { agentRole } from "@repo/contracts";
 import type { AgentDefinition, AgentVisibility } from "./definition";
+
+type AgentRoleFieldKey = (typeof agentRole.AGENT_ROLE_FROZEN_FIELDS)[number];
 
 /**
  * Fields a clone inherits from its source. This list is the POSITIVE half of I-30: without
@@ -55,6 +58,13 @@ export const CLONE_INHERITED_FIELDS = [
   "skillMounts",
   "concurrencyLimit",
   "degradePolicy",
+  /** AG01 —— 角色字段是行为/身份，同 instructions 一类：继承。catalogSource 例外，见下。 */
+  "avatar",
+  "roleCategory",
+  "workflowAllowlist",
+  "delegationPolicy",
+  "escalationPolicy",
+  "kpi",
 ] as const satisfies readonly (keyof AgentDefinition)[];
 
 /**
@@ -70,6 +80,8 @@ export const CLONE_RESET_FIELDS = [
   "cloneFrom",
   "publishState",
   "toolWhitelist",
+  /** AG01 —— 复制出来的是本组织的 Agent：恒 `org`，不能靠复制把自己变成 official。 */
+  "catalogSource",
 ] as const satisfies readonly (keyof AgentDefinition)[];
 
 type InheritedKey = (typeof CLONE_INHERITED_FIELDS)[number];
@@ -124,6 +136,8 @@ export function cloneAgentDefinition(
      * aliasing case in `clone-drops-whitelist.test.ts`, which failed on first run.)
      */
     skillMounts: inherited.skillMounts.map((m) => ({ ...m })),
+    workflowAllowlist: [...inherited.workflowAllowlist],
+    catalogSource: "org",
     name: identity.name ?? inherited.name,
     initials: identity.initials ?? inherited.initials,
     role: identity.role ?? inherited.role,
@@ -143,7 +157,15 @@ export function cloneAgentDefinition(
 
 /** 从零新建 -- the other branch of `createAgent`, kept here so both share one code path. */
 export function newAgentDefinition(
-  base: Omit<AgentDefinition, "cloneFrom" | "publishState" | "toolWhitelist">,
+  base: Omit<AgentDefinition, "cloneFrom" | "publishState" | "toolWhitelist" | AgentRoleFieldKey>
+    & Partial<Pick<AgentDefinition, AgentRoleFieldKey>>,
 ): AgentDefinition {
-  return { ...base, cloneFrom: null, publishState: "草稿", toolWhitelist: [] };
+  // AG01：角色字段缺省 = 契约回填默认值（单一事实源 `AGENT_ROLE_FIELD_DEFAULTS`）。
+  return {
+    ...agentRole.AGENT_ROLE_FIELD_DEFAULTS,
+    ...base,
+    cloneFrom: null,
+    publishState: "草稿",
+    toolWhitelist: [],
+  };
 }

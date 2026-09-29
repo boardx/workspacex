@@ -734,6 +734,10 @@
       "kind": "shell",
       "screen": "apps/web/app/admin/skill/[id]/page.tsx"
     },
+    "/agent": {
+      "kind": "shell",
+      "screen": "apps/web/app/agent/page.tsx"
+    },
     "/asset-governance": {
       "kind": "mock",
       "screen": "apps/web/app/asset-governance/page.tsx",
@@ -2162,6 +2166,7 @@
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-omni-conversation.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
         "apps/web/lib/live-skill.ts",
