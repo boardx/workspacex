@@ -2859,8 +2859,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // 组织首页配置（ad-hoc feature，Refs #4634）。
     {
       provide: HOME_CONFIG_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgHomeConfigRepository(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, store: ObjectStore) => new PgHomeConfigRepository(db, store),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     // #638 delta，迭代 2：`uploadOwnAvatar`/`updateOwnProfile` 的头像元数据仓储。
     {
