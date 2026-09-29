@@ -67,12 +67,15 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
   if (items.length === 0) return <p data-testid="workflow-run-list-empty">没有待你审批的事项。</p>;
   return (
     <ul data-testid="workflow-approval-list">
-      {items.map((i) => (
-        <li key={i.gate.gateId} data-gate-id={i.gate.gateId}>
-          <button type="button" data-testid={`workflow-approval-open-${i.gate.gateId}`} onClick={() => setOpen(i.gate.gateId)}>
+      {items.map((i) => {
+        // gateId 只在单个运行内唯一（如每个 demo-approval 运行的门都是 publish-gate-1），故以 instanceId+gateId 为键。
+        const rowKey = `${i.instanceId}-${i.gate.gateId}`;
+        return (
+        <li key={rowKey} data-gate-id={i.gate.gateId} data-instance-id={i.instanceId}>
+          <button type="button" data-testid={`workflow-approval-open-${rowKey}`} onClick={() => setOpen(rowKey)}>
             {i.gate.effectPreview.summary}（{`${i.workflowKey}@${i.definitionVersion}`}）
           </button>
-          {open === i.gate.gateId ? (
+          {open === rowKey ? (
             <WorkflowApprovalDrawer
               instanceId={i.instanceId}
               gate={i.gate}
@@ -82,7 +85,8 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
             />
           ) : null}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

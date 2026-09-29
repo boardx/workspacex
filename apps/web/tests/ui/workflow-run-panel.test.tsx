@@ -245,7 +245,7 @@ describe("列表与入口", () => {
     api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 9 }));
     api.approveWorkflowGate.mockResolvedValue({ gate: gate({ decision: "approved" }), status: "running", stateVersion: 10 });
     render(<WorkflowApprovalList />);
-    fireEvent.click(await screen.findByTestId("workflow-approval-open-g1"));
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-i1-g1"));
     fireEvent.click(screen.getByTestId("workflow-approve"));
     await waitFor(() => expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "i1", gateId: "g1", expectedStateVersion: 9 }));
   });
@@ -295,11 +295,23 @@ describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
     api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 9 }));
     api.approveWorkflowGate.mockResolvedValue({ gate: gate({ decision: "approved" }), status: "running", stateVersion: 10 });
     render(<WorkflowApprovalList />);
-    fireEvent.click(await screen.findByTestId("workflow-approval-open-g1"));
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-i1-g1"));
     fireEvent.click(screen.getByTestId("workflow-approve"));
     expect(await screen.findByTestId("workflow-run-list-empty")).toBeTruthy();
     expect(api.listMyWorkflowApprovals).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId("workflow-approve")).toBeNull();
+  });
+
+  it("待我审批：不同运行共享同一 gateId 时只打开被点的抽屉，批准带对应 instanceId", async () => {
+    const item = (instanceId: string) => ({ instanceId, workflowKey: "demo-approval", definitionVersion: 1, agentId: "a1", initiatorUserId: "u1", gate: gate({ gateId: "publish-gate-1" }) });
+    api.listMyWorkflowApprovals.mockResolvedValue({ items: [item("run-a"), item("run-b")] });
+    api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 4 }));
+    api.approveWorkflowGate.mockResolvedValue({ gate: gate({ gateId: "publish-gate-1", decision: "approved" }), status: "running", stateVersion: 5 });
+    render(<WorkflowApprovalList />);
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-run-b-publish-gate-1"));
+    expect(screen.getAllByTestId("workflow-approve")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("workflow-approve"));
+    await waitFor(() => expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "run-b", gateId: "publish-gate-1", expectedStateVersion: 4 }));
   });
 
   it("入口：展开后由用户选择具体 Workflow，调 startInstance 并回调新实例", async () => {
