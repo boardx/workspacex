@@ -14,7 +14,17 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-export const DB_FREE_TEST_PREFIXES = ["tests/work-eval/", "tests/work-content/"] as const;
+// Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
+// test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
+export const DB_FREE_TEST_PREFIXES = [
+  "tests/work-eval/eval-report-baseline.test.ts",
+  "tests/work-eval/eval-runner.test.ts",
+  "tests/work-eval/gates-counterproof.test.ts",
+  "tests/work-eval/gates-fixture.ts",
+  "tests/work-eval/gates-g0-g4.test.ts",
+  "tests/work-eval/s003-suite-shape.test.ts",
+  "tests/work-content/",
+] as const;
 
 /**
  * Explicit DB-backed files living under a DB-free prefix (CT03: the research-line e2e needs real
@@ -56,7 +66,8 @@ export function selectionIsDbFree(apiDir: string, argv: readonly string[] = proc
   if (filters.length === 0) return false;
   if (!filters.every(f => !isDbBackedException(f) && DB_FREE_TEST_PREFIXES.some(p => f.startsWith(p)))) return false;
   for (const prefix of DB_FREE_TEST_PREFIXES) {
-    for (const file of walk(join(apiDir, prefix)).filter(f => f.endsWith(".ts"))) {
+    const files = prefix.endsWith("/") ? walk(join(apiDir, prefix)) : [join(apiDir, prefix)];
+    for (const file of files.filter(f => f.endsWith(".ts"))) {
       if (isDbBackedException(relative(apiDir, file).split(sep).join("/"))) continue;
       if (DB_IMPORT.test(readFileSync(file, "utf8"))) {
         throw new Error(`${relative(apiDir, file)} is under DB-free prefix ${prefix} but imports DB fixtures; move it or drop the prefix from tests/support/db-free-tests.ts`);
