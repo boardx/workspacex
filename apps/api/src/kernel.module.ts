@@ -799,6 +799,10 @@ import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repos
 //   材料字节走同一个 `ObjectStore` 实例，键前缀 `org-avatars/` 区分即可。
 import { ORG_PROFILE_REPOSITORY } from "./application/auth/org-profile-ports";
 import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-repository";
+// 组织首页配置（ad-hoc feature，Refs #4634）。
+import { HOME_CONFIG_REPOSITORY } from "./application/home/home-config-ports";
+import { PgHomeConfigRepository } from "./infrastructure/home/pg-home-config-repository";
+import { HomeConfigController } from "./interface/controllers/home-config.controller";
 import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
 import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
@@ -1156,6 +1160,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CheckinBoardController,
     ProjectInviteController,
     OrgAdminManagementController,
+    HomeConfigController,
     PlatformAccessController,
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,
@@ -2811,6 +2816,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ORG_PROFILE_REPOSITORY,
       useFactory: (db: DatabasePort, store: ObjectStore) => new PgOrgProfileRepository(db, store),
       inject: [DATABASE_PORT, OBJECT_STORE],
+    },
+    // 组织首页配置（ad-hoc feature，Refs #4634）。
+    {
+      provide: HOME_CONFIG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgHomeConfigRepository(db),
+      inject: [DATABASE_PORT],
     },
     // #638 delta，迭代 2：`uploadOwnAvatar`/`updateOwnProfile` 的头像元数据仓储。
     {
