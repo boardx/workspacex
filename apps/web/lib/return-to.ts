@@ -14,7 +14,14 @@
  * - 拒绝以 `/login` 开头（避免登录成功后又跳回登录页的循环）。
  * 任何不满足的输入一律回落到 `fallback`。
  */
-export function sanitizeReturnTo(raw: string | null | undefined, fallback = "/projects"): string {
+
+/**
+ * 登录后默认落点：组织首页。`docs/design/org-home-page/README.md`：「全部成员登录后先进入
+ * 自己组织的首页」，`/projects` 等入口仍在，只是不再是登录后的第一屏。显式 `?next=` 优先。
+ */
+export const DEFAULT_LANDING = "/home";
+
+export function sanitizeReturnTo(raw: string | null | undefined, fallback: string = DEFAULT_LANDING): string {
   if (!raw) return fallback;
   if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return fallback;
   if (raw === "/login" || raw.startsWith("/login/") || raw.startsWith("/login?")) return fallback;

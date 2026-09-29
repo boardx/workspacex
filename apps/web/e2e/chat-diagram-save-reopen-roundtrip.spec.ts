@@ -113,7 +113,7 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.diagramRoundtripThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
 
@@ -282,7 +282,7 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.diagramRoundtripThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
   // 这条专属线程从零预置消息开始，跨用例状态在同一 spec 文件内持久（issue #1610

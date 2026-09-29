@@ -42,8 +42,8 @@ describe("SessionAppShell 匿名跳转带 next", () => {
     );
   });
 
-  it("在 /projects 上匿名时跳 /login，不附带多余的 next", async () => {
-    setUrl("/projects");
+  it("在默认落点 /home 上匿名时跳 /login，不附带多余的 next", async () => {
+    setUrl("/home");
     render(
       <AppShell previewRole={null}>
         <div>content</div>

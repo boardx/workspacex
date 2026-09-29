@@ -29,7 +29,7 @@ async function loginAs(page: import("@playwright/test").Page, email: string, pas
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("admin creates and disables an Agent through the browser, and PostgreSQL keeps it across reloads", async ({ page }) => {

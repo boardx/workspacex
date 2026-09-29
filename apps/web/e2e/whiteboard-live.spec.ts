@@ -52,7 +52,7 @@ async function login(page: Page, actor: 'OWNER'|'EDITOR'|'VIEWER') {
   await page.goto('/login');
   await page.getByTestId('login-email').fill(required(`WHITEBOARD_${actor}_EMAIL`));
   await page.getByTestId('login-password').fill(required(`WHITEBOARD_${actor}_PASSWORD`));
-  await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/, {timeout:30_000});
+  await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/, {timeout:30_000});
   const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);
   expect(token,'real login issued session token').toBeTruthy();return token!;
 }

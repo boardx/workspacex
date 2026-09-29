@@ -15,7 +15,7 @@ test.describe("CT02 — Research Workflow Registry", () => {
     await page.getByTestId("login-password").fill("DevMode-Consultant-Preset-2026!");
     await page.screenshot({ path: SHOTS + "ct02-01-login.png" });
     await page.getByTestId("login-submit").click();
-    await expect(page).toHaveURL(/\/projects$/, { timeout: 60_000 });
+    await expect(page).toHaveURL(/\/home$/, { timeout: 60_000 });
     await page.screenshot({ path: SHOTS + "ct02-02-after-login.png" });
 
     // Step 2: Navigate to Skill catalog (work-catalog screen)
@@ -48,7 +48,7 @@ test.describe("CT02 — Research Workflow Registry", () => {
     await page.getByTestId("login-email").fill("dev-mode-consultant@workspacex.test");
     await page.getByTestId("login-password").fill("DevMode-Consultant-Preset-2026!");
     await page.getByTestId("login-submit").click();
-    await expect(page).toHaveURL(/\/projects$/, { timeout: 60_000 });
+    await expect(page).toHaveURL(/\/home$/, { timeout: 60_000 });
 
     await page.goto("/skill?screen=work-catalog");
     await expect(page.getByTestId("work-catalog-screen")).toBeVisible({ timeout: 5_000 });

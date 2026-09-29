@@ -21,7 +21,9 @@ import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
-export const UPDATE_HOME_CONFIG_SCHEMA = C.operations.updateHomeConfig.in;
+/** 契约 `in` 按本仓惯例含路径参数 `orgId`（同 `apply-blueprint.controller.ts`）；
+ *  body 里不收它——orgId 只取路径，body 带 orgId 会被 `.strict()` 拒成 400。 */
+export const UPDATE_HOME_CONFIG_SCHEMA = C.operations.updateHomeConfig.in.omit({ orgId: true });
 type UpdateHomeConfigBody = z.infer<typeof UPDATE_HOME_CONFIG_SCHEMA>;
 
 @Controller()
