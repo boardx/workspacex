@@ -2,6 +2,7 @@ import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
+import { routeCapabilityRun } from "./capability-runtime-routing";
 import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { RunLeaseLostError, currentRunLease } from "./run-lease";
@@ -507,8 +508,11 @@ export function buildSystemPrompt(
 async function executeClaimed(
   deps: ExecuteAgentRunDeps,
   orgId: OrgId,
-  run: ClaimedAgentRun,
+  claimedRun: ClaimedAgentRun,
 ): Promise<void> {
+  // 数字人能力（决策 B）：带工具型能力（Workflow 白名单 / 挂载 Skill）的 run 改走 deep-agent 运行时，
+  // 模型仍是钉住的那个。普通 run 原样（同一对象）。见 capability-runtime-routing.ts。
+  const run = await routeCapabilityRun(deps, orgId, claimedRun);
   let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
   // #3749 R2：本轮不给模型看见的工具（画布请求排除 skill 工具，见下方赋值处的头注）。
   let excludedTools: readonly string[] | undefined;

@@ -160,10 +160,15 @@ def _bailian_extensions_enabled(env: "os._Environ[str]", base_url: str) -> bool:
     return _is_bailian_base_url(base_url)
 
 
-def build_chat_model() -> ChatOpenAI:
+def build_chat_model(model_id_override: str | None = None) -> ChatOpenAI:
+    """`model_id_override`（数字人能力，决策 B）：一个钉住具体模型的 Agent 经本运行时执行时，
+    网关以 `configurable.model_id` 交来的模型 id——同一个 `KERNEL_MODEL_*` 端点、同一套
+    thinking/reasoning 判据，只换 model 名。缺省 = 本服务默认模型，与此前逐字相同。"""
     base_url = (os.environ.get("KERNEL_MODEL_BASE_URL") or "").strip().rstrip("/")
     api_key = os.environ.get("KERNEL_MODEL_API_KEY") or ""
-    model_id = (os.environ.get("KERNEL_DEEP_AGENT_MODEL_ID") or "").strip() or DEFAULT_MODEL_ID
+    model_id = (model_id_override or "").strip() or (
+        (os.environ.get("KERNEL_DEEP_AGENT_MODEL_ID") or "").strip() or DEFAULT_MODEL_ID
+    )
 
     if base_url == "" or api_key == "":
         # Fail loudly at graph-build time, not silently at first tool call -- the same

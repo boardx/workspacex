@@ -391,10 +391,12 @@ export class PgAgentRunRepository implements AgentRunStore {
   /** AG05 —— 见 `AgentRunStore.readRunWorkflowContext`。钉住版本的白名单 + 请求人（同 findRequesterUserId 的 join）。 */
   async readRunWorkflowContext(orgId: OrgId, runId: string): Promise<{
     agentId: string; agentVersionId: string; workflowAllowlist: string[]; requesterUserId: string | null;
+    agentPinnedSkillCount: number;
   } | null> {
     return this.db.withTenant(orgId, async (s) => {
-      const { rows } = await s.query<{ agent_id: string; agent_version_id: string; workflow_allowlist: string[] | null; author_id: string | null }>(
-        `SELECT r.agent_id, r.agent_version_id, v.workflow_allowlist, m.author_id
+      const { rows } = await s.query<{ agent_id: string; agent_version_id: string; workflow_allowlist: string[] | null; author_id: string | null; pinned_skill_count: number }>(
+        `SELECT r.agent_id, r.agent_version_id, v.workflow_allowlist, m.author_id,
+                jsonb_array_length(coalesce(to_jsonb(v.skill_version_ids),'[]'::jsonb))::int AS pinned_skill_count
            FROM agent_runs r
            JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id AND v.agent_id=r.agent_id
            LEFT JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
@@ -407,6 +409,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       return {
         agentId: row.agent_id, agentVersionId: row.agent_version_id,
         workflowAllowlist: [...(row.workflow_allowlist ?? [])], requesterUserId: row.author_id ?? null,
+        agentPinnedSkillCount: Number(row.pinned_skill_count ?? 0),
       };
     });
   }

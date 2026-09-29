@@ -477,6 +477,12 @@ export interface AgentRunStore {
   readRunWorkflowContext?(orgId: OrgId, runId: string): Promise<{
     readonly agentId: string; readonly agentVersionId: string;
     readonly workflowAllowlist: readonly string[]; readonly requesterUserId: string | null;
+    /**
+     * 钉住的 Agent **版本自身**钉的 Skill 数（`agent_versions.skill_version_ids`）。区别于 run 的
+     * `skill_version_ids`：后者在 agent 没钉 skill 时会并入**组织里所有已启用 skill**，不代表这个
+     * Agent 有工具型能力（数字人路由判据，见 `capability-runtime-routing.ts`）。缺席 ⇒ 按 0。
+     */
+    readonly agentPinnedSkillCount?: number;
   } | null>;
 
   /**
@@ -1286,6 +1292,13 @@ export interface ModelCallCompletion {
 
 export interface ModelCallPort {
   supportsLiveInterjections?(modelProvider: string): boolean;
+  /**
+   * 数字人能力（决策 B）—— 这个 provider 名是否由 deep-agent 内核的 LLM 端点**同样**提供
+   * （同一个 `KERNEL_MODEL_*` 端点，见 `capability-runtime-routing.ts`）。为真时，带工具型
+   * 能力（Workflow 白名单 / 挂载 Skill）的 run 改走 deep-agent 运行时、底层模型仍是 run 钉住的
+   * `modelId`。缺席 = 不改路由（与本字段加入之前逐字相同）。
+   */
+  servesViaKernelRuntime?(modelProvider: string): boolean;
   /**
    * Perform the single model call for a pinned provider/model.
    *
