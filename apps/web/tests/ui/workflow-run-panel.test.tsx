@@ -18,11 +18,23 @@ const api = vi.hoisted(() => ({
   listMyWorkflowInstances: vi.fn(),
   listMyWorkflowApprovals: vi.fn(),
   listRunnableWorkflows: vi.fn(),
+  startWorkflowInstance: vi.fn(),
 }));
 vi.mock("@/lib/workflow-runtime-api", async (orig) => ({ ...(await orig<object>()), ...api }));
+// 页面级测试只替换外壳（AppShell 依赖会话/身份 provider），路由页本身与其挂载的组件是真的。
+vi.mock("@/components/shell/app-shell", () => ({
+  AppShell: (p: { left?: unknown; children: unknown }) => <div data-testid="app-shell">{p.left as never}{p.children as never}</div>,
+}));
+vi.mock("@/components/admin/capability-edit-page", () => ({ CapabilityEditPage: () => <div data-testid="capability-edit-page" /> }));
+vi.mock("@/components/admin/agent-capability-graph", () => ({ AgentCapabilityGraph: () => null }));
+vi.mock("@/components/admin/admin-nav", () => ({ AdminNav: () => null }));
 
 import { WorkflowRunPanel } from "@/components/workflow/workflow-run-panel";
 import { WorkflowApprovalList, WorkflowRunEntry, WorkflowRunList } from "@/components/workflow/workflow-lists";
+import WorkflowRunPage from "@/app/workflows/runs/[instanceId]/page";
+import WorkflowMyRunsPage from "@/app/workflows/runs/page";
+import WorkflowApprovalsPage from "@/app/workflows/approvals/page";
+import AgentEditRoutePage from "@/app/platform-admin/agent/[id]/page";
 import type { WorkflowInstanceProjection, WorkflowSseEnvelope } from "@/lib/workflow-runtime-api";
 
 const gate = (over: Record<string, unknown> = {}) =>
@@ -225,7 +237,7 @@ describe("列表与入口", () => {
   });
 
   it("待我审批：空态 & 列表打开抽屉，裁决前读取当前 stateVersion", async () => {
-    api.listMyWorkflowApprovals.mockResolvedValueOnce({ items: [] });
+    api.listMyWorkflowApprovals.mockResolvedValue({ items: [] });
     const { unmount } = render(<WorkflowApprovalList />);
     expect(await screen.findByTestId("workflow-run-list-empty")).toBeTruthy();
     unmount();
@@ -247,5 +259,97 @@ describe("列表与入口", () => {
     render(<WorkflowRunEntry agentId="a1" />);
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByTestId("workflow-run-entry")).toBeNull();
+  });
+});
+
+describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
+  it("服务端发完数据后正常关闭：不计失败，立即带新 Last-Event-ID 续传，不降级 polling", async () => {
+    let calls = 0;
+    api.openWorkflowInstanceStream.mockImplementation(async (_i: string, _l: number | null, on: (e: WorkflowSseEnvelope) => void, o: { signal?: AbortSignal }) => {
+      calls += 1;
+      if (calls <= 4) { on(delta(10 + calls)); return; } // 每次发一条后干净关闭
+      return hang("", null, null, o);
+    });
+    render(<WorkflowRunPanel instanceId="i1" initial={proj()} reconnectDelayMs={10_000} maxReconnects={1} pollIntervalMs={20} />);
+    await waitFor(() => expect(api.openWorkflowInstanceStream.mock.calls.length).toBe(5));
+    expect(api.openWorkflowInstanceStream.mock.calls.map((c) => c[1])).toEqual([10, 11, 12, 13, 14]);
+    await waitFor(() => expect(screen.getByTestId("workflow-sse-status").getAttribute("data-sse")).toBe("live"));
+    expect(screen.getByTestId("workflow-event-log").querySelectorAll("li").length).toBe(4);
+  });
+
+  it("未收到任何 envelope 就正常结束：计为失败；首次尝试解决前保持 live", async () => {
+    let release: () => void = () => {};
+    api.openWorkflowInstanceStream.mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    api.openWorkflowInstanceStream.mockImplementation(async () => undefined);
+    render(<WorkflowRunPanel instanceId="i1" initial={proj()} reconnectDelayMs={5} maxReconnects={1} pollIntervalMs={1_000} />);
+    await waitFor(() => expect(api.openWorkflowInstanceStream).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("workflow-sse-status").getAttribute("data-sse")).toBe("live");
+    await act(async () => { release(); });
+    await waitFor(() => expect(screen.getByTestId("workflow-sse-status").getAttribute("data-sse")).toBe("polling"));
+  });
+
+  it("待我审批：批准后关闭抽屉并重读列表，已裁决项消失", async () => {
+    api.listMyWorkflowApprovals
+      .mockResolvedValueOnce({ items: [{ instanceId: "i1", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", gate: gate() }] })
+      .mockResolvedValueOnce({ items: [] });
+    api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 9 }));
+    api.approveWorkflowGate.mockResolvedValue({ gate: gate({ decision: "approved" }), status: "running", stateVersion: 10 });
+    render(<WorkflowApprovalList />);
+    fireEvent.click(await screen.findByTestId("workflow-approval-open-g1"));
+    fireEvent.click(screen.getByTestId("workflow-approve"));
+    expect(await screen.findByTestId("workflow-run-list-empty")).toBeTruthy();
+    expect(api.listMyWorkflowApprovals).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("workflow-approve")).toBeNull();
+  });
+
+  it("入口：展开后由用户选择具体 Workflow，调 startInstance 并回调新实例", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [
+      { key: "weekly-report", version: 3, title: "周报", inputSchema: {} },
+      { key: "daily-digest", version: 1, title: "日报", inputSchema: {} },
+    ] });
+    api.startWorkflowInstance.mockResolvedValue({ instanceId: "i9", status: "running", stateVersion: 1, definitionVersion: 1, pinnedSkills: [] });
+    const onStarted = vi.fn();
+    render(<WorkflowRunEntry agentId="a1" onStarted={onStarted} />);
+    fireEvent.click(await screen.findByTestId("workflow-run-entry"));
+    fireEvent.click(screen.getByTestId("workflow-run-start-daily-digest"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("i9"));
+    expect(api.startWorkflowInstance).toHaveBeenCalledWith({ key: "daily-digest", version: 1, agentId: "a1", input: {} });
+  });
+
+  it("入口：startInstance 失败显示错误文案", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [{ key: "weekly-report", version: 3, title: "周报", inputSchema: {} }] });
+    api.startWorkflowInstance.mockRejectedValue(new ApiError(403, null, { code: "workflow_not_allowed", message: "x" }));
+    render(<WorkflowRunEntry agentId="a1" onStarted={vi.fn()} />);
+    fireEvent.click(await screen.findByTestId("workflow-run-entry"));
+    fireEvent.click(screen.getByTestId("workflow-run-start-weekly-report"));
+    expect(await screen.findByTestId("workflow-run-start-error")).toBeTruthy();
+  });
+});
+
+describe("页面级挂载（路由真实存在并挂载组件）", () => {
+  it("/workflows/runs/[instanceId] 渲染运行面板", async () => {
+    render(<WorkflowRunPage params={{ instanceId: "i1" }} />);
+    await waitFor(() => expect(screen.getByTestId("workflow-run-panel").getAttribute("data-status")).toBe("running"));
+    expect(api.getWorkflowInstance).toHaveBeenCalledWith("i1");
+  });
+
+  it("/workflows/runs 渲染我的运行列表", async () => {
+    api.listMyWorkflowInstances.mockResolvedValue({ items: [], nextCursor: null });
+    render(<WorkflowMyRunsPage />);
+    expect(await screen.findByTestId("workflow-run-list-empty")).toBeTruthy();
+    expect(screen.getByTestId("workflow-nav")).toBeTruthy();
+  });
+
+  it("/workflows/approvals 渲染待我审批列表", async () => {
+    api.listMyWorkflowApprovals.mockResolvedValue({ items: [] });
+    render(<WorkflowApprovalsPage />);
+    expect((await screen.findByTestId("workflow-run-list-empty")).textContent).toContain("没有待你审批");
+  });
+
+  it("Agent 页（/platform-admin/agent/[id]）挂载「运行 Workflow」入口", async () => {
+    api.listRunnableWorkflows.mockResolvedValue({ items: [{ key: "weekly-report", version: 3, title: "周报", inputSchema: {} }] });
+    render(<AgentEditRoutePage params={{ id: "a7" }} searchParams={{}} />);
+    expect(await screen.findByTestId("workflow-run-entry")).toBeTruthy();
+    expect(api.listRunnableWorkflows).toHaveBeenCalledWith("a7");
   });
 });

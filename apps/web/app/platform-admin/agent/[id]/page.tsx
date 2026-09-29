@@ -19,6 +19,7 @@ import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 import { AgentCapabilityGraph } from "@/components/admin/agent-capability-graph";
 import { resolvePreviewRole } from "@/lib/identity";
 import { safeRelativePath } from "@/lib/safe-relative-path";
+import { WorkflowRunEntry } from "@/components/workflow/workflow-lists";
 
 export default function AgentEditRoutePage({
   params, searchParams,
@@ -31,6 +32,8 @@ export default function AgentEditRoutePage({
   const backHref = safeRelativePath(searchParams.from) ?? undefined;
   return (
     <AppShell previewRole={previewRole} left={<AdminNav active="agent" />}>
+      {/* WF08：Agent 面上的「运行 Workflow」入口；无运行权限时自身不渲染。 */}
+      <WorkflowRunEntry agentId={params.id} />
       <CapabilityEditPage
         kind="agent"
         id={params.id}

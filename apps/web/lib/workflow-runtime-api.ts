@@ -56,6 +56,24 @@ export function listRunnableWorkflows(agentId: string): Promise<z.infer<typeof C
   return apiRequest(fill(C.listRunnableWorkflows.path, { agentId }));
 }
 
+export function startWorkflowInstance(cmd: {
+  key: string;
+  agentId: string;
+  version?: number;
+  input?: Record<string, unknown>;
+}): Promise<z.infer<typeof C.startInstance.out>> {
+  return apiRequest(fill(C.startInstance.path, { key: cmd.key }), {
+    method: "POST",
+    body: {
+      key: cmd.key,
+      ...(cmd.version !== undefined ? { version: cmd.version } : {}),
+      agentId: cmd.agentId,
+      requestId: newWorkflowRequestId(),
+      input: cmd.input ?? {},
+    },
+  });
+}
+
 type Cmd = { instanceId: string; expectedStateVersion: number };
 
 export function cancelWorkflowInstance(cmd: Cmd): Promise<z.infer<typeof C.cancelInstance.out>> {

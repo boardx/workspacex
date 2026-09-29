@@ -2,6 +2,9 @@
 /**
  * WF08 —— Workflow 运行面板（`/workflows/runs/[instanceId]`，契约束 workflow-runtime ① UI）。
  *
+ * 权威实现：本文件（真实 API + 路由 `app/workflows/runs/[instanceId]`）。
+ * `components/work-stack/workflow-run-panel.tsx` 是迭代 1 的静态原型（mock 数据），不挂路由、不作为运行面板使用。
+ *
  * 服务端 projection 是唯一权威：SSE `snapshot` 直接替换；`delta` 只追加日志（按 seq 去重）
  * 并触发一次 `getInstance` 重读。断线 → `reconnecting`，带 Last-Event-ID 续传；
  * 连续失败超过上限 → 降级 `polling`（getInstance 轮询）。终态停止订阅。
@@ -91,11 +94,15 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
     };
 
     (async () => {
+      // 失败计数只算「这一次连接没收到任何 envelope 就结束 / 抛错」；收到过数据后正常关闭
+      // 属于服务端轮换连接，计数清零并立即续传，不算失败、状态保持 live。
+      // 只有失败的尝试结束后才切 reconnecting（首次尝试进行中保持 live）。
       let failures = 0;
       while (!stopped && !terminalRef.current) {
+        let received = false;
         try {
-          setSse(failures === 0 ? "live" : "reconnecting");
           await openWorkflowInstanceStream(instanceId, lastSeq.current, (env) => {
+            received = true;
             failures = 0;
             setSse("live");
             onEnvelope(env);
@@ -104,6 +111,10 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
           if (stopped) return;
         }
         if (stopped || terminalRef.current) return;
+        if (received) {
+          failures = 0; // 立即续传，状态保持 live
+          continue;
+        }
         failures += 1;
         if (failures > maxReconnects) break;
         setSse("reconnecting");
