@@ -13,10 +13,12 @@ export function SurveyQuestionSettings({
   question: q,
   questions,
   onChange,
+  mode = "all",
 }: {
   question: SurveyWorkflowQuestion;
   questions: SurveyWorkflowQuestion[];
   onChange: (q: SurveyWorkflowQuestion) => void;
+  mode?: "all" | "content" | "advanced";
 }) {
   const config = q.config ?? {};
   const [bulk, setBulk] = React.useState("");
@@ -37,6 +39,8 @@ export function SurveyQuestionSettings({
     "ranking",
     "allocation",
   ].includes(q.type);
+  const showContent = mode !== "advanced";
+  const showAdvanced = mode !== "content";
   function options(labels: string[], ids: string[]) {
     onChange({
       ...q,
@@ -157,6 +161,7 @@ export function SurveyQuestionSettings({
   );
   return (
     <div className="space-y-5">
+      {showContent && <>
       <label className="block text-12">
         题目说明
         <Textarea
@@ -275,7 +280,8 @@ export function SurveyQuestionSettings({
       {q.type === "description" && (
         <ImageSettings id="description" config={config} patch={patch} />
       )}
-      <details className="rounded-md border border-border p-3">
+      </>}
+      {showAdvanced && <details className="rounded-md border border-border p-3">
         <summary className="cursor-pointer text-13 font-medium">
           高级规则
         </summary>
@@ -422,7 +428,7 @@ export function SurveyQuestionSettings({
           )}
           <RuleSettings question={q} questions={questions} patch={patch} />
         </div>
-      </details>
+      </details>}
     </div>
   );
 }

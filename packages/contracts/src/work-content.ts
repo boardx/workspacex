@@ -22,6 +22,7 @@ import {
   WorkflowStageId,
   WorkflowRequestId,
   CapabilityCategory,
+  WorkflowErrorBody,
 } from "./workflow-runtime";
 import { WorkflowStableId } from "./agent-role";
 
@@ -123,6 +124,12 @@ export const PrdArtifact = z
   .strict();
 
 /** W013 新商机载荷：**只**允许这五个字段（V6）；amount/closeDate/stage 进 deferredProposals。 */
+/** W029 各 Skill 阶段产出（stage content 的 `output` 字段）的最小形状；PRD 装配时不符即失败，不猜。 */
+export const PrdFrameStageOutput = z.object({ problemStatement: z.string().min(1), evidenceRefs: z.array(z.string().min(1)), confidence: z.enum(["low", "medium", "high"]) });
+export const PrdPriorityStageOutput = z.object({ ranking: z.array(z.object({ id: z.string().min(1), priority: z.string().min(1) })) });
+export const PrdDraftStageOutput = z.object({ title: z.string().min(1), requirements: z.array(z.object({ id: z.string().min(1), text: z.string().min(1) })) });
+export const PrdKpiStageOutput = z.object({ kpis: z.array(z.object({ name: z.string().min(1), definition: z.string().min(1) })) });
+
 export const NewOpportunityPayload = z
   .object({
     accountId: z.string().min(1),
@@ -364,3 +371,11 @@ export const WorkflowNotAllowlistedHint = z
     handoffCandidates: z.array(DigitalHumanStableId), // 例：D011 请求 W030 → ["D003"]
   })
   .strict();
+
+/**
+ * E3 的 403 失败体：`workflowRuntime.startInstance` 的 `WorkflowErrorBody`（code = workflow_not_allowed）
+ * 附 `allowlistHint`。只在「Agent 可运行但 Workflow 不在其已发布白名单内」时出现。
+ */
+export const WorkflowNotAllowedErrorBody = WorkflowErrorBody.extend({
+  allowlistHint: WorkflowNotAllowlistedHint,
+}).strict();

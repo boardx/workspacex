@@ -12,6 +12,7 @@ import {
   AGENT_INTERRUPTS_TOOL_NAME_LIST,
   AgentInterruptKind,
   AGENT_INTERRUPT_KIND_TO_TOOL_NAME,
+  ESCALATE_MATTER_TOOL_NAME,
   ConfirmIntentArgs,
   ConfirmIntentDecision,
   ParamField,
@@ -34,7 +35,9 @@ describe("F212 agent-interrupts — 工具名单一事实源（不变量 I-7）"
   it("kind → 工具名映射与工具名常量同源", () => {
     for (const kind of AgentInterruptKind.options) {
       expect(AGENT_INTERRUPT_KIND_TO_TOOL_NAME[kind]).toBeDefined();
-      expect(AGENT_INTERRUPTS_TOOL_NAME_LIST).toContain(AGENT_INTERRUPT_KIND_TO_TOOL_NAME[kind]);
+      // AG06：escalate 的工具名单源是 ESCALATE_MATTER_TOOL_NAME（不进 Python HITL 清单），其余三种同源于清单。
+      if (kind === "escalate") expect(AGENT_INTERRUPT_KIND_TO_TOOL_NAME[kind]).toBe(ESCALATE_MATTER_TOOL_NAME);
+      else expect(AGENT_INTERRUPTS_TOOL_NAME_LIST).toContain(AGENT_INTERRUPT_KIND_TO_TOOL_NAME[kind]);
     }
   });
 });

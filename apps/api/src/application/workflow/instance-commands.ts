@@ -223,6 +223,10 @@ async function runStartCore(
       "workflow_not_allowed",
       "agent not runnable for this workflow",
     );
+  // CT06 / E3：受角色白名单约束的 Workflow 不在 Agent 已发布白名单内 → 403 + 可转交提示，不静默降级。
+  const allowlistHint = await deps.access.workflowAllowlistRefusal(args.orgId, args.actorUserId, args.agentId, args.key);
+  if (allowlistHint)
+    throw new WorkflowUseCaseError("workflow_not_allowed", "workflow not in agent allowlist", { allowlistHint });
 
   const version =
     args.version ??
