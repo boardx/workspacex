@@ -89,7 +89,7 @@ const identity = new NonWorkshopIdentity(
     "u-ws-fac": { orgRole: "consultant", projectRole: "facilitator" },
     "u-ws-observer": { orgRole: "consultant", projectRole: "observer" },
   },
-  { [RESEARCH]: "research_project", [INSIGHT]: "user_insight" },
+  { [RESEARCH]: "general", [INSIGHT]: "general" },
   {
     [`${RESEARCH}/u-owner`]: "owner",
     [`${RESEARCH}/u-collab`]: "collaborator",
@@ -105,15 +105,15 @@ const judge = (userId: string, projectId: string, action: string) =>
 describe("nonWorkshopProjectLayer：两档身份 → 项目层输入（纯函数）", () => {
   it("owner → facilitator 行、collaborator → member 行，恒带 containerKind、无分组、无 host", () => {
     expect(NON_WORKSHOP_TIER_PROJECT_ROLE).toEqual({ owner: "facilitator", collaborator: "member" });
-    expect(nonWorkshopProjectLayer({ containerKind: "research_project", memberRole: "owner", orgRole: "consultant" }))
-      .toEqual({ role: "facilitator", groupId: null, isHost: false, containerKind: "research_project" });
-    expect(nonWorkshopProjectLayer({ containerKind: "user_insight", memberRole: "collaborator", orgRole: "admin" }))
-      .toEqual({ role: "member", groupId: null, isHost: false, containerKind: "user_insight" });
+    expect(nonWorkshopProjectLayer({ containerKind: "general", memberRole: "owner", orgRole: "consultant" }))
+      .toEqual({ role: "facilitator", groupId: null, isHost: false, containerKind: "general" });
+    expect(nonWorkshopProjectLayer({ containerKind: "general", memberRole: "collaborator", orgRole: "admin" }))
+      .toEqual({ role: "member", groupId: null, isHost: false, containerKind: "general" });
   });
 
   it("不在名单上：组织 lead / admin → observer 行（只读）；顾问 / 合规 / 非组织成员 → 无角色", () => {
     const layer = (orgRole: "lead" | "admin" | "consultant" | "compliance" | null) =>
-      nonWorkshopProjectLayer({ containerKind: "research_project", memberRole: null, orgRole }).role;
+      nonWorkshopProjectLayer({ containerKind: "general", memberRole: null, orgRole }).role;
     expect(layer("lead")).toBe("observer");
     expect(layer("admin")).toBe("observer");
     expect(layer("consultant")).toBeNull();
@@ -125,10 +125,10 @@ describe("nonWorkshopProjectLayer：两档身份 → 项目层输入（纯函数
 describe("容器白名单：工作坊专属机制对两类容器恒关", () => {
   it("议程 / 分组 / 现场参与 / 工作坊名单 / 本组内容不在白名单上；白名单里只有已声明的动作", () => {
     for (const a of PROJECT_ACTIONS) {
-      if (a.startsWith("agendaSegment.") || a.startsWith("group.")) expect(containerAllows("research_project", a), a).toBe(false);
+      if (a.startsWith("agendaSegment.") || a.startsWith("group.")) expect(containerAllows("general", a), a).toBe(false);
     }
     for (const a of ["member.manage", "content.postNote", "content.speak", "content.vote", "read.ownGroup"]) {
-      expect(containerAllows("user_insight", a), a).toBe(false);
+      expect(containerAllows("general", a), a).toBe(false);
     }
     for (const a of NON_WORKSHOP_CONTAINER_ACTIONS) expect(PROJECT_ACTIONS).toContain(a);
     // 工作坊：矩阵全集，一条都不收窄。
@@ -141,7 +141,7 @@ describe("容器白名单：工作坊专属机制对两类容器恒关", () => {
     expect(ws.allowed).toBe(true);
     const rp = decide({
       ...base, action: "agendaSegment.advance",
-      project: { role: "facilitator", groupId: null, containerKind: "research_project" },
+      project: { role: "facilitator", groupId: null, containerKind: "general" },
     });
     expect(rp).toMatchObject({ allowed: false, reasonCode: "PROJECT_ROLE_INSUFFICIENT" });
     expect(rp.projectLayer).toMatchObject({ role: "facilitator", passed: false });
@@ -197,7 +197,7 @@ describe("authorize()：项目层读两档身份（#4584 的根因修复）", ()
 /* ───────────────────────────── 用例面 ───────────────────────────── */
 
 const ZERO: Record<ProjectEvidenceSourceKind, number> = {
-  chat_message: 0, attachment: 0, survey_response: 0, interview_segment: 0, transcript_segment: 0, research_source: 0,
+  chat_message: 0, attachment: 0, survey_response: 0, interview_segment: 0, transcript_segment: 0, research_source: 0, whiteboard_note: 0,
 };
 const evidenceRow: ProjectEvidenceRow = {
   id: "ev1", projectId: RESEARCH, sourceKind: "interview_segment", resourceId: "r1", sourceRef: "s1",

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
+import { insertAgentVersionFromDraft } from "./agent-version-insert";
 import type { AgentStarterImportRepository, AgentStarterImportResult, ExistingAgentImportOutcome, PersistVerifiedAgentImportOutcome } from "../../application/agent-import/ports";
 
 interface ImportRow { status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; }
@@ -57,7 +58,7 @@ export class PgAgentStarterImportRepository implements AgentStarterImportReposit
         // `stableName` 前两位大写复用同一条派生规则，避免与 abbr 撞得太像时再造一套。
         const roleLabel = agent.stableName.slice(0, 8);
         await s.query("INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,role_label,role_label_needs_confirmation) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,true)", [agentId,input.orgId,agent.stableName,agent.name,input.actorId,importedAt,roleLabel]);
-        await s.query(`INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10::jsonb,$11,$12,$12)`, [versionId,input.orgId,agentId,agent.semanticVersion,agent.instructionDigest,agent.instructions,agent.skillVersions.map((ref) => ref.versionId),agent.modelProvider,agent.modelId,JSON.stringify(agent.toolPolicy),input.actorId,importedAt]);
+        await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: agent.skillVersions.map((ref) => ref.versionId), modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });
         await s.query("UPDATE agents SET published_version_id=$3,updated_at=$4 WHERE id=$1 AND org_id=$2", [agentId,input.orgId,versionId,importedAt]);
         // #619：`capability_listings_agent_needs_abbr_duty` 要求 kind='agent' 的行非空
         // abbr/duty。pack schema（`AgentStarterPackEntry`）没有这两个字段——不新开一次

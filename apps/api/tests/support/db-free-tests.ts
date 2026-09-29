@@ -14,8 +14,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-// Explicit files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back test lives
-// there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
+// Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
+// test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
 export const DB_FREE_TEST_PREFIXES = [
   "tests/work-eval/eval-report-baseline.test.ts",
   "tests/work-eval/eval-runner.test.ts",
@@ -23,6 +23,7 @@ export const DB_FREE_TEST_PREFIXES = [
   "tests/work-eval/gates-fixture.ts",
   "tests/work-eval/gates-g0-g4.test.ts",
   "tests/work-eval/s003-suite-shape.test.ts",
+  "tests/work-content/",
 ] as const;
 
 const DB_IMPORT = /from\s+["'](?:[^"']*support\/db(?:-[^"']*)?|pg)["']|\bcreateApp\s*\(/;

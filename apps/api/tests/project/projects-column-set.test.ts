@@ -62,7 +62,7 @@ describe("门控 C（意图断言）：改白名单不可能是顺手的", () =>
   });
 
   it("契约的 kind / status 是闭枚举，且与迁移里的 CHECK 同形", () => {
-    expect(project.ProjectKind.options).toEqual(["workshop", "research_project", "user_insight"]);
+    expect(project.ProjectKind.options).toEqual(["workshop", "general"]);
     expect(project.ProjectStatus.options).toEqual(["active", "archived"]);
   });
 });
@@ -117,7 +117,7 @@ describe("门控 A（主门）：真库的列集合", () => {
     }
     // 反向：CHECK 里不许有契约之外的值。字符串计数比「包含」强一档——
     // 只断言包含时，一个 kind IN (...三值..., 'delivery') 的 CHECK 也全绿。
-    expect((members["projects_kind_check"]?.match(/'/g) ?? []).length / 2).toBe(3);
+    expect((members["projects_kind_check"]?.match(/'/g) ?? []).length / 2).toBe(project.ProjectKind.options.length);
     expect((members["projects_status_check"]?.match(/'/g) ?? []).length / 2).toBe(2);
   });
 

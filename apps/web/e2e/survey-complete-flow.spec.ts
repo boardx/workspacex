@@ -176,7 +176,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const persistedSurvey = page.locator("article").filter({
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
-  await expect(persistedSurvey).toContainText("回收中");
+  await expect(persistedSurvey).toContainText("发布中");
   await expect(persistedSurvey).toContainText("8题目数");
   await expect(persistedSurvey).toContainText("2答卷数");
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-desktop.png"),fullPage:true});

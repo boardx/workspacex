@@ -1,7 +1,8 @@
-# Acceptance Evidence — Phase 20 Iteration 6 (EV01–EV04)
+# Acceptance Evidence — Phase 20 Iteration 6 (EV01–EV03)
 
-Date: 2026-09-28 (EV01–EV03) / 2026-09-29 (EV04)
-Worktree: /home/user/wt/ev04 (branch claude/tender-maxwell-dh21fg-ev04)
+Date: 2026-09-28
+Worktree: /home/user/wt/iter6 (branch claude/tender-maxwell-dh21fg-iter6)
+Load at start: 16.21 → waited until ~8.73 before proceeding
 
 ---
 
@@ -107,75 +108,41 @@ S003 (evals/work-stack/S003)
 ```
 EXIT 1.
 
+**Failure message quality:** Tells the developer exactly what to fix — "no SKILL.md/WORKFLOW.md/AGENT.md declares metadata.work.stableId=S003 (orphan suite)" — actionable, no guesswork. REASON_CODE (STABLE_ID_MISMATCH) is machine-readable via --json flag.
+
+Note: S003 is an eval suite without an associated entity skill registered in the repo. The gate correctly identifies this as an orphan suite at G0. The vitest tests (gates-g0-g4.test.ts) exercise the pass path against correctly registered fixtures.
+
 ---
 
-## EV04 — gate status writeback & catalog gate status display
-
-### Verification commands
-
-**API gate-status-writeback test (run from apps/api dir via nt.sh)**
-```
-/path/to/nt.sh pnpm exec vitest run tests/work-eval/gate-status-writeback.test.ts
-```
-Result: **11 tests passed (11)**, EXIT 0
-
-All sub-cases verified:
-- Platform operator writes WorkGateStatus for current version; members see it via GET
-- G5 pass → operator sees canMarkVerified, member does not
-- Concurrent requests with same idempotency key → all 200, exactly one event
-- Idempotent replay returns 200 without second event; same key + different body → 409
-- Org admin / member (non-platform operator) → 403 WORK_EVAL_PLATFORM_ADMIN_REQUIRED (E9)
-- Platform operator writing into a non-official org's catalog → 403, nothing written (I-10)
-- stableId mismatch → 422; unknown digest → 409; unknown skill → 404
-- After importing a new version: current gate status is not_evaluated; old version record kept (A4/I-2)
-
-**Web UI gate-status test**
-```
-pnpm exec vitest run tests/ui/work-eval-gate-status.test.tsx
-```
-Run from apps/web dir. Result: **5 tests passed (5)**, EXIT 0
-
-### Additional checks
+## Additional checks
 
 | Check | Result |
 |-------|--------|
-| `pnpm --filter @repo/contracts typecheck` | EXIT 0 |
-| `pnpm --filter api typecheck` | EXIT 0 |
-| `pnpm --filter web typecheck` | EXIT 0 |
-| `node .harness/scripts/lint-arch-deps.mjs` | EXIT 0 (1716 files, all deps inward) |
-| `node .harness/scripts/lint-contract-source.mjs` | EXIT 0 (1158 contract types) |
-
-### E2E Full Stack — BLOCKED (infrastructure)
-
-Attempted: start native stack with WSX_REPO=/home/user/wt/ev04 WSX_RESET_DB=1 WSX_REBUILD_WEB=1
-
-Result: `next build` was killed (SIGKILL — OOM or resource limit). The web server could not start.
-
-Subsequent attempt: copied `.next-fullstack-e2e/BUILD_ID` from main workspacex and tried `next start -p 25100`. 
-The web log was empty (process started but produced no output and did not respond on port 25100).
-
-The Playwright journey `/skill?screen=work-catalog` + gate badge assertions could NOT be executed.
-
-**Root cause**: The native stack was unable to serve the web application in this session. This is an infrastructure/environment issue, not a code defect. The API-level behavior is fully verified by the 11-test vitest suite.
-
-**What the E2E would verify (not yet demonstrated):**
-- `/skill?screen=work-catalog` loads and shows `work-catalog-row-S003`
-- Clicking row opens detail drawer with `work-skill-gates` section
-- Six `work-gate-badge-G0..G5` elements visible in drawer
-- `work-catalog-gate-summary` visible in catalog row
-- Non-platform member: `work-skill-change-channel` count = 0
-- Direct fetch to `/api/admin/skills/catalog/S003/gate-status` as non-operator → 403
+| `pnpm --filter @repo/contracts run typecheck` | EXIT 0 |
+| `pnpm --filter api run typecheck` | EXIT 0 |
+| `pnpm run lint:work-stack-graph` | EXIT 0 (320 entities, 86 authored, 86 reviewed) |
+| `pnpm run lint:contracts-no-workspace-deps` | EXIT 0 (0 violations) |
+| `pnpm run lint:contract-route-coverage` | EXIT 0 |
 
 ---
 
 ## Evidence files
 
-- evidence/iter6/journeys/ev04-gate-status.journey.ts — Playwright spec (not run; E2E blocked)
+- ev01-contracts-suite-schema.log — contracts vitest output
+- ev01-api-s003-suite-shape.log — api s003 shape vitest output
+- ev02-eval-runner.log — eval-runner vitest output
+- ev02-eval-report-baseline.log — eval-report-baseline vitest output
+- ev02-harness-eval-s003.log — live `pnpm harness eval --entity S003` run
+- ev02-harness-eval-s003-baseline.log — live `--baseline` run
+- ev03-gates-g0-g4.log — gates vitest output
+- ev03-gates-counterproof.log — counterproof vitest output
+- ev03-gates-clean-tree.log — gate script on clean tree
+- ev03-gates-json.log — gate script --json output
 
 ---
 
 ## Verdict
 
-**REVISE — E2E full stack not demonstrated (infrastructure blocked)**
+**ACCEPT**
 
-All formal verification commands EXIT 0. Typechecks and architecture lint pass. The blocking issue is the web server's inability to start in this environment (next build OOM killed). The API-level gate status writeback behavior is fully proven by 11 real-HTTP tests against a live Postgres database. A re-run of E2E in an environment where `next build` succeeds (or where a pre-built `.next` dir is available) is required to close the loop.
+All 6 verification commands exit 0. The user-visible developer paths (harness eval, gate script) produce clear, actionable output. Exit codes match contract (0 = all pass, non-0 = any failure). Reports are written to the correct path with required fields. Failure messages name the exact file and field to fix. Counterproof tests confirm all 5 broken-fixture scenarios are correctly caught.

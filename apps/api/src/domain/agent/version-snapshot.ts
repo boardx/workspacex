@@ -50,6 +50,17 @@ export const SNAPSHOT_FROZEN_FIELDS = [
   "toolWhitelist",
   "concurrencyLimit",
   "degradePolicy",
+  /**
+   * AG01（ADR-116 #3：Agent 即 DigitalHuman，角色能力是版本冻结字段）—— 名单本身是
+   * `@repo/contracts` agent-role 的 `AGENT_ROLE_FROZEN_FIELDS`；测试断言它 ⊆ 本列表。
+   */
+  "avatar",
+  "roleCategory",
+  "catalogSource",
+  "workflowAllowlist",
+  "delegationPolicy",
+  "escalationPolicy",
+  "kpi",
 ] as const satisfies readonly (keyof AgentDefinition)[];
 
 /**
@@ -97,7 +108,18 @@ export interface AgentVersionSnapshot {
   readonly definition: Readonly<Pick<AgentDefinition, FrozenKey>>;
 }
 
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const v of Object.values(value)) deepFreeze(v);
+    Object.freeze(value);
+  }
+  return value;
+}
+
 function deepFreezeSnapshot(snapshot: AgentVersionSnapshot): AgentVersionSnapshot {
+  // AG01 role fields are nested objects/arrays too; the whitelist rationale below applies.
+  const d = snapshot.definition;
+  [d.avatar, d.workflowAllowlist, d.delegationPolicy, d.escalationPolicy, d.kpi].forEach(deepFreeze);
   // Arrays and their elements too: freezing only the outer object leaves
   // `snapshot.definition.toolWhitelist.push(...)` working, and the whitelist is the part an
   // attacker would want to widen.
@@ -136,6 +158,15 @@ export function freezeAgentVersion(
       ...definition,
       skillMounts: agent.skillMounts.map((m) => ({ ...m })),
       toolWhitelist: agent.toolWhitelist.map((e) => ({ ...e })),
+      // AG01: deep copies, so a later edit to the draft never reaches the frozen snapshot.
+      avatar: agent.avatar === null ? null : { ...agent.avatar },
+      workflowAllowlist: [...agent.workflowAllowlist],
+      delegationPolicy: {
+        ...agent.delegationPolicy,
+        allowedTargets: [...agent.delegationPolicy.allowedTargets],
+      },
+      escalationPolicy: { rules: agent.escalationPolicy.rules.map((r) => ({ ...r })) },
+      kpi: agent.kpi.map((k) => ({ ...k })),
     },
   });
 }

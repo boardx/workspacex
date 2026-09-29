@@ -245,7 +245,7 @@ export function ProjectsScreen() {
             <>
               <p className="text-13 text-card-foreground">这里还没有项目。</p>
               <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
-                一个项目把一场协作的议程、分组、画布、录音、产出与决策收在一起。
+                一个项目是一处团队工作空间：对话、白板、访谈、问卷、研究、设计都收在一起，AI 在项目大脑里帮你推演结论。
                 <br />
                 也可以先不建项目，直接去「对话」里交一件事给 AI。
               </p>

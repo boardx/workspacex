@@ -6,6 +6,8 @@ import { assertPrincipal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import { WhiteboardCollaborationError as Fault, type WhiteboardDeletionProof, type WhiteboardRestoreDeletionInput, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
+import { NO_PROJECT_WHITEBOARD_ACCESS, type WhiteboardProjectAccess } from '../../application/whiteboard/project-access';
+import { unionWhiteboardRole } from '../../domain/whiteboard/access-decision';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WhiteboardClientMessage, WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 
@@ -29,15 +31,20 @@ function canonical(value: unknown): unknown {
  * the DatabasePort's outer transaction has committed, not merely a savepoint.
  */
 export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationStore {
-  constructor(private readonly db: DatabasePort, private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(), private readonly acceptedUpdatesPerMinute = 120) {}
+  constructor(private readonly db: DatabasePort, private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(), private readonly acceptedUpdatesPerMinute = 120, private readonly projectAccess: WhiteboardProjectAccess = NO_PROJECT_WHITEBOARD_ACCESS) {}
   private async access(session: TenantSession, p: Principal, boardId: string, write: boolean): Promise<Access> {
     const board = await session.query<{ owner_id: string; archived: boolean }>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR ${write ? 'UPDATE' : 'SHARE'}`, [p.orgId, boardId]);
     const row = board.rows[0]; if (!row) throw new Fault('NOT_FOUND');
     // Separate statement after acquiring the lock sees a preceding revocation's commit.
     const members = row.owner_id === p.userId ? null : await session.query<{ role: string }>(`SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3`, [p.orgId, boardId, p.userId]);
-    const role = row.owner_id === p.userId ? 'owner' : members?.rows[0]?.role;
+    const own = row.owner_id === p.userId ? 'owner' : members?.rows[0]?.role;
+    // #4615: a board linked to a project also grants its members a role (resolveProjectLayer, same
+    // transaction, after the board lock). Union with the board's own ACL; never an owner grant.
+    const borrowed = own === 'owner' || own === 'editor' ? null : await this.projectAccess.roleIn(session, { userId: p.userId, orgId: p.orgId, boardId });
+    const role = own ?? borrowed;
     if (!role) throw new Fault('NOT_FOUND');
-    const parsed = C.BoardRole.safeParse(role); if (!parsed.success) throw new Fault('FORBIDDEN');
+    const acl = C.BoardRole.safeParse(role); if (!acl.success) throw new Fault('FORBIDDEN');
+    const parsed = { data: unionWhiteboardRole(acl.data, borrowed) ?? acl.data };
     if (write && parsed.data !== 'owner' && parsed.data !== 'editor') throw new Fault('FORBIDDEN');
     if (write && row.archived) throw new Fault('ARCHIVED');
     return { role: parsed.data, archived: row.archived };
