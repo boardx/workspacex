@@ -139,10 +139,10 @@ describe("B3-T2 ingestProjectEvidence", () => {
     expect(validateOntologyBatch(batch, null)).toEqual({ ok: true });
   });
 
-  it("无设置行 = 全部允许：六类都向仓储要", async () => {
+  it("无设置行 = 全部允许：七类都向仓储要", async () => {
     const h = harness({ settings: null, items: [evidence("ev-1", "research_source", "先做德国")] });
     const out = await ingestProjectEvidence(h.deps, { orgId: ORG, projectId: PROJECT, limit: 5 });
-    expect(h.listCalls[0]).toEqual(["chat_message", "attachment", "survey_response", "interview_segment", "transcript_segment", "research_source"]);
+    expect(h.listCalls[0]).toEqual(["chat_message", "attachment", "survey_response", "interview_segment", "transcript_segment", "research_source", "whiteboard_note"]);
     expect(out.written).toBe(1);
   });
 

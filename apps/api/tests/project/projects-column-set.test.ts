@@ -62,7 +62,7 @@ describe("门控 C（意图断言）：改白名单不可能是顺手的", () =>
   });
 
   it("契约的 kind / status 是闭枚举，且与迁移里的 CHECK 同形", () => {
-    expect(project.ProjectKind.options).toEqual(["workshop", "research_project", "user_insight"]);
+    expect(project.ProjectKind.options).toEqual(["workshop", "general"]);
     expect(project.ProjectStatus.options).toEqual(["active", "archived"]);
   });
 });

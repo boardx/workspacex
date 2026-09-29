@@ -56,7 +56,9 @@ export async function linkProjectResource(
         orgId: input.orgId,
         projectId: input.projectId,
         decision,
-        kinds: [LINKABLE_KIND_TO_EVIDENCE[input.kind], "interview_segment"],
+        kinds: [LINKABLE_KIND_TO_EVIDENCE[input.kind], "interview_segment" as const].filter(
+          (k): k is NonNullable<typeof k> => k !== null,
+        ),
       });
     } catch (err) {
       deps.logger?.error("project evidence collect failed after link", {

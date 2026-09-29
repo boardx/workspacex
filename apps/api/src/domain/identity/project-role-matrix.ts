@@ -192,9 +192,9 @@ export function isKnownAction(action: string): action is ProjectAction {
 export type ContainerKind = z.infer<typeof project.ProjectKind>;
 
 /**
- * 研究项目 / 用户洞察两类容器里，项目层**可能**放行的动作——白名单，唯一一份。
+ * 非工作坊容器（#4615 起只有 `general`）里，项目层**可能**放行的动作——白名单，唯一一份。
  *
- * 两类容器的身份（负责人 / 协作者两档，`research_project_members` / `user_insight_members`）
+ * 非工作坊容器的身份（负责人 / 协作者两档，`general_project_members`）
  * 由 `application/identity/project-layer.ts` 映射到四角色矩阵的某一行（映射表在
  * `domain/project/non-workshop-member-access.ts`），然后**再与本白名单取交集**：
  * 映射只借用「这一档读写到什么深度」，不借用工作坊的现场机制。
