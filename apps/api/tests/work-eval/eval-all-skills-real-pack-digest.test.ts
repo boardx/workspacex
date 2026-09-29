@@ -78,7 +78,7 @@ describe("EV05 write-back digest = imported content_digest (real pack, no digest
     const stored = await asApp(ORG, async (c) => (await c.query<{ digest: string; recorded: string }>(
       `SELECT 'sha256:' || v.content_digest AS digest, g.subject_version_digest AS recorded
          FROM skill_gate_records g JOIN skill_versions v ON v.id = g.skill_version_id
-        WHERE g.org_id = $1`, [ORG])).rows);
+        WHERE g.org_id = $1 AND g.status->>'stableId' = $2`, [ORG, "S003"])).rows);
     expect(stored).toHaveLength(1);
     expect(stored[0]!.recorded).toBe(stored[0]!.digest);
   }, 180_000);
