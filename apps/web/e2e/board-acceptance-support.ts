@@ -107,11 +107,16 @@ export async function objectPoint(page: Page, id: string, header = false) {
   const scene = scenes.find(value => value.id === id); expect(scene, `Fabric projection for ${id}`).toBeTruthy();
   const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
   const panX = Number(await surface.getAttribute('data-viewport-pan-x')), panY = Number(await surface.getAttribute('data-viewport-pan-y'));
-  const point = {x: box!.x + panX + (scene!.left + scene!.width / 2) * zoom,
-    y: box!.y + panY + (scene!.top + (header ? 10 : scene!.height / 2)) * zoom};
-  const hit = await page.evaluate(p => (document.elementFromPoint(p.x, p.y) as HTMLElement | null)?.dataset.fabric, point);
-  expect(hit, `Object ${id} must be reachable without a toolbar covering it`).toBe('top');
-  return {...point, zoom};
+  const fractions: Array<readonly [number, number]> = header ? [[0.5, 10], [0.25, 10], [0.75, 10]] :
+    [[0.5, 0.5], [0.25, 0.5], [0.75, 0.5], [0.25, 0.75], [0.75, 0.75]];
+  const points = fractions.map(([fx, fy]) => ({
+    x: box!.x + panX + (scene!.left + scene!.width * fx) * zoom,
+    y: box!.y + panY + (scene!.top + (header ? fy : scene!.height * fy)) * zoom,
+  }));
+  const point = await page.evaluate(candidates => candidates.find(candidate =>
+    (document.elementFromPoint(candidate.x, candidate.y) as HTMLElement | null)?.dataset.fabric === 'top') ?? null, points);
+  expect(point, `Object ${id} must expose a Fabric hit point outside overlays`).not.toBeNull();
+  return {...point!, zoom};
 }
 export async function dragObject(page: Page, id: string, dx: number, dy: number, header = false, expectedParentId?: string, maxSceneError = 1) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();

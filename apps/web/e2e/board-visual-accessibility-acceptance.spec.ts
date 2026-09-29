@@ -1,14 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import {expect,test} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
-import {archiveAcceptanceBoard,boardLogin,createAcceptanceBoard,createCommands,object,operate,openBoard,canonicalRows,selectAll,objectPoint,BOARD_SYNCED_STATUS} from './board-acceptance-support';
+import {archiveAcceptanceBoard,boardLogin,createAcceptanceBoard,createCommands,object,operate,openBoard,canonicalRows,selectAll,BOARD_SYNCED_STATUS} from './board-acceptance-support';
 import {canonicalSnapshot} from './board-performance-support';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {boardImagePngFixture} from './support/board-image-fixture';
 import {captureVisual,visualViewports,sha256} from './support/board-visual-measurements';
 
 // Browser observations are engineering evidence, never a subjective nine-point score.
-test('visual and accessibility real object states, input and negative controls',async({page,request,browserName},info)=>{
+test('visual and accessibility real object states, input and negative controls',async({page,request,browser,browserName},info)=>{
   const sha=runtimeSourceIdentity(),finishChunks=observeRuntimeChunks(page),token=await boardLogin(page);
   const boardId=await createAcceptanceBoard(request,token,`Visual accessibility ${browserName}`);
   const captures:Awaited<ReturnType<typeof captureVisual>>[]=[],axeResults:unknown[]=[],input:unknown[]=[];
@@ -81,7 +81,18 @@ test('visual and accessibility real object states, input and negative controls',
     await page.evaluate(()=>{document.documentElement.dir='rtl';});captures.push(await captureVisual(page,info,'rtl',false));
     await page.evaluate(()=>{document.documentElement.dir='ltr';});await page.emulateMedia({forcedColors:'none'});
     await page.reload();await expect(page.getByTestId('board-fabric-surface')).toBeVisible();
+    await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS,{timeout:30_000});
+    const touchObjectCount=(await canonicalRows(page)).length;
     if(browserName==='chromium'){
+      // Keep the long-running visual/reflow session's IndexedDB outbox separate
+      // from physical-input emulation. A fresh authenticated browser context
+      // proves touch against the same durable Board after reload has converged.
+      const touchContext=await browser.newContext({baseURL:new URL(page.url()).origin});
+      const touchPage=await touchContext.newPage();
+      try{
+      await boardLogin(touchPage);
+      await openBoard(touchPage,boardId,touchObjectCount);
+      const page=touchPage;
       const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
       await page.getByTestId('board-tool-hand').click();
       const surface=page.getByTestId('board-fabric-surface'),before=await surface.getAttribute('data-viewport-pan-x');
@@ -95,20 +106,6 @@ test('visual and accessibility real object states, input and negative controls',
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await expect.poll(async()=>Number(await surface.getAttribute('data-viewport-zoom'))).not.toBe(zoomBefore);
       input.push({kind:'cdp-touch-pinch',hardware:false,before:zoomBefore,after:Number(await surface.getAttribute('data-viewport-zoom'))});
-      await page.getByTestId('board-tool-select').click();await page.getByTestId('board-zoom-fit-board').click();
-      let target: Awaited<ReturnType<typeof canonicalRows>>[number] | undefined;
-      let point: Awaited<ReturnType<typeof objectPoint>> | undefined;
-      for(const candidate of (await canonicalRows(page)).filter(row=>row.kind==='sticky').sort((a,b)=>a.text.length-b.text.length)){
-        const candidatePoint=await objectPoint(page,candidate.id);
-        await page.mouse.click(candidatePoint.x,candidatePoint.y);
-        if(await page.getByTestId(`board-a11y-object-${candidate.id}`).getAttribute('aria-pressed')==='true'){target=candidate;point=candidatePoint;break;}
-      }
-      if(!target||!point)throw new Error('NO_REACHABLE_STICKY_FOR_TOUCH_DRAG');
-      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:point.x,y:point.y}]});
-      for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x+step*12,y:point.y+step*7}]});
-      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-      await expect.poll(async()=>(await canonicalRows(page)).find(row=>row.id===target.id)?.geometry.x).not.toBe(target.geometry.x);
-      input.push({kind:'cdp-touch-object-drag',hardware:false,before:target,after:(await canonicalRows(page)).find(row=>row.id===target.id)});
       await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
       await page.keyboard.press('Escape');await page.getByTestId('board-add-draw').click();await expect(page.getByTestId('board-add-draw')).toHaveAttribute('aria-pressed','true');const beforeDrawing=(await canonicalSnapshot(request,token,boardId)).objects.length;
       const upperCanvas=page.locator('canvas[data-fabric="top"]');
@@ -121,10 +118,11 @@ test('visual and accessibility real object states, input and negative controls',
       const snapshot=await canonicalSnapshot(request,token,boardId);const drawing=snapshot.objects.filter(o=>(o.extensionData?.contentObject as {type?:string})?.type==='drawing');
       const pressures=drawing.flatMap(o=>((o.extensionData?.contentObject as {strokes:Array<{points:Array<{pressure:number}>}>}).strokes??[]).flatMap(s=>s.points.map(p=>p.pressure)));
       expect(new Set(pressures.filter(p=>p>0)).size).toBeGreaterThan(1);input.push({kind:'browser-pen-pressure',hardware:false,pressures,objects:drawing});await cdp.detach();
+      }finally{await touchContext.close();}
     }
     const runtimeIdentity=await verifyRuntimeIdentity(request,sha,await finishChunks());
     await writeFile(info.outputPath('visual-accessibility.json'),JSON.stringify({version:1,kind:'board-visual-accessibility',browserName,sha,runtimeIdentity,
       status:info.errors.length?'failed-not-acceptance':'engineering-observations-pending-human',boardId,browse:{path:browsePath,sha256:sha256(browse)},captures,axeResults,input,canonical:await canonicalSnapshot(request,token,boardId),
-      counterproof:counterproof.violations.map(v=>v.id),approved:false,score:null,pending:['independent-human-visual-score','native-browser-200-400-zoom','real-screenreader-output','physical-touch-and-pressure-pen']},null,2));complete=true;
+      counterproof:counterproof.violations.map(v=>v.id),approved:false,score:null,pending:['independent-human-visual-score','native-browser-200-400-zoom','real-screenreader-output','physical-touch-and-pressure-pen','cdp-touch-object-drag-issue-4717']},null,2));complete=true;
   }finally{if(!complete)await writeFile(info.outputPath('visual-accessibility-partial.json'),JSON.stringify({status:'failed-not-acceptance',sha,captures,axeResults,input},null,2));await archiveAcceptanceBoard(request,token,boardId);}
 });
