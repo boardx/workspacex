@@ -113,6 +113,8 @@ it("limits the adjustable inspector to the editor container on a narrow viewport
   });
   render(<section data-testid="collaborative-editor"><BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} panelRef={createRef<HTMLElement>()} compactActions={<button type="button" data-testid="board-properties-open">精确属性</button>}><div>properties</div></BoardSelectedObjectPanel></section>);
   openProperties();
+  const panel = screen.getByTestId("board-context-toolbar");
+  expect(panel).toHaveClass("max-sm:!bottom-24", "max-sm:!top-auto", "max-sm:!max-h-[calc(100%_-_7rem)]");
   expect(screen.getByTestId("board-inspector-resize")).toHaveAttribute("aria-valuemax", "448");
   const height = screen.getByTestId("board-inspector-resize-height");
   expect(height).toHaveAttribute("aria-valuemax", "480");
