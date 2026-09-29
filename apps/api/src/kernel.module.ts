@@ -2143,8 +2143,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: MODEL_CALL_PORT,
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
-        const chatPort = new ConfiguredModelProvider(chatConfig);
         const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
+        const chatPort = new ConfiguredModelProvider(chatConfig, loopbackAliases);
         // 数字人能力（决策 B）：内核与 chat 共用同一个 KERNEL_MODEL_* 端点，所以它能跑的 provider 名 =
         // 配置的 chat provider + 回环别名。见 application/agent-run/capability-runtime-routing.ts。
         const deepAgentConfig = readDeepAgentProviderConfig();
