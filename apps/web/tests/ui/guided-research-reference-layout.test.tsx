@@ -82,8 +82,20 @@ describe("guided research reference layout", () => {
     expect(screen.getByTestId("guided-research-six-step-shell")).toHaveAttribute("data-reference-layout", "prototype-desktop");
     expect(screen.getByTestId("research-flow-progress")).toHaveAttribute("data-reference-variant", "monochrome-stepper");
     expect(screen.getByTestId("guided-research-six-step-main")).toHaveAttribute("data-reference-region", "work-canvas");
+    expect(screen.getByTestId("guided-research-six-step-main")).toHaveClass("pb-24");
     fireEvent.click(screen.getByRole("button", { name: /AI 助手/ }));
     expect(screen.getByTestId("guided-research-six-step-assistant")).toHaveTextContent("研究助手");
+  });
+
+  it("labels searched material by evidence level instead of presenting every snippet as verified", () => {
+    const state = runtimeFixture("research");
+    state.sources = [
+      { ...state.sources[0]!, id: "full", document: { url: state.sources[0]!.url, retrievedAt: "2026-09-29T00:00:00Z", text: "全文", contentHash: "a".repeat(64), contentKind: "html", truncated: false } },
+      { ...state.sources[0]!, id: "snippet", title: "只有检索摘要", document: undefined },
+    ];
+    render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
+    expect(screen.getByTestId("research-source-description-full")).toHaveTextContent("已读取全文");
+    expect(screen.getByTestId("research-source-description-snippet")).toHaveTextContent("检索摘要");
   });
 
   it("keeps only the usable import input and next-step action", () => {

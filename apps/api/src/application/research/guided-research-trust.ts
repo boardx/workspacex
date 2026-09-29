@@ -85,10 +85,14 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
     openGapCount, overall: average([citationCoverage, authority, recency, crossValidation]),
     explanations: ["引用覆盖按已回答问题计算", "权威性按具有完整读取文档的来源计算", "时效性按近一年检索时间计算", "交叉验证按至少两个来源的问题计算"] });
   const blockers: string[] = [];
+  if (!runtime.report && !runtime.reportDraft) blockers.push("报告尚未生成");
   if (!coverage.length || coverage.some((item) => item.status === "missing")) blockers.push("核心问题覆盖不足");
   if (runtime.report && (!claimEvidence.length || coverage.some((item) => item.status === "weak"))) blockers.push("关键结论缺少来源");
+  const warnings: string[] = [];
+  if (coverage.some((item) => item.status === "weak")) warnings.push("部分问题证据较弱");
+  if (runtime.report && crossValidation === 0) warnings.push("关键结论尚未交叉验证");
   if (conflicts.some((conflict) => conflict.severity === "severe" && conflict.status === "open")) blockers.push("存在未解决的严重冲突");
   const publicationReadiness = C.GuidedResearchPublicationReadiness.parse({ status: blockers.length ? "limited" : "ready", blockers,
-    warnings: coverage.some((item) => item.status === "weak") ? ["部分问题证据较弱"] : [], evaluatedAt: new Date().toISOString() });
+    warnings, evaluatedAt: new Date().toISOString() });
   return { coverage, claimEvidence, conflicts, qualityScore, publicationReadiness };
 }
