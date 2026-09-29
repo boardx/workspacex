@@ -8,6 +8,17 @@ import { SectionTitle } from "./survey-workflow-shell";
 import { useSectionNavigation } from "./use-section-navigation";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
+const GAPS = [
+  { name: "组织与协同文化", score: 3.6, pct: 58, gap: -0.9 },
+  { name: "协作流程与规范", score: 3.2, pct: 52, gap: -1.0 },
+  { name: "数字化工具与平台", score: 3.1, pct: 48, gap: -1.1 },
+  { name: "系统集成", score: 2.0, pct: 22, gap: -2.1 },
+  { name: "数据与信息治理", score: 2.6, pct: 34, gap: -1.5 },
+  { name: "知识治理", score: 2.4, pct: 28, gap: -1.7 },
+  { name: "安全与合规", score: 3.3, pct: 54, gap: -0.9 },
+  { name: "度量与持续改进", score: 3.0, pct: 46, gap: -1.2 },
+];
+
 export function AnalysisReportStep({ model, metrics }: { model: SurveyWorkflowModel; metrics: SurveyMetrics }) {
   const sectionIds = React.useMemo(() => model.report.sections.map((section) => section.id), [model.report.sections]);
   const { activeId, navigateTo } = useSectionNavigation(sectionIds, "survey-report-anchor");
@@ -19,8 +30,7 @@ export function AnalysisReportStep({ model, metrics }: { model: SurveyWorkflowMo
     </aside>
     <section className="p-5" data-testid="survey-report-content">
       <div className="mb-4 flex flex-wrap justify-end gap-2"><Button variant="outline" size="sm"><RefreshCw className="h-3.5 w-3.5" aria-hidden />重新生成</Button><Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" aria-hidden />导出 PDF</Button><Button variant="outline" size="sm"><Download className="h-3.5 w-3.5" aria-hidden />导出 Word</Button><Button variant="primary" size="sm"><Share2 className="h-3.5 w-3.5" aria-hidden />分享</Button></div>
-      <article className="rounded-lg border border-border bg-card p-6 shadow-sm"><h2 className="text-24 font-bold">{model.survey.title} 分析报告</h2><p className="mt-2 text-11 text-muted-foreground">{metrics.received} 份答卷 · {model.reportTemplate.sections.length} 个模板章节 · 生成于 {new Date(model.report.generatedAt).toLocaleString("zh-CN")}</p><div className="my-4 border-t border-border" />
-        {metrics.valid === 0 && <div className="mb-2 rounded-md border border-warning/40 bg-warning/5 p-4 text-12 text-warning" role="status">当前没有可纳入分析的有效答卷，以下仅展示报告结构，暂不生成统计结论。</div>}
+      <article className="rounded-lg border border-border bg-card p-6 shadow-sm"><h2 className="text-24 font-bold">{model.survey.title} 分析报告</h2><p className="mt-2 text-11 text-muted-foreground">{metrics.received} 份模拟答卷 · {model.reportTemplate.sections.length} 个模板章节 · 生成于 2026/08/12</p><div className="my-4 border-t border-border" />
         <div className="divide-y divide-border">{model.report.sections.map((section, index) => <section key={section.id} id={`survey-report-anchor-${section.id}`} data-section-id={section.id} data-testid={`survey-report-section-${section.id}`} className="scroll-mt-4 py-7 first:pt-2"><div className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-11 font-semibold text-primary">{index + 1}</span><h3 className="text-18 font-semibold">{section.title}</h3></div><p className="mt-3 text-13 leading-7">{section.body}</p>{section.id === "summary" && <SummaryContent metrics={metrics} />}</section>)}</div>
       </article>
     </section>
@@ -28,8 +38,7 @@ export function AnalysisReportStep({ model, metrics }: { model: SurveyWorkflowMo
 }
 
 function SummaryContent({ metrics }: { metrics: SurveyMetrics }) {
-  const hasData = metrics.valid > 0;
-  return <><div className="mt-5 grid gap-3 md:grid-cols-3"><Summary label="有效样本" value={hasData ? String(metrics.valid) : "暂无"} note={hasData ? `共 ${metrics.received} 份答卷，${metrics.validRate}% 纳入分析` : "至少需要 1 份有效答卷"} /><Summary label="综合成熟度" value="待计算" note="需要按问卷量表和题目权重计算" /><Summary label="平均用时" value={hasData ? `${Math.floor(metrics.averageDurationSeconds / 60)}分${metrics.averageDurationSeconds % 60}秒` : "暂无"} note="仅统计纳入分析的答卷" /></div><h4 className="mt-6 text-14 font-semibold">样本与质量概览</h4><div className="mt-2 overflow-x-auto"><Table className="w-full min-w-[40rem] text-11"><TableHeader><TableRow className="border-b border-border text-muted-foreground"><TableHead className="py-2 text-left">指标</TableHead><TableHead>数值</TableHead><TableHead>口径</TableHead></TableRow></TableHeader><TableBody>{[["收到答卷", metrics.received, "当前发布批次"], ["有效样本", metrics.valid, "质量为有效且未排除"], ["待复核", metrics.needsReview, "需要人工确认"], ["完成率", `${metrics.completionRate}%`, "相对发布目标"]].map(([name, value, note]) => <TableRow key={String(name)} className="border-b border-border-subtle"><TableCell className="py-2">{name}</TableCell><TableCell className="text-center">{value}</TableCell><TableCell className="text-muted-foreground">{note}</TableCell></TableRow>)}</TableBody></Table></div><div className="mt-6 grid gap-3 lg:grid-cols-3"><Callout icon={<FileText aria-hidden />} title="事实" lines={[hasData ? `基于 ${metrics.valid} 份有效答卷` : "当前没有有效答卷", "统计口径与答卷质量状态同步"]} /><Callout icon={<Lightbulb aria-hidden />} title="推断" lines={[hasData ? "报告结论应结合题目分布与样本量解读" : "样本不足时不输出推断", "小样本结论需要人工复核"]} /><Callout icon={<CheckCircle2 aria-hidden />} title="建议" lines={[hasData ? "先复核异常答卷，再使用报告结论" : "先完成发布并收集有效答卷", "导出时保留问卷版本与数据截止时间"]} /></div></>;
+  return <><div className="mt-5 grid gap-3 md:grid-cols-3"><Summary label="综合成熟度" value="3.0 / 5" note="处于中等水平" /><Summary label="主要短板" value="系统集成" note="得分 2.0 / 5" /><Summary label="优先投入" value="知识治理" note="影响度高" /></div><h4 className="mt-6 text-14 font-semibold">能力缺口概览</h4><div className="mt-2 overflow-x-auto"><Table className="w-full min-w-[40rem] text-11"><TableHeader><TableRow className="border-b border-border text-muted-foreground"><TableHead className="py-2 text-left">能力域</TableHead><TableHead>平均得分</TableHead><TableHead>百分位</TableHead><TableHead>相对强弱</TableHead><TableHead>与领先实践差距</TableHead></TableRow></TableHeader><TableBody>{GAPS.map((item) => <TableRow key={item.name} className="border-b border-border-subtle"><TableCell className="py-2">{item.name}</TableCell><TableCell className="text-center">{item.score}</TableCell><TableCell className="text-center">{item.pct}</TableCell><TableCell className="px-4"><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${item.pct}%` }} /></div></TableCell><TableCell className="text-center">{item.gap}</TableCell></TableRow>)}</TableBody></Table></div><div className="mt-6 grid gap-3 lg:grid-cols-3"><Callout icon={<FileText aria-hidden />} title="事实" lines={[`基于 ${metrics.received} 份模拟答卷的量化结果`, "反映当前状态与对标位置"]} /><Callout icon={<Lightbulb aria-hidden />} title="推断" lines={["结合数据与行业经验的专业判断", "识别潜在原因与影响路径"]} /><Callout icon={<CheckCircle2 aria-hidden />} title="建议" lines={["针对性改进方向与优先级", "供管理层决策与资源配置参考"]} /></div></>;
 }
 
 function Summary({ label, value, note }: { label: string; value: string; note: string }) { return <div className="rounded-lg border border-border p-4"><p className="text-11 text-muted-foreground">{label}</p><p className="mt-2 text-20 font-semibold">{value}</p><p className="mt-1 text-10 text-muted-foreground">{note}</p></div>; }

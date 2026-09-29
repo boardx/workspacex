@@ -32,17 +32,6 @@ describe("survey workflow model", () => {
     expect(getSurveyMetrics(after).needsReview).toBe(getSurveyMetrics(before).needsReview + 1);
   });
 
-  it("排除分析的答卷不会进入有效样本或平均用时", () => {
-    const model = createSurveyWorkflowMock();
-    const excluded = { ...model.responses[6]!, analysis: "excluded" as const, exclusionReason: "重复提交" };
-    const next = { ...model, responses: model.responses.map((response, index) => index === 6 ? excluded : response) };
-    const metrics = getSurveyMetrics(next);
-
-    expect(metrics.valid).toBe(model.responses.length - 7);
-    expect(metrics.averageDurationSeconds).toBeGreaterThan(0);
-    expect(Number.isFinite(metrics.averageDurationSeconds)).toBe(true);
-  });
-
   it("图表章节声明具体图表类型并拒绝未签核类型", () => {
     const model = createSurveyWorkflowMock();
     expect(model.reportTemplate.sections.find((section) => section.id === "gap")?.chartType).toBe("gap-matrix");

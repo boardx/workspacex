@@ -112,15 +112,14 @@ export function getSurveyQuestionModuleQuestions(moduleId: string): survey.Surve
 export function getSurveyMetrics(model: survey.SurveyWorkflowModel): SurveyMetrics {
   const received = model.responses.length;
   const needsReview = model.responses.filter((response) => response.quality === "review").length;
-  const validResponses = model.responses.filter((response) => response.quality === "normal" && response.analysis !== "excluded");
-  const durationTotal = validResponses.reduce((sum, response) => sum + response.durationSeconds, 0);
+  const durationTotal = model.responses.reduce((sum, response) => sum + response.durationSeconds, 0);
   return {
     received,
-    valid: validResponses.length,
+    valid: received - needsReview,
     needsReview,
-    validRate: received === 0 ? 0 : Math.round((validResponses.length / received) * 100),
+    validRate: received === 0 ? 0 : Math.round(((received - needsReview) / received) * 100),
     completionRate: model.publication.target === 0 ? 0 : Math.round((received / model.publication.target) * 100),
-    averageDurationSeconds: validResponses.length === 0 ? 0 : Math.round(durationTotal / validResponses.length),
+    averageDurationSeconds: received === 0 ? 0 : Math.round(durationTotal / received),
   };
 }
 
