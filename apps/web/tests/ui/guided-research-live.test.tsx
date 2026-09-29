@@ -97,10 +97,10 @@ describe("live research workspace", () => {
     expect(screen.getByTestId("research-source-description-src1")).toHaveTextContent("A retrieved source");
     expect(screen.queryByText("研究主题")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "研究计划" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "重试失败任务" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeEnabled();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "删除来源 Official source" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "重试失败任务" }));
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 7 })));
   });
   it("shows one concise acquisition status while research is running", async () => {
@@ -126,6 +126,15 @@ describe("live research workspace", () => {
       action: "resume", node: "research", expectedVersion: 7, expectedRevision: 3, idempotencyKey: expect.any(String),
     })));
     expect(await screen.findByRole("button", { name: "搜索资料" })).toBeEnabled();
+  });
+  it("requires a paused failed research session to resume before retrying", async () => {
+    const paused: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"],
+      controlStatus: "paused", planRevision: 3, errorCode: "RESEARCH_SEARCH_UNAVAILABLE",
+      tasks: [{ id: "t1", sectionId: "s1", query: "Grid policy", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }] };
+    vi.mocked(getResearchRuntime).mockResolvedValue(paused);
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "继续研究" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "继续重试" })).not.toBeInTheDocument();
   });
 });
 

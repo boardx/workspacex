@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkspaceX · 图标栏重设计（覆盖全部现行入口）</title>
+<style>
+/*
+  真实数据来源：apps/web/lib/navigation.ts 的 NAV_SEGMENTS ——
+  五段分组与顺序是「已确认的产品心智」（UC-0.4 R4 A1），本设计不动分组/顺序/入口，
+  只改视觉处理（间距做层级、卡片化分组、更丰富的悬浮态）。
+  IconRail 只渲染一级（`seg.items`），治理→组织后台的 10 个二级模块在 /admin 左栏，
+  不在这根栏里——这里 13 个一级入口就是真实覆盖的全集，不是精选。
+*/
+:root{
+  --bg:#F4F4F1; --rail:#F2F2EF; --card:#FFFFFF;
+  --fg:#17171A; --fg2:#5F5F67; --fg3:#8A8A92;
+  --line:#EBEAE5; --border:#E0DED5;
+  --accent:#E4F2EF; --accent-fg:#0A6155;
+  --ai:#4B3BE8; --ai-tint:#E9E7FB;
+  --shadow-sm:0 1px 2px rgba(23,23,26,.05),0 1px 1px rgba(23,23,26,.04);
+  --shadow-md:0 6px 16px -4px rgba(23,23,26,.12),0 2px 4px rgba(23,23,26,.05);
+  --shadow-lg:0 16px 36px -10px rgba(23,23,26,.18);
+  --r-sm:8px; --r:12px; --r-lg:16px;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;color:var(--fg);background:var(--bg);display:flex}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+/* ===== 图标栏本体：宽度不变（76px 是已确认的产品几何，UC-0.4 R4），只改视觉层 ===== */
+.rail{width:76px;min-width:76px;height:100vh;background:var(--rail);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;padding:14px 0;position:relative}
+
+.org{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;margin-bottom:14px;
+  background:linear-gradient(135deg,#4B3BE8,#7A6CF0);color:#fff;font-weight:700;font-size:15px;
+  box-shadow:var(--shadow-sm);cursor:pointer;transition:box-shadow .15s,transform .15s}
+.org:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+
+.scroll{flex:1;min-height:0;overflow-y:auto;width:100%;display:flex;flex-direction:column;align-items:center;
+  scrollbar-width:none;mask-image:linear-gradient(to bottom,transparent,black 8px,black calc(100% - 8px),transparent)}
+.scroll::-webkit-scrollbar{display:none}
+
+/* 分组 = 一张浅浮起的卡片容器，段与段之间靠 margin 拉开——层级来自空间与阴影，
+   不是靠更多分隔线（这是本次改版从 /chat 延续过来的同一条原则）。 */
+.seg{width:64px;display:flex;flex-direction:column;align-items:center;margin-bottom:10px;padding:6px 0;
+  border-radius:var(--r);transition:background .15s}
+.seg:hover{background:rgba(23,23,26,.02)}
+.seg-label{font-size:9px;font-weight:600;letter-spacing:.04em;color:var(--fg3);text-transform:uppercase;
+  margin:2px 0 6px}
+
+.item{width:56px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border-radius:var(--r-sm);color:var(--fg2);position:relative;transition:background .15s,color .15s,box-shadow .15s}
+.item:hover{background:var(--card);color:var(--fg);box-shadow:var(--shadow-sm)}
+.item span{font-size:9.5px;font-weight:500;line-height:1}
+.item[aria-current]{background:var(--card);color:var(--ai);box-shadow:var(--shadow-md)}
+.item[aria-current]::before{content:"";position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:3px;height:18px;
+  border-radius:2px;background:var(--ai)}
+.item:focus-visible{outline:2px solid var(--ai);outline-offset:1px}
+
+/* 悬浮：从纯文字 tooltip 升级成小卡片（图标同色块 + 标题 + 一行说明），
+   机制仍是 hover/focus 触发的浮层，不是常驻展开——保留"默认简单"，只是展开时给够信息。 */
+.item .pop{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);min-width:168px;
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:10px 12px;
+  display:none;z-index:20;text-align:left;pointer-events:none}
+.item:hover .pop,.item:focus-visible .pop{display:block}
+.pop b{display:block;font-size:12.5px;font-weight:600;color:var(--fg)}
+.pop small{display:block;font-size:11px;color:var(--fg3);margin-top:2px;line-height:1.4}
+
+.bottom{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px;
+  border-top:1px solid var(--border)}
+.ib{width:40px;height:40px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--fg2);position:relative}
+.ib:hover{background:var(--card);color:var(--fg);box-shadow:var(--shadow-sm)}
+.dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#E0483B;
+  border:1.5px solid var(--rail)}
+.me{width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-fg);
+  display:grid;place-items:center;font-weight:700;font-size:12px;margin-top:2px;box-shadow:var(--shadow-sm)}
+
+/* ===== 右侧占位画布，只为展示对比，不是设计的一部分 ===== */
+.stage{flex:1;padding:40px;display:flex;flex-direction:column;gap:18px;max-width:640px}
+.stage h1{font-size:20px;margin:0 0 2px}
+.stage p{color:var(--fg2);margin:0 0 8px;font-size:13px;line-height:1.6}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--accent-fg);background:var(--accent);
+  padding:4px 10px;border-radius:999px;width:fit-content}
+.count{font-size:12px;color:var(--fg3)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--fg2);flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+
+<nav class="rail" aria-label="主导航（重设计）">
+  <button class="org" aria-label="组织菜单" title="BoardX">B</button>
+  <div class="scroll" id="scroll">
+    <!-- 段 1：无标签，单独居顶 -->
+    <div class="seg" data-seg="0">
+      <button class="item" aria-current="page">
+        <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>对话</span>
+        <div class="pop"><b>对话</b><small>与 AI 一起完成一件事的地方</small></div>
+      </button>
+    </div>
+    <!-- 段 2：编排 -->
+    <div class="seg" data-seg="1"><div class="seg-label">编排</div>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg><span>项目</span>
+        <div class="pop"><b>项目</b><small>按项目组织的多线程工作台</small></div></button>
+    </div>
+    <!-- 段 3：STUDIO -->
+    <div class="seg" data-seg="2"><div class="seg-label">STUDIO</div>
+      <button class="item"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Board</span>
+        <div class="pop"><b>Board</b><small>白板 · 便签 · 分组协作</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>研究</span>
+        <div class="pop"><b>研究</b><small>带来源的多轮深度调研</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>访谈</span>
+        <div class="pop"><b>访谈</b><small>数字人访谈 · 转写 · 报告</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4"/></svg><span>录音</span>
+        <div class="pop"><b>录音</b><small>现场录音实时转写</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M9 3h6M9 21h6M4 8h16v11H4z"/></svg><span>问卷</span>
+        <div class="pop"><b>问卷</b><small>问卷设计 · 发布 · 回收</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>设计</span>
+        <div class="pop"><b>设计</b><small>PM 设计工作台（单次直达）</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>草稿</span>
+        <div class="pop"><b>反馈草稿</b><small>自己的反馈草稿箱</small></div></button>
+    </div>
+    <!-- 段 4：能力 -->
+    <div class="seg" data-seg="3"><div class="seg-label">能力</div>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M9.5 3a3 3 0 0 0-3 3v.3A3 3 0 0 0 5 12a3 3 0 0 0 1.5 5.7V18a3 3 0 0 0 3 3M14.5 3a3 3 0 0 1 3 3v.3A3 3 0 0 1 19 12a3 3 0 0 1-1.5 5.7V18a3 3 0 0 1-3 3"/></svg><span>大脑</span>
+        <div class="pop"><b>大脑</b><small>组织记忆 · 知识图谱</small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>任务</span>
+        <div class="pop"><b>任务</b><small>跨对话的待办与进度</small></div></button>
+    </div>
+    <!-- 段 5：治理 -->
+    <div class="seg" data-seg="4"><div class="seg-label">治理</div>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>组织</span>
+        <div class="pop"><b>组织后台</b><small>AI 能力目录 · 成员 · 配额<br><i style="font-style:normal;color:var(--fg3)">（10 个二级模块在后台左栏，见下方图例）</i></small></div></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>平台</span>
+        <div class="pop"><b>平台后台</b><small>全平台账号 · 反馈治理</small></div></button>
+    </div>
+  </div>
+  <div class="bottom">
+    <button class="ib" aria-label="提醒"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+    <button class="ib" aria-label="反馈"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    <button class="me" aria-label="个人菜单">U</button>
+  </div>
+</nav>
+
+<main class="stage">
+  <span class="tag">✓ 覆盖全部一级入口 · 分组与顺序未变（UC-0.4 R4 A1）</span>
+  <h1>图标栏重设计</h1>
+  <p>宽度仍是 76px、仍是图标 + hover 提示的既定形态（多轮人类裁决锁定的产品心智），
+  这次只换视觉处理：用留白把「对话」单独摆在最上；四个分组各自退成一张极浅的浮起面，
+  取代原来的纯文字标签 + 等距图标；选中态从「文字变色」换成「卡片浮起 + 左侧色条」；
+  hover 提示从纯文字 tooltip 升级成小卡片，顺带说明这一项是做什么的。</p>
+  <p class="count">左侧栏 13 个一级入口，与 <code>lib/navigation.ts</code> 的 <code>NAV_SEGMENTS</code>
+  逐条对应（治理 → 组织后台 下的 10 个二级模块仍在 /admin 左栏，此栏从不渲染 children，
+  与现状一致）。</p>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="item" style="background:var(--card);color:var(--fg);box-shadow:var(--shadow-md);position:static">
+      <svg viewBox="0 0 24 24"><path d="M9 3h6M9 21h6M4 8h16v11H4z"/></svg><span>问卷</span>
+    </div>
+    <svg viewBox="0 0 24 24" style="width:16px;color:var(--fg3)"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    <div style="min-width:168px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:10px 12px">
+      <b style="display:block;font-size:12.5px;font-weight:600">问卷</b>
+      <small style="display:block;font-size:11px;color:var(--fg3);margin-top:2px;line-height:1.4">问卷设计 · 发布 · 回收</small>
+    </div>
+    <span style="font-size:11px;color:var(--fg3)">← hover / focus 时出现的提示卡片（悬浮态示意，非交互截图）</span>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--rail);border:1px solid var(--border)"></i>Level 0 · 图标栏底</span>
+    <span><i style="background:#fff;box-shadow:var(--shadow-sm)"></i>Level 1 · 分组容器</span>
+    <span><i style="background:#fff;box-shadow:var(--shadow-md)"></i>Level 2 · 悬浮 / 选中</span>
+    <span><i style="background:var(--ai)"></i>选中色条 + 提示卡片强调色</span>
+  </div>
+</main>
+</body>
+</html>

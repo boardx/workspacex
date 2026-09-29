@@ -114,6 +114,23 @@ export const SurveySubmissionInputSchema = z.object({
   role: z.string().trim().min(1).max(200).default("未填写"),
   companySize: z.string().trim().min(1).max(200).default("未填写"),
 });
+export const SurveyPublicationSchema = z.object({
+  token: z.string(),
+  status: z.enum(["collecting", "closed"]),
+  questions: z.array(SurveyWorkflowQuestionSchema),
+  version: z.number().int().positive(),
+  expiresAt: z.string().datetime(),
+  sourceSnapshot: z.object({
+    documents: SurveySourceStateSchema.shape.documents,
+    compiled: SurveyCompiledDraftSchema,
+    contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict().optional(),
+}).strict();
+export const SurveyCollectionBatchSchema = SurveyPublicationSchema.extend({
+  id: z.string().min(1),
+  createdAt: z.string().datetime(),
+  closedAt: z.string().datetime().nullable(),
+}).strict();
 const SurveyRuntimeBaseSchema = SurveyDraftInputSchema.extend({
   id: z.string(),
   version: z.number().int().positive(),
@@ -122,20 +139,9 @@ const SurveyRuntimeBaseSchema = SurveyDraftInputSchema.extend({
   answerRevision: z.number().int().nonnegative().default(0),
   updatedAt: z.string().datetime(),
   responses: z.array(SurveyResponseSchema),
-  publication: z
-    .object({
-      token: z.string(),
-      status: z.enum(["collecting", "closed"]),
-      questions: z.array(SurveyWorkflowQuestionSchema),
-      version: z.number().int().positive(),
-      expiresAt: z.string().datetime(),
-      sourceSnapshot: z.object({
-        documents: SurveySourceStateSchema.shape.documents,
-        compiled: SurveyCompiledDraftSchema,
-        contentHash: z.string().regex(/^[a-f0-9]{64}$/),
-      }).strict().optional(),
-    })
-    .nullable(),
+  publication: SurveyPublicationSchema.nullable(),
+  collectionBatches: z.array(SurveyCollectionBatchSchema).optional(),
+  activeCollectionBatchId: z.string().min(1).nullable().optional(),
   source: SurveySourceStateSchema.optional(),
   report: CompiledSurveyReportSchema.nullable(),
   reportBasisVersion: z.number().int().positive().nullable(),

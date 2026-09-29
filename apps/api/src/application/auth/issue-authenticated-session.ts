@@ -5,6 +5,23 @@ import { AuthError } from "./errors";
 import { SessionStoreUnavailableError, type SessionTokenStore, type TokenFactory } from "./ports";
 import type { LoginDeviceContext, LoginOutput } from "./login";
 
+/** Prefix of the F16 personal-local organization id (`newLocalOrgId`). */
+const LOCAL_ORG_ID_PREFIX = "org-local-";
+
+/**
+ * The organization a fresh session starts in.
+ *
+ * `listMemberships` has no defined order (`kernel_user_org_ids` has no ORDER BY), and since F16
+ * every account holds a personal-local org besides the org it registered into. Picking `orgs[0]`
+ * therefore depended on heap layout. The rule here: prefer a non-local (team) org -- the local
+ * org is the private fallback, not where a registered member lands -- then the smallest org id,
+ * so the answer never depends on row order. Falls back to the local org when it is the only one.
+ */
+export function pickDefaultOrgId(orgIds: readonly string[]): string | null {
+  const sorted = [...orgIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return sorted.find((id) => !id.startsWith(LOCAL_ORG_ID_PREFIX)) ?? sorted[0] ?? null;
+}
+
 export async function issueAuthenticatedSession(
   deps: { identity: IdentityRepository; sessions: SessionTokenStore; tokens: TokenFactory },
   userId: string,
@@ -17,7 +34,7 @@ export async function issueAuthenticatedSession(
     userId: userId,
     // uc-1-1 R3 step 3: the login step does NOT let the user pick an organization. It is
     // resolved afterwards, by `identity.switchOrganization`, which owns the post-effects.
-    currentOrgId: orgs[0]?.orgId ?? null,
+    currentOrgId: pickDefaultOrgId(orgs.map((o) => o.orgId)),
     issuedAt: now.getTime(),
     expiresAt: now.getTime() + SESSION_TTL_MS,
     revokedAt: null,

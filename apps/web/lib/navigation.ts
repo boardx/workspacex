@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
-  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler,
+  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler, Home,
 } from "lucide-react";
 
 /**
@@ -146,6 +146,12 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: null,
     items: [
+      // 束: home（组织首页，docs/design/org-home-page 设计原型；2026-09-29 人类裁决
+      // 「需要加」——README 未决问题①「导航要不要真的加一条首页」定为：加。
+      // 本轮只做导航项 + 真实页面框架（真实组织名 + 静态文案 + 链到真实路由的快捷入口）；
+      // 后台可配置的 banner/logo/公告等仍是 docs/design/org-home-page/README.md
+      // 记录的后续 feature，不在本轮范围。
+      { key: "home", label: "首页", href: "/home", icon: Home, ucRefs: [] },
       // 束: chat
       { key: "chat", label: "对话", href: "/chat", icon: MessagesSquare, ucRefs: ["08-chat/uc-8-1", "08-chat/uc-8-2"] },
     ],

@@ -1381,7 +1381,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // Remove this increment with that entry.
     // 2026-09-29 merge of main (iter4 + CT03 + WF07 + CT09, at 114) into CT06: measured 115 =
     // main's 114 + CT06's one entry.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(115);
+    // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
+    // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
+    // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
+    // 2026-09-29 merge of main (EV04 at 891d15539, ceiling 115) into CT06 (ceiling 115): union =
+    // main's 114 + CT06 pg-skill-catalog-version-resolver.ts + EV04 pg-work-gate-status-repository.ts = 116.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(116);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
