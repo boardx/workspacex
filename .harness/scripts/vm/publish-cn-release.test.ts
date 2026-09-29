@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -39,6 +40,23 @@ describe("China production release publisher",()=>{
     expect(source).toContain('docker push "$tag"');
     expect(source).toContain('docker pull --platform "$platform" "$tag"');
     expect(source).toContain("existing immutable $service tag has a different revision");
+  });
+  it("retries only transient pushes within a bounded budget and preserves immutable-tag verification",()=>{
+    execFileSync("bash",["-n",file]);
+    const start=source.indexOf("push_immutable_with_retry(){");
+    const end=source.indexOf("\nbuild_and_push(){",start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const retry=source.slice(start,end);
+    expect(retry).toContain("local max_attempts=4");
+    expect(retry).toContain('if docker push "$tag" >"$push_log" 2>&1; then');
+    expect(retry).toContain('docker pull --platform "$platform" "$tag"');
+    expect(retry).toContain("existing immutable $service tag has a different revision");
+    expect(retry).toMatch(/429.*500.*502.*503.*504/);
+    expect(retry).toContain('sleep "$delay_seconds"');
+    expect(retry.indexOf('docker pull --platform "$platform" "$tag"')).toBeLessThan(retry.indexOf("grep -Eqi"));
+    expect(source).toContain('push_immutable_with_retry "$service" "$tag"');
+    expect(source).not.toContain('docker push "$tag" >/dev/null');
   });
   it("publishes services in parallel and seals the immutable manifest once",()=>{
     expect(source).toContain("wait_for_builds");

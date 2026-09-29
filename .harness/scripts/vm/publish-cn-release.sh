@@ -66,6 +66,37 @@ trap 'rm -rf "$work"' EXIT
 mkdir "$work/agent"
 git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work/agent" --strip-components=2
 
+push_immutable_with_retry(){
+  local service=$1 tag=$2
+  local max_attempts=4 attempt=1 delay_seconds=2
+  local push_log="$work/$service.push.log" committed_revision
+  while (( attempt <= max_attempts )); do
+    : >"$push_log"
+    if docker push "$tag" >"$push_log" 2>&1; then
+      return 0
+    fi
+    tail -n 80 "$push_log" >&2
+
+    # A registry can commit the manifest and still lose the response. Pull first so a
+    # retry never collides with an immutable tag that already contains this revision.
+    if docker pull --platform "$platform" "$tag" >/dev/null 2>&1; then
+      committed_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
+      [[ "$committed_revision" == "$revision" ]] || fail "existing immutable $service tag has a different revision"
+      printf 'CN_RELEASE_REGISTRY_PUSH_RECOVERED service=%s attempt=%s\n' "$service" "$attempt" >&2
+      return 0
+    fi
+
+    if ! grep -Eqi '(^|[^0-9])(429|500|502|503|504)([^0-9]|$)|unexpected[[:space:]]+EOF|connection reset|connection refused|i/o timeout|TLS handshake timeout|temporary failure in name resolution|no such host|network is unreachable' "$push_log"; then
+      fail "non-retryable registry push failure for $service"
+    fi
+    (( attempt < max_attempts )) || fail "registry push retry budget exhausted for $service"
+    printf 'CN_RELEASE_REGISTRY_PUSH_RETRY service=%s attempt=%s delay_seconds=%s\n' "$service" "$attempt" "$delay_seconds" >&2
+    sleep "$delay_seconds"
+    delay_seconds=$(( delay_seconds * 2 ))
+    attempt=$(( attempt + 1 ))
+  done
+}
+
 build_and_push(){
   local service=$1 repository=$2 dockerfile=$3 context=$4; shift 4
   local tag="$prefix/$repository:$revision"
@@ -75,7 +106,7 @@ build_and_push(){
     [[ "$existing_revision" == "$revision" ]] || fail "existing immutable $service tag has a different revision"
   else
     docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"
-    docker push "$tag" >/dev/null
+    push_immutable_with_retry "$service" "$tag"
   fi
   docker pull --platform "$platform" "$tag" >/dev/null
   published_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
