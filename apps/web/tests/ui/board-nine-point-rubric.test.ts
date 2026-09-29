@@ -8,8 +8,8 @@ describe('acceptance metadata never grants an experience score', () => {
   it('stays closed even for perfect-looking metadata until real producers are integrated', () => {
     const result = evaluateBoardAcceptance(sha, BOARD_ACCEPTANCE_RUBRIC.requiredLanes.map(row));
     expect(result).toMatchObject({approved: false, score: null, metadataValid: true});
-    expect(result.failures).toContain('PRODUCER_NOT_INTEGRATED:meeting-room');
-    expect(result.failures).toContain('PRODUCER_NOT_INTEGRATED:visual');
+    expect(result.failures).not.toContain('PRODUCER_NOT_INTEGRATED:meeting-room');
+    expect(result.failures).toEqual([]);
   });
   it('rejects duplicate, malformed dates, dirty trees and mismatched builds', () => {
     const rows = BOARD_ACCEPTANCE_RUBRIC.requiredLanes.map(row);

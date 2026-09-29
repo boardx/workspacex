@@ -36,7 +36,7 @@ it("shows Sticky-only direct controls and makes every mutating control unavailab
   const onStickyChange = vi.fn(), onExperienceChange = vi.fn(), onFutureAction = vi.fn();
   const props = { object: sticky, readOnly: false, actorId: "me", onStickyChange, onTextChange: vi.fn(), onExperienceChange, onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction };
   const { rerender } = render(<ObjectContextToolbar {...props} />);
-  expect(screen.queryByRole("button", { name: "评论" })).toBeNull();
+  expect(screen.getByRole("button", { name: "评论" })).toBeEnabled();
   expect(screen.queryByLabelText("新标签")).toBeNull();
   expect(screen.queryByTestId("sticky-quick-color-yellow")).toBeNull();
   fireEvent.click(screen.getByTestId("board-sticky-style-open"));

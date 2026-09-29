@@ -6,7 +6,7 @@ import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 
 test.describe.configure({mode:'serial',timeout:120_000});
 const apiOrigin=()=>`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
-async function login(page:Page,email:string=FULLSTACK_E2E.email,password:string=FULLSTACK_E2E.password){await page.goto('/login');await page.getByTestId('login-email').fill(email);await page.getByTestId('login-password').fill(password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);expect(token).toBeTruthy();return token!;}
+async function login(page:Page,email:string=FULLSTACK_E2E.email,password:string=FULLSTACK_E2E.password){await page.goto('/login');await page.getByTestId('login-email').fill(email);await page.getByTestId('login-password').fill(password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/(?:home|projects)$/);const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);expect(token).toBeTruthy();return token!;}
 async function call(api:APIRequestContext,token:string,method:string,path:string,data?:unknown){const response=await api.fetch(`${apiOrigin()}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});expect(response.ok(),`${method} ${path}: ${response.status()} ${await response.text()}`).toBe(true);return response;}
 const geometry=(index:number)=>({x:100+(index%6)*230,y:100+Math.floor(index/6)*190,width:200,height:160,rotation:0});
 

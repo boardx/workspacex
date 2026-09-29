@@ -20,10 +20,9 @@ it("keeps selection compact until properties are opened, then keyboard-resizes t
   expect(panel).toHaveAttribute("data-board-selected-object-panel", "true");
   expect(panel).toHaveAttribute("data-expanded", "false");
   expect(panel).toHaveClass("max-w-[min(27rem,calc(100vw-2rem))]");
-  expect(screen.queryByTestId("board-inspector-expand")).toBeNull();
-  expect(screen.queryByTestId("board-inspector-close")).toBeNull();
-  fireEvent.click(screen.getByTestId("board-inspector-actions"));
-  fireEvent.click(screen.getByTestId("board-properties-open"));
+  expect(screen.getByTestId("board-inspector-expand")).toBeVisible();
+  expect(screen.getByTestId("board-inspector-close")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(panel.style.left).toMatch(/px$/);
   expect(panel.style.top).toMatch(/px$/);
   const resize = screen.getByTestId("board-inspector-resize");

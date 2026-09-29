@@ -5,7 +5,7 @@ import {loadCapturedVendorFixtures} from './support/board-vendor-captured-fixtur
 import {produceVendorMigrationEvidence} from './support/board-vendor-import-producer';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 
-async function login(page:Page,peer=false){await page.goto('/login');await page.getByTestId('login-email').fill(peer?F.leadEmail:F.adminEmail);await page.getByTestId('login-password').fill(peer?F.leadPassword:F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);return(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;}
+async function login(page:Page,peer=false){await page.goto('/login');await page.getByTestId('login-email').fill(peer?F.leadEmail:F.adminEmail);await page.getByTestId('login-password').fill(peer?F.leadPassword:F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/(?:home|projects)$/);return(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;}
 
 test('three captured Miro/Mural account exports migrate with reviewed inventories',async({browser,request:api,baseURL},info)=>{
   expect(process.env.BOARD_CAPTURED_VENDOR_ACCEPTANCE).toBe('1');

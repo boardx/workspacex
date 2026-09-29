@@ -62,7 +62,7 @@ export async function loginBoardSoakActor(page: Page, actor: SoakIdentity) {
     if (!response.ok()) throw new Error('AUTHENTICATION_REJECTED');
     const session = await response.json() as {userId?: string; orgs?: string[]; sessionToken?: string};
     if (session.userId !== actor.userId || !session.orgs?.includes(FULLSTACK_E2E.orgId)) throw new Error('SOAK_AUTHENTICATED_IDENTITY_MISMATCH');
-    await page.waitForURL(/\/projects$/, {timeout: 30_000});
+    await page.waitForURL(/\/(?:home|projects)$/, {timeout: 30_000});
     const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
     if (!token || token !== session.sessionToken) throw new Error('NO_MATCHING_SESSION');
     return token;

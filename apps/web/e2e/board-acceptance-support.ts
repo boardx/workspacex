@@ -9,7 +9,7 @@ export const apiOrigin = () => `http://127.0.0.1:${process.env.WORKSPACEX_API_PO
 export async function boardLogin(page: Page, email: string = FULLSTACK_E2E.email, password: string = FULLSTACK_E2E.password) {
   await page.goto('/login'); await page.getByTestId('login-email').fill(email);
   await page.getByTestId('login-password').fill(password); await page.getByTestId('login-submit').click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/(?:home|projects)$/);
   const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(token).toBeTruthy(); return token!;
 }

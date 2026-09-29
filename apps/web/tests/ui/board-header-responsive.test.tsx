@@ -10,7 +10,7 @@ it('moves presence and presentation into the narrow-desktop menu without duplica
  render(<BoardEditorHeader boardId="board" title="很长的团队白板名称" status="已同步" readOnly={false} history={<><button>撤销</button><button>重做</button></>} peers={<button onClick={follow}>跟随 Grace</button>} presentation={<button onClick={present}>开始演示</button>} more={<button>导出</button>} userAvatar={<span role="img" aria-label="Grace 的头像">G</span>}/>);
  const header=screen.getByTestId('board-editor-header');expect(within(header).queryByRole('button',{name:'跟随 Grace'})).toBeNull();
  expect(queries).toContain('(max-width: 1279px)');
- expect(header).toHaveClass('h-16','bg-background');
+ expect(header).toHaveClass('bg-background');expect(header).toHaveStyle({height:'64px'});
  expect(screen.getByAltText('WorkspaceX')).toHaveClass('xl:block');
  expect(within(screen.getByTestId('board-sync-status')).getByText('已同步')).toHaveClass('xl:inline');
  expect(screen.getByTestId('board-help-open')).toHaveAccessibleName('白板帮助');

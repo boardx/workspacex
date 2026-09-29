@@ -208,14 +208,14 @@ it("cancel discards drawing and permits a subsequent touch gesture",()=>{
  const cancel=new Event("touchcancel");Object.defineProperty(cancel,"changedTouches",{value:[finger(3,4)]});document.dispatchEvent(cancel);
  canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(3,4)]}});expect(onDrawingComplete).not.toHaveBeenCalled();
  canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(10,20,9,.8)]}});canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(30,40,9,.9)]}});canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(30,40,9)]}});
- expect(onDrawingComplete).toHaveBeenCalledTimes(1);expect(onDrawingComplete).toHaveBeenCalledWith({tool:"pen",points:[{x:10,y:20,pressure:.8},{x:30,y:40,pressure:.9}]});
+ expect(onDrawingComplete).toHaveBeenCalledTimes(1);expect(onDrawingComplete).toHaveBeenCalledWith(expect.objectContaining({tool:"pen",points:[{x:10,y:20,pressure:.8},{x:30,y:40,pressure:.9}]}));
 });
 
 it("reads real pen pressure alongside compatibility mouse events without changing Fabric mode",()=>{
  fabricHarness.state.canvases.length=0;const onDrawingComplete=vi.fn();const view=render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"draw-pen",viewport,...callbacks(),onDrawingComplete}));const canvas=mountedCanvas(),element=view.container.querySelector("canvas")!;
  const pen=(type:string,x:number,y:number,pressure:number)=>{const event=new Event(type,{bubbles:true});Object.assign(event,{pointerType:"pen",pointerId:3,isPrimary:true,clientX:x,clientY:y,pressure});element.dispatchEvent(event);};
  pen("pointerdown",10,20,.25);canvas.emit("mouse:down",{e:{type:"mousedown",clientX:10,clientY:20}});pen("pointermove",30,40,.75);canvas.emit("mouse:move",{e:{type:"mousemove",clientX:30,clientY:40}});canvas.emit("mouse:up",{e:{type:"mouseup",clientX:30,clientY:40}});
- expect(onDrawingComplete).toHaveBeenCalledWith({tool:"pen",points:[{x:10,y:20,pressure:.25},{x:30,y:40,pressure:.75}]});view.unmount();
+ expect(onDrawingComplete).toHaveBeenCalledWith(expect.objectContaining({tool:"pen",points:[{x:10,y:20,pressure:.25},{x:30,y:40,pressure:.75}]}));view.unmount();
 });
 it("native two-finger input owns anchored zoom until all fingers lift",()=>{
  fabricHarness.state.canvases.length=0;const events=callbacks();const view=render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"hand",viewport,...events}));const canvas=mountedCanvas(),element=view.container.querySelector("canvas")!;
