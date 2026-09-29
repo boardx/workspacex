@@ -149,21 +149,30 @@ export function ProjectWorkbench({
   const [liveOverview, setLiveOverview] = React.useState<ProjectOverview | null>(null);
   const [liveOverviewLoading, setLiveOverviewLoading] = React.useState(false);
   const [liveOverviewError, setLiveOverviewError] = React.useState<string | null>(null);
+  /**
+   * 首次 overview 请求是否已落定（成功 / 失败 / 没有会话可发）。种类（`kind`）来自它：落定前种类未知，
+   * 工作台按工作坊渲染 tab 条；但**工作坊专属 tab 的内容**要等它落定再挂——否则通用项目上的 `?tab=todo`
+   * 会先挂 `TabTodo`，打出一次工作坊看板请求（`GET /tasks` → 403 NO_PROJECT_ROLE），随后才落回概览。
+   */
+  const [overviewSettled, setOverviewSettled] = React.useState(false);
 
   React.useEffect(() => {
     if (!projectId) {
       setLiveOverview(null);
       setLiveOverviewError(null);
+      setOverviewSettled(true);
       return;
     }
     const token = getStoredSessionToken();
     if (!token) {
       setLiveOverview(null);
       setLiveOverviewError(null);
+      setOverviewSettled(true);
       return;
     }
     let cancelled = false;
     setLiveOverviewLoading(true);
+    setOverviewSettled(false);
     setLiveOverviewError(null);
     getProjectOverview(projectId)
       .then((o) => {
@@ -175,7 +184,10 @@ export function ProjectWorkbench({
         }
       })
       .finally(() => {
-        if (!cancelled) setLiveOverviewLoading(false);
+        if (!cancelled) {
+          setLiveOverviewLoading(false);
+          setOverviewSettled(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -209,6 +221,10 @@ export function ProjectWorkbench({
   const projectKind = headerProject?.kind ?? null;
   const tabDefs = tabDefsForKind(projectKind);
   const shownTab = resolveTabForKind(tab, projectKind, sub);
+  /** 种类未落定时不挂通用项目没有的 tab 内容（见 `overviewSettled` 注释）。 */
+  const kindPending = projectKind === null && !overviewSettled && !tabDefsForKind("general").some((t) => t.key === shownTab);
+  /** 各 tab 专属拉取用的 tab：种类未落定时不为工作坊专属 tab 发请求（同上，通用项目会 403）。 */
+  const fetchTab: ProjectTab | null = kindPending ? null : shownTab;
 
   /**
    * #853 —— 项目筹备 tab 专用的真实议程环节列表（`GET /workshops/:workshopId/
@@ -238,7 +254,7 @@ export function ProjectWorkbench({
   React.useEffect(() => {
     // F963：现场协作主持台状态条同一份真实数据（当前进行中环节），同「筹备」tab
     // 共用一次拉取，不重复声明第二份 state。
-    if (!projectId || (shownTab !== "prep" && shownTab !== "live")) {
+    if (!projectId || (fetchTab !== "prep" && fetchTab !== "live")) {
       setLiveSegments(null);
       setLiveSegmentsError(null);
       return;
@@ -250,7 +266,7 @@ export function ProjectWorkbench({
     }
     refreshSegments();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshSegments 只依赖 projectId，随它一起重建
-  }, [projectId, shownTab]);
+  }, [projectId, fetchTab]);
 
   /**
    * F950（2026-08-16 delta）—— 项目筹备 tab 的定题/分组，与上面 `liveSegments` 同一套
@@ -302,7 +318,7 @@ export function ProjectWorkbench({
   const [liveViewerOptions, setLiveViewerOptions] = React.useState<ViewerOptionsOut | null>(null);
 
   React.useEffect(() => {
-    if (!projectId || shownTab !== "live" || !getStoredSessionToken()) {
+    if (!projectId || fetchTab !== "live" || !getStoredSessionToken()) {
       setLiveViewerOptions(null);
       return;
     }
@@ -311,24 +327,24 @@ export function ProjectWorkbench({
       .then((out) => { if (live) setLiveViewerOptions(out); })
       .catch(() => { if (live) setLiveViewerOptions(null); });
     return () => { live = false; };
-  }, [projectId, shownTab]);
+  }, [projectId, fetchTab]);
 
   React.useEffect(() => {
-    const needsGrouping = shownTab === "prep" || shownTab === "live";
+    const needsGrouping = fetchTab === "prep" || fetchTab === "live";
     if (!projectId || !needsGrouping || !getStoredSessionToken()) {
       setLiveGrouping(null);
       setLiveGroupingError(null);
     } else {
       refreshGrouping();
     }
-    if (!projectId || shownTab !== "prep" || !getStoredSessionToken()) {
+    if (!projectId || fetchTab !== "prep" || !getStoredSessionToken()) {
       setLiveTopic(null);
       setLiveTopicError(null);
       return;
     }
     refreshTopic();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId/tab，随它们一起重建
-  }, [projectId, shownTab]);
+  }, [projectId, fetchTab]);
 
   /**
    * F05（phase-10 group-checkin 束）—— 「分组与签到」聚合视图的真实数据源，只在
@@ -354,14 +370,14 @@ export function ProjectWorkbench({
   }, [projectId]);
 
   React.useEffect(() => {
-    if (!projectId || shownTab !== "live" || !getStoredSessionToken()) {
+    if (!projectId || fetchTab !== "live" || !getStoredSessionToken()) {
       setLiveCheckin(null);
       setLiveCheckinError(null);
       return;
     }
     refreshCheckin();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只依赖 projectId/tab，随它们一起重建
-  }, [projectId, shownTab]);
+  }, [projectId, fetchTab]);
 
   /**
    * F964 —— 「成果沉淀 · 审计与反馈」区的真实 `queryProvenance`，按
@@ -551,7 +567,9 @@ export function ProjectWorkbench({
               }}
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
-              {renderTab(
+              {kindPending ? (
+                <p className="text-12 text-muted-foreground" data-testid="project-tab-kind-pending">读取项目中…</p>
+              ) : renderTab(
                 shownTab, projectKind, (t, sb) => href({ tab: t, sub: sb }), view, sub, orgDisabled, projectId ?? "",
                 liveProject, liveLoading, liveError,
                 liveOverview, liveOverviewLoading, liveOverviewError,

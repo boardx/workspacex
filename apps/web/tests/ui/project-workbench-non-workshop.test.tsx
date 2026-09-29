@@ -32,6 +32,7 @@ const listDesignProjects = vi.fn();
 const fetchProjectKnowledge = vi.fn();
 const fetchProjectReasoning = vi.fn();
 const pushMock = vi.fn();
+const listTasks = vi.fn();
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/projects/p-rp", useRouter: () => ({ push: pushMock, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/components/shell/app-shell", () => ({
@@ -53,6 +54,10 @@ vi.mock("@/lib/live-project-prep", async (orig) => ({
   getProjectGrouping: vi.fn(async () => null),
 }));
 vi.mock("@/lib/live-collab-viewer-role", () => ({ getViewerOptions: vi.fn(async () => null) }));
+vi.mock("@/lib/live-tasks", async (orig) => ({
+  ...(await orig<typeof import("@/lib/live-tasks")>()),
+  listTasks: (...a: unknown[]) => listTasks(...a),
+}));
 vi.mock("@/lib/live-checkin", () => ({ getCheckinBoard: vi.fn(async () => null) }));
 vi.mock("@/lib/live-provenance", () => ({ queryProvenance: vi.fn(async () => ({ events: [] })) }));
 vi.mock("@/lib/live-project-evidence", async (orig) => ({
@@ -105,7 +110,7 @@ const overviewOf = (kind: "workshop" | "general") => ({
   currentAgendaSegment: null, roleCounts: null, backflow: [], blueprint: null,
 });
 
-function renderWorkbench(tab: "overview" | "content" | "brain" | "research" | "live" | "settings", sub: string | null = null) {
+function renderWorkbench(tab: "overview" | "content" | "brain" | "research" | "live" | "todo" | "settings", sub: string | null = null) {
   return render(<ProjectWorkbench uiState="default" tab={tab} view="facilitator" sub={sub} qs={{}} projectId="p-rp" />);
 }
 
@@ -220,6 +225,27 @@ describe("#4615 通用项目的工作台", () => {
     await waitFor(() => expect(screen.getByTestId("project-general-overview-brain-claims")).toHaveTextContent("3"));
     expect(screen.getByTestId("project-general-overview-brain-unverified")).toHaveTextContent("1");
     expect(screen.getByTestId("project-general-overview-brain-conflicts")).toHaveTextContent("0");
+  });
+
+  it("?tab=todo（工作坊看板）⇒ 落回概览，种类落定前不挂看板、不打 GET /tasks（无 403）；概览链到本项目的 Workflow 运行看板", async () => {
+    listTasks.mockReset();
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    renderWorkbench("todo");
+    expect(screen.getByTestId("project-tab-kind-pending")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("project-general-overview")).toBeInTheDocument());
+    expect(screen.queryByTestId("project-tab-todo")).toBeNull();
+    expect(screen.getByTestId("project-tab-overview")).toHaveAttribute("aria-current", "page");
+    expect(listTasks).not.toHaveBeenCalled();
+    expect(screen.getByTestId("project-general-overview-workflow-runs")).toHaveAttribute("href", "/workflows/board?projectId=p-rp");
+  });
+
+  it("工作坊 ?tab=todo：种类落定后照常挂看板并读 GET /tasks", async () => {
+    listTasks.mockReset();
+    listTasks.mockResolvedValue({ cards: [], runCards: [], scope: "project", columns: [], collapsedInboxCount: 0, badgeCount: 0, footer: { overdue: 0, dueToday: 0 } });
+    getProjectOverview.mockResolvedValue(overviewOf("workshop"));
+    renderWorkbench("todo");
+    await waitFor(() => expect(listTasks).toHaveBeenCalledWith("p-rp", "project"));
+    expect(screen.getByTestId("project-tab-todo")).toHaveAttribute("aria-current", "page");
   });
 
   it("?tab=live ⇒ 落回概览，不渲染主持台", async () => {
