@@ -822,7 +822,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
             type: "finding", title: `可追溯发现 ${index + 1}`, summary: "回答揭示供需约束及验证边界。",
             expertId: expert.expertId, questionId: answer.questionId,
           })),
-          { type: "section", markdown: DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading) => `${heading}\n证据与分析。`).join("\n\n") },
+          { type: "section", markdown: DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading) => `${heading}\n证据：已确认回答。\n分析：跨回答综合显示供需约束是共同模式。\n决策影响：应优先验证持续指标。\n边界与反例：当前样本有限，仍待验证。`).join("\n\n") },
         ];
         const text = events.map((event) => JSON.stringify(event)).join("\n");
         await onDelta(text);
