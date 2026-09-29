@@ -16,6 +16,7 @@ import {
 } from "@/lib/workflow-runtime-api";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { INSTANCE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
+import { WorkflowStartForm, requiredTriggerFields } from "./workflow-start-form";
 
 export function WorkflowRunList(props: { readonly status?: readonly WorkflowInstanceStatus[]; readonly hrefFor?: (id: string) => string }) {
   const [items, setItems] = useState<WorkflowInstanceSummary[] | null>(null);
@@ -66,12 +67,15 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
   if (items.length === 0) return <p data-testid="workflow-run-list-empty">没有待你审批的事项。</p>;
   return (
     <ul data-testid="workflow-approval-list">
-      {items.map((i) => (
-        <li key={i.gate.gateId} data-gate-id={i.gate.gateId}>
-          <button type="button" data-testid={`workflow-approval-open-${i.gate.gateId}`} onClick={() => setOpen(i.gate.gateId)}>
+      {items.map((i) => {
+        // gateId 只在单个运行内唯一（如每个 demo-approval 运行的门都是 publish-gate-1），故以 instanceId+gateId 为键。
+        const rowKey = `${i.instanceId}-${i.gate.gateId}`;
+        return (
+        <li key={rowKey} data-gate-id={i.gate.gateId} data-instance-id={i.instanceId}>
+          <button type="button" data-testid={`workflow-approval-open-${rowKey}`} onClick={() => setOpen(rowKey)}>
             {i.gate.effectPreview.summary}（{`${i.workflowKey}@${i.definitionVersion}`}）
           </button>
-          {open === i.gate.gateId ? (
+          {open === rowKey ? (
             <WorkflowApprovalDrawer
               instanceId={i.instanceId}
               gate={i.gate}
@@ -81,7 +85,8 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
             />
           ) : null}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
@@ -89,6 +94,7 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
 /**
  * 「运行 Workflow」入口：无运行权限（服务端不返回可运行项 / 403 / 404）时不渲染。
  * 点击展开可运行列表，用户选定一个后调契约 `startInstance` 发起运行，成功跳到运行面板。
+ * 该 Workflow 的 `inputSchema` 有必填字段时先展开 trigger 表单收集输入；无必填字段则一键发起。
  */
 export function WorkflowRunEntry(props: {
   readonly agentId: string;
@@ -99,6 +105,7 @@ export function WorkflowRunEntry(props: {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formFor, setFormFor] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     listRunnableWorkflows(props.agentId)
@@ -107,11 +114,16 @@ export function WorkflowRunEntry(props: {
     return () => { live = false; };
   }, [props.agentId]);
   if (items.length === 0) return null;
-  async function start(w: RunnableWorkflow) {
+  function pick(w: RunnableWorkflow) {
+    setError(null);
+    if (requiredTriggerFields(w.inputSchema).length > 0) setFormFor(`${w.key}@${w.version}`);
+    else void start(w, {});
+  }
+  async function start(w: RunnableWorkflow, input: Record<string, unknown>) {
     setBusy(true);
     setError(null);
     try {
-      const res = await startWorkflowInstance({ key: w.key, version: w.version, agentId: props.agentId, input: {} });
+      const res = await startWorkflowInstance({ key: w.key, version: w.version, agentId: props.agentId, input });
       if (props.onStarted) props.onStarted(res.instanceId);
       else window.location.assign(`/workflows/runs/${encodeURIComponent(res.instanceId)}`);
     } catch (e) {
@@ -127,13 +139,25 @@ export function WorkflowRunEntry(props: {
       </button>
       {open ? (
         <ul data-testid="workflow-run-picker">
-          {items.map((w) => (
-            <li key={`${w.key}@${w.version}`}>
-              <button type="button" disabled={busy} data-testid={`workflow-run-start-${w.key}`} onClick={() => void start(w)}>
-                {w.title}（{`${w.key}@${w.version}`}）
-              </button>
-            </li>
-          ))}
+          {items.map((w) => {
+            const id = `${w.key}@${w.version}`;
+            return (
+              <li key={id}>
+                <button type="button" disabled={busy} data-testid={`workflow-run-start-${w.key}`} onClick={() => pick(w)}>
+                  {w.title}（{id}）
+                </button>
+                {formFor === id ? (
+                  <WorkflowStartForm
+                    workflowKey={w.key}
+                    fields={requiredTriggerFields(w.inputSchema)}
+                    busy={busy}
+                    onSubmit={(input) => void start(w, input)}
+                    onCancel={() => setFormFor(null)}
+                  />
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {error ? <p role="alert" data-testid="workflow-run-start-error">{error}</p> : null}
