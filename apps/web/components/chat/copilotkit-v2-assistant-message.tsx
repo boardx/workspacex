@@ -85,7 +85,7 @@ function V2ToolCallsView(
     <>
     {decisions}
     <div
-      className="flex flex-col rounded-lg border border-border-subtle bg-muted/30"
+      className="flex flex-col rounded-card border border-border-subtle bg-card shadow-sm"
       data-testid="copilotkit-v2-tool-calls-group"
       data-tool-calls-count={toolCalls.length}
     >
@@ -534,7 +534,7 @@ export function FollowUpSuggestions({
         // 并列包在一个 `inline-flex` 容器里，**不**把关闭按钮嵌进 `chip.onSelect`
         // 那个 `<button>` 内部——`<button>` 套 `<button>` 是无效 HTML（浏览器会把
         // 内层拆出去，点击区域行为不可预期），关闭按钮必须是外层同级的兄弟节点。
-        <span key={chip.id} className="inline-flex items-stretch overflow-hidden rounded-full border border-border">
+        <span key={chip.id} className="inline-flex items-stretch overflow-hidden rounded-full border border-border-subtle bg-card shadow-sm">
           <button
             type="button"
             data-testid={chip.id}
@@ -550,7 +550,7 @@ export function FollowUpSuggestions({
               data-testid={`${chip.id}-dismiss`}
               aria-label="关闭这条建议"
               disabled={disabled}
-              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+              className="flex items-center border-l border-border-subtle px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
               onClick={chip.onDismiss}
             >
               <X aria-hidden className="h-3 w-3" />
@@ -564,7 +564,7 @@ export function FollowUpSuggestions({
           type="button"
           data-testid={`copilotkit-v2-suggestion-${i}`}
           disabled={disabled || s.isLoading}
-          className="rounded-full border border-border px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded-full border border-border-subtle bg-card px-3 py-1 text-12 shadow-sm text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           onClick={() => onSelect(s.message)}
         >
           {s.title || s.message}
