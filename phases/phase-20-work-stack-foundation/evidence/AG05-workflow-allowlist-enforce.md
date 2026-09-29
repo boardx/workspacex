@@ -19,9 +19,9 @@ Agent 在聊天 run 里调 `start_workflow({workflowId:"W0xx", input})`（deep-a
 
 | 命令 | 退出码 | 结果 |
 |---|---|---|
-| `nt.sh pnpm --filter api exec vitest run tests/agent/workflow-allowlist-enforce.test.ts`（feature verification） | 0 | 16/16 passed |
+| `nt.sh pnpm --filter api exec vitest run tests/agent/workflow-allowlist-enforce.test.ts`（feature verification） | 0 | 19/19 passed |
 | 反证：关掉网关分流（`if (false && …)`）后重跑同一文件 | 1 | 11 failed / 1 passed（仅接线断言通过） |
-| `nt.sh pnpm exec vitest run tests/agent/ tests/agent-run/ tests/workflow/ tests/kernel/permission-propagation-six-paths.test.ts tests/contract-single-source.test.ts` | 0 | 96 files / 581 tests passed |
+| `nt.sh pnpm exec vitest run tests/agent/ tests/agent-run/ tests/workflow/ tests/kernel/permission-propagation-six-paths.test.ts tests/contract-single-source.test.ts` | 0 | 96 files / 588 tests passed |
 | `pnpm --filter @repo/contracts typecheck` | 0 | |
 | `NODE_OPTIONS=--max-old-space-size=6144 pnpm --filter @repo/api typecheck` | 0 | |
 | `pnpm --filter web typecheck` | 0 | |
@@ -32,7 +32,7 @@ Agent 在聊天 run 里调 `start_workflow({workflowId:"W0xx", input})`（deep-a
 | `nt.sh ./scripts/verify-migrations.sh` | 0 | rebuild from empty + replayable |
 | `nt.sh ./scripts/verify-rls.sh` | 0 | RLS-ASSERT-OK |
 | `pnpm --filter web exec vitest run tests/lib/chat-workbench/tool-label.test.ts` | 0 | |
-| deep-agent-service `pytest tests/test_start_workflow.py tests/test_escalate_matter.py tests/test_native_tool_dispatch.py tests/test_native_tool_admission.py tests/test_native_factory.py` | 0 | 58 passed, 1 skipped |
+| deep-agent-service `pytest tests/test_start_workflow.py tests/test_escalate_matter.py tests/test_native_tool_dispatch.py tests/test_native_tool_admission.py tests/test_native_factory.py` | 0 | 59 passed, 1 skipped |
 | deep-agent-service `pytest tests --ignore=tests/golden` | 1 | 667 passed；3 failed = 需要 `DEEP_AGENT_TEST_POSTGRES_URL` 的 PG 恢复用例，main 基线同样失败（环境项，与本改动无关） |
 
 ## `workflow-allowlist-enforce.test.ts` 覆盖
@@ -51,6 +51,28 @@ Agent 在聊天 run 里调 `start_workflow({workflowId:"W0xx", input})`（deep-a
 9. 参数无效 / 用非内容线 key（`demo-brief`）绕白名单 ⇒ `trigger_input_invalid`。
 10. 同一次工具调用重放 ⇒ WF03 A1 幂等，同一实例、实例数不变。
 11. 运行时未接线 ⇒ 如实 `workflow_runtime_unavailable`，不建实例。
+12. 缺工具调用 id ⇒ 如实拒绝；DB 状态机 `running → queued(edit)` 只放行 `start_workflow`。
+13. 存储不支持结果交回 ⇒ 在 WF03 start **之前** 以 `KERNEL_UNAVAILABLE` 失败 run，不建实例。
+14. 恢复（无回执，崩在 start 之前）⇒ 以 edit 交回服务端的 `refused(workflow_runtime_unavailable)`，模型自填的 `outcome` 被丢弃，不建实例。
+15. 恢复（有回执，崩在 start 之后、交回之前）⇒ 只读查回 `started` + 同一 instanceId，实例数不变。
+    回执只 begin 未 finalize ⇒ `workflow_start_unconfirmed`（不说「未发起」）。
+16. 通用裁决通路 approve / edit、工具授权通路 once / run / forever 对待决的 `start_workflow` 一律 409，run 原样不动。
+
+## 真实保证（「结果只由服务端算出」）
+
+- 交给 `start_workflow` 工具体的 `outcome` 只有两个来源，都由服务端算出、都以 **edit resume** 交回：网关
+  （`workflow-start-gate.ts`，经 WF03 `start`）与恢复路径（`pg-run-recovery.ts`，**只读**查 WF03 回执
+  `start:<requestId>`，`requestId` 与网关同一派生 `agentWorkflowStartRequestId(runId, toolCallId)`，不做任何新提交）。
+  交回的参数由 `workflowStartEditedArgs` 重建：只取解析过的 `workflowId` / `input`，模型参数里的 `outcome` 一律丢弃。
+- 恢复路径的回答与事实一致：无回执（WF03 从未受理）⇒ `refused(workflow_runtime_unavailable)`「未创建实例」；回执已 finalize
+  且带实例 ⇒ `started` + 该实例；已 finalize 的 WF03 拒绝 ⇒ 同一拒绝码；回执 begun / reconciled / unresolved（begin、建实例、
+  finalize 是三个事务，途中断了）⇒ `refused(workflow_start_unconfirmed)`「无法确认实例是否已创建，请核对，不要重复发起」——
+  绝不在可能已建实例时说「未发起」。
+- 人不能替服务端编结果：`decideAgentRun` 对 `start_workflow` 只接受 `reject`，`decideToolPermission` 只接受 `deny`；
+  web 审批面板对 `start_workflow` 只显示「拒绝」。
+- 模型写不了 `outcome`：`tools.py` 以 `SkipJsonSchema` 把它排除在模型可见 schema 之外（pytest 断言）；即便盲填，上面三条保证它
+  到不了工具体。（不用 `InjectedToolArg`：ToolNode 会把注入参数从 edit 后的 args 里剥掉，服务端结果也送不进去。）
+  `native_profile_tools.json` 只含工具名与中断标志、不含参数 schema，无需重新生成。
 
 ## 顺带修复（被正向用例抓到）
 
@@ -69,3 +91,8 @@ W001 过白名单后由 WF03 如实返回 `workflow_not_found`；正向「建实
 - 第 1 轮（rev-feature，SHA `9220b5a2f`）：ACCEPT，8 条 minor/nit。已修：②迁移边收窄到 `pending_tool_name='start_workflow'`
   （+DB 反证用例）；③缺 toolCallId 时拒绝而非用 workflowId 兜底（+用例）；④存储不支持结果交回时按稳定码失败 run 而非静默挂起；
   另补恢复路径（不叫醒人、approve ⇒「未发起」）与通用裁决通路拒绝伪造 edit 两条用例。①记录于本节。⑤⑥⑦⑧为可选/后续。
+- 第 2 轮（SHA `60bb64b3d`）：REVISE。①恢复路径 approve 不诚实（崩在 start 之后会说「未发起」；approve 会回显模型自填的 outcome）
+  ⇒ 恢复路径改为只读查 WF03 回执、以 edit 交回服务端结果（见「真实保证」），`ReconciledRemoteRun` 审批分支带 `toolCallId`；
+  通用裁决通路只允许 reject、工具授权通路只允许 deny；`outcome` 移出模型可见 schema；回执未落定时如实「无法确认」；+用例 14/15/16。
+  ②本文件与 `pg-run-recovery.ts` 注释改为上述真实保证。③能力检查挪到 WF03 start 之前，失败码改 `KERNEL_UNAVAILABLE`（+用例 13）。
+  ④web 审批面板对 `start_workflow` 只给「拒绝」。⑤–⑧未改（可选/后续）。
