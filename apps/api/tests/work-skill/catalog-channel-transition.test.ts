@@ -1,7 +1,7 @@
 /**
  * WS03（Phase 20，R3.9 / R7 / E3 E4 E9 / R5）：PATCH /admin/skills/catalog/:skillId 通道与后继变更。
  *
- * 合法转移只有 candidate→verified（须 gateEvidenceRef）、candidate→deprecated、verified→deprecated；
+ * 合法转移只有 candidate→verified（EV05 起须当前版本门状态 G5 pass，gateEvidenceRef 仅作审计备注）、candidate→deprecated、verified→deprecated；
  * 其余 409 并回 allowedTransitions。后继不存在/自指/成环 422。非管理员 403、跨组织 404、未登录 401。
  * 每次成功变更同事务写审计行；拒绝的请求不改行、不写审计。
  */
@@ -13,6 +13,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { CONTRACT, importWorkPack, MEETING, RESEARCH, writeWorkPack } from "./support/catalog-fixture";
+import { seedGateRecord } from "../work-eval/support/gate-record";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -85,6 +86,7 @@ beforeEach(async () => {
   await addOrgMember(OTHER_ORG, OUTSIDER, "admin", other.teams.energy!);
   const imported = await importWorkPack(base, `${ADMIN}:${ORG}`, PACK, "1.0.0");
   [S3, S4, S5] = imported.skillIds as [string, string, string];
+  await seedGateRecord(ORG, S3, "S003", "pass", ADMIN);
 });
 
 describe("WS03 legal transitions update the row, write an audit event, and show up in the catalog", () => {
@@ -149,12 +151,11 @@ describe("WS03 illegal requests are rejected and change nothing", () => {
     expect(await events()).toEqual(eventsBefore);
   }
 
-  it("candidate → verified without gate evidence → 409 with allowed transitions (E4)", async () => {
+  it("candidate → verified without a G5-pass gate record → 409 WORK_EVAL_G5_NOT_PASSED (EV05 replaces gateEvidenceRef)", async () => {
     await expectUnchanged(async () => {
-      const res = await patch(S3, { expectedChannel: "candidate", channel: "verified" });
+      const res = await patch(S4, { expectedChannel: "candidate", channel: "verified", gateEvidenceRef: "g" });
       expect(res.status).toBe(409);
-      expect(res.body.code).toBe("WORK_SKILL_CHANNEL_TRANSITION_INVALID");
-      expect(res.body.allowedTransitions).toEqual(["verified", "deprecated"]);
+      expect(res.body.code).toBe("WORK_EVAL_G5_NOT_PASSED");
     });
   });
 

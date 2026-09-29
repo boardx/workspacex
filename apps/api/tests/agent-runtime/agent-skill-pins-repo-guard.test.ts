@@ -25,7 +25,9 @@ const repoSource = readFileSync(REPO, "utf8");
 const useCaseSource = readFileSync(USE_CASE, "utf8");
 
 /** 本仓储**允许**命名的租户表。多一张就说明这个文件长出了新的读面。 */
-const ALLOWED_TABLES = new Set(["agents", "agent_versions", "skill_versions"]);
+// 2026-09-29 EV05（ADR-119 #4 / I-8）：加 skill_catalog_entries——官方 Agent pin 时只作 channel='verified' 过滤条件，
+// 结果仍只是存在性布尔，不外流任何行。
+const ALLOWED_TABLES = new Set(["agents", "agent_versions", "skill_versions", "skill_catalog_entries"]);
 
 function tablesNamedIn(source: string): Set<string> {
   const found = new Set<string>();
@@ -38,7 +40,7 @@ function tablesNamedIn(source: string): Set<string> {
 }
 
 describe("白名单条目的前提：仓储侧", () => {
-  it("只命名允许的三张租户表", () => {
+  it("只命名允许的四张租户表", () => {
     const unexpected = [...tablesNamedIn(repoSource)].filter((t) => !ALLOWED_TABLES.has(t));
     expect(unexpected).toEqual([]);
   });
