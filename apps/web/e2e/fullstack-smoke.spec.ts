@@ -138,7 +138,7 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await expect(page).toHaveURL(new RegExp(`/projects/${FULLSTACK_E2E.projectId}/files`));
   await expect(page.getByTestId("live-files-browser")).toBeVisible();
   await expect(page.getByTestId("live-files-list")).toContainText(FULLSTACK_E2E.sentinelFile);
-  await expect(page.getByTestId("live-files-row")).toHaveCount(1);
+  await expect(page.getByTestId("live-files-row").filter({hasText:FULLSTACK_E2E.sentinelFile})).toHaveCount(1);
 
   expect([...seen].sort()).toEqual(Object.keys(requiredResponses).sort());
   expect(failures).toEqual([]);

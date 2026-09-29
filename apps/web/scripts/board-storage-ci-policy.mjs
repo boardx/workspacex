@@ -12,9 +12,12 @@ export async function validateStorageCiEvidence(report,sha,context,output){
  try{
   const {assertImageStorageEvidence}=await tsImport(new URL('../e2e/support/board-durable-images-storage.ts',import.meta.url).href,import.meta.url);
   const {loadVendorSchemaFixture}=await tsImport(new URL('../e2e/support/board-vendor-schema-fixtures.ts',import.meta.url).href,import.meta.url);
-  const rows=report.suites.flatMap(s=>s.specs.flatMap(s=>s.tests));assert.equal(rows.length,4);
+  const rows=report.suites.flatMap(s=>s.specs.flatMap(s=>s.tests));assert.equal(rows.length,5);
+  const evidenceRows=rows.filter(row=>row.results[0].attachments?.some(attachment=>attachment.name==='storage-runtime.json'));
+  assert.equal(evidenceRows.length,4);
+  assert.equal(rows.filter(row=>!evidenceRows.includes(row)).length,1);
   const seen=new Set();
-  for(const row of rows){
+  for(const row of evidenceRows){
    const attachments=row.results[0].attachments;assert(Array.isArray(attachments));const names=new Set();const data=new Map();
    for(const a of attachments){assert(!names.has(a.name));names.add(a.name);assert(resolve(a.path).startsWith(resolve(output)+sep));const bytes=readFileSync(a.path);assert.equal(bytes.length,a.bytes);assert.equal(hash(bytes),a.sha256);data.set(a.name,a.name.endsWith('.png')?bytes:JSON.parse(bytes.toString()));}
    const runtime=data.get('storage-runtime.json');assert(runtime);assert(!seen.has(runtime.scenario));seen.add(runtime.scenario);failures.push(...validateRuntimeBinding(runtime.runtimeIdentity,sha,context));
