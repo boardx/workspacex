@@ -15,7 +15,7 @@
 | BV05-3 / R3.7,R12,协作 R3.3/R4 A1 | UC-A5 Delete、Undo/Redo，原 id 恢复 | 快捷键/底部菜单/状态播报；`basic create edit delete undo redo` | restore 边界未裁决 |
 | BV05-4 / R5,协作 R7 | UC-A1…A5 ACL、权威确认 | Viewer/Commenter 禁用及直接命令拒绝；延迟 ACK 注入 | 未验收 |
 
-以上 UI 消费点是验收目标，尚缺真实 UI 截图材料与③协议单源。既有 `board-fabric-surface` 截图不能替代本束的编辑态签核。
+以上 UI 消费点是验收目标，已有[mock 七态截图](../../ui-preview/board-authoring/README.md)与[③协议评审草案](api.md)，尚缺正式路由真实 UI 截图与签核后的协议单源映射。既有 `board-fabric-surface` 截图不能替代本束的编辑态签核。
 
 ## 用例操作 → 需求（反向，无孤儿）
 

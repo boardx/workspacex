@@ -42,4 +42,4 @@ IME composition 是 `local-draft` 的子态。`confirmed` 的判据来自权威�
 
 ## 需要③契约裁决
 
-当前代码 `StickySizingMode` 为 `fixed/auto-size/auto-height`，而需求 BV04 为 `normal/free/auto-height`；正式契约需裁决模式映射、拖拽与文字增长优先级、旧对象迁移。批量上限当前为 100，需求为 500，需统一 parser、command envelope、预览和容量测试。删除同 id Undo 与单调 tombstone 之间需要认证恢复协议；此草案不擅自允许客户端清 tombstone。
+当前代码 `StickySizingMode` 为 `fixed/auto-size/auto-height`，而需求 BV04 同时提到 normal/free 拖拽与 auto-height 内容增长。[③ 协议草案](api.md)建议将 normal/free 作为交互约束，保留现有持久尺寸枚举；还需由签核确定圆形/方形在自动高度及拖动后的优先级。批量上限当前为 100，需求为 500，需统一 parser、command envelope、预览和容量测试。删除同 id Undo 与单调 tombstone 之间需要认证恢复协议；此草案不擅自允许客户端清 tombstone。

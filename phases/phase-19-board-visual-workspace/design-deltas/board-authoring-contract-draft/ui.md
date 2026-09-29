@@ -31,7 +31,7 @@
 
 ## 签核前必须裁决
 
-- **尺寸单源**：需求称 normal/free/auto-height；现有 `StickySizingMode` 是 fixed/auto-size/auto-height。确定两者语义映射、Shift 拖拽、文本增长与迁移后的 UI 标签，再签核。
+- **尺寸单源**：需求称 normal/free/auto-height；现有 `StickySizingMode` 是 fixed/auto-size/auto-height。[③草案](api.md)建议把 normal/free 定义为拖拽约束，保留现有持久尺寸枚举；圆形/方形自动高度及拖动后优先级仍须签核与验证。
 - **工具栏位置**：`02-object-authoring.md#R8` 仍写左侧一级工具，2026-09-26 已有底部 dock 设计增量。须将正式 UI 方向归一，不能同时让两套高频工具抢画布。
 - **截图与七态**：当前仅有 S01/其他 preview 截图，没有本束逐状态真实渲染。主 session 需在正式路由采集并对照上述矩阵；未齐前① UI 不能视为已签。
 - **可访问性与触摸**：键盘焦点、Esc 还原、48px 触摸区、reduced-motion、320/375/768/1280px 和软键盘遮挡须由主 session 实测。
