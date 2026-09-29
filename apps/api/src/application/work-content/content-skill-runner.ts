@@ -29,12 +29,20 @@ export interface AgentVersionModelPort {
   agentVersionModel(orgId: string, agentVersionId: string): Promise<{ modelProvider: string; modelId: string } | null>;
 }
 
+export type ContentSkillRunFailure = "agent_version_missing" | "skill_output_not_json_object";
+
 export class ContentSkillRunError extends Error {
-  constructor(readonly reason: "agent_version_missing" | "skill_output_not_json_object", readonly skillId: string) {
+  /** 机读错误码（`failureKindOf` 只看 code，不读 message）：`CONTENT_SKILL_AGENT_VERSION_MISSING` / `CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT`。 */
+  readonly code: string;
+  constructor(readonly reason: ContentSkillRunFailure, readonly skillId: string) {
     super(`content skill ${skillId}: ${reason}`);
     this.name = "ContentSkillRunError";
+    this.code = reason === "agent_version_missing" ? "CONTENT_SKILL_AGENT_VERSION_MISSING" : "CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT";
   }
 }
+
+/** system prompt 的格式约定行（唯一事实源；e2e 回环模型据此识别内容线 Skill 请求）。 */
+export const CONTENT_SKILL_REPLY_INSTRUCTION = "Reply with exactly one JSON object and nothing else.";
 
 /** 容忍模型把 JSON 包在 ```json 围栏里；其余一律按 JSON 解析。 */
 function parseJsonObject(text: string): Record<string, unknown> | null {
@@ -62,7 +70,7 @@ export class ModelContentSkillRunner implements ContentSkillRunnerPort {
       system: [
         `Workflow ${call.workflowId} stage ${call.stageId}: run Skill ${call.skillId}@${call.skillVersion}.`,
         "Use the workflow input and the prior stage outputs in the user message.",
-        "Reply with exactly one JSON object and nothing else.",
+        CONTENT_SKILL_REPLY_INSTRUCTION,
       ].join("\n"),
       user: JSON.stringify({ skill: `${call.skillId}@${call.skillVersion}`, stageId: call.stageId, input: call.input, prior: call.prior }),
     });

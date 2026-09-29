@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { buildProjection } from "../../src/application/workflow/instance-projection";
-import { runInstance, type RunInstanceDeps } from "../../src/application/workflow/run-instance";
+import { ContentSkillRunError } from "../../src/application/work-content/content-skill-runner";
+import { failureKindOf, runInstance, type RunInstanceDeps, type StageFailureInfo } from "../../src/application/workflow/run-instance";
 import type { PinnedWorkflowInstance, WorkflowLease } from "../../src/application/workflow/workflow-ports";
 import type { WorkflowEventInput, WorkflowStoredEvent } from "../../src/application/workflow/workflow-runtime-ports";
 
@@ -80,5 +81,28 @@ describe("E9 stage attempts exhausted", () => {
     const failed = s.events.find((e) => e.type === "stage_failed");
     expect(failed?.data).toMatchObject({ attempt: 1, failureKind: "provider_not_configured" });
     expect(s.projection().status).toBe("failed");
+  });
+
+  it("skill_output_not_json_object → failureKind skill_output_invalid, reported via onStageFailure without message", async () => {
+    expect(failureKindOf(new ContentSkillRunError("skill_output_not_json_object", "S064"))).toBe("skill_output_invalid");
+    expect(failureKindOf(new ContentSkillRunError("agent_version_missing", "S064"))).toBe("unknown");
+    const s = setup(2, () => new ContentSkillRunError("skill_output_not_json_object", "S064"));
+    const seen: StageFailureInfo[] = [];
+    s.deps.onStageFailure = (f) => seen.push(f);
+    await expect(runInstance(s.deps, s.lease)).rejects.toBeInstanceOf(ContentSkillRunError);
+    await expect(runInstance(s.deps, s.lease)).resolves.toBe("failed");
+    expect(s.events.find((e) => e.type === "stage_failed")?.data).toMatchObject({ failureKind: "skill_output_invalid" });
+    const error = { name: "ContentSkillRunError", code: "CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT", reason: "skill_output_not_json_object" };
+    expect(seen).toEqual([
+      { instanceId: "i1", stageId: "frame", attempt: 1, failureKind: "skill_output_invalid", final: false, error },
+      { instanceId: "i1", stageId: "frame", attempt: 2, failureKind: "skill_output_invalid", final: true, error },
+    ]);
+    expect(JSON.stringify(seen)).not.toContain("content skill");
+  });
+
+  it("a throwing onStageFailure never changes the stage outcome", async () => {
+    const s = setup(1, () => new Error("x"));
+    s.deps.onStageFailure = () => { throw new Error("sink down"); };
+    await expect(runInstance(s.deps, s.lease)).resolves.toBe("failed");
   });
 });

@@ -23,7 +23,7 @@ import {
   type RunnableItem,
 } from "./instance-queries";
 import { publishDefinitionVersion } from "./publish-definition-version";
-import { runInstance, type RunHooks, type WorkflowGraphDriver } from "./run-instance";
+import { runInstance, type RunHooks, type RunInstanceDeps, type WorkflowGraphDriver } from "./run-instance";
 import type { WorkflowDefinitionCatalogPort, WorkflowGraphCatalog, WorkflowLease } from "./workflow-ports";
 import { WorkflowUseCaseError } from "./workflow-errors";
 import { withoutRunLease } from "../agent-run/run-lease";
@@ -40,6 +40,8 @@ export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "d
   /** 断线重连时可逐条补发的最大差距；超出先发 snapshot。 */
   replayWindow: number;
   onRunError?(instanceId: string, error: unknown): void;
+  /** 阶段业务失败（重试 / 终态失败）的观测出口，透传给 runInstance。 */
+  onStageFailure?: RunInstanceDeps["onStageFailure"];
   hooks?: RunHooks;
   /** R3 过期 lease 接管的跨组织扫描；未提供时 takeOverExpired 为空操作。 */
   expiredLeases?: WorkflowExpiredLeaseScanner;

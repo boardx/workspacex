@@ -67,6 +67,7 @@ export function describeWorkflowError(code: WorkflowErrorCode | null): string {
 export const STAGE_FAILURE_KIND_TEXT: Record<string, string> = {
   provider_not_configured: "模型服务尚未配置，请联系管理员配置后重新发起",
   model_call_failed: "调用模型服务失败",
+  skill_output_invalid: "模型返回的内容格式不符合要求，请稍后重新发起",
   unknown: "阶段执行出错",
 };
 

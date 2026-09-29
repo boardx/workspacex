@@ -18,7 +18,7 @@ import {
   type LeadApproverEligibilityPort,
   type TenantCrmPort,
 } from "../../application/work-content/lead-write-back";
-import type { RunHooks } from "../../application/workflow/run-instance";
+import type { RunHooks, RunInstanceDeps } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
 import type { WorkflowDefinitionVersionInput } from "@repo/contracts/workflow-runtime";
@@ -94,6 +94,7 @@ export interface WorkflowRuntimeOptions {
   replayWindow?: number;
   hooks?: RunHooks;
   onRunError?(instanceId: string, error: unknown): void;
+  onStageFailure?: RunInstanceDeps["onStageFailure"];
   /** 生产入口的过期 lease 扫描间隔；默认 leaseTtlMs/2；0 关闭。 */
   takeoverIntervalMs?: number;
   /** WF04：按能力分类注册的只读对账实现（E1）；未注册的分类崩溃恢复时一律 unresolved。 */
@@ -182,6 +183,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     replayWindow: opts.replayWindow ?? 1000,
     hooks: opts.hooks,
     onRunError: opts.onRunError,
+    onStageFailure: opts.onStageFailure,
     // WF04（review #2）：runInstance 崩溃恢复路径靠这个字段接住 EffectInFlightError 并 reconcile()——
     // 不再是只有单测直接 `new EffectGateway(...)` 才会调用到的孤立代码。
     effectGateway,
