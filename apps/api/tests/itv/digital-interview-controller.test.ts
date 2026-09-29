@@ -7,7 +7,7 @@ import { appendInterviewMarkdownDocument } from "../../src/infrastructure/interv
 import { PgInterviewMarkdownReader } from "../../src/infrastructure/interview/pg-interview-markdown-reader";
 import { PgInterviewScopeRepository } from "../../src/infrastructure/interview/pg-interview-scope-repository";
 import { UuidDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
-import { generateInterviewMarkdown } from "../../src/application/interview/generate-interview-markdown";
+import { generateInterviewMarkdown, normalizeGeneratedOutline } from "../../src/application/interview/generate-interview-markdown";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
@@ -24,6 +24,13 @@ let base = "";
 let db: PgDatabase;
 
 const auth = { "x-kernel-test-principal": `${USER}:${ORG}` };
+
+it("normalizes generated outlines to expert headings and direct numbered questions", () => {
+  const experts = "## [护士长](#expert-nurse)\n\n### 专业角色\n护士长\n\n## [产品经理](#expert-pm)\n";
+  const generated = "## [护士长](#expert-nurse)\n\n### 背景\n1. 用于了解交接背景\n2. 你是谁？\n4. 请描述最近一次交接？\n\n## [产品经理](#expert-pm)\n\n1. 为什么调整流程？\n\n目的：验证假设。";
+  expect(normalizeGeneratedOutline(generated, experts)).toBe("## [护士长](#expert-nurse)\n\n1. 你是谁？\n2. 请描述最近一次交接？\n\n## [产品经理](#expert-pm)\n\n1. 为什么调整流程？");
+  expect(normalizeGeneratedOutline("## [护士长](#expert-nurse)\n\n1. 你是谁？", experts)).toBeNull();
+});
 
 it("authorizes interview before multipart parsing and stores uploaded Markdown only as a draft",async()=>{
   const headers={...auth,"content-type":"multipart/form-data; boundary=broken-boundary"};

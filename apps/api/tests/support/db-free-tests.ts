@@ -14,7 +14,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-export const DB_FREE_TEST_PREFIXES = ["tests/work-eval/"] as const;
+export const DB_FREE_TEST_PREFIXES = ["tests/work-eval/", "tests/work-content/"] as const;
 
 const DB_IMPORT = /from\s+["'](?:[^"']*support\/db(?:-[^"']*)?|pg)["']|\bcreateApp\s*\(/;
 
