@@ -153,6 +153,25 @@ describe("WorkflowRunPanel", () => {
     expect(screen.queryByTestId("workflow-banner-needs-attention")).toBeNull();
   });
 
+  it("失败：重试用尽后显示失败提示条（友好文案 + 尝试次数 + 最后失败时间），不暴露原始 reasonCode", () => {
+    const base = proj();
+    const stages = [base.stages[0]!, { ...base.stages[1]!, status: "failed" as const, attempt: 3, reasonCode: "stage_attempts_exhausted" as const, finishedAt: "2026-09-29T01:00:00Z" }];
+    render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "failed", reasonCode: "stage_attempts_exhausted", stages })} />);
+    const banner = screen.getByTestId("workflow-banner-failed");
+    expect(banner.textContent).toContain("「发布」阶段未能完成");
+    expect(banner.textContent).toContain("该阶段重试次数已用尽");
+    expect(banner.textContent).toContain("共尝试 3 次");
+    expect(banner.textContent).not.toContain("stage_attempts_exhausted");
+    expect(screen.getByTestId("workflow-banner-failed-at")).toBeTruthy();
+    expect(screen.queryByTestId("workflow-stage-retrying-publish")).toBeNull();
+  });
+
+  it("重试等待中：运行中阶段 attempt>1 显示重试中", () => {
+    render(<WorkflowRunPanel instanceId="i1" initial={proj()} />);
+    expect(screen.getByTestId("workflow-stage-retrying-publish").textContent).toContain("第 1 次重试");
+    expect(screen.queryByTestId("workflow-banner-failed")).toBeNull();
+  });
+
   it("needs_attention：提示条显示原因", () => {
     render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "needs_attention", reasonCode: "effect_unreconciled" })} />);
     expect(screen.getByTestId("workflow-banner-needs-attention").textContent).toContain("人工核对");

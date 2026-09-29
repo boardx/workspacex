@@ -21,7 +21,7 @@ import {
 } from "@/lib/workflow-runtime-api";
 import { workflowRuntime } from "@repo/contracts";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
-import { INSTANCE_STATUS_TEXT, REASON_TEXT, STAGE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
+import { INSTANCE_STATUS_TEXT, REASON_TEXT, STAGE_STATUS_TEXT, describeWorkflowError, stageFailureKindText } from "./workflow-copy";
 
 export type WorkflowSseStatus = "live" | "reconnecting" | "polling";
 
@@ -165,6 +165,10 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   const caps = p.viewerCapabilities;
   const ev = p.stateVersion;
   const terminal = TERMINAL.has(p.status);
+  const failedStage = p.status === "failed" ? [...p.stages].reverse().find((s) => s.status === "failed") ?? null : null;
+  const failureKindHint = failedStage
+    ? stageFailureKindText([...log].reverse().find((e) => e.payload.event === "stage_failed" && e.payload.stageId === failedStage.stageId)?.payload.data.failureKind)
+    : null;
 
   return (
     <section data-testid="workflow-run-panel" data-status={p.status} className="space-y-4">
@@ -180,6 +184,19 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
       {p.status === "needs_attention" ? (
         <div role="status" data-testid="workflow-banner-needs-attention" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}>
           需人工处理：{p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
+        </div>
+      ) : null}
+      {p.status === "failed" ? (
+        <div role="alert" data-testid="workflow-banner-failed" className="rounded border border-destructive p-2">
+          <p>运行失败{failedStage ? `：「${failedStage.title}」阶段未能完成` : ""}。</p>
+          <p className="text-sm">
+            {p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
+            {failedStage ? `（共尝试 ${failedStage.attempt} 次）` : ""}
+            {failureKindHint ? `，${failureKindHint}` : ""}
+          </p>
+          {failedStage?.finishedAt ? (
+            <p className="text-xs" data-testid="workflow-banner-failed-at">最后一次失败：{new Date(failedStage.finishedAt).toLocaleString("zh-CN")}</p>
+          ) : null}
         </div>
       ) : null}
       {p.status === "blocked_permission" ? (
@@ -201,6 +218,9 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
               <span className="font-medium">{s.title}</span>
               <span>{STAGE_STATUS_TEXT[s.status]}</span>
               <span className="text-xs">第 {s.attempt} 次</span>
+              {s.status === "running" && s.attempt > 1 ? (
+                <span className="text-xs" data-testid={`workflow-stage-retrying-${s.stageId}`}>重试中（第 {s.attempt - 1} 次重试）</span>
+              ) : null}
             </div>
             <div data-testid={`workflow-stage-skills-${s.stageId}`} className="text-xs">
               {s.pinnedSkills.map((k) => `${k.stableId}@${k.version}`).join(", ")}
