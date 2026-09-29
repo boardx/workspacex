@@ -1458,6 +1458,10 @@ def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     # 在网关没有显式启用这道门时恒返回 False（fail-open，见其头注的方向说明）。
     # `respond` 不在允许决策里：让人替 `write_todos` 直接编一个「工具结果」没有语义，
     # 用户的三个真实选择是确认（approve）/ 改计划（edit）/ 取消（reject）。
+    # AG06：`escalate_matter` 每次调用都中断，交网关按 run 钉住的 escalationPolicy 决定挂起
+    # 等目标人（edit 恢复带回 EscalateDecision）还是原样放行（approve ⇒ 工具体回复「未升级」）。
+    # 不并入 `DEFAULT_HITL_TOOL_NAMES`：那份清单由契约逐字钉住为 call_skill + 三个澄清工具。
+    result["escalate_matter"] = True
     result[_PLAN_CONFIRMATION_TOOL_NAME] = InterruptOnConfig(
         allowed_decisions=["approve", "edit", "reject"],
         when=_write_todos_requires_plan_confirmation,

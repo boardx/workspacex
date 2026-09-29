@@ -493,9 +493,44 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
                     break
         return f"用户选择了方案「{chosen_title}」，请据此继续执行任务，不要再考虑其它方案。"
 
+    @tool
+    def escalate_matter(
+        matter: str | None = None,
+        reason: str | None = None,
+        target: str | None = None,
+        contextRefs: list[str] | str | None = None,
+        decision: str | None = None,
+        decisionText: str | None = None,
+    ) -> str:
+        """当你遇到超出自己职责、需要人来拍板的事项（例如超预算、越权、合规风险）时，调用
+        这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别（与本 Agent 的升级
+        策略里的事项名一致）；`reason` 说明为什么需要升级；`target` 可不填——由谁裁决只由
+        升级策略决定，你自报的值会被忽略；`contextRefs` 是相关证据/对象的 ID 列表。"""
+        # AG06 —— 三条到达路径（`packages/contracts/src/agent-role.ts` EscalatePayload /
+        # EscalateDecision；网关判定见 `apps/api/.../tool-permission-gate.ts`）：
+        # - edit + decision=resolve：目标人批了，`decisionText` 是裁决原文；
+        # - edit + decision=reject：目标人不同意，`reason` 是不同意的理由（EscalateDecision
+        #   的 reject 分支复用了 `reason` 这个键）；
+        # - approve（原样参数，没有 decision）：网关判定该事项不在本 Agent 的升级策略里，
+        #   没有升级给任何人——必须如实告诉模型「未升级」，不是「已批准」。
+        if decision == "resolve":
+            return (
+                f"负责人已裁决同意：{decisionText or '（无附言）'}。"
+                "请严格按这个裁决继续执行任务。"
+            )
+        if decision == "reject":
+            return (
+                f"负责人不同意：{reason or '（未说明理由）'}。"
+                "不要执行被升级的那件事；请据此调整方案，或向用户说明无法继续的原因。"
+            )
+        return (
+            f"事项「{matter or '?'}」不在本 Agent 的升级策略范围内，未升级给任何人，也没有人批准它。"
+            "请按你自己的职责边界判断：职责内的继续执行，职责外的向用户说明并停止。"
+        )
+
     # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.
     if interactions_only:
-        return [confirm_task_intent, fill_run_params, choose_execution_option]
+        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter]
 
     @tool
     def spawn_async_task(description: str, config: RunnableConfig,
@@ -577,5 +612,6 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         confirm_task_intent,
         fill_run_params,
         choose_execution_option,
+        escalate_matter,
         spawn_async_task,
     ]

@@ -463,6 +463,13 @@ export interface AgentRunStore {
   ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]>;
 
   /**
+   * AG06 —— 该 run 钉住的 agent 版本上的 `escalation_policy` 原值（未解析；没有 ⇒ `null`）。
+   * 只被 `tool-permission-gate.ts` 在内核对 `escalate_matter` 中断时调用，判定这次升级是否
+   * 命中策略（`raiseEscalation`）。**可选**：未注入 ⇒ 视为无策略 ⇒ 不挂起、告诉 Agent 未升级。
+   */
+  readPinnedEscalationPolicy?(orgId: OrgId, runId: string): Promise<unknown>;
+
+  /**
    * Append one token-level delta (#654 阶段2a). Callers pass a monotonically increasing
    * `seq` starting at 0 per run; the unique `(org_id, run_id, seq)` constraint is what
    * makes a duplicate append (e.g. a retried write) a no-op collision rather than a second

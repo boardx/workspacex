@@ -5,6 +5,10 @@
  * - `raiseEscalation`：Agent 命中 escalationPolicy（matter 精确匹配一条规则）⇒ run 进入
  *   `awaiting_tool_permission`，待决工具名是 `ESCALATE_TOOL_NAME`、参数是 `EscalatePayload`
  *   JSON。没命中规则 ⇒ 不挂起（返回 `null`）。复用既有 `markAwaitingToolPermission`，不另写 SQL。
+ *   生产调用点：内核对 `escalate_matter` 工具中断 ⇒ `tool-permission-gate.ts` →
+ *   `raiseEscalationFromKernelCall`（读 run 钉住的 policy）→ 这里。
+ * - resume：裁决以 `edit` 恢复，`edited_action.args` = `EscalateDecision` 原文；内核重新调用
+ *   `escalate_matter`（`apps/deep-agent-service/.../tools.py`），工具体把裁决回给 Agent。
  * - `decideEscalation`：**决策人集合只从服务端持久化的状态解析**——pending 中断里的
  *   `target` 必须仍由该 run 钉住的 agent 版本的 escalationPolicy 支撑（同 matter 同 target），
  *   再由 store 把 target（requester / project_owner / org_admin）展开成用户 ID；客户端传不进来。
@@ -83,11 +87,22 @@ export async function decideEscalation(
   const pendingInterrupt: PendingInterrupt | null = row && kind ? { kind, requestId: input.interruptId } : null;
   const raw = input.rawDecision === undefined ? "" : JSON.stringify(input.rawDecision);
   const payload = parseEscalateResumePayload(raw, input.interruptId);
-  const escalation = row && kind === "escalate"
-    ? { deciderId: input.userId, eligibleDeciderIds: await eligibleDeciders(deps, input.orgId, row) }
-    : undefined;
+  const eligibleDeciderIds = row && kind === "escalate" ? await eligibleDeciders(deps, input.orgId, row) : [];
+  /*
+   * 可见性（防探测）：只有目标人与发起这次 run 的请求人知道这条升级存在。其余任何人——
+   * 以及任何非 escalate 的待决中断——一律与"不存在"同一个 404，拿不到 403/409/422 来
+   * 探测某个 interruptId 是否待决。请求人不是目标时得 403（他本来就看得到自己的线程）。
+   */
+  const visible = row !== null && kind === "escalate"
+    && (eligibleDeciderIds.includes(input.userId) || row.requesterUserId === input.userId);
   const refused = guardAgentInterruptDecision({
-    visible: row !== null, canWrite: true, pendingInterrupt, payload, auditWritable: true, escalation,
+    visible,
+    // 裁决权 = escalationPolicy target 成员身份（下面 `escalation` 那一项），不是线程写角色：
+    // org admin / 项目 host 可能对该线程没有任何 ACL 绑定仍是 target。故这里不另判写角色，
+    // NO_WRITE_ROLE 分支对 escalate 不适用——如实传 `visible`，不假装做了第二道判定。
+    canWrite: visible,
+    pendingInterrupt, payload, auditWritable: true,
+    escalation: { deciderId: input.userId, eligibleDeciderIds },
   });
   switch (refused) {
     case null: break;
@@ -99,9 +114,6 @@ export async function decideEscalation(
     default:
       throw new DecideEscalationError("AGENT_NOT_FOUND");
   }
-  // 本端点只裁决 escalate：其他 kind 的中断即便载荷形状与之相符，也必须走它们自己的
-  // decideAgentRun 通路（那里有 validateInterruptDecision），不许借道绕过。
-  if (kind !== "escalate") throw new DecideEscalationError("INTERRUPT_KIND_MISMATCH");
   // guard 已放行 ⇒ row 非空且 rawDecision 是合法 EscalateDecision。
   const decision = input.rawDecision as { readonly decision: "resolve" | "reject" };
   const decided = await deps.runs.decidePermissionRequest?.(
@@ -116,21 +128,54 @@ export async function decideEscalation(
 /**
  * Agent 请求升级：matter 命中 policy 规则 ⇒ 挂起 run 等目标人；否则返回 `null`（不挂起）。
  * target 取规则里的值，不取 Agent 自报——Agent 不能自己挑谁来批。
+ * `pending` 透传内核那次工具调用的 id/摘要，让 resume 能对上同一个 tool call。
  */
 export async function raiseEscalation(
   deps: { readonly runs: Pick<AgentRunStore, "markAwaitingToolPermission"> },
   input: {
     readonly orgId: OrgId; readonly runId: string; readonly policy: unknown;
     readonly matter: string; readonly reason: string; readonly contextRefs: readonly string[];
+    readonly pending?: { readonly toolCallId?: string; readonly toolArgsDigest?: string };
   },
 ): Promise<EscalatePayloadT | null> {
   const policy = EscalationPolicy.safeParse(input.policy);
   if (!policy.success) return null;
   const rule = policy.data.rules.find((r) => r.matter === input.matter);
   if (!rule) return null;
-  const payload = EscalatePayload.parse({ matter: rule.matter, reason: input.reason, target: rule.target, contextRefs: [...input.contextRefs] });
+  const parsed = EscalatePayload.safeParse({ matter: rule.matter, reason: input.reason, target: rule.target, contextRefs: [...input.contextRefs] });
+  if (!parsed.success) return null;
   await deps.runs.markAwaitingToolPermission(input.orgId, input.runId, {
-    toolName: ESCALATE_TOOL_NAME, argsSummary: JSON.stringify(payload), interrupt: null,
+    toolName: ESCALATE_TOOL_NAME, argsSummary: JSON.stringify(parsed.data), interrupt: null,
+    ...(input.pending?.toolCallId === undefined ? {} : { toolCallId: input.pending.toolCallId }),
+    ...(input.pending?.toolArgsDigest === undefined ? {} : { toolArgsDigest: input.pending.toolArgsDigest }),
   });
-  return payload;
+  return parsed.data;
+}
+
+/**
+ * 生产入口：内核（deep-agent / native 两种 runtime 都注册了 `escalate_matter` 工具，
+ * `interrupt_on` 恒为真）在该工具执行前中断，`tool-permission-gate.ts` 把这次调用交给这里。
+ * 读 run 钉住的 escalationPolicy，解析 Agent 给的参数，再走 `raiseEscalation`。
+ * 返回 `null` ⇒ 未命中策略（或参数解析不出来）——调用方按"已放行"让工具原样执行，
+ * 工具体告诉 Agent「未升级，按职责自行判断」，run 不挂起、不自动批准任何事。
+ */
+export async function raiseEscalationFromKernelCall(
+  deps: { readonly runs: Pick<AgentRunStore, "markAwaitingToolPermission" | "readPinnedEscalationPolicy"> },
+  orgId: OrgId,
+  runId: string,
+  call: { readonly argsSummary: string | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+): Promise<EscalatePayloadT | null> {
+  let args: Record<string, unknown>;
+  try {
+    const raw: unknown = JSON.parse(call.argsSummary ?? "");
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    args = raw as Record<string, unknown>;
+  } catch { return null; }
+  if (typeof args.matter !== "string" || typeof args.reason !== "string") return null;
+  const refs = Array.isArray(args.contextRefs) ? args.contextRefs.filter((x): x is string => typeof x === "string") : [];
+  const policy = (await deps.runs.readPinnedEscalationPolicy?.(orgId, runId)) ?? null;
+  return raiseEscalation(deps, {
+    orgId, runId, policy, matter: args.matter, reason: args.reason, contextRefs: refs,
+    pending: { toolCallId: call.toolCallId, toolArgsDigest: call.toolArgsDigest },
+  });
 }

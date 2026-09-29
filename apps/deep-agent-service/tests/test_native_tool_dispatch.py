@@ -56,7 +56,7 @@ ELEMENT_REF = "element:" + "b" * 64
 SENTINEL = "%SENTINEL%"
 
 # 人机交互工具：它们的语义就是"停下来问人"，没有出站派发面，`interrupt_on` 恒为 True。
-INTERRUPT_ONLY = {"confirm_task_intent", "fill_run_params", "choose_execution_option"}
+INTERRUPT_ONLY = {"confirm_task_intent", "fill_run_params", "choose_execution_option", "escalate_matter"}
 
 # name -> (端点路径后缀, 503 时的表现, 参数)。`%SENTINEL%` 在跑之前替换成 `sent-<name>`。
 # "returns-refusal"：只读 web/context 工具不抛异常，而是把结构化拒绝正文交回给模型

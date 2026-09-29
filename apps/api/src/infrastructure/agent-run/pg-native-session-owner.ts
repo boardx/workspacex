@@ -1,4 +1,4 @@
-import { AGENT_INTERRUPTS_TOOL_NAMES } from "@repo/contracts/agent-interrupts";
+import { AGENT_INTERRUPTS_TOOL_NAMES, ESCALATE_MATTER_TOOL_NAME } from "@repo/contracts/agent-interrupts";
 import { createCipheriv,createDecipheriv,createHash,randomBytes,randomUUID } from "node:crypto";
 import { NativeSessionResolved,NativeInputManifest,canonicalNativeInputs,canonicalNativePackageSet } from "@repo/contracts/native-session-binding";
 import { TrustedSkillPackage } from "@repo/contracts/standard-capabilities";
@@ -48,7 +48,7 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
    const existing=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2 FOR UPDATE',[context.orgId,context.parentRunId])).rows[0]!;
    if((existing.input_digest??hash(canonicalNativeInputs([])))!==inputDigest||canonicalNativeInputs(NativeInputManifest.parse(existing.input_manifest))!==canonicalNativeInputs(inputManifest)||existing.status!=='ready'||Number(existing.expires_at)<=Date.now()||existing.package_digest!==digest)throw new Error('native_session_existing_binding_unavailable');
    // Existing bindings retain their capability snapshot; new candidate keys are admission-only.
-   const interactions:readonly string[]=Object.values(AGENT_INTERRUPTS_TOOL_NAMES);
+   const interactions:readonly string[]=[...Object.values(AGENT_INTERRUPTS_TOOL_NAMES),ESCALATE_MATTER_TOOL_NAME];
    const changed=Object.keys(existing.interrupt_on).filter(key=>existing.interrupt_on[key]!==policy[key]);
    if(changed.some(key=>!interactions.includes(key)||policy[key]!==true))throw new Error('native_session_existing_binding_unavailable');
    const preserved={...existing.interrupt_on};

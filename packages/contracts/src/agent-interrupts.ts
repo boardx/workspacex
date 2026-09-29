@@ -64,7 +64,10 @@ export const AGENT_INTERRUPTS_TOOL_NAMES = {
 /**
  * AG06：Agent 命中 escalationPolicy 时发出的升级中断工具名（载荷见 agent-role.ts
  * `EscalatePayload`）。刻意不并入 `AGENT_INTERRUPTS_TOOL_NAMES`——那份对象被原生工具
- * 档案/HITL 豁免清单整体展开，escalate 的运行时接线不在 AG06 范围内。
+ * 档案/HITL 豁免清单整体展开、并逐字等于 `DEFAULT_HITL_TOOL_NAMES`；escalate 的挂起条件
+ * 不同（由 escalationPolicy 决定，不是每次都问）。运行时接线：Python `tools.py`
+ * 注册同名 `@tool`（legacy 与 native 两种 runtime，`interrupt_on` 恒真），网关
+ * `tool-permission-gate.ts` 按 run 钉住的 policy 决定挂起（`raiseEscalationFromKernelCall`）或放行。
  */
 export const ESCALATE_MATTER_TOOL_NAME = "escalate_matter" as const;
 

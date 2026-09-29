@@ -374,6 +374,20 @@ export class PgAgentRunRepository implements AgentRunStore {
    * `output_full_content_enc`（不需要解密，也不该在这条安全判定路径上依赖 cipher 是否
    * 配置——归因失败要 fail closed 到"每次都问"，不该因为 cipher 缺失而连带失败）。
    */
+  /** AG06 —— 见 `AgentRunStore.readPinnedEscalationPolicy`。只读 policy 一列。 */
+  async readPinnedEscalationPolicy(orgId: OrgId, runId: string): Promise<unknown> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ escalation_policy: unknown }>(
+        `SELECT v.escalation_policy
+           FROM agent_runs r
+           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      return rows[0]?.escalation_policy ?? null;
+    });
+  }
+
   async readToolCallAttributionSteps(
     orgId: OrgId, runId: string,
   ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]> {
