@@ -227,16 +227,22 @@ export interface ParsedEvalArgs {
   cases: string[];
   evalsRoot?: string;
   version?: string;
+  /** EV05：`--all-skills` 批量评测全部 Skill（与 --entity/--case/--version 互斥）。 */
+  allSkills: boolean;
+  /** EV05：`--write-back` 把门状态回写目录（仅 --all-skills）。 */
+  writeBack: boolean;
   /** 不认识的参数；调用方须以 SUITE_INVALID 拒绝，而不是静默忽略。 */
   unknown: string[];
 }
 
 export function parseEvalArgs(argv: readonly string[]): ParsedEvalArgs {
-  const r: ParsedEvalArgs = { baseline: false, cases: [], unknown: [] };
+  const r: ParsedEvalArgs = { baseline: false, cases: [], allSkills: false, writeBack: false, unknown: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--entity") r.entity = argv[++i];
     else if (a === "--baseline") r.baseline = true;
+    else if (a === "--all-skills") r.allSkills = true;
+    else if (a === "--write-back") r.writeBack = true;
     else if (a === "--case") r.cases.push(...(argv[++i] ?? "").split(",").filter(Boolean));
     else if (a === "--evals-root") r.evalsRoot = argv[++i];
     else if (a === "--version") r.version = argv[++i] ?? "";

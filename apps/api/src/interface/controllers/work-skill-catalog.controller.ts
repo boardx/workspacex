@@ -28,6 +28,7 @@ import {
   UpdateWorkSkillCatalogEntry,
   WorkSkillErrorBody,
 } from "@repo/contracts/work-skill-meta";
+import { WorkEvalErrorBody } from "@repo/contracts/work-eval";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import {
   getWorkSkillCatalogEntry,
@@ -39,6 +40,7 @@ import {
   WorkSkillCatalogNotFoundError,
   WorkSkillChannelTransitionInvalidError,
   WorkSkillSuccessorInvalidError,
+  WorkSkillG5NotPassedError,
   type WorkSkillCatalogRepository,
 } from "../../application/skill/work-skill-catalog";
 import {
@@ -95,6 +97,12 @@ function mapError(error: unknown): never {
   if (error instanceof WorkSkillChannelTransitionInvalidError) {
     throw workSkillError(ConflictException, {
       code: "WORK_SKILL_CHANNEL_TRANSITION_INVALID", message: error.reason, allowedTransitions: [...error.allowed],
+    });
+  }
+  if (error instanceof WorkSkillG5NotPassedError) {
+    // EV05 / UC-7：契约 work-eval `WorkEvalErrorBody`（code 登记于 updateWorkSkillCatalogEntryGateCheck.err）。
+    throw new ConflictException({
+      workEvalError: WorkEvalErrorBody.parse({ code: "WORK_EVAL_G5_NOT_PASSED", message: "G5 has not passed for the current version" }),
     });
   }
   if (error instanceof WorkSkillSuccessorInvalidError) {

@@ -19,6 +19,7 @@ import {
   type CatalogChangeDecision,
   type CatalogEntryChange,
   type CatalogEntryState,
+  type CurrentVersionG5,
 } from "../../domain/skill/work-skill-catalog";
 
 export const WORK_SKILL_CATALOG_REPOSITORY = Symbol("WorkSkillCatalogRepository");
@@ -76,7 +77,12 @@ export interface WorkSkillCatalogRepository {
     readonly idempotencyKey: string;
     readonly requestDigest: string;
     readonly gateEvidenceRef: string | null;
-    readonly decide: (current: CatalogEntryState, successorOf: ReadonlyMap<string, string | null>) => CatalogChangeDecision;
+    /** currentG5：同一事务内读到的「当前版本」门状态记录的 G5（无记录 = null，EV05）。 */
+    readonly decide: (
+      current: CatalogEntryState,
+      successorOf: ReadonlyMap<string, string | null>,
+      currentG5: CurrentVersionG5 | null,
+    ) => CatalogChangeDecision;
   }): Promise<CatalogUpdateOutcome>;
 }
 
@@ -90,6 +96,12 @@ export class WorkSkillCatalogAdminRequiredError extends Error {}
 export class WorkSkillCatalogIdempotencyConflictError extends Error {}
 export class WorkSkillChannelTransitionInvalidError extends Error {
   constructor(readonly allowed: readonly WorkSkillChannel[], readonly reason: string) {
+    super(reason);
+  }
+}
+/** EV05：candidate→verified 时当前版本 G5 未过 → 409 WORK_EVAL_G5_NOT_PASSED。 */
+export class WorkSkillG5NotPassedError extends Error {
+  constructor(readonly reasonCode: string | null, readonly reason: string) {
     super(reason);
   }
 }
@@ -163,7 +175,7 @@ export async function updateWorkSkillCatalogEntry(
     idempotencyKey: input.idempotencyKey,
     requestDigest: input.requestDigest,
     gateEvidenceRef: input.change.gateEvidenceRef ?? null,
-    decide: (current, successorOf) => decideCatalogEntryChange(current, input.change, successorOf),
+    decide: (current, successorOf, currentG5) => decideCatalogEntryChange(current, input.change, successorOf, currentG5),
   });
   switch (outcome.kind) {
     case "updated":
@@ -177,5 +189,7 @@ export async function updateWorkSkillCatalogEntry(
       throw new WorkSkillChannelTransitionInvalidError(outcome.allowed, outcome.reason);
     case "successor-invalid":
       throw new WorkSkillSuccessorInvalidError(outcome.reason);
+    case "g5-not-passed":
+      throw new WorkSkillG5NotPassedError(outcome.reasonCode, outcome.reason);
   }
 }
