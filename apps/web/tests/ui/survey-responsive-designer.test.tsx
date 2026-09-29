@@ -43,6 +43,7 @@ it("shows the prototype's question toolbox in the desktop designer", () => {
   expect(screen.getByRole("button", { name: /^单选$/ })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "题目大纲" })).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "问卷设计画布" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "收起实时预览" })).not.toBeInTheDocument();
 });
 
 it("edits question content in the center canvas while the right panel only exposes settings", () => {

@@ -218,7 +218,7 @@ export function SurveyQuestionEditor({
               完成编辑
             </Button>
           )}
-          {!overviewFirst && (
+          {!overviewFirst && !studioLayout && (
             <Button
               type="button"
               variant="outline"

@@ -298,7 +298,7 @@ export function LiveSurveyWorkspace({
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
     () => execute(async () => { await save(); }));
   return (
-    <main className={`min-w-0 bg-background ${step === "design" ? "xl:flex xl:h-[calc(100dvh-3rem)] xl:flex-col xl:overflow-hidden" : ""}`}>
+    <main className={`min-w-0 bg-background ${step === "design" ? "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden" : ""}`}>
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"
