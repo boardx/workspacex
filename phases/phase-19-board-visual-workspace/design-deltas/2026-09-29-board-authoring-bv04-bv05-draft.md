@@ -43,6 +43,8 @@ BV05 的本轮“基础”撤销边界必须与 BV22 区分：多人字段级不
 
 本次逐项核对还发现：BV04/BV05 列出的五条 `apps/web/tests/ui/...` 与 Playwright 标题目前并无对应测试文件或用例名；已有测试入口是 `apps/web/e2e/board-thinking-input.spec.ts`、`packages/whiteboard-core/tests/thinking-input.test.ts` 和 `undo-conflict.test.ts`。因此正式实施需先补能证明验收指标的断言，不能把现有测试通过解释为 BV04/BV05 已验收。
 
+2026-09-29 本地基线：`pnpm --filter @repo/whiteboard-core exec vitest run tests/thinking-input.test.ts` 通过（9/9）；其中一条断言明确要求 101 张被拒绝，证实当前测试正在维护 **100 张上限**，并不能证明 500 张目标。GitHub [issue #4032](https://github.com/boardx/workspacex/issues/4032) 仍 OPEN，正文已明确要求键盘连续录入、500 行预览、一次 Yjs transaction、双客户端收敛，可作为 BV05 的现有跟踪项；BV04 仍需按 harness 创建/关联自己的 issue。
+
 ## 建议的可执行验证
 
 沿用 feature 清单现有命令，完成正式束后补上缺口断言：
