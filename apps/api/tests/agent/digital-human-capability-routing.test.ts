@@ -10,6 +10,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ModelCallCompletion, ModelCallInput, ModelCallPort } from "../../src/application/agent-run/ports";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
+import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import { publishDefinitionVersion } from "../../src/application/workflow/publish-definition-version";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "../../src/application/workflow/workflow-runtime-service";
 import { officialRoleWorkflowAllowlists } from "../../src/domain/agent/official-role-packs";
@@ -79,15 +80,15 @@ async function insertDashscopeAgent(agentId: string, allowlist: readonly string[
   });
 }
 
-async function seedQueuedRun(id: string, agentId: string): Promise<void> {
+async function seedQueuedRun(id: string, agentId: string, runSkillVersionIds: readonly string[] = []): Promise<void> {
   const thread = `thread-${id}`;
   await addChatThread({ orgId: ORG, id: thread, projectId: PROJECT, visibilityScope: "plenary", createdBy: REQUESTER });
   await addChatMessage({ orgId: ORG, id: `${id}-in`, threadId: thread, body: "帮我发起流程", authorId: REQUESTER });
   await asApp(ORG, (c) => c.query(
     `INSERT INTO agent_runs (id, org_id, thread_id, input_message_id, agent_id, agent_version_id,
        skill_version_ids, model_provider, model_id, status)
-     VALUES ($1,$2,$3,$4,$5,$6,'[]'::jsonb,'dashscope','qwen-plus','queued')`,
-    [id, ORG, thread, `${id}-in`, agentId, `${agentId}-v1`]));
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'dashscope','qwen-plus','queued')`,
+    [id, ORG, thread, `${id}-in`, agentId, `${agentId}-v1`, JSON.stringify(runSkillVersionIds)]));
 }
 
 async function runRow(id: string) {
@@ -176,6 +177,26 @@ describe("数字人能力（决策 B）：dashscope 钉住 + 白名单 ⇒ deep-
     await executeQueuedRuns(deps(), { orgId: ORG });
     expect(calls).toHaveLength(1);
     expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen-plus" });
+  });
+
+  it("回归（core-loop 8b）：普通 Agent 的 run 并入了组织已启用 Skill ⇒ 仍不改道；写回后线程里恰好 human + agent 各一条", async () => {
+    // 组织里有已启用 Skill 时，未钉 Skill 的 Agent 的 run.skill_version_ids 会并入它们
+    // （message-roundtrip.ts resolveRunSkillVersionIds）。那不是这个 Agent 的工具型能力。
+    const enabled = await asApp(ORG, async (c) => (await c.query<{ id: string }>(
+      "SELECT id FROM skill_versions WHERE org_id=$1 ORDER BY id LIMIT 1", [ORG])).rows.map((r) => r.id));
+    expect(enabled, "starter pack 导入后组织里应有可钉的 skill 版本").toHaveLength(1);
+    calls.length = 0;
+    script = [{ text: "[plain] 你好。" }];
+    await seedQueuedRun("run-dh-orgskill", PLAIN, enabled);
+    await executeQueuedRuns(deps(), { orgId: ORG });
+    await writeBackPendingRuns(deps() as never, { orgId: ORG });
+    expect(calls).toHaveLength(1);
+    expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen-plus" });
+    expect((await runRow("run-dh-orgskill")).status).toBe("succeeded");
+    const msgs = await asApp(ORG, async (c) => (await c.query<{ author_kind: string; body: string }>(
+      "SELECT author_kind, body FROM chat_messages WHERE org_id=$1 AND thread_id=$2 ORDER BY created_at, id", [ORG, "thread-run-dh-orgskill"])).rows);
+    expect(msgs.map((m) => m.author_kind).sort()).toEqual(["agent", "human"]);
+    expect(msgs.find((m) => m.author_kind === "agent")!.body).toContain("[plain]");
   });
 
   it("恢复：经 deep-agent 运行时执行的 dashscope run（有白名单）按 deep-agent 读远端；普通 Agent 仍判 uncertain、不读远端", async () => {

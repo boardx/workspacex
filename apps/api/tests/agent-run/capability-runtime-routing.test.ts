@@ -8,9 +8,9 @@ import { toOrgId } from "../../src/domain/org-id";
 
 const ORG = toOrgId("org-x");
 const base = { runId: "r1", modelProvider: "dashscope", modelId: "qwen-plus", skillVersionIds: [] as string[] } as unknown as ClaimedAgentRun;
-const store = (allowlist: string[] | null): AgentRunStore => ({
+const store = (allowlist: string[] | null, agentPinnedSkillCount = 0): AgentRunStore => ({
   readRunWorkflowContext: async () => allowlist === null ? null
-    : { agentId: "a", agentVersionId: "v", workflowAllowlist: allowlist, requesterUserId: null },
+    : { agentId: "a", agentVersionId: "v", workflowAllowlist: allowlist, requesterUserId: null, agentPinnedSkillCount },
 }) as unknown as AgentRunStore;
 const served: ModelCallPort = { complete: async () => ({ text: "" }), servesViaKernelRuntime: (p) => p === "dashscope" };
 
@@ -19,9 +19,13 @@ describe("routeCapabilityRun（数字人能力，决策 B）", () => {
     const run = await routeCapabilityRun({ model: served, runs: store(["W027"]) }, ORG, base);
     expect({ p: run.modelProvider, m: run.modelId }).toEqual({ p: "deep-agent", m: "qwen-plus" });
   });
-  it("dashscope + 挂载 Skill ⇒ deep-agent", async () => {
-    const run = await routeCapabilityRun({ model: served, runs: store([]) }, ORG, { ...base, skillVersionIds: ["s1"] });
+  it("dashscope + Agent 版本自己钉了 Skill ⇒ deep-agent", async () => {
+    const run = await routeCapabilityRun({ model: served, runs: store([], 1) }, ORG, { ...base, skillVersionIds: ["s1"] });
     expect(run.modelProvider).toBe("deep-agent");
+  });
+  it("回归（core-loop 8b）：run 只因并入组织已启用 Skill 而有 skillVersionIds，Agent 自身无能力 ⇒ 原样", async () => {
+    const withOrgSkills = { ...base, skillVersionIds: ["org-enabled-1"] } as ClaimedAgentRun;
+    expect(await routeCapabilityRun({ model: served, runs: store([], 0) }, ORG, withOrgSkills)).toBe(withOrgSkills);
   });
   it("普通 Agent（无白名单、无 Skill）/ 读不到上下文 ⇒ 原样", async () => {
     expect(await routeCapabilityRun({ model: served, runs: store([]) }, ORG, base)).toBe(base);

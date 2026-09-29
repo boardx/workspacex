@@ -477,6 +477,12 @@ export interface AgentRunStore {
   readRunWorkflowContext?(orgId: OrgId, runId: string): Promise<{
     readonly agentId: string; readonly agentVersionId: string;
     readonly workflowAllowlist: readonly string[]; readonly requesterUserId: string | null;
+    /**
+     * 钉住的 Agent **版本自身**钉的 Skill 数（`agent_versions.skill_version_ids`）。区别于 run 的
+     * `skill_version_ids`：后者在 agent 没钉 skill 时会并入**组织里所有已启用 skill**，不代表这个
+     * Agent 有工具型能力（数字人路由判据，见 `capability-runtime-routing.ts`）。缺席 ⇒ 按 0。
+     */
+    readonly agentPinnedSkillCount?: number;
   } | null>;
 
   /**

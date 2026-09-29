@@ -11,7 +11,11 @@ import { DEEP_AGENT_PROVIDER_NAME, type AgentRunStore, type ClaimedAgentRun, typ
  * 判据（最小且正确）：
  *   1. provider 名由 deep-agent 内核的 LLM 端点同样提供（`ModelCallPort.servesViaKernelRuntime`，
  *      合成期决定：内核与 chat 共用同一个 `KERNEL_MODEL_*` 端点）——否则换运行时会换掉模型；
- *   2. 且该 run 有工具型能力：钉住版本的 Workflow 白名单非空，或挂载了 Skill。
+ *   2. 且该 Agent **自身**有工具型能力：钉住版本的 Workflow 白名单非空，或钉住版本自己钉了 Skill。
+ *      ⚠ 不看 run 的 `skillVersionIds`：Agent 没钉 Skill 时它会并入**组织里所有已启用 Skill**
+ *      （`message-roundtrip.ts` 的 `resolveRunSkillVersionIds`），于是只要组织里启用过任何一个 Skill，
+ *      每个普通 Agent 都会被改道——core-loop 8b 的回环 Agent 就是这样被换了运行时、回复不再出自
+ *      它钉住的 provider。判据只取钉住版本快照（不可变），resume / 恢复重算结论不变。
  * 两条都满足 ⇒ 本次执行视作 `deep-agent` run，`modelId` 保持钉住值（`qwen-plus`），由
  * `DeepAgentModelProvider` 以 `configurable.model_id` 交给内核按次覆盖模型。
  * 其它一切（普通 Agent、本就是 deep-agent 的 run、研究/图片 provider）原样返回——同一个对象。
@@ -31,9 +35,9 @@ export async function routeCapabilityRun(
 }
 
 async function hasToolCapabilities(runs: AgentRunStore, orgId: OrgId, run: ClaimedAgentRun): Promise<boolean> {
-  if (run.skillVersionIds.length > 0) return true;
   const ctx = await runs.readRunWorkflowContext?.(orgId, run.runId);
-  return (ctx?.workflowAllowlist.length ?? 0) > 0;
+  if (!ctx) return false;
+  return ctx.workflowAllowlist.length > 0 || (ctx.agentPinnedSkillCount ?? 0) > 0;
 }
 
 /**
