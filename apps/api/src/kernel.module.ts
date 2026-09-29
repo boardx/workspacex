@@ -2099,6 +2099,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
         const chatPort = new ConfiguredModelProvider(chatConfig);
+        const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
+        // 数字人能力（决策 B）：内核与 chat 共用同一个 KERNEL_MODEL_* 端点，所以它能跑的 provider 名 =
+        // 配置的 chat provider + 回环别名。见 application/agent-run/capability-runtime-routing.ts。
+        const kernelServed = new Set([chatConfig.provider, ...loopbackAliases].filter((p) => p !== ""));
         // 回环/开发/CI 专用别名（生产无效：需显式 env + 回环 baseUrl），见 loopback-provider-aliases.ts。
         return new RoutingModelCallPort(new Map<string, ModelCallPort>(withLoopbackProviderAliases<ModelCallPort>([
           [chatConfig.provider, chatPort],
@@ -2115,7 +2119,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
             : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())] as const]),
-        ], readLoopbackProviderAliases(process.env, chatConfig), chatPort)));
+        ], loopbackAliases, chatPort)), kernelServed);
       },
     },
     {

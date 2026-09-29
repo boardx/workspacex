@@ -1280,6 +1280,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
             configurable: {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
+              ...pinnedModelConfig(input),
               org_skills: toWireSkills(input.skills),
             // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
             ...(input.excludedTools && input.excludedTools.length > 0 ? { excluded_tools: [...input.excludedTools] } : {}),
@@ -1377,6 +1378,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           configurable: {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
+              ...pinnedModelConfig(input),
             org_skills: toWireSkills(input.skills),
             // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
             ...(input.excludedTools && input.excludedTools.length > 0 ? { excluded_tools: [...input.excludedTools] } : {}),
@@ -1675,4 +1677,15 @@ function sleep(ms: number): Promise<void> {
     const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},ms);
     signal.addEventListener('abort',abort,{once:true});
   });
+}
+
+/**
+ * 数字人能力（决策 B，见 `application/agent-run/capability-runtime-routing.ts`）：一个钉住
+ * 具体模型（如 `qwen-plus`）的 run 经本运行时执行时，把那个模型 id 交给内核按次覆盖
+ * （`configurable.model_id`，内核侧 `PinnedModelMiddleware`）。原生 deep-agent run 的
+ * `modelId` 恒是路由标签 `"deep-agent"` ⇒ 不送，内核用自己的默认模型——与此前逐字相同。
+ */
+export function pinnedModelConfig(input: Pick<ModelCallInput, "modelId">): Record<string, string> {
+  const id = input.modelId.trim();
+  return id === "" || id === DEEP_AGENT_PROVIDER_NAME ? {} : { model_id: id };
 }

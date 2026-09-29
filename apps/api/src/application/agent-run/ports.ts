@@ -1287,6 +1287,13 @@ export interface ModelCallCompletion {
 export interface ModelCallPort {
   supportsLiveInterjections?(modelProvider: string): boolean;
   /**
+   * 数字人能力（决策 B）—— 这个 provider 名是否由 deep-agent 内核的 LLM 端点**同样**提供
+   * （同一个 `KERNEL_MODEL_*` 端点，见 `capability-runtime-routing.ts`）。为真时，带工具型
+   * 能力（Workflow 白名单 / 挂载 Skill）的 run 改走 deep-agent 运行时、底层模型仍是 run 钉住的
+   * `modelId`。缺席 = 不改路由（与本字段加入之前逐字相同）。
+   */
+  servesViaKernelRuntime?(modelProvider: string): boolean;
+  /**
    * Perform the single model call for a pinned provider/model.
    *
    * Throws `ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED")` when `modelProvider` is not

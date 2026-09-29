@@ -1214,6 +1214,49 @@ class InterjectionMiddleware(AgentMiddleware):
             return await handler(request)
 
 
+_PINNED_MODEL_CONFIG_KEY = "model_id"
+_pinned_models: dict[str, BaseChatModel] = {}
+
+
+def _pinned_model_id() -> str | None:
+    """本次 run 的 `configurable.model_id`（数字人能力，决策 B）。缺席/空/不在 runnable 上下文 ⇒ None。"""
+    try:
+        config = get_config()
+    except RuntimeError:
+        return None
+    raw = (config.get("configurable") or {}).get(_PINNED_MODEL_CONFIG_KEY)
+    return raw.strip() if isinstance(raw, str) and raw.strip() else None
+
+
+def _prepare_pinned_model_request(request: ModelRequest) -> ModelRequest:
+    model_id = _pinned_model_id()
+    if model_id is None or getattr(request.model, "model_name", None) == model_id:
+        return request
+    model = _pinned_models.get(model_id)
+    if model is None:
+        from deep_agent_service.model import build_chat_model
+
+        model = _pinned_models.setdefault(model_id, build_chat_model(model_id))
+    return request.override(model=model)
+
+
+class PinnedModelMiddleware(AgentMiddleware):
+    """数字人能力（决策 B）：钉住具体模型（如官方数字人的 qwen-plus）的 Agent 经本运行时执行时，
+    每次模型调用换成它钉住的那个模型——同一端点，不换 provider。未送 `model_id` ⇒ 原样透传。"""
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        return handler(_prepare_pinned_model_request(request))
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        return await handler(_prepare_pinned_model_request(request))
+
+
 def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = None) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -1224,6 +1267,8 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # issue #2836：排第一——它的 before_agent 要先把上一轮的远端残留删掉，后面
         # 所有按 messages 判断的中间件（判类、插话、rubric）看到的才是本轮的窗口。
         TurnWindowMiddleware(),
+        # 数字人能力（决策 B）：最外层换模型，内层中间件看到的就是钉住的模型。
+        PinnedModelMiddleware(),
         TodoListMiddleware(),
         # Phase 14 后续 A（#2755）：紧跟规划工具之后、两个"钉 write_todos"的中间件之前——
         # 它的 before_model 要先把插话追加进 messages，后面 TaskClassifier 的判类与
