@@ -163,6 +163,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
 test('comments anchor ACL',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),commenterContext=await browser.newContext({baseURL});
   const owner=await ownerContext.newPage(),commenter=await commenterContext.newPage();let boardId:string|undefined,ownerToken:string|undefined,commenterToken:string|undefined;
+  for (const page of [owner, commenter]) page.setDefaultTimeout(15_000);
   try{
     [ownerToken,commenterToken]=await Promise.all([login(owner,'OWNER'),login(commenter,'VIEWER')]);
     const created=await request(api,ownerToken,'POST','/whiteboards',{requestId:randomUUID(),name:`Comment ACL ${randomUUID()}`});boardId=(await created.json() as {id:string}).id;
@@ -170,7 +171,7 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     await owner.goto(`/studio/board/${boardId}`);await commenter.goto(`/studio/board/${boardId}`);await Promise.all([synced(owner),synced(commenter)]);
     await owner.keyboard.press('n');await owner.getByLabel('对象文字',{exact:true}).fill('comment anchor target');await synced(owner);
     const target=commenter.getByRole('button',{name:'图形：comment anchor target',exact:true});await expect(target).toBeVisible({timeout:20_000});await target.focus();await target.press('Enter');
-    await expect(commenter.getByLabel('对象文字',{exact:true})).toBeDisabled();await commenter.getByRole('button',{name:'评论',exact:true}).click();await commenter.getByLabel('评论内容').fill('object anchored by commenter');await commenter.getByRole('button',{name:'发布评论'}).click();
+    await expect(commenter.getByLabel('对象文字',{exact:true})).toHaveCount(0);await commenter.getByRole('button',{name:'评论',exact:true}).click();await commenter.getByLabel('评论内容').fill('object anchored by commenter');await commenter.getByRole('button',{name:'发布评论'}).click();
     await owner.reload();await synced(owner);const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();await expect(owner.getByText('object anchored by commenter')).toBeVisible();
     const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:320,y:240},body:'world anchor',mentions:[],expectedRevision:0};
     await request(api,commenterToken,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
