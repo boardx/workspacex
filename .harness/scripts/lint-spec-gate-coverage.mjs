@@ -282,6 +282,18 @@ const EXEMPTIONS = [
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
   {
+    spec: "apps/web/e2e/board-collaboration-soak.spec.ts",
+    reason: "#4700: requestor deferred the 50-client, 30-minute acceptance on 2026-09-29; manual workflow_dispatch remains available until the follow-up PR restores the automatic gate.",
+  },
+  {
+    spec: "apps/web/e2e/board-performance-acceptance.spec.ts",
+    reason: "#4704: requestor split unfinished 1k/5k/10k performance acceptance from PR #4524; manual workflow_dispatch remains available until the follow-up PR restores the automatic gate.",
+  },
+  {
+    spec: "apps/web/e2e/board-vendor-captured-migration.spec.ts",
+    reason: "#4707: captured Miro/Mural account acceptance lacks the repository Actions manifest; synthetic import remains an automatic PR check until the follow-up PR restores this gate.",
+  },
+  {
     spec: "apps/web/e2e/chat-run-always-lands.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
   },
