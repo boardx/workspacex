@@ -361,11 +361,12 @@ test("selection transform locks", async ({ page, request }) => {
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 2 个对象");
   const transform = await canvasTransform(page);
   const start = { x: transform.box.x + transform.panX + (freeBefore.x + freeBefore.width / 4) * transform.zoom, y: transform.box.y + transform.panY + (freeBefore.y + freeBefore.height / 2) * transform.zoom };
-  // The proposed bottom move falls within the existing five-CSS-pixel guide
-  // threshold of the locked object's bottom edge; assert the exact snapped result.
+  // Aim two CSS pixels inside the bottom guide. A five-pixel boundary gesture
+  // can round outside the snap radius after viewport scaling on CI browsers.
   const snappedY = lockedBefore.y + lockedBefore.height;
-  expect(Math.abs(freeBefore.y + 60 - snappedY) * transform.zoom).toBeLessThanOrEqual(5);
-  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + 60 * transform.zoom, { steps: 10 }); await page.mouse.up();
+  const dragY = snappedY - freeBefore.y - 2 / transform.zoom;
+  expect(Math.abs(freeBefore.y + dragY - snappedY) * transform.zoom).toBeLessThanOrEqual(3);
+  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + dragY * transform.zoom, { steps: 10 }); await page.mouse.up();
   await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: snappedY });
   expect(await geometryOf(locked)).toEqual(lockedBefore);
   await page.getByRole("button", { name: "撤销", exact: true }).click();

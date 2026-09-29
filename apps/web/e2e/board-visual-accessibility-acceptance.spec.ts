@@ -8,7 +8,7 @@ import {boardImagePngFixture} from './support/board-image-fixture';
 import {captureVisual,visualViewports,sha256} from './support/board-visual-measurements';
 
 // Browser observations are engineering evidence, never a subjective nine-point score.
-test('visual and accessibility real object states, input and negative controls',async({page,request,browserName},info)=>{
+test('visual and accessibility real object states, input and negative controls',async({page,request,browser,browserName},info)=>{
   const sha=runtimeSourceIdentity(),finishChunks=observeRuntimeChunks(page),token=await boardLogin(page);
   const boardId=await createAcceptanceBoard(request,token,`Visual accessibility ${browserName}`);
   const captures:Awaited<ReturnType<typeof captureVisual>>[]=[],axeResults:unknown[]=[],input:unknown[]=[];
@@ -81,7 +81,18 @@ test('visual and accessibility real object states, input and negative controls',
     await page.evaluate(()=>{document.documentElement.dir='rtl';});captures.push(await captureVisual(page,info,'rtl',false));
     await page.evaluate(()=>{document.documentElement.dir='ltr';});await page.emulateMedia({forcedColors:'none'});
     await page.reload();await expect(page.getByTestId('board-fabric-surface')).toBeVisible();
+    await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS,{timeout:30_000});
+    const touchObjectCount=(await canonicalRows(page)).length;
     if(browserName==='chromium'){
+      // Keep the long-running visual/reflow session's IndexedDB outbox separate
+      // from physical-input emulation. A fresh authenticated browser context
+      // proves touch against the same durable Board after reload has converged.
+      const touchContext=await browser.newContext({baseURL:new URL(page.url()).origin});
+      const touchPage=await touchContext.newPage();
+      try{
+      await boardLogin(touchPage);
+      await openBoard(touchPage,boardId,touchObjectCount);
+      const page=touchPage;
       const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
       await page.getByTestId('board-tool-hand').click();
       const surface=page.getByTestId('board-fabric-surface'),before=await surface.getAttribute('data-viewport-pan-x');
@@ -121,6 +132,7 @@ test('visual and accessibility real object states, input and negative controls',
       const snapshot=await canonicalSnapshot(request,token,boardId);const drawing=snapshot.objects.filter(o=>(o.extensionData?.contentObject as {type?:string})?.type==='drawing');
       const pressures=drawing.flatMap(o=>((o.extensionData?.contentObject as {strokes:Array<{points:Array<{pressure:number}>}>}).strokes??[]).flatMap(s=>s.points.map(p=>p.pressure)));
       expect(new Set(pressures.filter(p=>p>0)).size).toBeGreaterThan(1);input.push({kind:'browser-pen-pressure',hardware:false,pressures,objects:drawing});await cdp.detach();
+      }finally{await touchContext.close();}
     }
     const runtimeIdentity=await verifyRuntimeIdentity(request,sha,await finishChunks());
     await writeFile(info.outputPath('visual-accessibility.json'),JSON.stringify({version:1,kind:'board-visual-accessibility',browserName,sha,runtimeIdentity,
