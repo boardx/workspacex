@@ -97,6 +97,12 @@ Stack stopped cleanly: `./stop.sh` exit 0.
 
 ---
 
+## Known Limitations (2026-09-29)
+
+- **No production adapters yet**: `TenantCrmPort`, `InAppNotifyPort` and `LeadApproverEligibilityPort` have no production implementation. `create-workflow-runtime.ts` wires the lead write-back service only when `opts.leadWriteBack` is passed; the verified behaviour runs against in-process fakes (`tests/work-content/lead-to-qualified-fakes.ts`) and the PG gateway/receipt path (`tests/workflow/lead-write-back-pg.test.ts`).
+- **Browser journeys blocked**: the D005-J1..J3 Playwright journeys did not run because `next build` was OOM-killed in the container (see section 3). This is an environment constraint, not browser evidence.
+- **Review fix (2026-09-29)**: the P2 `effect_blocked` append in `lead-write-back.ts` is now fenced with `leases.assertLease` (the same fence `finish()` uses), so a zombie worker cannot append after takeover. Test: "僵尸 worker × P2" in `lead-to-qualified-e2e.test.ts`.
+
 ## 4. Conclusion
 
 **CT09: ACCEPT**

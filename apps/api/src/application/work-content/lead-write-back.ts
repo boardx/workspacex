@@ -228,6 +228,8 @@ export class LeadWriteBackService {
     // E5×E6：先前进程已 begin 过这一条 → 决定已提交，P2 不再否定它；真实结果由网关 replay / reconcile 给出。
     const prior = await this.deps.gateway.effectReceiptStatus({ orgId: cmd.orgId, instanceId: cmd.instanceId, stageId: WRITE_STAGE.stageId, effectKey });
     if (prior === null && !(await this.deps.eligibility.stillEligible(cmd.orgId, cmd.approverUserId, item.itemId))) {
+      // 与 finish() 同一道 lease 围栏：僵尸 worker（租约已被接管）不得再追加 P2 审计事件。
+      await this.deps.leases.assertLease(lease);
       await this.deps.events.append(cmd.orgId, cmd.instanceId, {
         type: "effect_blocked",
         stageId: WRITE_STAGE.stageId,
