@@ -45,6 +45,9 @@ export function assessInterviewReportAnalysis(markdown: string): InterviewReport
   if (!reportHasAny(markdown, REPORT_ACTION_SIGNALS)) missing.push("verifiable_action");
   return { ok: missing.length === 0, missing };
 }
+export function hasInterviewReportVerifiableAction(markdown: string): boolean {
+  return reportHasAny(markdown, REPORT_ACTION_SIGNALS);
+}
 
 export const InterviewMarkdownExecution = z.object({
   status: z.enum(["running", "paused", "failed", "completed"]),
