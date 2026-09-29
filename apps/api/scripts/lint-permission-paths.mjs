@@ -245,16 +245,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/home/pg-home-config-repository.ts",
-    "组织首页配置（ad-hoc feature，契约 home-config，Refs #4634）：`org_home_configs` 一行一组织，" +
-      "存的是横幅文案/快捷入口开关/推荐 Agent·Skill 的展示名快照，没有 `ObjectRef` 能表达的 Artifact/" +
-      "Segment 对象——同 `pg-org-profile-repository.ts` 条目的论证（组织自己的配置项，不是 acl_bindings " +
-      "治理的内容）。`get()` 对任意组织成员开放，`upsert()` 仅组织 admin：两条路由的门都在 controller " +
-      "（`home-config.controller.ts` 的 `requireAdminRole`/`requireOrgAdmin`）里、先于本仓储被触达，" +
-      "同 `pg-org-profile-repository.ts` 的 `listMembers`/`updateOrganization` 同一顺序。⚠ 豁免仅在 " +
-      "（a）本文件只出现 `org_home_configs` 一张租户表，（b）从不调用 `withoutTenant`，（c）两条路由的 " +
-      "admin 判定仍在 controller 层先于本仓储时有效：tests/home/home-config-authorization.test.ts 逐条" +
-      "反证（非成员读 → NO_ORG_MEMBERSHIP，非 admin 写 → FORBIDDEN 且库内未变）。该测试若被删除，本条目" +
-      "必须一并删除。",
+    "组织首页配置（ad-hoc feature，契约 home-config，Refs #4634）：`org_home_configs` 一行一组织，存的是横幅文案/快捷入口开关/推荐 Agent·Skill 的展示名快照，没有 `ObjectRef` 能表达的 Artifact/Segment 对象——同 `pg-org-profile-repository.ts` 条目的论证（组织自己的配置项，不是 acl_bindings 治理的内容）。`get()` 对任意组织成员开放，`upsert()` 仅组织 admin：两条路由的门都在 controller（`home-config.controller.ts` 的 `requireAdminRole`/`requireOrgAdmin`）里、先于本仓储被触达，同 `pg-org-profile-repository.ts` 的 `listMembers`/`updateOrganization` 同一顺序。⚠ 豁免仅在（a）本文件只出现 `org_home_configs` 一张租户表，（b）从不调用 `withoutTenant`，（c）两条路由的 admin 判定仍在 controller 层先于本仓储时有效：tests/home/home-config-authorization.test.ts 逐条反证（非成员读 → NO_ORG_MEMBERSHIP，非 admin 写 → FORBIDDEN 且库内未变）。该测试若被删除，本条目必须一并删除。",
   ],
   [
     "src/infrastructure/system/pg-platform-member-repository.ts",
