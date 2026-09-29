@@ -13,7 +13,7 @@ const skills=entries.map(([directory,name,reference])=>{
  const bytes=readFileSync(resolve(root,directory,path));return {path,mediaType:'text/markdown',digest:sha256(bytes),contentBase64:bytes.toString('base64')};
  })};
 });
-const unsigned={schemaVersion:1,packId:'standard-methods',packVersion:'1.5.0',skills};
+const unsigned={schemaVersion:1,packId:'standard-methods',packVersion:'1.5.1',skills};
 const pack={...unsigned,packDigest:sha256(JSON.stringify(unsigned))};
-verifySkillStarterPack(pack,{packId:'standard-methods',packVersion:'1.5.0'});
-writeFileSync(resolve(root,'../starter-packs/standard-methods/1.5.0.json'),JSON.stringify(pack,null,2)+'\n');
+verifySkillStarterPack(pack,{packId:'standard-methods',packVersion:'1.5.1'});
+writeFileSync(resolve(root,'../starter-packs/standard-methods/1.5.1.json'),JSON.stringify(pack,null,2)+'\n');

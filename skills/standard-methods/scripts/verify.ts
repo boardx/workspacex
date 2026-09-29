@@ -8,16 +8,17 @@ import { resolveDiagramType } from '../../../apps/web/lib/mermaid-diagram-type';
 async function main(){
 const root=resolve(import.meta.dirname,'..');
 const source=new FileSkillStarterPackSource(resolve(root,'../starter-packs'));
-const pack=verifySkillStarterPack(await source.load('standard-methods','1.5.0'),{packId:'standard-methods',packVersion:'1.5.0'});
-assert.equal(await new FileSkillStarterPackSource(undefined).load('standard-methods','1.5.0'),null);
+const pack=verifySkillStarterPack(await source.load('standard-methods','1.5.1'),{packId:'standard-methods',packVersion:'1.5.1'});
+assert.equal(await new FileSkillStarterPackSource(undefined).load('standard-methods','1.5.1'),null);
 assert.equal(await source.load('standard-methods','missing'),null);
-const previous=verifySkillStarterPack(await source.load('standard-methods','1.4.0'),{packId:'standard-methods',packVersion:'1.4.0'});assert.equal(previous.packDigest,'a6f26404708f02c7fd9436e4a8db812a6f7716afc75df5cab04e8b3b9767cf52');
-// 1.5.0 只改 design-methods（1.0.0 → 1.1.0，新增可执行模板，issue #4589）：另外三个已发货 skill 必须逐字节不变
-// ——这条断言就是「我验证了 X」，不要求复核者自己去比对。
+const previous=verifySkillStarterPack(await source.load('standard-methods','1.5.0'),{packId:'standard-methods',packVersion:'1.5.0'});assert.equal(previous.packDigest,'b69987beb107052e655783a307d58c6785f2ca47f0c338c9870bf5a872a9b1b3');
+// 1.5.1 只改 design-methods（1.1.0 → 1.1.1，卡片「产出」补指向 templates.md 的 canvas 模板编号，issue #4613：
+// 真实模型测试发现卡片给了 markdown/mermaid 的替代交付方式，模型据此绕过了画布模板）：
+// 另外三个已发货 skill 必须逐字节不变——这条断言就是「我验证了 X」，不要求复核者自己去比对。
 for(const stableName of ['interview-synthesis','user-research-planning','maau-canvas'])assert.deepEqual(pack.skills.find(s=>s.stableName===stableName),previous.skills.find(s=>s.stableName===stableName));
-assert.equal(previous.skills.find(s=>s.stableName==='design-methods')!.semanticVersion,'1.0.0');
+assert.equal(previous.skills.find(s=>s.stableName==='design-methods')!.semanticVersion,'1.1.0');
 const design=pack.skills.find(s=>s.stableName==='design-methods')!;
-assert.equal(design.semanticVersion,'1.1.0');assert.equal(design.manifest.capabilityId,'WX-S023');
+assert.equal(design.semanticVersion,'1.1.1');assert.equal(design.manifest.capabilityId,'WX-S023');
 const decode=(path:string)=>Buffer.from(design.files.find(f=>f.path===path)!.contentBase64,'base64').toString();
 // 卡片库的实质：索引里的每个编号在四份卡片里恰好有一张卡，卡片间引用的编号都在索引里。
 // 钉的是「编号是唯一抓手」这条 SKILL.md 承诺，不是钉卡片数量常量。
@@ -78,8 +79,8 @@ for(const skill of pack.skills){
  assert.match(entry,/工具|能力/);assert.match(entry,/不可用|未配置|缺/);
 }
 const changed=structuredClone(pack);changed.skills[0]!.files[0]!.contentBase64=Buffer.from('tampered').toString('base64');
-assert.throws(()=>verifySkillStarterPack(changed,{packId:'standard-methods',packVersion:'1.5.0'}));
-console.log(`PASS: real FileSkillStarterPackSource reads shipped 1.5.0 and superseded 1.4.0; four skills verified per-file against the editing sources; 1.5.0 only bumps design-methods to 1.1.0 (WX-S023, ${indexIds.size} indexed methods, each with exactly one card, no dangling cross-references, no book attribution or trademarked framework names; ${templateBlocks.length} executable templates — ${canvasFences} canvas fences matched against the real chat template registry, ${mermaidFences} mermaid fences inside the render whitelist) and leaves the three shipped skills byte-identical; missing deployment root/version fail closed; tampering rejected.`);
+assert.throws(()=>verifySkillStarterPack(changed,{packId:'standard-methods',packVersion:'1.5.1'}));
+console.log(`PASS: real FileSkillStarterPackSource reads shipped 1.5.1 and superseded 1.5.0; four skills verified per-file against the editing sources; 1.5.1 only bumps design-methods to 1.1.1 (WX-S023, ${indexIds.size} indexed methods, each with exactly one card, no dangling cross-references, no book attribution or trademarked framework names; ${templateBlocks.length} executable templates — ${canvasFences} canvas fences matched against the real chat template registry, ${mermaidFences} mermaid fences inside the render whitelist) and leaves the three shipped skills byte-identical; missing deployment root/version fail closed; tampering rejected.`);
 
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

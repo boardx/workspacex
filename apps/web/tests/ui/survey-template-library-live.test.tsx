@@ -42,6 +42,19 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 describe("persisted survey template library", () => {
+  it.each([
+    ["question" as const, "问卷模板"],
+    ["report" as const, "报告模板"],
+  ])("keeps the shared survey navigation and highlights %s templates", async (kind, activeLabel) => {
+    request.mockResolvedValueOnce([]);
+    render(<SurveyTemplateLibrary kind={kind} />);
+    await screen.findByText(`还没有个人${activeLabel}`);
+    const navigation = screen.getByRole("navigation", { name: "问卷二级导航" });
+    expect(within(navigation).getByRole("link", { name: "我的问卷" })).toHaveAttribute("href", "/studio/survey");
+    expect(within(navigation).getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
+    expect(within(navigation).getByRole("link", { name: "报告模板" })).toHaveAttribute("href", "/studio/survey?tab=reports");
+    expect(within(navigation).getByRole("link", { name: activeLabel })).toHaveAttribute("aria-current", "page");
+  });
   it("does not navigate after an unverified create response and retains the source card", async () => {
     request
       .mockResolvedValueOnce([row()])

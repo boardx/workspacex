@@ -2,7 +2,7 @@ import * as React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewExpertsStep } from "@/components/itv/interview-experts-step";
-import { InterviewOutlineStep } from "@/components/itv/interview-outline-step";
+import { InterviewOutlineStep, normalizeOutlineForPersistence } from "@/components/itv/interview-outline-step";
 import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdown-editing-step";
 import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specialty-icon";
 import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
@@ -51,8 +51,8 @@ it("keeps the complete failed Markdown visible when one expert heading parses", 
   expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
 });
 it("outline controls reorder raw sibling groups and retain stable question references", () => {
-  const first = "## [背景](#question-one)\n\n原文  \n\n";
-  const second = "## [反例](#question-two)\n\n保留反例\n";
+  const first = "## [采购专家](#expert-purchase)\n\n1. 谁提出采购？\n\n";
+  const second = "## [财务专家](#expert-finance)\n\n1. 谁批准预算？\n";
   const change = vi.fn();
   render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: first + second }} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   expect(screen.getByRole("button", { name: "上移当前分组" })).toBeDisabled();
@@ -172,13 +172,14 @@ it("keeps AI virtual-expert proposals unsaved until human review and selection",
   expect(change).toHaveBeenCalledTimes(1);
 });
 it("question edit preserves stable heading references and unrelated raw Markdown", () => {
-  const raw = "前言\r\n\r\n## [背景](#question-q-7)\r\n\r\n最近一次发生了什么？\r\n\r\n## [反例](#question-q-8)\r\n\r\n保留 **原文**。\r\n";
+  const raw = "前言\r\n\r\n## [采购专家](#expert-purchase)\r\n\r\n1. 最近一次发生了什么？\r\n\r\n## [财务专家](#expert-finance)\r\n\r\n1. 谁批准预算？\r\n";
   const change = vi.fn();
   render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: raw }} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
-  fireEvent.change(screen.getByRole("textbox", { name: "编辑背景" }), { target: { value: "最近一次夜班交接具体发生了什么？" } });
+  const questions = screen.getByRole("list", { name: "采购专家访谈问题" });
+  fireEvent.change(within(questions).getByRole("textbox", { name: "编辑问题 1" }), { target: { value: "最近一次夜班交接具体发生了什么？" } });
   const edited = change.mock.calls[0]![0] as string;
-  expect(edited).toContain("## [背景](#question-q-7)\r\n");
-  expect(edited.endsWith("## [反例](#question-q-8)\r\n\r\n保留 **原文**。\r\n")).toBe(true);
+  expect(edited).toContain("## [采购专家](#expert-purchase)\r\n");
+  expect(edited.endsWith("## [财务专家](#expert-finance)\r\n\r\n1. 谁批准预算？\r\n")).toBe(true);
   expect(edited.startsWith("前言\r\n\r\n")).toBe(true);
 });
 it("renders ordered Markdown questions as editable rows without changing neighboring expert groups", () => {
@@ -191,6 +192,46 @@ it("renders ordered Markdown questions as editable rows without changing neighbo
   expect(change).toHaveBeenCalledWith(raw.replace("2. 谁最终否决？", "2. 谁拥有最终否决权？"));
   fireEvent.click(within(questions).getByRole("button", { name: "删除问题 1" }));
   expect(change).toHaveBeenCalledWith(raw.replace("1. 谁提出采购？\n", ""));
+});
+it("shows expert identity cards and only direct questions in the outline workspace", () => {
+  const expert = MOCK_DIGITAL_EXPERTS[0]!;
+  const raw = `# 访谈问题\n\n## [${expert.displayName}](#expert-${expert.expertId})\n\n### 背景\n\n用于了解受访者的基本情况。\n\n- **你是谁？**\n  - **目的：**确认受访者身份。\n\n### 核心问题\n\n1. 你的爱好是什么？\n2. 你住在哪里？\n3. 用于了解受访者基本情况\n`;
+  const expertsDocument = { ...source, step: "experts" as const, markdown: `## [${expert.displayName}](#expert-${expert.expertId})\n\n### 专业角色\n护士长\n` };
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: raw }} directory={[]} expertsDocument={expertsDocument} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+
+  const expertCard = screen.getByRole("button", { name: new RegExp(expert.displayName) });
+  expect(within(expertCard).getByRole("img", { name: `${expert.displayName}的插画头像` })).toBeVisible();
+  expect(within(expertCard).getByText(expert.displayName)).toBeVisible();
+  expect(within(expertCard).getByText("护士长")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "背景" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "核心问题" })).not.toBeInTheDocument();
+
+  const questions = screen.getByRole("list", { name: `${expert.displayName}访谈问题` });
+  expect(within(questions).getAllByRole("textbox")).toHaveLength(3);
+  expect(within(questions).getByDisplayValue("你是谁？")).toBeVisible();
+  expect(within(questions).getByDisplayValue("你的爱好是什么？")).toBeVisible();
+  expect(within(questions).getByDisplayValue("你住在哪里？")).toBeVisible();
+  expect(screen.queryByText("用于了解受访者的基本情况。", { exact: false })).not.toBeInTheDocument();
+  expect(screen.queryByText("确认受访者身份。", { exact: false })).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue("用于了解受访者基本情况")).not.toBeInTheDocument();
+  expect(screen.queryByText("编辑本组 Markdown 原文")).not.toBeInTheDocument();
+});
+it("keeps a newly added or partially edited numbered question visible", () => {
+  function EditableOutline() {
+    const [markdown, setMarkdown] = React.useState("## [采购](#expert-purchase)\n\n1. 你是谁？\n");
+    return <InterviewOutlineStep document={{ ...source, step: "outline", markdown }} pending={false} onChange={setMarkdown} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />;
+  }
+  render(<EditableOutline />);
+  fireEvent.click(screen.getByRole("button", { name: "添加问题" }));
+  expect(screen.getByRole("textbox", { name: "编辑问题 2" })).toHaveValue("新问题？");
+  fireEvent.change(screen.getByRole("textbox", { name: "编辑问题 2" }), { target: { value: "正在输入" } });
+  expect(screen.getByRole("textbox", { name: "编辑问题 2" })).toHaveValue("正在输入");
+});
+it("persists exactly the expert questions visible to the reviewer", () => {
+  const raw = "# 访谈问题\n\n## [采购](#expert-purchase)\n\n### 背景\n\n用于了解采购流程。\n\n1. 谁提出采购？\n2. 目的：确认审批人\n\n## [财务](#expert-finance)\n\n- 谁批准预算？\n  - 说明：追问预算背景\n";
+  expect(normalizeOutlineForPersistence({ ...source, step: "outline", markdown: raw })).toBe(
+    "## [采购](#expert-purchase)\n\n1. 谁提出采购？\n\n## [财务](#expert-finance)\n\n1. 谁批准预算？\n",
+  );
 });
 it("generation cannot silently discard an unsaved expert Markdown edit", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
