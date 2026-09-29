@@ -57,7 +57,8 @@ describe("#660 白名单条目的前提：仓储侧", () => {
 
   /** 正样本：尺子有效——它确实认得出表名，不是恒返回空集。 */
   it("装置自检：解析器真的能认出表名", () => {
-    expect(tablesNamedIn(repoSource).has("agent_versions")).toBe(true);
+    // AG01：agent_versions 的 INSERT 已收敛到 agent-version-insert.ts（有自己的守卫测试）；本文件仍 UPDATE agents。
+    expect(tablesNamedIn(repoSource).has("agents")).toBe(true);
     expect(tablesNamedIn("SELECT 1 FROM some_other_table")).toEqual(new Set(["some_other_table"]));
   });
 

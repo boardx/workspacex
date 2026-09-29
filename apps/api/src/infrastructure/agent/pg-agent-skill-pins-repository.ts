@@ -19,6 +19,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
+import { insertAgentVersionFromDraft } from "./agent-version-insert";
 import type { AgentSkillPinsRepository } from "../../application/agent-skill-pins/set-agent-skill-pins";
 
 interface AgentRow {
@@ -120,27 +121,21 @@ export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
       // 用当前时间戳而不是重放 `base.semantic_label`，避免与它撞唯一约束。
       const semanticLabel = `pin-${Date.now()}-${versionId.slice(-8)}`;
 
-      await session.query(
-        `INSERT INTO agent_versions
-           (id, org_id, agent_id, semantic_label, instruction_digest, instructions,
-            skill_version_ids, model_provider, model_id, tool_policy, creator_id,
-            created_at, published_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10::jsonb,$11,$12,$12)`,
-        [
-          versionId,
-          input.orgId,
-          input.agentId,
-          semanticLabel,
-          base.instruction_digest,
-          base.instructions,
-          [...input.skillVersionIds],
-          base.model_provider,
-          base.model_id,
-          JSON.stringify(base.tool_policy),
-          input.actorId,
-          now,
-        ],
-      );
+      await insertAgentVersionFromDraft(session, {
+        versionId,
+        orgId: input.orgId,
+        agentId: input.agentId,
+        semanticLabel,
+        instructionDigest: base.instruction_digest,
+        instructions: base.instructions,
+        skillVersionIds: [...input.skillVersionIds],
+        modelProvider: base.model_provider,
+        modelId: base.model_id,
+        toolPolicy: base.tool_policy,
+        creatorId: input.actorId,
+        at: now,
+        roleFromVersionId: base.id,
+      });
       // `agents` 本身没有不可变触发器——只有 `agent_versions` 行是不可变的。
       // 与 `pg-agent-starter-import-repository.ts` 建 agent 时用的是同一条语句形状。
       await session.query(
