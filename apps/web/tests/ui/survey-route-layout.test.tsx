@@ -49,25 +49,32 @@ describe("Survey route layout", () => {
     expect(screen.getByTestId("survey-route-child")).toBeInTheDocument();
   });
 
-  it("现有问卷路由忽略创建草稿参数", () => {
+  it("正式路由忽略 preview 后门并跳转到三步设计页", () => {
     render(<SurveyWorkflowPage
       params={{ surveyId: "sv-1" }}
       searchParams={{ preview: "1", step: "design", draft: encodeSurveyCreationDraft({ name: "不应使用", tags: [], sourceModuleId: "strategy" }) }}
     />);
 
-    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
-    expect(screen.getByTestId("survey-design-question-Q16")).toBeInTheDocument();
+    expect(redirect).toHaveBeenCalledWith("/studio/survey/sv-1/design");
+    expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
   });
 
-  it("新问卷路由解码单一创建草稿并进入完整设计", () => {
+  it("新问卷即使带 preview 也进入真实工作台而不是五步模拟页", () => {
     render(<SurveyWorkflowPage
       params={{ surveyId: "new" }}
       searchParams={{ preview: "1", step: "design", draft: encodeSurveyCreationDraft({ name: "战略调查", tags: ["治理"], sourceModuleId: "strategy" }) }}
     />);
 
-    expect(screen.getByRole("heading", { name: "战略调查" })).toBeInTheDocument();
-    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
-    expect(screen.getByTestId("survey-design-question-Q04")).toBeInTheDocument();
-    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("问卷名称")).toHaveValue("未命名问卷");
+    expect(screen.getByRole("navigation", { name: "问卷工作流" }).querySelectorAll("button")).toHaveLength(3);
+    expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
+  });
+
+  it("列表路由忽略 preview 后门并继续读取持久问卷", async () => {
+    request.mockRejectedValueOnce(new Error("持久问卷读取失败"));
+    render(<SurveyPage searchParams={{ preview: "1" }} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("持久问卷读取失败");
+    expect(request).toHaveBeenCalledWith("/surveys");
+    expect(screen.queryByTestId("survey-resource-library")).not.toBeInTheDocument();
   });
 });

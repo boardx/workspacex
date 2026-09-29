@@ -81,6 +81,7 @@ export function LiveSurveyWorkspace({
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
   const [draft, setDraft] = React.useState<SurveyDraftInput | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [operation, setOperation] = React.useState<"idle" | "saving" | "processing">("idle");
   const [generatingReport, setGeneratingReport] = React.useState(false);
   const [error, setError] = React.useState("");
   const [retryable, setRetryable] = React.useState(false);
@@ -152,10 +153,11 @@ export function LiveSurveyWorkspace({
           template: runtime.template,
         }));
   useSurveyUnsavedNavigation(dirty);
-  const execute = async (action: () => Promise<void>) => {
+  const execute = async (action: () => Promise<void>, nextOperation: "saving" | "processing" = "processing") => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
+    setOperation(nextOperation);
     setError("");
     setRetryable(false);
     setNotice("");
@@ -171,6 +173,7 @@ export function LiveSurveyWorkspace({
     } finally {
       lock.current = false;
       setBusy(false);
+      setOperation("idle");
     }
   };
   const save = async () => {
@@ -296,9 +299,9 @@ export function LiveSurveyWorkspace({
   const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
     !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
-    () => execute(async () => { await save(); }));
+    () => execute(async () => { await save(); }, "saving"));
   return (
-    <main className={`min-w-0 bg-background ${step === "design" ? "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden" : ""}`}>
+    <main className={`min-w-0 bg-background ${step === "design" ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden" : ""}`}>
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"
@@ -327,11 +330,13 @@ export function LiveSurveyWorkspace({
                 : "正在加载"}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => selectStep("template")}
-        >设计报告模板（可选）</Button>
-        {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
+        <details className="relative">
+          <summary className="cursor-pointer list-none rounded-md border border-border px-3 py-2 text-13">更多操作</summary>
+          <div className="absolute right-0 z-20 mt-2 flex min-w-52 flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-lg">
+            <Button variant="ghost" onClick={() => selectStep("template")}>设计报告模板（可选）</Button>
+            {runtime && <Button variant="ghost" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
+          </div>
+        </details>
         {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
         <Button
           variant="outline"
@@ -345,14 +350,14 @@ export function LiveSurveyWorkspace({
           onClick={() =>
             void execute(async () => {
               await save();
-            })
+            }, "saving")
           }
         >
-          {busy ? "处理中…" : "保存修改"}
+          {operation === "saving" ? "保存中…" : error && dirty && !conflicted ? "重试保存" : busy ? "处理中…" : "保存修改"}
         </Button>
       </header>
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-3 px-5 py-1">
-        {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
+        {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{conflicted ? "检测到版本冲突，本地修改仍保留" : operation === "saving" ? "正在保存修改…" : error && dirty ? "保存失败，修改仍保留；请重试保存" : busy ? "正在处理…" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
         {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
       </div>
       <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-auto px-5 py-2">
@@ -414,7 +419,7 @@ export function LiveSurveyWorkspace({
       )}
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
-        <fieldset disabled={busy} className={`min-w-0 ${step === "design" ? "xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:overflow-hidden" : ""}`}>
+        <fieldset disabled={busy} className={`min-w-0 ${step === "design" ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""}`}>
           {step === "import" && (<section className="mx-auto max-w-6xl space-y-5 p-5" aria-label="导入内容步骤">
             <div><h1 className="text-24 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">描述需求，或上传文件、选择已保存的录音。先校对 AI 生成的 Markdown，再应用到问卷设计。</p></div>
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
@@ -437,7 +442,7 @@ export function LiveSurveyWorkspace({
             <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
           </section>)}
           {step === "design" && (<>
-            <fieldset disabled={!projectedInSync} className="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:overflow-hidden">
+            <fieldset disabled={!projectedInSync} className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
@@ -653,19 +658,6 @@ export function LiveSurveyWorkspace({
             </section>
           )}
           {step === "responses" && (<>
-            <section aria-label="报告准备状态" className="mx-5 mt-5 space-y-4 rounded-lg border border-border bg-card p-4">
-              <h2 className="text-16 font-semibold">分析报告（可选）</h2>
-              <p className="text-12 text-muted-foreground">先设计报告模板，再生成报告；跳过模板时使用默认样式。两者均不影响发布和查看答卷。</p>
-              <p className="text-12 text-muted-foreground">{runtime?.report
-                ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
-                : "尚未生成；不影响问卷发布和答卷回收"}</p>
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
-                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">模板状态</p><p className="mt-1 font-semibold">{draft.template.sections.length ? "已设置" : "未设置（可选）"}</p></div>
-                <span aria-hidden="true" className="hidden text-center text-18 md:block">→</span>
-                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">最近生成</p><p className="mt-1 font-semibold">{runtime?.report ? reportIsStale ? "已有旧报告，待更新" : "已生成" : "未生成"}</p></div>
-              </div>
-              <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
-            </section>
             <LiveResponseList
               surveyId={runtime?.id}
               responses={runtime?.responses ?? []}
@@ -710,6 +702,21 @@ export function LiveSurveyWorkspace({
                 })
               }
             />
+            <section role="group" aria-label="分析报告（可选）" className="mx-5 mb-5 space-y-4 rounded-lg border border-border bg-card p-4">
+              <div role="region" aria-label="报告准备状态" className="space-y-4">
+              <h2 className="text-16 font-semibold">分析报告（可选）</h2>
+              <p className="text-12 text-muted-foreground">先设计报告模板，再生成报告；跳过模板时使用默认样式。两者均不影响发布和查看答卷。</p>
+              <p className="text-12 text-muted-foreground">{runtime?.report
+                ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
+                : "尚未生成；不影响问卷发布和答卷回收"}</p>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">模板状态</p><p className="mt-1 font-semibold">{draft.template.sections.length ? "已设置" : "未设置（可选）"}</p></div>
+                <span aria-hidden="true" className="hidden text-center text-18 md:block">→</span>
+                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">最近生成</p><p className="mt-1 font-semibold">{runtime?.report ? reportIsStale ? "已有旧报告，待更新" : "已生成" : "未生成"}</p></div>
+              </div>
+              <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
+              </div>
+            </section>
           </>)}
           {step === "report" && (
             <section className="mx-auto max-w-5xl space-y-5 p-5">

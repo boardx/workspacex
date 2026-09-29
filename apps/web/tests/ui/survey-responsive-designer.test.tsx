@@ -27,7 +27,7 @@ it("opens mobile outline/settings on demand without duplicating question content
   }
   render(<Designer />);
   fireEvent.click(screen.getByRole("button", { name: "打开题目大纲" }));
-  fireEvent.click(within(screen.getByRole("dialog", { name: "题目大纲" })).getByRole("button", { name: /第二题/ }));
+  fireEvent.click(within(screen.getByRole("dialog", { name: "题目大纲" })).getByRole("button", { name: "选择题目 2：第二题" }));
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
   fireEvent.click(screen.getByRole("button", { name: "打开题目设置" }));
   const settings = screen.getByRole("dialog", { name: "题目设置" });
@@ -72,10 +72,49 @@ it("edits question content in the center canvas while the right panel only expos
 });
 
 it("keeps desktop side panels fixed and makes the center canvas the primary scroll surface", () => {
-  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  vi.stubGlobal("matchMedia", matchMedia);
   render(<SurveyQuestionEditor studioLayout questions={[createSurveyQuestion("short", "q1", 1)]} onChange={vi.fn()} />);
-  expect(screen.getByTestId("survey-designer-grid")).toHaveClass("xl:h-full", "xl:overflow-hidden");
-  expect(screen.getByTestId("survey-designer-outline")).toHaveClass("xl:h-full");
-  expect(screen.getByTestId("survey-designer-settings")).toHaveClass("xl:h-full");
-  expect(screen.getByTestId("survey-designer-canvas-scroll")).toHaveClass("xl:h-full", "xl:overflow-y-auto");
+  expect(matchMedia).toHaveBeenCalledWith("(max-width: 1023px)");
+  expect(screen.getByTestId("survey-designer-grid")).toHaveClass("lg:h-full", "lg:overflow-hidden");
+  expect(screen.getByTestId("survey-designer-outline")).toHaveClass("lg:h-full");
+  expect(screen.getByTestId("survey-designer-settings")).toHaveClass("lg:h-full");
+  expect(screen.getByTestId("survey-designer-canvas-scroll")).toHaveClass("lg:h-full", "lg:overflow-y-auto");
+});
+
+it("searches and reorders long questionnaires from the outline", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  function Designer() {
+    const [questions, setQuestions] = React.useState([
+      { ...createSurveyQuestion("short", "q1", 1), title: "姓名", chapterId: "基本信息" },
+      { ...createSurveyQuestion("short", "q2", 2), title: "居住城市", chapterId: "基本信息" },
+      { ...createSurveyQuestion("open", "q3", 3), title: "其他建议", chapterId: "反馈" },
+    ]);
+    return <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />;
+  }
+  render(<Designer />);
+  const outline = screen.getByTestId("survey-designer-outline");
+  const search = within(outline).getByRole("searchbox", { name: "搜索题目" });
+  fireEvent.change(search, { target: { value: "城市" } });
+  expect(within(outline).getByRole("button", { name: "选择题目 2：居住城市" })).toBeInTheDocument();
+  expect(within(outline).queryByRole("button", { name: "选择题目 1：姓名" })).not.toBeInTheDocument();
+  fireEvent.change(search, { target: { value: "" } });
+  fireEvent.click(within(outline).getByRole("button", { name: "上移题目：居住城市" }));
+  expect(within(outline).getAllByRole("button", { name: /选择题目/ })[0]).toHaveAccessibleName("选择题目 1：居住城市");
+});
+
+it("undoes and redoes designer changes with accessible toolbar controls", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  function Designer() {
+    const [questions, setQuestions] = React.useState([
+      { ...createSurveyQuestion("short", "q1", 1), title: "原问题" },
+    ]);
+    return <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />;
+  }
+  render(<Designer />);
+  fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "修改后的问题" } });
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("原问题");
+  fireEvent.click(screen.getByRole("button", { name: "重做最近修改" }));
+  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("修改后的问题");
 });

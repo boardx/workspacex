@@ -111,6 +111,7 @@ describe("LiveSurveyLibrary", () => {
     expect(screen.getByRole('link',{name:'客户满意度'})).toBeInTheDocument();
     expect(screen.queryByRole('link',{name:'员工体验'})).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:'报告模板'})).toBeInTheDocument();
+    expect(screen.getByTestId("survey-create-primary").querySelectorAll("svg")).toHaveLength(1);
   });
   it("expands persisted tags beyond the first seven and keeps them selectable", async () => {
     const tags = Array.from({ length: 8 }, (_, index) => `标签${index + 1}`);
