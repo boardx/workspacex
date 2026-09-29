@@ -15,7 +15,8 @@
  * UI 表单不是本轮阻塞项）。
  *
  * 官方 Agent（`catalogSource === "official"`）锁：`view.editable === false`，
- * 所有可编辑控件禁用，同服务端 `OFFICIAL_ROLE_FIELDS_LOCKED` 的纪律（R5）。
+ * 所有可编辑控件禁用，同服务端 `OFFICIAL_ROLE_FIELDS_LOCKED` 的纪律（R5）。例外：标签（`tags`）是
+ * 组织策展元数据，官方 Agent 上管理员同样可编辑（服务端 `OFFICIAL_ORG_CURATED_ROLE_FIELDS`）。
  */
 import * as React from "react";
 import { agentRole } from "@repo/contracts";
@@ -117,7 +118,7 @@ export function AgentRoleAdminSection({ agentId }: { agentId: string }) {
     <section data-testid="agent-role-admin-section" className="flex flex-col gap-4 rounded-lg border border-border p-4">
       <header className="flex items-center justify-between">
         <h3 className="text-13 font-bold text-background-foreground">角色</h3>
-        {!view.editable && <Badge tone="neutral" data-testid="agent-role-admin-locked">官方角色字段只读</Badge>}
+        {!view.editable && <Badge tone="neutral" data-testid="agent-role-admin-locked">官方角色字段只读（标签可编辑）</Badge>}
       </header>
 
       <div className="flex items-center gap-4">
@@ -158,8 +159,8 @@ export function AgentRoleAdminSection({ agentId }: { agentId: string }) {
 
       <AgentTagEditor
         tags={draft.tags}
-        editable={view.editable}
-        disabled={disabled}
+        editable
+        disabled={saving}
         onChange={(tags) => void applyPatch({ tags })}
       />
 

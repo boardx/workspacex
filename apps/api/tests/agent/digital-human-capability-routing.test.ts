@@ -18,6 +18,7 @@ import { toOrgId } from "../../src/domain/org-id";
 import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../src/domain/work-content/product-workflow-definitions";
 import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
+import { PgLaunchableWorkflows } from "../../src/infrastructure/workflow/pg-launchable-workflows";
 import { defaultWorkflowGraphs } from "../../src/infrastructure/workflow/create-workflow-runtime";
 import { PgSkillCatalogVersionResolver } from "../../src/infrastructure/workflow/pg-skill-catalog-version-resolver";
 import { PgWorkflowDefinitionRepository } from "../../src/infrastructure/workflow/pg-workflow-definition-repository";
@@ -33,6 +34,7 @@ const PROJECT = `proj-${ORG}`;
 const REQUESTER = "u-dh-requester";
 const D002 = "agent-dh-d002";
 const D003 = "agent-dh-d003";
+const D005 = "agent-dh-d005";
 const PLAIN = "agent-dh-plain";
 const ROLES = officialRoleWorkflowAllowlists();
 const W027 = PRODUCT_LINE_WORKFLOWS.find((w) => w.workflowId === "W027")!;
@@ -104,10 +106,10 @@ async function instanceIds(): Promise<string[]> {
 
 interface Outcome { status: string; code?: string; instanceId?: string; workflowId: string | null; message: string }
 
-async function agentRequestsWorkflow(runId: string, workflowId: string): Promise<Outcome> {
+async function agentRequestsWorkflow(runId: string, workflowId: string, input: Record<string, unknown> = { topic: "新用户流失" }): Promise<Outcome> {
   calls.length = 0;
   script = [
-    { text: "", interrupted: { toolName: "start_workflow", toolCallId: `call-${randomUUID()}`, argsSummary: JSON.stringify({ workflowId, input: { topic: "新用户流失" } }) } },
+    { text: "", interrupted: { toolName: "start_workflow", toolCallId: `call-${randomUUID()}`, argsSummary: JSON.stringify({ workflowId, input }) } },
     { text: "好的。" },
   ];
   await executeQueuedRuns(deps(), { orgId: ORG });
@@ -130,9 +132,15 @@ beforeAll(async () => {
   await addProjectMember(ORG, PROJECT, REQUESTER, "member", null);
   await insertDashscopeAgent(D002, ROLES.D002!);
   await insertDashscopeAgent(D003, ROLES.D003!);
+  await insertDashscopeAgent(D005, ROLES.D005!);
   await insertDashscopeAgent(PLAIN, []);
   const imported = await as(e, WF03_ADMIN, ORG).post("/admin/skills/starter-pack-imports", { packId: "work-product", packVersion: "1.0.0", idempotencyKey: randomUUID() });
   expect(imported.status).toBe(201);
+  // 研究线 / 销售线内置 Definition 随对应 starter pack 导入而发布（PublishBuiltInWorkflowsAfterImport）。
+  for (const [packId, packVersion] of [["work-research", "1.0.0"], ["work-sales", "1.0.1"]]) {
+    const r = await as(e, WF03_ADMIN, ORG).post("/admin/skills/starter-pack-imports", { packId, packVersion, idempotencyKey: randomUUID() });
+    expect(r.status, `${packId} ${JSON.stringify(r.body)}`).toBe(201);
+  }
   await asOwner((c) => c.query("INSERT INTO workflow_definitions (org_id, key) VALUES ($1, $2) ON CONFLICT DO NOTHING", [ORG, W027.key]));
   await publishDefinitionVersion(
     {
@@ -169,6 +177,27 @@ describe("数字人能力（决策 B）：dashscope 钉住 + 白名单 ⇒ deep-
     expect(outcome.message).toContain("该角色不能发起此流程");
     expect(outcome.message).not.toMatch(/workflow_not_allowed/);
     expect(await instanceIds()).toEqual(before);
+  });
+
+  it("研究线内置（D002→W001）：导入 work-research 后可发起，建出实例", async () => {
+    const before = await instanceIds();
+    await seedQueuedRun("run-dh-w001", D002);
+    const outcome = await agentRequestsWorkflow("run-dh-w001", "W001");
+    expect(outcome, JSON.stringify(outcome)).toMatchObject({ status: "started", workflowId: "W001" });
+    expect((await instanceIds()).filter((x) => !before.includes(x))).toEqual([outcome.instanceId]);
+  });
+
+  it("销售线（D005→W011）：本组织未上线（生产未接 CRM）⇒ 友好的「尚未上线」，不建实例；目录不把它列为可发起", async () => {
+    const before = await instanceIds();
+    await seedQueuedRun("run-dh-w011", D005);
+    const outcome = await agentRequestsWorkflow("run-dh-w011", "W011", { leadSourceRef: "leads/q3", icpRef: "icp/default", triageConfigRef: "triage/default" });
+    expect(outcome).toMatchObject({ status: "refused", code: "workflow_not_found", workflowId: "W011" });
+    expect(outcome.message).toContain("该流程尚未上线");
+    expect(outcome.message).not.toMatch(/workflow_not_found/);
+    expect(await instanceIds()).toEqual(before);
+    const launchable = await new PgLaunchableWorkflows(e.db).publishedWorkflowIds(ORG);
+    expect(launchable.has("W001")).toBe(true);
+    expect(launchable.has("W011")).toBe(false);
   });
 
   it("普通 Agent（无白名单、无 Skill）：路由不变，仍以 dashscope / qwen-plus 调用", async () => {

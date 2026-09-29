@@ -137,7 +137,7 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     }));
   });
 
-  it("标签已满 10 个时提示上限；官方 Agent 标签只读", async () => {
+  it("标签已满 10 个时提示上限；官方 Agent 标签仍可编辑", async () => {
     const full = Array.from({ length: 10 }, (_, i) => `t${i}`);
     getAgentRoleAdmin.mockResolvedValue(view({ draft: { ...view().draft, tags: full } }));
     render(<AgentRoleAdminSection agentId="agent-1" />);
@@ -147,11 +147,17 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("最多 10 个标签");
     cleanup();
 
-    getAgentRoleAdmin.mockResolvedValue(view({ editable: false, draft: { ...view().draft, catalogSource: "official" } }));
+    // 官方 Agent：其它字段锁定，但标签是组织策展元数据，管理员照样可增删。
+    const official = view({ editable: false, draft: { ...view().draft, catalogSource: "official" } });
+    getAgentRoleAdmin.mockResolvedValue(official);
+    updateAgentRoleDraft.mockImplementation(async (input: { patch: { tags: string[] } }) => view({ editable: false, draft: { ...official.draft, tags: input.patch.tags }, version: 1 }));
     render(<AgentRoleAdminSection agentId="agent-1" />);
     await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-调研")).not.toBeNull());
-    expect(screen.queryByTestId("agent-tag-editor-input")).toBeNull();
-    expect(screen.queryByRole("button", { name: "移除标签 调研" })).toBeNull();
+    expect(screen.getByTestId("agent-role-admin-category-select")).toHaveAttribute("disabled");
+    fireEvent.change(screen.getByTestId("agent-tag-editor-input"), { target: { value: "竞品" } });
+    fireEvent.click(screen.getByTestId("agent-tag-editor-add"));
+    await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-竞品")).not.toBeNull());
+    expect(updateAgentRoleDraft).toHaveBeenLastCalledWith({ agentId: "agent-1", expectedVersion: 0, patch: { tags: ["调研", "竞品"] } });
   });
 
   it("401/403 → 无权占位，不渲染表单", async () => {

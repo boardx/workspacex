@@ -651,8 +651,9 @@ import { PgEscalationStore } from "./infrastructure/agent-interrupts/pg-escalati
 import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
 import { PgAgentRoleDraftRepository } from "./infrastructure/agent/pg-agent-role-draft-repository";
 import { AgentDirectoryController } from "./interface/controllers/agent-directory.controller";
-import { AGENT_DIRECTORY_REPOSITORY } from "./application/agent/list-agent-directory";
+import { AGENT_DIRECTORY_REPOSITORY, LAUNCHABLE_WORKFLOWS } from "./application/agent/list-agent-directory";
 import { PgAgentDirectoryRepository } from "./infrastructure/agent/pg-agent-directory-repository";
+import { PgLaunchableWorkflows } from "./infrastructure/workflow/pg-launchable-workflows";
 import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
@@ -1723,6 +1724,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: AGENT_DIRECTORY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentDirectoryRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: LAUNCHABLE_WORKFLOWS,
+      useFactory: (db: DatabasePort) => new PgLaunchableWorkflows(db),
       inject: [DATABASE_PORT],
     },
     {

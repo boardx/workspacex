@@ -5,7 +5,7 @@
  * 独立文件：授权门槛是「任意组织成员」，与 `agent.controller.ts` 的 `listAgents`
  * （admin-only）不同一条纪律，混在一起会让人误以为两者共享权限判定。
  */
-import { Controller, Get, Inject, NotFoundException, Param, Query, UnauthorizedException } from "@nestjs/common";
+import { Controller, Get, Inject, NotFoundException, Optional, Param, Query, UnauthorizedException } from "@nestjs/common";
 import { agentRole as R } from "@repo/contracts";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -16,8 +16,10 @@ import {
   AGENT_DIRECTORY_REPOSITORY,
   AgentDirectoryError,
   getAgentDirectoryCard,
+  LAUNCHABLE_WORKFLOWS,
   listAgentDirectory,
   type AgentDirectoryRepository,
+  type LaunchableWorkflowsPort,
 } from "../../application/agent/list-agent-directory";
 
 type RoleCategory = ReturnType<typeof R.AgentRoleCategory.parse>;
@@ -28,6 +30,7 @@ export class AgentDirectoryController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(AGENT_DIRECTORY_REPOSITORY) private readonly repository: AgentDirectoryRepository,
     @Inject(WORKFLOW_DEFINITION_STORE) private readonly workflows: WorkflowDefinitionStore,
+    @Optional() @Inject(LAUNCHABLE_WORKFLOWS) private readonly launchable?: LaunchableWorkflowsPort,
   ) {}
 
   @Get(R.operations.listAgentDirectory.path)
@@ -48,7 +51,7 @@ export class AgentDirectoryController {
           roleCategory: (parsed.roleCategory ?? null) as RoleCategory | null,
           q: parsed.q ?? null,
         },
-        { identities: this.identities, repository: this.repository, workflows: this.workflows },
+        { identities: this.identities, repository: this.repository, workflows: this.workflows, launchable: this.launchable },
       );
       return R.operations.listAgentDirectory.out.parse({ items });
     } catch (error) {
@@ -63,7 +66,7 @@ export class AgentDirectoryController {
     try {
       const card = await getAgentDirectoryCard(
         { orgId: principal.orgId, actorId: principal.userId, agentId },
-        { identities: this.identities, repository: this.repository, workflows: this.workflows },
+        { identities: this.identities, repository: this.repository, workflows: this.workflows, launchable: this.launchable },
       );
       return R.operations.getAgentDirectoryCard.out.parse(card);
     } catch (error) {
