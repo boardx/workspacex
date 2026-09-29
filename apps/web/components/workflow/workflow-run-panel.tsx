@@ -179,12 +179,12 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
       </header>
 
       {p.status === "needs_attention" ? (
-        <div role="status" data-testid="workflow-banner-needs-attention" data-reason={p.reasonCode ?? ""}>
+        <div role="status" data-testid="workflow-banner-needs-attention" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}>
           需人工处理：{p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
         </div>
       ) : null}
       {p.status === "blocked_permission" ? (
-        <div role="status" data-testid="workflow-banner-blocked-permission" data-reason={p.reasonCode ?? ""}>
+        <div role="status" data-testid="workflow-banner-blocked-permission" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}>
           权限已变更，需管理员处理：{p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
         </div>
       ) : null}

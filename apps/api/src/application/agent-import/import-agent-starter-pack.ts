@@ -1,10 +1,14 @@
 import type { IdentityRepository } from "../identity/ports";
-import { agentImportPayloadDigest, InvalidAgentStarterPackError, verifyAgentStarterPack } from "../../domain/agent/starter-pack";
+import { agentImportPayloadDigest, InvalidAgentStarterPackError, verifyAgentStarterPack, type StarterToolPolicyViolation } from "../../domain/agent/starter-pack";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentStarterImportRepository, AgentStarterImportResult, AgentStarterPackSource } from "./ports";
 
 export class AgentStarterPackNotFoundError extends Error {}
 export class AgentStarterPackInvalidError extends Error {}
+/** UC-2 E1：`violation` 仅在首次判定时可得；幂等重放只回放失败码（failure_code 不存路径）。 */
+export class AgentStarterToolPolicyInvalidError extends Error {
+  constructor(readonly violation: StarterToolPolicyViolation | null) { super("agent starter toolPolicy is invalid"); }
+}
 export class AgentStarterPackConflictError extends Error {}
 export class AgentStarterImportIdempotencyConflictError extends Error {}
 export class AgentStarterImportAdminRequiredError extends Error {}
@@ -29,7 +33,11 @@ export async function importAgentStarterPack(
   catch (error) {
     if (!(error instanceof InvalidAgentStarterPackError)) throw error;
     const packDigest = typeof raw === "object" && raw !== null && typeof (raw as { packDigest?: unknown }).packDigest === "string" ? (raw as { packDigest: string }).packDigest : null;
-    return replayOrThrow(await deps.imports.recordFailure({ ...input, payloadDigest, packDigest, failureCode: "AGENT_STARTER_PACK_INVALID" }));
+    const violation = error.toolPolicyViolation;
+    const failureCode = violation ? TOOL_POLICY_INVALID : "AGENT_STARTER_PACK_INVALID";
+    const outcome = await deps.imports.recordFailure({ ...input, payloadDigest, packDigest, failureCode });
+    if (outcome.kind === "previous-failure" && violation) throw new AgentStarterToolPolicyInvalidError(violation);
+    return replayOrThrow(outcome);
   }
   const outcome = await deps.imports.persistVerified({ orgId: input.orgId, actorId: input.actorId, idempotencyKey: input.idempotencyKey, payloadDigest, pack });
   if (outcome.kind === "created") return { created: true, result: outcome.result };
@@ -46,7 +54,9 @@ function replayOrThrow(outcome: Exclude<Awaited<ReturnType<AgentStarterImportRep
   if (outcome.kind === "replayed") return { created: false, result: outcome.result };
   throwFailure(outcome.failureCode);
 }
+const TOOL_POLICY_INVALID = "AGENT_STARTER_TOOL_POLICY_INVALID" as const;
 function throwFailure(code: string): never {
+  if (code === TOOL_POLICY_INVALID) throw new AgentStarterToolPolicyInvalidError(null);
   if (code === "AGENT_STARTER_PACK_NOT_FOUND") throw new AgentStarterPackNotFoundError();
   if (code === "AGENT_STARTER_PACK_CONFLICT") throw new AgentStarterPackConflictError();
   if (code === "AGENT_STARTER_SKILL_VERSION_MISSING") throw new AgentStarterSkillVersionMissingError();

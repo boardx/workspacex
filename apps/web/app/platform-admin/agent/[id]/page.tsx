@@ -17,6 +17,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 import { AgentCapabilityGraph } from "@/components/admin/agent-capability-graph";
+import { AgentRoleAdminSection } from "@/components/admin/agent-role-admin-section";
 import { resolvePreviewRole } from "@/lib/identity";
 import { safeRelativePath } from "@/lib/safe-relative-path";
 import { WorkflowRunEntry } from "@/components/workflow/workflow-lists";
@@ -37,7 +38,13 @@ export default function AgentEditRoutePage({
       <CapabilityEditPage
         kind="agent"
         id={params.id}
-        renderEditExtra={(row) => <AgentCapabilityGraph orgId={row.orgId} agentId={row.id} />}
+        renderEditExtra={(row) => (
+          <>
+            {/* AG04（R8）：角色区块——头像/分类/白名单/能力就绪状态。 */}
+            <AgentRoleAdminSection agentId={row.id} />
+            <AgentCapabilityGraph orgId={row.orgId} agentId={row.id} />
+          </>
+        )}
         backHref={backHref}
       />
     </AppShell>

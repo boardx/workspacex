@@ -24,6 +24,7 @@ import type { DebugRecorder } from "./application/diagnostics/debug-recorder";
 import { sweepDebugEvents } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
+import { attachRealtimeDigitalHumanGateway } from "./interface/ws/realtime-digital-human.gateway";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
 import { attachAgentRunEventsGateway, checkRunVisibleViaReadAgentRun } from "./interface/ws/agent-run-events.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
@@ -202,6 +203,9 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   attachAsrDraftGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     asr: app.get(ASR_PROVIDER),
+  });
+  attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
   });
   attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
     tickets: app.get(REALTIME_ASR_TICKET_STORE),

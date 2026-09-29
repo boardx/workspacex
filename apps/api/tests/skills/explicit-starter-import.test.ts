@@ -67,6 +67,7 @@ describe("starter import authorization structure", () => {
       "capability_listings",
       "skill_versions",
       "skill_version_files",
+      "skill_catalog_entries",
     ]));
   });
 });

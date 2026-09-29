@@ -80,3 +80,5 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION workflow_trigger_webhook_secrets(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION workflow_trigger_webhook_secrets(text) TO app_rw;
+
+SELECT kernel_apply_org_freeze_policies();

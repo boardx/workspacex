@@ -1314,6 +1314,14 @@ describe("lint-permission-paths: counter-proof", () => {
     // #4242's tag catalog repository is mechanically
     // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
     // this bare-exception ceiling.
+    // AG01 (Phase 20 agent-role bundle) adds exactly two (99 -> 101):
+    // agent-version-insert.ts (the single INSERT ... SELECT into agent_versions shared by
+    // every already-allowlisted publish path, no authorization of its own) and
+    // pg-agent-role-draft-repository.ts (PATCH /admin/agents/:agentId/role, org-admin gate
+    // one layer up in update-agent-role-draft.ts as the first action). Both are pinned by
+    // tests/agent/role-draft-repo-guard.test.ts: only `agents`/`agent_versions`, no
+    // withoutTenant, single statement, admin check precedes both repository calls.
+    // Remove this increment with those entries if that guard test disappears.
     // Phase 20 WF01/WF02/WF03 (workflow-runtime) add exactly six repository files
     // (99 -> 105), none of which have an ObjectRef kind, so routing them through
     // `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER:
@@ -1332,7 +1340,33 @@ describe("lint-permission-paths: counter-proof", () => {
     // and are unreachable from src/interface/ -- pinned by
     // tests/workflow/pg-workflow-repo-guard.test.ts. Remove this increment and the
     // six allowlist entries together if that guard test disappears.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(105);
+    // Phase 20 WS04 adds pg-tool-grant-reader.ts (105 -> 106): `org_tool_capability_grants`
+    // authorization metadata has no ObjectRef shape; getWorkSkillReadiness checks org
+    // membership (non-member 404) before ever calling grants.listForOrg, and the response
+    // folds grants into per-capability satisfied/missing/denied without echoing tool_ref.
+    // Pinned by tests/work-skill/readiness-compute.test.ts. Remove this increment with
+    // that test.
+    // Phase 20 WS03 adds pg-work-skill-catalog-repository.ts (106 -> 107): the work skill
+    // catalog (`skill_catalog_entries`/`skills`/`skill_versions`/`skill_catalog_channel_events`)
+    // is a per-org shared catalog readable by every org member, not a per-object ACL that
+    // `authorize`/`ObjectRef` could express; every method uses withTenant (RLS by org_id)
+    // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
+    // (another org sees none of these rows) and unauthenticated 401 are proven in
+    // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
+    // 2026-09-29 merge of main (WS/WF/EV/CT01) with the AG01/AG03/AG04 branch: the ceiling is
+    // recomputed as the combined total. AG01's two entries (above), AG04's
+    // pg-agent-directory-repository.ts (pinned by tests/agent/agent-directory-repo-guard.test.ts)
+    // and AG03's pg-official-agent-role-pack-import-repository.ts (org-admin check in
+    // import-official-agent-role-pack.ts before the repository is reached; pinned by
+    // tests/agent/official-role-pack-import.test.ts) land on top of main's 107 -> 111.
+    // Remove the matching increments with those tests.
+    // 2026-09-29 merge of main (AG01-04/WS/CT) into the WF04-WF08 branch: WF04 adds
+    // pg-effect-capability-authority.ts (workflow_capability_grants admin toggle, read only by
+    // effect-permission-recheck.ts) and WF06 adds pg-workflow-trigger-store.ts (triggerId ->
+    // org_id resolution via the non-tenant workflow_trigger_lookup, then withTenant only).
+    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts;
+    // 111 -> 113. Remove this increment with those entries if that guard test disappears.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(113);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

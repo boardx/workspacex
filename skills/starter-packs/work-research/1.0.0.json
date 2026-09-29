@@ -1,0 +1,1270 @@
+{
+  "schemaVersion": 1,
+  "packId": "work-research",
+  "packVersion": "1.0.0",
+  "skills": [
+    {
+      "stableName": "data-exploration",
+      "name": "S157",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S157",
+        "work": {
+          "stableId": "S157",
+          "domain": "Data",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec",
+              "warehouse.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/explore-data/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills（本地 clone 目录 `upstream/kdense`）",
+              "path": "skills/exploratory-data-analysis/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S157",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S157-data-exploration.md#输入契约",
+            "summary": "输入不变式：`mode=\"question-scan\"` ⇒ `question` 非空；`mode=\"experiment-precheck\"` ⇒ `experiment` 存在且 `armColumn` 不在 `blindedMetrics` 中；`datasets` 中 `datasetRef` 不重复。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S157-data-exploration.md#输出契约",
+            "summary": "输出不变式："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "c6b4601fa0f9fbf188aa132d0d5b1d3c589cbcfbce14dbce44e97054b9b85a1a",
+          "contentBase64": "LS0tCm5hbWU6IGRhdGEtZXhwbG9yYXRpb24KdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMTU3Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzE1NwogICAgZG9tYWluOiAiRGF0YSIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICAgIC0gd2FyZWhvdXNlLnJlYWQKICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogImRhdGEvc2tpbGxzL2V4cGxvcmUtZGF0YS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxsc++8iOacrOWcsCBjbG9uZSDnm67lvZUgYHVwc3RyZWFtL2tkZW5zZWDvvIkiCiAgICAgICAgcGF0aDogInNraWxscy9leHBsb3JhdG9yeS1kYXRhLWFuYWx5c2lzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjQ5YzZlOTc3NzVlYWExOGJhNzkxYmViZTIzMTYyYTcwYWU2MDFjMTgiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzE1NwogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1Ny1kYXRhLWV4cGxvcmF0aW9uLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WFpeS4jeWPmOW8j++8mmBtb2RlPVwicXVlc3Rpb24tc2NhblwiYCDih5IgYHF1ZXN0aW9uYCDpnZ7nqbrvvJtgbW9kZT1cImV4cGVyaW1lbnQtcHJlY2hlY2tcImAg4oeSIGBleHBlcmltZW50YCDlrZjlnKjkuJQgYGFybUNvbHVtbmAg5LiN5ZyoIGBibGluZGVkTWV0cmljc2Ag5Lit77ybYGRhdGFzZXRzYCDkuK0gYGRhdGFzZXRSZWZgIOS4jemHjeWkjeOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU3LWRhdGEtZXhwbG9yYXRpb24ubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi6L6T5Ye65LiN5Y+Y5byP77yaIgotLS0KCiMg5pWw5o2u5o6i57Si77yIUzE1N++8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTU3IMK3IOmihuWfnyBEYXRhCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1Ny1kYXRhLWV4cGxvcmF0aW9uLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuWbnuetlOS4gOS4quWFt+S9k+mXrumimO+8muOAjOWcqOato+W8j+afpeivouWSjOajgOmqjOS5i+WJje+8jOi/meS7veaVsOaNruWIsOW6lemVv+S7gOS5iOagt+OAgeiDveS4jeiDveWbnuetlOi/meS4qumXrumimOOAgeWAvOW+l+W+gOWTquWHoOS4quaWueWQkeafpe+8n+OAjQoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU3LWRhdGEtZXhwbG9yYXRpb24ubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1Ny1kYXRhLWV4cGxvcmF0aW9uLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZOOAgXNhbmRib3guZXhlY+OAgXdhcmVob3VzZS5yZWFkCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBkYXRhL3NraWxscy9leHBsb3JlLWRhdGEvU0tJTEwubWRg77yMY29tbWl0IGBkYTM4ZWMxZWU4OWTigKZg77yMQXBhY2hlLTIuMO+8jOetlueVpSBhZGFwdO+8iQotIGBLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxsc++8iOacrOWcsCBjbG9uZSDnm67lvZUgYHVwc3RyZWFtL2tkZW5zZWDvvIlg77yIYHNraWxscy9leHBsb3JhdG9yeS1kYXRhLWFuYWx5c2lzL1NLSUxMLm1kYO+8jGNvbW1pdCBgNDljNmU5Nzc3NWVh4oCmYO+8jE1JVO+8jOetlueVpSBhZGFwdO+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMxNTcg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "57b549e5a28dfb1dbc696e2af46aed652d04ab65f6bbfaac58a199d18842293c",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDmlbDmja7mjqLntKLvvIhTMTU377yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU3LWRhdGEtZXhwbG9yYXRpb24ubWRg77yJ44CCCgojIyDkuJPkuJrmlrnms5XmkZjopoEKCjEuIE1hbmlmZXN0IOWFiOihjO+8jOWGheWuueWQjueci+OAguWFiOWIl+aVsOaNrua6kOa4heWNle+8mmBkYXRhc2V0UmVmYCDop6PmnpDkuLrmlofku7bvvIjlkI3jgIFTSEEtMjU244CB5a2X6IqC5pWw44CB5qC85byP44CB5bel5L2c6KGoL0pTT04g5pWw57uE6Lev5b6E77yJ5oiW5p+l6K+i57uT5p6c5b+r54Wn77yI5p+l6K+i5paH5pys5ZOI5biM44CB5omn6KGM5pe25Yi744CB6KGM5pWw77yJ44CC5qC85byP5LiN5Zyo5pSv5oyB6ZuG77yIQ1NWL1RTVi9KU09OL1hMU1gvUGFycXVldCrvvInihpIgYFVOU1VQUE9SVEVEX0ZPUk1BVGDvvIzkuI3lsJ3or5XnjJzop6PmnpDjgIIqUGFycXVldCDmmK/lkKblnKjmspnnrrHplIHlrprkvp3otZbkuK3mnKrmoLjlrp7vvIhVTlZFUklGSUVE77yJ77yM57y65aSx5pe25oyJ5LiN5pSv5oyB5aSE55CG44CCCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "data-storytelling",
+      "name": "S172",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S172",
+        "work": {
+          "stableId": "S172",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "artifact.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/analyze/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "instructions/power-bi-report-design-best-practices.instructions.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S172",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S172-data-storytelling.md#输入契约",
+            "summary": "见实体文档输入契约。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S172-data-storytelling.md#输出契约",
+            "summary": "`UPSTREAM_BLOCKED` 时不产出故事（S161 `invalid-design` 的实验不应被\"讲成故事\"），只返回 error 和一段固定模板说明为何无叙事。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "9d0191c99b26c3b31cd8fb4c2eb83ffc88ca223a2685c9cd57f6816517db8010",
+          "contentBase64": "LS0tCm5hbWU6IGRhdGEtc3Rvcnl0ZWxsaW5nCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzE3MgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMxNzIKICAgIGRvbWFpbjogIlJlc2VhcmNoIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBhcnRpZmFjdC5yZWFkCiAgICAgIG9wdGlvbmFsOiBbXQogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJkYXRhL3NraWxscy9hbmFseXplL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImdpdGh1Yi9hd2Vzb21lLWNvcGlsb3QiCiAgICAgICAgcGF0aDogImluc3RydWN0aW9ucy9wb3dlci1iaS1yZXBvcnQtZGVzaWduLWJlc3QtcHJhY3RpY2VzLmluc3RydWN0aW9ucy5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNzIKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNzItZGF0YS1zdG9yeXRlbGxpbmcubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi6KeB5a6e5L2T5paH5qGj6L6T5YWl5aWR57qm44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNzItZGF0YS1zdG9yeXRlbGxpbmcubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAiYFVQU1RSRUFNX0JMT0NLRURgIOaXtuS4jeS6p+WHuuaVheS6i++8iFMxNjEgYGludmFsaWQtZGVzaWduYCDnmoTlrp7pqozkuI3lupTooqtcIuiusuaIkOaVheS6i1wi77yJ77yM5Y+q6L+U5ZueIGVycm9yIOWSjOS4gOauteWbuuWumuaooeadv+ivtOaYjuS4uuS9leaXoOWPmeS6i+OAgiIKLS0tCgojIOaVsOaNruWPmeS6i++8iFMxNzLvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzE3MiDCtyDpoobln58gUmVzZWFyY2gKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcyLWRhdGEtc3Rvcnl0ZWxsaW5nLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuWbnuetlOS4gOS4quWFt+S9k+mXrumimO+8muOAjOe7meWumuW3sue7j+eul+WlveOAgeW3sue7j+ivhOi/h+e6p+eahOe7k+aenO+8jOmdouWvuei/meS9jeivu+iAhe+8jOW6lOivpeaMieS7gOS5iOmhuuW6j+iusuWTquWHoOS7tuS6i++8jOavj+WPpeivneacgOWkmuiDveivtOWkmumHje+8n+OAjQoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcyLWRhdGEtc3Rvcnl0ZWxsaW5nLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNzItZGF0YS1zdG9yeXRlbGxpbmcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmFydGlmYWN0LnJlYWQKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYGRhdGEvc2tpbGxzL2FuYWx5emUvU0tJTEwubWRg77yMY29tbWl0IGBkYTM4ZWMxZWU4OWTigKZg77yMQXBhY2hlLTIuMO+8jOetlueVpSBhZGFwdO+8iQotIGBnaXRodWIvYXdlc29tZS1jb3BpbG90YO+8iGBpbnN0cnVjdGlvbnMvcG93ZXItYmktcmVwb3J0LWRlc2lnbi1iZXN0LXByYWN0aWNlcy5pbnN0cnVjdGlvbnMubWRg77yMY29tbWl0IGA2YzRkMzNiOWNmY2HigKZg77yMTUlU77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzE3MiDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "d6c8df3bb4b99e2ff8a7bd2492117c2e1417af0a658245fc2389fc0932eb6291",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDmlbDmja7lj5nkuovvvIhTMTcy77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcyLWRhdGEtc3Rvcnl0ZWxsaW5nLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgoxLiDor7vogIXnlLvlg4/lrprlnovjgILku44gYGF1ZGllbmNlYCDlj5blm5vkuKrph4/vvJrlhrPnrZblsYLnuqfvvIhgZXhlY2AgLyBgbWFuYWdlcmAgLyBgcHJhY3RpdGlvbmVyYCAvIGBleHRlcm5hbGDvvInjgIHmlbDlrZfntKDlhbvvvIhgbG93YC9gaGlnaGDvvInjgIHor7vlrozlj6/nlKjml7bpl7TvvIhgNjBzYCAvIGA1bWluYCAvIGBkZWVwYO+8ieOAgeW3suefpeWJjeaDhe+8iGBwcmlvckJlbGllZnNbXWDvvIzlpoIi5aSn5a625Lul5Li65piv5a6a5Lu36Zeu6aKYIu+8ieOAguaXtumXtOmihOeul+WGs+WumuiKguaLjeaVsOS4iumZkO+8mjYwcyDihpIg5Li75peoICsg4omkMiDoioLmi43vvJs1bWluIOKGkiDiiaQ077ybZGVlcCDihpIg4omkNSArIOmZhOW9leOAggoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "data-validation",
+      "name": "S158",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S158",
+        "work": {
+          "stableId": "S158",
+          "domain": "Data",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "sandbox.exec"
+            ],
+            "optional": [
+              "data.read"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/validate-data/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "unionai-oss/pandera",
+              "path": "pandera/errors.py",
+              "commit": "6e23433b4f010fdadc2e11b6229a43afd792abed",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S158",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S158-data-validation.md#输入契约",
+            "summary": "不变式（入参校验，zod 层，违反即 `InvalidInput`，不进入方法）：`datasetId` 唯一；`fileRef` 与 `inlineRows` 恰有其一；`foreignKeys`/`joins`/`reconciliationPairs` 引用的 datasetId 必须存在；`window.from < window.to`；`severityOverrides` 不得把 `phi-leak` 降级（服务端强制，见 §7）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S158-data-validation.md#输出契约",
+            "summary": "不变式（输出 zod `superRefine` 检查，违反即 `OutputInvariantViolation`，报告不交给下游）："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "e3d54ef9d70b13673f202bde9adc0735fdfdfa4d8639dca9381c9ee82fcd859e",
+          "contentBase64": "LS0tCm5hbWU6IGRhdGEtdmFsaWRhdGlvbgp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMxNTgKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMTU4CiAgICBkb21haW46ICJEYXRhIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBkYXRhLnJlYWQKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGF0YS9za2lsbHMvdmFsaWRhdGUtZGF0YS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJ1bmlvbmFpLW9zcy9wYW5kZXJhIgogICAgICAgIHBhdGg6ICJwYW5kZXJhL2Vycm9ycy5weSIKICAgICAgICBjb21taXQ6ICI2ZTIzNDMzYjRmMDEwZmRhZGMyZTExYjYyMjlhNDNhZmQ3OTJhYmVkIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNTgKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNTgtZGF0YS12YWxpZGF0aW9uLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuS4jeWPmOW8j++8iOWFpeWPguagoemqjO+8jHpvZCDlsYLvvIzov53lj43ljbMgYEludmFsaWRJbnB1dGDvvIzkuI3ov5vlhaXmlrnms5XvvInvvJpgZGF0YXNldElkYCDllK/kuIDvvJtgZmlsZVJlZmAg5LiOIGBpbmxpbmVSb3dzYCDmgbDmnInlhbbkuIDvvJtgZm9yZWlnbktleXNgL2Bqb2luc2AvYHJlY29uY2lsaWF0aW9uUGFpcnNgIOW8leeUqOeahCBkYXRhc2V0SWQg5b+F6aG75a2Y5Zyo77ybYHdpbmRvdy5mcm9tIDwgd2luZG93LnRvYO+8m2BzZXZlcml0eU92ZXJyaWRlc2Ag5LiN5b6X5oqKIGBwaGktbGVha2Ag6ZmN57qn77yI5pyN5Yqh56uv5by65Yi277yM6KeBIMKnN++8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU4LWRhdGEtdmFsaWRhdGlvbi5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLkuI3lj5jlvI/vvIjovpPlh7ogem9kIGBzdXBlclJlZmluZWAg5qOA5p+l77yM6L+d5Y+N5Y2zIGBPdXRwdXRJbnZhcmlhbnRWaW9sYXRpb25g77yM5oql5ZGK5LiN5Lqk57uZ5LiL5ri477yJ77yaIgotLS0KCiMg5pWw5o2u5qCh6aqM77yIUzE1OO+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTU4IMK3IOmihuWfnyBEYXRhCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1OC1kYXRhLXZhbGlkYXRpb24ubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5Zue562U5LiA5Liq5YW35L2T6Zeu6aKY77ya44CM6L+Z5Lu95pWw5o2u6ZuG77yI5Y+K5Z+65LqO5a6D566X5Ye655qE5pWw77yJ6IO95LiN6IO96KKr5LiL5LiA6Zi25q615b2T5L2c5LqL5a6e5L2/55So77yf5LiN6IO955qE6K+d77yM5YW35L2T5Z2P5Zyo5ZOq5Yeg6KGM44CB5ZOq5p2h6KeE5YiZ44CB5b2x5ZON5ZOq5Liq5pWw77yf44CNCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNTgtZGF0YS12YWxpZGF0aW9uLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNTgtZGF0YS12YWxpZGF0aW9uLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJpzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYGRhdGEvc2tpbGxzL3ZhbGlkYXRlLWRhdGEvU0tJTEwubWRg77yMY29tbWl0IGBkYTM4ZWMxZWU4OWTigKZg77yMQXBhY2hlLTIuMO+8jOetlueVpSBhZGFwdO+8iQotIGB1bmlvbmFpLW9zcy9wYW5kZXJhYO+8iGBwYW5kZXJhL2Vycm9ycy5weWDvvIxjb21taXQgYDZlMjM0MzNiNGYwMeKApmDvvIxNSVTvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMTU4IOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "8aa4f7f1f3348436e40fdb7cd8226eb56c2b81e23bd3e01f5e9818e7c74e82d7",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDmlbDmja7moKHpqozvvIhTMTU477yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU4LWRhdGEtdmFsaWRhdGlvbi5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKMS4g5Ya757uT6L6T5YWl5b+r54Wn44CC5a+55q+P5LiqIGBkYXRhc2V0c1tpXWAg6K6w5b2VIGBzaGEyNTZg44CBYHJvd0NvdW50YOOAgeWIl+WQjeS4juaOqOaWreexu+Wei+OAgUpTT04g5pWw57uE6Lev5b6EIC8gWExTWCDlt6XkvZzooajlkI3lj4rlhazlvI/nvJPlrZjnirbmgIHjgILkuYvlkI7miYDmnInlpLHotKXooYzpg73nlKggYChkYXRhc2V0SWQsIHJvd0tleSlgIOW8leeUqOi/meS4gOW/q+eFp++8m+W/q+eFp+WPmOS6hu+8jOaKpeWRiuS9nOW6n++8iGBTbmFwc2hvdERyaWZ0YO+8ieOAggoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "data-visualization-report",
+      "name": "S164",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S164",
+        "work": {
+          "stableId": "S164",
+          "domain": "Data",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/data-visualization/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/scientific-visualization/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S164",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S164-data-visualization.md#输入契约",
+            "summary": "入参约束：`audience=\"board\"` 时 `validationGate` 必填（W039）；`mode=\"spec\"` 只允许 `audience=\"dashboard\"`（W058）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S164-data-visualization.md#输出契约",
+            "summary": "见实体文档输出契约。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "af084b6554288525aebddd08d2a1445809a2f2888c7c9f017c6b26e06f9e7cc7",
+          "contentBase64": "LS0tCm5hbWU6IGRhdGEtdmlzdWFsaXphdGlvbi1yZXBvcnQKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMTY0Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzE2NAogICAgZG9tYWluOiAiRGF0YSIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOiBbXQogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGF0YS9za2lsbHMvZGF0YS12aXN1YWxpemF0aW9uL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogIkstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvc2NpZW50aWZpYy12aXN1YWxpemF0aW9uL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjQ5YzZlOTc3NzVlYWExOGJhNzkxYmViZTIzMTYyYTcwYWU2MDFjMTgiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzE2NAogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2NC1kYXRhLXZpc3VhbGl6YXRpb24ubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5YWl5Y+C57qm5p2f77yaYGF1ZGllbmNlPVwiYm9hcmRcImAg5pe2IGB2YWxpZGF0aW9uR2F0ZWAg5b+F5aGr77yIVzAzOe+8ie+8m2Btb2RlPVwic3BlY1wiYCDlj6rlhYHorrggYGF1ZGllbmNlPVwiZGFzaGJvYXJkXCJg77yIVzA1OO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY0LWRhdGEtdmlzdWFsaXphdGlvbi5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLop4Hlrp7kvZPmlofmoaPovpPlh7rlpZHnuqbjgIIiCi0tLQoKIyDmlbDmja7lj6/op4bljJbvvIhTMTY077yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMxNjQgwrcg6aKG5Z+fIERhdGEKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY0LWRhdGEtdmlzdWFsaXphdGlvbi5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrmiorkuIrmuLjlt7Lnu4/nrpflpb3jgIHlt7Lnu4/moKHpqozov4fnmoTnu5Pmnpzooajlj5jmiJDjgIzor7vogIXkuIDnnLzog73or7vlr7njgI3nmoTlm77vvJrpgInlr7nlm77lnovjgIHnvJbnoIHkuI3lpLHnnJ/jgIHkuK3mlofmoIfnrb7kuI3nvLrlrZfjgIHljZXkvY0v5YiG5q+NL+aXtumXtOeql+WGmeWcqOWbvuS4iu+8jOW5tuS6pOS7mOWbvuWAvCDihpQg57uT5p6c6KGo6YCQ54K55a+56LSm5LiO5Y+v5aSN546w5riy5p+T6ISa5pys44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjQtZGF0YS12aXN1YWxpemF0aW9uLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjQtZGF0YS12aXN1YWxpemF0aW9uLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrvvIjop4Hlrp7kvZPmlofmoaPvvIkKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYGRhdGEvc2tpbGxzL2RhdGEtdmlzdWFsaXphdGlvbi9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCi0gYEstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzYO+8iGBza2lsbHMvc2NpZW50aWZpYy12aXN1YWxpemF0aW9uL1NLSUxMLm1kYO+8jGNvbW1pdCBgNDljNmU5Nzc3NWVh4oCmYO+8jE1JVO+8jOetlueVpSByZWZlcmVuY2Utb25see+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMxNjQg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "6bdc097c942f5e89fec0e55a596bce511cff7bbcdf591c828457a885c3886c43",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDmlbDmja7lj6/op4bljJbvvIhTMTY077yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY0LWRhdGEtdmlzdWFsaXphdGlvbi5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKMS4g6K+75LiK5ri46Ze46Zeo77ya6Iul6L6T5YWl5bimIGB2YWxpZGF0aW9uR2F0ZWDvvIhTMTU4IGBEYXRhVmFsaWRhdGlvblJlcG9ydC5nYXRlYO+8ieS4uiBgYmxvY2tg77yM56uL5Y2z6L+U5ZueIGBVUFNUUkVBTV9HQVRFX0JMT0NLRURg77yM5LiN5Ye65Zu+77yb5Li6IGBwYXNzLXdpdGgtY2F2ZWF0c2Ag5pe277yM5q+P5p2hIGByZXF1aXJlZENhdmVhdHNgIOW/hemhu+WOn+aWh+i/m+WFpeWvueW6lOWbvueahCBgYW5ub3RhdGlvbnNg44CCCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "decision-brief",
+      "name": "S012",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S012",
+        "work": {
+          "stableId": "S012",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "adr/madr（`upstream/madr`）",
+              "path": "template/adr-template.md",
+              "commit": "ba75bb1b20d42af5746b246ad348c202419ae681",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins（`upstream/kwp`）",
+              "path": "engineering/skills/architecture/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "refoundai/lenny-skills（`upstream/lenny-skills`）",
+              "path": "skills/high-stakes-decisions/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S012",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S012-decision-brief.md#输入契约",
+            "summary": "输入不变量（在 zod `superRefine` 里实现，违反即返回对应 typed error）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S012-decision-brief.md#输出契约",
+            "summary": "「需要补框架」不是错误，而是 `status: needs-framing` 的正常产出（§5 欠定表）。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "f1465774dea6ea9a1d01d1e67da81882567c1c5d5b9d072ab1f165097582b57a",
+          "contentBase64": "LS0tCm5hbWU6IGRlY2lzaW9uLWJyaWVmCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzAxMgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwMTIKICAgIGRvbWFpbjogIlNoYXJlZCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFkci9tYWRy77yIYHVwc3RyZWFtL21hZHJg77yJIgogICAgICAgIHBhdGg6ICJ0ZW1wbGF0ZS9hZHItdGVtcGxhdGUubWQiCiAgICAgICAgY29tbWl0OiAiYmE3NWJiMWIyMGQ0MmFmNTc0NmIyNDZhZDM0OGMyMDI0MTlhZTY4MSIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnPvvIhgdXBzdHJlYW0va3dwYO+8iSIKICAgICAgICBwYXRoOiAiZW5naW5lZXJpbmcvc2tpbGxzL2FyY2hpdGVjdHVyZS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJyZWZvdW5kYWkvbGVubnktc2tpbGxz77yIYHVwc3RyZWFtL2xlbm55LXNraWxsc2DvvIkiCiAgICAgICAgcGF0aDogInNraWxscy9oaWdoLXN0YWtlcy1kZWNpc2lvbnMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMTM1OThjYzU0ZTA5Mzk5YmMxYmMxMzk4YjBmY2EyODQxMTBlZmIyZiIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDEyCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEyLWRlY2lzaW9uLWJyaWVmLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WFpeS4jeWPmOmHj++8iOWcqCB6b2QgYHN1cGVyUmVmaW5lYCDph4zlrp7njrDvvIzov53lj43ljbPov5Tlm57lr7nlupQgdHlwZWQgZXJyb3LvvInvvJoiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxMi1kZWNpc2lvbi1icmllZi5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLjgIzpnIDopoHooaXmoYbmnrbjgI3kuI3mmK/plJnor6/vvIzogIzmmK8gYHN0YXR1czogbmVlZHMtZnJhbWluZ2Ag55qE5q2j5bi45Lqn5Ye677yIwqc1IOasoOWumuihqO+8ieOAgiIKLS0tCgojIOWGs+etlueugOaKpe+8iFMwMTLvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzAxMiDCtyDpoobln58gU2hhcmVkCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxMi1kZWNpc2lvbi1icmllZi5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgpTMDEyIOWbnuetlOeahOmXrumimOaYr++8muOAjOiwgeimgeWcqOS7gOS5iOaXtuWAmeOAgeWcqOWTquWHoOS4quS6kuaWpeaWueahiOS5i+mXtOWBmuS4gOS4quS7gOS5iOagt+eahOmAieaLqe+8jOavj+S4quaWueahiOWHreS7gOS5iOivgeaNruWlveaIluS4jeWlve+8jOWmguaenOeOsOWcqOWwseimgeaLjeadv+aIkeS7rOW7uuiuruWTquS4quOAgeacieWkmuWkp+aKiuaPoe+8jOS7gOS5iOS/oeaBr+S8muaUueWPmOi/meS4quW7uuiuruOAjeOAguS6p+WHuuaYr+S4gOS7vSBgRGVjaXNpb25CcmllZmDvvIzkuqTnu5nmnInmnYPlgZrlhrPlrprnmoTkurrjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxMi1kZWNpc2lvbi1icmllZi5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEyLWRlY2lzaW9uLWJyaWVmLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZOOAgXNhbmRib3guZXhlYwotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggoKIyMg5rqv5rqQ77yIRzHvvIkKCi0gYGFkci9tYWRy77yIYHVwc3RyZWFtL21hZHJg77yJYO+8iGB0ZW1wbGF0ZS9hZHItdGVtcGxhdGUubWRg77yMY29tbWl0IGBiYTc1YmIxYjIwZDTigKZg77yMTUlU77yM562W55WlIHJlZmVyZW5jZS1vbmx577yJCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc++8iGB1cHN0cmVhbS9rd3Bg77yJYO+8iGBlbmdpbmVlcmluZy9za2lsbHMvYXJjaGl0ZWN0dXJlL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKLSBgcmVmb3VuZGFpL2xlbm55LXNraWxsc++8iGB1cHN0cmVhbS9sZW5ueS1za2lsbHNg77yJYO+8iGBza2lsbHMvaGlnaC1zdGFrZXMtZGVjaXNpb25zL1NLSUxMLm1kYO+8jGNvbW1pdCBgMTM1OThjYzU0ZTA54oCmYO+8jE1JVO+8jOetlueVpSByZWZlcmVuY2Utb25see+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMwMTIg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "dcee516fbe4d467585db5f55cbda8d122b9ee5ae86593fdd6026d1bc498124ea",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDlhrPnrZbnroDmiqXvvIhTMDEy77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEyLWRlY2lzaW9uLWJyaWVmLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgoxLiDmioror7fmsYLmlLnlhpnmiJDlj6/lhrPlrprnmoTpl67popjjgIIg6L6T5Ye6IGBkZWNpc2lvblF1ZXN0aW9uYO+8jOWug+W/hemhu+aYr+OAjOWcqCBYIOS4jiBZ77yI5LiOIFrvvInkuYvpl7TpgInkuIDkuKrjgI3miJbjgIzmmK/lkKblgZogWOOAjeeahOW9ouW8j++8jOW5tuWGmeaYju+8mgoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "enterprise-search",
+      "name": "S003",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S003",
+        "work": {
+          "stableId": "S003",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "knowledge.search",
+              "mail.search",
+              "project.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "enterprise-search/skills/search-strategy/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "onyx-dot-app/onyx",
+              "path": "backend/onyx/context/search/enums.py",
+              "commit": "9ec4da4b0beb9946dd333d2b7390953d9aa89d6c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S003",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S003-enterprise-search.md#输入契约",
+            "summary": "见实体文档输入契约。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S003-enterprise-search.md#输出契约",
+            "summary": "没有 `summary` / `recommendation` 字段——刻意为之（决策 2）。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "d7cd6813ec83886b461fc1530e10c400d30a004b91d0faef09ee485a68693e02",
+          "contentBase64": "LS0tCm5hbWU6IGVudGVycHJpc2Utc2VhcmNoCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzAwMwptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwMDMKICAgIGRvbWFpbjogIlJlc2VhcmNoIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICAgIC0ga25vd2xlZGdlLnNlYXJjaAogICAgICAgIC0gbWFpbC5zZWFyY2gKICAgICAgICAtIHByb2plY3QucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZW50ZXJwcmlzZS1zZWFyY2gvc2tpbGxzL3NlYXJjaC1zdHJhdGVneS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJvbnl4LWRvdC1hcHAvb255eCIKICAgICAgICBwYXRoOiAiYmFja2VuZC9vbnl4L2NvbnRleHQvc2VhcmNoL2VudW1zLnB5IgogICAgICAgIGNvbW1pdDogIjllYzRkYTRiMGJlYjk5NDZkZDMzM2QyYjczOTA5NTNkOWFhODlkNmMiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzAwMwogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwMy1lbnRlcnByaXNlLXNlYXJjaC5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLop4Hlrp7kvZPmlofmoaPovpPlhaXlpZHnuqbjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwMy1lbnRlcnByaXNlLXNlYXJjaC5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLmsqHmnIkgYHN1bW1hcnlgIC8gYHJlY29tbWVuZGF0aW9uYCDlrZfmrrXigJTigJTliLvmhI/kuLrkuYvvvIjlhrPnrZYgMu+8ieOAgiIKLS0tCgojIOS8geS4muWGhemDqOajgOe0ou+8iFMwMDPvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzAwMyDCtyDpoobln58gUmVzZWFyY2gKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDAzLWVudGVycHJpc2Utc2VhcmNoLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuOAjOaIkeS7rOWGhemDqOWIsOW6leacieayoeacieOAgeWcqOWTquOAgeiwgeivtOeahOOAgeeOsOWcqOi/mOeul+S4jeeul+aVsOOAjeKAlOKAlOWcqOiwg+eUqOaWueW9k+WJjeacieadg+ivu+WPlueahOe7hOe7h+i1hOaWmemHjO+8jOaKiuS4gOS4quiHqueEtuivreiogOmXrumimOWPmOaIkOS4gOe7hOacieiMg+WbtOWjsOaYjueahOajgOe0ou+8jOi/lOWbnuWPr+mAkOadoeaguOmqjOeahOWRveS4rei0puacrOS4juimhuebluWjsOaYju+8iOafpeS6huWTqumHjOOAgeayoeafpeWTqumHjOOAgeS4uuS7gOS5iOayoeafpe+8ieOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDAzLWVudGVycHJpc2Utc2VhcmNoLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDMtZW50ZXJwcmlzZS1zZWFyY2gubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmtub3dsZWRnZS5yZWFk44CBa25vd2xlZGdlLnNlYXJjaOOAgW1haWwuc2VhcmNo44CBcHJvamVjdC5yZWFkCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBlbnRlcnByaXNlLXNlYXJjaC9za2lsbHMvc2VhcmNoLXN0cmF0ZWd5L1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgb255eC1kb3QtYXBwL29ueXhg77yIYGJhY2tlbmQvb255eC9jb250ZXh0L3NlYXJjaC9lbnVtcy5weWDvvIxjb21taXQgYDllYzRkYTRiMGJlYuKApmDvvIxNSVTvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMDAzIOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "2d4f93fdd36ad158aafffd4166c8042c6d6b14d2b90c1ef75ce08db9cc3889c5",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDkvIHkuJrlhoXpg6jmo4DntKLvvIhTMDAz77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDAzLWVudGVycHJpc2Utc2VhcmNoLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgoxLiDpl67popjliIblnovvvJpgZGVjaXNpb25g77yI6LCB5Zyo5L2V5pe25a6a5LqG5LuA5LmI77yJLyBgc3RhdHVzYO+8iOeOsOWcqOi/m+ihjOWIsOWTqu+8iS8gYGxvY2F0ZWDvvIjmn5Dku73mlofmoaPlnKjlk6rvvIkvIGB3aG8ta25vd3Ng77yI6LCB6LSf6LSj44CB6LCB5oeC77yJLyBgcG9saWN5YO+8iOeOsOihjOinhOWumu+8iS8gYHRpbWVsaW5lYO+8iOS9leaXtuWPkeeUn++8iS8gYGV4aXN0c2DvvIjnu4Tnu4fph4zmnInmsqHmnInorrDov4figJTigJRXMDA2IOafpemHjeS4k+eUqO+8ieOAguWIhuWei+WGs+Wumuadpea6kOS8mOWFiOe6p+S4juaXtuaViOetlueVpe+8jOS4jeaYr+ijhemlsOWtl+auteOAggoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "evidence-review",
+      "name": "S171",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S171",
+        "work": {
+          "stableId": "S171",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec"
+            ],
+            "optional": [
+              "knowledge.search"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/scientific-critical-thinking/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/validate-data/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S171",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S171-evidence-review.md#输入契约",
+            "summary": "见实体文档输入契约。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S171-evidence-review.md#输出契约",
+            "summary": "故意不含：`summary`、`recommendation`、`nextActions`（执行类）。`verdict` 只描述证据状态，不描述要不要采取行动。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "716a6c7da8067029fea0c12c9143a4e9d919288d516bc3da08fdb2ddc67cb740",
+          "contentBase64": "LS0tCm5hbWU6IGV2aWRlbmNlLXJldmlldwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMxNzEKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMTcxCiAgICBkb21haW46ICJSZXNlYXJjaCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICBvcHRpb25hbDoKICAgICAgICAtIGtub3dsZWRnZS5zZWFyY2gKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogIkstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvc2NpZW50aWZpYy1jcml0aWNhbC10aGlua2luZy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI0OWM2ZTk3Nzc1ZWFhMThiYTc5MWJlYmUyMzE2MmE3MGFlNjAxYzE4IgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGF0YS9za2lsbHMvdmFsaWRhdGUtZGF0YS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMTcxCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcxLWV2aWRlbmNlLXJldmlldy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLop4Hlrp7kvZPmlofmoaPovpPlhaXlpZHnuqbjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE3MS1ldmlkZW5jZS1yZXZpZXcubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5pWF5oSP5LiN5ZCr77yaYHN1bW1hcnlg44CBYHJlY29tbWVuZGF0aW9uYOOAgWBuZXh0QWN0aW9uc2DvvIjmiafooYznsbvvvInjgIJgdmVyZGljdGAg5Y+q5o+P6L+w6K+B5o2u54q25oCB77yM5LiN5o+P6L+w6KaB5LiN6KaB6YeH5Y+W6KGM5Yqo44CCIgotLS0KCiMg6K+B5o2u6K+E5a6h77yIUzE3Me+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTcxIMK3IOmihuWfnyBSZXNlYXJjaAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNzEtZXZpZGVuY2UtcmV2aWV3Lm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuWbnuetlOS4gOS4quWFt+S9k+mXrumimO+8muOAjOi/mee7hOivgeaNruiDveaKiui/meadoeS4u+W8oOaSkeWIsOS7gOS5iOeoi+W6pu+8n+OAjeKAlOKAlOWvueavj+adoeS4u+W8oO+8iGNsYWlt77yJ6YCQ5LiA57uZ5Ye677ya5ZOq5Lqb6K+B5o2u55yf55qE5pSv5oyB44CB5ZOq5Lqb5Y+N6amz44CB5q+P5p2h6K+B5o2u6Ieq6Lqr5Y+v5L+h5bqm5aaC5L2V44CB5ZCI5Zyo5LiA6LW355qE6K+B5o2u56Gu5a6a5oCn562J57qn5piv5aSa5bCR44CB5Lul5Y+K5oyJ6L+Z5Liq562J57qn5pyA5aSa5YWB6K6455So5LuA5LmI5o6q6L6e5YaZ6L+b5LiL5ri45oql5ZGKL+W7uuiuruOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcxLWV2aWRlbmNlLXJldmlldy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcxLWV2aWRlbmNlLXJldmlldy5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77yaa25vd2xlZGdlLnJlYWTjgIFzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxsc2DvvIhgc2tpbGxzL3NjaWVudGlmaWMtY3JpdGljYWwtdGhpbmtpbmcvU0tJTEwubWRg77yMY29tbWl0IGA0OWM2ZTk3Nzc1ZWHigKZg77yMTUlU77yM562W55WlIGFkYXB077yJCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIhgZGF0YS9za2lsbHMvdmFsaWRhdGUtZGF0YS9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzE3MSDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "5452ba1ddba7459aa7e82d312250da21aa765e772090cc1cea1e145a68d810db",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDor4Hmja7or4TlrqHvvIhTMTcx77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcxLWV2aWRlbmNlLXJldmlldy5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKMS4g5Li75byg5Y6f5a2Q5YyW44CC5oqK6L6T5YWl5ouG5oiQ5Y6f5a2Q5Li75byg77ya5LiA5p2h5Li75byg5Y+q5ZCr5LiA5Liq5Li76K+t44CB5LiA5Liq6LCT6K+N44CB5LiA5Liq5Y+v5q+U6L6D55qE6YeP5oiW54q25oCB44CB5LiA5Liq5pe26Ze06IyD5Zu044CCIlEzIOWNjuS4nOWMuui9rOWMlueOh+S4i+mZjSAxMiUg5piv5Zug5Li65paw5a6a5Lu3IuW/hemhu+aLhuaIkCBDMe+8iOS4i+mZjSAxMiXvvIzmj4/ov7DmgKfvvInkuI4gQzLvvIjlm6DkuLrmlrDlrprku7fvvIzlm6DmnpzmgKfvvInjgILmr4/mnaHmoIcgYGNsYWltVHlwZWDvvJpgZGVzY3JpcHRpdmVgIC8gYGNvbXBhcmF0aXZlYCAvIGBjYXVzYWxgIC8gYHByZWRpY3RpdmVgIC8gYG5vcm1hdGl2ZWDjgILlm6DmnpzkuLvlvKDnmoTor4Hmja7pl6jmp5vmnIDpq5jvvIjmraXpqqQgNu+8ieOAggoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "executive-briefing",
+      "name": "S020",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S020",
+        "work": {
+          "stableId": "S020",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/stakeholder-update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "Refound AI / lenny-skills",
+              "path": "skills/executive-communication/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S020",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S020-executive-briefing.md#输入契约",
+            "summary": "见实体文档输入契约。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S020-executive-briefing.md#输出契约",
+            "summary": "W001 只接收 `draftKind=\"brief\"`（W001 以 workflow-stage 调用，`preliminary-draft` 对 W001 不可达），映射为自己的 `Brief`（§6，已 PASS）：`bluf.refIds→claimIds`、`keyPoints(refId→claimId)`、`conflicts[].conflict`、`caveats`、`unknowns`、`notDecided` 直接对应；`risks` 不是一一对应——S020 只给 `{riskId, text}`；`riskId` 只存在于 S010 登记表，W001 §6 `Ris"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "40173344c9e95094b2d3d7f7dc5649b7d67762da4d55d773e047079f20b01fc8",
+          "contentBase64": "LS0tCm5hbWU6IGV4ZWN1dGl2ZS1icmllZmluZwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwMjAKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDIwCiAgICBkb21haW46ICJSZXNlYXJjaCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3QtbWFuYWdlbWVudC9za2lsbHMvc3Rha2Vob2xkZXItdXBkYXRlL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogIlJlZm91bmQgQUkgLyBsZW5ueS1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9leGVjdXRpdmUtY29tbXVuaWNhdGlvbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMjAKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMjAtZXhlY3V0aXZlLWJyaWVmaW5nLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuingeWunuS9k+aWh+aho+i+k+WFpeWlkee6puOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDIwLWV4ZWN1dGl2ZS1icmllZmluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICJXMDAxIOWPquaOpeaUtiBgZHJhZnRLaW5kPVwiYnJpZWZcImDvvIhXMDAxIOS7pSB3b3JrZmxvdy1zdGFnZSDosIPnlKjvvIxgcHJlbGltaW5hcnktZHJhZnRgIOWvuSBXMDAxIOS4jeWPr+i+vu+8ie+8jOaYoOWwhOS4uuiHquW3seeahCBgQnJpZWZg77yIwqc277yM5beyIFBBU1PvvInvvJpgYmx1Zi5yZWZJZHPihpJjbGFpbUlkc2DjgIFga2V5UG9pbnRzKHJlZklk4oaSY2xhaW1JZClg44CBYGNvbmZsaWN0c1tdLmNvbmZsaWN0YOOAgWBjYXZlYXRzYOOAgWB1bmtub3duc2DjgIFgbm90RGVjaWRlZGAg55u05o6l5a+55bqU77ybYHJpc2tzYCDkuI3mmK/kuIDkuIDlr7nlupTigJTigJRTMDIwIOWPque7mSBge3Jpc2tJZCwgdGV4dH1g77ybYHJpc2tJZGAg5Y+q5a2Y5Zyo5LqOIFMwMTAg55m76K6w6KGo77yMVzAwMSDCpzYgYFJpcyIKLS0tCgojIOmrmOeuoeeugOaKpe+8iFMwMjDvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzAyMCDCtyDpoobln58gUmVzZWFyY2gKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDIwLWV4ZWN1dGl2ZS1icmllZmluZy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgpTMDIwIOWPquWBmuS4gOS7tuS6i++8muaKiuW3sue7j+WIpOWumui/h+WPr+ivtOWIsOS7gOS5iOeoi+W6pueahOadkOaWme+8iFMxNzEg5a6h6L+H55qE5Li75byg44CBUzAxMCDnmoTpo47pmanms6jjgIFTMDA3IOeahOeKtuaAgemhueOAgVMwODUg562J57uZ5Ye655qE5oyH5qCH5YC85Y+KIFMxNjIg55qE5oyH5qCH5Yik5a6a77yJ5Y6L5oiQ5LiA5Lu96Z2i5ZCR5YW35L2T6K+76ICF55qE566A5oql5q2j5paH4oCU4oCU57uT6K665YWI6KGM77yIQkxVRu+8ieOAgTPigJM1IOS4quimgeeCueOAgeWGsueqgeOAgemZkOWumuivreOAgeacquefpemhueOAgemjjumZqeOAgeS7peWPiuOAjOacrOeugOaKpeS4jeabv+S9oOWBmueahOWGs+WumuOAjeOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDIwLWV4ZWN1dGl2ZS1icmllZmluZy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDIwLWV4ZWN1dGl2ZS1icmllZmluZy5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77yaa25vd2xlZGdlLnJlYWQKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYHByb2R1Y3QtbWFuYWdlbWVudC9za2lsbHMvc3Rha2Vob2xkZXItdXBkYXRlL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKLSBgUmVmb3VuZCBBSSAvIGxlbm55LXNraWxsc2DvvIhgc2tpbGxzL2V4ZWN1dGl2ZS1jb21tdW5pY2F0aW9uL1NLSUxMLm1kYO+8jGNvbW1pdCBgMTM1OThjYzU0ZTA54oCmYO+8jE1JVO+8jOetlueVpSByZWZlcmVuY2Utb25see+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMwMjAg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "fd2e8590c010a9fbc5427cad1527149bbf90651e3342ced62e7133df0056e725",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDpq5jnrqHnroDmiqXvvIhTMDIw77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDIwLWV4ZWN1dGl2ZS1icmllZmluZy5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKMS4gYHJpc2tzWzBdYO+8iFMwMTAgYHNldmVyaXR5PWhpZ2gg4oinIGxpa2VsaWhvb2TiiaVtZWRpdW1gIOeahOmhue+8jFcwMDEgwqc177yJ77ybCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "knowledge-capture",
+      "name": "S016",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S016",
+        "work": {
+          "stableId": "S016",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "knowledge.search",
+              "project.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "customer-support/skills/kb-article/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "enterprise-search/skills/knowledge-synthesis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/remember/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S016",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S016-knowledge-capture.md#输入契约",
+            "summary": "输入不变量（违反即 typed error，§6.4）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S016-knowledge-capture.md#输出契约",
+            "summary": "`lesson` / `procedure` / `policy-rule` 在 `KgClaimKind` 里没有独立值：首版按 `fact` 入图并在 statement 前不加前缀、在 S016 记录里保留原值；是否扩 `KgClaimKind` 见 §14。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "94b981ce460c649f6aa5ef8df7229c1fdf2595a3d0c217350d31dfaa90066bc0",
+          "contentBase64": "LS0tCm5hbWU6IGtub3dsZWRnZS1jYXB0dXJlCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzAxNgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwMTYKICAgIGRvbWFpbjogIlNoYXJlZCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIGtub3dsZWRnZS5zZWFyY2gKICAgICAgICAtIHByb2plY3QucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiY3VzdG9tZXItc3VwcG9ydC9za2lsbHMva2ItYXJ0aWNsZS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogImVudGVycHJpc2Utc2VhcmNoL3NraWxscy9rbm93bGVkZ2Utc3ludGhlc2lzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImdpdGh1Yi9hd2Vzb21lLWNvcGlsb3QiCiAgICAgICAgcGF0aDogInNraWxscy9yZW1lbWJlci9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMTYKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTYta25vd2xlZGdlLWNhcHR1cmUubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi6L6T5YWl5LiN5Y+Y6YeP77yI6L+d5Y+N5Y2zIHR5cGVkIGVycm9y77yMwqc2LjTvvInvvJoiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxNi1rbm93bGVkZ2UtY2FwdHVyZS5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICJgbGVzc29uYCAvIGBwcm9jZWR1cmVgIC8gYHBvbGljeS1ydWxlYCDlnKggYEtnQ2xhaW1LaW5kYCDph4zmsqHmnInni6znq4vlgLzvvJrpppbniYjmjIkgYGZhY3RgIOWFpeWbvuW5tuWcqCBzdGF0ZW1lbnQg5YmN5LiN5Yqg5YmN57yA44CB5ZyoIFMwMTYg6K6w5b2V6YeM5L+d55WZ5Y6f5YC877yb5piv5ZCm5ompIGBLZ0NsYWltS2luZGAg6KeBIMKnMTTjgIIiCi0tLQoKIyDnn6Xor4bmjZXojrfvvIhTMDE277yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwMTYgwrcg6aKG5Z+fIFNoYXJlZAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTYta25vd2xlZGdlLWNhcHR1cmUubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK44CM6L+Z5Lu25LqL5Lul5ZCO6L+Y5Lya5pyJ5Lq66ZyA6KaB55+l6YGT4oCU4oCU5oqK5a6D5Y+Y5oiQ5LiA5p2h6IO96KKr5p+l5Yiw44CB6IO96KKr5qC46aqM44CB6IO96KKr5o6o57+755qE57uE57uH55+l6K+G5o+Q5qGI44CN44CC6L6T5YWl5piv5LiA5q615bey57uP5Y+R55Sf6L+H55qE5bel5L2c55eV6L+577yI5Lya6K6u6K6w5b2V44CB5aSN55uY44CB5pS/562W5paw5pen54mI44CB5YWl6IGM6Zeu562U44CB6aG555uu5a+56K+d77yJ77yM6L6T5Ye65piv5LiA57uE5Y6f5a2Q5YyW55qE5o2V6I636K6w5b2V77yI5q+P5p2h5LiA5Y+l5Y+v54us56uL5oiQ56uL55qE6ZmI6L+wICsg5Y6f6K+d6ZSa54K5ICsg6YCC55So6IyD5Zu0ICsg5bu66K6u5YaZ5YWl5bGC57qnICsg5aSx5pWI5p2h5Lu277yJ77yM5Lul5Y+K5LiA5byg5Lqk57uZ5Lq656Gu6K6k55qE5YaZ5YWl5o+Q5qGI44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTYta25vd2xlZGdlLWNhcHR1cmUubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxNi1rbm93bGVkZ2UtY2FwdHVyZS5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77yaa25vd2xlZGdlLnJlYWTjgIFrbm93bGVkZ2Uuc2VhcmNo44CBcHJvamVjdC5yZWFkCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBjdXN0b21lci1zdXBwb3J0L3NraWxscy9rYi1hcnRpY2xlL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBlbnRlcnByaXNlLXNlYXJjaC9za2lsbHMva25vd2xlZGdlLXN5bnRoZXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCi0gYGdpdGh1Yi9hd2Vzb21lLWNvcGlsb3Rg77yIYHNraWxscy9yZW1lbWJlci9TS0lMTC5tZGDvvIxjb21taXQgYDZjNGQzM2I5Y2ZjYeKApmDvvIxNSVTvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMDE2IOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "60a8736b02869775cb1e3bf6962c31e4e9ed1c7df89d1fd44145b070a72a8618",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnn6Xor4bmjZXojrfvvIhTMDE277yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE2LWtub3dsZWRnZS1jYXB0dXJlLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzkuJPkuJrmlrnms5XjgI3kuIDoioLjgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "knowledge-synthesis-review",
+      "name": "S169",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S169",
+        "work": {
+          "stableId": "S169",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "enterprise-search/skills/knowledge-synthesis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/build-evidence-map/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S169",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S169-knowledge-synthesis.md#输入契约",
+            "summary": "见实体文档输入契约。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S169-knowledge-synthesis.md#输出契约",
+            "summary": "见实体文档输出契约。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "5a5af6ec428e6077e7306f36cf2f36c5e4fc14b82134f76aaf50b465f465c536",
+          "contentBase64": "LS0tCm5hbWU6IGtub3dsZWRnZS1zeW50aGVzaXMtcmV2aWV3CnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzE2OQptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMxNjkKICAgIGRvbWFpbjogIlJlc2VhcmNoIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZW50ZXJwcmlzZS1zZWFyY2gvc2tpbGxzL2tub3dsZWRnZS1zeW50aGVzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiZ2l0aHViL2F3ZXNvbWUtY29waWxvdCIKICAgICAgICBwYXRoOiAic2tpbGxzL2J1aWxkLWV2aWRlbmNlLW1hcC9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNjkKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjkta25vd2xlZGdlLXN5bnRoZXNpcy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLop4Hlrp7kvZPmlofmoaPovpPlhaXlpZHnuqbjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2OS1rbm93bGVkZ2Utc3ludGhlc2lzLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuingeWunuS9k+aWh+aho+i+k+WHuuWlkee6puOAgiIKLS0tCgojIOefpeivhue7vOWQiO+8iFMxNjnvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzE2OSDCtyDpoobln58gUmVzZWFyY2gKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY5LWtub3dsZWRnZS1zeW50aGVzaXMubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5ZCM5LiA5Lu25LqL5Lya5Lul5LiN5ZCM55qE5qC35a2Q5Ye6546w5Zyo5aSa5aSE77ya5Lya6K6u57qq6KaB6YeM5LiA5Y+l44CB6YKu5Lu26YeM5LiA5qyh56Gu6K6k44CB5paH5qGjIHYzIOmHjOS4gOiKgu+8jOiAjOe7hOe7h+S7peWJjeeahOeglOeptuS5n+WPr+iDveaXqeWwseWGmei/h+OAglMxNjkg5oqK6L+Z5Lqb5p2Q5paZ5b2S5bm25oiQ5LiA5byg57uT5p6E5YyW55+l6K+G5Zu+77yIYEtub3dsZWRnZVN5bnRoZXNpc01hcGDvvInvvIzlm77ph4zmnInlm5vmoLfkuJzopb/vvJoKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2OS1rbm93bGVkZ2Utc3ludGhlc2lzLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjkta25vd2xlZGdlLXN5bnRoZXNpcy5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77ya77yI6KeB5a6e5L2T5paH5qGj77yJCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBlbnRlcnByaXNlLXNlYXJjaC9za2lsbHMva25vd2xlZGdlLXN5bnRoZXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCi0gYGdpdGh1Yi9hd2Vzb21lLWNvcGlsb3Rg77yIYHNraWxscy9idWlsZC1ldmlkZW5jZS1tYXAvU0tJTEwubWRg77yMY29tbWl0IGA2YzRkMzNiOWNmY2HigKZg77yMTUlU77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzE2OSDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "911264bcbefdabc07b8376a66f9b682b464dc2d91d8527634c1d10fe20910c19",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnn6Xor4bnu7zlkIjvvIhTMTY577yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY5LWtub3dsZWRnZS1zeW50aGVzaXMubWRg77yJ44CCCgojIyDkuJPkuJrmlrnms5XmkZjopoEKCjEuIOWumuiMg+WbtO+8muehruWumiBgc2NvcGVg77yM5Y2z5Li76aKY5Y+K5YW26L6555WM44CCYHN0cnVjdHVyZS1ldmlkZW5jZWAg5qih5byP5Y+WIFMxNzAg55qEIFJRIOmbhuWQiO+8jGBpbnRlZ3JhdGUtZmluZGluZ3NgIOaooeW8j+WPliBTMDYzIEZpbmRpbmcg6ZuG55qE5Li76aKY44CC6IyD5Zu05aSW55qE6L6T5YWl6aG55LiN5Lii5byD77yM6K6w5YWlIGBvdXRPZlNjb3BlW11g77yM5bm26ZmE5LiA5Y+l5Y6f5Zug44CCCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "market-sizing",
+      "name": "S167",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S167",
+        "work": {
+          "stableId": "S167",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/market-research-reports/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "Refound AI / lenny-skills",
+              "path": "skills/evaluating-startup-ideas/references/artifacts.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S167",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S167-market-sizing.md#输入契约",
+            "summary": "不变量：`topDown` 与 `bottomUp` 至少一个存在；只有一个时 `verdict` 上限 `directional`（决策 1）。所有比例 ∈ [0,1]；`scenarios.length ∈ [2,5]`；`dataPointId`/`componentId`/`segmentId` 唯一；同一路径内 `coverageKey` 唯一。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S167-market-sizing.md#输出契约",
+            "summary": "不变量：`som ≤ sam ≤ 所选 TAM`；`reconciliation.status=\"unreconciled\"` ⇒ `scopeDifferences.length ≥ 1` 且 `verdict ≠ decision-grade`；输出中每个数值都能由 `calculatorRun.inputHash` 对应的输入复算得出。故意不含 `recommendation`、`investmentView`。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "429a2045843e16920d62c5c8e0cf2fab4667e69efd6b71a196546e8fd8896b5b",
+          "contentBase64": "LS0tCm5hbWU6IG1hcmtldC1zaXppbmcKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMTY3Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzE2NwogICAgZG9tYWluOiAiUmVzZWFyY2giCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL21hcmtldC1yZXNlYXJjaC1yZXBvcnRzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjQ5YzZlOTc3NzVlYWExOGJhNzkxYmViZTIzMTYyYTcwYWU2MDFjMTgiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiUmVmb3VuZCBBSSAvIGxlbm55LXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL2V2YWx1YXRpbmctc3RhcnR1cC1pZGVhcy9yZWZlcmVuY2VzL2FydGlmYWN0cy5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNjcKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjctbWFya2V0LXNpemluZy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLkuI3lj5jph4/vvJpgdG9wRG93bmAg5LiOIGBib3R0b21VcGAg6Iez5bCR5LiA5Liq5a2Y5Zyo77yb5Y+q5pyJ5LiA5Liq5pe2IGB2ZXJkaWN0YCDkuIrpmZAgYGRpcmVjdGlvbmFsYO+8iOWGs+etliAx77yJ44CC5omA5pyJ5q+U5L6LIOKIiCBbMCwxXe+8m2BzY2VuYXJpb3MubGVuZ3RoIOKIiCBbMiw1XWDvvJtgZGF0YVBvaW50SWRgL2Bjb21wb25lbnRJZGAvYHNlZ21lbnRJZGAg5ZSv5LiA77yb5ZCM5LiA6Lev5b6E5YaFIGBjb3ZlcmFnZUtleWAg5ZSv5LiA44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjctbWFya2V0LXNpemluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLkuI3lj5jph4/vvJpgc29tIOKJpCBzYW0g4omkIOaJgOmAiSBUQU1g77ybYHJlY29uY2lsaWF0aW9uLnN0YXR1cz1cInVucmVjb25jaWxlZFwiYCDih5IgYHNjb3BlRGlmZmVyZW5jZXMubGVuZ3RoIOKJpSAxYCDkuJQgYHZlcmRpY3Qg4omgIGRlY2lzaW9uLWdyYWRlYO+8m+i+k+WHuuS4reavj+S4quaVsOWAvOmDveiDveeUsSBgY2FsY3VsYXRvclJ1bi5pbnB1dEhhc2hgIOWvueW6lOeahOi+k+WFpeWkjeeul+W+l+WHuuOAguaVheaEj+S4jeWQqyBgcmVjb21tZW5kYXRpb25g44CBYGludmVzdG1lbnRWaWV3YOOAgiIKLS0tCgojIOW4guWcuuinhOaooea1i+eul++8iFMxNjfvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzE2NyDCtyDpoobln58gUmVzZWFyY2gKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY3LW1hcmtldC1zaXppbmcubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5Zue562U5LiA5Liq6Zeu6aKY77ya44CM5Zyo5piO56Gu55qE5biC5Zy65a6a5LmJ44CB5Y+j5b6E5LiO5pe254K55LiL77yM6L+Z5Liq5biC5Zy65pyJ5aSa5aSn44CB5oiR5Lus6IO95ou/5Yiw5aSa5bCR77yM5Lul5Y+K6L+Z5Liq5pWw5a2X5a+55ZOq5Yeg5Liq5YGH6K6+5pyA5pWP5oSf77yf44CNCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjctbWFya2V0LXNpemluZy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY3LW1hcmtldC1zaXppbmcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmtub3dsZWRnZS5yZWFk44CBc2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHNg77yIYHNraWxscy9tYXJrZXQtcmVzZWFyY2gtcmVwb3J0cy9TS0lMTC5tZGDvvIxjb21taXQgYDQ5YzZlOTc3NzVlYeKApmDvvIxNSVTvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKLSBgUmVmb3VuZCBBSSAvIGxlbm55LXNraWxsc2DvvIhgc2tpbGxzL2V2YWx1YXRpbmctc3RhcnR1cC1pZGVhcy9yZWZlcmVuY2VzL2FydGlmYWN0cy5tZGDvvIxjb21taXQgYDEzNTk4Y2M1NGUwOeKApmDvvIxNSVTvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMTY3IOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "d8216c43d479a30139b00fda33bc8962a44c74a4b4539fe7953004a3e5446ebf",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDluILlnLrop4TmqKHmtYvnrpfvvIhTMTY377yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY3LW1hcmtldC1zaXppbmcubWRg77yJ44CCCgojIyDkuJPkuJrmlrnms5XmkZjopoEKCjEuIOW4guWcuuWumuS5iemUgeWumuOAguWFiOS6p+WHuiBgbWFya2V0RGVmaW5pdGlvbmDvvJrkubDmlrnmmK/osIHjgIHkubDnmoTmmK/ku4DkuYjvvIjkuqflk4Ev5pyN5Yqh6L6555WM77yJ44CB5Zyw5Z+f44CB6LSn5biB44CB5Z+65YeG5bm044CB5Lu35qC85Y+j5b6E77yI5ZCN5LmJL+WunumZheOAgeWQq+eoji/kuI3lkKvnqI7vvInjgIHorqHph4/ljZXkvY3jgIFgZGVub21pbmF0b3JJZGDvvIjkvovlpoIi57uI56uv5a6i5oi35bm05bqm5pSv5Ye6IuiAjOmdniLljoLllYbmlLblhaUi77yJ44CC5Lu75L2V5ZCO57ut5pWw5o2u54K555qEIGBkZW5vbWluYXRvcklkYCDkuI7kuYvkuI3kuIDoh7TljbPmi5LmlLbvvIhgREVOT01JTkFUT1JfTUlTTUFUQ0hg77yJ77yM6ICM5LiN5piv5o2i566X5ZCO5re355So44CCCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "research-synthesis",
+      "name": "S063",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S063",
+        "work": {
+          "stableId": "S063",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/synthesize-research/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "design/skills/research-synthesis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "enterprise-search/skills/knowledge-synthesis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S063",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S063-research-synthesis.md#输入契约",
+            "summary": "S063 不定义自己的证据类型，直接消费上游 Skill 的输出类型，不设适配层："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S063-research-synthesis.md#输出契约",
+            "summary": "见实体文档输出契约。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "414b9c0be8495d0f085756fec633162b5806a1afad7d68bfd6788ca198d2672e",
+          "contentBase64": "LS0tCm5hbWU6IHJlc2VhcmNoLXN5bnRoZXNpcwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNjMKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDYzCiAgICBkb21haW46ICJSZXNlYXJjaCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9zeW50aGVzaXplLXJlc2VhcmNoL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGVzaWduL3NraWxscy9yZXNlYXJjaC1zeW50aGVzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJlbnRlcnByaXNlLXNlYXJjaC9za2lsbHMva25vd2xlZGdlLXN5bnRoZXNpcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDYzCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYzLXJlc2VhcmNoLXN5bnRoZXNpcy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICJTMDYzIOS4jeWumuS5ieiHquW3seeahOivgeaNruexu+Wei++8jOebtOaOpea2iOi0ueS4iua4uCBTa2lsbCDnmoTovpPlh7rnsbvlnovvvIzkuI3orr7pgILphY3lsYLvvJoiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2My1yZXNlYXJjaC1zeW50aGVzaXMubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi6KeB5a6e5L2T5paH5qGj6L6T5Ye65aWR57qm44CCIgotLS0KCiMg56CU56m257u85ZCI77yIUzA2M++8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDYzIMK3IOmihuWfnyBSZXNlYXJjaAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjMtcmVzZWFyY2gtc3ludGhlc2lzLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuaKiuW3sue7j+aUtumbhuWlveeahOS4gOaJueadkOaWmeWPmOaIkOWwkemHj+WPr+mAkOadoei/vea6r+eahCBGaW5kaW5n44CC5q+P5LiqIEZpbmRpbmcg5piv5LiA5Y+l5Y+v6K+B5Lyq55qE6ZmI6L+w77yM5oyC552A5pSv5oyB5LiO5Y+N6amz5a6D55qE6K+B5o2uIGlk77yM5bim5LiA5Liq5oyJ56Gu5a6a5oCn566X5rOV5b6X5Ye655qE572u5L+h5bqm5ZKM5o6q6L6e5LiK6ZmQ77yM5bm25LiU5oqK44CM6KeC5a+f44CN5LiO44CM6Kej6YeK44CN5YiG5byA5YaZ44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjMtcmVzZWFyY2gtc3ludGhlc2lzLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjMtcmVzZWFyY2gtc3ludGhlc2lzLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZOOAgXNhbmRib3guZXhlYwotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggoKIyMg5rqv5rqQ77yIRzHvvIkKCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIhgcHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9zeW50aGVzaXplLXJlc2VhcmNoL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBkZXNpZ24vc2tpbGxzL3Jlc2VhcmNoLXN5bnRoZXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIHJlZmVyZW5jZS1vbmx577yJCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIhgZW50ZXJwcmlzZS1zZWFyY2gvc2tpbGxzL2tub3dsZWRnZS1zeW50aGVzaXMvU0tJTEwubWRg77yMY29tbWl0IGBkYTM4ZWMxZWU4OWTigKZg77yMQXBhY2hlLTIuMO+8jOetlueVpSByZWZlcmVuY2Utb25see+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMwNjMg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "d85b5d84d6a8c56dcf6b3e1463befb7a7fc8530b462450ed9069a781192ca265",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnoJTnqbbnu7zlkIjvvIhTMDYz77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYzLXJlc2VhcmNoLXN5bnRoZXNpcy5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKYHZlcmlmeS1jaXRhdGlvbi50c2Ag5ZKMIEU3IGdyYWRlciDpg73mjInov5nkuKrlkb3lkI3nqbrpl7TlgZrmoKHpqozjgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "risk-assessment",
+      "name": "S010",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S010",
+        "work": {
+          "stableId": "S010",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "project.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins（本地克隆 `scratchpad/upstream/kwp`）",
+              "path": "operations/skills/risk-assessment/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S010",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S010-risk-assessment.md#输入契约",
+            "summary": "不变量（输入）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S010-risk-assessment.md#输出契约",
+            "summary": "`RiskNote = { claimId: likelihoodBasis.claimIds[0] ?? null, description: event + \"→\" + consequence（≤240 字）, likelihood, severity, whatWouldChangeIt }`。排序规则是：先放 `severity=high ∧ likelihood≥medium` 的，再按 `level` 降序；取前 5 条。这样 W001 §5 阶段 5「必须在 `risks[0]`」的要求可以直接满足。`critical` 在 `RiskNote` 里没有对应档位，投影时 leve"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "42f48e5ccdcbad75b4b66847b855719e08a07e934145d941b9d7c4d1a8dcdea1",
+          "contentBase64": "LS0tCm5hbWU6IHJpc2stYXNzZXNzbWVudAp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwMTAKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDEwCiAgICBkb21haW46ICJTaGFyZWQiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSBwcm9qZWN0LnJlYWQKICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnPvvIjmnKzlnLDlhYvpmoYgYHNjcmF0Y2hwYWQvdXBzdHJlYW0va3dwYO+8iSIKICAgICAgICBwYXRoOiAib3BlcmF0aW9ucy9za2lsbHMvcmlzay1hc3Nlc3NtZW50L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMTAKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTAtcmlzay1hc3Nlc3NtZW50Lm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuS4jeWPmOmHj++8iOi+k+WFpe+8ie+8miIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEwLXJpc2stYXNzZXNzbWVudC5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICJgUmlza05vdGUgPSB7IGNsYWltSWQ6IGxpa2VsaWhvb2RCYXNpcy5jbGFpbUlkc1swXSA/PyBudWxsLCBkZXNjcmlwdGlvbjogZXZlbnQgKyBcIuKGklwiICsgY29uc2VxdWVuY2XvvIjiiaQyNDAg5a2X77yJLCBsaWtlbGlob29kLCBzZXZlcml0eSwgd2hhdFdvdWxkQ2hhbmdlSXQgfWDjgILmjpLluo/op4TliJnmmK/vvJrlhYjmlL4gYHNldmVyaXR5PWhpZ2gg4oinIGxpa2VsaWhvb2TiiaVtZWRpdW1gIOeahO+8jOWGjeaMiSBgbGV2ZWxgIOmZjeW6j++8m+WPluWJjSA1IOadoeOAgui/meagtyBXMDAxIMKnNSDpmLbmrrUgNeOAjOW/hemhu+WcqCBgcmlza3NbMF1g44CN55qE6KaB5rGC5Y+v5Lul55u05o6l5ruh6Laz44CCYGNyaXRpY2FsYCDlnKggYFJpc2tOb3RlYCDph4zmsqHmnInlr7nlupTmoaPkvY3vvIzmipXlvbHml7YgbGV2ZSIKLS0tCgojIOmjjumZqeivhOS8sO+8iFMwMTDvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzAxMCDCtyDpoobln58gU2hhcmVkCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxMC1yaXNrLWFzc2Vzc21lbnQubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5Zue562U55qE6Zeu6aKY5piv77ya44CM6L+Z5Lu25LqL77yI57uT6K6644CB6K6h5YiS44CB5ZCI5ZCM44CB5Lqk5piT44CB5L6b5bqU5ZWG44CB6aKE5rWL77yJ5Y+v6IO95Zyo5ZOq6YeM5Ye66ZSZ44CB5Ye66ZSZ5LqG5aSa55eb44CB5oiR5Lus5Yet5LuA5LmI6L+Z5LmI5Yik5pat44CB6LCB6K+l5Zyo5LuA5LmI5L+h5Y+35Ye6546w5pe25Yqo5omL44CN44CC5Lqn5Ye65piv5LiA5Lu96aOO6Zmp55m76K6w6KGo77yIYFJpc2tBc3Nlc3NtZW50YO+8ieOAguavj+adoemjjumZqemDveWGmeaYju+8muWPr+inguWvn+eahOinpuWPkeS/oeWPt+OAgeS8vOeEtuS4juWQjuaenOeahOS+neaNruOAgeWkhOe9ruaPkOahiO+8jOS7peWPiuiwgeacieadg+aOpeWPl+i/meadoemjjumZqeOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEwLXJpc2stYXNzZXNzbWVudC5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEwLXJpc2stYXNzZXNzbWVudC5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77yaa25vd2xlZGdlLnJlYWTjgIFwcm9qZWN0LnJlYWQKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnPvvIjmnKzlnLDlhYvpmoYgYHNjcmF0Y2hwYWQvdXBzdHJlYW0va3dwYO+8iWDvvIhgb3BlcmF0aW9ucy9za2lsbHMvcmlzay1hc3Nlc3NtZW50L1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgcmVmZXJlbmNlLW9ubHnvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMDEwIOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "507920b1decaefbec831fe3e4ee887248b3ded1f86c998f9bfc19608a5a263bf",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDpo47pmanor4TkvLDvvIhTMDEw77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDEwLXJpc2stYXNzZXNzbWVudC5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKMS4g5a6a6K+E5Lyw5a+56LGh5LiO6K+E5Lu35YeG5YiZ77yM5YaN6K+G5Yir6aOO6Zmp44CCIOWFiOWbnuaYviBgc3ViamVjdEtpbmRg44CBYGhvcml6b25g77yI6aOO6Zmp56qX5Y+j77yM5L6L5aaC44CM5pys5a2j5bqm44CN44CM5ZCI5ZCM5pyfIDMg5bm044CN77yJ5ZKMIGBtYXRlcmlhbGl0eUJhc2lzYO+8iOS4pemHjeW6pumUmuWumueahOaVsOWAvOWfuuWHhu+8muS6pOaYk+mineOAgeWQiOWQjOmineOAgemihOa1i+aUtuWFpeOAgemhueebrumihOeul++8ie+8jOeEtuWQjuaJjeW8gOWni+WIl+mjjumZqeOAguayoeaciSBgbWF0ZXJpYWxpdHlCYXNpc2Ag5pe277yMc2V2ZXJpdHkg5Y+q6IO955So5a6a5oCn6ZSa77yM5bm25Zyo6L6T5Ye65Lit5qCHIGBzZXZlcml0eUFuY2hvcmluZzogInF1YWxpdGF0aXZlImDjgILov5nmoLflgZrmmK/kuLrkuobpgb/lhY3jgIzpq5jlkI7mnpzjgI3msqHmnInlj4LnhafnianjgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "scientific-research-planning",
+      "name": "S170",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S170",
+        "work": {
+          "stableId": "S170",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": [
+              "knowledge.search"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills（本地 clone：`scratchpad/upstream/claude-scientific-skills`）",
+              "path": "skills/hypothesis-generation/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins（本地 clone：`scratchpad/upstream/knowledge-work-plugins`）",
+              "path": "bio-research/skills/scientific-problem-selection/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S170",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S170-scientific-research-planning.md#输入契约",
+            "summary": "见实体文档输入契约。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S170-scientific-research-planning.md#输出契约",
+            "summary": "见实体文档输出契约。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "97e76b5aadc103f5680d1eecb6e2a5d4a6eef5c247df706f1f494ea093522354",
+          "contentBase64": "LS0tCm5hbWU6IHNjaWVudGlmaWMtcmVzZWFyY2gtcGxhbm5pbmcKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMTcwCm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzE3MAogICAgZG9tYWluOiAiUmVzZWFyY2giCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0ga25vd2xlZGdlLnNlYXJjaAogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHPvvIjmnKzlnLAgY2xvbmXvvJpgc2NyYXRjaHBhZC91cHN0cmVhbS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHNg77yJIgogICAgICAgIHBhdGg6ICJza2lsbHMvaHlwb3RoZXNpcy1nZW5lcmF0aW9uL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjQ5YzZlOTc3NzVlYWExOGJhNzkxYmViZTIzMTYyYTcwYWU2MDFjMTgiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5z77yI5pys5ZywIGNsb25l77yaYHNjcmF0Y2hwYWQvdXBzdHJlYW0va25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIkiCiAgICAgICAgcGF0aDogImJpby1yZXNlYXJjaC9za2lsbHMvc2NpZW50aWZpYy1wcm9ibGVtLXNlbGVjdGlvbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMTcwCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcwLXNjaWVudGlmaWMtcmVzZWFyY2gtcGxhbm5pbmcubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi6KeB5a6e5L2T5paH5qGj6L6T5YWl5aWR57qm44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNzAtc2NpZW50aWZpYy1yZXNlYXJjaC1wbGFubmluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLop4Hlrp7kvZPmlofmoaPovpPlh7rlpZHnuqbjgIIiCi0tLQoKIyDnp5HnoJTop4TliJLvvIhTMTcw77yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMxNzAgwrcg6aKG5Z+fIFJlc2VhcmNoCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE3MC1zY2llbnRpZmljLXJlc2VhcmNoLXBsYW5uaW5nLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuWbnuetlO+8muOAjOWcqOWKqOaJi+aJvuivgeaNruS5i+WJje+8jOi/meS4queglOeptumXrumimOW6lOW9k+iiq+aLhuaIkOWTquS6m+WPr+ajgOmqjOeahOWtkOmXrumimOOAgeavj+S4quWtkOmXrumimOmcgOimgeS7gOS5iOagt+eahOivgeaNruaJjeeul+WbnuetlOOAgeS7gOS5iOe7k+aenOS8muaOqOe/u+aIkeS7rOeahOmihOacn++8n+OAjQoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcwLXNjaWVudGlmaWMtcmVzZWFyY2gtcGxhbm5pbmcubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE3MC1zY2llbnRpZmljLXJlc2VhcmNoLXBsYW5uaW5nLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZAotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggoKIyMg5rqv5rqQ77yIRzHvvIkKCi0gYEstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxz77yI5pys5ZywIGNsb25l77yaYHNjcmF0Y2hwYWQvdXBzdHJlYW0vY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzYO+8iWDvvIhgc2tpbGxzL2h5cG90aGVzaXMtZ2VuZXJhdGlvbi9TS0lMTC5tZGDvvIxjb21taXQgYDQ5YzZlOTc3NzVlYeKApmDvvIxNSVTvvIznrZbnlaUgYWRhcHTvvIkKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5z77yI5pys5ZywIGNsb25l77yaYHNjcmF0Y2hwYWQvdXBzdHJlYW0va25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIlg77yIYGJpby1yZXNlYXJjaC9za2lsbHMvc2NpZW50aWZpYy1wcm9ibGVtLXNlbGVjdGlvbi9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzE3MCDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "0709288ce40c2ccbc45305f3caf6b53a02e019eea76d50719693f2891f39a063",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnp5HnoJTop4TliJLvvIhTMTcw77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTcwLXNjaWVudGlmaWMtcmVzZWFyY2gtcGxhbm5pbmcubWRg77yJ44CCCgojIyDkuJPkuJrmlrnms5XmkZjopoEKCjEuIOiMg+WbtOS4juWuieWFqOmXqOOAguaLkue7neaIlumZjee6p++8muimgeaxguiuvuiuoeS6uuS9k+W5sumihC/liqjnianlrp7pqoznmoTlhbfkvZPmk43kvZzmlrnmoYjvvIjliYLph4/jgIHnu5noja/mlrnmoYjvvInihpIg5Y+q6L6T5Ye66K+B5o2u6KeE5YiS77yMYHNjb3BlTm90ZXNgIOWGmeaYjiLlrp7pqozmiafooYzmlrnmoYjpnIDkvKbnkIblp5TlkZjkvJovSVJCIOS4juWQiOagvOeglOeptuiAhSLvvJvmtonlj4rkuKrkurrlgaXlurfmlbDmja7nmoTpl67popgg4oaSIOaghyBgZGF0YVNlbnNpdGl2aXR5OiAicGVyc29uYWwtaGVhbHRoImDvvIzkuIvmuLjmo4DntKLlj5cgUzAwMyDmnYPpmZDotKbmnKznuqbmnZ/jgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "sql-query",
+      "name": "S160",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S160",
+        "work": {
+          "stableId": "S160",
+          "domain": "Data",
+          "riskClass": "medium",
+          "dependencies": {
+            "required": [],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins（本地克隆 `scratchpad/upstream/kwp`）",
+              "path": "data/skills/write-query/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot（`scratchpad/upstream/awesome-copilot`）",
+              "path": "skills/postgresql-optimization/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S160",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S160-sql-query.md#输入契约",
+            "summary": "不变量："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S160-sql-query.md#输出契约",
+            "summary": "不变量："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "74802260702aa65a348e497956ecd136a64375104f5a10e0f342ebf4ce6cad6b",
+          "contentBase64": "LS0tCm5hbWU6IHNxbC1xdWVyeQp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMxNjAKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMTYwCiAgICBkb21haW46ICJEYXRhIgogICAgcmlza0NsYXNzOiBtZWRpdW0KICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6IFtdCiAgICAgIG9wdGlvbmFsOiBbXQogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5z77yI5pys5Zyw5YWL6ZqGIGBzY3JhdGNocGFkL3Vwc3RyZWFtL2t3cGDvvIkiCiAgICAgICAgcGF0aDogImRhdGEvc2tpbGxzL3dyaXRlLXF1ZXJ5L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImdpdGh1Yi9hd2Vzb21lLWNvcGlsb3TvvIhgc2NyYXRjaHBhZC91cHN0cmVhbS9hd2Vzb21lLWNvcGlsb3Rg77yJIgogICAgICAgIHBhdGg6ICJza2lsbHMvcG9zdGdyZXNxbC1vcHRpbWl6YXRpb24vU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiNmM0ZDMzYjljZmNhOTY3YTI4YmIyOTYyZWY0ZDU1ZTRhMzg0Yzg4YyIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMTYwCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYwLXNxbC1xdWVyeS5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLkuI3lj5jph4/vvJoiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MC1zcWwtcXVlcnkubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5LiN5Y+Y6YeP77yaIgotLS0KCiMgU1FMIOafpeivou+8iFMxNjDvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzE2MCDCtyDpoobln58gRGF0YQo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjAtc3FsLXF1ZXJ5Lm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuWbnuetlOS4gOS4quWFt+S9k+mXrumimO+8muOAjOaKiuS4gOS4quW3sueVjOWumuWlveeahOaVsOaNrumXrumimO+8jOWPmOaIkOS4gOadoeWcqOW3suaOiOadg+WPquivu+aVsOaNrua6kOS4iuWPr+aJp+ihjOOAgee7k+aenOWPo+W+hOWPr+ino+mHiuOAgeWPr+Wkjeeul+eahCBTUUzvvIzlubbmi7/lm57mnInnlYznmoTnu5PmnpzooYzjgILjgI0KCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MC1zcWwtcXVlcnkubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MC1zcWwtcXVlcnkubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mu+8iOingeWunuS9k+aWh+aho++8iQotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggoKIyMg5rqv5rqQ77yIRzHvvIkKCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc++8iOacrOWcsOWFi+mahiBgc2NyYXRjaHBhZC91cHN0cmVhbS9rd3Bg77yJYO+8iGBkYXRhL3NraWxscy93cml0ZS1xdWVyeS9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCi0gYGdpdGh1Yi9hd2Vzb21lLWNvcGlsb3TvvIhgc2NyYXRjaHBhZC91cHN0cmVhbS9hd2Vzb21lLWNvcGlsb3Rg77yJYO+8iGBza2lsbHMvcG9zdGdyZXNxbC1vcHRpbWl6YXRpb24vU0tJTEwubWRg77yMY29tbWl0IGA2YzRkMzNiOWNmY2HigKZg77yMTUlU77yM562W55WlIHJlZmVyZW5jZS1vbmx577yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzE2MCDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "36d0ed013262d3c6bae18afed75554f770cff4b68884d398f4e3ac811dd5892b",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCBTUUwg5p+l6K+i77yIUzE2MO+8iQoK5pys55uu5b2V5LiN5aSN5Yi25a6e5L2T5paH5qGj5q2j5paH77yI5Y2V5LiA5LqL5a6e5rqQ5ZyoIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MC1zcWwtcXVlcnkubWRg77yJ44CCCgojIyDkuJPkuJrmlrnms5XmkZjopoEKCjEuIOWGmSBgUXVlcnlTcGVjYO+8jOWGjeWGmSBTUUzjgIIg5oqK6Zeu6aKY5Zu65a6a5Li677yaYGdyYWluYO+8iOS4gOihjOS7o+ihqOS7gOS5iO+8jOS+i+WmgiLmr4/muKDpgZPDl+avj+iHqueEtuWRqCLvvInjgIFgbWVhc3VyZXNg77yI5q+P5Liq5bqm6YeP55qE6IGa5ZCI5Ye95pWw5LiO5YiG5a2QL+WIhuavje+8ieOAgWBmaWx0ZXJzYOOAgWB0aW1lV2luZG93YO+8iOWQq+WNiuW8gOWMuumXtCBgW2Zyb20sIHRvKWAg5LiOIGB0aW1lem9uZWDvvInjgIFgZXhwZWN0ZWRNYXhSb3dzYOOAguS7u+S9leS4gOmhueaXoOazleS7jui+k+WFpeehruWumiDihpIg6L+U5ZueIGBTUEVDX0FNQklHVU9VU2Ag5bm25YiX5Ye66ZyA5r6E5riF6aG577yM5LiN54yc44CCCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "statistical-analysis",
+      "name": "S161",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S161",
+        "work": {
+          "stableId": "S161",
+          "domain": "Data",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "data.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/statistical-analysis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/statistical-analysis/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S161",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S161-statistical-analysis.md#输入契约",
+            "summary": "输入不变式（违反 → `InvalidInput`）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S161-statistical-analysis.md#输出契约",
+            "summary": "输出不变式（`superRefine`，违反 → `OutputInvariantViolation`，报告不交给下游）："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "8f3231cdb670241c471ecafee6dbbd271860cb1e752be49edfe60a9b2beb2aaf",
+          "contentBase64": "LS0tCm5hbWU6IHN0YXRpc3RpY2FsLWFuYWx5c2lzCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzE2MQptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMxNjEKICAgIGRvbWFpbjogIkRhdGEiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGRhdGEucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGF0YS9za2lsbHMvc3RhdGlzdGljYWwtYW5hbHlzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9zdGF0aXN0aWNhbC1hbmFseXNpcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI0OWM2ZTk3Nzc1ZWFhMThiYTc5MWJlYmUyMzE2MmE3MGFlNjAxYzE4IgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNjEKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjEtc3RhdGlzdGljYWwtYW5hbHlzaXMubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi6L6T5YWl5LiN5Y+Y5byP77yI6L+d5Y+NIOKGkiBgSW52YWxpZElucHV0YO+8ie+8miIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYxLXN0YXRpc3RpY2FsLWFuYWx5c2lzLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WHuuS4jeWPmOW8j++8iGBzdXBlclJlZmluZWDvvIzov53lj40g4oaSIGBPdXRwdXRJbnZhcmlhbnRWaW9sYXRpb25g77yM5oql5ZGK5LiN5Lqk57uZ5LiL5ri477yJ77yaIgotLS0KCiMg57uf6K6h5YiG5p6Q77yIUzE2Me+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTYxIMK3IOmihuWfnyBEYXRhCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MS1zdGF0aXN0aWNhbC1hbmFseXNpcy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrlm57nrZTkuIDkuKrlhbfkvZPpl67popjvvJrjgIzov5nnu4Tlt7Lnu4/ov4fmoKHpqoznmoTmlbDmja7vvIzlr7nkuIDkuKrkuovlhYjlhpnkuIvnmoTnu5/orqHlgYforr7vvIzog73nu5nlh7rlpJrlpKfjgIHlpJrnoa7lrprnmoTlrprph4/nu5PorrrvvJ/jgI0KCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MS1zdGF0aXN0aWNhbC1hbmFseXNpcy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYxLXN0YXRpc3RpY2FsLWFuYWx5c2lzLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrvvIjop4Hlrp7kvZPmlofmoaPvvIkKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYGRhdGEvc2tpbGxzL3N0YXRpc3RpY2FsLWFuYWx5c2lzL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHNg77yIYHNraWxscy9zdGF0aXN0aWNhbC1hbmFseXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYDQ5YzZlOTc3NzVlYeKApmDvvIxNSVTvvIznrZbnlaUgYWRhcHTvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMTYxIOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "071b6382ef7f61b051ea1e13af2a66c151ac945e83ef32155776fdf32350ffc8",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnu5/orqHliIbmnpDvvIhTMTYx77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYxLXN0YXRpc3RpY2FsLWFuYWx5c2lzLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgoxLiDor7vpl7jpl6jjgILopoHmsYIgYHZhbGlkYXRpb25SZWZgIOaMh+WQkSBTMTU4IOaKpeWRiu+8mmBnYXRlPSJibG9jayJgIOKGkiDnm7TmjqUgYFVwc3RyZWFtR2F0ZUJsb2NrZWRg77ybYGdhdGU9InBhc3Mtd2l0aC1jYXZlYXRzImAg4oaSIOaKiiBgcmVxdWlyZWRDYXZlYXRzYCDljp/moLfmjILliLDmr4/mnaHnu5PmnpznmoQgYGNhdmVhdHNg44CC5rKh5pyJIGB2YWxpZGF0aW9uUmVmYCDlj6rlhYHorrggYG1vZGU9ImFkLWhvYyJg77yI6IGK5aSp55u06LCD77yJ77yM5LiU5omA5pyJ57uT6K66IGBhbGxvd2VkQXNzZXJ0aW9uYCDkuIrpmZDpmY3kuIDmoaPjgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "task-extraction",
+      "name": "S017",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S017",
+        "work": {
+          "stableId": "S017",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "productivity/skills/task-management/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "productivity/skills/update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/meeting-minutes/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S017",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S017-task-extraction.md#输入契约",
+            "summary": "输入不变量（进门校验）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S017-task-extraction.md#输出契约",
+            "summary": "刻意不设 `ownerUserId`、`dueAt`、`priority`、`riskLevel`、`executor` 字段：前两者由 S142 解析（S142 M2、M4），风险等级在基线上只搬运不推导（`board.ts` 注释，VERIFIED@30c1…），S017 没有原话来源可以搬运。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "3671ebb13c2ec4ad689e35627929dce4ac1d430a30933baa0176332f63e14070",
+          "contentBase64": "LS0tCm5hbWU6IHRhc2stZXh0cmFjdGlvbgp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwMTcKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDE3CiAgICBkb21haW46ICJTaGFyZWQiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3Rpdml0eS9za2lsbHMvdGFzay1tYW5hZ2VtZW50L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdGl2aXR5L3NraWxscy91cGRhdGUvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiZ2l0aHViL2F3ZXNvbWUtY29waWxvdCIKICAgICAgICBwYXRoOiAic2tpbGxzL21lZXRpbmctbWludXRlcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMTcKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTctdGFzay1leHRyYWN0aW9uLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WFpeS4jeWPmOmHj++8iOi/m+mXqOagoemqjO+8ie+8miIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE3LXRhc2stZXh0cmFjdGlvbi5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLliLvmhI/kuI3orr4gYG93bmVyVXNlcklkYOOAgWBkdWVBdGDjgIFgcHJpb3JpdHlg44CBYHJpc2tMZXZlbGDjgIFgZXhlY3V0b3JgIOWtl+aute+8muWJjeS4pOiAheeUsSBTMTQyIOino+aekO+8iFMxNDIgTTLjgIFNNO+8ie+8jOmjjumZqeetiee6p+WcqOWfuue6v+S4iuWPquaQrOi/kOS4jeaOqOWvvO+8iGBib2FyZC50c2Ag5rOo6YeK77yMVkVSSUZJRURAMzBjMeKApu+8ie+8jFMwMTcg5rKh5pyJ5Y6f6K+d5p2l5rqQ5Y+v5Lul5pCs6L+Q44CCIgotLS0KCiMg5Lu75Yqh5oq95Y+W77yIUzAxN++8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDE3IMK3IOmihuWfnyBTaGFyZWQKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE3LXRhc2stZXh0cmFjdGlvbi5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrkuIrmuLjlt7Lnu4/miorjgIzosIHor7TkuobopoHlgZrku4DkuYjjgI3plJrlrprliLDljp/or53vvJpXMDAyIOmHjOaYryBTMDA2IOeahCBgY29tbWl0bWVudENhbmRpZGF0ZXNbXWDvvIxXMDA2IOmHjOaYryBTMDYzIGBjYXB0dXJlLWJhdGNoYCDnmoQgYGtub3dsZWRnZS1jYW5kaWRhdGVg44CCUzAxNyDmiorov5nkupvmib/or7rmiJblvoXlip7nmoTljp/lp4vlvaLmgIHvvIzop4TojIPmiJDkuIDku73ku7vliqHlgJnpgInpm4YgYFRhc2tDYW5kaWRhdGVTZXRg44CC5q+P5p2h5Lu75Yqh5YCZ6YCJ6KaB6K+05riF5LqU5Lu25LqL77yaCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTctdGFzay1leHRyYWN0aW9uLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTctdGFzay1leHRyYWN0aW9uLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrvvIjop4Hlrp7kvZPmlofmoaPvvIkKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYHByb2R1Y3Rpdml0eS9za2lsbHMvdGFzay1tYW5hZ2VtZW50L1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBwcm9kdWN0aXZpdHkvc2tpbGxzL3VwZGF0ZS9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIHJlZmVyZW5jZS1vbmx577yJCi0gYGdpdGh1Yi9hd2Vzb21lLWNvcGlsb3Rg77yIYHNraWxscy9tZWV0aW5nLW1pbnV0ZXMvU0tJTEwubWRg77yMY29tbWl0IGA2YzRkMzNiOWNmY2HigKZg77yMTUlU77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzAxNyDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "e4ea8dc30e31099a504f787ff9da2ff65700848fb46ad96d82701b4100eeb1b4",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDku7vliqHmir3lj5bvvIhTMDE377yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE3LXRhc2stZXh0cmFjdGlvbi5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoK5a+55q+P5LiqIGBjb21taXRtZW50Q2FuZGlkYXRlc1tpXWAg5oyJIGB1dHRlcmFuY2VgIOWIpOWumiBgY29tbWl0bWVudFN0cmVuZ3RoYO+8jOWIpOaNruWGmeaIkOivjeihqCArIOWPpeazleinhOWIme+8iGBjb21taXRtZW50LWxleGljb24uanNvbmDvvIzmjIkgbG9jYWxlIOWIhuihqO+8ie+8mgoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "trend-analysis",
+      "name": "S168",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S168",
+        "work": {
+          "stableId": "S168",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec",
+              "warehouse.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/statistical-analysis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/statsmodels/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S168",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S168-trend-analysis.md#输入契约",
+            "summary": "不变式（服务端 zod 校验）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S168-trend-analysis.md#输出契约",
+            "summary": "输出不变式："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "068b4d9d1fce7fcede768e489a855b9221848c9a6a542d6dbff81e0b1e5b02a6",
+          "contentBase64": "LS0tCm5hbWU6IHRyZW5kLWFuYWx5c2lzCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzE2OAptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMxNjgKICAgIGRvbWFpbjogIlJlc2VhcmNoIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICAgIC0gc2FuZGJveC5leGVjCiAgICAgICAgLSB3YXJlaG91c2UucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGF0YS9za2lsbHMvc3RhdGlzdGljYWwtYW5hbHlzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9zdGF0c21vZGVscy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI0OWM2ZTk3Nzc1ZWFhMThiYTc5MWJlYmUyMzE2MmE3MGFlNjAxYzE4IgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNjgKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjgtdHJlbmQtYW5hbHlzaXMubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5LiN5Y+Y5byP77yI5pyN5Yqh56uvIHpvZCDmoKHpqozvvInvvJoiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2OC10cmVuZC1hbmFseXNpcy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLovpPlh7rkuI3lj5jlvI/vvJoiCi0tLQoKIyDotovlir/liIbmnpDvvIhTMTY477yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMxNjggwrcg6aKG5Z+fIFJlc2VhcmNoCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2OC10cmVuZC1hbmFseXNpcy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrlm57nrZTkuIDkuKrpl67popjvvJrjgIzov5nmnaHml7bpl7Tluo/liJfvvIjmiJbov5nnu4TluKbml6XmnJ/nmoTkv6Hlj7fvvInlnKjljrvmjonml6XljobjgIHlraPoioLlkozlj6PlvoTlj5jljJbkuYvlkI7vvIzmmK/lkKblrZjlnKjkuIDkuKrnnJ/lrp7jgIHmjIHnu63nmoTmlrnlkJHmgKflj5jljJbvvJ/ku47ku4DkuYjml7blgJnlvIDlp4vjgIHlpJrlpKfjgIHmnInlpJrnoa7lrprjgIHmnIDlpJrog73or7TliLDku4DkuYjnqIvluqbvvJ/jgI0KCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2OC10cmVuZC1hbmFseXNpcy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY4LXRyZW5kLWFuYWx5c2lzLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZOOAgXNhbmRib3guZXhlY+OAgXdhcmVob3VzZS5yZWFkCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBkYXRhL3NraWxscy9zdGF0aXN0aWNhbC1hbmFseXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIGFkYXB077yJCi0gYEstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzYO+8iGBza2lsbHMvc3RhdHNtb2RlbHMvU0tJTEwubWRg77yMY29tbWl0IGA0OWM2ZTk3Nzc1ZWHigKZg77yMTUlU77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzE2OCDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "a70929212c1f3281e378595cf9bd6188471dcf6a9dab86ed5eedcf40ee435e4e",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDotovlir/liIbmnpDvvIhTMTY477yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTY4LXRyZW5kLWFuYWx5c2lzLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgoxLiDluo/liJflpZHnuqbmoLjlr7njgILlr7nmr4/mnaHovpPlhaXluo/liJfnoa7orqTvvJrluqbph4/vvIhgbWVhc3VyZWDvvInjgIHljZXkvY3jgIHogZrlkIjmlrnlvI/vvIhzdW0gLyBtZWFuIC8gbGFzdCAvIHJhdGXvvInjgIHop4LmtYvpopHnjofvvIhEL1cvTS9RL1nvvInjgIHml7bljLrjgIJgcmF0ZWAg57G777yI56m6572u546H44CB5Lu35beu77yJ56aB5q2i6Leo5pyf5rGC5ZKM77ybYGxhc3RgIOexu++8iOacn+acq+W6k+WtmOOAgeWcqOenn+mdouenr++8ieemgeatouWvueaXpeWGheaxguWdh+WAvOOAguS7u+S4gOmhuee8uuWksSDihpIgYFNFUklFU19DT05UUkFDVF9JTkNPTVBMRVRFYO+8jOS4jeeMnOOAggoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    }
+  ],
+  "packDigest": "1282bb212f195830483209be67aba99e1811bad0fc68bd35be6ccd3956d87b55"
+}
