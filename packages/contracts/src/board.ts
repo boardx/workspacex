@@ -41,10 +41,16 @@ export const SourceKind = z.enum([
   "报告缺料",
   "转写",
   "研究",
+  // CT10（phase-20 work-content R8 / I-C11）：Workflow 运行的只读投影卡。它不落 tasks 表
+  // （tasks_source_kind_check 不含它，也不该含——运行卡是派生视图，不是第二事实源），
+  // 只出现在 Board 投影读模型里。work-content.WORKFLOW_RUN_SOURCE_KIND 从这里取值。
+  "workflow_run",
 ]);
 export const SOURCE_KINDS = SourceKind.options;
 /** F02 范围内唯一真正产生的来源——F03 的六个自动来源适配器都还不存在。 */
 export const MANUAL_SOURCE_KIND = "手工创建" as const;
+/** CT10：Workflow 运行卡的来源值（只读投影，不写 tasks）。 */
+export const WORKFLOW_RUN_SOURCE_KIND = "workflow_run" as const satisfies z.infer<typeof SourceKind>;
 
 /**
  * 风险等级（uc-11-2 R7 的 O-26 表产出，F03 未做）。F02/F06 只把它当一个可选的

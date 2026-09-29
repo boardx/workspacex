@@ -15,6 +15,7 @@
  * ⚠ 本文件暂未从 index.ts 导出（导出由独立步骤负责）。
  */
 import { z } from "zod";
+import { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 import {
   WorkflowInstanceStatus,
   WorkflowKey,
@@ -76,8 +77,8 @@ export const CrmWriteItemOutcome = z.enum([
 /** Board 运行卡状态徽标（R8）。列映射见 domain I-C11。 */
 export const BoardRunBadge = z.enum(["in_progress", "awaiting_review", "done", "rejected", "failed"]);
 
-/** Board 来源类型新增值（提案名；落地时加入 board.SourceKind 单源，本文件不另起第二份）。 */
-export const WORKFLOW_RUN_SOURCE_KIND = "workflow_run" as const;
+/** Board 来源类型新增值——单源在 board.SourceKind（CT10 落地），这里只转出。 */
+export { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 
 /* ── 产出 schema（结论必带证据：R7 / I-C6） ───────────────────────────── */
 
