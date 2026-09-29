@@ -27,6 +27,16 @@ describe("guided research reference layout", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("重点关注总长度不能超过 2000 字");
     expect(screen.getByRole("button", { name: "保存研究信息" })).toBeDisabled();
   });
+  it("confirms the downstream impact before saving changed research information", () => {
+    const onSave = vi.fn();
+    render(<ResearchTopicInformation brief={runtimeFixture().brief} disabled={false} onSave={onSave} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "研究主题" }), { target: { value: "更新后的研究主题" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存研究信息" }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toHaveTextContent("研究计划、资料研究和当前报告将需要重新生成");
+    fireEvent.click(screen.getByRole("button", { name: "确认并重新生成" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ topic: "更新后的研究主题" }));
+  });
   it("lists report chapters with their subsections", () => {
     const state = runtimeFixture("report");
     state.outline[0]!.subsections = [{ id: "sub1", title: "准入政策", questions: ["有哪些要求？"] }];
@@ -165,7 +175,7 @@ describe("guided research reference layout", () => {
     expect(screen.queryByText(/个任务|已完成|检索失败/)).not.toBeInTheDocument();
     expect(within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link")).toHaveLength(1);
     expect(screen.getByRole("list", { name: "已获取的研究资料" })).toHaveAttribute("aria-live", "polite");
-    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("title", "Retrieved evidence");
+    expect(screen.getByRole("button", { name: "查看完整描述" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "实时动态" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "研究洞察" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "潜在冲突 / 风险提示" })).not.toBeInTheDocument();
@@ -179,19 +189,18 @@ describe("guided research reference layout", () => {
     expect(screen.queryByText("尚未找到相关网址")).not.toBeInTheDocument();
     expect(screen.getByRole("list", { name: "已获取的研究资料", hidden: true })).toHaveAttribute("aria-live", "polite");
   });
-  it("shows source descriptions and opens the URL on double click", () => {
+  it("shows source descriptions with a standard link and expandable full description", () => {
     const state = runtimeFixture("research");
     state.sources[0]!.presentation = { title: "政策说明", summary: "检索得到的政策说明全文" };
-    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
     const source = screen.getByTestId("research-source-description-source1");
-    expect(source).toHaveTextContent("检索得到的政策说明全文");
+    expect(screen.getByText("检索得到的政策说明全文")).toBeInTheDocument();
     expect(source).toHaveAttribute("title", "检索得到的政策说明全文");
-    fireEvent.click(source);
-    expect(open).not.toHaveBeenCalled();
-    fireEvent.doubleClick(source);
-    expect(open).toHaveBeenCalledWith("https://example.org/policy", "_blank", "noopener,noreferrer");
-    open.mockRestore();
+    expect(screen.getByRole("link", { name: /政策说明/ })).toHaveAttribute("href", "https://example.org/policy");
+    expect(screen.getByRole("button", { name: "查看完整描述" })).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("button", { name: "查看完整描述" }));
+    expect(screen.getByRole("button", { name: "收起完整描述" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("research-source-full-description-source1")).toHaveTextContent("检索得到的政策说明全文");
   });
 
   it("frames the report with contents, quality metrics, and an evidence limitation", () => {

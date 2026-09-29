@@ -98,6 +98,8 @@ describe("reference research workflow", () => {
     const topic = await screen.findByRole("textbox", { name: "研究主题" });
     fireEvent.change(topic, { target: { value: "Revised European scope" } });
     fireEvent.click(screen.getByRole("button", { name: "保存研究信息" }));
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "确认并重新生成" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "brief", action: "save", draft: { node: "brief", value: { ...initial.brief, topic: "Revised European scope" } } })));
     expect(await screen.findByDisplayValue("Revised European scope")).toBeInTheDocument();
   });
