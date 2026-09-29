@@ -27,6 +27,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { AgentRunStore } from "../agent-run/ports";
 import type { StartInstanceResponse } from "../workflow/instance-commands";
 import { WorkflowUseCaseError } from "../workflow/workflow-errors";
+import type { WorkflowReceiptStore } from "../workflow/workflow-ports";
 
 /** 内核工具名（Python `tools.py` 的 `start_workflow`；原生准入表经生成物同步到 Python 侧）。 */
 export const AGENT_WORKFLOW_START_TOOL_NAME = "start_workflow" as const;
@@ -47,7 +48,9 @@ export interface AgentRunWorkflowContext {
   readonly requesterUserId: string | null;
 }
 
-export type AgentWorkflowStartRefusalCode = WorkflowErrorCode | "workflow_runtime_unavailable";
+export type AgentWorkflowStartRefusalCode = WorkflowErrorCode | "workflow_runtime_unavailable"
+  /** 仅恢复路径：WF03 回执已 begin 但未 finalize（进程在 start 途中消失）——实例是否已建无法确认，不说「未发起」。 */
+  | "workflow_start_unconfirmed";
 
 export type AgentWorkflowStartOutcome =
   | {
@@ -96,9 +99,33 @@ function refusalMessage(code: AgentWorkflowStartRefusalCode, workflowId: string 
       return `发起流程的参数不符合要求，未创建实例。`;
     case "workflow_runtime_unavailable":
       return `流程运行时暂不可用，未创建实例。`;
+    case "workflow_start_unconfirmed":
+      return `发起流程 ${wf} 的过程被中断，无法确认实例是否已创建。请到流程列表核对，不要重复发起。`;
     default:
       return `流程 ${wf} 未能发起，未创建实例。`;
   }
+}
+
+export function refusedOutcome(code: AgentWorkflowStartRefusalCode, workflowId: string | null, handoffCandidates: readonly string[] = []): AgentWorkflowStartOutcome {
+  return refused(code, workflowId, handoffCandidates);
+}
+
+export function startedOutcome(workflowId: string, started: Pick<StartInstanceResponse, "instanceId" | "status" | "definitionVersion">): AgentWorkflowStartOutcome {
+  return {
+    status: "started", workflowId, instanceId: started.instanceId, instanceStatus: started.status,
+    definitionVersion: started.definitionVersion,
+    message: `已发起流程 ${workflowId}（实例 ${started.instanceId}），流程正在后台运行。`,
+  };
+}
+
+/** WF03 `requestId`：同一 run 的同一次工具调用恒得同一个键（A1 幂等；恢复路径据此只读查回执）。 */
+export function agentWorkflowStartRequestId(runId: string, toolCallId: string): string {
+  return `agent-run:${createHash("sha256").update(`${runId}\u0000${toolCallId}`).digest("hex").slice(0, 48)}`;
+}
+
+/** 交回内核的完整工具参数：只取服务端解析过的 workflowId / input，模型自带的任何 `outcome` 一律丢弃。 */
+export function workflowStartEditedArgs(argsJson: string | null, outcome: AgentWorkflowStartOutcome): string {
+  return JSON.stringify({ ...(parseWorkflowStartArgs(argsJson) ?? {}), outcome });
 }
 
 function refused(code: AgentWorkflowStartRefusalCode, workflowId: string | null, handoffCandidates: readonly string[] = []): AgentWorkflowStartOutcome {
@@ -138,21 +165,14 @@ export async function requestAgentWorkflowStart(
   // WorkflowRequestId 有长度上限（8–200）：run / 工具调用 id 摘要后拼接，稳定且有界。
   // 没有工具调用 id 就无法区分同一 run 内的两次合法调用（A1 会把第二次当重放）——如实拒绝，不发起。
   if (!cmd.toolCallId) return refused("workflow_runtime_unavailable", args.workflowId);
-  const requestId = `agent-run:${createHash("sha256").update(`${cmd.runId}\u0000${cmd.toolCallId}`).digest("hex").slice(0, 48)}`;
+  const requestId = agentWorkflowStartRequestId(cmd.runId, cmd.toolCallId);
   try {
     const started = await deps.workflows.start(cmd.orgId, ctx.requesterUserId, key, {
       agentId: ctx.agentId,
       requestId,
       input: args.input,
     });
-    return {
-      status: "started",
-      workflowId: args.workflowId,
-      instanceId: started.instanceId,
-      instanceStatus: started.status,
-      definitionVersion: started.definitionVersion,
-      message: `已发起流程 ${args.workflowId}（实例 ${started.instanceId}），流程正在后台运行。`,
-    };
+    return startedOutcome(args.workflowId, started);
   } catch (e) {
     if (e instanceof WorkflowUseCaseError) {
       return refused(e.code, args.workflowId, e.details.allowlistHint?.handoffCandidates ?? []);
@@ -160,4 +180,34 @@ export async function requestAgentWorkflowStart(
     deps.log?.("agent workflow start failed", { runId: cmd.runId, workflowId: args.workflowId, detail: e instanceof Error ? e.name : "unknown" });
     return refused("workflow_runtime_unavailable", args.workflowId);
   }
+}
+
+/**
+ * 恢复路径（进程死在网关判定中途、run 从检查点读回「停在 start_workflow 上」）：**只读**查该工具调用的 WF03
+ * start 回执（同一 requestId），不做任何新提交。回执已落定且带实例 ⇒ started（同一实例）；无回执 ⇒ 未发起；
+ * 回执未落定 ⇒ 无法确认（workflow_start_unconfirmed）。
+ */
+export async function recoverAgentWorkflowStart(
+  receipts: Pick<WorkflowReceiptStore, "find">,
+  cmd: { readonly orgId: string; readonly runId: string; readonly argsJson: string | null; readonly toolCallId?: string },
+): Promise<AgentWorkflowStartOutcome> {
+  const args = parseWorkflowStartArgs(cmd.argsJson);
+  if (!args) return refused("trigger_input_invalid", null);
+  if (!cmd.toolCallId) return refused("workflow_runtime_unavailable", args.workflowId);
+  const row = await receipts.find(cmd.orgId, "command", `start:${agentWorkflowStartRequestId(cmd.runId, cmd.toolCallId)}`);
+  // 无回执 ⇒ WF03 从未受理这次调用（begin 是 start 的第一步）⇒ 如实「未发起」。
+  if (!row) return refused("workflow_runtime_unavailable", args.workflowId);
+  const r = (row.status === "finalized" ? row.stableResponse : null) as { instanceId?: unknown; status?: unknown; definitionVersion?: unknown } | null;
+  if (r && typeof r.instanceId === "string" && typeof r.status === "string" && typeof r.definitionVersion === "number") {
+    return startedOutcome(args.workflowId, { instanceId: r.instanceId, status: r.status as WorkflowInstanceStatus, definitionVersion: r.definitionVersion });
+  }
+  // 已落定的 WF03 拒绝（A1 存的稳定拒绝）⇒ 同一个拒绝码，与网关当时会给的一致。
+  const rejection = (row.status === "finalized" ? row.stableResponse : null) as { workflowRejection?: { code?: unknown; details?: { allowlistHint?: { handoffCandidates?: unknown } } } } | null;
+  if (rejection?.workflowRejection && typeof rejection.workflowRejection.code === "string") {
+    const handoff = rejection.workflowRejection.details?.allowlistHint?.handoffCandidates;
+    return refused(rejection.workflowRejection.code as WorkflowErrorCode, args.workflowId, Array.isArray(handoff) ? handoff.filter((x): x is string => typeof x === "string") : []);
+  }
+  // begun / reconciled / unresolved：start 途中断了（begin、建实例、finalize 是三个事务），实例可能已建——
+  // 不说「未发起」，如实说无法确认、不要重复发起。
+  return refused("workflow_start_unconfirmed", args.workflowId);
 }

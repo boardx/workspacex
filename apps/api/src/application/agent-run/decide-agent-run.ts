@@ -77,9 +77,9 @@ export async function decideAgentRun(
   if (beforeDisclosed.payload.pendingApproval?.toolName === ESCALATE_TOOL_NAME) {
     throw new AgentRunNotAwaitingToolPermissionError("escalation_requires_target_decider");
   }
-  // AG05：start_workflow 的结果只由服务端（网关经 WF03 start）算出；通用通路的 edit 等于让人编一个
-  // 「已发起」交给 Agent。approve / reject 照常（approve ⇒ 工具体如实说「未发起」）。
-  if (beforeDisclosed.payload.pendingApproval?.toolName === AGENT_WORKFLOW_START_TOOL_NAME && input.decision === "edit") {
+  // AG05：start_workflow 的结果只由服务端（网关 / 恢复路径经 WF03 回执）算出。通用通路的 edit 等于让人编一个
+  // 「已发起」；approve 会执行模型原参数（含模型自填的 outcome）。两者都拒绝，只允许 reject。
+  if (beforeDisclosed.payload.pendingApproval?.toolName === AGENT_WORKFLOW_START_TOOL_NAME && input.decision !== "reject") {
     throw new AgentRunNotAwaitingToolPermissionError("workflow_start_outcome_is_server_computed");
   }
   const form = beforeDisclosed.payload.pendingApproval?.interrupt;

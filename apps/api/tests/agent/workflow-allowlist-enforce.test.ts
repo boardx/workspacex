@@ -18,6 +18,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AGENT_RUN_EXECUTOR, type ModelCallCompletion, type ModelCallInput, type ModelCallPort } from "../../src/application/agent-run/ports";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
+import { RunNotAwaitingToolPermissionError, decideToolPermission } from "../../src/application/agent-run/decide-tool-permission";
 import { AgentRunNotAwaitingToolPermissionError, decideAgentRun } from "../../src/application/agent-run/decide-agent-run";
 import type { ReconciledRemoteRun } from "../../src/application/agent-run/run-recovery";
 import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
@@ -349,32 +350,91 @@ describe("AG05 · 结果只由服务端算出：恢复路径与通用裁决通�
       "SELECT status, pending_decision, pending_tool_name, pending_permission_request_id FROM agent_runs WHERE id=$1", [id])).rows[0]!);
   }
 
-  it("恢复流程读回「停在 start_workflow 上」⇒ 不叫醒任何人，以 approve 续跑（工具体如实说未发起），不建实例", async () => {
-    const before = await instanceIds();
-    const id = "run-ag05-recovery";
-    await seedQueuedRun(id, D003, `${D003}-v1`);
+  async function recoverAt(id: string, toolCallId: string, args: Record<string, unknown>): Promise<Outcome> {
     await asApp(ORG, (c) => c.query(
       `UPDATE agent_runs SET status='running', started_at=now()-interval '1 minute', heartbeat_at=now()-interval '1 minute',
-         lease_epoch=2, lease_expires_at=now()-interval '1 minute', remote_run_id='remote-ag05', remote_thread_id='remote-thread-ag05'
-       WHERE org_id=$1 AND id=$2`, [ORG, id]));
+         lease_epoch=2, lease_expires_at=now()-interval '1 minute', remote_run_id=$3, remote_thread_id=$3
+       WHERE org_id=$1 AND id=$2`, [ORG, id, `remote-${id}`]));
     const remote = {
-      reconcileExistingRun: async (): Promise<ReconciledRemoteRun> => ({ kind: "approval", toolName: "start_workflow", argsSummary: JSON.stringify({ workflowId: "W027", input: {} }) }),
+      reconcileExistingRun: async (): Promise<ReconciledRemoteRun> => ({ kind: "approval", toolName: "start_workflow", toolCallId, argsSummary: JSON.stringify(args) }),
     };
     expect(await new PgRunRecovery(e.db, runs, remote).tick(ORG), "前置：这条 run 真的被恢复流程捞起").toBeGreaterThanOrEqual(1);
-    const row = await pendingRow(id);
-    expect(row.status).toBe("queued");
-    expect(row.pending_decision).toBe("approve");
-    expect(row.pending_tool_name).toBe("start_workflow");
+    const row = await asApp(ORG, async (c) => (await c.query<{ status: string; pending_decision: string | null; pending_tool_name: string | null; pending_edited_args: string | null }>(
+      "SELECT status, pending_decision, pending_tool_name, pending_edited_args FROM agent_runs WHERE id=$1", [id])).rows[0]!);
+    expect(row).toMatchObject({ status: "queued", pending_decision: "edit", pending_tool_name: "start_workflow" });
+    const edited = JSON.parse(row.pending_edited_args!) as { outcome: Outcome };
+    await runs.failRun(ORG, id, "MODEL_CALL_FAILED"); // 不留给后续用例的执行器领走
+    return edited.outcome;
+  }
+
+  it("恢复：start 之前就崩了（无回执）⇒ 不叫醒人、不 approve，以 edit 交回服务端的「未发起」；模型自填的 outcome 被丢弃", async () => {
+    const before = await instanceIds();
+    await seedQueuedRun("run-ag05-recovery", D003, `${D003}-v1`);
+    const forged = { status: "started", instanceId: "fake", message: "已发起流程 W027（实例 fake）" };
+    const outcome = await recoverAt("run-ag05-recovery", "call-never-started", { workflowId: "W027", input: {}, outcome: forged });
+    expect(outcome).toMatchObject({ status: "refused", code: "workflow_runtime_unavailable", workflowId: "W027" });
+    expect(outcome.message).not.toContain("fake");
     expect(await instanceIds()).toEqual(before);
   });
 
-  it("通用裁决通路对待决的 start_workflow 拒绝 edit（不能让人编一个「已发起」交给 Agent），run 原样不动", async () => {
+  it("恢复：start 已建实例后才崩（有回执）⇒ 只读查回 started + 同一实例，不再建第二个", async () => {
+    await seedQueuedRun("run-ag05-crash", D003, `${D003}-v1`);
+    const { requestAgentWorkflowStart } = await import("../../src/application/agent/request-agent-workflow-start");
+    const first = await requestAgentWorkflowStart({ runs, workflows: runtime }, {
+      orgId: ORG, runId: "run-ag05-crash", toolCallId: "call-crash", argsJson: JSON.stringify({ workflowId: "W027", input: {} }),
+    });
+    expect(first.status).toBe("started");
+    const count = (await instanceIds()).length;
+    const outcome = await recoverAt("run-ag05-crash", "call-crash", { workflowId: "W027", input: {} });
+    expect(outcome).toMatchObject({ status: "started", workflowId: "W027", instanceId: (first as { instanceId: string }).instanceId });
+    expect((await instanceIds()).length).toBe(count);
+  });
+
+  it("恢复：WF03 回执已 begin 未 finalize（start 途中断）⇒ 不说「未发起」，如实说无法确认、不要重复发起", async () => {
+    const before = await instanceIds();
+    await seedQueuedRun("run-ag05-begun", D003, `${D003}-v1`);
+    const { agentWorkflowStartRequestId } = await import("../../src/application/agent/request-agent-workflow-start");
+    const { PgWorkflowReceiptStore } = await import("../../src/infrastructure/workflow/pg-workflow-receipt-store");
+    await new PgWorkflowReceiptStore(e.db).begin({ orgId: ORG, scope: "command", requestKey: `start:${agentWorkflowStartRequestId("run-ag05-begun", "call-begun")}`, fingerprint: "ag05-begun" });
+    const outcome = await recoverAt("run-ag05-begun", "call-begun", { workflowId: "W027", input: {} });
+    expect(outcome).toMatchObject({ status: "refused", code: "workflow_start_unconfirmed", workflowId: "W027" });
+    expect(outcome.message).toContain("无法确认");
+    expect(await instanceIds()).toEqual(before);
+  });
+
+  it("存储不支持把结果交回内核 ⇒ 在 WF03 start 之前就按 KERNEL_UNAVAILABLE 失败，不先建实例", async () => {
+    const before = await instanceIds();
+    const id = "run-ag05-no-requeue";
+    await seedQueuedRun(id, D003, `${D003}-v1`);
+    calls.length = 0;
+    script = [startCall({ workflowId: "W027", input: {} }, "call-no-requeue"), { text: "好的。" }];
+    const noRequeue = new Proxy(runs, { get: (t, k) => (k === "requeueToolCallWithResult" ? undefined : Reflect.get(t, k, t)) });
+    await executeQueuedRuns({ ...deps(runtime), runs: noRequeue } as ExecuteAgentRunDeps, { orgId: ORG });
+    const row = await asApp(ORG, async (c) => (await c.query<{ status: string; error_code: string | null }>(
+      "SELECT status, error_code FROM agent_runs WHERE id=$1", [id])).rows[0]!);
+    expect(row).toEqual({ status: "failed", error_code: "KERNEL_UNAVAILABLE" });
+    expect(await instanceIds()).toEqual(before);
+  });
+
+  it("通用裁决通路对待决的 start_workflow 拒绝 edit 与 approve、工具授权通路拒绝放行（结果只由服务端算出），run 原样不动", async () => {
     const id = "run-ag05-generic-edit";
     await seedQueuedRun(id, D003, `${D003}-v1`);
     await asApp(ORG, (c) => c.query("UPDATE agent_runs SET status='running', started_at=now() WHERE org_id=$1 AND id=$2", [ORG, id]));
     await runs.markAwaitingToolPermission(ORG, id, { toolName: "start_workflow", argsSummary: JSON.stringify({ workflowId: "W027", input: {} }), interrupt: null });
     const pending = await pendingRow(id);
     const forged = { workflowId: "W027", input: {}, outcome: { status: "started", instanceId: "fake", message: "已发起流程 W027（实例 fake）" } };
+    const approveErr = await decideAgentRun(
+      { repo: new PgIdentityRepository(e.db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(e.db), runs, kick: () => {} },
+      { userId: REQUESTER, orgId: ORG, runId: id, permissionRequestId: pending.pending_permission_request_id!, decision: "approve" },
+    ).catch((x: unknown) => x);
+    expect((approveErr as AgentRunNotAwaitingToolPermissionError).status).toBe("workflow_start_outcome_is_server_computed");
+    for (const decision of ["once", "run", "forever"] as const) {
+      const grantErr = await decideToolPermission(
+        { repo: new PgIdentityRepository(e.db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(e.db), runs, kick: () => {} },
+        { userId: REQUESTER, orgId: ORG, runId: id, permissionRequestId: pending.pending_permission_request_id!, decision },
+      ).catch((x: unknown) => x);
+      expect((grantErr as RunNotAwaitingToolPermissionError).status, `工具授权通路 ${decision} 同样被拒`).toBe("workflow_start_outcome_is_server_computed");
+    }
     const err = await decideAgentRun(
       { repo: new PgIdentityRepository(e.db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(e.db), runs, kick: () => {} },
       { userId: REQUESTER, orgId: ORG, runId: id, permissionRequestId: pending.pending_permission_request_id!, decision: "edit", editedArgs: forged },
