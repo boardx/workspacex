@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { ClipboardList, FileSearch, Link2, Mic, Plus, Unlink, Users, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ClipboardList, FileSearch, Link2, Mic, Palette, PenLine, Plus, Unlink, Users, type LucideIcon } from "lucide-react";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,18 +18,22 @@ import {
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { listGuidedResearchSessions } from "@/lib/guided-research-api";
 import { listPersonalTranscriptions } from "@/lib/live-personal-transcriptions";
+import { listMyDigitalInterviews } from "@/lib/live-interviews";
+import { createBoard, listBoards } from "@/lib/live-whiteboard";
+import { createProject as createDesignProject, listMyProjects as listDesignProjects } from "@/lib/live-design-workbench";
 
 /**
- * 项目内的研究资源列表（项目中枢 B2-S2）——研究洞察 › 问卷 / 用户洞察 / 深度研究 / 录音转写 四个子页共用。
+ * 项目内的资源列表（项目中枢 B2-S2）——研究洞察 › 问卷 / 用户洞察 / 深度研究 / 录音转写 子页，以及
+ * 通用项目「内容」tab 的各类型筛选（#4615 加白板 / 设计）共用。
  *
- * 读：`listProjectResources(projectId)` 一次拉全部四类，这里按 `kind` 过滤（服务端按项目成员校验，
+ * 读：`listProjectResources(projectId)` 一次拉全部类型，这里按 `kind` 过滤（服务端按项目成员校验，
  *     非成员 403 `NO_PROJECT_ROLE`，这里如实显示）。
- * 新建：「在本项目中新建」跳到对应 Studio 的新建入口并带上 `?projectId=`——Studio 创建成功后自己调
- *     `linkProjectResource`（访谈则直接带项目 scope 创建），回来时列表里就有它。
+ * 新建：问卷 / 访谈 / 深度研究 / 录音转写 ——「在本项目中新建」跳到对应 Studio 的新建入口并带上
+ *     `?projectId=`，Studio 创建成功后自己挂到项目，回来时列表里就有它。白板 / 设计 —— 就地创建
+ *     （`createBoard` / 设计 `createProject`）→ `linkProjectResource` → 进入新建的那一份。
  * 关联已有：列出**调用者自己**的该类资源（走各 Studio 既有的列表 API），减去已挂上的，点一条即
- *     `linkProjectResource`。访谈不走链接表（契约 `ProjectLinkableResourceKind` 不含 `interview`），
- *     所以用户洞察子页没有这个入口。
- * 解挂：`canWrite` 且是可链接类型时每条带「移出项目」；服务端只放行资源所有者，别人得到 403。
+ *     `linkProjectResource`。#4615 起访谈也走链接表（契约 `ProjectLinkableResourceKind` 含 `interview`）。
+ * 解挂：`canWrite` 时每条带「移出项目」；服务端只放行资源所有者，别人得到 403。
  */
 type ResourceCandidate = { id: string; title: string; updatedAt: string };
 
@@ -36,9 +41,12 @@ const KIND_META: Record<ProjectResearchSub, {
   resourceKind: ProjectResourceKind;
   icon: LucideIcon;
   meta: string;
-  newHref: string;
+  /** 去 Studio 新建的入口；`null` = 该类型就地创建（见 `create`）。 */
+  newHref: string | null;
+  /** 就地创建一份并返回它的 id（随后挂到项目并进入它）。 */
+  create?: () => Promise<string>;
   detailHref: (id: string) => string;
-  /** 「关联已有」候选来源；`null` = 该类型不能手工挂（访谈）。 */
+  /** 「关联已有」候选来源；`null` = 该类型不能手工挂。 */
   candidates: (() => Promise<ResourceCandidate[]>) | null;
 }> = {
   survey: {
@@ -53,10 +61,11 @@ const KIND_META: Record<ProjectResearchSub, {
   itv: {
     resourceKind: "interview",
     icon: Users,
-    meta: "属于本项目的用户访谈：从项目里新建的访谈自动归到这里",
+    meta: "属于本项目的用户访谈：从项目里新建的自动归到这里，也可以把你已有的访谈关联进来",
     newHref: "/itv?create=1",
     detailHref: (id) => `/itv/${encodeURIComponent(id)}/setup`,
-    candidates: null,
+    candidates: async () => (await listMyDigitalInterviews()).items
+      .map((it) => ({ id: it.interviewId, title: it.name, updatedAt: it.updatedAt })),
   },
   research: {
     resourceKind: "guided_research",
@@ -84,11 +93,80 @@ const KIND_META: Record<ProjectResearchSub, {
       return items;
     },
   },
+  whiteboard: {
+    resourceKind: "whiteboard",
+    icon: PenLine,
+    meta: "挂到本项目的白板：便签、草图与分组讨论，白板上的内容可进入项目大脑",
+    newHref: null,
+    create: async () => (await createBoard({ requestId: crypto.randomUUID(), name: "未命名白板" })).id,
+    detailHref: (id) => `/studio/board/${encodeURIComponent(id)}`,
+    candidates: async () => {
+      const items: ResourceCandidate[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await listBoards(cursor === undefined ? { limit: 100 } : { limit: 100, cursor });
+        items.push(...page.items.map((b) => ({ id: b.id, title: b.name, updatedAt: b.updatedAt })));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      return items;
+    },
+  },
+  design: {
+    resourceKind: "design",
+    icon: Palette,
+    meta: "挂到本项目的设计稿：原型与界面设计都在设计工作台",
+    newHref: null,
+    create: async () => (await createDesignProject({ name: "未命名设计", template: "ui" })).project.id,
+    detailHref: (id) => `/studio/design-workbench/${encodeURIComponent(id)}`,
+    candidates: async () => (await listDesignProjects()).items
+      .map((d) => ({ id: d.id, title: d.name, updatedAt: d.updatedAt })),
+  },
 };
 
-export function ProjectResourceSection({ projectId, kind, canWrite }: {
+/** 资源类型 → 子页键（`KIND_META` 的键；也是通用项目「内容」的类型筛选键）。 */
+export const RESOURCE_KIND_TO_SUB: Record<ProjectResourceKind, ProjectResearchSub> = {
+  survey: "survey",
+  interview: "itv",
+  guided_research: "research",
+  personal_transcription: "transcript",
+  whiteboard: "whiteboard",
+  design: "design",
+};
+
+/** 一条项目资源的打开链接（带 `?projectId=` 往返）与图标——「内容」统一列表 / 概览最近更新共用。 */
+export function projectResourceHref(kind: ProjectResourceKind, id: string, projectId: string): string {
+  return withProjectId(KIND_META[RESOURCE_KIND_TO_SUB[kind]].detailHref(id), projectId);
+}
+export function projectResourceIcon(kind: ProjectResourceKind): LucideIcon {
+  return KIND_META[RESOURCE_KIND_TO_SUB[kind]].icon;
+}
+
+/**
+ * 「新建 ▾」选了某一类：Studio 类型直接给出带 `?projectId=` 的新建入口；白板 / 设计就地创建一份、
+ * 挂到本项目，给出进入它的链接。调用方负责跳转。
+ */
+export async function startNewProjectResource(sub: ProjectResearchSub, projectId: string): Promise<string> {
+  const meta = KIND_META[sub];
+  if (meta.newHref !== null) return withProjectId(meta.newHref, projectId);
+  if (!meta.create) throw new Error("该类型没有新建入口");
+  const id = await meta.create();
+  await linkProjectResource({ projectId, kind: meta.resourceKind, resourceId: id });
+  return withProjectId(meta.detailHref(id), projectId);
+}
+
+/** 失败文案（「内容」tab 顶部的新建动作复用同一份）。 */
+export function describeProjectResourceFailure(e: unknown): string {
+  return describeFailure(e);
+}
+
+export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, onChanged }: {
   projectId: string; kind: ProjectResearchSub; canWrite: boolean;
+  /** 挂载即展开「关联已有」面板（通用项目「内容」tab 顶部的「关联已有 ▾」选了这一类）。 */
+  initialLinkOpen?: boolean;
+  /** 挂上 / 移出成功后回调（「内容」tab 据此刷新各类计数）。 */
+  onChanged?: () => void;
 }) {
+  const router = useRouter();
   const meta = KIND_META[kind];
   const label = PROJECT_RESOURCE_KIND_LABEL_ZH[meta.resourceKind];
   const linkable = meta.candidates !== null;
@@ -100,6 +178,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite }: {
   const [candidatesError, setCandidatesError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [creating, setCreating] = React.useState(false);
 
   const load = React.useCallback(async () => {
     if (!getStoredSessionToken()) { setItems(null); return; }
@@ -115,7 +194,24 @@ export function ProjectResourceSection({ projectId, kind, canWrite }: {
   }, [projectId, meta.resourceKind]);
 
   React.useEffect(() => { void load(); }, [load]);
-  React.useEffect(() => { setLinkOpen(false); setCandidates(null); setActionError(null); }, [kind]);
+  React.useEffect(() => {
+    setLinkOpen(false); setCandidates(null); setActionError(null);
+    if (initialLinkOpen && canWrite) void openLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在切换类型 / 重新要求展开时重置
+  }, [kind, initialLinkOpen]);
+
+  async function createHere() {
+    if (!meta.create) return;
+    setCreating(true); setActionError(null);
+    try {
+      const href = await startNewProjectResource(kind, projectId);
+      onChanged?.();
+      router.push(href);
+    } catch (e) {
+      setActionError(describeFailure(e));
+      setCreating(false);
+    }
+  }
 
   async function openLink() {
     if (!meta.candidates) return;
@@ -132,6 +228,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite }: {
     try {
       await linkProjectResource({ projectId, kind: meta.resourceKind as ProjectLinkableResourceKind, resourceId });
       await load();
+      onChanged?.();
     } catch (e) {
       setActionError(describeFailure(e));
     } finally {
@@ -144,6 +241,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite }: {
     try {
       await unlinkProjectResource({ projectId, kind: meta.resourceKind as ProjectLinkableResourceKind, resourceId });
       await load();
+      onChanged?.();
     } catch (e) {
       setActionError(describeFailure(e));
     } finally {
@@ -165,11 +263,16 @@ export function ProjectResourceSection({ projectId, kind, canWrite }: {
             <Link2 aria-hidden className="h-3.5 w-3.5" />关联已有{label}
           </Button>
         )}
-        {canWrite && (
+        {canWrite && meta.newHref !== null && (
           <Button size="sm" variant="primary" asChild data-testid="project-resources-new">
             <a href={withProjectId(meta.newHref, projectId)}>
               <Plus aria-hidden className="h-3.5 w-3.5" />在本项目中新建{label}
             </a>
+          </Button>
+        )}
+        {canWrite && meta.newHref === null && (
+          <Button size="sm" variant="primary" disabled={creating} onClick={() => void createHere()} data-testid="project-resources-new">
+            <Plus aria-hidden className="h-3.5 w-3.5" />{creating ? `创建${label}中…` : `在本项目中新建${label}`}
           </Button>
         )}
       </div>
@@ -225,8 +328,10 @@ export function ProjectResourceSection({ projectId, kind, canWrite }: {
             本项目还没有{label}。
             {canWrite
               ? linkable
-                ? `点「在本项目中新建${label}」去 Studio 创建，或点「关联已有${label}」把你已有的挂进来。`
-                : `点「在本项目中新建${label}」去 Studio 创建，创建的访谈会自动归到本项目。`
+                ? meta.newHref === null
+                  ? `点「在本项目中新建${label}」直接创建，或点「关联已有${label}」把你已有的挂进来。`
+                  : `点「在本项目中新建${label}」去 Studio 创建，或点「关联已有${label}」把你已有的挂进来。`
+                : `点「在本项目中新建${label}」去 Studio 创建，创建后会自动归到本项目。`
               : ""}
           </p>
         </Card>

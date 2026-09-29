@@ -76,8 +76,8 @@ test("org lead creates a project through the wizard, and PostgreSQL keeps it acr
   await page.goto("/project/new");
   await expect(page.getByTestId("project-new")).toBeVisible();
 
-  // 蓝本后端零实现 → 九宫格如实禁用，本版走契约的空白新建路径（blueprintVersionId=null）。
-  await expect(page.getByTestId("project-new-blueprint-unavailable")).toBeVisible();
+  // #4615：默认新建的是通用项目（一步：名称 → 创建）；工作坊流程退到次要入口。
+  await expect(page.getByTestId("project-new-workshop-link")).toBeVisible();
 
   await page.getByTestId("project-new-name").fill(FULLSTACK_E2E.createdProjectName);
   await page.getByTestId("project-new-create").click();
@@ -131,8 +131,8 @@ test("a non-lead walking the same wizard is refused by the server, and the refus
   await page.getByTestId("project-new-name").fill(`${FULLSTACK_E2E.createdProjectName}_DENIED`);
   await page.getByTestId("project-new-create").click();
 
-  // 界面上如实显示服务端的拒绝原因码，而不是静默失败或假装建成了。
-  await expect(page.getByTestId("project-new-error")).toContainText("ORG_ROLE_INSUFFICIENT");
+  // 界面上如实显示服务端的拒绝（中文文案；原因码落在 data-reason 上），而不是静默失败或假装建成了。
+  await expect(page.getByTestId("project-new-error")).toHaveAttribute("data-reason", "ORG_ROLE_INSUFFICIENT");
   // 没有跳转：项目并没有建成。
   await expect(page).toHaveURL(/\/project\/new$/);
   // 按钮恢复可点——被拒绝的人不该被界面永久锁死。

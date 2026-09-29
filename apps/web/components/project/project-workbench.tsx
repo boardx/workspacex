@@ -9,9 +9,10 @@ import { OrgDisabledBanner } from "./parts";
 import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import type { Identity } from "@/lib/identity";
 import {
-  TAB_LABEL, SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
-  ROLE_BADGE_TONE, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
-  orgDisabledBanner, tabDefsForKind, resolveTabForKind, type ProjectTab, type ProjectRole,
+  SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
+  ROLE_BADGE_TONE, PROJECT_ROLE_LABEL, PROJECT_ROLES,
+  orgDisabledBanner, tabDefsForKind, resolveTabForKind, tabLabelForKind,
+  type ProjectTab, type ProjectRole, type ProjectContainerKind,
 } from "@/lib/project-workbench";
 import { getStoredSessionToken, ApiError } from "@/lib/api-client";
 import {
@@ -33,6 +34,9 @@ import { TabTodo } from "./tab-todo";
 import { TabResearch } from "./tab-research";
 import { TabPrep } from "./tab-prep";
 import { TabSettings } from "./tab-settings";
+import { TabGeneralOverview } from "./tab-general-overview";
+import { ProjectContent } from "./project-content";
+import { TabBrain } from "./tab-brain";
 
 /**
  * 项目工作台（project 域主编排 · Layout B / 原型 wsDetailView 的 React 转译）。
@@ -197,13 +201,14 @@ export function ProjectWorkbench({
     liveOverview ? { name: liveOverview.name, kind: liveOverview.kind, status: liveOverview.status } : liveProject;
 
   /**
-   * #4584：研究项目 / 用户洞察不给工作坊专属的屏（筹备 / 现场协作 / 待办），URL 上手敲的
-   * 这几个 tab 落回概览——判据只在 `lib/project-workbench.ts` 的 `WORKSHOP_ONLY_TABS`。
+   * #4615：每种容器一份显式的 tab 清单（工作坊 7 个；通用项目 概览 / 内容 / 大脑 / 成果 / 设置），
+   * 唯一事实源是 `lib/project-workbench.ts` 的 `TAB_DEFS_BY_KIND`；另一种容器的 tab 键经别名表映射
+   * （通用项目的 `?tab=research&sub=…` ⇒ 内容 / 大脑），映射不到落回概览。
    * 种类未知（还没读到）时按工作坊渲染，同设置页的处置。
    */
   const projectKind = headerProject?.kind ?? null;
   const tabDefs = tabDefsForKind(projectKind);
-  const shownTab = resolveTabForKind(tab, projectKind);
+  const shownTab = resolveTabForKind(tab, projectKind, sub);
 
   /**
    * #853 —— 项目筹备 tab 专用的真实议程环节列表（`GET /workshops/:workshopId/
@@ -496,7 +501,7 @@ export function ProjectWorkbench({
         </div>
 
         {/* ── 预览调试条（仅 dev） ───────────────────────────── */}
-        <PreviewBar href={href} uiState={uiState} tab={tab} view={view} orgDisabled={orgDisabled} qs={qs} />
+        <PreviewBar href={href} uiState={uiState} tab={tab} tabDefs={tabDefs} view={view} orgDisabled={orgDisabled} qs={qs} />
 
         {/* ── 主体：可选左子导航 + 内容 ─────────────────────── */}
         <div className="flex min-h-0 flex-1">
@@ -535,7 +540,7 @@ export function ProjectWorkbench({
             <StateShell
               state={uiState}
               className="p-6"
-              emptyHint={`${TAB_LABEL[shownTab]}还没有内容——套用蓝本或从空白开始后，这里才会有结构。`}
+              emptyHint={`${tabLabelForKind(shownTab, projectKind)}还没有内容——套用蓝本或从空白开始后，这里才会有结构。`}
               errors={{ 发布范围: "发布结论前必须绑定一个确定的产出版本（不能绑草稿）" }}
               depFailure={{ what: "转写 / 知识图谱服务暂时不可用；已排队，恢复后自动补齐。" }}
               denial={{
@@ -547,7 +552,7 @@ export function ProjectWorkbench({
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
               {renderTab(
-                shownTab, view, sub, orgDisabled, projectId ?? "",
+                shownTab, projectKind, (t, sb) => href({ tab: t, sub: sb }), view, sub, orgDisabled, projectId ?? "",
                 liveProject, liveLoading, liveError,
                 liveOverview, liveOverviewLoading, liveOverviewError,
                 liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,
@@ -577,7 +582,7 @@ function ProjectAccessDenied({ code, projectId }: { code: string; projectId: str
       <h2 className="text-16 font-semibold">你还不在这个项目里</h2>
       <p className="text-12 leading-relaxed text-muted-foreground">
         {projectLayer
-          ? "项目是受邀才能进入的容器：只有被引导师、组长（工作坊）或负责人（研究项目 / 用户洞察）加入后，才能看到项目内的对话、材料与产出。请向他们索取邀请。"
+          ? "项目是受邀才能进入的容器：只有被负责人（项目）或引导师、组长（工作坊）加入后，才能看到项目内的对话、材料与产出。请向他们索取邀请。"
           : "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户，或由项目引导师邀请你加入。"}
       </p>
       <p className="font-mono text-10 text-muted-foreground">
@@ -594,6 +599,8 @@ function ProjectAccessDenied({ code, projectId }: { code: string; projectId: str
 
 function renderTab(
   tab: ProjectTab,
+  projectKind: ProjectContainerKind | null,
+  tabHref: (tab: string, sub?: string) => string,
   view: ProjectRole,
   sub: string | null,
   orgDisabled: boolean,
@@ -626,6 +633,9 @@ function renderTab(
 ) {
   switch (tab) {
     case "overview":
+      if (projectKind === "general") {
+        return <TabGeneralOverview projectId={projectId} liveOverview={liveOverview} tabHref={tabHref} />;
+      }
       return (
         <TabOverview
           view={view}
@@ -639,6 +649,8 @@ function renderTab(
           liveOverviewError={liveOverviewError}
         />
       );
+    case "content": return <ProjectContent projectId={projectId} canWrite={ROLE_CAN_WRITE[view] && !orgDisabled} sub={sub} />;
+    case "brain": return <TabBrain projectId={projectId} />;
     case "research": return <TabResearch view={view} readOnly={orgDisabled} sub={sub} projectId={projectId} />;
     case "prep":
       return (
@@ -701,11 +713,12 @@ function renderTab(
 
 /** 仅开发/预览环境的调试切换条（生产构建不渲染，UC-0.4 R9 / R12 V8）*/
 function PreviewBar({
-  href, uiState, tab, view, orgDisabled, qs,
+  href, uiState, tab, tabDefs, view, orgDisabled, qs,
 }: {
   href: (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => string;
   uiState: UiState;
   tab: ProjectTab;
+  tabDefs: ReadonlyArray<{ key: ProjectTab; label: string }>;
   view: ProjectRole;
   orgDisabled: boolean;
   qs: { org?: string };
@@ -731,9 +744,9 @@ function PreviewBar({
         </Button>
       ))}
       <span className="ml-2 font-mono text-9 uppercase tracking-wider text-muted-foreground">屏</span>
-      {PROJECT_TABS.map((t) => (
-        <Button key={t} asChild size="xs" variant={t === tab ? "primary" : "ghost"} className="transition-colors" data-testid={`project-preview-tab-${t}`}>
-          <a href={href({ tab: t, sub: undefined })}>{TAB_LABEL[t]}</a>
+      {tabDefs.map((t) => (
+        <Button key={t.key} asChild size="xs" variant={t.key === tab ? "primary" : "ghost"} className="transition-colors" data-testid={`project-preview-tab-${t.key}`}>
+          <a href={href({ tab: t.key, sub: undefined })}>{t.label}</a>
         </Button>
       ))}
       <Button asChild size="xs" variant={orgDisabled ? "primary" : "ghost"} className="ml-2 transition-colors" data-testid="project-preview-orgdisabled">

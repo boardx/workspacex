@@ -9,7 +9,8 @@ import { WhiteboardCollaborationError } from "../../application/whiteboard/colla
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { discloseDecided,guard,isDisclosed } from "../../application/security/permission-filter";
-import { decideWhiteboardAccess } from "../../domain/whiteboard/access-decision";
+import { decideWhiteboardAccess, unionWhiteboardRole } from "../../domain/whiteboard/access-decision";
+import { NO_PROJECT_WHITEBOARD_ACCESS, type WhiteboardProjectAccess } from "../../application/whiteboard/project-access";
 
 import { CommentBackupDescriptorSchema, CommentBodyStorage, type CommentObjects, type CommentBlobRef, type CommentThreadMetadata, type CommentBackupDescriptor } from './comment-body-storage';
 type StoredThread={id:string;object_id:string|null;status:WhiteboardCommentThread['status'];revision:number;payload:unknown;body_object_key:string|null;body_hash:string|null;body_bytes:string|null};
@@ -24,14 +25,24 @@ function disclose<T>(boardId:string,role:C.Board['role'],action:"read"|"comment"
 
 export class PgWhiteboardCommentStore implements WhiteboardCommentStore {
   private readonly bodies:CommentBodyStorage;
-  constructor(private readonly db:DatabasePort,private readonly validator:WhiteboardUpdateValidator,private readonly now:()=>Date=()=>new Date(),private readonly collaboration?:WhiteboardCollaborationStore,objects?:CommentObjects){this.bodies=new CommentBodyStorage(objects);}
+  private readonly collaboration?:WhiteboardCollaborationStore;
+  private readonly projectAccess:WhiteboardProjectAccess;
+  constructor(private readonly db:DatabasePort,private readonly validator:WhiteboardUpdateValidator,private readonly now:()=>Date=()=>new Date(),collaborationOrProjectAccess?:WhiteboardCollaborationStore|WhiteboardProjectAccess,objects?:CommentObjects,projectAccess:WhiteboardProjectAccess=NO_PROJECT_WHITEBOARD_ACCESS){
+    if(collaborationOrProjectAccess&&'roleIn' in collaborationOrProjectAccess)this.projectAccess=collaborationOrProjectAccess;
+    else{this.collaboration=collaborationOrProjectAccess;this.projectAccess=projectAccess;}
+    this.bodies=new CommentBodyStorage(objects);
+  }
   private async access(session:TenantSession,p:Principal,boardId:string,write:boolean){
     // Lock before reading membership: a join in this statement would retain the
     // snapshot from before a concurrent member revocation released the board lock.
     const result=await session.query<{owner_id:string;archived:boolean}>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,boardId]);
     const row=result.rows[0];if(!row)throw new WhiteboardCollaborationError("NOT_FOUND");
     const members=row.owner_id===p.userId?null:await session.query<{role:string}>(`SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3`,[p.orgId,boardId,p.userId]);
-    const role=C.BoardRole.safeParse(row.owner_id===p.userId?'owner':members?.rows[0]?.role);
+    const own=row.owner_id===p.userId?'owner':members?.rows[0]?.role;
+    // #4615: project source (resolveProjectLayer, same transaction), unioned with the board ACL.
+    const borrowed=own==='owner'||own==='editor'?null:await this.projectAccess.roleIn(session,{userId:p.userId,orgId:p.orgId,boardId});
+    const parsed=C.BoardRole.safeParse(own??borrowed);
+    const role=parsed.success?{success:true as const,data:unionWhiteboardRole(parsed.data,borrowed)??parsed.data}:parsed;
     if(!role.success)throw new WhiteboardCollaborationError("NOT_FOUND");
     if(row.archived)throw new WhiteboardCollaborationError("ARCHIVED");
     if(write&&role.data==="viewer")throw new WhiteboardCollaborationError("FORBIDDEN");

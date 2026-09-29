@@ -46,7 +46,7 @@ import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { Clock } from "../auth/ports";
 import type { ProjectNameLookupPort } from "../project/ports";
 import type { ChatRepository } from "./ports";
-import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
+import { resolveChatProjectLayer, resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 
 export type ListThreadsResult = z.infer<typeof C.operations.listThreads.out>;
 type ThreadCard = z.infer<typeof C.ThreadCard>;
@@ -79,12 +79,10 @@ export async function listThreads(
   // 零会话时它一次都不跑，而「能不能建第一条会话」恰恰要在零会话时回答。
   // 事实源仍是 `capabilitiesFor`，与 `getThread` 逐字同一个函数；这里只是换了个
   // 读端口再下发一次，没有第二套判定。
-  const membership = await deps.repo.findProjectMembership(
-    input.userId,
-    input.projectId,
-    input.orgId,
-  );
-  const capabilities = capabilitiesFor(membership?.projectRole ?? null);
+  // #4615：项目层身份经 `resolveChatProjectLayer`（= `resolveProjectLayer`，与 `resolveVisibility` 同一个判据），
+  // 通用项目的负责人 / 协作者在零会话时也拿得到「能建第一条会话」。
+  const layer = await resolveChatProjectLayer(deps.repo, input.userId, input.projectId, input.orgId);
+  const capabilities = capabilitiesFor(layer.role, layer.containerKind);
 
   // #728 D4——查一次，喂给这个项目下的每一张卡，不是逐线程各查一次同一个项目的名字。
   const projectName = await deps.projects.findName(input.orgId, input.projectId);

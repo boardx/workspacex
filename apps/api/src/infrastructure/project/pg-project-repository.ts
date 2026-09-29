@@ -13,8 +13,8 @@
  *   ③ 子类型表        —— 1:1 子行
  *   ④ 创建者的"所有者"行——**按 `cmd.kind` 分流到不同表**（F128 已把工作坊机件表
  *      钉死只接受 `kind='workshop'`，见方法体内注释）：workshop → `project_memberships`
- *      （`facilitator` + `is_host=true`）；research_project/user_insight → 各自的
- *      `*_members` 表（`role='owner'`）。
+ *      （`facilitator` + `is_host=true`）；general → `general_project_members`
+ *      （`role='owner'`，#4615 起原研究项目 / 用户洞察两类并入 general）。
  *      （2026-08-16 人类裁决，推翻 Q-4②：「创建者不自动获角色」不再成立，
  *      改判「自动获得最高权限」。见 `create-project.ts` 头注。
  *      本行只在**新建**分支写；重放分支不重复写，因为首次创建时已经写过一次。）
@@ -108,7 +108,7 @@ export class PgProjectRepository implements ProjectRepository, SampleProjectMark
       );
 
       // 表名来自 domain 的映射，不是拼出来的字符串；它不含用户输入，也不可能含
-      // ——`cmd.kind` 已被 `isProjectKind` 收窄成三值之一，映射的键就是那三个。
+      // ——`cmd.kind` 已被 `isProjectKind` 收窄成闭集之一，映射的键就是那个闭集。
       await s.query(`INSERT INTO ${SUBTYPE_TABLE[cmd.kind]} (id, org_id) VALUES ($1, $2)`, [
         id,
         cmd.orgId,
@@ -116,16 +116,13 @@ export class PgProjectRepository implements ProjectRepository, SampleProjectMark
 
       // 2026-08-16 人类裁决（推翻 Q-4②）：创建者自动获得该容器最高权限的角色。
       //
-      // ⚠ 三类容器的"最高权限"字面上不是同一张表、同一个角色名——F128（U-7 裁 A）
-      //   已经把这两类判据钉死在数据库层：`project_memberships` 的 `(project_id, kind)`
-      //   复合外键**只**接受 `kind='workshop'` 的容器；`research_project`/`user_insight`
-      //   走各自专属的 `research_project_members`/`user_insight_members`（`role` 只有
-      //   `owner`/`collaborator` 两档，不复用工作坊四角色，F128 头注逐字）。这里按
-      //   `cmd.kind` 分流，不是发明第三种写法，是分别调用两套已存在的成员表：
-      //     · workshop           → `project_memberships`（facilitator + is_host=true）
-      //     · research_project /
-      //       user_insight       → 各自的成员表（role='owner'，人类原话「owner」
-      //       字面对应的正是这两张表已有的枚举值，不是巧合）
+      // ⚠ 两类容器的"最高权限"字面上不是同一张表、同一个角色名——F128（U-7 裁 A）
+      //   已经把这条判据钉死在数据库层：`project_memberships` 的 `(project_id, kind)`
+      //   复合外键**只**接受 `kind='workshop'` 的容器；`general`（#4615 起由原研究项目 /
+      //   用户洞察两类并入）走专属的 `general_project_members`（`role` 只有
+      //   `owner`/`collaborator` 两档，不复用工作坊四角色）。这里按 `cmd.kind` 分流：
+      //     · workshop → `project_memberships`（facilitator + is_host=true）
+      //     · general  → `general_project_members`（role='owner'）
       if (cmd.kind === "workshop") {
         await s.query(
           `INSERT INTO project_memberships (user_id, project_id, org_id, project_role, group_id, is_host)
@@ -133,9 +130,8 @@ export class PgProjectRepository implements ProjectRepository, SampleProjectMark
           [cmd.actorId, id, cmd.orgId],
         );
       } else {
-        const table = cmd.kind === "research_project" ? "research_project_members" : "user_insight_members";
         await s.query(
-          `INSERT INTO ${table} (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')`,
+          `INSERT INTO general_project_members (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')`,
           [cmd.actorId, id, cmd.orgId],
         );
       }

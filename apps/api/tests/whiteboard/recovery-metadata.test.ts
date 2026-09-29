@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { describe,expect,it } from 'vitest';
+import { describe,expect,it,vi } from 'vitest';
 import type { DatabasePort,TenantSession } from '../../src/application/ports/database.port';
 import { PgWhiteboardRecoveryMetadata } from '../../src/infrastructure/whiteboard/pg-recovery-metadata';
 import { toOrgId } from '../../src/domain/org-id';
@@ -10,6 +10,27 @@ const manifest=(id=randomUUID()):WhiteboardCheckpointManifest=>({checkpointId:id
 describe('PostgreSQL recovery metadata adapter',()=>{
   it('stores only immutable checkpoint metadata and replays exact checkpoint ids',async()=>{const f=fixture(),value=manifest();const first=await f.repo.saveCheckpoint(p,value,value.checkpointId),second=await f.repo.saveCheckpoint(p,value,value.checkpointId);expect(first.replayed).toBe(false);expect(second.replayed).toBe(true);const insert=f.queries.find(query=>query.sql.startsWith('INSERT INTO whiteboard_checkpoints'))!;expect(insert.params).not.toContainEqual(expect.any(Uint8Array));expect(insert.sql).not.toContain('snapshot');});
   it('publishes a restore manifest by CAS and replays before testing the changed head',async()=>{const f=fixture(),checkpoint=manifest();await f.repo.saveCheckpoint(p,checkpoint,checkpoint.checkpointId);const requestId=randomUUID(),event:WhiteboardCollaborationEvent={type:'BoardRestored',eventId:requestId,operationId:requestId,boardId,checkpointId:checkpoint.checkpointId,previousEpoch:2,epoch:3,actorId:p.userId,occurredAt:'2026-09-26T00:01:00.000Z'};const input={boardId,checkpoint,snapshot:new Uint8Array([0,0]),auditEvents:[],newEpoch:3,expectedEpoch:2,expectedSeq:7,requestId,event};expect(await f.repo.commitRestore(p,input)).toEqual({epoch:3,seq:0,replayed:false,auditEvents:[]});expect(f.head).toEqual({epoch:3,seq:0});expect(await f.repo.commitRestore(p,input)).toEqual({epoch:3,seq:0,replayed:true,auditEvents:[]});const update=f.queries.find(query=>query.sql.startsWith('UPDATE whiteboard_documents'))!;expect(update.sql).toContain('snapshot=NULL');expect(update.params).not.toContainEqual(expect.any(Uint8Array));});
+  it('unions project access in the same tenant session without granting project editors owner-only restore',async()=>{
+    const projectMember={orgId:p.orgId,userId:'project-member'},queries:string[]=[];
+    let checkpoint:WhiteboardCheckpointManifest|null=null;
+    const session:TenantSession={async query<R>(sql:string,params:readonly unknown[]=[]){queries.push(sql);let rows:unknown[]=[];
+      if(sql.startsWith('SELECT owner_id'))rows=[{owner_id:'board-owner',archived:false}];
+      else if(sql.startsWith('SELECT role FROM whiteboard_members'))rows=[];
+      else if(sql.startsWith('SELECT epoch,seq::text FROM whiteboard_documents'))rows=[{epoch:2,seq:'7'}];
+      else if(sql.includes('FROM whiteboard_checkpoints'))rows=checkpoint?[{checkpoint_id:checkpoint.checkpointId,board_id:checkpoint.boardId,version:1,epoch:checkpoint.epoch,seq:String(checkpoint.seq),object_key:checkpoint.objectKey,content_hash:checkpoint.contentHash,byte_size:String(checkpoint.byteSize),created_by:checkpoint.createdBy,created_at:checkpoint.createdAt}]:[];
+      else if(sql.startsWith('INSERT INTO whiteboard_checkpoints'))checkpoint={checkpointId:String(params[2]),boardId:String(params[1]),version:1,epoch:Number(params[4]),seq:Number(params[5]),objectKey:String(params[6]),contentHash:String(params[7]),byteSize:Number(params[8]),createdBy:String(params[9]),createdAt:String(params[10])};
+      return{rows:rows as R[]};}};
+    const db:DatabasePort={withTenant:async(_org,fn)=>fn(session),withoutTenant:async()=>{throw new Error('no')},close:async()=>{}};
+    const roleIn=vi.fn(async(received:TenantSession)=>{expect(received).toBe(session);return 'editor' as const;});
+    const repo=new PgWhiteboardRecoveryMetadata(db,undefined,{roleIn});
+    await expect(repo.head(projectMember,boardId)).resolves.toMatchObject({role:'editor',epoch:2,seq:7});
+    const checkpointValue={...manifest(),createdBy:projectMember.userId};
+    await expect(repo.saveCheckpoint(projectMember,checkpointValue,checkpointValue.checkpointId)).resolves.toMatchObject({replayed:false});
+    const restoreId=randomUUID(),event={type:'BoardRestored',eventId:restoreId,operationId:restoreId,boardId,checkpointId:checkpointValue.checkpointId,previousEpoch:2,epoch:3,actorId:projectMember.userId,occurredAt:'2026-09-26T00:02:00.000Z'} as const;
+    await expect(repo.commitRestore(projectMember,{boardId,checkpoint:checkpointValue,snapshot:new Uint8Array([1]),auditEvents:[],newEpoch:3,expectedEpoch:2,expectedSeq:7,requestId:restoreId,event})).rejects.toMatchObject({code:'FORBIDDEN'});
+    expect(roleIn).toHaveBeenCalledTimes(3);
+    expect(queries.some(sql=>sql.startsWith('UPDATE whiteboard_documents'))).toBe(false);
+  });
 });
 
 for(const operation of ['head','getCheckpoint','findCheckpointRequest','findRestore','recoveryCandidates','updatesBetween','saveCheckpoint','commitRestore'] as const){

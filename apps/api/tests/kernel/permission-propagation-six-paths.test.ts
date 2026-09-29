@@ -1353,6 +1353,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
     // (another org sees none of these rows) and unauthenticated 401 are proven in
     // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
+    // #4615 adds pg-whiteboard-project-access.ts (+1 on top of main's 111 -> 112): the PROJECT source of whiteboard
+    // access reads only container identity (`project_resource_links` kind='whiteboard' +
+    // `projects.status`) on the whiteboard store's own locked session, and returns a role, never
+    // content; the role itself comes from resolveProjectLayer. Pinned by
+    // tests/whiteboard/project-access-guard.test.ts. Remove this increment with that test.
     // 2026-09-29 merge of main (WS/WF/EV/CT01) with the AG01/AG03/AG04 branch: the ceiling is
     // recomputed as the combined total. AG01's two entries (above), AG04's
     // pg-agent-directory-repository.ts (pinned by tests/agent/agent-directory-repo-guard.test.ts)
@@ -1360,7 +1365,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // import-official-agent-role-pack.ts before the repository is reached; pinned by
     // tests/agent/official-role-pack-import.test.ts) land on top of main's 107 -> 111.
     // Remove the matching increments with those tests.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(111);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(112);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

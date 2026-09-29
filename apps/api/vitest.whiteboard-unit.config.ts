@@ -7,6 +7,8 @@ export default defineConfig({ resolve:{alias:{
   '@repo/contracts/whiteboard-organize':resolve(__dirname,'../../packages/contracts/src/whiteboard-organize.ts'),
   '@repo/contracts/whiteboard-portable':resolve(__dirname,'../../packages/contracts/src/whiteboard-portable.ts'),
   '@repo/contracts/skill-file-edit':resolve(__dirname,'../../packages/contracts/src/skill-file-edit.ts'),
+  '@repo/contracts/agent-role':resolve(__dirname,'../../packages/contracts/src/agent-role.ts'),
+  '@repo/contracts/work-skill-meta':resolve(__dirname,'../../packages/contracts/src/work-skill-meta.ts'),
   '@repo/contracts/whiteboard-asset':resolve(__dirname,'../../packages/contracts/src/whiteboard-asset.ts'),
   '@repo/contracts/whiteboard-import':resolve(__dirname,'../../packages/contracts/src/whiteboard-import.ts'),
   '@repo/contracts/whiteboard-document':resolve(__dirname,'../../packages/contracts/src/whiteboard-document.ts'),
@@ -82,6 +84,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/storage-permission-boundary.test.ts',
     'tests/whiteboard/backup-maintenance.test.ts',
     'tests/whiteboard/backup-maintenance-repository.test.ts',
+    'tests/whiteboard/project-access-guard.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });

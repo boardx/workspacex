@@ -1,11 +1,11 @@
 /**
- * 项目中枢 B3-T5（#4499）—— 研究项目 / 用户洞察两类容器「谁能读名单 / 谁能增删」的**唯一**判据。
+ * 项目中枢 B3-T5（#4499）—— 非工作坊容器（#4615 起只有 `general`）「谁能读名单 / 谁能增删」的**唯一**判据。
  *
  * ## 为什么不走 `authorize()`
  *
  * `authorize()` 的项目层读的是 `project_memberships`（工作坊四角色，I-P6「只属工作坊」），
- * 对非工作坊容器它永远答「无项目角色」。两类容器的身份在 `research_project_members` /
- * `user_insight_members`（U-1 裁 B，两档 owner / collaborator），所以这里另起一个决策函数——
+ * 对非工作坊容器它永远答「无项目角色」。非工作坊容器的身份在 `general_project_members`
+ * （U-1 裁 B，两档 owner / collaborator），所以这里另起一个决策函数——
  * 但**产出仍是一份 `PermissionDecision`**，交给 `discloseDecided()` 解开仓储的 `Guarded<T>`。
  * 同 `domain/whiteboard/access-decision.ts` 的形状：一个门（permission-filter）、两个决策来源。
  *

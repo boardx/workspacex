@@ -40,6 +40,7 @@ import { WHITEBOARD_PRESENTATION_SERVICE, WhiteboardPresentationService } from '
 import { PgWhiteboardPresentationRepository } from './infrastructure/whiteboard/pg-presentation-repository';
 import { PgWhiteboardExportRepository } from './infrastructure/whiteboard/pg-export-repository';
 import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
+import { PgWhiteboardProjectAccess } from './infrastructure/whiteboard/pg-whiteboard-project-access';
 import { PgWhiteboardTagRepository } from './infrastructure/whiteboard/pg-whiteboard-tag-repository';
 import { PgBoardContentCopyStore } from './infrastructure/whiteboard/pg-board-content-copy-store';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
@@ -2884,8 +2885,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: EVIDENCE_SOURCE_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgEvidenceSources(db),
-      inject: [DATABASE_PORT],
+      // #4615：白板便签证据要解码 Yjs 快照——用白板存储同一个校验器（一次性 worker）。
+      useFactory: (db: DatabasePort, validator: WhiteboardUpdateValidator) => new PgEvidenceSources(db, validator),
+      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR],
     },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
@@ -3215,22 +3217,22 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort, objects: ObjectStore) => new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 120, objects),
+      useFactory: (db: DatabasePort, objects: ObjectStore) => new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 120, objects, new PgWhiteboardProjectAccess()),
       inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_COMMENT_STORE,
-      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration,objects),
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration,objects,new PgWhiteboardProjectAccess()),
       inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_RECOVERY_SERVICE,
-      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,objects);return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,objects,new PgWhiteboardProjectAccess());return new WhiteboardRecoveryService(adapter,adapter,objects);},
       inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
+      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db, undefined, new PgWhiteboardProjectAccess()),
       inject: [DATABASE_PORT],
     },
     {

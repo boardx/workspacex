@@ -113,7 +113,7 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
     expect(JSON.parse(String(post![1]!.body))).toEqual({ projectId: "p1", kind: "survey", resourceId: "s2" });
   });
 
-  it("移出项目向 DELETE /projects/p1/resources/survey/s1 发请求；访谈没有关联/移出入口", async () => {
+  it("移出项目向 DELETE /projects/p1/resources/survey/s1 发请求；#4615 起访谈也可关联 / 移出", async () => {
     const fetchMock = stubFetch((url, init) => {
       if (init?.method === "DELETE") return json({ removed: true });
       return json(RESOURCES);
@@ -126,8 +126,29 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
     unmount();
     render(<TabResearch view="facilitator" sub="itv" projectId="p1" />);
     await screen.findByTestId("project-resource-i1");
-    expect(screen.queryByTestId("project-resources-link-open")).toBeNull();
-    expect(screen.queryByTestId("project-resource-unlink-i1")).toBeNull();
+    expect(screen.getByTestId("project-resources-link-open")).toBeInTheDocument();
+    expect(screen.getByTestId("project-resource-unlink-i1")).toBeInTheDocument();
     expect(screen.getByTestId("project-resources-new")).toBeInTheDocument();
+  });
+
+  it("#4615 访谈「关联已有」列出自己的访谈（/interviews/digital）减去已挂上的，关联发 kind=interview", async () => {
+    const fetchMock = stubFetch((url, init) => {
+      if (url.pathname === "/interviews/digital") {
+        return json({ items: [
+          { interviewId: "i1", name: "采购访谈", tags: [], topic: null, kind: "batch", status: "draft", expertCount: 0, completedExpertCount: 0, primaryAction: "confirm_topic", updatedAt: "2026-09-27T00:00:00.000Z" },
+          { interviewId: "i2", name: "运维访谈", tags: [], topic: null, kind: "batch", status: "draft", expertCount: 0, completedExpertCount: 0, primaryAction: "confirm_topic", updatedAt: "2026-09-27T00:00:00.000Z" },
+        ] });
+      }
+      if (init?.method === "POST") return json({ projectId: "p1", kind: "interview", resourceId: "i2", alreadyLinked: false });
+      return json(RESOURCES);
+    });
+    render(<TabResearch view="facilitator" sub="itv" projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("project-resources-link-open"));
+    await screen.findByTestId("project-resources-link-i2");
+    expect(screen.queryByTestId("project-resources-link-i1")).toBeNull();
+    fireEvent.click(screen.getByTestId("project-resources-link-i2"));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true));
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(JSON.parse(String(post[1]!.body))).toEqual({ projectId: "p1", kind: "interview", resourceId: "i2" });
   });
 });
