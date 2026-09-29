@@ -68,6 +68,9 @@ export function buildProjection(
       // WF05：拒绝后被 onDenyStageId 越过的阶段记 skipped（data.skipped），不是真的成功。
       stage.status = e.data.skipped === true ? "skipped" : "succeeded";
       stage.finishedAt = e.createdAt;
+    } else if (e.type === "stage_retried") {
+      // E9：失败后等待重试——阶段仍在进行，attempt 已由上面按 data.attempt 抬高。
+      stage.status = "running";
     } else if (e.type === "stage_failed") {
       stage.status = "failed";
       stage.reasonCode = e.reasonCode;
