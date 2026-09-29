@@ -200,8 +200,8 @@ export function SurveyQuestionEditor({
     );
   }
   return (
-    <div className="space-y-5 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className={studioLayout ? "flex min-h-0 flex-col gap-4 p-5 xl:h-full xl:overflow-hidden" : "space-y-5 p-5"}>
+      <div className={`flex flex-wrap items-center justify-between gap-3 ${studioLayout ? "shrink-0" : ""}`}>
         <p className="text-12 text-muted-foreground">
           选择题型，配置题目，再用实时预览试填。
         </p>
@@ -231,10 +231,11 @@ export function SurveyQuestionEditor({
         </div>
       </div>
       <div
-        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "xl:grid-cols-[19rem_minmax(0,1fr)_22rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
+        data-testid={studioLayout ? "survey-designer-grid" : undefined}
+        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "xl:h-full xl:min-h-0 xl:flex-1 xl:grid-cols-[19rem_minmax(0,1fr)_22rem] xl:overflow-hidden" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
         <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout} disabled={disabled}>
-        <aside className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4">
+        <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 xl:h-full xl:overflow-y-auto">
           {studioLayout && !locked && <section aria-label="题型工具箱" className="space-y-3">
             <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
@@ -306,7 +307,7 @@ export function SurveyQuestionEditor({
         </aside>
         </ResponsiveDesignerPanel>
         <ResponsiveDesignerPanel title="题目设置" enabled={studioLayout} disabled={disabled}>
-        <section aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'xl:order-3' : ''}`}>
+        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'xl:order-3 xl:h-full xl:overflow-y-auto' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">
               已发布的题目已锁定，以保证答卷与题目一致。仍可调整报告模板。
@@ -379,7 +380,7 @@ export function SurveyQuestionEditor({
                   {" · "}{question.provenance.certifiedAt ? "已认证" : "需重新认证"}
                 </p>
               )}
-              <label className="block text-12">
+              {!studioLayout && <label className="block text-12">
                 问题内容
                 <Textarea
                   aria-label="问题内容"
@@ -388,7 +389,7 @@ export function SurveyQuestionEditor({
                     update({ ...question, title: event.target.value })
                   }
                 />
-              </label>
+              </label>}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-12">
                   题型
@@ -471,6 +472,7 @@ export function SurveyQuestionEditor({
                 question={question}
                 questions={questions}
                 onChange={update}
+                mode={studioLayout ? "advanced" : "all"}
               />
               {issues.length > 0 && (
                 <ul className="text-12 text-destructive" aria-label="配置检查">
@@ -537,7 +539,7 @@ export function SurveyQuestionEditor({
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'xl:order-2' : ''}`}>
+          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'xl:order-2 xl:h-full xl:overflow-y-auto' : ''}`}>
             <div role="region" aria-label="问卷设计画布" className="space-y-4">
             {studioLayout && <div className="border-b border-border pb-3"><h2 className="text-16 font-semibold">问卷设计画布</h2><p className="mt-1 text-12 text-muted-foreground">选择左侧题目，在右侧调整设置；下方可试填预览。</p></div>}
             <div className="flex gap-2">
@@ -573,17 +575,38 @@ export function SurveyQuestionEditor({
                         {questions.filter((item) => item.chapterId === q.chapterId).length} 题
                       </span>
                     </div>}
-                  <section className={studioLayout ? `rounded-lg border p-4 ${q.id === question?.id ? "border-primary" : "border-border"}` : ""}>
+                  <section className={studioLayout ? `rounded-lg border p-4 transition-colors ${q.id === question?.id ? "border-primary bg-accent/20" : "border-border"}` : ""}>
                     {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
                       className="mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground"
                       onClick={() => { setId(q.id); setPendingType(undefined); }}>
                       Q{questionIndex + 1} · 点击编辑
                     </button>}
-                    <SurveyQuestionRenderer
-                      question={q}
-                      value={answers[q.id]}
-                      onChange={(value) => setAnswers((current) => ({ ...current, [q.id]: value }))}
-                    />
+                    {studioLayout && q.id === question?.id ? (
+                      <fieldset disabled={locked} className="space-y-4" aria-label={`编辑第 ${questionIndex + 1} 题`}>
+                        <label className="block text-12 font-medium">
+                          问题内容
+                          <Textarea
+                            aria-label="问题内容"
+                            className="mt-1 text-16 font-medium"
+                            value={q.title}
+                            onChange={(event) => update({ ...q, title: event.target.value })}
+                          />
+                        </label>
+                        <SurveyQuestionSettings
+                          key={`${q.id}-inline-content`}
+                          question={q}
+                          questions={questions}
+                          onChange={update}
+                          mode="content"
+                        />
+                      </fieldset>
+                    ) : (
+                      <SurveyQuestionRenderer
+                        question={q}
+                        value={answers[q.id]}
+                        onChange={(value) => setAnswers((current) => ({ ...current, [q.id]: value }))}
+                      />
+                    )}
                   </section>
                 </React.Fragment>
               ))}

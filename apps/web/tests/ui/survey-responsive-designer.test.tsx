@@ -16,7 +16,7 @@ it("disables portaled inputs while a save is in flight", () => {
   expect(screen.getByRole("textbox", { name: "面板输入" })).toBeDisabled();
 });
 
-it("opens mobile outline/settings on demand without losing selected edits", () => {
+it("opens mobile outline/settings on demand without duplicating question content", () => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   function Designer() {
     const [questions, setQuestions] = React.useState([
@@ -26,17 +26,14 @@ it("opens mobile outline/settings on demand without losing selected edits", () =
     return <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />;
   }
   render(<Designer />);
-  expect(screen.queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "打开题目大纲" }));
   fireEvent.click(within(screen.getByRole("dialog", { name: "题目大纲" })).getByRole("button", { name: /第二题/ }));
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
   fireEvent.click(screen.getByRole("button", { name: "打开题目设置" }));
-  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("第二题");
-  fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "更新后的第二题" } });
+  const settings = screen.getByRole("dialog", { name: "题目设置" });
+  expect(within(settings).queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
+  expect(within(settings).getByRole("combobox", { name: "题型" })).toHaveValue("short");
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-  expect(screen.queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "打开题目设置" }));
-  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("更新后的第二题");
 });
 
 it("shows the prototype's question toolbox in the desktop designer", () => {
@@ -48,17 +45,36 @@ it("shows the prototype's question toolbox in the desktop designer", () => {
   expect(screen.getByRole("region", { name: "问卷设计画布" })).toBeInTheDocument();
 });
 
-it("shows a cover and selectable chapter/question cards in the center canvas", () => {
+it("edits question content in the center canvas while the right panel only exposes settings", () => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   const questions = [
     { ...createSurveyQuestion("single", "q1", 1), title: "所属行业", chapterId: "基本信息", options: ["制造业", "服务业"] },
     { ...createSurveyQuestion("short", "q2", 2), title: "其他建议", chapterId: "反馈" },
   ];
-  render(<SurveyQuestionEditor studioLayout surveyTitle="客户调研" questions={questions} onChange={vi.fn()} />);
+  function Designer() {
+    const [value, setValue] = React.useState(questions);
+    return <SurveyQuestionEditor studioLayout surveyTitle="客户调研" questions={value} onChange={setValue} />;
+  }
+  render(<Designer />);
   const canvas = screen.getByRole("region", { name: "问卷设计画布" });
   expect(within(canvas).getByRole("heading", { name: "客户调研" })).toBeInTheDocument();
   expect(within(canvas).getByRole("heading", { name: "基本信息" })).toBeInTheDocument();
   expect(within(canvas).getByRole("heading", { name: "反馈" })).toBeInTheDocument();
   fireEvent.click(within(canvas).getByRole("button", { name: "编辑第 2 题：其他建议" }));
-  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("其他建议");
+  const inlineTitle = within(canvas).getByRole("textbox", { name: "问题内容" });
+  expect(inlineTitle).toHaveValue("其他建议");
+  fireEvent.change(inlineTitle, { target: { value: "更新后的建议" } });
+  expect(inlineTitle).toHaveValue("更新后的建议");
+  const settings = screen.getByRole("region", { name: "题目设置" });
+  expect(within(settings).queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
+  expect(within(settings).getByRole("combobox", { name: "题型" })).toHaveValue("short");
+});
+
+it("keeps desktop side panels fixed and makes the center canvas the primary scroll surface", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  render(<SurveyQuestionEditor studioLayout questions={[createSurveyQuestion("short", "q1", 1)]} onChange={vi.fn()} />);
+  expect(screen.getByTestId("survey-designer-grid")).toHaveClass("xl:h-full", "xl:overflow-hidden");
+  expect(screen.getByTestId("survey-designer-outline")).toHaveClass("xl:h-full");
+  expect(screen.getByTestId("survey-designer-settings")).toHaveClass("xl:h-full");
+  expect(screen.getByTestId("survey-designer-canvas-scroll")).toHaveClass("xl:h-full", "xl:overflow-y-auto");
 });

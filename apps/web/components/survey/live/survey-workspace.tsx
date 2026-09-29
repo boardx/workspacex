@@ -298,7 +298,7 @@ export function LiveSurveyWorkspace({
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
     () => execute(async () => { await save(); }));
   return (
-    <main className="min-w-0 bg-background">
+    <main className={`min-w-0 bg-background ${step === "design" ? "xl:flex xl:h-[calc(100dvh-3rem)] xl:flex-col xl:overflow-hidden" : ""}`}>
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"
@@ -414,7 +414,7 @@ export function LiveSurveyWorkspace({
       )}
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
-        <fieldset disabled={busy} className="min-w-0">
+        <fieldset disabled={busy} className={`min-w-0 ${step === "design" ? "xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:overflow-hidden" : ""}`}>
           {step === "import" && (<section className="mx-auto max-w-6xl space-y-5 p-5" aria-label="导入内容步骤">
             <div><h1 className="text-24 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">描述需求，或上传文件、选择已保存的录音。先校对 AI 生成的 Markdown，再应用到问卷设计。</p></div>
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
@@ -437,7 +437,7 @@ export function LiveSurveyWorkspace({
             <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
           </section>)}
           {step === "design" && (<>
-            <fieldset disabled={!projectedInSync}>
+            <fieldset disabled={!projectedInSync} className="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:overflow-hidden">
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
