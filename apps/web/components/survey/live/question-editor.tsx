@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { CalendarDays, CircleDot, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, SquareCheck, Star, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, CircleDot, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, Redo2, SquareCheck, Star, Undo2, Upload } from "lucide-react";
 import {
   SURVEY_QUESTION_TYPES,
   createSurveyQuestion,
@@ -59,6 +59,9 @@ export function SurveyQuestionEditor({
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [outlineSearch, setOutlineSearch] = React.useState("");
+  const [undoStack, setUndoStack] = React.useState<SurveyWorkflowQuestion[][]>([]);
+  const [redoStack, setRedoStack] = React.useState<SurveyWorkflowQuestion[][]>([]);
   const [category, setCategory] = React.useState("全部");
   const [pendingType, setPendingType] = React.useState<SurveyQuestionType>();
   const [deleted, setDeleted] = React.useState<{
@@ -71,14 +74,59 @@ export function SurveyQuestionEditor({
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
+  const lastEmittedSignature = React.useRef<string | null>(null);
+  const questionsSignature = JSON.stringify(questions);
+  React.useEffect(() => {
+    if (lastEmittedSignature.current === questionsSignature) {
+      lastEmittedSignature.current = null;
+      return;
+    }
+    setUndoStack([]);
+    setRedoStack([]);
+  }, [questionsSignature]);
   React.useEffect(() => {
     if (selectedQuestionId && questions.some((q) => q.id === selectedQuestionId))
       setId(selectedQuestionId);
   }, [questions, selectedQuestionId]);
   const question = questions.find((q) => q.id === id) ?? questions[0];
   const index = questions.findIndex((q) => q.id === question?.id);
-  const change = (all: SurveyWorkflowQuestion[]) =>
-    onChange(all.map((q, i) => ({ ...q, order: i + 1 })));
+  const normalize = (all: SurveyWorkflowQuestion[]) =>
+    all.map((q, i) => ({ ...q, order: i + 1 }));
+  const snapshot = (all: SurveyWorkflowQuestion[]) => structuredClone(all);
+  const emit = (all: SurveyWorkflowQuestion[]) => {
+    lastEmittedSignature.current = JSON.stringify(all);
+    onChange(all);
+  };
+  const change = (all: SurveyWorkflowQuestion[], recordHistory = true) => {
+    const next = normalize(all);
+    if (JSON.stringify(next) === JSON.stringify(questions)) return;
+    if (recordHistory) {
+      setUndoStack((stack) => [...stack, snapshot(questions)].slice(-50));
+      setRedoStack([]);
+    }
+    emit(next);
+  };
+  const restoreSelection = (all: SurveyWorkflowQuestion[]) => {
+    if (!all.some((item) => item.id === id)) setId(all[0]?.id);
+  };
+  const undo = () => {
+    const previous = undoStack.at(-1);
+    if (!previous) return;
+    setUndoStack((stack) => stack.slice(0, -1));
+    setRedoStack((stack) => [...stack, snapshot(questions)].slice(-50));
+    const next = normalize(previous);
+    restoreSelection(next);
+    emit(next);
+  };
+  const redo = () => {
+    const nextSnapshot = redoStack.at(-1);
+    if (!nextSnapshot) return;
+    setRedoStack((stack) => stack.slice(0, -1));
+    setUndoStack((stack) => [...stack, snapshot(questions)].slice(-50));
+    const next = normalize(nextSnapshot);
+    restoreSelection(next);
+    emit(next);
+  };
   const update = (next: SurveyWorkflowQuestion) => {
     const changed = JSON.stringify(next) !== JSON.stringify(question);
     const provenance = changed && next.provenance?.certifiedAt
@@ -112,6 +160,10 @@ export function SurveyQuestionEditor({
     setPendingType(undefined);
   }
   const issues = question ? validateSurveyQuestion(question) : [];
+  const normalizedOutlineSearch = outlineSearch.trim().toLocaleLowerCase();
+  const outlineQuestions = normalizedOutlineSearch
+    ? questions.filter((item) => `${item.order} ${item.title} ${item.chapterId}`.toLocaleLowerCase().includes(normalizedOutlineSearch))
+    : questions;
   if (overviewFirst && !editing) {
     const answerQuestions = questions.filter(
       (item) => !["description", "page_break"].includes(item.type),
@@ -200,12 +252,22 @@ export function SurveyQuestionEditor({
     );
   }
   return (
-    <div className={studioLayout ? "flex min-h-0 flex-col gap-4 p-5 xl:h-full xl:overflow-hidden" : "space-y-5 p-5"}>
+    <div className={studioLayout ? "flex min-h-0 flex-col gap-4 p-5 lg:h-full lg:overflow-hidden" : "space-y-5 p-5"}>
       <div className={`flex flex-wrap items-center justify-between gap-3 ${studioLayout ? "shrink-0" : ""}`}>
         <p className="text-12 text-muted-foreground">
           选择题型，配置题目，再用实时预览试填。
         </p>
         <div className="flex flex-wrap gap-2">
+          {studioLayout && !locked && (
+            <>
+              <Button type="button" variant="outline" aria-label="撤销最近修改" disabled={!undoStack.length} onClick={undo}>
+                <Undo2 aria-hidden="true" className="h-4 w-4" />撤销
+              </Button>
+              <Button type="button" variant="outline" aria-label="重做最近修改" disabled={!redoStack.length} onClick={redo}>
+                <Redo2 aria-hidden="true" className="h-4 w-4" />重做
+              </Button>
+            </>
+          )}
           {overviewFirst && (
             <Button
               type="button"
@@ -232,10 +294,10 @@ export function SurveyQuestionEditor({
       </div>
       <div
         data-testid={studioLayout ? "survey-designer-grid" : undefined}
-        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "xl:h-full xl:min-h-0 xl:flex-1 xl:grid-cols-[19rem_minmax(0,1fr)_22rem] xl:overflow-hidden" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
+        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:overflow-hidden xl:grid-cols-[19rem_minmax(0,1fr)_22rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
         <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout} disabled={disabled}>
-        <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 xl:h-full xl:overflow-y-auto">
+        <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} aria-label="题目大纲" className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
           {studioLayout && !locked && <section aria-label="题型工具箱" className="space-y-3">
             <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
@@ -254,23 +316,30 @@ export function SurveyQuestionEditor({
           </section>}
           <h2 className="text-14 font-semibold">题目大纲</h2>
           <p className="text-12 text-muted-foreground">题目目录 · {questions.length}</p>
+          <Input type="search" aria-label="搜索题目" placeholder="搜索题目或章节" value={outlineSearch} onChange={(event) => setOutlineSearch(event.target.value)} />
           <ol className="space-y-1">
-            {questions.map((q) => (
-              <li key={q.id}>
+            {outlineQuestions.map((q) => {
+              const questionIndex = questions.findIndex((item) => item.id === q.id);
+              return <li key={q.id} className="flex items-center gap-1">
                 <button
                   type="button"
+                  aria-label={`选择题目 ${q.order}：${q.title || "未命名题目"}`}
                   aria-current={q.id === question?.id ? "true" : undefined}
                   onClick={() => {
                     setId(q.id);
                     setPendingType(undefined);
                   }}
-                  className={`w-full break-words rounded-md p-3 text-left text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${q.id === question?.id ? "bg-accent" : "hover:bg-muted"}`}
+                  className={`min-w-0 flex-1 break-words rounded-md p-3 text-left text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${q.id === question?.id ? "bg-accent" : "hover:bg-muted"}`}
                 >
                   {q.type === "page_break" ? "分节 · " : `${q.order}. `}
                   {q.title || "未命名题目"}
                 </button>
-              </li>
-            ))}
+                {studioLayout && !locked && <div className="flex shrink-0">
+                  <Button type="button" size="xs" variant="ghost" aria-label={`上移题目：${q.title || "未命名题目"}`} disabled={questionIndex === 0} onClick={() => { change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" size="xs" variant="ghost" aria-label={`下移题目：${q.title || "未命名题目"}`} disabled={questionIndex === questions.length - 1} onClick={() => { change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+                </div>}
+              </li>;
+            })}
           </ol>
           {!locked && !studioLayout && (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -307,7 +376,7 @@ export function SurveyQuestionEditor({
         </aside>
         </ResponsiveDesignerPanel>
         <ResponsiveDesignerPanel title="题目设置" enabled={studioLayout} disabled={disabled}>
-        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'xl:order-3 xl:h-full xl:overflow-y-auto' : ''}`}>
+        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'lg:order-3 lg:h-full lg:overflow-y-auto' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">
               已发布的题目已锁定，以保证答卷与题目一致。仍可调整报告模板。
@@ -539,7 +608,7 @@ export function SurveyQuestionEditor({
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'xl:order-2 xl:h-full xl:overflow-y-auto' : ''}`}>
+          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : ''}`}>
             <div role="region" aria-label="问卷设计画布" className="space-y-4">
             {studioLayout && <div className="border-b border-border pb-3"><h2 className="text-16 font-semibold">问卷设计画布</h2><p className="mt-1 text-12 text-muted-foreground">选择左侧题目，在右侧调整设置；下方可试填预览。</p></div>}
             <div className="flex gap-2">

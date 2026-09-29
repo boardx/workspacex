@@ -169,7 +169,7 @@ describe('live survey workspace persistence',()=>{
   await screen.findByRole('alert');
   expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft/design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  fireEvent.click(screen.getByRole('button',{name:'重试保存'}));
   await screen.findByText('修改已保存');
   expect(request.mock.calls.filter(([path,options])=>path==='/surveys' && options?.method==='POST')).toHaveLength(1);
  });
@@ -209,6 +209,16 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('region',{name:'答卷列表'})).toBeInTheDocument();
   expect(screen.getByRole('button',{name:'设计报告模板'})).toBeInTheDocument();
  });
+ it('closes the optional actions menu after choosing an action',async()=>{
+ request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="design"/>);
+  await screen.findByRole('region',{name:'问卷设计画布'});
+  const trigger=screen.getByRole('button',{name:'更多操作'});
+  fireEvent.click(trigger);
+  expect(trigger).toHaveAttribute('aria-expanded','true');
+  fireEvent.click(screen.getByRole('button',{name:'设计报告模板（可选）'}));
+  expect(trigger).toHaveAttribute('aria-expanded','false');
+ });
  it('uses a four-step AI import flow and enters a clean designer after applying Markdown',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce({markdown:'# AI 草稿\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}});
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai"/>);
@@ -231,8 +241,22 @@ describe('live survey workspace persistence',()=>{
   expect(await screen.findByRole('alert')).toHaveTextContent('版本冲突');
   expect(screen.getByLabelText('问卷名称')).toHaveValue('尚未保存的新标题');
   expect(screen.getByText('有未保存修改')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('保存失败，修改仍保留');
+  expect(screen.getByRole('button',{name:'重试保存'})).toBeEnabled();
   expect(screen.queryByText('修改已保存')).not.toBeInTheDocument();
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4,documents:expect.objectContaining({design:expect.stringContaining('# 尚未保存的新标题')})})}),expect.anything());
+ });
+ it('shows a dedicated saving state while a manual save is pending',async()=>{
+  let finishSave:(value:SurveyRuntime)=>void=()=>undefined;
+  request.mockResolvedValueOnce(runtime()).mockReturnValueOnce(new Promise<SurveyRuntime>(resolve=>{finishSave=resolve;}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  await screen.findByDisplayValue('已保存问卷');
+  fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'等待保存的标题'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  expect(screen.getByRole('status')).toHaveTextContent('正在保存修改');
+  expect(screen.getByRole('button',{name:'保存中…'})).toBeDisabled();
+  await act(async()=>finishSave(runtime({title:'等待保存的标题',version:5})));
+  await screen.findByText('修改已保存');
  });
  it('accepts only the returned saved runtime, including its canonical title and version',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'服务端保存的标题',version:5}));

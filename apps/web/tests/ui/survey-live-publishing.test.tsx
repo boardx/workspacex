@@ -198,7 +198,7 @@ describe("live survey trusted publishing", () => {
     fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
     expect(await screen.findByText("显示条件只能引用前面有效的题目")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复条件显示或跳转规则" }));
-    expect(screen.getByRole("button", { name: "2. 补充原因" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "选择题目 2：补充原因" })).toHaveAttribute("aria-current", "true");
   });
 
   it("routes a question mapping blocker to the report-template editor", async () => {

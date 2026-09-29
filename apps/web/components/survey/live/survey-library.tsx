@@ -203,7 +203,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <Button data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷<ChevronDown aria-hidden="true" className="h-4 w-4" /></Button>
+          <Button data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
         </div>
       </header>
 
