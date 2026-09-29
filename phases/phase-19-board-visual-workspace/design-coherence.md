@@ -67,3 +67,16 @@ confirmed_via: "用户在 Codex 会话明确回复：确认 Phase 19 S01 设计�
 先确认 `contracts/board-fabric-surface/design-signoff.md` 的 ① UI、② 用例、③ API/协议契约，
 再逐项确认 XC-01～XC-06 与四个待裁决问题。只有人类可以修改本文件 frontmatter 的签核字段；
 当前状态必须保持 `pending`。
+
+## Board authoring（BV04/BV05）待复核增量
+
+`contracts/board-authoring/` 已形成① UI、② 用例、③ API/协议及领域/覆盖材料，签核状态为 `pending`。本节供人类逐项复核；上方已确认的 `covers_bundles` 与 `status` 不覆盖新束。
+
+- [ ] 与 `board-fabric-surface` 共享 `BoardObject.id`、Y.Doc canonical、Fabric/DOM 投影；Sticky/Text 编辑草稿与选区不形成第二份持久对象。
+- [ ] 底部 dock 的作者化入口与 S01 左侧工具/旧 R8 描述收敛为一个可见工具体系；快捷键及触摸入口共用同一 command。
+- [ ] 形状、文字层级和 sizing 以类型化领域字段为单源；normal/free 仅是拖拽约束，不与 `fixed/auto-size/auto-height` 形成另一套持久枚举。圆形/方形与自动高度优先级仍待裁决。
+- [ ] 500 张批量创建与 S01 的一个 gesture/transaction 边界一致；现有 100 上限必须在 parser、envelope、预览与验证中同时收敛。
+- [ ] Delete→Undo 原 id 恢复不得绕过单调 tombstone、ACL 与服务端确认；BV05 基础历史不冒领 BV22 多人字段级撤销/离线恢复。
+- [ ] mock 八图只供 UI 方向评审；正式路由、双客户端、服务端 ACK 和持久化证据必须另行采集。
+
+待人类确认本增量及契约束三件材料后，才可由人类扩展 `covers_bundles` 并更新签核状态。
