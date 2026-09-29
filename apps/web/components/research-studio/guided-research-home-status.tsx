@@ -28,6 +28,7 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
   const missingEvidence = session.resumeStage === "report" && session.sourceCount === 0;
   return {
     ...stage,
+    step: completed ? 6 : stage.step,
     action: completed ? "查看研究报告" : failed ? "恢复研究" : stage.action,
     attention: failed || missingEvidence,
     attentionLabel: missingEvidence ? "证据缺口" : failed ? "流程中断" : null,

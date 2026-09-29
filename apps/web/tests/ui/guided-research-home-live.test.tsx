@@ -171,6 +171,7 @@ describe("F168 guided research home live data", () => {
     expect(await screen.findByTestId("research-home-summary")).toHaveTextContent("进行中2");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理1");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
+    expect(screen.getByTestId("research-stage-grs-complete")).toHaveTextContent("第 6 / 6 步");
   });
 
   it("uses the status summary to filter the library and composes it with search", async () => {

@@ -49,7 +49,7 @@ export type GuidedResearchMarkdownParseInput = {
 const briefHeadings = ["研究主题", "研究目标", "时间与地区", "重点关注"] as const;
 
 export function researchPlanTitle(title: string): string {
-  return title.replace(/^\s*(?:第\s*)?[一二三四五六七八九十百千万\d]+\s*[.、．)）:]\s*/, "").trim();
+  return title.replace(/^\s*(?:(?:第\s*)?[一二三四五六七八九十百千万]+\s*[.、．)）:]\s*|\d+\s*[、．)）:]\s*|\d+\s*\.\s+)/, "").trim();
 }
 
 function section(markdown: string, heading: string): string | null {

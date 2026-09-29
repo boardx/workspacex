@@ -18,6 +18,15 @@ describe("guided research Markdown artefacts", () => {
     expect(document.markdown).toContain("## 1. 并网政策研究");
     expect(document.markdown).not.toContain("## 1. 1、");
   });
+
+  it("preserves decimal-leading plan titles while normalizing ordinal prefixes", () => {
+    const document = serializeGuidedResearchMarkdown({
+      node: "outline",
+      outline: [{ id: "o1", title: "3.5 GHz 频谱分析", questions: ["频谱如何分配？"], enabled: true, order: 0 }],
+    });
+
+    expect(document.markdown).toContain("## 1. 3.5 GHz 频谱分析");
+  });
   it("serializes a brief with stable researcher-facing headings", () => {
     const document = serializeGuidedResearchMarkdown({ node: "brief", brief });
 
