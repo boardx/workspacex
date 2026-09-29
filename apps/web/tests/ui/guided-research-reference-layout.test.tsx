@@ -165,6 +165,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
     expect(screen.queryByTestId("guided-research-source-evidence")).not.toBeInTheDocument();
     expect(screen.queryByText("尚未找到相关网址")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "已获取的研究资料", hidden: true })).toHaveAttribute("aria-live", "polite");
   });
   it("shows source descriptions and opens the URL on double click", () => {
     const state = runtimeFixture("research");
