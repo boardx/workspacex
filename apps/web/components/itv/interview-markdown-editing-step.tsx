@@ -9,9 +9,15 @@ import { Button } from "@/components/ui/button";
 import { InterviewExpertsStep } from "./interview-experts-step";
 import { InterviewOutlineStep, normalizeOutlineForPersistence } from "./interview-outline-step";
 
+export function generationUnavailableMessage(step: "experts" | "outline" | null) {
+  return step === "experts"
+    ? "AI 服务暂时不可用，未能生成专家建议。当前专家编辑已保留，你可以重新生成专家或稍后继续。"
+    : "AI 服务暂时不可用，未能生成访谈问题。专家选择与当前编辑均已保留，你可以重新生成问题或稍后继续。";
+}
+
 export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue }: {
   interviewId: string; step: "experts" | "outline"; onVersionChange: (version: number) => void;
-  onDirtyChange: (dirty: boolean) => void; onContinue: (step: "outline" | "runs") => void;
+  onDirtyChange: (dirty: boolean) => void; onContinue: (step: "experts" | "outline" | "runs") => void;
 }) {
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [markdown, setMarkdown] = React.useState("");
@@ -55,7 +61,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       setError(cause instanceof ApiError && cause.status === 409
         ? "版本冲突或文档已确认；当前编辑保留，不能覆盖确认版本。"
         : cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE"
-          ? "AI 暂时无法生成访谈问题。当前专家选择与编辑已保留，请稍后重新生成。"
+          ? generationUnavailableMessage(generationStep)
           : "操作未完成，当前编辑保留。请重试。");
       setRetryGenerationStep(cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE" ? generationStep : null);
     } finally { setPending(false); }
@@ -115,11 +121,11 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       }, step).finally(() => setGenerating(false));
     },
   };
-  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={retryGenerationStep ? () => {
+  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" disabled={pending} onClick={retryGenerationStep ? () => {
     setGenerating(true);
     void action(async () => {
       await generateStep(retryGenerationStep);
       if (step === "experts" && retryGenerationStep === "outline") callbacks.current.onContinue("outline");
     }, retryGenerationStep).finally(() => setGenerating(false));
-  } : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{retryGenerationStep ? "重新生成" : "重新载入（保留编辑）"}</Button></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
+  } : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{retryGenerationStep === "outline" ? "重新生成问题" : retryGenerationStep === "experts" ? "重新生成专家" : "重新载入（保留编辑）"}</Button>{retryGenerationStep === "outline" && step === "outline" && <Button variant="ghost" disabled={pending} onClick={() => callbacks.current.onContinue("experts")}>返回专家选择</Button>}</div></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
 }
