@@ -253,6 +253,18 @@ describe("CT09 · W011 线索到合格：CRM 写入审批/驳回/幂等重放", 
     expect(status()).toBe("running");
   });
 
+  it("僵尸 worker × P4：写完后、通知前 lease 被接管 → 不得追加 P4 effect_blocked（WorkflowLeaseLostError），不通知", async () => {
+    notify.readable = false;
+    notify.canRead = async () => {
+      await leases.acquire({ orgId: ORG, instanceId: INSTANCE, holder: "w-new" });
+      return false;
+    };
+    await expect(runProcess([lead(1)])).rejects.toBeInstanceOf(WorkflowLeaseLostError);
+    expect(instances.events.some((e) => e.type === "effect_blocked" && e.data.skipped === "recipient_cannot_read")).toBe(false);
+    expect(notify.sent).toHaveLength(0);
+    expect(status()).toBe("running");
+  });
+
   it("E5×E6：进程 1 已写 lead-1 后崩溃，恢复前撤销审批人资格 → lead-1 仍报 written（读回对账），无 P2 forbidden 审计", async () => {
     const items = Array.from({ length: N }, (_, i) => lead(i + 1));
     crm.crashAfterWrites = 1;

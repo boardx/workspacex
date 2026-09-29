@@ -288,6 +288,8 @@ export class LeadWriteBackService {
     if (!cap.authorized || !withinSideEffectCap(NOTIFY_STAGE.sideEffect, cap.sideEffectCap)) return false;
     if (!(await this.deps.notify.canRead(cmd.orgId, cmd.initiatorUserId, cmd.instanceId))) {
       // P4：收件人已无读权限 → 不发，但留审计事件，跳过可追溯。
+      // 与 finish() / P2 同一道 lease 围栏：僵尸 worker 不得追加 P4 审计事件。
+      await this.deps.leases.assertLease(lease);
       await this.deps.events.append(cmd.orgId, cmd.instanceId, {
         type: "effect_blocked",
         stageId: NOTIFY_STAGE.stageId,
