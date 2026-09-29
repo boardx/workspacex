@@ -80,6 +80,8 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await page.goto(`/studio/board/${board.id}`);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-sticky-square").click();
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 300, y: 220 } });
   const editor = page.getByTestId("board-thinking-editor");
   await expect(editor).toBeFocused();
   for (let index = 1; index <= 20; index += 1) {

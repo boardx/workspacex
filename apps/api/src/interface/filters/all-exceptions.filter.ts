@@ -51,6 +51,7 @@ import {
   skills,
   survey,
   wave2Runtime,
+  whiteboardImport,
   whiteboard,
 } from "@repo/contracts";
 import type { z } from "zod";
@@ -191,6 +192,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    */
   const localExport = identity.LocalExportReason.safeParse(raw);
   if (localExport.success) return { reasonCode: localExport.data };
+  const boardImport = whiteboardImport.WhiteboardImportFailure.safeParse(raw);
+  if (boardImport.success) return { reasonCode: boardImport.data };
 
   /**
    * #638 delta，迭代 2：`identity.SelfServiceProfileError` —— 同一个 bug 又发生了一次。

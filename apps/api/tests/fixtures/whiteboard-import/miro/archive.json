@@ -1,0 +1,13 @@
+{
+  "exportVersion": "miro-board-export-2.1",
+  "board": { "id": "miro-board-42", "title": "Product discovery" },
+  "data": {
+    "widgets": [
+      { "id": "frame-1", "type": "frame", "title": "Discovery", "position": { "x": 80, "y": 60 }, "size": { "width": 900, "height": 560 } },
+      { "id": "note-1", "type": "sticky_note", "text": "Interview customers", "parentId": "frame-1", "position": { "x": 140, "y": 130 }, "size": { "width": 180, "height": 180 }, "style": { "backgroundColor": "#fff4a3" }, "metadata": { "tags": ["research"] } },
+      { "id": "decision-1", "type": "shape", "shape": "diamond", "text": "Proceed?", "position": { "x": 430, "y": 150 }, "size": { "width": 180, "height": 130 } },
+      { "id": "edge-1", "type": "connector", "startWidget": { "id": "note-1" }, "endWidget": { "id": "decision-1" }, "semanticRelation": "informs" },
+      { "id": "photo-1", "type": "image", "fileName": "assets/interview.png", "position": { "x": 650, "y": 130 }, "size": { "width": 320, "height": 180 } }
+    ]
+  }
+}

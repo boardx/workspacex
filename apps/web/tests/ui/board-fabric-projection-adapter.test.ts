@@ -144,13 +144,13 @@ describe("Board canonical-to-Fabric projection adapter", () => {
   });
 
   it("projects panels, groups and semantic connectors as renderer data without Fabric ownership", () => {
-    const frame = { ...canonical("panel", "frame"), text: "Research", zIndex: 2, extensionData: { spatial: { version: 1, mode: "grid", autoExpand: true, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } } as WhiteboardObject;
+    const frame = { ...canonical("panel", "frame"), text: "Research", zIndex: 2, extensionData: { spatial: { version: 1, mode: "grid", autoExpand: true, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal", shape: "rounded", template: "section" } } } as WhiteboardObject;
     const group = { ...canonical("group", "group"), zIndex: 3 };
     const a = { ...canonical("a", "sticky"), geometry: { x: 10, y: 20, width: 100, height: 80, rotation: 90 } };
     const b = { ...canonical("b", "sticky"), geometry: { x: 300, y: 100, width: 100, height: 80, rotation: 0 } };
     const connector = { ...canonical("edge", "connector"), zIndex: 4, connector: { from: "a", to: "b", fromAnchor: "right", toAnchor: "left", type: "curve", startStyle: "circle", endStyle: "arrow", lineStyle: "dashed", label: "needs", semanticRelation: "needs" } } as WhiteboardObject;
     const projected = toBoardFabricObjects([frame, group, a, b, connector]);
-    expect(projected[0]).toMatchObject({ kind: "panel", zIndex: 2, panel: { title: "Research", mode: "grid", autoExpand: true } });
+    expect(projected[0]).toMatchObject({ kind: "panel", zIndex: 2, panel: { title: "Research", mode: "grid", autoExpand: true, shape: "rounded", template: "section" } });
     expect(projected[1]).toMatchObject({ kind: "group", zIndex: 3 });
     expect(projected[4]).toMatchObject({ kind: "connector", zIndex: 4, connector: { from: "a", to: "b", type: "curve", label: "needs", semanticRelation: "needs", start: { x: -30, y: 120 }, end: { x: 300, y: 140 } } });
   });

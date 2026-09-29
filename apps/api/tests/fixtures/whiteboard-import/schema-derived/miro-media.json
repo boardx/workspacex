@@ -1,0 +1,40 @@
+{
+  "boardId": "synthetic-miro-media",
+  "data": [
+    {
+      "id": "image",
+      "type": "image",
+      "data": {
+        "url": "https://example.invalid/not-fetched"
+      },
+      "assetPath": "assets/sample.png",
+      "position": {
+        "x": 600,
+        "y": 400
+      },
+      "geometry": {
+        "width": 120,
+        "height": 80
+      }
+    },
+    {
+      "id": "note",
+      "type": "sticky_note",
+      "data": {
+        "content": "Image context"
+      },
+      "position": {
+        "x": 300,
+        "y": 400
+      },
+      "geometry": {
+        "width": 180,
+        "height": 120
+      }
+    },
+    {
+      "id": "video",
+      "type": "video"
+    }
+  ]
+}

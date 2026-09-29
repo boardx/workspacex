@@ -233,6 +233,30 @@ const EXEMPTIONS = [
       "web-artifact-reliability`）。如实记为完全 unrun，接不接进 CI 是另一次跨 lane 预算的决定。",
   },
   {
+    spec: "apps/web/e2e/board-real-model-organize.spec.ts",
+    reason: boardRealModelManualReason(
+      "AI 整理 30 条便签",
+      "playwright.board-real-model.config.ts",
+    ),
+  },
+  {
+    spec: "apps/web/e2e/chat-board-real-model.spec.ts",
+    reason: boardRealModelManualReason(
+      "Chat 生成 flowchart / sequence / persona 并插入 Board",
+      "e2e/support/chat-board-real-model.config.ts",
+    ),
+  },
+  {
+    spec: "apps/web/e2e/chat-board-three-diagram.spec.ts",
+    reason:
+      "Chat → Board 三图 producer 的可复用验收入口。它要求调用方在同一隔离栈内先产出三条真实、" +
+      "已持久化的 assistant 图形消息，并显式提供 BOARD_CHAT_FLOWCHART_URL / BOARD_CHAT_SEQUENCE_URL / " +
+      "BOARD_CHAT_PERSONA_URL 与已注册的 BOARD_CHAT_READ_ACTOR_ID；标准 fullstack seed 不包含这些来源，" +
+      "所以不能独立接入每 PR lane，也不能用合成 artifact 伪造前置条件。手动命令与边界写在 " +
+      "docs/whiteboard/chat-diagram-handoff.md；真实模型闭环由 chat-board-real-model.spec.ts 复用同一个 " +
+      "produceChatBoardThreeDiagramEvidence producer。代价是这条外部来源入口红时 CI 没有自动信号。",
+  },
+  {
     spec: "apps/web/e2e/live-collab-orchestration-shots.spec.ts",
     reason:
       "Phase 10「现场协作编排」UI 先行原型（9 屏 + 七态 + 4 视角）—— 同 canvas-tpl-shots：" +
@@ -257,6 +281,18 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  {
+    spec: "apps/web/e2e/board-collaboration-soak.spec.ts",
+    reason: "#4700: requestor deferred the 50-client, 30-minute acceptance on 2026-09-29; manual workflow_dispatch remains available until the follow-up PR restores the automatic gate.",
+  },
+  {
+    spec: "apps/web/e2e/board-performance-acceptance.spec.ts",
+    reason: "#4704: requestor split unfinished 1k/5k/10k performance acceptance from PR #4524; manual workflow_dispatch remains available until the follow-up PR restores the automatic gate.",
+  },
+  {
+    spec: "apps/web/e2e/board-vendor-captured-migration.spec.ts",
+    reason: "#4707: captured Miro/Mural account acceptance lacks the repository Actions manifest; synthetic import remains an automatic PR check until the follow-up PR restores this gate.",
+  },
   {
     spec: "apps/web/e2e/chat-run-always-lands.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
@@ -394,6 +430,17 @@ function devportalConditionalReason(which) {
     "与 `responsive.spec.ts` 那条豁免同一性质的决定（#517 先例：时间预算归 coord）。" +
     "本条豁免的作用是**把这个洞从「门控报绿」变成「清单上有名有姓的一条」**，不是宣布它没问题。" +
     "跟踪：#523 的 PR 正文已把 (a)/(b) 两条出路上报 coord-architecture。"
+  );
+}
+
+function boardRealModelManualReason(journey, config) {
+  return (
+    `${journey} 是付费真实模型验收，使用 ${config} 与 board-real-model-global-setup.ts ` +
+    "在隔离栈里注册真实模型 actor；缺真实 provider、凭据或已发布模型必须红退，不能回落到 loopback。" +
+    "它不能接进每个 PR 都运行的无条件 job：一次执行会发起真实模型调用，且与其它真实模型 lane " +
+    "共享凭据、端口和 .next-real-model-e2e 构建目录。执行命令与隔离要求分别写在 " +
+    "apps/web/e2e/board-real-model-README.md 和 apps/web/e2e/support/chat-board-real-model-README.md。" +
+    "如实代价：主会话没有按文档手动运行时，这条 spec 红了不会有 CI 自动信号。"
   );
 }
 

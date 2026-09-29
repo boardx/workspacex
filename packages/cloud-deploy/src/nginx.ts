@@ -48,6 +48,7 @@ server {
     client_max_body_size 100m;
 ${proxy("= /api/copilotkit", "http://127.0.0.1:3000")}
 ${proxy("^~ /api/copilotkit/", "http://127.0.0.1:3000")}
+${proxy("~ ^/whiteboards/[0-9a-fA-F-]{36}/sync$", "http://127.0.0.1:3200")}
     location = /api { return 308 /api/; }
 ${proxy("/api/", "http://127.0.0.1:3200/")}
 ${proxy("/", "http://127.0.0.1:3000")}

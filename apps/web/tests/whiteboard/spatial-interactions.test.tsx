@@ -40,8 +40,9 @@ function mount() {
 }
 
 function createPanelAndSticky() {
-  fireEvent.click(screen.getByTestId("board-add-panel"));
-  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  fireEvent.click(screen.getByTestId("board-add-frame"));
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+  fireEvent.keyDown(window,{key:"n"});
 }
 
 it("creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port", () => {
@@ -174,7 +175,9 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   });
   fireEvent.click(screen.getByTestId("mock-select-stickies"));
   const before = readObjects(doc);
+  fireEvent.click(screen.getByLabelText("更多白板操作"));
   fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
+  fireEvent.keyDown(document,{key:"Escape"});
   expect(readObjects(doc)).toEqual(before);
   act(() => port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "unlock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: false } }));
   const transactions: Y.Transaction[] = [];
@@ -185,4 +188,24 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   expect(readObjects(doc)[0]).toMatchObject({ id: "edge", connector: { fromPoint: expect.any(Object), toPoint: expect.any(Object) } });
   expect(transactions).toHaveLength(1);
   doc.destroy();
+});
+
+it("keeps multi-selection quiet and restores handles for touch single-selection", () => {
+  const doc=mount();fireEvent.click(screen.getByTestId("mock-create-a"));
+  fireEvent.keyDown(screen.getByLabelText("对象文字"),{key:"Escape"});
+  fireEvent.click(screen.getByTestId("mock-create-b"));fireEvent.keyDown(screen.getByLabelText("对象文字"),{key:"Escape"});
+  fireEvent.click(screen.getByTestId("mock-select-stickies"));
+  expect(screen.queryAllByTestId(/^connector-handle-/)).toHaveLength(0);
+  const a=readObjects(doc)[0]!;fireEvent.click(screen.getByTestId(`mock-select-${a.id}`));
+  expect(screen.getAllByTestId(/^connector-handle-/)).toHaveLength(4);
+  const handle=screen.getByTestId(`connector-handle-${a.id}-right`);expect(handle).toHaveClass("h-11","w-11");
+  fireEvent.click(handle);const b=readObjects(doc).find(object=>object.id!==a.id)!;
+  fireEvent.click(screen.getByTestId(`mock-select-${b.id}`));fireEvent.click(screen.getByTestId(`connector-handle-${b.id}-left`));
+  expect(readObjects(doc).find(object=>object.kind==='connector')?.connector).toMatchObject({from:a.id,to:b.id});
+});
+
+it("keeps sync text on one line and keeps history in the header and view controls separate from the bottom dock",()=>{
+ mount();expect(screen.getByTestId('board-sync-status')).toHaveClass('whitespace-nowrap');
+ expect(screen.getByTestId('board-editor-header')).not.toContainElement(screen.getByTestId('board-zoom-fit-board'));
+ expect(screen.getByTestId('board-navigation-controls')).toContainElement(screen.getByTestId('board-zoom-fit-board'));
 });

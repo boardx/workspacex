@@ -28,6 +28,7 @@ it("maps authoring shortcuts to canonical object creation and tool state without
   fireEvent.keyDown(window, { key: "h" }); expect(probe.tool).toBe("hand");
   fireEvent.keyDown(window, { key: "v" }); expect(probe.tool).toBe("select");
   const before = readObjects(doc).length;
+  fireEvent.pointerDown(screen.getByTestId("board-title-menu"), {button:0,ctrlKey:false,pointerType:"mouse"});
   fireEvent.keyDown(screen.getByLabelText("白板名称"), { key: "n" });
   expect(readObjects(doc)).toHaveLength(before);
   doc.destroy();

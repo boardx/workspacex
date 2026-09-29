@@ -8,7 +8,17 @@ export interface OssClientPort {
   put(key: string, bytes: Buffer, options: { mime: string; headers: Record<string, string> }): Promise<void>;
   get(key: string): Promise<{ content: Buffer; headers: Record<string, string> }>;
   head(key: string): Promise<{ headers: Record<string, string> }>;
-  delete(key: string): Promise<void>;
+  delete(key: string,options?:{headers?:Record<string,string>}): Promise<void>;
+  list(input:{prefix:string;marker?:string;maxKeys:number}):Promise<{objects:Array<{name:string;size:number;lastModified:string;etag:string}>;nextMarker?:string}>;
+}
+
+export type OssServerSideEncryption =
+  | { readonly algorithm: "AES256" }
+  | { readonly algorithm: "KMS"; readonly keyId: string };
+
+export interface OssObjectEncryptionMetadata {
+  readonly algorithm: "AES256" | "KMS";
+  readonly keyId: string | null;
 }
 
 const unavailable = () => new ObjectStoreUnavailableError("OSS unavailable");
@@ -49,6 +59,18 @@ export class OssObjectStore implements ObjectStore {
     try { await assertCompatible(this.client, this.bucket); } catch { throw unavailable(); }
   }
   async putOnce(key: string, bytes: Uint8Array, mime: string): Promise<void> {
+    return this.writeOnce(key, bytes, mime, {});
+  }
+  /** Explicit capability used by whiteboard blobs; ordinary callers retain prior behavior. */
+  async putOnceEncrypted(key: string, bytes: Uint8Array, mime: string, encryption: OssServerSideEncryption): Promise<void> {
+    const headers: Record<string, string> = { "x-oss-server-side-encryption": encryption.algorithm };
+    if (encryption.algorithm === "KMS") {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(encryption.keyId)) throw unavailable();
+      headers["x-oss-server-side-encryption-key-id"] = encryption.keyId;
+    }
+    return this.writeOnce(key, bytes, mime, headers);
+  }
+  private async writeOnce(key: string, bytes: Uint8Array, mime: string, securityHeaders: Record<string, string>): Promise<void> {
     const objectKey = this.key(key);
     if (!mime || mime.length > 256 || /[\r\n\u0000]/.test(mime)) throw unavailable();
     // Copy before awaiting the network: callers cannot mutate the bytes after hashing.
@@ -57,12 +79,28 @@ export class OssObjectStore implements ObjectStore {
       "x-oss-forbid-overwrite": "true",
       "Content-MD5": createHash("md5").update(content).digest("base64"),
       "x-oss-meta-sha256": createHash("sha256").update(content).digest("hex"),
+      ...securityHeaders,
     };
     try {
       await assertCompatible(this.client, this.bucket);
       await this.client.put(objectKey, content, { mime, headers });
     } catch (error) {
       if (failureCode(error) === "FileAlreadyExists") throw new ObjectExistsError(key);
+      throw unavailable();
+    }
+  }
+  async headEncryption(key: string): Promise<OssObjectEncryptionMetadata | null> {
+    const objectKey = this.key(key);
+    try {
+      const { headers } = await this.client.head(objectKey);
+      const algorithm = headers["x-oss-server-side-encryption"];
+      if (algorithm !== "AES256" && algorithm !== "KMS") throw unavailable();
+      const keyId = headers["x-oss-server-side-encryption-key-id"] ?? null;
+      if (algorithm === "KMS" && !keyId) throw unavailable();
+      if (algorithm === "AES256" && keyId) throw unavailable();
+      return { algorithm, keyId };
+    } catch (error) {
+      if (missing(error)) { await this.assertReady(); return null; }
       throw unavailable();
     }
   }
@@ -84,7 +122,7 @@ export class OssObjectStore implements ObjectStore {
       throw unavailable();
     }
   }
-  async head(key: string): Promise<{ sizeBytes: number; mime: string } | null> {
+  async head(key: string): Promise<{ sizeBytes: number; mime: string; versionTag?:string } | null> {
     const objectKey = this.key(key);
     try {
       const { headers } = await this.client.head(objectKey);
@@ -92,12 +130,13 @@ export class OssObjectStore implements ObjectStore {
       const sizeBytes = Number(length);
       const mime = headers["content-type"];
       if (length === undefined || !/^\d+$/.test(length) || !Number.isSafeInteger(sizeBytes) || !mime) throw unavailable();
-      return { sizeBytes, mime };
+      const tag=headers.etag;return { sizeBytes, mime, versionTag:typeof tag==='string'?tag:undefined };
     } catch (error) {
       if (missing(error)) { await this.assertReady(); return null; }
       throw unavailable();
     }
   }
+  async list(prefix:string,cursor?:string){const normalized=prefix.replace(/\/$/,''),namespaced=this.key(normalized),page=await this.client.list({prefix:`${namespaced}/`,marker:cursor?this.key(cursor):undefined,maxKeys:1000});const deploymentPrefix=namespaced.slice(0,namespaced.length-normalized.length);return{objects:page.objects.map(object=>({key:object.name.slice(deploymentPrefix.length),lastModified:new Date(object.lastModified),sizeBytes:object.size,versionTag:object.etag})),cursor:page.nextMarker?.slice(deploymentPrefix.length)};}
 }
 
 /** Separate compliance capability. Ordinary ObjectStore users cannot delete objects. */
@@ -125,4 +164,5 @@ export class OssPhysicalPurge implements PhysicalPurgePort {
     }
     return results;
   }
+  async purgeExact(key:string,versionTag:string){const objectKey=this.key(key);try{await assertCompatible(this.client,this.bucket);const current=await this.client.head(objectKey),etag=current.headers.etag;if(etag!==versionTag)return{objectKey:key,deleted:false,versionMatched:false};await this.client.delete(objectKey,{headers:{'If-Match':versionTag}});try{await this.client.head(objectKey);return{objectKey:key,deleted:false,versionMatched:true};}catch(error){if(!missing(error))throw error;return{objectKey:key,deleted:true,versionMatched:true};}}catch(error){if(missing(error))return{objectKey:key,deleted:true,versionMatched:true};if(failureCode(error)==='PreconditionFailed')return{objectKey:key,deleted:false,versionMatched:false};return{objectKey:key,deleted:false,versionMatched:true};}}
 }

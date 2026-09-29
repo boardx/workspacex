@@ -12,6 +12,9 @@
  * （项目归档 ⇒ 借来的角色降为只读：DB-free 覆盖，见 project-workspace-w2.test.ts。）
  */
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { WhiteboardCommand } from "@repo/whiteboard-core";
 import { toOrgId } from "../../src/domain/org-id";
@@ -21,6 +24,7 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgWhiteboardCollaborationStore } from "../../src/infrastructure/whiteboard/pg-collaboration-store";
 import { PgWhiteboardProjectAccess } from "../../src/infrastructure/whiteboard/pg-whiteboard-project-access";
 import { PgWhiteboardRepository } from "../../src/infrastructure/whiteboard/pg-whiteboard-repository";
+import { FsObjectStore } from "../../src/infrastructure/storage/fs-object-store";
 import { addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const ORG = "wb-4615-project-access";
@@ -29,7 +33,7 @@ const PROJECT = `${ORG}-p`;
 const actor = (userId: string): Principal => ({ userId, orgId });
 const owner = actor("wb4615-owner"), member = actor("wb4615-member"), observer = actor("wb4615-observer");
 const boardViewer = actor("wb4615-board-viewer"), outsider = actor("wb4615-outsider");
-let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore;
+let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, objectRoot: string;
 
 const note = (id: string): WhiteboardCommand => ({
   type: "create",
@@ -56,13 +60,15 @@ beforeAll(async () => {
   await addProjectMember(ORG, PROJECT, observer.userId, "observer", null);
   await addProjectMember(ORG, PROJECT, boardViewer.userId, "member", null);
   db = new PgDatabase(appConfig());
+  objectRoot = await mkdtemp(join(tmpdir(), "wb-project-access-"));
   const projectAccess = new PgWhiteboardProjectAccess();
   repo = new PgWhiteboardRepository(db, undefined, projectAccess);
-  store = new PgWhiteboardCollaborationStore(db, undefined, undefined, projectAccess);
+  store = new PgWhiteboardCollaborationStore(db, undefined, undefined, new FsObjectStore(objectRoot), projectAccess);
 }, 120_000);
 afterAll(async () => {
   await db?.close();
   await resetOrgs(ORG);
+  if (objectRoot) await rm(objectRoot, { recursive: true, force: true });
 }, 120_000);
 
 describe("白板访问的项目来源（真实 PG）", () => {

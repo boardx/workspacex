@@ -10,6 +10,7 @@ import "reflect-metadata";
 import { json, raw, type Request, type Response, type NextFunction } from "express";
 import { PayloadTooLargeException } from "@nestjs/common";
 import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
+import { WHITEBOARD_IMPORT_LIMITS } from "@repo/contracts/whiteboard-import";
 import { workflowRuntime as workflowRuntimeOps } from "@repo/contracts/workflow-runtime";
 import { SURVEY_PROPOSAL_BODY_MAX_BYTES } from '@repo/contracts/survey-markdown-proposal';
 import { realpathSync } from "node:fs";
@@ -97,6 +98,13 @@ export async function createApp(): Promise<NestExpressApplication> {
       }
       next(error);
     }));
+  const whiteboardImportParser=json({limit:Math.ceil(WHITEBOARD_IMPORT_LIMITS.uploadBytes*4/3)+16*1024});
+  app.getHttpAdapter().getInstance().post(['/whiteboards/:boardId/imports','/whiteboards/:boardId/portable/import'],
+    (req:Request,res:Response,next:NextFunction)=>whiteboardImportParser(req,res,(error?:unknown)=>{
+      if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){next(new PayloadTooLargeException({reasonCode:'PAYLOAD_TOO_LARGE'}));return;}
+      next(error);
+    }));
+
   // Only this authenticated upload envelope needs room for bounded base64 bytes.
   const surveyProposalParser=json({limit:SURVEY_PROPOSAL_BODY_MAX_BYTES});
   app.getHttpAdapter().getInstance().post('/surveys/markdown-proposals',

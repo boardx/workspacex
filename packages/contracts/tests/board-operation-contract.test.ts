@@ -1,0 +1,2 @@
+import{describe,expect,it}from'vitest';import{WhiteboardOperationRequest,WhiteboardAIProposalCreate,WhiteboardArtifactHandoff}from'../src/whiteboard-operation';
+describe('Board operation public contract',()=>{it('versions shared human/service/AI commands and durable proposal/handoff inputs',()=>{expect(WhiteboardOperationRequest.shape.apiVersion.value).toBe('2026-09-01');expect(WhiteboardAIProposalCreate.shape.action).toBeTruthy();expect(WhiteboardArtifactHandoff.shape.layout).toBeTruthy();});});

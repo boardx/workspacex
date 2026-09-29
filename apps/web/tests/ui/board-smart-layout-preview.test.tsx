@@ -53,7 +53,8 @@ it("blocks all other mutation controls while a preview is pending", () => {
   fireEvent.click(screen.getByTestId("board-smart-timeline"));
   expect(screen.getByTestId("board-layout-preview")).toHaveTextContent("Timeline 预览");
   expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "更多白板操作" }));
   expect(screen.getByRole("button", { name: "粘贴" })).toBeDisabled();
-  expect(screen.getByTestId("board-layout-row")).toBeDisabled();
+  expect(screen.queryByTestId("board-layout-row")).toBeNull();
   doc.destroy();
 });

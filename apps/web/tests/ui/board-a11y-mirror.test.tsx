@@ -19,6 +19,7 @@ describe("Board accessibility object mirror", () => {
     const objects = [object("b", "b", "Beta", "rectangle"), object("a", "a", "Alpha")];
     const view = render(<BoardA11yMirror objects={objects} selectedObjectIds={[]} onSelect={onSelect} readOnly={false} />);
     const mirror = screen.getByRole("region", { name: "白板对象大纲" });
+    expect(mirror).toHaveClass("focus-within:max-h-28", "focus-within:w-[min(11rem,calc(100vw-2rem))]", "focus-within:overflow-y-auto");
     const buttons = within(mirror).getAllByRole("button");
     const first = buttons[0];
     const second = buttons[1];
@@ -71,6 +72,7 @@ describe("Board accessibility object mirror", () => {
 
     const button = screen.getByRole("button", { name: "图形：椭圆" });
     expect(button).toHaveAccessibleDescription("对象类型：椭圆");
+    expect(button.closest("li")).toHaveAttribute("data-object-text", "");
   });
 
   it("announces when a persisted image needs session verification", () => {

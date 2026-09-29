@@ -28,7 +28,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   }
   function failFromError(ws: WebSocket, error: unknown) {
     const code=error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE';
-    const transportCode=code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code==='COMMENT_CONFLICT'||code==='INVALID_MENTION'?'VALIDATION_FAILED':code;
+    const transportCode=code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code==='INTEGRITY_FAILED'?'DEPENDENCY_UNAVAILABLE':code==='COMMENT_CONFLICT'||code==='INVALID_MENTION'?'VALIDATION_FAILED':code;
     fail(ws,transportCode);
   }
   function group(peer: Peer) { return [...peers].filter(p => p.ready && p.boardId===peer.boardId && p.principal.orgId===peer.principal.orgId); }
@@ -47,7 +47,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       const [board,identity]=await Promise.all([deps.boards.get(principal,boardId),deps.identities?.resolve(principal)??Promise.resolve({displayName:principal.userId,avatarUrl:null,principalKind:'user' as const})]); if (!board) { refuse(404); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
+        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
         const deadline=setTimeout(()=>ws.close(4408,'handshake timeout'),10000);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -78,7 +78,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               if(Date.now()-awarenessAt<WHITEBOARD_COLLABORATION_LIMITS.presenceMinimumIntervalMs) return; awarenessAt=Date.now();
               const collaborationAdvances=Boolean(message.viewport&&(!peer.presence.viewport||message.viewport.revision>peer.presence.viewport.revision));
               const viewport=collaborationAdvances?message.viewport:peer.presence.viewport;
-              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,viewport,presenting:collaborationAdvances?(message.presenting??peer.presence.presenting):peer.presence.presenting,followingActorId:collaborationAdvances?(message.followingActorId===undefined?peer.presence.followingActorId:message.followingActorId):peer.presence.followingActorId,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
+              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,pointer:message.pointer??null,viewport,presenting:collaborationAdvances?(message.presenting??peer.presence.presenting):peer.presence.presenting,followingActorId:collaborationAdvances?(message.followingActorId===undefined?peer.presence.followingActorId:message.followingActorId):peer.presence.followingActorId,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
             }
             if(message.type==='restore-deletion'&&!deps.store.restoreDeletion)throw new WhiteboardCollaborationError('VALIDATOR_UNAVAILABLE');
             const ack=message.type==='restore-deletion'?await deps.store.restoreDeletion!(principal,boardId,message):await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});

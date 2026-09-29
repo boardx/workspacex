@@ -5,9 +5,22 @@ import { BoardCommandPort, readObjects, WhiteboardUndo, type BoardCommandEnvelop
 /** Only local commands enter this origin's undo history; the host owns doc and transport. */
 export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
   const [, render] = useReducer(n => n + 1, 0);
+  // A selection, viewport or toolbar state change re-renders the editor without
+  // changing Yjs. Preserve object identity across those renders so the Fabric
+  // projection does not rescan and remeasure every object on the board.
+  const objectDocument = useRef(doc);
+  const objects = useRef(readObjects(doc));
+  if (objectDocument.current !== doc) {
+    objectDocument.current = doc;
+    objects.current = readObjects(doc);
+  }
   const undo = useRef<WhiteboardUndo | null>(null);
   const port = useRef<BoardCommandPort | null>(null);
-  useEffect(() => { const update = () => render(); doc.on('update', update); return () => { doc.off('update', update); }; }, [doc]);
+  useEffect(() => {
+    const update = () => { objects.current = readObjects(doc); render(); };
+    doc.on('update', update);
+    return () => { doc.off('update', update); };
+  }, [doc]);
   useEffect(() => {
     const local = new WhiteboardUndo(doc);
     const commandPort = new BoardCommandPort(doc, (commands, origin) => local.execute(commands, origin));
@@ -18,7 +31,7 @@ export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
       if (port.current === commandPort) port.current = null;
     };
   }, [doc]);
-  return { objects: readObjects(doc), execute(envelope: BoardCommandEnvelope) { return readOnly ? null : port.current?.dispatch(envelope) ?? null; },
+  return { objects: objects.current, execute(envelope: BoardCommandEnvelope) { return readOnly ? null : port.current?.dispatch(envelope) ?? null; },
     undo: (gestureId?:string) => readOnly ? 'empty' : undo.current?.undo(gestureId) ?? 'empty', redo: (gestureId?:string) => !readOnly && (undo.current?.redo(gestureId) ?? false) };
 }
 export function textSplice(before: string, after: string) {

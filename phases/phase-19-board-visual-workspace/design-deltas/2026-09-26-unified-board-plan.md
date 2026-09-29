@@ -12,109 +12,148 @@
 - 默认以开源、自托管和公开 API 可用为交付条件；配置、迁移、启动、备份恢复和 API 示例必须可复现。
 - V0.1 完整包含 PRD P0 与 P1；PRD P2 保留为后续扩展路线，不能删掉，也不能声称本期已经完成。
 
-## 2. 现状与颜色
+## 2. 当前执行投影（2026-09-28 13:10 CST）
 
-截至 2026-09-28，功能单源 `feature_list.json` 有 32 项、共 167 点：BV01（5点）为 `in_progress`，其余 31 项（162点）为 `not_started`。这不是产品完成百分比；既有能力与局部预览不能抵扣未通过正式退出门的功能。
+最新 `origin/main` 为 `a6c770dc3`；候选分支已确认包含该提交。加入完整 12-lane CI 映射、跨进程导入证据确定化、性能诊断和 service actor 安全边界后的本地候选为 `cfb3e8495`。R1–R7 的产品链路与大部分 R8–R10 实现已经汇入候选，正式 `feature_list.json` 状态仍由 harness 门控维护，本图不替代该权威状态。
 
-近期 UI 交付 PR [#4488](https://github.com/boardx/workspacex/pull/4488) 仍为 OPEN。评估起点 SHA `73c51bf` 的远端全仓编译/typecheck/lint、control-plane、merge-gate 通过，但 `verify-affected` 与 `fullstack-smoke` 失败；后者 118 项通过、1 项新加的对象属性面板浏览器断言失败（测试错误地查找旧“文字快捷样式”入口）。已将断言改为检查当前检查器实际提供的“编辑文字”控件，并推送修复；修复提交 `491c5f0` 的新 CI 在本次核对时刚排队，尚无通过证据。该 PR 是局部 UI 交付，不代表 R1–R10 中任何一轮已完成；不得合并直到最新 SHA 的浏览器验收、独立复核和 CI 全绿。
+当前候选已加入：Fabric 触摸/笔压与双指缩放反证、文件/对象存储与 PG 元数据边界、流式导入扫描和取消、短期资源授权、12 条非空验收通道、Agent API/Undo、协作与会议室验收生产器。已通过的局部证据包括 contracts 1017 项、whiteboard-core 156 项、whiteboard 669 项、R8 安全实现 682 项，以及真实 Chromium Fabric 触控探针。合入后的统一 SHA 仍须重新跑完整门禁，因此这些局部通过不等于最终批准。
 
-按 167 点、最多 3 条相互独立的开发线并行、每轮一个 PR，以及主 session 集中端到端验收估算：**开发与集成约 8–12 周，含 CI/返修/迁移验收缓冲约 10–14 周日历时间**。这是假设每周持续投入并且 issue/契约门可及时就绪的区间，不是承诺日期；R1/R2 的实测吞吐、依赖和 CI 返修会校准后续轮次。
+当前确定的阻塞是：性能 producer 的交互与错误分类已修复，1k 真测已越过拖拽、文本同步和多选，但在布局/Undo 后续阶段持续高 CPU，尚未完成；真实 Miro/Mural 导入需要外部脱敏导出样本；真实模型验收需要批准向既有 DashScope endpoint 发送纯虚构测试数据；service actor 的两张新表、RLS 和 `app_rw` 权限需要明确批准；物理触摸屏、压力笔、会议室硬件和独立视觉评分需要人工环境。PR [#4524](https://github.com/boardx/workspacex/pull/4524) 尚未更新到当前候选 SHA，也没有最终 CI 证据。GitHub workflow 已补齐 `import` 与 `api-ws-objectstore`，9 个 jobs 现在无重复覆盖 canonical 12 lanes。
 
-图中蓝色表示已通过的局部检查；黄色表示仍在运行的检查；红色表示当前失败且必须修复；橙色表示排期估算；灰色表示待实现/验收；紫色表示明确保留的 P2。只有整轮退出门、主 session 验收、独立复核与仓库完成定义均通过时，才能标绿色。
+在外部样本、授权和物理设备都可及时提供的条件下，滚动预测为 **3–6 个工作日**：候选修复与静态/单元门 0.5–1 日，浏览器和长时压力门 1–2 日，CI/返修 1–2 日，人工与设备复核 0.5–1 日。若缺少真实厂商样本或物理设备，只能先交付“人类测试版”，不能声明“全部验收通过”。
 
-### 当前进度与交付估算（滚动预测）
+### 当前着色执行计划
 
 ```mermaid
-flowchart LR
-  A["BV01–BV32：32项 / 167点<br/>BV01 进行中；其余31项未开始"]:::risk
-  B["PR #4488 局部 UI<br/>OPEN；测试修复已推送"]:::risk
-  C["已通过：全仓编译、类型检查、lint<br/>control-plane、merge-gate"]:::done
-  D["旧 SHA 73c51bf 失败<br/>测试查找了已移除的旧入口"]:::fail
-  E["旧 SHA fullstack-smoke<br/>118通过 / 1失败"]:::fail
-  F["修复 SHA 491c5f0<br/>CI 已排队，浏览器结果待验证"]:::wait
-  G["主 session 核对最新 CI、截图<br/>必要时继续修复并独立复核"]:::next
-  A --> G
-  B --> G
-  C --> G
-  D --> G
-  E --> G
-  F --> G
-  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
-  classDef wait fill:#fef3c7,stroke:#d97706,color:#78350f
-  classDef fail fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
-  classDef risk fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+flowchart TD
+  G([目标：当前 main 上形成可供人类测试且最终可达 9/10 的 Board 候选])
+  S1[1. 同步并确认最新 origin/main]
+  S2[2. 集成 R8 安全存储与 R10 非空验收通道]
+  S3[3. 修复性能 producer 启动失败并重跑性能与安全]
+  S4[4. 串行运行六旅程、存储、API/WS/ObjectStore 与 50 人协作]
+  S5[5. 在最终 SHA 运行会议室长测与三浏览器视觉无障碍]
+  S6[6. 补齐真实 Miro/Mural、真实模型与 service actor 证据]
+  S7[7. 推送 PR #4524 并修复 CI 到全绿]
+  S8[8. 完成人工视觉评分和物理设备验收]
+  S9[9. 汇总 exact-SHA 证据并提交人类测试版本]
+
+  G --> S1
+  S1 --> S2
+  S2 --> S3
+  S3 --> S4
+  S4 --> S5
+  S2 --> S6
+  S5 --> S7
+  S6 --> S7
+  S7 --> S8
+  S8 --> S9
+
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+
+  class G doing
+  class S1 tested
+  class S2 tested
+  class S3 doing
+  class S4 doing
+  class S5 todo
+  class S6 blocked
+  class S7 todo
+  class S8 blocked
+  class S9 todo
 ```
 
-各轮区间是带依赖交付的日历工作周估算，轮内独立模块可并行；跨轮预研可以提前，但不能绕过依赖/签核，也不能把未验收工作算作完成。
+%% evidence S1: `git fetch origin main`; `git merge-base --is-ancestor origin/main HEAD` 退出码 0；origin/main=a6c770dc3
+%% evidence S2: API whiteboard 70 files / 683 tests；workflow policy 6/6；Web/API/Contracts typecheck 通过
+%% blocked S6: 等真实 Miro/Mural 脱敏导出；DashScope 外发授权；service actor DB/RLS 权限授权
+%% blocked S8: 等物理触摸屏、压力笔、会议室硬件和独立视觉评分人
 
-| Iteration | 主范围 | 估算 | 可并行工作面（最多三条开发线） |
-|---|---|---:|---|
-| R1 | Fabric/Yjs对象与命令边界、无限画布、Undo/Event、BlobStore接口 | 1–2周 | 画布/领域模型；协作投影；存储端口与契约 |
-| R2 | Board浏览、标签、Duplicate、归档/删除 | 0.5–1周 | 浏览UI；API与权限；复制生命周期测试 |
-| R3 | Sticky/Text、连续输入、批量与粘贴 | 1–1.5周 | Sticky交互；Text编辑；输入/IME与撤销验收 |
-| R4 | Shape、Draw、Image、Tile | 1–1.5周 | Shape/Tile；矢量Draw；Image入口/存储 |
-| R5 | Panel、Group、Layer、Lock、绑定Connector | 1–1.5周 | Panel；Connector；层级/锁与关系测试 |
-| R6 | 多选、快捷键、对齐/分布、Smart Layout | 0.75–1.25周 | 选择与快捷键；布局算法；UI/Undo集成 |
-| R7 | Presence、评论、多人撤销、离线/恢复 | 1–1.5周 | Presence；评论；恢复/撤销语义 |
-| R8 | 文件存储迁移、备份恢复、Miro/Mural导入导出 | 1.5–2周 | Blob/PG迁移；导入器；备份与数据对账 |
-| R9 | API、AI proposals、Chat图插入、会议室跟随 | 1–1.5周 | API/事件；AI与Chat；Presenter/触屏 |
-| R10 | 六旅程、性能、长时协作、安全、可访问性、总验收 | 1–1.5周 | 性能；a11y/恢复；集成验收与独立复核 |
+### 剩余工作的并行波次
 
-并行后的关键路径约 8–12 周；每轮一个 PR 带来的 CI 队列、返修和 R8/R10 高风险验收缓冲约 2 周，形成 **10–14 周** 当前区间。PR #4488 的当前红灯修复是眼前门槛，不计作 R1 已完成。
+| 波次 | 主 session | 子 agent 并行面 | 预计 |
+|---|---|---|---:|
+| Wave A | 复现并修性能 producer；候选类型/单元门 | R9 service actor 收尾；R8 OAuth 边界设计 | 0.5–1日 |
+| Wave B | 性能、安全、旅程、存储、API/WS/ObjectStore | 仅修独立失败，不启动完整 Docker | 1–2日 |
+| Wave C | 50 人协作与会议室 exact-SHA 长测 | 导入样本清单、真实模型证据准备 | 0.5–1日 |
+| Wave D | PR CI、浏览器截图、回归返修 | 独立 feature/e2e reviewer | 1–2日 |
+| Wave E | 物理设备与人类视觉评分 | 无可替代的自动化并行项 | 0.5–1日 |
 
 ## 3. 总体 Mermaid：先统一基础，再并行交付
 
 ```mermaid
 flowchart TD
-  E["已有基础可复用<br/>Fabric / Yjs / 浏览与便利贴预览"]:::evidence
-  U["融合 PRD 与细项补齐<br/>UI + 用例 + API + 一致性复核"]:::design
+  E["已有基础可复用<br/>Fabric / Yjs / 浏览与便利贴预览"]
+  U["融合 PRD 与细项补齐<br/>UI + 用例 + API + 一致性复核"]
   E --> U
-  U --> K["R1 统一对象、命令、事件、Undo边界<br/>存储端口与渲染适配接口"]:::todo
-  K --> L["R2 浏览管理<br/>标签 / 三点菜单 / Duplicate / 生命周期"]:::todo
-  K --> S["R3 Sticky / Text<br/>连续输入 / 完整样式 / Bulk / Paste"]:::todo
-  K --> O["R4 Shape / Draw / Image / Tile<br/>完整对象行为与编辑"]:::todo
-  K --> C["R7a 协作 transport / presence基础<br/>权限 / durable ACK"]:::todo
-  K --> B["R8a 文件与对象存储<br/>迁移 / 备份 / GC / 回滚"]:::todo
-  S --> P["R5 Panel / Group / Layer / Lock<br/>绑定 Connector"]:::todo
+  U --> K["R1 统一对象、命令、事件、Undo边界<br/>存储端口与渲染适配接口"]
+  K --> L["R2 浏览管理<br/>标签 / 三点菜单 / Duplicate / 生命周期"]
+  K --> S["R3 Sticky / Text<br/>连续输入 / 完整样式 / Bulk / Paste"]
+  K --> O["R4 Shape / Draw / Image / Tile<br/>完整对象行为与编辑"]
+  K --> C["R7a 协作 transport / presence基础<br/>权限 / durable ACK"]
+  K --> B["R8a 文件与对象存储<br/>迁移 / 备份 / GC / 回滚"]
+  S --> P["R5 Panel / Group / Layer / Lock<br/>绑定 Connector"]
   O --> P
-  P --> X["R6 多选 / 快捷键 / 排版<br/>Grid / Align / Snap / Smart Layout"]:::todo
-  X --> H["R7b 评论 / 多人Undo / 离线恢复"]:::todo
+  P --> X["R6 多选 / 快捷键 / 排版<br/>Grid / Align / Snap / Smart Layout"]
+  X --> H["R7b 评论 / 多人Undo / 离线恢复"]
   C --> H
   B --> H
-  L --> M["R8b Miro / Mural 导入导出<br/>逐对象迁移报告"]:::todo
+  L --> M["R8b Miro / Mural 导入导出<br/>逐对象迁移报告"]
   P --> M
   B --> M
-  H --> A["R9 API / AI proposal / Chat插入<br/>会议室与触摸场景"]:::todo
+  H --> A["R9 API / AI proposal / Chat插入<br/>会议室与触摸场景"]
   X --> A
   P --> A
-  A --> Q["R10 主session统一验收<br/>六旅程 + 指标 + 性能 + 恢复 + 无障碍"]:::todo
+  A --> Q["R10 主session统一验收<br/>六旅程 + 指标 + 性能 + 恢复 + 无障碍"]
   M --> Q
   H --> Q
   L --> Q
-  Q --> F["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile<br/>Embedded App / Presentation"]:::future
-  classDef evidence fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
-  classDef design fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-  classDef todo fill:#f1f5f9,stroke:#94a3b8,color:#334155
-  classDef future fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  Q --> F["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile<br/>Embedded App / Presentation"]
+
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+
+  class E tested
+  class U doing
+  class K done
+  class L done
+  class S done
+  class O done
+  class C done
+  class B doing
+  class P done
+  class X done
+  class H done
+  class M blocked
+  class A doing
+  class Q doing
+  class F todo
 ```
+
+%% evidence E: candidate `cfb3e8495`; API whiteboard 70 files / 683 tests；contracts 1017；whiteboard-core 156；真实 Chromium Fabric 触控探针通过
+%% blocked M: canonical 导入与合成 schema 测试已存在；最终门仍需要真实、脱敏且独立盘点的 Miro 与 Mural 导出 manifest
 
 这是一张目标工作流，不是替代 BV 依赖的执行 DAG。R1 可提前冻结端口并做存储/协作设计；正式存储、导入等实现仍满足既有 BV 依赖。确需风险前移时先拆分 feature 或审查依赖变更，不静默提前认领。R7/R8 的 a/b 表示前置基础与最终接入两个交付面，不重复计算完成。
 
 ## 4. 十轮交付包与退出门
 
-| 轮次 | 完整交付范围 | 退出条件；由主 session 验收 |
-|---|---|---|
-| R1 基础 | 全屏 Fabric、Pan/Zoom/Fit、Grid/Mini Map；稳定 id、空间坐标、parentId、锁/隐藏/层级、metadata/provenance；operation/event/Undo 与 BlobStore 接口 | 正式入口对象不由 DOM/SVG 充当主表面；变换走 canonical command；远端投影不回声；readonly 不可绕过 |
-| R2 浏览管理 | 新建/搜索、标签 AND 过滤与治理、卡片三点菜单、重命名、Duplicate、归档恢复、删除语义 | 刷新保持；复制完整服务端版本且新 ID/引用正确；撤权不越权；失败重试无重复；删除不伪装成归档 |
-| R3 思考输入 | Sticky 四种创建入口、三形状、八色与自定义、Tab 方向/间距、尺寸模式；Text 五层级与完整文本属性；智能粘贴、Bulk、Reaction/Link Preview、对象级 Tag | 连续输入与原生 IME；长文/多行不丢；固定尺寸与自动高度明确；create/edit/delete 可Undo；批量一次operation |
-| R4 内容对象 | 全套初始 Shape 与文字/边框；Pen/Marker/Highlighter/Eraser及压感矢量笔画；图片所有入口、格式和基础编辑；结构化Tile/WebTile/Table/Icon/Template | 各对象真实渲染、可编辑/变换/协作/撤销/回读；图片失败可恢复；Draw不退化成背景位图 |
-| R5 空间与关系 | Panel Freeform/Grid/Flow、嵌套、拖入高亮、parentId、Auto Expand/Clip、删除保留内容、复制子图；Group/Layer/Lock；Connector handles/routes/tips/styles/label/semanticRelation | 移动Panel带子对象，resize不强制缩放；连接随端点移动；断点/删除行为确定；锁定不能经批量路径修改 |
-| R6 编辑与组织 | 单/多/框选；Alt拖复制、Cmd/Ctrl+D及完整快捷键；浮动/精确属性面板；Align/Distribute/Grid/Row/Column/Tidy/Snap/Guides；Smart Layout预览 | 多选混合值正确；复制内部引用；整理保序；取消布局零写入；一次布局一次Undo；远端变化不被覆盖 |
-| R7 团队可靠性 | 光标/头像/选区/编辑状态；Comment/Reply/Mention/Resolve；所有操作的多人Undo/Redo、认证恢复、离线重放 | 两会话字段收敛；仅撤销本人的允许动作；AI/布局/上传等批量操作可整体撤销；断网/撤权/崩溃不丢已ACK内容 |
-| R8 存储与迁移 | 文件/对象正文+PG元数据；在线迁移、retention/GC、联合备份恢复；Miro/Mural导入、标准导出 | 原子指针与ACK；copy/backup roots安全；PG正文不线性增长；三块真实迁移板逐项报告、幂等、布局/关系可核对 |
-| R9 人与AI及会议室 | 版本化API/Event订阅；AI生成/聚类/排版proposal与确认；Chat Mermaid/Fabric原布局插入；人/AI身份；presenter跟随/退出、触摸屏 | Agent与UI同权限/命令；AI操作一键撤销；Chat三类图layout hash一致；会议室长时跟随不回退；自托管/API示例可运行 |
-| R10 总验收 | 六旅程、六体验指标、1k/5k/10k、50浏览器长时、安全、键盘/读屏/触摸/400% reflow、恢复 | 同一集成SHA证据齐全，所有P0/P1细项有断言；独立review、CI和仓库完成定义通过后才评九分 |
+| 轮次 | 当前状态 | 完整交付范围 | 退出条件；由主 session 验收 |
+|---|---|---|---|
+| R1 基础 | 🟢 实现进入候选，统一SHA终验待跑 | 全屏 Fabric、Pan/Zoom/Fit、Grid/Mini Map；稳定 id、空间坐标、parentId、锁/隐藏/层级、metadata/provenance；operation/event/Undo 与 BlobStore 接口 | 正式入口对象不由 DOM/SVG 充当主表面；变换走 canonical command；远端投影不回声；readonly 不可绕过 |
+| R2 浏览管理 | 🟢 实现进入候选，统一SHA终验待跑 | 新建/搜索、标签 AND 过滤与治理、卡片三点菜单、重命名、Duplicate、归档恢复、删除语义 | 刷新保持；复制完整服务端版本且新 ID/引用正确；撤权不越权；失败重试无重复；删除不伪装成归档 |
+| R3 思考输入 | 🟢 实现进入候选，统一SHA终验待跑 | Sticky 四种创建入口、三形状、八色与自定义、Tab 方向/间距、尺寸模式；Text 五层级与完整文本属性；智能粘贴、Bulk、Reaction/Link Preview、对象级 Tag | 连续输入与原生 IME；长文/多行不丢；固定尺寸与自动高度明确；create/edit/delete 可Undo；批量一次operation |
+| R4 内容对象 | 🟢 实现进入候选，触控反证已通过 | 全套初始 Shape 与文字/边框；Pen/Marker/Highlighter/Eraser及压感矢量笔画；图片所有入口、格式和基础编辑；结构化Tile/WebTile/Table/Icon/Template | 各对象真实渲染、可编辑/变换/协作/撤销/回读；图片失败可恢复；Draw不退化成背景位图 |
+| R5 空间与关系 | 🟢 实现进入候选，统一SHA终验待跑 | Panel Freeform/Grid/Flow、嵌套、拖入高亮、parentId、Auto Expand/Clip、删除保留内容、复制子图；Group/Layer/Lock；Connector handles/routes/tips/styles/label/semanticRelation | 移动Panel带子对象，resize不强制缩放；连接随端点移动；断点/删除行为确定；锁定不能经批量路径修改 |
+| R6 编辑与组织 | 🟢 实现进入候选；🟡 性能交互返修中 | 单/多/框选；Alt拖复制、Cmd/Ctrl+D及完整快捷键；浮动/精确属性面板；Align/Distribute/Grid/Row/Column/Tidy/Snap/Guides；Smart Layout预览 | 多选混合值正确；复制内部引用；整理保序；取消布局零写入；一次布局一次Undo；远端变化不被覆盖 |
+| R7 团队可靠性 | 🟢 实现进入候选，50人长测待跑 | 光标/头像/选区/编辑状态；Comment/Reply/Mention/Resolve；所有操作的多人Undo/Redo、认证恢复、离线重放 | 两会话字段收敛；仅撤销本人的允许动作；AI/布局/上传等批量操作可整体撤销；断网/撤权/崩溃不丢已ACK内容 |
+| R8 存储与迁移 | 🟡 确定性哈希已修；当前真测3/4通过、末项超时待复跑；🔴真实样本待提供 | 文件/对象正文+PG元数据；在线迁移、retention/GC、联合备份恢复；Miro/Mural导入、标准导出 | 原子指针与ACK；copy/backup roots安全；PG正文不线性增长；三块真实迁移板逐项报告、幂等、布局/关系可核对 |
+| R9 人与AI及会议室 | 🟡 service actor契约/应用边界已合入且25测通过；🔴生产持久化和真实模型待授权 | 版本化API/Event订阅；AI生成/聚类/排版proposal与确认；Chat Mermaid/Fabric原布局插入；人/AI身份；presenter跟随/退出、触摸屏 | Agent与UI同权限/命令；AI操作一键撤销；Chat三类图layout hash一致；会议室长时跟随不回退；自托管/API示例可运行 |
+| R10 总验收 | 🟡 12 lanes已可执行；性能已进入真实用例但高CPU未完成 | 六旅程、六体验指标、1k/5k/10k、50浏览器长时、安全、键盘/读屏/触摸/400% reflow、恢复 | 同一集成SHA证据齐全，所有P0/P1细项有断言；独立review、CI和仓库完成定义通过后才评九分 |
 
 本表补齐的细项不自动成为已生效验收命令。特别是 Draw 压感/工具、Image 编辑、Text 样式、Panel 生命周期等，须补契约与测试，不能仅挂到一个已有大标题下就标覆盖。
 

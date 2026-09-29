@@ -1,10 +1,18 @@
+import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
+import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
+import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
+import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
+import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
+import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
+import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
+import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
 import { PLATFORM_ORG_ID, toOrgId } from "./domain/org-id";
 import { fileURLToPath } from 'node:url';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { PgWhiteboardCommentStore } from './infrastructure/whiteboard/pg-whiteboard-comment-store';
 import { PgWhiteboardRecoveryAdapter } from './infrastructure/whiteboard/pg-whiteboard-recovery';
-import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
 import { WhiteboardController, WhiteboardTagController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY, WHITEBOARD_TAG_REPOSITORY } from './application/whiteboard/ports';
@@ -12,6 +20,27 @@ import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
 import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
 import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WhiteboardPortableController } from './interface/controllers/whiteboard-portable.controller';
+import { PortableBoardService,WHITEBOARD_PORTABLE_SERVICE } from './application/whiteboard/portable-board';
+import { PgPortableBoard } from './infrastructure/whiteboard/pg-portable-board';
+import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
+import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
+import { BaselineWhiteboardImportScanner } from './application/whiteboard/import-upload-security';
+import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
+import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
+import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
+import { WHITEBOARD_OPERATION_SERVICE, WhiteboardOperationService } from './application/whiteboard/operation-service';
+import { WhiteboardOperationController } from './interface/controllers/whiteboard-operation.controller';
+import { WhiteboardServiceActorController } from './interface/controllers/whiteboard-service-actor.controller';
+import { WHITEBOARD_ACTOR_SERVICE, WhiteboardActorService } from './application/whiteboard/actor-service';
+import { AcceptanceWhiteboardActorRepository, boardAgentApiAcceptanceEnabled } from './infrastructure/whiteboard/acceptance-whiteboard-actor-repository';
+import { PgWhiteboardOperationRepository } from './infrastructure/whiteboard/pg-operation-repository';
+import { WHITEBOARD_PROPOSAL_SERVICE, WhiteboardProposalService } from './application/whiteboard/proposal-service';
+import { PgWhiteboardProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
+import { WHITEBOARD_PRESENTATION_SERVICE, WhiteboardPresentationService } from './application/whiteboard/presentation-service';
+import { PgWhiteboardPresentationRepository } from './infrastructure/whiteboard/pg-presentation-repository';
+import { PgWhiteboardExportRepository } from './infrastructure/whiteboard/pg-export-repository';
+import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
 import { PgWhiteboardProjectAccess } from './infrastructure/whiteboard/pg-whiteboard-project-access';
 import { PgWhiteboardTagRepository } from './infrastructure/whiteboard/pg-whiteboard-tag-repository';
 import { PgBoardContentCopyStore } from './infrastructure/whiteboard/pg-board-content-copy-store';
@@ -1125,6 +1154,9 @@ import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
 
+const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
+const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
+
 @Module({
   controllers: [
     WorkflowRuntimeController,
@@ -1233,6 +1265,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardOperationController,
+    ...(BOARD_AGENT_API_ACCEPTANCE ? [WhiteboardServiceActorController] : []),
+    WhiteboardImportController,
+    WhiteboardPortableController,
+    WhiteboardAssetsController,
     WhiteboardTagController,
     PublicDesignShareController,
     SystemMailController,
@@ -1740,6 +1777,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
+    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:WhiteboardObjectInventory,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,WHITEBOARD_OBJECT_INVENTORY,PHYSICAL_PURGE_PORT]},
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,
@@ -3270,17 +3308,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db, undefined, undefined, new PgWhiteboardProjectAccess()),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, objects: ObjectStore) => new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 120, objects, new PgWhiteboardProjectAccess()),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_COMMENT_STORE,
-      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator)=>new PgWhiteboardCommentStore(db,validator,undefined,new PgWhiteboardProjectAccess()),
-      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR],
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration,objects,new PgWhiteboardProjectAccess()),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_RECOVERY_SERVICE,
-      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,new PgWhiteboardProjectAccess());return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,objects,new PgWhiteboardProjectAccess());return new WhiteboardRecoveryService(adapter,adapter,objects);},
       inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
@@ -3289,13 +3327,62 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      provide: WHITEBOARD_SECURE_OBJECT_STORE,
+      useFactory: (objects: ObjectStore) => new SecureWhiteboardObjectStore(objects, whiteboardObjectEncryptionPolicy()),
+      inject: [OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_IMAGE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_PORTABLE_SERVICE,
+      useFactory:(boards:PgWhiteboardRepository,collaboration:PgWhiteboardCollaborationStore,validator:WhiteboardUpdateValidator,db:DatabasePort,objects:ObjectStore,images:WhiteboardImageAssets)=>new PortableBoardService(boards,collaboration,validator,images,new SharpBoardImageVerifier(),new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db))),
+      inject:[WHITEBOARD_REPOSITORY,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_UPDATE_VALIDATOR,DATABASE_PORT,OBJECT_STORE,WHITEBOARD_IMAGE_ASSETS],
+    },
+    {
+      provide: WHITEBOARD_IMPORT_SERVICE,
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: SecureWhiteboardObjectStore, images: WhiteboardImageAssets) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db),undefined,images,new BaselineWhiteboardImportScanner()),
+      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE, WHITEBOARD_IMAGE_ASSETS],
+    },
+    {
       provide: WHITEBOARD_TAG_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardTagRepository(db),
       inject: [DATABASE_PORT],
     },
     {
       provide: BOARD_CONTENT_COPY_PORT,
-      useFactory: (db: DatabasePort) => new PgBoardContentCopyStore(db),
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, objects: ObjectStore) => new PgBoardContentCopyStore(db, collaboration, objects),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_OPERATION_AUDIT_REPOSITORY,
+      useFactory: () => BOARD_AGENT_API_ACCEPTANCE ? new AcceptanceWhiteboardActorRepository() : new PgWhiteboardOperationRepository(),
+    },
+    {
+      provide: WHITEBOARD_OPERATION_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator,audit:PgWhiteboardOperationRepository) => new WhiteboardOperationService(db, collaboration, audit,undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_OPERATION_AUDIT_REPOSITORY],
+    },
+    ...(BOARD_AGENT_API_ACCEPTANCE ? [{
+      provide: WHITEBOARD_ACTOR_SERVICE,
+      useFactory: (db: DatabasePort, audit: AcceptanceWhiteboardActorRepository, operations: WhiteboardOperationService) => new WhiteboardActorService(db, audit, audit, operations),
+      inject: [DATABASE_PORT, WHITEBOARD_OPERATION_AUDIT_REPOSITORY, WHITEBOARD_OPERATION_SERVICE],
+    }] : []),
+    {
+      provide: WHITEBOARD_PROPOSAL_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService, agents:PublishedAgentReader, objects:ObjectStore) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(objects),operations,undefined,agents),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE,PUBLISHED_AGENT_READER,OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_ORGANIZE_SERVICE,
+      useFactory: (db:DatabasePort,collaboration:PgWhiteboardCollaborationStore,proposals:WhiteboardProposalService,agents:PublishedAgentReader,skills:AgentRunStore,model:ModelCallPort)=>new WhiteboardOrganizeService(db,new PgWhiteboardOperationRepository(),collaboration,proposals,agents,skills,model,new PgBoardOrganizeActorDirectory(db)),
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_PROPOSAL_SERVICE,PUBLISHED_AGENT_READER,AGENT_RUN_STORE,MODEL_CALL_PORT],
+    },
+    {
+      provide: WHITEBOARD_PRESENTATION_SERVICE,
+      useFactory: (db: DatabasePort) => new WhiteboardPresentationService(db,new PgWhiteboardOperationRepository(),new PgWhiteboardPresentationRepository()),
       inject: [DATABASE_PORT],
     },
     {

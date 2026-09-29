@@ -16,12 +16,12 @@
  * changes when that implementation arrives -- same relationship `FsObjectStore`'s header
  * describes for `putOnce`/`get`/`head`.
  */
-import { unlink } from "node:fs/promises";
+import { rename,stat,unlink } from "node:fs/promises";
 import type { PhysicalPurgePort } from "../../application/files/physical-delete-ports";
 import { resolveObjectPath } from "./object-store-path";
 
 export class FsPhysicalPurge implements PhysicalPurgePort {
-  constructor(private readonly root: string) {}
+  constructor(private readonly root: string,private readonly afterQuarantine?:()=>Promise<void>) {}
 
   async purgeAll(
     keys: readonly string[],
@@ -46,5 +46,9 @@ export class FsPhysicalPurge implements PhysicalPurgePort {
       }
     }
     return outcomes;
+  }
+  async purgeExact(key:string,versionTag:string){
+    const path=resolveObjectPath(this.root,key),quarantine=`${path}.purging-${process.pid}-${Date.now()}`,mime=`${path}.mime`,quarantineMime=`${quarantine}.mime`;
+    try{const before=await stat(path),actual=`${before.dev}:${before.ino}:${before.mtimeMs}:${before.size}`;if(actual!==versionTag)return{objectKey:key,deleted:false,versionMatched:false};let movedMime=false;try{await rename(mime,quarantineMime);movedMime=true;}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}try{await rename(path,quarantine);await this.afterQuarantine?.();}catch(error){if(movedMime)await rename(quarantineMime,mime).catch(()=>undefined);throw error;}const moved=await stat(quarantine),movedTag=`${moved.dev}:${moved.ino}:${moved.mtimeMs}:${moved.size}`;if(movedTag!==versionTag){await rename(quarantine,path).catch(()=>undefined);if(movedMime)await rename(quarantineMime,mime).catch(()=>undefined);return{objectKey:key,deleted:false,versionMatched:false};}await unlink(quarantine);if(movedMime)await unlink(quarantineMime).catch(()=>undefined);return{objectKey:key,deleted:true,versionMatched:true};}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return{objectKey:key,deleted:true,versionMatched:true};return{objectKey:key,deleted:false,versionMatched:true};}
   }
 }

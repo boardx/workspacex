@@ -2,6 +2,8 @@ import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 import {
   createWhiteboardDocument,
+  createContentObjectEnvelope,
+  readContentObject,
   duplicateWhiteboardSnapshot,
   executeCommands,
   readObjects,
@@ -55,6 +57,25 @@ describe('duplicateWhiteboardSnapshot', () => {
     }
     validateDocument(target);
     source.destroy(); target.destroy();
+  });
+
+  it('duplicates a validated durable image without treating contentObject as an opaque reference', () => {
+    const source = createWhiteboardDocument(), target = createWhiteboardDocument();
+    const envelope = createContentObjectEnvelope({ boardId: 'board', clientId: 'client', gestureId: 'upload', id: 'photo', geometry,
+      content: { version: 1, type: 'image', status: 'ready', assetId: `board-image-${'a'.repeat(64)}`, sourceUrl: null,
+        mimeType: 'image/png', magicMimeType: 'image/png', intrinsicWidth: 64, intrinsicHeight: 48,
+        crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: '#FFFFFF', borderWidth: 0,
+        cornerRadius: 0, fileName: 'photo.png', replacementOf: null, failureCode: null,
+        byteSize: 150, contentDigest: `sha256:${'a'.repeat(64)}`, persistence: 'durable' } });
+    try {
+      executeCommands(source, envelope.commands, 'upload');
+      const result = duplicateWhiteboardSnapshot(Y.encodeStateAsUpdate(source), id => `copy_${id}`);
+      Y.applyUpdate(target, result.snapshot);
+      expect(result.assetCount).toBe(1);
+      expect(readObjects(target)[0]!.id).toBe('copy_photo');
+      expect(readContentObject(readObjects(target)[0]!)).toEqual(readContentObject(readObjects(source)[0]!));
+      expect(readObjects(source)[0]!.id).toBe('photo');
+    } finally { source.destroy(); target.destroy(); }
   });
 
   it('builds an independent Y.Doc whose later edits do not cross either direction', () => {

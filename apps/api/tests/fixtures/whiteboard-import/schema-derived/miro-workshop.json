@@ -1,0 +1,75 @@
+{
+  "boardId": "synthetic-miro-workshop",
+  "items": [
+    {
+      "id": "note",
+      "type": "sticky_note",
+      "data": {
+        "content": "<p>你好 &amp; hello</p>"
+      },
+      "parent": {
+        "id": "frame"
+      },
+      "position": {
+        "x": 100,
+        "y": 80,
+        "relativeTo": "parent_top_left"
+      },
+      "geometry": {
+        "width": 80,
+        "height": 40
+      }
+    },
+    {
+      "id": "frame",
+      "type": "frame",
+      "data": {
+        "title": "Workshop"
+      },
+      "position": {
+        "x": 500,
+        "y": 400
+      },
+      "geometry": {
+        "width": 600,
+        "height": 400
+      }
+    },
+    {
+      "id": "decision",
+      "type": "shape",
+      "data": {
+        "shape": "diamond",
+        "content": "Proceed?"
+      },
+      "position": {
+        "x": 900,
+        "y": 400
+      },
+      "geometry": {
+        "width": 200,
+        "height": 100
+      }
+    }
+  ],
+  "connectors": [
+    {
+      "id": "edge",
+      "type": "connector",
+      "startItem": {
+        "id": "note"
+      },
+      "endItem": {
+        "id": "decision"
+      },
+      "captions": [
+        {
+          "content": "<p>决定</p>"
+        },
+        {
+          "content": "next"
+        }
+      ]
+    }
+  ]
+}

@@ -124,6 +124,13 @@ export * as whiteboard from "./whiteboard";
 export * as whiteboardDocument from "./whiteboard-document";
 export * as whiteboardSync from "./whiteboard-sync";
 export * as whiteboardCollaboration from "./whiteboard-collaboration";
+export * as whiteboardAsset from "./whiteboard-asset";
+export * as whiteboardImport from "./whiteboard-import";
+export * as whiteboardOperation from "./whiteboard-operation";
+export * as whiteboardActor from "./whiteboard-actor";
+export * as whiteboardStorage from "./whiteboard-storage";
+
+export * as whiteboardOrganize from "./whiteboard-organize";
 
 /* ── phase-20 契约束（work-stack-foundation，五束，2026-09-28 建，
  *   design-signoff.md 全部 status: pending，人类授权先开发后补签）──────── */
