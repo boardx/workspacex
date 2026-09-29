@@ -6,6 +6,7 @@ WORKDIR /opt/workspacex
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm@9.15.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
+COPY patches ./patches
 COPY packages ./packages
 COPY apps/web ./apps/web
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm install --frozen-lockfile --filter web...
