@@ -89,7 +89,7 @@ export function useProjectContentIndex(projectId: string) {
       for (const c of g.cards) {
         out.push({
           type: "conv", id: c.id, title: c.title, updatedAt: c.lastActivityAt, resourceKind: null,
-          href: `/chat/${encodeURIComponent(c.id)}?projectId=${encodeURIComponent(projectId)}`,
+          href: projectThreadHref(c.id, projectId),
         });
       }
     }
@@ -138,7 +138,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
     try {
       if (kind === "conv") {
         const out = await createProjectThread(projectId, DEFAULT_PROJECT_THREAD_TITLE);
-        router.push(`/chat/${encodeURIComponent(out.threadId)}?projectId=${encodeURIComponent(projectId)}`);
+        router.push(projectThreadHref(out.threadId, projectId));
         return;
       }
       router.push(await startNewProjectResource(kind, projectId));
@@ -298,4 +298,9 @@ function AllContentList({ index, canWrite }: {
 export function formatDate(iso: string): string {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString();
+}
+
+/** 项目内对话线程的链接（同 `project-conversations.tsx` 的 `threadHref`）：chat 壳层用 `?projectId` 把线程列表限定到本项目。 */
+function projectThreadHref(threadId: string, projectId: string): string {
+  return `/chat/${encodeURIComponent(threadId)}?projectId=${encodeURIComponent(projectId)}`;
 }
