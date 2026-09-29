@@ -1,6 +1,6 @@
 # PROP-PROJECT-WORKSPACE-001：项目泛化为通用工作空间（第一版，最小改动）
 
-- 状态：**待人类裁决**（本文不构成签核；签核走 design-delta，见 §8）
+- 状态：**已裁决（2026-09-29）**，签核 delta：`phases/phase-01-run-a-project/design-deltas/project-general-workspace/`（PR #4617，人类合入）
 - 提出：2026-09-29，协调者（Claude Code），应用户要求「把 Project 的概念泛化，不只是针对 workshop……做成通用的项目管理工作空间」「用尽可能小变更、快的方式实现第一个版本」「board 也必须是项目的一部分」
 - 关系：推翻 / 修订 `phases/phase-01-run-a-project/requirements/00-project/OPEN-QUESTIONS.md` **Q-12**（「项目」收窄为工作坊、三类独立容器）；延续 PROP-PROJECT-HUB-001 / 002（项目是邀请制权限容器 + 项目大脑）与 #4584（非工作坊容器可进工作台）
 
@@ -22,10 +22,10 @@
 
 ## 3. 第一版范围（最小改动）
 
-### 3.1 数据：新增一种容器 `general`（「项目」），不动现有三类
-- `projects.kind` 增加 `'general'`；新建 1:1 子类型表 `general_projects` 与成员表 `general_project_members`（owner / collaborator 两档）——**完全复用 F128 / #4584 已有的非工作坊模式**：一条迁移、`findNonWorkshopStanding` 的 CASE 加一支、`nonWorkshopProjectLayer` 映射不变。
-- `createProject` 对 `general` 走同一分支：创建者即 owner。
-- 现有 `workshop` / `research_project` / `user_insight` 数据与行为**不变**；新建入口不再单独提供研究项目 / 用户洞察（它们今天也只有开发页能建）。
+### 3.1 数据：容器两类——`general`（「项目」）与 `workshop`
+- **裁决 ③**：研究项目 / 用户洞察**并入** `general`。产品未上线（人类逐字：「不需要迁移数据」），直接替换结构：`research_projects` → `general_projects`、`research_project_members` → `general_project_members`（owner / collaborator），`user_insights` / `user_insight_members` 删除；`projects.kind ∈ {workshop, general}`。迁移仍须可重放。
+- 完全复用 F128 / #4584 已有的非工作坊模式：`findNonWorkshopStanding` 与 `nonWorkshopProjectLayer` 只换 kind 值。
+- `createProject` 对 `general`：创建者即 owner。工作坊数据与行为不变。
 - **不**给 `projects` 加列（遵守 I-P33 列集白名单）；项目描述 / 目标等留待第二版（需要时进 `general_projects`）。
 
 ### 3.2 内容：一张「挂载表」装下所有模块
@@ -96,7 +96,11 @@ flowchart LR
 - 白板访问取并集：要保证「移出项目」后白板自己成员表里仍有的人不受影响、没有的人立即失去访问（有 PG 测试）。
 - 工作坊专属的 27 处直读第一版只改对话 / 白板 / 采纳决策这几处，其余保持对非工作坊关闭，范围可控。
 
-## 7. 需要人类拍板的决策
+## 7. 人类裁决（2026-09-29，经 AskUserQuestion）
+
+结果：① 同意推翻 Q-12；② 新增 `general` 容器；③ 第一版就并入通用项目（未上线、不迁数据）；④ 项目成员自动可编辑项目白板；⑤ 未单独问，按推荐走 design-delta（PR #4617）。
+
+原始选项：
 
 1. **是否推翻 Q-12**：「项目」= 通用工作空间，工作坊只是一种形态。（A 同意 / B 不同意，维持现状）
 2. **通用项目怎么落库**：A 新增 `general` 容器（推荐：一条迁移、复用现成非工作坊机制、语义干净）/ B 直接把「研究项目」改名当通用项目用（零迁移，但语义错位、以后要还债）。
