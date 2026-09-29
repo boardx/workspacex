@@ -151,47 +151,46 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   );
   const builtins = getBuiltinSurveyTemplates(kind).filter(item => `${item.title} ${item.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return (
-    <main className="mx-auto max-w-screen-2xl p-5 text-background-foreground sm:p-7 lg:p-10">
-      <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
-        <SurveyLibraryNav active={kind === "question" ? "modules" : "reports"} />
-        <section className="min-w-0 space-y-6" aria-label={`${label}列表`}>
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <main className="mx-auto max-w-screen-2xl space-y-7 p-5 text-background-foreground sm:p-7 lg:p-10">
+      <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p className="text-11 text-muted-foreground">Studio / {label}</p>
-          <h1 className="mt-2 text-24 font-semibold">{label}</h1>
-          <p className="mt-2 max-w-2xl text-13 text-muted-foreground">
+          <h1 className="text-30 font-semibold tracking-tight">{label}</h1>
+          <p className="mt-1 max-w-2xl text-14 text-muted-foreground">
             {kind === "question"
               ? "保存可重复使用的题目与配套报告，用模板开始一份新问卷。"
               : "保存章节、内容块与数据配置，在问卷中选择模板并关联题目。"}
           </p>
         </div>
-        <Button disabled={busy} onClick={() => router.push(`${base}/new`)}>
-          <Plus className="mr-2 h-4 w-4" aria-hidden />
-          新建{label}
-        </Button>
-      </header>
-      <div className="flex gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            aria-label="搜索模板"
-            placeholder="搜索名称或说明"
-            className="pl-9"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+          <div className="relative min-w-0 sm:w-72">
+            <Search
+              className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              aria-label="搜索模板"
+              placeholder="搜索名称或说明"
+              className="w-full pl-9"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <Button
+            variant="outline"
+            disabled={loading || busy}
+            onClick={() => void refresh()}
+          >
+            刷新
+          </Button>
+          <Button disabled={busy} onClick={() => router.push(`${base}/new`)}>
+            <Plus className="h-4 w-4" aria-hidden />
+            新建{label}
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          disabled={loading || busy}
-          onClick={() => void refresh()}
-        >
-          刷新
-        </Button>
-      </div>
+      </header>
+      <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
+        <SurveyLibraryNav active={kind === "question" ? "modules" : "reports"} />
+        <section className="min-w-0 space-y-6" aria-label={`${label}列表`}>
       {(error || loadError) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-card p-4">
           <p role="alert" className="text-13 text-destructive">

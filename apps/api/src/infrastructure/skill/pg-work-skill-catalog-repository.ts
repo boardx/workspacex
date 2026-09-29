@@ -6,6 +6,7 @@
  * ⚠ 搜索：`simple` 全文（英文/stableId 分词）OR 子串 ILIKE（中文无分词，靠子串兜底）；空关键词按 stableId 排序（R3.6）。
  */
 import { randomUUID } from "node:crypto";
+import { WorkGateStatus } from "@repo/contracts/work-eval";
 import type { WorkSkillChannel, WorkSkillManifest } from "@repo/contracts/work-skill-meta";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
@@ -16,6 +17,28 @@ import type {
   WorkSkillCatalogRepository,
 } from "../../application/skill/work-skill-catalog";
 import type { OrgId } from "../../domain/org-id";
+import type { CurrentVersionG5 } from "../../domain/skill/work-skill-catalog";
+
+/**
+ * EV05：当前版本（最新 published）门状态记录里的 G5；记录缺失、digest 对不上当前版本或结构不合法 → null
+ * （= 未评测，candidate→verified 被拒）。
+ */
+async function currentVersionG5(session: TenantSession, orgId: string, skillId: string): Promise<CurrentVersionG5 | null> {
+  const rec = await session.query<{ status: unknown; content_digest: string }>(
+    `SELECT g.status, cur.content_digest
+       FROM (SELECT sv.id, sv.content_digest FROM skill_versions sv
+              WHERE sv.org_id = $1 AND sv.skill_id = $2 AND sv.published
+              ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1) AS cur
+       JOIN skill_gate_records g ON g.org_id = $1 AND g.skill_id = $2 AND g.skill_version_id = cur.id`,
+    [orgId, skillId],
+  );
+  const row = rec.rows[0];
+  if (!row) return null;
+  const parsed = WorkGateStatus.safeParse(row.status);
+  if (!parsed.success || parsed.data.subjectVersionDigest !== `sha256:${row.content_digest}`) return null;
+  const g5 = parsed.data.gates.find((g) => g.gate === "G5");
+  return g5 ? { outcome: g5.outcome, reasonCode: g5.reasonCode } : null;
+}
 
 interface RowShape {
   skill_id: string;
@@ -177,6 +200,7 @@ export class PgWorkSkillCatalogRepository implements WorkSkillCatalogRepository 
       const decision = input.decide(
         { skillId: input.skillId, channel: current.channel, successorSkillId: current.successor_skill_id },
         new Map(graph.rows.map((r) => [r.skill_id, r.successor_skill_id])),
+        await currentVersionG5(session, input.orgId, input.skillId),
       );
       if (decision.kind !== "ok") return decision;
       // 无变化（同 channel、后继不变）不写 UPDATE、不落审计事件：from==to 的行只是噪声（WS03 review）。

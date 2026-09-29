@@ -61,16 +61,27 @@ export const AGENT_INTERRUPTS_TOOL_NAMES = {
   chooseExecutionOption: "choose_execution_option",
 } as const;
 
+/**
+ * AG06：Agent 命中 escalationPolicy 时发出的升级中断工具名（载荷见 agent-role.ts
+ * `EscalatePayload`）。刻意不并入 `AGENT_INTERRUPTS_TOOL_NAMES`——那份对象被原生工具
+ * 档案/HITL 豁免清单整体展开、并逐字等于 `DEFAULT_HITL_TOOL_NAMES`；escalate 的挂起条件
+ * 不同（由 escalationPolicy 决定，不是每次都问）。运行时接线：Python `tools.py`
+ * 注册同名 `@tool`（legacy 与 native 两种 runtime，`interrupt_on` 恒真），网关
+ * `tool-permission-gate.ts` 按 run 钉住的 policy 决定挂起（`raiseEscalationFromKernelCall`）或放行。
+ */
+export const ESCALATE_MATTER_TOOL_NAME = "escalate_matter" as const;
+
 /** kind ↔ 工具名的判别集合，逐字对应 `domain.md` 四节 `InterruptRequest.kind`。 */
-export const AgentInterruptKind = z.enum(["confirm_intent", "fill_params", "choose_option"]);
+export const AgentInterruptKind = z.enum(["confirm_intent", "fill_params", "choose_option", "escalate"]);
 export type AgentInterruptKind = z.infer<typeof AgentInterruptKind>;
 
 /** kind → 工具名的映射，`InterruptRequest.toolName` 由此派生，不许两处手写。 */
-export const AGENT_INTERRUPT_KIND_TO_TOOL_NAME: Record<AgentInterruptKind, string> = {
+export const AGENT_INTERRUPT_KIND_TO_TOOL_NAME = {
   confirm_intent: AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent,
   fill_params: AGENT_INTERRUPTS_TOOL_NAMES.fillRunParams,
   choose_option: AGENT_INTERRUPTS_TOOL_NAMES.chooseExecutionOption,
-};
+  escalate: ESCALATE_MATTER_TOOL_NAME,
+} as const satisfies Record<AgentInterruptKind, string>;
 
 /* ── 二、值对象（domain.md 三节）────────────────────────────────────── */
 
