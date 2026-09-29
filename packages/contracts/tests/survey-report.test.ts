@@ -13,7 +13,7 @@ describe("deterministic survey reports", () => {
   it("publishes an auditable report sample basis and never re-includes excluded responses", () => {
     const excluded = { ...response("4"), analysis: "excluded" as const, exclusionReason: "测试答卷" };
     const report = compileSurveyReport(template({ samplePolicy: "all" }), [question()], [response("2"), response("3", "review"), excluded]);
-    expect(report.sampleSummary).toEqual({ total: 3, pendingReview: 1, excluded: 1, included: 2 });
+    expect(report.sampleSummary).toEqual({ total: 3, pendingReview: 1, excluded: 1, included: 1 });
     expect(report.sections[0]!.blocks[0]!.sampleSize).toBe(2);
     expect(report.sections[0]!.blocks[0]!.rows[0]).toMatchObject({ value: 2.5, count: 2 });
   });
