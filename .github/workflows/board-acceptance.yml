@@ -168,6 +168,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   performance:
+    # Deferred to #4704 while the implementation-only Board slice merges.
+    # Keep the unchanged producer available for a manual acceptance run.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
