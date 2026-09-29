@@ -88,6 +88,8 @@ const L2_HIGH_RISK_TOOLS: ReadonlySet<string> = new Set([
   "choose_execution_option", // 处理既有 binding 的准入合并，改成非 L2 会直接破坏 HITL。
   "escalate_matter",       // AG06：同为"停下来问人"。网关在分级之前就按 escalationPolicy 分流
                            // （tool-permission-gate.ts），这里登记只为"有人判断过"，不是它的挂起依据。
+  "start_workflow",        // AG05：Agent 请求发起 Workflow（会创建实例）。必须每次中断——网关在分级之前就按
+                           // run 钉住的 workflowAllowlist 判定并经 WF03 start 执行（tool-permission-gate.ts）。
   "delete",                // 删工作区文件，没有版本历史可回滚（`write_file`/`edit_file` 有，所以它们是 L1）。
   "sql_db_query",          // 真连库执行模型给出的 SQL，可能是 DML ⇒ 外部系统写入。
   // 三件 SQL 只读面按性质看像 L0，但 `standard-sql-source-real-db.test.ts` 有一条具名的

@@ -1462,6 +1462,9 @@ def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     # 等目标人（edit 恢复带回 EscalateDecision）还是原样放行（approve ⇒ 工具体回复「未升级」）。
     # 不并入 `DEFAULT_HITL_TOOL_NAMES`：那份清单由契约逐字钉住为 call_skill + 三个澄清工具。
     result["escalate_matter"] = True
+    # AG05：`start_workflow` 每次调用都中断，交网关按 run 钉住的 workflowAllowlist 判定、经 WF03 start
+    # 执行，再以 edit resume 带回结果（工具体只转述 outcome.message）。同样不并入 DEFAULT_HITL_TOOL_NAMES。
+    result["start_workflow"] = True
     result[_PLAN_CONFIRMATION_TOOL_NAME] = InterruptOnConfig(
         allowed_decisions=["approve", "edit", "reject"],
         when=_write_todos_requires_plan_confirmation,

@@ -470,6 +470,28 @@ export interface AgentRunStore {
   readPinnedEscalationPolicy?(orgId: OrgId, runId: string): Promise<unknown>;
 
   /**
+   * AG05 —— 该 run 钉住的 Agent 版本快照里 AG05 需要的字段（`agent_id`、`agent_version_id`、
+   * `workflow_allowlist`）与请求人（同 `findRequesterUserId`）。run 不存在 ⇒ `null`。
+   * 只被 `start_workflow` 中断的网关判定调用。**可选**：未注入 ⇒ 按读不到处理，拒绝（fail closed）。
+   */
+  readRunWorkflowContext?(orgId: OrgId, runId: string): Promise<{
+    readonly agentId: string; readonly agentVersionId: string;
+    readonly workflowAllowlist: readonly string[]; readonly requesterUserId: string | null;
+  } | null>;
+
+  /**
+   * AG05 —— running → queued，带 `pending_decision='edit'` 与服务端算出的工具结果参数
+   * （`editedArgsJson`）：网关已经在服务端完成了这次工具调用（`start_workflow` 经 WF03 start），
+   * 把结果作为 edit resume 交回**同一个**被中断的工具调用。与 `requeueAuthorizedToolCall` 同一组
+   * pending_* 列（executor 下一拍据此恢复）；返回 false = run 已不在 running（输了竞态），不重试。
+   */
+  requeueToolCallWithResult?(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+    editedArgsJson: string,
+  ): Promise<boolean>;
+
+  /**
    * Append one token-level delta (#654 阶段2a). Callers pass a monotonically increasing
    * `seq` starting at 0 per run; the unique `(org_id, run_id, seq)` constraint is what
    * makes a duplicate append (e.g. a retried write) a no-op collision rather than a second

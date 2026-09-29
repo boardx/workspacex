@@ -1,4 +1,5 @@
 import { structuredErrorLog } from "../../application/ports/logger.port";
+import type { AgentWorkflowStartPort } from "../../application/agent/request-agent-workflow-start";
 import type { ChangeMindPorts } from "../../application/knowledge-graph/change-mind";
 import type { KnowledgeRecallPort, MemoryCardPort } from "../../application/knowledge-graph/ports";
 import type { PersistAssistantCitationsDeps } from "../../application/chat/persist-assistant-citations";
@@ -185,6 +186,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly citations?: PersistAssistantCitationsDeps,
     /** #4361 ——「我改主意了」确定地走 R8 的改口取代。可选，同上面每一个既有理由；不注入 ⇒ 与 #4361 之前相同。 */
     private readonly memoryChange?: ChangeMindPorts,
+    /** AG05 —— `start_workflow` 中断走的 WF03 start。可选，同上面每一个既有理由；生产合成注入 `WorkflowRuntimeService`。 */
+    private readonly workflowStarts?: AgentWorkflowStartPort,
   ) {}
 
   /**
@@ -229,6 +232,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       // issue #3445 —— 见 `execute-run.ts` `ExecuteAgentRunDeps.kick` 的完整取证：
       // 已授权工具续跑写回 `queued` 后，同一进程内立即重入一次 `kick`，不再只靠
       // `sweepOrphanedRuns` 的周期性发现。
+      workflowStarts: this.workflowStarts,
       kick: (o) => this.kick(o),
     }, { orgId });
     await writeBackPendingRuns(
@@ -263,6 +267,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
           interjections: this.interjections, artifactContinuations: this.artifactContinuations,
           nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
           nativeRuntimeEnabled: this.nativeRuntimeEnabled,
+          workflowStarts: this.workflowStarts,
           kick: (o) => this.kick(o),
         }, { orgId });
         await writeBackPendingRuns(
