@@ -67,8 +67,8 @@ describe("B3-T5 协作者面板", () => {
     listOrgMembers.mockResolvedValue(ORG);
   });
 
-  it("research_project：渲染协作者面板（不渲染项目成员 / 邀请面板），标签「负责人 / 协作者」，候选人只含还不在名单里的人", async () => {
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="research_project" />);
+  it("general：渲染协作者面板（不渲染项目成员 / 邀请面板），标签「负责人 / 协作者」，候选人只含还不在名单里的人", async () => {
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     const list = await screen.findByTestId("project-collaborators-list");
     expect(within(list).getByTestId("project-collaborator-u-owner")).toHaveTextContent("林可");
     expect(within(list).getByTestId("project-collaborator-u-collab")).toHaveTextContent("高琳");
@@ -91,7 +91,7 @@ describe("B3-T5 协作者面板", () => {
 
   it("移出：调 removeNonWorkshopMember 后重新拉名单（不在本地删）", async () => {
     removeNonWorkshopMember.mockResolvedValue({ projectId: "p1", userId: "u-collab", removed: true, provenanceEventId: "ev" });
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="user_insight" />);
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     await screen.findByTestId("project-collaborator-u-collab");
     listNonWorkshopMembers.mockResolvedValue({ members: [MEMBERS[0]] });
     fireEvent.click(screen.getByTestId("project-collaborator-remove-u-collab"));
@@ -102,7 +102,7 @@ describe("B3-T5 协作者面板", () => {
 
   it("指派：选人 + 档位后调 addNonWorkshopMember（走新契约，不是 addProjectMember），成功后重拉", async () => {
     addNonWorkshopMember.mockResolvedValue({ projectId: "p1", userId: "u-wu", role: "collaborator", provenanceEventId: "ev" });
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="research_project" />);
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     await screen.findByTestId("project-collaborators-add");
     await waitFor(() => expect(listOrgMembers).toHaveBeenCalled());
     // Radix DropdownMenu 用 pointerdown 开菜单（同 guided-research-conversation-live.test.tsx 的开法）。
@@ -115,7 +115,7 @@ describe("B3-T5 协作者面板", () => {
 
   it("协作者视角：只读——档位是徽标，没有移出 / 指派控件，不拉组织名单", async () => {
     sessionUserId = "u-collab";
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="research_project" />);
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     const row = await screen.findByTestId("project-collaborator-u-owner");
     expect(row).toHaveTextContent("负责人");
     expect(screen.queryByTestId("project-collaborator-remove-u-owner")).toBeNull();
@@ -126,26 +126,26 @@ describe("B3-T5 协作者面板", () => {
   it("名单为空：显示空态并给指派控件（组织负责人 / 管理员加第一位）", async () => {
     sessionUserId = "u-lead";
     listNonWorkshopMembers.mockResolvedValue({ members: [] });
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="research_project" />);
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     expect(await screen.findByTestId("project-collaborators-empty")).toHaveTextContent("第一位负责人");
     expect(screen.getByTestId("project-collaborators-add")).toBeInTheDocument();
   });
 
   it("观察者：整个面板不出现", () => {
-    render(<TabSettings view="observer" projectId="p1" projectKind="research_project" />);
+    render(<TabSettings view="observer" projectId="p1" projectKind="general" />);
     expect(screen.queryByTestId("project-collaborators-panel")).toBeNull();
     expect(listNonWorkshopMembers).not.toHaveBeenCalled();
   });
 
   it("读名单 403 NO_PROJECT_ROLE 如实显示；写操作 403 PROJECT_ROLE_INSUFFICIENT 如实显示且名单不变", async () => {
     listNonWorkshopMembers.mockRejectedValueOnce(new ApiError(403, "NO_PROJECT_ROLE", {}));
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="research_project" />);
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     expect(await screen.findByTestId("project-collaborators-error")).toHaveTextContent("不在这个容器的名单上");
   });
 
   it("写操作 403 PROJECT_ROLE_INSUFFICIENT 如实显示，名单不变；400（工作坊）说明换面板", async () => {
     removeNonWorkshopMember.mockRejectedValueOnce(new ApiError(403, "PROJECT_ROLE_INSUFFICIENT", {}));
-    render(<TabSettings view="facilitator" projectId="p1" projectKind="research_project" />);
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
     await screen.findByTestId("project-collaborator-u-collab");
     fireEvent.click(screen.getByTestId("project-collaborator-remove-u-collab"));
     expect(await screen.findByTestId("project-collaborators-action-error")).toHaveTextContent("只有负责人");

@@ -47,10 +47,10 @@ export interface ProjectLayerInput {
   /**
    * #4584：这个项目层身份来自哪一类容器。省略 = `workshop`（本字段出现之前的全部调用方）。
    *
-   * 研究项目 / 用户洞察的两档身份被映射到四角色里的某一行（`role`），但**只**在
+   * 非工作坊（`general`）容器的两档身份被映射到四角色里的某一行（`role`），但**只**在
    * `NON_WORKSHOP_CONTAINER_ACTIONS` 白名单之内生效——议程、分组、现场参与、工作坊名单
    * 对它们恒关（`project-role-matrix.ts` 的 `containerAllows`）。容器种类写在输入上、在
-   * 这里统一判，就不必在每个用例里写 `kind === "research_project"` 分叉。
+   * 这里统一判，就不必在每个用例里写 `kind === "general"` 分叉。
    */
   readonly containerKind?: ContainerKind;
 }

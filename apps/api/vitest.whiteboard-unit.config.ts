@@ -20,6 +20,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/reason-code-response.test.ts',
     'tests/whiteboard/resource-repository-guard.test.ts',
     'tests/whiteboard/tag-repository-guard.test.ts',
+    'tests/whiteboard/project-access-guard.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });

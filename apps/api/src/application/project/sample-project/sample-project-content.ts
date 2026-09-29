@@ -20,8 +20,8 @@ export const SAMPLE_PROJECT_NAME = "【示例】青禾茶饮新品调研（虚�
  */
 export const SAMPLE_PROJECT_TAG = "内置示例";
 
-/** 容器类型：研究型项目（材料 + 提问），不是工作坊（不需要议程）。 */
-export const SAMPLE_PROJECT_KIND = "research_project";
+/** 容器类型：通用项目（材料 + 提问，#4615 起原研究项目并入 general），不是工作坊（不需要议程）。 */
+export const SAMPLE_PROJECT_KIND = "general" as const;
 
 export interface SampleDocument {
   readonly filename: string;

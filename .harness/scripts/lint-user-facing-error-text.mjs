@@ -99,10 +99,12 @@ const LEGACY = new Map([
   ["apps/web/components/org-admin/org-admin-screen.tsx", 5],
   ["apps/web/components/org-admin/shared-invite-links.tsx", 1],
   ["apps/web/components/profile/profile-screen.tsx", 5],
-  ["apps/web/components/project/new-project-flow.tsx", 1],
   ["apps/web/components/project/project-workbench.tsx", 7],
   ["apps/web/components/project/tab-live.tsx", 1],
   ["apps/web/components/project/tab-prep.tsx", 3],
+  // #4615：原 new-project-flow.tsx 的工作坊向导整体改名搬到这里（同一处存量，不是新增）；
+  // 新的默认 new-project-flow.tsx 已不上屏内部码。
+  ["apps/web/components/project/workshop-project-flow.tsx", 1],
   ["apps/web/components/projects/projects-screen.tsx", 3],
   ["apps/web/components/skill/skill-catalog-live.tsx", 1],
   ["apps/web/components/tasks/today-board-live.tsx", 4],

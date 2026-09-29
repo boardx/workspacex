@@ -4,8 +4,8 @@
  * ## 为什么需要它
  *
  * 此前 `authorize()` 直接读 `findProjectMembership`（`project_memberships`）。那张表只装工作坊
- * 行（F128 复合外键），研究项目 / 用户洞察两类容器的身份在 `research_project_members` /
- * `user_insight_members`（B3-T5 两档）——于是对这两类容器，`authorize()` 永远答
+ * 行（F128 复合外键），非工作坊容器（#4615 起只有 `general`）的身份在
+ * `general_project_members`（B3-T5 两档）——于是对这类容器，`authorize()` 永远答
  * NO_PROJECT_ROLE，连名单上的负责人都打不开自己的项目工作台（#4584）。
  *
  * ## 为什么在身份层解决、而不是在各用例里按 kind 分叉
@@ -42,7 +42,7 @@ export interface ResolveProjectLayerInput {
 const NO_PROJECT_ROLE: ProjectLayerInput = { role: null, groupId: null, isHost: false };
 
 export async function resolveProjectLayer(
-  repo: IdentityRepository,
+  repo: Pick<IdentityRepository, "findProjectMembership" | "findNonWorkshopStanding">,
   input: ResolveProjectLayerInput,
 ): Promise<ProjectLayerInput> {
   const workshop = await repo.findProjectMembership(input.userId, input.projectId, input.orgId);
