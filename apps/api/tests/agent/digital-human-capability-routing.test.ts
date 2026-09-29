@@ -53,10 +53,11 @@ const model: ModelCallPort = {
   servesViaKernelRuntime: (p) => p === "dashscope",
 };
 
+const logs: unknown[] = [];
 function deps(): ExecuteAgentRunDeps {
   let n = 0;
   return {
-    runs, model, log: () => {}, workflowStarts: runtime,
+    runs, model, log: (msg: string, detail?: unknown) => { logs.push({ msg, detail }); }, workflowStarts: runtime,
     clock: { now: () => new Date().toISOString(), newStepId: () => `step-dh-${n++}` },
   } as unknown as ExecuteAgentRunDeps;
 }
@@ -92,8 +93,8 @@ async function seedQueuedRun(id: string, agentId: string, runSkillVersionIds: re
 }
 
 async function runRow(id: string) {
-  return asApp(ORG, async (c) => (await c.query<{ status: string; model_provider: string; model_id: string }>(
-    "SELECT status, model_provider, model_id FROM agent_runs WHERE id=$1", [id])).rows[0]!);
+  return asApp(ORG, async (c) => (await c.query<{ status: string; model_provider: string; model_id: string; error_code?: string | null }>(
+    "SELECT status, model_provider, model_id, error_code FROM agent_runs WHERE id=$1", [id])).rows[0]!);
 }
 
 async function instanceIds(): Promise<string[]> {
@@ -111,7 +112,7 @@ async function agentRequestsWorkflow(runId: string, workflowId: string): Promise
   ];
   await executeQueuedRuns(deps(), { orgId: ORG });
   if ((await runRow(runId)).status === "queued") await executeQueuedRuns(deps(), { orgId: ORG });
-  expect({ n: calls.length, row: await runRow(runId) }).toMatchObject({ n: 2 });
+  expect({ n: calls.length, row: await runRow(runId) }, JSON.stringify({ row: await runRow(runId), logs })).toMatchObject({ n: 2 });
   for (const c of calls) expect({ p: c.modelProvider, m: c.modelId }, "经 deep-agent 运行时、模型仍是钉住的 qwen-plus").toEqual({ p: "deep-agent", m: "qwen-plus" });
   const resume = calls[1]!.resume as { decision: string; editedAction: { name: string; argsJson: string } };
   expect(resume).toMatchObject({ decision: "edit", editedAction: { name: "start_workflow" } });
