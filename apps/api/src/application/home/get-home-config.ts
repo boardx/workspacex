@@ -14,11 +14,18 @@ export const DEFAULT_HOME_CONFIG_TAGLINE = null;
 export const DEFAULT_HOME_CONFIG_BANNER_HEADLINE = "让创造更有人性，让协作更有效率";
 export const DEFAULT_HOME_CONFIG_BANNER_TAGLINE = "在同一个工作面上，和 AI 一起完成一件事。";
 export const DEFAULT_HOME_CONFIG_BANNER_PRESET = "ocean" as const;
+/** 默认入口：聊天、项目、研究、访谈、问卷、录音、设计、大脑（Board/任务默认关，任务另有独立栏）。 */
 export const DEFAULT_HOME_CONFIG_QUICK_ACTIONS: QuickAction[] = [
   { key: "chat", enabled: true, order: 0 },
   { key: "projects", enabled: true, order: 1 },
-  { key: "board", enabled: true, order: 2 },
-  { key: "brain", enabled: true, order: 3 },
+  { key: "research", enabled: true, order: 2 },
+  { key: "interview", enabled: true, order: 3 },
+  { key: "survey", enabled: true, order: 4 },
+  { key: "recording", enabled: true, order: 5 },
+  { key: "design", enabled: true, order: 6 },
+  { key: "brain", enabled: true, order: 7 },
+  { key: "board", enabled: false, order: 8 },
+  { key: "tasks", enabled: false, order: 9 },
 ];
 
 export interface GetHomeConfigDeps {
@@ -35,8 +42,12 @@ export async function getHomeConfig(deps: GetHomeConfigDeps, orgId: OrgId): Prom
     bannerHeadline: DEFAULT_HOME_CONFIG_BANNER_HEADLINE,
     bannerTagline: DEFAULT_HOME_CONFIG_BANNER_TAGLINE,
     bannerPreset: DEFAULT_HOME_CONFIG_BANNER_PRESET,
+    bannerColor: null,
+    bannerImageUrl: null,
     quickActions: DEFAULT_HOME_CONFIG_QUICK_ACTIONS,
     recommendedCapabilities: [],
+    recommendedAgents: [],
+    sections: { recentWork: true, currentTasks: true },
     updatedAt: new Date(0).toISOString(),
     updatedBy: null,
   };

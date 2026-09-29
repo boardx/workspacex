@@ -183,6 +183,9 @@ export default {
       { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
+      // 首页项目预览（#4698）：`/home` 同时是前端页面前缀，所以只逐条放行这一个 API 路径，
+      // 不写 `/home/:path*` 通配——通配会吃掉以后 `/home` 下的前端子页面。
+      { source: `${prefix}/home/project-previews`, destination: `${apiOrigin}/home/project-previews` },
       // #3967: Board HTTP follows the same-origin full-stack proxy while its authenticated
       // WebSocket uses NEXT_PUBLIC_API_WS_URL directly. Both the collection and nested
       // resource routes are needed; :path* does not cover the bare collection.

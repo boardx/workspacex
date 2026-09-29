@@ -10,7 +10,7 @@ import { HomeScreen } from "@/components/home/home-screen";
 export default function HomePage({ searchParams }: { searchParams: { as?: string } }) {
   const previewRole = resolvePreviewRole(searchParams.as);
   return (
-    <AppShell previewRole={previewRole}>
+    <AppShell previewRole={previewRole} hideTopBar>
       <HomeScreen />
     </AppShell>
   );

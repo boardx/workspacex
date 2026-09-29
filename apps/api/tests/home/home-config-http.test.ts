@@ -36,13 +36,29 @@ const BODY = {
   bannerHeadline: "欢迎回来",
   bannerTagline: "本周重点：发布",
   bannerPreset: "forest",
+  bannerColor: null,
+  bannerImageArtifactId: null,
   quickActions: [
     { key: "chat", enabled: true, order: 0 },
     { key: "projects", enabled: false, order: 1 },
     { key: "brain", enabled: true, order: 2 },
   ],
   recommendedCapabilities: [{ kind: "skill", refId: "sk-1", name: "周报助手", note: "每周五用" }],
+  recommendedAgents: [{ agentId: "ag-1", name: "小研", roleLabel: "研究员", avatarKey: "robot", note: "桌面研究" }],
+  sections: { recentWork: true, currentTasks: false },
 };
+
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+
+/** 横幅上传：元数据走查询串，字节是请求体本身（同组织头像上传的真实形状）。 */
+const upload = (orgId: string, as: string, asOrg: string, bytes: Uint8Array, contentType = "image/png", declared = bytes.byteLength) =>
+  fetch(
+    `${base}/organizations/${orgId}/home-banner?${new URLSearchParams({ filename: "b.png", sizeBytes: String(declared), sha256: "x", contentType })}`,
+    { method: "POST", headers: { "x-kernel-test-principal": `${as}:${asOrg}`, "content-type": contentType }, body: new Blob([bytes.slice().buffer as ArrayBuffer], { type: contentType }) },
+  );
+
+const getBannerFile = (orgId: string, id: string, as: string, asOrg: string) =>
+  fetch(`${base}/organizations/${orgId}/home-banner-file/${id}`, { headers: { "x-kernel-test-principal": `${as}:${asOrg}` } });
 
 beforeAll(async () => {
   ensureDatabase();
@@ -83,6 +99,10 @@ describe("PUT/GET /organizations/:orgId/home-config 真实 HTTP", () => {
     expect(read.bannerPreset).toBe(BODY.bannerPreset);
     expect(read.quickActions).toEqual(BODY.quickActions);
     expect(read.recommendedCapabilities).toEqual(BODY.recommendedCapabilities);
+    expect(read.recommendedAgents).toEqual(BODY.recommendedAgents);
+    expect(read.sections).toEqual(BODY.sections);
+    expect(read.bannerColor).toBeNull();
+    expect(read.bannerImageUrl).toBeNull();
     expect(read.updatedBy).toBe(ADMIN);
   });
 
@@ -109,5 +129,70 @@ describe("PUT/GET /organizations/:orgId/home-config 真实 HTTP", () => {
     const res = await req("PUT", ORG, ADMIN, ORG, { ...BODY, title: "", bannerPreset: "neon" });
     expect(res.status).toBe(400);
     expect(await res.text()).toContain("validation_failed");
+  });
+
+  it("自定义色：合法 → 200 落库；格式不对 → 400；选自定义却没色值 → 409 BANNER_COLOR_REQUIRED", async () => {
+    const ok = await req("PUT", ORG, ADMIN, ORG, { ...BODY, bannerPreset: "custom", bannerColor: "#1A2B3C" });
+    expect(ok.status, await ok.clone().text()).toBe(200);
+    expect(C.HomeConfig.parse(await (await req("GET", ORG, MEMBER, ORG)).json()).bannerColor).toBe("#1A2B3C");
+
+    const bad = await req("PUT", ORG, ADMIN, ORG, { ...BODY, bannerPreset: "custom", bannerColor: "#12" });
+    expect(bad.status).toBe(400);
+
+    const missing = await req("PUT", ORG, ADMIN, ORG, { ...BODY, bannerPreset: "custom", bannerColor: null });
+    expect(missing.status).toBe(409);
+    expect(await missing.text()).toContain("BANNER_COLOR_REQUIRED");
+    // 被拒的写不改库
+    expect(C.HomeConfig.parse(await (await req("GET", ORG, MEMBER, ORG)).json()).bannerColor).toBe("#1A2B3C");
+  });
+
+  it("横幅图片全链路（真实 HTTP）：admin 上传 200 → PUT 引用 → 成员取回字节一致；成员上传 403", async () => {
+    const up = await upload(ORG, ADMIN, ORG, PNG);
+    const upText = await up.text();
+    expect(up.status, upText).toBe(201);
+    const uploaded = C.operations.uploadHomeBanner.out.parse(JSON.parse(upText));
+
+    const put = await req("PUT", ORG, ADMIN, ORG, { ...BODY, bannerImageArtifactId: uploaded.bannerImageArtifactId });
+    expect(put.status, await put.clone().text()).toBe(200);
+    const read = C.HomeConfig.parse(await (await req("GET", ORG, MEMBER, ORG)).json());
+    expect(read.bannerImageUrl).toBe(uploaded.bannerImageUrl);
+
+    const file = await getBannerFile(ORG, uploaded.bannerImageArtifactId, MEMBER, ORG);
+    expect(file.status).toBe(200);
+    expect(file.headers.get("content-type")).toContain("image/png");
+    expect(Array.from(new Uint8Array(await file.arrayBuffer()))).toEqual(Array.from(PNG));
+
+    const memberUp = await upload(ORG, MEMBER, ORG, PNG);
+    expect(memberUp.status).toBe(403);
+  });
+
+  it("横幅上传的拒绝形状：伪造字节 415、声明超限 413、声明格式非法 415；引用不存在的图 409", async () => {
+    const fake = await upload(ORG, ADMIN, ORG, new TextEncoder().encode("plain text, not an image"));
+    expect(fake.status, await fake.clone().text()).toBe(415);
+    expect(await fake.text()).toContain("UNSUPPORTED_CONTENT_TYPE");
+
+    const tooBig = await upload(ORG, ADMIN, ORG, PNG, "image/png", 5 * 1024 * 1024 + 1);
+    expect(tooBig.status).toBe(413);
+
+    const gif = await upload(ORG, ADMIN, ORG, PNG, "image/gif");
+    expect(gif.status).toBe(415);
+
+    const ghost = await req("PUT", ORG, ADMIN, ORG, { ...BODY, bannerImageArtifactId: "home-banner-nope" });
+    expect(ghost.status).toBe(409);
+    expect(await ghost.text()).toContain("BANNER_ARTIFACT_NOT_OWNED");
+  });
+
+  it("别的组织读不到本组织的横幅图（403/404），也不能引用它", async () => {
+    const up = C.operations.uploadHomeBanner.out.parse(await (await upload(ORG, ADMIN, ORG, PNG)).json());
+    const cross = await getBannerFile(ORG, up.bannerImageArtifactId, OTHER_ADMIN, OTHER_ORG);
+    expect([403, 404]).toContain(cross.status);
+
+    const ref = await req("PUT", OTHER_ORG, OTHER_ADMIN, OTHER_ORG, { ...BODY, bannerImageArtifactId: up.bannerImageArtifactId });
+    expect(ref.status).toBe(409);
+  });
+
+  it("超过 10 个快捷入口 / 6 个推荐数字人 → 400", async () => {
+    const many = await req("PUT", ORG, ADMIN, ORG, { ...BODY, recommendedAgents: Array.from({ length: 7 }, (_, i) => ({ agentId: `a${String(i)}`, name: "n", roleLabel: null, avatarKey: null, note: null })) });
+    expect(many.status).toBe(400);
   });
 });

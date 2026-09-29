@@ -1,80 +1,31 @@
 "use client";
 
 import * as React from "react";
-import { Home, Bot, Sparkles, X, Plus } from "lucide-react";
+import { Eye, Home, Pencil } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { StateShell, type UiState } from "@/components/state/state-shell";
-import { describeHomeConfigFailure } from "@/lib/home-config-failure";
+import { HomeView } from "@/components/home/home-screen";
 import { cn } from "@/lib/utils";
-import {
-  getHomeConfig, updateHomeConfig,
-  type HomeConfig, type QuickActionKey, type BannerPreset, type RecommendedCapability,
-} from "@/lib/live-home-config";
-import { listAgents, type AgentListRow } from "@/lib/agent-definition";
-import { listSkills, type SkillListItem } from "@/lib/live-skill";
+import { describeHomeConfigFailure } from "@/lib/home-config-failure";
+import { getHomeConfig, updateHomeConfig, type HomeConfig } from "@/lib/live-home-config";
+import { BannerSection, BasicFieldsSection } from "./home-config-appearance-section";
+import { QuickActionsSection, SectionsSection } from "./home-config-content-sections";
+import { RecommendedAgentsSection, RecommendedSkillsSection } from "./home-config-recommend-sections";
+import { formToPreviewConfig, isFormDirty, toFormState, toUpdateInput, validateForm, type HomeConfigFormState } from "./home-config-form-model";
 
 /**
- * `/org-admin/home-config` —— 组织首页配置（ad-hoc feature，Refs #4634）。
+ * `/org-admin/home-config` —— 组织首页配置（ad-hoc feature，Refs #4634 / #4698）。
  *
  * 与 `/org-admin/profile` 同一个授权面（组织 admin），归在同一组左栏（见
- * `lib/mock/admin.ts` 的 `home-config` 项）。这里配的就是 `/home`
- * （`components/home/home-screen.tsx`）读的那份 `HomeConfig`——同一份事实，
- * 一处写、一处读，不在任何一边编第二份默认文案。
+ * `lib/mock/admin.ts` 的 `home-config` 项）。这里配的就是 `/home` 读的那份 `HomeConfig`
+ * ——同一份事实，一处写、一处读，不在任何一边编第二份默认文案；横幅预览直接复用首页的
+ * `HomeBanner`，预览即所见。表单模型与校验在 `home-config-form-model.ts`（纯函数，可单测）。
  *
- * `recommendedCapabilities` 引用真实 Agent/Skill（见契约头注 AR13）：选中时把
- * 展示名快照进配置，`/home` 读取不反查 `listAgents`/`listSkills`（那两个列表本身
- * admin-only，首页对普通成员不能因为这张配置多开一个后门）。
+ * 推荐的数字人/Skill 选中时把展示信息快照进配置（见契约头注），首页读取不反查那两个目录。
  */
-
-const QUICK_ACTION_META: ReadonlyArray<{ key: QuickActionKey; label: string }> = [
-  { key: "chat", label: "对话" },
-  { key: "projects", label: "项目" },
-  { key: "board", label: "Board" },
-  { key: "brain", label: "大脑" },
-];
-
-const BANNER_PRESET_META: ReadonlyArray<{ key: BannerPreset; label: string; swatchClass: string }> = [
-  { key: "ocean", label: "海洋", swatchClass: "bg-inverse" },
-  { key: "forest", label: "森林", swatchClass: "bg-gradient-to-br from-success to-ai" },
-  { key: "sunset", label: "日落", swatchClass: "bg-gradient-to-br from-warning to-destructive" },
-  { key: "midnight", label: "午夜", swatchClass: "bg-inverse" },
-];
-
-type FormState = {
-  title: string;
-  tagline: string;
-  bannerHeadline: string;
-  bannerTagline: string;
-  bannerPreset: BannerPreset;
-  quickActionEnabled: Record<QuickActionKey, boolean>;
-  recommendedCapabilities: RecommendedCapability[];
-};
-
-function toFormState(config: HomeConfig): FormState {
-  const enabledByKey = new Map(config.quickActions.map((a) => [a.key, a.enabled]));
-  return {
-    title: config.title,
-    tagline: config.tagline ?? "",
-    bannerHeadline: config.bannerHeadline,
-    bannerTagline: config.bannerTagline,
-    bannerPreset: config.bannerPreset,
-    quickActionEnabled: {
-      chat: enabledByKey.get("chat") ?? false,
-      projects: enabledByKey.get("projects") ?? false,
-      board: enabledByKey.get("board") ?? false,
-      brain: enabledByKey.get("brain") ?? false,
-    },
-    recommendedCapabilities: [...config.recommendedCapabilities],
-  };
-}
-
 export function HomeConfigScreen() {
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -83,8 +34,9 @@ export function HomeConfigScreen() {
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [config, setConfig] = React.useState<HomeConfig | null>(null);
-  const [form, setForm] = React.useState<FormState | null>(null);
+  const [form, setForm] = React.useState<HomeConfigFormState | null>(null);
   const [invalidFields, setInvalidFields] = React.useState<Record<string, string>>({});
+  const [tab, setTab] = React.useState<"edit" | "preview">("edit");
 
   const load = React.useCallback(async () => {
     if (orgId === null) return;
@@ -106,21 +58,12 @@ export function HomeConfigScreen() {
     void load();
   }, [load, isAdmin]);
 
-  const dirty = config !== null && form !== null && (() => {
-    const baseline = toFormState(config);
-    return JSON.stringify(baseline) !== JSON.stringify(form);
-  })();
+  const dirty = config !== null && form !== null && isFormDirty(toFormState(config), form);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSave(e?: React.FormEvent) {
+    e?.preventDefault();
     if (orgId === null || form === null) return;
-    const violations: Record<string, string> = {};
-    if (form.title.trim().length === 0) violations.title = "标题不能为空";
-    if (form.title.length > 24) violations.title = "标题不能超过 24 字";
-    if (form.tagline.length > 80) violations.tagline = "一句话简介不能超过 80 字";
-    if (form.bannerHeadline.trim().length === 0) violations.bannerHeadline = "横幅主标题不能为空";
-    if (form.bannerHeadline.length > 60) violations.bannerHeadline = "横幅主标题不能超过 60 字";
-    if (form.bannerTagline.length > 120) violations.bannerTagline = "横幅副标题不能超过 120 字";
+    const violations = validateForm(form);
     if (Object.keys(violations).length > 0) {
       setInvalidFields(violations);
       setState("invalid");
@@ -129,20 +72,7 @@ export function HomeConfigScreen() {
     setState("loading");
     setFailureMessage(null);
     try {
-      const quickActions = QUICK_ACTION_META.map((meta, order) => ({
-        key: meta.key,
-        enabled: form.quickActionEnabled[meta.key],
-        order,
-      }));
-      const out = await updateHomeConfig(orgId, {
-        title: form.title.trim(),
-        tagline: form.tagline.trim().length > 0 ? form.tagline.trim() : null,
-        bannerHeadline: form.bannerHeadline.trim(),
-        bannerTagline: form.bannerTagline,
-        bannerPreset: form.bannerPreset,
-        quickActions,
-        recommendedCapabilities: form.recommendedCapabilities,
-      });
+      const out = await updateHomeConfig(orgId, toUpdateInput(form));
       setConfig(out);
       setForm(toFormState(out));
       setState("success");
@@ -155,11 +85,7 @@ export function HomeConfigScreen() {
   if (!isAdmin) {
     return (
       <HomeConfigShell>
-        <div
-          role="alert"
-          data-testid="denied"
-          className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted py-10 text-center"
-        >
+        <div role="alert" data-testid="denied" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted py-10 text-center">
           <p className="text-13 font-medium">你没有查看这块内容的权限</p>
           <p className="text-12 text-muted-foreground">组织层限制：首页配置仅组织管理员可进。</p>
         </div>
@@ -167,349 +93,131 @@ export function HomeConfigScreen() {
     );
   }
 
+  const previewing = tab === "preview" && form !== null && orgId !== null;
   return (
-    <HomeConfigShell>
-      <form onSubmit={(e) => void handleSave(e)} className="flex flex-col gap-6" data-testid="home-config-form">
-        <StateShell
-          state={state}
-          skeletonRows={5}
-          errors={invalidFields}
-          depFailure={{ what: failureMessage ?? "首页配置服务暂时不可用", retry: load }}
-          successMessage="已保存"
-        >
-          {form !== null ? (
-            <div className="flex flex-col gap-6">
-              <BasicFieldsSection form={form} onChange={setForm} />
-              <BannerPresetSection form={form} onChange={setForm} />
-              <QuickActionsSection form={form} onChange={setForm} />
-              <RecommendedCapabilitiesSection orgId={orgId} form={form} onChange={setForm} />
-              <div className="flex items-center gap-2">
-                <Button type="submit" variant="primary" disabled={!dirty} data-testid="home-config-save">
-                  保存
-                </Button>
-                {dirty && <span className="text-11 text-muted-foreground">有未保存的更改</span>}
+    <HomeConfigShell wide={previewing}>
+      {form !== null && orgId !== null ? (
+        <div role="tablist" aria-label="首页配置视图" className="flex gap-1 border-b border-border" data-testid="home-config-tabs">
+          {([["edit", "编辑", Pencil], ["preview", "预览首页", Eye]] as const).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              data-testid={`home-config-tab-${key}`}
+              className={cn(
+                "-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-12 font-medium transition-colors duration-fast",
+                tab === key ? "border-primary text-card-foreground" : "border-transparent text-muted-foreground hover:text-card-foreground",
+              )}
+            >
+              <Icon aria-hidden className="h-3.5 w-3.5" />{label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {previewing ? (
+        <HomePreviewPane
+          form={form}
+          orgId={orgId}
+          displayName={identity?.displayName ?? null}
+          dirty={dirty}
+          invalid={Object.keys(validateForm(form)).length > 0}
+          saving={state === "loading"}
+          status={state === "success" ? { ok: true, text: "已保存" } : state === "dep-failed" ? { ok: false, text: failureMessage ?? "保存失败，请稍后重试" } : null}
+          onBack={() => setTab("edit")}
+          onSave={() => void handleSave()}
+        />
+      ) : (
+        <form onSubmit={(e) => void handleSave(e)} className="flex flex-col gap-6" data-testid="home-config-form">
+          <StateShell
+            state={state}
+            skeletonRows={5}
+            errors={invalidFields}
+            depFailure={{ what: failureMessage ?? "首页配置服务暂时不可用", retry: load }}
+            successMessage="已保存"
+          >
+            {form !== null && orgId !== null ? (
+              <div className="flex flex-col gap-6">
+                <BasicFieldsSection form={form} onChange={setForm} />
+                <BannerSection orgId={orgId} form={form} onChange={setForm} />
+                <QuickActionsSection form={form} onChange={setForm} />
+                <SectionsSection form={form} onChange={setForm} />
+                <RecommendedAgentsSection form={form} onChange={setForm} />
+                <RecommendedSkillsSection orgId={orgId} form={form} onChange={setForm} />
+                <div className="flex items-center gap-2">
+                  <Button type="submit" variant="primary" disabled={!dirty} data-testid="home-config-save">保存</Button>
+                  <Button type="button" variant="outline" onClick={() => setTab("preview")} data-testid="home-config-open-preview">
+                    <Eye aria-hidden className="h-3.5 w-3.5" />预览首页
+                  </Button>
+                  {dirty ? <span className="text-11 text-muted-foreground">有未保存的更改</span> : null}
+                </div>
               </div>
-            </div>
-          ) : null}
-        </StateShell>
-      </form>
+            ) : null}
+          </StateShell>
+        </form>
+      )}
     </HomeConfigShell>
   );
 }
 
-function HomeConfigShell({ children }: { children: React.ReactNode }) {
+/**
+ * 「预览首页」：把表单里**当前**（含未保存）的配置喂给首页同一个 `HomeView`，所见即所得。
+ * 预览区是 `inert` 的——里面的链接/按钮不可点、不可聚焦，避免在预览里点走丢了编辑内容，
+ * 也不会真的触发「点 Skill 新建对话」。个人数据（继续你的工作/当前任务）取自当前管理员自己的账号。
+ */
+export function HomePreviewPane({
+  form, orgId, displayName, dirty, invalid, saving, status, onBack, onSave,
+}: {
+  form: HomeConfigFormState;
+  orgId: string;
+  displayName: string | null;
+  dirty: boolean;
+  invalid: boolean;
+  saving: boolean;
+  status: { ok: boolean; text: string } | null;
+  onBack: () => void;
+  onSave: () => void;
+}) {
+  const config = React.useMemo(() => formToPreviewConfig(form, orgId), [form, orgId]);
+  return (
+    <div className="flex flex-col gap-3" data-testid="home-config-preview">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel px-3 py-2 text-11 text-muted-foreground">
+        <span className="min-w-0 flex-1">
+          {dirty ? "预览包含尚未保存的更改。" : "当前预览与已保存的首页一致。"}
+          个人数据取自你自己的账号；预览里的链接不可点击。
+          {invalid ? <span className="ml-1 text-destructive" data-testid="home-config-preview-invalid">表单里有不合法的内容，保存前请先回到「编辑」修正。</span> : null}
+        </span>
+        <Button type="button" size="sm" variant="outline" onClick={onBack} data-testid="home-config-preview-back">返回编辑</Button>
+        {status !== null ? (
+          <span role={status.ok ? "status" : "alert"} className={status.ok ? "text-success" : "text-destructive"} data-testid="home-config-preview-status">{status.text}</span>
+        ) : null}
+        <Button type="button" size="sm" variant="primary" disabled={!dirty || invalid || saving} onClick={onSave} data-testid="home-config-preview-save">{saving ? "保存中…" : "保存"}</Button>
+      </div>
+      <div
+        ref={(el) => { el?.setAttribute("inert", ""); }}
+        aria-label="首页预览"
+        className="overflow-hidden rounded-lg border border-border bg-background"
+        data-testid="home-config-preview-frame"
+      >
+        <HomeView config={config} orgId={orgId} displayName={displayName} />
+      </div>
+    </div>
+  );
+}
+
+function HomeConfigShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
     <AppShell previewRole={null} left={<AdminNav active="home-config" />}>
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6" data-testid="home-config-screen">
+      <div className={cn("mx-auto flex flex-col gap-6 p-6", wide ? "max-w-6xl" : "max-w-2xl")} data-testid="home-config-screen">
         <div className="flex items-center gap-2">
           <Home aria-hidden className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-16 font-semibold tracking-tight">首页配置</h1>
         </div>
-        <p className="text-12 text-muted-foreground">
-          配置本组织成员登录后第一落点（「首页」）的横幅、快捷入口与推荐内容。
-        </p>
+        <p className="text-12 text-muted-foreground">配置本组织成员登录后第一落点（「首页」）的横幅、入口与推荐内容。</p>
         {children}
       </div>
     </AppShell>
-  );
-}
-
-function BasicFieldsSection({
-  form, onChange,
-}: {
-  form: FormState;
-  onChange: (next: FormState) => void;
-}) {
-  return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border bg-panel p-4">
-      <h2 className="text-13 font-semibold text-card-foreground">基本信息</h2>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-config-title">标题（首页横幅上方小字，最多 24 字）</Label>
-        <Input
-          id="home-config-title"
-          value={form.title}
-          maxLength={24}
-          onChange={(e) => onChange({ ...form, title: e.target.value })}
-          data-testid="home-config-title"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-config-tagline">一句话简介（可选，最多 80 字）</Label>
-        <Input
-          id="home-config-tagline"
-          value={form.tagline}
-          maxLength={80}
-          onChange={(e) => onChange({ ...form, tagline: e.target.value })}
-          data-testid="home-config-tagline"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-config-banner-headline">横幅主标题（最多 60 字）</Label>
-        <Input
-          id="home-config-banner-headline"
-          value={form.bannerHeadline}
-          maxLength={60}
-          onChange={(e) => onChange({ ...form, bannerHeadline: e.target.value })}
-          data-testid="home-config-banner-headline"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-config-banner-tagline">横幅副标题（最多 120 字）</Label>
-        <Textarea
-          id="home-config-banner-tagline"
-          value={form.bannerTagline}
-          maxLength={120}
-          onChange={(e) => onChange({ ...form, bannerTagline: e.target.value })}
-          data-testid="home-config-banner-tagline"
-        />
-      </div>
-    </section>
-  );
-}
-
-function BannerPresetSection({
-  form, onChange,
-}: {
-  form: FormState;
-  onChange: (next: FormState) => void;
-}) {
-  return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4">
-      <h2 className="text-13 font-semibold text-card-foreground">横幅配色</h2>
-      <div className="grid grid-cols-4 gap-2">
-        {BANNER_PRESET_META.map((preset) => {
-          const active = form.bannerPreset === preset.key;
-          return (
-            <button
-              key={preset.key}
-              type="button"
-              onClick={() => onChange({ ...form, bannerPreset: preset.key })}
-              data-testid={`home-config-banner-preset-${preset.key}`}
-              aria-pressed={active}
-              className={cn(
-                "flex flex-col items-center gap-1.5 rounded-card border p-2 text-11 transition-colors duration-fast",
-                active ? "border-primary bg-accent" : "border-border-subtle hover:bg-muted",
-              )}
-            >
-              <span className={cn("h-8 w-full rounded-control", preset.swatchClass)} />
-              {preset.label}
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function QuickActionsSection({
-  form, onChange,
-}: {
-  form: FormState;
-  onChange: (next: FormState) => void;
-}) {
-  return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4">
-      <h2 className="text-13 font-semibold text-card-foreground">快捷入口</h2>
-      <p className="text-11 text-muted-foreground">勾选要在首页展示的入口，顺序固定为下列顺序。</p>
-      <div className="flex flex-col gap-2">
-        {QUICK_ACTION_META.map((meta) => (
-          <Checkbox
-            key={meta.key}
-            label={meta.label}
-            checked={form.quickActionEnabled[meta.key]}
-            onChange={(e) => onChange({
-              ...form,
-              quickActionEnabled: { ...form.quickActionEnabled, [meta.key]: e.target.checked },
-            })}
-            data-testid={`home-config-quick-action-${meta.key}`}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RecommendedCapabilitiesSection({
-  orgId, form, onChange,
-}: {
-  orgId: string | null;
-  form: FormState;
-  onChange: (next: FormState) => void;
-}) {
-  const [pickerOpen, setPickerOpen] = React.useState(false);
-  const [pickerState, setPickerState] = React.useState<"loading" | "ready" | "error">("loading");
-  const [agents, setAgents] = React.useState<readonly AgentListRow[]>([]);
-  const [skills, setSkills] = React.useState<readonly SkillListItem[]>([]);
-
-  React.useEffect(() => {
-    if (!pickerOpen || orgId === null) return;
-    let cancelled = false;
-    setPickerState("loading");
-    Promise.all([
-      listAgents({ publishState: "运行中" }),
-      listSkills(orgId),
-    ])
-      .then(([agentRows, skillRows]) => {
-        if (cancelled) return;
-        setAgents(agentRows);
-        setSkills(skillRows.filter((s) => s.status === "已启用"));
-        setPickerState("ready");
-      })
-      .catch(() => { if (!cancelled) setPickerState("error"); });
-    return () => { cancelled = true; };
-  }, [pickerOpen, orgId]);
-
-  const selectedKeys = new Set(form.recommendedCapabilities.map((c) => `${c.kind}-${c.refId}`));
-  const atMax = form.recommendedCapabilities.length >= 6;
-
-  function addCapability(next: RecommendedCapability) {
-    if (atMax) return;
-    // 契约 `RecommendedCapability.name` 上限 60：更长的 agent/skill 名快照时截断，
-    // 否则整次保存会被后端 400 拒掉。
-    const snapshot = { ...next, name: next.name.slice(0, 60) };
-    onChange({ ...form, recommendedCapabilities: [...form.recommendedCapabilities, snapshot] });
-  }
-
-  function removeCapability(kind: RecommendedCapability["kind"], refId: string) {
-    onChange({
-      ...form,
-      recommendedCapabilities: form.recommendedCapabilities.filter((c) => !(c.kind === kind && c.refId === refId)),
-    });
-  }
-
-  function updateNote(kind: RecommendedCapability["kind"], refId: string, note: string) {
-    onChange({
-      ...form,
-      recommendedCapabilities: form.recommendedCapabilities.map((c) => (
-        c.kind === kind && c.refId === refId ? { ...c, note: note.length > 0 ? note : null } : c
-      )),
-    });
-  }
-
-  return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-13 font-semibold text-card-foreground">组织推荐</h2>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => setPickerOpen((v) => !v)}
-          disabled={atMax}
-          data-testid="home-config-add-recommendation"
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" />
-          添加推荐（最多 6 个）
-        </Button>
-      </div>
-
-      {form.recommendedCapabilities.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {form.recommendedCapabilities.map((c) => (
-            <li
-              key={`${c.kind}-${c.refId}`}
-              className="flex items-start gap-2 rounded-card border border-border-subtle bg-card p-2.5"
-              data-testid={`home-config-recommendation-${c.kind}-${c.refId}`}
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control bg-ai-tint text-ai">
-                {c.kind === "agent" ? <Bot aria-hidden className="h-3.5 w-3.5" /> : <Sparkles aria-hidden className="h-3.5 w-3.5" />}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="text-12 font-medium text-card-foreground">{c.name}</span>
-                <Input
-                  value={c.note ?? ""}
-                  placeholder="备注（可选，最多 80 字）"
-                  maxLength={80}
-                  onChange={(e) => updateNote(c.kind, c.refId, e.target.value)}
-                  data-testid={`home-config-recommendation-note-${c.kind}-${c.refId}`}
-                />
-              </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => removeCapability(c.kind, c.refId)}
-                aria-label={`移除 ${c.name}`}
-                data-testid={`home-config-remove-${c.kind}-${c.refId}`}
-              >
-                <X aria-hidden className="h-3.5 w-3.5" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-11 text-muted-foreground">还没有推荐任何 Agent 或 Skill。</p>
-      )}
-
-      {pickerOpen ? (
-        <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-card p-3" data-testid="home-config-picker">
-          {pickerState === "loading" ? (
-            <p className="text-11 text-muted-foreground">加载 Agent / Skill 目录…</p>
-          ) : pickerState === "error" ? (
-            <p className="text-11 text-destructive">目录加载失败，请稍后重试。</p>
-          ) : (
-            <>
-              <PickerGroup
-                title="Agent"
-                emptyHint="本组织还没有已发布的 Agent。"
-                rows={agents.map((a) => ({ id: a.agentId, name: a.name }))}
-                kind="agent"
-                selectedKeys={selectedKeys}
-                disabled={atMax}
-                onPick={(id, name) => addCapability({ kind: "agent", refId: id, name, note: null })}
-              />
-              <PickerGroup
-                title="Skill"
-                emptyHint="本组织还没有已启用的 Skill。"
-                rows={skills.map((s) => ({ id: s.skillId, name: s.name }))}
-                kind="skill"
-                selectedKeys={selectedKeys}
-                disabled={atMax}
-                onPick={(id, name) => addCapability({ kind: "skill", refId: id, name, note: null })}
-              />
-            </>
-          )}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function PickerGroup({
-  title, emptyHint, rows, kind, selectedKeys, disabled, onPick,
-}: {
-  title: string;
-  emptyHint: string;
-  rows: ReadonlyArray<{ id: string; name: string }>;
-  kind: RecommendedCapability["kind"];
-  selectedKeys: Set<string>;
-  disabled: boolean;
-  onPick: (id: string, name: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <h3 className="text-11 font-medium text-muted-foreground">{title}</h3>
-      {rows.length === 0 ? (
-        <p className="text-11 text-muted-foreground">{emptyHint}</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {rows.map((row) => {
-            const picked = selectedKeys.has(`${kind}-${row.id}`);
-            return (
-              <button
-                key={row.id}
-                type="button"
-                disabled={picked || disabled}
-                onClick={() => onPick(row.id, row.name)}
-                data-testid={`home-config-picker-${kind}-${row.id}`}
-                className="rounded-control border border-border-subtle bg-panel px-2 py-1 text-11 text-card-foreground transition-colors duration-fast hover:bg-muted disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-              >
-                {picked ? `已添加 · ${row.name}` : row.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }
