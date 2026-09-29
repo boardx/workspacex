@@ -19,6 +19,11 @@ describe("toolLabel", () => {
     expect(toolObject("wx_remember", { statement: "用户的目标是今年跑完半马" })).toBe("用户的目标是今年跑完半马");
   });
 
+  it("AG05：Agent 发起流程有中文名，折叠行带上流程编号", () => {
+    expect(toolLabel("start_workflow")).toBe("发起流程");
+    expect(toolObject("start_workflow", { workflowId: "W029", input: { problem: "x" } })).toBe("W029");
+  });
+
   it("未知工具回退到真名——不编一个好听的假名字", () => {
     expect(toolLabel("some_tool_nobody_named")).toBe("some_tool_nobody_named");
   });

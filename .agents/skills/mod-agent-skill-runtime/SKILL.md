@@ -55,6 +55,10 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
+  **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
+  run 一写回，后台实例的每个事务都抛 `agent_run_lease_lost`，实例永远停在 `running`。派生后台工作必须
+  `withoutRunLease(...)` 脱离上下文；同步的副作用（start 本身）留在围栏里是对的（出处：AG05，`workflow-allowlist-enforce.test.ts`）。
 - 2026-09-18：同一个 skill 在 devapp 两次超时（16 分钟）都不是脚本慢，是模型在跑脚本之前的动作：读 3 份
   references、`write_todos` 拆步骤、对截图 `ls`/`read_file`（PNG 已经是视觉输入，再读一次会撞 `tool_call_unresolved`）。
   产出文件类 skill 的 SKILL.md 要把"总共 3–4 次工具调用、不写 todo、图片不要再读文件"写成硬规则，速查表放正文里，

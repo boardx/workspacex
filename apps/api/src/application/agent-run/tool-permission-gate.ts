@@ -52,6 +52,8 @@ import { checkPendingInterjection } from "./interjection-handling";
 import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
 import { ESCALATE_TOOL_NAME } from "@repo/contracts/agent-role";
 import { raiseEscalationFromKernelCall } from "../agent-interrupts/decide-escalation";
+import { AGENT_WORKFLOW_START_TOOL_NAME } from "../agent/request-agent-workflow-start";
+import { handleWorkflowStartCall } from "./workflow-start-gate";
 
 export interface InterruptedToolCall {
   readonly toolCallId?: string;
@@ -90,6 +92,14 @@ export async function handleInterruptedToolCall(
   // Phase 14 F11：先消费待处理插话（若有），必要时撤销 run 级授权——见本文件头注。
   const seqCursor = { value: ledger.seq };
   await checkPendingInterjection(deps, orgId, runId, seqCursor);
+
+  /*
+   * AG05（03-agent-role.md R3 / E3）—— `start_workflow` 不走风险分级：按该 run 钉住的版本快照白名单判定，
+   * 命中则经 WF03 start 创建实例，结果以 edit resume 交回工具调用（见 `workflow-start-gate.ts`）。
+   */
+  if (interrupted.toolName === AGENT_WORKFLOW_START_TOOL_NAME) {
+    return handleWorkflowStartCall(deps, orgId, runId, interrupted, { ...ledger, seq: seqCursor.value });
+  }
 
   /*
    * AG06（03-agent-role.md R3 ⑧）—— `escalate_matter` 不走风险分级：是否停下来只由该 run

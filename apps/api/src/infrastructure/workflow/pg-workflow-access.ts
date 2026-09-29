@@ -10,11 +10,7 @@
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { WorkflowAccessPort, WorkflowNotAllowlistedHintT } from "../../application/workflow/workflow-runtime-ports";
-import { officialRoleWorkflowAllowlists } from "../../domain/agent/official-role-packs";
-import { checkWorkflowAllowlisted, contentWorkflowIdOfKey } from "../../domain/work-content/content-workflow-registration";
-import { RESEARCH_WORKFLOW_DEFINITIONS } from "../../domain/work-content/definitions";
-import { SALES_WORKFLOW_DEFINITIONS } from "../../domain/work-content/definitions/sales";
-import { PRODUCT_LINE_WORKFLOWS } from "../../domain/work-content/product-workflow-definitions";
+import { contentWorkflowIdOf, workflowAllowlistRefusal } from "../../domain/agent/workflow-allowlist";
 import { toOrgId } from "../../domain/org-id";
 import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
 
@@ -61,17 +57,10 @@ export class PgWorkflowAccess implements WorkflowAccessPort {
   }
 
   async workflowAllowlistRefusal(orgId: string, userId: string, agentId: string, workflowKey: string): Promise<WorkflowNotAllowlistedHintT | null> {
-    const workflowId = contentWorkflowIdOfKey(workflowKey, [PRODUCT_LINE_WORKFLOWS, RESEARCH_WORKFLOW_DEFINITIONS, SALES_WORKFLOW_DEFINITIONS]);
+    const workflowId = contentWorkflowIdOf(workflowKey);
     if (!workflowId) return null;
     const allowlist = (await this.publishedWorkflowAllowlist(orgId, userId, agentId)) ?? [];
-    const roles = officialRoleWorkflowAllowlists();
-    const decision = checkWorkflowAllowlisted(agentId, workflowId, { ...roles, [agentId]: allowlist });
-    if (decision.ok) return null;
-    return {
-      code: decision.code,
-      requestedWorkflowId: decision.requestedWorkflowId,
-      handoffCandidates: decision.handoffCandidates.filter((r) => r in roles),
-    };
+    return workflowAllowlistRefusal(agentId, workflowId, allowlist);
   }
 
   /** CT06：内容线 Skill 阶段以发起 Agent 固定版本的模型执行（agent_versions.model_provider / model_id）。 */

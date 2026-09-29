@@ -1,4 +1,5 @@
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
+import { AGENT_WORKFLOW_START_TOOL_NAME } from "../../application/agent/request-agent-workflow-start";
 import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import { recoverFinalMessageIdentity } from "../../application/agent-run/recover-final-message";
 import { recoveryExplanation } from "../../application/agent-run/run-recovery";
@@ -50,7 +51,9 @@ export class PgRunRecovery {
         }else if(result.kind==="approval"&&result.toolName!=="unknown"){
           // #3420：已被本 run（或组织级）授权过的工具，不再叫醒用户——直接带着 approve
           // 重新入队，让它自己继续跑。判据取自授权存储本身，不是界面痕迹。
-          const authorized=await this.grants?.hasGrant(orgId,run.id,result.toolName)??false;
+          // AG05：恢复路径拿不到网关的服务端判定；start_workflow 不叫醒任何人，以 approve 续跑，
+          // 工具体如实回复「流程未发起、未创建任何实例」（fail closed，不让人替服务端编一个结果）。
+          const authorized=result.toolName===AGENT_WORKFLOW_START_TOOL_NAME||(await this.grants?.hasGrant(orgId,run.id,result.toolName)??false);
           if(!(authorized&&await this.runs.requeueAuthorizedToolCall?.(orgId,run.id,result)))
             await this.runs.markAwaitingToolPermission(orgId,run.id,result);
         }else if(result.kind==="failed"||(result.kind==="uncertain"&&run.recovery_attempts>=5)){

@@ -2233,6 +2233,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         carryOver: InterjectionCarryOverDelivery,
         firstValue: FirstValueRecorder,
         embeddings: EmbeddingPort | null,
+        workflows: WorkflowRuntimeService,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2287,13 +2288,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           { citations: new PgChatRepository(db), firstValue },
           // #4361：「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代——同抽取任务用的三个端口（执行器 / 取代 / 自动记入）。
           { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
+          // AG05：Agent 经 `start_workflow` 发起 Workflow 走的就是 WF03 的同一个运行时单例（start 准入全在 runStartCore）。
+          workflows,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
