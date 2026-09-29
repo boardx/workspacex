@@ -25,7 +25,7 @@ export async function importAgentStarterPack(
   const existing = await deps.imports.findExisting({ orgId: input.orgId, idempotencyKey: input.idempotencyKey, payloadDigest });
   if (existing.kind === "replayed") return { created: false, result: existing.result };
   if (existing.kind === "idempotency-conflict") throw new AgentStarterImportIdempotencyConflictError();
-  if (existing.kind === "previous-failure") throwFailure(existing.failureCode);
+  // `previous-failure`：失败不是终局（服务端配置/状态可能已修好），往下重新判定；仓储在同一条台账行上接管重试。
   const raw = await deps.packs.load(input.packId, input.packVersion);
   if (raw === null) return replayOrThrow(await deps.imports.recordFailure({ ...input, payloadDigest, packDigest: null, failureCode: "AGENT_STARTER_PACK_NOT_FOUND" }));
   let pack;
