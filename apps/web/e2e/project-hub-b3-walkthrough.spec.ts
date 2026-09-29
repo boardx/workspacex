@@ -19,6 +19,7 @@
  * 证据本身不产生结论（结论要经抽取 worker 或「记到项目大脑」），所以这里断言的是「零结论时
  * 大脑面板渲染空态、不报错」——这是新项目用户第一眼看到的真实状态。
  */
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
@@ -208,6 +209,12 @@ test("通用项目：负责人加协作者 → 协作者打开工作台（无工
   });
   expect(added.status, JSON.stringify(added.data)).toBeLessThan(300);
 
+  // #4615：负责人建一块白板并挂到项目——项目成员即白板成员（与白板自身成员表取并集）。
+  const board = await api<{ id: string }>(page, "/whiteboards", "POST", { requestId: randomUUID(), name: `项目白板 ${Date.now()}` });
+  expect(board.status, JSON.stringify(board.data)).toBeLessThan(300);
+  const boardLinked = await api(page, `/projects/${projectId}/resources`, "POST", { projectId, kind: "whiteboard", resourceId: board.data.id });
+  expect(boardLinked.status, JSON.stringify(boardLinked.data)).toBeLessThan(300);
+
   // ② 协作者登录：工作台打得开，工作坊专属 tab（准备 / 现场 / 待办）不出现。
   await page.context().clearCookies();
   await page.evaluate(() => window.localStorage.clear());
@@ -225,6 +232,13 @@ test("通用项目：负责人加协作者 → 协作者打开工作台（无工
   await expect(page.getByTestId("project-evidence-empty")).toBeVisible();
   await expect(page.getByTestId("project-evidence-error")).toHaveCount(0);
   await shot("12-research-project-collaborator-sources.png");
+
+  // 内容：白板出现在项目内容里；协作者不在白板自身成员表上，但凭项目成员身份能打开它。
+  await page.goto(`/projects/${projectId}?tab=content`);
+  await expect(page.getByTestId(`project-content-item-whiteboard-${board.data.id}`)).toBeVisible();
+  const boardAsCollaborator = await api(page, `/whiteboards/${board.data.id}`);
+  expect(boardAsCollaborator.status, JSON.stringify(boardAsCollaborator.data)).toBe(200);
+  await shot("12b-general-project-content-whiteboard.png");
 
   // 设置：协作者面板可见、两人都在；协作者不是负责人 ⇒ 没有指派表单与移出按钮。
   await page.goto(`/projects/${projectId}?tab=settings`);
@@ -251,5 +265,8 @@ test("通用项目：负责人加协作者 → 协作者打开工作台（无工
   await loginAs(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
   await page.goto(`/projects/${projectId}`);
   await expect(page.getByTestId("project-access-denied")).toHaveAttribute("data-reason", "NO_PROJECT_ROLE");
+  // 被移出项目 ⇒ 项目这条白板访问来源随之撤销。
+  const boardAfterRemoval = await api(page, `/whiteboards/${board.data.id}`);
+  expect(boardAfterRemoval.status).toBeGreaterThanOrEqual(400);
   await shot("15-research-project-removed-collaborator-denied.png");
 });
