@@ -42,6 +42,7 @@ function view(overrides: Partial<AgentRoleAdminView> = {}): AgentRoleAdminView {
       delegationPolicy: { allowedTargets: [], maxDepth: 0, requireApproval: true },
       escalationPolicy: { rules: [] },
       kpi: [],
+      tags: ["调研"],
     },
     published: null,
     editable: true,
@@ -96,7 +97,7 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     await waitFor(() => expect(screen.getByTestId("agent-role-admin-section")).not.toBeNull());
 
     const input = screen.getByTestId("agent-role-admin-workflow-input");
-    const addButton = screen.getByText("添加");
+    const addButton = within(input.parentElement!).getByText("添加");
     expect(addButton).toHaveAttribute("disabled"); // 空输入禁用
 
     fireEvent.change(input, { target: { value: "W002" } });
@@ -104,6 +105,53 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     await waitFor(() => expect(updateAgentRoleDraft).toHaveBeenCalledWith({
       agentId: "agent-1", expectedVersion: 0, patch: { workflowAllowlist: ["W001", "W002"] },
     }));
+  });
+
+  it("标签编辑器：回车添加、× 移除，空白/超长/重复/已满给人话提示且不发请求", async () => {
+    getAgentRoleAdmin.mockResolvedValue(view());
+    updateAgentRoleDraft.mockImplementation(async (input: { patch: { tags: string[] } }) => view({ draft: { ...view().draft, tags: input.patch.tags }, version: 1 }));
+    render(<AgentRoleAdminSection agentId="agent-1" />);
+    await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-调研")).not.toBeNull());
+    const input = screen.getByTestId("agent-tag-editor-input");
+
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("请输入标签内容");
+    fireEvent.change(input, { target: { value: "x".repeat(21) } });
+    fireEvent.click(screen.getByTestId("agent-tag-editor-add"));
+    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("标签最多 20 个字");
+    fireEvent.change(input, { target: { value: " 调研 " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("这个标签已经有了");
+    expect(updateAgentRoleDraft).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: " 销售 " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(updateAgentRoleDraft).toHaveBeenCalledWith({
+      agentId: "agent-1", expectedVersion: 0, patch: { tags: ["调研", "销售"] },
+    }));
+    await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-销售")).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "移除标签 调研" }));
+    await waitFor(() => expect(updateAgentRoleDraft).toHaveBeenLastCalledWith({
+      agentId: "agent-1", expectedVersion: 1, patch: { tags: ["销售"] },
+    }));
+  });
+
+  it("标签已满 10 个时提示上限；官方 Agent 标签只读", async () => {
+    const full = Array.from({ length: 10 }, (_, i) => `t${i}`);
+    getAgentRoleAdmin.mockResolvedValue(view({ draft: { ...view().draft, tags: full } }));
+    render(<AgentRoleAdminSection agentId="agent-1" />);
+    await waitFor(() => expect(screen.getByTestId("agent-tag-editor-input")).not.toBeNull());
+    fireEvent.change(screen.getByTestId("agent-tag-editor-input"), { target: { value: "新标签" } });
+    fireEvent.click(screen.getByTestId("agent-tag-editor-add"));
+    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("最多 10 个标签");
+    cleanup();
+
+    getAgentRoleAdmin.mockResolvedValue(view({ editable: false, draft: { ...view().draft, catalogSource: "official" } }));
+    render(<AgentRoleAdminSection agentId="agent-1" />);
+    await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-调研")).not.toBeNull());
+    expect(screen.queryByTestId("agent-tag-editor-input")).toBeNull();
+    expect(screen.queryByRole("button", { name: "移除标签 调研" })).toBeNull();
   });
 
   it("401/403 → 无权占位，不渲染表单", async () => {

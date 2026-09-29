@@ -59,14 +59,14 @@ export class PgAgentRoleDraftRepository implements AgentRoleDraftRepository {
       const updated = await session.query<{ role_draft_version: number }>(
         `UPDATE agents
             SET avatar = $4::jsonb, role_category = $5, workflow_allowlist = $6::text[],
-                delegation_policy = $7::jsonb, escalation_policy = $8::jsonb, kpi = $9::jsonb,
+                delegation_policy = $7::jsonb, escalation_policy = $8::jsonb, kpi = $9::jsonb, tags = $10::text[],
                 role_draft_version = role_draft_version + 1, updated_at = now()
           WHERE id = $1 AND org_id = $2 AND role_draft_version = $3 AND catalog_source = 'org'
       RETURNING role_draft_version`,
         [
           input.agentId, input.orgId, input.expectedVersion,
           f.avatar === null ? null : JSON.stringify(f.avatar), f.roleCategory, [...f.workflowAllowlist],
-          JSON.stringify(f.delegationPolicy), JSON.stringify(f.escalationPolicy), JSON.stringify(f.kpi),
+          JSON.stringify(f.delegationPolicy), JSON.stringify(f.escalationPolicy), JSON.stringify(f.kpi), [...f.tags],
         ],
       );
       const row = updated.rows[0];

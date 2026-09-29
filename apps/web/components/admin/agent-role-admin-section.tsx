@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api-client";
 import { AVATAR_KEYS } from "@/lib/interview-expert-avatar";
+import { AgentTagEditor } from "@/components/agent/agent-tag-editor";
 import {
   getAgentRoleAdmin,
   updateAgentRoleDraft,
@@ -154,6 +155,13 @@ export function AgentRoleAdminSection({ agentId }: { agentId: string }) {
           onValueChange={(roleCategory) => void applyPatch({ roleCategory: roleCategory as typeof draft.roleCategory })}
         />
       </div>
+
+      <AgentTagEditor
+        tags={draft.tags}
+        editable={view.editable}
+        disabled={disabled}
+        onChange={(tags) => void applyPatch({ tags })}
+      />
 
       <div className="flex flex-col gap-2">
         <span className="text-11 text-muted-foreground">可发起 Workflow 白名单</span>

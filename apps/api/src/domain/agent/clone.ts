@@ -65,6 +65,7 @@ export const CLONE_INHERITED_FIELDS = [
   "delegationPolicy",
   "escalationPolicy",
   "kpi",
+  "tags",
 ] as const satisfies readonly (keyof AgentDefinition)[];
 
 /**

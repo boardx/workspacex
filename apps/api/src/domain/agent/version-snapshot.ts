@@ -61,6 +61,7 @@ export const SNAPSHOT_FROZEN_FIELDS = [
   "delegationPolicy",
   "escalationPolicy",
   "kpi",
+  "tags",
 ] as const satisfies readonly (keyof AgentDefinition)[];
 
 /**
@@ -119,7 +120,7 @@ function deepFreeze<T>(value: T): T {
 function deepFreezeSnapshot(snapshot: AgentVersionSnapshot): AgentVersionSnapshot {
   // AG01 role fields are nested objects/arrays too; the whitelist rationale below applies.
   const d = snapshot.definition;
-  [d.avatar, d.workflowAllowlist, d.delegationPolicy, d.escalationPolicy, d.kpi].forEach(deepFreeze);
+  [d.avatar, d.workflowAllowlist, d.delegationPolicy, d.escalationPolicy, d.kpi, d.tags].forEach(deepFreeze);
   // Arrays and their elements too: freezing only the outer object leaves
   // `snapshot.definition.toolWhitelist.push(...)` working, and the whitelist is the part an
   // attacker would want to widen.
@@ -167,6 +168,7 @@ export function freezeAgentVersion(
       },
       escalationPolicy: { rules: agent.escalationPolicy.rules.map((r) => ({ ...r })) },
       kpi: agent.kpi.map((k) => ({ ...k })),
+      tags: [...agent.tags],
     },
   });
 }

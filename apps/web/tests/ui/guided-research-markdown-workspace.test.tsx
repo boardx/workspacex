@@ -8,7 +8,8 @@ describe("GuidedResearchMarkdownWorkspace", () => {
   it("opens the plan in preview and enters editing only on double click", () => {
     render(<GuidedResearchMarkdownWorkspace document={document} onSave={vi.fn()} editOnDoubleClick />);
     expect(screen.queryByTestId("guided-research-markdown-editor")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "编辑 Markdown" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "编辑研究计划" })).toBeInTheDocument();
+    expect(screen.getByText("双击计划内容也可编辑")).toBeInTheDocument();
     fireEvent.doubleClick(screen.getByTestId("guided-research-markdown-preview"));
     expect(screen.getByTestId("guided-research-markdown-editor")).toBeInTheDocument();
   });

@@ -67,6 +67,18 @@ export const AgentKpi = z.object({
 }).strict();
 
 /**
+ * 数字人标签（如「销售」「调研」）：成员目录/聊天选人卡片按它筛选。
+ * 单个标签去首尾空白后 1–20 字；一个 Agent 最多 10 个；重复的只保留第一次出现（大小写敏感）。
+ * DB 侧 `agents.tags` / `agent_versions.tags`（迁移 20260929160000_agent_tags.sql）只 CHECK 个数上限。
+ */
+export const AGENT_TAG_MAX_LENGTH = 20;
+export const AGENT_TAGS_MAX = 10;
+export const AgentTag = z.string().trim().min(1).max(AGENT_TAG_MAX_LENGTH);
+export const AgentTags = z.array(AgentTag)
+  .transform((tags) => [...new Set(tags)])
+  .pipe(z.array(z.string()).max(AGENT_TAGS_MAX));
+
+/**
  * 新增冻结字段（全部进入 `SNAPSHOT_FROZEN_FIELDS`，I-2）。回填默认值见 `AGENT_ROLE_FIELD_DEFAULTS`。
  * `workflowAllowlist` 固定到 Workflow stableId；版本解析由 Runtime 按 Definition 发布状态决定（Q3）。
  */
@@ -78,6 +90,7 @@ export const AgentRoleFields = z.object({
   delegationPolicy: DelegationPolicy,
   escalationPolicy: EscalationPolicy,
   kpi: z.array(AgentKpi).max(16),
+  tags: AgentTags,
 }).strict();
 export type AgentRoleFields = z.infer<typeof AgentRoleFields>;
 
@@ -90,12 +103,13 @@ export const AGENT_ROLE_FIELD_DEFAULTS: AgentRoleFields = {
   delegationPolicy: { allowedTargets: [], maxDepth: 0, requireApproval: true },
   escalationPolicy: { rules: [] },
   kpi: [],
+  tags: [],
 };
 
 /** 快照新增冻结字段名（AG01 测试断言它们 ⊆ SNAPSHOT_FROZEN_FIELDS）。 */
 export const AGENT_ROLE_FROZEN_FIELDS = [
   "avatar", "roleCategory", "catalogSource", "workflowAllowlist",
-  "delegationPolicy", "escalationPolicy", "kpi",
+  "delegationPolicy", "escalationPolicy", "kpi", "tags",
 ] as const satisfies readonly (keyof AgentRoleFields)[];
 
 /* ── 二、starter-pack toolPolicy 放宽（AG02）+ 官方角色包条目（AG03）──────── */
@@ -186,6 +200,8 @@ export const AgentDirectoryCard = z.object({
   roleLabel: z.string(),
   avatar: AgentAvatar.nullable(),
   roleCategory: AgentRoleCategory.nullable(),
+  /** 已发布版本的标签（空数组 = 未打标签；前端回退 roleCategory）。 */
+  tags: z.array(z.string()),
   catalogSource: AgentCatalogSource,
   workflows: z.array(z.object({ stableId: WorkflowStableId, name: z.string() }).strict()),
   readiness: CapabilityReadiness,

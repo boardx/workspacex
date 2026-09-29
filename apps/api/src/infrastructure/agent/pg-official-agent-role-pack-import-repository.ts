@@ -11,15 +11,24 @@ import { insertAgentVersionFromDraft } from "./agent-version-insert";
  * 失败码是 `UNRESOLVED_SKILL_REF`（UC-3 E2），不是 `AGENT_STARTER_SKILL_VERSION_MISSING/MISMATCH`
  * （UC-2 的码，两条导入路径共享同一个校验动作、不共享失败码，因为调用方要能分辨是哪条使用例）。
  */
-interface ImportRow { status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; }
+interface ImportRow { id: string; status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; }
 async function findImport(s: TenantSession, orgId: string, key: string): Promise<ImportRow | null> {
-  const result = await s.query<ImportRow>("SELECT status,payload_digest,result_json,failure_code FROM agent_starter_pack_imports WHERE org_id=$1 AND idempotency_key=$2", [orgId, key]);
+  const result = await s.query<ImportRow>("SELECT id,status,payload_digest,result_json,failure_code FROM agent_starter_pack_imports WHERE org_id=$1 AND idempotency_key=$2", [orgId, key]);
   return result.rows[0] ?? null;
 }
 function existing(row: ImportRow, digest: string): Exclude<ExistingAgentImportOutcome, { kind: "missing" }> {
   if (row.payload_digest !== digest) return { kind: "idempotency-conflict" };
   if (row.status === "succeeded" && row.result_json) return { kind: "replayed", result: row.result_json };
   return { kind: "previous-failure", failureCode: row.failure_code ?? "AGENT_STARTER_PACK_INVALID" };
+}
+
+/**
+ * 失败不是终局（与 skill 侧 `isRetryableFailure` 同一纪律）：请求体只有 `{packId, packVersion,
+ * idempotencyKey}`，失败原因（pack 根目录未配置、包缺失/不合规、名称冲突）都取决于服务端配置与状态；
+ * 缓存成终局会让运维修好后同键重试永远重放旧 404。同键同摘要的失败行由重试接管；不同摘要仍是冲突。
+ */
+function isRetryableFailure(row: ImportRow, digest: string): boolean {
+  return row.status === "failed" && row.payload_digest === digest;
 }
 
 export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRolePackImportRepository {
@@ -36,10 +45,12 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
     return this.db.withTenant(input.orgId, async (s): Promise<PersistVerifiedOfficialAgentRolePackOutcome> => {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 418))", [input.orgId]);
       const prior = await findImport(s, input.orgId, input.idempotencyKey);
-      if (prior) return existing(prior, input.payloadDigest);
-      const importId = `agent-import-${randomUUID()}`;
+      const retrying = prior !== null && isRetryableFailure(prior, input.payloadDigest);
+      if (prior && !retrying) return existing(prior, input.payloadDigest);
+      const importId = retrying ? prior.id : `agent-import-${randomUUID()}`;
       const importedAt = new Date().toISOString();
-      await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',NULL,NULL)`, [importId, input.orgId, input.pack.packId, input.pack.packVersion, input.pack.packDigest, input.payloadDigest, input.idempotencyKey, input.actorId, importedAt]);
+      if (retrying) await s.query("UPDATE agent_starter_pack_imports SET status='pending',failure_code=NULL,result_json=NULL,pack_digest=$3,administrator_id=$4,imported_at=$5 WHERE id=$1 AND org_id=$2", [importId, input.orgId, input.pack.packDigest, input.actorId, importedAt]);
+      else await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',NULL,NULL)`, [importId, input.orgId, input.pack.packId, input.pack.packVersion, input.pack.packDigest, input.payloadDigest, input.idempotencyKey, input.actorId, importedAt]);
 
       // UC-3 E2 后半：挂载的 skillVersions 必须在本组织已发布目录里、Skill 为 verified 且摘要一致，否则
       // UNRESOLVED_SKILL_REF，事务回滚、DB 无新增行（下面的 INSERT 都还没跑）。
@@ -77,8 +88,8 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
           `INSERT INTO agents (
              id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,
              role_label,role_label_needs_confirmation,
-             avatar,role_category,catalog_source,workflow_allowlist,delegation_policy,escalation_policy,kpi
-           ) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false,$8::jsonb,$9,'official',$10::text[],$11::jsonb,$12::jsonb,$13::jsonb)`,
+             avatar,role_category,catalog_source,workflow_allowlist,delegation_policy,escalation_policy,kpi,tags
+           ) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false,$8::jsonb,$9,'official',$10::text[],$11::jsonb,$12::jsonb,$13::jsonb,$14::text[])`,
           [
             agentId, input.orgId, agent.stableName, agent.name, input.actorId, importedAt,
             agent.roleLabel,
@@ -88,6 +99,7 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
             JSON.stringify(agent.role.delegationPolicy),
             JSON.stringify(agent.role.escalationPolicy),
             JSON.stringify(agent.role.kpi),
+            [...agent.role.tags],
           ],
         );
         await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: agent.skillVersions.map((ref) => ref.versionId), modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });
@@ -106,6 +118,10 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
     return this.db.withTenant(input.orgId, async (s) => {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 418))", [input.orgId]);
       const prior = await findImport(s, input.orgId, input.idempotencyKey);
+      if (prior && isRetryableFailure(prior, input.payloadDigest)) {
+        await s.query("UPDATE agent_starter_pack_imports SET failure_code=$3,pack_digest=$4,administrator_id=$5,imported_at=$6 WHERE id=$1 AND org_id=$2", [prior.id, input.orgId, input.failureCode, input.packDigest, input.actorId, new Date().toISOString()]);
+        return { kind: "previous-failure" as const, failureCode: input.failureCode };
+      }
       if (prior) return existing(prior, input.payloadDigest);
       await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'failed',NULL,$10)`, [`agent-import-${randomUUID()}`, input.orgId, input.packId, input.packVersion, input.packDigest, input.payloadDigest, input.idempotencyKey, input.actorId, new Date().toISOString(), input.failureCode]);
       return { kind: "previous-failure" as const, failureCode: input.failureCode };
