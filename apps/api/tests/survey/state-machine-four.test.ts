@@ -12,6 +12,7 @@ describe("survey four-state lifecycle", () => {
       "collecting",
     );
     expect(transitionSurveyStatus("collecting", "close")).toBe("closed");
+    expect(transitionSurveyStatus("closed", "republish")).toBe("collecting");
   });
 
   it.each([

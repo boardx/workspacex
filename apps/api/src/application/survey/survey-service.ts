@@ -353,7 +353,7 @@ export class SurveyService {
     if (end.getTime() <= this.now().getTime())
       throw new SurveyError("expired");
     const token = `${Buffer.from(JSON.stringify([orgId, model.id])).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
-    model.publication = {
+    const publication = {
       token,
       status: "collecting",
       questions: structuredClone(model.questions),
@@ -365,6 +365,10 @@ export class SurveyService {
         contentHash: model.source.contentHash,
       } : undefined,
     };
+    const batch = { ...publication, id: randomUUID(), createdAt: this.now().toISOString(), closedAt: null };
+    model.collectionBatches = [...(model.collectionBatches ?? []), batch];
+    model.activeCollectionBatchId = batch.id;
+    model.publication = publication;
   }
   startCollection(
     orgId: OrgId,
@@ -427,6 +431,17 @@ export class SurveyService {
         throw error;
       }
       m.publication.status = "closed";
+      const closedAt = this.now().toISOString();
+      m.collectionBatches = (m.collectionBatches ?? []).map((batch) => batch.id === m.activeCollectionBatchId ? { ...batch, status: "closed", closedAt } : batch);
+    });
+  }
+  republish(orgId: OrgId, actor: string, id: string, version: number, expiresAt?: string) {
+    return this.change(orgId, actor, id, version, (model) => {
+      try { model.status = transitionSurveyStatus(model.status, "republish"); }
+      catch (error) { if (error instanceof InvalidSurveyTransitionError) throw new SurveyError("invalid_transition"); throw error; }
+      const blockers = evaluateSurveyForPublish(model);
+      if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+      this.startPublication(orgId, model, expiresAt);
     });
   }
   review(
@@ -660,6 +675,7 @@ export class SurveyService {
           companySize: input.companySize,
           durationSeconds: input.durationSeconds,
           answers: input.answers,
+          ...(r.model.activeCollectionBatchId ? { collectionBatchId: r.model.activeCollectionBatchId } : {}),
         });
         r.receipts[receiptKey] = { hash: fingerprint, responseId, ...(browserHash ? {browserHash} : {}) };
         r.model.answerRevision++;
