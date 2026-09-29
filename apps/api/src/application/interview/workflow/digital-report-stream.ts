@@ -2,7 +2,7 @@ import {
   DigitalReportStreamEvent,
   type DigitalReportStreamEvent as DigitalReportStreamEventValue,
 } from "@repo/contracts/interview";
-import { INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS } from "./digital-report-quality";
+import { INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS, INTERVIEW_REPORT_THEME_GUIDANCE } from "./digital-report-quality";
 
 export type ParsedDigitalReportStreamEvent = DigitalReportStreamEventValue;
 
@@ -28,6 +28,9 @@ export function buildDigitalInterviewReportSystemPrompt(minimumFindings: number)
 4. 原话证据：每个核心洞察至少引用一段简短原话，格式为“专家姓名（角色）：‘原话’”，并在同段说明对应问题。
 5. 可操作性：建议使用 P0/P1/P2，写明依据、负责人类型、近期动作、成功信号和风险。
 6. 专业表达：客观、克制、具体；识别共性、差异、矛盾、边界条件和反例，禁止空泛总结与同义重复。
+
+主题化结构：
+${INTERVIEW_REPORT_THEME_GUIDANCE}
 
 ${INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS}
 

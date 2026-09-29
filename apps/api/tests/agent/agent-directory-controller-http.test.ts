@@ -17,7 +17,7 @@ const MEMBER = { userId: "u1", orgId: "org-1" } as unknown as Principal;
 function row(): AgentDirectoryRow {
   return {
     agentId: "agent-1", versionId: "v-1", name: "研究员小艾", roleLabel: "研究专家",
-    avatar: null, roleCategory: "research", catalogSource: "official",
+    avatar: null, roleCategory: "research", tags: ["调研"], catalogSource: "official",
     workflowAllowlist: [], toolPolicyLength: 0,
   };
 }

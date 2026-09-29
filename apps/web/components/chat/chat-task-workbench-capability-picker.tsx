@@ -7,11 +7,9 @@ import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import { CapabilityEditionNote } from "@/components/chat/capability-edition-note";
 import {
-  AGENT_ROLE_CATEGORIES,
   ROLE_CATEGORY_LABEL,
   listAgentDirectory,
   type AgentDirectoryCard,
-  type AgentRoleCategory,
 } from "@/lib/agent-directory";
 
 /**
@@ -56,8 +54,9 @@ import {
  * 另外按 id 合并成员 Agent 目录 `GET /agents/directory`（`listAgentDirectory`，与
  * `/agent` 目录页同一数据源；`agents.id === capability_listings.id`，见
  * `pg-capability-repository.ts` 的 JOIN）取真人像 `avatar.key`（dh-*）、`roleLabel`、
- * `roleCategory` 与已授权 `workflows`。标签筛选由 `roleCategory`（分类标签）+
- * `workflows` 名称（能力标签）派生，只用 `listAgentDirectory` 已返回的字段。
+ * `roleCategory`、`tags` 与已授权 `workflows`。标签筛选用数字人的真实 `tags`（管理员在
+ * 角色区块编辑，发布后生效）：筛选 chip = 列表里出现过的标签并集；没打标签的数字人回退为
+ * 其 `roleCategory` 分类名（`agentTagsOf`，唯一实现）。
  * 目录读失败（无权限/离线）时静默退回首字母头像，选择器本身不受影响。
  */
 
@@ -117,8 +116,15 @@ function DigitalHumanAvatar({ listing, card, size }: { listing: CapabilityListin
   return <Avatar initials={card?.initials || abbrFor(listing)} avatarKey={card?.avatar?.key ?? null} tone="ai" size={size} />;
 }
 
+/** 数字人的标签：真实 `tags` 优先；一个都没有时回退为 `roleCategory` 分类名。 */
+export function agentTagsOf(card: AgentDirectoryCard | undefined): readonly string[] {
+  if (card === undefined) return [];
+  if (card.tags.length > 0) return card.tags;
+  return card.roleCategory ? [ROLE_CATEGORY_LABEL[card.roleCategory]] : [];
+}
+
 function searchableText(listing: CapabilityListing, card: AgentDirectoryCard | undefined): string {
-  return [listing.name, listing.duty ?? "", card?.roleLabel ?? "", ...(card?.workflows.map((w) => w.name) ?? [])].join(" ").toLowerCase();
+  return [listing.name, listing.duty ?? "", card?.roleLabel ?? "", ...agentTagsOf(card), ...(card?.workflows.map((w) => w.name) ?? [])].join(" ").toLowerCase();
 }
 
 export interface CapabilityCardListProps {
@@ -136,7 +142,7 @@ export interface CapabilityCardListProps {
 }
 
 const EMPTY_DIRECTORY: DigitalHumanDirectory = new Map();
-type TagFilter = { kind: "category"; value: AgentRoleCategory } | { kind: "ready" } | null;
+type TagFilter = { kind: "tag"; value: string } | { kind: "ready" } | null;
 
 /** 数字人选择列表：搜索 + 标签筛选 + 「自动匹配」首项 + 数字人卡片（`role="listbox"`）。 */
 export function CapabilityCardList({
@@ -147,12 +153,12 @@ export function CapabilityCardList({
   const listRef = React.useRef<HTMLDivElement>(null);
   const searchId = React.useId();
 
-  const categories = AGENT_ROLE_CATEGORIES.filter((c) => listings.some((l) => directory.get(l.id)?.roleCategory === c));
+  const tagOptions = [...new Set(listings.flatMap((l) => agentTagsOf(directory.get(l.id))))];
   const q = query.trim().toLowerCase();
   const visible = listings.filter((l) => {
     const card = directory.get(l.id);
     if (q && !searchableText(l, card).includes(q)) return false;
-    if (tag?.kind === "category" && card?.roleCategory !== tag.value) return false;
+    if (tag?.kind === "tag" && !agentTagsOf(card).includes(tag.value)) return false;
     if (tag?.kind === "ready" && !identity.isCapabilityReady(l)) return false;
     return true;
   });
@@ -187,17 +193,17 @@ export function CapabilityCardList({
           autoFocus={autoFocusSearch}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); focusOption("first"); } }}
-          placeholder="搜索数字人：名字、角色、擅长的事"
+          placeholder="搜索数字人：名字、角色、标签、擅长的事"
           className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div role="group" aria-label="按标签筛选" data-testid="chat-task-workbench-capability-tags" className="flex flex-wrap gap-1">
           <button type="button" aria-pressed={tag === null} className={chip(tag === null)} onClick={() => setTag(null)}>全部</button>
           <button type="button" aria-pressed={tag?.kind === "ready"} className={chip(tag?.kind === "ready")} onClick={() => setTag(tag?.kind === "ready" ? null : { kind: "ready" })}>可用</button>
-          {categories.map((c) => {
-            const active = tag?.kind === "category" && tag.value === c;
+          {tagOptions.map((t) => {
+            const active = tag?.kind === "tag" && tag.value === t;
             return (
-              <button key={c} type="button" aria-pressed={active} data-tag={c} className={chip(active)} onClick={() => setTag(active ? null : { kind: "category", value: c })}>
-                {ROLE_CATEGORY_LABEL[c]}
+              <button key={t} type="button" aria-pressed={active} data-tag={t} className={chip(active)} onClick={() => setTag(active ? null : { kind: "tag", value: t })}>
+                {t}
               </button>
             );
           })}
@@ -274,10 +280,7 @@ function DigitalHumanCard({
   const ready = identity.isCapabilityReady(listing);
   const cardStatus: CapabilityCardStatus = !ready ? "failed" : (acting && acting.agentId === listing.id ? acting.status : "ready");
   const strengths = (card?.roleLabel ?? "").trim() || (listing.duty ?? "").trim() || "该数字人尚未填写擅长领域说明";
-  const tags = [
-    ...(card?.roleCategory ? [ROLE_CATEGORY_LABEL[card.roleCategory]] : []),
-    ...(card?.workflows.map((w) => w.name) ?? []),
-  ].slice(0, 3);
+  const tags = [...new Set([...agentTagsOf(card), ...(card?.workflows.map((w) => w.name) ?? [])])].slice(0, 3);
   return (
     <button
       type="button"

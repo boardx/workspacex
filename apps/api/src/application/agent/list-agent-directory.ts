@@ -42,6 +42,7 @@ export interface AgentDirectoryRow {
   readonly roleLabel: string;
   readonly avatar: AgentAvatar | null;
   readonly roleCategory: AgentRoleCategory | null;
+  readonly tags: readonly string[];
   readonly catalogSource: AgentCatalogSource;
   readonly workflowAllowlist: readonly string[];
   /** 只用长度判 ready/unknown（见文件头「就绪状态」）；不外泄具体分类内容。 */
@@ -63,6 +64,7 @@ export interface AgentDirectoryCardOut {
   readonly roleLabel: string;
   readonly avatar: AgentAvatar | null;
   readonly roleCategory: AgentRoleCategory | null;
+  readonly tags: readonly string[];
   readonly catalogSource: AgentCatalogSource;
   readonly workflows: readonly { readonly stableId: string; readonly name: string }[];
   readonly readiness: "ready" | "missing" | "unknown";
@@ -96,6 +98,7 @@ async function toCard(
     roleLabel: row.roleLabel,
     avatar: row.avatar,
     roleCategory: row.roleCategory,
+    tags: [...row.tags],
     catalogSource: row.catalogSource,
     workflows: resolvedWorkflows,
     readiness: readinessOf(row),
@@ -119,7 +122,7 @@ export async function listAgentDirectory(
   const q = input.q?.trim().toLowerCase() ?? "";
   const filtered = rows.filter((row) => {
     if (input.roleCategory !== null && row.roleCategory !== input.roleCategory) return false;
-    if (q.length > 0 && !`${row.name}${row.roleLabel}`.toLowerCase().includes(q)) return false;
+    if (q.length > 0 && !`${row.name}${row.roleLabel}${row.tags.join("")}`.toLowerCase().includes(q)) return false;
     return true;
   });
   return Promise.all(filtered.map((row) => toCard(row, deps.workflows)));

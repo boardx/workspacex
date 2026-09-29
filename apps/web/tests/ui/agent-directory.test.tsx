@@ -21,6 +21,7 @@ function card(overrides: Partial<AgentDirectoryCard> & Pick<AgentDirectoryCard, 
     initials: overrides.name.slice(0, 1),
     roleLabel: "Research & Knowledge Analyst",
     avatar: null,
+    tags: [],
     catalogSource: "official",
     workflows: [{ stableId: "W001", name: "Research-to-Brief" }],
     readiness: "ready",
@@ -123,6 +124,17 @@ describe("AgentDirectory（成员目录）", () => {
     await waitFor(() => expect(screen.getByTestId("agent-card-avatar").getAttribute("data-avatar-key")).toBe("person-9"));
   });
 
+  it("卡片显示数字人标签；没有标签时不渲染标签行", async () => {
+    const fetchDirectory = vi.fn().mockResolvedValue([
+      card({ agentId: "a1", name: "小销", roleCategory: "sales", tags: ["销售", "客户"] }),
+      card({ agentId: "a2", name: "小研", roleCategory: "research" }),
+    ]);
+    render(<AgentDirectory fetchDirectory={fetchDirectory} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
+    expect(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-tags")).toHaveTextContent("销售客户");
+    expect(within(screen.getByTestId("agent-card-a2")).queryByTestId("agent-card-tags")).toBeNull();
+  });
+
   it("点击「开始对话」把 agentId 回传给宿主", async () => {
     const onStartChat = vi.fn();
     const fetchDirectory = vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小析", roleCategory: "research" })]);
@@ -141,7 +153,7 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
       return new Response(JSON.stringify({
         items: [{
           agentId: "agent-1", versionId: "v1", name: "小析", initials: "小",
-          roleLabel: "Research & Knowledge Analyst", avatar: null, roleCategory: "research",
+          roleLabel: "Research & Knowledge Analyst", avatar: null, roleCategory: "research", tags: ["调研"],
           catalogSource: "official", workflows: [{ stableId: "W001", name: "Research-to-Brief" }], readiness: "ready",
         }],
       }), { status: 200 });

@@ -11,6 +11,7 @@ const row = {
   delegation_policy: { allowedTargets: ["D003"], maxDepth: 1, requireApproval: true },
   escalation_policy: { rules: [{ matter: "x".repeat(10_000), target: "org_admin" }] },
   kpi: [{ metric: "m", description: "d" }],
+  tags: ["调研"],
 };
 
 describe("AG01 toRoleFieldsTolerant", () => {

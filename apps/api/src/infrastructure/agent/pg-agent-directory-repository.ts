@@ -41,6 +41,7 @@ function toRow(row: Row): AgentDirectoryRow {
     roleLabel: row.role_label,
     avatar: fields.avatar,
     roleCategory: fields.roleCategory,
+    tags: fields.tags,
     catalogSource: fields.catalogSource,
     workflowAllowlist: fields.workflowAllowlist,
     toolPolicyLength: Array.isArray(row.tool_policy) ? row.tool_policy.length : 0,

@@ -266,7 +266,7 @@ export class PgCreateAgentRepository implements CreateAgentRepository, ListAgent
             degrade_policy, instructions, ${AGENT_ROLE_COLUMNS})
          VALUES ($1,$2,$1,$3,'enabled',$4,$5,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$14,
                  $15::jsonb,$16::jsonb,$17,$18,$19,
-                 $20::jsonb,$21,$22,$23::text[],$24::jsonb,$25::jsonb,$26::jsonb)`,
+                 $20::jsonb,$21,$22,$23::text[],$24::jsonb,$25::jsonb,$26::jsonb,$27::text[])`,
         [
           definition.agentId,
           definition.orgId,
@@ -294,6 +294,7 @@ export class PgCreateAgentRepository implements CreateAgentRepository, ListAgent
           JSON.stringify(definition.delegationPolicy),
           JSON.stringify(definition.escalationPolicy),
           JSON.stringify(definition.kpi),
+          [...definition.tags],
         ],
       );
     });

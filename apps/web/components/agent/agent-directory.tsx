@@ -55,6 +55,11 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
             <p className="truncate text-11 text-muted-foreground">{card.roleLabel}</p>
           </div>
         </div>
+        {card.tags.length > 0 && (
+          <div data-testid="agent-card-tags" className="flex flex-wrap gap-1">
+            {card.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2">
           <span data-testid="agent-card-workflows" className="truncate text-11 text-muted-foreground">
             {card.workflows.length > 0
