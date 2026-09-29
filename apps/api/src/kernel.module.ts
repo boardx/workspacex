@@ -7,6 +7,7 @@ import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/a
 import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
 import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
 import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
+import { fileURLToPath } from 'node:url';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { PgWhiteboardCommentStore } from './infrastructure/whiteboard/pg-whiteboard-comment-store';
@@ -295,9 +296,13 @@ import { createPgMcpServerStore } from "./infrastructure/mcp/pg-mcp-server-store
 import {
   AGENT_STARTER_IMPORT_REPOSITORY,
   AGENT_STARTER_PACK_SOURCE,
+  OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY,
+  WORKFLOW_DEFINITION_STORE,
 } from "./application/agent-import/ports";
 import { FileAgentStarterPackSource } from "./infrastructure/agent/file-agent-starter-pack-source";
 import { PgAgentStarterImportRepository } from "./infrastructure/agent/pg-agent-starter-import-repository";
+import { FileWorkflowDefinitionStore } from "./infrastructure/agent/file-workflow-definition-store";
+import { PgOfficialAgentRolePackImportRepository } from "./infrastructure/agent/pg-official-agent-role-pack-import-repository";
 import { AgentStarterImportController } from "./interface/controllers/agent-starter-import.controller";
 import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
 import { PgAgentSkillPinsRepository } from "./infrastructure/agent/pg-agent-skill-pins-repository";
@@ -628,6 +633,12 @@ import { PgSetAgentInstructionsRepository } from "./infrastructure/agent/pg-crea
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-agent-role-label-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
+import { AgentRoleController } from "./interface/controllers/agent-role.controller";
+import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
+import { PgAgentRoleDraftRepository } from "./infrastructure/agent/pg-agent-role-draft-repository";
+import { AgentDirectoryController } from "./interface/controllers/agent-directory.controller";
+import { AGENT_DIRECTORY_REPOSITORY } from "./application/agent/list-agent-directory";
+import { PgAgentDirectoryRepository } from "./infrastructure/agent/pg-agent-directory-repository";
 import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
@@ -1209,6 +1220,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AgentTrialRunController,
     SkillTrialRunController,
     AgentController,
+    AgentRoleController,
+    AgentDirectoryController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
@@ -1604,6 +1617,21 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     {
+      // AG03：已注册 Workflow 的单一事实源见 `file-workflow-definition-store.ts` 头注。显式配置过
+      // 的部署优先用它（同 `ensure-standard-skill-packs.ts` 的 `standardPackRoot()` 纪律），没配时
+      // 才退回仓库相对路径。
+      provide: WORKFLOW_DEFINITION_STORE,
+      useFactory: () => new FileWorkflowDefinitionStore(
+        process.env.WORKFLOW_DEFINITIONS_ROOT?.trim()
+        || fileURLToPath(new URL("../../../requirements/work-stack-v2/workflows/", import.meta.url)),
+      ),
+    },
+    {
+      provide: OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOfficialAgentRolePackImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: CREATE_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
       inject: [DATABASE_PORT],
@@ -1621,6 +1649,16 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: SET_AGENT_INSTRUCTIONS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_ROLE_DRAFT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_DIRECTORY_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentDirectoryRepository(db),
       inject: [DATABASE_PORT],
     },
     {
