@@ -112,7 +112,7 @@ test.describe("核心闭环八步", () => {
 
     // 「自动成为管理员」的第一半：注册完**直接就是登录态**，不必收邮件。
     // `bootstrap-first-user.ts` 直接置位 `emailVerifiedAt`，所以这一步不依赖邮件投递。
-    await expect(page).toHaveURL(/\/home$/);
+    await expect(page).toHaveURL(/\/projects$/);
 
     // 第二半：**库里**确实是管理员。只看 UI 会把「前端乐观渲染」也当成通过。
     //
@@ -171,7 +171,7 @@ test.describe("核心闭环八步", () => {
     expect(token, "库里必须有一枚待核销的验证令牌").not.toBeNull();
     await page.goto(`/auth/verify-email?token=${token}`);
     // 同一浏览器首次完成验证后自动建立会话，无需再次输入密码。
-    await expect(page).toHaveURL(/\/home$/);
+    await expect(page).toHaveURL(/\/projects$/);
   });
 
   /* ── 步骤 2：新增 Agent（已交付，#458 / PR #478）───────────────────────── */

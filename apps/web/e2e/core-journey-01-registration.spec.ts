@@ -315,7 +315,7 @@ test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真�
   await page.goto(`/auth/verify-email?token=${token}`);
 
 
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/projects$/);
 
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
