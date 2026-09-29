@@ -125,3 +125,11 @@ export function buildOfficialAgentRolePack(
   const packDigest = sha256(JSON.stringify(unsigned));
   return wave2Runtime.OfficialAgentStarterPack.parse({ ...unsigned, packDigest });
 }
+
+/**
+ * CT06（E3）—— 官方角色 → `workflowAllowlist`（同一份 ROLE_SEEDS，不另立副本）。
+ * 白名单外发起时据此给出「可转交」的官方角色（例：W030 → D003）。
+ */
+export function officialRoleWorkflowAllowlists(): Readonly<Record<string, readonly string[]>> {
+  return Object.fromEntries(ROLE_SEEDS.map((s) => [s.roleRef, [...s.workflowAllowlist]]));
+}

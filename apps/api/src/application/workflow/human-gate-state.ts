@@ -69,16 +69,24 @@ export function humanGateOf(definition: WorkflowDefinitionVersionView, stageId: 
   return definition.stages.find((s) => s.stageId === stageId)?.humanGate ?? null;
 }
 
-/** 按组织角色或具体成员被指定（R3-7「校验审批人资格」）。 */
-export function isDesignatedApprover(gate: HumanGateDefinition, actor: WorkflowActor): boolean {
-  return gate.approverUserIds.includes(actor.userId) || gate.approverRoles.includes(actor.orgRole);
+/**
+ * 实例级伪角色：`approverRoles` 含它时，本实例的发起人是指定审批人（内容线 Workflow 的 G 门默认
+ * 「批准人 = 发起人」，如 W029 §5 阶段 13 `prdOwnerUserId ?? initiatorUserId`；CT05/CT06）。
+ * 仍受 `allowSelfApproval` 约束。
+ */
+export const WORKFLOW_INITIATOR_APPROVER_ROLE = "workflow_initiator";
+
+/** 按组织角色、具体成员或发起人伪角色被指定（R3-7「校验审批人资格」）。 */
+export function isDesignatedApprover(gate: HumanGateDefinition, actor: WorkflowActor, initiatorUserId?: string): boolean {
+  if (gate.approverUserIds.includes(actor.userId) || gate.approverRoles.includes(actor.orgRole)) return true;
+  return initiatorUserId !== undefined && actor.userId === initiatorUserId && gate.approverRoles.includes(WORKFLOW_INITIATOR_APPROVER_ROLE);
 }
 
 export type GateEligibility = { ok: true } | { ok: false; code: "not_designated_approver" | "self_approval_forbidden" };
 
 /** E13：非指定 → 403 not_designated_approver；发起人默认不能自批 → 403 self_approval_forbidden。 */
 export function gateEligibility(gate: HumanGateDefinition, actor: WorkflowActor, initiatorUserId: string): GateEligibility {
-  if (!isDesignatedApprover(gate, actor)) return { ok: false, code: "not_designated_approver" };
+  if (!isDesignatedApprover(gate, actor, initiatorUserId)) return { ok: false, code: "not_designated_approver" };
   if (actor.userId === initiatorUserId && !gate.allowSelfApproval) return { ok: false, code: "self_approval_forbidden" };
   return { ok: true };
 }

@@ -16,6 +16,13 @@ import { join, relative, sep } from "node:path";
 
 export const DB_FREE_TEST_PREFIXES = ["tests/work-eval/", "tests/work-content/"] as const;
 
+/**
+ * Journey e2e files under a DB-free prefix are DB-backed by definition (CT03/CT06/CT09 run the real
+ * Workflow Runtime on PostgreSQL, UC-WC-I5). They are carved out by name: selecting one keeps the full
+ * DB setup, and the DB-import guard does not apply to them. Everything else under the prefix stays checked.
+ */
+export const DB_BACKED_UNDER_FREE_PREFIX = /-e2e\.test\.ts$/;
+
 const DB_IMPORT = /from\s+["'](?:[^"']*support\/db(?:-[^"']*)?|pg)["']|\bcreateApp\s*\(/;
 
 function positionalFilters(argv: readonly string[]): string[] {
@@ -45,9 +52,13 @@ function walk(dir: string): string[] {
 export function selectionIsDbFree(apiDir: string, argv: readonly string[] = process.argv, cwd = process.cwd()): boolean {
   const filters = positionalFilters(argv).map(f => relative(apiDir, join(cwd, f)).split(sep).join("/"));
   if (filters.length === 0) return false;
-  if (!filters.every(f => DB_FREE_TEST_PREFIXES.some(p => f.startsWith(p)))) return false;
+  if (!filters.every(f => DB_FREE_TEST_PREFIXES.some(p => f.startsWith(p)) && !DB_BACKED_UNDER_FREE_PREFIX.test(f))) return false;
   for (const prefix of DB_FREE_TEST_PREFIXES) {
-    for (const file of walk(join(apiDir, prefix)).filter(f => f.endsWith(".ts"))) {
+    const files = walk(join(apiDir, prefix)).filter(f => f.endsWith(".ts"));
+    // A directory-style filter (e.g. `tests/work-content/`) also selects the DB-backed journeys under it.
+    const dbBacked = files.filter(f => DB_BACKED_UNDER_FREE_PREFIX.test(f)).map(f => relative(apiDir, f).split(sep).join("/"));
+    if (dbBacked.some(f => filters.some(q => f.startsWith(q)))) return false;
+    for (const file of files.filter(f => !DB_BACKED_UNDER_FREE_PREFIX.test(f))) {
       if (DB_IMPORT.test(readFileSync(file, "utf8"))) {
         throw new Error(`${relative(apiDir, file)} is under DB-free prefix ${prefix} but imports DB fixtures; move it or drop the prefix from tests/support/db-free-tests.ts`);
       }
