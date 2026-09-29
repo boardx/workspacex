@@ -565,6 +565,7 @@ import {
   BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
+import { readLoopbackProviderAliases, withLoopbackProviderAliases } from "./infrastructure/agent-run/loopback-provider-aliases";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AcceptMessageCarryOverDelivery } from "./infrastructure/agent-run/accept-message-carry-over-delivery";
 import { INTERJECTION_CARRY_OVER_DELIVERY, type InterjectionCarryOverDelivery } from "./application/agent-run/interjection-carry-over";
@@ -2135,8 +2136,10 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: MODEL_CALL_PORT,
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
-        return new RoutingModelCallPort(new Map<string, ModelCallPort>([
-          [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
+        const chatPort = new ConfiguredModelProvider(chatConfig);
+        // 回环/开发/CI 专用别名（生产无效：需显式 env + 回环 baseUrl），见 loopback-provider-aliases.ts。
+        return new RoutingModelCallPort(new Map<string, ModelCallPort>(withLoopbackProviderAliases<ModelCallPort>([
+          [chatConfig.provider, chatPort],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
           [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
           /*
@@ -2150,7 +2153,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
             : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())] as const]),
-        ]));
+        ], readLoopbackProviderAliases(process.env, chatConfig), chatPort)));
       },
     },
     {

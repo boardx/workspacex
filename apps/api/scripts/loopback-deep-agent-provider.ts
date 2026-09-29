@@ -642,6 +642,30 @@ interface RunRecord {
   cite?: CiteOutcome;
 }
 
+/**
+ * AG05 —— 聊天里发起 Workflow 的确定性剧本（`start_workflow` 工具调用）。
+ *
+ * 用户消息里带 `[start_workflow:<workflowId>]` 标记（input 恒为 `{}`）⇒ 替身发出一个**未配对**的 `start_workflow` 工具调用并停在 interrupted；
+ * 网关（`workflow-start-gate.ts`）按白名单判定、以 edit resume 交回 `{...args, outcome}`；
+ * 终稿正文就是 `outcome.message`（放行 = 「已发起流程…」，拒绝 = `workflow_not_allowed` 的友好文案）。
+ * 不吃环境变量：标记本身就是触发词，其它剧本逐字等值匹配，不会误中。
+ */
+const START_WORKFLOW_TOOL_NAME = "start_workflow";
+const START_WORKFLOW_MARKER = /\[start_workflow:([^\]\s]+)\]/;
+
+function startWorkflowTarget(record: RunRecord): string | null {
+  const m = START_WORKFLOW_MARKER.exec(record.userText);
+  return m ? m[1]! : null;
+}
+
+function startWorkflowReply(record: RunRecord): string {
+  if (record.decision === null) return "正在发起流程。";
+  const outcome = record.decision.editedArgs?.outcome;
+  const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  if (typeof message === "string" && message !== "") return message;
+  return record.decision.type === "reject" ? "发起流程被拒绝，未创建实例。" : "流程发起结果未知。";
+}
+
 function approvalReply(record: RunRecord): string {
   if (record.decision === null) return "这一步需要人工批准后才能继续。";
   const args = record.decision.type === "edit" && record.decision.editedArgs !== undefined
@@ -1353,6 +1377,10 @@ const server = createServer((req, res) => {
     // UX-9 D4：审批触发词且还没被裁决过 → 停在 interrupted，让真实 DA-07b 轮询循环
     // 读到「等人裁决」而不是直接终态。裁决（resume）到达后 record.decision 非 null，
     // 之后的轮询一律走终态分支——不会无限停在 interrupted。
+    if (startWorkflowTarget(record) !== null && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER && record.decision === null) {
       sendJson(res, 200, { status: "interrupted" });
       return;
@@ -1448,8 +1476,9 @@ const server = createServer((req, res) => {
     const isChoosing = isChooseOption(record);
     const isTwoInterruptTurn = isTwoInterrupt(record);
     const isTwoApprovalTurn = isTwoApproval(record);
-    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
-    const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+    const streamMessageId = startWorkflowTarget(record) !== null ? `start-workflow-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
+    const isStartWorkflow = startWorkflowTarget(record) !== null;
+    const reply = isStartWorkflow ? startWorkflowReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       /*
@@ -1899,6 +1928,33 @@ const server = createServer((req, res) => {
                 ? "用户拒绝了这次技能调用，未执行。"
                 : `已执行技能：${JSON.stringify(secondArgs)}` },
             { id: `two-approval-${threadId}:final`, type: "ai", content: TWO_APPROVAL_FINAL_REPLY },
+          ],
+        },
+      });
+      return;
+    }
+    const startWorkflowId = startWorkflowTarget(record);
+    if (startWorkflowId !== null) {
+      const callId = `start-workflow-${threadId}`;
+      const originalArgs = { workflowId: startWorkflowId, input: {} };
+      const pendingAi = {
+        id: `start-workflow-${threadId}:pending`,
+        type: "ai",
+        content: "正在发起流程。",
+        tool_calls: [{ id: callId, name: START_WORKFLOW_TOOL_NAME, args: originalArgs }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
+        return;
+      }
+      const finalText = startWorkflowReply(record);
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            pendingAi,
+            { type: "tool", tool_call_id: callId, content: finalText },
+            { id: `start-workflow-${threadId}:final`, type: "ai", content: finalText },
           ],
         },
       });

@@ -19,6 +19,7 @@ import type { PinnedSkillVersion, WorkflowInstanceStatus } from "@repo/contracts
 import { EffectInFlightError, EffectPermissionBlockedError, type EffectGateway } from "./effect-gateway";
 import { defaultGatePreview, deriveGates, gateIdOf, skippedByDenial, type GateEffectPreview } from "./human-gate-state";
 import { isTerminal } from "./instance-projection";
+import { WorkflowLeaseLostError } from "./workflow-errors";
 import type { PinnedWorkflowInstance, WorkflowDefinitionRepository, WorkflowInstanceRepository, WorkflowLease, WorkflowLeaseStore } from "./workflow-ports";
 import type { WorkflowEventInput, WorkflowEventStore, WorkflowEventType, WorkflowStageOutputStore } from "./workflow-runtime-ports";
 
@@ -162,15 +163,21 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
     let row = await deps.outputs.find(orgId, instanceId, stageId, attempt);
     if (!row) {
       await deps.hooks?.beforeStageWork?.(stageId);
-      const result = await work({
-        instanceId,
-        stageId,
-        attempt,
-        input,
-        pinnedSkills: pinnedOf(stageId),
-        lease,
-        approval,
-      });
+      let result: Awaited<ReturnType<StageWork>>;
+      try {
+        result = await work({
+          instanceId,
+          stageId,
+          attempt,
+          input,
+          pinnedSkills: pinnedOf(stageId),
+          lease,
+          approval,
+        });
+      } catch (e) {
+        await recordStageFailure(stageId, e);
+        throw e;
+      }
       await holdLease(); // 写业务行前再判一次 epoch（并续租）
       row = (await deps.outputs.put(orgId, instanceId, { stageId, attempt, outputId: deps.newId(), ...result })).row;
     }
@@ -182,6 +189,32 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
       await append({ type: "stage_succeeded", stageId, reasonCode: null, data: { attempt, outputId: row.outputId } });
     }
     return { outputId: row.outputId };
+  };
+
+  /**
+   * E9：阶段工作抛出的业务失败计入该阶段的失败次数（`stage_retried` / `stage_failed` 事件的 data.attempt）。
+   * 未到 maxAttempts 且可重试 → 记 `stage_retried` 后原样冒泡（lease 不释放，过期后接管者重进该阶段）；
+   * 到上限或不可重试（部署未配置模型供应商，重试不会变好）→ 记 `stage_failed` 并把实例落成终态
+   * `failed`（reasonCode `stage_attempts_exhausted`），然后停止推进——不再无限接管、界面不再永远「运行中」。
+   * 运行时控制流错误（取消/门/权限拦截/对账/lease 丢失）不是阶段失败，不计数。
+   */
+  const recordStageFailure = async (stageId: string, e: unknown): Promise<void> => {
+    if (isControlFlowError(e)) return;
+    const maxAttempts = definition.stages.find((s) => s.stageId === stageId)?.maxAttempts ?? 1;
+    const events = await deps.events.listAfter(orgId, instanceId, 0, 100_000);
+    const failures = events.filter((ev) => ev.stageId === stageId && ev.type === "stage_retried").length + 1;
+    const failureKind = failureKindOf(e);
+    if (failures < maxAttempts && failureKind !== "provider_not_configured") {
+      await append({ type: "stage_retried", stageId, reasonCode: null, data: { attempt: failures + 1, failures, failureKind } });
+      return;
+    }
+    await holdLease();
+    await append({ type: "stage_failed", stageId, reasonCode: "stage_attempts_exhausted", data: { attempt: failures, failures, failureKind } });
+    await append(
+      { type: "status_changed", stageId: null, reasonCode: "stage_attempts_exhausted", data: { status: "failed" } },
+      { status: "failed", reasonCode: "stage_attempts_exhausted" },
+    );
+    throw new StopRun("failed");
   };
 
   // 后台心跳：阶段内的长耗时工作（真实模型延迟）期间按 ttl/3 续租；续租失败即停，下一个边界的断言会抛出。
@@ -232,4 +265,28 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
   }
   await deps.leases.release(lease);
   return (await deps.instances.find(orgId, instanceId))?.status ?? "cancelled";
+}
+
+/** 不是阶段业务失败的运行时控制流错误：不计入重试次数。 */
+function isControlFlowError(e: unknown): boolean {
+  return (
+    e instanceof StopRun ||
+    e instanceof EffectPermissionBlockedError ||
+    e instanceof EffectInFlightError ||
+    e instanceof WorkflowLeaseLostError
+  );
+}
+
+/** 失败分类（写进事件 data，给界面挑友好文案）；只看错误码，不读 message。 */
+export type StageFailureKind = "provider_not_configured" | "model_call_failed" | "unknown";
+
+export function failureKindOf(e: unknown): StageFailureKind {
+  let cur: unknown = e;
+  for (let depth = 0; depth < 5 && cur && typeof cur === "object"; depth++) {
+    const code = (cur as { code?: unknown }).code;
+    if (code === "MODEL_PROVIDER_NOT_CONFIGURED") return "provider_not_configured";
+    if (typeof code === "string" && code.startsWith("MODEL_")) return "model_call_failed";
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return "unknown";
 }
