@@ -1,5 +1,6 @@
 /**
- * WF03 —— Workflow Runtime HTTP 面：UC-WR-3 start、UC-WR-4 get、UC-WR-6 SSE、UC-WR-7 cancel、UC-WR-8 resume。
+ * WF03 —— Workflow Runtime HTTP 面：UC-WR-3 start、UC-WR-4 get、UC-WR-6 SSE、UC-WR-7 cancel、UC-WR-8 resume；
+ * WF05 UC-WR-11 approveGate / UC-WR-12 denyGate。
  * 路径与载荷来自 `@repo/contracts/workflow-runtime`（单一事实源）；失败体为 WorkflowErrorBody。
  * 可见性判定在应用层（instance-projection.ts）：发起人 / 组织管理员可见，其余一律 404。
  */
@@ -49,6 +50,7 @@ function sendFailure(failure: unknown, res: Response): unknown {
       message: failure.code,
       ...(d.latestProjection ? { latestProjection: d.latestProjection } : {}),
       ...(d.missingSkills ? { missingSkills: d.missingSkills } : {}),
+      ...(d.decidedGate ? { decidedGate: d.decidedGate } : {}),
     });
   }
   if (failure instanceof WorkflowCommandShapeError) throw new HttpException({ reasonCode: "bad_request" }, 400);
@@ -97,6 +99,36 @@ export class WorkflowRuntimeController {
     assertPrincipal(principal);
     try {
       res.status(200).json(C.resumeInstance.out.parse(await this.runtime.resume(principal.orgId, principal.userId, instanceId, raw)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** WF05 UC-WR-11：批准人工门。 */
+  @Post(C.approveGate.path)
+  async approveGate(
+    @CurrentPrincipal() principal: Principal,
+    @Param("instanceId") instanceId: string,
+    @Param("gateId") gateId: string,
+    @Body() raw: unknown,
+    @Res() res: Response,
+  ) {
+    assertPrincipal(principal);
+    try {
+      res.status(200).json(C.approveGate.out.parse(await this.runtime.approveGate(principal.orgId, principal.userId, instanceId, gateId, raw)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /** WF05 UC-WR-12：拒绝人工门（必填理由）。 */
+  @Post(C.denyGate.path)
+  async denyGate(
+    @CurrentPrincipal() principal: Principal,
+    @Param("instanceId") instanceId: string,
+    @Param("gateId") gateId: string,
+    @Body() raw: unknown,
+    @Res() res: Response,
+  ) {
+    assertPrincipal(principal);
+    try {
+      res.status(200).json(C.denyGate.out.parse(await this.runtime.denyGate(principal.orgId, principal.userId, instanceId, gateId, raw)));
     } catch (failure) { res.json(sendFailure(failure, res)); }
   }
 

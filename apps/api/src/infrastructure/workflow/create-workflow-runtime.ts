@@ -10,6 +10,7 @@ import { EffectGateway, type EffectReconcilePort } from "../../application/workf
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
+import { demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
 import { demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { PgWorkflowAccess } from "./pg-workflow-access";
@@ -30,7 +31,7 @@ import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGrap
 export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: async () => null };
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
-  return [demoWorkflowGraph()];
+  return [demoWorkflowGraph(), demoApprovalWorkflowGraph()];
 }
 
 export interface WorkflowRuntimeOptions {

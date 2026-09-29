@@ -11,6 +11,7 @@ import {
   type WorkflowInstanceProjection,
   type WorkflowInstanceStatus,
 } from "@repo/contracts/workflow-runtime";
+import { deriveGates, gateView, isApproverOfAnyGate } from "./human-gate-state";
 import { WorkflowUseCaseError } from "./workflow-errors";
 import type { WorkflowActor, WorkflowDefinitionRepository } from "./workflow-ports";
 import type {
@@ -64,7 +65,8 @@ export function buildProjection(
       stage.status = "running";
       stage.startedAt ??= e.createdAt;
     } else if (e.type === "stage_succeeded") {
-      stage.status = "succeeded";
+      // WF05：拒绝后被 onDenyStageId 越过的阶段记 skipped（data.skipped），不是真的成功。
+      stage.status = e.data.skipped === true ? "skipped" : "succeeded";
       stage.finishedAt = e.createdAt;
     } else if (e.type === "stage_failed") {
       stage.status = "failed";
@@ -77,6 +79,16 @@ export function buildProjection(
       // 阶段没有对应的枚举值，只记 reasonCode 留痕，不误报成"被权限拦下"。
       stage.reasonCode = e.reasonCode;
       if (e.reasonCode !== "effect_unreconciled") stage.status = "blocked_permission";
+    } else if (e.type === "gate_opened") {
+      stage.status = "awaiting_gate_decision";
+    } else if (e.type === "gate_decided") {
+      if (e.data.decision === "denied") {
+        stage.status = "rejected";
+        stage.reasonCode = "gate_denied";
+        stage.finishedAt = e.createdAt;
+      } else {
+        stage.status = "running";
+      }
     }
   }
   // 产出链接只取「已记事件」的行：快照里 seq ≤ lastSeq 的一致视图。
@@ -101,17 +113,28 @@ export function buildProjection(
     stateVersion: instance.stateVersion,
     reasonCode: instance.reasonCode,
     stages,
-    openGate: null,
+    openGate: openGateView(events, definition, viewer, instance),
     effects: [],
     lastSeq,
     viewerCapabilities: {
       canCancel: mayControl && !terminal && instance.status !== "cancelling",
       canRetryStage: false,
-      canResume: mayControl && !terminal,
+      canResume: mayControl && !terminal && instance.status !== "awaiting_gate_decision",
     },
     createdAt: instance.createdAt,
     updatedAt: instance.updatedAt,
   };
+}
+
+function openGateView(
+  events: WorkflowStoredEvent[],
+  definition: WorkflowDefinitionVersionView,
+  viewer: WorkflowActor,
+  instance: WorkflowInstanceState,
+): WorkflowInstanceProjection["openGate"] {
+  const open = [...deriveGates(events).values()].filter((g) => g.decision === null);
+  const g = open[open.length - 1];
+  return g ? gateView(g, definition, viewer, instance) : null;
 }
 
 /** 解析调用者的组织角色；非成员 → workflow_not_found。 */
@@ -140,8 +163,12 @@ export async function loadVisibleProjection(
   actor: WorkflowActor,
 ): Promise<WorkflowInstanceProjection> {
   const snap = await deps.events.loadSnapshot(orgId, instanceId);
-  if (!snap || !canView(snap.instance, actor)) throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
+  if (!snap) throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
   const definition = await deps.definitions.findVersion(orgId, snap.instance.workflowKey, snap.instance.definitionVersion);
   if (!definition) throw new WorkflowUseCaseError("workflow_not_found", "pinned definition version missing");
+  // WF05（契约 Q1）：人工门的指定审批人对实例有只读可见性（viewerCapabilities 仍全 false）。
+  if (!canView(snap.instance, actor) && !isApproverOfAnyGate(definition, snap.events, actor)) {
+    throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
+  }
   return buildProjection(snap, definition, actor);
 }
