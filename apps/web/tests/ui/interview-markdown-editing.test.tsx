@@ -80,6 +80,35 @@ it("a save conflict does not silently rebase local text onto another editor's ve
   await vi.waitFor(() => expect(writes).toHaveLength(2));
   expect(writes.map((write) => [write.expectedVersion, write.expectedDocumentVersion])).toEqual([[1, 1], [1, 1]]);
 });
+it("retries the failed outline after expert confirmation instead of regenerating immutable experts", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const expertMarkdown = "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n";
+  const expertDocument = { ...source, markdown: expertMarkdown };
+  const outlineDocument = { ...source, documentId: "outline-doc", step: "outline" as const, markdown: "" };
+  const draft = { interviewId: "itv-retry", revisionId: "rev-retry", version: 1, documents: [expertDocument, outlineDocument], states: [{ documentId: expertDocument.documentId, status: "draft", failure: null }, { documentId: outlineDocument.documentId, status: "draft", failure: null }] };
+  const confirmed = { ...draft, version: 2, states: [{ documentId: expertDocument.documentId, status: "confirmed", failure: null }, { documentId: outlineDocument.documentId, status: "draft", failure: null }] };
+  const generated = { ...confirmed, version: 3, documents: [expertDocument, { ...outlineDocument, markdown: "## [张浩宇](#expert-one)\n\n1. 最近一次使用 AI 发生了什么？" }] };
+  let outlineCalls = 0;
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) return new Response(JSON.stringify(confirmed));
+    if (url.endsWith("/outline/generate")) {
+      outlineCalls += 1;
+      return outlineCalls === 1
+        ? new Response(JSON.stringify({ error: "dependency_unavailable", reasonCode: "AI_GENERATION_UNAVAILABLE" }), { status: 503 })
+        : new Response(JSON.stringify(generated));
+    }
+    return new Response(JSON.stringify(outlineCalls ? confirmed : draft));
+  });
+  const onContinue = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-retry" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={onContinue} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("AI 暂时无法生成访谈问题");
+  fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+  await vi.waitFor(() => expect(outlineCalls).toBe(2));
+  await vi.waitFor(() => expect(onContinue).toHaveBeenCalledWith("outline"));
+});
 it("expert search filters the maintained simulation library without impersonating the live directory", () => {
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   expect(screen.getByText("97 位模拟画像")).toBeVisible();
@@ -190,6 +219,12 @@ it("restores confirmed experts in the outline rail before questions exist", () =
   expect(screen.getByRole("button", { name: "张浩宇" })).toBeVisible();
   expect(screen.getByRole("img", { name: "张浩宇的插画头像" })).toBeVisible();
   expect(screen.getByText("尚无专家问题，请先生成访谈问题。")).toBeVisible();
+});
+it("shows generation progress with the confirmed expert count", () => {
+  const expertsDocument = { ...source, markdown: "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n\n## [王志远](#expert-two)\n\n专业角色：架构师\n" };
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: "" }} expertsDocument={expertsDocument} pending generating onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByRole("status")).toHaveTextContent("正在为 2 位专家生成问题");
+  expect(screen.getByRole("button", { name: "正在为 2 位专家生成问题…" })).toBeDisabled();
 });
 it("question edit preserves stable heading references and unrelated raw Markdown", () => {
   const raw = "前言\r\n\r\n## [采购专家](#expert-purchase)\r\n\r\n1. 最近一次发生了什么？\r\n\r\n## [财务专家](#expert-finance)\r\n\r\n1. 谁批准预算？\r\n";
