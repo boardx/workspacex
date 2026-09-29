@@ -313,6 +313,7 @@ export function CopilotKitV2Panel({
   canGeneratePersona = false,
   realtimeContext = null,
   onAssistantText,
+  onVoiceStateChange,
 }: {
   /**
    * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
@@ -393,6 +394,7 @@ export function CopilotKitV2Panel({
   canGeneratePersona?: boolean;
   realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] } | null;
   onAssistantText?: (text: string) => void;
+  onVoiceStateChange?: (state: "idle" | "listening") => void;
 } = {}): JSX.Element {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -504,6 +506,7 @@ export function CopilotKitV2Panel({
           onSelectAgent={setSelectedAgentId}
           realtimeContext={realtimeContext}
           onAssistantText={onAssistantText}
+          onVoiceStateChange={onVoiceStateChange}
         />
       </div>
       </ChatPopoverCoordinatorProvider>
