@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkspaceX · 组织首页设置（后台）</title>
+<style>
+:root{
+  --bg:#F4F4F1; --panel:#F7F7F5; --card:#FFFFFF;
+  --fg:#17171A; --fg2:#5F5F67; --fg3:#8A8A92;
+  --line:#EBEAE5; --border:#E0DED5;
+  --accent:#E4F2EF; --accent-fg:#0A6155;
+  --ai:#4B3BE8; --ai-tint:#E9E7FB;
+  --destructive:#B23A27;
+  --shadow-sm:0 1px 2px rgba(23,23,26,.05),0 1px 1px rgba(23,23,26,.04);
+  --shadow-md:0 6px 16px -4px rgba(23,23,26,.12),0 2px 4px rgba(23,23,26,.05);
+  --shadow-lg:0 16px 36px -10px rgba(23,23,26,.18);
+  --r-sm:8px; --r:12px; --r-lg:18px;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;font:13.5px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;color:var(--fg);background:var(--bg)}
+svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr) 460px;height:100vh}
+
+/* 后台左栏（复用 admin-nav 视觉语言：分组 + 当前项高亮） */
+.admin-nav{background:var(--panel);border-right:1px solid var(--border);padding:16px 10px;overflow-y:auto}
+.admin-nav h1{font-size:13px;margin:2px 6px 14px;display:flex;align-items:center;gap:8px}
+.admin-nav h1 svg{color:var(--fg3)}
+.admin-nav .grp{font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--fg3);text-transform:uppercase;margin:16px 8px 4px}
+.admin-nav a{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:var(--r-sm);color:var(--fg2);font-size:12.5px}
+.admin-nav a:hover{background:var(--card)}
+.admin-nav a[aria-current]{background:var(--card);color:var(--fg);font-weight:600;box-shadow:var(--shadow-sm)}
+.admin-nav a svg{width:15px;height:15px}
+
+/* 中栏：配置表单 */
+.form-col{overflow-y:auto;padding:24px 32px 100px}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.head h2{font-size:19px;margin:0}
+.head p{color:var(--fg2);font-size:12.5px;margin:4px 0 22px}
+
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:20px;margin-bottom:16px}
+.card h3{margin:0 0 3px;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.card .desc{color:var(--fg3);font-size:11.5px;margin:0 0 16px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field label{font-size:12px;font-weight:600;color:var(--fg2);display:flex;justify-content:space-between}
+.field label .cnt{font-weight:400;color:var(--fg3)}
+.field input[type=text],.field textarea{border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 11px;
+  background:var(--card);width:100%;outline:none}
+.field input[type=text]:focus,.field textarea:focus{border-color:var(--ai)}
+.field textarea{resize:vertical;min-height:56px}
+.hint{font-size:11px;color:var(--fg3)}
+.row{display:flex;gap:14px}
+.row>.field{flex:1}
+
+.upload{display:flex;align-items:center;gap:12px}
+.upload .box64{width:64px;height:64px;border-radius:var(--r-sm);background:var(--panel);border:1px dashed var(--border);
+  display:grid;place-items:center;color:var(--fg3);flex:none;overflow:hidden}
+.upload .box64 img{width:100%;height:100%;object-fit:cover}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;font-weight:600;
+  background:var(--panel);color:var(--fg2)}
+.btn:hover{background:var(--accent);color:var(--accent-fg)}
+.btn.ghost{background:none;border:1px solid var(--border);color:var(--fg2)}
+.up-actions{display:flex;flex-direction:column;gap:6px}
+.up-actions .meta{font-size:11px;color:var(--fg3)}
+
+.bg-picker{display:flex;gap:10px;flex-wrap:wrap}
+.bg-opt{width:76px;height:48px;border-radius:8px;cursor:pointer;position:relative;box-shadow:var(--shadow-sm)}
+.bg-opt[aria-checked="true"]{outline:2px solid var(--ai);outline-offset:2px}
+.bg-opt.upload-slot{background:var(--panel);border:1px dashed var(--border);display:grid;place-items:center;color:var(--fg3)}
+
+.swatches{display:flex;gap:8px}
+.sw{width:26px;height:26px;border-radius:50%;box-shadow:var(--shadow-sm);position:relative}
+.sw[aria-checked="true"]::after{content:"";position:absolute;inset:-4px;border:2px solid var(--fg);border-radius:50%}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+.toggle-row:first-child{border-top:0}
+.toggle-row div b{font-size:12.5px;display:block}
+.toggle-row div small{color:var(--fg3);font-size:11px}
+.switch{width:34px;height:20px;border-radius:999px;background:var(--border);position:relative;flex:none}
+.switch[aria-checked="true"]{background:var(--ai)}
+.switch i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm);
+  transition:translate .15s;display:block}
+.switch[aria-checked="true"] i{translate:14px 0}
+
+.quick-list{display:flex;flex-direction:column;gap:8px}
+.quick-item{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 10px}
+.quick-item .drag{color:var(--fg3);cursor:grab}
+.quick-item i{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;flex:none}
+.quick-item .t{flex:1;min-width:0}
+.quick-item .t b{font-size:12.5px;display:block}
+.quick-item .t small{color:var(--fg3);font-size:11px}
+.quick-item .switch{margin-left:auto}
+.add-quick{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ai);padding:8px 4px}
+
+.savebar{margin-top:20px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-lg);
+  padding:12px 16px;display:flex;align-items:center;gap:10px}
+.savebar .status{font-size:11.5px;color:var(--fg3);display:flex;align-items:center;gap:6px}
+.savebar .status svg{color:#0B7967;width:13px}
+.savebar .grow{flex:1}
+.savebar .btn.pri{background:var(--fg);color:#fff}
+.savebar .btn.pri:hover{opacity:.9;background:var(--fg)}
+
+/* 右栏：实时预览（缩放的真实首页） */
+.preview-col{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.pv-top{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border)}
+.pv-top b{font-size:12.5px}
+.pv-seg{margin-left:auto;display:flex;background:var(--card);border-radius:8px;padding:2px;box-shadow:var(--shadow-sm)}
+.pv-seg button{padding:4px 10px;font-size:11.5px;border-radius:6px;color:var(--fg2)}
+.pv-seg button[aria-selected="true"]{background:var(--ai-tint);color:var(--ai);font-weight:600}
+.pv-frame-wrap{flex:1;overflow:auto;padding:18px;display:flex;justify-content:center}
+.pv-frame{width:1040px;transform:scale(.42);transform-origin:top center;box-shadow:var(--shadow-lg);border-radius:var(--r);overflow:hidden;background:#fff}
+.pv-note{padding:10px 16px;font-size:11px;color:var(--fg3);border-top:1px solid var(--border);display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="admin-nav" aria-label="组织后台导航">
+  <h1><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>组织后台</h1>
+  <div class="grp">AI 能力</div>
+  <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Agent 目录</a>
+  <a href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>MCP</a>
+  <a href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/></svg>模型</a>
+  <a href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>项目模板</a>
+  <a href="#"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Skill 库</a>
+  <div class="grp">组织</div>
+  <a href="#"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="18" cy="7" r="3"/></svg>成员配额</a>
+  <a href="#" aria-current="page"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>首页设置</a>
+  <a href="#"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>品牌与外观</a>
+</nav>
+
+<div class="form-col">
+  <div class="head">
+    <h2>首页设置</h2>
+  </div>
+  <p style="color:var(--fg2);font-size:12.5px;margin:-2px 0 22px">配置完成并发布后，<b>本组织全部成员</b>登录后会先看到这个首页，取代默认的空白起点。</p>
+
+  <div class="card">
+    <h3><svg viewBox="0 0 24 24" style="width:15px"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/></svg>身份</h3>
+    <p class="desc">首页顶部横幅里显示的组织标识。</p>
+    <div class="field">
+      <label>组织 Logo</label>
+      <div class="upload">
+        <div class="box64"><img alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' rx='14' fill='%234B3BE8'/><text x='32' y='42' font-size='26' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='700'>B</text></svg>"></div>
+        <div class="up-actions"><button class="btn">上传新 Logo</button><span class="meta">建议 256×256px，PNG/SVG，透明底</span></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>标题 <span class="cnt">9 / 24</span></label>
+      <input type="text" value="BoardX Inc.">
+    </div>
+    <div class="field">
+      <label>副标题（成员数 / 团队标语，可留空自动显示成员数）</label>
+      <input type="text" value="企业空间 · 42 位成员">
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><svg viewBox="0 0 24 24" style="width:15px"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 13l5-4 4 3 5-5 4 4"/></svg>横幅</h3>
+    <p class="desc">首页最醒目的区域，用来传达团队使命或当前重点。</p>
+    <div class="field">
+      <label>标题 <span class="cnt">14 / 60</span></label>
+      <input type="text" value="让创造更有人性，让协作更有效率">
+    </div>
+    <div class="field">
+      <label>一句话 <span class="cnt">22 / 80</span></label>
+      <textarea>People + AI + Real Work —— BoardX 的团队工作空间</textarea>
+    </div>
+    <div class="field">
+      <label>背景</label>
+      <div class="bg-picker">
+        <div class="bg-opt" aria-checked="true" style="background:linear-gradient(135deg,#425a73,#a9b8c3,#f2e8dc)"></div>
+        <div class="bg-opt" style="background:linear-gradient(135deg,#0B7967,#4B3BE8)"></div>
+        <div class="bg-opt" style="background:linear-gradient(135deg,#B23A27,#9E5F27)"></div>
+        <div class="bg-opt" style="background:linear-gradient(135deg,#17171A,#5F5F67)"></div>
+        <div class="bg-opt upload-slot"><svg viewBox="0 0 24 24" style="width:18px"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <span class="hint">选预设渐变，或上传自己的图片（建议 1600×640px）</span>
+    </div>
+    <div class="field">
+      <label>「观看介绍」按钮</label>
+      <div class="row">
+        <div class="field"><input type="text" placeholder="按钮文案（留空则不显示）" value=""></div>
+        <div class="field"><input type="text" placeholder="视频 / 页面链接"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><svg viewBox="0 0 24 24" style="width:15px"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>快捷入口</h3>
+    <p class="desc">最多 4 个，拖拽调整顺序；关掉的入口不出现在成员首页，但功能本身不受影响（仍能从左侧导航访问）。</p>
+    <div class="quick-list">
+      <div class="quick-item"><span class="drag">⠿</span><i style="background:#FCE9E3;color:#C2410C">📄</i>
+        <div class="t"><b>创建</b><small>用 AI 写文档 / 演示文稿 / 报告</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+      <div class="quick-item"><span class="drag">⠿</span><i style="background:var(--accent);color:var(--accent-fg)">🗂</i>
+        <div class="t"><b>协作</b><small>Board · 项目 · 工作流</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+      <div class="quick-item"><span class="drag">⠿</span><i style="background:var(--ai-tint);color:var(--ai)">👥</i>
+        <div class="t"><b>与 Agent 协作</b><small>你的 AI 团队，随时待命</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+      <div class="quick-item"><span class="drag">⠿</span><i style="background:#FAF1E5;color:#9E5F27">📚</i>
+        <div class="t"><b>知识库</b><small>找到并复用组织沉淀</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+    </div>
+    <div class="add-quick"><svg viewBox="0 0 24 24" style="width:13px"><path d="M12 5v14M5 12h14"/></svg>添加自定义入口（链到项目 / Board / 外部链接）</div>
+  </div>
+
+  <div class="card">
+    <h3><svg viewBox="0 0 24 24" style="width:15px"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>信息板块</h3>
+    <p class="desc">右侧栏各板块的显示开关；关闭后该板块的数据仍在，只是首页不展示。</p>
+    <div class="toggle-row"><div><b>我的任务</b><small>个人待办，来自「任务」模块</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+    <div class="toggle-row"><div><b>组织公告</b><small>由组织后台单独维护，见下方入口</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+    <div class="toggle-row"><div><b>邀请团队卡片</b><small>成员配额未满时显示</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+    <div class="toggle-row"><div><b>最近内容 Tabs</b><small>项目 / Board / 文档 / 对话</small></div><span class="switch" aria-checked="true"><i></i></span></div>
+  </div>
+
+  <div class="savebar">
+    <span class="status"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>草稿已自动保存 · 尚未发布</span>
+    <span class="grow"></span>
+    <button class="btn ghost">恢复默认</button>
+    <button class="btn">仅自己预览</button>
+    <button class="btn pri">发布给全部成员</button>
+  </div>
+</div>
+
+<aside class="preview-col">
+  <div class="pv-top"><b>实时预览</b>
+    <div class="pv-seg"><button aria-selected="true">桌面</button><button>手机</button></div>
+  </div>
+  <div class="pv-frame-wrap">
+    <iframe class="pv-frame" src="home.html" style="height:1450px;border:0" title="首页预览"></iframe>
+  </div>
+  <div class="pv-note"><svg viewBox="0 0 24 24" style="width:12px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>预览即所得：这里改一处，左边的表单同步更新，反之亦然。</div>
+</aside>
+
+</div>
+</body>
+</html>
