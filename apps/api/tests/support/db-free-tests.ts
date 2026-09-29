@@ -14,7 +14,17 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-export const DB_FREE_TEST_PREFIXES = ["tests/work-eval/", "tests/work-content/"] as const;
+// Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
+// test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
+export const DB_FREE_TEST_PREFIXES = [
+  "tests/work-eval/eval-report-baseline.test.ts",
+  "tests/work-eval/eval-runner.test.ts",
+  "tests/work-eval/gates-counterproof.test.ts",
+  "tests/work-eval/gates-fixture.ts",
+  "tests/work-eval/gates-g0-g4.test.ts",
+  "tests/work-eval/s003-suite-shape.test.ts",
+  "tests/work-content/",
+] as const;
 
 /**
  * Journey e2e files under a DB-free prefix are DB-backed by definition (CT03/CT06/CT09 run the real
@@ -54,7 +64,7 @@ export function selectionIsDbFree(apiDir: string, argv: readonly string[] = proc
   if (filters.length === 0) return false;
   if (!filters.every(f => DB_FREE_TEST_PREFIXES.some(p => f.startsWith(p)) && !DB_BACKED_UNDER_FREE_PREFIX.test(f))) return false;
   for (const prefix of DB_FREE_TEST_PREFIXES) {
-    const files = walk(join(apiDir, prefix)).filter(f => f.endsWith(".ts"));
+    const files = (prefix.endsWith("/") ? walk(join(apiDir, prefix)) : [join(apiDir, prefix)]).filter(f => f.endsWith(".ts"));
     // A directory-style filter (e.g. `tests/work-content/`) also selects the DB-backed journeys under it.
     const dbBacked = files.filter(f => DB_BACKED_UNDER_FREE_PREFIX.test(f)).map(f => relative(apiDir, f).split(sep).join("/"));
     if (dbBacked.some(f => filters.some(q => f.startsWith(q)))) return false;

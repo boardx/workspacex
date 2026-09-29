@@ -1384,6 +1384,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // 2026-09-29 CT10 adds pg-board-run-source.ts (+1 -> 116): candidate Workflow runs for the
     // Board run-card read model; visibility is filtered one layer up by the WF03 canView predicate.
     // Pinned by tests/work-content/board-run-source-guard.test.ts. Remove this increment with that entry.
+    // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
+    // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
+    // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
+    // 2026-09-29 merge of main (EV04 at 891d15539, ceiling 115) into CT06 (ceiling 115): union =
+    // main's 114 + CT06 pg-skill-catalog-version-resolver.ts + EV04 pg-work-gate-status-repository.ts = 116.
     expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(116);
 
     const src = readFileSync(

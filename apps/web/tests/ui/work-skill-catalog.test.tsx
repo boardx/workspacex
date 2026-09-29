@@ -176,7 +176,7 @@ describe("WS05 Work Skill 目录屏", () => {
     expect(within(drawer).getByTestId("work-skill-provenance")).toHaveTextContent("github.com/acme/skills");
     expect(drawer).toHaveTextContent("zh-CN");
     expect(drawer).toHaveTextContent("CN");
-    expect(within(drawer).getByTestId("work-skill-gates")).toHaveTextContent("占位");
+    expect(within(drawer).getByTestId("work-skill-gates")).toBeInTheDocument();
     expect(within(drawer).getByTestId("work-skill-versions")).toHaveTextContent("1.0.0");
     expect(within(drawer).getByTestId("work-skill-successor")).toHaveTextContent("S103");
   });

@@ -8,7 +8,13 @@
  * 纯函数、无 IO。
  */
 import { createHash } from "node:crypto";
-import { PrdArtifact } from "@repo/contracts/work-content";
+import {
+  PrdArtifact,
+  PrdDraftStageOutput,
+  PrdFrameStageOutput,
+  PrdKpiStageOutput,
+  PrdPriorityStageOutput,
+} from "@repo/contracts/work-content";
 import { z } from "zod";
 
 export type PrdArtifactT = z.infer<typeof PrdArtifact>;
@@ -57,11 +63,6 @@ export function assemblePrdArtifact(outputs: PrdStageOutputs): PrdArtifactT {
   return parsed.data;
 }
 
-/** 各 Skill 阶段产出（stage content 的 `output` 字段）的最小形状；不符即装配失败，不猜。 */
-const FrameOut = z.object({ problemStatement: z.string().min(1), evidenceRefs: z.array(z.string().min(1)), confidence: z.enum(["low", "medium", "high"]) });
-const PriorityOut = z.object({ ranking: z.array(z.object({ id: z.string().min(1), priority: z.string().min(1) })) });
-const PrdOut = z.object({ title: z.string().min(1), requirements: z.array(z.object({ id: z.string().min(1), text: z.string().min(1) })) });
-const KpiOut = z.object({ kpis: z.array(z.object({ name: z.string().min(1), definition: z.string().min(1) })) });
 
 function pick<T>(schema: z.ZodType<T>, value: unknown, field: string): T {
   const r = schema.safeParse(value);
@@ -74,9 +75,9 @@ function pick<T>(schema: z.ZodType<T>, value: unknown, field: string): T {
  * （revise 缺席时退回 draft，§5 阶段 12「diff 越界 → revised(=草稿版)」），指标 = kpi(S162)。
  */
 export function prdStageOutputsFrom(skillOutputs: Readonly<Record<string, unknown>>): PrdStageOutputs {
-  const frame = pick(FrameOut, skillOutputs.frame, "frame");
-  const priorities = pick(PriorityOut, skillOutputs.prioritize, "prioritize").ranking;
-  const prd = pick(PrdOut, skillOutputs.revise ?? skillOutputs.draft, "revise");
-  const metrics = pick(KpiOut, skillOutputs.kpi, "kpi").kpis;
+  const frame = pick(PrdFrameStageOutput, skillOutputs.frame, "frame");
+  const priorities = pick(PrdPriorityStageOutput, skillOutputs.prioritize, "prioritize").ranking;
+  const prd = pick(PrdDraftStageOutput, skillOutputs.revise ?? skillOutputs.draft, "revise");
+  const metrics = pick(PrdKpiStageOutput, skillOutputs.kpi, "kpi").kpis;
   return { frame, priorities, prd, metrics };
 }

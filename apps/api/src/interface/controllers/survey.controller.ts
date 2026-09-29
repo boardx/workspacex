@@ -245,6 +245,13 @@ export class SurveyController {
       this.service.close(p.orgId, p.userId, id, input.expectedVersion),
     );
   }
+  @Post("/:id/republish") republish(
+    @CurrentPrincipal() p: Principal, @Param("id") id: string, @Body() body: unknown,
+  ) {
+    assertPrincipal(p);
+    const input = parse(SurveyPublishInputSchema, body);
+    return run(() => this.service.republish(p.orgId, p.userId, id, input.expectedVersion, input.expiresAt));
+  }
   @Patch("/:id/responses/:responseId") review(
     @CurrentPrincipal() p: Principal,
     @Param("id") id: string,

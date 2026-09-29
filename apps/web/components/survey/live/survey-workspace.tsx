@@ -89,6 +89,7 @@ export function LiveSurveyWorkspace({
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
+  const [selectedBatchId, setSelectedBatchId] = React.useState<string | null>(null);
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
   const [publicationMarkdown,setPublicationMarkdown]=React.useState('# 发布与回收\n');
@@ -99,6 +100,7 @@ export function LiveSurveyWorkspace({
   const lock = React.useRef(false);
   const accept = React.useCallback((value: SurveyRuntime) => {
     setRuntime(value);
+    setSelectedBatchId(value.activeCollectionBatchId ?? value.collectionBatches?.at(-1)?.id ?? null);
     setConflicted(false);
     setRemoteVersion(null);
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
@@ -233,10 +235,20 @@ export function LiveSurveyWorkspace({
       if (dirty && !window.confirm("刷新将放弃未保存的修改，继续吗？")) return;
       accept(await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema));
     });
-  const link =
-    runtime?.publication && typeof window !== "undefined"
-      ? `${window.location.origin}/surveys/${encodeURIComponent(runtime.publication.token)}`
-      : "";
+  const collectionBatches = runtime?.collectionBatches ?? [];
+  const activeBatchId = runtime?.activeCollectionBatchId ?? collectionBatches.at(-1)?.id ?? null;
+  const selectedBatch = collectionBatches.find((batch) => batch.id === selectedBatchId) ??
+    collectionBatches.find((batch) => batch.id === activeBatchId) ?? null;
+  const selectedPublication = selectedBatch ?? runtime?.publication ?? null;
+  const selectedIsActive = !selectedBatch || selectedBatch.id === activeBatchId;
+  const selectedResponseCount = runtime?.responses.filter((response) =>
+    !selectedBatch ||
+    response.collectionBatchId === selectedBatch.id ||
+    (collectionBatches.length <= 1 && response.collectionBatchId === undefined),
+  ).length ?? 0;
+  const link = selectedPublication && typeof window !== "undefined"
+    ? `${window.location.origin}/surveys/${encodeURIComponent(selectedPublication.token)}`
+    : "";
   const compiled = React.useMemo(() => {
     if (!draft) return null;
     const valid = survey.SurveyReportTemplateSchema.safeParse(draft.template);
@@ -271,8 +283,8 @@ export function LiveSurveyWorkspace({
     window.addEventListener("popstate", restoreStep);
     return () => window.removeEventListener("popstate", restoreStep);
   }, [surveyId]);
-  const collectionExpired = !!runtime?.publication && new Date(runtime.publication.expiresAt).getTime() <= Date.now();
-  const collectionLabel = runtime?.publication?.status === "closed"
+  const collectionExpired = !!selectedPublication && new Date(selectedPublication.expiresAt).getTime() <= Date.now();
+  const collectionLabel = selectedPublication?.status === "closed"
     ? "已停止回收"
     : collectionExpired ? "已到截止时间" : "正在回收";
   const selectStep = (next: string, targetQuestionId?: string) => {
@@ -457,16 +469,17 @@ export function LiveSurveyWorkspace({
             />
           </>)}
           {step === "publish" && (
-            <section className="mx-auto max-w-7xl space-y-5 p-5">
+            <section className="mx-auto max-w-screen-2xl space-y-5 p-5 sm:p-7 lg:p-10">
               <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">检查问卷、设置回收方式，发布后分享链接并查看真实答卷。</p></div>
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
               <div className="space-y-5">
               <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
-                <p className="text-12 font-medium text-muted-foreground">{runtime?.publication ? "问卷回收状态" : "发布准备"}</p>
-                <h2 className="mt-3 text-24 font-semibold">{runtime?.publication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
-                <p className="mt-2 text-13 text-muted-foreground">{runtime?.publication ? collectionExpired || runtime.publication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
-                {runtime?.publication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{runtime.publication.version}</p>}
-                {runtime?.publication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {runtime.responses.length} 份答卷</p>}
+                <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "发布准备"}</p>
+                <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
+                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
+                {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{selectedPublication.version}</p>}
+                {selectedPublication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {selectedResponseCount} 份答卷</p>}
+                {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
               </section>
               {runtime?.status === "draft" ? (
                 <>
@@ -545,13 +558,13 @@ export function LiveSurveyWorkspace({
                     </Button>
                   </div>
                 </section>
-              ) : runtime?.publication ? (
+              ) : runtime && selectedPublication ? (
                 <>
-                  <CollectionOverview runtime={runtime} />
+                  <CollectionOverview runtime={runtime} batchId={selectedBatch?.id} />
                   <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-5">
                     <div>
                       <h2 className="text-16 font-semibold">分享问卷</h2>
-                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。截止 {new Date(runtime.publication.expiresAt).toLocaleString("zh-CN")}。</p>
+                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。截止 {new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}。</p>
                     </div>
                     <Input aria-label="答题链接" readOnly value={link} />
                     <div className="flex flex-wrap items-center gap-4">
@@ -579,7 +592,7 @@ export function LiveSurveyWorkspace({
                       </div>
                     </div>
                   </section>
-                  {runtime.publication.status === "collecting" && (
+                  {selectedIsActive && selectedPublication.status === "collecting" && (
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -594,6 +607,11 @@ export function LiveSurveyWorkspace({
                         停止回收
                       </Button>
                     )}
+                  {selectedIsActive && selectedPublication.status === "closed" && (
+                    <Button onClick={() => void execute(() => command("republish"))}>
+                      再次发布
+                    </Button>
+                  )}
                 </>
               ) : (
                 <p className="text-12 text-muted-foreground">正在同步发布状态，请刷新后重试。</p>
@@ -619,9 +637,17 @@ export function LiveSurveyWorkspace({
                   </label>
                   <p className="mt-2 text-12 text-muted-foreground">关闭后可收集填写者信息；发布后不可更改。</p>
                 </section>}
-                <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
-                {runtime?.publication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">截止时间：{new Date(runtime.publication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
-                {runtime?.publication && <RecentCollectionActivity runtime={runtime} />}
+                <SurveyCollectionSettingsEditor markdown={selectedPublication?.sourceSnapshot?.documents.publication.markdown ?? publicationMarkdown} locked={busy || !!selectedPublication} onChange={setPublicationMarkdown}/>
+                {collectionBatches.length > 1 && (
+                  <label className="block rounded-lg border border-border bg-card p-5 text-13">
+                    回收批次
+                    <select aria-label="回收批次" className="mt-3 h-9 w-full rounded-md border border-border bg-background px-3" value={selectedBatch?.id ?? activeBatchId ?? ""} onChange={(event) => setSelectedBatchId(event.target.value)}>
+                      {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {batch.status === "collecting" ? "正在回收" : "已停止回收"} · {new Date(batch.createdAt).toLocaleString("zh-CN")}</option>)}
+                    </select>
+                  </label>
+                )}
+                {selectedPublication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+                {runtime && selectedPublication && <RecentCollectionActivity runtime={runtime} batchId={selectedBatch?.id} />}
               </aside>
               </div>
             </section>
