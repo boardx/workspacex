@@ -38,6 +38,7 @@ const REPORT_DECISION_SIGNALS = [/决策影响(?:[：:]|[。.]|$)/mu, /(?:优先
 // “the answers differ”. Requiring line-start structure prevents transcript-like
 // reports from passing solely because they contain a generic “反例/边界” mention.
 const REPORT_BOUNDARY_SIGNALS = [
+  /边界与反例(?:[：:。.]|$)/u,
   /^\s*(?:边界(?:与反例)?|反例|反对证据|相反证据|负面案例)(?:[：:。.]|$)/mu,
   /^\s*(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)(?:[：:。.]|$)/mu,
   /(?:置信度|适用范围|样本边界|仍待验证|尚待验证)(?:为|是|需|仍)/u,
