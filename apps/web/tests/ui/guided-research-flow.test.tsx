@@ -160,6 +160,17 @@ describe("guided research session routing and lifecycle", () => {
     expect(await screen.findByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
     await waitFor(() => expect(screen.queryByRole("button", { name: "继续重试" })).not.toBeInTheDocument());
   });
+  it("offers the same continue action when a running search lease expired", async () => {
+    const state = runtimeFixture("research");
+    state.tasks[0]!.status = "running";
+    state.leaseUntil = "2020-01-01T00:00:00.000Z";
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("research"), version: 5 });
+    render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("上次执行已中断");
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
+  });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
