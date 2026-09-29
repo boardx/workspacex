@@ -67,7 +67,7 @@ describe("我的今天：一个项目都没有时", () => {
   });
 
   it("有项目时不画这一段——那时候该看到的是分区", async () => {
-    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", tags: [] }]);
+    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", kind: "workshop", tags: [] }]);
     getMyToday.mockResolvedValue(EMPTY_TODAY);
     render(<TodayBoardLive />);
     await waitFor(() => expect(getMyToday).toHaveBeenCalled());
@@ -75,7 +75,7 @@ describe("我的今天：一个项目都没有时", () => {
   });
 
   it("**「没有项目」与「有项目但没任务」要分开说**", async () => {
-    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", tags: [] }]);
+    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", kind: "workshop", tags: [] }]);
     getMyToday.mockResolvedValue(EMPTY_TODAY);
     render(<TodayBoardLive />);
     // 有项目没任务时走的是分区自己的「没有等你的事」——两种空态说的不是一件事，
