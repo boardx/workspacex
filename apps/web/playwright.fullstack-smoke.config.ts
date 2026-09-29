@@ -702,6 +702,10 @@ export default defineConfig({
         // `SANDBOX_UNAVAILABLE`，试跑执行链在「生成脚本」之后的沙箱这一步打不通。
         // 逐字同一条纪律见上面 `KERNEL_DEEP_AGENT_BASE_URL` 那条注释。
         KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
+        // 仓库自带的 starter pack（work-product / work-research / work-sales …）。API 在非生产下
+        // 也会默认到这里（`resolveSkillStarterPackRoot`），显式下发是为了让本地栈的配置可读、
+        // 不依赖 NODE_ENV——漏配时 `/admin/skills/starter-pack-imports` 恒 404。
+        SKILL_STARTER_PACK_ROOT: path.resolve(__dirname, "../../skills/starter-packs"),
         PORT: apiPort,
       },
     },

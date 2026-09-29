@@ -73,7 +73,8 @@ describe("WS03 GET /skills/catalog", () => {
     expect(body.items[0]).toEqual({
       skillId: ids.research, name: "Research brief", stableId: "S003", domain: "Shared", channel: "candidate",
       riskClass: "low", currentVersionId: ids.researchV1, currentVersionLabel: "1.0.0",
-      readiness: { overall: "unknown", missingRequired: null }, successorSkillId: null,
+      // UC-3：每行就绪性摘要按本组织授权快照计算（此前恒为 unknown）；本组织没有任何工具授权 ⇒ 缺 1 项。
+      readiness: { overall: "not_ready", missingRequired: 1 }, successorSkillId: null,
     });
     expect(body.items[2]).toMatchObject({ stableId: "S005", riskClass: "high" });
   });

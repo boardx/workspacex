@@ -256,8 +256,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           {!busy && !error && items.length === 0 && (
             <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border py-16 text-center">
               <h2 className="text-18 font-semibold">还没有问卷</h2>
-              <p className="text-14 text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p>
-              <Button onClick={() => setCreating(true)}>新建问卷</Button>
+              <p className="text-14 text-muted-foreground">使用右上角“新建问卷”，或先从问卷模板中选择合适的结构。</p>
             </div>
           )}
         </section>

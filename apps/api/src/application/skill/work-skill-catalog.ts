@@ -3,8 +3,8 @@
  * listWorkSkillCatalog / getWorkSkillCatalogEntry / updateWorkSkillCatalogEntry；R3.5–R3.10，E3/E4/E9，R5）。
  *
  * 权限：读 = 本组织成员（RLS 按 org_id；非成员 / 跨组织 / 不存在一律 NotFound）；写 = 本组织管理员，
- * 鉴权**先于**任何仓储调用（E9）。就绪性由 WS04 计算；本用例在列表/详情里返回 `unknown` 摘要
- * （I-11：未知 ≠ 就绪，不得伪造 ready）。
+ * 鉴权**先于**任何仓储调用（E9）。列表/详情的就绪性摘要按 WS04 同一纯函数计算（UC-3「每行附就绪性
+ * 摘要，批量计算，禁止 N+1」：整页只读一次授权快照）；授权读取失败 → `unknown`（I-11：未知 ≠ 就绪）。
  */
 import type {
   WorkSkillCatalogDetail,
@@ -14,6 +14,9 @@ import type {
 } from "@repo/contracts/work-skill-meta";
 import type { IdentityRepository } from "../identity/ports";
 import type { OrgId } from "../../domain/org-id";
+import { isRegisteredCapabilityCategory } from "../../domain/skill/capability-category-registry";
+import { computeSkillReadiness, type ToolGrantSnapshot } from "../../domain/skill/work-skill-readiness";
+import type { ToolGrantReader } from "./work-skill-readiness";
 import {
   decideCatalogEntryChange,
   type CatalogChangeDecision,
@@ -39,6 +42,8 @@ export type CatalogDetail = CatalogItem &
   };
 
 export type CatalogRow = Omit<CatalogItem, "readiness">;
+/** 列表行 + 当前版本依赖（只供就绪性摘要计算，不进响应）。 */
+export type CatalogListRow = CatalogRow & { readonly dependencies: WorkSkillManifest["dependencies"] };
 
 export interface CatalogListQuery {
   readonly domain?: string;
@@ -63,7 +68,7 @@ export type CatalogUpdateOutcome =
   | Exclude<CatalogChangeDecision, { readonly kind: "ok" }>;
 
 export interface WorkSkillCatalogRepository {
-  list(orgId: OrgId, query: CatalogListQuery): Promise<readonly CatalogRow[]>;
+  list(orgId: OrgId, query: CatalogListQuery): Promise<readonly CatalogListRow[]>;
   /** versionId 给定时 manifest 取该版本（A2）；版本不属于该 skill → null */
   get(orgId: OrgId, skillId: string, versionId?: string): Promise<CatalogDetailRow | null>;
   /**
@@ -89,6 +94,8 @@ export interface WorkSkillCatalogRepository {
 export interface WorkSkillCatalogDeps {
   readonly identities: IdentityRepository;
   readonly catalog: WorkSkillCatalogRepository;
+  /** 就绪性摘要的授权快照来源；缺省（如写路径）→ 摘要为 unknown。 */
+  readonly grants?: ToolGrantReader;
 }
 
 export class WorkSkillCatalogNotFoundError extends Error {}
@@ -111,8 +118,27 @@ export class WorkSkillSuccessorInvalidError extends Error {
   }
 }
 
-/** 就绪性由 WS04 计算；此处不伪造 ready（I-11）。 */
+/** 没有授权快照可用时的摘要：不伪造 ready（I-11）。 */
 const READINESS_NOT_COMPUTED = { overall: "unknown", missingRequired: null } as const;
+
+/** 整页只读一次授权快照（禁止 N+1）；读取失败 → { ok: false } ⇒ 各行 unknown（E5）。 */
+async function grantSnapshot(deps: WorkSkillCatalogDeps, orgId: OrgId): Promise<ToolGrantSnapshot | null> {
+  if (!deps.grants) return null;
+  try {
+    return { ok: true, grants: await deps.grants.listForOrg(orgId) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function readinessSummary(
+  dependencies: WorkSkillManifest["dependencies"],
+  snapshot: ToolGrantSnapshot | null,
+): CatalogItem["readiness"] {
+  if (snapshot === null) return READINESS_NOT_COMPUTED;
+  const r = computeSkillReadiness(dependencies, snapshot, isRegisteredCapabilityCategory);
+  return { overall: r.overall, missingRequired: r.missingRequired };
+}
 
 /** ADR-119 G0–G6 门状态占位（第 6 轮 eval runner 写回）。 */
 const GATE_PLACEHOLDERS = (["G0", "G1", "G2", "G3", "G4", "G5", "G6"] as const).map((gate) => ({
@@ -130,8 +156,9 @@ export async function listWorkSkillCatalog(
   if (!(await membershipOf(deps, input.actorId, input.orgId))) throw new WorkSkillCatalogNotFoundError();
   const rows = await deps.catalog.list(input.orgId, { ...input.query, limit: input.query.limit + 1 });
   const page = rows.slice(0, input.query.limit);
+  const snapshot = page.length > 0 ? await grantSnapshot(deps, input.orgId) : null;
   return {
-    items: page.map((row) => ({ ...row, readiness: READINESS_NOT_COMPUTED })),
+    items: page.map(({ dependencies, ...row }) => ({ ...row, readiness: readinessSummary(dependencies, snapshot) })),
     nextOffset: rows.length > input.query.limit ? input.query.offset + input.query.limit : null,
   };
 }
@@ -146,7 +173,7 @@ export async function getWorkSkillCatalogEntry(
   if (!row) throw new WorkSkillCatalogNotFoundError();
   return {
     ...row,
-    readiness: READINESS_NOT_COMPUTED,
+    readiness: readinessSummary(row.manifest.dependencies, await grantSnapshot(deps, input.orgId)),
     gates: GATE_PLACEHOLDERS,
     canManageChannel: membership.orgRole === "admin",
   };

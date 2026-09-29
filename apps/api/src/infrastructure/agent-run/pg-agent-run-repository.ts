@@ -388,6 +388,29 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /** AG05 —— 见 `AgentRunStore.readRunWorkflowContext`。钉住版本的白名单 + 请求人（同 findRequesterUserId 的 join）。 */
+  async readRunWorkflowContext(orgId: OrgId, runId: string): Promise<{
+    agentId: string; agentVersionId: string; workflowAllowlist: string[]; requesterUserId: string | null;
+  } | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ agent_id: string; agent_version_id: string; workflow_allowlist: string[] | null; author_id: string | null }>(
+        `SELECT r.agent_id, r.agent_version_id, v.workflow_allowlist, m.author_id
+           FROM agent_runs r
+           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id AND v.agent_id=r.agent_id
+           LEFT JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
+                AND m.author_kind='human' AND m.thread_id=r.thread_id
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        agentId: row.agent_id, agentVersionId: row.agent_version_id,
+        workflowAllowlist: [...(row.workflow_allowlist ?? [])], requesterUserId: row.author_id ?? null,
+      };
+    });
+  }
+
   async readToolCallAttributionSteps(
     orgId: OrgId, runId: string,
   ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]> {
@@ -641,6 +664,29 @@ export class PgAgentRunRepository implements AgentRunStore {
         [orgId, runId, pending.toolName, pending.argsSummary,
           pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null,
           pending.toolCallId ?? null, pending.toolArgsDigest ?? null],
+      );
+      return updated.rows.length > 0;
+    });
+  }
+
+  /** AG05 —— 见 `AgentRunStore.requeueToolCallWithResult`（迁移 `20260929140000_ag05_tool_result_requeue.sql`
+   *  为这条 running → queued(edit) 边补上的状态机许可）。与 `requeueAuthorizedToolCall` 同一组 pending_* 列。 */
+  async requeueToolCallWithResult(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+    editedArgsJson: string,
+  ): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='edit', pending_edited_args=$8, pending_tool_name=$3, pending_args_summary=$4,
+                pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb,
+                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL
+          WHERE org_id=$1 AND id=$2 AND status='running'
+          RETURNING id`,
+        [orgId, runId, pending.toolName, pending.argsSummary,
+          pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null,
+          pending.toolCallId ?? null, pending.toolArgsDigest ?? null, editedArgsJson],
       );
       return updated.rows.length > 0;
     });

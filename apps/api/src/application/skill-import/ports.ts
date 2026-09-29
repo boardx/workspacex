@@ -3,6 +3,7 @@ import type { wave2Runtime } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { SkillStarterPack } from "../../domain/skill/starter-pack";
 import type { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
+import type { WorkGateStatus } from "@repo/contracts/work-eval";
 
 export type SkillStarterImportResult = z.infer<typeof wave2Runtime.SkillStarterImportResult>;
 
@@ -53,6 +54,11 @@ export interface SkillStarterImportRepository {
      * `skill_catalog_entries`（新行 channel=candidate；已有行只刷新检索字段，不回退通道）。
      */
     readonly workManifests?: ReadonlyMap<string, WorkSkillManifest>;
+    /**
+     * 导入时由门脚本同一判定函数算出的 `WorkGateStatus`（按 stableName 索引，见 `StarterPackGateJudge`）。
+     * 同一事务写入 `skill_gate_records`，但**只补不盖**：该版本已有记录（平台运营回写的完整评测）则保持原样。
+     */
+    readonly gateStatuses?: ReadonlyMap<string, WorkGateStatus>;
   }): Promise<PersistVerifiedImportOutcome>;
 
   /**
@@ -85,3 +91,40 @@ export interface SkillStarterImportRepository {
 }
 
 export const SKILL_STARTER_IMPORT_REPOSITORY = Symbol("SkillStarterImportRepository");
+
+/**
+ * 导入时的门判定（契约束 work-eval：门状态只来自门脚本产出的 `WorkGateStatus`，I-9）。
+ *
+ * 实现复用 `lint-work-stack-gates` 的**同一个**判定函数 `judgeWorkStackGates`，被测版本 digest 取本次
+ * 导入落库的版本（`sha256:` + `skill_versions.content_digest`），因此结果与目录里的版本一一对应。
+ * 能在导入时确定的门（G0 身份 / G1 溯源许可 / G2 schema / G3 依赖登记与套件覆盖）如实判；G4/G5 需要该
+ * 版本的 loopback 报告，导入时不存在 ⇒ 按 I-4「无报告/无套件 = fail」如实判 fail，不默认通过。
+ * 判不了（运行环境里没有仓库的实体清单/包源）⇒ 该 skill 不在返回表里，目录如实显示「未评测」。
+ */
+export interface StarterPackGateJudge {
+  judge(input: {
+    readonly packId: string;
+    readonly skills: readonly {
+      readonly stableName: string;
+      readonly work: WorkSkillManifest;
+      /** `sha256:<hex>`，与 `skill_versions.content_digest` 同口径 */
+      readonly versionDigest: string;
+    }[];
+  }): ReadonlyMap<string, WorkGateStatus>;
+}
+
+export const STARTER_PACK_GATE_JUDGE = Symbol("StarterPackGateJudge");
+
+/**
+ * 导入成功之后的后续动作：把**因本次导入而变得可发布**的内置 Workflow Definition 发布进本组织。
+ *
+ * 内置 Definition（problem-to-prd、research-to-insight …）的 Skill 引用只能解析到本组织目录；dev-mode 种子
+ * 在任何 starter pack 导入**之前**就跑了发布，于是新环境里绝大多数内置 Workflow 永远停在未发布。导入是
+ * 目录里 Skill 出现的唯一入口，所以在导入之后补发布——同一个 UC-WR-1 发布校验，以导入的管理员身份。
+ * 失败不影响导入结果（导入已提交；发布可由种子脚本重跑补上）。
+ */
+export interface StarterPackImportFollowUp {
+  afterImport(input: { readonly orgId: OrgId; readonly actorId: string }): Promise<void>;
+}
+
+export const STARTER_PACK_IMPORT_FOLLOW_UP = Symbol("StarterPackImportFollowUp");

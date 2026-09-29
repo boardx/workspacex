@@ -240,8 +240,12 @@ import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-fl
 import {
   SKILL_STARTER_IMPORT_REPOSITORY,
   SKILL_STARTER_PACK_SOURCE,
+  STARTER_PACK_GATE_JUDGE,
+  STARTER_PACK_IMPORT_FOLLOW_UP,
 } from "./application/skill-import/ports";
-import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { FileSkillStarterPackSource, resolveSkillStarterPackRoot } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { FsStarterPackGateJudge } from "./infrastructure/work-eval/fs-starter-pack-gate-judge";
+import { PublishBuiltInWorkflowsAfterImport } from "./infrastructure/workflow/publish-built-ins-after-import";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
 import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
@@ -1519,11 +1523,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // configures the verified pack source, while an unset source resolves no packs.
     {
       provide: SKILL_STARTER_PACK_SOURCE,
-      useFactory: () => new FileSkillStarterPackSource(process.env.SKILL_STARTER_PACK_ROOT),
+      useFactory: () => new FileSkillStarterPackSource(resolveSkillStarterPackRoot()),
     },
     {
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // EV04 × WS02：导入时用门脚本同一判定函数写入确定性门状态（仓库不在运行环境里则不判）。
+    { provide: STARTER_PACK_GATE_JUDGE, useFactory: () => new FsStarterPackGateJudge() },
+    // 导入之后发布变得可发布的内置 Workflow Definition（dev-mode 种子先于导入运行，否则它们永远未发布）。
+    {
+      provide: STARTER_PACK_IMPORT_FOLLOW_UP,
+      useFactory: (db: DatabasePort) => new PublishBuiltInWorkflowsAfterImport(db),
       inject: [DATABASE_PORT],
     },
     // Phase 20 WS03：Work Skill 目录读写（列表/搜索/详情 + 通道/后继 + 审计）。
@@ -2233,6 +2245,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         carryOver: InterjectionCarryOverDelivery,
         firstValue: FirstValueRecorder,
         embeddings: EmbeddingPort | null,
+        workflows: WorkflowRuntimeService,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2287,13 +2300,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           { citations: new PgChatRepository(db), firstValue },
           // #4361：「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代——同抽取任务用的三个端口（执行器 / 取代 / 自动记入）。
           { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
+          // AG05：Agent 经 `start_workflow` 发起 Workflow 走的就是 WF03 的同一个运行时单例（start 准入全在 runStartCore）。
+          workflows,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，

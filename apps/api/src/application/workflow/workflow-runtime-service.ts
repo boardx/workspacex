@@ -26,6 +26,7 @@ import { publishDefinitionVersion } from "./publish-definition-version";
 import { runInstance, type RunHooks, type WorkflowGraphDriver } from "./run-instance";
 import type { WorkflowDefinitionCatalogPort, WorkflowGraphCatalog, WorkflowLease } from "./workflow-ports";
 import { WorkflowUseCaseError } from "./workflow-errors";
+import { withoutRunLease } from "../agent-run/run-lease";
 import type { WorkflowExpiredLeaseScanner, WorkflowInstanceQueryPort, WorkflowStageOutputStore } from "./workflow-runtime-ports";
 
 export const WORKFLOW_RUNTIME_SERVICE = Symbol("WORKFLOW_RUNTIME_SERVICE");
@@ -157,7 +158,9 @@ export class WorkflowRuntimeService {
 
   /** 在本进程后台推进实例；错误交给 onRunError（lease 不释放，过期后可被接管）。 */
   dispatch(lease: WorkflowLease): void {
-    const p = runInstance(this.deps, lease).catch((e: unknown) => this.deps.onRunError?.(lease.instanceId, e));
+    // AG05：Agent 在 run 内经 start_workflow 发起时，dispatch 发生在该 agent run 的租约上下文里；实例推进是
+    // 独立的后台工作，不能被那个 run 的租约围栏（run 结束即 agent_run_lease_lost）。
+    const p = withoutRunLease(() => runInstance(this.deps, lease)).catch((e: unknown) => this.deps.onRunError?.(lease.instanceId, e));
     this.running.add(p);
     void p.finally(() => this.running.delete(p));
   }

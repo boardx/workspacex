@@ -528,9 +528,30 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
             "请按你自己的职责边界判断：职责内的继续执行，职责外的向用户说明并停止。"
         )
 
+    @tool
+    def start_workflow(
+        workflowId: str | None = None,
+        input: dict | str | None = None,  # noqa: A002 -- 与 WF03 startInstance 的 `input` 字段同名
+        outcome: dict | None = None,
+    ) -> str:
+        """当用户的请求需要走一个本组织已发布的标准流程（Workflow，编号形如 W029）时，调用这个工具
+        发起它。`workflowId` 是流程编号；`input` 是流程需要的输入字段（对象）。你只能发起本 Agent
+        白名单里的流程——不在白名单里会被拒绝，此时不要改走其它流程，把工具返回的那句话原样告诉用户。
+        不要填写 `outcome`，它由系统回填。"""
+        # AG05 —— 网关（`apps/api/.../workflow-start-gate.ts`）在本工具执行前中断，服务端按 run 钉住的
+        # workflowAllowlist 判定并经 WF03 start 执行，然后以 edit resume 带回 `outcome`：
+        # {status: started|refused, message, ...}。`message` 是聊天可见的中文句子（不含错误码）。
+        if isinstance(outcome, dict) and isinstance(outcome.get("message"), str):
+            message = outcome["message"]
+            if outcome.get("status") == "started":
+                return f"{message} 不要重复发起同一个流程；把实例已发起这件事告诉用户即可。"
+            return f"{message} 不要改走其它流程，也不要重试；请把这句话原样告诉用户。"
+        # 没有 outcome：网关没有给出结果（例如恢复路径被人工放行），如实说明未发起。
+        return "流程未发起：没有收到系统的发起结果，未创建任何实例。不要重试，也不要改走其它流程。"
+
     # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.
     if interactions_only:
-        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter]
+        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter, start_workflow]
 
     @tool
     def spawn_async_task(description: str, config: RunnableConfig,
@@ -613,5 +634,6 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         fill_run_params,
         choose_execution_option,
         escalate_matter,
+        start_workflow,
         spawn_async_task,
     ]

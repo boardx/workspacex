@@ -12,6 +12,7 @@ import { pathToFileURL } from "node:url";
 import { WorkEvalCliExit, validateWorkEvalSuiteBundle, type WorkEvalReport } from "@repo/contracts/work-eval";
 import { formatSummary, reportFailed, runLoopbackEval, type EvalGrader } from "../../application/work-eval/eval-runner";
 import { scanFixtureForPersonalData } from "../../application/work-eval/fixture-privacy";
+import { workSkillSourceContentDigest } from "../../domain/skill/work-skill-content-digest";
 import { genericAgentBaselineLoopback, LOOPBACK_SUBJECTS } from "../../application/work-eval/loopback-agents";
 
 export const EXIT = Object.fromEntries(WorkEvalCliExit.options.map((k, i) => [k, i])) as Record<(typeof WorkEvalCliExit.options)[number], number>;
@@ -82,7 +83,11 @@ export function skillPackageVersion(skillMd: string): { digest: string; label: s
   const files = walk(dir).sort();
   const fm = /^---\n([\s\S]*?)\n---/.exec(readFileSync(skillMd, "utf8"))?.[1] ?? "";
   const version = /^\s*version:\s*["']?([\w.+-]+)/m.exec(fm)?.[1] ?? "unversioned";
-  return { digest: sha256(files.flatMap(f => [relative(dir, f), "\0", readFileSync(f), "\0"])), label: `skill@${version}`.slice(0, 64) };
+  const label = `skill@${version}`.slice(0, 64);
+  // Work Skill 包：与导入后 `skill_versions.content_digest` 同一算法（EV04 回写按它核 digest）。
+  const imported = workSkillSourceContentDigest(files.map(f => ({ path: relative(dir, f).split(sep).join("/"), bytes: readFileSync(f) })));
+  if (imported !== null) return { digest: `sha256:${imported}`, label };
+  return { digest: sha256(files.flatMap(f => [relative(dir, f), "\0", readFileSync(f), "\0"])), label };
 }
 
 export function newRunId(stableId: string, now = new Date()): string {

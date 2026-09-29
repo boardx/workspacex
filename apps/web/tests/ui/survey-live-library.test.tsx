@@ -99,7 +99,7 @@ describe("LiveSurveyLibrary", () => {
     request.mockResolvedValueOnce([]);
     render(<LiveSurveyLibrary />);
     expect(await screen.findByRole("heading", { name: "还没有问卷" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
   });
   it("filters by real tags and keeps templates optional without status filters", async () => {
