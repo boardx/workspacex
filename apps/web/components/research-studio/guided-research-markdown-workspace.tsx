@@ -4,6 +4,7 @@ import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,7 +62,7 @@ export function GuidedResearchMarkdownWorkspace({
   return <Card data-testid="guided-research-markdown-workspace">
     <CardHeader className="flex-row items-center justify-between gap-3">
       <CardTitle className="text-16">{document.title}</CardTitle>
-      {!readOnly && !editing && !editOnDoubleClick && <Button variant="primary" size="sm" onClick={() => { setEditing(true); setSaved(false); }}>编辑 Markdown</Button>}
+      {!readOnly && !editing && <Button variant={editOnDoubleClick ? "outline" : "primary"} size="sm" aria-label={editOnDoubleClick ? "编辑研究计划" : "编辑 Markdown"} onClick={() => { setEditing(true); setSaved(false); }}><Pencil className="mr-1 size-3.5" aria-hidden />{editOnDoubleClick ? "编辑" : "编辑 Markdown"}</Button>}
     </CardHeader>
     <CardContent className="space-y-4">
       {saved && <p data-testid="guided-research-markdown-saved" role="status" className="text-12 text-success">Markdown 已保存</p>}
@@ -70,7 +71,7 @@ export function GuidedResearchMarkdownWorkspace({
         <Textarea aria-label={`${document.title} Markdown 编辑器`} data-testid="guided-research-markdown-editor" className="min-h-80 font-mono text-12" value={markdown} onChange={(event) => { setMarkdown(event.target.value); setSaved(false); }} disabled={pending} />
         {dirty && <p data-testid="guided-research-markdown-dirty" className="text-12 text-muted-foreground">存在未保存的 Markdown 修改</p>}
         <div className="flex justify-end gap-2"><Button variant="primary" disabled={pending} onClick={() => dirty && confirmChanges ? setConfirmAction("discard") : discard()}>取消</Button><Button variant="primary" disabled={!dirty || pending} onClick={() => confirmChanges ? setConfirmAction("save") : void save()}>{pending ? "保存中…" : "保存 Markdown"}</Button></div>
-      </> : <section data-testid="guided-research-markdown-preview" aria-label={`${document.title} Markdown 预览`} onDoubleClick={editOnDoubleClick && !readOnly ? () => { setEditing(true); setSaved(false); } : undefined} className={`chat-markdown min-w-0 break-words text-14 leading-7 ${editOnDoubleClick && !readOnly ? "cursor-text" : ""}`}>{preview ?? <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} skipHtml>{document.markdown}</ReactMarkdown>}</section>}
+      </> : <>{editOnDoubleClick && !readOnly && <p className="text-right text-12 text-muted-foreground">双击计划内容也可编辑</p>}<section data-testid="guided-research-markdown-preview" aria-label={`${document.title} Markdown 预览`} onDoubleClick={editOnDoubleClick && !readOnly ? () => { setEditing(true); setSaved(false); } : undefined} className={`chat-markdown min-w-0 break-words text-14 leading-7 ${editOnDoubleClick && !readOnly ? "cursor-text" : ""}`}>{preview ?? <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} skipHtml>{document.markdown}</ReactMarkdown>}</section></>}
       {provenance && <aside className="rounded-md border border-border bg-muted/30 p-3 text-12" aria-label="来源与证据元数据">{provenance}</aside>}
       <Dialog open={Boolean(confirmAction)} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}><DialogContent><DialogTitle>{confirmAction === "save" ? "确认修改研究计划" : "放弃研究计划修改？"}</DialogTitle><DialogDescription>{confirmAction === "save" ? "保存后需要重新确认研究计划，后续资料研究结果可能失效。" : "未保存的修改将丢失。"}</DialogDescription><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setConfirmAction(null)}>继续编辑</Button><Button variant="primary" onClick={() => { const action = confirmAction; setConfirmAction(null); if (action === "save") void save(); else discard(); }}>{confirmAction === "save" ? "确认保存" : "放弃修改"}</Button></div></DialogContent></Dialog>
     </CardContent>
