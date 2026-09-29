@@ -85,7 +85,7 @@ export class ProjectMemberAlreadyExistsError extends Error {
  */
 export class ProjectKindMismatchError extends Error {
   constructor() {
-    super("collaborators routes are for research_project / user_insight only; this container is a workshop (400 project_kind_mismatch, no reasonCode)");
+    super("collaborators routes are for general projects only; this container is a workshop (400 project_kind_mismatch, no reasonCode)");
     this.name = "ProjectKindMismatchError";
   }
 }

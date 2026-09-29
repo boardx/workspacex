@@ -3,9 +3,13 @@
  * interface 层（controller）只依赖本类（经 DI token），不 import infrastructure。
  */
 import type { WorkflowInstanceProjection } from "@repo/contracts/workflow-runtime";
+import { deliverScheduledWorkflowTrigger, type ScheduledTriggerJob } from "./deliver-scheduled-trigger";
+import { triggerWebhook, type TriggerWebhookCommand, type TriggerWebhookResponse } from "./trigger-webhook";
+import type { WorkflowTriggerStore } from "./workflow-trigger-ports";
 import type { EffectGateway } from "./effect-gateway";
 import { openEventStream, type WorkflowEventCursor } from "./event-stream";
 import { cancelInstance, resumeInstance, startInstance, type InstanceCommandDeps, type StartInstanceResponse, type StateResponse } from "./instance-commands";
+import { approveGate, denyGate, type GateDecisionResponse } from "./gate-commands";
 import { getInstanceProjection } from "./instance-projection";
 import { runInstance, type RunHooks, type WorkflowGraphDriver } from "./run-instance";
 import type { WorkflowLease } from "./workflow-ports";
@@ -13,6 +17,9 @@ import { WorkflowUseCaseError } from "./workflow-errors";
 import type { WorkflowExpiredLeaseScanner, WorkflowStageOutputStore } from "./workflow-runtime-ports";
 
 export const WORKFLOW_RUNTIME_SERVICE = Symbol("WORKFLOW_RUNTIME_SERVICE");
+
+/** WF06：未接线 `triggers`（旧调用点/未涉及触发器的测试）时,webhook/定时唤醒一律「触发器不存在」。 */
+const NO_TRIGGERS: WorkflowTriggerStore = { find: async () => null };
 
 export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "dispatcher"> {
   outputs: WorkflowStageOutputStore;
@@ -25,18 +32,34 @@ export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "d
   expiredLeases?: WorkflowExpiredLeaseScanner;
   /** WF04（review #2）：透传给 `runInstance`，让崩溃恢复路径能对 `EffectInFlightError` 做 reconcile()。 */
   effectGateway?: EffectGateway;
+  /** WF06：webhook 触发（UC-WR-13）与 pg-boss 定时唤醒（UC-WR-I4）共用的触发器读端口；未提供时两者都「不存在」。 */
+  triggers?: WorkflowTriggerStore;
+  /** WF06 webhook：当前时间（秒），测试注入。 */
+  webhookNow?(): number;
 }
 
 export class WorkflowRuntimeService {
   private readonly running = new Set<Promise<unknown>>();
   private readonly commandDeps: InstanceCommandDeps;
+  private readonly triggers: WorkflowTriggerStore;
 
   constructor(private readonly deps: WorkflowRuntimeServiceDeps) {
     this.commandDeps = { ...deps, dispatcher: { dispatch: (lease) => this.dispatch(lease) } };
+    this.triggers = deps.triggers ?? NO_TRIGGERS;
   }
 
   start(orgId: string, userId: string, pathKey: string, body: unknown): Promise<StartInstanceResponse> {
     return startInstance(this.commandDeps, { orgId, userId, pathKey, body });
+  }
+
+  /** WF06 UC-WR-13：webhook 触发。签名/窗口失败或触发器不存在 → 抛 WorkflowUseCaseError,不建实例。 */
+  webhook(cmd: TriggerWebhookCommand): Promise<TriggerWebhookResponse> {
+    return triggerWebhook({ ...this.commandDeps, triggers: this.triggers, now: this.deps.webhookNow }, cmd);
+  }
+
+  /** WF06 UC-WR-I4：pg-boss `{kind:'workflow',triggerId}` 到期唤醒;非本函数认领的 payload / 触发器已不存在则安静跳过。 */
+  deliverScheduledTrigger(job: ScheduledTriggerJob): Promise<void> {
+    return deliverScheduledWorkflowTrigger({ ...this.commandDeps, triggers: this.triggers }, job);
   }
 
   cancel(orgId: string, userId: string, instanceId: string, body: unknown): Promise<StateResponse> {
@@ -45,6 +68,16 @@ export class WorkflowRuntimeService {
 
   resume(orgId: string, userId: string, instanceId: string, body: unknown): Promise<StateResponse> {
     return resumeInstance(this.commandDeps, { orgId, userId, instanceId, body });
+  }
+
+  /** WF05 UC-WR-11。 */
+  approveGate(orgId: string, userId: string, instanceId: string, gateId: string, body: unknown): Promise<GateDecisionResponse> {
+    return approveGate(this.commandDeps, { orgId, userId, instanceId, gateId, body });
+  }
+
+  /** WF05 UC-WR-12。 */
+  denyGate(orgId: string, userId: string, instanceId: string, gateId: string, body: unknown): Promise<GateDecisionResponse> {
+    return denyGate(this.commandDeps, { orgId, userId, instanceId, gateId, body });
   }
 
   get(orgId: string, userId: string, instanceId: string): Promise<WorkflowInstanceProjection> {

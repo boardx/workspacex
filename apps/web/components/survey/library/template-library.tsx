@@ -17,6 +17,7 @@ import { surveyRequest } from "@/lib/survey/runtime-client";
 
 import { getBuiltinSurveyTemplates } from "@/lib/survey/builtin-templates";
 import { BuiltinTemplateCards } from "./builtin-template-cards";
+import { SurveyLibraryNav } from "./survey-library-nav";
 
 type Kind = SurveyLibraryTemplate["kind"];
 export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
@@ -150,7 +151,10 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   );
   const builtins = getBuiltinSurveyTemplates(kind).filter(item => `${item.title} ${item.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-4 text-background-foreground sm:p-6">
+    <main className="mx-auto max-w-screen-2xl p-5 text-background-foreground sm:p-7 lg:p-10">
+      <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
+        <SurveyLibraryNav active={kind === "question" ? "modules" : "reports"} />
+        <section className="min-w-0 space-y-6" aria-label={`${label}列表`}>
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-11 text-muted-foreground">Studio / {label}</p>
@@ -302,6 +306,8 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
           </p>
         </div>
       )}
+        </section>
+      </div>
     </main>
   );
 }

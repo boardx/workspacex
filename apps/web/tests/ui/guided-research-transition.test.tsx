@@ -37,18 +37,19 @@ describe("confirm and generate the next research step", () => {
     expect(screen.getByTestId("research-flow-brief")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
   });
-  it("stays on the next step after a model failure and retries only generation", async () => {
+  it("stays on the topic step after a model failure without restoring removed direction controls", async () => {
     const before = runtimeFixture("brief"), after = { ...runtimeFixture("directions"), version: 5 };
     vi.mocked(getResearchRuntime).mockResolvedValue(before);
     vi.mocked(executeResearchRuntime).mockResolvedValueOnce({ ...after, version: 5, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" })
-      .mockResolvedValueOnce({ ...after, version: 7 });
+      .mockResolvedValueOnce({ ...runtimeFixture("outline"), version: 7 });
     render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
     await screen.findByRole("alert");
     expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
+    expect(screen.queryByRole("button", { name: "重新生成本步骤" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一步：研究计划" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(2));
-    expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ node: "directions", action: "generate", expectedVersion: 5 }));
+    expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 5 }));
   });
   it("does not start generation if the user switched sessions during confirmation", async () => {
     let confirm!: (state: GuidedResearchRuntime) => void;
@@ -107,7 +108,8 @@ it("restores the next step without a redundant conflict panel when there is no l
   await waitFor(() => expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument());
   expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
   expect(screen.queryByTestId("research-recovery")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "重新生成本步骤" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "重新生成本步骤" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeEnabled();
   expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
 });
 

@@ -99,7 +99,7 @@ describe("PgProjectEvidenceRepository（真实 PG）", () => {
     do {
       const page = await listProjectEvidence(deps, { ...asUser(OBSERVER), limit: 4, ...(cursor !== undefined ? { cursor } : {}) });
       seen.push(...page.items.map((x) => x.id));
-      expect(page.countsBySource).toEqual({ chat_message: 0, attachment: 0, survey_response: 5, interview_segment: 0, transcript_segment: 1, research_source: 0 });
+      expect(page.countsBySource).toEqual({ chat_message: 0, attachment: 0, survey_response: 5, interview_segment: 0, transcript_segment: 1, research_source: 0, whiteboard_note: 0 });
       cursor = page.nextCursor ?? undefined;
     } while (cursor !== undefined);
     expect(new Set(seen).size).toBe(6);

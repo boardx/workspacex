@@ -8,21 +8,26 @@ import { WhiteboardCollaborationError } from "../../application/whiteboard/colla
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { discloseDecided,guard,isDisclosed } from "../../application/security/permission-filter";
-import { decideWhiteboardAccess } from "../../domain/whiteboard/access-decision";
+import { decideWhiteboardAccess, unionWhiteboardRole } from "../../domain/whiteboard/access-decision";
+import { NO_PROJECT_WHITEBOARD_ACCESS, type WhiteboardProjectAccess } from "../../application/whiteboard/project-access";
 
 const canonical=(value:unknown):unknown=>Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,canonical(item)])):value;
 const hash=(value:unknown)=>createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
 function disclose<T>(boardId:string,role:C.Board['role'],action:"read"|"comment",payload:T):T {const result=discloseDecided(guard({kind:"whiteboard",id:boardId},payload),decideWhiteboardAccess({decisionId:`whiteboard:${boardId}:${action}`,role,action}));if(!isDisclosed(result))throw new WhiteboardCollaborationError("FORBIDDEN");return result.payload;}
 
 export class PgWhiteboardCommentStore implements WhiteboardCommentStore {
-  constructor(private readonly db:DatabasePort,private readonly validator:WhiteboardUpdateValidator,private readonly now:()=>Date=()=>new Date()){}
+  constructor(private readonly db:DatabasePort,private readonly validator:WhiteboardUpdateValidator,private readonly now:()=>Date=()=>new Date(),private readonly projectAccess:WhiteboardProjectAccess=NO_PROJECT_WHITEBOARD_ACCESS){}
   private async access(session:TenantSession,p:Principal,boardId:string,write:boolean){
     // Lock before reading membership: a join in this statement would retain the
     // snapshot from before a concurrent member revocation released the board lock.
     const result=await session.query<{owner_id:string;archived:boolean}>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,boardId]);
     const row=result.rows[0];if(!row)throw new WhiteboardCollaborationError("NOT_FOUND");
     const members=row.owner_id===p.userId?null:await session.query<{role:string}>(`SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3`,[p.orgId,boardId,p.userId]);
-    const role=C.BoardRole.safeParse(row.owner_id===p.userId?'owner':members?.rows[0]?.role);
+    const own=row.owner_id===p.userId?'owner':members?.rows[0]?.role;
+    // #4615: project source (resolveProjectLayer, same transaction), unioned with the board ACL.
+    const borrowed=own==='owner'||own==='editor'?null:await this.projectAccess.roleIn(session,{userId:p.userId,orgId:p.orgId,boardId});
+    const parsed=C.BoardRole.safeParse(own??borrowed);
+    const role=parsed.success?{success:true as const,data:unionWhiteboardRole(parsed.data,borrowed)??parsed.data}:parsed;
     if(!role.success)throw new WhiteboardCollaborationError("NOT_FOUND");
     if(row.archived)throw new WhiteboardCollaborationError("ARCHIVED");
     if(write&&role.data==="viewer")throw new WhiteboardCollaborationError("FORBIDDEN");

@@ -186,7 +186,7 @@ describe("判据的边界：五个分量各改一个，都必须建出**新的**
 
   it("kind 不同", async () => {
     const a = await submit();
-    const b = await submit({ kind: "research_project" });
+    const b = await submit({ kind: "general" });
     expect(b.id).not.toBe(a.id);
     expect((await countsIn(ORG)).projects).toBe(2);
   });
@@ -251,7 +251,7 @@ describe("反证：指纹分量真的进了散列（不是一个恒定值）", (
     for (const over of [
       { orgId: ORG_B },
       { actorId: "someone-else" },
-      { kind: "user_insight" },
+      { kind: "general" },
       { name: "季度复盘 " },
       { blueprintVersionId: "bp-1" },
       { blueprintVersionId: "" },
