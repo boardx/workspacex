@@ -461,7 +461,11 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       await expect(groups.getByRole("button", { name: auditExperts[4]!.displayName })).toHaveAttribute("aria-current", "true");
       await groups.getByRole("button", { name: expert.displayName }).click();
     }
-    if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
+    if (step === "runs") {
+      const runs = page.getByTestId("itv-source-runs");
+      await expect(runs.getByRole("button", { name: /^查看.+的模拟访谈$/u })).toHaveCount(5);
+      await expect(runs.getByRole("tablist")).toHaveCount(0);
+    }
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
       await expect(page.getByTestId("itv-report-metric-experts")).toContainText("5");
@@ -556,7 +560,7 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   }
 });
 
-test("saved execution metadata and Markdown insights survive the direct route and reload", async ({ page }, testInfo) => {
+test("saved execution metadata and expert Markdown cards survive the direct route and reload", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const markdown = "# 模拟访谈摘要\n\n## [采购角色](#expert-purchase)\n\n### 关键观点\n\n- [采购审批经过两级](#question-q1)\n\n### 争议点与风险\n\n- 否决权人仍需真人核实。\n\n## [技术角色](#expert-tech)\n\n### 核心发现\n\n- 安全评审尚未完成。";
   const saved = interviewMarkdown.InterviewMarkdownEnvelope.parse({
@@ -586,15 +590,20 @@ test("saved execution metadata and Markdown insights survive the direct route an
   await page.goto(`/itv/${view.interviewId}/runs`);
   await expect(page.getByTestId("itv-source-runs")).toBeVisible();
   await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
-  await page.getByRole("tab", { name: "采购角色" }).click();
-  await expect(page.getByRole("heading", { name: "核心发现（1）" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "采购审批经过两级" }).first()).toHaveAttribute("href", "#question-q1");
+  await expect(page.getByRole("button", { name: "查看采购角色的模拟访谈" })).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("heading", { name: "采购角色模拟访谈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "关键观点" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "争议点与风险" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "核心发现" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "采购审批经过两级" })).toHaveAttribute("href", "#question-q1");
+  await page.getByRole("button", { name: "查看技术角色的模拟访谈" }).click();
+  await expect(page.getByRole("heading", { name: "技术角色模拟访谈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "核心发现" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "关键观点" })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "采购角色模拟访谈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "核心发现" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("saved-runs-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

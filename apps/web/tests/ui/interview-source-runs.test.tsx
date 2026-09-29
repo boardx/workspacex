@@ -8,17 +8,23 @@ it("queued experts are not presented as actively interviewing", () => {
   expect(screen.getByText("等待访谈 · 0/1")).toBeVisible();
   expect(screen.queryByText("进行中 · 0/1")).not.toBeInTheDocument();
 });
-it("expert summary tabs filter by stable attribution while keeping question links", () => {
+it("switches one expert interview card from the left rail and renders the saved Markdown verbatim", () => {
   render(<InterviewRunsStep runs={[
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "doctor-8", displayName: "医生角色", status: "running", completedQuestions: 0, totalQuestions: 1 },
-  ]} document={{ documentId: "runs-2", step: "runs", version: 1, contentHash: "b".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 访谈汇总\n\n## [护理角色](#expert-nurse-7)\n\n交接记录需要复核。[追问](#question-q7)\n\n## [医生角色](#expert-doctor-8)\n\n急诊分诊尚未回答。" }} pending={false} onGenerateReport={vi.fn()} />);
-  fireEvent.click(screen.getByRole("tab", { name: "护理角色" }));
+  ]} document={{ documentId: "runs-2", step: "runs", version: 1, contentHash: "b".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 访谈汇总\n\n## [护理角色](#expert-nurse-7)\n\n交接记录需要复核。\n\n### 关键观点\n\n- [夜班需要双人确认](#question-q7)\n\n## [医生角色](#expert-doctor-8)\n\n急诊分诊尚未回答。" }} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "查看护理角色的模拟访谈" })).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("heading", { name: "护理角色模拟访谈" })).toBeVisible();
   expect(screen.getByText(/交接记录需要复核/)).toBeVisible();
   expect(screen.queryByText("急诊分诊尚未回答。")).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "追问" })).toHaveAttribute("href", "#question-q7");
-  fireEvent.click(screen.getByRole("tab", { name: "全部（实时汇总）" }));
+  expect(screen.getByRole("link", { name: "夜班需要双人确认" })).toHaveAttribute("href", "#question-q7");
+  expect(screen.queryByRole("heading", { name: "关键观点（1）" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "查看医生角色的模拟访谈" }));
+  expect(screen.getByRole("button", { name: "查看医生角色的模拟访谈" })).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("heading", { name: "医生角色模拟访谈" })).toBeVisible();
   expect(screen.getByText("急诊分诊尚未回答。")).toBeVisible();
+  expect(screen.queryByText(/交接记录需要复核/)).not.toBeInTheDocument();
 });
 it("progress uses persisted counters while summary retains Markdown attribution", () => {
   render(<InterviewRunsStep runs={[{ expertId: "nurse-7", displayName: "护理模拟角色", status: "running", completedQuestions: 2, totalQuestions: 4 }]} document={{ documentId: "runs-1", step: "runs", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "## 护理模拟角色\n\n> 最近一次交接班遗漏发生在夜班。\n\n来源：[问题七](#question-q7)" }} pending={false} onGenerateReport={vi.fn()} />);
@@ -42,27 +48,15 @@ it("execution task progress counts experts and distinguishes each persisted stat
   expect(screen.getByText("已完成 1")).toBeVisible();
   expect(screen.queryByText("已完成 · 1/1")).not.toBeInTheDocument();
 });
-it("only projects saved Markdown insight sections and preserves source attribution", () => {
+it("does not derive secondary insight cards from the selected expert response", () => {
   const markdown = "# 模拟访谈摘要\n\n## [采购专家](#expert-purchase)\n\n### 关键观点\n\n- [采购审批至少经过两级](#question-q1)\n\n### 争议点与风险\n\n- 预算否决人身份待核实。\n\n## [技术专家](#expert-tech)\n\n### 核心发现\n\n- 技术评审需要安全确认。";
   render(<InterviewRunsStep runs={[
     { expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "tech", displayName: "技术专家", status: "completed", completedQuestions: 1, totalQuestions: 1 },
   ]} document={{ documentId: "runs-grouped", step: "runs", version: 2, contentHash: "c".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
-  expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
-  expect(screen.queryByRole("heading", { name: /后续追问/u })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("link", { name: "采购审批至少经过两级" })[0]).toHaveAttribute("href", "#question-q1");
-  fireEvent.click(screen.getByRole("tab", { name: "采购专家" }));
-  expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "关键观点" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "争议点与风险" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "关键观点（1）" })).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "核心发现（1）" })).not.toBeInTheDocument();
-});
-it("does not mistake a question about risk for an insight heading or invent list entries", () => {
-  const markdown = "## [采购专家](#expert-purchase)\n\n### 如何降低采购风险？\n\n这是普通回答。\n\n### 关键观点\n\n暂无明确观点。\n\n### 争议点与风险：\n\n- 否决角色待核实。";
-  render(<InterviewRunsStep runs={[{ expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 }]}
-    document={{ documentId: "runs-risk", step: "runs", version: 1, contentHash: "d".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
-  expect(screen.getByRole("heading", { name: "关键观点（0）" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
-  expect(screen.getAllByRole("heading", { name: "争议点与风险（1）" })).toHaveLength(1);
-  expect(screen.getByText("这是普通回答。")).toBeVisible();
+  expect(screen.getByRole("link", { name: "采购审批至少经过两级" })).toHaveAttribute("href", "#question-q1");
 });
