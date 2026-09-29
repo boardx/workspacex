@@ -14,12 +14,20 @@ const initial: Runtime = {
 };
 function progressOf(state: Runtime) {
   return { sessionId: state.sessionId, version: state.version, revision: state.revision, currentNode: state.currentNode, availableNodes: state.availableNodes, busy: state.busy, leaseUntil: state.leaseUntil, errorCode: state.errorCode, completed: state.completed,
+    reportTimeline: state.reportTimeline,
     stream: state.reportStream ? { ...state.reportStream, offset: 0, delta: state.reportStream.text } : null };
 }
 const streaming = (requestId = "request"): Runtime => ({ ...initial, version: 8, currentNode: "report", availableNodes: [...initial.availableNodes, "report"], busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", reportStream: { requestId, sequence: 0, text: "", status: "streaming" } });
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(initial); });
 afterEach(() => vi.useRealTimers());
 describe("research report stream UI", () => {
+  it("renders the live report area above the generation timeline before text arrives", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...streaming(), reportTimeline: [{ id: "evidence", stage: "evidence", status: "running", attempts: 1 }] });
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    const previewStatus = await screen.findByText("正在组织报告内容，正文返回后将实时显示。");
+    const timeline = screen.getByTestId("research-report-timeline");
+    expect(previewStatus.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
   it("shows actual model text before completion and ignores wrong request and duplicate deltas", async () => {
     vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
       callback!({ type: "snapshot", state: streaming(input.requestId) });
@@ -64,6 +72,26 @@ describe("research report stream UI", () => {
     expect(screen.getByText("已保存正文")).toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByText("已保存正文")).toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
+  it("restores persisted report content and timeline after refresh, then continues both streams", async () => {
+    const checkpoint = { basis: "basis", chapters: [{ sectionId: "s1", body: "已保存章节", sourceIds: ["src1"] }] };
+    const restored = { ...streaming(), reportCheckpoint: checkpoint,
+      reportStream: { requestId: "request", sequence: 2, text: '{"summary":"刷新恢复摘要", "sections":[]}', status: "streaming" as const },
+      reportTimeline: [{ id: "evidence", stage: "evidence" as const, status: "completed" as const, attempts: 1 }, { id: "chapter-s1", stage: "chapter" as const, sectionId: "s1", status: "running" as const, attempts: 1 }] };
+    const progressed = { ...restored,
+      reportStream: { ...restored.reportStream, sequence: 3, text: restored.reportStream.text + " " },
+      reportTimeline: [{ ...restored.reportTimeline[0]! }, { ...restored.reportTimeline[1]!, status: "completed" as const }] };
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(restored);
+    vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ ...progressOf(progressed), stream: { requestId: "request", sequence: 3, offset: restored.reportStream.text.length, delta: " ", status: "streaming" } });
+    vi.useFakeTimers();
+    await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
+    expect(screen.getByText("刷新恢复摘要")).toBeInTheDocument();
+    expect(screen.getByText("已保存章节")).toBeInTheDocument();
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("正在处理");
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.getByText("已保存章节")).toBeInTheDocument();
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("已完成");
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("accepts a higher-sequence server reset when a provider cannot stream tokens", async () => {

@@ -142,7 +142,7 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
       }
     }
   } else reportStream = null;
-  return { ...current, ...metadata, ...(update.busy && update.currentNode === "report" ? { report: null, reportDraft: null, reportCheckpoint: null } : {}), reportStream };
+  return { ...current, ...metadata, ...(update.busy && update.currentNode === "report" ? { report: null, reportDraft: null } : {}), reportStream };
 }
 
 export async function updateGuidedResearchMetadata(sessionId: string, input: { title: string; tags: string[] }): Promise<GuidedResearchSession> {
