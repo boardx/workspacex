@@ -5,7 +5,7 @@
  * 纯函数、无 IO。skillPins 由阶段表的 Skill 引用派生（阶段表是唯一声明处，不另写一份组合表）；
  * 注册校验给每个 Workflow 独立判定可用性——一个失败不影响其它（I-C4）。
  */
-import type { CapabilityCategory } from "@repo/contracts/workflow-runtime";
+import type { CapabilityCategory, WorkflowDefinitionVersionInput } from "@repo/contracts/workflow-runtime";
 import type { WorkContentLine, WorkflowCatalogItem, WorkflowSkillPin } from "@repo/contracts/work-content";
 import type { WorkSkillChannel, WorkSkillGateStatus } from "@repo/contracts/work-skill-meta";
 import type { z } from "zod";
@@ -102,4 +102,31 @@ export function resolveWorkflowCatalog(
       unresolvedPins,
     };
   });
+}
+
+/**
+ * 研究线 Definition → Runtime Definition 元数据（graphRef = key:version，与 `toLinearGraph` 的图一一对应）。
+ * 阶段表只声明 Skill 与门，不声明逐阶段能力分类：带 Skill 的阶段按只读、平台阶段按 none 登记；
+ * 有门的阶段由发起人审批（与产品线 `toRuntimeDefinition` 同一约定）。
+ */
+export function toResearchRuntimeDefinition(def: WorkContentWorkflowDefinition): WorkflowDefinitionVersionInput {
+  const gated = new Set(def.gates.map((g) => g.stageId));
+  return {
+    key: def.key,
+    version: def.version,
+    graphRef: graphRefOf(def),
+    title: `${def.id} ${def.title}`,
+    inputSchema: { type: "object" },
+    stages: def.stages.map((s) => ({
+      stageId: s.stageId,
+      title: s.title,
+      skills: s.skills.map((id) => ({ stableId: id, versionRange: def.skillVersions[id]! })),
+      capabilityCategories: [],
+      sideEffect: s.skills.length > 0 ? "read" : "none",
+      humanGate: gated.has(s.stageId)
+        ? { approverRoles: ["workflow_initiator"], approverUserIds: [], allowSelfApproval: true, onDenyStageId: null }
+        : null,
+      maxAttempts: 1,
+    })),
+  };
 }

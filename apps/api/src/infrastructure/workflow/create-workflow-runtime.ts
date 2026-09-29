@@ -23,6 +23,9 @@ import type { SkillVersionResolverPort } from "../../application/workflow/workfl
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
 import type { WorkflowDefinitionVersionInput } from "@repo/contracts/workflow-runtime";
 import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../domain/work-content/product-workflow-definitions";
+import { RESEARCH_WORKFLOW_DEFINITIONS } from "../../domain/work-content/definitions";
+import { toResearchRuntimeDefinition } from "../../domain/work-content/workflow-definition";
+import { toLinearGraph } from "./work-content-graphs";
 import { DEMO_APPROVAL_WORKFLOW_DEFINITION, demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
 import { DEMO_WORKFLOW_DEFINITION, demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
@@ -56,18 +59,26 @@ export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: as
 
 /**
  * 代码自带的 Definition 元数据（与 `defaultWorkflowGraphs()` 的图一一对应）：演示 `demo-brief:1` / `demo-approval:1`
- * 与产品线 W027–W032 / W002（CT05）。由 `publishBuiltInWorkflowDefinitions` 经 UC-WR-1 发布校验导入组织。
+ * 、产品线 W027–W032 / W002（CT05）与研究线 W001/W006/W009/W057/W060（CT02）。
+ * 销售线 W011–W016/W018 的定义在代码里，但每条都要写 CRM / 发外部邮件，生产未接 CRM（CT09 产品决定），
+ * 故不作内置发布——占位图会把「写回 CRM」伪装成成功（`crm-not-configured-unreachable.test.ts` 钉住）。由 `publishBuiltInWorkflowDefinitions` 经 UC-WR-1 发布校验导入组织。
  */
 export function builtInWorkflowDefinitions(): WorkflowDefinitionVersionInput[] {
   return [
     structuredClone(DEMO_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
     structuredClone(DEMO_APPROVAL_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
     ...PRODUCT_LINE_WORKFLOWS.map(toRuntimeDefinition),
+    ...RESEARCH_WORKFLOW_DEFINITIONS.map(toResearchRuntimeDefinition),
   ];
 }
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
-  return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
+  return [
+    demoWorkflowGraph(),
+    demoApprovalWorkflowGraph(),
+    ...productWorkflowGraphs(),
+    ...RESEARCH_WORKFLOW_DEFINITIONS.map(toLinearGraph),
+  ];
 }
 
 /** WF07：迁入通用运行时的命令驱动图（引导式研究 = `guided-research:1`）。 */

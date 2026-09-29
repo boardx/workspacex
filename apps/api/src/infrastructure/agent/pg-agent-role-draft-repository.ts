@@ -53,8 +53,22 @@ export class PgAgentRoleDraftRepository implements AgentRoleDraftRepository {
     readonly agentId: string;
     readonly expectedVersion: number;
     readonly fields: AgentRoleFieldsT;
+    readonly scope?: "all" | "org-curated";
   }): Promise<{ readonly version: number } | null> {
     const f = input.fields;
+    if (input.scope === "org-curated") {
+      // 官方 Agent：只写组织策展的 `tags`，其它官方字段不动（role-draft.ts OFFICIAL_ORG_CURATED_ROLE_FIELDS）。
+      return this.db.withTenant(toOrgId(input.orgId), async (session) => {
+        const updated = await session.query<{ role_draft_version: number }>(
+          `UPDATE agents SET tags = $4::text[], role_draft_version = role_draft_version + 1, updated_at = now()
+            WHERE id = $1 AND org_id = $2 AND role_draft_version = $3 AND catalog_source = 'official'
+        RETURNING role_draft_version`,
+          [input.agentId, input.orgId, input.expectedVersion, [...f.tags]],
+        );
+        const row = updated.rows[0];
+        return row === undefined ? null : { version: Number(row.role_draft_version) };
+      });
+    }
     return this.db.withTenant(toOrgId(input.orgId), async (session) => {
       const updated = await session.query<{ role_draft_version: number }>(
         `UPDATE agents

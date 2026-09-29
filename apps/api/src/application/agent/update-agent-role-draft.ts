@@ -45,12 +45,16 @@ export interface AgentRoleDraftState {
 
 export interface AgentRoleDraftRepository {
   find(orgId: string, agentId: string): Promise<AgentRoleDraftState | null>;
-  /** 条件写：`role_draft_version = expectedVersion AND catalog_source = 'org'`；0 行 ⇒ null。 */
+  /**
+   * 条件写：`role_draft_version = expectedVersion AND catalog_source = 'org'`；0 行 ⇒ null。
+   * `scope = "org-curated"`（官方 Agent 的组织策展字段）只写 `tags`，且 `catalog_source = 'official'`。
+   */
   save(input: {
     readonly orgId: string;
     readonly agentId: string;
     readonly expectedVersion: number;
     readonly fields: AgentRoleFieldsT;
+    readonly scope?: "all" | "org-curated";
   }): Promise<{ readonly version: number } | null>;
 }
 
@@ -99,6 +103,7 @@ export async function updateAgentRoleDraft(
 
   const saved = await deps.repository.save({
     orgId: input.orgId, agentId: input.agentId, expectedVersion: input.expectedVersion, fields: decision.fields,
+    scope: current.draft.catalogSource === "official" ? "org-curated" : "all",
   });
   if (saved === null) throw new UpdateAgentRoleDraftError("VERSION_CHANGED");
 

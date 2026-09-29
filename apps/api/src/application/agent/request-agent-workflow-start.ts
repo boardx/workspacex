@@ -90,7 +90,7 @@ function refusalMessage(code: AgentWorkflowStartRefusalCode, workflowId: string 
     case "workflow_not_allowed":
       return `${WORKFLOW_NOT_ALLOWED_CHAT_COPY}（${wf}），未创建实例。${handoff.length > 0 ? `可转交给角色：${handoff.join("、")}。` : ""}`;
     case "workflow_not_found":
-      return `流程 ${wf} 在本组织不可用，未创建实例。`;
+      return `该流程尚未上线（${wf}），未创建实例。`;
     case "workflow_version_not_published":
       return `流程 ${wf} 尚未发布，未创建实例。`;
     case "skill_version_unresolved":

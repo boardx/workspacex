@@ -105,10 +105,26 @@ async function toCard(
   };
 }
 
+/**
+ * 本组织此刻**可发起**的内容线 Workflow 稳定编号（`W0xx`）= 本组织已有 published Definition 版本的那些。
+ * 白名单里有、但本组织还没发布（Definition 未上线 / Skill 未导入）的流程不进卡片的 `workflows`——
+ * 否则目录与聊天选人会把一个发起必然被拒的流程列成「可发起」。
+ */
+export interface LaunchableWorkflowsPort {
+  publishedWorkflowIds(orgId: OrgId): Promise<ReadonlySet<string>>;
+}
+export const LAUNCHABLE_WORKFLOWS = Symbol("LaunchableWorkflowsPort");
+
 export interface AgentDirectoryDeps {
   readonly identities: IdentityRepository;
   readonly repository: AgentDirectoryRepository;
   readonly workflows: WorkflowDefinitionStore;
+  /** 缺省 = 不按发布状态过滤（单测 / 未装配运行时的场景）。 */
+  readonly launchable?: LaunchableWorkflowsPort;
+}
+
+function onlyLaunchable(row: AgentDirectoryRow, launchable: ReadonlySet<string> | null): AgentDirectoryRow {
+  return launchable === null ? row : { ...row, workflowAllowlist: row.workflowAllowlist.filter((id) => launchable.has(id)) };
 }
 
 export async function listAgentDirectory(
@@ -125,7 +141,8 @@ export async function listAgentDirectory(
     if (q.length > 0 && !`${row.name}${row.roleLabel}${row.tags.join("")}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  return Promise.all(filtered.map((row) => toCard(row, deps.workflows)));
+  const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
+  return Promise.all(filtered.map((row) => toCard(onlyLaunchable(row, launchable), deps.workflows)));
 }
 
 export async function getAgentDirectoryCard(
@@ -138,5 +155,6 @@ export async function getAgentDirectoryCard(
   // E9：不存在 / 跨组织 / 不在 org-wide 可见范围内 —— 一律 404，不泄露存在性。
   const row = await deps.repository.findVisible(input.orgId, input.agentId);
   if (row === null) throw new AgentDirectoryError("AGENT_NOT_FOUND");
-  return toCard(row, deps.workflows);
+  const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
+  return toCard(onlyLaunchable(row, launchable), deps.workflows);
 }

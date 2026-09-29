@@ -12,7 +12,13 @@ import { toOrgId, type OrgId } from "../../domain/org-id";
 import type { AgentDirectoryRepository, AgentDirectoryRow } from "../../application/agent/list-agent-directory";
 import { AGENT_ROLE_COLUMN_OF, toRoleFieldsTolerant, type AgentRoleColumnsRow } from "./agent-version-insert";
 
-const roleCols = Object.values(AGENT_ROLE_COLUMN_OF).map((c) => `v.${c}`).join(", ");
+/**
+ * 角色列取发布快照；`tags` 例外：官方 Agent 的标签是组织策展元数据（管理员在 `agents.tags` 上改，
+ * 发布快照不可变），所以官方 Agent 读 `agents.tags`，组织自建 Agent 仍读发布快照。
+ */
+const roleCols = Object.values(AGENT_ROLE_COLUMN_OF)
+  .map((c) => (c === "tags" ? "CASE WHEN a.catalog_source = 'official' THEN a.tags ELSE v.tags END AS tags" : `v.${c}`))
+  .join(", ");
 
 interface Row extends AgentRoleColumnsRow {
   agent_id: string;

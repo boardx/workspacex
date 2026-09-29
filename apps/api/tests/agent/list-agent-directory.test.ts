@@ -138,3 +138,13 @@ describe("AG04 getAgentDirectoryCard", () => {
     expect(card.agentId).toBe("agent-1");
   });
 });
+
+describe("可发起 = 本组织已发布的流程", () => {
+  it("白名单里未在本组织发布的流程不进卡片 workflows（列表与单卡同一判定）", async () => {
+    const d = { ...deps({ rows: [row({ workflowAllowlist: ["W001", "W011"] })] }), launchable: { publishedWorkflowIds: async () => new Set(["W001"]) } };
+    const [card] = await listAgentDirectory({ orgId: ORG, actorId: "u1", roleCategory: null, q: null }, d);
+    expect(card!.workflows.map((w) => w.stableId)).toEqual(["W001"]);
+    const one = await getAgentDirectoryCard({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, { ...d, repository: { ...d.repository, findVisible: async () => row({ workflowAllowlist: ["W001", "W011"] }) } });
+    expect(one.workflows.map((w) => w.stableId)).toEqual(["W001"]);
+  });
+});

@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { FileAgentStarterPackSource } from "../../src/infrastructure/agent/file-agent-starter-pack-source";
 import { insertAgentVersionFromDraft } from "../../src/infrastructure/agent/agent-version-insert";
 import { buildOfficialAgentRolePack, officialRoleAvatarKeys, officialRoleTags, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
@@ -312,5 +312,40 @@ describe("agent tags round trip (PATCH role draft → publish → GET /agents/di
     const card = await fetch(`${base}/agents/directory/${target.agentId}`, { headers: authFor(MEMBER) });
     expect(card.status).toBe(200);
     expect((await card.json() as { tags: string[] }).tags).toEqual(["销售", "大客户"]);
+  });
+});
+
+describe("official agent tags are org-curated (admin edits tags; other official fields stay locked)", () => {
+  it("PATCH tags on an official agent → directory shows them at once; re-import / tags backfill keep them", async () => {
+    const imported = await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
+    expect(imported.status).toBe(201);
+    const cards = (await (await fetch(`${base}/agents/directory`, { headers: authFor(MEMBER) })).json() as { items: { agentId: string; name: string }[] }).items;
+    const target = cards.find((c) => c.name === "Research & Knowledge Analyst") ?? cards[0]!;
+    const role = await fetch(`${base}/admin/agents/${target.agentId}/role`, { headers: authFor(ADMIN) });
+    const { version } = await role.json() as { version: number };
+    const patch = (body: unknown) => fetch(`${base}/admin/agents/${target.agentId}/role`, { method: "PATCH", headers: authFor(ADMIN), body: JSON.stringify(body) });
+
+    // 其它官方字段仍锁定（含与 tags 同批提交的情况）。
+    const locked = await patch({ agentId: target.agentId, expectedVersion: version, patch: { tags: ["竞品"], roleCategory: "sales" } });
+    expect(locked.status).toBe(403);
+
+    const ok = await patch({ agentId: target.agentId, expectedVersion: version, patch: { tags: ["竞品", "行业研究"] } });
+    expect(ok.status).toBe(200);
+    const view = await ok.json() as { draft: { tags: string[]; catalogSource: string }; editable: boolean };
+    expect(view.draft).toMatchObject({ tags: ["竞品", "行业研究"], catalogSource: "official" });
+    expect(view.editable).toBe(false);
+
+    // 目录（聊天选人同源 GET /agents/directory）立即可见，无需发布；标签也进搜索。
+    const card = await fetch(`${base}/agents/directory/${target.agentId}`, { headers: authFor(MEMBER) });
+    expect((await card.json() as { tags: string[] }).tags).toEqual(["竞品", "行业研究"]);
+    const searched = await fetch(`${base}/agents/directory?q=${encodeURIComponent("行业研究")}`, { headers: authFor(MEMBER) });
+    expect((await searched.json() as { items: { agentId: string }[] }).items.map((c) => c.agentId)).toEqual([target.agentId]);
+
+    // 官方包再次导入（新幂等键）不覆盖；标签回填迁移只填空数组，重跑也不覆盖。
+    await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
+    const backfill = readFileSync(join(__dirname, "../../migrations/20260929160000_agent_tags.sql"), "utf8");
+    await asOwner((c) => c.query(backfill));
+    const again = await fetch(`${base}/agents/directory/${target.agentId}`, { headers: authFor(MEMBER) });
+    expect((await again.json() as { tags: string[] }).tags).toEqual(["竞品", "行业研究"]);
   });
 });
