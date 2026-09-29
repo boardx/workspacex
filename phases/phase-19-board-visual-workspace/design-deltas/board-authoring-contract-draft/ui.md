@@ -1,6 +1,6 @@
 # 契约束 `board-authoring` — ① UI 待签核材料
 
-> 覆盖候选：BV04（Sticky/Text 直接编辑与尺寸）、BV05（连续输入、批量、删除与基础 Undo/Redo）。这是待审 UI 材料，不表示束已签核或功能已验收。现有独立 mock 预览入口 `/preview/board-authoring`，但当前**没有可归属本束的正式 Board 浏览器截图**；`ui-preview/board-authoring/README.md` 记录了缺口与采集条件。不得用旧 S01 Fabric 截图或设计参考图替代。
+> 覆盖候选：BV04（Sticky/Text 直接编辑与尺寸）、BV05（连续输入、批量、删除与基础 Undo/Redo）。这是待审 UI 材料，不表示束已签核或功能已验收。独立 mock 预览入口 `/preview/board-authoring` 已有[七态与窄屏浏览器截图](../../ui-preview/board-authoring/README.md)，但**没有可归属本束的正式 Board 路由截图**。不得用 mock 或旧 S01 Fabric 截图替代正式验收。
 
 依据：`requirements/02-object-authoring.md#R1-R12`、`requirements/05-collaboration-history.md`、`design-deltas/2026-09-29-board-authoring-bv04-bv05-draft.md`。正式入口是 `/studio/board/:boardId`；`/preview/board-workspace` 的 mock 不能证明正式路由行为。浏览页保留 Studio 导航，进入编辑器后使用全屏内容区、紧凑顶栏与底部触摸 dock。
 
@@ -36,6 +36,6 @@
 - **截图与七态**：当前仅有 S01/其他 preview 截图，没有本束逐状态真实渲染。主 session 需在正式路由采集并对照上述矩阵；未齐前① UI 不能视为已签。
 - **可访问性与触摸**：键盘焦点、Esc 还原、48px 触摸区、reduced-motion、320/375/768/1280px 和软键盘遮挡须由主 session 实测。
 
-`ui-preview/board-authoring/README.md` 是证据索引与缺口记录；目前不引用任何图像，以免把未生成的设计稿当作真实截图。
+`ui-preview/board-authoring/README.md` 是 mock 预览图像索引与正式路由缺口记录。图像均由本地浏览器渲染，标为 mock；它们只支持① UI 方向评审。
 
 2026-09-30 主 session 已在本地 mock 预览的浏览器中检查：七态切换均可见；500 行预览可确认、501 行显示超限并禁用确认；Tab 创建下一张并进入对象内编辑；创建后的 Undo/Redo 使对象数 3→4→3→4。曾发现 695px 视口的便签碰撞和双层焦点框，预览已修正并重新截图查看默认排列。以上是**设计预览**证据，不证明正式路由中的 Fabric/Yjs、权限、事务、持久化或 9/10 视觉验收。

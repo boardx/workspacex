@@ -1,7 +1,7 @@
 # BV04–BV05 Board authoring 设计材料草案
 
 - 状态：**draft，待 UI 材料、契约束、一致性复核与人类签核**。本文件不是 `contracts/` 正式束，也不改变 feature 状态。
-- 核对基线：隔离工作树当前 `origin/main` 检出点 `73f3d48740c2af5d75844633d1ef08ef7e10f260`。2026-09-29 查询 GitHub：#4524 仍为 `OPEN`、未合并，head `3c4a60cdbf55306794071ca8c3ae9bb5391e075e`，base `3d380bad4043f29c7c230befca3d22cbbfc54d16`。PR 状态和 diff 在实施前仍须再次核验。
+- 动态基线（2026-09-30 复核）：#4524 已于 2026-09-29 合入 `main`；本分支已在合并后的 `origin/main` 上重排。下文关于“仍 OPEN”及分支差异的文字只保留为 2026-09-29 的历史风险记录，不能用来判断当前 PR 状态。
 - 权威输入：`../feature_list.json` BV04/BV05、`../requirements/02-object-authoring.md`、`../requirements/05-collaboration-history.md`、`../contracts/board-fabric-surface/` 和 `2026-09-26-library-bottom-dock.md`。
 
 ## ① UI：待制作和签核的真实状态

@@ -1,7 +1,16 @@
-# BV04/BV05 UI 截图索引（待采集）
+# BV04/BV05 UI 设计预览证据
 
-当前目录没有本束截图。现有 `ui-preview/board-fabric-surface/s01-fabric-board.png` 仅覆盖 S01 Fabric 表面；设计参考图片与旧 mock 也不能证明 BV04/BV05 的正式编辑体验。主 session 拥有真实浏览器端到端验收与截图采集；这里没有伪造或复用图片。
+2026-09-30，主 session 在 `6bcc89260` 基础上运行 `/preview/board-authoring`，以 Playwright Chromium 截取本地 mock 页面。七张桌面图的 viewport 为 1440×900、系统色彩偏好为 dark；一张窄屏图为 375×812。预览使用本地模拟数据与角色，**没有连接正式 Board 服务、Fabric/Yjs 或 PG/文件存储**，不能证明正式路由通过端到端验收。窄屏截图在随后修正预览状态开关遮挡 dock 后更新；该修正应以最终提交 SHA 为准。
 
-采集前提：确认目标 SHA 与 `/studio/board/:boardId` 正式路由可达，按 `contracts/board-authoring/ui.md` 的状态矩阵操作；每张截图记录 viewport、权限角色、Board ID 脱敏标识、是否使用真实服务、可复现步骤和相应 trace。优先采集空板/编辑中、选中便签菜单、Text 层级、Tab 连续、批量 500 行校验、只读、保存失败、IME/RTL/长文本与窄屏软键盘。截图与 `ui.md` 的引用集合须双向一致。
+| 预览状态 | 图片 | 页面参数 / 可见断言 |
+|---|---|---|
+| 默认、选中便签 | [mock-default-1440.png](screenshots/mock-default-1440.png) | `?state=default`，浮动操作栏、纸张本体、底部 dock |
+| 加载 | [mock-loading-1440.png](screenshots/mock-loading-1440.png) | `?state=loading`，打开白板提示 |
+| 空白 | [mock-empty-1440.png](screenshots/mock-empty-1440.png) | `?state=empty`，第一张便签入口 |
+| 校验失败 | [mock-validation-1440.png](screenshots/mock-validation-1440.png) | `?state=validation`，501 行超限，生成按钮禁用且输入保留 |
+| 依赖失败 | [mock-dependency-failed-1440.png](screenshots/mock-dependency-failed-1440.png) | `?state=dependency-failed`，保存失败提示 |
+| 只读 | [mock-denied-1440.png](screenshots/mock-denied-1440.png) | `?state=denied`，模拟只读角色 |
+| 成功 | [mock-success-1440.png](screenshots/mock-success-1440.png) | `?state=success`，模拟已保存状态 |
+| 窄屏默认 | [mock-default-375.png](screenshots/mock-default-375.png) | `?state=default`，dock 不被预览控件遮挡 |
 
-现有代码仍把批量上限呈现为 100 行，且 BV04/BV05 的七态预览入口不存在；这些是实施与签核差距，不能靠截图命名掩盖。
+这组图用于① UI 设计评审。正式签核仍需在 `/studio/board/:boardId` 采集真实 Board 的编辑中、IME、RTL/长文本、只读、保存失败、Delete→Undo、批量 500 行和触摸软键盘证据。每张正式截图要记录目标 SHA、Board 脱敏 ID、角色、viewport、服务连接、复现步骤及 trace。不能把本组 mock 图当作正式路由证据。
