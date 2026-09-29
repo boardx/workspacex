@@ -63,6 +63,14 @@ export async function runWithTestIsolation(
   timing.stop();
   const isolation = reservation.env;
   const env = { ...process.env, ...isolation };
+  // 本沙箱旁路（phase-20 iter4）：无 Docker 时 WORKSPACEX_NATIVE_POSTGRES=1 让测试连原生 PG；
+  // 隔离脚本会把 PGPORT 覆写成 20xxx，但原生 PG 始终在 WORKSPACEX_NATIVE_PG_PORT（默认 55432）。
+  // 保留 PGPORT 为原生端口，让 pg-config.ts 的 appConfig/migrationConfig 也连到正确实例。
+  if (process.env.WORKSPACEX_NATIVE_POSTGRES === "1") {
+    const nativePgPort = process.env.WORKSPACEX_NATIVE_PG_PORT ?? process.env.PGPORT ?? "55432";
+    env.PGPORT = nativePgPort;
+    env.PGDATABASE = isolation.PGDATABASE; // 仍用隔离库名，避免踩踏共享库
+  }
   const verifyOuterDb = process.env.WORKSPACEX_VERIFY_OUTER_DB;
   const verifyOuterCompose = process.env.WORKSPACEX_VERIFY_OUTER_COMPOSE;
   if (verifyOuterDb !== undefined || verifyOuterCompose !== undefined) {

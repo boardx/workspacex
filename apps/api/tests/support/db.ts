@@ -106,7 +106,7 @@ function nativePostgresReady(): boolean {
   try {
     execFileSync(
       "pg_isready",
-      ["-h", process.env.PGHOST ?? "127.0.0.1", "-p", String(process.env.PGPORT ?? "55432")],
+      ["-h", process.env.PGHOST ?? "127.0.0.1", "-p", String(process.env.WORKSPACEX_NATIVE_PG_PORT ?? process.env.PGPORT ?? "55432")],
       { stdio: "pipe" },
     );
     return true;
@@ -118,10 +118,11 @@ function nativePostgresReady(): boolean {
 function createDatabaseNative(): void {
   if (DB === "workspacex") return; // 共享默认库假定已存在
   const cfg = migrationConfig();
+  const nativePgPort = Number(process.env.WORKSPACEX_NATIVE_PG_PORT ?? String(cfg.port));
   try {
     execFileSync(
       "psql",
-      ["-h", cfg.host, "-p", String(cfg.port), "-U", cfg.user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", `CREATE DATABASE ${DB}`],
+      ["-h", cfg.host, "-p", String(nativePgPort), "-U", cfg.user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", `CREATE DATABASE ${DB}`],
       { stdio: "pipe", env: { ...process.env, PGPASSWORD: cfg.password } },
     );
   } catch (e) {
