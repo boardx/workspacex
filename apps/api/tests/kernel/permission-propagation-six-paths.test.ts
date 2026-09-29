@@ -1386,7 +1386,13 @@ describe("lint-permission-paths: counter-proof", () => {
     // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
     // 2026-09-29 merge of main (EV04 at 891d15539, ceiling 115) into CT06 (ceiling 115): union =
     // main's 114 + CT06 pg-skill-catalog-version-resolver.ts + EV04 pg-work-gate-status-repository.ts = 116.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(116);
+    // 2026-09-29 AG06 adds pg-escalation-store.ts (+1 -> 115): read-only identity data for the
+    // escalationPolicy-target decider check in decide-escalation.ts (E6). Pinned by
+    // tests/agent/escalate-decision-guard.test.ts. Remove this increment with that test.
+    // 2026-09-29 merge of main (EV04 at 115) into AG06 (at 115): union = 116 entries.
+    // 2026-09-29 merge of main (AG06 at 580776f3a, ceiling 116) into CT06 (ceiling 116): union =
+    // main's 116 + CT06 pg-skill-catalog-version-resolver.ts = 117.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(117);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

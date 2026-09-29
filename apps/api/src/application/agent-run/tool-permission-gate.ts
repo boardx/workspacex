@@ -50,6 +50,8 @@ import { record } from "./record-run-step";
 import { publishStatusChange } from "./execute-run-events";
 import { checkPendingInterjection } from "./interjection-handling";
 import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
+import { ESCALATE_TOOL_NAME } from "@repo/contracts/agent-role";
+import { raiseEscalationFromKernelCall } from "../agent-interrupts/decide-escalation";
 
 export interface InterruptedToolCall {
   readonly toolCallId?: string;
@@ -88,6 +90,23 @@ export async function handleInterruptedToolCall(
   // Phase 14 F11：先消费待处理插话（若有），必要时撤销 run 级授权——见本文件头注。
   const seqCursor = { value: ledger.seq };
   await checkPendingInterjection(deps, orgId, runId, seqCursor);
+
+  /*
+   * AG06（03-agent-role.md R3 ⑧）—— `escalate_matter` 不走风险分级：是否停下来只由该 run
+   * 钉住的 escalationPolicy 决定。命中规则 ⇒ 以规则的 target 挂起（`raiseEscalation`），
+   * 只有目标人能经 `decideEscalation` 裁决；没命中 ⇒ 落到下面的"已授权"分支原样放行，
+   * 工具体回复 Agent「未升级」——不挂起，也不替任何人批准任何事。常驻授权不适用。
+   */
+  const isEscalation = interrupted.toolName === ESCALATE_TOOL_NAME;
+  if (isEscalation && await raiseEscalationFromKernelCall(deps, orgId, runId, interrupted) !== null) {
+    await record(deps, orgId, {
+      runId, seq: seqCursor.value, kind: "model_called", startedAt: ledger.modelStartedAt,
+      inputDigest: ledger.systemDigest, outputDigest: null, failureCode: null,
+      planningNote: "等待升级目标人裁决", inputFullContent: ledger.system,
+    });
+    publishStatusChange(deps, orgId, runId, "awaiting_tool_permission");
+    return { autoApproved: false };
+  }
 
   /*
    * issue #3132（B7）—— **计划确认中断不走风险分级这条路**。
@@ -170,7 +189,7 @@ export async function handleInterruptedToolCall(
     && grantAddress !== null
     && skillRisks.some(({ stableName, riskLevel }) =>
       riskLevel === "L0" && grantAddress === `${NATIVE_L2_MANIFEST_TOOL_NAME}:${stableName}`);
-  const authorized = !isPlanConfirmation && (risk !== "L2"
+  const authorized = isEscalation || !isPlanConfirmation && (risk !== "L2"
     || inheritedL0DocumentExecute
     || documentGenerationAutoApproved
     || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, grantAddress ?? interrupted.toolName) ?? false));

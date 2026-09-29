@@ -49,7 +49,17 @@ describe("persisted survey template library", () => {
     request.mockResolvedValueOnce([]);
     render(<SurveyTemplateLibrary kind={kind} />);
     await screen.findByText(`还没有个人${activeLabel}`);
+    const main = screen.getByRole("main");
+    const pageHeader = main.firstElementChild;
+    expect(pageHeader?.tagName).toBe("HEADER");
+    expect(
+      within(pageHeader as HTMLElement).getByRole("heading", {
+        name: activeLabel,
+        level: 1,
+      }),
+    ).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "问卷二级导航" });
+    expect(pageHeader?.contains(navigation)).toBe(false);
     expect(within(navigation).getByRole("link", { name: "我的问卷" })).toHaveAttribute("href", "/studio/survey");
     expect(within(navigation).getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
     expect(within(navigation).getByRole("link", { name: "报告模板" })).toHaveAttribute("href", "/studio/survey?tab=reports");
