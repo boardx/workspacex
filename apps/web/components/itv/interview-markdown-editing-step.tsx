@@ -19,6 +19,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const [directoryStatus, setDirectoryStatus] = React.useState<"loading" | "ready" | "error">("loading");
   const [directoryEpoch, setDirectoryEpoch] = React.useState(0);
   const [pending, setPending] = React.useState(true);
+  const [generating, setGenerating] = React.useState(false);
   const [error, setError] = React.useState("");
   const dirty = React.useRef(false);
   const callbacks = React.useRef({ onVersionChange, onDirtyChange, onContinue });
@@ -50,7 +51,11 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       if (!(cause instanceof ApiError && cause.status === 409)) {
         try { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); } catch { /* Retain editable draft. */ }
       }
-      setError(cause instanceof ApiError && cause.status === 409 ? "版本冲突或文档已确认；当前编辑保留，不能覆盖确认版本。" : "操作未完成，当前编辑保留。请重试。");
+      setError(cause instanceof ApiError && cause.status === 409
+        ? "版本冲突或文档已确认；当前编辑保留，不能覆盖确认版本。"
+        : cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE"
+          ? "AI 暂时无法生成访谈问题。当前专家选择与编辑已保留，请稍后重新生成。"
+          : "操作未完成，当前编辑保留。请重试。");
     } finally { setPending(false); }
   }
   async function save(current: InterviewMarkdownEnvelope) {
@@ -93,12 +98,13 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     onGenerate: () => {
       if (immutable) { setError("已确认文档只读；需创建新修订后才能重新生成。"); return; }
       if (markdown.trim() && markdown !== saved?.markdown) { setError("请先保存或审阅当前编辑，再生成新建议。当前文字不会被丢弃。"); return; }
+      setGenerating(true);
       void action(async () => {
-      const current = source ?? await loadInterviewMarkdown(interviewId);
-      const next = receive(await generateInterviewMarkdown(interviewId, step, { expectedVersion: current.version, expectedDocumentVersion: current.documents.find((doc) => doc.step === step)?.version ?? 0 }));
-      setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); dirty.current = false; callbacks.current.onDirtyChange(false);
-      });
+        const current = source ?? await loadInterviewMarkdown(interviewId);
+        const next = receive(await generateInterviewMarkdown(interviewId, step, { expectedVersion: current.version, expectedDocumentVersion: current.documents.find((doc) => doc.step === step)?.version ?? 0 }));
+        setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); dirty.current = false; callbacks.current.onDirtyChange(false);
+      }).finally(() => setGenerating(false));
     },
   };
-  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>重新载入（保留编辑）</Button></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
+  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={error.startsWith("AI 暂时无法") ? props.onGenerate : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{error.startsWith("AI 暂时无法") ? "重新生成" : "重新载入（保留编辑）"}</Button></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
 }
