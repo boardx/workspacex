@@ -1,5 +1,5 @@
 /**
- * Work 内容线的 Workflow 定义模块（Phase 20 CT02/CT05/CT08；契约束 `work-content` domain.md
+ * Work 内容线的 Workflow 定义模块（Phase 20 CT08；契约束 `work-content` domain.md
  * 「WorkflowDefinition 模块」行、I-C1/I-C2/I-C4；ADR-118 第 2/9 条）。
  *
  * 每个 Workflow 一个代码模块，导出 `{workflowId, key, version, stages, gates, effects}`；

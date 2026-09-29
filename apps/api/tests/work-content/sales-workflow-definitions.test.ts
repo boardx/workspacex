@@ -38,6 +38,19 @@ describe("CT08 · 销售线 Workflow 定义", () => {
     }
   });
 
+  it("副作用分类按 capability 一致：crm.write/notify.inapp → write，mail.send → external_send（W014 §能力映射）", () => {
+    const expected: Record<string, string> = { "crm.write": "write", "notify.inapp": "write", "mail.send": "external_send" };
+    for (const def of SALES_WORKFLOW_DEFINITIONS) {
+      for (const s of def.stages) {
+        const cats = s.capabilityCategories ?? [];
+        const classes = new Set(cats.filter((c) => c in expected).map((c) => expected[c]));
+        if (classes.size === 0) continue;
+        const want = classes.has("external_send") ? "external_send" : "write";
+        expect(`${def.key}/${s.stageId}:${s.sideEffect}`).toBe(`${def.key}/${s.stageId}:${want}`);
+      }
+    }
+  });
+
   it("W011 阶段顺序与 §5 一致，S021 扩充并发 5，G1 在 review，写回 crm.write + 通知 notify.inapp", () => {
     expect(W011.stages.map((s) => s.stageId)).toEqual([
       "admit", "intake", "enrich", "tier", "triage", "hygiene", "review", "write_back", "notify",
