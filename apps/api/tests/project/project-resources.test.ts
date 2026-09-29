@@ -85,7 +85,7 @@ describe("listProjectResources：成员门 + 四类聚合", () => {
     for (const u of ["member", "observer"]) {
       const out = await listProjectResources(deps(res), viewer(u));
       expect(out.items.map((x) => x.id)).toEqual(["i1", "s2", "s1"]);
-      expect(out.counts).toEqual({ survey: 2, guided_research: 0, personal_transcription: 0, interview: 1 });
+      expect(out.counts).toEqual({ survey: 2, guided_research: 0, personal_transcription: 0, interview: 1, whiteboard: 0, design: 0 });
     }
   });
 

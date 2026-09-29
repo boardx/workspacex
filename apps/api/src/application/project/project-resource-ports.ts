@@ -17,7 +17,7 @@ export const PROJECT_RESOURCE_REPOSITORY = Symbol("ProjectResourceRepository");
 export type ProjectResourceKind = z.infer<typeof C.ProjectResourceKind>;
 export type ProjectLinkableResourceKind = z.infer<typeof C.ProjectLinkableResourceKind>;
 
-/** 与契约 `ProjectResourceItem` 同形；`linkedAt` 对访谈取其自身 `created_at`。 */
+/** 与契约 `ProjectResourceItem` 同形；`linkedAt` 对没有链接行的访谈（在项目里新建）取其自身 `created_at`。 */
 export interface ProjectResourceRow {
   readonly kind: ProjectResourceKind;
   readonly id: string;
@@ -36,7 +36,7 @@ export type LinkResourceOutcome =
 
 export interface ProjectResourcePort {
   /**
-   * 一个项目的全部四类资源（三类链接 + 访谈），一次查询。
+   * 一个项目的全部资源（#4615 起六类：链接表 + 访谈既有的 `project_id`），一次查询。
    * `null` = 容器不存在（或不在这个组织）；`[]` = 存在但一个资源都没挂。
    */
   listProjectResources(orgId: OrgId, projectId: string): Promise<Guarded<readonly ProjectResourceRow[] | null>>;

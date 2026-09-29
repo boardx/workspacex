@@ -10,16 +10,15 @@ vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), execu
 beforeEach(() => vi.resetAllMocks());
 const detail = { decisionQuestions: ["进入哪个市场？"], hypotheses: ["政策支持增长"], comparisonDimensions: ["经济性"], evidenceNeeds: ["一手政策文件"] };
 describe("editable research design depth", () => {
-  it("preserves direction design when editing the title and regenerating with a changed question", async () => {
+  it("keeps the detailed direction editor out of the topic confirmation step", async () => {
     const state = runtimeFixture("directions"); state.directions[0] = { ...state.directions[0]!, ...detail };
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: 5 });
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText("研究方向"), { target: { value: "市场优先级" } });
-    fireEvent.click(screen.getByText(/研究设计 · 问题/));
-    fireEvent.change(screen.getByLabelText("决策问题"), { target: { value: "先验证哪些市场？\n如何选择进入模式？" } });
-    fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalled());
-    expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0].draft).toEqual({ node: "directions", value: [{ ...state.directions[0], title: "市场优先级", decisionQuestions: ["先验证哪些市场？", "如何选择进入模式？"] }] });
+    await screen.findByRole("textbox", { name: "研究主题" });
+    expect(screen.queryByLabelText("研究方向")).not.toBeInTheDocument();
+    expect(screen.queryByText(/研究设计 · 问题/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重新生成本步骤" })).not.toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("edits chapter methods, subsection titles and questions without dropping sibling design fields", async () => {
     const state = runtimeFixture("outline"); state.outline[0] = { ...state.outline[0]!, objective: "验证市场机会", analysisApproach: "交叉核验", expectedOutput: "进入建议", subsections: [{ id: "sub1", title: "市场规模", questions: ["规模是多少？"] }] };

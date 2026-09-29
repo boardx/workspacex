@@ -12,6 +12,7 @@
  * 取消撤回（源又出现了就是又在了），返回既有 id；`xmax = 0` 判是不是新插。
  */
 import { randomUUID } from "node:crypto";
+import { projectEvidence as PE } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   ProjectEvidenceListFilter,
@@ -38,15 +39,11 @@ interface EvidenceSqlRow {
   created_at: Date;
 }
 
-/** 六类全列，含 0——`countsBySource` 是 `z.record(enum, number)`，缺键会让契约解析失败。 */
-const SOURCE_KINDS: readonly ProjectEvidenceSourceKind[] = [
-  "chat_message",
-  "attachment",
-  "survey_response",
-  "interview_segment",
-  "transcript_segment",
-  "research_source",
-];
+/**
+ * 全部来源全列，含 0——`countsBySource` 是 `z.record(enum, number)`，缺键会让契约解析失败。
+ * 取值来自契约（#4615 起七类，+ whiteboard_note），这里不重列：重列就是缺键的那一天。
+ */
+const SOURCE_KINDS: readonly ProjectEvidenceSourceKind[] = PE.ProjectEvidenceSourceKind.options;
 
 const COLUMNS = `id, project_id, source_kind, resource_id, source_ref, excerpt, locator, speaker_label, resource_title, revoked, created_at`;
 

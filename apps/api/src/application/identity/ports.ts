@@ -27,8 +27,8 @@ export interface ProjectMembershipRow {
 }
 
 /**
- * #4584：研究项目 / 用户洞察两类容器里，调用者的身份（`research_project_members` /
- * `user_insight_members`，两档）。与 `ProjectMembershipRow` 同一性质——判定**据以做出**的
+ * #4584：非工作坊容器（#4615 起只有 `general`）里，调用者的身份（`general_project_members`，
+ * 两档）。与 `ProjectMembershipRow` 同一性质——判定**据以做出**的
  * 身份数据，不是内容。`containerKind` 显式带出，项目层据此收窄到非工作坊白名单。
  */
 export interface NonWorkshopStandingRow {
@@ -156,7 +156,7 @@ export interface IdentityRepository {
    */
   findProjectMembership(userId: string, projectId: string, orgId: OrgId): Promise<ProjectMembershipRow | null>;
   /**
-   * #4584：该项目若是研究项目 / 用户洞察容器，返回调用者在其名单上的档位；工作坊或不存在 ⇒ `null`。
+   * #4584：该项目若是非工作坊（`general`）容器，返回调用者在其名单上的档位；工作坊或不存在 ⇒ `null`。
    * 只由 `application/identity/project-layer.ts` 调用（`authorize()` 的项目层单一来源）。
    */
   findNonWorkshopStanding(userId: string, projectId: string, orgId: OrgId): Promise<NonWorkshopStandingRow | null>;

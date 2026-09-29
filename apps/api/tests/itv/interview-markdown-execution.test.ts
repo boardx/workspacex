@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
+import { beforeAll, beforeEach, afterAll, describe, it, expect, vi } from "vitest";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
@@ -61,8 +61,6 @@ describe("Markdown task execution", () => {
   });
   it("branches confirmed source versions without touching historical bodies or execution",async()=>{
     await store.control({...input,expectedVersion:await version(),action:"start"});
-    const claim=(await store.claim(input))!;
-    await store.finish({...input,claimId:claim.claimId,markdown:"原版本回答",failed:false});
     const inFlight=(await store.claim(input))!;
     const before=await db.withTenant(ORG,session=>session.query(`SELECT artifact_id,markdown,content_hash,status,evidence_mode,controlled_references FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 ORDER BY artifact_id`,[ORG,REV]));
     const oldVersion=await version();
@@ -83,17 +81,15 @@ describe("Markdown task execution", () => {
     });
     await reader.saveDraft({...input,expectedVersion:next.version,expectedDocumentVersion:1,step:"experts",markdown:"## [新教师](#expert-new-teacher)\n新画像"});
     expect((await reader.readCurrent(ORG,ID))!.version).toBe(next.version+1);
-    await expect(store.finish({...input,claimId:inFlight.claimId,markdown:"旧任务迟到回答",failed:false})).rejects.toThrow("CONCURRENT_MODIFICATION");
+    await expect(store.finish({...input,claimId:inFlight.claimId,results:inFlight.tasks.map(task=>({expertId:task.expertId,markdown:"旧任务迟到回答",failed:false}))})).rejects.toThrow("CONCURRENT_MODIFICATION");
   });
   it("projects truthful history from source execution without rewriting legacy research fields",async()=>{
     const history=(status?:"report_pending"|"completed"|"draft")=>listDigitalInterviews({repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory()},{orgId:ORG,viewerUserId:actorId,status});
     expect((await history()).items[0]).toMatchObject({status:"questions_pending",sourceStep:"runs",expertCount:2,completedExpertCount:0});
     await store.control({...input,expectedVersion:await version(),action:"start"});
+    expect((await history()).items[0]).toMatchObject({status:"running",sourceStep:"runs",expertCount:2,completedExpertCount:0});
     const first=(await store.claim(input))!;
-    await store.finish({...input,claimId:first.claimId,markdown:"教师回答",failed:false});
-    expect((await history()).items[0]).toMatchObject({status:"running",sourceStep:"runs",expertCount:2,completedExpertCount:1});
-    const second=(await store.claim(input))!;
-    await store.finish({...input,claimId:second.claimId,markdown:"校长回答",failed:false});
+    await store.finish({...input,claimId:first.claimId,results:first.tasks.map(task=>({expertId:task.expertId,markdown:`${task.expertId}回答`,failed:false}))});
     expect((await history("report_pending")).items[0]).toMatchObject({status:"report_pending",sourceStep:"runs",completedExpertCount:2});
     expect((await history("draft")).items).toHaveLength(0);
     await db.withTenant(ORG,session=>appendInterviewMarkdownDocument(session,{orgId:ORG,interviewId:ID,revisionId:REV,step:"report",title:"报告",markdown:"# 模拟研究报告",evidenceMode:"simulated",references:[],expectedVersion:0,status:"draft"}));
@@ -115,21 +111,17 @@ describe("Markdown task execution", () => {
     await expect(generateInterviewMarkdown(deps,{orgId:ORG,viewerUserId:actorId,interviewId:ID,step:"report",expectedVersion:first.version,expectedDocumentVersion:0})).rejects.toThrow("DIGITAL_INTERVIEW_STEP_INVALID");
     const retry=await executeInterviewMarkdown(deps,{...input,expectedVersion:first.version,action:"retry"});
     expect(retry.execution?.tasks[0]?.status).toBe("completed");
-    const complete=await executeInterviewMarkdown(deps,{...input,expectedVersion:retry.version,action:"advance"});
-    expect(complete.execution?.status).toBe("completed");
-    expect(complete.documents.find(d=>d.step==="runs")?.markdown.match(/回答 🧪/gu)).toHaveLength(1);
+    expect(retry.execution?.status).toBe("completed");
+    expect(retry.documents.find(d=>d.step==="runs")?.markdown.match(/回答 🧪/gu)).toHaveLength(1);
   });
-  it("claims one expert, persists answer Markdown before scheduling and resumes without duplicating it", async () => {
+  it("claims one batch, persists answer Markdown before scheduling and never duplicates it", async () => {
     await store.control({ ...input, expectedVersion:await version(), action:"start" });
-    const claim = await store.claim(input); expect(claim?.expertId).toBe("teacher");
+    const claim = await store.claim(input); expect(claim?.tasks.map(task=>task.expertId)).toEqual(["teacher","principal"]);
     expect(await store.claim(input)).toBeNull();
     await store.control({ ...input, expectedVersion:await version(), action:"pause" });
-    await store.finish({ ...input, claimId:claim!.claimId, markdown:"### 回答\r\n原样 🧪", failed:false });
+    await store.finish({ ...input, claimId:claim!.claimId, results:claim!.tasks.map((task,index)=>({expertId:task.expertId,markdown:index===0?"### 回答\r\n原样 🧪":"### 反例\n完整回答",failed:false})) });
     expect(await store.claim(input)).toBeNull();
-    expect((await reader.readCurrent(ORG, ID))!.execution?.status).toBe("paused");
-    await store.control({ ...input, expectedVersion:await version(), action:"resume" });
-    const second = await store.claim(input); expect(second?.expertId).toBe("principal");
-    await store.finish({ ...input, claimId:second!.claimId, markdown:"### 反例\n完整回答", failed:false });
+    expect((await reader.readCurrent(ORG, ID))!.execution?.status).toBe("completed");
     const source = (await reader.readCurrent(ORG, ID))!;
     expect(source.execution?.status).toBe("completed");
     await db.withTenant(ORG, async (session) => {
@@ -140,36 +132,72 @@ describe("Markdown task execution", () => {
       expect((await session.query(`SELECT 1 FROM digital_interview_expert_runs WHERE org_id=$1 AND interview_id=$2`,[ORG,ID])).rows).toHaveLength(0);
     });
   });
+  it("runs five experts concurrently and leaves overflow for the next round", async () => {
+    const expertIds = Array.from({ length: 8 }, (_, index) => `expert-${index + 1}`);
+    const experts = expertIds.map((expertId) => `## [${expertId}](#expert-${expertId})\n画像`).join("\n\n");
+    const outline = expertIds.map((expertId) => `## [${expertId}](#expert-${expertId})\n1. 请说明具体案例。`).join("\n\n");
+    await db.withTenant(ORG, async (session) => {
+      await appendInterviewMarkdownDocument(session, { orgId:ORG,interviewId:ID,revisionId:REV,step:"experts",markdown:experts,title:"experts",evidenceMode:"simulated",references:[],expectedVersion:1 });
+      await appendInterviewMarkdownDocument(session, { orgId:ORG,interviewId:ID,revisionId:REV,step:"outline",markdown:outline,title:"outline",evidenceMode:"simulated",references:[],expectedVersion:1 });
+    });
+    let active = 0; let peak = 0; let release = () => {}; let releaseFirst = () => {};
+    let gate = new Promise<void>((resolve) => { release = resolve; });
+    let firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const finish=vi.spyOn(store,"finish");
+    const deps={repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,store,modelProvider:"test",modelId:"test",model:{complete:async(request:{system:string})=>{
+      active++; peak=Math.max(peak,active); await (request.system.includes("expert-1")?firstGate:gate); active--;
+      return { text:"### 模拟回答\n\n具体案例与不确定性。" };
+    }}};
+    const firstPromise=executeInterviewMarkdown(deps,{...input,expectedVersion:await version(),action:"start"});
+    await vi.waitFor(()=>expect(active).toBe(5));
+    const inFlight=(await reader.readCurrent(ORG,ID))!.execution!;
+    expect(inFlight.tasks.filter(task=>task.status==="running").map(task=>task.expertId)).toEqual(expertIds.slice(0,5));
+    expect(inFlight.tasks.filter(task=>task.status==="pending").map(task=>task.expertId)).toEqual(expertIds.slice(5));
+    releaseFirst();
+    await vi.waitFor(()=>expect(finish).toHaveBeenCalledTimes(1));
+    expect((await reader.readCurrent(ORG,ID))!.execution!.tasks.find(task=>task.expertId==="expert-1")?.status).toBe("completed");
+    expect(active).toBe(4);
+    release();
+    const first=await firstPromise;
+    expect(first.execution?.tasks.filter(task=>task.status==="completed").map(task=>task.expertId)).toEqual(expertIds.slice(0,5));
+    gate=new Promise<void>((resolve)=>{release=resolve;});firstGate=gate;
+    const secondPromise=executeInterviewMarkdown(deps,{...input,expectedVersion:first.version,action:"advance"});
+    await vi.waitFor(()=>expect(active).toBe(3));
+    release();
+    const second=await secondPromise;
+    expect(peak).toBe(5);
+    expect(second.execution?.status).toBe("completed");
+  });
   it("preserves failed text, retries only its gap and rejects stale versions or unauthorized control", async () => {
     await store.control({ ...input, expectedVersion:await version(), action:"start" });
     const claim = (await store.claim(input))!;
-    await store.finish({ ...input, claimId:claim.claimId, markdown:"已保存片段", failed:true });
+    await store.finish({ ...input, claimId:claim.claimId, results:claim.tasks.map((task,index)=>({expertId:task.expertId,markdown:index===0?"已保存片段":"完整回答",failed:index===0})) });
     expect((await reader.readCurrent(ORG, ID))!.execution?.status).toBe("failed");
     await expect(store.control({ ...input, expectedVersion:1,action:"retry" })).rejects.toThrow("CONCURRENT_MODIFICATION");
     await expect(store.control({ ...input,actorId:"outsider",expectedVersion:await version(),action:"retry" })).rejects.toThrow();
     await store.control({ ...input,expectedVersion:await version(),action:"retry" });
-    expect((await store.claim(input))?.expertId).toBe("teacher");
+    expect((await store.claim(input))?.tasks.map(task=>task.expertId)).toEqual(["teacher"]);
   });
   it("rechecks actor visibility when the model answer returns", async()=>{
     await store.control({...input,expectedVersion:await version(),action:"start"});
     const claim=(await store.claim(input))!;
     await db.withTenant(ORG,session=>session.query(`DELETE FROM org_memberships WHERE org_id=$1 AND user_id=$2`,[ORG,actorId]));
-    await expect(store.finish({...input,claimId:claim.claimId,markdown:"不应保存",failed:false})).rejects.toThrow("PERMISSION_REVOKED_MIDWAY");
+    await expect(store.finish({...input,claimId:claim.claimId,results:claim.tasks.map(task=>({expertId:task.expertId,markdown:"不应保存",failed:false}))})).rejects.toThrow("PERMISSION_REVOKED_MIDWAY");
   });
   it("recovers an expired claim and refuses writeback from the obsolete worker",async()=>{
     await store.control({...input,expectedVersion:await version(),action:"start"});
     const old=(await store.claim(input))!;
     await db.withTenant(ORG,session=>session.query(`UPDATE interview_markdown_execution SET claim_expires_at=now()-interval '1 second' WHERE org_id=$1 AND revision_id=$2`,[ORG,REV]));
     const recovered=(await store.claim(input))!;
-    expect(recovered.expertId).toBe(old.expertId);
+    expect(recovered.tasks.map(task=>task.expertId)).toEqual(old.tasks.map(task=>task.expertId));
     expect(recovered.claimId).not.toBe(old.claimId);
-    await expect(store.finish({...input,claimId:old.claimId,markdown:"重复结果",failed:false})).rejects.toThrow("CONCURRENT_MODIFICATION");
-    await store.finish({...input,claimId:recovered.claimId,markdown:"有效回答",failed:false});
+    await expect(store.finish({...input,claimId:old.claimId,results:old.tasks.map(task=>({expertId:task.expertId,markdown:"重复结果",failed:false}))})).rejects.toThrow("CONCURRENT_MODIFICATION");
+    await store.finish({...input,claimId:recovered.claimId,results:recovered.tasks.map(task=>({expertId:task.expertId,markdown:"有效回答",failed:false}))});
   });
   it("pins confirmed versions and refuses a changed source during model execution",async()=>{
     await store.control({...input,expectedVersion:await version(),action:"start"});
     const claim=(await store.claim(input))!;
     await db.withTenant(ORG,session=>appendInterviewMarkdownDocument(session,{orgId:ORG,interviewId:ID,revisionId:REV,step:"intake",title:"新需求",markdown:"修改后的需求",evidenceMode:"simulated",references:[],expectedVersion:1}));
-    await expect(store.finish({...input,claimId:claim.claimId,markdown:"基于旧需求",failed:false})).rejects.toThrow("CONCURRENT_MODIFICATION");
+    await expect(store.finish({...input,claimId:claim.claimId,results:claim.tasks.map(task=>({expertId:task.expertId,markdown:"基于旧需求",failed:false}))})).rejects.toThrow("CONCURRENT_MODIFICATION");
   });
 });

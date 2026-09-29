@@ -1,7 +1,9 @@
 "use client";
 
+import * as React from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CopilotKitV2Shell } from "./copilotkit-v2-shell";
+import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 
 /**
  * 2026-09-02 人类实测反馈第五轮——round 4（PR #2506）把 `selectedThreadId` 改成
@@ -36,6 +38,15 @@ import { CopilotKitV2Shell } from "./copilotkit-v2-shell";
  *
  * 两个 page.tsx 因此退化为空页——路由必须存在（否则 Next 不认这条 URL），但
  * 内容由 layout 提供。
+ *
+ * ## `?agent=` 深链（AG04，`/agent` 目录页「开始对话」CTA）
+ *
+ * `agent/page.tsx` 跳到 `/chat?agent=<agentId>`，但此前没有任何代码读这个 query——
+ * 地址栏带着它、CopilotKit 请求却仍不带 `selectedAgentId` header，落到 org 默认
+ * agent，点击「开始对话」看起来像一个死链接（review 指出的 R3.6 缺口）。这里补上
+ * 读取与一次性写入：只在挂载时、且当前还没有别的选择（`selectedAgentId === null`）
+ * 才把它写进 `CopilotKitV2AgentSelectionProvider`——与 `initialAgentId` 那条「只设
+ * 初值，之后用户在 picker 里换 agent 照常生效」的纪律一致，不会覆盖用户后续的手动切换。
  */
 export function CopilotKitV2ShellRoute(): JSX.Element {
   const params = useParams<{ threadId?: string }>();
@@ -43,5 +54,18 @@ export function CopilotKitV2ShellRoute(): JSX.Element {
   const projectId = search.get("projectId");
   const raw = params?.threadId ?? search.get("thread");
   const threadId = typeof raw === "string" && raw.length > 0 ? decodeURIComponent(raw) : null;
+  const agentParam = search.get("agent");
+  const { selectedAgentId, setSelectedAgentId } = useCopilotKitV2AgentSelection();
+  const appliedAgentParamRef = React.useRef(false);
+  React.useEffect(() => {
+    if (appliedAgentParamRef.current) return;
+    appliedAgentParamRef.current = true;
+    if (agentParam !== null && agentParam.length > 0 && selectedAgentId === null) {
+      /* `useSearchParams().get()` 已经 URL-解码过一次；`agentParam` 不能再 decode 第二次
+       * ——否则 agent id 里带字面 `%` 时会被错误解码（AG04 review）。 */
+      setSelectedAgentId(agentParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在挂载时判定一次（同 initialAgentId 纪律），不随后续 query 变化重跑
+  }, []);
   return <CopilotKitV2Shell key={projectId ?? "personal"} initialThreadId={threadId} projectId={projectId} />;
 }
