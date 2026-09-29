@@ -41,8 +41,7 @@ describe("research trust projection", () => {
   });
 
   it("does not mark a session ready before a report has been generated", () => {
-    const state = fixture();
-    state.report = null;
+    const state = { ...fixture(), report: null };
     const result = projectResearchTrust(state);
     expect(result.publicationReadiness).toMatchObject({ status: "limited" });
     expect(result.publicationReadiness.blockers).toContain("报告尚未生成");
