@@ -194,6 +194,17 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('region',{name:'答卷列表'})).toBeInTheDocument();
   expect(screen.getByRole('button',{name:'设计报告模板'})).toBeInTheDocument();
  });
+ it('closes the optional actions menu after choosing an action',async()=>{
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="design"/>);
+  await screen.findByRole('region',{name:'问卷设计画布'});
+  const summary=screen.getByText('更多操作',{selector:'summary'});
+  const menu=summary.closest('details');
+  fireEvent.click(summary);
+  expect(menu).toHaveAttribute('open');
+  fireEvent.click(screen.getByRole('button',{name:'设计报告模板（可选）'}));
+  expect(menu).not.toHaveAttribute('open');
+ });
  it('uses a four-step AI import flow and enters a clean designer after applying Markdown',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce({markdown:'# AI 草稿\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}});
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai"/>);

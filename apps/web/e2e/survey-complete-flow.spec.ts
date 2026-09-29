@@ -40,6 +40,14 @@ function question(page: Page, title: string): Locator {
   return page.getByRole("group", { name: title });
 }
 
+async function openWorkspaceAction(page: Page, name: string) {
+  const action = page.getByRole("button", { name });
+  if (!(await action.isVisible())) {
+    await page.getByText("更多操作", { exact: true }).click();
+  }
+  await action.click();
+}
+
 async function answerPublishedSurvey(page: Page) {
   await expect(page.getByRole("heading", { name: TEMPLATE_TITLE })).toBeVisible();
   await page.getByRole("textbox", { name: "会议名称" }).fill("季度产品复盘会");
@@ -96,7 +104,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByRole('heading',{name:'AI 智能生成问卷'})).toHaveCount(0);
   await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveCount(0);
 
-  await page.getByRole("button", { name: "设计报告模板（可选）" }).click();
+  await openWorkspaceAction(page, "设计报告模板（可选）");
   await expect(page.getByText("报告章节 · 4")).toBeVisible();
   await expect(page.getByLabel("报告标题")).toHaveValue("会议反馈调查分析报告");
   await expect(page.getByRole("button", { name: "预览完整报告" })).toBeVisible();
@@ -132,7 +140,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await page.screenshot({path:test.info().outputPath('response-workspace-mobile.png'),fullPage:true});
   await page.setViewportSize({width:1440,height:900});
 
-  await page.getByRole("button", { name: "分析报告（可选）" }).click();
+  await openWorkspaceAction(page, "分析报告（可选）");
   await page.getByRole("button", { name: "生成报告" }).click();
   const report = page.getByTestId("survey-report-document");
   await expect(report).toBeVisible();

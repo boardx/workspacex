@@ -333,8 +333,26 @@ export function LiveSurveyWorkspace({
         <details className="relative">
           <summary className="cursor-pointer list-none rounded-md border border-border px-3 py-2 text-13">更多操作</summary>
           <div className="absolute right-0 z-20 mt-2 flex min-w-52 flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-lg">
-            <Button variant="ghost" onClick={() => selectStep("template")}>设计报告模板（可选）</Button>
-            {runtime && <Button variant="ghost" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
+            <Button
+              variant="ghost"
+              onClick={(event) => {
+                event.currentTarget.closest("details")?.removeAttribute("open");
+                selectStep("template");
+              }}
+            >
+              设计报告模板（可选）
+            </Button>
+            {runtime && (
+              <Button
+                variant="ghost"
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  selectStep("report");
+                }}
+              >
+                分析报告（可选）
+              </Button>
+            )}
           </div>
         </details>
         {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
