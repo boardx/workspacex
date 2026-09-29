@@ -132,6 +132,8 @@ export async function getResearchRuntimeProgress(sessionId: string, stream?: Gui
 export function mergeResearchProgress(current: GuidedResearchRuntime, update: ResearchRuntimeProgress): GuidedResearchRuntime {
   if (current.sessionId !== update.sessionId || update.version < current.version || (update.version === current.version && !current.busy && update.busy)) return current;
   const { stream, ...metadata } = update;
+  const isNewReportAttempt = update.busy && update.currentNode === "report"
+    && (update.version > current.version || Boolean(stream && current.reportStream && stream.requestId !== current.reportStream.requestId));
   let reportStream = current.reportStream;
   if (stream) {
     const previous = reportStream?.requestId === stream.requestId ? reportStream : null;
@@ -142,7 +144,14 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
       }
     }
   } else reportStream = null;
-  return { ...current, ...metadata, ...(update.busy && update.currentNode === "report" ? { report: null, reportDraft: null } : {}), reportStream };
+  return {
+    ...current,
+    ...metadata,
+    ...(update.busy && update.currentNode === "report"
+      ? { report: null, reportDraft: null, ...(isNewReportAttempt ? { reportCheckpoint: null } : {}) }
+      : {}),
+    reportStream,
+  };
 }
 
 export async function updateGuidedResearchMetadata(sessionId: string, input: { title: string; tags: string[] }): Promise<GuidedResearchSession> {
