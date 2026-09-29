@@ -58,16 +58,17 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
     const link = block.links.find((item) => /^#expert-[^\s#]+$/u.test(item.url));
     return link ? [{ ...block, expertId: link.url.slice(8), displayName: link.text }] : [];
   });
+  const groupRefs = React.useRef(new Map<string, HTMLElement>());
   const chosen = groups.find((block) => block.headingId === active) ?? groups[0];
   const move = (direction: -1 | 1) => chosen ? moveOutlineGroup(document, chosen.headingId, direction) : null;
   return <div data-testid="itv-markdown-outline"><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">访谈问题</h2><p className="mt-2 text-base leading-7 text-muted-foreground">按专家逐题确认访谈内容。</p>
     {chosen && <div className="mt-4 flex gap-2">{([-1, 1] as const).map((direction) => <Button key={direction} variant="outline" disabled={pending || move(direction) === null} onClick={() => { const next = move(direction); if (next !== null) { onChange(next); setActive(null); } }}>{direction === -1 ? "上移当前分组" : "下移当前分组"}</Button>)}</div>}
-    <div className="mt-6 grid items-start gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"><aside className="rounded-xl border border-border p-4"><h3 className="font-semibold">访谈专家</h3><nav aria-label="访谈问题分组" className="mt-4 space-y-2">{groups.map((block) => <button key={block.headingId} type="button" aria-current={chosen?.headingId === block.headingId ? "true" : undefined} onClick={() => setActive(block.headingId)} className={`flex w-full items-center gap-3 rounded-xl p-3 text-left focus-visible:ring-2 focus-visible:ring-ring ${chosen?.headingId === block.headingId ? "bg-muted" : "hover:bg-muted/50"}`}><ExpertAvatar expertId={block.expertId} displayName={block.displayName} className="size-10" context={avatarContext} /><span className="min-w-0"><strong className="block truncate text-sm">{block.displayName}</strong><span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{expertRole(block.expertId, directory, expertsDocument)}</span></span></button>)}</nav></aside>
-      <section className="min-w-0 rounded-xl border border-border p-5">{chosen ? (() => {
-        const questions = questionLines(document.markdown, chosen.contentStart, chosen.end);
-        return <article key={chosen.headingId}>
-          <h3 className="text-xl font-semibold">{chosen.displayName}</h3>
-          {questions.length > 0 && <ol aria-label={`${chosen.title}访谈问题`} className="mt-4 divide-y divide-border rounded-xl border border-border">{questions.map((question, index) => <li key={question.start} className="flex items-center gap-2 px-3 py-2">
+    <div className="mt-6 grid items-start gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]"><aside className="rounded-xl border border-border p-4 lg:sticky lg:top-5"><h3 className="font-semibold">访谈专家</h3><nav aria-label="访谈问题分组" className="mt-4 space-y-2">{groups.map((block) => <button key={block.headingId} type="button" aria-label={block.displayName} aria-current={chosen?.headingId === block.headingId ? "true" : undefined} onClick={() => { setActive(block.headingId); groupRefs.current.get(block.headingId)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={`flex w-full items-center gap-3 rounded-xl p-3 text-left focus-visible:ring-2 focus-visible:ring-ring ${chosen?.headingId === block.headingId ? "bg-muted" : "hover:bg-muted/50"}`}><ExpertAvatar expertId={block.expertId} displayName={block.displayName} className="size-10" context={avatarContext} /><span className="min-w-0"><strong className="block truncate text-sm">{block.displayName}</strong><span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{expertRole(block.expertId, directory, expertsDocument)}</span></span></button>)}</nav></aside>
+      <section className="min-w-0 space-y-5">{groups.length ? groups.map((group) => {
+        const questions = questionLines(document.markdown, group.contentStart, group.end);
+        return <article key={group.headingId} ref={(node) => { if (node) groupRefs.current.set(group.headingId, node); else groupRefs.current.delete(group.headingId); }} className={`scroll-mt-5 rounded-xl border bg-background p-5 ${chosen?.headingId === group.headingId ? "border-primary/40 ring-1 ring-primary/15" : "border-border"}`}>
+          <h3 className="text-xl font-semibold">{group.displayName}</h3>
+          {questions.length > 0 && <ol aria-label={`${group.title}访谈问题`} className="mt-4 divide-y divide-border rounded-xl border border-border">{questions.map((question, index) => <li key={question.start} className="flex items-center gap-2 px-3 py-2">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-sm font-semibold">{index + 1}</span>
             <input aria-label={`编辑问题 ${index + 1}`} disabled={pending} value={question.text} onChange={(event) => onChange(document.markdown.slice(0, question.textStart) + event.target.value + document.markdown.slice(question.textEnd))} className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             {([-1, 1] as const).map((direction) => <Button key={direction} variant="ghost" size="icon" disabled={pending || index + direction < 0 || index + direction >= questions.length} aria-label={`${direction === -1 ? "上移" : "下移"}问题 ${index + 1}`} onClick={() => {
@@ -84,11 +85,10 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
           {questions.length === 0 && <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">还没有访谈问题。</p>}
           <Button className="mt-3 w-full" variant="outline" disabled={pending} onClick={() => {
             const newline = document.markdown.includes("\r\n") ? "\r\n" : "\n";
-            onChange(document.markdown.slice(0, chosen.end) + `${newline}${questions.length + 1}. 新问题？${newline}` + document.markdown.slice(chosen.end));
+            onChange(document.markdown.slice(0, group.end) + `${newline}${questions.length + 1}. 新问题？${newline}` + document.markdown.slice(group.end));
           }}>添加问题</Button>
-          <Button className="mt-4" variant="outline" disabled={pending} onClick={() => onChange(document.markdown.slice(0, chosen.start) + document.markdown.slice(chosen.end))}>删除该专家问题</Button>
         </article>;
-      })() : <p className="py-12 text-center text-sm text-muted-foreground">尚无专家问题，请先生成访谈问题。</p>}</section>
+      }) : <div className="rounded-xl border border-border p-5"><p className="py-12 text-center text-sm text-muted-foreground">尚无专家问题，请先生成访谈问题。</p></div>}</section>
     </div>
     <footer className="mt-6 flex flex-wrap justify-end gap-3"><Button variant="outline" disabled={pending} onClick={onGenerate}>生成访谈问题</Button><Button variant="outline" disabled={pending || !document.markdown.trim()} onClick={onSave}>保存问题草稿</Button><Button variant="primary" disabled={pending || !groups.length} onClick={onConfirm}>确认问题并开始访谈</Button></footer>
   </div>;

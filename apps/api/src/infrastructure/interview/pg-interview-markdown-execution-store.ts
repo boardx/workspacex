@@ -8,6 +8,7 @@ import { appendInterviewMarkdownDocument,DIGITAL_INTERVIEW_ACTOR_VISIBILITY,inte
 import { guard } from "../../application/security/permission-filter";
 type Execution = z.infer<typeof interviewMarkdown.InterviewMarkdownExecution>;
 type Row = Execution & { sources:{documentId:string;version:number}[]; claim_id:string|null; claim_expires_at:Date|null };
+const EXECUTION_BATCH_SIZE = 5;
 function invalid():never { throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID"); }
 export class PgInterviewMarkdownExecutionStore implements InterviewMarkdownExecutionStore {
   constructor(private readonly db:DatabasePort) {}
@@ -65,30 +66,36 @@ export class PgInterviewMarkdownExecutionStore implements InterviewMarkdownExecu
       if(row.claim_id&&row.claim_expires_at&&new Date(row.claim_expires_at).getTime()>Date.now()) return null;
       const sources=await this.sources(session,input,header.revision_id);
       if(sources.length!==row.sources.length||sources.some(d=>!row.sources.some(s=>s.documentId===d.documentId&&s.version===d.version))) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      const task=row.tasks.find(t=>t.status==="running"||t.status==="pending");
-      if(!task) return null;
-      task.status="running";
+      const recoverable=row.tasks.filter(t=>t.status==="running");
+      const tasks=(recoverable.length?recoverable:row.tasks.filter(t=>t.status==="pending")).slice(0,EXECUTION_BATCH_SIZE);
+      if(!tasks.length) return null;
+      for(const task of tasks) task.status="running";
       const claimId=randomUUID();
       await session.query(`UPDATE interview_markdown_execution SET tasks=$3::jsonb,claim_id=$4,claim_expires_at=now()+interval '5 minutes',updated_at=now() WHERE org_id=$1 AND revision_id=$2`,[input.orgId,header.revision_id,JSON.stringify(row.tasks),claimId]);
       const runs=await session.query<{markdown:string}>(`SELECT markdown FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' AND content_source IS NOT NULL ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id]);
       await this.bump(session,input);
-      return {claimId,expertId:task.expertId,content:guard({kind:"interview",id:input.interviewId},{sources,partial:runs.rows[0]?.markdown??""})};
+      return {claimId,tasks:tasks.map(task=>({expertId:task.expertId,content:guard({kind:"interview",id:input.interviewId},{sources,partial:runs.rows[0]?.markdown??""})}))};
     });
   }
-  finish(input:MarkdownExecutionActor & {claimId:string;markdown:string;failed:boolean}) {
+  finish(input:MarkdownExecutionActor & {claimId:string;results:readonly {expertId:string;markdown:string;failed:boolean}[]}) {
     return this.db.withTenant(input.orgId,async session=>{
       const header=await this.lock(session,input);
       const row=await this.row(session,input,header.revision_id);
       if(!row||row.claim_id!==input.claimId) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const sources=await this.sources(session,input,header.revision_id);
       if(sources.length!==row.sources.length||sources.some(d=>!row.sources.some(s=>s.documentId===d.documentId&&s.version===d.version))) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      const task=row.tasks.find(t=>t.status==="running");
-      if(!task) invalid();
-      task.status=input.failed?"failed":"completed";task.errorCode=input.failed?"AI_GENERATION_UNAVAILABLE":null;
-      if(input.failed) row.status="failed";
+      const running=row.tasks.filter(t=>t.status==="running");
+      const resultIds=new Set(input.results.map(result=>result.expertId));
+      if(!running.length||resultIds.size!==input.results.length||running.length!==input.results.length||running.some(task=>!resultIds.has(task.expertId))) invalid();
+      for(const result of input.results) {
+        const task=running.find(candidate=>candidate.expertId===result.expertId)!;
+        task.status=result.failed?"failed":"completed";task.errorCode=result.failed?"AI_GENERATION_UNAVAILABLE":null;
+      }
+      if(input.results.some(result=>result.failed)) row.status="failed";
       else if(row.tasks.every(t=>t.status==="completed")) row.status="completed";
       const previous=(await session.query<{markdown:string;version:number}>(`SELECT markdown,version_number AS version FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id])).rows[0];
-      if(input.markdown.trim()) await appendInterviewMarkdownDocument(session,{orgId:input.orgId,interviewId:input.interviewId,revisionId:header.revision_id,step:"runs",title:"模拟访谈回答",markdown:`${previous?.markdown??"# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。"}\n\n## [${task.expertId}](#expert-${task.expertId})\n\n${input.markdown}`,evidenceMode:"simulated",references:sources.map((d,i)=>({anchor:`source-${i+1}`,documentId:d.documentId,version:d.version})),expectedVersion:previous?.version??0,status:row.status==="completed"?"completed":input.failed?"failed":"draft",failure:input.failed?{code:"AI_GENERATION_UNAVAILABLE",retryable:true}:null});
+      const appended=input.results.filter(result=>result.markdown.trim()).map(result=>`## [${result.expertId}](#expert-${result.expertId})\n\n${result.markdown}`).join("\n\n");
+      if(appended) await appendInterviewMarkdownDocument(session,{orgId:input.orgId,interviewId:input.interviewId,revisionId:header.revision_id,step:"runs",title:"模拟访谈回答",markdown:`${previous?.markdown??"# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。"}\n\n${appended}`,evidenceMode:"simulated",references:sources.map((d,i)=>({anchor:`source-${i+1}`,documentId:d.documentId,version:d.version})),expectedVersion:previous?.version??0,status:row.status==="completed"?"completed":row.status==="failed"?"failed":"draft",failure:row.status==="failed"?{code:"AI_GENERATION_UNAVAILABLE",retryable:true}:null});
       await session.query(`UPDATE interview_markdown_execution SET status=$3,tasks=$4::jsonb,claim_id=NULL,claim_expires_at=NULL,updated_at=now() WHERE org_id=$1 AND revision_id=$2`,[input.orgId,header.revision_id,row.status,JSON.stringify(row.tasks)]);
       await this.bump(session,input);
     });
