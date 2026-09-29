@@ -409,7 +409,7 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   await expect(page.locator('[data-testid^="itv-history-card-"]')).toHaveCount(6);
   const listHeadingSize = await page.getByTestId("itv-home-page").getByRole("heading", { name: "用户访谈" })
     .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
-  expect(listHeadingSize, "list title should be the primary visual anchor").toBeGreaterThanOrEqual(36);
+  expect(listHeadingSize, "list title should match the compact user-research heading scale").toBe(30);
   const searchBounds = await page.getByTestId("itv-history-search").boundingBox();
   expect(searchBounds?.width, "the list search should be a primary full-row control").toBeGreaterThanOrEqual(500);
   await page.screenshot({ path: testInfo.outputPath("00-list.png"), fullPage: true });
