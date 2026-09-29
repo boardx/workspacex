@@ -1,5 +1,6 @@
 import type { survey } from '@repo/contracts';
 import { surveyReportShareBlockedReason } from '@repo/contracts/survey-report';
+import { surveyInsightAction, surveySampleNotice } from './report-sample-qualification';
 
 /** A readable projection of the persisted compiled report, never a second editable model. */
 export function surveyReportMarkdown(report: survey.CompiledSurveyReport): string {
@@ -8,9 +9,15 @@ export function surveyReportMarkdown(report: survey.CompiledSurveyReport): strin
     const sample = report.sampleSummary;
     lines.push(`样本口径：总答卷 ${sample.total} · 待复核 ${sample.pendingReview} · 已排除 ${sample.excluded} · 纳入分析 ${sample.included}`);
   }
+  const notice = surveySampleNotice(report.sampleSummary?.included);
+  if (notice) lines.push(`> ${notice.label}：${notice.text}`);
   for (const section of report.sections) {
     lines.push(`## ${section.title}`);
-    for (const insight of section.analysis ?? []) lines.push(`### ${insight.title}`, insight.evidence, `建议行动：${insight.action}`);
+    for (const insight of section.analysis ?? []) {
+      const action = surveyInsightAction(report, section, insight);
+      lines.push(`### ${insight.title}`, insight.evidence);
+      if (action) lines.push(`${action.label}${action.text}`);
+    }
     for (const block of section.blocks) {
       if (block.type === 'page-break') { lines.push('---'); continue; }
       lines.push(`### ${block.title}`);
