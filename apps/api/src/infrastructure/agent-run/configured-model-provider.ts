@@ -54,6 +54,7 @@ import type {
 import { ModelCallError } from "../../application/agent-run/ports";
 import type { ReportedUsage } from "../../application/agent-run/ports";
 import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
+import { isLoopbackBaseUrl } from "./loopback-provider-aliases";
 
 export interface ConfiguredModelProviderConfig {
   /** The one provider name that runs may pin. Empty means: this deployment has none. */
@@ -385,8 +386,17 @@ export class ConfiguredModelProvider implements ModelCallPort {
     onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ) => Promise<ModelCallCompletion>;
 
-  constructor(config: ConfiguredModelProviderConfig) {
+  /**
+   * 回环/开发/CI 专用：经 `KERNEL_LOOPBACK_PROVIDER_ALIASES` 路由到本端口的其它 provider 名
+   * （见 loopback-provider-aliases.ts）。路由表把 `dashscope` 指到本端口，但下面的 pin 校验只认
+   * `config.provider`，于是 workflow skill stage（用 agent pin 的 provider）一律
+   * `MODEL_PROVIDER_NOT_CONFIGURED`。同一道回环闸：baseUrl 不是回环地址 ⇒ 别名一律忽略，生产不变。
+   */
+  private readonly loopbackAliases: ReadonlySet<string>;
+
+  constructor(config: ConfiguredModelProviderConfig, loopbackAliases: readonly string[] = []) {
     this.config = config;
+    this.loopbackAliases = isLoopbackBaseUrl(config.baseUrl) ? new Set(loopbackAliases) : new Set();
     this.completeStream = config.streamEnabled
       ? (input, onDelta) => this.streamImpl(input, onDelta)
       : undefined;
@@ -526,7 +536,11 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 那种"用户以为模型看过了"的形态。
    */
   supportsVision(modelProvider: string, modelId: string): boolean {
-    return modelProvider === this.config.provider && this.config.visionModelIds.has(modelId);
+    return this.servesProvider(modelProvider) && this.config.visionModelIds.has(modelId);
+  }
+
+  private servesProvider(modelProvider: string): boolean {
+    return modelProvider === this.config.provider || this.loopbackAliases.has(modelProvider);
   }
 
   async complete(input: ModelCallInput): Promise<
@@ -541,7 +555,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         "no model provider is configured for this deployment",
       );
     }
-    if (input.modelProvider !== provider) {
+    if (!this.servesProvider(input.modelProvider)) {
       // Not a fallback point. The run pinned a provider this deployment does not serve,
       // and answering with the one it does serve would silently change the snapshot.
       throw new ModelCallError(
@@ -617,7 +631,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         "no model provider is configured for this deployment",
       );
     }
-    if (input.modelProvider !== provider) {
+    if (!this.servesProvider(input.modelProvider)) {
       throw new ModelCallError(
         "MODEL_PROVIDER_NOT_CONFIGURED",
         `run pinned provider "${input.modelProvider}", configured provider is "${provider}"`,
