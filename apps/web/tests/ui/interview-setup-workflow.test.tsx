@@ -618,6 +618,15 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(screen.getByTestId("itv-step-markdown-artifact")).toHaveTextContent("分析建议.md");
   });
 
+  it("opens a newly created setup route on canonical intake instead of the legacy brief", async () => {
+    installLiveFetch(topicPendingInterview);
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} canonicalNewInterview />);
+
+    expect(await screen.findByTestId("itv-markdown-intake")).toBeVisible();
+    expect(screen.getByTestId("itv-workbench-step-intake")).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByTestId("itv-research-brief")).not.toBeInTheDocument();
+  });
+
   it("keeps full-screen navigation in one header and exposes one Markdown source to preview", async () => {
     installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
