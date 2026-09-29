@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { interviewMarkdown } from "@repo/contracts";
-import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "../lib/mock/digital-expert-personas";
+import { MOCK_DIGITAL_EXPERTS, MOCK_EXPERT_ID_PREFIX, toDigitalExpertCatalogRow } from "../lib/mock/digital-expert-personas";
 
 const view = {
   interviewId: "itv-quality-e2e", name: "采购决策研究", tags: ["用户研究"], topic: null,
@@ -64,7 +64,8 @@ test("expert avatar changes persist, reset and fit desktop/tablet/mobile", async
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(preference) });
   });
   await page.goto("/itv/itv-quality-e2e/experts");
-  const expertCard = page.getByTestId("itv-markdown-experts").getByRole("heading", { name: expert.displayName, exact: true }).locator("..");
+  const personaId = expert.expertId.slice(MOCK_EXPERT_ID_PREFIX.length);
+  const expertCard = page.getByTestId(`itv-persona-card-persona-${personaId}`);
   await expect(expertCard).toContainText(expert.role);
   await expertCard.getByRole("button", { name: `修改${expert.displayName}头像` }).click();
   const editor = page.getByRole("dialog", { name: `修改${expert.displayName}头像` });
@@ -146,16 +147,16 @@ test("a maintained persona survives Markdown save, reload and explicit confirmat
   await page.goto("/itv/itv-quality-e2e/experts");
   await page.getByRole("button", { name: "添加画像 张浩宇" }).click();
   await expect(page.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
-  await page.getByRole("button", { name: "保存专家草稿" }).click();
-  await expect.poll(() => savedMarkdown).toContain("#expert-persona-68ecb1289191bb24396f9bd4");
-  await page.reload();
-  await expect(page.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
+  await expect(page.getByTestId("itv-persona-card-persona-68ecb1289191bb24396f9bd4")).toHaveAttribute("data-selected", "true");
+  await expect(page.getByRole("button", { name: "保存专家草稿" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "生成专家建议" })).toHaveCount(0);
   await page.getByRole("button", { name: "确认专家并生成问题" }).click();
+  await expect.poll(() => savedMarkdown).toContain("#expert-persona-68ecb1289191bb24396f9bd4");
   await expect.poll(() => confirmed).toBe(true);
   await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/outline$/u);
 });
 
-test("research brief is keyboard reachable and responsive in a real browser", async ({ page }) => {
+test("new setup opens the canonical intake route content and remains responsive", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "e2e-token");
     localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
@@ -167,22 +168,16 @@ test("research brief is keyboard reachable and responsive in a real browser", as
   await page.route("**/interviews/digital/itv-quality-e2e", async (route) => route.fulfill({
     status: 200, contentType: "application/json", body: JSON.stringify(view),
   }));
+  await mockCanonicalSource(page);
   await page.goto("/itv/itv-quality-e2e/setup");
-  await expect(page.getByTestId("itv-research-brief")).toBeVisible();
-  await page.getByTestId("itv-topic-input").fill("谁拥有最终采购否决权？");
-  await page.getByTestId("itv-brief-decision").fill("决定是否调整进入市场路径");
-  await expect(page.getByTestId("itv-confirm-topic")).toBeEnabled();
-  await page.getByTestId("itv-topic-input").focus();
-  await page.keyboard.press("Tab");
-  await expect(page.getByTestId("itv-brief-decision")).toBeFocused();
+  await expect(page.getByTestId("itv-markdown-intake")).toBeVisible();
+  await expect(page.getByTestId("itv-workbench-step-intake")).toHaveAttribute("aria-current", "step");
+  await expect(page.getByTestId("itv-research-brief")).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByTestId("itv-research-brief")).toBeVisible();
+  await expect(page.getByTestId("itv-markdown-intake")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
-  // The retained JSON setup owns its legacy assistant; named source routes do not.
-  await page.getByTestId("itv-skill-drawer-trigger").click();
-  await expect(page.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "false");
 });
 
 test("the six-stage workbench restores a direct stage route and updates it from the timeline", async ({ page }) => {

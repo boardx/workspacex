@@ -66,7 +66,12 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     const doc = saved.documents.find((item) => item.step === step)!;
     const status = saved.states.find((item) => item.documentId === doc.documentId)?.status;
     const confirmed = status === "confirmed" || status === "completed" ? saved : receive(await confirmInterviewMarkdown(interviewId, step, { expectedVersion: saved.version, expectedDocumentVersion: doc.version }));
-    if (step === "experts" && !confirmed.documents.some((item) => item.step === "outline")) receive(await generateInterviewMarkdown(interviewId, "outline", { expectedVersion: confirmed.version, expectedDocumentVersion: 0 }));
+    if (step === "experts") {
+      const outline = confirmed.documents.find((item) => item.step === "outline");
+      const hasExpertQuestions = outline ? interviewMarkdown.parseInterviewMarkdown(outline).blocks.some((block) =>
+        block.links.some((link) => /^#expert-[^\s#]+$/u.test(link.url))) : false;
+      if (!hasExpertQuestions) receive(await generateInterviewMarkdown(interviewId, "outline", { expectedVersion: confirmed.version, expectedDocumentVersion: outline?.version ?? 0 }));
+    }
     callbacks.current.onContinue(step === "experts" ? "outline" : "runs");
   }
   const saved = source?.documents.find((doc) => doc.step === step);
