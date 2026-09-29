@@ -93,6 +93,7 @@ describe("live survey trusted publishing", () => {
     client.request.mockResolvedValueOnce(published);
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
     fireEvent.change(await screen.findByRole("combobox", { name: "回收批次" }), { target: { value: "batch-1" } });
+    expect(screen.getByText("已停止回收 · 1 份答卷")).toBeInTheDocument();
     expect(screen.getByText("历史批次只读")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "停止回收" })).not.toBeInTheDocument();
     const metrics = screen.getByRole("region", { name: "回收数据" });
@@ -104,6 +105,7 @@ describe("live survey trusted publishing", () => {
     const response = { id: "answer-1", submittedAt: "2026-09-28T08:00:00.000Z", durationSeconds: 45, answers: [], quality: "review" as const, analysis: "included" as const };
     client.request.mockResolvedValueOnce({ ...published, responses: [response, { ...response, id: "answer-2", quality: "normal" }] });
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    expect(await screen.findByText("正在回收 · 2 份答卷")).toBeInTheDocument();
     const metrics = await screen.findByRole("region", { name: "回收数据" });
     expect(within(metrics).getByText("有效答卷").parentElement).toHaveTextContent("1");
     expect(within(screen.getByRole("complementary", { name: "回收设置面板" })).getByRole("region", { name: "最近回收动态" })).toBeInTheDocument();

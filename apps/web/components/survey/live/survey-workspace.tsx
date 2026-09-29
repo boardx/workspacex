@@ -241,6 +241,11 @@ export function LiveSurveyWorkspace({
     collectionBatches.find((batch) => batch.id === activeBatchId) ?? null;
   const selectedPublication = selectedBatch ?? runtime?.publication ?? null;
   const selectedIsActive = !selectedBatch || selectedBatch.id === activeBatchId;
+  const selectedResponseCount = runtime?.responses.filter((response) =>
+    !selectedBatch ||
+    response.collectionBatchId === selectedBatch.id ||
+    (collectionBatches.length <= 1 && response.collectionBatchId === undefined),
+  ).length ?? 0;
   const link = selectedPublication && typeof window !== "undefined"
     ? `${window.location.origin}/surveys/${encodeURIComponent(selectedPublication.token)}`
     : "";
@@ -473,6 +478,7 @@ export function LiveSurveyWorkspace({
                 <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
                 <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
                 {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{selectedPublication.version}</p>}
+                {selectedPublication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {selectedResponseCount} 份答卷</p>}
                 {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
               </section>
               {runtime?.status === "draft" ? (
