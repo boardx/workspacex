@@ -34,6 +34,7 @@ description: 问卷创建、模板、题目编辑、发布、填写和结果分�
 - 2026-09-28：问卷空列表同时展示页头和空态两个「新建问卷」，全页按同名按钮定位会触发 Playwright strict mode；端到端创建入口应使用页头的稳定 `survey-create-primary` test id，保留两个入口各自可见。证据：`apps/web/tests/ui/survey-live-library.test.tsx` 的 RED→GREEN 与 `apps/web/e2e/survey-complete-flow.spec.ts`（#4547）。
 - 2026-09-29：问卷再次发布必须创建新的不可变回收批次；公开链接按 token 精确解析所属批次，答卷写入同一 `collectionBatchId`，已关闭旧 token 应返回 closed 而不是 not-found。证据：`apps/api/tests/survey/survey-runtime.test.ts` 的 republish 回归（#4611）。
 - 2026-09-29：问卷空列表只保留页头一个主创建入口，替代 2026-09-28 保留两个入口的临时做法；答卷页先展示真实答卷，分析报告作为默认折叠的可选区，避免次要任务挤占核心闭环。证据：`apps/web/tests/ui/survey-live-library.test.tsx` 与 `survey-live-workspace.test.tsx`（#4675）。
+- 2026-09-29：分析报告的样本数、有效率和平均用时必须排除 `analysis = excluded` 的答卷；没有有效样本时只展示报告结构和明确的“暂无结论”提示，不得继续渲染固定演示指标。证据：`apps/web/tests/ui/survey-workflow-model.test.ts` 的排除答卷回归（#4691 后续优化）。
 - 2026-09-29：设计器的发布前试填必须复用正式题目渲染与条件可见性计算，但试填答案只留在本地状态，不触发草稿 `onChange`、保存或答卷提交。证据：`apps/web/tests/ui/survey-responsive-designer.test.tsx`（#4691）。
 
 ## 知识回流规则
