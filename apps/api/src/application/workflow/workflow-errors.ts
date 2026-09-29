@@ -4,7 +4,13 @@ export class WorkflowUseCaseError extends Error {
   constructor(
     readonly code: WorkflowErrorCode,
     message: string,
-    readonly details: { missingSkills?: string[]; issues?: unknown[]; latestProjection?: WorkflowInstanceProjection } = {},
+    readonly details: {
+      missingSkills?: string[];
+      issues?: unknown[];
+      latestProjection?: WorkflowInstanceProjection;
+      /** A5：gate_already_decided 带已落定的门。 */
+      decidedGate?: NonNullable<WorkflowInstanceProjection["openGate"]>;
+    } = {},
   ) {
     super(message);
     this.name = "WorkflowUseCaseError";

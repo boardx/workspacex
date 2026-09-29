@@ -69,7 +69,7 @@ import { StandardImageController } from "./interface/controllers/standard-image.
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
 import { selectImageProvider } from "./infrastructure/agent-run/select-image-provider";
 import { STANDARD_SCHEDULE, SCHEDULED_RUN_NOTIFIER, type ScheduledRunNotifier } from "./application/agent-run/standard-schedule";
-import { PgBossScheduler } from "./infrastructure/agent-run/pg-boss-scheduler";
+import { PgBossScheduler, type ScheduleWake } from "./infrastructure/agent-run/pg-boss-scheduler";
 import { PgStandardSchedule } from "./infrastructure/agent-run/pg-standard-schedule";
 import { ScheduledChatRunGateway } from "./infrastructure/agent-run/scheduled-chat-run-gateway";
 import { StandardScheduleRuntime } from "./infrastructure/agent-run/standard-schedule-runtime";
@@ -1096,8 +1096,9 @@ import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/config
 import { RecordingController } from "./interface/controllers/recording.controller";
 import pgModule from "pg";
 import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
-import { WORKFLOW_RUNTIME_SERVICE } from "./application/workflow/workflow-runtime-service";
+import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "./application/workflow/workflow-runtime-service";
 import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
+import { createGeneralizedScheduleHandler } from "./infrastructure/workflow/workflow-scheduled-job-router";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
@@ -2361,19 +2362,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
         threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
         executor: AgentRunExecutorPort, model: ModelCallPort, titleModel: ThreadTitleModelConfig,
-        logger: LoggerPort, notifier?: ScheduledRunNotifier) => {
+        logger: LoggerPort, workflows: WorkflowRuntimeService, notifier?: ScheduledRunNotifier) => {
         if (process.env.KERNEL_STANDARD_SCHEDULER !== "1") return null;
         const provider = new PgBossScheduler(db, code => logger.error(code, {traceId:randomUUID(),err:code}));
         const gateway = new ScheduledChatRunGateway({repo,ids,chat,commands,publishedAgents,threadMounts,enabledSkills,
           model,titleModel,log: () => logger.error("schedule_chat_failed", {traceId:randomUUID(),err:"schedule_chat_failed"})},
           orgId => executor.kick(orgId));
-        return new StandardScheduleRuntime(provider, new PgStandardSchedule({db,authority,
-          visibility:{repo,ids,chat,runs},provider,gateway,notifier}));
+        const pgStandardSchedule = new PgStandardSchedule({db,authority,visibility:{repo,ids,chat,runs},provider,gateway,notifier});
+        // WF06「pg-boss 泛化」：{kind:'workflow',triggerId} 唤醒 Workflow 定时触发器；其余（原
+        // agent-run `{orgId,scheduleId}`）payload 原样交给既有 handler，行为不变（兼容）。
+        const deliver = createGeneralizedScheduleHandler<ScheduleWake>(
+          (job) => pgStandardSchedule.deliver(job),
+          (job) => workflows.deliverScheduledTrigger(job),
+        );
+        return new StandardScheduleRuntime(provider, { invoke: (...args) => pgStandardSchedule.invoke(...args), deliver });
       },
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY,
         CHAT_REPOSITORY, AGENT_RUN_STORE, CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER,
         THREAD_MOUNTED_SKILL_READER, ENABLED_SKILL_VERSION_READER, AGENT_RUN_EXECUTOR,
-        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, {token:SCHEDULED_RUN_NOTIFIER,optional:true}],
+        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, WORKFLOW_RUNTIME_SERVICE,
+        {token:SCHEDULED_RUN_NOTIFIER,optional:true}],
     },
     {
       provide: STANDARD_SQL_SOURCE,

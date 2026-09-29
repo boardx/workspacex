@@ -8,8 +8,16 @@
  *
  * 每个阶段开始前、写业务行前都 assertLease（E2：epoch 被接管后不产生任何写）；
  * 取消在阶段边界生效：cancelling → cancelled（reasonCode cancel_requested）。
+ *
+ * WF05 人工门（R3 第 6 步）：阶段定义了 humanGate 且该 (stage, attempt) 的门尚未批准时，worker 在阶段工作
+ * **之前**写 `gate_opened`（含副作用预览）并把实例置 awaiting_gate_decision，然后停下、释放 lease——图在该
+ * 节点处中断，checkpoint 停在前一阶段（LangGraph 语义上的 interrupt）。approve 后重新取 lease 从 checkpoint
+ * 续跑，重进该阶段时看到已批准的门才执行工作；阶段内副作用照常走 effect-gateway 重查权限。
+ * 被拒绝（前向 onDenyStageId）越过的阶段只记 skipped，不执行工作、不产生 effect receipt。
  */
 import type { PinnedSkillVersion, WorkflowInstanceStatus } from "@repo/contracts/workflow-runtime";
+import { EffectInFlightError, EffectPermissionBlockedError, type EffectGateway } from "./effect-gateway";
+import { defaultGatePreview, deriveGates, gateIdOf, skippedByDenial, type GateEffectPreview } from "./human-gate-state";
 import { isTerminal } from "./instance-projection";
 import type { PinnedWorkflowInstance, WorkflowDefinitionRepository, WorkflowInstanceRepository, WorkflowLease, WorkflowLeaseStore } from "./workflow-ports";
 import type { WorkflowEventInput, WorkflowEventStore, WorkflowEventType, WorkflowStageOutputStore } from "./workflow-runtime-ports";
@@ -20,10 +28,17 @@ export interface StageExecution {
   attempt: number;
   input: Record<string, unknown>;
   pinnedSkills: PinnedSkillVersion[];
+  /** 本次执行持有的 lease：阶段内调用 effect-gateway 时原样传入（E2）。 */
+  lease: WorkflowLease;
+  /** WF05：经过人工门时的审批决定（写入副作用 provenance）；无门为 null。 */
+  approval: { gateId: string; decidedBy: string } | null;
 }
 
+/** 阶段可选的门预览（gate_opened 事件内容）；不得含密钥/凭证（I-15）。 */
+export type StageGatePreview = (exec: Omit<StageExecution, "approval">) => GateEffectPreview | Promise<GateEffectPreview>;
+
 export type StageWork = (exec: StageExecution) => Promise<{ label: string; content: Record<string, unknown> }>;
-export type StageRunner = (stageId: string, work: StageWork) => Promise<{ outputId: string }>;
+export type StageRunner = (stageId: string, work: StageWork, opts?: { gatePreview?: StageGatePreview }) => Promise<{ outputId: string }>;
 
 /** 图驱动端口：按实例冻结的 graphRef 执行；有 checkpoint 则从 checkpoint 续跑。 */
 export interface WorkflowGraphDriver {
@@ -53,6 +68,13 @@ export interface RunInstanceDeps {
   hooks?: RunHooks;
   /** lease TTL：每个 checkpoint 边界与后台心跳都按它续租（epoch 保持的 CAS），长阶段不会因固定 TTL 失去 lease。 */
   leaseTtlMs?: number;
+  /**
+   * WF04（review #2）：崩溃恢复的生产入口。某个阶段的 `work()` 内部调用 effect-gateway 时，若命中
+   * 未 finalize 的 begin（`EffectInFlightError`），这里统一调用 `reconcile()`——不留给具体某个阶段
+   * 的实现各自记得接，也不只在单测里被直接调用。未接（未传本字段）时按原样把 `EffectInFlightError`
+   * 冒泡给 `onRunError`，lease 不释放，行为与其他未知错误一致（不是本次修复引入的新退化）。
+   */
+  effectGateway?: EffectGateway;
 }
 
 /** 实例已被取消/进入终态：停止推进（不是错误）。 */
@@ -101,9 +123,39 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
     }
   };
 
-  const stage: StageRunner = async (stageId, work) => {
+  const gates = deriveGates(log);
+  const skipped = skippedByDenial(definition, gates.values());
+
+  /** WF05：返回审批决定（可继续）；门未开 → 开门并挂起；门未决 → 挂起。 */
+  const passGate = async (stageId: string, attempt: number, gatePreview?: StageGatePreview) => {
+    const stageDef = definition.stages.find((s) => s.stageId === stageId);
+    if (!stageDef?.humanGate) return null;
+    const gateId = gateIdOf(stageId, attempt);
+    const current = deriveGates(await deps.events.listAfter(orgId, instanceId, 0, 100_000)).get(gateId);
+    if (current?.decision === "approved") return { gateId, decidedBy: current.decidedBy ?? "" };
+    if (!current) {
+      const base = { instanceId, stageId, attempt, input, pinnedSkills: pinnedOf(stageId), lease };
+      const effectPreview = gatePreview ? await gatePreview(base) : defaultGatePreview(stageDef);
+      await append(
+        { type: "gate_opened", stageId, reasonCode: null, data: { gateId, attempt, effectPreview } },
+        { status: "awaiting_gate_decision", reasonCode: null },
+      );
+    }
+    throw new StopRun("awaiting_gate_decision");
+  };
+  const pinnedOf = (stageId: string) => instance.pinnedSkills.filter((p) => p.stageId === stageId).map((p) => ({ ...p }));
+
+  const stage: StageRunner = async (stageId, work, opts) => {
     const attempt = 1;
     await checkpointBoundary();
+    if (skipped.has(stageId)) {
+      // A4：被拒绝越过的阶段——不执行工作、不产生副作用，只留痕。
+      if (!(await logged(stageId, attempt, "stage_succeeded"))) {
+        await append({ type: "stage_succeeded", stageId, reasonCode: "gate_denied", data: { attempt, skipped: true } });
+      }
+      return { outputId: "" };
+    }
+    const approval = await passGate(stageId, attempt, opts?.gatePreview);
     if (!(await logged(stageId, attempt, "stage_started"))) {
       await append({ type: "stage_started", stageId, reasonCode: null, data: { attempt } });
     }
@@ -115,7 +167,9 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
         stageId,
         attempt,
         input,
-        pinnedSkills: instance.pinnedSkills.filter((p) => p.stageId === stageId).map((p) => ({ ...p })),
+        pinnedSkills: pinnedOf(stageId),
+        lease,
+        approval,
       });
       await holdLease(); // 写业务行前再判一次 epoch（并续租）
       row = (await deps.outputs.put(orgId, instanceId, { stageId, attempt, outputId: deps.newId(), ...result })).row;
@@ -154,7 +208,25 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
       );
     }
   } catch (e) {
-    if (!(e instanceof StopRun)) throw e; // 崩溃/意外错误：不释放 lease，由过期后的接管者恢复
+    if (e instanceof EffectInFlightError && deps.effectGateway) {
+      // 生产恢复路径（review #2）：不重放调用，统一走 reconcile()（E1）。`reconciled` → receipt 迁
+      // 终态，之后接管者重进该 stage 时 begin() 按 replay 处理（见 pg-workflow-receipt-store.ts），
+      // 不会再撞同一个 EffectInFlightError；`unresolved`/无 reconciler → reconcile() 内部已经把实例
+      // 落成 needs_attention（WORKFLOW_TERMINAL_STATUSES 之一），过期扫描器的查询条件天然不再挑中
+      // 它，接管循环到此为止，不会无限重试（不是本次之前那种「每次都从头撞同一个错误」）。
+      // lease 有意不释放：`needs_attention`/维持 `running` 都要交给下一次接管者（或人工「从该阶段
+      // 重试」）续跑，而不是释放后连 `wf_expired_lease_instances` 都不会再挑到它。
+      await deps.effectGateway.reconcile({
+        orgId,
+        instanceId,
+        stageId: e.stageId,
+        effectKey: e.effectKey,
+        capabilityCategory: e.capabilityCategory,
+      });
+      return (await deps.instances.find(orgId, instanceId))?.status ?? "running";
+    }
+    // E4：阶段内副作用被权限重查拦下——effect-gateway 已把实例置 blocked_permission，本次推进到此为止。
+    if (!(e instanceof StopRun) && !(e instanceof EffectPermissionBlockedError)) throw e; // 崩溃/意外错误：不释放 lease，由过期后的接管者恢复
   } finally {
     if (heartbeat) clearInterval(heartbeat);
   }
