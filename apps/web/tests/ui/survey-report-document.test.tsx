@@ -58,14 +58,20 @@ describe('survey report document',()=>{
   const lowSample={...report,sampleSummary:{total:3,pendingReview:0,excluded:0,included:3}};
   render(<SurveyReportDocument report={lowSample}/>);
   expect(screen.getByRole('status',{name:'低样本说明'})).toHaveTextContent('仅展示描述性结果');
-  expect(screen.queryByText('建议行动：')).not.toBeInTheDocument();
-  expect(screen.getByText('核对具体经历')).toBeInTheDocument();
+ expect(screen.queryByText('建议行动：')).not.toBeInTheDocument();
+  expect(screen.queryByText('核对具体经历')).not.toBeInTheDocument();
  });
  it('labels samples below 30 as exploratory and turns actions into validation suggestions',()=>{
   render(<SurveyReportDocument report={report}/>);
   expect(screen.getByRole('status',{name:'探索性样本说明'})).toHaveTextContent('置信度有限');
   expect(screen.queryByText('建议行动：')).not.toBeInTheDocument();
   expect(screen.getByText('建议验证：')).toBeInTheDocument();
+ });
+ it('uses the effective sample behind each insight instead of the report total',()=>{
+  const sparse={...report,sampleSummary:{total:40,pendingReview:0,excluded:0,included:40},sections:[{...report.sections[0]!,blocks:report.sections[0]!.blocks.map(item=>item.id==='bar'?{...item,sampleSize:3,rows:item.rows.map(row=>({...row,count:3}))}:item)}]};
+  render(<SurveyReportDocument report={sparse}/>);
+  expect(screen.queryByText('建议行动：')).not.toBeInTheDocument();
+  expect(screen.queryByText('核对具体经历')).not.toBeInTheDocument();
  });
  it('exports a genuine Word archive with every chapter',async()=>{
   const blob=await buildSurveyReportWord({...report,sections:report.sections.map(s=>({...s,blocks:s.blocks.filter(b=>!['bar','radar','line'].includes(b.type))}))});
@@ -83,7 +89,8 @@ describe('survey report document',()=>{
   }
   for(const type of ['text','gap','table']) expect(xml).toContain(`${type} 图注`);
   expect(xml).not.toContain('page-break 图注');
-  expect(xml).toContain('仅反映该受访者反馈');expect(xml).toContain('核对具体经历');
+  expect(xml).toContain('仅反映该受访者反馈');expect(xml).toContain('建议验证：核对具体经历');
+  expect(xml).toContain('探索性样本说明');expect(xml).toContain('置信度有限');
   expect(xml).toContain('请改善检索体验');expect(xml).toContain('保留资料来源');expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
   expect(xml).toContain('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');expect(xml).toContain('仅正常质量答卷 · 实际样本量 8');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
