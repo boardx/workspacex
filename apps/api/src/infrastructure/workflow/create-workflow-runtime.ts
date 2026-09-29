@@ -12,6 +12,12 @@ import { EffectGateway, type EffectReconcilePort } from "../../application/workf
 import type { NotificationPublisher } from "../../application/notifications/notification-center";
 import type { ContentSkillRunnerPort } from "../../application/work-content/content-skill-runner";
 import { prdPublishedNotifier, publishPrdArtifact } from "../../application/work-content/prd-publication";
+import {
+  LeadWriteBackService,
+  type InAppNotifyPort,
+  type LeadApproverEligibilityPort,
+  type TenantCrmPort,
+} from "../../application/work-content/lead-write-back";
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
@@ -29,7 +35,16 @@ import { PgWorkflowLeaseStore } from "./pg-workflow-lease-store";
 import { PgWorkflowReceiptStore } from "./pg-workflow-receipt-store";
 import { PgWorkflowTriggerStore } from "./pg-workflow-trigger-store";
 import { createWorkflowCheckpointerFactory } from "./workflow-checkpointer-factory";
-import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGraph } from "./workflow-graph-registry";
+import {
+  GUIDED_RESEARCH_GRAPH_NODE_IDS,
+  GUIDED_RESEARCH_GRAPH_REF,
+} from "../../application/research/guided-research-workflow-graph";
+import {
+  LangGraphWorkflowDriver,
+  WorkflowGraphRegistry,
+  type CommandWorkflowGraph,
+  type LinearWorkflowGraph,
+} from "./workflow-graph-registry";
 
 /**
  * Skill 版本解析：按 stableId 发布的 Skill 目录属于 work-skill-meta 束（尚未落库）。在它落地前，
@@ -39,6 +54,11 @@ export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: as
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
   return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
+}
+
+/** WF07：迁入通用运行时的命令驱动图（引导式研究 = `guided-research:1`）。 */
+export function defaultCommandWorkflowGraphs(): CommandWorkflowGraph[] {
+  return [{ graphRef: GUIDED_RESEARCH_GRAPH_REF, nodeIds: GUIDED_RESEARCH_GRAPH_NODE_IDS }];
 }
 
 export interface WorkflowRuntimeOptions {
@@ -55,6 +75,19 @@ export interface WorkflowRuntimeOptions {
   effectReconcilers?: Record<string, EffectReconcilePort>;
   /** CT06：内容线执行接线（缺省 = 只注册 CT05 的占位图，Skill 不执行、不发布）。 */
   content?: { skills: ContentSkillRunnerPort; notifications: NotificationPublisher };
+  /**
+   * CT09：W011「线索到合格」写回段的租户侧端口（租户 CRM / 站内通知 / 审批人资格）。给了才合成
+   * `leadWriteBack`，并把 `crm.write` 的只读对账注册进网关（runInstance 通用恢复路径同样可用）。
+   */
+  leadWriteBack?: { crm: TenantCrmPort; notify: InAppNotifyPort; eligibility: LeadApproverEligibilityPort };
+}
+
+/** CT09：W011 写回的只读对账（writeKey = `instanceId/effectKey`，与 LeadWriteBackService 同一约定）。 */
+function leadWriteBackReconcilers(p: NonNullable<WorkflowRuntimeOptions["leadWriteBack"]>): Record<string, EffectReconcilePort> {
+  return {
+    "crm.write": { reconcile: (i) => p.crm.hasWrite(i.orgId, `${i.instanceId}/${i.effectKey}`) },
+    "notify.inapp": { reconcile: (i) => p.notify.hasSent(i.orgId, i.instanceId) },
+  };
 }
 
 /** 按能力分类分派对账实现；未注册的分类视为「查不到结论」（E1 → unresolved）。 */
@@ -85,15 +118,23 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     });
     graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef), prd];
   }
-  const registry = new WorkflowGraphRegistry(graphs);
+  const registry = new WorkflowGraphRegistry(graphs, defaultCommandWorkflowGraphs());
+  const capability = new PgEffectCapabilityAuthority(db);
+  const reconcilers: Record<string, EffectReconcilePort> = {
+    ...(opts.leadWriteBack ? leadWriteBackReconcilers(opts.leadWriteBack) : {}),
+    ...(opts.effectReconcilers ?? {}),
+  };
   const effectGateway = new EffectGateway({
     leases,
     receipts,
     events,
     instances,
-    permission: new ComposedEffectPermissionRecheck(access, new PgEffectCapabilityAuthority(db)),
-    reconcile: opts.effectReconcilers ? new DispatchingEffectReconciler(opts.effectReconcilers) : undefined,
+    permission: new ComposedEffectPermissionRecheck(access, capability),
+    reconcile: Object.keys(reconcilers).length > 0 ? new DispatchingEffectReconciler(reconcilers) : undefined,
   });
+  const leadWriteBack = opts.leadWriteBack
+    ? new LeadWriteBackService({ gateway: effectGateway, capability, events, leases, instances, ...opts.leadWriteBack })
+    : null;
   const service = new WorkflowRuntimeService({
     definitions: new PgWorkflowDefinitionRepository(db),
     instances,
@@ -116,7 +157,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     // 不再是只有单测直接 `new EffectGateway(...)` 才会调用到的孤立代码。
     effectGateway,
   });
-  return { service, registry, effectGateway };
+  return { service, registry, effectGateway, leadWriteBack, leases };
 }
 
 /**

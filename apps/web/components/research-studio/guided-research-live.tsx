@@ -16,7 +16,7 @@ import { GuidedResearchReportHistory, GuidedResearchEvidenceWarning } from "./gu
 import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { researchReportPreview } from "@/lib/research-report-preview";
-import { ResearchDirectionsEditor, ResearchDesignPreview } from "./guided-research-design-editor";
+import { ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchRuntimeProgress } from "./guided-research-runtime-progress";
 import { GuidedResearchReadiness, researchCompletionLabel, researchLimitations } from "./guided-research-readiness";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
@@ -353,26 +353,25 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
         {!readingReport && (loadingNode ?? node) !== "research" && (reportVisible && state.reportTimeline?.length ? <GuidedResearchReportTimeline state={state} interrupted={expired} /> : <GuidedResearchRuntimeProgress state={state} />)}
         {reportVisible && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
         {reportVisible && <GuidedResearchReportHistory state={state} />}
-        {waiting && (loadingNode ?? node) === "research" && <p role="status" data-testid="research-step-loading" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在搜索、阅读和分析资料，进度会自动保存…</p>}
+        {waiting && (loadingNode ?? node) === "research" && <p role="status" data-testid="research-step-loading" aria-live="polite" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在获取资料</p>}
         {reportVisible && !readingReport && state.reportPartial && <p className="rounded-md border border-border bg-muted/30 p-3 text-12" data-testid="research-report-evidence-gap">本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
         {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
         {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} moreActions={showReportRecoveryActions ? undefined : reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
         {waiting && (loadingNode ?? node) !== "research" ? (reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
-        {processing && !(reportVisible && state.reportTimeline?.length) && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
+        {processing && node !== "research" && !(reportVisible && state.reportTimeline?.length) && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
         {briefDocument && <GuidedResearchEntryPanel disabled={busy || Boolean(proposal) || !validDraft} onContinue={() => void run("confirm", { ...(draft ? { draft } : {}) })} brief={<><Textarea aria-label="研究需求" placeholder="请描述你的研究需求：研究目标、研究区域、时间范围、重点关注和关键问题。" className="min-h-48 resize-y p-3 text-sm leading-relaxed" maxLength={2000} disabled={busy} value={draft?.node === "brief" ? draft.value.goal : ""} onChange={(event) => { if (draft?.node === "brief") setDraft({ ...draft, value: { ...draft.value, goal: event.target.value } }); }} /><p className="text-right text-xs text-muted-foreground">{draft?.node === "brief" ? draft.value.goal.length : 0} / 2000</p></>} />}
         {draft?.node === "brief" && <Card className="sr-only" aria-hidden="true"><CardContent>{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field}>{field}<Textarea disabled tabIndex={-1} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
         {draft?.node === "directions" && <GuidedResearchTopicPanel assistant={conversation} actions={<div className="flex flex-wrap items-center justify-between gap-3"><Button variant="primary" className="h-9 px-4 text-sm" disabled={busy} onClick={() => navigateVisual("import")}>上一步</Button><Button variant="primary" className="h-9 px-4 text-sm" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("confirm", { draft })}>下一步：研究计划</Button></div>} workspace={<>
           <h2 className="text-lg font-bold">完善研究信息</h2>
           <ResearchTopicInformation brief={state.brief} disabled={busy || Boolean(proposal)} onDirtyChange={setTopicInformationDirty} onSave={(value) => void run("save", { node: "brief", draft: { node: "brief", value } })} />
-          <details><summary className="cursor-pointer text-sm font-medium">研究方向（可选调整）</summary><div className="mt-3 space-y-3"><ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} /><div className="flex justify-end gap-2"><Button variant="outline" disabled={busy || !validDraft} onClick={() => void run("generate", { draft })}>重新生成本步骤</Button><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("save", { draft })}>保存草稿</Button></div></div></details>
         </>} />}
         {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft || markdownDirty} onConfirm={() => void run("confirm", { draft })}
-          plan={<><div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">研究主题</p><h3 className="mt-1 text-sm font-bold">{state.brief.topic}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{state.brief.goal}</p></div><div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace editOnDoubleClick confirmChanges onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} onSave={async (markdown) => {
+          plan={<div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace editOnDoubleClick confirmChanges onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} preview={<ol className="space-y-3" aria-label="研究计划">{draft.value.filter((item) => item.enabled).sort((left, right) => left.order - right.order).map((item, index) => <li key={item.id} className="rounded-lg border border-border px-4 py-3 font-medium">{index + 1}、{item.title}</li>)}</ol>} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: outlineDocument, markdown });
             if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
             const saved = await run("save", { draft: parsed.draft });
             return saved ? { ok: true } : { ok: false, message: "研究计划未保存，请根据页面提示重试。" };
-          }} provenance="Markdown 是研究计划的可编辑来源；检索范围以已确认版本为准。" />}</div></>}
+          }} />}</div>}
         />}
         {node === "research" && <GuidedResearchSourceWorkspace
           state={state}

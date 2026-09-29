@@ -1379,6 +1379,8 @@ describe("lint-permission-paths: counter-proof", () => {
     // published skill_versions.semantic_label) for start-time pinning, never Skill content, and
     // nothing under src/interface/ imports it. Pinned by tests/work-content/problem-to-prd-e2e.test.ts.
     // Remove this increment with that entry.
+    // 2026-09-29 merge of main (iter4 + CT03 + WF07 + CT09, at 114) into CT06: measured 115 =
+    // main's 114 + CT06's one entry.
     expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(115);
 
     const src = readFileSync(
