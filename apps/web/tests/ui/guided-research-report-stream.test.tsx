@@ -28,6 +28,17 @@ describe("research report stream UI", () => {
     const timeline = screen.getByTestId("research-report-timeline");
     expect(previewStatus.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+  it("hides the generation timeline once the completed report is being read", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue({
+      ...streaming(), busy: false, leaseUntil: null,
+      report: { title: "正式报告", summary: "最终摘要", sections: [] },
+      reportStream: null,
+      reportTimeline: [{ id: "evidence", stage: "evidence", status: "completed", attempts: 1 }],
+    });
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    expect(await screen.findByTestId("research-report-document")).toHaveTextContent("正式报告");
+    expect(screen.queryByTestId("research-report-timeline")).not.toBeInTheDocument();
+  });
   it("shows actual model text before completion and ignores wrong request and duplicate deltas", async () => {
     vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
       callback!({ type: "snapshot", state: streaming(input.requestId) });
