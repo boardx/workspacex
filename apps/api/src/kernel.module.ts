@@ -1205,10 +1205,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     BoardController,
     AgentTrialRunController,
     SkillTrialRunController,
+    // ⚠ 必须排在 AgentController 之前：Express 按注册顺序匹配，`GET /agents/:agentId`
+    // 会把静态段 `GET /agents/directory` 当成 agentId="directory" 吃掉 → 404 AGENT_NOT_FOUND。
+    // 回归测试：tests/agent/agent-directory-route-order.test.ts。
+    AgentDirectoryController,
     AgentController,
     AgentRoleController,
     EscalationDecisionController,
-    AgentDirectoryController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
