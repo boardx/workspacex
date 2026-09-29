@@ -56,8 +56,8 @@ import {
  * 另外按 id 合并成员 Agent 目录 `GET /agents/directory`（`listAgentDirectory`，与
  * `/agent` 目录页同一数据源；`agents.id === capability_listings.id`，见
  * `pg-capability-repository.ts` 的 JOIN）取真人像 `avatar.key`（dh-*）、`roleLabel`、
- * `roleCategory` 与已授权 `workflows`。**契约里没有 tags 字段**——标签筛选用的是
- * `roleCategory`（分类标签）+ `workflows` 名称（能力标签）派生，不发明后端字段。
+ * `roleCategory` 与已授权 `workflows`。标签筛选由 `roleCategory`（分类标签）+
+ * `workflows` 名称（能力标签）派生，只用 `listAgentDirectory` 已返回的字段。
  * 目录读失败（无权限/离线）时静默退回首字母头像，选择器本身不受影响。
  */
 
