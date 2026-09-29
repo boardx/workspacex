@@ -93,6 +93,17 @@ test('visual and accessibility real object states, input and negative controls',
       await boardLogin(touchPage);
       await openBoard(touchPage,boardId,touchObjectCount);
       const page=touchPage;
+      // Create one durable, unobscured Sticky for the physical-input proof.
+      // The visual/reflow objects intentionally overlap after the long session,
+      // so choosing one of their centers is not a reliable hit target.
+      const existingIds=new Set((await canonicalRows(page)).map(row=>row.id));
+      await page.getByTestId('board-add-sticky').click();
+      await page.getByTestId('board-sticky-square').click();
+      await page.getByTestId('board-fabric-surface').click({position:{x:1260,y:570}});
+      await page.getByTestId('board-thinking-editor').press('Escape');
+      const touchTarget=(await canonicalRows(page)).filter(row=>!existingIds.has(row.id));
+      expect(touchTarget).toHaveLength(1);
+      await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS,{timeout:30_000});
       const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
       await page.getByTestId('board-tool-hand').click();
       const surface=page.getByTestId('board-fabric-surface'),before=await surface.getAttribute('data-viewport-pan-x');
@@ -106,18 +117,11 @@ test('visual and accessibility real object states, input and negative controls',
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await expect.poll(async()=>Number(await surface.getAttribute('data-viewport-zoom'))).not.toBe(zoomBefore);
       input.push({kind:'cdp-touch-pinch',hardware:false,before:zoomBefore,after:Number(await surface.getAttribute('data-viewport-zoom'))});
-      await page.getByTestId('board-tool-select').click();await page.getByTestId('board-zoom-fit-board').click();
-      let target: Awaited<ReturnType<typeof canonicalRows>>[number] | undefined;
-      let point: Awaited<ReturnType<typeof objectPoint>> | undefined;
-      for(const candidate of (await canonicalRows(page)).filter(row=>row.kind==='sticky').sort((a,b)=>a.text.length-b.text.length)){
-        // Some Stickies overlap panels, long text, or floating chrome. Keep
-        // trying actual exposed Fabric pixels instead of aborting on the first.
-        const candidatePoint=await objectPoint(page,candidate.id).catch(()=>null);
-        if(!candidatePoint)continue;
-        await page.mouse.click(candidatePoint.x,candidatePoint.y);
-        if(await page.getByTestId(`board-a11y-object-${candidate.id}`).getAttribute('aria-pressed')==='true'){target=candidate;point=candidatePoint;break;}
-      }
-      if(!target||!point)throw new Error('NO_REACHABLE_STICKY_FOR_TOUCH_DRAG');
+      await page.keyboard.press('Escape');await page.getByTestId('board-tool-select').click();await page.getByTestId('board-zoom-fit-board').click();
+      const target=(await canonicalRows(page)).find(row=>row.id===touchTarget[0]!.id)!;
+      const point=await objectPoint(page,target.id);
+      await page.mouse.click(point.x,point.y);
+      await expect(page.getByTestId(`board-a11y-object-${target.id}`)).toHaveAttribute('aria-pressed','true');
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:point.x,y:point.y}]});
       for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x+step*12,y:point.y+step*7}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
