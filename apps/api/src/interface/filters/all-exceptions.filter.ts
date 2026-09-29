@@ -41,6 +41,7 @@ import {
   interview,
   knowledgeGraph,
   orgAdmin,
+  homeConfig,
   personalRealtimeTranscription,
   planControl,
   platformMembers,
@@ -243,6 +244,16 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    */
   const orgAdminReason = orgAdmin.OrgAdminError.safeParse(raw);
   if (orgAdminReason.success) return { reasonCode: orgAdminReason.data };
+
+  /**
+   * 组织首页配置（`homeConfig.HomeConfigError`，Refs #4698）：闭集枚举，同上面各条的限制。
+   * 其中 `NO_ORG_MEMBERSHIP`/`FORBIDDEN`/`FILE_TOO_LARGE`/`UNSUPPORTED_CONTENT_TYPE` 与 org-admin
+   * 同名、上面已放行；这里补的是 home-config 独有的 `BANNER_COLOR_REQUIRED` /
+   * `BANNER_ARTIFACT_NOT_OWNED`——不登记的话它们到前端就是裸 `{"error":"conflict"}`，
+   * 用户看不到「该改什么」（tests/home/home-config-http.test.ts 真实 HTTP 抓到的）。
+   */
+  const homeConfigReason = homeConfig.HomeConfigError.safeParse(raw);
+  if (homeConfigReason.success) return { reasonCode: homeConfigReason.data };
 
   /**
    * F117: `project.ProjectReason`, the SEVENTH closed enum —— 又是同一个 bug 的第四次。

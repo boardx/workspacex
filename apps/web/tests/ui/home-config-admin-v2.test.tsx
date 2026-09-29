@@ -179,6 +179,18 @@ describe("推荐数字人选择器", () => {
     expect(latest.recommendedAgents).toEqual([]);
   });
 
+  it("超长名字快照时截到契约上限 60，避免整份配置保存 400", async () => {
+    const long = "长".repeat(80);
+    listAgentDirectory.mockResolvedValue([{ ...card("a1", long, null), roleLabel: "角".repeat(90) }]);
+    render(<Harness>{(p) => <RecommendedAgentsSection {...p} />}</Harness>);
+    fireEvent.click(screen.getByTestId("home-config-add-agent"));
+    fireEvent.click(await screen.findByTestId("home-config-picker-agent-a1"));
+    expect(Array.from(latest.recommendedAgents[0]!.name)).toHaveLength(60);
+    expect(Array.from(latest.recommendedAgents[0]!.roleLabel ?? "")).toHaveLength(60);
+    const { homeConfig } = await import("@repo/contracts");
+    expect(homeConfig.RecommendedAgent.safeParse(latest.recommendedAgents[0]).success).toBe(true);
+  });
+
   it("目录加载失败：显示错误而不是空列表", async () => {
     listAgentDirectory.mockRejectedValue(new Error("x"));
     render(<Harness>{(p) => <RecommendedAgentsSection {...p} />}</Harness>);
@@ -198,6 +210,14 @@ describe("推荐 Skill 选择器", () => {
     fireEvent.click(await screen.findByTestId("home-config-picker-skill-s1"));
     expect(screen.queryByTestId("home-config-picker-skill-s2")).toBeNull();
     expect(latest.recommendedCapabilities).toEqual([{ kind: "skill", refId: "s1", name: "录音转写", note: null }]);
+  });
+
+  it("超长 Skill 名快照时截到 60", async () => {
+    listSkills.mockResolvedValue([{ skillId: "s9", name: "技".repeat(75), status: "已启用" }]);
+    render(<Harness>{(p) => <RecommendedSkillsSection orgId="o1" {...p} />}</Harness>);
+    fireEvent.click(screen.getByTestId("home-config-add-recommendation"));
+    fireEvent.click(await screen.findByTestId("home-config-picker-skill-s9"));
+    expect(Array.from(latest.recommendedCapabilities[0]!.name)).toHaveLength(60);
   });
 });
 

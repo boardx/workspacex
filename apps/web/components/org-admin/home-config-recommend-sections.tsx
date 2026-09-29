@@ -13,6 +13,10 @@ import type { HomeConfigFormState } from "./home-config-form-model";
 type Props = { form: HomeConfigFormState; onChange: (next: HomeConfigFormState) => void };
 const SECTION = "flex flex-col gap-3 rounded-lg border border-border bg-panel p-4";
 export const MAX_RECOMMENDED = 6;
+/** 契约 `RecommendedAgent.name/roleLabel` 与 `RecommendedCapability.name` 的上限：更长的名字快照时截断，
+ *  否则一个超长名字会让整份配置保存 400（#4680 在 v1 里修过一次）。 */
+export const SNAPSHOT_NAME_MAX = 60;
+export const clampSnapshot = (s: string): string => Array.from(s).slice(0, SNAPSHOT_NAME_MAX).join("");
 
 type Catalog<T> = { status: "idle" } | { status: "loading" } | { status: "error" } | { status: "ready"; items: readonly T[] };
 
@@ -57,7 +61,7 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
 
   const add = (c: AgentDirectoryCard) => {
     if (atMax || picked.has(c.agentId)) return;
-    const next: RecommendedAgent = { agentId: c.agentId, name: c.name, roleLabel: c.roleLabel || null, avatarKey: c.avatar?.key ?? null, note: null };
+    const next: RecommendedAgent = { agentId: c.agentId, name: clampSnapshot(c.name), roleLabel: c.roleLabel ? clampSnapshot(c.roleLabel) : null, avatarKey: c.avatar?.key ? clampSnapshot(c.avatar.key) : null, note: null };
     onChange({ ...form, recommendedAgents: [...form.recommendedAgents, next] });
   };
   const remove = (id: string) => onChange({ ...form, recommendedAgents: form.recommendedAgents.filter((a) => a.agentId !== id) });
@@ -117,7 +121,7 @@ export function RecommendedSkillsSection({ orgId, form, onChange }: Props & { or
 
   const add = (s: SkillListItem) => {
     if (atMax) return;
-    onChange({ ...form, recommendedCapabilities: [...form.recommendedCapabilities, { kind: "skill", refId: s.skillId, name: s.name, note: null }] });
+    onChange({ ...form, recommendedCapabilities: [...form.recommendedCapabilities, { kind: "skill", refId: s.skillId, name: clampSnapshot(s.name), note: null }] });
   };
   const remove = (c: RecommendedCapability) => onChange({ ...form, recommendedCapabilities: form.recommendedCapabilities.filter((x) => key(x) !== key(c)) });
   const setNote = (c: RecommendedCapability, note: string) =>
