@@ -281,6 +281,23 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  ...[
+    "board-agent-public-api.spec.ts",
+    "board-ai-api.spec.ts",
+    "board-compact-chrome-acceptance.spec.ts",
+    "board-durable-images.spec.ts",
+    "board-final-acceptance.spec.ts",
+    "board-import-report.spec.ts",
+    "board-maintenance.spec.ts",
+    "board-meeting-room-acceptance.spec.ts",
+    "board-portable-real.spec.ts",
+    "board-security-acceptance.spec.ts",
+    "board-vendor-schema-migration.spec.ts",
+    "board-visual-accessibility-acceptance.spec.ts",
+  ].map((name) => ({
+    spec: `apps/web/e2e/${name}`,
+    reason: "#4723: requestor scoped Board acceptance to Board-impacting changes. These specs remain required for Board paths, Board CI policy changes, and packages/fabric-markdown; unrelated PRs skip them. A shared dependency outside that path set can affect Board without running these lanes, so this is explicit conditional coverage, not unconditional proof.",
+  })),
   {
     spec: "apps/web/e2e/board-collaboration-soak.spec.ts",
     reason: "#4700: requestor deferred the 50-client, 30-minute acceptance on 2026-09-29; manual workflow_dispatch remains available until the follow-up PR restores the automatic gate.",
