@@ -1,6 +1,6 @@
 # Board 融合需求执行计划 V0.2
 
-> 2026-09-29 状态补记：下文“截至 2026-09-28”与 #4488 的 SHA/CI 记录是当时快照，不代表当前 PR 状态。当前 #4524 仍 `OPEN`、未合并，由另一会话修复，本工作线不改其热点文件。下一项 BV04–BV05 的[作者体验设计与验收差距草案](./2026-09-29-board-authoring-bv04-bv05-draft.md)已准备；两项仍 `not_started`、未入 sprint、未有人类三件签核。已核实批量便利贴现为 100 张上限，目标是 500 张一次事务；既定五条 UI/浏览器验收用例尚缺实现。以下 Mermaid 图是历史计划视图，进度以 `feature_list.json`、当前 PR 和签核记录为准。
+> **2026-09-30 当前状态**：[#4524](https://github.com/boardx/workspacex/pull/4524) 已于 2026-09-29 合并；下文 2026-09-28 的候选 SHA、未合并 PR 与耗时预测是历史快照，不能当作今天的执行状态。R1–R9 的许多能力已经有 main 实现，但“有代码”不等于完成全量退出门；R10 的真实性能、视觉、无障碍、真实厂商样本及物理设备证据仍有缺口。权威 `feature_list.json` 仍显示 BV01 `in_progress`、BV04/BV05 `not_started`；正式批量 Sticky 仍上限 100 张，而 BV05 目标为 500 张一次事务。BV04–BV05 的[设计草案](./2026-09-29-board-authoring-bv04-bv05-draft.md)、[用例与 UI 草案](./board-authoring-contract-draft/ui.md)及独立 `/preview/board-authoring` 已准备，但未有人类三件签核，不是正式功能完成证据。
 
 本计划融合用户本轮完整 PRD（第 1–60 节）及后续补充。它替代旧 Mermaid 作为讨论入口，但不自动修改 `feature_list.json`、既有依赖、签核或完成状态。现有 BV01–BV32 是功能单源；新增或遗漏的细项必须补进需求、契约及可执行验证，再通过既有流程分配。本文工作包不是新增 feature ID。
 
@@ -85,6 +85,8 @@ flowchart TD
 
 ## 3. 总体 Mermaid：先统一基础，再并行交付
 
+下图蓝色仅表示 main 已有相应实现，**不表示整轮验收完成**；黄色表示还有未闭合的外部样本或真实体验证据。灰色 P2 是后续扩展。上方 2026-09-30 状态补记优先于下文旧候选 SHA。
+
 ```mermaid
 flowchart TD
   E["已有基础可复用<br/>Fabric / Yjs / 浏览与便利贴预览"]
@@ -116,7 +118,7 @@ flowchart TD
 
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
-  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef done fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
@@ -127,12 +129,12 @@ flowchart TD
   class S done
   class O done
   class C done
-  class B doing
+  class B done
   class P done
   class X done
   class H done
-  class M blocked
-  class A doing
+  class M doing
+  class A done
   class Q doing
   class F todo
 ```
