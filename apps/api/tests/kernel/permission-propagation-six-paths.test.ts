@@ -1381,6 +1381,9 @@ describe("lint-permission-paths: counter-proof", () => {
     // Remove this increment with that entry.
     // 2026-09-29 merge of main (iter4 + CT03 + WF07 + CT09, at 114) into CT06: measured 115 =
     // main's 114 + CT06's one entry.
+    // 2026-09-29 CT10 adds pg-board-run-source.ts (+1 -> 116): candidate Workflow runs for the
+    // Board run-card read model; visibility is filtered one layer up by the WF03 canView predicate.
+    // Pinned by tests/work-content/board-run-source-guard.test.ts. Remove this increment with that entry.
     // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
     // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
     // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
@@ -1397,6 +1400,8 @@ describe("lint-permission-paths: counter-proof", () => {
     // Agent·Skill name snapshots), no ObjectRef shape; both routes' admin gate runs in
     // home-config.controller.ts before the repository is reached. Pinned by
     // tests/home/home-config-authorization.test.ts. Remove this increment with that test.
+    // 2026-09-29 merge of main (CT06 squash 20317fc7d, ceiling 117) into CT10: union =
+    // main's 117 + CT10 pg-board-run-source.ts = 118 (measured).
     expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(118);
 
     const src = readFileSync(
