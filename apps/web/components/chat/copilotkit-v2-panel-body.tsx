@@ -2216,7 +2216,7 @@ export function CopilotKitV2PanelBody({
             没匹配到」与「@ 还没打完」。 */}
         {attachmentMention !== null ? (
           <div
-            className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-2"
+            className="flex flex-wrap items-center gap-1.5 rounded-card border border-border-subtle bg-card p-2 shadow-md"
             data-testid="chat-attachment-mention-picker"
           >
             <span className="text-9 text-muted-foreground" data-testid="chat-attachment-mention-query">
@@ -2290,10 +2290,10 @@ export function CopilotKitV2PanelBody({
         */}
         <div
           className={[
-            "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
+            "flex min-w-0 flex-col rounded-container border shadow-lg transition-colors duration-fast",
             // 2026-09-08 人类反馈（真栈截图）「选中的时候，不要有新的边框出来，就保持就可以了」——
             // 去掉 `focus-within:border-primary/60`：聚焦前后外框颜色一致，光标本身就是焦点提示。
-            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt",
+            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-card",
           ].join(" ")}
           data-testid="chat-task-workbench-composer"
           data-voice-phase={voice.phase}

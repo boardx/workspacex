@@ -5,6 +5,11 @@ import {
   verifySkillStarterPack,
 } from "../../domain/skill/starter-pack";
 import type { OrgId } from "../../domain/org-id";
+import {
+  checkWorkSkillManifests,
+  type WorkSkillImportRejectionCode,
+} from "../../domain/skill/work-skill-import-check";
+import type { WorkSkillManifestIssue } from "../../domain/skill/work-skill-manifest";
 import type {
   SkillStarterImportRepository,
   SkillStarterImportResult,
@@ -22,6 +27,18 @@ export class SkillStarterPackVersionLabelReusedError extends Error {
 }
 export class SkillStarterImportIdempotencyConflictError extends Error {}
 export class SkillStarterImportAdminRequiredError extends Error {}
+/** WS02（UC-2）：`metadata.work` 校验失败（E1/E6/E8）——整包拒绝，写库之前抛出。 */
+export class WorkSkillImportRejectedError extends Error {
+  constructor(readonly code: WorkSkillImportRejectionCode, readonly issues: readonly WorkSkillManifestIssue[]) {
+    super(`starter pack rejected: ${code}`);
+  }
+}
+/** WS02（E2）：`stableId` 已被本组织另一个 Skill 的目录行占用。 */
+export class WorkSkillStableIdConflictError extends Error {
+  constructor(readonly stableId: string, readonly conflictingSkillId: string) {
+    super(`work skill stableId ${stableId} already belongs to ${conflictingSkillId}`);
+  }
+}
 
 export interface ImportSkillStarterPackDeps {
   readonly identities: IdentityRepository;
@@ -115,17 +132,25 @@ export async function importSkillStarterPack(
     return replayOrThrow(recorded);
   }
 
+  // WS02：摘要校验之后、写库之前——任一 skill 的 metadata.work 不合规即整包拒绝（原子性）。
+  const work = checkWorkSkillManifests(pack);
+  if (work.kind === "rejected") throw new WorkSkillImportRejectedError(work.code, work.issues);
+
   const outcome = await deps.imports.persistVerified({
     orgId: input.orgId,
     actorId: input.actorId,
     idempotencyKey: input.idempotencyKey,
     payloadDigest,
     pack,
+    workManifests: work.manifests,
   });
   if (outcome.kind === "created" || outcome.kind === "replayed") {
     return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds: await retireSuperseded(deps, input, outcome.result, pack) };
   }
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();
+  if (outcome.kind === "stable-id-conflict") {
+    throw new WorkSkillStableIdConflictError(outcome.stableId, outcome.conflictingSkillId);
+  }
   if (outcome.kind === "version-label-reused") {
     throw new SkillStarterPackVersionLabelReusedError(outcome.stableName, outcome.semanticVersion);
   }

@@ -123,3 +123,11 @@ export * as whiteboard from "./whiteboard";
 export * as whiteboardDocument from "./whiteboard-document";
 export * as whiteboardSync from "./whiteboard-sync";
 export * as whiteboardCollaboration from "./whiteboard-collaboration";
+
+/* ── phase-20 契约束（work-stack-foundation，五束，2026-09-28 建，
+ *   design-signoff.md 全部 status: pending，人类授权先开发后补签）──────── */
+export * as agentRole from "./agent-role";
+export * as workSkillMeta from "./work-skill-meta";
+export * as workflowRuntime from "./workflow-runtime";
+export * as workContent from "./work-content";
+export * as workEval from "./work-eval";

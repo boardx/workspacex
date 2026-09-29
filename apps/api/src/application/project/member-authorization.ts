@@ -62,11 +62,18 @@
  *   无项目角色 且 无组织角色                       → `NO_PROJECT_ROLE`（I-P9：正常状态）
  */
 import type { OrgId } from "../../domain/org-id";
-import { roleAllows } from "../../domain/identity/project-role-matrix";
-import type { IdentityRepository, OrgMembershipRow, ProjectMembershipRow } from "../identity/ports";
+import { projectLayerAllows, type ProjectLayerInput } from "../../domain/identity/permission-decision";
+import type { ProjectAction } from "../../domain/identity/project-role-matrix";
+import type { IdentityRepository, OrgMembershipRow } from "../identity/ports";
+import { resolveProjectLayer } from "../identity/project-layer";
 import { ProjectError } from "./errors";
 
 export const MANAGE_MEMBERS_ACTION = "member.manage" as const;
+/**
+ * #4584：改项目配置（AI 权限）的项目层动作。与 `member.manage` 同一个两层 OR 门、同一行
+ * （facilitator），区别只在容器白名单：研究项目 / 用户洞察的负责人能改配置、不能管工作坊名单。
+ */
+export const MANAGE_SETTINGS_ACTION = "settings.manage" as const;
 
 export interface AuthorizeManageMembersInput {
   readonly actorId: string;
@@ -74,24 +81,35 @@ export interface AuthorizeManageMembersInput {
   readonly projectId: string;
 }
 
+/**
+ * `action` 默认 `member.manage`（F125 三个用例）；`updateProjectAiSettings` 传 `settings.manage`（#4584）。
+ *
+ * #4584：项目层身份经 `resolveProjectLayer`（与 `authorize()` 同一个组装点）读取，不再直接读
+ * `findProjectMembership`——否则研究项目 / 用户洞察的负责人在这里永远是「无项目角色」。
+ * 判「能不能做」用 `projectLayerAllows`（角色矩阵 ∧ 容器白名单），与 `decide()` 同一个表达式。
+ */
 export async function authorizeManageMembers(
   identity: IdentityRepository,
   input: AuthorizeManageMembersInput,
+  action: ProjectAction = MANAGE_MEMBERS_ACTION,
 ): Promise<void> {
   let orgMembership: OrgMembershipRow | null;
-  let projectMembership: ProjectMembershipRow | null;
+  let projectLayer: ProjectLayerInput;
   try {
-    [orgMembership, projectMembership] = await Promise.all([
-      identity.findOrgMembership(input.actorId, input.orgId),
-      identity.findProjectMembership(input.actorId, input.projectId, input.orgId),
-    ]);
+    orgMembership = await identity.findOrgMembership(input.actorId, input.orgId);
+    projectLayer = await resolveProjectLayer(identity, {
+      userId: input.actorId,
+      projectId: input.projectId,
+      orgId: input.orgId,
+      orgRole: orgMembership?.orgRole ?? null,
+    });
   } catch {
     // 判定服务不可用一律拒绝，不得降级放行——同 `archive-project.ts` / `create-project.ts`。
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
 
-  if (projectMembership !== null && roleAllows(projectMembership.projectRole, MANAGE_MEMBERS_ACTION)) {
-    return; // ① facilitator
+  if (projectLayerAllows(projectLayer, action)) {
+    return; // ① facilitator（研究项目 / 用户洞察：负责人，且动作在容器白名单内）
   }
   // ② Q-4② 管理权 override。#614：组织角色判据从「仅 lead」放宽到「lead 或 admin」
   //   （与 #608 同型；`list-projects.ts` 的 `isManager` 已有同一判据的先例）。
@@ -100,7 +118,7 @@ export async function authorizeManageMembers(
     return;
   }
 
-  if (projectMembership !== null) throw new ProjectError("PROJECT_ROLE_INSUFFICIENT");
+  if (projectLayer.role !== null) throw new ProjectError("PROJECT_ROLE_INSUFFICIENT");
   if (orgMembership !== null) throw new ProjectError("ORG_ROLE_INSUFFICIENT");
   throw new ProjectError("NO_PROJECT_ROLE");
 }

@@ -246,3 +246,5 @@ flow time 趋势）。
 8. [ ] 每 3 小时周期发 cycle-plan / cycle-result，接受 flow-time 度量。
 9. [ ] 每 tick 续约租约；重要状态写 coord-gateway / 叙述 issue，不留会话记忆。
 10. [ ] 全绿 PR 转交 coord-main 合并（你和你的 agent 都没有合并权）。
+11. [ ] 读 `execution-plan-developer-guide.md`：你的 agent 接到目标会先给着色 Mermaid 执行计划
+    （灰/黄/绿/紫/红），你靠它判断何时介入、PR 是否真的做完。

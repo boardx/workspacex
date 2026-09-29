@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { SurveyPublishBlocker } from "@repo/contracts/survey";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { LiveSurveyWorkspace } from "@/components/survey/live/survey-workspace";
@@ -51,6 +51,24 @@ beforeEach(() => {
 });
 
 describe("live survey trusted publishing", () => {
+  it("shows real valid-response counts and recent activity in the right column", async () => {
+    const published = runtime({ status: "collecting", publication: { token: "token", status: "collecting", version: 4, expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions } });
+    const response = { id: "answer-1", submittedAt: "2026-09-28T08:00:00.000Z", durationSeconds: 45, answers: [], quality: "review" as const, analysis: "included" as const };
+    client.request.mockResolvedValueOnce({ ...published, responses: [response, { ...response, id: "answer-2", quality: "normal" }] });
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    const metrics = await screen.findByRole("region", { name: "回收数据" });
+    expect(within(metrics).getByText("有效答卷").parentElement).toHaveTextContent("1");
+    expect(within(screen.getByRole("complementary", { name: "回收设置面板" })).getByRole("region", { name: "最近回收动态" })).toBeInTheDocument();
+  });
+  it("persists the anonymous-fill setting before publication", async () => {
+    client.request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({ version: 5, anonymity: "identified" }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("checkbox", { name: "匿名填写" }));
+    await waitFor(() => expect(client.request).toHaveBeenCalledWith("/surveys/survey-1", expect.objectContaining({
+      method: "PUT", body: expect.objectContaining({ expectedVersion: 4, anonymity: "identified" }),
+    }), expect.anything()));
+    expect(screen.getByRole("checkbox", { name: "匿名填写" })).not.toBeChecked();
+  });
   it("shows loading until the real runtime response arrives", async () => {
     let resolve!: (value: SurveyRuntime) => void;
     client.request.mockReturnValueOnce(new Promise((done) => { resolve = done; }));

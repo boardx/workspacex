@@ -204,6 +204,19 @@
     --ai: 245 79% 56.7%;                 /* #4B3BE8 AI 在场色（实测）*/
     --ai-foreground: 0 0% 100%;
 
+    /*
+     * 品牌色（2026-09-28，登录页蜕变动画）——取自官方 logo `workspacex-logo.png`
+     * 的洋红字标与 X 图形标左上瓣的橙色渐变端。目前只用于装饰性图形；配对前景色
+     * 按 state 档（≥3:1）校验，以后拿它做实心面时直接可用。
+     */
+    /* @contrast state */
+    --brand: 332 100% 52%;               /* #FF0A78 logo 字标洋红 */
+    --brand-foreground: 0 0% 100%;
+
+    /* @contrast state */
+    --brand-warm: 30 91% 62%;            /* #F5A04A logo X 标橙色端 */
+    --brand-warm-foreground: 25 80% 12%;
+
     /* @contrast none —— 结构性，不承载文字 */
     --border: 47 19% 85.7%;              /* #E0DED5 暖灰主边框（实测 20 处主导）*/
     --border-subtle: 45 14% 91%;         /* #EBEAE5 */
@@ -305,6 +318,14 @@
     /* @contrast state */
     --ai: 248 100% 74.1%;
     --ai-foreground: 248 56% 14.5%;
+
+    /* @contrast state —— 深色底上略提亮 */
+    --brand: 332 100% 60%;
+    --brand-foreground: 332 60% 10%;
+
+    /* @contrast state */
+    --brand-warm: 30 95% 66%;
+    --brand-warm-foreground: 25 80% 12%;
 
     /* @contrast none */
     --border: 240 5% 20%;
@@ -424,6 +445,19 @@
     /* @contrast state */
     --ai: 245 79% 56.7%;                 /* #4B3BE8 AI 在场色（实测）*/
     --ai-foreground: 0 0% 100%;
+
+    /*
+     * 品牌色（2026-09-28，登录页蜕变动画）——取自官方 logo `workspacex-logo.png`
+     * 的洋红字标与 X 图形标左上瓣的橙色渐变端。目前只用于装饰性图形；配对前景色
+     * 按 state 档（≥3:1）校验，以后拿它做实心面时直接可用。
+     */
+    /* @contrast state */
+    --brand: 332 100% 52%;               /* #FF0A78 logo 字标洋红 */
+    --brand-foreground: 0 0% 100%;
+
+    /* @contrast state */
+    --brand-warm: 30 91% 62%;            /* #F5A04A logo X 标橙色端 */
+    --brand-warm-foreground: 25 80% 12%;
 
     /* @contrast none —— 结构性，不承载文字 */
     --border: 47 19% 85.7%;              /* #E0DED5 暖灰主边框（实测 20 处主导）*/
@@ -634,6 +668,32 @@
   }
   .chat-markdown hr {
     @apply my-3 border-border-subtle;
+  }
+  /* The interview report is a document, not a compact chat bubble. Keep this
+     scoped so preview cards and assistant messages retain their own scale. */
+  .chat-markdown.interview-report-markdown > * + * {
+    @apply mt-4;
+  }
+  .chat-markdown.interview-report-markdown h1 {
+    @apply text-3xl font-bold leading-tight;
+  }
+  .chat-markdown.interview-report-markdown h2 {
+    @apply text-xl font-semibold leading-snug;
+  }
+  .chat-markdown.interview-report-markdown h3 {
+    @apply text-lg font-semibold;
+  }
+  .chat-markdown.interview-report-markdown p,
+  .chat-markdown.interview-report-markdown li,
+  .chat-markdown.interview-report-markdown blockquote {
+    @apply text-base leading-7;
+  }
+  .chat-markdown.interview-report-markdown ul,
+  .chat-markdown.interview-report-markdown ol {
+    @apply text-base;
+  }
+  .chat-markdown.interview-report-markdown table {
+    @apply text-sm;
   }
 }
 

@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Work Stack 执行计划</title>
+<style>body{font-family:system-ui,sans-serif;background:#fff;margin:24px}.lg span{display:inline-block;padding:2px 8px;margin-right:6px;border-radius:4px;border:1px solid #999}</style></head><body>
+<h2>Work Stack 执行计划</h2>
+<p class="lg"><span style="background:#e5e7eb">灰 未开始</span><span style="background:#fde68a">黄 已开始</span><span style="background:#bbf7d0">绿 已完成</span><span style="background:#ddd6fe">紫 已测试</span><span style="background:#fecaca">红 被堵塞</span></p>
+<p>🔴 H1 被堵塞：等人类批准方案并拍板 D1–D7（方案第 9 节）</p>
+<pre class="mermaid">
+flowchart TD
+  G([目标：交付 Work Stack 200 Skill / 60 Workflow / 60 Agent])
+  R1[1. 勘探现有 Skill / Agent / Workflow / harness 架构]
+  R2[2. 写完整方案 PROP-WORK-STACK-001]
+  H1{3. 人类批准方案并拍板 D1–D7?}
+  P0[4. Phase 0：收敛需求 + composition.yaml + ADR-116~121]
+  H2{5. 建 phase-20 + 原型 + 5 个契约束，人类签核?}
+  A1[6a. Skill 元数据 + 目录表]
+  A2[6b. 通用 Workflow Runtime + 迁移引导式研究]
+  A3[6c. Agent 扩展：头像 / 分类 / 白名单 / 委派 / 升级]
+  A4[6d. Eval Runner + G0–G4 门脚本]
+  V1[7. 验证三条试点链路：研究员 / 产品经理 / 销售]
+  C1[8. 补齐 Stage 1：50 Skill / 20 Workflow / 10 Agent]
+  X1[9. Stage 2 → Stage 3：扩到 200 / 60 / 60 + 生产治理]
+
+  G --> R1 --> R2 --> H1
+  H1 -- 批准 --> P0 --> H2
+  H2 -- 签核 --> A1 & A2 & A3 & A4
+  A1 & A2 & A3 & A4 --> V1 --> C1 --> X1
+
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+
+  class G doing
+  class R1 done
+  class R2 done
+  class H1 blocked
+  %% blocked H1: 等人类批准方案并拍板 D1–D7（方案第 9 节）
+  class P0 todo
+  class H2 todo
+  class A1 todo
+  class A2 todo
+  class A3 todo
+  class A4 todo
+  class V1 todo
+  class C1 todo
+  class X1 todo
+</pre>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true});</script>
+</body></html>

@@ -33,24 +33,9 @@ export const AUTH_PROVIDERS_LATER: AuthProvider[] = [
   { id: "sso", label: "SSO" },
 ];
 
-export interface BrandActivity {
-  initials: string;
-  name: string;
-  line: string;
-  kind: "ai" | "human";
-}
-
-/** 右侧氛围区的 AI 团队动态流（原型实测三条） */
 export const LOGIN_BRAND = {
-  liveStat: "全球 1,284 个战略问题",
-  quote: "把顾问的判断力和 AI 的耐力放在同一张桌子上。",
-  activities: [
-    { initials: "AV", name: "Ava · 战略分析师", line: "完成 3 条路径的假设拆解", kind: "ai" },
-    { initials: "SC", name: "Scout · 同行情报", line: "核查 14 份监管文件，全部带引用", kind: "ai" },
-    { initials: "LG", name: "Ledger · 收益测算", line: "正在建 5 年现金流模型", kind: "ai" },
-  ] satisfies BrandActivity[],
   /** 示例邮箱仅用作 placeholder，非真实账号 */
-  sampleEmail: "linke@yuanyang-consulting.cn",
+  sampleEmail: "name@company.com",
 };
 
 /**
