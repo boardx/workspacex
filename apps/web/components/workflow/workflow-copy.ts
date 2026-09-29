@@ -62,3 +62,14 @@ export const ERROR_TEXT: Record<WorkflowErrorCode, string> = {
 export function describeWorkflowError(code: WorkflowErrorCode | null): string {
   return code === null ? "操作失败，请稍后重试" : ERROR_TEXT[code];
 }
+
+/** E9：阶段失败分类（运行时写进 stage_failed 事件 data.failureKind）→ 用户可读说明。未知分类不展示。 */
+export const STAGE_FAILURE_KIND_TEXT: Record<string, string> = {
+  provider_not_configured: "模型服务尚未配置，请联系管理员配置后重新发起",
+  model_call_failed: "调用模型服务失败",
+  unknown: "阶段执行出错",
+};
+
+export function stageFailureKindText(kind: unknown): string | null {
+  return typeof kind === "string" && Object.hasOwn(STAGE_FAILURE_KIND_TEXT, kind) ? STAGE_FAILURE_KIND_TEXT[kind]! : null;
+}
