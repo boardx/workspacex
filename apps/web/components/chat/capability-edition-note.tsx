@@ -32,7 +32,11 @@ function availabilityIn(
   return edition === "local" ? row.local : row.cloud;
 }
 
-export function CapabilityEditionNote(): React.ReactElement | null {
+/**
+ * `compact`：数字人选择器的页脚形态——收成一行可展开的 `<details>`，默认只露标题与条数，
+ * 内容与判据逐字同一份（不是第二份文案）。
+ */
+export function CapabilityEditionNote({ compact = false }: { readonly compact?: boolean } = {}): React.ReactElement | null {
   const edition = useEdition();
   const missing = useMissingCapabilities();
   /*
@@ -45,14 +49,9 @@ export function CapabilityEditionNote(): React.ReactElement | null {
   */
   const absent = missing.filter((c) => availabilityIn(edition, c) === "absent");
   if (absent.length === 0) return null;
-  return (
-    <div
-      data-testid="capability-edition-note"
-      className="mt-1 rounded-md border border-dashed border-border px-2.5 py-2"
-    >
-      <p className="text-11 font-medium text-card-foreground">
-        {edition === "local" ? "这台电脑上做不到的事" : "这个版次做不到的事"}
-      </p>
+  const title = edition === "local" ? "这台电脑上做不到的事" : "这个版次做不到的事";
+  const body = (
+    <>
       <ul className="mt-1 space-y-0.5">
         {absent.map((c) => (
           <li key={c.id} data-testid={`capability-edition-absent-${c.id}`} className="text-11 leading-snug text-muted-foreground">
@@ -66,6 +65,25 @@ export function CapabilityEditionNote(): React.ReactElement | null {
           ? "这些要连在线正式系统才行。本地版的数据和模型都在这台电脑上，这是代价的另一半。"
           : "这些在当前版次里不可用。"}
       </p>
+    </>
+  );
+  if (compact) {
+    return (
+      <details data-testid="capability-edition-note" className="group px-1 text-11 text-muted-foreground">
+        <summary className="cursor-pointer select-none rounded-sm py-1 hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {title}（{absent.length} 项）
+        </summary>
+        <div className="pb-1 pl-2">{body}</div>
+      </details>
+    );
+  }
+  return (
+    <div
+      data-testid="capability-edition-note"
+      className="mt-1 rounded-md border border-dashed border-border px-2.5 py-2"
+    >
+      <p className="text-11 font-medium text-card-foreground">{title}</p>
+      {body}
     </div>
   );
 }
