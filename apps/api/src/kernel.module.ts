@@ -606,6 +606,9 @@ import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-
 import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-agent-role-label-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 import { AgentRoleController } from "./interface/controllers/agent-role.controller";
+import { EscalationDecisionController } from "./interface/controllers/escalation-decision.controller";
+import { ESCALATION_STORE } from "./application/agent-interrupts/decide-escalation";
+import { PgEscalationStore } from "./infrastructure/agent-interrupts/pg-escalation-store";
 import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
 import { PgAgentRoleDraftRepository } from "./infrastructure/agent/pg-agent-role-draft-repository";
 import { AgentDirectoryController } from "./interface/controllers/agent-directory.controller";
@@ -1191,6 +1194,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SkillTrialRunController,
     AgentController,
     AgentRoleController,
+    EscalationDecisionController,
     AgentDirectoryController,
     AgentPublishController,
     SkillController,
@@ -1616,6 +1620,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
       inject: [DATABASE_PORT],
     },
+    { provide: ESCALATION_STORE, useFactory: (db: DatabasePort) => new PgEscalationStore(db), inject: [DATABASE_PORT] },
     {
       provide: AGENT_ROLE_DRAFT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
