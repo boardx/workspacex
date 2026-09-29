@@ -193,6 +193,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   collaboration-50:
+    # Deferred from PR/main CI by the requestor on 2026-09-29; run this
+    # unchanged 50-client, 30-minute lane explicitly with workflow_dispatch.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:

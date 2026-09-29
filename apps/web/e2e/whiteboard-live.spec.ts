@@ -44,6 +44,7 @@ async function synced(page:Page){await expect(page.getByTestId('collaborative-ed
 test('realtime presence field convergence',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
   const owner=await ownerContext.newPage(),editor=await editorContext.newPage(),viewer=await viewerContext.newPage();
+  for (const page of [owner, editor, viewer]) page.setDefaultTimeout(15_000);
   let boardId:string|undefined,ownerToken:string|undefined,editorToken:string|undefined,viewerToken:string|undefined;
   try{
     await test.step('authenticate the three independent users',async()=>{
@@ -111,10 +112,12 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await editor.mouse.move(bounds!.x+420,bounds!.y+320);
       const editorCursor=owner.getByTestId(`peer-cursor-${required('WHITEBOARD_EDITOR_USER_ID')}`);await expect(editorCursor).toBeVisible({timeout:20_000});await expect(editorCursor).toHaveAccessibleName(/的光标$/);
       await expect(owner.locator('[data-testid^="peer-selection-"]')).toHaveAccessibleName(/正在编辑另一位成员的中文修改/);
-      await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
+      await owner.getByRole('button',{name:'更多白板操作'}).click();
+      await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-menu').click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
       await editor.getByRole('button',{name:'评论',exact:true}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
-      await editor.getByLabel('提及成员').fill(required('WHITEBOARD_OWNER_USER_ID'));
+      await editor.getByLabel('提及成员').fill('Fullstack E2E admin');
+      await editor.getByRole('option',{name:'Fullstack E2E admin'}).click();
       await editor.getByRole('button',{name:'发布评论'}).click();
       const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();
       await expect(owner.getByText('请一起核对这个结论')).toBeVisible();
@@ -128,13 +131,13 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await expect(viewerNote).toBeVisible({timeout:20_000});
       await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
       await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
-      await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
+      await viewer.locator('[data-testid^="board-comment-indicator-"]').first().click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
     });
     await test.step('grant independent commenter access and persist a world-position anchored thread',async()=>{
       await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
       await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});await viewer.reload();await synced(viewer);
       const note=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await note.focus();await note.press('Enter');
-      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
+      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.locator('[data-testid^="board-comment-indicator-"]').first().click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
       const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:640,y:360},body:'world anchored discussion',mentions:[],expectedRevision:0};
       await request(api,viewerToken!,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
       const comments=await request(api,viewerToken!,'GET',`/whiteboards/${boardId}/comments`);expect((await comments.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:640,y:360}}));
@@ -149,7 +152,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const revokedWrite = await api.post(`${required('WHITEBOARD_API_URL')}/whiteboards/${boardId}/commands`, {
         headers: {Authorization: `Bearer ${editorToken}`}, data: {requestId: randomUUID(), epoch: 1, commands: [{type: 'style', id: 'revoked-attempt', style: {fill: '#ffffff'}}]},
       });
-      expect(revokedWrite.status()).toBe(403);
+      expect(revokedWrite.status()).toBe(404); // Revoked membership conceals the board from the former editor.
     });
   }finally{
     try { if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId); }
