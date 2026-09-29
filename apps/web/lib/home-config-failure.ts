@@ -15,6 +15,10 @@ type HomeConfigErrorCode = z.infer<typeof homeConfig.HomeConfigError>;
 const ERROR_TEXT: Record<HomeConfigErrorCode, string> = {
   NO_ORG_MEMBERSHIP: "你不是这个组织的成员，看不到它的首页配置",
   FORBIDDEN: "首页配置仅组织管理员可编辑",
+  BANNER_ARTIFACT_NOT_OWNED: "这张横幅图片已经失效，请重新上传",
+  BANNER_COLOR_REQUIRED: "选了「自定义」配色，请先填一个 #RRGGBB 格式的颜色",
+  FILE_TOO_LARGE: "图片超过 5MB，换一张小一点的",
+  UNSUPPORTED_CONTENT_TYPE: "只支持 PNG / JPEG / WebP 图片",
 };
 
 export function describeHomeConfigFailure(err: unknown): string {
