@@ -95,11 +95,22 @@ describe("live research workspace", () => {
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     expect(await screen.findByTestId("research-source-description-src1")).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.getByTestId("research-source-description-src1")).toHaveTextContent("A retrieved source");
+    expect(screen.queryByText("研究主题")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "研究计划" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重试失败任务" })).toBeEnabled();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "删除来源 Official source" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重试失败任务" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 7 })));
+  });
+  it("shows one concise acquisition status while research is running", async () => {
+    const research: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"], generatedNodes: ["brief", "directions", "outline", "research"], busy: true, leaseUntil: "2099-01-01T00:00:00.000Z",
+      tasks: [{ id: "t1", sectionId: "s1", query: "Grid policy", status: "running", attempts: 1, errorCode: null }] };
+    vi.mocked(getResearchRuntime).mockResolvedValue(research);
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    expect(await screen.findByTestId("research-step-loading")).toHaveTextContent("正在获取资料");
+    expect(screen.queryByText(/正在处理/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("guided-research-source-evidence")).not.toBeInTheDocument();
   });
   it("offers a durable resume action for a previously paused research session", async () => {
     const paused: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"],

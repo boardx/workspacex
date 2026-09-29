@@ -59,6 +59,7 @@ const SINGLE_SOURCE_ADVICE: Readonly<Record<SourceKind, string>> = {
   interview_segment: "问卷",
   transcript_segment: "访谈或问卷",
   research_source: "访谈或问卷",
+  whiteboard_note: "访谈或问卷",
 };
 
 const NO_EVIDENCE_ADVICE: Readonly<Record<"hypothesis" | "decision", string>> = {

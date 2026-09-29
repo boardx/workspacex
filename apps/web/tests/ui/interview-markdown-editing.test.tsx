@@ -59,6 +59,20 @@ it("outline controls reorder raw sibling groups and retain stable question refer
   fireEvent.click(screen.getByRole("button", { name: "下移当前分组" }));
   expect(change).toHaveBeenCalledWith(second + first);
 });
+it("shows every expert question group and uses the left rail only as a scroll shortcut", () => {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+  const markdown = "## [教师](#expert-teacher)\n\n1. 最近一次备课发生了什么？\n\n## [校长](#expert-principal)\n\n1. 请给出一个具体反例。\n";
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown }} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByRole("heading", { name: "教师" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "校长" })).toBeVisible();
+  expect(screen.getByDisplayValue("最近一次备课发生了什么？")).toBeVisible();
+  expect(screen.getByDisplayValue("请给出一个具体反例。")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "删除该专家问题" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "校长" }));
+  expect(screen.getByRole("button", { name: "校长" })).toHaveAttribute("aria-current", "true");
+  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+});
 it("a save conflict does not silently rebase local text onto another editor's version", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const writes: { expectedVersion: number; expectedDocumentVersion: number }[] = [];

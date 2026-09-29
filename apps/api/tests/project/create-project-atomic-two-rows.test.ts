@@ -15,7 +15,7 @@
  *
  * ## 三条反证，逐条对应上面那段
  *
- *   ① 故障注入真的能让写入失败      —— 注入点在子类型行之前 ⇒ 三张表全部为空
+ *   ① 故障注入真的能让写入失败      —— 注入点在子类型行之前 ⇒ 相关表全部为空
  *   ② 注入器不是「让什么都失败」    —— 把注入点放到语句总数之外 ⇒ 创建正常成功
  *   ③ 「两个事务」的写法当场留半成品 —— 同一个注入点，换成两次 `withTenant`，
  *                                     `projects` 里**留下**一行而子类型表为空
@@ -168,9 +168,9 @@ const stubBlueprintReference: BlueprintReferenceRepository = {
 };
 
 describe("正向：一次提交写出容器行与子类型行", () => {
-  it("三类各建一个，两行同 id，且**另外两张子表一行都没有**", async () => {
-    // 非空转的前提：遍历的就是契约的三值闭集，加第四类会让本条自动扩张。
-    expect(project.ProjectKind.options.length).toBe(3);
+  it("每类各建一个，两行同 id，且**其它子表一行都没有**", async () => {
+    // 非空转的前提：遍历的就是契约的闭集（#4615 起 workshop / general），加新类会让本条自动扩张。
+    expect(project.ProjectKind.options.length).toBe(2);
 
     for (const kind of project.ProjectKind.options) {
       const out = await createProject(
@@ -190,8 +190,8 @@ describe("正向：一次提交写出容器行与子类型行", () => {
       const counts = await tableCounts(out.id);
       expect(counts.projects).toBe(1);
       expect(counts[SUBTYPE_TABLE[kind]]).toBe(1);
-      // 互斥不是靠「大家都小心」——这里把另外两张也数一遍，
-      // 因为一个「三张都插」的实现在只数对应那张时全绿。
+      // 互斥不是靠「大家都小心」——这里把其它子表也数一遍，
+      // 因为一个「全都插」的实现在只数对应那张时全绿。
       for (const t of SUBTYPE_TABLES) {
         if (t === SUBTYPE_TABLE[kind]) continue;
         expect(counts[t], `${t} 不该有 ${out.id} 的子行`).toBe(0);
@@ -224,7 +224,7 @@ describe("正向：一次提交写出容器行与子类型行", () => {
 });
 
 describe("反证：把注入点卡在两行之间", () => {
-  it("① 子类型行写不下去 ⇒ 三张表**全部**没有这一行（回滚干净）", async () => {
+  it("① 子类型行写不下去 ⇒ 相关表**全部**没有这一行（回滚干净）", async () => {
     // 语句序：1 占指纹 · 2 INSERT projects · 3 INSERT 子类型表。卡在 3。
     const faulty = new PgProjectRepository(new FaultyDatabase(db, 3), new UuidIdFactory());
     const before = await asApp(ORG, async (c) =>
@@ -259,11 +259,11 @@ describe("反证：把注入点卡在两行之间", () => {
     const faulty = new PgProjectRepository(new FaultyDatabase(db, 99), new UuidIdFactory());
     const out = await createProject(
       { repo: faulty, identity },
-      { orgId: toOrgId(ORG), actorId: LEAD, name: "注入器不挡路", kind: "user_insight", blueprintVersionId: null },
+      { orgId: toOrgId(ORG), actorId: LEAD, name: "注入器不挡路", kind: "general", blueprintVersionId: null },
     );
     const counts = await tableCounts(out.id);
     expect(counts.projects).toBe(1);
-    expect(counts.user_insights).toBe(1);
+    expect(counts.general_projects).toBe(1);
   });
 
   it("③ 换成「两个事务」的写法，同一个注入点**留下**一行孤儿容器", async () => {
@@ -359,7 +359,7 @@ describe("Q-1 C：全仓恰好一条创建路径", () => {
         // `/projects/:projectId/archive` 就是），把它们算进来会让本条在下一个
         // feature 落地时无理由地变红，而那种红会被人直接改断言。
         if (path.includes(":")) continue;
-        if (/projects|workshops|research-projects|user-insights/.test(path)) routes.push(path);
+        if (/projects|workshops|general-projects|research-projects|user-insights/.test(path)) routes.push(path);
       }
     }
     // ⚠ 断言的是**集合**不是「包含」：`POST /workshops` 之类的第三类专用入口

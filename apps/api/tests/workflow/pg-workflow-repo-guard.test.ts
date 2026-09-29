@@ -26,6 +26,11 @@ const ACCESS_TABLES = new Set(["org_memberships", "agents", "agent_versions"]);
 /** WF04：能力授权配置只读，表集合单列。 */
 const CAPABILITY_FILE = "src/infrastructure/workflow/pg-effect-capability-authority.ts";
 const CAPABILITY_TABLES = new Set(["workflow_capability_grants"]);
+/** WF06：触发器两步读——withoutTenant 只能碰 workflow_trigger_lookup（无 org_id，非租户表）。 */
+const TRIGGER_FILE = "src/infrastructure/workflow/pg-workflow-trigger-store.ts";
+const TRIGGER_TENANT_TABLES = new Set(["workflow_triggers"]);
+// workflow_trigger_webhook_secrets(id)：只读 workflow_trigger_lookup 密钥列的 SECURITY DEFINER 函数（迁移 20260929060000）。
+const TRIGGER_NO_TENANT_TABLES = new Set(["workflow_trigger_lookup", "workflow_trigger_webhook_secrets"]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -57,6 +62,21 @@ describe("WF01 workflow repository permission boundary", () => {
     const tables = [...src.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/g)].map((m) => m[1]);
     expect(tables.length).toBeGreaterThan(0);
     for (const t of tables) expect(CAPABILITY_TABLES.has(t!), t).toBe(true);
+  });
+
+  it("WF06 trigger store's only withoutTenant call names workflow_trigger_lookup (not a tenant table); its only tenant-table read (workflow_triggers) always goes through withTenant", () => {
+    const src = readFileSync(join(API, TRIGGER_FILE), "utf8");
+    const tables = [...src.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/g)].map((m) => m[1]);
+    expect(tables.length).toBeGreaterThan(0);
+    for (const t of tables) expect(TRIGGER_TENANT_TABLES.has(t!) || TRIGGER_NO_TENANT_TABLES.has(t!), t).toBe(true);
+    // withoutTenant(...) 的调用块只允许出现 workflow_trigger_lookup；出现 workflow_triggers 就说明
+    // 有一条租户表读绕开了 withTenant。
+    const withoutTenantBlocks = [...src.matchAll(/withoutTenant\([\s\S]*?\n\s*\);/g)].map((m) => m[0]);
+    expect(withoutTenantBlocks.length).toBeGreaterThan(0);
+    for (const block of withoutTenantBlocks) {
+      expect(block).toMatch(/workflow_trigger_lookup|workflow_trigger_webhook_secrets/);
+      expect(block).not.toMatch(/\bworkflow_triggers\b/);
+    }
   });
 
   // WF03 加了 HTTP 面（workflow-runtime.controller.ts）：它只经应用层门面（可见性在 instance-projection.ts 判），

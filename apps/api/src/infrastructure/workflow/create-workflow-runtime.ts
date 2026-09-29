@@ -16,8 +16,10 @@ import {
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
+import { demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
 import { demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
+import { productWorkflowGraphs } from "./product-workflow-graphs";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
 import { PgWorkflowExpiredLeaseScanner } from "./pg-workflow-expired-lease-scanner";
@@ -25,6 +27,7 @@ import { PgWorkflowEventStore, PgWorkflowStageOutputStore } from "./pg-workflow-
 import { PgWorkflowInstanceRepository } from "./pg-workflow-instance-repository";
 import { PgWorkflowLeaseStore } from "./pg-workflow-lease-store";
 import { PgWorkflowReceiptStore } from "./pg-workflow-receipt-store";
+import { PgWorkflowTriggerStore } from "./pg-workflow-trigger-store";
 import { createWorkflowCheckpointerFactory } from "./workflow-checkpointer-factory";
 import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGraph } from "./workflow-graph-registry";
 
@@ -35,7 +38,7 @@ import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGrap
 export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: async () => null };
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
-  return [demoWorkflowGraph()];
+  return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
 }
 
 export interface WorkflowRuntimeOptions {
@@ -108,6 +111,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     access,
     expiredLeases: new PgWorkflowExpiredLeaseScanner(db),
     driver: new LangGraphWorkflowDriver(registry, createWorkflowCheckpointerFactory(pool)),
+    triggers: new PgWorkflowTriggerStore(db),
     newId: () => randomUUID(),
     holder: opts.holder ?? `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
     leaseTtlMs: opts.leaseTtlMs ?? 60_000,

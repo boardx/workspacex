@@ -57,6 +57,17 @@ export async function listInterviews(input: ListInterviewsInput): Promise<ListIn
   });
 }
 
+/**
+ * #4615：调用者自己的数字访谈（`GET /interviews/digital`，与 `/itv` 历史列表同一条真实路由），
+ * 供项目「关联已有访谈」的候选列表用。响应按契约 `out` 解析。
+ * （不经 `interview-api.ts`：那个模块同时带着 `lib/mock/*` 的预览数据，项目工作台不该沾上。）
+ */
+export type DigitalInterviewHistoryOut = z.infer<typeof interview.operations.listDigitalInterviews.out>;
+export async function listMyDigitalInterviews(): Promise<DigitalInterviewHistoryOut> {
+  const op = interview.operations.listDigitalInterviews;
+  return op.out.parse(await apiRequest<unknown>(op.path, { method: op.method }));
+}
+
 export async function getInterview(interviewId: string): Promise<GetInterviewOut> {
   return apiRequest<GetInterviewOut>(
     interview.operations.getInterview.path.replace(":interviewId", encodeURIComponent(interviewId)),

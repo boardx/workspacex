@@ -241,7 +241,7 @@
           "aboutObjectIds": [
             "o-grid"
           ],
-          "supportingCount": 2,
+          "supportingCount": 3,
           "contradictingCount": 0,
           "createdAt": "2026-09-27T00:00:00Z",
           "evidence": [
@@ -264,6 +264,16 @@
               "sourceRef": "gr-01-src-9",
               "evidenceId": "ev-s6b",
               "excerpt": "监管草案提到并网费用改革。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-s6c",
+              "stance": "supporting",
+              "sourceKind": "whiteboard_note",
+              "sourceRef": "wb-01:note-7",
+              "evidenceId": "ev-s6c",
+              "excerpt": "白板便签：升级费用翻倍 = 最大风险",
               "locator": null,
               "revoked": false
             }

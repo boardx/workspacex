@@ -10,13 +10,13 @@
  */
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type { WorkflowGraphCatalog } from "../../application/workflow/workflow-ports";
-import type { StageRunner, StageWork, WorkflowGraphDriver } from "../../application/workflow/run-instance";
+import type { StageGatePreview, StageRunner, StageWork, WorkflowGraphDriver } from "../../application/workflow/run-instance";
 import type { WorkflowCheckpointerFactory } from "./workflow-checkpointer-factory";
 
 /** 线性阶段图：节点按声明顺序串联。 */
 export interface LinearWorkflowGraph {
   graphRef: string;
-  stages: readonly { stageId: string; work: StageWork }[];
+  stages: readonly { stageId: string; work: StageWork; /** WF05：带人工门的阶段可给出副作用预览。 */ gatePreview?: StageGatePreview }[];
 }
 
 const GraphState = Annotation.Root({
@@ -52,7 +52,7 @@ function compile(graph: LinearWorkflowGraph, stage: StageRunner) {
   let prev: string = START;
   for (const s of graph.stages) {
     builder.addNode(s.stageId, async () => {
-      const { outputId } = await stage(s.stageId, s.work);
+      const { outputId } = await stage(s.stageId, s.work, { gatePreview: s.gatePreview });
       return { outputs: { [s.stageId]: outputId } };
     });
     builder.addEdge(prev, s.stageId);

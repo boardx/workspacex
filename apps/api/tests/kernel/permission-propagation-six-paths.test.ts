@@ -1314,6 +1314,14 @@ describe("lint-permission-paths: counter-proof", () => {
     // #4242's tag catalog repository is mechanically
     // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
     // this bare-exception ceiling.
+    // AG01 (Phase 20 agent-role bundle) adds exactly two (99 -> 101):
+    // agent-version-insert.ts (the single INSERT ... SELECT into agent_versions shared by
+    // every already-allowlisted publish path, no authorization of its own) and
+    // pg-agent-role-draft-repository.ts (PATCH /admin/agents/:agentId/role, org-admin gate
+    // one layer up in update-agent-role-draft.ts as the first action). Both are pinned by
+    // tests/agent/role-draft-repo-guard.test.ts: only `agents`/`agent_versions`, no
+    // withoutTenant, single statement, admin check precedes both repository calls.
+    // Remove this increment with those entries if that guard test disappears.
     // Phase 20 WF01/WF02/WF03 (workflow-runtime) add exactly six repository files
     // (99 -> 105), none of which have an ObjectRef kind, so routing them through
     // `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER:
@@ -1345,11 +1353,28 @@ describe("lint-permission-paths: counter-proof", () => {
     // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
     // (another org sees none of these rows) and unauthenticated 401 are proven in
     // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
-    // Phase 20 WF04 adds pg-effect-capability-authority.ts (107 -> 108): workflow_capability_grants
-    // is an org-admin authorization toggle with no ObjectRef shape; the effect gateway rechecks
-    // it before every effect. Pinned by tests/workflow/pg-workflow-repo-guard.test.ts. Remove this
-    // increment with that test. (2026-09-29)
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(108);
+    // #4615 adds pg-whiteboard-project-access.ts (+1 on top of main's 111 -> 112): the PROJECT source of whiteboard
+    // access reads only container identity (`project_resource_links` kind='whiteboard' +
+    // `projects.status`) on the whiteboard store's own locked session, and returns a role, never
+    // content; the role itself comes from resolveProjectLayer. Pinned by
+    // tests/whiteboard/project-access-guard.test.ts. Remove this increment with that test.
+    // 2026-09-29 merge of main (WS/WF/EV/CT01) with the AG01/AG03/AG04 branch: the ceiling is
+    // recomputed as the combined total. AG01's two entries (above), AG04's
+    // pg-agent-directory-repository.ts (pinned by tests/agent/agent-directory-repo-guard.test.ts)
+    // and AG03's pg-official-agent-role-pack-import-repository.ts (org-admin check in
+    // import-official-agent-role-pack.ts before the repository is reached; pinned by
+    // tests/agent/official-role-pack-import.test.ts) land on top of main's 107 -> 111.
+    // Remove the matching increments with those tests.
+    // 2026-09-29 merge of main (AG01-04/WS/CT) into the WF04-WF08 branch: WF04 adds
+    // pg-effect-capability-authority.ts (workflow_capability_grants admin toggle, read only by
+    // effect-permission-recheck.ts) and WF06 adds pg-workflow-trigger-store.ts (triggerId ->
+    // org_id resolution via the non-tenant workflow_trigger_lookup, then withTenant only).
+    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts.
+    // Remove this increment with those entries if that guard test disappears.
+    // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
+    // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
+    // boundary rules). Ceiling recomputed as the combined total.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(114);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
