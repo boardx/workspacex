@@ -134,7 +134,7 @@ Evidence supporting this conclusion:
 
 ## Journey Specs Written
 
-`/home/user/wt/ct02/phases/phase-20-work-stack-foundation/evidence/iter7/journeys/ct02-workflow-registry.spec.ts`
+`/home/user/wt/ct02/phases/phase-20-work-stack-foundation/evidence/iter7/journeys/ct02-workflow-registry.journey.ts`
 
 Written but not run (web stack unavailable). The spec covers:
 - Login as consultant via `/login`
