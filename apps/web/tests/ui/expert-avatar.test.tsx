@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { ExpertAvatar, ExpertAvatarEditor } from "@/components/itv/expert-avatar";
-import { AVATAR_KEYS, defaultExpertAvatar, avatarStorageKey } from "@/lib/interview-expert-avatar";
+import { ILLUSTRATION_AVATAR_KEYS as AVATAR_KEYS, defaultExpertAvatar, avatarStorageKey } from "@/lib/interview-expert-avatar";
 import { DigitalExpertDetail } from "@/components/itv/digital-expert-detail";
 import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
 
