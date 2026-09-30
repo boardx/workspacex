@@ -49,7 +49,7 @@ jobs:
           revision="${RUN_SHA}"
           [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && revision="${INPUT_SHA}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "${revision}" ]] || { echo "::error::release SHA or checkout differs"; exit 1; }
-          git fetch --no-tags origin main
+          git rev-parse --verify origin/main >/dev/null
           git merge-base --is-ancestor "${revision}" origin/main || { echo "::error::release SHA is not contained in main"; exit 1; }
           cache=/opt/workspacex-cn/release-origin-cache.git
           repository=/opt/workspacex-cn/repository
