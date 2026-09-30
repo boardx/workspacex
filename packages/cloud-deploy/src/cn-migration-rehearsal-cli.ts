@@ -8,8 +8,10 @@ import { pathToFileURL } from "node:url";
 import { generateMigrationPlan, migrationHash } from "./cn-migration-plan";
 import type { MigrationIdentity } from "./cn-migration-plan";
 
-const [checkout, targetSha, baselineSha, ledgerPath, reportPath] = process.argv.slice(2);
-if (!checkout || !targetSha || !baselineSha || !ledgerPath || !reportPath) throw new Error("usage: cn-migration-rehearsal-cli checkout targetSha baselineSha readonly-ledger.json private-report.json");
+const [checkout, targetSha, baselineSha, ledgerPath, reportPath, roleMode] = process.argv.slice(2);
+if (roleMode !== undefined && roleMode !== "--non-super-bypass") throw new Error("unknown rehearsal role mode");
+const nonSuperBypass = roleMode === "--non-super-bypass";
+if (!checkout || !targetSha || !baselineSha || !ledgerPath || !reportPath) throw new Error("usage: cn-migration-rehearsal-cli checkout targetSha baselineSha readonly-ledger.json private-report.json [--non-super-bypass]");
 if (process.env.WORKSPACEX_DEPLOY_PROFILE) throw new Error("synthetic rehearsal refuses cloud profile");
 const root = resolve(checkout);
 const snapshot = JSON.parse(readFileSync(ledgerPath, "utf8")) as { readOnly: boolean; ledger: MigrationIdentity[] };
@@ -106,12 +108,14 @@ try {
   }
   const scoped: Record<string, unknown> = { model: "canonical-prefix-before-W1", prefixCount: prefix.length,
     pendingSuffixCount: all.length - prefix.length, productionEquivalent: false,
+    suffixRoleModel: nonSuperBypass ? "NOSUPERUSER-BYPASSRLS-table-owner" : "local-postgres-superuser",
     prefixSourceSha256: migrationHash(JSON.stringify(prefix.map(name => ({ name, checksum: migrationHash(readFileSync(join(source, name), "utf8")) })))),
     productionPendingPreappliedByModel: prefix.filter(name => !baselineNames.includes(name)),
     limitation: "This model pre-applies many production-pending migrations; it cannot prove all 193 production pending migrations safe." };
   (report.models as unknown[]).push(scoped);
   await authority.migrate({ ...cfg, database: "wsx_4763_w1_model" }, { dir: directory(prefix) });
   const db = "wsx_4763_w1_model";
+  let suffixCfg: Record<string, unknown> = { ...cfg, database: db };
   await withDb(db, async client => {
     for (const org of ["a", "b"]) {
       await client.query("INSERT INTO organizations(id,name,kind) VALUES ($1,$2,'organization')", [`drill-org-${org}`, `Synthetic ${org}`]);
@@ -126,9 +130,42 @@ try {
       await client.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at,catalog_source) VALUES($1,$2,$3,'1.0.0',$4,'synthetic only','{}','synthetic','synthetic','[]','synthetic',now(),now(),'official')`, [`drill-version-${org}`, `drill-org-${org}`, agent, "0".repeat(64)]);
     }
   });
+  if (nonSuperBypass) {
+    await withDb(db, async client => {
+      await client.query("CREATE ROLE rehearsal_migration LOGIN PASSWORD 'synthetic_rehearsal_role_only' NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS");
+      // Entire cluster belongs to this disposable fixture. Never run on a shared DB.
+      // Never reassign database-system/extension objects. This model assumes application-schema ownership.
+      const namespaces = (await client.query("SELECT nspname,quote_ident(nspname) object_name FROM pg_namespace n WHERE nspname NOT LIKE 'pg_%' AND nspname<>'information_schema' AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.classid='pg_namespace'::regclass AND d.objid=n.oid AND d.deptype='e') ORDER BY nspname")).rows;
+      const schemaNames = namespaces.map(row => row.nspname);
+      report.assumedApplicationSchemaOwnership = schemaNames;
+      for (const row of namespaces) await client.query(`ALTER SCHEMA ${row.object_name} OWNER TO rehearsal_migration`);
+      const tables = (await client.query("SELECT quote_ident(n.nspname)||'.'||quote_ident(c.relname) object_name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=ANY($1) AND c.relkind IN ('r','p') AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.classid='pg_class'::regclass AND d.objid=c.oid AND d.deptype='e')", [schemaNames])).rows;
+      for (const row of tables) await client.query(`ALTER TABLE ${row.object_name} OWNER TO rehearsal_migration`);
+      const functions = (await client.query("SELECT quote_ident(n.nspname)||'.'||quote_ident(p.proname)||'('||pg_get_function_identity_arguments(p.oid)||')' object_name FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=ANY($1) AND p.prokind='f' AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e')", [schemaNames])).rows;
+      for (const row of functions) await client.query(`ALTER FUNCTION ${row.object_name} OWNER TO rehearsal_migration`);
+      await client.query("GRANT USAGE, CREATE ON SCHEMA public TO rehearsal_migration");
+      const attributes = (await client.query("SELECT rolsuper,rolbypassrls,rolcreaterole,rolcreatedb FROM pg_roles WHERE rolname='rehearsal_migration'")).rows[0];
+      check("suffix-role-nonsuper-bypass-attributes", attributes, { rolsuper: false, rolbypassrls: true, rolcreaterole: false, rolcreatedb: false });
+      report.suffixRoleAttributes = attributes;
+      await client.query("SET ROLE rehearsal_migration");
+      await client.query("SELECT set_config('app.current_org','',false)");
+      check("BYPASSRLS-sees-all-four-legacy-projects-without-tenant", (await client.query("SELECT count(*)::integer n FROM projects WHERE id LIKE 'drill-%'")).rows[0]?.n, 4);
+      await client.query("BEGIN");
+      let forbidden = false;
+      try { await client.query("ALTER TABLE agent_versions DISABLE TRIGGER ALL"); }
+      catch (error) { forbidden = (error as { code?: string }).code === "42501"; }
+      await client.query("ROLLBACK");
+      check("nonsuper-BYPASSRLS-cannot-disable-system-FK-TRIGGER-ALL", forbidden);
+      check("TRIGGER-ALL-failure-restores-user-trigger", (await client.query("SELECT tgenabled FROM pg_trigger WHERE tgname='agent_versions_immutable_trg'")).rows[0]?.tgenabled, "O");
+      await transaction(client, "ALTER TABLE agent_versions DISABLE TRIGGER agent_versions_immutable_trg; ALTER TABLE agent_versions ENABLE TRIGGER agent_versions_immutable_trg;");
+      check("nonsuper-owner-can-disable-enable-named-user-trigger", (await client.query("SELECT tgenabled FROM pg_trigger WHERE tgname='agent_versions_immutable_trg'")).rows[0]?.tgenabled, "O");
+      await client.query("RESET ROLE");
+    });
+    suffixCfg = { ...cfg, database: db, user: "rehearsal_migration", password: "synthetic_rehearsal_role_only" };
+  }
   const fullDir = directory(all);
   for (const name of [w1, portrait, tags]) {
-    await authority.migrate({ ...cfg, database: db }, { dir: directory(all.slice(0, all.indexOf(name))) });
+    await authority.migrate(suffixCfg, { dir: directory(all.slice(0, all.indexOf(name))) });
     const exact = readFileSync(join(source, name), "utf8");
     const injected = name === w1 ? `${exact}\nSELECT rehearsal_deliberate_failure();\n` : exact.replace("ALTER TABLE agent_versions ENABLE TRIGGER agent_versions_immutable_trg;", "SELECT rehearsal_deliberate_failure();\nALTER TABLE agent_versions ENABLE TRIGGER agent_versions_immutable_trg;");
     if (injected === exact) throw new Error("fault injection missing");
@@ -138,7 +175,7 @@ try {
     const agentDigestSql = "SELECT md5(COALESCE(jsonb_agg(to_jsonb(v) ORDER BY v.id)::text,'')) digest FROM agent_versions v WHERE id LIKE 'drill-%'";
     const beforeAgentDigest = await withDb(db, async client => (await client.query(agentDigestSql)).rows[0]?.digest);
     let failed = false;
-    try { await authority.migrate({ ...cfg, database: db }, { dir: fullDir }); }
+    try { await authority.migrate(suffixCfg, { dir: fullDir }); }
     catch (error) { failed = String(error).includes(`migration ${name} failed`) && String(error).includes("rehearsal_deliberate_failure"); }
     check(`transaction-failure-observed:${name}`, failed);
     await withDb(db, async client => {
@@ -155,7 +192,7 @@ try {
       writeFileSync(join(fullDir, next), text.replace("ALTER TABLE agent_versions ENABLE TRIGGER agent_versions_immutable_trg;", "SELECT rehearsal_deliberate_failure();\nALTER TABLE agent_versions ENABLE TRIGGER agent_versions_immutable_trg;"));
     }
   }
-  await authority.migrate({ ...cfg, database: db }, { dir: fullDir });
+  await authority.migrate(suffixCfg, { dir: fullDir });
   await withDb(db, async client => {
     const expectedProjects = ["a", "b"].flatMap(org => ["r", "u"].map(suffix => ({ id: `drill-${org}-${suffix}`, org_id: `drill-org-${org}`, kind: "general" })));
     check("W1-project-ID-org-kind-conservation", await projectSnapshot(client), expectedProjects);
@@ -183,7 +220,7 @@ try {
     check("non-bypass-owner-FORCE-no-tenant-zero-rows", (await client.query("SELECT count(*)::integer n FROM general_projects")).rows[0]?.n, 0);
     await client.query("SELECT set_config('app.current_org','drill-org-a',false)");
     check("non-bypass-owner-FORCE-single-tenant", (await client.query("SELECT count(*)::integer n FROM general_projects")).rows[0]?.n, 2);
-    await client.query("RESET ROLE"); await client.query("ALTER TABLE general_projects OWNER TO postgres");
+    await client.query("RESET ROLE"); await client.query(`ALTER TABLE general_projects OWNER TO ${nonSuperBypass ? "rehearsal_migration" : "postgres"}`);
     check("portrait-backfill-draft-and-version", (await client.query("SELECT avatar IS NOT NULL ok FROM agents WHERE id LIKE 'drill-%' UNION ALL SELECT avatar IS NOT NULL ok FROM agent_versions WHERE id LIKE 'drill-%'")).rows.map(row => row.ok), [true, true, true, true]);
     check("tags-backfill-draft-and-version", (await client.query("SELECT cardinality(tags)>0 ok FROM agents WHERE id LIKE 'drill-%' UNION ALL SELECT cardinality(tags)>0 ok FROM agent_versions WHERE id LIKE 'drill-%'")).rows.map(row => row.ok), [true, true, true, true]);
     let immutable = false;
@@ -191,12 +228,14 @@ try {
     catch (error) { immutable = String(error).includes("immutable"); }
     check("published-version-immutability-restored", immutable);
     const before = migrationHash(JSON.stringify(await projectSnapshot(client)) + JSON.stringify((await client.query("SELECT id,avatar,tags FROM agent_versions WHERE id LIKE 'drill-%' ORDER BY id")).rows));
+    if (nonSuperBypass) await client.query("SET ROLE rehearsal_migration");
     for (const name of [w1, portrait, tags]) await transaction(client, readFileSync(join(source, name), "utf8"));
     const after = migrationHash(JSON.stringify(await projectSnapshot(client)) + JSON.stringify((await client.query("SELECT id,avatar,tags FROM agent_versions WHERE id LIKE 'drill-%' ORDER BY id")).rows));
     check("direct-exact-selected-SQL-idempotency-without-force", after, before);
     scoped.dataDigest = after;
+    if (nonSuperBypass) await client.query("RESET ROLE");
   });
-  const repeated = await authority.migrate({ ...cfg, database: db }, { dir: source });
+  const repeated = await authority.migrate(suffixCfg, { dir: source });
   check("normal-migrator-repeat-applied-zero", repeated.applied.length, 0);
   check("normal-migrator-repeat-skips-complete-target", repeated.skipped.length, all.length);
   scoped.status = "scoped-synthetic-checks-passed";
