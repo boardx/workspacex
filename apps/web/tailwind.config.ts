@@ -110,33 +110,48 @@ const config: Config = {
           "75%": { transform: "translateY(-0.1875rem) rotate(4deg) scaleX(0.45)", opacity: "0.85" },
         },
         /**
-         * 登录页品牌栏「蜕变」动画（`components/entry/metamorphosis.tsx`，2026-09-28）——
-         * 同一个 9s 周期切三段：结茧（0–34%）→ 破茧（34–55%）→ 展翅（55–100%）。
-         * 各元素一段 keyframes、共用同一时长，靠百分比而不是 JS 计时对齐；
-         * 三段文案用同一段 `meta-step` 配 0s / 3s / 6s 的 animation-delay 轮流点亮。
+         * 登录页品牌栏「蜕变」动画（`components/entry/metamorphosis.tsx`，2026-09-30 重做）——
+         * 同一个 9s 周期：粒子浮现（0–30%）→ 汇聚到轮廓节点并描线（30–55%）→ 填充成蝴蝶、
+         * 柔光亮起、慢速扇翅（55–92%）→ 淡出循环。各层一段 keyframes、共用同一时长，
+         * 靠百分比而不是 JS 计时对齐；粒子起点来自元素上的 CSS 变量 `--dx/--dy`（局部坐标单位）。
+         * 三段文案用 `meta-step` 配 0s / 3s / 6s 的 animation-delay 轮流点亮。
          */
-        "meta-chrysalis": {
-          "0%": { transform: "scale(0.85) rotate(0deg)", opacity: "0" },
-          "6%": { transform: "scale(1) rotate(0deg)", opacity: "1" },
-          "14%": { transform: "scale(1) rotate(-5deg)", opacity: "1" },
-          "22%": { transform: "scale(1) rotate(5deg)", opacity: "1" },
-          "30%": { transform: "scale(1.04) rotate(-3deg)", opacity: "1" },
-          "36%": { transform: "scale(1.08) rotate(0deg)", opacity: "1" },
-          "44%, 100%": { transform: "scale(0.5) rotate(0deg)", opacity: "0" },
+        "meta-particle": {
+          "0%": { transform: "translate(var(--dx), var(--dy)) scale(0.3)", opacity: "0" },
+          "10%": { transform: "translate(var(--dx), var(--dy)) scale(1)", opacity: "0.85" },
+          "30%": { transform: "translate(calc(var(--dx) * 0.9), calc(var(--dy) * 0.9)) scale(1.1)", opacity: "0.9" },
+          "54%": { transform: "translate(0, 0) scale(1.3)", opacity: "1" },
+          "64%, 100%": { transform: "translate(0, 0) scale(0.4)", opacity: "0" },
         },
-        "meta-burst": {
-          "0%, 34%": { transform: "scale(0.2)", opacity: "0" },
-          "40%": { transform: "scale(1)", opacity: "0.55" },
-          "56%, 100%": { transform: "scale(1.9)", opacity: "0" },
+        "meta-draw": {
+          "0%, 28%": { strokeDashoffset: "1", opacity: "0" },
+          "32%": { strokeDashoffset: "1", opacity: "1" },
+          "56%": { strokeDashoffset: "0", opacity: "1" },
+          "72%": { strokeDashoffset: "0", opacity: "0.45" },
+          "90%, 100%": { strokeDashoffset: "0", opacity: "0" },
         },
-        // 位移单位是蝴蝶所在 <g> 的局部坐标（外层已 scale(3.5)），所以数值很小
-        "meta-butterfly": {
-          "0%, 34%": { transform: "translate(0, 0) scale(0.2)", opacity: "0" },
-          "46%": { transform: "translate(0, 0) scale(1)", opacity: "1" },
-          "62%": { transform: "translate(-4px, -3px) scale(1)", opacity: "1" },
-          "78%": { transform: "translate(7px, -6px) scale(0.95)", opacity: "1" },
-          "92%": { transform: "translate(16px, -4px) scale(0.9)", opacity: "1" },
-          "100%": { transform: "translate(22px, -6px) scale(0.8)", opacity: "0" },
+        "meta-fill": {
+          "0%, 52%": { transform: "scale(0.9)", opacity: "0" },
+          "64%": { transform: "scale(1)", opacity: "1" },
+          "90%": { transform: "scale(1.03) translateY(-0.25px)", opacity: "1" },
+          "98%, 100%": { transform: "scale(1.05) translateY(-0.5px)", opacity: "0" },
+        },
+        "meta-wing": {
+          "0%, 62%": { transform: "scaleX(1)" },
+          "68%": { transform: "scaleX(0.72)" },
+          "74%": { transform: "scaleX(1)" },
+          "80%": { transform: "scaleX(0.72)" },
+          "86%, 100%": { transform: "scaleX(1)" },
+        },
+        "meta-glow": {
+          "0%, 46%": { transform: "scale(0.6)", opacity: "0" },
+          "64%": { transform: "scale(1)", opacity: "0.9" },
+          "90%": { transform: "scale(1.08)", opacity: "0.55" },
+          "100%": { transform: "scale(1.1)", opacity: "0" },
+        },
+        "meta-orbit": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
         },
         "meta-step": {
           "0%": { opacity: "0.45" },
@@ -154,9 +169,12 @@ const config: Config = {
         "butterfly-flap": "butterfly-flap 1.1s ease-in-out infinite",
         "butterfly-drift": "butterfly-drift 1.8s ease-in-out infinite",
         "butterfly-fly": "butterfly-fly 1.6s ease-in-out infinite",
-        "meta-chrysalis": "meta-chrysalis 9s ease-in-out infinite",
-        "meta-burst": "meta-burst 9s ease-out infinite",
-        "meta-butterfly": "meta-butterfly 9s ease-in-out infinite",
+        "meta-particle": "meta-particle 9s ease-in-out infinite",
+        "meta-draw": "meta-draw 9s ease-in-out infinite",
+        "meta-fill": "meta-fill 9s ease-in-out infinite",
+        "meta-wing": "meta-wing 9s ease-in-out infinite",
+        "meta-glow": "meta-glow 9s ease-in-out infinite",
+        "meta-orbit": "meta-orbit 40s linear infinite",
         "meta-step": "meta-step 9s ease-in-out infinite",
         "meta-step-bar": "meta-step-bar 9s linear infinite",
       },
