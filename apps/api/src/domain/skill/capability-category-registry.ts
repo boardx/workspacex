@@ -9,6 +9,8 @@
  * （Phase 20 CT04 补登：产品线 27 个 PASS 实体文档 §依赖 实际使用的分类，如 S155/S007/S070/S062。）
  * （CT07 补登：销售线 18 个 PASS 实体文档 §依赖 实际使用的分类——S021/S024/S026/S030/S032/S033/S034/
  *   S035/S036。CT07 落地时漏登，`work-sales` 整包导入因此 422 WORK_SKILL_CAPABILITY_UNREGISTERED。）
+ * （客户成功线 S187–S194 补登：`workforce.schedule.read`（S194 optional，支持排班；声明但未接线）。其余依赖
+ *   ticket.read / crm.read / tracker.read / transcript.read / survey.read 等此前已登记。）
  * （EV03 门脚本 `gate-policy.ts` 曾另抄一份更短的登记表，G3 与导入/就绪性判据因此漂移；现在它
  *   直接 re-export 本表，`knowledge.graph.read` 等原先只在那一份里的分类并入这里。）
  */
@@ -67,6 +69,7 @@ const REGISTERED = [
   "web.read",
   "web.search",
   "workflow.receipt.read",
+  "workforce.schedule.read",
 ] as const;
 
 /** 登记表本体（只读集合）；EV03 门脚本 G3 经 `gate-policy.ts` re-export 同一对象。 */

@@ -1,0 +1,17 @@
+{
+  "articles": [
+    {
+      "articleId": "KB-301",
+      "title": "导出 CSV 中文乱码的处理",
+      "visibility": "public",
+      "versionRange": ">=4.0 <5.0",
+      "coverage": 0.8
+    },
+    {
+      "articleId": "KB-302",
+      "title": "内部缓存调优手册",
+      "visibility": "internal",
+      "versionRange": ">=4.0"
+    }
+  ]
+}
