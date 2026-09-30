@@ -1,0 +1,5 @@
+{
+  "agentVersionId": "agv-d001-unmounted",
+  "mountedSkillVersionIds": [],
+  "note": "该 Agent 版本未挂载 S013（agent_versions.skill_version_ids 不含 S013）"
+}

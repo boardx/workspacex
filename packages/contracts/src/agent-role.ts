@@ -42,7 +42,11 @@ export const AgentAvatar = z.object({
  * `enterprise-general|method-expert|industry-expert|professional-role|deep-professional`。
  * 本草案按 requirements（本 phase 的直接输入）取值，待签核人裁决。
  */
-export const AgentRoleCategory = z.enum(["research", "product", "sales", "design", "general"]);
+/**
+ * 批次 2 追加 `executive`（D001 高管战略）/ `customer_success`（D006 客户成功）/ `operations`（D007 项目运营）：
+ * 沿用 requirements 的「职能名」取值风格，不引入 PROP 体系。DB 侧 CHECK 约束须同步（迁移 20260930130000）。
+ */
+export const AgentRoleCategory = z.enum(["research", "product", "sales", "design", "general", "executive", "customer_success", "operations"]);
 export const AgentCatalogSource = z.enum(["official", "org"]);
 
 export const DelegationPolicy = z.object({

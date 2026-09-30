@@ -1,0 +1,10 @@
+{
+  "F2": {
+    "text": "补偿 1 个月服务费",
+    "approvedBy": "u-cs-manager",
+    "verification": {
+      "E2": "approval-receipt found",
+      "E3": "approvedBy not found on source record → demoted to fact"
+    }
+  }
+}

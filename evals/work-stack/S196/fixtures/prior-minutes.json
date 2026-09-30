@@ -1,0 +1,24 @@
+{
+  "minutes": [
+    {
+      "ref": "minutes:BM-2026-Q3",
+      "questions": [
+        {
+          "anchor": "q5",
+          "director": "dir:D2",
+          "text": "收入确认时点是否变化"
+        }
+      ]
+    },
+    {
+      "ref": "minutes:BM-2026-Q2",
+      "questions": [
+        {
+          "anchor": "q2",
+          "director": "dir:D2",
+          "text": "大客户合同的收入确认方式"
+        }
+      ]
+    }
+  ]
+}

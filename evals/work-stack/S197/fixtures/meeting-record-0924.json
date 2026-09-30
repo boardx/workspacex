@@ -1,0 +1,16 @@
+{
+  "ref": "rec:min-0924",
+  "items": [
+    {
+      "anchor": "l15",
+      "decisionState": "confirmed",
+      "decider": "u-cfo",
+      "text": "CFO：批准 Q4 预算上调 5%，本季度启动。"
+    },
+    {
+      "anchor": "l22",
+      "decisionState": "proposed",
+      "text": "我倾向先上 A。——我也觉得。"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "ticketMessage": {
+    "id": "tm-1001",
+    "sender": "external-customer",
+    "company": "远景制造（合成）"
+  },
+  "facts": {
+    "F1": "已定位为导出服务超时（内部工单 INC-2231 的公开结论）"
+  }
+}

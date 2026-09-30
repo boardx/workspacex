@@ -1,0 +1,14 @@
+{
+  "org": "synthetic-org-acme",
+  "meetings": {
+    "M-1": {
+      "organizer": "person:organizer",
+      "delegates": [
+        "person:pmo-assistant"
+      ]
+    }
+  },
+  "calendars": {
+    "person:eng-lead": "unknown"
+  }
+}

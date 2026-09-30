@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ROLE_CATEGORY_LABEL } from "@/lib/agent-directory";
 import { ApiError } from "@/lib/api-client";
 import { AVATAR_KEYS } from "@/lib/interview-expert-avatar";
 import { AgentTagEditor } from "@/components/agent/agent-tag-editor";
@@ -34,10 +35,7 @@ import {
   type AgentRoleAdminView,
 } from "@/lib/agent-role-admin";
 
-const ROLE_CATEGORY_LABEL: Record<string, string> = {
-  research: "研究", product: "产品", sales: "销售", design: "设计", general: "通用",
-};
-const ROLE_CATEGORY_OPTIONS = agentRole.AgentRoleCategory.options.map((c) => ({ value: c, label: ROLE_CATEGORY_LABEL[c] ?? c }));
+const ROLE_CATEGORY_OPTIONS = agentRole.AgentRoleCategory.options.map((c) => ({ value: c, label: ROLE_CATEGORY_LABEL[c] }));
 const AVATAR_OPTIONS = [{ value: "", label: "无（回退首字母）" }, ...AVATAR_KEYS.map((k) => ({ value: k, label: k }))];
 
 const READINESS_LABEL: Record<string, { text: string; tone: "success" | "warning" | "neutral" }> = {

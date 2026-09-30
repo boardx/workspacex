@@ -1,0 +1,22 @@
+{
+  "policyVersion": "org-policy-2026.09",
+  "tiers": {
+    "standard": {
+      "P1": {
+        "firstResponseBusinessHours": 1
+      },
+      "P2": {
+        "firstResponseBusinessHours": 4
+      },
+      "P3": {
+        "firstResponseBusinessHours": 8
+      },
+      "P4": {
+        "firstResponseBusinessHours": 16
+      }
+    }
+  },
+  "pauseStatuses": [
+    "waiting-on-customer"
+  ]
+}

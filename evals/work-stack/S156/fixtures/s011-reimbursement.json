@@ -1,0 +1,49 @@
+{
+  "org": "synthetic-org-acme",
+  "process": "报销审批",
+  "status": "confirmed",
+  "rootCauses": [
+    {
+      "nodeId": "n-r1",
+      "text": "审批节点多且无代理人，出差期间单据堆积"
+    },
+    {
+      "nodeId": "n-r2",
+      "text": "报销单字段手工重复录入，导致退回"
+    }
+  ],
+  "correctiveActionCandidates": [
+    {
+      "candidateId": "K1",
+      "type": "eliminate",
+      "cutsEdgeIds": [
+        "e1"
+      ],
+      "verificationSignal": "审批周期"
+    },
+    {
+      "candidateId": "K2",
+      "type": "prevent",
+      "cutsEdgeIds": [
+        "e2"
+      ],
+      "verificationSignal": "审批周期"
+    },
+    {
+      "candidateId": "K3",
+      "type": "detect",
+      "cutsEdgeIds": [
+        "e3"
+      ],
+      "verificationSignal": "退回重审率"
+    },
+    {
+      "candidateId": "K4",
+      "type": "mitigate",
+      "cutsEdgeIds": [
+        "e4"
+      ],
+      "verificationSignal": "退回重审率"
+    }
+  ]
+}
