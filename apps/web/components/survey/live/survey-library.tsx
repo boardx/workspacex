@@ -197,7 +197,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
       </header>
 
       <div className="flex flex-col gap-6">
-        <SurveyLibraryNav active="surveys" horizontal />
+        <SurveyLibraryNav active="surveys" />
 
         <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
           <div className="flex flex-wrap items-center gap-2" aria-label="标签筛选">
