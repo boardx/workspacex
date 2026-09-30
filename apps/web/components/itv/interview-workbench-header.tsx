@@ -58,8 +58,8 @@ export function InterviewWorkbenchHeader({
     window.addEventListener("resize", measure);
     return () => { observer?.disconnect(); window.removeEventListener("resize", measure); container.style.removeProperty("--itv-header-height"); };
   }, []);
-  return <header ref={headerRef} data-testid="itv-workbench-header" className="sticky top-0 z-20 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6">
-    <div className="flex flex-wrap items-center justify-between gap-3">
+  return <header ref={headerRef} data-testid="itv-workbench-header" className="sticky top-0 z-20 border-b border-border bg-card/95 px-4 py-3 backdrop-blur lg:px-8">
+    <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         {activeStep !== "intake" && <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p>}
         <h1 className={`${activeStep === "intake" ? "" : "mt-1 "}truncate text-xl font-semibold tracking-tight lg:text-2xl`}>{name}</h1>
@@ -73,11 +73,11 @@ export function InterviewWorkbenchHeader({
         <Button data-testid="itv-return-history" type="button" variant="outline" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</Button>
       </div>
     </div>
-    <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mt-2 overflow-x-auto border-t border-border pt-2">
-      <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-start lg:min-w-0">{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; return <li key={step.id} className="relative min-w-32 flex-1 lg:min-w-0">
-        {index < steps.length - 1 && <span aria-hidden className={`absolute left-1/2 right-[-50%] top-4 h-px ${state === "completed" ? "bg-success/60" : "bg-border"}`} />}
+    <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mx-auto mt-3 max-w-[1440px] overflow-x-auto pb-1">
+      <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-center lg:min-w-0">{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; return <li key={step.id} className="relative flex min-w-32 flex-1 items-center lg:min-w-0">
+        {index < steps.length - 1 && <span aria-hidden className={`mx-2 hidden min-w-3 flex-1 border-t lg:block ${state === "completed" ? "border-primary" : "border-border"}`} />}
         <button data-testid={`itv-workbench-step-${step.id}`} data-state={runningStep === step.id ? "running" : state} aria-busy={runningStep === step.id} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={`relative flex w-full flex-col items-center gap-1 rounded-lg px-2 py-1 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${state === "current" || runningStep === step.id ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
-          <span className={`grid size-8 place-items-center rounded-full border text-sm font-semibold ${runningStep === step.id ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/20" : state === "current" ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/20" : state === "completed" ? "border-success bg-success text-success-foreground" : "border-border bg-muted text-muted-foreground"}`}>{runningStep === step.id ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" /> : state === "completed" ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
+          <span className={`grid size-8 shrink-0 place-items-center rounded-full border text-sm font-semibold ${runningStep === step.id || state === "current" ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2" : state === "completed" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/30 text-muted-foreground"}`}>{runningStep === step.id ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" /> : state === "completed" ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
           <span className={state === "current" || runningStep === step.id ? "text-sm font-semibold text-primary" : state === "completed" ? "text-sm font-medium text-success" : "text-sm text-muted-foreground"}>{step.label}</span>
           {runningStep === step.id && <span role="status" className="flex items-center gap-1 text-xs font-medium text-primary"><Loader2 aria-hidden className="size-3 motion-safe:animate-spin" />进行中</span>}
           <span className="sr-only">{step.detail}</span>
