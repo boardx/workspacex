@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "stableId": "S015",
+  "entityKind": "skill",
+  "targetVersionRange": ">=1.0.0 <2.0.0",
+  "toolsUnderTest": [
+    "wx_knowledge_read"
+  ],
+  "baseline": {
+    "kind": "generic-agent-same-tools",
+    "tools": [
+      "wx_knowledge_read"
+    ]
+  },
+  "mustPassCaseIds": [
+    "E1",
+    "E3",
+    "E4",
+    "E5"
+  ],
+  "caseTimeoutMs": 60000,
+  "llmJudge": null,
+  "graderVersion": "s015-rules-1.0.0"
+}

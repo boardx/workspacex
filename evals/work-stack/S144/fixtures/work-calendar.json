@@ -1,0 +1,19 @@
+{
+  "org": "synthetic-org-acme",
+  "calendars": {
+    "CN-2026": {
+      "holidays": [
+        {
+          "name": "春节",
+          "start": "2026-02-16",
+          "end": "2026-02-22",
+          "workingDaysRemoved": 5
+        }
+      ],
+      "makeupWorkdays": [
+        "2026-02-14",
+        "2026-02-28"
+      ]
+    }
+  }
+}

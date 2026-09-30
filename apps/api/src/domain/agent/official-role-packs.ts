@@ -80,7 +80,7 @@ interface RoleEntrySeed {
   readonly roleRef: string;
   readonly roleLabel: string;
   readonly stableName: string;
-  readonly roleCategory: "research" | "product" | "sales" | "design" | "general";
+  readonly roleCategory: z.infer<typeof agentRole.AgentRoleCategory>;
   /**
    * 数字人肖像（`DIGITAL_HUMAN_AVATAR_KEYS`，60 格角色头像网格按角色名一一对应）。
    * 「哪个官方角色用哪张肖像」只在这里声明；已导入 1.0.0 的组织由迁移

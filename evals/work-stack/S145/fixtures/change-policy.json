@@ -1,0 +1,27 @@
+{
+  "org": "synthetic-org-acme",
+  "thresholds": [
+    {
+      "maxDeltaDays": 14,
+      "maxCostCny": 100000,
+      "approvers": [
+        "u-head1"
+      ]
+    },
+    {
+      "maxDeltaDays": null,
+      "maxCostCny": null,
+      "approvers": [
+        "u-pm1",
+        "u-vp1"
+      ]
+    }
+  ],
+  "escalateOnIrreversible": "VP",
+  "preApprovedTemplates": [
+    {
+      "templateId": "TPL-CFG-ROTATE",
+      "matchCriteria": "密钥轮换"
+    }
+  ]
+}
