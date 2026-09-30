@@ -195,6 +195,21 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
     expect(within(el).getByTestId("agent-card-subtitle").textContent).toContain("调研");
   });
 
+  it("uiux-r3 #3.2：渲染出来的描述停在句子边界，且不再叠 CSS 行数截断（否则整句又被视觉切断）", async () => {
+    const keys = ["dh-02-research-knowledge-analyst", "dh-03-product-manager", "dh-05-sales-representative", "dh-11-design-thinking-expert"] as const;
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue(keys.map((key, i) => card({
+      agentId: `o${i}`, name: key, roleLabel: key, catalogSource: "official", roleCategory: "research",
+      avatar: { kind: "illustration", key, alt: "x" },
+    })))} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-o0")).not.toBeNull());
+    for (let i = 0; i < keys.length; i++) {
+      const sub = within(screen.getByTestId(`agent-card-o${i}`)).getByTestId("agent-card-subtitle");
+      expect(sub.textContent, sub.textContent ?? "").toMatch(/[。！？]$/);
+      expect(sub.textContent).not.toMatch(/[；，、…]$/);
+      expect(sub.className).not.toMatch(/line-clamp|truncate/);
+    }
+  });
+
   it("未就绪时「开始对话」降为次要按钮，不与状态徽标打架", async () => {
     render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小研", roleCategory: "research", readiness: "unknown" })])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-start-chat")).not.toBeNull());

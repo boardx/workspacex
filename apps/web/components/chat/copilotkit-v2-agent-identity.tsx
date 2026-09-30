@@ -4,6 +4,8 @@ import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { agentDisplayName, type AgentDirectoryCard } from "@/lib/agent-directory";
 import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
+import { useAgentRunView } from "@/lib/use-agent-run-view";
+import { InterruptRenderContext } from "./workbench/interrupt-render-context";
 
 /**
  * v2 聊天（CopilotKit v2 `assistantMessage` slot）里助手消息的作者身份行：当这条线程的
@@ -15,14 +17,28 @@ import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
 export const GENERIC_ASSISTANT_NAME = "AI 助手";
 
 export function AgentIdentityRow({
-  agentId,
+  agentId: selectedAgentId,
+  runId,
   fetchDirectory,
+  fetchRun,
 }: {
+  /** composer 上此刻的选择——只在这条回合不属于任何 run 时兜底。 */
   agentId: string | null | undefined;
+  /**
+   * uiux-r3 #4.3：这条回合所属的 run。有它时作者身份取 run 上**持久化**的 `agentId`，
+   * 刷新后选择回到默认也不会塌成「AI 助手」。
+   */
+  runId?: string | null;
   /** 测试注入；默认读真实 `GET /agents/directory`（模块级共享一次请求）。 */
   fetchDirectory?: () => Promise<readonly AgentDirectoryCard[]>;
+  fetchRun?: Parameters<typeof useAgentRunView>[2];
 }): JSX.Element | null {
+  const host = React.useContext(InterruptRenderContext);
+  const run = useAgentRunView(runId, host.bearer, fetchRun);
+  const agentId = run?.agentId ?? selectedAgentId;
   const map = useAgentDirectoryMap(Boolean(agentId), fetchDirectory);
+  // run 还没读回来时先不画，避免「AI 助手 → 数字人」闪一下。
+  if (runId && run === undefined) return null;
   const card = agentId ? map.get(agentId) : undefined;
   // 目录还没读回来时先不画，避免「通用助手 → 数字人」闪一下。
   if (agentId && !card && map.size === 0) return null;

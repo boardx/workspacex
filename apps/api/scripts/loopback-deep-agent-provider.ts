@@ -690,16 +690,26 @@ function escalateArgs(reason: string): Record<string, unknown> {
   return { matter: ESCALATE_MATTER, reason, target: "requester", contextRefs: [] };
 }
 
+/**
+ * uiux-r3 #4.4 —— 把人写的一句话接进模板句前先去掉它自己的句末标点，否则
+ * 「…你只整理需求。」+「。我会…」拼成「。。」。
+ */
+function joinClause(text: string): string {
+  return text.trim().replace(/[。．.！!？?；;，,\s]+$/u, "");
+}
+
 function escalateReply(record: RunRecord): string {
-  if (record.decision === null) return "正在提交升级请求。";
+  // uiux-r3 #4.2 —— 待决阶段不流出任何「正在提交…」正文：升级卡片就是这一轮的状态，
+  // 一句不会被结果替换掉的进行时旁白只会在 run 停下后永远挂在线程里。
+  if (record.decision === null) return "";
   const edited = record.decision.type === "edit" ? record.decision.editedArgs : undefined;
   const decision = edited?.decision;
   if (decision === "resolve") {
-    const text = typeof edited?.decisionText === "string" && edited.decisionText !== "" ? edited.decisionText : "（无附言）";
+    const text = typeof edited?.decisionText === "string" && joinClause(edited.decisionText) !== "" ? joinClause(edited.decisionText) : "（无附言）";
     return `负责人已裁决同意：${text}。我会按这个裁决继续。`;
   }
   if (decision === "reject" || record.decision.type === "reject") {
-    const why = typeof edited?.reason === "string" && edited.reason !== "" ? edited.reason : "（未说明理由）";
+    const why = typeof edited?.reason === "string" && joinClause(edited.reason) !== "" ? joinClause(edited.reason) : "（未说明理由）";
     return `负责人不同意：${why}。这件事我不会执行，会据此调整方案。`;
   }
   return `事项「${ESCALATE_MATTER}」不在我的升级策略范围内，未升级给任何人；我会按自己的职责边界处理。`;

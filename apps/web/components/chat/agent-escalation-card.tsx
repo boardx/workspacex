@@ -13,6 +13,9 @@ import {
   type EscalatePayload,
 } from "@/lib/agent-escalation";
 import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
+import { useAgentRunView } from "@/lib/use-agent-run-view";
+import type { AgentRunView } from "@/lib/agent-run";
+import { InterruptRenderContext } from "./workbench/interrupt-render-context";
 import { agentDisplayName } from "@/lib/agent-directory";
 
 /**
@@ -124,10 +127,13 @@ export function AgentEscalationCard({
             <dt className="text-11 text-muted-foreground">需要你决定</dt>
             <dd className="mt-0.5 font-medium text-card-foreground" data-testid="agent-escalation-matter">{payload.matter}</dd>
           </div>
-          <div className="px-0.5">
-            <dt className="text-11 text-muted-foreground">它为什么来问你</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-card-foreground" data-testid="agent-escalation-reason">{payload.reason}</dd>
-          </div>
+          {/* uiux-r3 #4.6：原因与事项同文时不重复印一遍。 */}
+          {payload.reason.trim() !== payload.matter.trim() ? (
+            <div className="px-0.5">
+              <dt className="text-11 text-muted-foreground">它为什么来问你</dt>
+              <dd className="mt-0.5 whitespace-pre-wrap text-card-foreground" data-testid="agent-escalation-reason">{payload.reason}</dd>
+            </div>
+          ) : null}
           {payload.contextRefs.length > 0 ? (
             <p className="px-0.5 text-11 text-muted-foreground" data-testid="agent-escalation-refs">
               附带 {payload.contextRefs.length} 条相关材料，可在任务过程区查看。
@@ -153,7 +159,7 @@ export function AgentEscalationCard({
             aria-describedby={hintId}
             data-testid="agent-escalation-text"
             className="mt-1 h-20 w-full resize-y rounded-control border border-input bg-background px-2.5 py-1.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder="例如：同意按 8 折报价，但交付时间不能晚于下月 15 日。"
+            placeholder="写下你的决定；选「不同意」时写明理由。"
             maxLength={TEXT_MAX}
             value={text}
             disabled={inFlight !== null}
@@ -234,5 +240,66 @@ export function AgentEscalationForRun({
       canWrite={canWrite}
       onDecided={onDecided}
     />
+  );
+}
+
+export type ResolvedEscalation = NonNullable<AgentRunView["resolvedEscalations"]>[number];
+
+function formatDecidedAt(iso: string | null): string | null {
+  if (!iso) return null;
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${at.getMonth() + 1}月${at.getDate()}日 ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
+
+/**
+ * uiux-r3 #4.5 —— 升级被裁决后，卡片不是凭空消失，而是在这一轮里留下一条紧凑的已裁决记录：
+ * 决定人 · 同意/驳回 · 时间，下面是事项与说明原文。数据来自权威读 `resolvedEscalations`，刷新后照旧。
+ */
+export function AgentEscalationDecidedRecord({ record }: { readonly record: ResolvedEscalation }): JSX.Element {
+  const payload = parseEscalatePayload(record.argsSummary);
+  const decider = record.decidedBy?.displayName?.trim() || (payload ? ESCALATION_TARGET_LABEL[payload.target] : "负责人");
+  const verdict = record.decision === "resolve" ? "同意" : "驳回";
+  const when = formatDecidedAt(record.decidedAt);
+  return (
+    <section
+      aria-label={`已裁决：${decider}${verdict}`}
+      className="rounded-card border border-border bg-muted px-3 py-2 text-12"
+      data-testid="agent-escalation-decided"
+      data-decision={record.decision}
+    >
+      <p className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground">
+        <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />
+        <span className="font-medium text-card-foreground">已裁决</span>
+        <span aria-hidden>·</span>
+        <span data-testid="agent-escalation-decided-by">{decider}</span>
+        <Badge tone={record.decision === "resolve" ? "success" : "attention"} data-testid="agent-escalation-decided-verdict">{verdict}</Badge>
+        {when ? <><span aria-hidden>·</span><time dateTime={record.decidedAt ?? undefined} data-testid="agent-escalation-decided-at">{when}</time></> : null}
+      </p>
+      {payload ? <p className="mt-1 text-card-foreground" data-testid="agent-escalation-decided-matter">{payload.matter}</p> : null}
+      <p className="mt-0.5 whitespace-pre-wrap text-muted-foreground" data-testid="agent-escalation-decided-text">
+        {record.decision === "resolve" ? "决定：" : "理由："}{record.text}
+      </p>
+    </section>
+  );
+}
+
+/** 某条 run 上全部已裁决的升级（按裁决先后）。没有就什么都不画。 */
+export function RunEscalationRecords({
+  runId,
+  fetchRun,
+}: {
+  readonly runId: string;
+  readonly fetchRun?: Parameters<typeof useAgentRunView>[2];
+}): JSX.Element | null {
+  const host = React.useContext(InterruptRenderContext);
+  const run = useAgentRunView(runId, host.bearer, fetchRun);
+  const records = run?.resolvedEscalations ?? [];
+  if (records.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="agent-escalation-decided-list">
+      {records.map((record, i) => <AgentEscalationDecidedRecord key={record.permissionRequestId ?? i} record={record} />)}
+    </div>
   );
 }

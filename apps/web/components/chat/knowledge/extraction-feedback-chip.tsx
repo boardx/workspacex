@@ -68,9 +68,15 @@ export function ExtractionFeedbackChip({
   threadId,
   messageId,
   statement,
+  showEmptyNotice = true,
 }: {
   readonly threadId: string;
   readonly messageId: string;
+  /**
+   * uiux-r3 #5.4 / 人类决策：数字人对话里不出「这句没有需要记的 · 记一条」这行——三轮评审都读成
+   * 没人解释的记忆术语。`false` ⇒ 没抽到东西时什么都不画（抽到了仍照常显示「已记下…」）。
+   */
+  readonly showEmptyNotice?: boolean;
   /** 这条消息的原文：「记一条」把它预填进「记住」确认卡。不给 ⇒ 只显示说明，不给「记一条」。 */
   readonly statement?: string;
 }) {
@@ -157,6 +163,7 @@ export function ExtractionFeedbackChip({
   const visible = claims.filter((c) => !handled.has(c.claimId));
   const rememberText = statement?.trim() ?? "";
   if (visible.length === 0 && claims.length === 0 && status === "empty") {
+    if (!showEmptyNotice) return null;
     return (
       <p className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70" data-testid="kg-extraction-empty">
         这句没有需要记的

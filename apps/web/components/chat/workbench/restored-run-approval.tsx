@@ -13,8 +13,9 @@ import {
   type ToolPermissionCardRequest,
 } from "@/components/agent-kernel/tool-permission-card";
 import { Button } from "@/components/ui/button";
-import { AgentEscalationForRun } from "@/components/chat/agent-escalation-card";
+import { AgentEscalationDecidedRecord, AgentEscalationForRun } from "@/components/chat/agent-escalation-card";
 import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
+import { invalidateAgentRunView } from "@/lib/use-agent-run-view";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 /**
@@ -183,6 +184,11 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
   if (resolved) return decidedRecord(resolved.interrupt, resolved.decision);
   if (run && ["succeeded", "failed", "cancelled"].includes(run.status)) return fallbackInterrupt && (fallbackWasPending || history.count > 0) ? decidedRecord(fallbackInterrupt) : null;
   if (fallbackInterrupt && request?.interrupt && (fallbackInterrupt.toolName !== request.interrupt.toolName || fallbackInterrupt.args.requestId !== request.interrupt.args.requestId)) return decidedRecord(fallbackInterrupt);
+  // uiux-r3 #4.5：刚裁决的升级在原位换成已裁决记录，不是整张消失。
+  const decidedEscalation = consumedRequestId
+    ? run?.resolvedEscalations?.find((entry) => entry.permissionRequestId === consumedRequestId) ?? null
+    : null;
+  if (decidedEscalation) return <section data-testid="restored-run-approval" className="my-3"><AgentEscalationDecidedRecord record={decidedEscalation} /></section>;
   if (request?.permissionRequestId && request.permissionRequestId === consumedRequestId) return null;
   if (request?.interrupt && run?.status === "awaiting_tool_permission") return <section data-testid="restored-run-approval">{error ? <p role="alert">{error}</p> : null}{request.permissionRequestId ? <InterruptDecisionDialog key={request.permissionRequestId} interrupt={request.interrupt} pending={pending} canWrite={canWrite} decide={decideForm} /> : <fieldset disabled><RestoredInterruptForm interrupt={request.interrupt} pending={false} canWrite={false} decide={async () => {}} /></fieldset>}</section>;
   // issue #3244 ①：已被裁决的那一份，只留痕、不再问。判据优先用权威读的 `resolvedApprovals`
@@ -206,7 +212,7 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
       pending={request}
       sessionToken={bearer}
       canWrite={canWrite}
-      onDecided={() => { if (request.permissionRequestId) setConsumedRequestId(request.permissionRequestId); void getAgentRun(runId, bearer).then(setRun, () => undefined); }}
+      onDecided={() => { if (request.permissionRequestId) setConsumedRequestId(request.permissionRequestId); invalidateAgentRunView(runId); void getAgentRun(runId, bearer).then(setRun, () => undefined); }}
     />
   </section>;
   if (!error && (run?.status !== "awaiting_tool_permission" || !request)) return null;

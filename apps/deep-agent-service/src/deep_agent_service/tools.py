@@ -116,6 +116,11 @@ class OrgSkill(TypedDict):
     content: str
 
 
+def _join_clause(text: str | None) -> str:
+    """uiux-r3 #4.4：人写的一句话接进模板句前去掉它自己的句末标点，避免拼出「。。」。"""
+    return (text or "").strip().rstrip("。．.！!？?；;，, \t\n")
+
+
 def _read_org_skills(config: RunnableConfig) -> list[OrgSkill]:
     configurable = (config or {}).get("configurable") or {}
     skills = configurable.get("org_skills") or []
@@ -516,12 +521,12 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         #   没有升级给任何人——必须如实告诉模型「未升级」，不是「已批准」。
         if decision == "resolve":
             return (
-                f"负责人已裁决同意：{decisionText or '（无附言）'}。"
+                f"负责人已裁决同意：{_join_clause(decisionText) or '（无附言）'}。"
                 "请严格按这个裁决继续执行任务。"
             )
         if decision == "reject":
             return (
-                f"负责人不同意：{reason or '（未说明理由）'}。"
+                f"负责人不同意：{_join_clause(reason) or '（未说明理由）'}。"
                 "不要执行被升级的那件事；请据此调整方案，或向用户说明无法继续的原因。"
             )
         return (

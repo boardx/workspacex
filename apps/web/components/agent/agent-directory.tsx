@@ -76,7 +76,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
                 <Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge>
               )}
             </div>
-            {subtitle ? <p data-testid="agent-card-subtitle" title={subtitle} className="mt-0.5 line-clamp-2 text-12 text-muted-foreground">{firstClause(subtitle)}</p> : null}
+            {subtitle ? <p data-testid="agent-card-subtitle" title={subtitle} className="mt-0.5 text-12 text-muted-foreground">{firstClause(subtitle)}</p> : null}
           </div>
         </div>
         {card.tags.length > 0 && (
@@ -265,13 +265,19 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
   );
 }
 
-/** 卡片描述在句读处截断（uiux-r2 #3.3：不在半句中间断）；完整文字放 title 提示。 */
+/**
+ * 卡片描述只取到句子边界（uiux-r2 #3.3 / uiux-r3 #3.2：不在半句中间断）；完整文字放 title 提示。
+ * 句子边界只认 。！？——「；」「，」后面还有半句话，停在那里读起来就是被截断的。第一句本身就超长时，
+ * 退到最后一个分句处收成完整的一句（句号结尾，不挂省略号）。渲染处不再叠 CSS 行数截断，
+ * 否则这里取好的整句又会被视觉上切一刀。
+ */
 export function firstClause(text: string, max = 40): string {
   const t = text.trim();
   if (t.length <= max) return t;
-  const m = /^[^。！？；]*[。！？；]/.exec(t);
-  if (m && m[0].length <= max) return m[0];
-  const cut = t.slice(0, max);
-  const at = Math.max(cut.lastIndexOf("，"), cut.lastIndexOf("、"));
-  return at > 8 ? `${cut.slice(0, at)}…` : t;
+  const m = /^[^。！？!?]*[。！？!?]/.exec(t);
+  const sentence = m ? m[0] : t;
+  if (sentence.length <= max) return sentence;
+  const cut = sentence.slice(0, max);
+  const at = Math.max(cut.lastIndexOf("；"), cut.lastIndexOf("，"), cut.lastIndexOf("、"));
+  return at > 8 ? `${cut.slice(0, at)}。` : sentence;
 }

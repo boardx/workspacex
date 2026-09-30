@@ -58,3 +58,10 @@ def test_approve_means_not_escalated_never_approved():
     texts = _resume({"type": "approve"}, "esc-approve")
     hit = [t for t in texts if "budget_overrun" in t and "未升级" in t]
     assert hit and "没有人批准" in hit[0]
+
+
+def test_decision_text_trailing_punctuation_is_not_doubled():
+    texts = _resume({"type": "edit", "edited_action": {"name": "escalate_matter",
+                     "args": {"decision": "resolve", "decisionText": "同意，但你只整理需求。"}}}, "esc-punct")
+    hit = [t for t in texts if "负责人已裁决同意" in t]
+    assert hit and "。。" not in hit[0] and "同意，但你只整理需求。请严格" in hit[0]

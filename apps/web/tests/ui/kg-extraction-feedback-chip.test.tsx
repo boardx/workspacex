@@ -242,6 +242,16 @@ describe("ExtractionFeedbackChip · issue #4352「这句没有需要记的 · �
     }
   });
 
+  it("uiux-r3 #5.4：数字人对话（showEmptyNotice=false）⇒ empty 时这一行整个不画", async () => {
+    server.claims = [];
+    server.statuses = ["empty"];
+    const { container } = render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} showEmptyNotice={false} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("记");
+  });
+
   it.each(["written", "failed", "skipped", "none"] as const)("结果是 %s ⇒ 不显示这一行", async (status) => {
     server.claims = [];
     server.statuses = [status];

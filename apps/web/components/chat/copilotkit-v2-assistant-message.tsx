@@ -3,7 +3,9 @@
 import { AgentIdentityRow, shouldShowAssistantIdentity } from "./copilotkit-v2-agent-identity";
 import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
-import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
+import { MessageRunContext, RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
+import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
+import { RunEscalationRecords } from "@/components/chat/agent-escalation-card";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -317,6 +319,11 @@ function V2AssistantMessageImpl(
     [messageId],
   );
   const traceCovered = React.useContext(RunTraceCoveredContext);
+  const runId = React.useContext(MessageRunContext);
+  // uiux-r3 #4.2 —— 带升级调用的那一条是「正在提交…」式的待决旁白：待决时升级卡片就是这一轮
+  // 的状态，裁决后结果由下一条回答与已裁决记录承载。这句话不会被结果替换，留着就是一条
+  // 永远停在进行时的假状态，整条不渲染。
+  if (isPendingToolStatement(props.message) && producedFiles.length === 0) return <></>;
   // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
   // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回
   // null），可框架的消息外壳 + 空 markdown 容器照样占一格——20 次工具调用就叠出一屏空白。
@@ -333,7 +340,8 @@ function V2AssistantMessageImpl(
     // 可点 + 气泡下方紧凑列表；流式中/无引用时不建作用域，渲染不变。
     <PersistedMessageCitationScope messageId={persistedMessageId}>
     <div className="flex flex-col gap-1">
-      {shouldShowAssistantIdentity(props.message, props.messages) ? <AgentIdentityRow agentId={actionsCtx?.agentId} /> : null}
+      {shouldShowAssistantIdentity(props.message, props.messages) ? <AgentIdentityRow agentId={actionsCtx?.agentId} runId={runId} /> : null}
+      {runId && shouldShowAssistantIdentity(props.message, props.messages) ? <RunEscalationRecords runId={runId} /> : null}
       <CopilotChatAssistantMessage
         {...props}
         // issue #2307 —— 见上方 `effectiveIsRunning` 的完整推理：只对这一条消息
@@ -400,6 +408,11 @@ export function isInvisibleToolOnlyMessage(
  * 一边说话、一边调工具的 assistant 消息是**过程旁白**：它说的就是那次工具调用在干什么，而
  * 那次调用已在执行轨迹里（`traceCovered`）。正文只留给回答本身——没有工具调用的消息。
  * 不算旁白的：会画确认卡的决策工具、只写计划的 `write_todos`（常与收尾回答同条出现）。 */
+/** uiux-r3 #4.2：结果会以另一条回答 + 卡片/记录出现的工具——它们调用时附带的正文只是待决旁白。 */
+export function isPendingToolStatement(message: { toolCalls?: readonly { function: { name: string } }[] }): boolean {
+  return (message.toolCalls ?? []).some((call) => call.function.name === ESCALATE_TOOL_NAME);
+}
+
 export function isProcessNarration(
   message: { toolCalls?: readonly { function: { name: string } }[] },
   text: string,

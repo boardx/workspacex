@@ -2041,7 +2041,6 @@ export function CopilotKitV2PanelBody({
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
                       <InterruptRenderContext.Provider value={{ bearer: sessionToken ?? undefined, canWrite: canDecide,
                         pendingRunId: pendingPermission?.runId ?? null }}>
-                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       <UserMessageAttachmentsCtx.Provider value={userMessageAttachmentsContextValue}>
                       <LivePlanContext.Provider value={livePlan}>
                       <TaskTimeline
@@ -2056,6 +2055,9 @@ export function CopilotKitV2PanelBody({
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
                       />
+                      {/* uiux-r3 #4.1：待决卡片属于这条 run 的助手回合——画在消息流**之后**（触发它的
+                          那条用户消息下面），不是钉在线程顶上、读起来先有决定请求后有提问。 */}
+                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       </LivePlanContext.Provider>
                       </UserMessageAttachmentsCtx.Provider>
                       </InterruptRenderContext.Provider>
