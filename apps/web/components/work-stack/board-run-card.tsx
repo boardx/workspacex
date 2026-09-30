@@ -30,6 +30,12 @@ const COLUMNS: readonly { key: BoardRunCardData["column"]; label: string }[] = [
   { key: "done", label: "已完成" },
 ];
 
+const COLUMN_EMPTY: Record<BoardRunCardData["column"], string> = {
+  in_progress: "暂无进行中的运行",
+  review: "暂无待审阅的运行",
+  done: "还没有已完成的运行",
+};
+
 function initialsOf(name: string): string {
   return Array.from(name.trim()).slice(0, 2).join("") || "?";
 }
@@ -94,6 +100,11 @@ export function BoardRunColumns({ cards, onOpen }: { cards: readonly BoardRunCar
                 {colCards.length}
               </span>
             </h2>
+            {colCards.length === 0 ? (
+              <p data-testid={`board-run-column-empty-${col.key}`} className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-12 text-muted-foreground">
+                {COLUMN_EMPTY[col.key]}
+              </p>
+            ) : null}
             {colCards.map((c) => (
               <BoardRunCard key={c.id} card={c} onOpen={onOpen} />
             ))}
@@ -128,6 +139,5 @@ export function LiveBoardRunColumns({
   }, [projectId, load]);
   if (failed) return <p role="alert" data-testid="board-run-cards-error">运行卡加载失败，请稍后重试。</p>;
   if (cards === null) return <p data-testid="board-run-cards-loading">加载中…</p>;
-  if (cards.length === 0) return <p data-testid="board-run-cards-empty">暂无可见的 Workflow 运行。</p>;
   return <BoardRunColumns cards={cards} />;
 }

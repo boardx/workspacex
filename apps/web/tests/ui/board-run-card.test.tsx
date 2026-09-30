@@ -91,6 +91,15 @@ describe("BoardRunColumns", () => {
   });
 });
 
+describe("BoardRunColumns 空列", () => {
+  it("无运行时三列仍在，各自计数 0 与空态文案", () => {
+    render(<BoardRunColumns cards={[]} />);
+    expect(screen.getByTestId("board-run-column-count-done").textContent).toBe("0");
+    expect(screen.getByTestId("board-run-column-empty-in_progress").textContent).toContain("暂无进行中");
+    expect(screen.getByTestId("board-run-column-empty-done").textContent).toContain("还没有已完成");
+  });
+});
+
 describe("LiveBoardRunColumns（接真实 API 客户端）", () => {
   it("项目视图把 projectId 传给加载器并渲染服务端给出的卡", async () => {
     const load = vi.fn(async () => ({ cards: [card()] }));

@@ -28,12 +28,12 @@ export function contentSkillReply(userText: string): string {
     loopback: true,
     stageId,
     skill,
-    problemStatement: `[loopback] ${stageId} problem statement`,
+    problemStatement: "团队在需求评审中反复返工，需要一份统一的问题定义与验收口径。",
     evidenceRefs: [`loopback:${stageId}`],
     confidence: "medium",
     ranking: [{ id: "R1", priority: "P0" }],
-    title: `[loopback] PRD (${stageId})`,
-    requirements: [{ id: "R1", text: `[loopback] requirement from ${skill}` }],
-    kpis: [{ name: "loopback_metric", definition: "[loopback] deterministic metric" }],
+    title: "需求评审提效 PRD",
+    requirements: [{ id: "R1", text: "支持在评审前自动汇总需求背景、影响范围与验收标准。" }],
+    kpis: [{ name: "评审返工率", definition: "每个需求在评审中被退回修改的次数，目标下降 30%。" }],
   });
 }

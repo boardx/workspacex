@@ -369,6 +369,18 @@ describe("列表与入口", () => {
     api.listMyWorkflowInstances.mockResolvedValue({ items: [], nextCursor: null });
     render(<WorkflowRunList />);
     expect((await screen.findByTestId("workflow-run-list-empty")).textContent).toContain("还没有运行记录");
+    expect(screen.getByTestId("workflow-run-list-empty-agents").getAttribute("href")).toBe("/agents");
+    expect(screen.getByTestId("workflow-run-list-empty-chat").getAttribute("href")).toBe("/chat");
+  });
+
+  it("我的运行：卡片含中文名、状态徽标与更新时间", async () => {
+    const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i2", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1",
+      status: "succeeded", stateVersion: 2, reasonCode: null, createdAt: "2026-09-01T08:00:00Z", updatedAt: "2026-09-01T09:30:00Z" });
+    api.listMyWorkflowInstances.mockResolvedValue({ items: [s], nextCursor: null });
+    render(<WorkflowRunList />);
+    const list = await screen.findByTestId("workflow-run-list");
+    expect(screen.getByTestId("workflow-run-status").textContent).toBe("已完成");
+    expect(list.querySelector("time")?.getAttribute("datetime")).toBe("2026-09-01T09:30:00Z");
   });
 
   it("我的运行：按状态筛选透传", async () => {

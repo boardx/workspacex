@@ -33,18 +33,50 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
   }, [key]);
   if (error) return <p role="alert" data-testid="workflow-run-list-error">{error}</p>;
   if (items === null) return <p>加载中…</p>;
-  if (items.length === 0) return <p data-testid="workflow-run-list-empty">还没有运行记录。在 Agent 页点「运行 Workflow」开始一次。</p>;
+  if (items.length === 0) {
+    return (
+      <div data-testid="workflow-run-list-empty" className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+        <p className="text-13 font-medium">还没有运行记录。</p>
+        <p className="mt-1 text-12 text-muted-foreground">从数字人或对话里发起一次工作流，进展和产出会出现在这里。</p>
+        <div className="mt-4 flex justify-center gap-2">
+          <a href="/agents" data-testid="workflow-run-list-empty-agents" className="rounded-md bg-primary px-3 py-1.5 text-12 font-medium text-primary-foreground">去数字人发起</a>
+          <a href="/chat" data-testid="workflow-run-list-empty-chat" className="rounded-md border border-border px-3 py-1.5 text-12">去对话发起</a>
+        </div>
+      </div>
+    );
+  }
   const href = props.hrefFor ?? ((id: string) => `/workflows/runs/${encodeURIComponent(id)}`);
   return (
-    <ul data-testid="workflow-run-list">
-      {items.map((i) => (
-        <li key={i.instanceId} data-status={i.status}>
-          <a href={href(i.instanceId)}>{workflowDisplayName(i.workflowKey)}</a> · {INSTANCE_STATUS_TEXT[i.status]}
-        </li>
-      ))}
+    <ul data-testid="workflow-run-list" className="flex flex-col gap-2">
+      {items.map((i) => {
+        const when = new Date(i.updatedAt);
+        return (
+          <li key={i.instanceId} data-status={i.status} className="rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40">
+            <a href={href(i.instanceId)} className="flex items-center gap-3 px-4 py-3">
+              <span className="flex-1 truncate text-13 font-medium">{workflowDisplayName(i.workflowKey)}</span>
+              <span data-testid="workflow-run-status" className={`rounded-full px-2 py-0.5 text-11 ${RUN_TONE[i.status]}`}>{INSTANCE_STATUS_TEXT[i.status]}</span>
+              {Number.isNaN(when.getTime()) ? null : (
+                <time className="text-12 text-muted-foreground" dateTime={i.updatedAt}>{when.toLocaleString("zh-CN", { hour12: false })}</time>
+              )}
+            </a>
+          </li>
+        );
+      })}
     </ul>
   );
 }
+
+const RUN_TONE: Record<WorkflowInstanceStatus, string> = {
+  running: "bg-ai-tint text-ai-tint-foreground",
+  awaiting_gate_decision: "bg-warning/15 text-warning",
+  blocked_permission: "bg-warning/15 text-warning",
+  cancelling: "bg-muted text-muted-foreground",
+  succeeded: "bg-success/15 text-success",
+  failed: "bg-destructive/15 text-destructive",
+  cancelled: "bg-muted text-muted-foreground",
+  rejected: "bg-muted text-muted-foreground",
+  needs_attention: "bg-warning/15 text-warning",
+};
 
 export function WorkflowApprovalList(props: { readonly includeDecided?: boolean }) {
   const [items, setItems] = useState<WorkflowApprovalItem[] | null>(null);

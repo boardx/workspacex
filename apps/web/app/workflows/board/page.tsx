@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
+import { BackToProjectLink, WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 import { LiveBoardRunColumns } from "@/components/work-stack/board-run-card";
 import { listBoardRunCards } from "@/lib/board-run-cards-api";
 
@@ -11,6 +11,7 @@ function BoardRuns() {
   const projectId = useSearchParams().get("projectId");
   return (
     <WorkflowPage title={projectId ? "项目运行看板" : "运行看板"}>
+      {projectId ? <BackToProjectLink projectId={projectId} testId="workflow-page-back-to-project" /> : null}
       <LiveBoardRunColumns projectId={projectId} load={listBoardRunCards} />
     </WorkflowPage>
   );
@@ -18,10 +19,17 @@ function BoardRuns() {
 
 export default function WorkflowBoardPage() {
   return (
-    <AppShell previewRole={null} left={<WorkflowNav active="board" />}>
-      <Suspense fallback={<p className="p-6 text-12 text-muted-foreground">加载中…</p>}>
-        <BoardRuns />
-      </Suspense>
+    <Suspense fallback={<p className="p-6 text-12 text-muted-foreground">加载中…</p>}>
+      <BoardShell />
+    </Suspense>
+  );
+}
+
+function BoardShell() {
+  const projectId = useSearchParams().get("projectId");
+  return (
+    <AppShell previewRole={null} left={<WorkflowNav active="board" projectId={projectId} />}>
+      <BoardRuns />
     </AppShell>
   );
 }
