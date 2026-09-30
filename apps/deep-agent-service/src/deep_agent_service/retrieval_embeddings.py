@@ -4,6 +4,7 @@ import hmac
 import json
 import math
 import os
+import time
 from pathlib import Path
 import httpx
 from jsonschema import Draft7Validator, ValidationError
@@ -21,6 +22,12 @@ _L=_SCHEMA['limits']
 # than 10 inputs per request ("batch size is invalid"). 10 is accepted by every
 # OpenAI-compatible provider, so the adapter always splits; order is preserved.
 _PROVIDER_BATCH=10
+
+_KEEPALIVE_S=300
+# Idle longer than this ⇒ the warm-up loop sends one tiny embedding so the next real query rides a
+# warm connection (a cold TLS handshake alone exceeds the API's 400ms vector recall budget).
+_WARM_IDLE_S=60
+_last_provider_use=0.0
 
 class RetrievalEmbeddingUnavailable(RuntimeError):
     pass
@@ -43,7 +50,10 @@ class _BoundedStream(httpx.AsyncByteStream):
 
 class _BoundedTransport(httpx.AsyncBaseTransport):
     def __init__(self):
-        self.transport=httpx.AsyncHTTPTransport(retries=0)
+        # httpx drops an idle pooled connection after 5s by default; the provider keeps it open for
+        # at least 90s (devapp-probe 2026-09-30: ~250ms after 15/45/90s idle vs ~550ms cold). Limits must
+        # be set on the inner transport: a client-level `limits` is ignored when a transport is passed.
+        self.transport=httpx.AsyncHTTPTransport(retries=0,limits=httpx.Limits(keepalive_expiry=_KEEPALIVE_S))
     async def handle_async_request(self, request):
         response=await self.transport.handle_async_request(request)
         if response.headers.get('content-encoding','identity').lower()!='identity':
@@ -76,6 +86,8 @@ async def embed_texts(texts):
     revision=os.environ.get('KERNEL_EMBEDDING_MODEL_VERSION','')
     if not all((base,key,model,revision)):
         raise RetrievalEmbeddingUnavailable('embedding_not_configured')
+    global _last_provider_use
+    _last_provider_use=time.monotonic()
     try:
         provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,chunk_size=_PROVIDER_BATCH,http_async_client=_provider_client())
         vectors=await provider.aembed_documents(texts)
@@ -86,6 +98,24 @@ async def embed_texts(texts):
         return output
     except Exception:
         raise RetrievalEmbeddingUnavailable('embedding_unavailable') from None
+
+def embeddings_configured():
+    return all(os.environ.get(k,'') for k in ('KERNEL_MODEL_BASE_URL','KERNEL_MODEL_API_KEY','KERNEL_EMBEDDING_MODEL_ID','KERNEL_EMBEDDING_MODEL_VERSION'))
+
+async def keep_provider_connection_warm(check_every=15.0,idle_after=_WARM_IDLE_S):
+    """Keep one pooled provider connection warm while embeddings are configured.
+
+    Runs for the life of the service (started from the HTTP app lifespan). Warms right after start —
+    the first recall after a deploy would otherwise pay the cold handshake — and again whenever the
+    connection has been idle for `idle_after` seconds. Failures are ignored: this only affects latency.
+    """
+    while True:
+        if embeddings_configured() and time.monotonic()-_last_provider_use>=idle_after:
+            try:
+                await embed_texts(['ping'])
+            except Exception:
+                pass
+        await asyncio.sleep(check_every)
 
 async def embedding_endpoint(request:Request):
     secret=os.environ.get('DEEP_AGENT_SERVICE_INTERNAL_KEY','')
