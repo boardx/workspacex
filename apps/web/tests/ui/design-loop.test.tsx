@@ -72,6 +72,11 @@ type Call = [string, { method?: string; body?: Record<string, unknown>; query?: 
 const callsTo = (path: string, method = "GET") =>
   (apiRequest.mock.calls as Call[]).filter(([p, o]) => p === path && (o?.method ?? "GET") === method);
 
+/** 设计卡片的编辑/删除在「⋯」菜单里（2026-09-30 统一成标准 ResourceCard）：先按下触发器再点菜单项。 */
+function openProjectMenu(id: string) {
+  fireEvent.pointerDown(screen.getByTestId(`project-more-${id}`), { button: 0 });
+}
+
 describe("① 快速反馈：review 阶段只有标题 + 详细说说", () => {
   it("2026-09-10 人类反馈：不再渲染任何一排结构化输入框，类型切换也不变出来", async () => {
     render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);
@@ -1117,6 +1122,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
+    openProjectMenu("p1");
     fireEvent.click(screen.getByTestId("project-edit-p1"));
     fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "新名" } });
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
@@ -2097,6 +2103,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
+    openProjectMenu("p1");
     fireEvent.click(screen.getByTestId("project-delete-p1"));
     // 迭代 39 起删除要先确认（见 UIUX 18 那一组）——这一条断的是确认之后真的走 DELETE。
     fireEvent.click(await screen.findByTestId("workbench-delete-yes"));
@@ -5111,6 +5118,7 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     listOnly();
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
+    openProjectMenu("p1");
     fireEvent.click(screen.getByTestId("project-delete-p1"));
 
     // ⭐ 反证锚点：把卡片的 onDelete 接回裸 handleDelete ⇒ 这三条红（一次误点，项目就没了）。
@@ -5143,7 +5151,8 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
       });
       render(<DesignWorkbenchHome state="default" />);
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
-      fireEvent.click(screen.getByTestId("project-delete-p1"));
+      openProjectMenu("p1");
+    fireEvent.click(screen.getByTestId("project-delete-p1"));
       fireEvent.click(screen.getByTestId("workbench-delete-yes"));
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
       expect(screen.getByTestId("workbench-action-error").textContent).toContain("没能删除这个项目");
@@ -5200,6 +5209,7 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
     // ⭐ 反证锚点：改回写死的「删除项目」/「编辑项目」⇒ 这两条红（读屏听到的每一张卡都一样）。
+    openProjectMenu("p1");
     expect(screen.getByTestId("project-delete-p1").getAttribute("aria-label")).toBe("删除「会员下单」");
     expect(screen.getByTestId("project-edit-p1").getAttribute("aria-label")).toBe("编辑「会员下单」");
   });

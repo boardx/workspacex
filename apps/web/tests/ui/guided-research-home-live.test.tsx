@@ -229,7 +229,7 @@ describe("F168 guided research home live data", () => {
 
     const page = screen.getByTestId("research-home-page");
     expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
-    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:shadow-md");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
   });
 
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {

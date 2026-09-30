@@ -115,11 +115,10 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
 
     expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
     const card = await screen.findByTestId("itv-history-card-itv-1");
-    expect(card).toHaveClass("min-h-64", "rounded-lg", "hover:shadow-md");
-    // F19（视觉系统 token 升级）：Badge 圆角从单值 rounded-sm 迁移到语义化三档的
-    // rounded-control（控件档，6px）——Badge 是小型交互标签，属于控件档，见
-    // tailwind.config.ts borderRadius 与 app/globals.css 顶部圆角分级注释。
-    expect(within(card).getByText("采购决策")).toHaveClass("rounded-control", "text-10");
+    // 2026-09-30：卡片统一成标准 ResourceCard（项目卡片版式）：rounded-card + hover 抬升 + 整格等高
+    expect(card).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
+    // 标签芯片是标准项目卡片的胶囊样式（与 `/projects` 卡片一致）
+    expect(within(card).getByText("采购决策")).toHaveClass("rounded-full", "text-10");
   });
 
   it("exposes saved expert completion rather than a fabricated workflow percentage", async () => {
