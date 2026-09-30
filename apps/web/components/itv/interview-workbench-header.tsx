@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { ArrowLeft, Check, MessageSquareText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -43,7 +44,19 @@ export function InterviewWorkbenchHeader({
   readonly onOpenSkill?: () => void;
   readonly completedSteps?: readonly string[];
 }) {
-  return <header data-testid="itv-workbench-header" className="sticky top-0 z-20 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6">
+  const headerRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    const header = headerRef.current;
+    const container = header?.parentElement;
+    if (!header || !container) return;
+    const measure = () => container.style.setProperty("--itv-header-height", `${header.getBoundingClientRect().height}px`);
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(header);
+    window.addEventListener("resize", measure);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", measure); container.style.removeProperty("--itv-header-height"); };
+  }, []);
+  return <header ref={headerRef} data-testid="itv-workbench-header" className="sticky top-0 z-20 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         {activeStep !== "intake" && <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p>}
