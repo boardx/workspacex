@@ -14,6 +14,25 @@ vi.mock("@/lib/guided-research-api", () => ({ createGuidedResearchSession: vi.fn
 
 beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); localStorage.clear(); });
 
+it("imports a text file into the requirement while preserving existing input", async () => {
+  render(<ResearchNewRoute />);
+  fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: "已有需求" } });
+  expect(screen.getByRole("button", { name: "上传文件" })).toBeEnabled();
+  const file = new File(["补充研究材料"], "research.txt", { type: "text/plain" });
+  Object.defineProperty(file, "arrayBuffer", { value: async () => new TextEncoder().encode("补充研究材料").buffer });
+  fireEvent.change(screen.getByLabelText("上传需求文件"), { target: { files: [file] } });
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("已有需求\n\n补充研究材料"));
+  expect(screen.getByTestId("research-confirm-brief")).toBeEnabled();
+});
+
+it("reports unsupported files without losing the requirement", async () => {
+  render(<ResearchNewRoute />);
+  fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: "已有需求" } });
+  fireEvent.change(screen.getByLabelText("上传需求文件"), { target: { files: [new File(["binary"], "file.pdf")] } });
+  expect(await screen.findByRole("alert")).toHaveTextContent("请选择 TXT");
+  expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("已有需求");
+});
+
 it("lets a visual embedding own confirmation without creating persisted research", () => {
   const confirm = vi.fn();
   render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
