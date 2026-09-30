@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
-import { ArrowRight, Mic, Upload } from "lucide-react";
+import { ArrowRight, Upload } from "lucide-react";
+import { InterviewVoiceInput } from "@/components/itv/interview-voice-input";
+import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,8 +74,28 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   onNavigate: (step: Step, sessionId?: string) => void;
 }) {
   const [brief, setBrief] = React.useState(initialBrief);
+  const authSession = useOptionalSession()?.session;
+  const [voicePreview, setVoicePreview] = React.useState("");
+  const [voiceBusy, setVoiceBusy] = React.useState(false);
+  const [importBusy, setImportBusy] = React.useState(false);
+  const [inputError, setInputError] = React.useState("");
+  const fileInput = React.useRef<HTMLInputElement>(null);
+  const appendInput = React.useCallback((text: string) => {
+    setBrief((current) => ({ ...current, goal: current.goal ? `${current.goal}\n\n${text}` : text }));
+  }, []);
+  async function importFile(file: File) {
+    setImportBusy(true); setInputError("");
+    try {
+      if (!/\.(txt|md|markdown|csv)$/i.test(file.name)) throw new Error("请选择 TXT、Markdown 或 CSV 文本文件");
+      if (file.size > 2 * 1024 * 1024) throw new Error("文件不能超过 2 MB");
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+      if (!text.trim()) throw new Error("文件没有可用文字");
+      appendInput(text);
+    } catch (cause) { setInputError(cause instanceof Error ? cause.message : "文件读取失败，请重试"); }
+    finally { setImportBusy(false); }
+  }
   const baseline = session?.brief ?? initialBrief;
-  React.useEffect(() => { onDirtyChange?.(JSON.stringify(brief) !== JSON.stringify(baseline)); }, [brief, baseline, onDirtyChange]);
+  React.useEffect(() => { onDirtyChange?.(voiceBusy || importBusy || Boolean(voicePreview) || JSON.stringify(brief) !== JSON.stringify(baseline)); }, [brief, baseline, voiceBusy, importBusy, voicePreview, onDirtyChange]);
   const assistant = useIntakeAssistant(brief, setBrief);
   const active = React.useRef(true);
   React.useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
@@ -97,7 +119,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     if (session) setBrief({ ...session.brief });
   }, [session]);
   const confirm = async () => {
-    if (submitting || !brief.goal.trim()) return;
+    if (submitting || voiceBusy || importBusy || brief.goal.length > 2000 || !brief.goal.trim()) return;
     // The import screen asks for one description. Until the next screen refines
     // the topic, use the user's words, not an invented model suggestion.
     const confirmedBrief = { ...brief, topic: brief.topic.trim() || brief.goal.trim().slice(0, 200) };
@@ -177,8 +199,14 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         <Card className="flex rounded-xl"><CardContent className="flex w-full flex-col gap-3 p-5">
           <h2 className="text-xl font-bold">告诉 AI 你想研究什么</h2>
           <div className="flex min-h-56 flex-1 flex-col rounded-lg border border-border p-4">
-            <Textarea value={brief.goal} maxLength={2000} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
-            <div className="mt-3 flex flex-wrap items-center gap-2"><Button variant="outline" className="h-9 px-4 text-sm" disabled title="当前环境尚未配置实时录音"><Mic className="mr-2 size-4" />录音</Button><Button variant="outline" className="h-9 px-4 text-sm" disabled title="当前环境尚未配置文件导入"><Upload className="mr-2 size-4" />上传文件</Button><span className="ml-auto text-xs text-muted-foreground">{brief.goal.length} / 2000</span></div>
+            <Textarea value={voicePreview ? (brief.goal ? `${brief.goal}\n\n${voicePreview}` : voicePreview) : brief.goal} readOnly={voiceBusy || importBusy} maxLength={Math.max(2000, brief.goal.length)} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <InterviewVoiceInput sessionToken={authSession?.sessionToken ?? ""} disabled={submitting || importBusy} onAppend={appendInput} onPreview={setVoicePreview} onBusyChange={setVoiceBusy} />
+              <Button variant="primary" className="h-9 px-4 text-sm" disabled={submitting || voiceBusy || importBusy} onClick={() => fileInput.current?.click()}><Upload className="mr-2 size-4" />{importBusy ? "正在导入…" : "上传文件"}</Button>
+              <input ref={fileInput} type="file" accept=".txt,.md,.markdown,.csv" aria-label="上传需求文件" className="sr-only" disabled={submitting || voiceBusy || importBusy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void importFile(file); }} />
+              <span className="ml-auto text-xs text-muted-foreground">{brief.goal.length} / 2000</span>
+            </div>
+            {inputError && <p role="alert" className="mt-2 text-sm text-destructive">{inputError}</p>}
           </div>
           <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-4 space-y-4">
           <Field label="研究主题"><Input value={brief.topic} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
@@ -186,7 +214,8 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           </div></details>
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="size-4" aria-hidden /></Button></div>
+          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || voiceBusy || importBusy || brief.goal.length > 2000 || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="size-4" aria-hidden /></Button></div>
+          {brief.goal.length > 2000 && <p role="alert" className="text-sm text-destructive">需求超过 2000 字，请精简后继续。导入内容已保留。</p>}
         </CardContent></Card>
         <ResearchPrototypeTips />
       </div>
