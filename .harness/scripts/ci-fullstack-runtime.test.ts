@@ -33,11 +33,13 @@ describe('preinstalled fullstack CI runtime', () => {
   it('preserves loopback host network, native Docker topology, UID, browser and APT blocking', () => {
     const args = runtimeArgs(inputs).join(' ');
     for (const token of ['--network host', '--ipc host', '--user 1001:127', '--group-add 999', '/var/run/docker.sock',
-      '/opt/docker-compose:/wsx-ci-tools/docker-config/cli-plugins/docker-compose:ro',
+      '/opt/docker-compose:/runner/temp/home/.docker/cli-plugins/docker-compose:ro',
       '/runner/work/repo:/runner/work/repo', '/ms-playwright', '/usr/bin/apt-get:ro',
       'docker compose version', 'ci-fullstack-runtime.mjs browser', 'exec pnpm run verify:fullstack-smoke']) expect(args).toContain(token);
     expect(args).not.toContain('must-not-enter');
     expect(args).not.toContain('GITHUB_TOKEN');
+    expect(args).toContain('DOCKER_CONFIG=/runner/temp/home/.docker');
+    expect(args).not.toContain('DOCKER_CONFIG=/wsx-ci-tools');
   });
   it('runs existing independent geometry with the same prepared browser environment', () => {
     const args = runtimeArgs({ ...inputs, geometry: true }).join(' ');

@@ -34,10 +34,10 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
     '--group-add', String(socketGid), '--workdir', root, '--volume', `${root}:${root}`, '--volume', `${home}:${home}`,
     '--volume', `${tools}:/wsx-ci-tools:ro`, '--volume', `${node}:/wsx-ci-tools/bin/node:ro`,
     '--volume', `${pnpm}:/wsx-ci-tools/pnpm:ro`, '--volume', `${docker}:/wsx-ci-tools/bin/docker:ro`,
-    '--volume', `${compose}:/wsx-ci-tools/docker-config/cli-plugins/docker-compose:ro`,
+    '--volume', `${compose}:${home}/.docker/cli-plugins/docker-compose:ro`,
     '--volume', '/var/run/docker.sock:/var/run/docker.sock', '--volume', `${tools}/bin/apt-get:/usr/bin/apt-get:ro`, '--volume', `${tools}/bin/apt-get:/usr/bin/apt:ro`,
     '--env', `HOME=${home}`, '--env', 'PATH=/wsx-ci-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-    '--env', 'DOCKER_CONFIG=/wsx-ci-tools/docker-config', '--env', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright'];
+    '--env', `DOCKER_CONFIG=${home}/.docker`, '--env', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright'];
   // Do not pass arbitrary runner env: GitHub credentials never enter the test container.
   for (const key of ['CI', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FULLSTACK_E2E_SERVER_TIMEOUT_MS']) {
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
@@ -83,11 +83,12 @@ async function main(mode) {
   mkdirSync(home, { recursive: true, mode: 0o700 });
   mkdirSync(resolve(tools, 'bin'), { recursive: true, mode: 0o700 });
   mkdirSync(resolve(tools, 'pnpm'), { recursive: true, mode: 0o700 });
-  mkdirSync(resolve(tools, 'docker-config/cli-plugins'), { recursive: true, mode: 0o700 });
+  mkdirSync(resolve(home, '.docker/cli-plugins'), { recursive: true, mode: 0o700 });
+  writeFileSync(resolve(home, '.docker/cli-plugins/docker-compose'), '', { mode: 0o600 });
   writeFileSync(resolve(tools, 'bin/pnpm'), '#!/bin/sh\nexec node /wsx-ci-tools/pnpm/bin/pnpm.cjs "$@"\n', { mode: 0o700 });
   chmodSync(resolve(tools, 'bin/pnpm'), 0o700);
   writeFileSync(resolve(tools, 'bin/apt-get'), '#!/bin/sh\nexit 78\n', { mode: 0o700 });
-  for (const path of ['bin/node', 'bin/docker', 'docker-config/cli-plugins/docker-compose']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
+  for (const path of ['bin/node', 'bin/docker']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
   console.log(JSON.stringify({ runtimeImage: image, playwrightVersion: version, network: 'host', uid: process.getuid(), aptInstall: false }));
   const args = runtimeArgs({ root, home, tools, uid: process.getuid(), gid: process.getgid(), image,
     node: realpathSync(process.execPath), pnpm, docker, compose, socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry' });
