@@ -63,7 +63,8 @@ test.describe("IconRail 短视口三段布局", () => {
       const scroll = page.getByTestId("rail-scroll");
       const links = page.locator('[data-testid="rail-scroll"] a[data-testid^="rail-"]');
       const count = await links.count();
-      expect(count).toBeGreaterThanOrEqual(8);
+      // 2026-09-30：低频入口收进「更多」三点菜单，栏内常驻 7 项（首页/对话/项目/研究/访谈/大脑/任务）
+      expect(count).toBeGreaterThanOrEqual(7);
       for (let i = 0; i < count; i++) {
         await links.nth(i).scrollIntoViewIfNeeded();
         await expect(links.nth(i)).toBeInViewport();
@@ -147,6 +148,19 @@ test.describe("IconRail 短视口三段布局", () => {
     await expect(menu).toBeVisible();
     inViewport(await menu.boundingBox(), 380);
     await expect(page.getByTestId("personal-menu-profile")).toBeVisible();
+  });
+
+  test("最矮视口 380px：「更多」三点菜单钉在滚动区外，能打开，弹层整个在视口内且收纳的入口都在", async ({ page }) => {
+    await gotoRail(page, 380);
+    const more = page.getByTestId("rail-more");
+    await expect(more).toBeInViewport();
+    await more.click();
+    const menu = page.getByTestId("rail-more-menu");
+    await expect(menu).toBeVisible();
+    inViewport(await menu.boundingBox(), 380);
+    for (const key of ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts", "agent-directory", "work-skill-catalog"]) {
+      await expect(menu.getByTestId(`rail-${key}`)).toHaveCount(1);
+    }
   });
 
   test("反证：还原修复前布局（中段不滚动 + 文字不隐藏）后头像掉出 380px 视口——断言不是空转", async ({ page }) => {

@@ -15,6 +15,8 @@
 
 `main-cn` 是中国生产环境的发布指针，不承载日常开发。代码仍通过 PR 合入 `main`。`backend-gates` 在 `main` 成功后，`prepare-cn-release` 会提前构建四个应用镜像并封印 digest manifest；发布时只允许把已经封印且进入 `main` 的指定提交 fast-forward 到 `main-cn`。push 会触发 `deploy-cn-production`，生产只验证并激活该候选版本，不再构建 Next.js 或其他应用镜像。
 
+日常操作统一使用 [GitHub 中国生产发布执行书](./cn-production-github-release.md)。`promote-cn-production` 接受 exact SHA 和当前 `main-cn` SHA，在 `production-cn` Environment 审批后验证不可变候选与准备收据，再用 CAS fast-forward 晋级；已有 `deploy-cn-production` 仍是唯一 activation 路径。
+
 候选构建与生产激活共用 `/var/lib/workspacex-cn/runtime/release.lock`，避免构建、预热和切换同时修改发布工作区。候选构建通过 ECS RAM Role 获取一小时内有效的 ACR 临时密码，凭据只写入一次性 `DOCKER_CONFIG` 并在结束时注销、删除。目标机必须提供 root-owned `0600` 的 `/etc/workspacex-cn/publish.env`：
 
 ```dotenv

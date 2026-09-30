@@ -10,6 +10,7 @@ import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { RailNotifications } from "./rail-notifications";
+import { RailMoreMenu } from "./rail-more-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
@@ -85,7 +86,10 @@ export function IconRail({
         `components/ui/tooltip.tsx`（Radix，hover / 键盘 focus 双触发）补——不用原生
         `title`：它不响应键盘焦点。同时每个入口带 `focus-visible` 焦点环（ring-inset，
         避免被滚动容器裁掉）+ `aria-label`，rev-feature 2026-09-02 复核要求。
-        不做"折进 more 菜单"的方案：那会让一级入口在两处出现（#593 一级/二级机械分界）。
+        ⚠ 2026-09-30 人类直接要求「只把最重要的显示出来，其余通过 3 点菜单加载」：
+        `NavItem.overflow` 的入口不再常驻，收进 `RailMoreMenu`（栏内的「更多」）。每个入口
+        只在一处渲染（栏内或菜单内），所以仍守 #593 的一级/二级分界，没有入口在两处出现。
+        分组小标题也不再占栏内纵向空间：栏内用一条细分隔线区分五段，标题只在三点菜单里出现。
       */}
       <div className="mb-2 shrink-0" data-testid="rail-top">
         <OrgMenu
@@ -101,46 +105,58 @@ export function IconRail({
         data-testid="rail-scroll"
         className="scrollbar-none flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
       >
-      {segments.map((seg, i) => (
-        <div key={seg.label ?? `seg-${i}`} className="flex w-full shrink-0 flex-col items-center">
-          {seg.label && (
-            <span className="mt-3 select-none text-9 font-medium uppercase tracking-wide text-muted-foreground [@media(max-height:640px)]:hidden">
-              {seg.label}
-            </span>
-          )}
-          {seg.items.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-            const Icon = item.icon;
-            return (
-              <Tooltip key={item.key}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.href}
-                    data-testid={`rail-${item.key}`}
-                    aria-current={active ? "page" : undefined}
-                    aria-label={item.label}
-                    className={cn(
-                      "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                      "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
-                      active
-                        ? "bg-card text-background-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
-                    )}
-                  >
-                    <Icon aria-hidden className="h-4 w-4" />
-                    <span className="text-10 [@media(max-height:640px)]:hidden">{item.label}</span>
-                  </Link>
-                </TooltipTrigger>
-                {/* 只在紧凑模式（文字已隐藏）时有信息量；高视口下文字本身可见，气泡是噪音 */}
-                <TooltipContent side="right" data-testid={`rail-tooltip-${item.key}`} className="[@media(min-height:641px)]:hidden">
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-      ))}
+      {segments.map((seg, i) => {
+        const pinned = seg.items.filter((item) => item.overflow !== true);
+        if (pinned.length === 0) return null;
+        return (
+          <div
+            key={seg.label ?? `seg-${String(i)}`}
+            data-segment={seg.label ?? "top"}
+            className={cn(
+              "flex w-full shrink-0 flex-col items-center",
+              // 段与段之间一条细分隔线（取代原来的小字分组标题），第一段不画
+              i > 0 && "mt-2 border-t border-border-subtle pt-1",
+            )}
+          >
+            {pinned.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              const Icon = item.icon;
+              return (
+                <Tooltip key={item.key}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.href}
+                      data-testid={`rail-${item.key}`}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={item.label}
+                      className={cn(
+                        "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                        "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
+                        active
+                          ? "bg-card text-background-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
+                      )}
+                    >
+                      <Icon aria-hidden className="h-[18px] w-[18px]" />
+                      <span className="text-10 [@media(max-height:640px)]:hidden">{item.label}</span>
+                    </Link>
+                  </TooltipTrigger>
+                  {/* 只在紧凑模式（文字已隐藏）时有信息量；高视口下文字本身可见，气泡是噪音 */}
+                  <TooltipContent side="right" data-testid={`rail-tooltip-${item.key}`} className="[@media(min-height:641px)]:hidden">
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        );
+      })}
+      </div>
+
+      {/* 「更多」钉在滚动区外：短视口下中段滚动，三点菜单永远够得着 */}
+      <div className="mt-1 flex w-full shrink-0 flex-col items-center">
+        <RailMoreMenu segments={segments} pathname={pathname} />
       </div>
 
       {/*
