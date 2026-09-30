@@ -1,12 +1,13 @@
 /** Synthetic-only local drill. Never accepts a remote DB or a production connection. */
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { generateMigrationPlan, migrationHash } from "./cn-migration-plan";
 import type { MigrationIdentity } from "./cn-migration-plan";
+import { acquireRehearsalRun, openPrivateReport, assertLocalDockerEndpoint, assertRehearsalResourcesAbsent } from "./cn-migration-rehearsal-safety";
 
 const [checkout, targetSha, baselineSha, ledgerPath, reportPath, roleMode] = process.argv.slice(2);
 if (roleMode !== undefined && roleMode !== "--non-super-bypass") throw new Error("unknown rehearsal role mode");
@@ -16,6 +17,10 @@ if (process.env.WORKSPACEX_DEPLOY_PROFILE) throw new Error("synthetic rehearsal 
 const root = resolve(checkout);
 const snapshot = JSON.parse(readFileSync(ledgerPath, "utf8")) as { readOnly: boolean; ledger: MigrationIdentity[] };
 if (snapshot.readOnly !== true || !Array.isArray(snapshot.ledger)) throw new Error("read-only ledger required");
+const reportFd = openPrivateReport(reportPath);
+let temp: string | undefined;
+let releaseRun: (() => void) | undefined;
+try {
 const plan = await generateMigrationPlan(root, { targetSha, baselineSha, ledger: snapshot.ledger });
 const source = join(root, "apps/api/migrations");
 const authority = await import(pathToFileURL(join(root, "apps/api/src/infrastructure/db/migrator.ts")).href) as {
@@ -25,11 +30,16 @@ const authority = await import(pathToFileURL(join(root, "apps/api/src/infrastruc
 type Rows = { rows: Array<Record<string, unknown>> };
 type Client = { connect: () => Promise<void>; end: () => Promise<void>; query: (sql: string, params?: unknown[]) => Promise<Rows> };
 const pg = createRequire(join(root, "apps/api/package.json"))("pg") as { Client: new (cfg: Record<string, unknown>) => Client };
-const project = "wsx-cn-migration-rehearsal-4763";
+const run = acquireRehearsalRun();
+const project = run.project;
+releaseRun = run.release;
 const docker = (...args: string[]) => execFileSync("docker", args, { encoding: "utf8", timeout: 120_000 }).trim();
+if (process.env.DOCKER_HOST) assertLocalDockerEndpoint(process.env.DOCKER_HOST);
+const context = process.env.DOCKER_CONTEXT || docker("context", "show");
+assertLocalDockerEndpoint(docker("context", "inspect", context, "--format", "{{.Endpoints.docker.Host}}"));
 const image = "localhost/workspacex-postgres-age:pg16-age1.6.0";
 const imageId = docker("image", "inspect", "--format", "{{.Id}}", image);
-const temp = mkdtempSync(join(tmpdir(), "wsx-cn-rehearsal-"));
+temp = mkdtempSync(join(tmpdir(), "wsx-cn-rehearsal-"));
 const composePath = join(temp, "compose.json");
 writeFileSync(composePath, JSON.stringify({ services: { postgres: {
   image: imageId, pull_policy: "never", cpus: 2, mem_limit: "1g",
@@ -40,6 +50,7 @@ writeFileSync(composePath, JSON.stringify({ services: { postgres: {
 const compose = (...args: string[]) => docker("compose", "-f", composePath, "-p", project, ...args);
 const report: Record<string, unknown> = { schemaVersion: 1, scope: "synthetic-local-rehearsal", targetSha, baselineSha,
   productionPlanSha256: plan.planSha256, productionReady: false, sourceDriftWaived: false,
+  composeProject: project, runId: run.runId,
   syntheticSource: "target SQL only; no production rows/checksums inserted", imageId,
   rehearsalScriptSha256: migrationHash(readFileSync(new URL(import.meta.url))),
   faultInjections: [] as unknown[], startedAt: new Date().toISOString(), checks: [] as string[], models: [] as unknown[] };
@@ -55,7 +66,7 @@ const tags = "20260929160000_agent_tags.sql";
 const prefix = all.slice(0, all.indexOf(w1));
 if (!prefix.length || !all.includes(portrait) || !all.includes(tags)) throw new Error("required target migrations missing");
 function directory(names: string[]) {
-  const dir = mkdtempSync(join(temp, "sql-"));
+  const dir = mkdtempSync(join(temp!, "sql-"));
   for (const name of names) copyFileSync(join(source, name), join(dir, name));
   return dir;
 }
@@ -75,9 +86,7 @@ const projectSnapshotSql = `SELECT id, org_id, kind FROM projects WHERE id LIKE 
 async function projectSnapshot(client: Client) { return (await client.query(projectSnapshotSql)).rows; }
 try {
   // Never adopt or remove an existing project, even if its name matches ours.
-  if (docker("ps", "-aq", "--filter", `label=com.docker.compose.project=${project}`)
-    || docker("network", "ls", "-q", "--filter", `label=com.docker.compose.project=${project}`)
-    || docker("volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${project}`)) throw new Error("rehearsal project already exists");
+  assertRehearsalResourcesAbsent(project, docker);
   owned = true;
   compose("up", "-d", "--wait", "--wait-timeout", "90");
   const port = Number(compose("port", "postgres", "5432").split(":").at(-1));
@@ -252,7 +261,12 @@ finally {
     } catch (error) { report.cleanup = { passed: false, failure: String(error).slice(0, 300) }; process.exitCode = 1; }
   } else report.cleanup = { passed: true, createdResources: false };
   report.finishedAt = new Date().toISOString();
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
-  rmSync(temp, { recursive: true, force: true });
+  writeFileSync(reportFd, `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ reportPath, checksPassed: checks.length, productionReady: false, cleanup: report.cleanup, failure: report.failure ?? null }));
+}
+
+} finally {
+  try { closeSync(reportFd); } finally {
+    try { if (temp) rmSync(temp, { recursive: true, force: true }); } finally { releaseRun?.(); }
+  }
 }
