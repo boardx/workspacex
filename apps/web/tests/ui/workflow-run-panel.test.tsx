@@ -385,6 +385,65 @@ describe("列表与入口", () => {
     expect(screen.getByTestId("workflow-run-initiator").textContent).toContain("发起人：");
   });
 
+  it("R10 我的运行：读取失败给可重试的错误卡，重试后恢复列表", async () => {
+    api.listMyWorkflowInstances.mockRejectedValueOnce(new Error("boom"));
+    const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i9", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", goal: null,
+      status: "succeeded", stateVersion: 2, reasonCode: null, createdAt: "t", updatedAt: "t" });
+    api.listMyWorkflowInstances.mockResolvedValueOnce({ items: [s], nextCursor: null });
+    render(<WorkflowRunList />);
+    expect(await screen.findByTestId("workflow-run-list-error")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("workflow-run-list-error-retry"));
+    expect(await screen.findByTestId("workflow-run-list")).toBeTruthy();
+    expect(screen.queryByTestId("workflow-run-list-error")).toBeNull();
+  });
+
+  it("R10 我的运行：有进行中的运行时静默刷新（10 秒），全是终态则不轮询；刷新失败保留旧列表", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const mk = (status: string) => workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i-live", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", goal: null,
+        status, stateVersion: 2, reasonCode: null, createdAt: "t", updatedAt: "t" });
+      api.listMyWorkflowInstances.mockReset();
+      api.listMyWorkflowInstances
+        .mockResolvedValueOnce({ items: [mk("running")], nextCursor: null })
+        .mockRejectedValueOnce(new Error("blip"))                              // 第一次刷新失败：列表不能被错误替换
+        .mockResolvedValue({ items: [mk("succeeded")], nextCursor: null });
+      render(<WorkflowRunList />);
+      await screen.findByTestId("workflow-run-list");
+      expect(screen.getByTestId("workflow-run-status").textContent).toBe("运行中");
+
+      await act(async () => { vi.advanceTimersByTime(10_000); });
+      expect(api.listMyWorkflowInstances).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("workflow-run-status").textContent).toBe("运行中");   // 失败：仍是旧数据
+      expect(screen.queryByTestId("workflow-run-list-error")).toBeNull();
+
+      await act(async () => { vi.advanceTimersByTime(10_000); });
+      expect(screen.getByTestId("workflow-run-status").textContent).toBe("已完成");
+
+      const calls = api.listMyWorkflowInstances.mock.calls.length;
+      await act(async () => { vi.advanceTimersByTime(60_000); });
+      expect(api.listMyWorkflowInstances).toHaveBeenCalledTimes(calls);             // 终态：不再轮询
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("R10 待我审批：每条是一张待办卡（标题 + 副作用摘要 + 「去处理」），再点收起", async () => {
+    api.listMyWorkflowApprovals.mockResolvedValueOnce({ items: [{ instanceId: "i1", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", gate: gate() }] });
+    api.getWorkflowInstance.mockResolvedValue(proj({ stateVersion: 9 }));
+    render(<WorkflowApprovalList />);
+    const open = await screen.findByTestId("workflow-approval-open-i1-g1");
+    expect(open.textContent).toBe("去处理");
+    // 标题与摘要相同（阶段名翻译不出时回退成摘要）时不重复显示摘要行
+    const summary = screen.queryByTestId("workflow-approval-summary-i1-g1");
+    expect(summary === null || summary.textContent !== open.closest("li")?.querySelector("p")?.textContent).toBe(true);
+    fireEvent.click(open);
+    expect(screen.getByTestId("workflow-approve")).toBeTruthy();
+    expect(open.textContent).toBe("收起");
+    expect(open.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(open);
+    expect(screen.queryByTestId("workflow-approve")).toBeNull();
+  });
+
   it("我的运行：按状态筛选透传", async () => {
     const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i1", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", goal: null,
       status: "failed", stateVersion: 2, reasonCode: null, createdAt: "t", updatedAt: "t" });

@@ -6,6 +6,8 @@
  * 输入框，其余类型按 JSON 文本输入。
  */
 import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export interface TriggerField {
   readonly name: string;
@@ -69,25 +71,31 @@ export function WorkflowStartForm(props: {
     if (Object.keys(next).length === 0) props.onSubmit(input);
   }
   return (
-    <form data-testid={`workflow-run-form-${props.workflowKey}`} onSubmit={submit} noValidate>
+    <form
+      data-testid={`workflow-run-form-${props.workflowKey}`}
+      onSubmit={submit}
+      noValidate
+      className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3"
+    >
       {props.fields.map((f) => {
         const id = `wf-input-${props.workflowKey}-${f.name}`;
         const err = errors[f.name];
         return (
-          <div key={f.name}>
-            <label htmlFor={id}>{f.name}（必填）</label>
+          <div key={f.name} className="flex flex-col gap-1">
+            <label htmlFor={id} className="text-12 font-medium">{f.name}<span className="ml-1 font-normal text-muted-foreground">（必填）</span></label>
             {f.type === "boolean" ? (
               <select
                 id={id}
                 data-testid={`workflow-run-input-${f.name}`}
                 value={values[f.name]}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+                className="h-8 w-32 rounded-control border border-border bg-card px-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="true">是</option>
                 <option value="false">否</option>
               </select>
             ) : (
-              <input
+              <Input
                 id={id}
                 data-testid={`workflow-run-input-${f.name}`}
                 inputMode={f.type === "number" || f.type === "integer" ? "decimal" : undefined}
@@ -95,22 +103,25 @@ export function WorkflowStartForm(props: {
                 aria-describedby={err ? `${id}-error` : undefined}
                 value={values[f.name] ?? ""}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+                className={err ? "border-destructive" : undefined}
               />
             )}
             {err ? (
-              <p id={`${id}-error`} role="alert" data-testid={`workflow-run-input-error-${f.name}`}>
+              <p id={`${id}-error`} role="alert" data-testid={`workflow-run-input-error-${f.name}`} className="text-12 text-destructive">
                 {err}
               </p>
             ) : null}
           </div>
         );
       })}
-      <button type="submit" disabled={props.busy} data-testid="workflow-run-form-submit">
-        开始运行
-      </button>
-      <button type="button" disabled={props.busy} data-testid="workflow-run-form-cancel" onClick={props.onCancel}>
-        取消
-      </button>
+      <div className="flex items-center gap-2">
+        <Button type="submit" size="sm" variant="primary" disabled={props.busy} data-testid="workflow-run-form-submit">
+          {props.busy ? "启动中…" : "开始运行"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" disabled={props.busy} data-testid="workflow-run-form-cancel" onClick={props.onCancel}>
+          取消
+        </Button>
+      </div>
     </form>
   );
 }
