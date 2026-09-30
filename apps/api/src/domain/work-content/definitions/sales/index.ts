@@ -1,5 +1,5 @@
 /**
- * 销售线 Workflow 定义（CT08：W011–W016、W018）。W017 不在第一阶段清单（I-C2），不得出现。
+ * 销售线 Workflow 定义（CT08：W011–W016、W018）。W017 不在任何阶段清单（I-C2；`PHASE_WORKFLOW_IDS` / `DEFERRED_WORKFLOW_IDS`），不得出现。
  */
 import type { WorkContentWorkflowModule } from "../../workflow-definition-module";
 import { W011 } from "./w011";

@@ -1,0 +1,21 @@
+{
+  "articles": [
+    {
+      "articleId": "KB-101",
+      "title": "设置定时导出",
+      "visibility": "public",
+      "url": "https://help.example.test/kb/101"
+    },
+    {
+      "articleId": "KB-201",
+      "title": "如何重置导出偏好",
+      "visibility": "public",
+      "url": "https://help.example.test/kb/201"
+    },
+    {
+      "articleId": "KB-202",
+      "title": "内部排障手册-缓存层",
+      "visibility": "internal"
+    }
+  ]
+}

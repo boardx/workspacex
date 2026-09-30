@@ -16,6 +16,8 @@ export interface LegacyDriftEvidence {
 export interface MigrationPlanInput {
   targetSha: string; baselineSha: string; ledger: MigrationIdentity[];
   legacyDriftEvidence?: LegacyDriftEvidence[];
+  snapshotEvidence?: { snapshotSha256: string; sourceBindingSha256: string; fullResponseSha256: string;
+    ledgerSha256: string; independentSqlCount: number; capturedAt: string };
 }
 const sha = /^[a-f0-9]{40}$/;
 const hash = /^[a-f0-9]{64}$/;
@@ -86,10 +88,13 @@ export function compareMigrationInventory(input: MigrationPlanInput, files: Arra
   // A newly introduced filename before an already-applied migration changes execution history.
   const lastApplied = ledger.at(-1)?.name;
   for (const file of pending) if (lastApplied && file.name < lastApplied) blockers.push(`out_of_order_pending:${file.name}`);
+  if (input.snapshotEvidence && (input.snapshotEvidence.ledgerSha256 !== canonicalHash(ledger)
+    || input.snapshotEvidence.independentSqlCount !== ledger.length)) blockers.push("snapshot_inventory_binding_mismatch");
   const body = {
     schemaVersion: 1 as const, targetSha: input.targetSha, baselineSha: input.baselineSha,
     baselineLedgerSha256: canonicalHash(ledger), sourceInventorySha256: canonicalHash(files.map(({ name, checksum }) => ({ name, checksum }))),
     pendingSha256: canonicalHash(pending.map(({ name, checksum }) => ({ name, checksum }))),
+    ...(input.snapshotEvidence ? { snapshotEvidence: input.snapshotEvidence } : {}),
     ledger, pending, drift, blockers: [...new Set(blockers)].sort(),
     ready: blockers.length === 0, scope: "read-only-plan" as const,
     productionMigrationAuthorized: false as const,

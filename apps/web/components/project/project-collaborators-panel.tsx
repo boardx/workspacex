@@ -87,39 +87,40 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
       <SectionTitle meta="项目只对名单上的人可见：负责人管理成员，协作者参与内容">协作者</SectionTitle>
       <Card>
         {loadError !== null ? (
-          <p className="p-4 text-11 text-destructive" data-testid="project-collaborators-error">{loadError}</p>
+          <p className="p-4 text-12 text-destructive" data-testid="project-collaborators-error">{loadError}</p>
         ) : members === undefined ? (
-          <p className="p-4 text-11 text-muted-foreground" data-testid="project-collaborators-loading">读取协作者中…</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-collaborators-loading">读取协作者中…</p>
         ) : (
           <ul className="divide-y divide-border" data-testid="project-collaborators-list">
             {members.length === 0 && (
-              <li className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="project-collaborators-empty">
+              <li className="px-3.5 py-3 text-12 text-muted-foreground" data-testid="project-collaborators-empty">
                 还没有人。组织负责人 / 管理员可以指派第一位负责人。
               </li>
             )}
             {members.map((m) => (
-              <li key={m.userId} className="flex items-center gap-3 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
+              <li key={m.userId} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
                 <Avatar initials={m.displayName.slice(0, 1)} size="sm" />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[4.5rem] flex-1">
                   <div className="truncate text-12" title={m.userId}>
                     {m.displayName}
-                    {m.userId === me && <span className="ml-1.5 text-10 text-muted-foreground">（你）</span>}
+                    {m.userId === me && <span className="ml-1.5 text-11 text-muted-foreground">（你）</span>}
                   </div>
                 </div>
                 {canManage ? (
                   <Select
+                    aria-label={`${m.displayName} 的项目角色（当前：${NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}）`}
                     data-testid={`project-collaborator-role-${m.userId}`}
                     value={m.role}
                     disabled={busy}
                     onValueChange={(v) => void run(() => addNonWorkshopMember({ projectId, userId: m.userId, role: v as NonWorkshopMemberRole }))}
                     options={roleOptions}
-                    className="min-w-[8rem]"
+                    className="min-w-[7rem]"
                   />
                 ) : (
                   <Badge tone={m.role === "owner" ? "primary" : "outline"}>{NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}</Badge>
                 )}
                 {canManage && (
-                  <Button size="xs" variant="ghost" disabled={busy} data-testid={`project-collaborator-remove-${m.userId}`}
+                  <Button size="xs" variant="ghost" disabled={busy} aria-label={`将 ${m.displayName} 移出项目`} data-testid={`project-collaborator-remove-${m.userId}`}
                     onClick={() => void run(() => removeNonWorkshopMember(projectId, m.userId))}>
                     移出
                   </Button>
@@ -131,7 +132,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
 
         {canManage && (
           <div className="flex flex-wrap items-end gap-2 border-t border-border p-3" data-testid="project-collaborators-add">
-            <label className="flex flex-col gap-1 text-10 text-muted-foreground">
+            <label className="flex flex-col gap-1 text-11 text-muted-foreground">
               <span>从组织成员里指派</span>
               <Select
                 data-testid="project-collaborators-add-user"
@@ -142,8 +143,8 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                 options={candidates.map((c) => ({ value: c.userId, label: c.displayName }))}
               />
             </label>
-            <label className="flex flex-col gap-1 text-10 text-muted-foreground">
-              <span>档位</span>
+            <label className="flex flex-col gap-1 text-11 text-muted-foreground">
+              <span>角色</span>
               <Select
                 data-testid="project-collaborators-add-role"
                 value={pickRole}
@@ -153,7 +154,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
               />
             </label>
             {candidates.length === 0 && (
-              <p className="basis-full text-10 text-muted-foreground" data-testid="project-collaborators-add-hint">
+              <p className="basis-full text-11 text-muted-foreground" data-testid="project-collaborators-add-hint">
                 组织里暂时没有其他成员可指派；有新成员加入组织后就能在这里选到。
               </p>
             )}
@@ -164,7 +165,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
           </div>
         )}
         {actionError !== null && (
-          <p className="border-t border-border px-3.5 py-2 text-11 text-destructive" data-testid="project-collaborators-action-error">{actionError}</p>
+          <p className="border-t border-border px-3.5 py-2 text-12 text-destructive" data-testid="project-collaborators-action-error">{actionError}</p>
         )}
       </Card>
     </section>

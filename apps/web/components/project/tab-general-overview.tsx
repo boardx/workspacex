@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Brain, Users, Workflow } from "lucide-react";
+import { Brain, MessageSquarePlus, Users, UserPlus, Workflow } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -39,19 +39,55 @@ export function TabGeneralOverview({ projectId, tabHref }: {
   const brain = useBrainSummary(projectId);
   const recent = index.entries.slice(0, RECENT_LIMIT);
 
+  const isFresh = index.ready && index.entries.length === 0;
+
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-general-overview">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6" data-testid="project-general-overview">
+      {isFresh && (
+        <Card>
+          <div className="flex flex-col gap-3 p-4" data-testid="project-general-overview-start">
+            <div>
+              <h2 className="text-14 font-semibold tracking-tight">开始使用这个项目</h2>
+              <p className="mt-0.5 text-12 text-muted-foreground">项目还是空的——先做下面任意一步，内容、成员和大脑都会在这里长出来。</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <a
+                href={tabHref("content")}
+                data-testid="project-general-overview-start-content"
+                className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-base hover:border-primary"
+              >
+                <MessageSquarePlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-13 font-medium">新建第一段内容</span>
+                  <span className="text-12 text-muted-foreground">一段对话、一块白板，或关联已有的访谈、问卷</span>
+                </span>
+              </a>
+              <a
+                href={tabHref("settings")}
+                data-testid="project-general-overview-start-invite"
+                className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-base hover:border-primary"
+              >
+                <UserPlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-13 font-medium">邀请协作者</span>
+                  <span className="text-12 text-muted-foreground">在「设置」里管理项目成员</span>
+                </span>
+              </a>
+            </div>
+          </div>
+        </Card>
+      )}
       <Card>
         <div className="flex flex-col gap-3 p-4" data-testid="project-general-overview-head">
           <h2 className="text-13 font-semibold tracking-tight">项目成员</h2>
           <div className="flex flex-wrap items-center gap-2" data-testid="project-general-overview-members">
             <Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
             {members.error !== null ? (
-              <span className="text-11 text-muted-foreground" data-testid="project-general-overview-members-error">{members.error}</span>
+              <span className="text-12 text-muted-foreground" data-testid="project-general-overview-members-error">{members.error}</span>
             ) : members.items === null ? (
-              <span className="text-11 text-muted-foreground">读取成员中…</span>
+              <span className="text-12 text-muted-foreground">读取成员中…</span>
             ) : members.items.length === 0 ? (
-              <span className="text-11 text-muted-foreground">还没有成员。</span>
+              <span className="text-12 text-muted-foreground">还没有成员。</span>
             ) : (
               members.items.map((m) => (
                 <span key={m.userId} className="inline-flex items-center gap-1.5" data-testid={`project-general-overview-member-${m.userId}`}>
@@ -68,7 +104,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
       <section>
         <SectionTitle meta="点一类直达「内容」里的筛选">内容</SectionTitle>
         {index.error !== null && (
-          <p className="mb-2 text-11 text-destructive" data-testid="project-general-overview-content-error">{index.error}</p>
+          <p className="mb-2 text-12 text-destructive" data-testid="project-general-overview-content-error">{index.error}</p>
         )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="project-general-overview-counts">
           {CONTENT_FILTERS.filter((f) => f.key !== "all").map((f) => (
@@ -90,10 +126,10 @@ export function TabGeneralOverview({ projectId, tabHref }: {
       <section>
         <SectionTitle meta={`最近更新的 ${RECENT_LIMIT} 条`}>最近更新</SectionTitle>
         {!index.ready ? (
-          <Card><p className="p-4 text-11 text-muted-foreground">{index.loading ? "读取中…" : "暂无数据。"}</p></Card>
+          <Card><p className="p-4 text-12 text-muted-foreground">{index.loading ? "读取中…" : "暂无数据。"}</p></Card>
         ) : recent.length === 0 ? (
           <Card>
-            <p className="p-4 text-11 text-muted-foreground" data-testid="project-general-overview-recent-empty">
+            <p className="p-4 text-12 text-muted-foreground" data-testid="project-general-overview-recent-empty">
               项目里还没有内容——去「内容」新建一段对话、一块白板，或把已有的访谈、问卷关联进来。
             </p>
           </Card>
@@ -109,7 +145,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
                   <ContentEntryIcon entry={e} className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-12">{e.title}</span>
                   <Badge tone="outline">{contentTypeLabel(e.type)}</Badge>
-                  <span className="shrink-0 text-10 text-muted-foreground">{formatDate(e.updatedAt)}</span>
+                  <span className="shrink-0 text-11 text-muted-foreground">{formatDate(e.updatedAt)}</span>
                 </a>
               </li>
             ))}
@@ -126,9 +162,9 @@ export function TabGeneralOverview({ projectId, tabHref }: {
         >
           <Brain aria-hidden className="h-4 w-4 text-ai" />
           {brain.error !== null ? (
-            <span className="text-11 text-muted-foreground" data-testid="project-general-overview-brain-error">{brain.error}</span>
+            <span className="text-12 text-muted-foreground" data-testid="project-general-overview-brain-error">{brain.error}</span>
           ) : brain.summary === null ? (
-            <span className="text-11 text-muted-foreground">读取中…</span>
+            <span className="text-12 text-muted-foreground">读取中…</span>
           ) : (
             <>
               <BrainStat label="结论" value={brain.summary.claims} testId="project-general-overview-brain-claims" />
@@ -145,7 +181,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
         运行卡的只读投影（`listBoardRunCards`）对任何项目都按 WF03 canView 过滤，所以这里链到它的项目视图。
       */}
       <section>
-        <SectionTitle meta="本项目发起的 Workflow 运行（只读看板）">Workflow 运行</SectionTitle>
+        <SectionTitle meta="本项目发起的工作流运行（只读看板）">工作流运行</SectionTitle>
         <a
           href={`/workflows/board?projectId=${encodeURIComponent(projectId)}`}
           data-testid="project-general-overview-workflow-runs"
@@ -163,7 +199,7 @@ function BrainStat({ label, value, testId }: { label: string; value: number | nu
   return (
     <span className="inline-flex items-baseline gap-1.5" data-testid={testId}>
       <span className="font-mono text-16 font-semibold">{value ?? "—"}</span>
-      <span className="text-11 text-muted-foreground">{label}</span>
+      <span className="text-12 text-muted-foreground">{label}</span>
     </span>
   );
 }

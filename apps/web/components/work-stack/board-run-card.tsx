@@ -11,6 +11,7 @@ import type { z } from "zod";
 import type { BoardRunBadge, BoardWorkflowRunCard } from "@repo/contracts/work-content";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 import { formatDateTime } from "@/lib/workflow-run-meta";
@@ -139,6 +140,7 @@ export function LiveBoardRunColumns({
 }) {
   const [cards, setCards] = React.useState<BoardRunCardData[] | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
   React.useEffect(() => {
     let live = true;
     setCards(null);
@@ -147,8 +149,21 @@ export function LiveBoardRunColumns({
       .then((r) => { if (live) setCards(r.cards); })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [projectId, load]);
-  if (failed) return <p role="alert" data-testid="board-run-cards-error">运行卡加载失败，请稍后重试。</p>;
-  if (cards === null) return <p data-testid="board-run-cards-loading">加载中…</p>;
+  }, [projectId, load, reloadKey]);
+  if (failed) {
+    return (
+      <div role="alert" data-testid="board-run-cards-error" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+        <p className="min-w-0 flex-1 text-12 text-muted-foreground">运行卡加载失败，请稍后重试。</p>
+        <Button size="sm" variant="outline" onClick={() => setReloadKey((k) => k + 1)} data-testid="board-run-cards-retry">重试</Button>
+      </div>
+    );
+  }
+  if (cards === null) {
+    return (
+      <div className="grid gap-4 md:grid-cols-3" data-testid="board-run-cards-loading" role="status" aria-label="加载中">
+        {[0, 1, 2].map((i) => <span key={i} className="h-24 animate-pulse rounded-lg bg-muted" />)}
+      </div>
+    );
+  }
   return <BoardRunColumns cards={cards} />;
 }

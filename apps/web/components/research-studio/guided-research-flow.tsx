@@ -259,7 +259,7 @@ export function GuidedResearchFlow({
   const routeChanged = routeInput.sessionId !== sessionId || routeInput.step !== step;
   const runtimeSessionId = routeChanged ? sessionId : activeSessionId;
   if (runtimeSessionId) {
-    const live = <GuidedResearchLive sessionId={runtimeSessionId} visualStage={activeVisualStage} initialNode={restoredStep === "home" ? undefined : restoredStep === "search" ? "research" : restoredStep} onBack={() => navigate("home")} />;
+    const live = <GuidedResearchLive sessionId={runtimeSessionId} researchName={sessionSnapshot?.sessionId === runtimeSessionId ? sessionSnapshot.title : undefined} visualStage={activeVisualStage} initialNode={restoredStep === "home" ? undefined : restoredStep === "search" ? "research" : restoredStep} onBack={() => navigate("home")} />;
     return projectId ? <div className="flex min-h-0 flex-col"><ProjectBreadcrumb projectId={projectId} sub="research" className="px-4 pt-4" />{live}</div> : live;
   }
 
@@ -289,7 +289,7 @@ export function GuidedResearchFlow({
     </div>
     </div>
   );
-  return restoredStep === "home" ? content : <GuidedResearchSixStepShell current={entryPending ? "topic" : "import"} available={["import"]} onBack={() => navigate("home")} onNavigate={() => undefined} main={content} />;
+  return restoredStep === "home" ? content : <GuidedResearchSixStepShell researchName={sessionSnapshot?.title ?? sessionSnapshot?.brief.topic} current={entryPending ? "topic" : "import"} available={["import"]} onBack={() => navigate("home")} onNavigate={() => undefined} main={content} />;
 }
 
 function FlowProgress({ step, maxStep, onBack, onNavigate }: {

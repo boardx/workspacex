@@ -1,0 +1,55 @@
+{
+  "org": "synthetic-org-acme",
+  "intakeCriteria": {
+    "classificationThreshold": 3,
+    "criteria": [
+      "明确结果",
+      "有边界",
+      "多人协作",
+      "跨多个周期",
+      "需要预算/容量决策"
+    ]
+  },
+  "approvalThresholds": [
+    {
+      "maxBudgetCny": 300000,
+      "roles": [
+        "部门负责人"
+      ]
+    },
+    {
+      "maxBudgetCny": 1000000,
+      "roles": [
+        "部门负责人",
+        "VP"
+      ]
+    },
+    {
+      "maxBudgetCny": null,
+      "roles": [
+        "VP",
+        "CFO"
+      ]
+    }
+  ],
+  "directory": [
+    {
+      "userId": "u-sponsor-vp",
+      "role": "VP",
+      "isHuman": true,
+      "budgetAuthorityCny": 2000000
+    },
+    {
+      "userId": "u-sponsor-ic",
+      "role": "产品专员",
+      "isHuman": true,
+      "budgetAuthorityCny": 0
+    },
+    {
+      "userId": "u-head",
+      "role": "部门负责人",
+      "isHuman": true,
+      "budgetAuthorityCny": 500000
+    }
+  ]
+}

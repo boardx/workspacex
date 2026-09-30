@@ -220,3 +220,8 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 删除临时 Docker credentials、一次性 CMS key、临时 checkout、临时 pnpm wrapper 和失败 build 容器；确认 release lock free、无孤儿、生产容器 restart=0。保留不可变 manifest、receipt、事件时间线、验收证据和回滚基线。敏感文件权限保持 root 0600。
 
 | 2026-09-30 | `CN_REDUNDANT_GITHUB_FETCH` | 完整 checkout 后复用本地 origin/main 与 origin/main-cn；源码缓存步骤禁止二次访问 GitHub，离线反证验证祖先检查仍会拒绝错误 SHA。 |
+
+
+## 迁移账本完整性门（#4828）
+
+采集与计划必须使用 [versioned完整只读快照契约](migration-snapshot.md)。旧readOnly+ledger格式、截断Cloud Assistant输出或缺独立SQLCOUNT的数组均拒绝；先核验外部sourcebinding与完整provider响应，再生成canonical计划。完整性通过不解除drift/out-of-order/risk门，不授权生产迁移。

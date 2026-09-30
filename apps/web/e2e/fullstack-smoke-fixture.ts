@@ -293,3 +293,25 @@ export const FULLSTACK_E2E = {
    */
   asrTranscriptPrefix: "[loopback-asr]",
 } as const;
+
+/**
+ * #4789：出站邮件回环替身（`apps/api/scripts/loopback-mail-provider.ts`）——**唯一**一份常量。
+ *
+ * 由 `playwright.fullstack-smoke.config.ts`（下发给替身进程与 API 进程）和
+ * `e2e/support/mail-loopback.ts`（断言方）共同读取；字面量只在这里出现，
+ * 两头各写一份的下场是改一头、断言恒红，而且红得像"邮件没发"。
+ *
+ * ⚠ 两把 token 故意**不同**：验证邮件用 `CLOUDFLARE_EMAIL_API_TOKEN`，事务邮件用
+ *   `CLOUDFLARE_TXN_EMAIL_API_TOKEN`（ADR-108）。替身两把都认、但都不认别的——
+ *   哪个 transport 悄悄换了 token 来源，会被 401 当场抓住，而不是被一把万能 token 放过去。
+ */
+export const MAIL_LOOPBACK = {
+  /** 隔离外壳分配的端口环境变量名（`lib/test-isolation.ts` 的 `PORT_BASE` 是端口本身的唯一声明）。 */
+  portEnv: "WORKSPACEX_MAIL_PROVIDER_PORT",
+  accountId: "fullstack-loopback-cf-account",
+  verificationToken: "fullstack-loopback-verification-mail-token-not-a-secret",
+  transactionalToken: "fullstack-loopback-transactional-mail-token-not-a-secret",
+  mailFrom: "no-reply@mail.boardx.us",
+  /** 替身对 `mode: "timeout"` 的发送**挂住**多久（必须 > transport 的 `requestTimeoutMs`=10s）。 */
+  timeoutDelayMs: 15_000,
+} as const;

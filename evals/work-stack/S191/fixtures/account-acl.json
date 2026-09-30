@@ -1,0 +1,7 @@
+{
+  "caller": "csm-other",
+  "assignedAccounts": [
+    "A-1"
+  ],
+  "note": "调用者未被分配账户 A-7"
+}

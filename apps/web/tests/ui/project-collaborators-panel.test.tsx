@@ -89,6 +89,13 @@ describe("B3-T5 协作者面板", () => {
     expect(listNonWorkshopMembers).not.toHaveBeenCalled();
   });
 
+  it("R6 可访问名称：每行的「移出」与角色下拉都带上是谁（读屏不再念一串相同的「移出」）", async () => {
+    render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);
+    const remove = await screen.findByTestId("project-collaborator-remove-u-collab");
+    expect(remove.getAttribute("aria-label")).toMatch(/^将 .+ 移出项目$/);
+    expect(screen.getByTestId("project-collaborator-role-u-collab").getAttribute("aria-label")).toMatch(/的项目角色（当前：.+）$/);
+  });
+
   it("移出：调 removeNonWorkshopMember 后重新拉名单（不在本地删）", async () => {
     removeNonWorkshopMember.mockResolvedValue({ projectId: "p1", userId: "u-collab", removed: true, provenanceEventId: "ev" });
     render(<TabSettings view="facilitator" projectId="p1" projectKind="general" />);

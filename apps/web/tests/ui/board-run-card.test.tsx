@@ -116,6 +116,17 @@ describe("LiveBoardRunColumns（接真实 API 客户端）", () => {
     expect(document.body.textContent).not.toContain("secret_reason_code");
   });
 
+  it("R4 加载失败给「重试」：点了会重新加载，成功后渲染卡", async () => {
+    const load = vi.fn()
+      .mockRejectedValueOnce(new Error("x"))
+      .mockResolvedValueOnce({ cards: [card()] });
+    render(<LiveBoardRunColumns projectId="p-1" load={load} />);
+    const retry = await screen.findByTestId("board-run-cards-retry");
+    fireEvent.click(retry);
+    expect(await screen.findByTestId("board-run-card-wi-1")).toBeTruthy();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   it("listBoardRunCards 走契约路径并按 out schema 校验", async () => {
     const spy = vi.spyOn(api, "apiRequest").mockResolvedValue({ cards: [card()] } as never);
     const out = await listBoardRunCards("p-1");

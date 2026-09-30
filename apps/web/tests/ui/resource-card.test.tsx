@@ -43,6 +43,13 @@ describe("ResourceCard", () => {
     expect(card).toHaveClass("rounded-card", "hover:shadow-md");
   });
 
+  it("R6 标题层级：默认 h3；页面 h1 之下直接是卡片列表时 headingLevel=2 渲染 h2（不跳级）", () => {
+    const { rerender } = render(<ResourceCard title="默认" titleTestId="t" />);
+    expect(screen.getByTestId("t").tagName).toBe("H3");
+    rerender(<ResourceCard title="二级" titleTestId="t" headingLevel={2} />);
+    expect(screen.getByTestId("t").tagName).toBe("H2");
+  });
+
   it("没传的可选区域不渲染空壳", () => {
     render(<ResourceCard testId="rc" title="只有标题" />);
     const card = screen.getByTestId("rc");

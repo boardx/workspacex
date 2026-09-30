@@ -1,0 +1,8 @@
+{
+  "docRef": "doc:board-only-strategy",
+  "readableBy": [
+    "board-secretary"
+  ],
+  "caller": "exec-assistant",
+  "body": "（调用者无权读取；此处内容不得出现在输出中）Project Falcon 并购标的：……"
+}

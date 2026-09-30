@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Search, Plus, MoreHorizontal, AlertTriangle, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
+import { Search, Plus, MoreHorizontal, AlertTriangle, Check, Link2, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,12 @@ export function ProjectsScreen() {
   const [listBusy, setListBusy] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
+  // 受控弹窗没有 DialogTrigger：自己记住是谁打开的，关闭后把键盘焦点还给它（否则焦点落回 <body>，键盘用户要重新从头 Tab）。
+  const createTriggerRef = React.useRef<HTMLElement | null>(null);
+  const openCreate = () => {
+    createTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setCreateOpen(true);
+  };
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -166,7 +172,7 @@ export function ProjectsScreen() {
               className="h-8 w-56 pl-7"
             />
           </div>
-          <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
+          <Button variant="primary" size="sm" data-testid="projects-new" onClick={openCreate}>
             <Plus aria-hidden className="h-3.5 w-3.5" />
             新建项目
           </Button>
@@ -180,12 +186,24 @@ export function ProjectsScreen() {
       ) : null}
 
       {listError !== null ? (
-        <p data-testid="projects-list-error" className="text-12 text-destructive">
-          {listError}
-        </p>
+        <div
+          role="alert"
+          data-testid="projects-list-error"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-13 font-medium text-destructive">项目列表暂时读不出来</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">你的项目没有丢，稍后重试即可。{" "}
+              <span className="font-mono text-11" data-testid="projects-list-error-code">{listError}</span>
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={listBusy} onClick={() => void refresh(orgId)} data-testid="projects-list-error-retry">
+            {listBusy ? "重试中…" : "重试"}
+          </Button>
+        </div>
       ) : null}
 
-      {projects === null ? (
+      {projects === null && listError !== null ? null : projects === null ? (
         <div
           data-testid="projects-list-empty-state"
           className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
@@ -230,7 +248,7 @@ export function ProjectsScreen() {
                 也可以先不建项目，直接去「对话」里交一件事给 AI。
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
+                <Button variant="primary" onClick={openCreate} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
                 <Button variant="outline" asChild><Link href="/chat">先去对话</Link></Button>
               </div>
             </>
@@ -251,7 +269,11 @@ export function ProjectsScreen() {
       )}
 
       {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
-      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateProjectDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCloseAutoFocus={(event) => { event.preventDefault(); createTriggerRef.current?.focus(); }}
+      />
     </div>
   );
 }
@@ -282,6 +304,17 @@ function ProjectRealCard({
 
   const close = () => { setOpen(false); setConfirming(false); };
 
+  const [copied, setCopied] = React.useState(false);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/projects/${project.id}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);            // 剪贴板不可用（非安全上下文等）：不假装成功
+    }
+  };
+
   const submit = async () => {
     if (busy) return;               // 提交进行中不发第二个请求
     setBusy(true);
@@ -302,6 +335,7 @@ function ProjectRealCard({
     <li>
       <ResourceCard
         testId={`projects-card-${project.id}`}
+        headingLevel={2}
         layout={layout === "list" ? "list" : "grid"}
         title={project.name}
         titleTestId={`projects-card-${project.id}-name`}
@@ -387,15 +421,13 @@ function ProjectRealCard({
               </div>
             ) : (
               <>
-                <MenuItemUnavailable testid={`projects-more-${project.id}-edit`}>编辑项目</MenuItemUnavailable>
-                <MenuItemUnavailable testid={`projects-more-${project.id}-bigscreen`}>看现场大屏</MenuItemUnavailable>
-                <MenuItemUnavailable testid={`projects-more-${project.id}-copy-invite`}>复制邀请链接</MenuItemUnavailable>
-                <p
-                  className="px-2 py-1 text-9 text-muted-foreground"
-                  data-testid={`projects-more-${project.id}-unavailable-note`}
+                <MenuItem
+                  data-testid={`projects-more-${project.id}-copy-link`}
+                  onSelect={(event) => { event.preventDefault(); void copyLink(); }}
                 >
-                  上面三项后端尚未实现，暂不可用。
-                </p>
+                  {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Link2 aria-hidden className="h-3.5 w-3.5" />}
+                  {copied ? "已复制项目链接" : "复制项目链接"}
+                </MenuItem>
                 <MenuSeparator />
                 {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
                     子态，不能让 Radix「选中即关闭」抢先把菜单关掉。 */}
@@ -407,9 +439,6 @@ function ProjectRealCard({
                   <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
                   {archived ? "恢复项目" : "归档项目"}
                 </MenuItem>
-                <p className="px-2 py-1 text-9 text-muted-foreground">
-                  不提供「删除项目」（Q-9）：归档 = 退役且可只读回看，不销毁内容。
-                </p>
               </>
             )}
           </MenuContent>
@@ -461,15 +490,6 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
       maxTagLength={PROJECT_TAG_MAX_LENGTH}
       testidPrefix={`projects-card-${project.id}`}
     />
-  );
-}
-
-/** 后端未实现的菜单项：禁用 + 如实说明，不做成点了弹「演示」的假按钮。 */
-function MenuItemUnavailable({ children, testid }: { children: React.ReactNode; testid: string }) {
-  return (
-    <MenuItem disabled data-testid={testid} className="text-muted-foreground opacity-60">
-      {children}
-    </MenuItem>
   );
 }
 

@@ -27,7 +27,7 @@ const INTERACTIVE = 'button, a, input, select, textarea, label, [role="menuitem"
 
 export function ResourceCard({
   testId, title, titleTestId, subtitle, badges, menu, description, tags, meta, children, actions,
-  layout = "grid", density = "comfortable", href, titleHref, titleLinkTestId, onClick, selected = false, leading, media, ariaLabel, className,
+  layout = "grid", density = "comfortable", href, titleHref, titleLinkTestId, onClick, selected = false, leading, media, ariaLabel, className, headingLevel = 3,
 }: {
   testId?: string;
   title: React.ReactNode;
@@ -71,8 +71,11 @@ export function ResourceCard({
   /** 整卡是链接/按钮时的读屏名（默认取内容文本）。 */
   ariaLabel?: string;
   className?: string;
+  /** 卡片标题的标题层级。页面 h1 之下直接是卡片列表时用 2，避免跳级（默认 3，嵌在 h2 分区里的卡片）。 */
+  headingLevel?: 2 | 3;
 }) {
   const list = layout === "list";
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const compact = density === "compact";
   const shell = cn(
     "flex h-full min-w-0 flex-col overflow-hidden transition-all duration-base hover:shadow-md",
@@ -93,7 +96,7 @@ export function ResourceCard({
             <div className="flex min-w-0 items-start gap-3">
               {leading ? <div className="shrink-0">{leading}</div> : null}
               <div className="flex min-w-0 flex-col gap-1">
-                <h3 className={cn("font-semibold tracking-tight", titleHref === undefined && "truncate", compact ? "text-13" : "text-14")} data-testid={titleTestId}>
+                <Heading className={cn("font-semibold tracking-tight", titleHref === undefined && "truncate", compact ? "text-13" : "text-14")} data-testid={titleTestId}>
                   {titleHref !== undefined ? (
                     <Link
                       href={titleHref}
@@ -103,7 +106,7 @@ export function ResourceCard({
                       {title}
                     </Link>
                   ) : title}
-                </h3>
+                </Heading>
                 {subtitle ? <p className="text-11 text-muted-foreground">{subtitle}</p> : null}
               </div>
             </div>
