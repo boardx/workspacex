@@ -7,6 +7,15 @@ import { render, screen } from "@testing-library/react";
 import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 
 describe("WorkflowNav / WorkflowPage", () => {
+  it("从项目进入（带 projectId）时左栏顶部有「返回项目」，全局视图没有", () => {
+    const { rerender } = render(<WorkflowNav active="board" projectId="p 1" />);
+    const back = screen.getByTestId("workflow-nav-back-to-project");
+    expect(back).toHaveAttribute("href", "/projects/p%201");
+    expect(back).toHaveTextContent("返回项目");
+    rerender(<WorkflowNav active="board" />);
+    expect(screen.queryByTestId("workflow-nav-back-to-project")).toBeNull();
+  });
+
   it("三个入口各自成块、带图标，当前页 aria-current + 高亮样式", () => {
     render(<WorkflowNav active="approvals" />);
     const nav = screen.getByTestId("workflow-nav");
