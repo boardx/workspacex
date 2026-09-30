@@ -108,7 +108,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           <ReadinessBadge readiness={card.readiness} />
         </div>
         {readinessReason !== null ? (
-          <p data-testid="agent-card-readiness-reason" className="-mt-1 text-11 text-muted-foreground">{readinessReason}</p>
+          <p data-testid="agent-card-readiness-reason" title={readinessReason} className="-mt-1 line-clamp-2 min-h-[2rem] text-11 text-muted-foreground">{readinessReason}</p>
         ) : null}
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline" className="flex-1">
@@ -116,7 +116,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           </Button>
           <Button
             size="sm"
-            variant={card.readiness === "ready" ? "primary" : "secondary"}
+            variant="primary"
             className="flex-1"
             data-testid="agent-card-start-chat"
             title={readinessReason ?? undefined}

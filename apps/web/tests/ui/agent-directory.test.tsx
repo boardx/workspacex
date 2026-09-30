@@ -228,10 +228,11 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
     }
   });
 
-  it("未就绪时「开始对话」降为次要按钮，不与状态徽标打架", async () => {
+  it("未就绪时「开始对话」仍是主按钮（不像禁用），原因行限高保持卡片等高", async () => {
     render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小研", roleCategory: "research", readiness: "unknown" })])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-start-chat")).not.toBeNull());
-    expect(screen.getByTestId("agent-card-start-chat").className).toContain("bg-secondary");
+    expect(screen.getByTestId("agent-card-start-chat").className).not.toContain("bg-secondary");
+    expect(screen.getByTestId("agent-card-start-chat")).not.toBeDisabled();
   });
 
   it("UIUX r4：每张卡的「可发起」走同一解析——全中文、不漏英文 id；可用徽标不折行", async () => {
