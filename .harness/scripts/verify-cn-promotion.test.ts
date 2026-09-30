@@ -38,11 +38,13 @@ function verify(root: string, revision: string, manifest: unknown) {
 }
 
 describe("CN production promotion gate", () => {
-  it("keeps CN deployment isolated behind its branch, environment, runner, and concurrency group", () => {
+  it("keeps accepted-release verification manual and isolated behind its environment, runner, and lock group", () => {
     const workflow = readFileSync(join(process.cwd(), ".github/workflows/deploy-cn-production.yml"), "utf8");
-    expect(workflow).toContain("branches: [main-cn]");
     expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).not.toMatch(/^\s{2}push:/m);
     expect(workflow).not.toContain("pull_request:");
+    expect(workflow).toContain("rev-parse origin/main-cn");
+    expect(workflow).toContain("release_attempt_id:");
     expect(workflow).toContain("environment: production-cn");
     expect(workflow).toContain("runs-on: [self-hosted, linux, workspacex-cn-production]");
     expect(workflow).not.toContain("x64");
@@ -50,7 +52,9 @@ describe("CN production promotion gate", () => {
     expect(workflow).toContain("group: workspacex-cn-production-deploy");
     expect(workflow).toContain('manifest="/etc/workspacex-cn/releases/${REVISION}.json"');
     expect(workflow).toContain('seal="/etc/workspacex-cn/releases/${REVISION}.sealed.json"');
-    expect(workflow).toContain('sudo /usr/local/bin/workspacex-cn-deploy "${REVISION}"');
+    expect(workflow).toContain('sudo -n /usr/local/bin/workspacex-cn-deploy --verify-active "${REVISION}" "${ATTEMPT_ID}"');
+    expect(workflow).not.toMatch(/workspacex-cn-deploy\s+"\$\{REVISION\}"/);
+    expect(workflow).not.toContain("workspacex-cn-deploy --prepare");
   });
 
   it("rejects a release whose sealed manifest hash no longer matches", () => {

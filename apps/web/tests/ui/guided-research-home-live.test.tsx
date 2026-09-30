@@ -156,7 +156,8 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-collecting");
     expect(card).not.toHaveTextContent("证据缺口");
-    expect(card).toHaveTextContent("正在收集证据，尚无来源");
+    expect(card).toHaveTextContent("0 个来源");
+    expect(card).not.toHaveTextContent("正在收集证据，尚无来源");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理0");
   });
 
@@ -229,7 +230,7 @@ describe("F168 guided research home live data", () => {
 
     const page = screen.getByTestId("research-home-page");
     expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
-    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:shadow-md");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:border-foreground/20");
   });
 
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {

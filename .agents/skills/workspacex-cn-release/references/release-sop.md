@@ -97,10 +97,10 @@ flowchart TD
 | `registry.acr_auth` | 临时 `DOCKER_CONFIG` 登录后可鉴权读取目标 registry；凭据剩余有效期覆盖发布预算 | ACR token 过期 |
 | `runtime.release_lock` | 唯一锁由本 attempt 持有 | 并发发布 |
 | `runtime.no_orphans` | 无旧 publish/buildx/deploy 子进程持锁或写同一目录 | StopInvocation 留孤儿 |
-| `config.release_manifest` | prebuild 只核 source-plan 的 SHA/release；preactivate 核 sealed manifest 的目标 image digest、SHA/release，禁止构建前伪报目标镜像 | 配置/manifest 漂移 |
+| `config.release_manifest` | prebuild 只核 source-plan 的 SHA/release；preactivate 核 sealed manifest 的 Web/API/Agent/Sandbox 四项 exact digest、SHA/release，禁止构建前伪报目标镜像 | 配置/manifest 漂移 |
 | `config.durable_profiles` | ASR、GitHub issue、平台超级管理员等必需引用存在；只输出布尔值 | 存量生产配置漏键 |
 | `config.secret_serialization` | 每个 `file:` secret 权限/类型合规且无 CR/LF/NUL；对 API/Web/Agent/Migration/Bootstrap env map 使用生产序列化器预演 | token 尾随换行导致 secrets 阶段失败 |
-| `cloud.managed_data_permissions` | ECS 身份真实完成六项 RDS/Redis Describe；临时策略带绝对到期并登记清理动作 | prepare 时有权限、activate 时权限已撤销 |
+| `cloud.managed_data_permissions` | ECS 身份真实完成固定六项 RDS/Redis Describe；临时策略带绝对到期并登记清理，或持久角色机械证明 resource-scoped 且仅含只读动作 | prepare 时有权限、activate 时权限已撤销 |
 | `database.drain_read_access` | `app_diag_ro` 可只读查询 `agent_runs` 三种活跃状态并得到结构化计数 | activate drain 无权限 |
 | `bootstrap.compatibility` | prebuild 核源码入口、bootstrap 输入、只读 schema/权限/管理员/Agent seed 闭包；preactivate 用 exact 目标 API 镜像再核入口和同一只读闭包 | migrate 通过后 bootstrap 才失败 |
 | `secrets.stable_continuity` | 候选版逐项复用当前生产的 12 个环境级稳定密钥；稳定目录不含 revision，值只在内存比较，公开 evidence 只有计数/布尔值 | 每个 revision 的 runtime secrets 静默换钥 |
@@ -112,7 +112,7 @@ ACR 检查使用 ECS RAM 角色和 IMDSv2 获取短期凭据，在节点内完�
 
 用 `scripts/validate_preflight.py` 分别验证 `schemaVersion=2` 的 prebuild 和 preactivate 汇总结果。前者 `ready=true` 只准开始构建；后者必须携带完整 prebuild 原始 JSON 及其机器收据 SHA-256，由验证器复验同 attempt/source/baseline/release、未过期且两阶段 TTL 均不超过一小时，再核 exact 目标镜像才准进入激活门。失败输出必须包含稳定 `code`，但不得包含密钥和原始 provider 返回。
 
-生产主机只接受 root:root `0600` 的 `/etc/workspacex-cn/preflights/<SHA>.prebuild.json` 与 `<SHA>.preactivate.json` 模板。可信入口通过 `/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh` 从 exact SHA 提取验证器：它用父进程 fd 9 和反向 `flock -n` 现场证明调用者持有 canonical release lock，以动态事实替换模板中的 `runtime.release_lock` 后才形成最终不可变收据。prebuild 在 `candidate_build_started` 之前验证并保存；preactivate 在 `prepare_started` 之前验证，并在 activation 改 ingress 之前再次复验 TTL。preactivate 内嵌的原始 prebuild 必须与主机已经固化的最终证据深度相同。self-hosted runner 一律使用 `sudo -n`；缺少精确 NOPASSWD 规则时立即以 `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` 红退，不能等待交互密码。
+生产主机只接受 root:root `0600` 的 `/etc/workspacex-cn/preflights/<SHA>/<attemptId>/prebuild.json` 与 `preactivate.json` 模板。`attemptId` 必须是路径安全的小写标识；同一 SHA 重试必须新建 attempt，旧 attempt 永不覆盖，同一 attempt 只允许 byte-identical 重放。可信入口通过 `/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh` 从 exact SHA 提取验证器：它用父进程 fd 9 和反向 `flock -n` 现场证明调用者持有 canonical release lock，以动态事实替换模板中的 `runtime.release_lock` 后才形成最终不可变收据。prebuild 在 `candidate_build_started` 之前验证并保存；preactivate 在 `prepare_started` 之前验证，并在 activation 改 ingress 之前再次复验 TTL。preactivate 内嵌的原始 prebuild 必须与本 attempt 主机已固化的最终证据深度相同。self-hosted runner 一律使用 `sudo -n`；缺少精确 NOPASSWD 规则时立即以 `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` 红退，不能等待交互密码。
 
 `bootstrap.compatibility` 的执行书和 failure code 映射见 [bootstrap-compatibility.md](bootstrap-compatibility.md)。源码和只读数据库检查在构建前运行；目标镜像与只读数据库复验在 prepare receipt/迁移前运行。任一阶段失败不得进入 canonical provision，因此不会出现“migration 已写入、bootstrap 才发现不兼容”的半程状态。
 
@@ -201,7 +201,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `MACHINE_STDOUT_CONTAMINATED` | 唯一前缀 JSON stdout 契约测试 |
 | 2026-09-15 | `RELEASE_IDENTITY_DRIFT` | exact SHA 冻结 + manifest/config/CAS 一致性 |
 | 2026-09-15 | `DRAIN_READ_DENIED` | `app_diag_ro` 对 active `agent_runs` 只读 probe |
-| 2026-09-15 | `MANAGED_DATA_NOT_PREPARED` | ECS 角色真实调用六项 Describe；临时策略带绝对过期并在结束时清理 |
+| 2026-09-15 | `MANAGED_DATA_NOT_PREPARED` | ECS 角色真实调用固定六项 Describe；临时策略带绝对过期并在结束时清理，或持久角色为 resource-scoped read-only |
 | 2026-09-15 | `SECRET_ENV_NEWLINE` | 所有 secret 的 CR/LF/NUL 扫描 + 每个服务 env map 的生产序列化预演 |
 | 2026-09-15 | `BOOTSTRAP_STAGE_FAILED` | Devapp/影子环境连续两次幂等 bootstrap + 生产稳定阶段码 |
 | 2026-09-15 | `BROWSER_RUNTIME_UNAVAILABLE` | prepare 与 smoke 重新解析同一系统 Chromium 路径，从候选 release tree 真实加载 Playwright 并启动该浏览器 |

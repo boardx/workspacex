@@ -403,9 +403,15 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   await expect(page.locator('[data-testid^="itv-history-card-"]')).toHaveCount(6);
   const listHeadingSize = await page.getByTestId("itv-home-page").getByRole("heading", { name: "用户访谈" })
     .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
-  expect(listHeadingSize, "list title should be the primary visual anchor").toBeGreaterThanOrEqual(36);
+  expect(listHeadingSize, "studio list titles share the compact 30px hierarchy").toBe(30);
   const searchBounds = await page.getByTestId("itv-history-search").boundingBox();
-  expect(searchBounds?.width, "the list search should be a primary full-row control").toBeGreaterThanOrEqual(500);
+  expect(searchBounds?.width, "studio search stays compact beside tag filters").toBeGreaterThanOrEqual(240);
+  expect(searchBounds?.width).toBeLessThanOrEqual(320);
+  const firstThreeCards = page.locator('[data-testid^="itv-history-card-"]');
+  const firstRow = await Promise.all([0, 1, 2].map(index => firstThreeCards.nth(index).boundingBox()));
+  expect(firstRow.every(bounds => bounds !== null)).toBe(true);
+  expect(Math.abs(firstRow[0]!.y - firstRow[1]!.y)).toBeLessThan(2);
+  expect(Math.abs(firstRow[0]!.y - firstRow[2]!.y)).toBeLessThan(2);
   await page.screenshot({ path: testInfo.outputPath("00-list.png"), fullPage: true });
   await page.screenshot({ path: "../../docs/evidence/interview-density/list-1440.png", fullPage: true });
   await page.getByTestId("itv-create").click();

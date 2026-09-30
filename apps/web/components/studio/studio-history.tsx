@@ -8,14 +8,12 @@ import { Input } from "@/components/ui/input";
 
 export type HistorySort = "recent" | "oldest";
 
-export function StudioHistoryHeader({ business, title, description, count, createTestId, countTestId, onCreate }: {
+export function StudioHistoryHeader({ business, title, count, createTestId, countTestId, onCreate }: {
   business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: () => void;
 }) {
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">
-      <p className="text-11 font-medium text-muted-foreground">Studio / {business}</p>
-      <div className="flex items-center gap-2"><h1 className="text-24 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
-      <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">{description}</p>
+      <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
     </div>
     <Button type="button" variant="primary" size="lg" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</Button>
   </header>;
@@ -42,8 +40,8 @@ export function StudioHistoryCard({ testId, title, status, description, tags, me
   testId: string; title: string; status: React.ReactNode; description: React.ReactNode; tags: readonly string[];
   metadata: React.ReactNode; primaryAction: React.ReactNode; management: React.ReactNode; children?: React.ReactNode;
 }) {
-  return <article data-testid={testId} className="flex min-h-64 min-w-0 flex-col rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm transition-shadow duration-base hover:shadow-md">
-    <div className="flex items-start justify-between gap-3"><h2 className="min-w-0 break-words text-14 font-semibold" title={title}>{title}</h2><div className="shrink-0">{status}</div></div>
+  return <article data-testid={testId} className="flex min-h-64 min-w-0 flex-col rounded-lg border border-border bg-card p-5 text-card-foreground transition-colors duration-base hover:border-foreground/20">
+    <div className="flex items-start justify-between gap-3"><h2 className="min-w-0 break-words text-18 font-semibold" title={title}>{title}</h2><div className="shrink-0">{status}</div></div>
     <div className="mt-3 line-clamp-3 text-12 leading-relaxed text-muted-foreground">{description}</div>
     <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">{tags.map(tag => <Badge key={tag} tone="neutral" className="max-w-full whitespace-normal break-all">{tag}</Badge>)}</div>
     <div className="mt-auto space-y-3 pt-5">{children}<div className="flex flex-wrap items-center justify-between gap-2 text-11 text-muted-foreground">{metadata}</div><div className="flex items-center justify-between gap-3">{primaryAction}{management}</div></div>
@@ -51,5 +49,5 @@ export function StudioHistoryCard({ testId, title, status, description, tags, me
 }
 
 export function StudioHistoryCreateCard({ business, testId, onCreate }: { business: string; testId: string; onCreate: () => void }) {
-  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">新建{business}</span><span className="text-11 font-normal text-muted-foreground">开始一次新的{business}</span></Button>;
+  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">新建{business}</span></Button>;
 }

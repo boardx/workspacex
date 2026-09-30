@@ -1,3 +1,4 @@
+import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 /**
  * PostgreSQL implementation of `IdentityRepository`.
  *
@@ -311,13 +312,13 @@ export async function insertPersonalLocalOrg(
     // string literal here would be a second declaration of the value the whole feature turns
     // on, in the one place a reader is least likely to look for it -- and it would be invisible
     // to the frontend's and backend's type systems alike.
-    `INSERT INTO organizations (id, name, kind, owner_user_id) VALUES ($1, $2, $3, $4)`,
+    `INSERT INTO organizations (${BOOTSTRAP_WRITE_COLUMNS.personalLocal.join(", ")}) VALUES ($1, $2, $3, $4)`,
     [input.orgId, `${input.displayName} 的本地`, LOCAL_ORG_KIND, input.userId],
   );
   // 'admin' because there is nobody above them: the org has exactly one member, forever
   // (I-3). `team_id` is NULL -- a single-member organization has no teams to belong to.
   await s.query(
-    `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+    `INSERT INTO org_memberships (${BOOTSTRAP_WRITE_COLUMNS.membership.join(", ")}) VALUES ($1, $2, 'admin', NULL)`,
     [input.userId, input.orgId],
   );
 }

@@ -11,7 +11,7 @@ const entries = [
 
 export function SurveyLibraryNav({ active }: { active: SurveyLibrarySection }) {
   return (
-    <nav aria-label="问卷二级导航" className="survey-library-nav flex gap-2 overflow-x-auto rounded-xl border border-border bg-card p-3 lg:flex-col lg:self-start">
+    <nav aria-label="问卷二级导航" className="survey-library-nav flex gap-2 overflow-x-auto border-b border-border bg-background pb-3">
       {entries.map(({ id, label, href, Icon }) => {
         const current = id === active;
         return (
