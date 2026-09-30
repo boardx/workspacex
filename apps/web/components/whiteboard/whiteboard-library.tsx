@@ -1,4 +1,5 @@
 'use client';
+import { ResourceCard, ResourceCardTags } from '@/components/ui/resource-card';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -164,10 +165,17 @@ export function WhiteboardLibrary() {
       </section>
       {(loadingBoards || busy) && <p data-testid={RESERVED_STATE_TESTID.loading} role="status" className="py-4 text-center text-14 text-muted-foreground">正在同步白板…</p>}
       {loaded && !loadingBoards && !listError && items.length === 0 && <section data-testid={RESERVED_STATE_TESTID.empty} className="rounded-container border border-dashed border-border py-20 text-center"><h2 className="text-20 font-semibold">{archiveFilter === 'archived' ? '没有已归档的白板' : '从第一块白板开始'}</h2><p className="mt-2 text-14 text-muted-foreground">{query || selectedTags.length || untagged ? '调整搜索或标签筛选以查看其他结果。' : '新建后会直接进入全屏编辑器。'}</p></section>}
-      {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>{items.map(board => <article key={board.id} data-testid={`board-card-${board.id}`} className="group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-3 shadow-sm transition-shadow duration-base hover:shadow-lg focus-within:ring-2 focus-within:ring-ring motion-reduce:transition-none">
-        <div className="flex items-start gap-3"><Link href={EDITOR_PATH(board.id)} data-testid={`board-open-${board.id}`} className="min-w-0 flex-1 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><div data-testid={`board-thumbnail-empty-${board.id}`} className="relative mb-4 flex aspect-[16/9] items-center justify-center overflow-hidden rounded-xl bg-muted/50 text-12 text-muted-foreground"><div aria-hidden="true" className="absolute inset-0 flex items-center justify-center gap-3 opacity-60"><div className="h-16 w-16 -rotate-6 rounded bg-warning-tint shadow-sm"/><div className="h-16 w-16 rotate-3 rounded bg-card shadow-sm"/><div className="h-16 w-16 -rotate-3 rounded bg-success-tint shadow-sm"/></div><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1">预览尚未生成</span></div><h2 className="truncate text-16 font-semibold tracking-tight">{board.name}</h2><p className="mt-1 text-12 text-muted-foreground">{board.archived ? '已归档 · ' : ''}{new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(board.updatedAt))}更新 · {board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}</p></Link><BoardCardMenu board={board} disabled={busy || loadingBoards} onAction={(action, trigger) => openAction(board, action, trigger)} /></div>
-        {board.tagIds.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{board.tagIds.map(id => <span key={id} className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground">{tags.find(tag => tag.id === id)?.name ?? '未知标签'}</span>)}</div>}
-      </article>)}</div>}
+      {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>{items.map(board => <ResourceCard
+        key={board.id}
+        testId={`board-card-${board.id}`}
+        media={<div data-testid={`board-thumbnail-empty-${board.id}`} className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted/50 text-12 text-muted-foreground"><div aria-hidden="true" className="absolute inset-0 flex items-center justify-center gap-3 opacity-60"><div className="h-16 w-16 -rotate-6 rounded bg-warning-tint shadow-sm"/><div className="h-16 w-16 rotate-3 rounded bg-card shadow-sm"/><div className="h-16 w-16 -rotate-3 rounded bg-success-tint shadow-sm"/></div><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1">预览尚未生成</span></div>}
+        titleHref={EDITOR_PATH(board.id)}
+        titleLinkTestId={`board-open-${board.id}`}
+        title={board.name}
+        subtitle={`${board.archived ? '已归档 · ' : ''}${new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(board.updatedAt))}更新 · ${board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}`}
+        menu={<BoardCardMenu board={board} disabled={busy || loadingBoards} onAction={(action, trigger) => openAction(board, action, trigger)} />}
+        tags={<ResourceCardTags tags={[...new Set(board.tagIds.map(id => tags.find(tag => tag.id === id)?.name ?? '未知标签'))]} />}
+      />)}</div>}
       {!busy && !loadingBoards && !listError && nextCursor && <div className="flex justify-center"><Button variant="outline" data-testid="board-load-more" onClick={loadMore}>加载更多</Button></div>}
     </div>
     <BoardCreateDialog open={showCreate} tags={tags} tagsUnavailable={!!tagError} onRetryTags={() => setReloadTags(value => value + 1)} onTag={tag => setTags(value => [...value.filter(item => item.id !== tag.id), tag])} onRestoreFocus={() => createInput.current?.focus()} onClose={message => { setShowCreate(false); setNotice(message); setReloadBoards(value => value + 1); }} onCreated={board => router.push(EDITOR_PATH(board.id))} />

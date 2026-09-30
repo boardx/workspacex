@@ -1,4 +1,5 @@
 "use client";
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -856,28 +857,19 @@ export function TemplateAdmin({
             */
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
               {sortedRows.map((t) => (
-                <Card
+                <ResourceCard
                   key={`${t.key}-${t.version}`}
-                  className="cursor-pointer overflow-hidden transition-shadow duration-base hover:shadow-md"
+                  testId={`tpladmin-card-${t.key}-${t.version}`}
                   onClick={() => { setEditing(t); setActionError(null); setNotice(null); }}
-                  data-testid={`tpladmin-card-${t.key}-${t.version}`}
-                >
-                  <CardContent className="flex flex-col gap-2 p-0">
-                    <TemplateA1Thumbnail template={t} />
-                    <div className="flex flex-col gap-1.5 px-3 pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-13 font-semibold">{t.displayName}</span>
-                        <Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>
-                      </div>
-                      <span className="text-11 leading-relaxed text-muted-foreground">{describeSections(t)}</span>
-                      {tagsOf(t).length > 0 && (
-                        <div className="flex flex-wrap gap-1" data-testid={`tpladmin-card-tags-${t.key}-${t.version}`}>
-                          {tagsOf(t).map((tag) => (
-                            <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-9 text-muted-foreground">{tag}</span>
-                          ))}
-                        </div>
-                      )}
-                      <span className="text-10 text-muted-foreground">
+                  ariaLabel={`打开模板「${t.displayName}」`}
+                  media={<TemplateA1Thumbnail template={t} />}
+                  title={t.displayName}
+                  badges={<Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>}
+                  description={describeSections(t)}
+                  tags={tagsOf(t).length > 0 ? <ResourceCardTags tags={tagsOf(t)} testId={`tpladmin-card-tags-${t.key}-${t.version}`} /> : undefined}
+                  meta={
+                    <span>
+
                         {/*
                           「N 个字段 · M 个区块」——字段数是分区总数，区块数是「已放到画布上」
                           的那些（`layout` 非空）。两个数不同才有信息量：它直接告诉使用者
@@ -898,8 +890,10 @@ export function TemplateAdmin({
                         */}
                         <span data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</span>
                         {" 场使用"}
-                      </span>
-                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                          </span>
+                  }
+                  actions={
+                    <div className="flex flex-wrap items-center gap-1.5" data-card-stop>
                         {!readOnly && (
                           <Button size="xs" variant="outline" onClick={() => { setRenaming(t); setActionError(null); setNotice(null); }} data-testid={`tpladmin-rename-${t.key}-${t.version}`}>
                             改名 / 标签
@@ -937,10 +931,9 @@ export function TemplateAdmin({
                           )
                         )}
                         <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                                          </div>
+                  }
+                />
               ))}
             </div>
         )}

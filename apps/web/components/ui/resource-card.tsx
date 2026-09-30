@@ -27,7 +27,7 @@ const INTERACTIVE = 'button, a, input, select, textarea, label, [role="menuitem"
 
 export function ResourceCard({
   testId, title, titleTestId, subtitle, badges, menu, description, tags, meta, children, actions,
-  layout = "grid", density = "comfortable", href, onClick, selected = false, leading, media, ariaLabel, className,
+  layout = "grid", density = "comfortable", href, titleHref, titleLinkTestId, onClick, selected = false, leading, media, ariaLabel, className,
 }: {
   testId?: string;
   title: React.ReactNode;
@@ -51,6 +51,13 @@ export function ResourceCard({
    */
   href?: string;
   /**
+   * 「拉伸链接」：标题是一条 `<a>`，它的热区铺满整张卡片（键盘 Tab 直达、焦点环落在整卡上），
+   * 而卡片里的菜单 / 操作区 / 标签仍各自可点（抬到 z-10）。适合「整卡是打开入口，但卡里还有别的控件」的卡
+   * （项目内容卡）。`titleLinkTestId` 放在那条 `<a>` 上。
+   */
+  titleHref?: string;
+  titleLinkTestId?: string;
+  /**
    * 整张卡片可点（目录选中、打开编辑器等）：卡片是 `role="button"`，Enter/空格触发；
    * 卡片里的按钮/链接/输入框/菜单自己的点击**不会**冒泡成整卡点击。
    */
@@ -70,8 +77,11 @@ export function ResourceCard({
   const shell = cn(
     "flex h-full min-w-0 flex-col overflow-hidden transition-all duration-base hover:shadow-md",
     selected && "ring-2 ring-ring",
+    titleHref !== undefined && "group relative hover:border-primary",
     className,
   );
+  // 拉伸链接模式下，除标题外的可交互区域抬到 z-10，不被铺满的 <a> 吃掉点击
+  const lift = titleHref !== undefined ? "relative z-10" : "";
   const cardSurface = "rounded-card border border-border bg-card text-card-foreground shadow-sm";
   const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const body = (
@@ -83,12 +93,22 @@ export function ResourceCard({
             <div className="flex min-w-0 items-start gap-3">
               {leading ? <div className="shrink-0">{leading}</div> : null}
               <div className="flex min-w-0 flex-col gap-1">
-                <h3 className={cn("truncate font-semibold tracking-tight", compact ? "text-13" : "text-14")} data-testid={titleTestId}>{title}</h3>
+                <h3 className={cn("font-semibold tracking-tight", titleHref === undefined && "truncate", compact ? "text-13" : "text-14")} data-testid={titleTestId}>
+                  {titleHref !== undefined ? (
+                    <Link
+                      href={titleHref}
+                      data-testid={titleLinkTestId}
+                      className="line-clamp-2 break-words rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring after:absolute after:inset-0 after:content-['']"
+                    >
+                      {title}
+                    </Link>
+                  ) : title}
+                </h3>
                 {subtitle ? <p className="text-11 text-muted-foreground">{subtitle}</p> : null}
               </div>
             </div>
             {badges || menu ? (
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className={cn("flex shrink-0 items-center gap-1.5", lift)}>
                 {badges}
                 {menu}
               </div>
@@ -99,7 +119,7 @@ export function ResourceCard({
           {children}
           {meta ? <div className="flex flex-wrap items-center justify-between gap-2 text-11 text-muted-foreground">{meta}</div> : null}
         </div>
-        {actions ? <div className={cn("flex flex-wrap items-center gap-2", list ? "shrink-0" : "mt-auto pt-1")}>{actions}</div> : null}
+        {actions ? <div className={cn("flex flex-wrap items-center gap-2", list ? "shrink-0" : "mt-auto pt-1", lift)}>{actions}</div> : null}
       </CardContent>
     </>
   );

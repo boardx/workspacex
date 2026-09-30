@@ -1,4 +1,5 @@
 "use client";
+import { ResourceCard } from "@/components/ui/resource-card";
 import * as React from "react";
 import Link from "next/link";
 import { Copy, LayoutGrid, List as ListIcon, Pencil, Plus, Sparkles } from "lucide-react";
@@ -220,30 +221,29 @@ export function BlueprintListScreenLive() {
 
 function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => void }) {
   return (
-    <Card data-testid={`tpl-live-card-${row.blueprintId}`}>
-      <CardContent className="flex flex-col gap-2 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-14 font-semibold" data-testid="tpl-live-card-name">{row.name}</span>
-          <Badge tone={row.state === "published" ? "primary" : "outline"} data-testid="tpl-live-card-state">
-            {BLUEPRINT_STATE_LABEL[row.state]}
-            {row.state === "published" ? ` v${row.versionNumber}` : ""}
-          </Badge>
-        </div>
-
-        <div className="flex flex-col gap-1 text-11 text-muted-foreground">
-          <span>{DURATION_TIER_LABEL[row.durationTier]} · {row.agendaSegmentCount} 环节</span>
-          <span>用过 {row.appliedProjectCount} 次</span>
-          <span>
-            {row.satisfaction === null ? "满意度 —" : `满意度 ${row.satisfaction.toFixed(1)}`}
-          </span>
+    <ResourceCard
+      testId={`tpl-live-card-${row.blueprintId}`}
+      title={row.name}
+      titleTestId="tpl-live-card-name"
+      subtitle={`${DURATION_TIER_LABEL[row.durationTier]} · ${row.agendaSegmentCount} 环节`}
+      badges={
+        <Badge tone={row.state === "published" ? "primary" : "outline"} data-testid="tpl-live-card-state">
+          {BLUEPRINT_STATE_LABEL[row.state]}
+          {row.state === "published" ? ` v${row.versionNumber}` : ""}
+        </Badge>
+      }
+      meta={
+        <>
+          <span>用过 {row.appliedProjectCount} 次 · {row.satisfaction === null ? "满意度 —" : `满意度 ${row.satisfaction.toFixed(1)}`}</span>
           <span data-testid="tpl-live-card-completion">
             {row.completeness.done}/{row.completeness.denominator} 已配
           </span>
-        </div>
-
-        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+        </>
+      }
+      actions={
+        <>
           {/* BP-06：designer 页面已能按 blueprintId 读真实数据，链接不再是死指针。 */}
-          <Button size="xs" variant="outline" asChild data-testid="tpl-live-card-edit">
+          <Button size="sm" variant="outline" asChild data-testid="tpl-live-card-edit">
             <Link href={`/tpl/designer?blueprintId=${encodeURIComponent(row.blueprintId)}`}>
               <Pencil aria-hidden className="h-3 w-3" /> 编辑设计
             </Link>
@@ -254,15 +254,15 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
               BP-01 起就真实可用（真库测试覆盖）。两者是契约里两条不同的复制路径
               （同类历史：#991 T9 也记过一次「同一件事两个入口」），本屏用现成能跑的
               那条，不等未实现的 `copyBlueprint` 落地。 */}
-          <Button size="xs" variant="outline" onClick={onCopy} data-testid="tpl-live-card-copy">
+          <Button size="sm" variant="outline" onClick={onCopy} data-testid="tpl-live-card-copy">
             <Copy aria-hidden className="h-3 w-3" /> 复制
           </Button>
           {/* availableActions 由服务端派生（BP-01 头注：前端不得自行决定能不能删/归档）。
               archive/delete/rollback 三项对应的端点还没实现，BP-01 至今恒返回空数组，
               这不是本屏漏画。 */}
-        </div>
-      </CardContent>
-    </Card>
+        </>
+      }
+    />
   );
 }
 
