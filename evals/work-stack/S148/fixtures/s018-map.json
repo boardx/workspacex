@@ -1,0 +1,30 @@
+{
+  "mapId": "map-procurement-1",
+  "nodes": [
+    {
+      "nodeId": "n1",
+      "label": "提交申请",
+      "lane": "申请部门"
+    },
+    {
+      "nodeId": "n2",
+      "label": "采购审批",
+      "lane": "采购部"
+    },
+    {
+      "nodeId": "n3",
+      "label": "财务复核",
+      "lane": "财务部"
+    }
+  ],
+  "handoffs": [
+    {
+      "from": "n1",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "to": "n3"
+    }
+  ]
+}

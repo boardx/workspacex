@@ -1,0 +1,8 @@
+{
+  "endpoint": "GET /v1/orders",
+  "response": {
+    "items": "array",
+    "total": "integer"
+  },
+  "note": "schema 中没有分页游标字段"
+}

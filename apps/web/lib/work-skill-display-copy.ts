@@ -56,8 +56,16 @@ export const WORK_SKILL_NAMES: Readonly<Record<string, string>> = {
   S074: "用户激活",
   S075: "设计评审意见",
   S076: "设计交付给开发",
+  S141: "立项受理与项目章程",
   S142: "工作项管理",
+  S143: "基线偏差状态汇报",
+  S144: "容量规划",
+  S145: "变更请求",
+  S148: "流程说明文档",
+  S153: "会议主持与引导",
+  S154: "执行计划",
   S155: "经营复盘",
+  S156: "持续改进",
   S157: "数据探索",
   S158: "数据校验",
   S160: "SQL 查询",
@@ -75,6 +83,8 @@ export const WORK_SKILL_NAMES: Readonly<Record<string, string>> = {
   S197: "决策记账",
   S198: "OKR 对齐",
   S199: "商业模式分析",
+  S177: "事件响应",
+  S179: "技术文档",
 };
 
 const STABLE_ID = /^S\d{3}$/;

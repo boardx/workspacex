@@ -15,6 +15,8 @@
  *   写类同时进 `PLANNED_WORKFLOW_SIDE_EFFECT_CATEGORIES`，管理员才能在授权页看到并授予。）
  * （客户成功线 S187–S194 补登：`workforce.schedule.read`（S194 optional，支持排班；声明但未接线）。其余依赖
  *   ticket.read / crm.read / tracker.read / transcript.read / survey.read 等此前已登记。）
+ * （运营/工程线补登：S141/S143/S144/S145/S148/S153/S154/S156/S177/S179 的 §依赖 新增 deploy.read / directory.read /
+ *   incident.read / monitoring.read / repo.read——均为 declared-but-unwired（外部系统无集成，就绪性显示未接线）。）
  * （EV03 门脚本 `gate-policy.ts` 曾另抄一份更短的登记表，G3 与导入/就绪性判据因此漂移；现在它
  *   直接 re-export 本表，`knowledge.graph.read` 等原先只在那一份里的分类并入这里。）
  * （高管线 S195/S199 补登：`finance.read`（预算/财务抽取）、`hr.headcount.read`（人员投放）——规格声明但背后的
