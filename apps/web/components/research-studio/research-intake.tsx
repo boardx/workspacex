@@ -95,7 +95,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     finally { setImportBusy(false); }
   }
   const baseline = session?.brief ?? initialBrief;
-  React.useEffect(() => { onDirtyChange?.(JSON.stringify(brief) !== JSON.stringify(baseline)); }, [brief, baseline, onDirtyChange]);
+  React.useEffect(() => { onDirtyChange?.(voiceBusy || importBusy || Boolean(voicePreview) || JSON.stringify(brief) !== JSON.stringify(baseline)); }, [brief, baseline, voiceBusy, importBusy, voicePreview, onDirtyChange]);
   const assistant = useIntakeAssistant(brief, setBrief);
   const active = React.useRef(true);
   React.useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
