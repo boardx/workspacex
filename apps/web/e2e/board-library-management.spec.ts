@@ -182,17 +182,19 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   const token = cleanupToken = await login(page);
   const board = await apiJson<Board>(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Navigation-${randomUUID()}` });
   cleanupBoards.add(board.id);
+  // 2026-09-30：Board 收进左栏「更多」三点菜单；在 Board 页时「更多」按钮自身高亮
+  await page.getByTestId("rail-more").click();
   await page.getByTestId("rail-whiteboard").click();
   await expect(page).toHaveURL(/\/studio\/board$/);
-  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
-  await expect(page.getByTestId("rail-whiteboard")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("rail-more")).toBeVisible();
+  await expect(page.getByTestId("rail-more")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("whiteboard-library")).toBeVisible();
   await expect(page.getByTestId(`board-card-${board.id}`)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("board-library-with-navigation.png") });
   await page.getByTestId(`board-open-${board.id}`).click();
   await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("rail-whiteboard")).not.toBeVisible();
+  await expect(page.getByTestId("rail-more")).not.toBeVisible();
   await expect(async () => {
     const region = page.getByTestId("board-editor-region");
     const shell = await region.locator("..").boundingBox();
@@ -206,10 +208,10 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await page.screenshot({ path: testInfo.outputPath("board-editor-fullscreen.png") });
   await page.getByRole("button", { name: "返回白板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/board$/);
-  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId("rail-more")).toBeVisible();
   await expect(page.getByTestId(`board-card-${board.id}`)).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId("rail-more")).toBeVisible();
   await expect(page.getByTestId("whiteboard-library")).toBeVisible();
 });
 
