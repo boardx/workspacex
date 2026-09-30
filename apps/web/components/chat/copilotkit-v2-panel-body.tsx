@@ -19,7 +19,6 @@ import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
 import { useRunTraceTail } from "@/lib/chat-workbench/use-run-trace-tail";
 import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
 import { traceEntries } from "@/lib/chat-workbench/run-trace";
-import { actionsByPlanStep, type PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { LivePlanContext, NO_LIVE_PLAN, type LivePlan } from "@/lib/chat-workbench/live-plan-context";
 import { useTemplateRecommendations, readTemplateSuggestionDismissed } from "@/lib/chat-workbench/use-template-recommendations";
 import { useTimelineScroll } from "@/lib/chat-workbench/use-timeline-scroll";
@@ -73,6 +72,7 @@ import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button"
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
+import { ChatRealtimeVoiceEntry, createVoiceThreadLifecycle, mergePersistedVoiceTurns } from "@/components/chat/chat-realtime-voice-entry";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { SessionBriefing } from "@/components/chat/knowledge/session-briefing";
@@ -129,7 +129,6 @@ export function CopilotKitV2PanelBody({
   onRunStateChange,
   onPendingMaterialsChange,
   onUploadingMaterialsChange,
-  onPlanStepActionsChange,
   onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
@@ -193,8 +192,6 @@ export function CopilotKitV2PanelBody({
    * 在上传完成前毫无反馈——用户在右栏动作，回应却出现在屏幕另一端。这个回调把
    * "正在传几个"实时递给外壳，转给「材料」面板显示。 */
   onUploadingMaterialsChange?: (count: number) => void;
-  /** 2026-09-27 计划显示统一 —— 最近一轮里每一步计划下做过的动作，供右栏「进度」页签按步展开。 */
-  onPlanStepActionsChange?: (actions: ReadonlyMap<string, readonly PlanStepAction[]>) => void;
   /** issue #3347 —— 见下方 `attachUploadPort` 的文档：右栏「材料」页签的上传能力面。 */
   onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1111,6 +1108,26 @@ export function CopilotKitV2PanelBody({
     return attachmentThreadPromiseRef.current;
   }, [projectId]);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
+  // 「实时对话」（Chat 语音模式）：转写落进同一条线程；挂断后把新消息并进视图（新对话则回写地址栏触发 hydration）。
+  const selectedVoiceAgent = agentOptions.status === "ready" ? agentOptions.agents.find((a) => a.id === selectedAgentId) ?? null : null;
+  // 最新闭包放 ref：生命周期对象只建一次，通话中途重渲染不丢「本次自建线程」的记录。
+  const voiceLatest = React.useRef({ agent, initialChatThreadId, createdAttachmentThreadId, onThreadResolved });
+  voiceLatest.current = { agent, initialChatThreadId, createdAttachmentThreadId, onThreadResolved };
+  const [voiceThread] = React.useState(() => createVoiceThreadLifecycle({
+    existingThreadId: () => chatThreadIdRef.current ?? voiceLatest.current.initialChatThreadId ?? voiceLatest.current.createdAttachmentThreadId,
+    projectId,
+    onPersisted: ({ threadId: tid, createdByVoice, messageIds }) => {
+      const { agent, onThreadResolved } = voiceLatest.current;
+      if (createdByVoice && chatThreadIdRef.current === null) {
+        chatThreadIdRef.current = tid;
+        setResolvedChatThreadId(tid);
+        onThreadResolved?.(tid);
+        return;
+      }
+      void mergePersistedVoiceTurns(agent, tid, messageIds, getStoredSessionToken() ?? undefined).catch(() => setError("语音对话已保存，刷新页面即可看到。"));
+    },
+    onNothingSaved: () => setNotice("这次实时对话没有识别到说话内容，所以没有保存记录。"),
+  }));
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
     canWrite: canWrite && !archived,
@@ -1442,19 +1459,6 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onUploadingMaterialsChange?.(uploadingMaterialsCount);
   }, [uploadingMaterialsCount, onUploadingMaterialsChange]);
-  /** 最近一轮带计划的执行过程 → 每步动作（见 `actionsByPlanStep`）。取**最后一条**有计划的 run：
-   * 右栏看的是当前这份计划，与账本（线程最新计划）对得上。 */
-  const planStepActions = React.useMemo(() => {
-    const runs = Object.values(runTrace.events);
-    for (let i = runs.length - 1; i >= 0; i -= 1) {
-      const actions = actionsByPlanStep(traceEntries(runs[i] ?? []));
-      if (actions.size > 0) return actions;
-    }
-    return new Map<string, readonly PlanStepAction[]>();
-  }, [runTrace.events]);
-  React.useEffect(() => {
-    onPlanStepActionsChange?.(planStepActions);
-  }, [planStepActions, onPlanStepActionsChange]);
 
   /**
    * issue #3347 —— 把 composer 这**同一个**附件控制器的最小上传能力面交给外壳，
@@ -2001,6 +2005,7 @@ export function CopilotKitV2PanelBody({
               materialsCount={pendingMaterialsCount}
               skillsCount={mountedSkillsCount}
               briefing={projectId === null ? <SessionBriefing onResume={setInputDraft} /> : undefined}
+              inProject={projectId !== null}
             />
           ) : (
             // issue #2039（第 2 轮 gap #5）的阅读宽度约束已由本文件中央列那一处
@@ -2492,6 +2497,12 @@ export function CopilotKitV2PanelBody({
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
               <div className="flex shrink-0 items-center gap-3">
+                <ChatRealtimeVoiceEntry
+                  disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
+                  agent={selectedVoiceAgent}
+                  resolveThreadId={voiceThread.resolveThreadId}
+                  onEnded={voiceThread.onEnded}
+                />
                 <ComposerVoiceControl
                   status={speech.status}
                   phase={voice.phase}

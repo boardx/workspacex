@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 
@@ -99,7 +99,12 @@ describe("LiveSurveyLibrary", () => {
     request.mockResolvedValueOnce([]);
     render(<LiveSurveyLibrary />);
     expect(await screen.findByRole("heading", { name: "还没有问卷" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(2);
+    const create = within(screen.getByTestId("empty")).getByRole("button", { name: "新建问卷" });
+    expect(create).toHaveClass("bg-primary");
+    fireEvent.click(create);
+    expect(screen.getByRole("dialog", { name: "新建问卷" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
   });
   it("filters by real tags and keeps templates optional without status filters", async () => {

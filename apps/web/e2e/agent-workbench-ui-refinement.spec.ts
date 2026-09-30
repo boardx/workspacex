@@ -51,7 +51,9 @@ test("mobile plan is absent without steps and compact/collapsible with steps; pa
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByTestId("chat-task-workbench-run-resume")).toBeVisible();
   await toggle.click();
-  await expect(page.getByTestId("chat-task-workbench-plan-step")).toContainText("检查真实计划布局");
+  // 2026-09-30：执行中（含暂停）底部不再列步骤——计划列表只在消息流里；当前步骤在进度卡上。
+  await expect(page.getByTestId("chat-task-workbench-run-progress")).toContainText("检查真实计划布局");
+  await expect(page.getByTestId("chat-task-workbench-plan-step")).toHaveCount(0);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeInViewport();
   await expect(page.getByTestId("chat-task-workbench-run-resume")).toBeInViewport();
   await expect(page.getByTestId("chat-task-workbench-run-resume")).toBeEnabled();

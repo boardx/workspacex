@@ -13,10 +13,14 @@ import { toolLabel, toolObject } from "@/lib/chat-workbench/tool-label";
  *
  * 没有动作的步骤什么都不画：待开始的步骤本来就没有动作，不编一句「暂无」占位。
  */
-export function PlanStepActionList({ todo, actions }: { todo: PlanTodo; actions: readonly PlanStepAction[] }): JSX.Element | null {
+export function PlanStepActionList({ todo, actions, openWhenActive = true }: {
+  todo: PlanTodo; actions: readonly PlanStepAction[];
+  /** 进行中的那一步默认展开。消息流里传 false：计划卡保持紧凑，点开才看细节。 */
+  openWhenActive?: boolean;
+}): JSX.Element | null {
   if (actions.length === 0) return null;
   return (
-    <details className="pl-5 text-11 text-muted-foreground" data-testid="chat-task-workbench-plan-step-actions" open={todo.status === "in_progress"}>
+    <details className="pl-5 text-11 text-muted-foreground" data-testid="chat-task-workbench-plan-step-actions" open={openWhenActive && todo.status === "in_progress"}>
       <summary className="cursor-pointer rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {actions.length} 个动作
       </summary>

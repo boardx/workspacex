@@ -529,7 +529,7 @@ export function ProjectWorkbench({
         </div>
 
         {/* ── 预览调试条（仅 dev） ───────────────────────────── */}
-        <PreviewBar href={href} uiState={uiState} tab={tab} tabDefs={tabDefs} view={view} orgDisabled={orgDisabled} qs={qs} />
+        {(!projectId || identity) && <PreviewBar href={href} uiState={uiState} tab={tab} tabDefs={tabDefs} view={view} orgDisabled={orgDisabled} qs={qs} />}
 
         {/* ── 主体：可选左子导航 + 内容 ─────────────────────── */}
         <div className="flex min-h-0 flex-1">

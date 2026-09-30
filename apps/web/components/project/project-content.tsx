@@ -1,4 +1,5 @@
 "use client";
+import { formatRelativeTime } from "@/lib/home-format";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, FolderOpen, Inbox, Link2, MessagesSquare, Plus } from "lucide-react";
@@ -297,7 +298,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
                 icon={e.resourceKind ? projectResourceIcon(e.resourceKind) : MessagesSquare}
                 title={e.title}
                 typeLabel={contentTypeLabel(e.type)}
-                meta={`更新于 ${formatDate(e.updatedAt)}`}
+                meta={<UpdatedAt iso={e.updatedAt} />}
               />
             </li>
           ))}
@@ -305,6 +306,12 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
       )}
     </div>
   );
+}
+
+/** 「更新于 3 分钟前」——悬停显示精确日期；解析不了时间就退回原来的日期文本。 */
+export function UpdatedAt({ iso }: { iso: string }): JSX.Element {
+  const rel = formatRelativeTime(iso);
+  return <time dateTime={iso} title={formatDate(iso)}>更新于 {rel ?? formatDate(iso)}</time>;
 }
 
 export function formatDate(iso: string): string {

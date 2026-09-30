@@ -178,6 +178,13 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
   );
   if ((await collapseToggle.getAttribute("aria-expanded")) !== "true") await collapseToggle.click();
 
+  // 展开后才由用户显式进入编辑态。
+  // 2026-09-30：执行中底部不再列只读步骤（计划列表只在消息流里），可编辑的计划面板在点
+  // 「编辑计划」之后出现——所以面板锚点放在点击之后取，判据本身不变。
+  const editToggle = page.getByTestId("chat-task-workbench-plan-edit-toggle");
+  await expect(editToggle).toBeVisible({ timeout: 10_000 });
+  await editToggle.click();
+
   const panel = await expectAnchor(
     page,
     "chat-task-workbench-plan-panel",
@@ -185,11 +192,6 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
     "没有用户可读的计划面板（当前只有只读的 copilotkit-v2-tool-write-todos 卡片）",
     60_000,
   );
-
-  // 展开后才由用户显式进入编辑态。
-  const editToggle = page.getByTestId("chat-task-workbench-plan-edit-toggle");
-  await expect(editToggle).toBeVisible({ timeout: 10_000 });
-  await editToggle.click();
 
   // ② 文案面向用户：不得把工具名 `write_todos` 印在界面上。
   expect(
