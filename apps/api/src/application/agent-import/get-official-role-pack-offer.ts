@@ -8,10 +8,14 @@
  * 取舍：不做「为每个组织自动安装」——那会绕过 UC-3 的管理员决策（导入台账 `administrator_id`
  * 必须是真实管理员），属于需要人类改签的产品规则变更。这里只把「本组织尚未启用的官方角色」
  * 读出来，交给选人浮层展示为「待启用」，管理员一键启用走原导入用例（同一条校验/落库路径）。
+ *
+ * 「启用即可用」（2026-09-30 人类代决）：要约同时给出 `requiredSkillPacks`——官方角色 Workflow 所需的
+ * Skill 起步包。客户端先逐个走既有 Skill 起步包导入（管理员、幂等；导入后 follow-up 发布内置 Workflow），
+ * 再导入角色包；否则启用后的数字人「能力未就绪 / 暂无可发起 Workflow」。
  */
 import type { IdentityRepository } from "../identity/ports";
 import type { OrgId } from "../../domain/org-id";
-import { buildOfficialAgentRolePack } from "../../domain/agent/official-role-packs";
+import { buildOfficialAgentRolePack, officialRoleSkillPacks } from "../../domain/agent/official-role-packs";
 import type { OfficialAgentRolePackImportRepository } from "./ports";
 
 export interface OfficialRolePackOfferView {
@@ -27,6 +31,7 @@ export interface OfficialRolePackOfferView {
     readonly tags: readonly string[];
     readonly workflowAllowlist: readonly string[];
   }[];
+  readonly requiredSkillPacks: readonly { readonly packId: string; readonly packVersion: string }[];
 }
 
 export async function getOfficialRolePackOffer(
@@ -52,5 +57,6 @@ export async function getOfficialRolePackOffer(
       tags: [...a.role.tags],
       workflowAllowlist: [...a.role.workflowAllowlist],
     })),
+    requiredSkillPacks: officialRoleSkillPacks().map((p) => ({ packId: p.packId, packVersion: p.packVersion })),
   };
 }

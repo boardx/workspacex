@@ -244,6 +244,11 @@ export const OfficialRolePackOffer = z.object({
     tags: z.array(z.string()),
     workflowAllowlist: z.array(WorkflowStableId),
   }).strict()),
+  /**
+   * 一键启用时须先导入的 Skill 起步包（官方角色的 Workflow 所需；导入后由既有 follow-up 发布内置
+   * Workflow）。客户端按序调既有 `importSkillStarterPack`，再导入本角色包——启用后数字人即可用。
+   */
+  requiredSkillPacks: z.array(z.object({ packId: z.string(), packVersion: z.string() }).strict()),
 }).strict();
 export type OfficialRolePackOffer = z.infer<typeof OfficialRolePackOffer>;
 

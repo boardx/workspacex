@@ -59,6 +59,22 @@ export function isDigitalHuman(card: AgentDirectoryCard | undefined): boolean {
   return card.catalogSource === "official" || (card.avatar?.key ?? "").startsWith("dh-");
 }
 
+/**
+ * 预览栏「擅长」：不再回显名字（复审：擅长写着「Design Thinking Expert」= 什么都没说）。
+ * 顺序：与名字/头衔不同的 `duty` → 标签（无标签时 `agentTagsOf` 已回退为角色分类）→ 可发起流程名（前 3 个）。
+ * 都没有 → null（调用方给中性兜底）。
+ */
+export function strengthsFor(listing: Pick<CapabilityListing, "name" | "duty">, card: AgentDirectoryCard | undefined): string | null {
+  const duty = (listing.duty ?? "").trim();
+  const echoes = [listing.name, card?.roleLabel ?? "", card?.name ?? ""].map(norm);
+  if (duty && !echoes.includes(norm(duty))) return duty;
+  const tags = agentTagsOf(card);
+  if (tags.length > 0) return tags.join("、");
+  const flows = card?.workflows.map((w) => w.name) ?? [];
+  if (flows.length > 0) return flows.slice(0, 3).join("、") + (flows.length > 3 ? " 等" : "");
+  return null;
+}
+
 /** 不可用的一句短原因：取服务端 `disabledReason` 的第一小句（完整原文放 title）。 */
 export function shortReason(reason: string | null | undefined): string {
   const t = (reason ?? "").trim();

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { CapabilityCardList } from "@/components/chat/chat-task-workbench-capability-picker";
+import { CapabilityCardList, enableResultText } from "@/components/chat/chat-task-workbench-capability-picker";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { AgentDirectoryCard } from "@/lib/agent-directory";
 
@@ -155,5 +155,63 @@ describe("2026-09-30 重设计：分组 / 副标题去重 / 预览披露 / 待�
   it("空组织给空态", () => {
     render(<CapabilityCardList listings={[]} selectedAgentId={null} onSelect={vi.fn()} />);
     expect(screen.getByTestId("chat-task-workbench-capability-none")).toBeTruthy();
+  });
+});
+
+describe("UIUX 复审 r1（picker）", () => {
+  const mk = (id: string, name: string, extra: Partial<CapabilityListing> = {}): CapabilityListing => ({ id, orgId: "org", kind: "agent", name, scope: "org-wide", enabled: true, endpoint: null, abbr: null, duty: name, disabledReason: null, agentAvailable: true, ...extra });
+  const dhCard = (agentId: string, name: string, tags: string[], workflows: { stableId: string; name: string }[] = []): AgentDirectoryCard => ({
+    agentId, versionId: "v", name, initials: name.slice(0, 1), roleLabel: name, avatar: null, roleCategory: "design",
+    tags, catalogSource: "official" as AgentDirectoryCard["catalogSource"], workflows: workflows as AgentDirectoryCard["workflows"], readiness: "ready",
+  });
+
+  it("预览栏：擅长由标签派生、不回显名字；无数据的披露不再逐行写「暂缺该项披露」，六个锚点仍在", () => {
+    const directory = new Map([["d", dhCard("d", "设计思维专家", ["设计", "创新", "用户研究"])]]);
+    render(<CapabilityCardList listings={[mk("d", "设计思维专家")]} selectedAgentId={null} onSelect={vi.fn()} directory={directory} />);
+    fireEvent.focus(screen.getByRole("option", { name: /设计思维专家/ }));
+    const preview = screen.getByTestId("chat-task-workbench-capability-preview");
+    expect(screen.getByTestId("chat-task-workbench-capability-facet-strengths")).toHaveTextContent("设计、创新、用户研究");
+    expect(preview).not.toHaveTextContent("暂缺该项披露");
+    expect(preview).not.toHaveTextContent("未登记");
+    for (const f of ["strengths", "tools", "materials", "writes", "memory", "status"]) {
+      expect(preview.querySelectorAll(`[data-testid="chat-task-workbench-capability-facet-${f}"]`)).toHaveLength(1);
+    }
+  });
+
+  it("默认（自动匹配）预览不再空白：列出可能接手的数字人", () => {
+    const directory = new Map([["d", dhCard("d", "产品经理", ["产品"], [{ stableId: "W029", name: "问题到需求文档" }])]]);
+    render(<CapabilityCardList listings={[mk("d", "产品经理")]} selectedAgentId={null} onSelect={vi.fn()} directory={directory} />);
+    expect(screen.getByTestId("chat-task-workbench-capability-auto-candidates")).toHaveTextContent("产品经理");
+  });
+
+  it("标签行换行不裁切；超过一行的收进「更多」", () => {
+    const tags = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const directory = new Map([["d", dhCard("d", "X", tags)]]);
+    render(<CapabilityCardList listings={[mk("d", "X")]} selectedAgentId={null} onSelect={vi.fn()} directory={directory} />);
+    const row = screen.getByTestId("chat-task-workbench-capability-tags");
+    expect(row.className).toContain("flex-wrap");
+    expect(row.className).not.toContain("overflow-x-auto");
+    expect(row.querySelector('[data-tag="h"]')).toBeNull();
+    fireEvent.click(screen.getByTestId("chat-task-workbench-capability-tags-more"));
+    expect(row.querySelector('[data-tag="h"]')).toBeTruthy();
+  });
+
+  it("一键启用显示进度与结果", () => {
+    const offer = { packId: "p", packVersion: "1", canEnable: true, requiredSkillPacks: [], pending: [
+      { roleRef: "D003", name: "产品经理", roleLabel: "产品经理", avatar: null, roleCategory: "product" as const, tags: [], workflowAllowlist: ["W029"] },
+    ] } as unknown as NonNullable<Parameters<typeof CapabilityCardList>[0]["official"]>["offer"];
+    const { rerender } = render(<CapabilityCardList listings={[]} selectedAgentId={null} onSelect={vi.fn()} official={{ offer, enabling: true, error: null, enable: vi.fn(), progress: { step: 2, total: 3, label: "准备数字人需要的技能与流程" } }} />);
+    expect(screen.getByTestId("chat-task-workbench-capability-enable-progress")).toHaveTextContent("（2/3）");
+    rerender(<CapabilityCardList listings={[]} selectedAgentId={null} onSelect={vi.fn()} official={{ offer: { ...offer!, pending: [] }, enabling: false, error: null, enable: vi.fn(), result: "已启用 4 位官方数字人，可发起 9 个流程。" }} />);
+    expect(screen.getByTestId("chat-task-workbench-capability-enable-result")).toHaveTextContent("可发起 9 个流程");
+  });
+
+  it("启用结果文案按目录如实数：可发起流程数去重，没有流程的点名", () => {
+    const cards = [
+      dhCard("a", "产品经理", [], [{ stableId: "W029", name: "x" }, { stableId: "W027", name: "y" }]),
+      dhCard("b", "设计思维专家", [], [{ stableId: "W029", name: "x" }]),
+      dhCard("c", "销售代表", []),
+    ];
+    expect(enableResultText(cards)).toBe("已启用 3 位官方数字人，可发起 2 个流程。销售代表暂无可发起的流程，可先直接对话。");
   });
 });

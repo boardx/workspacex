@@ -11,7 +11,8 @@ const badgeVariants = cva(
         primary: "bg-accent text-accent-foreground",
         ai: "bg-ai-tint text-ai-tint-foreground",
         success: "bg-success text-success-foreground",
-        warning: "bg-warning text-warning-foreground",
+        // 复审横切：实心棕色 warning 与其它柔和药丸是两套体系——统一到柔和 token（warning-tint）。
+        warning: "bg-warning-tint text-warning-tint-foreground",
         danger: "bg-destructive text-destructive-foreground",
         outline: "border border-border text-muted-foreground",
       },

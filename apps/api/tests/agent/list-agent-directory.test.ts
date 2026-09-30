@@ -99,6 +99,14 @@ describe("AG04 listAgentDirectory", () => {
     expect(out.find((c) => c.agentId === "a2")!.readiness).toBe("unknown");
   });
 
+  it("readiness：toolPolicy 非空但本组织已发布白名单内的 Workflow → ready；一个都没发布 → unknown", async () => {
+    const launchable = { publishedWorkflowIds: async () => new Set(["W001"]) };
+    const d = { ...deps({ rows: [row({ agentId: "a1", toolPolicyLength: 1, workflowAllowlist: ["W001", "W002"] }), row({ agentId: "a2", toolPolicyLength: 1, workflowAllowlist: ["W002"] })] }), launchable };
+    const out = await listAgentDirectory({ orgId: ORG, actorId: "u1", roleCategory: null, q: null }, d);
+    expect(out.find((c) => c.agentId === "a1")).toMatchObject({ readiness: "ready", workflows: [{ stableId: "W001" }] });
+    expect(out.find((c) => c.agentId === "a2")).toMatchObject({ readiness: "unknown", workflows: [] });
+  });
+
   it("workflowAllowlist 解析出名称；解析失败（reject 或 null）回退 stableId", async () => {
     const d = deps({
       rows: [row({ workflowAllowlist: ["W001", "W002", "W003"] })],

@@ -8,7 +8,7 @@
  */
 import { agentRole, wave2Runtime } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest } from "./api-client";
 
 export type AgentDirectoryCard = z.infer<typeof agentRole.AgentDirectoryCard>;
 export type AgentRoleCategory = z.infer<typeof agentRole.AgentRoleCategory>;
@@ -51,8 +51,39 @@ export async function getOfficialRolePackOffer(): Promise<OfficialRolePackOffer>
   return agentRole.operations.getOfficialRolePackOffer.out.parse(out);
 }
 
-/** 管理员一键启用：走既有官方角色包导入（UC-3），幂等键按包坐标固定，重复点击回放同一结果。 */
-export async function enableOfficialRolePack(offer: Pick<OfficialRolePackOffer, "packId" | "packVersion">): Promise<void> {
+/** 一键启用的进度：第 `step` 步（从 1 起）/ 共 `total` 步，`label` 是给人看的这一步在做什么。 */
+export interface EnableProgress {
+  readonly step: number;
+  readonly total: number;
+  readonly label: string;
+}
+
+/**
+ * 管理员一键启用 = 「启用即可用」（2026-09-30 人类代决）：
+ *   1. 逐个导入要约里的 `requiredSkillPacks`（既有 `importSkillStarterPack`，服务端导入后发布内置 Workflow）；
+ *   2. 导入官方角色包（既有 UC-3 导入）。
+ * 幂等键都按包坐标固定——重复点击 / 中途失败后重试回放同一结果，不重复落库。
+ * Skill 包 409（本组织已用别的幂等键导入过同一包）视为「已具备」继续；其余失败原样抛出。
+ */
+export async function enableOfficialRolePack(
+  offer: Pick<OfficialRolePackOffer, "packId" | "packVersion"> & { readonly requiredSkillPacks?: OfficialRolePackOffer["requiredSkillPacks"] },
+  onProgress?: (p: EnableProgress) => void,
+): Promise<void> {
+  const packs = offer.requiredSkillPacks ?? [];
+  const total = packs.length + 1;
+  const skillOp = wave2Runtime.operations.importSkillStarterPack;
+  for (const [i, pack] of packs.entries()) {
+    onProgress?.({ step: i + 1, total, label: "准备数字人需要的技能与流程" });
+    try {
+      await apiRequest<unknown>(skillOp.path, {
+        method: "POST",
+        body: { packId: pack.packId, packVersion: pack.packVersion, idempotencyKey: `picker-enable-skill-${pack.packId}@${pack.packVersion}` },
+      });
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 409)) throw error;
+    }
+  }
+  onProgress?.({ step: total, total, label: "启用官方数字人" });
   const op = wave2Runtime.operations.importAgentStarterPack;
   await apiRequest<unknown>(op.path, {
     method: "POST",

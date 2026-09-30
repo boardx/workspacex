@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPickerGroups, shortReason, subtitleFor } from "@/lib/capability-picker-model";
+import { buildPickerGroups, shortReason, strengthsFor, subtitleFor } from "@/lib/capability-picker-model";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { AgentDirectoryCard, PendingOfficialRole } from "@/lib/agent-directory";
 
@@ -49,5 +49,14 @@ describe("capability picker model", () => {
   it("shortReason keeps the first clause", () => {
     expect(shortReason("该 Agent 尚无可用的已发布版本，请联系管理员。")).toBe("尚无可用的已发布版本");
     expect(shortReason(null)).toBe("暂不可用");
+  });
+
+  it("擅长不回显名字：duty(≠名字/头衔) → 标签 (无则分类) → 流程 → null", () => {
+    expect(strengthsFor({ name: "设计思维专家", duty: "设计思维专家" }, card("a", { roleLabel: "设计思维专家", tags: ["设计", "创新"] }))).toBe("设计、创新");
+    expect(strengthsFor({ name: "A", duty: "把问题拆成可验证的假设" }, card("a"))).toBe("把问题拆成可验证的假设");
+    const flows = ["一", "二", "三", "四"].map((n, i) => ({ stableId: `W00${i}`, name: n })) as unknown as AgentDirectoryCard["workflows"];
+    expect(strengthsFor({ name: "A", duty: "A" }, card("a", { workflows: flows }))).toBe("一、二、三 等");
+    expect(strengthsFor({ name: "A", duty: null }, card("a", { roleCategory: "research" }))).toBe("研究");
+    expect(strengthsFor({ name: "A", duty: null }, undefined)).toBeNull();
   });
 });
