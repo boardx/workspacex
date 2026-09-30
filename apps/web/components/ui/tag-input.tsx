@@ -179,3 +179,49 @@ export function commitDraft(
   if (opts?.maxTags !== undefined && value.length >= opts.maxTags) return value;
   return [...value, t];
 }
+
+/**
+ * 表单里的「标签」一栏：标题 +「n/上限」计数 + 共享 `TagInput`。创建/编辑弹窗一律用它，
+ * 不再各写一份「Badge 芯片 + 输入框」。上限/长度必须由调用方按自己模块的契约传入。
+ * 计数的 testid 是 `${testIdPrefix}-count`。
+ */
+export function TagField({
+  label = "标签（可选）", value, onChange, draft, onDraftChange, knownTags, maxTags, maxTagLength, noteFor, disabled, testIdPrefix, emptyHint,
+}: {
+  label?: string;
+  value: readonly string[];
+  onChange: (next: readonly string[]) => void;
+  draft: string;
+  onDraftChange: (next: string) => void;
+  knownTags?: ReadonlyMap<string, number>;
+  maxTags: number;
+  maxTagLength: number;
+  noteFor?: (count: number) => string;
+  disabled?: boolean;
+  testIdPrefix: string;
+  emptyHint?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-13 font-medium text-card-foreground">{label}</span>
+        <span data-testid={`${testIdPrefix}-count`} className="text-11 text-muted-foreground">{String(value.length)}/{String(maxTags)}</span>
+      </div>
+      <TagInput
+        value={value}
+        onChange={onChange}
+        knownTags={knownTags ?? EMPTY_KNOWN}
+        noteFor={noteFor ?? ((n) => (n > 0 ? `${String(n)} 个在用` : ""))}
+        maxTags={maxTags}
+        maxTagLength={maxTagLength}
+        disabled={disabled}
+        draft={draft}
+        onDraftChange={onDraftChange}
+        testIdPrefix={testIdPrefix}
+        emptyHint={emptyHint}
+      />
+    </div>
+  );
+}
+
+const EMPTY_KNOWN: ReadonlyMap<string, number> = new Map();

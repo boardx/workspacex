@@ -23,7 +23,7 @@ describe("LiveSurveyLibrary", () => {
     render(<LiveSurveyLibrary />);await screen.findByRole('heading',{name:'还没有问卷'});
     fireEvent.click(screen.getByTestId('survey-create-primary'));
     fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'产品调研'}});
-    fireEvent.change(screen.getByLabelText('标签'),{target:{value:'产品'}});
+    fireEvent.change(screen.getByTestId('survey-create-tag-input'),{target:{value:'产品'}});
     fireEvent.click(screen.getByRole('button',{name:'下一步'}));
     await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/created/design'));
     expect(request).toHaveBeenLastCalledWith('/surveys',expect.objectContaining({method:'POST',body:expect.objectContaining({title:'产品调研',tags:['产品'],questions:[]})}),expect.anything());
@@ -112,7 +112,7 @@ describe("LiveSurveyLibrary", () => {
     render(<LiveSurveyLibrary />);
     await screen.findByRole('link',{name:'员工体验'});
     expect(screen.queryByRole('button',{name:/草稿.*筛选/})).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button',{name:'客户调研'}));
+    fireEvent.click(screen.getByRole('button',{name:/^客户调研/}));
     expect(screen.getByRole('link',{name:'客户满意度'})).toBeInTheDocument();
     expect(screen.queryByRole('link',{name:'员工体验'})).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:'报告模板'})).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe("LiveSurveyLibrary", () => {
     await screen.findByRole("link", { name: "客户满意度" });
     expect(screen.queryByRole("button", { name: "标签8" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /更多标签/ }));
-    fireEvent.click(screen.getByRole("button", { name: "标签8" }));
+    fireEvent.click(screen.getByRole("button", { name: /^标签8/ }));
     expect(screen.getByRole("link", { name: "客户满意度" })).toBeInTheDocument();
   });
 });

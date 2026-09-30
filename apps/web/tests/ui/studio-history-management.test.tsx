@@ -15,7 +15,7 @@ describe("Studio history management", () => {
     const save = vi.fn(() => new Promise<void>(done => { resolve = done; }));
     const closed = edit(save);
     fireEvent.change(screen.getByTestId("test-edit-name"), { target: { value: "  新名称  " } });
-    fireEvent.change(screen.getByTestId("test-edit-tags"), { target: { value: " 新标签 " } });
+    fireEvent.change(screen.getByTestId("test-edit-tag-input"), { target: { value: " 新标签 " } });
     const form = screen.getByTestId("test-edit-submit").closest("form")!;
     fireEvent.submit(form);
     fireEvent.submit(form);
@@ -31,12 +31,12 @@ describe("Studio history management", () => {
     const save = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(undefined);
     const closed = edit(save);
     fireEvent.change(screen.getByTestId("test-edit-name"), { target: { value: "保留名称" } });
-    fireEvent.change(screen.getByTestId("test-edit-tags"), { target: { value: "保留标签" } });
+    fireEvent.change(screen.getByTestId("test-edit-tag-input"), { target: { value: "保留标签" } });
     fireEvent.click(screen.getByTestId("test-edit-submit"));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(closed).not.toHaveBeenCalled();
     expect(screen.getByTestId("test-edit-name")).toHaveValue("保留名称");
-    expect(screen.getByTestId("test-edit-tags")).toHaveValue("保留标签");
+    expect(screen.getByTestId("test-edit-tag-input")).toHaveValue("保留标签");
     fireEvent.click(screen.getByTestId("test-edit-submit"));
     await waitFor(() => expect(closed).toHaveBeenCalledWith(false));
     expect(save).toHaveBeenCalledTimes(2);

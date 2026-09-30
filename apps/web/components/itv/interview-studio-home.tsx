@@ -192,7 +192,7 @@ export function InterviewStudioHome({
         )}
         </Tabs>
       </div>
-      <DigitalInterviewCreateModal open={createOpen} onOpenChange={setCreateOpen} projectId={projectId} />
+      <DigitalInterviewCreateModal open={createOpen} onOpenChange={setCreateOpen} projectId={projectId} knownTags={new Map(availableTags.map((t) => [t, 0] as const))} />
     </main>
   );
 }

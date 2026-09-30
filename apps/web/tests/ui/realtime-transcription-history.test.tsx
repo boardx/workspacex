@@ -233,8 +233,8 @@ describe("实时转录历史工作台", () => {
 
     fireEvent.click(screen.getByTestId("rec-create-open"));
     fireEvent.change(screen.getByTestId("rec-create-name"), { target: { value: "江西九江" } });
-    fireEvent.change(screen.getByTestId("rec-create-tags"), { target: { value: "客户成功" } });
-    fireEvent.keyDown(screen.getByTestId("rec-create-tags"), { key: "Enter" });
+    fireEvent.change(screen.getByTestId("rec-create-tag-input"), { target: { value: "客户成功" } });
+    fireEvent.keyDown(screen.getByTestId("rec-create-tag-input"), { key: "Enter" });
     fireEvent.click(screen.getByTestId("rec-create-submit"));
 
     await waitFor(() => expect(api.create).toHaveBeenCalledWith(
@@ -264,7 +264,7 @@ describe("实时转录历史工作台", () => {
     await waitFor(() => expect(api.list).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId("rec-create-open"));
     fireEvent.change(screen.getByTestId("rec-create-name"), { target: { value: "江西九江" } });
-    fireEvent.change(screen.getByTestId("rec-create-tags"), { target: { value: "江西" } });
+    fireEvent.change(screen.getByTestId("rec-create-tag-input"), { target: { value: "江西" } });
     fireEvent.click(screen.getByTestId("rec-create-submit"));
 
     await waitFor(() => expect(api.create).toHaveBeenCalledWith(
@@ -441,8 +441,8 @@ describe("实时转录历史工作台", () => {
     fireEvent.click(await screen.findByTestId("rec-history-edit-europe-entry"));
     expect(screen.getByTestId("rec-edit-dialog")).toBeVisible();
     fireEvent.change(screen.getByTestId("rec-edit-name"), { target: { value: "欧洲市场复盘" } });
-    fireEvent.change(screen.getByTestId("rec-edit-tags"), { target: { value: "合规" } });
-    fireEvent.keyDown(screen.getByTestId("rec-edit-tags"), { key: "Enter" });
+    fireEvent.change(screen.getByTestId("rec-edit-tag-input"), { target: { value: "合规" } });
+    fireEvent.keyDown(screen.getByTestId("rec-edit-tag-input"), { key: "Enter" });
     fireEvent.click(screen.getByTestId("rec-edit-submit"));
 
     await waitFor(() => expect(api.updateMetadata).toHaveBeenCalledWith("europe-entry", {

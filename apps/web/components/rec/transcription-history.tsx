@@ -420,7 +420,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
         />
       </div>
 
-      <CreateTranscriptionDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={createTranscription} />
+      <CreateTranscriptionDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={createTranscription} knownTags={new Map(tags.map((t) => [t, 0] as const))} />
       {editItem && <EditTranscriptionDialog open initialName={editItem.title} initialTags={editItem.tags}
         onOpenChange={(open) => { if (!open) setEditItem(null); }}
         onSave={(draft) => saveMetadata(editItem, draft)} />}

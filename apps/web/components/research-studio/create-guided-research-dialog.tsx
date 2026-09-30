@@ -3,10 +3,11 @@
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TagField, commitDraft } from "@/components/ui/tag-input";
+import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
 
 const DEFAULT_RESEARCH_NAME = "未命名研究";
 
@@ -19,13 +20,16 @@ export function CreateGuidedResearchDialog({
   open,
   onOpenChange,
   onContinue,
+  knownTags,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onContinue: (draft: GuidedResearchCreateDraft) => void;
+  /** 已有标签词表，给输入框做建议；不给就没有建议。 */
+  knownTags?: ReadonlyMap<string, number>;
 }) {
   const [title, setTitle] = React.useState(DEFAULT_RESEARCH_NAME);
-  const [tags, setTags] = React.useState<string[]>([]);
+  const [tags, setTags] = React.useState<readonly string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
 
   function reset() {
@@ -39,21 +43,11 @@ export function CreateGuidedResearchDialog({
     if (!next) reset();
   }
 
-  function addTag() {
-    const next = tagDraft.trim();
-    if (!next || tags.includes(next) || tags.length >= 5) return;
-    setTags((current) => [...current, next]);
-    setTagDraft("");
-  }
-
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextTitle = title.trim();
     if (!nextTitle) return;
-    const pendingTag = tagDraft.trim();
-    const submittedTags = pendingTag && !tags.includes(pendingTag) && tags.length < 5
-      ? [...tags, pendingTag]
-      : tags;
+    const submittedTags = commitDraft(tags, tagDraft, STUDIO_TAG_LIMITS);
     onContinue({ title: nextTitle, tags: submittedTags });
     changeOpen(false);
   }
@@ -95,38 +89,15 @@ export function CreateGuidedResearchDialog({
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="research-create-tags" className="text-13">标签（可选）</Label>
-                <span className="text-11 text-muted-foreground">{tags.length}/5</span>
-              </div>
-              <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-md border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
-                {tags.map((tag) => (
-                  <Badge key={tag} tone="neutral" className="gap-1 py-1">
-                    {tag}
-                    <button type="button" aria-label={`移除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((item) => item !== tag))}>
-                      <X className="h-3 w-3" aria-hidden />
-                    </button>
-                  </Badge>
-                ))}
-                <Input
-                  id="research-create-tags"
-                  data-testid="research-create-tags"
-                  value={tagDraft}
-                  disabled={tags.length >= 5}
-                  maxLength={20}
-                  aria-label="添加研究标签"
-                  placeholder={tags.length >= 5 ? "最多 5 个标签" : "添加标签，按回车确认"}
-                  className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  onChange={(event) => setTagDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === "," || event.key === "，") {
-                      event.preventDefault();
-                      addTag();
-                    }
-                  }}
-                />
-              </div>
-              <p className="text-11 text-muted-foreground">标签可选，最多添加 5 个</p>
+              <TagField
+                value={tags}
+                onChange={setTags}
+                draft={tagDraft}
+                onDraftChange={setTagDraft}
+                knownTags={knownTags}
+                {...STUDIO_TAG_LIMITS}
+                testIdPrefix="research-create-tag"
+              />
             </div>
 
             <div className="mt-2 flex justify-end gap-3">

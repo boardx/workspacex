@@ -83,3 +83,10 @@ export function matchesQuery(
 export function searchPlaceholder(business: string): string {
   return `搜索${business}名称或标签`;
 }
+
+/**
+ * 研究 / 访谈 / 录音 / 问卷这几个 Studio 的标签上限：≤5 个、单个 ≤20 字
+ * （镜像各自契约：`research.ts`、`personal-realtime-transcription.ts`、`SurveyTagsSchema`）。
+ * 其他模块（项目 20、设计 8、Agent 10、收件箱 20/32……）用自己契约里的常量，不要套这一组。
+ */
+export const STUDIO_TAG_LIMITS = { maxTags: 5, maxTagLength: 20 } as const;

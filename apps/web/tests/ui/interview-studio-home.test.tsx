@@ -246,7 +246,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     activateDropdownTrigger(await screen.findByTestId("itv-history-actions-itv-managed"));
     fireEvent.click(await screen.findByTestId("itv-history-edit-itv-managed"));
     fireEvent.change(screen.getByTestId("itv-edit-name"), { target: { value: "正式修改" } });
-    fireEvent.change(screen.getByTestId("itv-edit-tags"), { target: { value: "新标签" } });
+    fireEvent.change(screen.getByTestId("itv-edit-tag-input"), { target: { value: "新标签" } });
     fireEvent.click(screen.getByTestId("itv-edit-submit"));
     await waitFor(() => expect(screen.queryByTestId("itv-edit-dialog")).not.toBeInTheDocument());
     expect(await screen.findByText("正式修改")).toBeInTheDocument();
@@ -308,11 +308,11 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       fireEvent.change(tagInput, { target: { value: tag } });
       fireEvent.keyDown(tagInput, { key: "Enter" });
     }
-    expect(within(dialog).getAllByTestId("itv-create-tag")).toHaveLength(5);
+    expect(within(dialog).getAllByTestId(/^itv-create-tag-chip-/)).toHaveLength(5);
     expect(tagInput).toBeDisabled();
     expect(within(dialog).getByTestId("itv-create-scope")).toHaveTextContent("独立访谈");
 
-    fireEvent.click(within(dialog).getByLabelText("删除标签 B2B"));
+    fireEvent.click(within(dialog).getByLabelText("移除标签 B2B"));
     expect(tagInput).toBeEnabled();
     fireEvent.click(within(dialog).getByTestId("itv-create-submit"));
 
@@ -436,8 +436,8 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "修改" }));
     fireEvent.change(screen.getByTestId("itv-edit-name"), { target: { value: "新版采购访谈" } });
     fireEvent.click(screen.getByLabelText("移除标签 采购"));
-    fireEvent.change(screen.getByTestId("itv-edit-tags"), { target: { value: "德国" } });
-    fireEvent.keyDown(screen.getByTestId("itv-edit-tags"), { key: "Enter" });
+    fireEvent.change(screen.getByTestId("itv-edit-tag-input"), { target: { value: "德国" } });
+    fireEvent.keyDown(screen.getByTestId("itv-edit-tag-input"), { key: "Enter" });
     fireEvent.click(screen.getByTestId("itv-edit-submit"));
 
     expect(await screen.findByText("新版采购访谈")).toBeInTheDocument();

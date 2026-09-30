@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import {
-  ArrowRight, ChevronDown, Clock3, FileText,
+  ArrowRight, Clock3, FileText,
   MoreHorizontal, Plus, Search,
 } from "lucide-react";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { aggregateTags, matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
@@ -115,13 +117,11 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState("");
   const [query, setQuery] = React.useState("");
-  const [tag, setTag] = React.useState<string | null>(null);
-  const [showAllTags, setShowAllTags] = React.useState(false);
+  const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
   const [creating, setCreating] = React.useState(false);
-  const tags = [...new Set(items.flatMap((item) => item.tags ?? []))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const tagMap = React.useMemo(() => aggregateTags(items), [items]);
   const visibleItems = items
-    .filter((item) => (!tag || item.tags?.includes(tag)) && [item.title, ...(item.tags ?? [])]
-      .some((text) => text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
+    .filter((item) => matchesTags(item.tags ?? [], selectedTags) && matchesQuery(query, [item.title], item.tags ?? []))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   const refresh = React.useCallback(async () => {
@@ -168,7 +168,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
             <Input
               className="w-full pl-9"
               aria-label="搜索问卷"
-              placeholder="搜索问卷名称、标签或关键词…"
+              placeholder={searchPlaceholder("问卷")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -181,14 +181,8 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         <SurveyLibraryNav active="surveys" />
 
         <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
-          <div className="flex flex-wrap items-center gap-2" aria-label="标签筛选">
-            <Button size="sm" className="rounded-full" variant={tag === null ? "primary" : "secondary"} onClick={() => setTag(null)}>全部</Button>
-            {(showAllTags ? tags : tags.slice(0, 7)).map((value) => <Button key={value} size="sm" className="rounded-full" variant={tag === value ? "primary" : "secondary"} onClick={() => setTag(value)}>{value}</Button>)}
-            {tags.length > 7 && (
-              <Button size="sm" className="rounded-full" variant="outline" aria-expanded={showAllTags} onClick={() => setShowAllTags((value) => !value)}>
-                {showAllTags ? "收起标签" : "更多标签"}<ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform duration-base ${showAllTags ? "rotate-180" : ""}`} />
-              </Button>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
+            <TagFilterBar tags={[...tagMap.entries()].map(([t, count]) => ({ tag: t, count }))} selected={selectedTags} onChange={setSelectedTags} prefix="survey" business="问卷" maxVisible={7} />
             <span className="ml-auto text-12 text-muted-foreground">共 {items.length} 个问卷</span>
           </div>
 
@@ -220,7 +214,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           )}
 
           {!busy && !error && items.length > 0 && visibleItems.length === 0 && (
-            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setTag(null); }}>清除筛选</Button></div>
+            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setSelectedTags([]); }}>清除筛选</Button></div>
           )}
           {!busy && !error && items.length === 0 && (
             <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
@@ -232,7 +226,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         </section>
       </div>
 
-      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id, mode, draft) => {
+      <CreateSurveyDialog knownTags={tagMap} open={creating} onOpenChange={setCreating} onCreated={async (id, mode, draft) => {
         if (mode === "ai" && draft) {
           router.push(withProjectId(`/studio/survey/new/import?draft=${encodeURIComponent(encodeSurveyCreationDraft(draft))}`, projectId));
           return;
