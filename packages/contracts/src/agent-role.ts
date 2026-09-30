@@ -223,6 +223,30 @@ export const AgentRoleAdminView = z.object({
   version: z.number().int().nonnegative(),
 }).strict();
 
+/**
+ * 官方数字人「待启用」要约（picker-ux，2026-09-30 人类反馈「看不到新增的数字人」）。
+ * 官方角色包的导入仍是管理员动作（UC-3，本读模型不改变它）；这里只让成员/管理员在选人处
+ * **看得到**本组织尚未启用的官方数字人，管理员一键启用走既有 `importAgentStarterPack`。
+ * ⚠ 草案，未签核（additive 只读端点，待 agent-role 契约束补签）。
+ */
+export const OfficialRolePackOffer = z.object({
+  packId: z.string(),
+  packVersion: z.string(),
+  /** 调用者是否组织管理员（= 能否一键启用）。 */
+  canEnable: z.boolean(),
+  /** 本组织尚未导入的官方角色（已导入的不在此列——它们以正常目录卡片出现）。 */
+  pending: z.array(z.object({
+    roleRef: AgentRoleRef,
+    name: z.string(),
+    roleLabel: z.string(),
+    avatar: AgentAvatar.nullable(),
+    roleCategory: AgentRoleCategory,
+    tags: z.array(z.string()),
+    workflowAllowlist: z.array(WorkflowStableId),
+  }).strict()),
+}).strict();
+export type OfficialRolePackOffer = z.infer<typeof OfficialRolePackOffer>;
+
 /* ── 六、operations ───────────────────────────────────────────────────── */
 
 export const operations = {
@@ -235,6 +259,13 @@ export const operations = {
     }).strict(),
     out: z.object({ items: z.array(AgentDirectoryCard) }).strict(),
     err: ["UNAUTHENTICATED", "VALIDATION_FAILED"] as const,
+  },
+  /** 官方数字人待启用要约（见 `OfficialRolePackOffer`）。 */
+  getOfficialRolePackOffer: {
+    method: "GET", path: "/agents/official-role-pack/offer",
+    in: z.object({}).strict(),
+    out: OfficialRolePackOffer,
+    err: ["UNAUTHENTICATED"] as const,
   },
   getAgentDirectoryCard: {
     method: "GET", path: "/agents/directory/:agentId",

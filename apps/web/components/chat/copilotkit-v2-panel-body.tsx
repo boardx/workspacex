@@ -2474,6 +2474,7 @@ export function CopilotKitV2PanelBody({
                     status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
                     selectedAgentId={selectedAgentId}
                     onSelect={(agentId) => onSelectAgent(agentId)}
+                    onListingsChanged={agentOptions.status === "ready" ? agentOptions.reload : undefined}
                     disabled={!canWrite || agentOptions.status !== "ready" || archived}
                   />
                 </span>

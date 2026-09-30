@@ -349,3 +349,30 @@ describe("official agent tags are org-curated (admin edits tags; other official 
     expect((await again.json() as { tags: string[] }).tags).toEqual(["竞品", "行业研究"]);
   });
 });
+
+describe("official role pack offer (GET /agents/official-role-pack/offer — picker 「待启用」)", () => {
+  const getOffer = (userId: string) => fetch(`${base}/agents/official-role-pack/offer`, { headers: authFor(userId) });
+
+  it("lists all 4 official roles as pending before import; member sees them but cannot enable", async () => {
+    const member = await getOffer(MEMBER);
+    expect(member.status).toBe(200);
+    const body = await member.json() as { packId: string; packVersion: string; canEnable: boolean; pending: { roleRef: string; avatar: { key: string } | null; tags: string[] }[] };
+    expect(body).toMatchObject({ packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, canEnable: false });
+    expect(body.pending.map((p) => p.roleRef)).toEqual(["D002", "D003", "D005", "D011"]);
+    expect(body.pending.map((p) => p.avatar?.key)).toEqual(Object.values(officialRoleAvatarKeys()));
+    expect(body.pending[0]!.tags).toEqual(officialRoleTags()["d002-research-knowledge-analyst"]);
+
+    const admin = await (await getOffer(ADMIN)).json() as { canEnable: boolean };
+    expect(admin.canEnable).toBe(true);
+  });
+
+  it("admin one-click enable (existing import) empties pending; the offer read writes nothing", async () => {
+    const before = await counts();
+    await getOffer(ADMIN);
+    expect(await counts()).toEqual(before);
+    const imported = await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
+    expect(imported.status).toBe(201);
+    const after = await (await getOffer(MEMBER)).json() as { pending: unknown[] };
+    expect(after.pending).toEqual([]);
+  });
+});

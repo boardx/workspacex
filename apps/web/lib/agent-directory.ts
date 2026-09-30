@@ -6,7 +6,7 @@
  * `getAgentDirectoryCard` 用例），这一层只把契约里的形状原样送过去、把失败原样带回来。
  * 形状与路径全部来自 `@repo/contracts`，不手写第二份。
  */
-import { agentRole } from "@repo/contracts";
+import { agentRole, wave2Runtime } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -40,4 +40,22 @@ export async function getAgentDirectoryCard(agentId: string): Promise<AgentDirec
     { method: "GET" },
   );
   return agentRole.operations.getAgentDirectoryCard.out.parse(out);
+}
+
+export type OfficialRolePackOffer = z.infer<typeof agentRole.OfficialRolePackOffer>;
+export type PendingOfficialRole = OfficialRolePackOffer["pending"][number];
+
+/** 本组织尚未启用的官方数字人（成员可读；`canEnable` 由服务端按管理员身份裁决）。 */
+export async function getOfficialRolePackOffer(): Promise<OfficialRolePackOffer> {
+  const out = await apiRequest<unknown>(agentRole.operations.getOfficialRolePackOffer.path, { method: "GET" });
+  return agentRole.operations.getOfficialRolePackOffer.out.parse(out);
+}
+
+/** 管理员一键启用：走既有官方角色包导入（UC-3），幂等键按包坐标固定，重复点击回放同一结果。 */
+export async function enableOfficialRolePack(offer: Pick<OfficialRolePackOffer, "packId" | "packVersion">): Promise<void> {
+  const op = wave2Runtime.operations.importAgentStarterPack;
+  await apiRequest<unknown>(op.path, {
+    method: "POST",
+    body: { packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: `picker-enable-${offer.packId}@${offer.packVersion}` },
+  });
 }
