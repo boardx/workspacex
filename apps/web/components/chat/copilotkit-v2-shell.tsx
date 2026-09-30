@@ -1320,6 +1320,7 @@ export function CopilotKitV2Shell({
           sessionToken={bearer ?? undefined}
           refreshKey={handoffRefreshKey}
           onOpenThread={openHandoffThread}
+          onOpenSourceThread={selectThread}
         >
         {/* issue #4244：助手消息引用来自同一次 `getThread`（`onMessageSent` 会重读）。 */}
         <ThreadCitationsProvider messages={threadDetail?.messages}>

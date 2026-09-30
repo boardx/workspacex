@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as React from "react";
+import { agentRole } from "@repo/contracts";
 import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
 import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { ApiError } from "@/lib/api-client";
@@ -16,8 +17,8 @@ afterEach(cleanup);
 
 /** 替身消息流：按面板的摆法把 lead / tail 放在消息前后。 */
 function Stream() {
-  const { lead, tail } = useChatStreamSlots();
-  return <div data-testid="stream">{lead}<p data-testid="msg">消息</p>{tail}</div>;
+  const { lead, tail, draftSeed } = useChatStreamSlots();
+  return <div data-testid="stream">{lead}<p data-testid="msg">消息</p>{tail}<output data-testid="seed">{draftSeed?.text ?? ""}</output></div>;
 }
 const agents: Record<string, { name: string; initials: string; roleLabel: string }> = {
   "agt-d001": { name: "研究助理", initials: "研", roleLabel: "研究与知识分析" },
@@ -63,7 +64,7 @@ describe("ChatHandoffPanel", () => {
     expect(card.textContent).toContain("2 份（接收方将按你的权限重新读取）");
     // 消息流里 Agent 的一条消息：排在消息之后，带发出者名字 + 时间；目标带角色。
     const stream = screen.getByTestId("stream");
-    expect(stream.lastElementChild?.contains(card)).toBe(true);
+    expect(stream.children[stream.children.length - 2]?.contains(card)).toBe(true);
     await waitFor(() => expect(screen.getByTestId("handoff-message-author").textContent).toBe("研究助理"));
     expect(screen.getByTestId("handoff-message-time").textContent).toMatch(/^\d{2}:\d{2}$/);
     expect(screen.getByTestId("handoff-target").textContent).toContain("产品需求负责人");
@@ -139,13 +140,39 @@ describe("ChatHandoffPanel", () => {
   it("拒绝提示：取服务端中文句子，不把给模型的指令摆给用户；已登记的不提示", () => {
     expect(handoffRefusalNotice("该角色不能转交给 D003，未发起转交。当前对话会继续。 不要改转给其它角色，也不要重试；请把这句话告诉用户。"))
       .toBe("该角色不能转交给 D003，未发起转交。当前对话会继续。");
+    // loopback 替身的工具结果是裸句子（没有给模型的后缀）——同样认得出。
+    expect(handoffRefusalNotice("该角色不能转交给 D003，未发起转交。当前对话会继续；如需要，可以直接联系对应负责人。"))
+      .toBe("该角色不能转交给 D003，未发起转交。当前对话会继续；如需要，可以直接联系对应负责人。");
+    expect(handoffRefusalNotice("已提交转交给「产品经理」的请求，等待你在对话中确认；确认后会新开一个对话继续。")).toBeNull();
     expect(handoffRefusalNotice("已提交转交请求。 在用户确认前不要自行继续处理被转交的部分；把这句话告诉用户即可。")).toBeNull();
     expect(handoffRefusalNotice(undefined)).toBeNull();
+    for (const reason of agentRole.HandoffNotAllowedReason.options) {
+      const copy = agentRole.handoffNotAllowedCopy(reason, "产品经理");
+      expect(handoffRefusalNotice(copy)).toBe(copy);
+    }
   });
 
   it("线程标题展示兜底：存量标题里的控制标记剥掉", () => {
     expect(displayThreadTitle("UIUX [start_workflow:W0…")).toBe("UIUX");
     expect(displayThreadTitle("[start_workflow:W029]")).toBeUndefined();
     expect(displayThreadTitle("周报")).toBe("周报");
+  });
+
+  it("来源卡：回到原对话 + 可收起（收起后不再显示）；重新打开时草稿由交接包派生", async () => {
+    localStorage.clear();
+    const load = vi.fn(async (): Promise<ThreadHandoffs> => ({
+      requested: [], origin: { handoff: view({ status: "confirmed", newThreadId: "thr-new" }), evidence: [] },
+    }));
+    const onOpenSourceThread = vi.fn();
+    render(<ChatHandoffPanel threadId="thr-new" load={load} onOpenSourceThread={onOpenSourceThread} />);
+    fireEvent.click(await screen.findByTestId("handoff-origin-open-source"));
+    expect(onOpenSourceThread).toHaveBeenCalledWith("thr-a");
+    expect(screen.getByTestId("seed").textContent).toBe(handoffDraftText(view()));
+    fireEvent.click(screen.getByTestId("handoff-origin-dismiss"));
+    await waitFor(() => expect(screen.queryByTestId("handoff-origin-card")).toBeNull());
+    cleanup();
+    render(<ChatHandoffPanel threadId="thr-new" load={load} />);
+    await waitFor(() => expect(screen.getByTestId("seed").textContent).not.toBe(""));
+    expect(screen.queryByTestId("handoff-origin-card")).toBeNull();
   });
 });

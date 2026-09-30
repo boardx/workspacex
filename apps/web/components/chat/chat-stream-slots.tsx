@@ -12,6 +12,11 @@ import * as React from "react";
 export interface ChatStreamSlots {
   readonly lead: React.ReactNode;
   readonly tail: React.ReactNode;
+  /**
+   * 空线程的首条消息草稿（例：转交新开的线程 = 交接包摘要）。面板只在输入框为空、线程还没有消息时
+   * 填一次（按 `key` 去重）——重新打开线程时草稿仍在，用户已打的字从不覆盖。
+   */
+  readonly draftSeed?: { readonly key: string; readonly text: string } | null;
 }
 
 export const ChatStreamSlotsContext = React.createContext<ChatStreamSlots>({ lead: null, tail: null });

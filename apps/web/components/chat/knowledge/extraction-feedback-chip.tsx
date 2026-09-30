@@ -158,8 +158,12 @@ export function ExtractionFeedbackChip({
   const rememberText = statement?.trim() ?? "";
   if (visible.length === 0 && claims.length === 0 && status === "empty") {
     return (
-      <p className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70" data-testid="kg-extraction-empty">
-        这句没有需要记的
+      <p
+        className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70"
+        data-testid="kg-extraction-empty"
+        title="助手没有从这句话里提取出需要长期记住的信息；如果它很重要，可以手动记住。"
+      >
+        这句话没有自动记入记忆
         {canUndo && rememberText !== "" ? (
           <>
             <span aria-hidden>·</span>
@@ -170,7 +174,7 @@ export function ExtractionFeedbackChip({
               disabled={rememberRequested}
               onClick={() => { setRememberRequested(true); requestRememberStatement(rememberText); }}
             >
-              记一条
+              手动记住
             </button>
           </>
         ) : null}

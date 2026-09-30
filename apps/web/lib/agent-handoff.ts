@@ -93,15 +93,14 @@ export function handoffDraftText(view: HandoffView): string {
 
 /**
  * `request_handoff` 工具结果 → 拒绝时的聊天提示（UIUX r1 屏 4：拒绝也要是一条友好的行内提示）。
- * 结果正文以服务端给出的中文句子开头（`outcome.message`，`deep_agent_service/tools.py`），后面跟着
- * 只给模型看的指令；已登记（等待确认）的那一支由转交卡片承载，这里返回 null。
- * 认不出的形状返回 null——不猜，不把给模型的话摆给用户。
+ * 服务端每句拒绝文案都含契约里的 `HANDOFF_REFUSAL_MARK`（「当前对话会继续」）；截到它所在句的句号为止，
+ * 后面只给模型看的指令（真实工具体会追加，loopback 替身不追加）不上屏。已登记的转交不含它 ⇒ null。
  */
 export function handoffRefusalNotice(result: string | undefined): string | null {
   if (typeof result !== "string") return null;
   const text = result.trim();
-  if (text === "" || text.includes("在用户确认前不要自行继续")) return null;
-  const cut = text.search(/\s*(?:不要改转给其它角色|不要重试)/u);
-  if (cut <= 0) return null;
-  return text.slice(0, cut).trim();
+  const at = text.indexOf(agentRole.HANDOFF_REFUSAL_MARK);
+  if (at < 0) return null;
+  const end = text.indexOf("。", at);
+  return (end < 0 ? text : text.slice(0, end + 1)).trim();
 }

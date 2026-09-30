@@ -230,9 +230,9 @@ describe("ExtractionFeedbackChip · issue #4352「这句没有需要记的 · �
     try {
       render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
       const line = await screen.findByTestId("kg-extraction-empty");
-      expect(line).toHaveTextContent("这句没有需要记的");
+      expect(line).toHaveTextContent("这句话没有自动记入记忆");
       const button = screen.getByTestId("kg-extraction-empty-remember");
-      expect(button).toHaveTextContent("记一条");
+      expect(button).toHaveTextContent("手动记住");
       fireEvent.click(button);
       expect(remembered).toEqual([MESSAGE_TEXT]);
       // 只是请求一次确认卡，不重复发
@@ -267,7 +267,7 @@ describe("ExtractionFeedbackChip · issue #4352「这句没有需要记的 · �
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
       expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
       await vi.advanceTimersByTimeAsync(3_000);
-      expect(await screen.findByTestId("kg-extraction-empty")).toHaveTextContent("这句没有需要记的");
+      expect(await screen.findByTestId("kg-extraction-empty")).toHaveTextContent("这句话没有自动记入记忆");
     } finally {
       vi.useRealTimers();
     }
@@ -278,7 +278,7 @@ describe("ExtractionFeedbackChip · issue #4352「这句没有需要记的 · �
     server.claims = [];
     server.statuses = ["empty"];
     render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
-    expect(await screen.findByTestId("kg-extraction-empty")).toHaveTextContent("这句没有需要记的");
+    expect(await screen.findByTestId("kg-extraction-empty")).toHaveTextContent("这句话没有自动记入记忆");
     expect(screen.queryByTestId("kg-extraction-empty-remember")).not.toBeInTheDocument();
   });
 });

@@ -178,8 +178,14 @@ export const HandoffNotAllowedReason = z.enum([
  * E5 拒绝时聊天可见的文案（中文，不含原因码；「原线程继续，提示用户可手动联系人」）。
  * 单一事实源：API 交回 Agent 的工具结果与前端 handoff 卡片共用这一份，不在两处各写一套。
  */
+/**
+ * 每一句转交拒绝文案都含这半句（E5：原线程继续）——前端据此从工具结果里认出拒绝并截出给用户看的那句，
+ * 无论结果后面有没有跟着只给模型看的指令（真实工具体有、loopback 替身没有）。
+ */
+export const HANDOFF_REFUSAL_MARK = "当前对话会继续";
+
 export function handoffNotAllowedCopy(reason: z.infer<typeof HandoffNotAllowedReason>, targetRole: string): string {
-  const tail = "当前对话会继续；如需要，可以直接联系对应负责人。";
+  const tail = `${HANDOFF_REFUSAL_MARK}；如需要，可以直接联系对应负责人。`;
   switch (reason) {
     case "target_not_in_allowed_targets":
       return `该角色不能转交给 ${targetRole}，未发起转交。${tail}`;

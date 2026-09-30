@@ -1872,6 +1872,13 @@ export function CopilotKitV2PanelBody({
   // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
   // 也需要用到的这一份判断起个名字，不是新开一套判定。
   const streamSlots = useChatStreamSlots();
+  const seededDraftKey = React.useRef<string | null>(null);
+  const draftSeed = streamSlots.draftSeed ?? null;
+  React.useEffect(() => {
+    if (!draftSeed || seededDraftKey.current === draftSeed.key || historyLoading || projectedMessages.length > 0) return;
+    seededDraftKey.current = draftSeed.key;
+    if (inputDraftRef.current.trim() === "") setInputDraft(draftSeed.text);
+  }, [draftSeed, historyLoading, projectedMessages.length, setInputDraft]);
   const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail;
 
   return (

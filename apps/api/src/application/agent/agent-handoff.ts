@@ -15,7 +15,7 @@
  *
  * 交接包只含引用 ID（`HandoffPacket.strict()`：多带一个摘录字段即整包拒绝）。
  */
-import { RequestHandoffArgs, type HandoffPacket } from "@repo/contracts/agent-role";
+import { HANDOFF_REFUSAL_MARK, RequestHandoffArgs, type HandoffPacket } from "@repo/contracts/agent-role";
 import type { z } from "zod";
 import {
   decideHandoff, handoffNotAllowedMessage, parseDelegationPolicy,
@@ -105,8 +105,8 @@ export type AgentHandoffOutcome =
 
 function refused(reason: AgentHandoffRefusalReason, targetRole: string | null): AgentHandoffOutcome {
   let message: string;
-  if (reason === "invalid_request") message = "转交请求的内容不完整（需要目标角色与交接包），未发起转交。当前对话会继续。";
-  else if (reason === "handoff_unavailable") message = "转交功能暂不可用，未发起转交。当前对话会继续；如需要，可以直接联系对应负责人。";
+  if (reason === "invalid_request") message = `转交请求的内容不完整（需要目标角色与交接包），未发起转交。${HANDOFF_REFUSAL_MARK}。`;
+  else if (reason === "handoff_unavailable") message = `转交功能暂不可用，未发起转交。${HANDOFF_REFUSAL_MARK}；如需要，可以直接联系对应负责人。`;
   else message = handoffNotAllowedMessage(reason, targetRole ?? "目标角色");
   return { status: "refused", targetRole, reason, message };
 }

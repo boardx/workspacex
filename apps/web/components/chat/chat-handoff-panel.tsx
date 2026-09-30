@@ -1,13 +1,13 @@
 "use client";
 import * as React from "react";
-import { ArrowRight, FileText, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, Lock, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatStreamSlotsContext } from "@/components/chat/chat-stream-slots";
 import { getAgentDirectoryCard, type AgentDirectoryCard } from "@/lib/agent-directory";
 import {
-  HANDOFF_SOURCE_UNAVAILABLE_COPY, cancelHandoff, confirmHandoff, handoffFailureText, handoffQuestionText, handoffRejectedText,
+  HANDOFF_SOURCE_UNAVAILABLE_COPY, cancelHandoff, confirmHandoff, handoffDraftText, handoffFailureText, handoffQuestionText, handoffRejectedText,
   handoffStatusText, listThreadHandoffs, type ConfirmHandoffResult, type HandoffEvidenceItem, type HandoffView, type ThreadHandoffs,
 } from "@/lib/agent-handoff";
 
@@ -29,6 +29,7 @@ export function ChatHandoffStream({
   sessionToken,
   refreshKey = 0,
   onOpenThread,
+  onOpenSourceThread,
   load = listThreadHandoffs,
   confirm = confirmHandoff,
   cancel = cancelHandoff,
@@ -39,6 +40,8 @@ export function ChatHandoffStream({
   sessionToken?: string;
   refreshKey?: number;
   onOpenThread?: (result: ConfirmHandoffResult, view: HandoffView) => void;
+  /** 来源卡「回到原对话」。 */
+  onOpenSourceThread?: (threadId: string) => void;
   load?: typeof listThreadHandoffs;
   confirm?: typeof confirmHandoff;
   cancel?: typeof cancelHandoff;
@@ -48,6 +51,15 @@ export function ChatHandoffStream({
   const [data, setData] = React.useState<ThreadHandoffs | null>(null);
   const [reloadTick, setReloadTick] = React.useState(0);
   const agents = useAgentCards(data, loadAgent);
+  const [dismissed, setDismissed] = React.useState<ReadonlySet<string>>(() => new Set());
+  const originId = data?.origin?.handoff.handoffId ?? null;
+  React.useEffect(() => {
+    if (originId && readDismissed(originId)) setDismissed((prev) => new Set(prev).add(originId));
+  }, [originId]);
+  const dismissOrigin = React.useCallback((handoffId: string) => {
+    writeDismissed(handoffId);
+    setDismissed((prev) => new Set(prev).add(handoffId));
+  }, []);
 
   React.useEffect(() => {
     if (!threadId) { setData(null); return; }
@@ -61,10 +73,18 @@ export function ChatHandoffStream({
   }, [threadId, sessionToken, refreshKey, reloadTick, load]);
 
   const slots = React.useMemo(() => {
-    if (!data || (data.requested.length === 0 && data.origin === null)) return { lead: null, tail: null };
-    const lead = data.origin ? (
+    if (!data || (data.requested.length === 0 && data.origin === null)) return { lead: null, tail: null, draftSeed: null };
+    const origin = data.origin;
+    const draftSeed = origin ? { key: origin.handoff.handoffId, text: handoffDraftText(origin.handoff) } : null;
+    const lead = origin && !dismissed.has(origin.handoff.handoffId) ? (
       <div data-testid="chat-handoff-panel" className="pb-3">
-        <HandoffOriginCard handoff={data.origin.handoff} evidence={data.origin.evidence} agents={agents} />
+        <HandoffOriginCard
+          handoff={origin.handoff}
+          evidence={origin.evidence}
+          agents={agents}
+          onOpenSource={onOpenSourceThread ? () => onOpenSourceThread(origin.handoff.sourceThreadId) : undefined}
+          onDismiss={() => dismissOrigin(origin.handoff.handoffId)}
+        />
       </div>
     ) : null;
     const tail = data.requested.length > 0 ? (
@@ -87,10 +107,19 @@ export function ChatHandoffStream({
         ))}
       </div>
     ) : null;
-    return { lead, tail };
-  }, [data, agents, confirm, cancel, sessionToken, onOpenThread]);
+    return { lead, tail, draftSeed };
+  }, [data, agents, confirm, cancel, sessionToken, onOpenThread, onOpenSourceThread, dismissed, dismissOrigin]);
 
   return <ChatStreamSlotsContext.Provider value={slots}>{children}</ChatStreamSlotsContext.Provider>;
+}
+
+/** 来源卡收起与否是本人浏览器里的便利（不是共享状态）；存储不可用时照常显示，不报错。 */
+const DISMISS_KEY = (handoffId: string) => `handoff-origin-dismissed:${handoffId}`;
+function readDismissed(handoffId: string): boolean {
+  try { return localStorage.getItem(DISMISS_KEY(handoffId)) === "1"; } catch { return false; }
+}
+function writeDismissed(handoffId: string): void {
+  try { localStorage.setItem(DISMISS_KEY(handoffId), "1"); } catch { /* 只在本次会话里收起 */ }
 }
 
 type AgentCards = ReadonlyMap<string, AgentDirectoryCard>;
@@ -298,11 +327,13 @@ function HandoffRequestMessage({
 }
 
 function HandoffOriginCard({
-  handoff, evidence, agents,
+  handoff, evidence, agents, onOpenSource, onDismiss,
 }: {
   handoff: HandoffView;
   evidence: readonly HandoffEvidenceItem[];
   agents: AgentCards;
+  onOpenSource?: () => void;
+  onDismiss: () => void;
 }) {
   const source = agents.get(handoff.sourceAgentId);
   const target = agents.get(handoff.targetAgentId ?? "");
@@ -312,7 +343,19 @@ function HandoffOriginCard({
       <section className="flex flex-col gap-3 rounded-card border border-border bg-card p-3 shadow-sm" data-testid="handoff-origin-card" aria-label="转交来的对话">
         <div className="flex items-center justify-between gap-2">
           <p className="text-12 text-card-foreground">这是转交给 {targetName} 的对话</p>
-          <Badge tone="success">已转交</Badge>
+          <div className="flex items-center gap-1">
+            <Badge tone="success">已转交</Badge>
+            <Button
+              size="xs"
+              variant="ghost"
+              aria-label="收起转交卡片"
+              title="收起转交卡片"
+              data-testid="handoff-origin-dismiss"
+              onClick={onDismiss}
+            >
+              <X aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         <TargetRow view={handoff} agent={target} />
         <PacketSummary view={handoff} />
@@ -339,6 +382,12 @@ function HandoffOriginCard({
               </li>
             ))}
           </ul>
+        )}
+        {onOpenSource && (
+          <Button size="xs" variant="ghost" className="w-fit px-1" data-testid="handoff-origin-open-source" onClick={onOpenSource}>
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
+            回到原对话
+          </Button>
         )}
         <p className="text-11 text-muted-foreground" data-testid="handoff-origin-draft-hint">
           {targetName}还没有开始处理：确认下方输入框里的交接草稿（可补充）后发送，TA 就会接手。
