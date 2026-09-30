@@ -178,7 +178,7 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-workbench")).toBeVisible();
     const projectCard = page.getByTestId(`project-card-${projectId}`);
     await expect(projectCard).toBeVisible();
-    // 2026-09-30：设计卡片统一成标准 ResourceCard，编辑/删除收进「⋯」菜单
+    // design-delta `novice-workbench-list`：编辑收进了卡片的「⋯」菜单。
     await page.getByTestId(`project-more-${projectId}`).click();
     await page.getByTestId(`project-edit-${projectId}`).click();
     const editDialog = page.getByTestId("project-dialog");
