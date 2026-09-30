@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useOptionalSession } from "@/components/session/session-provider";
 import { ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -392,12 +393,16 @@ export function ProjectWorkbench({
    * 是必填字段，服务端不会替这条读路径从 principal 推断组织；没有 `?org=` 或未登录时
    * 保持 `null`，`TabResults` 据此显示诚实的「暂无真实数据」而不是空转（同 F353 纪律）。
    */
+  // 审计只读本项目的事件，链接没带 `?org=`（直接输入 / 收藏 / 邀请落地后跳转）时用当前会话所在的组织，
+  // 不再把它误报成「没登录」。项目基本信息（findProject）仍只认 `?org=`：不带时不发那次请求，避免非成员 403。
+  const sessionOrg = useOptionalSession()?.session?.currentOrgId;
+  const queryOrg = qs.org ?? sessionOrg;
   const [liveAudit, setLiveAudit] = React.useState<QueryProvenanceOut | null>(null);
   const [liveAuditLoading, setLiveAuditLoading] = React.useState(false);
   const [liveAuditError, setLiveAuditError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!projectId || shownTab !== "results" || !qs.org) {
+    if (!projectId || shownTab !== "results" || !queryOrg) {
       setLiveAudit(null);
       setLiveAuditError(null);
       return;
@@ -411,7 +416,7 @@ export function ProjectWorkbench({
     let cancelled = false;
     setLiveAuditLoading(true);
     setLiveAuditError(null);
-    queryProvenance(qs.org, 50, { targetKind: "project", targetId: projectId })
+    queryProvenance(queryOrg, 50, { targetKind: "project", targetId: projectId })
       .then((out) => {
         if (!cancelled) setLiveAudit(out);
       })
@@ -426,7 +431,7 @@ export function ProjectWorkbench({
     return () => {
       cancelled = true;
     };
-  }, [projectId, shownTab, qs.org]);
+  }, [projectId, shownTab, queryOrg]);
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
