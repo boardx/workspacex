@@ -78,7 +78,8 @@ jobs:
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release_sha must be a full lowercase commit SHA"; exit 1; }
           [[ "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::expected_main_cn_sha must be a full lowercase commit SHA"; exit 1; }
           [[ "$(git rev-parse HEAD)" == "${REVISION}" ]] || { echo "::error::GitHub checkout does not match release_sha"; exit 1; }
-          git fetch --no-tags origin main main-cn
+          git rev-parse --verify origin/main >/dev/null
+          git rev-parse --verify origin/main-cn >/dev/null
           git merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::release_sha is not contained in main"; exit 1; }
           if [[ "${EXPECTED_MAIN_CN}" != "${REVISION}" ]]; then
             git merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::release is not a fast-forward from expected_main_cn_sha"; exit 1; }

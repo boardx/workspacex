@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -9,6 +10,10 @@ const verifier = readFileSync(resolve(root, ".harness/scripts/vm/verify-cn-relea
 const bootstrap = readFileSync(resolve(root, ".harness/scripts/vm/bootstrap-cn-production.sh"), "utf8");
 
 describe("GitHub-based CN production promotion", () => {
+  it("verifies checkout ancestry offline and rejects missing or invalid identities", () => {
+    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-checkout-offline.test.mjs"], { encoding: "utf8" });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+  });
   it("accepts only an exact SHA and an explicit compare-and-swap baseline", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("release_sha:");
