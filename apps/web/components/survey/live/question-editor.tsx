@@ -76,6 +76,7 @@ export function SurveyQuestionEditor({
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
+  const [draggingType, setDraggingType] = React.useState<SurveyQuestionType | null>(null);
   const lastEmittedSignature = React.useRef<string | null>(null);
   const questionsSignature = JSON.stringify(questions);
   React.useEffect(() => {
@@ -145,6 +146,11 @@ export function SurveyQuestionEditor({
     change([...questions, next]);
     setId(next.id);
     setPicking(false);
+  }
+  function handleToolDragStart(event: React.DragEvent<HTMLButtonElement>, type: SurveyQuestionType) {
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/x-survey-question-type", type);
+    setDraggingType(type);
   }
   function changeType(type: SurveyQuestionType) {
     if (!question) return;
@@ -373,9 +379,12 @@ export function SurveyQuestionEditor({
                 {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => {
                   const Icon = questionTypeIcons[item.type] ?? FileText;
                   return <button
-                    key={item.type} type="button" data-testid={`add-question-${item.type}`}
+                    key={item.type} type="button" draggable={!disabled}
+                    data-testid={`add-question-${item.type}`}
+                    onDragStart={(event) => handleToolDragStart(event, item.type)}
+                    onDragEnd={() => setDraggingType(null)}
                     onClick={() => add(item.type)}
-                    className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-md border border-border bg-background px-2 py-3 text-center text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex min-h-20 cursor-grab flex-col items-center justify-center gap-2 rounded-md border border-border bg-background px-2 py-3 text-center text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
                   ><Icon aria-hidden="true" className="h-5 w-5" />{item.label}</button>;
                 })}
               </div>
@@ -677,7 +686,7 @@ export function SurveyQuestionEditor({
         {preview && !overviewFirst && (
           <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : ''}`}>
             <div role="region" aria-label="问卷设计画布" className="space-y-4">
-            {studioLayout && <div className="border-b border-border pb-3"><h2 className="text-16 font-semibold">问卷设计画布</h2><p className="mt-1 text-12 text-muted-foreground">选择左侧题目，在右侧调整设置；下方可试填预览。</p></div>}
+            {studioLayout && <div className="border-b border-border pb-3"><h2 className="text-16 font-semibold">问卷设计画布</h2></div>}
             <div className="flex gap-2">
               <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览
@@ -690,7 +699,19 @@ export function SurveyQuestionEditor({
               </Button>
             </div>
             <div
-              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
+              onDragOver={(event) => {
+                if (draggingType) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const type = event.dataTransfer.getData("application/x-survey-question-type") as SurveyQuestionType;
+                if (type && SURVEY_QUESTION_TYPES.some((item) => item.type === type)) add(type);
+                setDraggingType(null);
+              }}
+              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${draggingType ? "border-primary bg-accent/10" : ""} ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
               {studioLayout && <section aria-label="问卷封面" className="grid gap-5 rounded-lg border border-border bg-card p-5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
                 <div className="flex aspect-[4/3] items-center justify-center rounded-md border border-dashed border-border bg-muted/50 text-muted-foreground" aria-label="尚未设置封面图">
@@ -711,9 +732,9 @@ export function SurveyQuestionEditor({
                         {questions.filter((item) => item.chapterId === q.chapterId).length} 题
                       </span>
                     </div>}
-                  <section className={studioLayout ? `rounded-lg border p-4 transition-colors ${q.id === question?.id ? "border-primary bg-accent/20" : "border-border"}` : ""}>
+                  <section className={studioLayout ? `group rounded-lg border p-4 transition-colors ${q.id === question?.id ? "border-primary bg-accent/20" : "border-border hover:border-primary/50"}` : ""}>
                     {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
-                      className="mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      className={`mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground ${q.id === question?.id ? "" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
                       onClick={() => { setId(q.id); setPendingType(undefined); }}>
                       Q{questionIndex + 1} · 点击编辑
                     </button>}
