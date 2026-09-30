@@ -12,8 +12,8 @@ health_payload_is_trustworthy() {
 
 # issue #3073 —— 在跑的 Caddyfile 与 provision.sh 里那份模板之间的漂移门。
 #
-# 为什么需要它：deploy.sh 一个字节都不碰 /etc/caddy/Caddyfile，只有人手动重跑
-# provision.sh 才会重写它。#2795 把 agent-run 事件 WS 的 handle 补进模板、CI 钉住了
+# 为什么需要它：模板更新不会自动改变 /etc/caddy/Caddyfile。#2795 把 agent-run
+# 事件 WS 的 handle 补进模板、CI 钉住了
 # 模板、deploy 全绿——而机器上跑的仍是旧配置，那条 WS 面照旧落进兜底 handle 打到
 # Next.js，Upgrade 请求在那断了（2026-09-08 devapp 复现，与 2026-08-08/08-14 三次
 # 事故同一签名）。「模板里有」是静态痕迹，不是「在跑的有」。
@@ -45,6 +45,54 @@ assert_caddy_routes_current() {
     return 1
   }
   return 0
+}
+
+# #4733: repair only the reviewed Board WebSocket route. The installed copy of this
+# helper is root-owned and sourced by the trusted deploy entry. Never render an
+# arbitrary checkout's Caddy template as root: deploy can also receive a tag or
+# preview ref. Every other missing route still fails the drift gate.
+ensure_board_sync_caddy_route() {
+  local live=$1 api_port=$2 candidate backup anchor_count
+  [[ "$live" == /etc/caddy/Caddyfile ]] || { echo "✗ Board route repair requires /etc/caddy/Caddyfile" >&2; return 1; }
+  [[ "$api_port" =~ ^[0-9]+$ ]] && ((api_port >= 1 && api_port <= 65535)) || {
+    echo "✗ Invalid API port for Board route repair" >&2
+    return 1
+  }
+  [ -r "$live" ] || { echo "✗ Cannot read live Caddyfile" >&2; return 1; }
+  if caddy_route_patterns "$live" | grep -qxF '/whiteboards/*/sync'; then
+    return 0
+  fi
+  anchor_count=$(grep -Ec '^[[:space:]]*handle[[:space:]]+/kernel/probe/\*[[:space:]]*\{' "$live" || true)
+  [[ "$anchor_count" == 1 ]] || { echo "✗ Cannot locate unique Caddy insertion point" >&2; return 1; }
+
+  candidate=$(mktemp /etc/caddy/.Caddyfile.board.XXXXXX)
+  backup=$(mktemp /etc/caddy/.Caddyfile.backup.XXXXXX)
+  cp -p "$live" "$backup"
+  awk -v port="$api_port" '
+    /^[[:space:]]*handle[[:space:]]+\/kernel\/probe\/\*[[:space:]]*\{/ {
+      print "\thandle /whiteboards/*/sync {"
+      print "\t\treverse_proxy 127.0.0.1:" port
+      print "\t}"
+    }
+    { print }
+  ' "$live" > "$candidate"
+  chmod --reference="$live" "$candidate"
+  chown --reference="$live" "$candidate"
+  if ! caddy validate --config "$candidate" --adapter caddyfile; then
+    rm -f "$candidate" "$backup"
+    echo "✗ Repaired Caddyfile did not validate; live config untouched" >&2
+    return 1
+  fi
+  mv -f "$candidate" "$live"
+  if ! (systemctl reload caddy 2>/dev/null || systemctl restart caddy); then
+    cp -p "$backup" "$live"
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy || true
+    rm -f "$backup"
+    echo "✗ Caddy reload failed; restored previous Caddyfile" >&2
+    return 1
+  fi
+  rm -f "$backup"
+  echo "  已补齐并加载 Board WebSocket 路由：/whiteboards/*/sync"
 }
 
 redact_deploy_diagnostics() {
