@@ -532,6 +532,11 @@ export default {
       // 同 `/org-invites` 的做法，裸前缀与 `:path*` 各一条。
       { source: `${prefix}/project-invites`, destination: `${apiOrigin}/project-invites` },
       { source: `${prefix}/project-invites/:path*`, destination: `${apiOrigin}/project-invites/:path*` },
+      // #4787 通用项目邀请：受邀人落地页 `/projects/join?invite=` 打 `POST /project-invitations/{preview,accept,activate}`。
+      // 注意是 `project-invitations`（邀请实体）不是上面的 `project-invites`（工作坊邀请链接），两个前缀互不遮挡。
+      // 负责人一侧的 `/projects/:projectId/invitations…` 已被上面的 `/projects/:path*` 覆盖。
+      // 没有裸 `/project-invitations` 路由，只补 `:path*`（同 `/plan-control` 先例）。
+      { source: `${prefix}/project-invitations/:path*`, destination: `${apiOrigin}/project-invitations/:path*` },
       // F977：`PlanControlController` 是 `@Controller()`（空前缀），路径是裸的
       // `GET /plan-control/threads/:threadId/ledger` —— 与上面 `/agent-runs`、
       // `/threads`、`/copilotkit` 同一个形状、同一个坑（lint-rewrite-coverage 实测

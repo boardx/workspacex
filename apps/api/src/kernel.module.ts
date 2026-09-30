@@ -774,7 +774,7 @@ import {
   lazyGithubIssueConfig,
   type GithubIssueConfig,
 } from "./infrastructure/feedback/github-issue-creator";
-import { TRANSACTIONAL_MAIL_TRANSPORT } from "./application/notifications/transactional-mail-ports";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "./application/notifications/transactional-mail-ports";
 import {
   CloudflareTransactionalEmailTransport,
   TRANSACTIONAL_MAIL_CONFIG,
@@ -936,6 +936,7 @@ import {
   PROJECT_TAGS_REPOSITORY,
   type ProjectRepository,
   PROJECT_NAME_LOOKUP,
+  type ProjectNameLookupPort,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -955,6 +956,11 @@ import { PgProjectResourceRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的成员表（按 `projects.kind` 分派两张表）。
 import { NON_WORKSHOP_MEMBER_REPOSITORY } from "./application/project/non-workshop-member-ports";
 import { PgNonWorkshopMemberRepository } from "./infrastructure/project/pg-non-workshop-member-repository";
+// #4787 通用项目邀请（邮箱 / 链接）与「按姓名加人后通知被加的人」。
+import { APP_PUBLIC_URL_PROVIDER, PROJECT_INVITATION_REPOSITORY, PROJECT_MEMBER_ADDED_NOTIFIER, type AppPublicUrlProvider } from "./application/project/project-invitation-ports";
+import { PgProjectInvitationRepository } from "./infrastructure/project/pg-project-invitation-repository";
+import { DefaultProjectMemberAddedNotifier } from "./infrastructure/project/project-member-added-notifier";
+import { ProjectInvitationController } from "./interface/controllers/project-invitation.controller";
 import { PROJECT_EVIDENCE_REPOSITORY } from "./application/project/project-evidence-ports";
 import { PgProjectEvidenceRepository } from "./infrastructure/project/pg-project-evidence-repository";
 import { EVIDENCE_SOURCE_REPOSITORY } from "./application/project/collect-evidence/ports";
@@ -1217,6 +1223,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     OrgInviteLinkController,
     CheckinBoardController,
     ProjectInviteController,
+    ProjectInvitationController,
     OrgAdminManagementController,
     HomeConfigController,
   HomeProjectPreviewsController,
@@ -3011,6 +3018,25 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: NON_WORKSHOP_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgNonWorkshopMemberRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #4787：通用项目邀请仓储（`project-invitation.controller.ts` 消费）。
+    {
+      provide: PROJECT_INVITATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectInvitationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #4787：站点公开地址（惰性——复用邮件配置的 lazy Proxy，配置缺项时读取才抛）。
+    {
+      provide: APP_PUBLIC_URL_PROVIDER,
+      useFactory: (emailConfig: CloudflareEmailConfig) => ({ get: () => emailConfig.appPublicUrl }),
+      inject: [CLOUDFLARE_EMAIL_CONFIG],
+    },
+    // #4787：按姓名加人之后通知被加的人（邮件优先、站内通知兜底；失败由调用方吞掉）。
+    {
+      provide: PROJECT_MEMBER_ADDED_NOTIFIER,
+      useFactory: (projects: ProjectNameLookupPort, credentials: CredentialRepository, notifications: NotificationPublisher, mail: TransactionalMailTransport, publicUrl: AppPublicUrlProvider) =>
+        new DefaultProjectMemberAddedNotifier(projects, credentials, notifications, mail, () => publicUrl.get()),
+      inject: [PROJECT_NAME_LOOKUP, CREDENTIAL_REPOSITORY, NOTIFICATION_CENTER, TRANSACTIONAL_MAIL_TRANSPORT, APP_PUBLIC_URL_PROVIDER],
     },
     // 项目中枢 B3-T1（#4495）：证据单元仓储 + 采集器的只读来源（`project.controller.ts` 与 `KgExtractionWorker` 消费）。
     {
