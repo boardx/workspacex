@@ -1,12 +1,12 @@
 ---
-status: pending
+status: confirmed
 bundle: novice-workbench-list
 base_bundle: design-workbench
 scope: workbench-list-card-actions-menu-and-labels
 covers: []
-confirmed_by: ""
-confirmed_at: ""
-confirmed_via: ""
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-30T00:00:00+08:00"
+confirmed_via: "chat 2026-09-30：「我授权你来合并，并且签核」"
 ---
 
 # design delta 签核 · 工作台列表页减负
