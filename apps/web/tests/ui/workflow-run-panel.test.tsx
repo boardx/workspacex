@@ -93,7 +93,7 @@ describe("WorkflowRunPanel", () => {
     expect(pub.getAttribute("data-status")).toBe("running");
     expect(pub.getAttribute("data-attempt")).toBe("2");
     expect(screen.getByTestId("workflow-stage-skills-draft").textContent).toBe("writer@1.2.0");
-    expect(screen.getByTestId("workflow-output-o1").getAttribute("href")).toBe("/files/o1");
+    expect(screen.getByTestId("workflow-output-o1").getAttribute("href")).toBe("/workflows/runs/i1/result?output=o1");
     expect(screen.getByTestId("workflow-sse-status").getAttribute("data-sse")).toBe("live");
     await waitFor(() => expect(api.openWorkflowInstanceStream).toHaveBeenCalledWith("i1", 10, expect.any(Function), expect.anything()));
   });

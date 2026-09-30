@@ -16,6 +16,7 @@ import {
   openWorkflowInstanceStream,
   resumeWorkflowInstance,
   workflowErrorCode,
+  workflowOutputHref,
   type WorkflowInstanceProjection,
   type WorkflowSseEnvelope,
 } from "@/lib/workflow-runtime-api";
@@ -297,7 +298,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
               <ul className="mt-1">
                 {s.outputs.map((o) => (
                   <li key={o.outputId}>
-                    <a data-testid={`workflow-output-${o.outputId}`} href={o.href} className="text-12 underline underline-offset-2">{o.label}</a>
+                    <a data-testid={`workflow-output-${o.outputId}`} href={workflowOutputHref(p.instanceId, o.outputId)} className="text-12 underline underline-offset-2">{o.label}</a>
                   </li>
                 ))}
               </ul>
