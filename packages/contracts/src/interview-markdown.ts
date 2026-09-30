@@ -43,7 +43,12 @@ const REPORT_BOUNDARY_SIGNALS = [
   /^\s*(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)(?:[：:。.]|$)/mu,
   /(?:置信度|适用范围|样本边界|仍待验证|尚待验证)(?:为|是|需|仍)/u,
 ];
-const REPORT_ACTION_SIGNALS = [/(?:下一步验证建议|建议行动|行动建议|验证计划)(?:[：:]|[。.]|$)[ \t]*\S{8,}.{0,240}/mu, /P[012][：:][ \t]*\S/u, /(?:优先验证|可验证).{0,36}(?:行动|假设|方案)/u];
+const REPORT_ACTION_SIGNALS = [
+  /(?:下一步验证建议|建议行动|行动建议|验证计划)(?:[：:]|[。.]|$)[ \t]*\S{8,}.{0,240}/mu,
+  /P[012][：:][ \t]*\S/u,
+  /决策影响[：:][ \t]*(?:应|需|建议|优先|可)[ \t]*\S{4,}/mu,
+  /(?:优先验证|可验证).{0,36}(?:行动|假设|方案|指标|路径)/u,
+];
 const reportHasAny = (markdown: string, patterns: readonly RegExp[]) => patterns.some((pattern) => pattern.test(markdown));
 export function assessInterviewReportAnalysis(markdown: string): InterviewReportAnalysisAssessment {
   const missing: InterviewReportAnalysisGap[] = [];
