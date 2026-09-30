@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import { z } from "zod";
+import { deploymentInputSchema } from "./config";
 const hash=z.string().regex(/^[a-f0-9]{64}$/),id=z.string().min(1).max(200).regex(/^[A-Za-z0-9_.:-]+$/);
 const port=z.number().int().min(1).max(65535);
 export const migrationSourceSchema=z.object({accountId:id,regionId:id,dbInstanceId:id,database:id,user:id,
@@ -10,7 +11,8 @@ export const migrationSourceSchema=z.object({accountId:id,regionId:id,dbInstance
  configurationSha256:hash,providerEvidenceSha256:hash,sslMode:z.enum(["disable","verify-full"]),clientEncrypted:z.boolean(),clientTlsAuthorized:z.boolean(),
 }).strict();
 const requestId=z.string().min(1);
-const exception=z.object({kind:z.literal("aliyun-postgresql-serverless-no-tls"),allowedCidrs:z.array(z.string().min(1)).min(1).max(32)}).strict();
+// CIDRs are client source allowlists, not the RDS destination peer range. Reuse the authoritative production contract.
+const exception=deploymentInputSchema.shape.environment.options[1].shape.rdsTlsException.unwrap();
 export const sourceEvidenceSchema=z.object({
  request:z.object({regionId:id,dbInstanceId:id}).strict(),
  configuration:z.object({sha256:hash,endpointSha256:hash,regionId:id,rdsInstanceId:id,host:z.string().min(1).max(253).regex(/^[a-zA-Z0-9.-]+$/),port,
@@ -42,7 +44,7 @@ export function verifyExternalSourceIdentity(source:z.infer<typeof migrationSour
  if(endpoints.length!==1)return false;const n=endpoints[0]!;
  if(!privateAddress(n.IPAddress)||source.clientPeerAddressSha256!==identityHash(n.IPAddress)||source.clientPeerPort!==c.port)return false;
  if(c.sslMode==="disable"){
-  if(source.clientEncrypted||source.clientTlsAuthorized||!c.rdsTlsException||!c.rdsTlsException.allowedCidrs.some(cidr=>inCidr(n.IPAddress,cidr)))return false;
+  if(source.clientEncrypted||source.clientTlsAuthorized||!c.rdsTlsException||!c.rdsTlsException.allowedCidrs.length)return false;
  }else if(!source.clientEncrypted||!source.clientTlsAuthorized)return false;
  if(source.identityLane==="aliyun-private-endpoint")return source.serverAddressSha256===null&&source.port===null;
  return source.serverAddressSha256!==null&&source.port!==null;

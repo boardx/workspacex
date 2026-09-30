@@ -13,11 +13,13 @@ it.each(["account","region","instance","hostname","port","vpc","public","loopbac
  if(bad==="account")e.stsResponse.AccountId="wrong";if(bad==="region")a.RegionId="wrong";if(bad==="instance")a.DBInstanceId="wrong";if(bad==="hostname")n.ConnectionString="wrong.internal";if(bad==="port")n.Port="5433";if(bad==="vpc")n.VPCId="wrong";if(bad==="public")n.IPType="Public";if(bad==="loopback"){n.IPAddress="127.0.0.1";b.source.clientPeerAddressSha256=identityHash(n.IPAddress);}if(bad==="peer")b.source.clientPeerAddressSha256="b".repeat(64);if(bad==="configuration")e.configuration.sha256="0".repeat(64);
  b.source.providerEvidenceSha256=providerIdentityDigest(e);Object.assign(f.sql.source,b.source);Object.assign(f.snapshot.source,b.source);f.seal();expect(()=>validateMigrationSnapshot(f.snapshot,b)).toThrow("MIGRATION_SNAPSHOT_EXTERNAL_IDENTITY_INVALID");
 });
-it("allows existing configured no-TLS exception only with CIDR and actual unencrypted socket, never silently downgrades",()=>{
+it("allows existing configured no-TLS exception only with configured source allowlist and actual unencrypted socket, never silently downgrades",()=>{
  const {b,f}=proxy();b.source.sslMode="disable";b.source.clientEncrypted=false;b.source.clientTlsAuthorized=false;b.sourceEvidence.configuration.sslMode="disable";
  Object.assign(f.sql.source,b.source);Object.assign(f.snapshot.source,b.source);f.seal();expect(()=>validateMigrationSnapshot(f.snapshot,b)).toThrow("MIGRATION_SNAPSHOT_EXTERNAL_IDENTITY_INVALID");
  b.sourceEvidence.configuration.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.0.0/8"]};expect(validateMigrationSnapshot(f.snapshot,b).independentSqlCount).toBe(1);
- b.sourceEvidence.configuration.rdsTlsException.allowedCidrs=["192.168.0.0/16"];expect(()=>validateMigrationSnapshot(f.snapshot,b)).toThrow("MIGRATION_SNAPSHOT_EXTERNAL_IDENTITY_INVALID");
+ // RDS whitelist CIDRs govern CLIENT source addresses, not destination NetInfo IP.
+ b.sourceEvidence.configuration.rdsTlsException.allowedCidrs=["192.168.0.4/32"];expect(validateMigrationSnapshot(f.snapshot,b).independentSqlCount).toBe(1);
+ b.sourceEvidence.configuration.rdsTlsException.allowedCidrs=["0.0.0.0/0"];expect(()=>validateMigrationSnapshot(f.snapshot,b)).toThrow("MIGRATION_SNAPSHOT_SCHEMA_INVALID");
 });
 it("verify-full requires actual encryption and TLS authorization",()=>{for(const key of ["clientEncrypted","clientTlsAuthorized"]){const {b,f}=proxy();Object.assign(b.source,{[key]:false});Object.assign(f.sql.source,b.source);Object.assign(f.snapshot.source,b.source);f.seal();expect(()=>validateMigrationSnapshot(f.snapshot,b)).toThrow("MIGRATION_SNAPSHOT_EXTERNAL_IDENTITY_INVALID");}});
 it("NULL lane retains all independent count and provider Dropped gates",()=>{const {b,f}=proxy();f.sql.independentSqlCount=255;f.seal();expect(()=>validateMigrationSnapshot(f.snapshot,b)).toThrow("MIGRATION_SNAPSHOT_COUNT_MISMATCH");const x=proxy();x.f.result.Dropped=1;x.f.sealResponse();expect(()=>validateMigrationSnapshot(x.f.snapshot,x.b)).toThrow("MIGRATION_SNAPSHOT_OUTPUT_DROPPED");});
