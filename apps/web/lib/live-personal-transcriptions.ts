@@ -110,12 +110,14 @@ export async function createPersonalTranscription(
 export async function readPersonalTranscription(
   sessionId: string,
   sessionToken?: string | null,
+  signal?: AbortSignal,
 ): Promise<PersonalTranscriptionDetail> {
   const input = operations.readPersonalTranscription.in.parse({ sessionId });
   const path = operations.readPersonalTranscription.path.replace(":sessionId", encodeURIComponent(input.sessionId));
   const raw = await apiRequest<unknown>(path, {
     method: operations.readPersonalTranscription.method,
     sessionToken,
+    signal,
   });
   return parseDetail(raw);
 }

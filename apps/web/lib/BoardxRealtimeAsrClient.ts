@@ -28,12 +28,14 @@ const MAX_SOCKET_AUDIO_BACKLOG_BYTES = 32_000;
 export async function issuePersonalRealtimeAsrTicket(
   sessionId: string,
   sessionToken?: string | null,
+  signal?: AbortSignal,
 ): Promise<RealtimeAsrTicket> {
   const input = C.operations.issueRealtimeAsrTicket.in.parse({ sessionId });
   const path = C.operations.issueRealtimeAsrTicket.path.replace(":sessionId", encodeURIComponent(input.sessionId));
   const raw = await apiRequest<unknown>(path, {
     method: C.operations.issueRealtimeAsrTicket.method,
     sessionToken,
+    signal,
   });
   return C.operations.issueRealtimeAsrTicket.out.parse(raw);
 }
@@ -42,9 +44,10 @@ export async function openBoardxRealtimeAsr(
   sessionId: string,
   deps: {
     readonly sessionToken?: string | null;
+    readonly signal?: AbortSignal;
     readonly deviceId?: string;
     readonly handlers: BoardxRealtimeAsrHandlers;
-    readonly issueTicket?: (sessionId: string, sessionToken?: string | null) => Promise<RealtimeAsrTicket>;
+    readonly issueTicket?: (sessionId: string, sessionToken?: string | null, signal?: AbortSignal) => Promise<RealtimeAsrTicket>;
     readonly createSocket?: (url: string) => WebSocket;
     readonly capture?: (options: { readonly deviceId?: string }) => Promise<PcmAudioWorkletHandle>;
     readonly cleanupCapture?: (sessionId: string, sessionToken?: string | null) => Promise<unknown>;
@@ -53,7 +56,8 @@ export async function openBoardxRealtimeAsr(
   },
 ): Promise<BoardxRealtimeAsrHandle> {
   deps.handlers.onState("connecting");
-  const ticket = await (deps.issueTicket ?? issuePersonalRealtimeAsrTicket)(sessionId, deps.sessionToken);
+  deps.signal?.throwIfAborted();
+  const ticket = await abortable((deps.issueTicket ?? issuePersonalRealtimeAsrTicket)(sessionId, deps.sessionToken, deps.signal), deps.signal);
   const url = new URL(apiWebSocketUrl(ticket.websocketPath));
   url.searchParams.set(C.streamOperation.ticketQueryParameter, ticket.ticket);
   const socket = (deps.createSocket ?? ((target) => new WebSocket(target)))(url.toString());
@@ -67,10 +71,10 @@ export async function openBoardxRealtimeAsr(
     }
   };
   try {
-    await waitForSocketOpen(socket, () => new Error("personal_realtime_asr_handshake_failed"), deps.handshakeTimeoutMs);
+    await abortable(waitForSocketOpen(socket, () => new Error("personal_realtime_asr_handshake_failed"), deps.handshakeTimeoutMs), deps.signal);
   } catch (error) {
     socket.close();
-    await cleanupReservedCapture();
+    if (!deps.signal?.aborted) await cleanupReservedCapture();
     throw error;
   }
 
@@ -97,6 +101,7 @@ export async function openBoardxRealtimeAsr(
   const releaseResources = () => {
     if (cleaningUp) return;
     cleaningUp = true;
+    deps.signal?.removeEventListener("abort", abortStartup);
     deps.handlers.onLevel?.(0);
     // Closing the transport must not depend on AudioContext.close succeeding.
     void stopCapture().catch(() => undefined);
@@ -109,6 +114,13 @@ export async function openBoardxRealtimeAsr(
     readyResolve = () => { readySettled = true; resolve(); };
     readyReject = (error) => { readySettled = true; reject(error); };
   });
+  const abortStartup = () => {
+    const error = new Error("ASR_START_CANCELLED");
+    if (!readySettled) readyReject(error);
+    completedReject(error);
+    releaseResources();
+  };
+  deps.signal?.addEventListener("abort", abortStartup, { once: true });
   socket.addEventListener("message", (event) => {
     const parsed = C.RealtimeAsrServerEvent.safeParse(safeJson(String(event.data)));
     if (!parsed.success) {
@@ -161,18 +173,32 @@ export async function openBoardxRealtimeAsr(
     void releaseResources();
   });
 
-  socket.send(JSON.stringify({ type: "start" }));
+  let readyTimer: ReturnType<typeof setTimeout> | undefined;
   try {
+    deps.signal?.throwIfAborted();
+    socket.send(JSON.stringify({ type: "start" }));
+    readyTimer = setTimeout(() => { if (!readySettled) readyReject(new Error("START_TIMEOUT")); }, deps.handshakeTimeoutMs ?? 15_000);
     await providerReady;
-    capture = await (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId });
+    clearTimeout(readyTimer);
+    deps.signal?.throwIfAborted();
+    const acquiring = (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId }).then((acquired) => {
+      if (cleaningUp) {
+        void acquired.stop().catch(() => undefined);
+        throw startupTerminalError ?? new Error("ASR_START_CANCELLED");
+      }
+      return acquired;
+    });
+    capture = await abortable(acquiring, deps.signal);
     if (cleaningUp || completed || socket.readyState !== socket.OPEN) {
       try { await stopCapture(); } catch { /* Preserve the transport terminal cause. */ }
       throw startupTerminalError ?? new Error("ASR connection terminated during microphone startup");
     }
   } catch (error) {
     releaseResources();
-    await cleanupReservedCapture();
+    if (!deps.signal?.aborted) await cleanupReservedCapture();
     throw error;
+  } finally {
+    clearTimeout(readyTimer);
   }
 
   capture.onFrame((frame) => {
@@ -191,6 +217,8 @@ export async function openBoardxRealtimeAsr(
       socket.send(frame);
     }
   });
+  // Startup cancellation must not preempt the graceful stop handshake once live.
+  deps.signal?.removeEventListener("abort", abortStartup);
   deps.handlers.onState("recording");
 
   return {
@@ -224,6 +252,17 @@ export async function openBoardxRealtimeAsr(
       return stopPromise;
     },
   };
+}
+
+/** The original handshake keeps its own timeout; cancellation must settle promptly. */
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) { void promise.catch(() => undefined); return Promise.reject(new Error("ASR_START_CANCELLED")); }
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(new Error("ASR_START_CANCELLED"));
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
 }
 
 function safeJson(text: string): unknown {

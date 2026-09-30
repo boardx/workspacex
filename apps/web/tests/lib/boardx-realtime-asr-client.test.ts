@@ -16,6 +16,88 @@ class FakeSocket extends EventTarget {
 }
 
 describe("BoardxRealtimeAsrClient", () => {
+  it("keeps graceful tail finalization after the startup signal is aborted during recording", async () => {
+    const abort = new AbortController();
+    let transport!: FakeSocket;
+    const onFinal = vi.fn();
+    const opening = openBoardxRealtimeAsr("session-1", {
+      signal: abort.signal,
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { transport = new FakeSocket(url); queueMicrotask(() => transport.open()); return transport as unknown as WebSocket; },
+      capture: async () => capture,
+      handlers: { onInterim: vi.fn(), onFinal, onState: vi.fn(), onError: vi.fn() },
+    });
+    await vi.waitFor(() => expect(transport.sent).toContain(JSON.stringify({ type: "start" })));
+    transport.message({ type: "ready", captureId: "capture-1" });
+    const handle = await opening;
+    abort.abort();
+    const stopped = handle.stop();
+    void stopped.catch(() => undefined);
+    await vi.waitFor(() => expect(transport.sent).toContain(JSON.stringify({ type: "stop" })));
+    transport.message({ type: "final", captureId: "capture-1", segmentId: "tail", ordinal: 1, text: "最后一句", startMs: 0, endMs: 1000 });
+    transport.message({ type: "completed", captureId: "capture-1" });
+    await stopped;
+    expect(onFinal).toHaveBeenCalledWith(expect.objectContaining({ text: "最后一句" }));
+  });
+  it("cancels a pending ticket without opening a late socket", async () => {
+    const abort = new AbortController();
+    let resolveTicket!: (value: { captureId: string; ticket: string; expiresAt: string; websocketPath: string }) => void;
+    const createSocket = vi.fn();
+    const opening = openBoardxRealtimeAsr("session-1", {
+      signal: abort.signal,
+      issueTicket: () => new Promise((resolve) => { resolveTicket = resolve; }),
+      createSocket,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    });
+    const rejection = expect(opening).rejects.toThrow("ASR_START_CANCELLED");
+    abort.abort();
+    await rejection;
+    resolveTicket({ captureId: "late", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" });
+    await Promise.resolve();
+    expect(createSocket).not.toHaveBeenCalled();
+  });
+  it("settles cancellation while microphone permission is pending and stops a late stream", async () => {
+    const abort = new AbortController();
+    let transport!: FakeSocket;
+    let resolveCapture!: (value: { onFrame: () => void; stop: () => Promise<void>; sourceSampleRate: number }) => void;
+    const lateStop = vi.fn(async () => undefined);
+    const captureFactory = vi.fn(() => new Promise<{ onFrame: () => void; stop: () => Promise<void>; sourceSampleRate: number }>((resolve) => { resolveCapture = resolve; }));
+    const opening = openBoardxRealtimeAsr("session-1", {
+      signal: abort.signal,
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { transport = new FakeSocket(url); queueMicrotask(() => transport.open()); return transport as unknown as WebSocket; },
+      capture: captureFactory,
+      cleanupCapture: async () => undefined,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    });
+    const rejection = expect(opening).rejects.toThrow();
+    await vi.waitFor(() => expect(transport.sent).toContain(JSON.stringify({ type: "start" })));
+    transport.message({ type: "ready", captureId: "capture-1" });
+    await vi.waitFor(() => expect(captureFactory).toHaveBeenCalledOnce());
+    abort.abort();
+    await rejection;
+    resolveCapture({ onFrame: () => undefined, stop: lateStop, sourceSampleRate: 48_000 });
+    await vi.waitFor(() => expect(lateStop).toHaveBeenCalledOnce());
+  });
+  it("cancels provider startup before acquiring a microphone", async () => {
+    const abort = new AbortController();
+    let transport!: FakeSocket;
+    const captureFactory = vi.fn();
+    const opening = openBoardxRealtimeAsr("session-1", {
+      signal: abort.signal,
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { transport = new FakeSocket(url); queueMicrotask(() => transport.open()); return transport as unknown as WebSocket; },
+      capture: captureFactory,
+      cleanupCapture: async () => undefined,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    });
+    const rejection = expect(opening).rejects.toThrow();
+    await vi.waitFor(() => expect(transport.sent).toContain(JSON.stringify({ type: "start" })));
+    abort.abort();
+    await rejection;
+    expect(transport.readyState).toBe(3);
+    expect(captureFactory).not.toHaveBeenCalled();
+  });
   let socket: FakeSocket;
   const stopCapture = vi.fn().mockResolvedValue(undefined);
   const capture = { onFrame: vi.fn(), stop: stopCapture, sourceSampleRate: 48_000 };
