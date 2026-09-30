@@ -1,7 +1,8 @@
 "use client";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import * as React from "react";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
-import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap, X } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap, X, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -157,7 +158,7 @@ export function DesignWorkbenchHome({
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="denied">
         <ShieldAlert aria-hidden className="h-8 w-8 text-muted-foreground" />
         <p className="text-14 font-medium">PM 设计工作台仅 PM / 运营可见</p>
-        <p className="max-w-sm text-12 text-muted-foreground">这里用来把反馈深化成设计方案再推回排期。需要权限的话联系平台管理员。</p>
+        <p className="max-w-sm text-12 text-muted-foreground">这里用来把反馈深化成设计稿再交给开发排期。需要权限的话联系平台管理员。</p>
       </div>
     );
   }
@@ -299,7 +300,7 @@ export function DesignWorkbenchHome({
           * 而三张模板卡片在迭代 13 就删掉了（理由见下面那段注释）。**首屏第一句话在指一条
           * 已经不存在的路**，而且这是新用户看到的第一行字。改成现在真实的两条路。
           */}
-        <p className="mt-0.5 text-12 text-muted-foreground">说清要做什么，AI 问你几句再把它画出来；也可以把收件箱里的反馈深化成方案，再推回排期。</p>
+        <p className="mt-0.5 text-12 text-muted-foreground">说清要做什么，AI 问你几句再把它画出来；也可以把收件箱里的反馈深化成设计稿，再交给开发排期。</p>
       </div>
 
       {/*
@@ -554,13 +555,26 @@ function ProjectCard({
           )}
         </div>
       </button>
+      {/*
+        * design-delta `novice-workbench-list`：编辑 / 删除原来每张卡都常驻两颗图标按钮——普通用户评测集量出列表首屏
+        * 11 个可操作控件（预算 8），一半是这些。收进每张卡一个「⋯」（Radix 菜单），菜单项沿用原 testid。
+        */}
       <div className="flex justify-end gap-1 border-t border-border-subtle px-3 py-1.5">
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} disabled={busy} aria-label={`编辑「${project.name}」`} data-testid={`project-edit-${project.id}`}>
-          <Pencil aria-hidden className="h-3.5 w-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onDelete} disabled={busy} aria-label={`删除「${project.name}」`} data-testid={`project-delete-${project.id}`}>
-          {busy ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Trash2 aria-hidden className="h-3.5 w-3.5" />}
-        </Button>
+        <Menu>
+          <MenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={busy} aria-label={`「${project.name}」的更多操作`} data-testid={`project-more-${project.id}`}>
+              {busy ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />}
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end" data-testid={`project-menu-${project.id}`}>
+            <MenuItem onSelect={onEdit} data-testid={`project-edit-${project.id}`}>
+              <Pencil aria-hidden className="h-3.5 w-3.5" /> 改名字和标签
+            </MenuItem>
+            <MenuItem onSelect={onDelete} className="text-destructive" data-testid={`project-delete-${project.id}`}>
+              <Trash2 aria-hidden className="h-3.5 w-3.5" /> 删除这个设计
+            </MenuItem>
+          </MenuContent>
+        </Menu>
       </div>
     </div>
   );
