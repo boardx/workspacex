@@ -26,7 +26,7 @@ const ROW: AgentDirectoryRow = {
   agentId: "agent-dh-01", versionId: "v1", name: "研究员小周", roleLabel: "行业研究与竞品分析",
   avatar: { kind: "illustration", key: "dh-01-researcher" as never, alt: "小周" }, roleCategory: "research",
   tags: ["竞品", "市场"], catalogSource: "official" as never, workflowAllowlist: [], toolPolicyLength: 0,
-};
+} as unknown as AgentDirectoryRow;
 
 function deps(opts: { facts?: ThreadFacts | null; row?: AgentDirectoryRow | null; voiceMap?: Record<string, string>; member?: boolean } = {}) {
   const inserted: unknown[] = [];
