@@ -907,6 +907,8 @@ export const GuidedResearchDocument = z.object({
   url: z.string().url(), retrievedAt: z.string(), text: z.string().min(1).max(60000),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/), contentKind: z.enum(["html", "pdf", "text"]),
   truncated: z.boolean(),
+  /** Extracted from fetched body, never from the search-provider snippet. */
+  summary: z.string().trim().min(1).max(2000).optional(),
 }).strict();
 export const GuidedResearchSource = z.object({
   id: z.string().min(1), taskId: z.string().min(1), taskIds: z.array(z.string().min(1)).optional(), title: z.string().min(1),
