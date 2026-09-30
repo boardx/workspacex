@@ -97,17 +97,17 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
       </div>
 
       {shareError !== null && (
-        <p className="text-11 text-destructive" data-testid="project-conversations-share-error">{shareError}</p>
+        <p className="text-12 text-destructive" data-testid="project-conversations-share-error">{shareError}</p>
       )}
       {error !== null ? (
-        <Card><p className="p-4 text-11 text-destructive" data-testid="project-conversations-error">{error}</p></Card>
+        <Card><p className="p-4 text-12 text-destructive" data-testid="project-conversations-error">{error}</p></Card>
       ) : loading && data === null ? (
-        <Card><p className="p-4 text-11 text-muted-foreground" data-testid="project-conversations-loading">读取对话中…</p></Card>
+        <Card><p className="p-4 text-12 text-muted-foreground" data-testid="project-conversations-loading">读取对话中…</p></Card>
       ) : data === null ? (
-        <Card><p className="p-4 text-11 text-muted-foreground" data-testid="project-conversations-anonymous">请先登录。</p></Card>
+        <Card><p className="p-4 text-12 text-muted-foreground" data-testid="project-conversations-anonymous">请先登录。</p></Card>
       ) : cards.length === 0 ? (
         <Card>
-          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-conversations-empty">
+          <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-conversations-empty">
             本项目还没有你能看到的对话。{canWrite ? "点「在本项目中新建对话」开始。" : ""}
           </p>
         </Card>
@@ -115,7 +115,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
         <div className="flex flex-col gap-3" data-testid="project-conversations-list">
           {data.groups.filter((g) => g.cards.length > 0).map((g) => (
             <section key={g.label}>
-              <h3 className="mb-1.5 px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">{g.label}</h3>
+              <h3 className="mb-1.5 px-1 text-11 font-medium uppercase tracking-wide text-muted-foreground">{g.label}</h3>
               <ul className={CONTENT_GRID_CLASS}>
                 {g.cards.map((c) => (
                   <li key={c.id}>

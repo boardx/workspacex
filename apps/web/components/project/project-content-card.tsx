@@ -64,7 +64,7 @@ export function ProjectContentCard({
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge tone="outline">{typeLabel}</Badge>
         {status ? <Badge tone="neutral">{status}</Badge> : null}
-        {meta ? <span className="min-w-0 truncate text-10 text-muted-foreground">{meta}</span> : null}
+        {meta ? <span className="min-w-0 truncate text-11 text-muted-foreground">{meta}</span> : null}
       </div>
       {footer ? <div className="relative z-10 mt-auto flex flex-wrap items-center gap-2">{footer}</div> : null}
     </Card>
