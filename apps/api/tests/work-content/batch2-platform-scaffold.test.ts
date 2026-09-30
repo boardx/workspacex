@@ -1,8 +1,8 @@
 /**
  * 批次 2 平台脚手架（纯函数，不连数据库）：
  * - 阶段 Workflow 编号集互不相交，W017 不属于任何阶段；
- * - 槽位 ↔ 目录线 ↔ 阶段集合一致；新增 shared/operations 目录已接入白名单寻址，且此刻为空；
- * - 槽位 key 不与已注册 key 冲突；
+ * - 槽位 ↔ 目录线 ↔ 阶段集合一致；shared/operations 目录已接入白名单寻址，并恰好登记各自线的槽位（W017 仍查不到）；
+ * - 槽位 key 唯一；
  * - 新增分类全部已登记；批次 2 写类分类可授权（默认只读由「无配置行」保证）。
  */
 import { describe, expect, it } from "vitest";
@@ -50,14 +50,16 @@ describe("batch2 slots", () => {
     for (const s of BATCH2_WORKFLOW_SLOTS) expect(["shared", "operations"]).toContain(s.line);
   });
 
-  it("slot keys do not collide with registered keys; scaffold catalogs are empty until registration", () => {
-    expect(SHARED_WORKFLOW_DEFINITIONS).toHaveLength(0);
-    expect(OPERATIONS_WORKFLOW_DEFINITIONS).toHaveLength(0);
+  it("slot keys are unique and resolve to exactly the registered definition in the catalog of their line", () => {
+    expect(SHARED_WORKFLOW_DEFINITIONS.map((d) => d.workflowId)).toEqual(["W003", "W004", "W007"]);
+    expect(OPERATIONS_WORKFLOW_DEFINITIONS.map((d) => d.workflowId)).toEqual(["W052", "W053", "W055", "W056"]);
     for (const s of BATCH2_WORKFLOW_SLOTS) {
-      expect(contentWorkflowIdOf(s.key)).toBeNull();
-      expect(contentWorkflowKeyOf(s.workflowId)).toBeNull();
+      expect(contentWorkflowIdOf(s.key)).toBe(s.workflowId);
+      expect(contentWorkflowKeyOf(s.workflowId)).toBe(s.key);
     }
     expect(new Set(BATCH2_WORKFLOW_SLOTS.map((s) => s.key)).size).toBe(BATCH2_WORKFLOW_SLOTS.length);
+    // W017 推迟：任何目录都查不到。
+    expect(contentWorkflowKeyOf("W017")).toBeNull();
   });
 });
 
