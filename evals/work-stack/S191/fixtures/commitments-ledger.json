@@ -1,0 +1,12 @@
+{
+  "ledgerRef": "run-9/s189/ledger-A7",
+  "promisesOutstanding": [
+    {
+      "text": "9 月底前给出导出性能优化排期",
+      "owner": "us",
+      "dueBy": "2026-09-30",
+      "status": "overdue",
+      "sourceRef": "rec-promise-1"
+    }
+  ]
+}

@@ -6,22 +6,29 @@ import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { generateMigrationPlan, migrationHash } from "./cn-migration-plan";
-import type { MigrationIdentity } from "./cn-migration-plan";
+import { validateMigrationSnapshot, readMigrationSnapshotFile } from "./cn-migration-snapshot";
 import { acquireRehearsalRun, openPrivateReport, assertLocalDockerEndpoint, assertRehearsalResourcesAbsent } from "./cn-migration-rehearsal-safety";
 
-const [checkout, targetSha, baselineSha, ledgerPath, reportPath, roleMode] = process.argv.slice(2);
+const [checkout, targetSha, baselineSha, ledgerPath, sourceBindingPath, reportPath, roleMode] = process.argv.slice(2);
 if (roleMode !== undefined && roleMode !== "--non-super-bypass") throw new Error("unknown rehearsal role mode");
 const nonSuperBypass = roleMode === "--non-super-bypass";
-if (!checkout || !targetSha || !baselineSha || !ledgerPath || !reportPath) throw new Error("usage: cn-migration-rehearsal-cli checkout targetSha baselineSha readonly-ledger.json private-report.json [--non-super-bypass]");
+if (!checkout || !targetSha || !baselineSha || !ledgerPath || !sourceBindingPath || !reportPath) throw new Error("usage: cn-migration-rehearsal-cli checkout targetSha baselineSha private-snapshot.json expected-source-binding.json private-report.json [--non-super-bypass]");
 if (process.env.WORKSPACEX_DEPLOY_PROFILE) throw new Error("synthetic rehearsal refuses cloud profile");
 const root = resolve(checkout);
-const snapshot = JSON.parse(readFileSync(ledgerPath, "utf8")) as { readOnly: boolean; ledger: MigrationIdentity[] };
-if (snapshot.readOnly !== true || !Array.isArray(snapshot.ledger)) throw new Error("read-only ledger required");
+let snapshot: ReturnType<typeof validateMigrationSnapshot>;
+try {
+  snapshot = validateMigrationSnapshot(readMigrationSnapshotFile(ledgerPath), readMigrationSnapshotFile(sourceBindingPath));
+} catch (error) {
+  process.stderr.write(`${error instanceof Error && /^MIGRATION_SNAPSHOT_[A-Z_]+$/.test(error.message) ? error.message : "MIGRATION_SNAPSHOT_INPUT_INVALID"}\n`);
+  process.exit(2);
+}
 const reportFd = openPrivateReport(reportPath);
 let temp: string | undefined;
 let releaseRun: (() => void) | undefined;
 try {
-const plan = await generateMigrationPlan(root, { targetSha, baselineSha, ledger: snapshot.ledger });
+const plan = await generateMigrationPlan(root, { targetSha, baselineSha, ledger: snapshot.ledger, snapshotEvidence: { snapshotSha256: snapshot.snapshotSha256,
+  sourceBindingSha256: snapshot.sourceBindingSha256, fullResponseSha256: snapshot.fullResponseSha256,
+  ledgerSha256: snapshot.ledgerSha256, independentSqlCount: snapshot.independentSqlCount, capturedAt: snapshot.capturedAt } });
 const source = join(root, "apps/api/migrations");
 const authority = await import(pathToFileURL(join(root, "apps/api/src/infrastructure/db/migrator.ts")).href) as {
   migrationFiles: (dir: string) => string[];
@@ -101,7 +108,7 @@ try {
   });
   const baselineNames = snapshot.ledger.map(item => item.name);
   const baselineDir = directory(baselineNames);
-  const ledgerModel: Record<string, unknown> = { model: "184-ledger-names-target-source", baselineCount: baselineNames.length,
+  const ledgerModel: Record<string, unknown> = { model: "validated-ledger-names-target-source", baselineCount: baselineNames.length,
     baselineSourceSha256: migrationHash(JSON.stringify(baselineNames.sort().map(name => ({ name, checksum: migrationHash(readFileSync(join(source, name), "utf8")) })))),
     productionChecksumsReused: false, productionEquivalent: false };
   (report.models as unknown[]).push(ledgerModel);

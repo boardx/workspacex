@@ -1,0 +1,11 @@
+{
+  "runId": "run-9",
+  "renewals": {
+    "C-8": {
+      "contractId": "C-8",
+      "verdict": "on-track",
+      "verdictTriggers": [],
+      "actionBy": "2027-01-31"
+    }
+  }
+}

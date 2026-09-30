@@ -2,8 +2,8 @@
  * AG03 / UC-3（契约束 `agent-role`，03-agent-role.md R3.3）—— 官方角色包导入。
  *
  * 覆盖 user_visible_behavior：
- *   - 管理员导入后每组织出现 4 个 catalogSource='official' Agent 草稿，workflowAllowlist 逐字
- *     取自 DIGITALHUMAN-COMPOSITION-MATRIX.md（D002/D003/D005/D011），toolPolicy 分类不产生
+ *   - 管理员导入后每组织出现 7 个 catalogSource='official' Agent 草稿，workflowAllowlist 逐字
+ *     取自 DIGITALHUMAN-COMPOSITION-MATRIX.md（D001/D002/D003/D005/D006/D007/D011），toolPolicy 分类不产生
  *     任何授权（本仓库尚无任何授权/凭证表可写，只断言声明本身落库）。
  *   - 白名单引用未注册 Workflow → 422 UNRESOLVED_WORKFLOW_REF，DB 无新增 agent/agent_version 行。
  *   - 挂载的 skillVersions 无法解析 → 422 UNRESOLVED_SKILL_REF，DB 无新增 agent/agent_version 行。
@@ -26,6 +26,13 @@ process.env.KERNEL_QUIET = "1";
 const ORG = "org-ag03-official-roles";
 const ADMIN = "u-ag03-admin";
 const MEMBER = "u-ag03-member";
+
+/**
+ * 历史迁移只覆盖当时存在的四个官方角色（1.5.0 起包里还有 D001/D006/D007，新增角色没有旧行可回填）：
+ * 这些迁移的字面量与「包里同一批 stableName」核对，而不是与整张包核对。
+ */
+const LEGACY_ROLES = ["d002-research-knowledge-analyst", "d003-product-manager", "d005-sales-representative", "d011-design-thinking-expert"];
+const restrictTo = <T,>(all: Readonly<Record<string, T>>, keys: readonly string[]): Record<string, T> => Object.fromEntries(keys.map((k) => [k, all[k] as T]));
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -147,18 +154,22 @@ beforeEach(async () => {
 });
 
 describe("official role pack import (AG03 / UC-3)", () => {
-  it("creates 4 catalogSource='official' agent drafts with workflowAllowlist matching the composition matrix, no authorization granted", async () => {
+  it("creates 7 catalogSource='official' agent drafts with workflowAllowlist matching the composition matrix, no authorization granted", async () => {
     const response = await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
     expect(response.status).toBe(201);
     const body = await response.json() as { agentIds: string[]; versionIds: string[] };
-    expect(body.agentIds).toHaveLength(4);
-    expect(body.versionIds).toHaveLength(4);
+    const packSize = buildOfficialAgentRolePack().agents.length;
+    expect(body.agentIds).toHaveLength(packSize);
+    expect(body.versionIds).toHaveLength(packSize);
 
     const rows = await roleRows();
     expect(rows.map((r) => r.stable_name)).toEqual([
+      "d001-executive-strategy-partner",
       "d002-research-knowledge-analyst",
       "d003-product-manager",
       "d005-sales-representative",
+      "d006-customer-success-specialist",
+      "d007-project-operations-manager",
       "d011-design-thinking-expert",
     ]);
     for (const row of rows) expect(row.catalog_source).toBe("official");
@@ -167,6 +178,10 @@ describe("official role pack import (AG03 / UC-3)", () => {
       workflow_allowlist: ["W001", "W060", "W009", "W006", "W057"],
       role_label: "研究与知识分析师",
     });
+    // 1.5.0 新增三角色：类别 / 中文名 / 白名单逐字取自矩阵（D006 首版有意不含 W017，见 official-role-packs.ts）。
+    expect(rows.find((r) => r.stable_name === "d001-executive-strategy-partner")).toMatchObject({ role_category: "executive", workflow_allowlist: ["W001", "W004", "W009", "W003"], role_label: "高管与战略伙伴" });
+    expect(rows.find((r) => r.stable_name === "d006-customer-success-specialist")).toMatchObject({ role_category: "customer_success", workflow_allowlist: ["W007", "W018", "W002", "W006"], role_label: "客户成功专员" });
+    expect(rows.find((r) => r.stable_name === "d007-project-operations-manager")).toMatchObject({ role_category: "operations", workflow_allowlist: ["W052", "W053", "W055", "W056", "W002", "W003"], role_label: "项目与运营经理" });
     expect(rows.find((r) => r.stable_name === "d003-product-manager")?.workflow_allowlist).toEqual(["W027", "W028", "W029", "W030", "W031", "W032"]);
     expect(rows.find((r) => r.stable_name === "d005-sales-representative")?.workflow_allowlist).toEqual(["W011", "W012", "W013", "W014", "W015", "W016", "W018"]);
     expect(rows.find((r) => r.stable_name === "d011-design-thinking-expert")?.workflow_allowlist).toEqual(["W027", "W028", "W029", "W031", "W002"]);
@@ -255,7 +270,8 @@ describe("dh portrait backfill migration (20260929150000)", () => {
     // alt 随 1.4.0 改为中文名（历史迁移保留 1.1.0 的英文 alt）；核对的承重事实是 stableName → 肖像 key。
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => { const a = JSON.parse(m[2]!) as { kind: string; key: string }; return [m[1], { kind: a.kind, key: a.key }]; }));
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, { kind: a.role.avatar?.kind, key: a.role.avatar?.key }]));
-    expect(literal).toEqual(fromPack);
+    expect(Object.keys(literal).sort()).toEqual(LEGACY_ROLES);
+    expect(literal).toEqual(restrictTo(fromPack, Object.keys(literal)));
   });
 });
 
@@ -265,16 +281,19 @@ describe("agent tags backfill migration (20260929160000)", () => {
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*ARRAY\[([^\]]*)\]\)/g)]
       .map((m) => [m[1], [...m[2]!.matchAll(/'([^']+)'/g)].map((t) => t[1])]));
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.tags]));
-    expect(Object.keys(literal)).toHaveLength(4);
-    expect(literal).toEqual(fromPack);
+    expect(Object.keys(literal).sort()).toEqual(LEGACY_ROLES);
+    expect(literal).toEqual(restrictTo(fromPack, Object.keys(literal)));
   });
 });
 
 describe("official names zh migration (20260930123000)", () => {
-  it("renames exactly the stableName → 中文名 that the 1.4.0 pack seeds declare (the SQL literal is a checked copy)", () => {
+  it("renames exactly the stableName → 中文名 that the pack seeds declare for the four 1.4.0 roles (the SQL literal is a checked copy)", () => {
     const sql = readFileSync(join(__dirname, "../../migrations/20260930123000_dh_official_names_zh.sql"), "utf8");
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'[^']+',\s*'([^']+)'\)/g)].map((m) => [m[1], m[2]]));
-    expect(literal).toEqual(officialRoleNames());
+    expect(Object.keys(literal).sort()).toEqual(LEGACY_ROLES);
+    expect(literal).toEqual(restrictTo(officialRoleNames(), Object.keys(literal)));
+    // 1.5.0 新增角色本来就是中文名，没有英文旧名可改：不在该迁移里。
+    expect(Object.keys(officialRoleNames())).toEqual(expect.arrayContaining(["d001-executive-strategy-partner", "d006-customer-success-specialist", "d007-project-operations-manager"]));
   });
 });
 
@@ -362,14 +381,14 @@ describe("official agent tags are org-curated (admin edits tags; other official 
 describe("official role pack offer (GET /agents/official-role-pack/offer — picker 「待启用」)", () => {
   const getOffer = (userId: string) => fetch(`${base}/agents/official-role-pack/offer`, { headers: authFor(userId) });
 
-  it("lists all 4 official roles as pending before import; member sees them but cannot enable", async () => {
+  it("lists all 7 official roles as pending before import; member sees them but cannot enable", async () => {
     const member = await getOffer(MEMBER);
     expect(member.status).toBe(200);
     const body = await member.json() as { packId: string; packVersion: string; canEnable: boolean; pending: { roleRef: string; avatar: { key: string } | null; tags: string[] }[] };
     expect(body).toMatchObject({ packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, canEnable: false });
-    expect(body.pending.map((p) => p.roleRef)).toEqual(["D002", "D003", "D005", "D011"]);
+    expect(body.pending.map((p) => p.roleRef)).toEqual(["D001", "D002", "D003", "D005", "D006", "D007", "D011"]);
     expect(body.pending.map((p) => p.avatar?.key)).toEqual(Object.values(officialRoleAvatarKeys()));
-    expect(body.pending[0]!.tags).toEqual(officialRoleTags()["d002-research-knowledge-analyst"]);
+    expect(body.pending[0]!.tags).toEqual(officialRoleTags()["d001-executive-strategy-partner"]);
 
     const admin = await (await getOffer(ADMIN)).json() as { canEnable: boolean };
     expect(admin.canEnable).toBe(true);
@@ -388,7 +407,7 @@ describe("official role pack offer (GET /agents/official-role-pack/offer — pic
   it("启用即可用：要约列出所需 Skill 起步包；按序导入它们 + 角色包后，产品线/研究线官方数字人 ready 且有可发起 Workflow", async () => {
     const offer = await (await getOffer(ADMIN)).json() as { requiredSkillPacks: { packId: string; packVersion: string }[] };
     expect(offer.requiredSkillPacks).toEqual(officialRoleSkillPacks().map((p) => ({ ...p })));
-    expect(offer.requiredSkillPacks.map((p) => p.packId)).toEqual(expect.arrayContaining(["work-product", "work-research"]));
+    expect(offer.requiredSkillPacks.map((p) => p.packId)).toEqual(expect.arrayContaining(["work-product", "work-research", "work-executive", "work-customer-success", "work-operations", "work-engineering", "work-resolution"]));
 
     // 启用前：没有任何官方数字人。
     const none = await (await fetch(`${base}/agents/directory`, { headers: authFor(MEMBER) })).json() as { items: unknown[] };
@@ -407,7 +426,7 @@ describe("official role pack offer (GET /agents/official-role-pack/offer — pic
 
     const cards = (await (await fetch(`${base}/agents/directory`, { headers: authFor(MEMBER) })).json() as { items: { name: string; readiness: string; workflows: { stableId: string; name: string }[] }[] }).items;
     expect(cards.map((c) => c.name).sort()).toEqual(Object.values(officialRoleNames()).sort());
-    // 产品线 + 研究线（D002/D003/D011）：导入即发布 → ready + 可发起非空。销售线（D005）尚无运行时图，
+    // 产品线 + 研究线（D001/D002/D003/D006/D007/D011：各有至少一个已发布的产品/研究线 Workflow）：导入即发布 → ready + 可发起非空。销售线（D005）尚无运行时图，
     // 如实仍是 unknown / 无可发起（见 official-role-packs.ts D005 的 skillPacks 注释）。
     const names = officialRoleNames();
     const sales = names["d005-sales-representative"];
@@ -421,13 +440,30 @@ describe("official role pack offer (GET /agents/official-role-pack/offer — pic
   }, 120_000);
 });
 
-describe("AG07 official delegation backfill migration (20260930121000)", () => {
-  it("backfills exactly the stableName → delegationPolicy that the 1.3.0 pack declares (the SQL literal is a checked copy)", () => {
-    const sql = readFileSync(join(__dirname, "../../migrations/20260930121000_ag07_official_role_delegation.sql"), "utf8");
-    const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
+describe("AG07 official delegation backfill migration (20260930121000) + rp-b2 1.5.0 follow-up (20260930141000)", () => {
+  const parse = (file: string) => readFileSync(join(__dirname, "../../migrations", file), "utf8");
+
+  it("1.3.0 backfill literal is the historical value (the four roles' targets before D001/D006/D007 existed); the pack no longer matches it", () => {
+    const literal = Object.fromEntries([...parse("20260930121000_ag07_official_role_delegation.sql").matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as { allowedTargets: string[]; maxDepth: number; requireApproval: boolean }]));
+    expect(Object.keys(literal).sort()).toEqual(LEGACY_ROLES);
+    // 历史快照 = 旧四角色互相为目标（只推导自当时的四份白名单）。
+    const legacyRefs = { "d002-research-knowledge-analyst": "D002", "d003-product-manager": "D003", "d005-sales-representative": "D005", "d011-design-thinking-expert": "D011" } as const;
+    for (const [stable, ref] of Object.entries(legacyRefs)) {
+      expect(literal[stable]!.allowedTargets).toEqual(["D002", "D003", "D005", "D011"].filter((r) => r !== ref));
+      expect(literal[stable]).toMatchObject({ maxDepth: 1, requireApproval: true });
+    }
+  });
+
+  it("1.5.0 follow-up migration: old_policy = the 1.3.0 literal, new_policy = officialRoleDelegationTargets() for exactly the four pre-existing roles (SQL literal is a checked copy)", () => {
+    const oldLiteral = Object.fromEntries([...parse("20260930121000_ag07_official_role_delegation.sql").matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
+    const rows = [...parse("20260930141000_rp_b2_official_role_pack_1_5_0.sql").matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})',\s*'(\{[^']+\})'\)/g)];
+    const olds = Object.fromEntries(rows.map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
+    const news = Object.fromEntries(rows.map((m) => [m[1], JSON.parse(m[3]!) as unknown]));
+    expect(Object.keys(news).sort()).toEqual(LEGACY_ROLES);
+    expect(olds).toEqual(oldLiteral);
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.delegationPolicy]));
-    expect(Object.keys(literal)).toHaveLength(4);
-    expect(literal).toEqual(fromPack);
+    expect(news).toEqual(restrictTo(fromPack, Object.keys(news)));
     for (const p of Object.values(fromPack)) expect(p).toMatchObject({ maxDepth: 1, requireApproval: true });
+    expect(OFFICIAL_AGENT_ROLE_PACK_VERSION).toBe("1.5.0");
   });
 });

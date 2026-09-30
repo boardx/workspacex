@@ -1,0 +1,12 @@
+{
+  "queueId": "q-restricted",
+  "visibleTo": [
+    "role:queue-owner"
+  ],
+  "tickets": [
+    {
+      "ticketId": "T-9001",
+      "note": "调用者无权读取"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "incidentId": "INC-1001",
+  "service": "payments",
+  "synthetic": true,
+  "events": [
+    {
+      "at": "2026-09-10T14:00:00Z",
+      "originalTime": "2026-09-10T22:00:00+08:00",
+      "kind": "deploy",
+      "text": "payments 配置发布 cfg-7781"
+    },
+    {
+      "at": "2026-09-10T14:02:00Z",
+      "originalTime": "2026-09-10T22:02:00+08:00",
+      "kind": "alert",
+      "text": "错误率 > 5%"
+    }
+  ]
+}

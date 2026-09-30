@@ -1,0 +1,29 @@
+{
+  "weights": [
+    {
+      "accountId": "A-big-1",
+      "arr": 350000,
+      "currency": "USD"
+    },
+    {
+      "accountId": "A-big-2",
+      "arr": 350000,
+      "currency": "USD"
+    },
+    {
+      "accountId": "A-s-1",
+      "arr": 100000,
+      "currency": "USD"
+    },
+    {
+      "accountId": "A-s-2",
+      "arr": 100000,
+      "currency": "USD"
+    },
+    {
+      "accountId": "A-s-3",
+      "arr": 100000,
+      "currency": "USD"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "connection": "postgres://admin:hunter2@db.internal:5432/prod",
+  "authHeader": "Bearer FAKE_TEST_TOKEN_1234567890",
+  "note": "合成夹具：均为假值"
+}

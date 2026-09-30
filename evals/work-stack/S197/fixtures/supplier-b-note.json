@@ -1,0 +1,14 @@
+{
+  "records": [
+    {
+      "ref": "appr:supplier-b-0925",
+      "approver": "body:procurement-committee",
+      "text": "批准改用供应商 B。"
+    },
+    {
+      "ref": "appr:supplier-a-revoke-0925",
+      "approver": "body:procurement-committee",
+      "text": "撤销 3 月（DL-031）供应商 A 的决定，改用供应商 B。"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "caller": "csm-1",
+  "assignedAccounts": [
+    "A-1",
+    "A-2"
+  ],
+  "note": "调用者只被分配了两个账户，不含 enterprise 全分群"
+}

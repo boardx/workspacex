@@ -33,6 +33,13 @@ const CAPABILITY_COPY: Record<string, CapabilityCopy> = {
   "knowledge.read": { label: "查阅知识库", allows: "读取本组织知识库中的资料作为工作流的参考。" },
   "project.read": { label: "在审批中引用项目信息", allows: "在计划审批环节读取并引用项目资料，审批结论会被写回运行记录。" },
   "workflow.gate": { label: "人工确认", allows: "工作流在这一步等待指定成员确认后才继续。" },
+  "ticket.write": { label: "更新工单", allows: "回写工单的分诊结果、状态，或在同一工单线程里回复（对外回复仍需人工批准）。" },
+  "tracker.write": { label: "在缺陷追踪器里升级问题", allows: "经人工批准后，把问题升级到外部缺陷追踪器并建立关联。" },
+  "kb.publish": { label: "发布帮助文章", allows: "把经人工确认的解决方案发布到知识库或帮助中心。" },
+  "docs.publish": { label: "发布到受控文档库", allows: "把经批准的流程或制度文档发布到受控文档库。" },
+  "project.write": { label: "创建或更新项目", allows: "在立项获批后创建项目，或把已有项目挂接到这次立项。" },
+  "project.member.write": { label: "添加项目成员", allows: "在立项获批后把指定成员加入新项目。" },
+  "knowledge.graph.write": { label: "写入组织知识", allows: "把经人确认的决定登记到组织知识图谱，供日后检索引用。" },
   "team.roster.read": { label: "在审批中引用团队名单", allows: "在估算审批环节读取团队成员名单，审批结论会被写回运行记录。" },
 };
 

@@ -143,6 +143,47 @@ export function resolveEntity(e: ExtractedEntity, known: readonly KnownObject[])
   return known.find((k) => k.kind === e.kind && hit(k)) ?? known.find(hit) ?? null;
 }
 
+/** 容差匹配只认这么长以上的名字（归一后的字符数）：单字名放宽匹配会把「A」「张」连到一切。 */
+const MIN_FUZZY_NAME_CHARS = 2;
+
+type NamedTarget = { readonly id: string; readonly kind: KG.KgObjectKind };
+
+/**
+ * 一个名字 → 本批实体。先精确（归一后相等），再包含（「华东医药公司」⊇「华东医药」，取最长的那个名字）。
+ * 2026-09-30 devapp：真实模型给 about 的写法常与 entities[].name 不完全一致，精确匹配一条边都连不上（10 个实体、3 条结论、0 条边）。
+ */
+function matchName(name: string, byName: ReadonlyMap<string, NamedTarget>): NamedTarget | undefined {
+  const n = normalizeName(name);
+  const exact = byName.get(n);
+  if (exact !== undefined || n.length < MIN_FUZZY_NAME_CHARS) return exact;
+  let best: { key: string; target: NamedTarget } | undefined;
+  for (const [key, target] of byName) {
+    if (key.length < MIN_FUZZY_NAME_CHARS || !(n.includes(key) || key.includes(n))) continue;
+    if (best === undefined || key.length > best.key.length) best = { key, target };
+  }
+  return best?.target;
+}
+
+/**
+ * 一条结论该连到哪些实体：about 里的名字（精确 / 包含），再加陈述里直接出现的本批实体名——提示词要求陈述写出具体名称，
+ * 模型漏填或写偏 about 时由它兜住（拍板人除外，他走 decided_by）。去重，保持首次出现的顺序。
+ */
+function aboutTargets(
+  about: readonly string[], statement: string, byName: ReadonlyMap<string, NamedTarget>, deciderId?: string,
+): NamedTarget[] {
+  const out = new Map<string, NamedTarget>();
+  for (const name of about) {
+    const t = matchName(name, byName);
+    if (t !== undefined && !out.has(t.id)) out.set(t.id, t);
+  }
+  const text = normalizeName(statement);
+  for (const [key, t] of byName) {
+    // 拍板的人已经有 decided_by 边；陈述里出现他的名字不再额外连 about（about 里点名的照连）。
+    if (key.length >= MIN_FUZZY_NAME_CHARS && t.id !== deciderId && text.includes(key) && !out.has(t.id)) out.set(t.id, t);
+  }
+  return [...out.values()];
+}
+
 export interface BuildExtractionBatchInput {
   readonly threadId: string;
   readonly messageId: string;
@@ -223,18 +264,12 @@ export function buildCandidateBatch(input: BuildCandidateBatchInput): OntologyBa
       evidence: [input.evidenceFor(quote)],
       ...claimTime(c, input.sourceAt),
     });
-    const linked = new Set<string>();
-    for (const name of c.about) {
-      const target = byName.get(normalizeName(name));
-      if (target === undefined || linked.has(target.id)) continue;
-      linked.add(target.id);
+    const decider = c.kind === "decision" && c.decidedBy !== null ? matchName(c.decidedBy, byName) : undefined;
+    for (const target of aboutTargets(c.about, c.statement, byName, decider?.id)) {
       edges.push({ id: input.newId("edg"), srcKind: "claim", srcId: id, dstKind: "object", dstId: target.id, relation: "about" });
     }
-    if (c.kind === "decision" && c.decidedBy !== null) {
-      const who = byName.get(normalizeName(c.decidedBy));
-      if (who !== undefined && who.kind === "person") {
-        edges.push({ id: input.newId("edg"), srcKind: "claim", srcId: id, dstKind: "object", dstId: who.id, relation: "decided_by" });
-      }
+    if (decider !== undefined && decider.kind === "person") {
+      edges.push({ id: input.newId("edg"), srcKind: "claim", srcId: id, dstKind: "object", dstId: decider.id, relation: "decided_by" });
     }
   }
 

@@ -1,0 +1,13 @@
+{
+  "mapId": "expense-map",
+  "timing": {
+    "medianCycleDays": 5
+  },
+  "waits": [
+    "审批等待"
+  ],
+  "rework": [
+    "退回重填"
+  ],
+  "handoffs": 4
+}

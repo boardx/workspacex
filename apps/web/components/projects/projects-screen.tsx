@@ -53,6 +53,12 @@ export function ProjectsScreen() {
   const [listBusy, setListBusy] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
+  // 受控弹窗没有 DialogTrigger：自己记住是谁打开的，关闭后把键盘焦点还给它（否则焦点落回 <body>，键盘用户要重新从头 Tab）。
+  const createTriggerRef = React.useRef<HTMLElement | null>(null);
+  const openCreate = () => {
+    createTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setCreateOpen(true);
+  };
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -164,7 +170,7 @@ export function ProjectsScreen() {
               className="h-8 w-44 pl-7"
             />
           </div>
-          <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
+          <Button variant="primary" size="sm" data-testid="projects-new" onClick={openCreate}>
             <Plus aria-hidden className="h-3.5 w-3.5" />
             新建项目
           </Button>
@@ -200,12 +206,24 @@ export function ProjectsScreen() {
       ) : null}
 
       {listError !== null ? (
-        <p data-testid="projects-list-error" className="text-12 text-destructive">
-          {listError}
-        </p>
+        <div
+          role="alert"
+          data-testid="projects-list-error"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-13 font-medium text-destructive">项目列表暂时读不出来</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">你的项目没有丢，稍后重试即可。{" "}
+              <span className="font-mono text-11" data-testid="projects-list-error-code">{listError}</span>
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={listBusy} onClick={() => void refresh(orgId)} data-testid="projects-list-error-retry">
+            {listBusy ? "重试中…" : "重试"}
+          </Button>
+        </div>
       ) : null}
 
-      {projects === null ? (
+      {projects === null && listError !== null ? null : projects === null ? (
         <div
           data-testid="projects-list-empty-state"
           className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
@@ -250,7 +268,7 @@ export function ProjectsScreen() {
                 也可以先不建项目，直接去「对话」里交一件事给 AI。
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
+                <Button variant="primary" onClick={openCreate} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
                 <Button variant="outline" asChild><Link href="/chat">先去对话</Link></Button>
               </div>
             </>
@@ -271,7 +289,11 @@ export function ProjectsScreen() {
       )}
 
       {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
-      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateProjectDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCloseAutoFocus={(event) => { event.preventDefault(); createTriggerRef.current?.focus(); }}
+      />
     </div>
   );
 }
@@ -333,6 +355,7 @@ function ProjectRealCard({
     <li>
       <ResourceCard
         testId={`projects-card-${project.id}`}
+        headingLevel={2}
         layout={layout === "list" ? "list" : "grid"}
         title={project.name}
         titleTestId={`projects-card-${project.id}-name`}
