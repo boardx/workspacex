@@ -1,12 +1,15 @@
 /**
- * AG03 / UC-3（契约束 `agent-role`，R3.3）—— 平台运营产出的官方角色包内容：D002/D003/D005/D011。
+ * AG03 / UC-3（契约束 `agent-role`，R3.3）—— 平台运营产出的官方角色包内容：D001/D002/D003/D005/D006/D007/D011。
  *
  * `workflowAllowlist` 逐字取自 `requirements/work-stack-v2/DIGITALHUMAN-COMPOSITION-MATRIX.md`
- * 第 8/9/11/17 行（单一事实源 = 该矩阵；`.harness/scripts/lint-work-stack-graph.ts` 对同一份矩阵
- * 做静态图校验，本文件不复述那份校验，只搬运矩阵里 D002/D003/D005/D011 四行的 Workflow 列）：
+ * 第 7/8/9/11/12/13/17 行（单一事实源 = 该矩阵；`.harness/scripts/lint-work-stack-graph.ts` 对同一份矩阵
+ * 做静态图校验，本文件不复述那份校验，只搬运矩阵里各行的 Workflow 列）：
+ *   D001 Executive / Strategy Partner → W001, W004, W009, W003
  *   D002 Research & Knowledge Analyst → W001, W060, W009, W006, W057
  *   D003 Product Manager             → W027, W028, W029, W030, W031, W032
  *   D005 Sales Representative        → W011, W012, W013, W014, W015, W016, W018
+ *   D006 Customer Success Specialist → W007, W017, W018, W002, W006（⚠ 首版有意不含 W017，见 D006 种子）
+ *   D007 Project / Operations Manager → W052, W053, W055, W056, W002, W003
  *   D011 Design Thinking Expert      → W027, W028, W029, W031, W002
  *
  * `skillVersions`（直接挂载）本轮留空：矩阵里的 Skill 列（S003/S063/… 等）属于 Work Skill 目录
@@ -37,12 +40,23 @@ export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
  * 1.4.0：角色名/角色标签改为中文（界面不再露英文标识，UIUX 复审 2026-09-30）；已导入旧版的组织由
  * 迁移 `20260930123000_dh_official_names_zh.sql` 改名（字面量由 official-role-pack-import.test.ts 核对）。
  */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.4.0";
+/**
+ * 1.5.0：新增 D001 高管与战略伙伴 / D006 客户成功专员 / D007 项目与运营经理三个官方角色（Skill 起步包
+ * work-executive / work-customer-success / work-operations / work-engineering / work-resolution 随之进入一键启用）；
+ * 既有四个角色的转交目标随 `officialRoleDelegationTargets()` 推导变化，由迁移
+ * `20260930140000_rp_b2_official_delegation_targets.sql` 回填（旧值 → 新值，只动仍是旧默认值的行）。
+ */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.5.0";
 
 /** Skill 起步包坐标（`skills/starter-packs/<packId>/<packVersion>.json`）。 */
 export interface OfficialRoleSkillPackRef { readonly packId: string; readonly packVersion: string }
 const WORK_RESEARCH: OfficialRoleSkillPackRef = { packId: "work-research", packVersion: "1.0.0" };
 const WORK_PRODUCT: OfficialRoleSkillPackRef = { packId: "work-product", packVersion: "1.0.0" };
+const WORK_EXECUTIVE: OfficialRoleSkillPackRef = { packId: "work-executive", packVersion: "1.0.0" };
+const WORK_CUSTOMER_SUCCESS: OfficialRoleSkillPackRef = { packId: "work-customer-success", packVersion: "1.0.0" };
+const WORK_OPERATIONS: OfficialRoleSkillPackRef = { packId: "work-operations", packVersion: "1.0.0" };
+const WORK_ENGINEERING: OfficialRoleSkillPackRef = { packId: "work-engineering", packVersion: "1.0.0" };
+const WORK_RESOLUTION: OfficialRoleSkillPackRef = { packId: "work-resolution", packVersion: "1.0.0" };
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -67,6 +81,18 @@ export const OFFICIAL_ESCALATION_MATTERS = {
   contractTerms: "合同或交付条款承诺",
   budget: "预算或资源投入承诺",
   sensitiveData: "使用含个人信息或来源未授权的数据",
+  /** D001：披露未公开信息 → org_admin（D001 无任何外发能力，只做提示）。 */
+  nonPublicDisclosure: "披露未公开信息",
+  /** D001：董事会/监管材料的定稿是人的动作 → 交还发起人。 */
+  boardOrRegulatorFinalization: "对董事会或监管的材料定稿",
+  /** D006：退款、补偿、服务抵扣均属商务承诺，须有授权来源。 */
+  refundOrCompensation: "退款、补偿或服务抵扣承诺",
+  /** D006：安全/数据泄露类只做快速升级提示。 */
+  securityOrDataLeak: "疑似安全或数据泄露事件",
+  /** D007：已批准基线只能经变更请求修改 → 交还发起人走变更。 */
+  approvedBaselineEdit: "直接修改已批准的项目基线",
+  /** D007：事件严重度宣布与对外通报是人（事件指挥官/法务）的动作。 */
+  incidentSeverityOrNotice: "宣布事件严重度或对外通报事件",
 } as const;
 
 const M = OFFICIAL_ESCALATION_MATTERS;
@@ -80,7 +106,7 @@ interface RoleEntrySeed {
   readonly roleRef: string;
   readonly roleLabel: string;
   readonly stableName: string;
-  readonly roleCategory: "research" | "product" | "sales" | "design" | "general";
+  readonly roleCategory: z.infer<typeof agentRole.AgentRoleCategory>;
   /**
    * 数字人肖像（`DIGITAL_HUMAN_AVATAR_KEYS`，60 格角色头像网格按角色名一一对应）。
    * 「哪个官方角色用哪张肖像」只在这里声明；已导入 1.0.0 的组织由迁移
@@ -101,11 +127,41 @@ interface RoleEntrySeed {
   /** 本角色专属的升级规则（叠加在 `COMMON_ESCALATION_RULES` 之后）。 */
   readonly escalationRules: readonly EscalationRule[];
   readonly toolPolicy: readonly string[];
+  /** KPI 声明（只声明不计算；契约 `AgentKpi`）。缺省 = 空（D002/D003/D005/D011 沿用 1.x 的空 KPI）。 */
+  readonly kpi?: readonly z.infer<typeof agentRole.AgentKpi>[];
   readonly instructions: string;
 }
 
 /** ⚠ `workflowAllowlist` 逐字取自矩阵——改这份清单前先改矩阵，再回来同步（同一事实单点）。 */
 const ROLE_SEEDS: readonly RoleEntrySeed[] = [
+  {
+    roleRef: "D001",
+    avatarKey: "dh-01-executive-strategy-partner",
+    roleLabel: "高管与战略伙伴",
+    stableName: "d001-executive-strategy-partner",
+    roleCategory: "executive",
+    tags: ["战略", "高管", "决策"],
+    workflowAllowlist: ["W001", "W004", "W009", "W003"],
+    // W001/W009 的 Skill 在研究包，W003/W004 在运营/产品/高管包（矩阵第 7 行；S154/S143 → operations，S197 → executive）。
+    skillPacks: [WORK_RESEARCH, WORK_PRODUCT, WORK_OPERATIONS, WORK_EXECUTIVE],
+    escalationRules: [
+      { matter: M.sensitiveData, target: "org_admin" },
+      { matter: M.budget, target: "org_admin" },
+      { matter: M.nonPublicDisclosure, target: "org_admin" },
+      { matter: M.boardOrRegulatorFinalization, target: "requester" },
+    ],
+    toolPolicy: ["knowledge.search"],
+    kpi: [
+      { metric: "d001.decision_ready_rate", description: "发给决定人的决策/执行材料中，决定人首次阅读后无需退回补充信息即作出选定的比例（目标 ≥ 70%）" },
+      { metric: "d001.overclaim_rate", description: "抽检中措辞强于证据允许程度、或混入未标注个人判断的句子比例（目标 ≤ 1%）" },
+      { metric: "d001.triage_hit_rate", description: "用户未改选路径、且流程未以选错流程终止的比例（目标 ≥ 85%）" },
+      { metric: "d001.digest_on_time", description: "高管周报在配置时刻前进入首道人工确认的比例（目标 ≥ 95%，仅统计不缺源的周）" },
+      { metric: "d001.decision_log_coverage", description: "有可证决定人的已确认决定，7 天内被决定人确认记账的比例（目标 ≥ 80%）" },
+      { metric: "d001.false_proactive_rate", description: "主动发言后被与会者判定为无关或已知的比例（目标 ≤ 10%）" },
+      { metric: "d001.confidentiality_violations", description: "机密材料在不具权限的在场者面前被口述或展示的次数（硬门，目标 0）" },
+    ],
+    instructions: "Frame decisions for the decision-maker with options, evidence, confidence and the cost of not deciding; never decide, approve or announce on their behalf, propose decision-log entries only with a verifiable decision owner, and keep wording within what the evidence allows.",
+  },
   {
     roleRef: "D002",
     avatarKey: "dh-02-research-knowledge-analyst",
@@ -148,6 +204,70 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     instructions: "Qualify leads, run the pipeline from first meeting to close, and keep every stage change grounded in the CRM record rather than a private recollection.",
   },
   {
+    roleRef: "D006",
+    avatarKey: "dh-06-customer-success-specialist",
+    roleLabel: "客户成功专员",
+    stableName: "d006-customer-success-specialist",
+    roleCategory: "customer_success",
+    tags: ["客户成功", "续约", "支持"],
+    // ⚠ 与矩阵第 12 行（W007, W017, W018, W002, W006）有意相差 W017：W017（续约风险复核）deferred，
+    // 首版白名单不含它；上线前置条件满足后以新包版本加入（见 workflows/W017-renewal-risk-review.md §2A）。
+    workflowAllowlist: ["W007", "W018", "W002", "W006"],
+    // W007 → customer-success + resolution；W002 → product；W006 → research。W018 是销售线，
+    // 销售线运行时未随一键启用装配（同 D005），不挂 work-sales——不假装「启用即可用」。
+    skillPacks: [WORK_CUSTOMER_SUCCESS, WORK_RESOLUTION, WORK_PRODUCT, WORK_RESEARCH],
+    escalationRules: [
+      { matter: M.pricing, target: "org_admin" },
+      { matter: M.contractTerms, target: "org_admin" },
+      { matter: M.sensitiveData, target: "org_admin" },
+      { matter: M.refundOrCompensation, target: "org_admin" },
+      { matter: M.securityOrDataLeak, target: "org_admin" },
+    ],
+    toolPolicy: ["knowledge.search"],
+    kpi: [
+      { metric: "d006.first_response_within_sla", description: "参与的工单中，首次经人批准的回复在首响时限之前发出的比例（目标 ≥ 90%，仅统计接入工单系统的实例）" },
+      { metric: "d006.priority_override_rate", description: "工单优先级被人在分诊确认时改动的比例（记录基线，不设目标）" },
+      { metric: "d006.reply_heavy_edit_rate", description: "回复草稿在人工确认时被改写超过一半的比例（目标 ≤ 25%）" },
+      { metric: "d006.unsourced_commitment_rate", description: "对客草稿中没有授权来源的承诺句占比（硬门，目标 0）" },
+      { metric: "d006.escalation_pack_completeness", description: "接收方收到升级简报后无需回头向客户成功经理或客户补问的比例（目标 ≥ 80%）" },
+      { metric: "d006.false_green_rate", description: "被判健康但 30 天内出现不续约通知或最高优先级升级的账户比例（目标 ≤ 5%）" },
+      { metric: "d006.kb_acceptance_rate", description: "知识文章草稿经人工确认被采纳而非废弃的比例（目标 ≥ 60%）" },
+      { metric: "d006.customer_visible_violations", description: "对客草稿中出现内部标识、他客户信息或未批准路线图的次数（硬门，目标 0）" },
+    ],
+    instructions: "Triage customer issues, draft replies and escalation briefs for a human to send, and explain account health with its evidence gaps; every customer-facing sentence stays a draft and no commitment about price, compensation or delivery is made without an authorized source.",
+  },
+  {
+    roleRef: "D007",
+    avatarKey: "dh-07-project-operations-manager",
+    roleLabel: "项目与运营经理",
+    stableName: "d007-project-operations-manager",
+    roleCategory: "operations",
+    tags: ["项目管理", "运营", "PMO"],
+    workflowAllowlist: ["W052", "W053", "W055", "W056", "W002", "W003"],
+    // W052/W053/W003/W055 的 Skill 在运营包（S141–S156）+ 产品包（S142/S155/S162/S018/S006/S007）+ 研究包（S010/S012/S016）；
+    // W056 的 S177/S179 在运营包与工程包，S011 在 resolution 包。
+    skillPacks: [WORK_OPERATIONS, WORK_ENGINEERING, WORK_RESOLUTION, WORK_PRODUCT, WORK_RESEARCH],
+    escalationRules: [
+      { matter: M.budget, target: "org_admin" },
+      { matter: M.sensitiveData, target: "org_admin" },
+      { matter: M.approvedBaselineEdit, target: "requester" },
+      { matter: M.incidentSeverityOrNotice, target: "org_admin" },
+    ],
+    toolPolicy: ["knowledge.search"],
+    kpi: [
+      { metric: "d007.intake_to_decision_days", description: "请求进入到立项受理决定的中位工作日，不含人工等待（记录基线，不设目标）" },
+      { metric: "d007.projects_started_with_baseline", description: "启动的项目中拥有人工批准基线的比例（硬门，目标 100%）" },
+      { metric: "d007.unapproved_scope_growth", description: "有基线的项目中出现未经批准的范围新增的项目比例（目标 ≤ 10%，趋势下降）" },
+      { metric: "d007.pmo_review_on_time", description: "周度项目组合复核在周期内发布的比例（目标 ≥ 90%）" },
+      { metric: "d007.stale_card_ratio", description: "项目组合中陈旧卡片占比（记录基线，趋势下降）" },
+      { metric: "d007.action_closure_rate", description: "复盘与流程改进的行动项在到期日前完成的比例（目标 ≥ 70%，需人标记且有验证证据）" },
+      { metric: "d007.capacity_conflicts_caught_pre_start", description: "启动前发现的容量不足或瓶颈，与启动后期才出现的超配之比（记录基线）" },
+      { metric: "d007.green_wash_attempts_blocked", description: "被拒绝的改色或洗绿请求数（观察指标，无目标）" },
+      { metric: "d007.unauthorized_board_writes", description: "未经用户或人工门确认的看板写入次数（硬门，目标 0）" },
+    ],
+    instructions: "Turn requests into bounded, baselined projects, track deviation against the approved baseline each week, convert meeting commitments into owned cards, and never approve, re-baseline, recolor status or assess individuals; every approval stays a human gate.",
+  },
+  {
     roleRef: "D011",
     avatarKey: "dh-11-design-thinking-expert",
     roleLabel: "设计思维专家",
@@ -181,7 +301,7 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
       workflowAllowlist: [...seed.workflowAllowlist],
       delegationPolicy: officialRoleDelegationPolicy(seed.roleRef),
       escalationPolicy: officialRoleEscalationPolicy(seed),
-      kpi: [],
+      kpi: (seed.kpi ?? []).map((k) => ({ ...k })),
       tags: [...seed.tags],
     },
   };

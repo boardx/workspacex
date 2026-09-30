@@ -1,0 +1,45 @@
+{
+  "budget": {
+    "sourceRef": "fin:budget-2027",
+    "unit": "百万 CNY",
+    "rows": [
+      [
+        "P1",
+        10
+      ],
+      [
+        "P2",
+        10
+      ],
+      [
+        "P3",
+        10
+      ],
+      [
+        "UNDECLARED-1",
+        70
+      ]
+    ]
+  },
+  "roadmap": {
+    "sourceRef": "board:roadmap-2027",
+    "rows": [
+      [
+        "P1",
+        3
+      ],
+      [
+        "P2",
+        2
+      ],
+      [
+        "P3",
+        1
+      ],
+      [
+        "UNDECLARED-1",
+        14
+      ]
+    ]
+  }
+}

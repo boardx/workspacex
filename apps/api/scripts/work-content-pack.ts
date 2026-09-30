@@ -30,6 +30,9 @@ import {
 /** repo-root-relative 320 实体清单（PASS 状态的单一事实源）。 */
 export const DEFAULT_ENTITY_LIST = resolve(dirname(fileURLToPath(import.meta.url)), "../../../requirements/work-stack-v2/WORK-STACK-320-LIST.md");
 
+/** 缺省只认第一阶段（Phase 20 CT01/CT04/CT07 的可发布范围）；已在后续阶段评审 PASS 的实体，内容线显式追加章节。 */
+export const DEFAULT_PASS_SECTIONS: readonly string[] = ["## 第一阶段"];
+
 export interface WorkContentPackSpec {
   readonly packId: string;
   readonly packVersion: string;
@@ -39,6 +42,19 @@ export interface WorkContentPackSpec {
   readonly expectedStableIds: readonly string[];
   /** PASS 清单路径；测试可指向夹具。 */
   readonly entityListPath?: string;
+  /**
+   * 认「✅ 通过」行的清单章节标题（缺省只第一阶段）。这**不是**豁免：只认已评审 PASS 的行，仅用于已在第二阶段 ✅ 的实体
+   * （如 S011/S013/S015）。未评审实体一律走 `pendingReviewIds`。
+   */
+  readonly passSections?: readonly string[];
+  /**
+   * 已作者化但**尚无独立评审 PASS** 的实体（清单里仍是 ⬜，含第二阶段实体）——人类授权「先实现、后补评审/签核」时使用。
+   * 这是**唯一**的豁免机制：只在构建期豁免「必须是第一阶段 PASS」这一条，其余 E1 校验（metadata.work、覆盖集合、digest）照旧。
+   * 它会自行失效：ID 必须登记在 WORK-STACK-320-LIST.md；清单里一旦把它标成 ✅（任一阶段），构建立即报错
+   * （`pending-review-stale`）要求从这里删除，不会无声留着过期豁免。豁免不代表评审通过。
+   * 缺省为空：第一阶段内容线行为（及其 digest）不变。
+   */
+  readonly pendingReviewIds?: readonly string[];
 }
 
 export class WorkContentPackBuildError extends Error {
@@ -54,15 +70,29 @@ export class WorkContentPackBuildError extends Error {
  * 读 `WORK-STACK-320-LIST.md` 第一阶段一节中状态为「✅ 通过」的实体 ID。
  * 只认第一阶段：后续阶段的实体即便已登记，也不在 Phase 20 可发布范围内。
  */
-export function readPhaseOnePassIds(listPath: string = DEFAULT_ENTITY_LIST): Set<string> {
+export function readPhaseOnePassIds(listPath: string = DEFAULT_ENTITY_LIST, sections: readonly string[] = DEFAULT_PASS_SECTIONS): Set<string> {
   const text = readFileSync(listPath, "utf8");
-  const start = text.indexOf("## 第一阶段");
-  if (start < 0) throw new Error(`${listPath}: 找不到「## 第一阶段」一节`);
-  const next = text.indexOf("\n## ", start + 1);
-  const section = text.slice(start, next < 0 ? undefined : next);
   const ids = new Set<string>();
-  for (const m of section.matchAll(/^\|\s*✅\s*通过\s*\|\s*([SWD]\d{3})\s*\|/gm)) ids.add(m[1]!);
+  for (const heading of sections) {
+    const start = text.indexOf(heading);
+    if (start < 0) throw new Error(`${listPath}: 找不到「${heading}」一节`);
+    const next = text.indexOf("\n## ", start + 1);
+    const section = text.slice(start, next < 0 ? undefined : next);
+    for (const m of section.matchAll(/^\|\s*✅\s*通过\s*\|\s*([SWD]\d{3})\s*\|/gm)) ids.add(m[1]!);
+  }
   return ids;
+}
+
+/** `WORK-STACK-320-LIST.md` 任一阶段登记过的实体 ID（`listed`，不论状态）与其中已「✅ 通过」的 ID（`passed`）。 */
+export function readListedEntityIds(listPath: string = DEFAULT_ENTITY_LIST): { listed: Set<string>; passed: Set<string> } {
+  const text = readFileSync(listPath, "utf8");
+  const listed = new Set<string>();
+  const passed = new Set<string>();
+  for (const m of text.matchAll(/^\|\s*(✅\s*通过|⬜)\s*\|\s*([SWD]\d{3})\s*\|/gm)) {
+    listed.add(m[2]!);
+    if (m[1]!.startsWith("✅")) passed.add(m[2]!);
+  }
+  return { listed, passed };
 }
 
 const mediaTypeFor = starterPackMediaType;
@@ -89,8 +119,19 @@ function listSkillDirectories(root: string): string[] {
 /** 构建内容线 pack（纯函数：只读 fs，不写）。 */
 export function buildWorkContentPack(spec: WorkContentPackSpec): SkillStarterPack {
   const { packId, packVersion, root } = spec;
-  const passIds = readPhaseOnePassIds(spec.entityListPath);
+  const passIds = readPhaseOnePassIds(spec.entityListPath, spec.passSections);
+  const pending = new Set(spec.pendingReviewIds ?? []);
   const issues: WorkSkillManifestIssue[] = [];
+  if (pending.size > 0) {
+    const { listed, passed } = readListedEntityIds(spec.entityListPath);
+    for (const id of [...pending].sort()) {
+      if (!listed.has(id)) {
+        issues.push({ file: `${packId}/`, fieldPath: "pendingReviewIds", message: `${id} 不在 WORK-STACK-320-LIST.md 中，不能登记为待评审实体` });
+      } else if (passed.has(id)) {
+        issues.push({ file: `${packId}/`, fieldPath: "pendingReviewIds", message: `${id} 已在 WORK-STACK-320-LIST.md 标为「✅ 通过」——pending-review-stale：请把它从 pendingReviewIds 中删除` });
+      }
+    }
+  }
   const skills: SkillStarterPack["skills"] = [];
   const seen = new Map<string, string>();
 
@@ -118,8 +159,8 @@ export function buildWorkContentPack(spec: WorkContentPackSpec): SkillStarterPac
     }
 
     const stableId = work.manifest.stableId;
-    if (!passIds.has(stableId)) {
-      issues.push({ file: skillMdRelative, fieldPath: "metadata.work.stableId", message: `${stableId} 不是 WORK-STACK-320-LIST.md 第一阶段中已通过（PASS）的实体` });
+    if (!passIds.has(stableId) && !pending.has(stableId)) {
+      issues.push({ file: skillMdRelative, fieldPath: "metadata.work.stableId", message: `${stableId} 不是 WORK-STACK-320-LIST.md 第一阶段中已通过（PASS）的实体（未评审的实体须显式登记到 pendingReviewIds）` });
       continue;
     }
     const prior = seen.get(stableId);
