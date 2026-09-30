@@ -60,6 +60,9 @@ describe("persisted survey template library", () => {
     ).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "问卷二级导航" });
     expect(pageHeader?.contains(navigation)).toBe(false);
+    expect(navigation).toHaveClass("border-b", "overflow-x-auto");
+    expect(navigation).not.toHaveClass("lg:flex-col");
+    expect(navigation.parentElement).toHaveClass("flex", "flex-col");
     expect(within(navigation).getByRole("link", { name: "我的问卷" })).toHaveAttribute("href", "/studio/survey");
     expect(within(navigation).getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
     expect(within(navigation).getByRole("link", { name: "报告模板" })).toHaveAttribute("href", "/studio/survey?tab=reports");
