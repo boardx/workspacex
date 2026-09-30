@@ -196,7 +196,7 @@ export function WorkflowGrantsScreen() {
                       data-focused={isFocused ? "true" : undefined}
                       aria-current={isFocused ? "location" : undefined}
                       className={cn("flex scroll-mt-6 flex-col gap-2 rounded-lg border bg-card p-4",
-                        isFocused ? "border-primary ring-2 ring-ring ring-offset-2 ring-offset-background outline-none" : "border-border")}
+                        isFocused ? "border-primary ring-2 ring-ring ring-offset-2 ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" : "border-border")}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-13 font-semibold">{workflowDisplayName(f.workflow.workflowKey, f.workflow.title)}</h3>
