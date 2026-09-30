@@ -23,6 +23,8 @@ async function loginAsSeededUser(page: Page) {
 test("Agent 目录从左栏导航可达，不是只能敲 URL 进的孤岛", async ({ page }) => {
   await loginAsSeededUser(page);
 
+  // 2026-09-30：Agent 目录收进左栏「更多」三点菜单，先点开再找入口
+  await page.getByTestId("rail-more").click();
   const navEntry = page.getByTestId("rail-agent-directory");
   await expect(navEntry).toBeVisible();
   await navEntry.click();
