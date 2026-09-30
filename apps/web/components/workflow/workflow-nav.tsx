@@ -25,7 +25,7 @@ export function WorkflowNav({ active, projectId }: { readonly active: WorkflowNa
           return (
             <a
               key={item.key}
-              href={item.href}
+              href={projectId ? `${item.href}?projectId=${encodeURIComponent(projectId)}` : item.href}
               data-testid={`workflow-nav-${item.key}`}
               aria-current={isActive ? "page" : undefined}
               className={cn(
@@ -59,11 +59,14 @@ export function BackToProjectLink({ projectId, testId }: { readonly projectId: s
 }
 
 /** Workflow 各页的内容区外框 + 页标题（字号档位同后台页标题）。 */
-export function WorkflowPage({ title, children }: { readonly title?: string; readonly children: React.ReactNode }) {
+export function WorkflowPage({ title, subtitle, children }: { readonly title?: string; readonly subtitle?: string; readonly children: React.ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6" data-testid="workflow-page">
       {title !== undefined && (
-        <h1 className="text-20 font-semibold tracking-tight" data-testid="workflow-page-title">{title}</h1>
+        <header className="flex flex-col gap-1">
+          <h1 className="text-20 font-semibold tracking-tight" data-testid="workflow-page-title">{title}</h1>
+          {subtitle !== undefined && <p className="text-12 text-muted-foreground" data-testid="workflow-page-subtitle">{subtitle}</p>}
+        </header>
       )}
       {children}
     </div>

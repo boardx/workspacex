@@ -262,24 +262,25 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
     return screen.getByTestId("projects-more-menu-p-real-1");
   }
 
-  it("菜单四项且无删除项；未实现的三项禁用并如实说明", async () => {
+  it("菜单只有真实可用的两项（复制项目链接 / 归档），没有删除项，也没有禁用占位和内部备注", async () => {
     const menu = await openMenu();
 
-    // Radix DropdownMenuItem 渲染成 `<div role="menuitem">`，禁用态走 `aria-disabled`/
-    // `data-disabled`（jest-dom 的 `toBeDisabled()` 只认原生表单控件的 `disabled` 属性，
-    // 这里不适用——断言改读 Radix 实际输出的禁用信号）。
-    expect(within(menu).getByTestId("projects-more-p-real-1-edit")).toHaveAttribute("data-disabled");
-    expect(within(menu).getByTestId("projects-more-p-real-1-bigscreen")).toHaveAttribute("data-disabled");
-    expect(within(menu).getByTestId("projects-more-p-real-1-copy-invite")).toHaveAttribute("data-disabled");
-    expect(within(menu).getByTestId("projects-more-p-real-1-unavailable-note")).toBeInTheDocument();
-
-    // 归档项可点；**没有删除这个菜单项**（Q-9 裁不提供删除项目）
+    expect(within(menu).getByTestId("projects-more-p-real-1-copy-link")).not.toHaveAttribute("data-disabled");
     expect(within(menu).getByTestId("projects-more-p-real-1-archive")).not.toHaveAttribute("data-disabled");
-    // 注意断的是「菜单项」而不是「页面上不出现『删除项目』四个字」——
-    // Q-9 的说明文案本身就要提到它，按文本断会把说明也判成违规。
     const items = within(menu).getAllByRole("menuitem");
-    expect(items).toHaveLength(4);                              // 编辑/看大屏/复制邀请/归档
+    expect(items).toHaveLength(2);
+    expect(items.some((el) => el.hasAttribute("data-disabled"))).toBe(false);
     expect(items.some((el) => /删除/.test(el.textContent ?? ""))).toBe(false);
+    expect(menu.textContent ?? "").not.toMatch(/Q-9|尚未实现/);
+  });
+
+  it("复制项目链接：写入剪贴板并就地反馈「已复制」", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const menu = await openMenu();
+    fireEvent.click(within(menu).getByTestId("projects-more-p-real-1-copy-link"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/projects/p-real-1`));
+    expect(await within(menu).findByText("已复制项目链接")).toBeInTheDocument();
   });
 
   it("归档要二次确认：确认前不发任何请求，取消也不发", async () => {
