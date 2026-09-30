@@ -1558,6 +1558,20 @@ export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
   z.object({ type: z.literal("asr.finished") }).strict(),
 ]);
 
+/**
+ * 实时数字人会话的失败原因（界面据此给友好文案，不展示原始错误）。
+ * NOT_CONFIGURED：部署未配置实时模型；AGENT_UNAVAILABLE：所选数字人不存在/未发布/不可见；
+ * THREAD_UNAVAILABLE：线程不存在、无权写或已归档；UPSTREAM_FAILED：实时模型连接或返回错误；
+ * INVALID_FRAME：客户端帧不合契约。
+ */
+export const RealtimeDigitalHumanErrorReason = z.enum([
+  "NOT_CONFIGURED",
+  "AGENT_UNAVAILABLE",
+  "THREAD_UNAVAILABLE",
+  "UPSTREAM_FAILED",
+  "INVALID_FRAME",
+]);
+
 export const streamOperations = {
   streamAsrDraft: {
     path: "/chat/asr-draft",
@@ -1578,7 +1592,17 @@ export const streamOperations = {
       encoding: "pcm16le",
     },
     client: z.discriminatedUnion("type", [
-      z.object({ type: z.literal("session.start"), boardId: z.string().min(1) }).strict(),
+      /**
+       * 两种宿主：白板 POC 传 `boardId`；Chat 语音模式传 `threadId`（+ 可选 `agentId`，缺省 = 通用助手）。
+       * 二者恰好其一由网关判定（discriminatedUnion 成员不能带 refine）。模型/音色**不在**这里——
+       * 服务端按角色解析，客户端无权指定。
+       */
+      z.object({
+        type: z.literal("session.start"),
+        boardId: z.string().min(1).optional(),
+        threadId: z.string().min(1).optional(),
+        agentId: z.string().min(1).nullable().optional(),
+      }).strict(),
       z.object({ type: z.literal("session.stop") }).strict(),
       z.object({ type: z.literal("response.cancel") }).strict(),
       z.object({ type: z.literal("conversation.text"), text: z.string().min(1).max(2_000) }).strict(),
@@ -1591,9 +1615,12 @@ export const streamOperations = {
       z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean() }).strict(),
       z.object({ type: z.literal("assistant.audio"), audio: z.string() }).strict(),
       z.object({ type: z.literal("assistant.audio_done") }).strict(),
-      z.object({ type: z.literal("session.error"), message: z.string() }).strict(),
+      z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string() }).strict(),
+      /** Chat 宿主：一轮转写已作为普通消息落进线程（挂断后线程里能看到整段对话）。 */
+      z.object({ type: z.literal("turn.persisted"), role: z.enum(["user", "assistant"]), messageId: z.string() }).strict(),
       z.object({ type: z.literal("session.closed") }).strict(),
     ]),
+    err: RealtimeDigitalHumanErrorReason,
   },
 } as const;
 
