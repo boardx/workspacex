@@ -699,6 +699,7 @@ export function SurveyQuestionEditor({
               </Button>
             </div>
             <div
+              data-testid="survey-question-drop-zone"
               onDragOver={(event) => {
                 if (draggingType) {
                   event.preventDefault();
@@ -734,7 +735,7 @@ export function SurveyQuestionEditor({
                     </div>}
                   <section className={studioLayout ? `group rounded-lg border p-4 transition-colors ${q.id === question?.id ? "border-primary bg-accent/20" : "border-border hover:border-primary/50"}` : ""}>
                     {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
-                      className={`mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground ${q.id === question?.id ? "" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
+                      className={`mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}
                       onClick={() => { setId(q.id); setPendingType(undefined); }}>
                       Q{questionIndex + 1} · 点击编辑
                     </button>}

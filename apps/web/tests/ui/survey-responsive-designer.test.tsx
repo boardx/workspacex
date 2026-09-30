@@ -87,9 +87,10 @@ it("adds a real question when a toolbox item is dropped on the center canvas", (
     getData: vi.fn(() => "single"),
   };
   fireEvent.dragStart(typeButton, { dataTransfer });
-  fireEvent.dragOver(canvas, { dataTransfer });
-  fireEvent.drop(canvas, { dataTransfer });
-  expect(within(canvas).getByRole("textbox", { name: "问题内容" })).toHaveValue("单选题");
+  const dropZone = screen.getByTestId("survey-question-drop-zone");
+  fireEvent.dragOver(dropZone, { dataTransfer });
+  fireEvent.drop(dropZone, { dataTransfer });
+  expect(within(canvas).getByRole("textbox", { name: "问题内容" })).toHaveValue("单选");
 });
 
 it("keeps desktop side panels fixed and makes the center canvas the primary scroll surface", () => {
