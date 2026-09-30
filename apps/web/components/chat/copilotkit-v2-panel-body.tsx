@@ -1,6 +1,5 @@
 "use client";
 import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
-import { ProjectRecordingPanel } from "@/components/chat/workbench/project-recording-panel";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
@@ -2123,7 +2122,6 @@ export function CopilotKitV2PanelBody({
             `max-w-3xl` 收窄；外层列让出这条上限之后，这里用同一个 Tailwind
             刻度单独补上，不是新造一条阅读宽度判据，只是换了承担它的容器。 */}
         <div className="mx-auto flex w-full min-w-0 max-w-3xl shrink-0 flex-col gap-3">
-        <ProjectRecordingPanel projectId={projectId} threadId={resolvedChatThreadId} userId={draftSession?.userId ?? null} bearer={sessionToken} canWrite={canWrite} archived={archived} />
         {/* issue #3416 —— 「确认并执行」/「恢复」/「重试」起的 run 走 queued/tick 通路，
             对 AG-UI 事件流完全不可见（见该组件 `onRunDispatched` 的头注）。把契约回的
             真实 runId 接到 `pendingRunId` 上，交给既有的权威读去判断它现在是什么状态
