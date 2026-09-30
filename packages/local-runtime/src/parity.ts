@@ -110,6 +110,12 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "MAIL_FROM", "MAIL_OUTBOX_WORKER_ENABLED",
       "GITHUB_ISSUE_TOKEN", "GITHUB_ISSUE_REPO_OWNER", "GITHUB_ISSUE_REPO_NAME",
       "GITHUB_ISSUE_ATTACHMENTS_BRANCH",
+      // 白板对象存储的托管加密 / 定时 GC / 下载授权（main 上后合入）：SSE/KMS 只在 OSS 后端读取，
+      // 本地是 fs 后端（host-managed）；GC 调度只在云端多租户里开（WHITEBOARD_GC_SCHEDULER=1）；
+      // 下载授权签名密钥未设时 API 退回 Disabled signer（不签发、不放行），本地不额外造一把密钥。
+      "WORKSPACEX_BOARD_OBJECT_SSE", "WORKSPACEX_BOARD_OBJECT_KMS_KEY_ID",
+      "WHITEBOARD_GC_SCHEDULER", "WHITEBOARD_GC_INTERVAL_MS", "WHITEBOARD_GC_TENANTS",
+      "WORKSPACEX_BOARD_DOWNLOAD_SIGNING_KEY",
     ],
   },
   {
@@ -144,6 +150,9 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
     names: [
       "KERNEL_ALLOW_TEST_PRINCIPAL", "KERNEL_AGENT_CATALOG_SCHEMA",
       "WORKSPACEX_COUNTERPROOF_INGEST", "WORKSPACEX_COUNTERPROOF_SKILL_REVIEW",
+      // Board 公共 API 隔离验收通道的旁路 actor 仓库，以及回环 provider 别名：都是 CI/开发专用逃生口，
+      // 本地版设了就等于给真实用户留了测试后门。
+      "BOARD_AGENT_API_ACCEPTANCE", "WORKSPACEX_ISOLATION_ID", "KERNEL_LOOPBACK_PROVIDER_ALIASES",
     ],
   },
 ];
