@@ -22,7 +22,7 @@ jobs:
           set +e
           ENV=/opt/workspacex/deploy.env
           host() { printf '%s' "$1" | sed -E 's#^([a-z]+://[^/?]+)([^?]*).*#\1\2#'; }
-          echo "── 部署的 commit ──"; (cd /opt/workspacex/app && git log --oneline -1) 2>&1
+          echo "── 部署的 commit ──"; git -c safe.directory=/opt/workspacex/app -C /opt/workspacex/app log --oneline -1 2>&1
           echo "── deploy.env 里与模型 / 嵌入相关的 key 名（只列名字）──"
           grep -oE '^[A-Z0-9_]+' "$ENV" 2>/dev/null | grep -E 'MODEL|EMBED|DASHSCOPE|DEEP_AGENT|RERANK|KG_' | sort | tr '\n' ' '; echo
           set -a; . "$ENV" 2>/dev/null; set +a
@@ -36,25 +36,35 @@ jobs:
           echo "── API 进程环境里有没有嵌入配置（只看 key 名）──"
           pid=$(systemctl show -p MainPID --value workspacex-api 2>/dev/null); echo "  api pid=$pid"
           sudo -n cat /proc/$pid/environ 2>/dev/null | tr '\0' '\n' | grep -oE '^KERNEL_EMBEDDING[A-Z_]*' | tr '\n' ' ' || echo "  (读不到进程环境)"; echo
-          probe_models() { # $1 base  $2 key  $3 label
-            [ -z "$1" ] || [ -z "$2" ] && { echo "  $3: 缺 base 或 key"; return; }
-            echo "  $3 /models 里带 embed 的："
-            curl -sS -m 20 -H "Authorization: Bearer $2" "$1/models" | python3 -c 'import sys,json
-          try:
-            d=json.load(sys.stdin); ids=[m.get("id") for m in d.get("data",[])]
-            print("   ", [i for i in ids if "embed" in (i or "").lower()][:20], "(共", len(ids), "个模型)")
-          except Exception as e: print("    解析失败", e)'
-            for m in text-embedding-v4 text-embedding-v3 text-embedding-v2 text-embedding-3-small; do
-              out=$(curl -sS -m 20 -H "Authorization: Bearer $2" -H 'content-type: application/json' "$1/embeddings" -d "{\"model\":\"$m\",\"input\":[\"记忆检索测试\"]}")
-              echo "    $m → $(printf '%s' "$out" | python3 -c 'import sys,json
-          try:
-            d=json.load(sys.stdin); e=d.get("data",[{}])[0].get("embedding")
-            print("OK 维度", len(e)) if e else print("失败", str(d.get("error",d))[:160])
-          except Exception as x: print("非 JSON", str(x)[:80])')"
-            done; }
-          echo "── 用部署已有的模型凭据试嵌入（只打印维度 / 错误码）──"
-          probe_models "$KERNEL_MODEL_BASE_URL" "$KERNEL_MODEL_API_KEY" "KERNEL_MODEL_*"
-          probe_models "$DASHSCOPE_BASE_URL" "$DASHSCOPE_API_KEY" "DASHSCOPE_*"
+          echo "── 在 deep-agent 容器里用它自己的模型凭据试嵌入（嵌入的真实调用路径；只打印维度 / 错误）──"
+          docker exec -i workspacex-deep-agent python - <<'PY' 2>&1 | head -40
+          import json, os, httpx
+          base = os.environ.get("KERNEL_MODEL_BASE_URL", "").rstrip("/")
+          key = os.environ.get("KERNEL_MODEL_API_KEY", "")
+          print("  base host:", base.split("://")[-1].split("/")[0] if base else "<未设置>", "| path:", "/" + "/".join(base.split("://")[-1].split("/")[1:]) if base else "", "| key:", "已设置" if key else "未设置")
+          if base and key:
+              h = {"Authorization": "Bearer " + key}
+              try:
+                  r = httpx.get(base + "/models", headers=h, timeout=20)
+                  ids = [m.get("id") for m in r.json().get("data", [])]
+                  print("  /models:", r.status_code, "共", len(ids), "个；带 embed 的:", [i for i in ids if "embed" in (i or "").lower()][:20])
+              except Exception as e:
+                  print("  /models 失败:", type(e).__name__, str(e)[:120])
+              for m in ["text-embedding-v4", "text-embedding-v3", "text-embedding-v2", "text-embedding-3-small", "BAAI/bge-m3", "bge-m3"]:
+                  try:
+                      r = httpx.post(base + "/embeddings", headers=h, json={"model": m, "input": ["记忆检索测试", "第二句"] * 5}, timeout=30)
+                      d = r.json()
+                      data = d.get("data") or []
+                      if data and data[0].get("embedding"):
+                          print("   ", m, "→ OK", r.status_code, "维度", len(data[0]["embedding"]), "条数", len(data))
+                      else:
+                          print("   ", m, "→ 失败", r.status_code, str(d.get("error", d))[:160])
+                  except Exception as e:
+                      print("   ", m, "→ 异常", type(e).__name__, str(e)[:120])
+          print("  容器里的嵌入 env key:", sorted(k for k in os.environ if k.startswith("KERNEL_EMBEDDING")))
+          PY
+          echo "── deep-agent 的 /internal/retrieval/embeddings 路由是否存在（不带密钥应 401）──"
+          docker exec workspacex-deep-agent python -c "import httpx;print(httpx.post('http://127.0.0.1:2024/internal/retrieval/embeddings',json={'texts':['x']},timeout=10).status_code)" 2>&1 | tail -1
           PSQL="docker exec workspacex-postgres-1 psql -U postgres -d workspacex -tAc"
           echo "── 扩展：已装 / 可装版本 ──"
           $PSQL "SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name IN ('age','vector')"
@@ -71,13 +81,13 @@ jobs:
           echo "── 最近 7 天的召回：轮数、降级轮数、各通道命中次数 ──"
           $PSQL "SELECT count(*), count(*) FILTER (WHERE graph_degraded) FROM kg_turn_recalls WHERE created_at > now() - interval '7 days'"
           $PSQL "SELECT ch, count(*) FROM kg_turn_recalls r, jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch WHERE r.created_at > now() - interval '7 days' GROUP BY 1 ORDER BY 2 DESC"
-          echo "── 抽取开关（部署级 / 组织级）──"
-          $PSQL "SELECT * FROM kg_deployment_settings" 2>&1 | head -3
-          $PSQL "SELECT org_id, enabled FROM kg_org_extraction_settings" 2>&1 | head -5
+          echo "── 召回明细（最近 5 轮：每轮命中的通道）──"
+          $PSQL "SELECT r.created_at::timestamp(0), r.graph_degraded, (SELECT string_agg(DISTINCT ch, ',') FROM jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch) FROM kg_turn_recalls r ORDER BY r.created_at DESC LIMIT 5"
           echo "── API 最近 24h 与嵌入 / 图 / 召回相关的报错（最多 25 行）──"
           journalctl -u workspacex-api --since "-24h" 2>&1 | grep -iE 'embedding|KG_GRAPH|graph_unavailable|vector|recall.*(fail|degrad)' | grep -viE 'debug' | tail -25
           echo "── deep-agent 最近 24h 嵌入报错（最多 10 行）──"
-          for c in $(docker ps --format '{{.Names}}' | grep -i deep); do docker logs --since 24h "$c" 2>&1 | grep -iE 'embedding' | tail -10; done
+          for c in $(docker ps --format '{{.Names}}' | grep -i deep); do docker logs --since 24h "$c" 2>&1 | grep -iE 'embedding' | tail -10 || true; done
+          exit 0
 
       - name: 我是谁、能 sudo 什么
         shell: bash
