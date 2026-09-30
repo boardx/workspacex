@@ -1,0 +1,26 @@
+{
+  "incidentId": "inc-2026-0930-1",
+  "service": "订单服务（合成）",
+  "evidence": [
+    {
+      "evidenceId": "ev1",
+      "sourceId": "src:ev1",
+      "quote": "14:00 配置发布：订单服务连接池上限 200→20",
+      "kind": "change-record",
+      "observedAt": "2026-09-30T14:00:00Z"
+    },
+    {
+      "evidenceId": "ev2",
+      "sourceId": "src:ev2",
+      "quote": "14:02 起 pool exhausted 错误",
+      "kind": "log",
+      "observedAt": "2026-09-30T14:02:00Z"
+    },
+    {
+      "evidenceId": "ev3",
+      "sourceId": "src:ev3",
+      "quote": "库存服务（未使用该配置）错误率 0.1%",
+      "kind": "metric"
+    }
+  ]
+}
