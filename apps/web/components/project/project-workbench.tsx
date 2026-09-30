@@ -222,6 +222,12 @@ export function ProjectWorkbench({
   const tabDefs = tabDefsForKind(projectKind);
   const shownTab = resolveTabForKind(tab, projectKind, sub);
   /** 种类未落定时不挂通用项目没有的 tab 内容（见 `overviewSettled` 注释）。 */
+  /**
+   * #4743：四个工作坊角色名（引导师/组长/组员/观察者）只属于工作坊——通用项目里不出视角切换器、
+   * 角色说明条、角色专属按钮。种类未落定前也先不画（免得通用项目先闪一下再消失）；落定后仍未知
+   * （读不到 overview）按工作坊渲染，同上面 tab 清单的处置。
+   */
+  const showWorkshopRoles = projectKind === "workshop" || (projectKind === null && overviewSettled);
   const kindPending = projectKind === null && !overviewSettled && !tabDefsForKind("general").some((t) => t.key === shownTab);
   /** 各 tab 专属拉取用的 tab：种类未落定时不为工作坊专属 tab 发请求（同上，通用项目会 403）。 */
   const fetchTab: ProjectTab | null = kindPending ? null : shownTab;
@@ -458,6 +464,8 @@ export function ProjectWorkbench({
               )}
             </div>
 
+            {showWorkshopRoles && (
+              <>
             {/* 视角切换器（四档）—— 预览手段，生产不可达在 page 层控制 */}
             <div
               data-testid="project-role-switcher"
@@ -477,6 +485,8 @@ export function ProjectWorkbench({
             )}
             {view === "member" && canWrite && (
               <Button size="sm" variant="outline" data-testid="project-raise-hand">举手</Button>
+            )}
+              </>
             )}
           </div>
 
@@ -502,7 +512,8 @@ export function ProjectWorkbench({
             })}
           </nav>
 
-          {/* ── 视角说明条 ─────────────────────────────────── */}
+          {/* ── 视角说明条（仅工作坊） ───────────────────────── */}
+          {showWorkshopRoles && (
           <div
             data-testid="project-role-scope-note"
             className="-mx-6 mt-0 flex flex-wrap items-center gap-2.5 border-t border-border bg-panel px-6 py-2"
@@ -514,6 +525,7 @@ export function ProjectWorkbench({
               : <span className="shrink-0 font-mono text-9 text-muted-foreground" data-testid="project-scope-readonly">只读</span>}
             {stageControl && <span className="shrink-0 font-mono text-9 text-primary" data-testid="project-scope-stage-control">全场控制</span>}
           </div>
+          )}
         </div>
 
         {/* ── 预览调试条（仅 dev） ───────────────────────────── */}
@@ -590,7 +602,7 @@ export function ProjectWorkbench({
 }
 
 /**
- * 非成员打开项目：说清楚「这是受邀才能进的容器」，给出下一步（找引导师 / 组长邀请），
+ * 非成员打开项目：说清楚「这是受邀才能进的容器」，给出下一步（找项目负责人邀请），
  * 不渲染任何 tab 内容。两种 403 分别说明（项目层 / 组织层），原始码保留在文案末尾。
  */
 function ProjectAccessDenied({ code, projectId }: { code: string; projectId: string }) {
@@ -600,8 +612,8 @@ function ProjectAccessDenied({ code, projectId }: { code: string; projectId: str
       <h2 className="text-16 font-semibold">你还不在这个项目里</h2>
       <p className="text-12 leading-relaxed text-muted-foreground">
         {projectLayer
-          ? "项目是受邀才能进入的容器：只有被负责人（项目）或引导师、组长（工作坊）加入后，才能看到项目内的对话、材料与产出。请向他们索取邀请。"
-          : "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户，或由项目引导师邀请你加入。"}
+          ? "项目是受邀才能进入的空间：只有被项目负责人加入后，才能看到项目内的对话、材料与产出。请向负责人索取邀请。"
+          : "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户，或由项目负责人邀请你加入。"}
       </p>
       <p className="font-mono text-10 text-muted-foreground">
         项目 {projectId} · {code}
