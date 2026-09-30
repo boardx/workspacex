@@ -3,10 +3,15 @@
 set -euo pipefail
 
 mode=deploy
-if [[ ${1:-} == --prepare ]]; then mode=prepare; shift; fi
-[[ $# -eq 1 && "$1" =~ ^[a-f0-9]{40}$ ]] || { echo "usage: workspacex-cn-deploy [--prepare] <40-hex-revision>" >&2; exit 2; }
+case ${1:-} in
+  --prepare) mode=prepare; shift ;;
+  --rollback) mode=rollback; shift ;;
+  --verify-active) mode=verify-active; shift ;;
+esac
+[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "usage: workspacex-cn-deploy [--prepare|--rollback|--verify-active] <40-hex-revision> <attempt-id>" >&2; exit 2; }
 [[ ${EUID} -eq 0 ]] || { echo "CN_DEPLOY_REQUIRES_ROOT" >&2; exit 1; }
 revision=$1
+attempt_id=$2
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 SOURCE_CACHE=/var/lib/workspacex-cn/source-cache.git
@@ -162,6 +167,47 @@ install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another deployment is active"
 
+verify_active_release() {
+  local config_file public_url browser_executable
+  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' workspacex-cn-api-1 2>/dev/null) \
+    || fail "active API container is unavailable"
+  [[ "$config_file" == "$runtime/compose.json" ]] || fail "active runtime does not match requested revision"
+  [[ -f "$runtime/bootstrap.env" && ! -L "$runtime/bootstrap.env" ]] || fail "active runtime browser credentials are unavailable"
+  public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
+  browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
+  cd "$release_checkout"
+  CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null \
+    || fail "active runtime browser smoke failed"
+}
+
+if [[ "$mode" == rollback ]]; then
+  private_root_file "$baseline_state"
+  private_root_file "$baseline_nginx"
+  [[ -d "$release_checkout/.git" ]] || fail "candidate release checkout is unavailable for rollback verification"
+  record_event promotion_cas_rollback_started
+  restore_baseline || fail "promotion CAS rollback failed"
+  baseline_runtime=$(node -e 'const p=require("node:path"),v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_state")
+  [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && -f "$baseline_runtime/bootstrap.env" && ! -L "$baseline_runtime/bootstrap.env" ]] \
+    || fail "baseline browser credentials are unavailable"
+  public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
+  browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
+  cd "$release_checkout"
+  CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$baseline_runtime/bootstrap.env" >/dev/null \
+    || fail "rollback browser smoke failed"
+  record_event promotion_cas_rollback_completed
+  printf 'CN_PRODUCTION_ROLLED_BACK candidate_revision=%s\n' "$revision"
+  exit 0
+fi
+
+if [[ "$mode" == verify-active ]]; then
+  [[ -d "$release_checkout/.git" ]] || fail "active release checkout is unavailable"
+  verify_active_release
+  printf 'CN_PRODUCTION_ACTIVE_VERIFIED revision=%s\n' "$revision"
+  exit 0
+fi
+
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
 git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "revision is not contained in origin/main"
 
@@ -181,7 +227,7 @@ NODE
 if [[ "$mode" == prepare ]]; then
   # The post-build receipt must bind the exact immutable image to the same fresh
   # prebuild evidence before dependency installation, migration, or traffic work.
-  "$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" >/dev/null \
+  "$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
     || fail "preactivate receipt is missing or invalid"
   record_event preactivate_validated
   record_event prepare_started
@@ -238,7 +284,7 @@ cd "$release_checkout"
 
 # Revalidate freshness immediately before activation. A prepared receipt cannot
 # extend the one-hour evidence TTL or substitute static artifacts for live facts.
-"$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" >/dev/null \
+"$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
   || fail "preactivate receipt expired or changed after prepare"
 
 current_baseline_dir=$(mktemp -d "$runtime/.baseline-current.XXXXXX")
