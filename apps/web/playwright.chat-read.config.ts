@@ -810,7 +810,7 @@ export default defineConfig({
         DEEP_AGENT_SERVICE_INTERNAL_KEY: "chat-read-subtask-callback-key-not-a-secret",
         KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
         // #728 P8 —— 确定性 ASR 上游。不配它，WS 面以 `ASR_NOT_CONFIGURED` 诚实失败
-        // （`chat-live-recording-error` 显示「本组织尚未配置转写服务」），不会冒出
+        // （转写页 `rec-live-error` 显示「尚未配置…转录」），不会冒出
         // 一段编造的转录。逐字抄 `playwright.fullstack-smoke.config.ts` 的
         // `asrProviderEnv`，同一套变量名（取自 `configured-realtime-asr-provider.ts`
         // / `env-transcription-policy.ts`，不是猜的）。

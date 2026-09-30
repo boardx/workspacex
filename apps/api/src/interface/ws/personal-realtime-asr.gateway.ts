@@ -22,6 +22,19 @@ export interface PersonalRealtimeAsrObservation {
 }
 export interface PersonalRealtimeAsrGatewayDeps { tickets:RealtimeAsrTicketStore; repository:PersonalTranscriptionRepository;
   provider:AsrProviderPort; usage:AsrUsageMeter; ids:IdGenerator; observe?: (event:PersonalRealtimeAsrObservation)=>void; }
+/**
+ * e2e 反证开关（release-gate `core-loop.spec.ts` 步骤 7 的 `CORE_LOOP_COUNTERPROOF_7`）：与
+ * `interface/recording/segment-ingestion.ts` 的 `counterproofMode` 同一个环境变量、同一条纪律——
+ * 只在非 production 生效。转写页（`/rec`）走的是本网关的 `appendFinal`，不经过 `ingestSegment`，
+ * 所以同一个开关必须在这条写路径上也生效，否则 `drop-persist` / `noop-persist` 对它就是空转。
+ *   · `drop-persist`：落库整个失败 ⇒ `final` 永远不会发出（它在落库之后才发）。
+ *   · `noop-persist`：落库假装成功（`final` 照常发出、状态照常），但一行都不写库。
+ */
+function counterproofMode():"drop-persist"|"noop-persist"|null{
+  if(process.env.NODE_ENV==="production")return null;
+  const mode=process.env.WORKSPACEX_COUNTERPROOF_INGEST;
+  return mode==="drop-persist"||mode==="noop-persist"?mode:null;
+}
 function refuse(socket:Duplex,status:number){socket.write(`HTTP/1.1 ${status} Refused\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);socket.destroy();}
 
 export function matchPersonalRealtimeAsrPath(url:URL):{transcriptionId:string;captureId:string}|null{
@@ -78,7 +91,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         onPartial:r=>{if(!terminal)send({type:"interim",captureId:auth.captureId,text:r.text});},
         onFinal:r=>{if(terminal)return;finalReceivedAt=Date.now();const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
           lastFinalEndMs=endMs;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
-          const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});finalPersistedAt=Date.now();
+          const segmentId=deps.ids.next("personal-segment");const cp=counterproofMode();if(cp==="drop-persist")throw new Error("counterproof drop-persist: the personal append port is deliberately broken");if(cp!=="noop-persist")await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});finalPersistedAt=Date.now();
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
           .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
         onFlow:flow=>{if(!terminal)send({type:"flow",captureId:auth.captureId,...flow});},
