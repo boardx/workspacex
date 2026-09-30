@@ -28,6 +28,10 @@ vi.mock("@/components/shell/app-shell", () => ({
 vi.mock("@/components/admin/capability-edit-page", () => ({ CapabilityEditPage: () => <div data-testid="capability-edit-page" /> }));
 vi.mock("@/components/admin/agent-capability-graph", () => ({ AgentCapabilityGraph: () => null }));
 vi.mock("@/components/admin/admin-nav", () => ({ AdminNav: () => null }));
+const sessionState = vi.hoisted(() => ({ orgRole: null as string | null }));
+vi.mock("@/components/session/session-provider", () => ({
+  useOptionalSession: () => (sessionState.orgRole ? { identity: { orgRole: sessionState.orgRole } } : null),
+}));
 
 import { WorkflowRunPanel } from "@/components/workflow/workflow-run-panel";
 import { WorkflowApprovalList, WorkflowRunEntry, WorkflowRunList } from "@/components/workflow/workflow-lists";
@@ -151,6 +155,33 @@ describe("WorkflowRunPanel", () => {
     expect(b.getAttribute("data-reason")).toBe("tool_authorization_revoked");
     expect(b.textContent).toContain("权限已变更");
     expect(screen.queryByTestId("workflow-banner-needs-attention")).toBeNull();
+  });
+
+  it("权限阻断（能力未授权）：管理员看到直达「工作流权限」的链接，带上工作流 key；不显示原始 reasonCode", () => {
+    sessionState.orgRole = "admin";
+    try {
+      const p = proj({ status: "blocked_permission", reasonCode: "capability_exceeds_side_effect_cap" });
+      render(<WorkflowRunPanel instanceId="i1" initial={p} />);
+      const b = screen.getByTestId("workflow-banner-blocked-permission");
+      expect(b.textContent).toContain("还没有为工作流授予这项权限");
+      expect(b.textContent).not.toContain("capability_exceeds_side_effect_cap");
+      const link = screen.getByTestId("workflow-banner-grant-link");
+      expect(link.getAttribute("href")).toBe(`/org-admin/workflow-grants?workflow=${encodeURIComponent(p.workflowKey)}`);
+      expect(screen.queryByTestId("workflow-banner-contact-admin")).toBeNull();
+    } finally {
+      sessionState.orgRole = null;
+    }
+  });
+
+  it("权限阻断（能力未授权）：普通成员看到「请联系管理员授予」，没有管理链接", () => {
+    sessionState.orgRole = "member";
+    try {
+      render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "blocked_permission", reasonCode: "capability_exceeds_side_effect_cap" })} />);
+      expect(screen.getByTestId("workflow-banner-contact-admin").textContent).toContain("请联系组织管理员");
+      expect(screen.queryByTestId("workflow-banner-grant-link")).toBeNull();
+    } finally {
+      sessionState.orgRole = null;
+    }
   });
 
   it("失败：重试用尽后显示失败提示条（友好文案 + 尝试次数 + 最后失败时间），不暴露原始 reasonCode", () => {

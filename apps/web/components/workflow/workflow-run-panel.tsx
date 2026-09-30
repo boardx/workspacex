@@ -21,6 +21,8 @@ import {
 } from "@/lib/workflow-runtime-api";
 import { workflowRuntime } from "@repo/contracts";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { INSTANCE_STATUS_TEXT, REASON_TEXT, STAGE_STATUS_TEXT, describeWorkflowError, stageFailureKindText } from "./workflow-copy";
 
 export type WorkflowSseStatus = "live" | "reconnecting" | "polling";
@@ -41,6 +43,7 @@ const TERMINAL = new Set<string>(workflowRuntime.WORKFLOW_TERMINAL_STATUSES);
 
 export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   const { instanceId } = props;
+  const viewerIsOrgAdmin = useOptionalSession()?.identity?.orgRole === "admin";
   const reconnectDelayMs = props.reconnectDelayMs ?? 1_000;
   const maxReconnects = props.maxReconnects ?? 3;
   const pollIntervalMs = props.pollIntervalMs ?? 5_000;
@@ -200,8 +203,27 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
         </div>
       ) : null}
       {p.status === "blocked_permission" ? (
-        <div role="status" data-testid="workflow-banner-blocked-permission" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}>
-          权限已变更，需管理员处理：{p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
+        <div role="status" data-testid="workflow-banner-blocked-permission" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}
+          className="flex flex-col gap-1 rounded border border-warning bg-warning-tint p-2 text-warning-tint-foreground">
+          <p>
+            {p.reasonCode === "capability_exceeds_side_effect_cap"
+              ? "这一步需要改动组织数据（如保存文档、发送通知），但本组织还没有为工作流授予这项权限，运行已暂停。"
+              : `权限已变更，需管理员处理：${p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}`}
+          </p>
+          {viewerIsOrgAdmin ? (
+            <p className="text-sm">
+              <a
+                href={`${WORKFLOW_GRANTS_HREF}?workflow=${encodeURIComponent(p.workflowKey)}`}
+                data-testid="workflow-banner-grant-link"
+                className="font-medium underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                前往「工作流权限」授予权限
+              </a>
+              ，授权后点击「继续」即可从这一步接着运行。
+            </p>
+          ) : (
+            <p className="text-sm" data-testid="workflow-banner-contact-admin">请联系组织管理员在「管理后台 → 工作流权限」中授予该权限，授权后即可继续运行。</p>
+          )}
         </div>
       ) : null}
       {p.status === "rejected" ? (

@@ -337,6 +337,8 @@ import {
   PROVENANCE_READER,
   PROVENANCE_WRITER,
   REVIEW_NOTIFIER,
+  type ProvenanceReader,
+  type ProvenanceWriter,
 } from "./application/provenance/ports";
 import { EvidenceWithdrawalController } from "./interface/controllers/evidence-withdrawal.controller";
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
@@ -589,6 +591,9 @@ import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 // issue #3068 —— 「以后都允许」的查看/撤销（组织 admin 面），见该文件头注。
 import { ToolPermissionGrantController } from "./interface/controllers/tool-permission-grant.controller";
+import { WorkflowCapabilityGrantController, WORKFLOW_CAPABILITY_GRANT_SERVICE } from "./interface/controllers/workflow-capability-grant.controller";
+import { WorkflowCapabilityGrantService } from "./application/workflow/workflow-capability-grants";
+import { PgWorkflowCapabilityGrantStore } from "./infrastructure/workflow/pg-effect-capability-authority";
 import { DocumentGenerationAutoApproveController } from "./interface/controllers/document-generation-auto-approve.controller";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { SubtaskRunController } from "./interface/controllers/subtask-run.controller";
@@ -1234,6 +1239,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AgentRunController,
     RunInterjectionController,
     ToolPermissionGrantController,
+    WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
     ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardRememberController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
@@ -1557,6 +1563,18 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: PROVENANCE_READER,
       useExisting: PROVENANCE_WRITER,
+    },
+    // Workflow 能力授权管理面：admin 判定 + 同事务审计在 service；store 与执行前重查读同一张表。
+    {
+      provide: WORKFLOW_CAPABILITY_GRANT_SERVICE,
+      useFactory: (db: DatabasePort, identity: IdentityRepository, provenance: ProvenanceWriter & ProvenanceReader) =>
+        new WorkflowCapabilityGrantService({
+          identity,
+          store: new PgWorkflowCapabilityGrantStore(db),
+          provenanceWriter: provenance,
+          provenanceReader: provenance,
+        }),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, PROVENANCE_WRITER],
     },
     // Third view of the same instance (F08). A notice is a pointer into the trail and its
     // FK says so; a separate provider would be the first step toward a notification store
