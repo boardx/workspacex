@@ -110,7 +110,7 @@ const overviewOf = (kind: "workshop" | "general") => ({
   currentAgendaSegment: null, roleCounts: null, backflow: [], blueprint: null,
 });
 
-function renderWorkbench(tab: "overview" | "content" | "brain" | "research" | "live" | "todo" | "settings", sub: string | null = null) {
+function renderWorkbench(tab: "overview" | "content" | "brain" | "results" | "research" | "live" | "todo" | "settings", sub: string | null = null) {
   return render(<ProjectWorkbench uiState="default" tab={tab} view="facilitator" sub={sub} qs={{}} projectId="p-rp" />);
 }
 
