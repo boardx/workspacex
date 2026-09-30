@@ -76,9 +76,16 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   const execution = source?.execution;
   const experts = source?.documents.find((item) => item.step === "experts");
   const names = new Map(experts ? interviewMarkdown.projectInterviewMarkdownExperts(experts).map((expert) => [expert.expertId, expert.displayName]) : []);
-  const sourceRuns = execution ? execution.tasks.map((task) => ({ expertId: task.expertId, displayName: names.get(task.expertId) ?? task.expertId,
-    status: task.status,
-    completedQuestions: task.status === "completed" ? 1 : 0, totalQuestions: 1 })) : runs;
+  // Before the first `start` command there is no durable execution row yet. Keep
+  // the confirmed expert anchors visible in that state instead of rendering an
+  // empty progress column; the start action will create the tasks from these IDs.
+  const sourceRuns = execution
+    ? execution.tasks.map((task) => ({ expertId: task.expertId, displayName: names.get(task.expertId) ?? task.expertId,
+      status: task.status,
+      completedQuestions: task.status === "completed" ? 1 : 0, totalQuestions: 1 }))
+    : names.size
+      ? [...names].map(([expertId, displayName]) => ({ expertId, displayName, status: "pending" as const, completedQuestions: 0, totalQuestions: 1 }))
+      : runs;
   async function generateReport() {
     if (pending || !source || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")) return;
     setPending(true); setError("");

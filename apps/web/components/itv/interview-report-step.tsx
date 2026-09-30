@@ -49,6 +49,8 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
     finally { setExporting(false); }
   }
   const report = { title: projection.headings[0]?.text ?? "研究报告", executiveSummary: projection.sections[0]?.text ?? "", markdown: document.markdown };
+  const quality = interviewMarkdown.assessInterviewReportAnalysis(document.markdown);
+  const missing = quality.missing.concat(interviewMarkdown.hasInterviewReportVerifiableAction(document.markdown) ? [] : ["verifiable_action" as const]);
   return <div data-testid="itv-source-report">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
       <div><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">研究报告</h2><p className="mt-1 text-base leading-7 text-muted-foreground">文档版本 {document.version} · {document.evidenceMode === "simulated" ? "模拟访谈，需真人证据验证" : "证据资格以服务端审核为准"}</p></div>
@@ -74,8 +76,23 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
             ] as const).map(([id, label, value]) => <div key={id} data-testid={`itv-report-metric-${id}`} className="rounded-lg border border-border bg-muted/25 px-4 py-3"><dt className="text-xs leading-5 text-muted-foreground">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{value}</dd></div>)}
           </dl>
         </section>
+        <section data-testid="itv-report-quality" aria-label="报告质量检查" className={`mb-6 rounded-lg border p-4 text-sm ${missing.length ? "border-warning/40 bg-warning/5" : "border-success/30 bg-success/5"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold">报告质量检查</h3>
+            <span className="text-xs font-medium">{missing.length ? "待补齐" : "结构完整"}</span>
+          </div>
+          <p className="mt-1 leading-6 text-muted-foreground">检查报告是否包含跨回答综合、决策影响、分歧与反例、适用边界和可验证行动建议。此检查不替代人工复核。</p>
+          {missing.length ? <p className="mt-2" data-testid="itv-report-quality-missing">缺少：{missing.map((gap) => QUALITY_GAP_LABELS[gap]).join("、")}</p> : <p className="mt-2" data-testid="itv-report-quality-complete">已包含关键分析结构。</p>}
+        </section>
         <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" longForm />
       </article>
     </div>
   </div>;
 }
+
+const QUALITY_GAP_LABELS: Record<interviewMarkdown.InterviewReportAnalysisGap, string> = {
+  cross_answer_synthesis: "跨回答综合",
+  decision_implication: "决策影响",
+  boundary_or_counterevidence: "分歧与反例及适用边界",
+  verifiable_action: "可验证行动建议",
+};
