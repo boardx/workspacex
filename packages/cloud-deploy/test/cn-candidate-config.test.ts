@@ -43,8 +43,11 @@ describe("attempt-bound candidate configuration", () => {
     const value = createCandidateConfiguration(baseline, identity);
     expect(() => verifyCandidateConfiguration(`${baseline}\n`, value.candidateBytes, value.receipt, identity, baseline)).toThrow("CANDIDATE_CONFIGURATION_CHANGED");
   });
-  it.each(["../attempt", "a/b", "a.b", "", "a".repeat(101)])("rejects unsafe attempt %s", attemptId => {
+  it.each(["../attempt", "a/b", "A", "", "a".repeat(129)])("rejects unsafe attempt %s", attemptId => {
     expect(() => candidateConfigurationPaths({ ...identity, attemptId })).toThrow();
+  });
+  it.each(["34866488153-1", "github.34866488153.2", "a".repeat(128)])("accepts canonical workflow attempt %s", attemptId => {
+    expect(candidateIdentitySchema.parse({ ...identity, attemptId }).attemptId).toBe(attemptId);
   });
   it("uses fixed root paths bound to revision and attempt", () => {
     expect(candidateConfigurationPaths(identity).candidate).toBe(`/etc/workspacex-cn/candidate-configs/${identity.revision}/${identity.attemptId}/deployment.json`);

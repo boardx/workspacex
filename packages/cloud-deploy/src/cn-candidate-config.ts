@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { mkdir, open, rename, unlink, rmdir, lstat } from "node:fs/promises";
+import { constants, fstatSync } from "node:fs";
+import { mkdir, open, rename, unlink, rmdir, lstat, readFile, readlink } from "node:fs/promises";
 import { dirname } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
@@ -10,7 +10,7 @@ import { assertTrustedPath } from "./trusted-path";
 export const candidateIdentitySchema = z.object({
   revision: z.string().regex(/^[a-f0-9]{40}$/),
   release: z.string().regex(/^v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$/),
-  attemptId: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/),
+  attemptId: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,127}$/),
 }).strict();
 export type CandidateIdentity = z.infer<typeof candidateIdentitySchema>;
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -50,18 +50,23 @@ export function candidateConfigurationPaths(identityInput: CandidateIdentity) {
 async function privateRead(path: string): Promise<string> {
   await assertTrustedPath(path, { trustedRoot: "/", kind: "file", private: true });
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-  try { const stat = await handle.stat(); if (!stat.isFile() || stat.uid !== 0 || (stat.mode & 0o777) !== 0o600 || stat.size < 1 || stat.size > 65536) throw new Error("UNTRUSTED_CONFIGURATION_FILE");
+  try { const stat = await handle.stat(); if (!stat.isFile() || stat.uid !== 0 || stat.gid !== 0 || (stat.mode & 0o777) !== 0o600 || stat.size < 1 || stat.size > 65536) throw new Error("UNTRUSTED_CONFIGURATION_FILE");
     return await handle.readFile("utf8"); } finally { await handle.close(); }
 }
 async function privateDirectory(path: string) {
   await assertTrustedPath(dirname(path), { trustedRoot: "/", kind: "directory" });
   try { await mkdir(path, { mode: 0o700 }); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
   await assertTrustedPath(path, { trustedRoot: "/", kind: "directory", private: true });
+  if ((await lstat(path)).gid !== 0) throw new Error("UNTRUSTED_CONFIGURATION_GROUP");
 }
 async function writeExclusive(path: string, bytes: string) {
   await assertTrustedPath(dirname(path), { trustedRoot: "/", kind: "directory", private: true });
   const handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-  try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.uid !== 0 || stat.gid !== 0 || (stat.mode & 0o777) !== 0o600) throw new Error("UNTRUSTED_CONFIGURATION_FILE");
+    await handle.writeFile(bytes); await handle.sync();
+  } finally { await handle.close(); }
 }
 async function syncDirectory(path: string) { const handle = await open(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW); try { await handle.sync(); } finally { await handle.close(); } }
 async function replaceActive(path: string, expected: string, bytes: string) {
@@ -71,19 +76,45 @@ async function replaceActive(path: string, expected: string, bytes: string) {
   try { if (await privateRead(path) !== expected) throw new Error("ACTIVE_CONFIGURATION_CHANGED"); await rename(temporary, path); await syncDirectory(dirname(path)); }
   finally { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
-/** All writers must hold the deployment lock; this additional lock serializes this CLI. */
+
+const canonicalDeploymentLock = "/var/lib/workspacex-cn/runtime/release.lock";
+/** fdinfo proves this inherited open file description already holds an exclusive flock.
+ * Running flock here would acquire an absent lock and therefore cannot prove the caller held it.
+ */
+export function assertInheritedLockMetadata(target: { dev: number; ino: number; uid: number; gid: number; mode: number },
+  inherited: { dev: number; ino: number; uid: number; gid: number; mode: number; isFile(): boolean }, link: string, fdinfo: string) {
+  if (link !== canonicalDeploymentLock || !inherited.isFile() || inherited.dev !== target.dev || inherited.ino !== target.ino ||
+    inherited.uid !== 0 || inherited.gid !== 0 || (inherited.mode & 0o777) !== 0o600 || target.gid !== 0 ||
+    !fdinfo.split("\n").some(line => new RegExp(`^lock:\\s+\\d+:\\s+FLOCK\\s+ADVISORY\\s+WRITE\\s+-?\\d+\\s+[0-9a-fA-F]+:[0-9a-fA-F]+:${target.ino}\\s+0\\s+EOF$`).test(line))) {
+    throw new Error("CANONICAL_DEPLOYMENT_LOCK_UNPROVEN");
+  }
+}
+async function assertInheritedDeploymentLock() {
+  try {
+    await assertTrustedPath(canonicalDeploymentLock, { trustedRoot: "/", kind: "file", private: true });
+    const target = await lstat(canonicalDeploymentLock), inherited = fstatSync(9);
+    assertInheritedLockMetadata(target, inherited, await readlink("/proc/self/fd/9"), await readFile("/proc/self/fdinfo/9", "utf8"));
+  } catch { throw new Error("CANONICAL_DEPLOYMENT_LOCK_UNPROVEN"); }
+}
+
+/** Requires an already held inherited canonical deployment lock, plus local CLI serialization. */
 export async function candidateConfigHostAction(action: "prepare" | "verify" | "commit" | "restore", identityInput: CandidateIdentity) {
   if (process.platform !== "linux" || process.getuid?.() !== 0) throw new Error("CANDIDATE_CONFIG_ROOT_REQUIRED");
   if (!["prepare", "verify", "commit", "restore"].includes(action)) throw new Error("CANDIDATE_ACTION_INVALID");
   const identity = candidateIdentitySchema.parse(identityInput), paths = candidateConfigurationPaths(identity);
+  await assertInheritedDeploymentLock();
   await assertTrustedPath("/etc/workspacex-cn", { trustedRoot: "/", kind: "directory", private: true });
+  if ((await lstat("/etc/workspacex-cn")).gid !== 0) throw new Error("UNTRUSTED_CONFIGURATION_GROUP");
   const lock = "/etc/workspacex-cn/candidate-config.lock";
   await mkdir(lock, { mode: 0o700 }); // stale/crashed lock fails closed; never steal it
   try {
     const directories = ["/etc/workspacex-cn/candidate-configs", `/etc/workspacex-cn/candidate-configs/${identity.revision}`, paths.directory];
     for (const directory of directories) {
       if (action === "prepare") await privateDirectory(directory);
-      else await assertTrustedPath(directory, { trustedRoot: "/", kind: "directory", private: true });
+      else {
+        await assertTrustedPath(directory, { trustedRoot: "/", kind: "directory", private: true });
+        if ((await lstat(directory)).gid !== 0) throw new Error("UNTRUSTED_CONFIGURATION_GROUP");
+      }
     }
     if (action === "prepare") {
       let receiptExists = true;
