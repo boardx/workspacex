@@ -4,23 +4,22 @@ import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { TextDecoder } from "node:util";
 import { z } from "zod";
+import { migrationSourceSchema, sourceEvidenceSchema, verifyExternalSourceIdentity } from "./cn-migration-source-identity";
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const id = z.string().min(1).max(200).regex(/^[A-Za-z0-9_.:-]+$/);
 const utc = z.string().datetime({ offset: false });
 const count = z.number().int().nonnegative().max(100000);
-const source = z.object({ accountId: id, regionId: id, dbInstanceId: id, database: id,
-  user: id, endpointSha256: hash, serverAddressSha256: hash, port: z.number().int().min(1).max(65535),
-}).strict();
-export const migrationSnapshotBindingSchema = z.object({ schemaVersion: z.literal(1), source,
+const source = migrationSourceSchema;
+export const migrationSnapshotBindingSchema = z.object({ schemaVersion: z.literal(2), source, sourceEvidence: sourceEvidenceSchema,
   cloud: z.object({ ecsInstanceId: id, invokeId: id, commandId: id, querySha256: hash }).strict(),
 }).strict();
 export type MigrationSnapshotBinding = z.infer<typeof migrationSnapshotBindingSchema>;
-const envelope = z.object({ schemaVersion: z.literal(1), kind: z.literal("cn-readonly-migration-snapshot"),
+const envelope = z.object({ schemaVersion: z.literal(2), kind: z.literal("cn-readonly-migration-snapshot"),
   capturedAt: utc, source, fullResponseBase64: z.string().min(1), fullResponseSha256: hash,
 }).strict();
 const row = z.object({ name: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*\.sql$/).max(255), checksum: hash }).strict();
-const payload = z.object({ schemaVersion: z.literal(1), kind: z.literal("cn-migration-ledger-output"),
+const payload = z.object({ schemaVersion: z.literal(2), kind: z.literal("cn-migration-ledger-output"),
   querySha256: hash, readOnly: z.literal(true), transactionIsolation: z.literal("repeatable read"),
   source, independentSqlCount: count, ledger: z.array(row).max(100000), ledgerSha256: hash,
 }).strict();
@@ -58,6 +57,7 @@ function object(value: unknown): Record<string, unknown> {
 export function validateMigrationSnapshot(value: unknown, expectedValue: unknown) {
   const expected = parse(migrationSnapshotBindingSchema, expectedValue);
   const input = parse(envelope, value);
+  if (!verifyExternalSourceIdentity(expected.source, expected.sourceEvidence)) fail("MIGRATION_SNAPSHOT_EXTERNAL_IDENTITY_INVALID");
   if (JSON.stringify(input.source) !== JSON.stringify(expected.source)) fail("MIGRATION_SNAPSHOT_SOURCE_MISMATCH");
   const bytes = decode64(input.fullResponseBase64, 2 * 1024 * 1024);
   if (sha256(bytes) !== input.fullResponseSha256) fail("MIGRATION_SNAPSHOT_RESPONSE_HASH_MISMATCH");
@@ -74,11 +74,11 @@ export function validateMigrationSnapshot(value: unknown, expectedValue: unknown
   if (!utc.safeParse(result.FinishedTime).success || typeof result.Output !== "string") fail("MIGRATION_SNAPSHOT_RESPONSE_INVALID");
   const finished = Date.parse(result.FinishedTime as string);
   if (Date.parse(input.capturedAt) < finished) fail("MIGRATION_SNAPSHOT_TIME_INVALID");
-  const prefix = "WSX_CN_MIGRATION_SNAPSHOT_V1=";
+  const prefix = "WSX_CN_MIGRATION_SNAPSHOT_V2=";
   let output: string;
   try { output = new TextDecoder("utf-8", { fatal: true }).decode(decode64(result.Output, 24 * 1024)); }
   catch { return fail("MIGRATION_SNAPSHOT_ENCODING_INVALID"); }
-  if (!output.startsWith(prefix) || !/^WSX_CN_MIGRATION_SNAPSHOT_V1=[A-Za-z0-9+/]+={0,2}\n?$/.test(output)) fail("MIGRATION_SNAPSHOT_OUTPUT_INVALID");
+  if (!output.startsWith(prefix) || !/^WSX_CN_MIGRATION_SNAPSHOT_V2=[A-Za-z0-9+/]+={0,2}\n?$/.test(output)) fail("MIGRATION_SNAPSHOT_OUTPUT_INVALID");
   let decoded: unknown;
   try { decoded = json(gunzipSync(decode64(output.slice(prefix.length).trimEnd(), 24 * 1024), { maxOutputLength: 8 * 1024 * 1024 })); }
   catch { return fail("MIGRATION_SNAPSHOT_OUTPUT_INVALID"); }

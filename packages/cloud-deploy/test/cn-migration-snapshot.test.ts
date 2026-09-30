@@ -54,7 +54,7 @@ it("rejects SQL connection mismatch even if envelope is correct",()=>{
 it("rejects bad response/base64, corrupt or extra output, unsuccessful and paginated results", () => {
   const f=fixture(); expect(()=>validateMigrationSnapshot({...f.snapshot,fullResponseSha256:"0".repeat(64)},binding)).toThrow("MIGRATION_SNAPSHOT_RESPONSE_HASH_MISMATCH");
   expect(()=>validateMigrationSnapshot({...f.snapshot,fullResponseBase64:"not valid base64"},binding)).toThrow("MIGRATION_SNAPSHOT_ENCODING_INVALID");
-  for(const output of [Buffer.from("truncated gzip").toString("base64"),Buffer.from("WSX_CN_MIGRATION_SNAPSHOT_V1=AAAA\nSECRET").toString("base64")]){
+  for(const output of [Buffer.from("truncated gzip").toString("base64"),Buffer.from("WSX_CN_MIGRATION_SNAPSHOT_V2=AAAA\nSECRET").toString("base64")]){
     const x=fixture();x.result.Output=output;x.sealResponse();expect(()=>validateMigrationSnapshot(x.snapshot,binding)).toThrow();
   }
   const partial=fixture();partial.response.Invocation.TotalCount=2;partial.sealResponse();expect(()=>validateMigrationSnapshot(partial.snapshot,binding)).toThrow("MIGRATION_SNAPSHOT_RESPONSE_PARTIAL");
@@ -77,7 +77,7 @@ it("rejects internal pagination tokens and unsafe UTF8/gzip including expansion 
   const f=fixture();(f.response.Invocation as Record<string,unknown>).NextToken="more";f.sealResponse();
   expect(()=>validateMigrationSnapshot(f.snapshot,binding)).toThrow("MIGRATION_SNAPSHOT_RESPONSE_PARTIAL");
   for(const bytes of [Buffer.from([0xff]),gzipSync(Buffer.alloc(8*1024*1024+1))]) {
-    const x=fixture();x.result.Output=Buffer.from("WSX_CN_MIGRATION_SNAPSHOT_V1="+bytes.toString("base64")).toString("base64");x.sealResponse();
+    const x=fixture();x.result.Output=Buffer.from("WSX_CN_MIGRATION_SNAPSHOT_V2="+bytes.toString("base64")).toString("base64");x.sealResponse();
     expect(()=>validateMigrationSnapshot(x.snapshot,binding)).toThrow("MIGRATION_SNAPSHOT_OUTPUT_INVALID");
   }
 });

@@ -14,3 +14,9 @@ Existing drift/out-of-order/risk tests remain green. Snapshot proof hashes/count
 Limit: evidence format and private trusted caller remain required. No provider signature is claimed; external protected source binding and a fresh independent SQL count/digest cannot be self-filled from a transformed old artifact. Production readiness and successful real-data rehearsal are not claimed.
 
 Self-review hardening: complete plan is written create-once EXCL/NOFOLLOW/0600/fsync to privatePlanPath. Public stdout contains only scope/ready/planSha256/productionMigrationAuthorized; the real CLI test checks no ledger or source values leak, preserves an existing plan on refusal, and checks mode0600. Source/legacy evidence errors return stable codes, not raw input or provider diagnostics. The 63-test suite was rerun after this change.
+
+## V2 actual RDS NULL counterexample
+
+Real read-only production investigation found inet server address/port unavailable, while protected DSN and actual TCP peer assertions passed. No production metadata values are committed here. V1 correctly refused but could not represent this legitimate server topology. V2 explicitly separates server observation from client TCP peer and binds an externally authorized private-endpoint lane to complete independent STS/RDS responses and protected config metadata. Mixed/missing NULL and missing external identity fail. Existing no-TLS exception is represented truthfully, without a TLS claim or new downgrade.
+
+Validation: six test files /84 tests (existing63 +20 external identity cases +1 real binding CLI), typecheck, private prepared collector mocked7/7. No real snapshot/rehearsal/production readiness is claimed by these tests. Complete V2 live collection still must pass the updated validator and preserve all migration risk gates.
