@@ -687,3 +687,47 @@ describe("native_runtime_ensure_callback_base_url — API 侧回调地址投影"
     expect(gate).toBeGreaterThan(call);
   });
 });
+
+describe("embedding_backfill_defaults — 记忆向量召回的嵌入模型默认值（2026-09-30 devapp 向量通道静默关闭）", () => {
+  it("三个 key 都缺 ⇒ 写入默认值，且写出来的文件能被 source 原样还原", () => {
+    const dir = tempDir();
+    const env = join(dir, "deploy.env");
+    writeFileSync(env, "KERNEL_MODEL_BASE_URL=https://provider.test/v1\n");
+    const r = runLib(`embedding_backfill_defaults '${env}' text-embedding-v4 dashscope-v4-1024 1024`);
+    expect(r.status, r.stderr).toBe(0);
+    const src = spawnSync("bash", ["-c", `set -a; source '${env}'; printf '%s|%s|%s' "$KERNEL_EMBEDDING_MODEL_ID" "$KERNEL_EMBEDDING_MODEL_VERSION" "$KERNEL_EMBEDDING_DIMENSIONS"`], { encoding: "utf8" });
+    expect(src.stdout).toBe("text-embedding-v4|dashscope-v4-1024|1024");
+    expect(readFileSync(env, "utf8")).toContain("KERNEL_MODEL_BASE_URL=https://provider.test/v1\n");
+  });
+
+  it("已有的值一律不动；值为空的行（运维显式关掉向量通道）也不被补上", () => {
+    const dir = tempDir();
+    const env = join(dir, "deploy.env");
+    const before = "KERNEL_EMBEDDING_MODEL_ID=\nKERNEL_EMBEDDING_MODEL_VERSION=ops-chosen\n";
+    writeFileSync(env, before);
+    const r = runLib(`embedding_backfill_defaults '${env}' text-embedding-v4 dashscope-v4-1024 1024`);
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(env, "utf8")).toBe(`${before}KERNEL_EMBEDDING_DIMENSIONS=1024\n`);
+  });
+
+  it("重复运行是幂等的：第二次不再追加任何行", () => {
+    const dir = tempDir();
+    const env = join(dir, "deploy.env");
+    writeFileSync(env, "");
+    runLib(`embedding_backfill_defaults '${env}' m v 8`);
+    const once = readFileSync(env, "utf8");
+    runLib(`embedding_backfill_defaults '${env}' m v 8`);
+    expect(readFileSync(env, "utf8")).toBe(once);
+  });
+
+  it("deploy.sh 在迁移之后补默认值并登记模型，且把模型 / 版本投影进 deep-agent.env", () => {
+    const deploy = readFileSync(DEPLOY, "utf8");
+    const migrate = deploy.indexOf('step "4. 迁移');
+    const backfill = deploy.indexOf('embedding_backfill_defaults "$ENV_FILE"');
+    expect(backfill).toBeGreaterThan(migrate);
+    expect(deploy.indexOf("scripts/register-retrieval-embedding-model.ts", backfill)).toBeGreaterThan(backfill);
+    expect(deploy).toMatch(/deep_agent_project_capability_env "\$ENV_FILE" "\$DEEP_AGENT_ENV_FILE" \\\n\s+KERNEL_EMBEDDING_MODEL_ID KERNEL_EMBEDDING_MODEL_VERSION/);
+    // 定义只在 lib 一处（同一事实不写两处）
+    expect(deploy).not.toContain("embedding_backfill_defaults() {");
+  });
+});

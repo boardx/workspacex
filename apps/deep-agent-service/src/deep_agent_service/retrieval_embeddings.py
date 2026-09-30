@@ -16,6 +16,12 @@ from starlette.routing import Route
 _SCHEMA=json.loads((Path(__file__).parent/'generated/retrieval_embedding_schema.json').read_text())
 _L=_SCHEMA['limits']
 
+# One provider request carries at most this many texts. The API side batches up to
+# limits.maxBatch (32), but DashScope's OpenAI-compatible text-embedding-v3/v4 reject more
+# than 10 inputs per request ("batch size is invalid"). 10 is accepted by every
+# OpenAI-compatible provider, so the adapter always splits; order is preserved.
+_PROVIDER_BATCH=10
+
 class RetrievalEmbeddingUnavailable(RuntimeError):
     pass
 
@@ -57,7 +63,7 @@ async def embed_texts(texts):
         raise RetrievalEmbeddingUnavailable('embedding_not_configured')
     try:
         async with httpx.AsyncClient(transport=_BoundedTransport(),headers={'accept-encoding':'identity'},timeout=_L['deadlineMs']/1000,follow_redirects=False,trust_env=False) as client:
-            provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,http_async_client=client)
+            provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,chunk_size=_PROVIDER_BATCH,http_async_client=client)
             vectors=await provider.aembed_documents(texts)
         output={'model':model,'modelVersion':revision,'vectors':vectors}
         Draft7Validator(_SCHEMA['output']).validate(output)
