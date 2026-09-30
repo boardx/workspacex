@@ -74,7 +74,7 @@ import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button"
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
-import { ChatRealtimeVoiceEntry, mergePersistedVoiceTurns } from "@/components/chat/chat-realtime-voice-entry";
+import { ChatRealtimeVoiceEntry, createVoiceThreadLifecycle, mergePersistedVoiceTurns } from "@/components/chat/chat-realtime-voice-entry";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { SessionBriefing } from "@/components/chat/knowledge/session-briefing";
@@ -1115,20 +1115,23 @@ export function CopilotKitV2PanelBody({
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   // 「实时对话」（Chat 语音模式）：转写落进同一条线程；挂断后把新消息并进视图（新对话则回写地址栏触发 hydration）。
   const selectedVoiceAgent = agentOptions.status === "ready" ? agentOptions.agents.find((a) => a.id === selectedAgentId) ?? null : null;
-  const resolveVoiceThreadId = React.useCallback(
-    async () => chatThreadIdRef.current ?? initialChatThreadId ?? resolveAttachmentThreadId(),
-    [initialChatThreadId, resolveAttachmentThreadId],
-  );
-  const onVoiceSessionEnded = React.useCallback(({ threadId: tid, persistedMessageIds }: { threadId: string | null; persistedMessageIds: readonly string[] }) => {
-    if (tid === null || persistedMessageIds.length === 0) return;
-    if (chatThreadIdRef.current === null && initialChatThreadId === null) {
-      chatThreadIdRef.current = tid;
-      setResolvedChatThreadId(tid);
-      onThreadResolved?.(tid);
-      return;
-    }
-    void mergePersistedVoiceTurns(agent, tid, persistedMessageIds, getStoredSessionToken() ?? undefined).catch(() => setError("语音对话已保存，刷新页面即可看到。"));
-  }, [agent, initialChatThreadId, onThreadResolved]);
+  // 最新闭包放 ref：生命周期对象只建一次，通话中途重渲染不丢「本次自建线程」的记录。
+  const voiceLatest = React.useRef({ agent, initialChatThreadId, createdAttachmentThreadId, onThreadResolved });
+  voiceLatest.current = { agent, initialChatThreadId, createdAttachmentThreadId, onThreadResolved };
+  const [voiceThread] = React.useState(() => createVoiceThreadLifecycle({
+    existingThreadId: () => chatThreadIdRef.current ?? voiceLatest.current.initialChatThreadId ?? voiceLatest.current.createdAttachmentThreadId,
+    projectId,
+    onPersisted: ({ threadId: tid, createdByVoice, messageIds }) => {
+      const { agent, onThreadResolved } = voiceLatest.current;
+      if (createdByVoice && chatThreadIdRef.current === null) {
+        chatThreadIdRef.current = tid;
+        setResolvedChatThreadId(tid);
+        onThreadResolved?.(tid);
+        return;
+      }
+      void mergePersistedVoiceTurns(agent, tid, messageIds, getStoredSessionToken() ?? undefined).catch(() => setError("语音对话已保存，刷新页面即可看到。"));
+    },
+  }));
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
     canWrite: canWrite && !archived,
@@ -2514,8 +2517,8 @@ export function CopilotKitV2PanelBody({
                 <ChatRealtimeVoiceEntry
                   disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
                   agent={selectedVoiceAgent}
-                  resolveThreadId={resolveVoiceThreadId}
-                  onEnded={onVoiceSessionEnded}
+                  resolveThreadId={voiceThread.resolveThreadId}
+                  onEnded={voiceThread.onEnded}
                 />
                 <ComposerVoiceControl
                   status={speech.status}

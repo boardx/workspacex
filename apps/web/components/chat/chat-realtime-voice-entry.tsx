@@ -4,6 +4,8 @@ import * as React from "react";
 import { AudioLines } from "lucide-react";
 import { getAgentDirectoryCard } from "@/lib/agent-directory";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
+import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
+import { deleteThread } from "@/lib/live-chat";
 import { RealtimeVoiceSession, type RealtimeVoicePersona } from "@/components/chat/realtime-voice-session";
 
 /**
@@ -83,4 +85,54 @@ export async function mergePersistedVoiceTurns(sink: MessageSink, threadId: stri
     .map((m) => ({ id: m.id, role: m.role, content: m.content }));
   if (fresh.length === 0) return;
   sink.setMessages([...live, ...fresh] as never);
+}
+
+export interface VoiceThreadLifecycleDeps {
+  readonly create: (projectId: string | null) => Promise<{ readonly threadId: string; readonly version: number }>;
+  readonly discard: (threadId: string, projectId: string | null, version: number) => Promise<unknown>;
+}
+
+const defaultLifecycleDeps: VoiceThreadLifecycleDeps = {
+  create: createWorkbenchThread,
+  discard: (threadId, projectId, version) => deleteThread(threadId, projectId, version, "实时对话未产生内容"),
+};
+
+/**
+ * 新对话里开「实时对话」时线程的生命周期：会话开始需要一条真实线程承载判权与落库，所以按需建；
+ * 挂断时**一轮都没落库**就把这条本次通话自建的线程删掉（不留空线程、不改地址栏）；
+ * 落了库才交给 `onPersisted`（调用方在那里回写地址栏）。已有线程永远不删。
+ */
+export function createVoiceThreadLifecycle(
+  opts: {
+    readonly existingThreadId: () => string | null;
+    readonly projectId: string | null;
+    readonly onPersisted: (info: { readonly threadId: string; readonly createdByVoice: boolean; readonly messageIds: readonly string[] }) => void;
+  },
+  deps: VoiceThreadLifecycleDeps = defaultLifecycleDeps,
+): { resolveThreadId: () => Promise<string>; onEnded: (info: { readonly threadId: string | null; readonly persistedMessageIds: readonly string[] }) => void } {
+  let created: { threadId: string; version: number } | null = null;
+  return {
+    resolveThreadId: async () => {
+      const existing = opts.existingThreadId();
+      if (existing !== null) return existing;
+      if (created === null) {
+        const out = await deps.create(opts.projectId);
+        created = { threadId: out.threadId, version: out.version };
+      }
+      return created.threadId;
+    },
+    onEnded: ({ threadId, persistedMessageIds }) => {
+      const own = created !== null && created.threadId === threadId ? created : null;
+      if (threadId === null) return;
+      if (persistedMessageIds.length === 0) {
+        if (own) {
+          created = null;
+          void deps.discard(own.threadId, opts.projectId, own.version).catch(() => { /* 删失败只留一条空线程，不打扰用户 */ });
+        }
+        return;
+      }
+      created = null;
+      opts.onPersisted({ threadId, createdByVoice: own !== null, messageIds: persistedMessageIds });
+    },
+  };
 }
