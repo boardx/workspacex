@@ -13,6 +13,8 @@
  *   kb.publish、docs.publish、project.member.write、knowledge.graph.write 等写类，以及 incident/monitoring/
  *   deploy/directory/workforce.schedule/hr.headcount/finance/org.policy/repo 等只读类；均为 proposed-unwired。
  *   写类同时进 `PLANNED_WORKFLOW_SIDE_EFFECT_CATEGORIES`，管理员才能在授权页看到并授予。）
+ * （客户成功线 S187–S194 补登：`workforce.schedule.read`（S194 optional，支持排班；声明但未接线）。其余依赖
+ *   ticket.read / crm.read / tracker.read / transcript.read / survey.read 等此前已登记。）
  * （EV03 门脚本 `gate-policy.ts` 曾另抄一份更短的登记表，G3 与导入/就绪性判据因此漂移；现在它
  *   直接 re-export 本表，`knowledge.graph.read` 等原先只在那一份里的分类并入这里。）
  */

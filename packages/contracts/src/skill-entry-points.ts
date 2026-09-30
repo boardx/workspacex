@@ -135,6 +135,16 @@ export const HIDDEN_PLATFORM_SKILLS: readonly HiddenPlatformSkill[] = [
   { slug: "user-activation", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
   { slug: "user-interview-planning", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
   { slug: "work-item-management", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  // Phase 20 客户成功线 —— Work Skill 内容包（`skills/work-customer-success/`，S187–S194，均带 `metadata.work`）。
+  // 同 CT01/CT07 理由：经 Work Stack v2 目录单独浏览/导入/管理，不进三入口。
+  { slug: "support-triage", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "draft-support-response", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "customer-escalation", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "kb-article", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "qbr-preparation", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "renewal-risk", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "voice-of-customer", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "support-operations", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
 ];
 
 /** slug → 所属入口 id；隐藏的返回 "hidden"；不在表里的返回 null（非平台 skill）。 */

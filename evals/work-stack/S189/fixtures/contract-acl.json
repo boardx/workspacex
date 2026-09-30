@@ -1,0 +1,5 @@
+{
+  "caller": "csm-unassigned",
+  "readableAccounts": [],
+  "note": "调用者不是该账户的被分配 CSM，无合同读权限"
+}

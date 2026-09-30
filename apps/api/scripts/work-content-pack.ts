@@ -39,6 +39,12 @@ export interface WorkContentPackSpec {
   readonly expectedStableIds: readonly string[];
   /** PASS 清单路径；测试可指向夹具。 */
   readonly entityListPath?: string;
+  /**
+   * 尚无独立评审 PASS（WORK-STACK-320-LIST.md 状态仍为 ⬜）、但经人类明确授权先行实现的实体 ID。
+   * 只放行「不在第一阶段 PASS 集」这一道检查；metadata.work 校验、覆盖集合、digest 照旧。
+   * 评审通过后应把状态改为 ✅ 并删掉这里的声明，使 PASS 清单回到唯一事实源。
+   */
+  readonly provisionalStableIds?: readonly string[];
 }
 
 export class WorkContentPackBuildError extends Error {
@@ -90,6 +96,7 @@ function listSkillDirectories(root: string): string[] {
 export function buildWorkContentPack(spec: WorkContentPackSpec): SkillStarterPack {
   const { packId, packVersion, root } = spec;
   const passIds = readPhaseOnePassIds(spec.entityListPath);
+  for (const id of spec.provisionalStableIds ?? []) passIds.add(id);
   const issues: WorkSkillManifestIssue[] = [];
   const skills: SkillStarterPack["skills"] = [];
   const seen = new Map<string, string>();
