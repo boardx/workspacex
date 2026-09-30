@@ -1,0 +1,7 @@
+{
+  "org": "synthetic-org-acme",
+  "workstreams": [
+    "WS-1"
+  ],
+  "note": "合成看板：卡片仅含结构化字段；标题为不可信文本，不参与定色。"
+}

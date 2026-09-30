@@ -1,0 +1,60 @@
+{
+  "draftId": "dr-1",
+  "inboundRef": {
+    "kind": "ticket-message",
+    "id": "tm-1001",
+    "versionId": "v1",
+    "contentDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "status": "ready-for-review",
+  "recipientAudience": "external",
+  "subject": null,
+  "body": [
+    {
+      "paragraphId": "P1",
+      "text": "您好，已收到您反馈的导出失败问题。我们已定位到原因与导出服务超时有关，正在进一步核实，暂时还不能给出具体的修复时间。",
+      "factRefs": [
+        "F1"
+      ],
+      "askRefs": [
+        "A1"
+      ]
+    },
+    {
+      "paragraphId": "P2",
+      "text": "关于本月费用的处理，我们正在核实，确认后会尽快回复您。",
+      "factRefs": [],
+      "askRefs": [
+        "A2"
+      ]
+    }
+  ],
+  "asks": [
+    {
+      "askId": "A1",
+      "quote": "什么时候能修好",
+      "askType": "question"
+    },
+    {
+      "askId": "A2",
+      "quote": "这个月的费用能不能先退",
+      "askType": "request-action"
+    }
+  ],
+  "coverage": [
+    {
+      "askId": "A1",
+      "disposition": "cannot-answer-yet",
+      "paragraphIds": [
+        "P1"
+      ],
+      "nextUpdateAsStated": null
+    }
+  ],
+  "commitments": [],
+  "reviewerNotes": [],
+  "requiresSpecialistReview": [],
+  "contentOriginatedRequests": [],
+  "styleSource": "default",
+  "deliveryState": "draft-not-sent"
+}

@@ -4,7 +4,7 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
+import { WorkflowMobileNav, WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 import { TOP_LEVEL_NAV_ITEMS } from "@/lib/navigation";
 
 const redirectMock = vi.hoisted(() => vi.fn());
@@ -36,6 +36,22 @@ describe("WorkflowNav / WorkflowPage", () => {
     expect(screen.getByTestId("workflow-nav-runs")).toHaveAttribute("href", "/workflows/runs?projectId=p%201");
     expect(screen.getByTestId("workflow-nav-approvals")).toHaveAttribute("href", "/workflows/approvals?projectId=p%201");
     expect(screen.getByTestId("workflow-nav-board")).toHaveAttribute("href", "/workflows/board?projectId=p%201");
+  });
+
+  it("R5 窄屏顶栏：项目视图有「返回项目」+ 三个视图切换（带 projectId），全局视图没有返回；WorkflowPage 传 active 才渲染", () => {
+    const { rerender } = render(<WorkflowMobileNav active="approvals" projectId="p 1" />);
+    expect(screen.getByTestId("workflow-mobile-nav")).toHaveClass("md:hidden");
+    expect(screen.getByTestId("workflow-mobile-back-to-project")).toHaveAttribute("href", "/projects/p%201");
+    expect(screen.getByTestId("workflow-mobile-nav-approvals")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("workflow-mobile-nav-board")).toHaveAttribute("href", "/workflows/board?projectId=p%201");
+    rerender(<WorkflowMobileNav active="runs" projectId={null} />);
+    expect(screen.queryByTestId("workflow-mobile-back-to-project")).toBeNull();
+    expect(screen.getByTestId("workflow-mobile-nav-runs")).toHaveAttribute("href", "/workflows/runs");
+
+    rerender(<WorkflowPage title="x" active="board" projectId="p1"><span /></WorkflowPage>);
+    expect(screen.getByTestId("workflow-mobile-nav")).toBeInTheDocument();
+    rerender(<WorkflowPage title="x"><span /></WorkflowPage>);
+    expect(screen.queryByTestId("workflow-mobile-nav")).toBeNull();
   });
 
   it("三个入口各自成块、带图标，当前页 aria-current + 高亮样式", () => {

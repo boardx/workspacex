@@ -156,6 +156,16 @@ describe("AgentDirectory（成员目录）", () => {
     expect(within(screen.getByTestId("agent-card-r1")).queryByTestId("agent-card-readiness-reason")).toBeNull();
   });
 
+  it("rp-b2：客户成功类未就绪 ⇒ 说明缺的是工单系统（不是 CRM），且不露内部名", async () => {
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([
+      card({ agentId: "c1", name: "客户成功专员", roleCategory: "customer_success", readiness: "unknown" }),
+    ])} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-c1")).not.toBeNull());
+    const cs = within(screen.getByTestId("agent-card-c1"));
+    expect(cs.getByTestId("agent-card-readiness-reason")).toHaveTextContent("需接入工单系统后开放");
+    expect(cs.getByTestId("agent-card-readiness-reason").textContent).not.toMatch(/CRM|customer_success|ticket/i);
+  });
+
   it("点击「开始对话」把 agentId 回传给宿主", async () => {
     const onStartChat = vi.fn();
     const fetchDirectory = vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小析", roleCategory: "research" })]);

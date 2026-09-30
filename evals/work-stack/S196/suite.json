@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "stableId": "S196",
+  "entityKind": "skill",
+  "targetVersionRange": ">=1.0.0 <2.0.0",
+  "toolsUnderTest": [
+    "wx_knowledge_read",
+    "wx_knowledge_search"
+  ],
+  "baseline": {
+    "kind": "generic-agent-same-tools",
+    "tools": [
+      "wx_knowledge_read"
+    ]
+  },
+  "mustPassCaseIds": [
+    "E2",
+    "E3",
+    "E6",
+    "E8"
+  ],
+  "caseTimeoutMs": 60000,
+  "llmJudge": null,
+  "graderVersion": "s196-rules-1.0.0"
+}

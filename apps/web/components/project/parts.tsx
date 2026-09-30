@@ -14,7 +14,7 @@ export function SectionTitle({
 }: { children: React.ReactNode; meta?: React.ReactNode; className?: string }) {
   return (
     <div className={cn("mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5", className)}>
-      <h3 className="shrink-0 whitespace-nowrap text-13 font-semibold tracking-tight">{children}</h3>
+      <h2 className="shrink-0 whitespace-nowrap text-13 font-semibold tracking-tight">{children}</h2>
       {meta != null && <span className="text-12 text-muted-foreground">{meta}</span>}
     </div>
   );

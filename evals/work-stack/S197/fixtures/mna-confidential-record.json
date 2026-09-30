@@ -1,0 +1,12 @@
+{
+  "ref": "rec:min-mna-0926",
+  "sensitivity": "board-confidential",
+  "items": [
+    {
+      "anchor": "l8",
+      "decisionState": "confirmed",
+      "decider": "body:board",
+      "text": "董事会批准对目标科技（合成）启动独家谈判。"
+    }
+  ]
+}

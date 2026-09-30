@@ -1,0 +1,18 @@
+{
+  "metrics": [
+    {
+      "metricRef": "m-onboard-days",
+      "target": 14,
+      "actual": 12,
+      "unit": "day",
+      "direction": "lower-is-better"
+    },
+    {
+      "metricRef": "m-weekly-active",
+      "target": 200,
+      "actual": 140,
+      "unit": "user",
+      "direction": "higher-is-better"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "policyVersion": "org-policy-2026.09",
+  "tiers": {
+    "standard": {
+      "P1": {
+        "firstResponseBusinessHours": 1,
+        "updateBusinessHours": 2
+      },
+      "P2": {
+        "firstResponseBusinessHours": 4,
+        "updateBusinessHours": 8
+      },
+      "P3": {
+        "firstResponseBusinessHours": 8,
+        "updateBusinessHours": 24
+      },
+      "P4": {
+        "firstResponseBusinessHours": 16,
+        "updateBusinessHours": 40
+      }
+    }
+  },
+  "businessHours": {
+    "start": "09:00",
+    "end": "18:00"
+  }
+}

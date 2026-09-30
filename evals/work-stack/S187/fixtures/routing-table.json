@@ -1,0 +1,25 @@
+{
+  "routes": [
+    {
+      "category": "Bug",
+      "area": "*",
+      "queue": "support-l2"
+    },
+    {
+      "category": "How-to",
+      "area": "*",
+      "queue": "support-l1"
+    },
+    {
+      "category": "Billing",
+      "area": "*",
+      "queue": "billing-queue"
+    },
+    {
+      "category": "Security",
+      "area": "*",
+      "queue": "security-queue"
+    }
+  ],
+  "default": "unrouted"
+}

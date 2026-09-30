@@ -15,7 +15,7 @@ attempt_id=$2
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 SOURCE_CACHE=/var/lib/workspacex-cn/source-cache.git
-CONFIG_FILE=/etc/workspacex-cn/deployment.json
+CONFIG_FILE="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/deployment.json"
 RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
@@ -114,6 +114,7 @@ fs.writeFileSync(process.argv[3],JSON.stringify({services:{api:{image:value.imag
 NODE
   install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG"
   nginx -t && systemctl reload nginx
+  candidate_config_action restore >/dev/null || fail "active configuration CAS restore failed"
   docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans
   rm -rf -- "$rollback_dir"
 }
@@ -165,7 +166,20 @@ install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATION
 install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
 
 exec 9>"$RUNTIME_ROOT/release.lock"
+chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another deployment is active"
+
+release=$(node -e 'process.stdout.write(require(process.argv[1]).release)' "$manifest")
+candidate_config_action() {
+  local action=$1 source="$release_checkout/packages/cloud-deploy/src/cn-candidate-config-cli.ts"
+  [[ -f "$source" && ! -L "$source" ]] || fail "trusted candidate configuration CLI unavailable"
+  (cd "$release_checkout"; node --import tsx "$source" "$action" "$revision" "$release" "$attempt_id")
+}
+verify_candidate_state() {
+  local expected=$1 result
+  result=$(candidate_config_action verify) || fail "candidate configuration verification rejected"
+  node -e 'const v=JSON.parse(process.argv[1]);if(v.ok!==true||v.state!==process.argv[2])process.exit(1)' "$result" "$expected" || fail "candidate configuration activation state differs"
+}
 
 verify_active_release() {
   local config_file public_url browser_executable
@@ -203,6 +217,7 @@ fi
 
 if [[ "$mode" == verify-active ]]; then
   [[ -d "$release_checkout/.git" ]] || fail "active release checkout is unavailable"
+  verify_candidate_state activated
   verify_active_release
   printf 'CN_PRODUCTION_ACTIVE_VERIFIED revision=%s\n' "$revision"
   exit 0
@@ -261,6 +276,7 @@ if [[ "$mode" == prepare ]]; then
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" \
     node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
     || fail "browser runtime preflight failed"
+  verify_candidate_state prepared
   pnpm --filter @repo/cloud-deploy prepare-host "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
   [[ -f "$runtime/prepare-receipt.json" ]] || fail "prepare receipt missing"
   [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration missing"
@@ -295,6 +311,7 @@ baseline_sha=$(baseline_fingerprint "$current_baseline" "$NGINX_CONFIG")
 pnpm --filter @repo/cloud-deploy cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
 verify_stable_identity "$current_baseline"
 
+verify_candidate_state prepared
 activation_started=1
 activation_deadline=$((SECONDS+300))
 record_event activation_started
@@ -348,6 +365,8 @@ browser_executable=$(resolve_browser_executable) || fail "browser executable mis
 CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout "${remaining}s" \
   node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null \
   || fail "browser smoke failed"
+candidate_config_action commit >/dev/null || fail "accepted configuration atomic commit failed"
+verify_candidate_state activated
 record_event production_available
 activation_started=0
 trap - EXIT

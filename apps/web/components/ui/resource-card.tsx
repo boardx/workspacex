@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
  */
 export function ResourceCard({
   testId, title, titleTestId, subtitle, badges, menu, description, tags, meta, children, actions,
-  layout = "grid", href, className,
+  layout = "grid", href, className, headingLevel = 3,
 }: {
   testId?: string;
   title: React.ReactNode;
@@ -46,8 +46,11 @@ export function ResourceCard({
    */
   href?: string;
   className?: string;
+  /** 卡片标题的标题层级。页面 h1 之下直接是卡片列表时用 2，避免跳级（默认 3，嵌在 h2 分区里的卡片）。 */
+  headingLevel?: 2 | 3;
 }) {
   const list = layout === "list";
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const shell = cn("flex h-full min-w-0 flex-col transition-all duration-base hover:shadow-md", className);
   const body = (
     <>
@@ -55,7 +58,7 @@ export function ResourceCard({
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-col gap-1">
-              <h3 className="truncate text-14 font-semibold tracking-tight" data-testid={titleTestId}>{title}</h3>
+              <Heading className="truncate text-14 font-semibold tracking-tight" data-testid={titleTestId}>{title}</Heading>
               {subtitle ? <p className="text-11 text-muted-foreground">{subtitle}</p> : null}
             </div>
             {badges || menu ? (

@@ -72,6 +72,26 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     expect(enterLink).toHaveAttribute("href", `/projects/p-real-1?org=${ORG}`);
   });
 
+  it("R4 列表读取失败：友好说明 + 重试，且不同时说「当前组织还没有项目」；重试成功后恢复列表", async () => {
+    let calls = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/projects" && (init?.method ?? "GET") === "GET") {
+        calls += 1;
+        if (calls === 1) return jsonResponse({ message: "boom" }, 500);
+        return jsonResponse([{ id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "active", readOnlyReason: null, tags: [] }]);
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    render(<ProjectsScreen />);
+    const err = await screen.findByTestId("projects-list-error");
+    expect(err).toHaveTextContent("项目列表暂时读不出来");
+    expect(screen.queryByTestId("projects-list-empty-state")).toBeNull();
+    fireEvent.click(screen.getByTestId("projects-list-error-retry"));
+    expect(await screen.findByTestId("projects-card-p-real-1-name")).toHaveTextContent("真实项目一号");
+    expect(screen.queryByTestId("projects-list-error")).toBeNull();
+  });
+
   it("搜索框按名称过滤真实列表", async () => {
     render(<ProjectsScreen />);
 

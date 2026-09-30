@@ -58,66 +58,49 @@ export function TabResults({
   const canPublish = ROLE_STAGE_CONTROL[view] && !readOnly;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-results">
-      {/* 项目结论 —— 契约未建模，四视角都如实说明不可用（不发明结论文本） */}
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6" data-testid="project-results">
+      {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9）。真实内容排最前。 */}
       <section>
-        <SectionTitle meta="暂未开放">项目结论</SectionTitle>
+        <SectionTitle meta="已回流到项目的产出">成果去向</SectionTitle>
         <Card>
-          <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">
-            项目结论还没有开放。上线后，结论正文和签字人会显示在这里。
-          </p>
+          <BackflowPanel overview={liveOverview} loading={liveOverviewLoading} error={liveOverviewError} />
         </Card>
       </section>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* 假设状态 —— 契约未建模 */}
-        <section>
-          <SectionTitle meta="暂未开放">假设状态</SectionTitle>
-          <Card>
-            <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">
-              假设状态还没有开放。上线后，这里会显示已验证 / 待验证 / 已推翻各有多少条。
-            </p>
-          </Card>
-        </section>
-        {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9） */}
-        <section>
-          <SectionTitle meta="已回流到项目的产出">成果去向</SectionTitle>
-          <Card>
-            <BackflowPanel overview={liveOverview} loading={liveOverviewLoading} error={liveOverviewError} />
-          </Card>
-        </section>
-      </div>
-
-      {/* 发布结论 —— 契约未建模：没有「发布」这个领域动作，不留一个只弹本地对话框
-          却不产生真实副作用的危险按钮（那是假功能缺陷，不是数据展示缺口） */}
-      {canPublish && (
-        <section>
-          <SectionTitle meta="暂未开放">发布结论</SectionTitle>
-          <Card>
-            <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">
-              发布结论还没有开放。在它真正可用之前这里不放按钮，以免让人误以为已经发布。
-            </p>
-          </Card>
-        </section>
-      )}
-
-      {/* 候选决策 —— 契约未建模：没有「候选决策」实体，同上理由不放签署按钮 */}
-      {canWrite && (
-        <section>
-          <SectionTitle meta="暂未开放">候选决策</SectionTitle>
-          <Card>
-            <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">
-              候选决策还没有开放。上线后，转写里待签署的决策会列在这里，签署前可以回听。
-            </p>
-          </Card>
-        </section>
-      )}
 
       {/* 审计与反馈 —— 接真：queryProvenance（uc-00-1 V10 / uc-00-3 V11） */}
       <section>
         <SectionTitle meta="仅本项目 · 不可删除">审计与反馈</SectionTitle>
         <Card data-testid="project-results-audit">
           <AuditPanel audit={liveAudit} loading={liveAuditLoading} error={liveAuditError} />
+        </Card>
+      </section>
+      {/* 契约未建模的四项（项目结论 / 假设状态 / 发布结论 / 候选决策）收进一张「即将开放」卡，
+          不再各占一个整宽空框；不发明数据，也不放会产生假副作用的按钮（发布 / 签署）。 */}
+      <section>
+        <SectionTitle meta="还在路上，不会出现示例数据">即将开放</SectionTitle>
+        <Card>
+          <ul className="divide-y divide-border">
+            <li className="flex flex-col gap-0.5 px-4 py-3">
+              <span className="text-13 font-medium">项目结论</span>
+              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">结论正文和签字人会显示在这里。</p>
+            </li>
+            <li className="flex flex-col gap-0.5 px-4 py-3">
+              <span className="text-13 font-medium">假设状态</span>
+              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">已验证 / 待验证 / 已推翻各有多少条。</p>
+            </li>
+            {canPublish && (
+              <li className="flex flex-col gap-0.5 px-4 py-3">
+                <span className="text-13 font-medium">发布结论</span>
+                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">真正可用之前这里不放按钮，以免让人误以为已经发布。</p>
+              </li>
+            )}
+            {canWrite && (
+              <li className="flex flex-col gap-0.5 px-4 py-3">
+                <span className="text-13 font-medium">候选决策</span>
+                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">转写里待签署的决策会列在这里，签署前可以回听。</p>
+              </li>
+            )}
+          </ul>
         </Card>
       </section>
     </div>
@@ -140,7 +123,7 @@ function BackflowPanel({
   if (overview === null) {
     return (
       <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-signed-out">
-        暂无真实数据（未登录，或链接未带 `?org=`）
+        登录后才能查看，请重新登录后再试。
       </div>
     );
   }
@@ -182,7 +165,7 @@ function AuditPanel({
   if (audit === null) {
     return (
       <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-signed-out">
-        暂无真实数据（未登录，或链接未带 `?org=`）
+        登录后才能查看，请重新登录后再试。
       </div>
     );
   }

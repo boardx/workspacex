@@ -98,9 +98,9 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
               </li>
             )}
             {members.map((m) => (
-              <li key={m.userId} className="flex items-center gap-3 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
+              <li key={m.userId} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
                 <Avatar initials={m.displayName.slice(0, 1)} size="sm" />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[4.5rem] flex-1">
                   <div className="truncate text-12" title={m.userId}>
                     {m.displayName}
                     {m.userId === me && <span className="ml-1.5 text-11 text-muted-foreground">（你）</span>}
@@ -108,18 +108,19 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                 </div>
                 {canManage ? (
                   <Select
+                    aria-label={`${m.displayName} 的项目角色（当前：${NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}）`}
                     data-testid={`project-collaborator-role-${m.userId}`}
                     value={m.role}
                     disabled={busy}
                     onValueChange={(v) => void run(() => addNonWorkshopMember({ projectId, userId: m.userId, role: v as NonWorkshopMemberRole }))}
                     options={roleOptions}
-                    className="min-w-[8rem]"
+                    className="min-w-[7rem]"
                   />
                 ) : (
                   <Badge tone={m.role === "owner" ? "primary" : "outline"}>{NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}</Badge>
                 )}
                 {canManage && (
-                  <Button size="xs" variant="ghost" disabled={busy} data-testid={`project-collaborator-remove-${m.userId}`}
+                  <Button size="xs" variant="ghost" disabled={busy} aria-label={`将 ${m.displayName} 移出项目`} data-testid={`project-collaborator-remove-${m.userId}`}
                     onClick={() => void run(() => removeNonWorkshopMember(projectId, m.userId))}>
                     移出
                   </Button>
@@ -143,7 +144,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
               />
             </label>
             <label className="flex flex-col gap-1 text-11 text-muted-foreground">
-              <span>档位</span>
+              <span>角色</span>
               <Select
                 data-testid="project-collaborators-add-role"
                 value={pickRole}

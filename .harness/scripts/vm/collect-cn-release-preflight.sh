@@ -14,7 +14,7 @@ phase=$1 revision=$2 release=$3 attempt_id=$4
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 SOURCE_MIRROR=/opt/workspacex-cn/release-origin-cache.git
-CONFIG_FILE=/etc/workspacex-cn/deployment.json
+CONFIG_FILE="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/deployment.json"
 PUBLISH_ENV=/etc/workspacex-cn/publish.env
 STABLE_SECRETS=/var/lib/workspacex-cn/stable-secrets
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
@@ -43,6 +43,7 @@ if flock -n 8; then flock -u 8; fail "canonical release lock is not held by this
 [[ -z "$(find "$SOURCE_MIRROR/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || fail "source mirror is partial"
 GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_MIRROR" fsck --full --no-reflogs >/dev/null ||
   fail "source mirror object closure is incomplete"
+(cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-candidate-config-cli.ts verify "$revision" "$release" "$attempt_id") >/dev/null || fail "candidate configuration receipt rejected"
 private_root_file "$CONFIG_FILE"
 [[ "$(node -e 'process.stdout.write(require(process.argv[1]).provision.release)' "$CONFIG_FILE")" == "$release" ]] || fail "candidate config release differs from requested release"
 private_root_file "$PUBLISH_ENV"

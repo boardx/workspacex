@@ -1,0 +1,8 @@
+{
+  "calendarId": "synthetic-cn-2027",
+  "holidayWeeks": [
+    "2027-W05",
+    "2027-W06"
+  ],
+  "note": "合成日历：春节周，仅用于评测"
+}

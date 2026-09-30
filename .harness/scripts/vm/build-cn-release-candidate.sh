@@ -24,6 +24,7 @@ fail(){ echo "CN_CANDIDATE_REJECTED: $1" >&2; exit 1; }
 [[ -x "$PREFLIGHT_COLLECTOR" && ! -L "$PREFLIGHT_COLLECTOR" ]] || fail "trusted preflight collector is unavailable"
 install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
+chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
 baseline_head=$(git -C "$REPOSITORY_DIR" rev-parse HEAD)
 baseline_ref=$(git -C "$REPOSITORY_DIR" symbolic-ref -q HEAD || true)
@@ -74,6 +75,11 @@ git -C "$REPOSITORY_DIR" checkout --quiet --detach "$revision"
 git -C "$REPOSITORY_DIR" reset --quiet --hard "$revision"
 git -C "$REPOSITORY_DIR" clean -ffd
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty"
+
+# Candidate config is generated under the same lock without replacing live config.
+# Dependencies must match this exact source before any TS entrypoint is loaded.
+COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --dir "$REPOSITORY_DIR" install --offline --frozen-lockfile --ignore-scripts >/dev/null || fail "candidate offline dependency closure unavailable"
+(cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-candidate-config-cli.ts prepare "$revision" "$release" "$attempt_id") >/dev/null || fail "candidate configuration preparation rejected"
 
 # A fresh schema-v2 prebuild receipt is the admission ticket for any image build.
 # The verifier persists the exact raw evidence before candidate_build_started can
