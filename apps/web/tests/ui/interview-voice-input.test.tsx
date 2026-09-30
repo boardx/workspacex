@@ -88,7 +88,7 @@ it("provider error requires explicit review to append confirmed text and recover
   render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} />);
   fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
   await screen.findByRole("button", { name: "停止并追加文字" });
-  act(() => { handlers.onFinal("已确认内容。"); handlers.onPartial("不能保留的临时片段"); handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  act(() => { handlers.onFinal("已确认内容。"); handlers.onPartial("不能保留的临时片段"); handlers.onError("AUDIO_FORMAT_REJECTED"); });
   expect(append).not.toHaveBeenCalled();
   expect(screen.queryByLabelText("语音转录预览")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
@@ -104,7 +104,7 @@ it("shows recoverable confirmed speech in the editor without persisting interim 
   render(<Intake />);
   fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
   await screen.findByRole("button", { name: "停止并追加文字" });
-  act(() => { handlers.onFinal("已确认文字。"); handlers.onPartial("不应保留的临时文字"); handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  act(() => { handlers.onFinal("已确认文字。"); handlers.onPartial("不应保留的临时文字"); handlers.onError("AUDIO_FORMAT_REJECTED"); });
   const input = screen.getByRole("textbox", { name: "研究需求 Markdown" });
   expect(input).toHaveValue("已有需求\n\n已确认文字。");
   expect(change).not.toHaveBeenCalled();
@@ -112,6 +112,19 @@ it("shows recoverable confirmed speech in the editor without persisting interim 
   fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
   await waitFor(() => expect(input).toHaveValue("已有需求\n\n已确认文字。"));
   expect(change).toHaveBeenCalledTimes(1);
+});
+it("announces automatic recovery and allows finishing retained text during backoff", async () => {
+  const append = vi.fn();
+  render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onFinal("保留文字。"); handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  expect(screen.getByRole("status")).toHaveTextContent("正在尝试重连");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(append).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "停止并追加文字" }));
+  await waitFor(() => expect(append).toHaveBeenCalledWith("保留文字。"));
+  expect(append).toHaveBeenCalledTimes(1);
 });
 it("keeps confirmed speech recoverable when the provider fails while stopping", async () => {
   const change = vi.fn();

@@ -52,6 +52,22 @@ export function researchPlanTitle(title: string): string {
   return title.replace(/^\s*(?:(?:第\s*)?[一二三四五六七八九十百千万]+\s*[.、．)）:]\s*|\d+\s*[、．)）:]\s*|\d+\s*\.\s+)/, "").trim();
 }
 
+export function researchQuestionsForTitle(title: string): string[] {
+  return [`「${researchPlanTitle(title)}」有哪些关键事实、影响因素和可执行结论？`];
+}
+
+/** Only new items derive questions; existing research design remains untouched. */
+export function prepareResearchOutline(items: GuidedResearchOutlineSection[], original: GuidedResearchOutlineSection[]): GuidedResearchOutlineSection[] {
+  return items.map((item) => {
+    const saved = original.find((entry) => entry.id === item.id);
+    return { ...item, questions: saved ? item.questions : researchQuestionsForTitle(item.title),
+      ...(item.subsections ? { subsections: item.subsections.map((sub) => ({ ...sub,
+        questions: saved?.subsections?.some((entry) => entry.id === sub.id) ? sub.questions : researchQuestionsForTitle(sub.title),
+      })) } : {}),
+    };
+  });
+}
+
 function section(markdown: string, heading: string): string | null {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = markdown.match(new RegExp(`(?:^|\\n)## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));

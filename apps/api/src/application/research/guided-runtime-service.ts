@@ -1,6 +1,7 @@
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
+import { collectSourceDocuments } from "./guided-source-documents";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
 import { preservePreviousReport } from "./guided-report-history";
 import { researchDesignShapes, researchDesignInstruction, validateGeneratedResearchDesign, preserveResearchDesign } from "./guided-research-design";
@@ -270,7 +271,7 @@ export class GuidedRuntimeService {
       await persist();
       const allowPartial = Boolean(state.reportPartial);
       await this.reviewSources(state, persist);
-      await this.readSourceDocuments(state, persist, { retryTransient: resume });
+      await this.readSourceDocuments(state, persist, { retryTransient: true });
       appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
       state.reportPartial = allowPartial;
       acceptPendingSources(state); this.requireResearchBasis(state, allowPartial);
@@ -304,20 +305,7 @@ export class GuidedRuntimeService {
   private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean } = {}) {
     if (!this.search.read) return;
     const accepted = state.sources.filter((source) => source.decision === "accepted");
-    for (const source of accepted) {
-      if (source.document) continue;
-      if (source.documentError && !(options.retryTransient && source.documentError === "unavailable")) continue;
-      if (source.documentError === "unavailable") delete source.documentError;
-      try {
-        const result = await this.search.read(source.url);
-        source.document = { url: source.url, retrievedAt: new Date().toISOString(), text: result.text, contentKind: result.contentKind, truncated: result.truncated, contentHash: createHash("sha256").update(result.text).digest("hex") };
-        delete source.documentError;
-      } catch (error) {
-        const reason = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_DOCUMENT_UNAVAILABLE";
-        source.documentError = reason.includes("BLOCKED") ? "blocked" : reason.includes("UNSUPPORTED") ? "unsupported" : reason.includes("EMPTY") ? "empty" : reason.includes("TOO_LARGE") ? "too_large" : "unavailable";
-      }
-      await persist();
-    }
+    await collectSourceDocuments(accepted, (url) => this.search.read!(url), persist, options);
     if (accepted.length && !accepted.some((source) => source.document)) throw new ResearchRuntimeError("RESEARCH_DOCUMENTS_UNREADABLE");
   }
   private async plan(state: ResearchRuntime, persist: RuntimePersistence) {
@@ -388,6 +376,7 @@ export class GuidedRuntimeService {
     if (!state.tasks.length) await this.plan(state, persist);
     await this.addInternalSources(state, internalSources, persist);
     await this.reviewSources(state, persist);
+    if (this.search.read) await collectSourceDocuments(state.sources, (url) => this.search.read!(url), persist, { retryTransient: true });
     for (const task of state.tasks) {
       const coveredByInternalSource = state.sources.some((source) => source.url.startsWith("https://internal.workspacex.local/")
         && source.decision !== "excluded" && sourceTaskIds(source).includes(task.id));
@@ -455,11 +444,12 @@ export class GuidedRuntimeService {
         }
       }
     }
+    if (this.search.read) await collectSourceDocuments(state.sources, (url) => this.search.read!(url), persist);
     // Best-effort chapter coverage: search up to two additional variants for chapters
     // with fewer than three unique accepted URLs. This never turns an honest gap into
     // an unrelated citation or makes a failed supplement block the report.
     for (const section of this.search.read ? state.outline.filter((item) => item.enabled) : []) {
-      const count = () => new Set(state.sources.filter((source) => source.decision !== "excluded" && sourceTaskIds(source).some((id) => state.tasks.find((task) => task.id === id)?.sectionId === section.id)).map((source) => normalizedSourceUrl(source.url))).size;
+      const count = () => new Set(state.sources.filter((source) => source.decision === "accepted" && source.document && sourceTaskIds(source).some((id) => state.tasks.find((task) => task.id === id)?.sectionId === section.id)).map((source) => normalizedSourceUrl(source.url))).size;
       const task = state.tasks.find((item) => item.sectionId === section.id);
       if (!task || count() >= 3) continue;
       task.searchAttempts ??= [];
@@ -476,6 +466,7 @@ export class GuidedRuntimeService {
           const errorCode = await this.acceptSearchResults(state, task, await searchWithSourcePolicy(this.search, query, state.sourcePolicy), persist);
           attempt.status = errorCode ? "failed" : "succeeded";
           attempt.errorCode = errorCode;
+          if (this.search.read) await collectSourceDocuments(state.sources, (url) => this.search.read!(url), persist);
         } catch (error) {
           attempt.status = "failed";
           attempt.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";
