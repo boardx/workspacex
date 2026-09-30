@@ -3,10 +3,10 @@
  *
  * 平台 starter pack 里的技能 `name` 就是稳定编号（`S061`），是技术标识，不上屏。
  * 中文名取自 `requirements/work-stack-v2/skills/S*.md` 标题括号内的名字；目录新增而这里
- * 没写时 `workSkillDisplayName` 返回 null，调用方应隐藏该项而不是打印编号。
+ * 没写时（由 `tests/lib/display-copy-single-source.test.ts` 机械核对与 S*.md 标题逐条相等，漂移即红） `workSkillDisplayName` 返回 null，调用方应隐藏该项而不是打印编号。
  */
 
-const WORK_SKILL_NAMES: Readonly<Record<string, string>> = {
+export const WORK_SKILL_NAMES: Readonly<Record<string, string>> = {
   S003: "企业内部检索",
   S005: "会前准备",
   S006: "会议纪要",

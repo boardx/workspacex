@@ -76,7 +76,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
                 <Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge>
               )}
             </div>
-            {subtitle ? <p data-testid="agent-card-subtitle" className="mt-0.5 line-clamp-2 text-12 text-muted-foreground">{subtitle}</p> : null}
+            {subtitle ? <p data-testid="agent-card-subtitle" title={subtitle} className="mt-0.5 line-clamp-2 text-12 text-muted-foreground">{firstClause(subtitle)}</p> : null}
           </div>
         </div>
         {card.tags.length > 0 && (
@@ -263,4 +263,15 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
       </div>
     </div>
   );
+}
+
+/** 卡片描述在句读处截断（uiux-r2 #3.3：不在半句中间断）；完整文字放 title 提示。 */
+export function firstClause(text: string, max = 40): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const m = /^[^。！？；]*[。！？；]/.exec(t);
+  if (m && m[0].length <= max) return m[0];
+  const cut = t.slice(0, max);
+  const at = Math.max(cut.lastIndexOf("，"), cut.lastIndexOf("、"));
+  return at > 8 ? `${cut.slice(0, at)}…` : t;
 }

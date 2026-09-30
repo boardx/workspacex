@@ -25,3 +25,11 @@ describe("技能/工作流中文显示名", () => {
     expect(catalogWorkflowTitleZh("W001 Research-to-Brief")).toBe("研究到简报");
   });
 });
+
+import { firstClause } from "@/components/agent/agent-directory";
+describe("目录卡片描述句读截断", () => {
+  it("短文原样；长文截到第一句或逗号处", () => {
+    expect(firstClause("整理证据。")).toBe("整理证据。");
+    expect(firstClause("负责检索与整理内部证据。不在证据之外下结论，所有结论都标注出处并交给人审阅确认，必要时升级给负责人裁决。")).toBe("负责检索与整理内部证据。");
+  });
+});
