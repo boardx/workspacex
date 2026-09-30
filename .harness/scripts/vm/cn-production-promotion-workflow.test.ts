@@ -11,7 +11,7 @@ const bootstrap = readFileSync(resolve(root, ".harness/scripts/vm/bootstrap-cn-p
 
 describe("GitHub-based CN production promotion", () => {
   it("verifies checkout ancestry offline and rejects missing or invalid identities", () => {
-    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-checkout-offline.test.mjs"], { encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-checkout-offline.selftest.mjs"], { encoding: "utf8" });
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
   it("accepts only an exact SHA and an explicit compare-and-swap baseline", () => {
