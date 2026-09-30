@@ -8,16 +8,16 @@ export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
   // A selection, viewport or toolbar state change re-renders the editor without
   // changing Yjs. Preserve object identity across those renders so the Fabric
   // projection does not rescan and remeasure every object on the board.
-  const objectDocument = useRef(doc);
-  const objects = useRef(readObjects(doc));
-  if (objectDocument.current !== doc) {
-    objectDocument.current = doc;
-    objects.current = readObjects(doc);
-  }
+  const snapshot = useRef<{ doc: Y.Doc; objects: ReturnType<typeof readObjects> } | null>(null);
+  if (snapshot.current?.doc !== doc) snapshot.current = { doc, objects: readObjects(doc) };
   const undo = useRef<WhiteboardUndo | null>(null);
   const port = useRef<BoardCommandPort | null>(null);
   useEffect(() => {
-    const update = () => { objects.current = readObjects(doc); render(); };
+    const update = () => {
+      if (snapshot.current?.doc !== doc) return;
+      snapshot.current = { doc, objects: readObjects(doc) };
+      render();
+    };
     doc.on('update', update);
     return () => { doc.off('update', update); };
   }, [doc]);
@@ -31,7 +31,7 @@ export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
       if (port.current === commandPort) port.current = null;
     };
   }, [doc]);
-  return { objects: objects.current, execute(envelope: BoardCommandEnvelope) { return readOnly ? null : port.current?.dispatch(envelope) ?? null; },
+  return { objects: snapshot.current.objects, execute(envelope: BoardCommandEnvelope) { return readOnly ? null : port.current?.dispatch(envelope) ?? null; },
     undo: (gestureId?:string) => readOnly ? 'empty' : undo.current?.undo(gestureId) ?? 'empty', redo: (gestureId?:string) => !readOnly && (undo.current?.redo(gestureId) ?? false) };
 }
 export function textSplice(before: string, after: string) {
