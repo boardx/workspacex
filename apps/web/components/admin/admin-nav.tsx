@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send, Home } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send, Home, KeyRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/mock/admin";
@@ -36,6 +36,7 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   // 与左侧一级导航「首页」入口（`lib/navigation.ts` 的 `key: "home"`）同一个符号——
   // 这里配的正是那个页面。
   "home-config": Home,
+  "workflow-grants": KeyRound,
   members: Users,
   // 心跳/活跃度符号——「运营状态」是运维自查这个部署本身是否健康的工具。
   "ops-status": Activity,

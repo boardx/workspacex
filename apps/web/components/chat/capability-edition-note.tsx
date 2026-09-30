@@ -21,7 +21,6 @@
  */
 
 import * as React from "react";
-import { CAPABILITY_AVAILABILITY_LABEL } from "@repo/contracts/deployment";
 import { useEdition, useMissingCapabilities } from "@/lib/edition";
 
 /** 这一行在当前版次下的可用性。矩阵里每行都直接带着两个版次的取值。 */
@@ -55,8 +54,9 @@ export function CapabilityEditionNote({ compact = false }: { readonly compact?: 
       <ul className="mt-1 space-y-0.5">
         {absent.map((c) => (
           <li key={c.id} data-testid={`capability-edition-absent-${c.id}`} className="text-11 leading-snug text-muted-foreground">
+            {/* 复审 P1-6：「断网可用（不可用）」括号里的词把标签本身否定了——改成「能力 — 本版次不支持」。 */}
             {c.capability}
-            <span className="text-muted-foreground">（{CAPABILITY_AVAILABILITY_LABEL.absent}）</span>
+            <span className="text-muted-foreground"> — {edition === "local" ? "本地版不支持" : "本版次不支持"}</span>
           </li>
         ))}
       </ul>

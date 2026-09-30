@@ -61,25 +61,38 @@ export async function openAsrDraftStream(
     handshakeTimeoutMs?: number;
     /** 选中的输入设备（contract.md §7.1）；透传给 `startCapture`。空/未传 = 系统默认。 */
     deviceId?: string;
+    signal?: AbortSignal;
   } = {},
 ): Promise<AsrDraftStreamHandle> {
   const token = deps.sessionToken !== undefined ? deps.sessionToken : getStoredSessionToken();
   if (!token) throw new Error("a session token is required to open the ASR draft stream");
+  if (deps.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
 
   const url = apiWebSocketUrl(STREAM.path);
   // bearer 走子协议，不走 query string——与 `live-asr.ts` 同一条理由（query 会进
   // access log / Referer / 浏览器历史）。
   const socket = new WebSocket(url, [`${STREAM.bearerSubprotocolPrefix}${token}`]);
   socket.binaryType = "arraybuffer";
+  const abort = () => socket.close();
+  deps.signal?.addEventListener("abort", abort, { once: true });
 
   // #753 —— 握手只等 open/error 不够：反代把这条 WS 面路由错的时候，连接会安静地
   // 半开着，既不 open 也不 error，界面就会永远卡在"点了没反应"。加超时兜底，见
   // `api-client.ts` 的 `waitForSocketOpen` 头注。
-  await waitForSocketOpen(
+  try { await waitForSocketOpen(
     socket,
     () => new Error("asr_draft_stream_handshake_failed"),
     deps.handshakeTimeoutMs,
-  );
+  ); } catch (error) {
+    deps.signal?.removeEventListener("abort", abort);
+    socket.close();
+    throw error;
+  }
+  if (deps.signal?.aborted) {
+    deps.signal.removeEventListener("abort", abort);
+    socket.close();
+    throw new DOMException("Cancelled", "AbortError");
+  }
 
   // A terminal server event owns cleanup even if the UI has already discarded its handle.
   const capturePromise = Promise.resolve().then(() =>
@@ -95,6 +108,7 @@ export async function openAsrDraftStream(
   const terminalDone = new Promise<void>((resolve) => { resolveTerminal = resolve; });
   const notify = () => {
     if (notified) return;
+    deps.signal?.removeEventListener("abort", abort);
     notified = true; socket.close();
     if (!captureFailed) {
       if (terminalReason) handlers.onError(terminalReason);
@@ -128,6 +142,7 @@ export async function openAsrDraftStream(
   try {
     capture = await capturePromise;
   } catch (error) {
+    deps.signal?.removeEventListener("abort", abort);
     captureFailed = true;
     terminal = true;
     socket.close();
@@ -138,6 +153,8 @@ export async function openAsrDraftStream(
     await terminalDone;
     throw new Error("asr_draft_stream_closed_during_capture_start");
   }
+  // Cancellation owns startup only. Established streams must flush via handle.stop().
+  deps.signal?.removeEventListener("abort", abort);
   socket.send(JSON.stringify({ type: "asr.start" }));
   capture.onFrame((frame) => {
     if (terminal) return;

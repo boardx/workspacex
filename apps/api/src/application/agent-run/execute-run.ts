@@ -1,4 +1,5 @@
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
+import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -79,7 +80,6 @@ import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
 import type { RunImagePort } from "./run-image-input";
 import { gatherVisionImages } from "./gather-vision-images";
-import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from "./execute-run-events";
@@ -92,6 +92,7 @@ import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
 import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
+import type { AgentHandoffStore } from "../agent/agent-handoff";
 import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
 
 /**
@@ -371,6 +372,8 @@ export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   readonly interjections?: InterjectionStore;
   /** AG05 —— `start_workflow` 中断走的 WF03 start（生产 = `WorkflowRuntimeService`）。缺省 ⇒ 如实拒绝，不假装发起。 */
   readonly workflowStarts?: AgentWorkflowStartPort;
+  /** AG07 —— `request_handoff` 中断落 handoff 行的存储。缺省 ⇒ 如实拒绝（转交暂不可用），不假装已提交。 */
+  readonly handoffs?: AgentHandoffStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
   /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测
@@ -666,18 +669,9 @@ async function executeClaimed(
     // instructions first, capability/plan context after" ordering the comment two blocks
     // up already documents for that block. See `ExecuteAgentRunDeps.planLedger`'s own doc
     // for why a read failure here is log-and-continue, not a run failure.
-    if (deps.planLedger) {
-      try {
-        const ledger = await deps.planLedger.getLatest(orgId, run.threadId);
-        const planText = ledger ? serializePlanForDelivery(ledger) : null;
-        if (planText !== null) system = `${system}\n\n---\n\n${planText}`;
-      } catch (e) {
-        deps.log("plan-control: reading the plan ledger for delivery failed, continuing without it", {
-          runId: run.runId,
-          detail: e instanceof Error ? e.message : "unexpected plan ledger read failure",
-        });
-      }
-    }
+    system = await appendPlanLedgerContext(deps, system, orgId, run);
+    // AG06：仅 deep-agent run 注入钉住的升级策略上下文（见模块头注）。
+    if (isDeepAgentRun) system = await appendEscalationPolicyContext(deps, system, orgId, run.runId);
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
     // could not be assembled from what was pinned. The distinguishing detail is logged.

@@ -63,7 +63,7 @@ export function TabResults({
       <section>
         <SectionTitle meta="暂未开放">项目结论</SectionTitle>
         <Card>
-          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">
+          <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">
             项目结论还没有开放。上线后，结论正文和签字人会显示在这里。
           </p>
         </Card>
@@ -74,7 +74,7 @@ export function TabResults({
         <section>
           <SectionTitle meta="暂未开放">假设状态</SectionTitle>
           <Card>
-            <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">
+            <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">
               假设状态还没有开放。上线后，这里会显示已验证 / 待验证 / 已推翻各有多少条。
             </p>
           </Card>
@@ -94,7 +94,7 @@ export function TabResults({
         <section>
           <SectionTitle meta="暂未开放">发布结论</SectionTitle>
           <Card>
-            <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">
+            <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">
               发布结论还没有开放。在它真正可用之前这里不放按钮，以免让人误以为已经发布。
             </p>
           </Card>
@@ -106,7 +106,7 @@ export function TabResults({
         <section>
           <SectionTitle meta="暂未开放">候选决策</SectionTitle>
           <Card>
-            <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">
+            <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">
               候选决策还没有开放。上线后，转写里待签署的决策会列在这里，签署前可以回听。
             </p>
           </Card>
@@ -128,34 +128,34 @@ function BackflowPanel({
   overview, loading, error,
 }: { overview: ProjectOverview | null; loading: boolean; error: string | null }) {
   if (loading) {
-    return <div className="p-4 text-11 text-muted-foreground" data-testid="project-results-destinations-loading">读取回流列表中…</div>;
+    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-loading">读取回流列表中…</div>;
   }
   if (error) {
     return (
-      <div className="p-4 text-11 text-destructive" data-testid="project-results-destinations-error">
+      <div className="p-4 text-12 text-destructive" data-testid="project-results-destinations-error">
         回流列表读取失败：{error}
       </div>
     );
   }
   if (overview === null) {
     return (
-      <div className="p-4 text-11 text-muted-foreground" data-testid="project-results-destinations-signed-out">
+      <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-signed-out">
         暂无真实数据（未登录，或链接未带 `?org=`）
       </div>
     );
   }
   if (overview.backflow.length === 0) {
-    return <div className="p-4 text-11 text-muted-foreground" data-testid="project-results-destinations-empty">暂无已回流的产出</div>;
+    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-empty">暂无已回流的产出</div>;
   }
   return (
     <ul className="divide-y divide-border" data-testid="project-results-destinations-list">
       {overview.backflow.map((b) => (
-        <li key={b.bindingId} className="flex items-center gap-2.5 px-3.5 py-2.5 text-11">
+        <li key={b.bindingId} className="flex items-center gap-2.5 px-3.5 py-2.5 text-12">
           <StatChip tone={b.badge === "pinned" ? "success" : b.badge === "live" ? "ai" : "neutral"}>
             {BACKFLOW_BADGE_LABEL[b.badge]}
           </StatChip>
           <span className="min-w-0 flex-1 truncate">{b.title} · 版本 {b.version}</span>
-          <span className="shrink-0 text-10 text-muted-foreground">{b.pinnedBy} · {b.pinnedAt}</span>
+          <span className="shrink-0 text-11 text-muted-foreground">{b.pinnedBy} · {b.pinnedAt}</span>
         </li>
       ))}
     </ul>
@@ -170,24 +170,24 @@ function AuditPanel({
   audit, loading, error,
 }: { audit: QueryProvenanceOut | null; loading: boolean; error: string | null }) {
   if (loading) {
-    return <div className="p-3.5 text-11 text-muted-foreground" data-testid="project-results-audit-loading">读取审计事件中…</div>;
+    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-loading">读取审计事件中…</div>;
   }
   if (error) {
     return (
-      <div className="p-3.5 text-11 text-destructive" data-testid="project-results-audit-error">
+      <div className="p-3.5 text-12 text-destructive" data-testid="project-results-audit-error">
         审计事件读取失败：{error}
       </div>
     );
   }
   if (audit === null) {
     return (
-      <div className="p-3.5 text-11 text-muted-foreground" data-testid="project-results-audit-signed-out">
+      <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-signed-out">
         暂无真实数据（未登录，或链接未带 `?org=`）
       </div>
     );
   }
   if (audit.events.length === 0) {
-    return <div className="p-3.5 text-11 text-muted-foreground" data-testid="project-results-audit-empty">本项目还没有审计事件，不生成示例条目</div>;
+    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-empty">本项目还没有审计事件，不生成示例条目</div>;
   }
   return (
     <>
@@ -197,10 +197,10 @@ function AuditPanel({
       <ul className="divide-y divide-border" data-testid="project-results-audit-list">
         {audit.events.map((e) => (
           <li key={e.id} className="flex items-start gap-3 px-3.5 py-2.5">
-            <span className="shrink-0 font-mono text-10 text-muted-foreground">{new Date(e.at).toLocaleString()}</span>
+            <span className="shrink-0 font-mono text-11 text-muted-foreground">{new Date(e.at).toLocaleString()}</span>
             <StatChip>{AUDIT_TYPE_LABEL[e.type] ?? e.type}</StatChip>
             <div className="min-w-0 flex-1">
-              <div className="text-11">actor {e.actorId} → {e.target.kind}:{e.target.id}</div>
+              <div className="text-12">actor {e.actorId} → {e.target.kind}:{e.target.id}</div>
             </div>
           </li>
         ))}

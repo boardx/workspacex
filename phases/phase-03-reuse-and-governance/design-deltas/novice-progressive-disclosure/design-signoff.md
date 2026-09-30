@@ -1,12 +1,12 @@
 ---
-status: pending
+status: confirmed
 bundle: novice-progressive-disclosure
 base_bundle: design-workbench
 scope: detail-screen-progressive-disclosure-more-menu
 covers: []
-confirmed_by: ""
-confirmed_at: ""
-confirmed_via: ""
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-30T00:00:00+08:00"
+confirmed_via: "chat 2026-09-27：「签核通过，合并 #4461，继续做工作台列表页」；2026-09-30：「我授权你来合并，并且签核」"
 ---
 
 # design delta 签核 · 详情页渐进披露（「更多」菜单）

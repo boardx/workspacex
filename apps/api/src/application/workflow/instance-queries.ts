@@ -9,6 +9,7 @@
  */
 import { workflowRuntime, type WorkflowInstanceProjection, type WorkflowInstanceStatus } from "@repo/contracts/workflow-runtime";
 import { deriveGates, gateView, humanGateOf, isDesignatedApprover } from "./human-gate-state";
+import { goalFromTriggerInput } from "./trigger-goal";
 import { canView, isTerminal, loadVisibleProjection, resolveActor } from "./instance-projection";
 import { WorkflowCommandShapeError } from "./instance-commands";
 import { WorkflowUseCaseError } from "./workflow-errors";
@@ -27,7 +28,7 @@ export interface InstanceQueryDeps {
 
 export type InstanceSummary = Pick<
   WorkflowInstanceProjection,
-  "instanceId" | "workflowKey" | "definitionVersion" | "agentId" | "status" | "stateVersion" | "reasonCode" | "createdAt" | "updatedAt"
+  "instanceId" | "workflowKey" | "definitionVersion" | "agentId" | "initiatorUserId" | "goal" | "status" | "stateVersion" | "reasonCode" | "createdAt" | "updatedAt"
 >;
 export interface ListInstancesResponse { items: InstanceSummary[]; nextCursor: string | null }
 export interface ApprovalItem {
@@ -100,11 +101,15 @@ export async function listMyInstances(
     limit: limit + 1,
   });
   const page = rows.slice(0, limit);
-  const items = page.filter((r) => canView(r, actor)).map((r) => ({
+  const visible = page.filter((r) => canView(r, actor));
+  const inputs = await deps.queries.triggerInputs(cmd.orgId, visible.map((r) => r.instanceId));
+  const items = visible.map((r) => ({
     instanceId: r.instanceId,
     workflowKey: r.workflowKey,
     definitionVersion: r.definitionVersion,
     agentId: r.agentId,
+    initiatorUserId: r.initiatorUserId,
+    goal: goalFromTriggerInput(inputs.get(r.instanceId)),
     status: r.status,
     stateVersion: r.stateVersion,
     reasonCode: r.reasonCode,

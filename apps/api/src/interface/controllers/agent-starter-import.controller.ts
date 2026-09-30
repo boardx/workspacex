@@ -1,9 +1,10 @@
-import { Body, ConflictException, Controller, ForbiddenException, HttpStatus, Inject, NotFoundException, Post, Res, UnprocessableEntityException } from "@nestjs/common";
+import { Body, ConflictException, Controller, ForbiddenException, Get, HttpStatus, Inject, NotFoundException, Post, Res, UnprocessableEntityException } from "@nestjs/common";
 import type { Response } from "express";
 import { agentRole as R, wave2Runtime as C } from "@repo/contracts";
 import { importAgentStarterPack, AgentStarterImportAdminRequiredError, AgentStarterImportIdempotencyConflictError, AgentStarterPackConflictError, AgentStarterPackInvalidError, AgentStarterPackNotFoundError, AgentStarterSkillVersionMismatchError, AgentStarterSkillVersionMissingError, AgentStarterToolPolicyInvalidError } from "../../application/agent-import/import-agent-starter-pack";
 import { importOfficialAgentRolePack, OfficialAgentRolePackAdminRequiredError, OfficialAgentRolePackConflictError, OfficialAgentRoleWorkflowRefUnresolvedError, OfficialAgentRolePackIdempotencyConflictError, OfficialAgentRolePackInvalidError, OfficialAgentRolePackNotFoundError, OfficialAgentRoleSkillRefUnresolvedError, OfficialAgentRoleToolPolicyInvalidError } from "../../application/agent-import/import-official-agent-role-pack";
 import { AGENT_STARTER_IMPORT_REPOSITORY, AGENT_STARTER_PACK_SOURCE, OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY, WORKFLOW_DEFINITION_STORE, type AgentStarterImportRepository, type AgentStarterPackSource, type OfficialAgentRolePackImportRepository, type WorkflowDefinitionStore } from "../../application/agent-import/ports";
+import { getOfficialRolePackOffer } from "../../application/agent-import/get-official-role-pack-offer";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { isOfficialAgentStarterPackShape } from "../../domain/agent/starter-pack";
 import type { Principal } from "../../domain/principal";
@@ -20,6 +21,14 @@ export class AgentStarterImportController {
     @Inject(WORKFLOW_DEFINITION_STORE) private readonly workflows: WorkflowDefinitionStore,
     @Inject(OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY) private readonly officialImports: OfficialAgentRolePackImportRepository,
   ) {}
+  /** 官方数字人待启用要约：成员可读（只展示），管理员据 `canEnable` 一键启用（走下方 POST）。 */
+  @Get(R.operations.getOfficialRolePackOffer.path)
+  async officialRolePackOffer(@CurrentPrincipal() principal: Principal) {
+    assertPrincipal(principal);
+    const offer = await getOfficialRolePackOffer({ identities: this.identities, imports: this.officialImports }, { actorId: principal.userId, orgId: principal.orgId });
+    return R.operations.getOfficialRolePackOffer.out.parse(offer);
+  }
+
   @Post("/admin/agents/starter-pack-imports")
   async import(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(C.operations.importAgentStarterPack.in)) body: { packId: string; packVersion: string; idempotencyKey: string }, @Res({ passthrough: true }) response: Response) {
     assertPrincipal(principal);

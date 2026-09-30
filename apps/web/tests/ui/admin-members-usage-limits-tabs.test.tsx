@@ -109,6 +109,6 @@ describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", 
     // ⚠ 2026-09-29：`home-config`（「首页配置」）是组织首页 ad-hoc feature（Refs #4634 /
     //   #4660）新增的一项，与 `org-profile` 同一授权面（组织 admin）、同一组——不是
     //   本文件锁的 usage/limits/policy 那类「同一屏拆出新菜单项」，因此同样加入期望集合。
-    expect(keys).toEqual(["overview", "org-members", "org-invites", "org-profile", "home-config", "members", "local"]);
+    expect(keys).toEqual(["overview", "org-members", "org-invites", "org-profile", "home-config", "workflow-grants", "members", "local"]);
   });
 });

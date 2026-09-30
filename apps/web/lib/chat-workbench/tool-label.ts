@@ -79,6 +79,8 @@ export const TOOL_LABEL: Record<string, string> = {
   // —— 流程 ——
   // AG05：Agent 发起组织已发布的 Workflow（白名单外会被拒绝，结果句子在工具结果里）。
   start_workflow: "发起流程",
+  // AG07：Agent 请求把问题转交给另一个数字人角色（需用户确认，结果句子在工具结果里）。
+  request_handoff: "请求转交",
   // —— 数据库 ——
   sql_db_list_tables: "查看数据表",
   sql_db_schema: "查看表结构",
@@ -126,7 +128,7 @@ export function toolObject(name: string, args: unknown): string | null {
   if (path !== null) return clamp(basename(path));
   const url = pick("url", "href");
   if (url !== null) return clamp(hostOf(url));
-  const query = pick("query", "q", "pattern", "search", "keyword", "description", "command", "sql", "prompt", "subject", "title", "name", "statement", "workflowId");
+  const query = pick("query", "q", "pattern", "search", "keyword", "description", "command", "sql", "prompt", "subject", "title", "name", "statement", "workflowId", "targetRole");
   if (query !== null) return clamp(query);
   return null;
 }

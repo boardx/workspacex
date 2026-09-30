@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
-import { ResearchRuntimeError, type ResearchRuntime, type GuidedRuntimeStore } from "../../src/application/research/guided-runtime-ports";
+import { ResearchRuntimeError, type ResearchRuntime, type GuidedRuntimeStore, type GuidedSearchPort } from "../../src/application/research/guided-runtime-ports";
 import { toOrgId } from "../../src/domain/org-id";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
 
@@ -18,7 +18,7 @@ function seed() {
   state.tasks = [{ id: "task", sectionId: "market", title: "东南亚本地化", objective: "查明王者荣耀在东南亚的本地化", query: original, status: "pending", attempts: 0, errorCode: null }];
   return state;
 }
-function fixture(initial = seed()) {
+function fixture(initial = seed(), read?: GuidedSearchPort["read"]) {
   let state = structuredClone(initial);
   const writes: ResearchRuntime[] = [];
   const write = vi.fn(async (_actor: unknown, _request: string, next: ResearchRuntime) => { state = structuredClone(next); writes.push(state); });
@@ -31,12 +31,26 @@ function fixture(initial = seed()) {
   }) };
   const search = vi.fn(async (query: string) => query === original ? [] : [hit]);
   const actor = { orgId: toOrgId("recovery-org"), userId: "owner", sessionId: session.sessionId };
-  const service = new GuidedRuntimeService(store, model, { search }, { provider: "test", id: "test" });
+  const service = new GuidedRuntimeService(store, model, { search, read }, { provider: "test", id: "test" });
   return { model, search, writes, write, setQueries: (next: string[]) => { queries = next; },
     run: (action: "start" | "retry" | "complete" = "start", allowPartialResearch = false) => service.execute(actor, session, { node: "research", action, sessionId: session.sessionId, requestId: String(state.version), expectedVersion: state.version, ...(allowPartialResearch ? { allowPartialResearch: true } : {}) }) };
 }
 
 describe("bounded search query recovery", () => {
+  it("persists readable source bodies and summaries during research, before report generation", async () => {
+    const read = vi.fn(async () => ({ text: hit.content, contentKind: "html" as const, truncated: false }));
+    const f = fixture(seed(), read);
+    f.search.mockResolvedValue(Array.from({ length: 3 }, (_, index) => ({ ...hit, url: `${hit.url}/${index}` })));
+    const state = await f.run();
+    expect(state.currentNode).toBe("research");
+    expect(state.report).toBeNull();
+    expect(state.sources).toHaveLength(3);
+    expect(state.sources.every((source) => source.document?.summary === hit.content)).toBe(true);
+    expect(f.writes.some((snapshot) => snapshot.currentNode === "research" && snapshot.sources.every((source) => source.document?.summary) && snapshot.sources.length === 3)).toBe(true);
+    expect(C.GuidedResearchRuntime.parse(state).sources[0]!.document?.summary).toBe(hit.content);
+    await f.run("retry");
+    expect(read).toHaveBeenCalledTimes(3);
+  });
   it.each([false, true])("recovers empty or irrelevant results with a distinct query (irrelevant=%s)", async (irrelevant) => {
     const f = fixture(); f.search.mockImplementation(async (query) => query === original ? irrelevant ? [car] : [] : [hit]);
     const state = await f.run();

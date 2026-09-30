@@ -195,7 +195,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
         </div>
 
         {createError !== null && (
-          <p className="text-11 text-destructive" data-testid="project-content-create-error">{createError}</p>
+          <p className="text-12 text-destructive" data-testid="project-content-create-error">{createError}</p>
         )}
 
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="内容类型" data-testid="project-content-filters">
@@ -218,7 +218,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
                 )}
               >
                 {f.label}
-                {index.ready && <span className="font-mono text-10 text-muted-foreground">{count}</span>}
+                {index.ready && <span className="font-mono text-11 text-muted-foreground">{count}</span>}
               </button>
             );
           })}
@@ -257,12 +257,12 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-6" data-testid="project-content-all">
       {index.error !== null && (
-        <Card><p className="p-4 text-11 text-destructive" data-testid="project-content-error">{index.error}</p></Card>
+        <Card><p className="p-4 text-12 text-destructive" data-testid="project-content-error">{index.error}</p></Card>
       )}
       {!index.ready ? (
         index.error === null && (
           <Card>
-            <p className="p-4 text-11 text-muted-foreground" data-testid="project-content-loading">
+            <p className="p-4 text-12 text-muted-foreground" data-testid="project-content-loading">
               {index.loading ? "读取项目内容中…" : "请先登录。"}
             </p>
           </Card>
@@ -273,7 +273,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
             <Inbox aria-hidden className="h-5 w-5" />
           </span>
           <p className="text-13 font-medium text-card-foreground">还没有内容——新建一块白板或一段对话</p>
-          <p className="max-w-md text-11 leading-relaxed text-muted-foreground">
+          <p className="max-w-md text-12 leading-relaxed text-muted-foreground">
             对话、白板、访谈、问卷、研究、转写与设计都会收在这里
             {canWrite ? "；也可以点右上「关联已有」把你已有的挂进来。" : "。"}
           </p>

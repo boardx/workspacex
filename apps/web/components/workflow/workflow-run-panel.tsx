@@ -9,6 +9,7 @@
  * 并触发一次 `getInstance` 重读。断线 → `reconnecting`，带 Last-Event-ID 续传；
  * 连续失败超过上限 → 降级 `polling`（getInstance 轮询）。终态停止订阅。
  */
+import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelWorkflowInstance,
@@ -16,12 +17,21 @@ import {
   openWorkflowInstanceStream,
   resumeWorkflowInstance,
   workflowErrorCode,
+  workflowOutputHref,
   type WorkflowInstanceProjection,
   type WorkflowSseEnvelope,
 } from "@/lib/workflow-runtime-api";
 import { workflowRuntime } from "@repo/contracts";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
-import { INSTANCE_STATUS_TEXT, REASON_TEXT, STAGE_STATUS_TEXT, describeWorkflowError, stageFailureKindText } from "./workflow-copy";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { formatDateTime, formatRunDuration, formatRunTime } from "@/lib/workflow-run-meta";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
+import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { outputDisplayLabel, stageDisplayName, workflowDisplayName } from "@/lib/workflow-display-copy";
+import { EVENT_TEXT, INSTANCE_STATUS_TEXT, REASON_TEXT, STAGE_STATUS_TEXT, describeWorkflowError, stageFailureKindText } from "./workflow-copy";
 
 export type WorkflowSseStatus = "live" | "reconnecting" | "polling";
 
@@ -39,8 +49,19 @@ export interface WorkflowRunPanelProps {
 
 const TERMINAL = new Set<string>(workflowRuntime.WORKFLOW_TERMINAL_STATUSES);
 
+type Tone = "neutral" | "primary" | "success" | "warning" | "danger" | "outline";
+const STATUS_TONE: Record<string, Tone> = {
+  running: "primary", awaiting_gate_decision: "warning", blocked_permission: "warning", cancelling: "neutral",
+  succeeded: "success", failed: "danger", cancelled: "outline", rejected: "danger", needs_attention: "warning",
+  pending: "outline", skipped: "outline",
+};
+const toneOf = (status: string): Tone => STATUS_TONE[status] ?? "neutral";
+
 export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   const { instanceId } = props;
+  const sessionCtx = useOptionalSession();
+  const viewerIsOrgAdmin = sessionCtx?.identity?.orgRole === "admin";
+  const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
   const reconnectDelayMs = props.reconnectDelayMs ?? 1_000;
   const maxReconnects = props.maxReconnects ?? 3;
   const pollIntervalMs = props.pollIntervalMs ?? 5_000;
@@ -156,7 +177,21 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   if (!projection) {
     return (
       <section data-testid="workflow-run-panel" data-state={loadError ? "error" : "loading"}>
-        {loadError ? <p role="alert">{loadError}</p> : <p>加载中…</p>}
+        {loadError ? (
+          <div
+            role="alert"
+            data-testid="workflow-run-load-error"
+            className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-lg border border-border bg-muted px-6 py-10 text-center"
+          >
+            <AlertTriangle aria-hidden className="h-6 w-6 text-muted-foreground" />
+            <p className="text-13 font-medium">{loadError}</p>
+            <p className="text-12 text-muted-foreground">链接可能已失效，或这次运行不在你可见的范围内。可以回到运行列表重新找，或稍后重试。</p>
+            <div className="flex items-center gap-2">
+              <a href="/workflows/runs" data-testid="workflow-run-load-error-back" className="rounded-md border border-border bg-card px-3 py-1.5 text-12 font-medium transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">返回我的运行</a>
+              <button type="button" onClick={() => void refresh()} className="rounded-md px-3 py-1.5 text-12 text-muted-foreground transition-colors duration-base hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">重试</button>
+            </div>
+          </div>
+        ) : <p className="p-6 text-12 text-muted-foreground">加载中…</p>}
       </section>
     );
   }
@@ -170,67 +205,142 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
     ? stageFailureKindText([...log].reverse().find((e) => e.payload.event === "stage_failed" && e.payload.stageId === failedStage.stageId)?.payload.data.failureKind)
     : null;
 
+  const name = workflowDisplayName(p.workflowKey);
+  const stageNames = new Map(p.stages.map((s, i) => [s.stageId, stageDisplayName(s.stageId, s.title, i)]));
+  const blockedStage = p.status === "blocked_permission"
+    ? p.stages.find((s) => s.status === "blocked_permission")
+      ?? p.stages.find((s) => s.status === "running")
+      ?? p.stages.find((s) => s.status !== "succeeded" && s.status !== "skipped")
+      ?? null
+    : null;
+  const resumeInBanner = p.status === "blocked_permission" && caps.canResume;
+  const resume = () => void run(() => resumeWorkflowInstance({ instanceId, expectedStateVersion: ev }));
+
   return (
     <section data-testid="workflow-run-panel" data-status={p.status} className="space-y-4">
       <header className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold">{p.workflowKey}</h2>
-        <span data-testid="workflow-pinned-version" className="rounded border px-1 text-xs">{`${p.workflowKey}@${p.definitionVersion}`}</span>
-        <span data-testid="workflow-instance-status">{INSTANCE_STATUS_TEXT[p.status]}</span>
-        <span data-testid="workflow-sse-status" data-sse={terminal ? "live" : sse} className="text-xs">
+        <h2 className="text-16 font-semibold" data-testid="workflow-run-title">{name}</h2>
+        <Badge tone={toneOf(p.status)} data-testid="workflow-instance-status">{INSTANCE_STATUS_TEXT[p.status]}</Badge>
+        <span data-testid="workflow-sse-status" data-sse={terminal ? "live" : sse} className="text-12 text-muted-foreground">
           {terminal ? "" : sse === "live" ? "实时" : sse === "reconnecting" ? "重连中…" : "已降级为轮询"}
         </span>
       </header>
+      <dl data-testid="workflow-run-meta" className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-12 text-muted-foreground">
+        <dt>发起人</dt>
+        <dd data-testid="workflow-run-initiator">{memberLabel(p.initiatorUserId, sessionCtx?.session?.userId, memberNames)}</dd>
+        <dt>开始时间</dt>
+        <dd data-testid="workflow-run-started">{formatRunTime(p.createdAt) ?? "—"}</dd>
+        <dt>{terminal ? "用时" : "最近更新"}</dt>
+        <dd data-testid="workflow-run-elapsed">
+          {(terminal ? formatRunDuration(p.createdAt, p.updatedAt) : formatRunTime(p.updatedAt)) ?? "—"}
+        </dd>
+        {p.goal ? (<><dt>目标</dt><dd data-testid="workflow-run-goal">{p.goal}</dd></>) : null}
+      </dl>
 
       {p.status === "needs_attention" ? (
-        <div role="status" data-testid="workflow-banner-needs-attention" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}>
+        <div role="status" data-testid="workflow-banner-needs-attention" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}
+          className="rounded-lg border border-warning bg-warning-tint p-3 text-13 text-warning-tint-foreground">
           需人工处理：{p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
         </div>
       ) : null}
       {p.status === "failed" ? (
-        <div role="alert" data-testid="workflow-banner-failed" className="rounded border border-destructive p-2">
-          <p>运行失败{failedStage ? `：「${failedStage.title}」阶段未能完成` : ""}。</p>
-          <p className="text-sm">
+        <div role="alert" data-testid="workflow-banner-failed" className="rounded-lg border border-destructive p-3 text-13">
+          <p>运行失败{failedStage ? `：「${stageNames.get(failedStage.stageId)}」阶段未能完成` : ""}。</p>
+          <p className="text-12">
             {p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
             {failedStage ? `（共尝试 ${failedStage.attempt} 次）` : ""}
             {failureKindHint ? `，${failureKindHint}` : ""}
           </p>
           {failedStage?.finishedAt ? (
-            <p className="text-xs" data-testid="workflow-banner-failed-at">最后一次失败：{new Date(failedStage.finishedAt).toLocaleString("zh-CN")}</p>
+            <p className="text-12" data-testid="workflow-banner-failed-at">最后一次失败：{formatDateTime(failedStage.finishedAt)}</p>
           ) : null}
         </div>
       ) : null}
       {p.status === "blocked_permission" ? (
-        <div role="status" data-testid="workflow-banner-blocked-permission" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}>
-          权限已变更，需管理员处理：{p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}
+        <div role="status" data-testid="workflow-banner-blocked-permission" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}
+          className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-tint p-3 text-13 text-warning-tint-foreground">
+          <p className="font-medium">
+            {blockedStage ? (
+              <>运行停在「<a href={`#workflow-stage-${blockedStage.stageId}`} data-testid="workflow-banner-stage-link" onClick={(e) => {
+                const el = document.getElementById(`workflow-stage-${blockedStage.stageId}`);
+                if (!el) return;
+                e.preventDefault();
+                el.scrollIntoView?.({ behavior: "smooth", block: "center" });
+                el.focus({ preventScroll: true });
+              }} className="underline underline-offset-2">{stageNames.get(blockedStage.stageId)}</a>」这一步。</>
+            ) : "运行已暂停。"}
+          </p>
+          <p>
+            {p.reasonCode === "capability_exceeds_side_effect_cap"
+              ? "这一步需要改动组织数据（如保存文档、发送通知），但本组织还没有为工作流授予这项权限，运行已暂停。"
+              : `权限已变更，需管理员处理：${p.reasonCode ? REASON_TEXT[p.reasonCode] : "原因未知"}`}
+          </p>
+          {viewerIsOrgAdmin ? (
+            <p className="text-12">
+              <a
+                href={`${WORKFLOW_GRANTS_HREF}?workflow=${encodeURIComponent(p.workflowKey)}`}
+                data-testid="workflow-banner-grant-link"
+                className="font-medium underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                前往「工作流权限」授予权限
+              </a>
+              {resumeInBanner ? "，授权后回到这里点「继续运行」，会从这一步接着运行。" : "，授权后请让发起人回到这里继续运行。"}
+            </p>
+          ) : (
+            <p className="text-12" data-testid="workflow-banner-contact-admin">
+              请联系组织管理员在「管理后台 → 工作流权限」中授予该权限{resumeInBanner ? "，授权后回到这里点「继续运行」即可从这一步接着运行。" : "，授权后即可继续运行。"}
+            </p>
+          )}
+          {!caps.canResume ? (
+            <p className="text-12" data-testid="workflow-banner-resume-unavailable">
+              只有本次运行的发起人或组织管理员可以在授权后继续运行；你可以查看进度，但无需操作。
+            </p>
+          ) : null}
+          {resumeInBanner ? (
+            <div>
+              <Button size="sm" variant="primary" data-testid="workflow-banner-resume" disabled={busy} onClick={resume}>继续运行</Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {p.status === "rejected" ? (
-        <div role="status" data-testid="workflow-banner-rejected">
-          已被拒绝{p.openGate?.decidedBy ? `（${p.openGate.decidedBy}）` : ""}
+        <div role="status" data-testid="workflow-banner-rejected" className="rounded-lg border border-border bg-muted p-3 text-13">
+          已被拒绝{p.openGate?.decidedBy ? `（${memberLabel(p.openGate.decidedBy, sessionCtx?.session?.userId, memberNames)}）` : ""}
           {p.openGate?.reason ? `：${p.openGate.reason}` : p.reasonCode ? `：${REASON_TEXT[p.reasonCode]}` : ""}
         </div>
       ) : null}
 
-      <ol className="space-y-2">
-        {p.stages.map((s) => (
-          <li key={s.stageId} data-testid={`workflow-stage-${s.stageId}`} data-status={s.status} data-attempt={s.attempt} className="rounded border p-2">
-            <div className="flex flex-wrap gap-2">
-              <span className="font-medium">{s.title}</span>
-              <span>{STAGE_STATUS_TEXT[s.status]}</span>
-              <span className="text-xs">第 {s.attempt} 次</span>
+      <ol className="space-y-2" aria-label="运行步骤">
+        {p.stages.map((s, idx) => {
+          const isBlocked = blockedStage?.stageId === s.stageId;
+          return (
+          <li
+            key={s.stageId}
+            id={`workflow-stage-${s.stageId}`}
+            data-testid={`workflow-stage-${s.stageId}`}
+            data-status={s.status}
+            data-attempt={s.attempt}
+            data-blocked={isBlocked ? "true" : undefined}
+            aria-current={isBlocked ? "step" : undefined}
+            tabIndex={isBlocked ? -1 : undefined}
+            className={cn("scroll-mt-6 rounded-lg border bg-card p-3 text-13", isBlocked ? "border-warning ring-1 ring-warning" : "border-border")}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-12 text-muted-foreground tabular-nums">{idx + 1}.</span>
+              <span className="font-medium">{stageNames.get(s.stageId)}</span>
+              <Badge tone={toneOf(s.status)}>{STAGE_STATUS_TEXT[s.status]}</Badge>
+              {isBlocked ? <Badge tone="warning" data-testid="workflow-stage-paused-marker">已暂停 · 等待授权</Badge> : null}
+              {s.attempt > 1 ? <span className="text-12 text-muted-foreground">第 {s.attempt} 次</span> : null}
               {s.status === "running" && s.attempt > 1 ? (
-                <span className="text-xs" data-testid={`workflow-stage-retrying-${s.stageId}`}>重试中（第 {s.attempt - 1} 次重试）</span>
+                <span className="text-12 text-muted-foreground" data-testid={`workflow-stage-retrying-${s.stageId}`}>重试中（第 {s.attempt - 1} 次重试）</span>
               ) : null}
             </div>
-            <div data-testid={`workflow-stage-skills-${s.stageId}`} className="text-xs">
-              {s.pinnedSkills.map((k) => `${k.stableId}@${k.version}`).join(", ")}
-            </div>
-            {s.reasonCode ? <div className="text-xs">{REASON_TEXT[s.reasonCode]}</div> : null}
+            {s.reasonCode ? <div className="mt-1 text-12 text-muted-foreground">{REASON_TEXT[s.reasonCode]}</div> : null}
             {s.outputs.length > 0 ? (
-              <ul>
+              <ul className="mt-1">
                 {s.outputs.map((o) => (
                   <li key={o.outputId}>
-                    <a data-testid={`workflow-output-${o.outputId}`} href={o.href}>{o.label}</a>
+                    <a data-testid={`workflow-output-${o.outputId}`} href={workflowOutputHref(p.instanceId, o.outputId)} className="rounded-sm text-12 text-primary underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">查看{outputDisplayLabel(o.label, stageNames.get(s.stageId) ?? "这一步")}</a>
                   </li>
                 ))}
               </ul>
@@ -240,13 +350,15 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
               API 桩（`retryStage`）保留。连禁用态按钮也不画——不给用户一个永远点不了的控件。
             */}
           </li>
-        ))}
+          );
+        })}
       </ol>
 
       {p.openGate ? (
         <WorkflowApprovalDrawer
           key={`${p.openGate.gateId}:${p.openGate.decision ?? "open"}`}
           instanceId={instanceId}
+          workflowKey={p.workflowKey}
           gate={p.openGate}
           expectedStateVersion={ev}
           initiatorUserId={p.initiatorUserId}
@@ -257,36 +369,52 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
       ) : null}
 
       <div className="flex gap-2">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="outline"
           data-testid="workflow-action-cancel"
           disabled={!caps.canCancel || terminal || busy}
           onClick={() => void run(() => cancelWorkflowInstance({ instanceId, expectedStateVersion: ev }))}
         >
-          取消
-        </button>
-        {caps.canResume ? (
-          <button
-            type="button"
-            data-testid="workflow-action-resume"
-            disabled={terminal || busy}
-            onClick={() => void run(() => resumeWorkflowInstance({ instanceId, expectedStateVersion: ev }))}
-          >
-            继续
-          </button>
+          取消运行
+        </Button>
+        {caps.canResume && !resumeInBanner ? (
+          <Button size="sm" variant="primary" data-testid="workflow-action-resume" disabled={terminal || busy} onClick={resume}>
+            继续运行
+          </Button>
         ) : null}
       </div>
-      {actionError ? <p role="alert" data-testid="workflow-action-error">{actionError}</p> : null}
+      {actionError ? <p role="alert" data-testid="workflow-action-error" className="text-12 text-destructive">{actionError}</p> : null}
 
-      <ol data-testid="workflow-event-log" className="max-h-64 overflow-auto text-xs">
+      <ol data-testid="workflow-event-log" aria-label="运行日志" className="max-h-64 overflow-auto text-12 text-muted-foreground">
         {log.map((e) => (
           <li key={e.seq} data-seq={e.seq}>
-            #{e.seq} {e.payload.event}
-            {e.payload.stageId ? ` · ${e.payload.stageId}` : ""}
+            {EVENT_TEXT[e.payload.event] ?? "运行事件"}
+            {e.payload.stageId ? ` · ${stageNames.get(e.payload.stageId) ?? "某一步"}` : ""}
             {e.payload.reasonCode ? ` · ${REASON_TEXT[e.payload.reasonCode]}` : ""}
           </li>
         ))}
       </ol>
+
+      <details data-testid="workflow-tech-details" className="rounded-lg border border-border p-3 text-12 text-muted-foreground">
+        <summary className="cursor-pointer select-none font-medium">技术详情</summary>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt>工作流版本</dt>
+          <dd><code data-testid="workflow-pinned-version">{`${p.workflowKey}@${p.definitionVersion}`}</code></dd>
+          <dt>运行编号</dt>
+          <dd><code>{p.instanceId}</code></dd>
+        </dl>
+        <ul className="mt-2 space-y-0.5">
+          {p.stages.map((s) => (
+            <li key={s.stageId}>
+              <code>{s.stageId}</code>
+              {s.outputs.length > 0 ? <> · 产出 <code data-testid={`workflow-stage-outputs-raw-${s.stageId}`}>{s.outputs.map((o) => o.label).join(", ")}</code></> : null}
+              {s.pinnedSkills.length > 0 ? " · " : ""}
+              <code data-testid={`workflow-stage-skills-${s.stageId}`}>{s.pinnedSkills.map((k) => `${k.stableId}@${k.version}`).join(", ")}</code>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

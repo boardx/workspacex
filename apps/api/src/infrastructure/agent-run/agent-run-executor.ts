@@ -1,3 +1,4 @@
+import type { AgentHandoffStore } from "../../application/agent/agent-handoff";
 import { structuredErrorLog } from "../../application/ports/logger.port";
 import type { AgentWorkflowStartPort } from "../../application/agent/request-agent-workflow-start";
 import type { ChangeMindPorts } from "../../application/knowledge-graph/change-mind";
@@ -189,6 +190,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly memoryChange?: ChangeMindPorts,
     /** AG05 —— `start_workflow` 中断走的 WF03 start。可选，同上面每一个既有理由；生产合成注入 `WorkflowRuntimeService`。 */
     private readonly workflowStarts?: AgentWorkflowStartPort,
+    /** AG07 —— `request_handoff` 中断登记 handoff 行的存储。可选，同上面每一个既有理由；生产合成注入 `PgAgentHandoffStore`。 */
+    private readonly handoffs?: AgentHandoffStore,
   ) {}
 
   /**
@@ -234,6 +237,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       // 已授权工具续跑写回 `queued` 后，同一进程内立即重入一次 `kick`，不再只靠
       // `sweepOrphanedRuns` 的周期性发现。
       workflowStarts: this.workflowStarts,
+      handoffs: this.handoffs,
       kick: (o) => this.kick(o),
     }, { orgId });
     await writeBackPendingRuns(
@@ -269,6 +273,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
           nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
           nativeRuntimeEnabled: this.nativeRuntimeEnabled,
           workflowStarts: this.workflowStarts,
+          handoffs: this.handoffs,
           kick: (o) => this.kick(o),
         }, { orgId });
         await writeBackPendingRuns(

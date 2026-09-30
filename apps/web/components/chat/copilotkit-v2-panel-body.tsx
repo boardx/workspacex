@@ -1,4 +1,5 @@
 "use client";
+import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
@@ -43,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
 import { queuedReplyCopy } from "@/lib/chat-composer-running-reply";
-import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
+import { lastRespondingAgentId, readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
   V2AssistantMessage,
@@ -650,6 +651,8 @@ export function CopilotKitV2PanelBody({
    * 为什么不能直接用 `message.id`（流式那半是临时聚合 id，评分会 404）见
    * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证。
    */
+  const onSelectAgentRef = React.useRef(onSelectAgent);
+  onSelectAgentRef.current = onSelectAgent;
   const { index: messageIdentity, registerHydrated, projectMessages, isSettledMessageId } = useChatMessageIdentity(agent);
   const projectedMessages = projectMessages(agent.messages);
   /**
@@ -743,6 +746,9 @@ export function CopilotKitV2PanelBody({
         rememberHistory(collected);
         hydratedRef.current = true;
         registerHydrated(identities);
+        // UIUX r4 —— 刷新后恢复该线程的已选数字人，芯片与消息身份行一致。
+        const threadAgentId = lastRespondingAgentId(collected, [ChatContract.PERSONA_SUMMARY_AUTHOR_ID]);
+        if (threadAgentId !== null) onSelectAgentRef.current(threadAgentId);
         // 见上方 `hydratedEvidence` 的文件头注——「生成用户画像」建议 chip 的证据源。
         setHydratedEvidence({
           threadId: initialChatThreadId,
@@ -1873,7 +1879,15 @@ export function CopilotKitV2PanelBody({
   // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
   // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
   // 也需要用到的这一份判断起个名字，不是新开一套判定。
-  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning;
+  const streamSlots = useChatStreamSlots();
+  const seededDraftKey = React.useRef<string | null>(null);
+  const draftSeed = streamSlots.draftSeed ?? null;
+  React.useEffect(() => {
+    if (!draftSeed || seededDraftKey.current === draftSeed.key || historyLoading || projectedMessages.length > 0) return;
+    seededDraftKey.current = draftSeed.key;
+    if (inputDraftRef.current.trim() === "") setInputDraft(draftSeed.text);
+  }, [draftSeed, historyLoading, projectedMessages.length, setInputDraft]);
+  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail && !streamSlots.emptyState;
 
   return (
     <div className="flex h-full min-h-0 w-full gap-3">
@@ -1997,6 +2011,9 @@ export function CopilotKitV2PanelBody({
               <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
               <div className="h-14 w-3/4 rounded-lg bg-muted" />
             </div>
+          ) : projectedMessages.length === 0 && !agent.isRunning && (streamSlots.lead || streamSlots.tail || streamSlots.emptyState) ? (
+            /* UIUX r1 屏 4：外壳塞进消息流的块（转交来源卡等）已是线程上下文，不再显示通用空态。 */
+            <div className="flex w-full flex-col gap-3">{streamSlots.lead}{streamSlots.tail}{streamSlots.emptyState?.(setInputDraft)}</div>
           ) : projectedMessages.length === 0 && !agent.isRunning ? (
             /* issue #2130（TW-P0-1，回指 #2068）—— 任务型空状态取代此前的会话隐喻
                两行静态文字，见 `chat-task-workbench-empty-state.tsx` 文件头注。 */
@@ -2012,6 +2029,7 @@ export function CopilotKitV2PanelBody({
             // `max-w-3xl` 统一承担（issue #2075 / TW-P2-1）——在这里再写一次就是同一个
             // 事实声明在两处：以后调宽度会漏改一个，两处不一致且没人会发现。
             <div className="w-full">
+              {streamSlots.lead}
               {/* issue #3619 —— `useAgent` 把服务端 `default` 注册为本面板独占的本地
                   proxy（本地 id 是上面的 `threadId`）。消息视图必须读取这个已注册
                   id；若仍读 `default`，runtime registry 在刷新同步窗口内没有该本地
@@ -2045,7 +2063,6 @@ export function CopilotKitV2PanelBody({
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
                       <InterruptRenderContext.Provider value={{ bearer: sessionToken ?? undefined, canWrite: canDecide,
                         pendingRunId: pendingPermission?.runId ?? null }}>
-                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       <UserMessageAttachmentsCtx.Provider value={userMessageAttachmentsContextValue}>
                       <LivePlanContext.Provider value={livePlan}>
                       <TaskTimeline
@@ -2060,6 +2077,9 @@ export function CopilotKitV2PanelBody({
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
                       />
+                      {/* uiux-r3 #4.1：待决卡片属于这条 run 的助手回合——画在消息流**之后**（触发它的
+                          那条用户消息下面），不是钉在线程顶上、读起来先有决定请求后有提问。 */}
+                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       </LivePlanContext.Provider>
                       </UserMessageAttachmentsCtx.Provider>
                       </InterruptRenderContext.Provider>
@@ -2067,6 +2087,7 @@ export function CopilotKitV2PanelBody({
                   </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
+              {streamSlots.tail}
             </div>
           )}
           {/* Keep the lifecycle anchor and announcement without a second visual progress panel.
@@ -2418,7 +2439,7 @@ export function CopilotKitV2PanelBody({
                 }}
               />
             </div>
-            <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
               {/* 左：三颗圆形图标按钮 + 已挂载 skill chip；`relative` 让技能候选浮层从这个角落向上开。 */}
               <div className="relative flex min-w-0 flex-wrap items-center gap-2.5">
                 <span data-testid="chat-task-workbench-composer-attach">
@@ -2477,6 +2498,7 @@ export function CopilotKitV2PanelBody({
                     status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
                     selectedAgentId={selectedAgentId}
                     onSelect={(agentId) => onSelectAgent(agentId)}
+                    onListingsChanged={agentOptions.status === "ready" ? agentOptions.reload : undefined}
                     disabled={!canWrite || agentOptions.status !== "ready" || archived}
                   />
                 </span>

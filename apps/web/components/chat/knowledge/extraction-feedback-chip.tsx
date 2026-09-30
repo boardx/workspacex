@@ -10,6 +10,7 @@ import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { requestKnowledgeReload, requestRememberStatement, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
+import { isHandoffControlStatement } from "@/lib/agent-handoff";
 import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
 
 /**
@@ -68,9 +69,15 @@ export function ExtractionFeedbackChip({
   threadId,
   messageId,
   statement,
+  showEmptyNotice = true,
 }: {
   readonly threadId: string;
   readonly messageId: string;
+  /**
+   * uiux-r3 #5.4 / 人类决策：数字人对话里不出「这句没有需要记的 · 记一条」这行——三轮评审都读成
+   * 没人解释的记忆术语。`false` ⇒ 没抽到东西时什么都不画（抽到了仍照常显示「已记下…」）。
+   */
+  readonly showEmptyNotice?: boolean;
   /** 这条消息的原文：「记一条」把它预填进「记住」确认卡。不给 ⇒ 只显示说明，不给「记一条」。 */
   readonly statement?: string;
 }) {
@@ -156,10 +163,17 @@ export function ExtractionFeedbackChip({
 
   const visible = claims.filter((c) => !handled.has(c.claimId));
   const rememberText = statement?.trim() ?? "";
+  // UIUX r2 屏 4 #5：转交的控制消息（请求转交 / 转交草稿）不是陈述，不挂「没有记入记忆」这类说明。
+  if (visible.length === 0 && claims.length === 0 && status === "empty" && isHandoffControlStatement(statement)) return null;
   if (visible.length === 0 && claims.length === 0 && status === "empty") {
+    if (!showEmptyNotice) return null;
     return (
-      <p className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70" data-testid="kg-extraction-empty">
-        这句没有需要记的
+      <p
+        className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70"
+        data-testid="kg-extraction-empty"
+        title="助手没有从这句话里提取出需要长期记住的信息；如果它很重要，可以手动记住。"
+      >
+        这句话没有自动记入记忆
         {canUndo && rememberText !== "" ? (
           <>
             <span aria-hidden>·</span>
@@ -170,7 +184,7 @@ export function ExtractionFeedbackChip({
               disabled={rememberRequested}
               onClick={() => { setRememberRequested(true); requestRememberStatement(rememberText); }}
             >
-              记一条
+              手动记住
             </button>
           </>
         ) : null}

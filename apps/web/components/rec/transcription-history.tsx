@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Clock3, MoreVertical, Pencil, Plus, Square, Trash2 } from "lucide-react";
+import { Clock3, MoreHorizontal, Pencil, Plus, Square, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
@@ -513,7 +513,7 @@ function HistoryCard({
       primaryAction={<Button data-testid={`rec-history-open-${item.id}`} size="sm" variant="primary" onClick={() => onOpen(item)}>进入转录</Button>}
       management={
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
+          <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-card p-1 shadow-md">
             {item.status === "recording" && <DropdownMenu.Item data-testid={`rec-history-stop-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onStop(item)}><Square className="h-4 w-4" aria-hidden />结束转录</DropdownMenu.Item>}
             <DropdownMenu.Item data-testid={`rec-history-edit-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onEdit(item)}><Pencil className="h-4 w-4" aria-hidden />修改</DropdownMenu.Item>

@@ -275,6 +275,8 @@ export const WorkflowInstanceProjection = z
     status: WorkflowInstanceStatus,
     stateVersion: z.number().int().positive(),
     reasonCode: WorkflowReasonCode.nullable(),
+    /** 发起输入里第一条有意义的文本（目标摘录，服务端截到 200 字内；无文本输入为 null）。 */
+    goal: z.string().max(200).nullable().default(null),
     stages: z.array(WorkflowStageView),
     openGate: WorkflowGateView.nullable(),
     effects: z.array(WorkflowEffectProvenance),
@@ -293,6 +295,8 @@ export const WorkflowInstanceSummary = WorkflowInstanceProjection.pick({
   workflowKey: true,
   definitionVersion: true,
   agentId: true,
+  initiatorUserId: true,
+  goal: true,
   status: true,
   stateVersion: true,
   reasonCode: true,

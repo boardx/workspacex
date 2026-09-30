@@ -67,6 +67,9 @@ describe("workflow runtime list / runnable / publish / retry routes (HTTP)", () 
 
     const mine = C.listMyInstances.out.parse((await alice().get("/workflow-instances")).body);
     expect(mine.items.map((i) => i.instanceId).sort()).toEqual([a1, a2].sort());
+    expect(mine.items.every((i) => i.goal === "列表" && i.initiatorUserId === ALICE)).toBe(true);
+    const detail = C.getInstance.out.parse((await alice().get(`/workflow-instances/${a1}`)).body);
+    expect(detail.goal).toBe("列表");
     const bobs = C.listMyInstances.out.parse((await bob().get("/workflow-instances")).body);
     expect(bobs.items.map((i) => i.instanceId)).toEqual([b1]);
     const all = C.listMyInstances.out.parse((await admin().get("/workflow-instances")).body);

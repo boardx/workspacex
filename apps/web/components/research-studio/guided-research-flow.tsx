@@ -257,7 +257,7 @@ export function GuidedResearchFlow({
   const routeChanged = routeInput.sessionId !== sessionId || routeInput.step !== step;
   const runtimeSessionId = routeChanged ? sessionId : activeSessionId;
   if (runtimeSessionId) {
-    const live = <GuidedResearchLive sessionId={runtimeSessionId} visualStage={activeVisualStage} initialNode={restoredStep === "home" ? undefined : restoredStep === "search" ? "research" : restoredStep} onBack={() => navigate("home")} />;
+    const live = <GuidedResearchLive sessionId={runtimeSessionId} researchName={sessionSnapshot?.sessionId === runtimeSessionId ? sessionSnapshot.title : undefined} visualStage={activeVisualStage} initialNode={restoredStep === "home" ? undefined : restoredStep === "search" ? "research" : restoredStep} onBack={() => navigate("home")} />;
     return projectId ? <div className="flex min-h-0 flex-col"><ProjectBreadcrumb projectId={projectId} sub="research" className="px-4 pt-4" />{live}</div> : live;
   }
 
@@ -287,7 +287,7 @@ export function GuidedResearchFlow({
     </div>
     </div>
   );
-  return restoredStep === "home" ? content : <GuidedResearchSixStepShell current={entryPending ? "topic" : "import"} available={["import"]} onBack={() => navigate("home")} onNavigate={() => undefined} main={content} />;
+  return restoredStep === "home" ? content : <GuidedResearchSixStepShell researchName={sessionSnapshot?.title ?? sessionSnapshot?.brief.topic} current={entryPending ? "topic" : "import"} available={["import"]} onBack={() => navigate("home")} onNavigate={() => undefined} main={content} />;
 }
 
 function FlowProgress({ step, maxStep, onBack, onNavigate }: {
@@ -395,7 +395,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
         metadata={<><span>{item.sourceCount} 个来源</span><time>更新于 {new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
-        primaryAction={<Button variant="primary" className="h-9 px-4 text-13" onClick={() => onNavigate(item.status === "completed" ? "report" : stageToStep(item.resumeStage), item.sessionId)} data-testid={`${item.status === "completed" ? "research-view" : "research-continue"}-${item.sessionId}`}>{presentation.action}</Button>}
+        primaryAction={<Button variant="primary" size="sm" onClick={() => onNavigate(item.status === "completed" ? "report" : stageToStep(item.resumeStage), item.sessionId)} data-testid={`${item.status === "completed" ? "research-view" : "research-continue"}-${item.sessionId}`}>{presentation.action}</Button>}
         management={<StudioHistoryManagement business="研究" prefix="research" id={item.sessionId} name={item.title} tags={item.tags} deleteDescription="将从首页移除，已引用的研究证据将保留。"
           onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("研究已修改"); setRevision(value => value + 1); }}
           onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("研究已从首页移除"); }} />}>

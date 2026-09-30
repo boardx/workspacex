@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * project 域共享小件 —— 只做视觉，不含业务逻辑。
- * 一律用设计 token（bg / text / border 前缀）与字号档位（text-9..text-18），不写死 hex/px。
+ * 一律用设计 token（bg / text / border 前缀）与字号档位（text-10..text-18），不写死 hex/px。
  */
 
 export function SectionTitle({
@@ -15,7 +15,7 @@ export function SectionTitle({
   return (
     <div className={cn("mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5", className)}>
       <h3 className="shrink-0 whitespace-nowrap text-13 font-semibold tracking-tight">{children}</h3>
-      {meta != null && <span className="text-11 text-muted-foreground">{meta}</span>}
+      {meta != null && <span className="text-12 text-muted-foreground">{meta}</span>}
     </div>
   );
 }
@@ -39,7 +39,7 @@ export function StatChip({
   return (
     <span
       data-testid={testId}
-      className={cn("inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-10 font-medium", map[tone])}
+      className={cn("inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-11 font-medium", map[tone])}
     >
       {children}
     </span>
@@ -57,7 +57,7 @@ export function ObserverNotice({
   return (
     <div
       data-testid={testId}
-      className="flex items-center gap-2.5 rounded-lg border border-dashed border-border bg-panel px-3.5 py-3 text-11 text-muted-foreground"
+      className="flex items-center gap-2.5 rounded-lg border border-dashed border-border bg-panel px-3.5 py-3 text-12 text-muted-foreground"
     >
       <EyeOff aria-hidden className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1">{what}</span>
@@ -85,8 +85,8 @@ export function OrgDisabledBanner({
           <span className="text-13 font-medium text-warning-foreground">{title}</span>
           <Badge tone="warning">全项目只读</Badge>
         </div>
-        <p className="text-11 text-muted-foreground">{reason}</p>
-        <p className="text-11 text-muted-foreground">{hint}</p>
+        <p className="text-12 text-muted-foreground">{reason}</p>
+        <p className="text-12 text-muted-foreground">{hint}</p>
       </div>
     </div>
   );

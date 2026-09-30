@@ -337,6 +337,8 @@ import {
   PROVENANCE_READER,
   PROVENANCE_WRITER,
   REVIEW_NOTIFIER,
+  type ProvenanceReader,
+  type ProvenanceWriter,
 } from "./application/provenance/ports";
 import { EvidenceWithdrawalController } from "./interface/controllers/evidence-withdrawal.controller";
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
@@ -589,6 +591,9 @@ import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 // issue #3068 —— 「以后都允许」的查看/撤销（组织 admin 面），见该文件头注。
 import { ToolPermissionGrantController } from "./interface/controllers/tool-permission-grant.controller";
+import { WorkflowCapabilityGrantController, WORKFLOW_CAPABILITY_GRANT_SERVICE } from "./interface/controllers/workflow-capability-grant.controller";
+import { WorkflowCapabilityGrantService } from "./application/workflow/workflow-capability-grants";
+import { PgWorkflowCapabilityGrantStore } from "./infrastructure/workflow/pg-effect-capability-authority";
 import { DocumentGenerationAutoApproveController } from "./interface/controllers/document-generation-auto-approve.controller";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { SubtaskRunController } from "./interface/controllers/subtask-run.controller";
@@ -646,6 +651,10 @@ import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-age
 import { AgentController } from "./interface/controllers/agent.controller";
 import { AgentRoleController } from "./interface/controllers/agent-role.controller";
 import { EscalationDecisionController } from "./interface/controllers/escalation-decision.controller";
+import { AgentHandoffController } from "./interface/controllers/agent-handoff.controller";
+import { AGENT_HANDOFF_STORE, SOURCE_READ_PERMISSION_CHECK } from "./application/agent/agent-handoff";
+import { ArtifactSourceReadPermissionCheck } from "./application/agent/artifact-source-read-check";
+import { PgAgentHandoffStore } from "./infrastructure/agent/pg-agent-handoff-store";
 import { ESCALATION_STORE } from "./application/agent-interrupts/decide-escalation";
 import { PgEscalationStore } from "./infrastructure/agent-interrupts/pg-escalation-store";
 import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
@@ -765,7 +774,7 @@ import {
   lazyGithubIssueConfig,
   type GithubIssueConfig,
 } from "./infrastructure/feedback/github-issue-creator";
-import { TRANSACTIONAL_MAIL_TRANSPORT } from "./application/notifications/transactional-mail-ports";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "./application/notifications/transactional-mail-ports";
 import {
   CloudflareTransactionalEmailTransport,
   TRANSACTIONAL_MAIL_CONFIG,
@@ -927,6 +936,7 @@ import {
   PROJECT_TAGS_REPOSITORY,
   type ProjectRepository,
   PROJECT_NAME_LOOKUP,
+  type ProjectNameLookupPort,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -946,6 +956,11 @@ import { PgProjectResourceRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的成员表（按 `projects.kind` 分派两张表）。
 import { NON_WORKSHOP_MEMBER_REPOSITORY } from "./application/project/non-workshop-member-ports";
 import { PgNonWorkshopMemberRepository } from "./infrastructure/project/pg-non-workshop-member-repository";
+// #4787 通用项目邀请（邮箱 / 链接）与「按姓名加人后通知被加的人」。
+import { APP_PUBLIC_URL_PROVIDER, PROJECT_INVITATION_REPOSITORY, PROJECT_MEMBER_ADDED_NOTIFIER, type AppPublicUrlProvider } from "./application/project/project-invitation-ports";
+import { PgProjectInvitationRepository } from "./infrastructure/project/pg-project-invitation-repository";
+import { DefaultProjectMemberAddedNotifier } from "./infrastructure/project/project-member-added-notifier";
+import { ProjectInvitationController } from "./interface/controllers/project-invitation.controller";
 import { PROJECT_EVIDENCE_REPOSITORY } from "./application/project/project-evidence-ports";
 import { PgProjectEvidenceRepository } from "./infrastructure/project/pg-project-evidence-repository";
 import { EVIDENCE_SOURCE_REPOSITORY } from "./application/project/collect-evidence/ports";
@@ -1208,6 +1223,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     OrgInviteLinkController,
     CheckinBoardController,
     ProjectInviteController,
+    ProjectInvitationController,
     OrgAdminManagementController,
     HomeConfigController,
   HomeProjectPreviewsController,
@@ -1234,6 +1250,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AgentRunController,
     RunInterjectionController,
     ToolPermissionGrantController,
+    WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
     ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardRememberController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
@@ -1257,6 +1274,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AgentController,
     AgentRoleController,
     EscalationDecisionController,
+    AgentHandoffController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
@@ -1558,6 +1576,18 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: PROVENANCE_READER,
       useExisting: PROVENANCE_WRITER,
     },
+    // Workflow 能力授权管理面：admin 判定 + 同事务审计在 service；store 与执行前重查读同一张表。
+    {
+      provide: WORKFLOW_CAPABILITY_GRANT_SERVICE,
+      useFactory: (db: DatabasePort, identity: IdentityRepository, provenance: ProvenanceWriter & ProvenanceReader) =>
+        new WorkflowCapabilityGrantService({
+          identity,
+          store: new PgWorkflowCapabilityGrantStore(db),
+          provenanceWriter: provenance,
+          provenanceReader: provenance,
+        }),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, PROVENANCE_WRITER],
+    },
     // Third view of the same instance (F08). A notice is a pointer into the trail and its
     // FK says so; a separate provider would be the first step toward a notification store
     // that can name events which do not exist.
@@ -1721,6 +1751,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     { provide: ESCALATION_STORE, useFactory: (db: DatabasePort) => new PgEscalationStore(db), inject: [DATABASE_PORT] },
+    // AG07：handoff 聚合存储 + 以发起人身份重读证据引用（走文件预览同一道读门）。
+    { provide: AGENT_HANDOFF_STORE, useFactory: (db: DatabasePort) => new PgAgentHandoffStore(db), inject: [DATABASE_PORT] },
+    {
+      provide: SOURCE_READ_PERMISSION_CHECK,
+      useFactory: (grants: DeliveryDeps["grants"], urls: DeliveryDeps["urls"], objectStore: DeliveryDeps["objectStore"], integrity: DeliveryDeps["integrity"], repo: DeliveryDeps["repo"], ids: DeliveryDeps["ids"], idFactory: DeliveryDeps["idFactory"], provenance: DeliveryDeps["provenance"], agentArtifacts: AgentArtifactDeliverySource) =>
+        new ArtifactSourceReadPermissionCheck({ grants, urls, objectStore, integrity, repo, ids, idFactory, provenance, agentArtifacts, now: () => new Date() }),
+      inject: [DOWNLOAD_GRANT_REPOSITORY, DOWNLOAD_URL_BUILDER, OBJECT_STORE_PROBE, OBJECT_INTEGRITY_CHECKER, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, ID_FACTORY, PROVENANCE_WRITER, AGENT_ARTIFACT_DELIVERY_SOURCE],
+    },
     {
       provide: AGENT_ROLE_DRAFT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
@@ -2366,6 +2404,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
           // AG05：Agent 经 `start_workflow` 发起 Workflow 走的就是 WF03 的同一个运行时单例（start 准入全在 runStartCore）。
           workflows,
+          // AG07：Agent 经 `request_handoff` 请求转交——登记待发起人确认的 handoff 行（与 HTTP 面同一个存储实现）。
+          new PgAgentHandoffStore(db),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
@@ -2978,6 +3018,25 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: NON_WORKSHOP_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgNonWorkshopMemberRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #4787：通用项目邀请仓储（`project-invitation.controller.ts` 消费）。
+    {
+      provide: PROJECT_INVITATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectInvitationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #4787：站点公开地址（惰性——复用邮件配置的 lazy Proxy，配置缺项时读取才抛）。
+    {
+      provide: APP_PUBLIC_URL_PROVIDER,
+      useFactory: (emailConfig: CloudflareEmailConfig) => ({ get: () => emailConfig.appPublicUrl }),
+      inject: [CLOUDFLARE_EMAIL_CONFIG],
+    },
+    // #4787：按姓名加人之后通知被加的人（邮件优先、站内通知兜底；失败由调用方吞掉）。
+    {
+      provide: PROJECT_MEMBER_ADDED_NOTIFIER,
+      useFactory: (projects: ProjectNameLookupPort, credentials: CredentialRepository, notifications: NotificationPublisher, mail: TransactionalMailTransport, publicUrl: AppPublicUrlProvider) =>
+        new DefaultProjectMemberAddedNotifier(projects, credentials, notifications, mail, () => publicUrl.get()),
+      inject: [PROJECT_NAME_LOOKUP, CREDENTIAL_REPOSITORY, NOTIFICATION_CENTER, TRANSACTIONAL_MAIL_TRANSPORT, APP_PUBLIC_URL_PROVIDER],
     },
     // 项目中枢 B3-T1（#4495）：证据单元仓储 + 采集器的只读来源（`project.controller.ts` 与 `KgExtractionWorker` 消费）。
     {

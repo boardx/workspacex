@@ -65,8 +65,11 @@ test("TW-P0-2②：每张能力卡披露六项（擅长/工具技能/可读材�
   await expectAnchor(page, "chat-task-workbench-capability-picker", "TW-P0-2②", "缺少「选择能力」入口", 30_000);
   await page.getByTestId("chat-task-workbench-capability-picker").click();
 
-  const card = page.getByTestId("chat-task-workbench-capability-card").first();
-  await expect(card, gapMessage("TW-P0-2②", "chat-task-workbench-capability-card", "展开后没有能力卡")).toBeVisible({ timeout: 20_000 });
+  const firstCard = page.getByTestId("chat-task-workbench-capability-card").first();
+  await expect(firstCard, gapMessage("TW-P0-2②", "chat-task-workbench-capability-card", "展开后没有能力卡")).toBeVisible({ timeout: 20_000 });
+  // 2026-09-30 重设计：六项披露从每张卡片移到右侧预览栏（高亮哪张显示哪张），卡片只留名字/角色/标签。
+  await firstCard.hover();
+  const card = page.getByTestId("chat-task-workbench-capability-preview");
 
   const facets = [
     { suffix: "strengths", what: "「擅长什么」" },

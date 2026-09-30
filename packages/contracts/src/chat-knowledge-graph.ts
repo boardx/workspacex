@@ -42,6 +42,17 @@ export const KgObjectKind = z.enum([
   "person", "organization", "project", "product", "concept", "term", "metric", "event",
 ]);
 export type KgObjectKind = z.infer<typeof KgObjectKind>;
+/** 实体类型的中文名（界面「人和事」分组；抽取解析也认这些中文写法）。单一来源，web 与 api 都从这里取。 */
+export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = {
+  person: "人物",
+  organization: "公司",
+  project: "项目",
+  product: "产品",
+  concept: "概念",
+  term: "术语",
+  metric: "指标",
+  event: "事件",
+};
 
 /**
  * 结论类型：封闭枚举（uc-18-1 R7-2、S0-5）。

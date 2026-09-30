@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { Plus, Search, ArrowDownWideNarrow } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 
 export type HistorySort = "recent" | "oldest";
 
@@ -36,16 +36,17 @@ export function StudioHistoryFilters({ business, prefix, tags, selectedTag, onTa
   </div>;
 }
 
+/**
+ * 历史列表（研究 / 访谈 / 录音）的卡片——2026-09-30 起是标准 `ResourceCard` 的一层薄封装
+ * （人类要求所有卡片统一成标准项目卡片版式）：状态徽标与「⋯」管理菜单在标题右侧，
+ * 主按钮在底部，版式只在 `components/ui/resource-card.tsx` 一处定义。
+ */
 export function StudioHistoryCard({ testId, title, status, description, tags, metadata, primaryAction, management, children }: {
   testId: string; title: string; status: React.ReactNode; description: React.ReactNode; tags: readonly string[];
   metadata: React.ReactNode; primaryAction: React.ReactNode; management: React.ReactNode; children?: React.ReactNode;
 }) {
-  return <article data-testid={testId} className="flex min-h-64 min-w-0 flex-col rounded-lg border border-border bg-card p-5 text-card-foreground transition-colors duration-base hover:border-foreground/20">
-    <div className="flex items-start justify-between gap-3"><h2 className="min-w-0 break-words text-18 font-semibold" title={title}>{title}</h2><div className="shrink-0">{status}</div></div>
-    <div className="mt-3 line-clamp-3 text-12 leading-relaxed text-muted-foreground">{description}</div>
-    <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">{tags.map(tag => <Badge key={tag} tone="neutral" className="max-w-full whitespace-normal break-all">{tag}</Badge>)}</div>
-    <div className="mt-auto space-y-3 pt-5">{children}<div className="flex flex-wrap items-center justify-between gap-2 text-11 text-muted-foreground">{metadata}</div><div className="flex items-center justify-between gap-3">{primaryAction}{management}</div></div>
-  </article>;
+  return <ResourceCard testId={testId} title={<span title={title}>{title}</span>} badges={status} menu={management}
+    description={description} tags={<ResourceCardTags tags={tags} />} meta={metadata} actions={primaryAction}>{children}</ResourceCard>;
 }
 
 export function StudioHistoryCreateCard({ business, testId, onCreate }: { business: string; testId: string; onCreate: () => void }) {
