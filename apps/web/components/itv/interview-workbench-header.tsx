@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Check, MessageSquareText, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Loader2, MessageSquareText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const INTERVIEW_WORKBENCH_STEPS = [
@@ -31,6 +31,7 @@ export function InterviewWorkbenchHeader({
   onReturnToList,
   onOpenSkill,
   completedSteps = [],
+  runningStep,
 }: {
   readonly name: string;
   readonly tags: readonly string[];
@@ -43,6 +44,7 @@ export function InterviewWorkbenchHeader({
   readonly onReturnToList: () => void;
   readonly onOpenSkill?: () => void;
   readonly completedSteps?: readonly string[];
+  readonly runningStep?: string | null;
 }) {
   const headerRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
@@ -74,9 +76,10 @@ export function InterviewWorkbenchHeader({
     <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mt-2 overflow-x-auto border-t border-border pt-2">
       <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-start lg:min-w-0">{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; return <li key={step.id} className="relative min-w-32 flex-1 lg:min-w-0">
         {index < steps.length - 1 && <span aria-hidden className={`absolute left-1/2 right-[-50%] top-4 h-px ${state === "completed" ? "bg-success/60" : "bg-border"}`} />}
-        <button data-testid={`itv-workbench-step-${step.id}`} data-state={state} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className="relative flex w-full flex-col items-center gap-1 rounded-lg px-2 py-1 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className={`grid size-8 place-items-center rounded-full border text-sm font-semibold ${state === "current" ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/20" : state === "completed" ? "border-success bg-success text-success-foreground" : "border-border bg-muted text-muted-foreground"}`}>{state === "completed" ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
-          <span className={state === "current" ? "text-sm font-semibold text-primary" : state === "completed" ? "text-sm font-medium text-success" : "text-sm text-muted-foreground"}>{step.label}</span>
+        <button data-testid={`itv-workbench-step-${step.id}`} data-state={runningStep === step.id ? "running" : state} aria-busy={runningStep === step.id} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={`relative flex w-full flex-col items-center gap-1 rounded-lg px-2 py-1 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${state === "current" || runningStep === step.id ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
+          <span className={`grid size-8 place-items-center rounded-full border text-sm font-semibold ${runningStep === step.id ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/20" : state === "current" ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/20" : state === "completed" ? "border-success bg-success text-success-foreground" : "border-border bg-muted text-muted-foreground"}`}>{runningStep === step.id ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" /> : state === "completed" ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
+          <span className={state === "current" || runningStep === step.id ? "text-sm font-semibold text-primary" : state === "completed" ? "text-sm font-medium text-success" : "text-sm text-muted-foreground"}>{step.label}</span>
+          {runningStep === step.id && <span role="status" className="flex items-center gap-1 text-xs font-medium text-primary"><Loader2 aria-hidden className="size-3 motion-safe:animate-spin" />进行中</span>}
           <span className="sr-only">{step.detail}</span>
         </button>
       </li>; })}</ol>

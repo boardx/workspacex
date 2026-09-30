@@ -9,12 +9,13 @@ import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
 import { InterviewSourceReportReview } from "./interview-source-report-review";
 
-export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin }: {
+export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange }: {
   readonly interviewId: string; readonly step: "runs" | "report";
   readonly runs: DigitalInterviewWorkflowView["expertRuns"];
   readonly legacySelectedExpertIds?: readonly string[];
   readonly onVersionChange: (version: number) => void; readonly onReport: () => void;
   readonly reportPin?: { documentId: string; version: number };
+  readonly onBusyChange?: (busy: boolean) => void;
 }) {
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -53,6 +54,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       if (action !== "pause") { dispatching.current = false; if (mounted.current) setPending(false); }
     }
   }, [interviewId, receive]);
+  React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
   React.useEffect(() => {
     if (step !== "runs" || source?.execution?.status !== "running" || pending || error) return;
     const timer = window.setTimeout(() => void execute("advance"), dispatchDelay.current);
