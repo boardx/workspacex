@@ -61,7 +61,6 @@ export function InterviewWorkbenchHeader({
   return <header ref={headerRef} data-testid="itv-workbench-header" className="sticky top-0 z-20 border-b border-border bg-card/95 px-4 py-3 backdrop-blur lg:px-8">
     <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        {activeStep !== "intake" && <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p>}
         <h1 className={`${activeStep === "intake" ? "" : "mt-1 "}truncate text-xl font-semibold tracking-tight lg:text-2xl`}>{name}</h1>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
