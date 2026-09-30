@@ -7,7 +7,7 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
  await page.getByTestId('survey-create-primary').click();
  await page.getByLabel('问卷名称').fill('AI 校对验收');
- await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
+ await page.getByLabel('添加标签',{exact:true}).fill('客户调研');await page.getByLabel('添加标签',{exact:true}).press('Enter');
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);

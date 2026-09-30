@@ -115,7 +115,7 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
     // ⚠ `data-testid^="tpl-live-card-"` 前缀会连带匹配卡片内部的
     //   `tpl-live-card-name`/`-state`/`-completion` 等子元素（同一前缀），必须用
     //   Card 组件本身的语义（div 容器）收窄，否则严格模式会因命中 2 个节点而报错。
-    const card = page.locator('div[data-testid^="tpl-live-card-bp-"]').filter({ hasText: BLUEPRINT_NAME });
+    const card = page.locator('[data-testid^="tpl-live-card-bp-"]').filter({ hasText: BLUEPRINT_NAME });
     await expect(card).toBeVisible();
     // 新建的是草稿，完成度 0（15 项定义表，分母由服务端派生，本文件不写死）。
     await expect(card.getByTestId("tpl-live-card-state")).toContainText("草稿");
