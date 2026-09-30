@@ -448,12 +448,14 @@ export function ProjectWorkbench({
       <div className="flex h-full min-h-0 flex-col bg-card" data-testid="project-workbench">
         {/* ── 项目头 ─────────────────────────────────────────── */}
         <div className="shrink-0 border-b border-border px-6 pt-4">
+         {/* 通用项目：头部与正文同一列宽（max-w-5xl），不再头左贴边、正文居中两套对齐；工作坊保持全宽 */}
+         <div className={showWorkshopRoles ? undefined : "mx-auto w-full max-w-5xl px-6"}>
           <div className="mb-3.5 flex flex-wrap items-start gap-3">
             <Button asChild size="sm" variant="outline" data-testid="project-back-to-list">
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
             </Button>
             <div className="min-w-0 flex-1">
-              <div className="text-14 font-medium" data-testid="project-title">
+              <div className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
                 {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂不可用")}
               </div>
               {headerProject && (
@@ -511,6 +513,7 @@ export function ProjectWorkbench({
               );
             })}
           </nav>
+         </div>
 
           {/* ── 视角说明条（仅工作坊） ───────────────────────── */}
           {showWorkshopRoles && (

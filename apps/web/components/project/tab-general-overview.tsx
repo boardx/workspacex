@@ -47,11 +47,11 @@ export function TabGeneralOverview({ projectId, tabHref }: {
           <div className="flex flex-wrap items-center gap-2" data-testid="project-general-overview-members">
             <Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
             {members.error !== null ? (
-              <span className="text-11 text-muted-foreground" data-testid="project-general-overview-members-error">{members.error}</span>
+              <span className="text-12 text-muted-foreground" data-testid="project-general-overview-members-error">{members.error}</span>
             ) : members.items === null ? (
-              <span className="text-11 text-muted-foreground">读取成员中…</span>
+              <span className="text-12 text-muted-foreground">读取成员中…</span>
             ) : members.items.length === 0 ? (
-              <span className="text-11 text-muted-foreground">还没有成员。</span>
+              <span className="text-12 text-muted-foreground">还没有成员。</span>
             ) : (
               members.items.map((m) => (
                 <span key={m.userId} className="inline-flex items-center gap-1.5" data-testid={`project-general-overview-member-${m.userId}`}>
@@ -68,7 +68,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
       <section>
         <SectionTitle meta="点一类直达「内容」里的筛选">内容</SectionTitle>
         {index.error !== null && (
-          <p className="mb-2 text-11 text-destructive" data-testid="project-general-overview-content-error">{index.error}</p>
+          <p className="mb-2 text-12 text-destructive" data-testid="project-general-overview-content-error">{index.error}</p>
         )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="project-general-overview-counts">
           {CONTENT_FILTERS.filter((f) => f.key !== "all").map((f) => (
@@ -90,10 +90,10 @@ export function TabGeneralOverview({ projectId, tabHref }: {
       <section>
         <SectionTitle meta={`最近更新的 ${RECENT_LIMIT} 条`}>最近更新</SectionTitle>
         {!index.ready ? (
-          <Card><p className="p-4 text-11 text-muted-foreground">{index.loading ? "读取中…" : "暂无数据。"}</p></Card>
+          <Card><p className="p-4 text-12 text-muted-foreground">{index.loading ? "读取中…" : "暂无数据。"}</p></Card>
         ) : recent.length === 0 ? (
           <Card>
-            <p className="p-4 text-11 text-muted-foreground" data-testid="project-general-overview-recent-empty">
+            <p className="p-4 text-12 text-muted-foreground" data-testid="project-general-overview-recent-empty">
               项目里还没有内容——去「内容」新建一段对话、一块白板，或把已有的访谈、问卷关联进来。
             </p>
           </Card>
@@ -109,7 +109,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
                   <ContentEntryIcon entry={e} className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-12">{e.title}</span>
                   <Badge tone="outline">{contentTypeLabel(e.type)}</Badge>
-                  <span className="shrink-0 text-10 text-muted-foreground">{formatDate(e.updatedAt)}</span>
+                  <span className="shrink-0 text-11 text-muted-foreground">{formatDate(e.updatedAt)}</span>
                 </a>
               </li>
             ))}
@@ -126,9 +126,9 @@ export function TabGeneralOverview({ projectId, tabHref }: {
         >
           <Brain aria-hidden className="h-4 w-4 text-ai" />
           {brain.error !== null ? (
-            <span className="text-11 text-muted-foreground" data-testid="project-general-overview-brain-error">{brain.error}</span>
+            <span className="text-12 text-muted-foreground" data-testid="project-general-overview-brain-error">{brain.error}</span>
           ) : brain.summary === null ? (
-            <span className="text-11 text-muted-foreground">读取中…</span>
+            <span className="text-12 text-muted-foreground">读取中…</span>
           ) : (
             <>
               <BrainStat label="结论" value={brain.summary.claims} testId="project-general-overview-brain-claims" />
@@ -163,7 +163,7 @@ function BrainStat({ label, value, testId }: { label: string; value: number | nu
   return (
     <span className="inline-flex items-baseline gap-1.5" data-testid={testId}>
       <span className="font-mono text-16 font-semibold">{value ?? "—"}</span>
-      <span className="text-11 text-muted-foreground">{label}</span>
+      <span className="text-12 text-muted-foreground">{label}</span>
     </span>
   );
 }

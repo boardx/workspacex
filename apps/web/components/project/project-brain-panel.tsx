@@ -126,15 +126,15 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
       <Card>
         {error !== null ? (
           <div className="flex items-center gap-2 p-4">
-            <p className="flex-1 text-11 text-destructive" data-testid="project-brain-error">{error}</p>
+            <p className="flex-1 text-12 text-destructive" data-testid="project-brain-error">{error}</p>
             <Button size="xs" variant="outline" onClick={() => void load()} data-testid="project-brain-retry">重试</Button>
           </div>
         ) : loading && data === null ? (
-          <p className="p-4 text-11 text-muted-foreground" data-testid="project-brain-loading">读取项目记忆中…</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-brain-loading">读取项目记忆中…</p>
         ) : data === null ? (
-          <p className="p-4 text-11 text-muted-foreground" data-testid="project-brain-anonymous">请先登录。</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-brain-anonymous">请先登录。</p>
         ) : groups.length === 0 ? (
-          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-brain-empty">
+          <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-brain-empty">
             这个项目还没有记下任何东西。在项目对话的知识面板里点「记到项目大脑」，或在个人记忆里点「分享到项目…」，记下的内容会出现在这里，项目里的对话也会自动想起它。
           </p>
         ) : (
@@ -143,11 +143,11 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
               <div className="flex flex-col gap-2 bg-muted/30 p-3.5" data-testid="project-brain-reasoning">
                 <div className="flex items-center gap-2">
                   <span className="text-12 font-medium">假设与矛盾</span>
-                  <span className="font-mono text-10 text-muted-foreground">{reasoning.hypotheses.length + reasoning.conflicts.length}</span>
+                  <span className="font-mono text-11 text-muted-foreground">{reasoning.hypotheses.length + reasoning.conflicts.length}</span>
                 </div>
                 {reasoning.conflicts.length > 0 ? (
                   <div className="flex flex-col gap-1" data-testid="project-brain-conflicts">
-                    <span className="text-10 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
+                    <span className="text-11 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
                     <ul className="flex flex-col gap-1">
                       {reasoning.conflicts.map(row)}
                     </ul>
@@ -155,7 +155,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                 ) : null}
                 {reasoning.hypotheses.length > 0 ? (
                   <div className="flex flex-col gap-1" data-testid="project-brain-hypotheses">
-                    <span className="text-10 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
+                    <span className="text-11 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
                     <ul className="flex flex-col gap-1">
                       {reasoning.hypotheses.map(row)}
                     </ul>
@@ -168,7 +168,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
               <div key={g.kind} className="flex flex-col gap-1.5 p-3.5" data-testid={`project-brain-group-${g.kind}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-12 font-medium">{KG_CLAIM_KIND_LABEL_ZH[g.kind]}</span>
-                  <span className="font-mono text-10 text-muted-foreground">{g.claims.length}</span>
+                  <span className="font-mono text-11 text-muted-foreground">{g.claims.length}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
                   {g.claims.map(row)}
@@ -266,7 +266,7 @@ function Citations({ projectId, evidenceIds, claimId, testid, onOpenSources }: {
     return (
       <span className="flex flex-wrap gap-1" data-testid={testid}>
         {evidenceIds.map((id, i) => (
-          <a key={id} href={evidenceHref(projectId, id)} className="text-10 text-primary underline-offset-2 transition-colors duration-base hover:underline" data-testid={`${testid}-evidence-${id}`}>
+          <a key={id} href={evidenceHref(projectId, id)} className="text-11 text-primary underline-offset-2 transition-colors duration-base hover:underline" data-testid={`${testid}-evidence-${id}`}>
             出处 {i + 1}
           </a>
         ))}
@@ -284,7 +284,7 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
   projectId: string; reasoning: ProjectReasoning | null; error: string | null; onOpenSources: (claimId: string) => void;
 }) {
   if (error !== null) {
-    return <p className="p-3.5 text-10 text-destructive" data-testid="project-brain-cross-error">推理没读出来：{error}</p>;
+    return <p className="p-3.5 text-11 text-destructive" data-testid="project-brain-cross-error">推理没读出来：{error}</p>;
   }
   if (reasoning === null || (reasoning.conflicts.length === 0 && reasoning.gaps.length === 0 && reasoning.chains.length === 0)) return null;
   return (
@@ -293,12 +293,12 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
         <div className="flex flex-col gap-1" data-testid="project-brain-cross-conflicts">
           <div className="flex items-center gap-2">
             <span className="text-12 font-medium">跨来源冲突</span>
-            <span className="font-mono text-10 text-muted-foreground">{reasoning.conflicts.length}</span>
+            <span className="font-mono text-11 text-muted-foreground">{reasoning.conflicts.length}</span>
           </div>
-          <span className="text-10 text-muted-foreground">两处说法对不上——各自的出处列在下面，点开核对</span>
+          <span className="text-11 text-muted-foreground">两处说法对不上——各自的出处列在下面，点开核对</span>
           <ul className="flex flex-col gap-1.5">
             {reasoning.conflicts.map((c) => (
-              <li key={c.id} className="flex flex-col gap-1 text-11" data-testid={`project-brain-cross-conflict-${c.id}`}>
+              <li key={c.id} className="flex flex-col gap-1 text-12" data-testid={`project-brain-cross-conflict-${c.id}`}>
                 <div className="flex items-center gap-2">
                   <Badge tone={c.kind === "cross_source" ? "danger" : "outline"}>{c.kind === "cross_source" ? "不同来源" : "同一来源"}</Badge>
                 </div>
@@ -306,7 +306,7 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
                   <div key={side} className="flex items-start gap-2">
                     <span className="min-w-0 flex-1 leading-relaxed">
                       <span>{statement}</span>
-                      {kinds.length > 0 ? <span className="ml-1 text-10 text-muted-foreground">（{sourceLabels(kinds)}）</span> : <span className="ml-1 text-10 text-muted-foreground">（没有出处）</span>}
+                      {kinds.length > 0 ? <span className="ml-1 text-11 text-muted-foreground">（{sourceLabels(kinds)}）</span> : <span className="ml-1 text-11 text-muted-foreground">（没有出处）</span>}
                     </span>
                     <Citations projectId={projectId} evidenceIds={ids} claimId={claimId} testid={`project-brain-cross-conflict-${c.id}-${side}`} onOpenSources={onOpenSources} />
                   </div>
@@ -320,15 +320,15 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
         <div className="flex flex-col gap-1" data-testid="project-brain-gaps">
           <div className="flex items-center gap-2">
             <span className="text-12 font-medium">缺口与建议</span>
-            <span className="font-mono text-10 text-muted-foreground">{reasoning.gaps.length}</span>
+            <span className="font-mono text-11 text-muted-foreground">{reasoning.gaps.length}</span>
           </div>
-          <span className="text-10 text-muted-foreground">还缺出处的猜测与决定</span>
+          <span className="text-11 text-muted-foreground">还缺出处的猜测与决定</span>
           <ul className="flex flex-col gap-1.5">
             {reasoning.gaps.map((g) => (
-              <li key={g.claimId} className="flex items-start gap-2 text-11" data-testid={`project-brain-gap-${g.claimId}`}>
+              <li key={g.claimId} className="flex items-start gap-2 text-12" data-testid={`project-brain-gap-${g.claimId}`}>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-relaxed">
                   <span>{g.statement}</span>
-                  <span className="text-10 text-muted-foreground" data-testid={`project-brain-gap-${g.claimId}-suggestion`}>{g.suggestion}</span>
+                  <span className="text-11 text-muted-foreground" data-testid={`project-brain-gap-${g.claimId}-suggestion`}>{g.suggestion}</span>
                 </span>
                 <Badge tone="outline">{g.kind === "no_evidence" ? "没有出处" : `只有${sourceLabels(g.sourceKinds)}`}</Badge>
                 {g.kind === "single_source" ? (
@@ -343,19 +343,19 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
         <div className="flex flex-col gap-1" data-testid="project-brain-chains">
           <div className="flex items-center gap-2">
             <span className="text-12 font-medium">推理链</span>
-            <span className="font-mono text-10 text-muted-foreground">{reasoning.chains.length}</span>
+            <span className="font-mono text-11 text-muted-foreground">{reasoning.chains.length}</span>
           </div>
-          <span className="text-10 text-muted-foreground">从前提到推论，每一步都有出处</span>
+          <span className="text-11 text-muted-foreground">从前提到推论，每一步都有出处</span>
           <ul className="flex flex-col gap-2">
             {reasoning.chains.map((chain) => (
-              <li key={chain.claimId} className="flex flex-col gap-1 text-11" data-testid={`project-brain-chain-${chain.claimId}`}>
+              <li key={chain.claimId} className="flex flex-col gap-1 text-12" data-testid={`project-brain-chain-${chain.claimId}`}>
                 <ol className="flex flex-col gap-0.5">
                   {chain.steps.map((step, i) => (
                     <li key={i} className="flex items-start gap-2" data-testid={`project-brain-chain-${chain.claimId}-step-${i}`}>
-                      <span className="shrink-0 font-mono text-10 text-muted-foreground">{step.kind === "premise" ? "前提" : "推论"}</span>
+                      <span className="shrink-0 font-mono text-11 text-muted-foreground">{step.kind === "premise" ? "前提" : "推论"}</span>
                       <span className="min-w-0 flex-1 leading-relaxed">
                         <span className={step.kind === "inference" ? "font-medium" : undefined}>{step.text}</span>
-                        {step.sourceKinds.length > 0 ? <span className="ml-1 text-10 text-muted-foreground">（{sourceLabels(step.sourceKinds)}）</span> : null}
+                        {step.sourceKinds.length > 0 ? <span className="ml-1 text-11 text-muted-foreground">（{sourceLabels(step.sourceKinds)}）</span> : null}
                       </span>
                       <Citations projectId={projectId} evidenceIds={step.evidenceIds} claimId={step.claimId} testid={`project-brain-chain-${chain.claimId}-step-${i}-cite`} onOpenSources={onOpenSources} />
                     </li>
@@ -469,15 +469,15 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
   const adoption = adopt.states.get(claim.id);
   const adoptable = isAdoptableClaimKind(claim.kind) && sharedBy === undefined;
   return (
-    <li className="flex flex-col gap-1 text-11" data-testid={`project-brain-claim-${claim.id}`}>
+    <li className="flex flex-col gap-1 text-12" data-testid={`project-brain-claim-${claim.id}`}>
       <div className="flex items-start gap-2">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-relaxed">
           <span>{claim.statement}</span>
           {sharedBy !== undefined ? (
-            <span className="text-10 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedFromPersonalLabel(sharedBy)}</span>
+            <span className="text-11 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedFromPersonalLabel(sharedBy)}</span>
           ) : null}
           {adoptedFrom !== undefined ? (
-            <span className="text-10 text-muted-foreground" data-testid={`project-brain-adopted-from-${claim.id}`}>
+            <span className="text-11 text-muted-foreground" data-testid={`project-brain-adopted-from-${claim.id}`}>
               {adoptedFrom.sourceStatement !== null ? `采纳自「${adoptedFrom.sourceStatement}」` : "采纳自一条已不在项目记忆里的记录"}
               {` · 理由：${adoptedFrom.rationale}`}
               {` · 由 ${adoptedFrom.adoptedBy} 采纳`}
@@ -504,7 +504,7 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
           ) : null}
         </span>
         <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>
-        <span className="shrink-0 font-mono text-10 text-muted-foreground" title="支持 / 反对的证据数">
+        <span className="shrink-0 font-mono text-11 text-muted-foreground" title="支持 / 反对的证据数">
           +{claim.supportingCount} / −{claim.contradictingCount}
         </span>
         {/* S10：分享来的那条，证据在分享人的个人对话里，别人打不开（R9 口径 404）——不给一个点了必失败的按钮 */}
@@ -539,7 +539,7 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
             data-testid={`project-brain-adopt-rationale-${claim.id}`}
           />
           <div className="flex items-center gap-2">
-            <span className="font-mono text-10 text-muted-foreground">{adoption.rationale.length} / {KG_ADOPT_RATIONALE_MAX}</span>
+            <span className="font-mono text-11 text-muted-foreground">{adoption.rationale.length} / {KG_ADOPT_RATIONALE_MAX}</span>
             <Button
               size="xs"
               variant="primary"
@@ -554,12 +554,12 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
         </div>
       ) : null}
       {adoption !== undefined && (adoption.kind === "done" || adoption.kind === "failed") ? (
-        <div className="text-10 text-muted-foreground" data-testid={`project-brain-adopt-result-${claim.id}`}>
+        <div className="text-11 text-muted-foreground" data-testid={`project-brain-adopt-result-${claim.id}`}>
           {adoption.kind === "done" ? "已采纳为项目决策，见上方「决定」。" : adoption.text}
         </div>
       ) : null}
       {state !== undefined && state.kind !== "busy" ? (
-        <div className="flex items-center gap-2 text-10 text-muted-foreground" data-testid={`project-brain-promote-org-result-${claim.id}`}>
+        <div className="flex items-center gap-2 text-11 text-muted-foreground" data-testid={`project-brain-promote-org-result-${claim.id}`}>
           <span>{state.kind === "failed" ? state.text : describePromoteResult(state.result)}</span>
           {state.kind === "done" && state.result.outcome === "needs_choice" ? (
             <>
