@@ -112,3 +112,31 @@ it("closes and reports one terminal error if capture cleanup rejects", async () 
   expect(f.handlers.onError).toHaveBeenCalledTimes(1);
   expect(f.handlers.onError).toHaveBeenCalledWith("ASR_PROVIDER_UNAVAILABLE");
 });
+
+it("abort closes a pending startup and releases a late microphone without sending audio", async () => {
+  const f = fixture(); const controller = new AbortController();
+  let acquired!: (value: CaptureHandle) => void;
+  const pending = openAsrDraftStream(f.handlers, { sessionToken: "test", signal: controller.signal, capture: () => new Promise((resolve) => { acquired = resolve; }) });
+  const rejected = expect(pending).rejects.toThrow();
+  await vi.waitFor(() => expect(acquired).toBeTypeOf("function"));
+  controller.abort();
+  expect(FakeSocket.current.readyState).toBe(3);
+  acquired(f.capture);
+  await rejected;
+  expect(f.stop).toHaveBeenCalledTimes(1);
+  expect(FakeSocket.current.sent).toEqual([]);
+});
+
+it("startup abort no longer interrupts an established stream's graceful tail flush", async () => {
+  const f = fixture(); const controller = new AbortController();
+  const handle = await openAsrDraftStream(f.handlers, { sessionToken: "test", signal: controller.signal, capture: async () => f.capture });
+  controller.abort();
+  expect(FakeSocket.current.readyState).toBe(1);
+  const stopped = handle.stop();
+  await vi.waitFor(() => expect(FakeSocket.current.sent).toContain(JSON.stringify({ type: "asr.finish" })));
+  FakeSocket.current.frame({ type: "asr.final", text: "尾帧" });
+  FakeSocket.current.frame({ type: "asr.finished" });
+  await stopped;
+  expect(f.handlers.onFinal).toHaveBeenCalledWith("尾帧");
+  expect(f.handlers.onError).not.toHaveBeenCalled();
+});
