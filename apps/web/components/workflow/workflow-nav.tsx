@@ -16,7 +16,7 @@ const ITEMS: ReadonlyArray<{ key: WorkflowNavKey; href: string; label: string; i
 export function WorkflowNav({ active }: { readonly active: WorkflowNavKey }) {
   return (
     <nav aria-label="Workflow" data-testid="workflow-nav" className="flex flex-col gap-4 p-3">
-      <span className="px-1 text-13 font-semibold">Workflow</span>
+      <span className="px-1 text-13 font-semibold">工作流</span>
       <div className="flex flex-col gap-1">
         {ITEMS.map((item) => {
           const isActive = item.key === active;

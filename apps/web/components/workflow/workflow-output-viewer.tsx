@@ -19,6 +19,8 @@ import {
   type WorkflowInstanceOutput,
   type WorkflowInstanceProjection,
 } from "@/lib/workflow-runtime-api";
+import { evidenceSourceLabel, humaniseOutputText } from "@/lib/workflow-output-display";
+import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
 import { describeWorkflowError } from "./workflow-copy";
 
 type Claim = z.infer<typeof workContent.EvidencedClaim>;
@@ -127,18 +129,18 @@ export function WorkflowOutputViewer({ instanceId, outputId }: WorkflowOutputVie
 
       {output.manualChecklist.length > 0 ? (
         <Block title="待人工核对" testId="workflow-output-checklist">
-          <ul className="list-disc space-y-1 pl-5 text-13">{output.manualChecklist.map((c, i) => <li key={i}>{c}</li>)}</ul>
+          <ul className="list-disc space-y-1 pl-5 text-13">{output.manualChecklist.map((c, i) => <li key={i}>{humaniseOutputText(c)}</li>)}</ul>
         </Block>
       ) : null}
       {output.deferredProposals.length > 0 ? (
         <Block title="暂缓写入的建议" testId="workflow-output-deferred">
           <ul className="space-y-1 text-13">
-            {output.deferredProposals.map((d, i) => <li key={i}>{d.field}：{d.proposedValue}<Evidence refs={d.evidenceRefs} /></li>)}
+            {output.deferredProposals.map((d, i) => <li key={i}>{d.field}：{humaniseOutputText(d.proposedValue)}<Evidence refs={d.evidenceRefs} /></li>)}
           </ul>
         </Block>
       ) : null}
 
-      {projection ? <Versions projection={projection} digest={output.output?.digest ?? null} /> : null}
+      {projection ? <Versions projection={projection} digest={output.output?.digest ?? null} evidenceRefs={collectEvidenceRefs(output)} /> : null}
     </section>
   );
 }
@@ -157,7 +159,11 @@ function Evidence({ refs }: { readonly refs: readonly string[] }) {
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1 text-12 text-muted-foreground" data-testid="workflow-output-evidence">
       <span>证据：</span>
-      {refs.map((r) => <code key={r} className="rounded-sm bg-muted px-1">{r}</code>)}
+      {refs.map((r, i) => (
+        <span key={r} className="rounded-full border border-border bg-muted px-2 py-0.5 text-12" data-testid="workflow-output-evidence-chip">
+          来源 {i + 1} · {evidenceSourceLabel(r)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -166,7 +172,7 @@ function ClaimView({ claim }: { readonly claim: Claim }) {
   return (
     <div>
       <div className="flex flex-wrap items-start gap-2">
-        <p className="flex-1 text-13">{claim.text}</p>
+        <p className="flex-1 text-13">{humaniseOutputText(claim.text)}</p>
         <Badge tone={CONFIDENCE_TONE[claim.confidence]}>{CONFIDENCE_TEXT[claim.confidence]}</Badge>
       </div>
       <Evidence refs={claim.evidenceRefs} />
@@ -178,14 +184,14 @@ function OutputBody({ output }: { readonly output: Output }) {
   if (output.kind === "prd") {
     return (
       <article data-testid="workflow-output-prd" className="space-y-4">
-        <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{output.title}</h3>
+        <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{humaniseOutputText(output.title, KIND_TEXT.prd)}</h3>
         <Block title="问题陈述" testId="workflow-output-problem"><ClaimView claim={output.problem} /></Block>
         <Block title="需求" testId="workflow-output-requirements">
           <ol className="space-y-2">
             {output.requirements.map((r) => (
               <li key={r.id} className="flex items-start gap-2 text-13">
                 <code className="shrink-0 text-12 text-muted-foreground">{r.id}</code>
-                <span className="flex-1">{r.text}</span>
+                <span className="flex-1">{humaniseOutputText(r.text)}</span>
                 <Badge tone="outline">优先级 {r.priority}</Badge>
               </li>
             ))}
@@ -204,7 +210,7 @@ function OutputBody({ output }: { readonly output: Output }) {
   if (output.kind === "research_brief") {
     return (
       <article data-testid="workflow-output-brief" className="space-y-4">
-        <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{output.title}</h3>
+        <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{humaniseOutputText(output.title, KIND_TEXT.research_brief)}</h3>
         <Block title="结论" testId="workflow-output-claims">
           <ul className="space-y-3">{output.claims.map((c) => <li key={c.claimId}><ClaimView claim={c} /></li>)}</ul>
         </Block>
@@ -218,7 +224,7 @@ function OutputBody({ output }: { readonly output: Output }) {
   }
   return (
     <article data-testid="workflow-output-data-needs" className="space-y-4">
-      <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{output.question}</h3>
+      <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{humaniseOutputText(output.question, KIND_TEXT.data_needs_statement)}</h3>
       <Block title="缺少的材料" testId="workflow-output-missing">
         <ul className="list-disc space-y-1 pl-5 text-13">{output.missing.map((m, i) => <li key={i}>{m}</li>)}</ul>
       </Block>
@@ -226,19 +232,36 @@ function OutputBody({ output }: { readonly output: Output }) {
   );
 }
 
-function Versions({ projection, digest }: { readonly projection: WorkflowInstanceProjection; readonly digest: string | null }) {
+function collectEvidenceRefs(output: WorkflowInstanceOutput): string[] {
+  const refs: string[] = [];
+  const o = output.output;
+  if (o?.kind === "prd") refs.push(...o.problem.evidenceRefs);
+  if (o?.kind === "research_brief") for (const c of [...o.claims, ...o.risks]) refs.push(...c.evidenceRefs);
+  for (const d of output.deferredProposals) refs.push(...d.evidenceRefs);
+  return [...new Set(refs)];
+}
+
+function Versions({ projection, digest, evidenceRefs }: { readonly projection: WorkflowInstanceProjection; readonly digest: string | null; readonly evidenceRefs: readonly string[] }) {
   const pinned = projection.stages.flatMap((s, i) => s.pinnedSkills.map((p) => ({ ...p, stageName: stageDisplayName(s.stageId, s.title, i) })));
   return (
     <Block title="版本信息" testId="workflow-output-versions">
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-12">
-        <dt className="text-muted-foreground">流程定义</dt><dd>{projection.workflowKey} v{projection.definitionVersion}</dd>
-        {digest ? (<><dt className="text-muted-foreground">产出摘要</dt><dd><code className="break-all">{digest}</code></dd></>) : null}
+        <dt className="text-muted-foreground">流程</dt><dd>{workflowDisplayName(projection.workflowKey)} · 第 {projection.definitionVersion} 版</dd>
         {pinned.map((p) => (
           <div key={`${p.stageId}-${p.stableId}`} className="contents">
-            <dt className="text-muted-foreground">{p.stageName}</dt><dd>技能 {p.stableId} v{p.version}</dd>
+            <dt className="text-muted-foreground">{p.stageName}</dt><dd>{workSkillDisplayName(p.stableId) ?? "内置技能"} · v{p.version}</dd>
           </div>
         ))}
       </dl>
+      <details data-testid="workflow-output-tech-details" className="mt-3 text-12 text-muted-foreground">
+        <summary className="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">技术详情</summary>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <dt>流程标识</dt><dd><code>{`${projection.workflowKey}@${projection.definitionVersion}`}</code></dd>
+          {digest ? (<><dt>产出摘要</dt><dd><code className="break-all" data-testid="workflow-output-digest">{digest}</code></dd></>) : null}
+          {pinned.length > 0 ? (<><dt>技能编号</dt><dd><code>{pinned.map((p) => `${p.stableId}@${p.version}`).join(", ")}</code></dd></>) : null}
+          {evidenceRefs.length > 0 ? (<><dt>证据引用</dt><dd><code className="break-all">{evidenceRefs.join(", ")}</code></dd></>) : null}
+        </dl>
+      </details>
     </Block>
   );
 }

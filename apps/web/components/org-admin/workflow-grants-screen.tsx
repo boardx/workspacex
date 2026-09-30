@@ -284,9 +284,7 @@ function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => voi
         </ul>
         {needsGrant ? (
           <p className="text-warning-tint-foreground" data-testid="workflow-grant-shortfall">
-            当前「{CAP_LEVEL[row.current].label}」不够：
-            {row.blocked.map((u) => `「${workflowDisplayName(u.workflowKey, u.title)}」需要「${CAP_LEVEL[u.requiredCap].label}」`).join("、")}，
-            这些工作流会在对应步骤暂停。
+            当前「{CAP_LEVEL[row.current].label}」不够，上面标黄的 {row.blocked.length} 个工作流会在对应步骤暂停。
           </p>
         ) : null}
       </div>

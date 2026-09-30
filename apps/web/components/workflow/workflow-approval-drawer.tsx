@@ -3,6 +3,7 @@
  * WF08 —— 审批抽屉（面板与「待我审批」列表共用）。
  * 裁决后不本地预测结果：只发请求，结果由服务端回包 / projection 权威更新。
  */
+import { Badge } from "@/components/ui/badge";
 import * as React from "react";
 import { useState } from "react";
 import {
@@ -83,10 +84,14 @@ export function WorkflowApprovalDrawer(props: WorkflowApprovalDrawerProps) {
       className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 text-13 shadow-sm"
     >
       <header className="flex flex-col gap-1">
-        <p className="text-12 text-muted-foreground">{shown.decision === null ? "等待审批" : "审批已完成"}</p>
-        <h3 id={`workflow-approval-title-${gate.gateId}`} data-testid="workflow-approval-title" className="text-16 font-semibold">
-          {title.stage}
-        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 id={`workflow-approval-title-${gate.gateId}`} data-testid="workflow-approval-title" className="text-16 font-semibold">
+            {title.stage}
+          </h3>
+          <Badge tone={shown.decision === null ? "warning" : "success"} data-testid="workflow-approval-state">
+            {shown.decision === null ? "待处理" : "已处理"}
+          </Badge>
+        </div>
         {title.workflow ? <p className="text-12 text-muted-foreground" data-testid="workflow-approval-workflow">所属工作流：{title.workflow}</p> : null}
       </header>
 

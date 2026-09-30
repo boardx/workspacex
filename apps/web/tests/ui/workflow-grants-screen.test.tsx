@@ -80,7 +80,10 @@ describe("工作流权限授予页", () => {
     expect(within(row).getByTestId("workflow-grant-edit").textContent).toBe("调整权限");
     expect(within(row).getByTestId("workflow-grant-use-artifact.write-W029").textContent).toContain("需要「可写入」");
     expect(within(row).getByTestId("workflow-grant-use-artifact.write-W032").textContent).toContain("需要「可对外发送」");
-    expect(within(row).getByTestId("workflow-grant-shortfall").textContent).toContain("「路线图评审」需要「可对外发送」");
+    const shortfall = within(row).getByTestId("workflow-grant-shortfall").textContent ?? "";
+    expect(shortfall).toContain("1 个工作流会在对应步骤暂停");
+    // 需求只以标签呈现一次，说明文字不再逐条复述
+    expect(shortfall).not.toContain("路线图评审");
     fireEvent.click(screen.getByTestId("workflow-grants-tab-workflow"));
     expect(screen.getByTestId("workflow-grants-workflow-W029").textContent).toContain("保存产出文档需要「可写入」，当前「可写入」");
     expect(screen.getByTestId("workflow-grants-workflow-W032").textContent).toContain("保存产出文档需要「可对外发送」，当前「可写入」");

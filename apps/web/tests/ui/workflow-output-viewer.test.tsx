@@ -53,13 +53,33 @@ describe("WorkflowOutputViewer", () => {
     resolve(prdOutput(PRD));
     await waitFor(() => expect(screen.getByTestId("workflow-output-viewer").getAttribute("data-state")).toBe("ready"));
     expect(screen.getByTestId("workflow-output-title").textContent).toBe("离线同步 PRD");
-    expect(screen.getByTestId("workflow-output-problem").textContent).toContain("doc:interview-3");
+    expect(screen.getByTestId("workflow-output-problem").textContent).toContain("来源 1 · 文档");
     expect(screen.getByTestId("workflow-output-requirements").textContent).toContain("断网可写入草稿");
     expect(screen.getByTestId("workflow-output-metrics").textContent).toContain("同步成功率");
-    expect(screen.getByTestId("workflow-output-versions").textContent).toContain("S064 v1.0.0");
+    expect(screen.getByTestId("workflow-output-tech-details").hasAttribute("open")).toBe(false);
+    expect(screen.getByTestId("workflow-output-tech-details").textContent).toContain("S064@1.0.0");
     expect(screen.getByTestId("workflow-output-source").textContent).toContain("问题陈述");
     expect(screen.getByTestId("workflow-output-back").getAttribute("href")).toBe("/workflows/runs/i1");
     expect(api.getWorkflowInstanceOutput).toHaveBeenCalledWith("i1");
+  });
+
+  it("调试痕迹不上屏：[loopback] 标题人话化、证据成来源标签、哈希与技能编号只在折叠的技术详情里", async () => {
+    api.getWorkflowInstanceOutput.mockResolvedValue(prdOutput({
+      ...PRD, title: "[loopback] PRD (revise)",
+      problem: { ...PRD.problem, text: "[loopback] 外勤断网", evidenceRefs: ["loopback:frame"] },
+    }));
+    render(<WorkflowRunOutputPage params={{ instanceId: "i1" }} />);
+    await waitFor(() => expect(screen.getByTestId("workflow-output-prd")).toBeTruthy());
+    expect(screen.getByTestId("workflow-output-title").textContent).toBe("PRD（修订版）");
+    expect(screen.getByTestId("workflow-output-evidence-chip").textContent).toBe("来源 1 · 演示数据");
+    const tech = screen.getByTestId("workflow-output-tech-details");
+    expect(tech.hasAttribute("open")).toBe(false);
+    expect(tech.textContent).toContain(DIGEST);
+    expect(tech.textContent).toContain("loopback:frame");
+    const clone = screen.getByTestId("workflow-output-viewer").cloneNode(true) as HTMLElement;
+    clone.querySelector('[data-testid="workflow-output-tech-details"]')!.remove();
+    const visible = clone.textContent ?? "";
+    expect(visible).not.toMatch(/loopback|S064|[0-9a-f]{64}/);
   });
 
   it("尚无产出：空态", async () => {

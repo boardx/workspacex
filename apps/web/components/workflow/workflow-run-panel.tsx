@@ -192,7 +192,10 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   const name = workflowDisplayName(p.workflowKey);
   const stageNames = new Map(p.stages.map((s, i) => [s.stageId, stageDisplayName(s.stageId, s.title, i)]));
   const blockedStage = p.status === "blocked_permission"
-    ? p.stages.find((s) => s.status === "blocked_permission") ?? p.stages.find((s) => s.status === "running") ?? null
+    ? p.stages.find((s) => s.status === "blocked_permission")
+      ?? p.stages.find((s) => s.status === "running")
+      ?? p.stages.find((s) => s.status !== "succeeded" && s.status !== "skipped")
+      ?? null
     : null;
   const resumeInBanner = p.status === "blocked_permission" && caps.canResume;
   const resume = () => void run(() => resumeWorkflowInstance({ instanceId, expectedStateVersion: ev }));
@@ -231,7 +234,13 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
           className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-tint p-3 text-13 text-warning-tint-foreground">
           <p className="font-medium">
             {blockedStage ? (
-              <>运行停在「<a href={`#workflow-stage-${blockedStage.stageId}`} data-testid="workflow-banner-stage-link" className="underline underline-offset-2">{stageNames.get(blockedStage.stageId)}</a>」这一步。</>
+              <>运行停在「<a href={`#workflow-stage-${blockedStage.stageId}`} data-testid="workflow-banner-stage-link" onClick={(e) => {
+                const el = document.getElementById(`workflow-stage-${blockedStage.stageId}`);
+                if (!el) return;
+                e.preventDefault();
+                el.scrollIntoView?.({ behavior: "smooth", block: "center" });
+                el.focus({ preventScroll: true });
+              }} className="underline underline-offset-2">{stageNames.get(blockedStage.stageId)}</a>」这一步。</>
             ) : "运行已暂停。"}
           </p>
           <p>
@@ -286,6 +295,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
             data-attempt={s.attempt}
             data-blocked={isBlocked ? "true" : undefined}
             aria-current={isBlocked ? "step" : undefined}
+            tabIndex={isBlocked ? -1 : undefined}
             className={cn("scroll-mt-6 rounded-lg border bg-card p-3 text-13", isBlocked ? "border-warning ring-1 ring-warning" : "border-border")}
           >
             <div className="flex flex-wrap items-center gap-2">

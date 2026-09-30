@@ -216,6 +216,24 @@ describe("WorkflowRunPanel", () => {
     }
   });
 
+  it("权限阻断但阶段状态仍是 pending：步骤列表里第一个未完成步骤被标黄 + 已暂停徽标，横幅链接定位到它", () => {
+    const p = proj({
+      status: "blocked_permission", reasonCode: "capability_exceeds_side_effect_cap",
+      stages: [
+        { stageId: "intake", title: "intake", status: "succeeded", attempt: 1, pinnedSkills: [], outputs: [], reasonCode: null, startedAt: null, finishedAt: null },
+        { stageId: "write", title: "write", status: "pending", attempt: 1, pinnedSkills: [], outputs: [], reasonCode: null, startedAt: null, finishedAt: null },
+      ],
+    });
+    render(<WorkflowRunPanel instanceId="i1" initial={p} />);
+    const li = screen.getByTestId("workflow-stage-write");
+    expect(li.getAttribute("data-blocked")).toBe("true");
+    expect(li.className).toContain("border-warning");
+    expect(within(li).getByTestId("workflow-stage-paused-marker").textContent).toBe("已暂停 · 等待授权");
+    expect(screen.getByTestId("workflow-stage-intake").getAttribute("data-blocked")).toBeNull();
+    fireEvent.click(screen.getByTestId("workflow-banner-stage-link"));
+    expect(document.activeElement).toBe(li);
+  });
+
   it("权限阻断（能力未授权）：普通成员看到「请联系管理员授予」，没有管理链接", () => {
     sessionState.orgRole = "member";
     try {
