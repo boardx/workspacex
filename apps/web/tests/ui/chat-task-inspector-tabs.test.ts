@@ -24,29 +24,30 @@ describe("nextInspectorTab", () => {
   });
 
   it("材料变多 → 切「材料」", () => {
-    expect(nextInspectorTab(S(0, 0, false), S(1, 0, false), "progress")).toBe("materials");
+    expect(nextInspectorTab(S(0, 0, false), S(1, 0, false), "run-details")).toBe("materials");
   });
 
-  it("运行从停到跑 → 切「进度」", () => {
-    expect(nextInspectorTab(S(1, 0, false), S(1, 0, true), "materials")).toBe("progress");
+  it("运行从停到跑 → 不切走（2026-09-30「进度」页签已撤，计划只在消息流里）", () => {
+    expect(nextInspectorTab(S(1, 0, false), S(1, 0, true), "materials")).toBe("materials");
+    expect(nextInspectorTab(S(1, 0, false), S(1, 0, true), "run-details")).toBe("run-details");
   });
 
   it("产物变多 → 切「产物」", () => {
-    expect(nextInspectorTab(S(1, 0, true), S(1, 1, true), "progress")).toBe("artifacts");
+    expect(nextInspectorTab(S(1, 0, true), S(1, 1, true), "run-details")).toBe("artifacts");
   });
 
   it("产物与运行同一 tick 一起跃迁时，产物优先——否则用户永远看不到产物自动弹出", () => {
-    expect(nextInspectorTab(S(0, 0, false), S(0, 1, true), "progress")).toBe("artifacts");
+    expect(nextInspectorTab(S(0, 0, false), S(0, 1, true), "run-details")).toBe("artifacts");
   });
 
   it("材料与运行同一 tick 一起跃迁时，材料优先于运行", () => {
-    expect(nextInspectorTab(S(0, 0, false), S(1, 0, true), "progress")).toBe("materials");
+    expect(nextInspectorTab(S(0, 0, false), S(1, 0, true), "run-details")).toBe("materials");
   });
 
   it("反证：信号没有跃迁就保留用户手点的页签（重渲染不许把人拽回去）", () => {
     const same = S(2, 1, true);
     expect(nextInspectorTab(same, same, "run-details")).toBe("run-details");
-    // 运行中每秒重渲染一次，若按"当前状态"而不是"跃迁"来切，这里会被拽回 progress。
+    // 运行中每秒重渲染一次，若按"当前状态"而不是"跃迁"来切，这里会被拽走。
     expect(nextInspectorTab(S(2, 1, true), S(2, 1, true), "materials")).toBe("materials");
   });
 
@@ -55,7 +56,7 @@ describe("nextInspectorTab", () => {
   });
 
   it("反证：run 结束（跑→停）不触发切换——那一刻该由产物或用户决定看哪里", () => {
-    expect(nextInspectorTab(S(1, 0, true), S(1, 0, false), "progress")).toBe("progress");
+    expect(nextInspectorTab(S(1, 0, true), S(1, 0, false), "run-details")).toBe("run-details");
   });
 });
 

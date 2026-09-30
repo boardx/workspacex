@@ -885,6 +885,7 @@
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-omni-conversation.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -975,6 +976,7 @@
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-omni-conversation.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1068,6 +1070,7 @@
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-omni-conversation.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
@@ -1137,6 +1140,7 @@
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-omni-conversation.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
@@ -2180,12 +2184,17 @@
       "kind": "wired",
       "screen": "apps/web/app/research/new/page.tsx",
       "adapters": [
-        "apps/web/lib/live-guided-research-api.ts"
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-guided-research-api.ts",
+        "apps/web/lib/live-recording.ts"
       ],
       "contracts": [
+        "chat",
         "research"
       ],
       "controllers": [
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
         "GuidedResearchController"
       ]
     },
