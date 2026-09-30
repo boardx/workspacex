@@ -1,4 +1,5 @@
 "use client";
+import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
@@ -1878,7 +1879,15 @@ export function CopilotKitV2PanelBody({
   // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
   // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
   // 也需要用到的这一份判断起个名字，不是新开一套判定。
-  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning;
+  const streamSlots = useChatStreamSlots();
+  const seededDraftKey = React.useRef<string | null>(null);
+  const draftSeed = streamSlots.draftSeed ?? null;
+  React.useEffect(() => {
+    if (!draftSeed || seededDraftKey.current === draftSeed.key || historyLoading || projectedMessages.length > 0) return;
+    seededDraftKey.current = draftSeed.key;
+    if (inputDraftRef.current.trim() === "") setInputDraft(draftSeed.text);
+  }, [draftSeed, historyLoading, projectedMessages.length, setInputDraft]);
+  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail && !streamSlots.emptyState;
 
   return (
     <div className="flex h-full min-h-0 w-full gap-3">
@@ -2002,6 +2011,9 @@ export function CopilotKitV2PanelBody({
               <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
               <div className="h-14 w-3/4 rounded-lg bg-muted" />
             </div>
+          ) : projectedMessages.length === 0 && !agent.isRunning && (streamSlots.lead || streamSlots.tail || streamSlots.emptyState) ? (
+            /* UIUX r1 屏 4：外壳塞进消息流的块（转交来源卡等）已是线程上下文，不再显示通用空态。 */
+            <div className="flex w-full flex-col gap-3">{streamSlots.lead}{streamSlots.tail}{streamSlots.emptyState?.(setInputDraft)}</div>
           ) : projectedMessages.length === 0 && !agent.isRunning ? (
             /* issue #2130（TW-P0-1，回指 #2068）—— 任务型空状态取代此前的会话隐喻
                两行静态文字，见 `chat-task-workbench-empty-state.tsx` 文件头注。 */
@@ -2017,6 +2029,7 @@ export function CopilotKitV2PanelBody({
             // `max-w-3xl` 统一承担（issue #2075 / TW-P2-1）——在这里再写一次就是同一个
             // 事实声明在两处：以后调宽度会漏改一个，两处不一致且没人会发现。
             <div className="w-full">
+              {streamSlots.lead}
               {/* issue #3619 —— `useAgent` 把服务端 `default` 注册为本面板独占的本地
                   proxy（本地 id 是上面的 `threadId`）。消息视图必须读取这个已注册
                   id；若仍读 `default`，runtime registry 在刷新同步窗口内没有该本地
@@ -2050,7 +2063,6 @@ export function CopilotKitV2PanelBody({
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
                       <InterruptRenderContext.Provider value={{ bearer: sessionToken ?? undefined, canWrite: canDecide,
                         pendingRunId: pendingPermission?.runId ?? null }}>
-                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       <UserMessageAttachmentsCtx.Provider value={userMessageAttachmentsContextValue}>
                       <LivePlanContext.Provider value={livePlan}>
                       <TaskTimeline
@@ -2065,6 +2077,9 @@ export function CopilotKitV2PanelBody({
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
                       />
+                      {/* uiux-r3 #4.1：待决卡片属于这条 run 的助手回合——画在消息流**之后**（触发它的
+                          那条用户消息下面），不是钉在线程顶上、读起来先有决定请求后有提问。 */}
+                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       </LivePlanContext.Provider>
                       </UserMessageAttachmentsCtx.Provider>
                       </InterruptRenderContext.Provider>
@@ -2072,6 +2087,7 @@ export function CopilotKitV2PanelBody({
                   </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
+              {streamSlots.tail}
             </div>
           )}
           {/* Keep the lifecycle anchor and announcement without a second visual progress panel.

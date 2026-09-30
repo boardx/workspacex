@@ -13,6 +13,8 @@ const badgeVariants = cva(
         success: "bg-success text-success-foreground",
         // 复审横切：实心棕色 warning 与其它柔和药丸是两套体系——统一到柔和 token（warning-tint）。
         warning: "bg-warning-tint text-warning-tint-foreground",
+        /** 浅色提醒（不阻断）：与 ai/neutral 同一浅色体系，替代实底 warning 做「待处理/待开通」类状态。 */
+        attention: "bg-warning-tint text-warning-tint-foreground",
         danger: "bg-destructive text-destructive-foreground",
         outline: "border border-border text-muted-foreground",
       },

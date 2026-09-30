@@ -37,7 +37,7 @@ import {
   FillParamsArgs,
 } from "../../src/agent-interrupts";
 import { DEEP_AGENT_HITL_TOOLS_ENV_VALUE } from "../../src/deep-agent-hitl";
-import { ESCALATE_TOOL_NAME, EscalateDecision, EscalatePayload } from "../../src/agent-role";
+import { ESCALATE_TOOL_NAME, EscalateDecision, EscalatePayload, REQUEST_HANDOFF_TOOL_NAME, RequestHandoffArgs } from "../../src/agent-role";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TOOLS_PY = resolve(HERE, "../../../../apps/deep-agent-service/src/deep_agent_service/tools.py");
@@ -88,6 +88,8 @@ const TOOL_SPECS: { name: string; contractFields: string[]; editedArgsFields: st
     name: ESCALATE_TOOL_NAME, contractFields: Object.keys(EscalatePayload.shape),
     editedArgsFields: [...new Set(EscalateDecision.options.flatMap((o) => Object.keys(o.shape)))],
   },
+  // AG07：request_handoff 的 edit resume 带回服务端算出的 `outcome`（不进模型可见 schema）。
+  { name: REQUEST_HANDOFF_TOOL_NAME, contractFields: Object.keys(RequestHandoffArgs.shape), editedArgsFields: ["outcome"] },
 ];
 
 describe("#2252 跨语言签名门控：Python @tool 参数 = 契约 Args 字段 ∪ 已知 editedArgs 字段", () => {

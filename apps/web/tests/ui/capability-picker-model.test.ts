@@ -76,8 +76,8 @@ describe("capability picker model", () => {
     expect(examplePromptsFor(undefined).length).toBeGreaterThan(0);
   });
   it("English-first workflow names show only the parenthesised Chinese", () => {
-    expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop（知识捕获循环）" })).toBe("知识捕获循环");
-    expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop (知识捕获循环)" })).toBe("知识捕获循环");
+    expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop（知识捕获循环）" })).toBe("知识捕获闭环");
+    expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop (知识捕获循环)" })).toBe("知识捕获闭环");
     expect(workflowLabel({ stableId: "zz", name: "Weekly Sync" })).toBe("未命名流程");
   });
 
@@ -107,6 +107,6 @@ describe("自动匹配示例不出现纯英文工作流名（r4）", () => {
       for (const name of q.match(/「([^」]*)」/g) ?? []) expect(name).toMatch(/\p{Script=Han}/u);
     }
     expect(all.join()).not.toMatch(/Research-to-Brief|Weekly Sync/);
-    expect(examplePromptsFor(entries[0]!.card)).toEqual(["帮我走一遍「调研到简报」"]);
+    expect(examplePromptsFor(entries[0]!.card)).toEqual(["帮我走一遍「研究到简报」"]);
   });
 });

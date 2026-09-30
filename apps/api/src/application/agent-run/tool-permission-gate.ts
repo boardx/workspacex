@@ -54,6 +54,8 @@ import { ESCALATE_TOOL_NAME } from "@repo/contracts/agent-role";
 import { raiseEscalationFromKernelCall } from "../agent-interrupts/decide-escalation";
 import { AGENT_WORKFLOW_START_TOOL_NAME } from "../agent/request-agent-workflow-start";
 import { handleWorkflowStartCall } from "./workflow-start-gate";
+import { REQUEST_HANDOFF_TOOL_NAME } from "@repo/contracts/agent-role";
+import { handleHandoffRequestCall } from "./handoff-gate";
 
 export interface InterruptedToolCall {
   readonly toolCallId?: string;
@@ -99,6 +101,14 @@ export async function handleInterruptedToolCall(
    */
   if (interrupted.toolName === AGENT_WORKFLOW_START_TOOL_NAME) {
     return handleWorkflowStartCall(deps, orgId, runId, interrupted, { ...ledger, seq: seqCursor.value });
+  }
+
+  /*
+   * AG07（03-agent-role.md R3 ⑨ / E5）—— `request_handoff` 同样不走风险分级：按该 run 钉住的
+   * delegationPolicy 判定目标与深度，登记待确认的转交，结果以 edit resume 交回（见 `handoff-gate.ts`）。
+   */
+  if (interrupted.toolName === REQUEST_HANDOFF_TOOL_NAME) {
+    return handleHandoffRequestCall(deps, orgId, runId, interrupted, { ...ledger, seq: seqCursor.value });
   }
 
   /*

@@ -1,4 +1,5 @@
 "use client";
+import { displayThreadTitle } from "@/lib/thread-title-display";
 import * as React from "react";
 import { MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
 import { WorkspaceXWordmark } from "@/components/shell/workspacex-logo";
@@ -356,7 +357,7 @@ export function ThreadCardButton({
             不是整张卡：断言读的是标题文本,不会被副行的状态/时间冲淡——副行现在
             整段是 `sr-only`,连视觉上都不会再出现,这条注释的前提更稳固了。 */}
         <span data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
-          {card.title}
+          {displayThreadTitle(card.title) ?? "新对话"}
         </span>
         <ThreadMeta card={card} />
       </button>
@@ -379,7 +380,7 @@ export function ThreadCardButton({
            每张卡常驻一个图钉来重复同一件事）。 */
         <button
           type="button"
-          aria-label={pinned ? `取消置顶「${card.title}」` : `置顶「${card.title}」`}
+          aria-label={pinned ? `取消置顶「${displayThreadTitle(card.title) ?? "新对话"}」` : `置顶「${displayThreadTitle(card.title) ?? "新对话"}」`}
           title={pinned ? "取消置顶（仅本浏览器）" : "置顶（仅本浏览器）"}
           aria-pressed={pinned === true}
           data-testid="chat-task-workbench-thread-pin"

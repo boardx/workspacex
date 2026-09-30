@@ -420,3 +420,14 @@ describe("official role pack offer (GET /agents/official-role-pack/offer — pic
     expect(after.pending).toEqual([]);
   }, 120_000);
 });
+
+describe("AG07 official delegation backfill migration (20260930121000)", () => {
+  it("backfills exactly the stableName → delegationPolicy that the 1.3.0 pack declares (the SQL literal is a checked copy)", () => {
+    const sql = readFileSync(join(__dirname, "../../migrations/20260930121000_ag07_official_role_delegation.sql"), "utf8");
+    const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
+    const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.delegationPolicy]));
+    expect(Object.keys(literal)).toHaveLength(4);
+    expect(literal).toEqual(fromPack);
+    for (const p of Object.values(fromPack)) expect(p).toMatchObject({ maxDepth: 1, requireApproval: true });
+  });
+});

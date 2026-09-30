@@ -30,6 +30,10 @@ export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
 /** 1.1.0：四个官方角色挂上数字人肖像头像（`avatarKey`）；1.0.0 的 avatar 恒为 null。 */
 /** 1.2.0：四个官方角色带上中文标签（`tags`，目录/聊天选人按它筛选）。 */
 /**
+ * 1.3.0（AG07）：四个官方角色带上真实转交目标（`delegationPolicy`，见 `officialRoleDelegationTargets`），
+ * 以及真实升级规则（`escalationPolicy`，见 `officialRoleEscalationRules`；此前恒为空，AG06 升级在产品里不可达）。
+ */
+/**
  * 1.4.0：角色名/角色标签改为中文（界面不再露英文标识，UIUX 复审 2026-09-30）；已导入旧版的组织由
  * 迁移 `20260930123000_dh_official_names_zh.sql` 改名（字面量由 official-role-pack-import.test.ts 核对）。
  */
@@ -46,7 +50,31 @@ type UnsignedOfficialPack = z.input<typeof wave2Runtime.UnsignedOfficialAgentSta
 type UnsignedOfficialEntry = UnsignedOfficialPack["agents"][number];
 
 const DEFAULT_DELEGATION_POLICY = { allowedTargets: [] as const, maxDepth: 0 as const, requireApproval: true as const };
-const DEFAULT_ESCALATION_POLICY = { rules: [] as const };
+
+type EscalationRule = z.infer<typeof agentRole.EscalationPolicy>["rules"][number];
+
+/**
+ * AG06 升级事项（`matter` 与 Agent 调 `escalate_matter` 时报的事项名**精确匹配**）。
+ * 目标只用 requester / org_admin：project_owner 在项目外的私聊里解析不出任何人（fail closed，卡片无人可裁决），
+ * 官方角色默认不该把升级送进死胡同。
+ */
+export const OFFICIAL_ESCALATION_MATTERS = {
+  /** 超出本角色职责的请求 → 交还发起人决定怎么办（loopback 替身 `LOOPBACK_ESCALATE_MATTER` 的缺省值即此名）。 */
+  outOfScope: "超出职责范围的事项",
+  dataDeletion: "删除或覆盖组织数据",
+  externalCommitment: "代表组织对客户或外部作出承诺",
+  pricing: "报价、折扣或价格承诺",
+  contractTerms: "合同或交付条款承诺",
+  budget: "预算或资源投入承诺",
+  sensitiveData: "使用含个人信息或来源未授权的数据",
+} as const;
+
+const M = OFFICIAL_ESCALATION_MATTERS;
+const COMMON_ESCALATION_RULES: readonly EscalationRule[] = [
+  { matter: M.outOfScope, target: "requester" },
+  { matter: M.dataDeletion, target: "org_admin" },
+  { matter: M.externalCommitment, target: "org_admin" },
+];
 
 interface RoleEntrySeed {
   readonly roleRef: string;
@@ -70,6 +98,8 @@ interface RoleEntrySeed {
    * 导入后发布内置 Workflow 的 follow-up），角色才「启用即可用」，而不是空有白名单、一个都发不起来。
    */
   readonly skillPacks: readonly OfficialRoleSkillPackRef[];
+  /** 本角色专属的升级规则（叠加在 `COMMON_ESCALATION_RULES` 之后）。 */
+  readonly escalationRules: readonly EscalationRule[];
   readonly toolPolicy: readonly string[];
   readonly instructions: string;
 }
@@ -85,6 +115,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     tags: ["调研", "知识管理", "分析"],
     workflowAllowlist: ["W001", "W060", "W009", "W006", "W057"],
     skillPacks: [WORK_RESEARCH],
+    escalationRules: [{ matter: M.sensitiveData, target: "org_admin" }],
     toolPolicy: ["knowledge.search"],
     instructions: "Run structured research, cite every claim to a retrievable source, and route findings into the org knowledge base without editorializing beyond what the evidence supports.",
   },
@@ -97,6 +128,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     tags: ["产品", "需求", "规划"],
     workflowAllowlist: ["W027", "W028", "W029", "W030", "W031", "W032"],
     skillPacks: [WORK_PRODUCT],
+    escalationRules: [{ matter: M.budget, target: "org_admin" }],
     toolPolicy: ["knowledge.search"],
     instructions: "Turn discovery signals into prioritized problem statements and PRDs, keep the roadmap traceable to evidence, and hand off sprint-ready scope without silently narrowing it.",
   },
@@ -111,6 +143,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     // 销售线 Workflow（W011–W018）尚无运行时图（`create-workflow-runtime.ts` 只装配产品线 + 研究线），
     // 导入 work-sales 也发布不出任何可发起流程——不假装「启用即可用」，销售线运行时落地后再挂。
     skillPacks: [],
+    escalationRules: [{ matter: M.pricing, target: "org_admin" }, { matter: M.contractTerms, target: "org_admin" }],
     toolPolicy: ["crm.read"],
     instructions: "Qualify leads, run the pipeline from first meeting to close, and keep every stage change grounded in the CRM record rather than a private recollection.",
   },
@@ -123,6 +156,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     tags: ["设计", "创新", "用户研究"],
     workflowAllowlist: ["W027", "W028", "W029", "W031", "W002"],
     skillPacks: [WORK_PRODUCT],
+    escalationRules: [{ matter: M.budget, target: "org_admin" }, { matter: M.sensitiveData, target: "org_admin" }],
     toolPolicy: ["knowledge.search"],
     instructions: "Facilitate discovery-to-opportunity and experiment loops, keep divergent options visible until a decision is made, and record the rationale next to the chosen option.",
   },
@@ -145,12 +179,47 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
       avatar: { kind: "illustration", key: seed.avatarKey, alt: seed.roleLabel },
       roleCategory: seed.roleCategory,
       workflowAllowlist: [...seed.workflowAllowlist],
-      delegationPolicy: { allowedTargets: [...DEFAULT_DELEGATION_POLICY.allowedTargets], maxDepth: DEFAULT_DELEGATION_POLICY.maxDepth, requireApproval: DEFAULT_DELEGATION_POLICY.requireApproval },
-      escalationPolicy: { rules: [...DEFAULT_ESCALATION_POLICY.rules] },
+      delegationPolicy: officialRoleDelegationPolicy(seed.roleRef),
+      escalationPolicy: officialRoleEscalationPolicy(seed),
       kpi: [],
       tags: [...seed.tags],
     },
   };
+}
+
+/** AG07 官方角色的转交深度：只允许一跳（转交出去的线程里不再继续转交）。 */
+export const OFFICIAL_ROLE_DELEGATION_MAX_DEPTH = 1;
+
+/**
+ * AG07 —— 官方角色 → 可转交目标（同一份 ROLE_SEEDS 的 workflowAllowlist 推导，不另立清单）：
+ * 目标 = 拥有「本角色白名单外的某个 Workflow」的其它官方角色——与 AG05 拒绝文案里的
+ * 「可转交给角色：…」是同一个判据（谁能跑我跑不了的流程，就能接我转交的活）。
+ */
+export function officialRoleDelegationTargets(): Readonly<Record<string, readonly string[]>> {
+  return Object.fromEntries(ROLE_SEEDS.map((self) => {
+    const mine = new Set(self.workflowAllowlist);
+    const targets = ROLE_SEEDS
+      .filter((other) => other.roleRef !== self.roleRef && other.workflowAllowlist.some((w) => !mine.has(w)))
+      .map((other) => other.roleRef);
+    return [self.roleRef, targets];
+  }));
+}
+
+function officialRoleDelegationPolicy(roleRef: string) {
+  return {
+    allowedTargets: [...(officialRoleDelegationTargets()[roleRef] ?? DEFAULT_DELEGATION_POLICY.allowedTargets)],
+    maxDepth: OFFICIAL_ROLE_DELEGATION_MAX_DEPTH,
+    requireApproval: DEFAULT_DELEGATION_POLICY.requireApproval,
+  };
+}
+
+function officialRoleEscalationPolicy(seed: RoleEntrySeed): z.infer<typeof agentRole.EscalationPolicy> {
+  return { rules: [...COMMON_ESCALATION_RULES, ...seed.escalationRules].map((r) => ({ ...r })) };
+}
+
+/** 官方角色 stableName → escalationPolicy（同一份 ROLE_SEEDS；供升级规则回填迁移的核对测试使用，不另立副本）。 */
+export function officialRoleEscalationPolicies(): Readonly<Record<string, z.infer<typeof agentRole.EscalationPolicy>>> {
+  return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, officialRoleEscalationPolicy(s)]));
 }
 
 /** 供 `FileAgentStarterPackSource` 加载路径测试与真实种子共用的已签名官方角色包。 */

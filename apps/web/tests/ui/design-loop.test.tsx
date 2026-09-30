@@ -1006,6 +1006,12 @@ async function clickMore(testid: string): Promise<void> {
   await openMore();
   fireEvent.click(await screen.findByTestId(testid));
 }
+/** design-delta `novice-workbench-list`：卡片的编辑 / 删除收进每张卡的「⋯」菜单（Radix，pointerdown 打开），菜单项沿用原 testid。 */
+// ⚠ 用同步的 getByTestId：有的用例开着假时钟，findBy* 靠计时器轮询会一直等下去（Radix 菜单在 pointerdown 后是同步渲染的）。
+async function clickCardMenu(projectId: string, testid: string): Promise<void> {
+  fireEvent.pointerDown(screen.getByTestId(`project-more-${projectId}`), { button: 0, ctrlKey: false });
+  fireEvent.click(screen.getByTestId(testid));
+}
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
@@ -1117,7 +1123,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    fireEvent.click(screen.getByTestId("project-edit-p1"));
+    await clickCardMenu("p1", "project-edit-p1");
     fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "新名" } });
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -2097,7 +2103,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    fireEvent.click(screen.getByTestId("project-delete-p1"));
+    await clickCardMenu("p1", "project-delete-p1");
     // 迭代 39 起删除要先确认（见 UIUX 18 那一组）——这一条断的是确认之后真的走 DELETE。
     fireEvent.click(await screen.findByTestId("workbench-delete-yes"));
     await waitFor(() => expect(screen.queryByTestId("project-card-p1")).toBeNull());
@@ -5111,7 +5117,7 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     listOnly();
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    fireEvent.click(screen.getByTestId("project-delete-p1"));
+    await clickCardMenu("p1", "project-delete-p1");
 
     // ⭐ 反证锚点：把卡片的 onDelete 接回裸 handleDelete ⇒ 这三条红（一次误点，项目就没了）。
     const box = await screen.findByTestId("workbench-delete-confirm");
@@ -5143,7 +5149,7 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
       });
       render(<DesignWorkbenchHome state="default" />);
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
-      fireEvent.click(screen.getByTestId("project-delete-p1"));
+      await clickCardMenu("p1", "project-delete-p1");
       fireEvent.click(screen.getByTestId("workbench-delete-yes"));
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
       expect(screen.getByTestId("workbench-action-error").textContent).toContain("没能删除这个项目");
@@ -5199,9 +5205,12 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     listOnly([project({ name: "会员下单" })]);
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    // ⭐ 反证锚点：改回写死的「删除项目」/「编辑项目」⇒ 这两条红（读屏听到的每一张卡都一样）。
-    expect(screen.getByTestId("project-delete-p1").getAttribute("aria-label")).toBe("删除「会员下单」");
-    expect(screen.getByTestId("project-edit-p1").getAttribute("aria-label")).toBe("编辑「会员下单」");
+    // ⭐ 反证锚点：改回写死的「更多操作」⇒ 这条红（读屏听到的每一张卡都一样）。
+    // design-delta `novice-workbench-list`：编辑 / 删除收进了「⋯」，项目名由这颗按钮带上。
+    expect(screen.getByTestId("project-more-p1").getAttribute("aria-label")).toBe("「会员下单」的更多操作");
+    fireEvent.pointerDown(screen.getByTestId("project-more-p1"), { button: 0, ctrlKey: false });
+    expect(screen.getByTestId("project-delete-p1")).toHaveTextContent("删除这个设计");
+    expect(screen.getByTestId("project-edit-p1")).toHaveTextContent("改名字和标签");
   });
 
   it("AI 出题失败 ⇒ 说一句话并指一条走得通的路，而不是转圈停下什么都没有", async () => {

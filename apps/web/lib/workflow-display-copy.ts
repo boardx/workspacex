@@ -13,7 +13,7 @@ interface WorkflowName {
 }
 
 const WORKFLOWS: readonly WorkflowName[] = [
-  { workflowId: "W001", key: "research-to-brief", name: "调研到简报" },
+  { workflowId: "W001", key: "research-to-brief", name: "研究到简报" },
   { workflowId: "W002", key: "meeting-to-actions", name: "会议纪要转行动项" },
   { workflowId: "W027", key: "discovery-to-opportunity", name: "探索发现到机会评估" },
   { workflowId: "W028", key: "research-to-insight", name: "用户研究到洞察" },
@@ -136,28 +136,4 @@ export function gateDisplayTitle(gate: { stageId: string; summary: string }, wor
   const looksTechnical = summary === gate.stageId || /^[a-z0-9_.-]+(（.*）|\(.*\))?$/i.test(summary);
   const stage = looksTechnical ? STAGES[gate.stageId] ?? "审批事项" : summary;
   return { stage, workflow: workflowKey ? workflowDisplayName(workflowKey) : null };
-}
-
-const HAN = /\p{Script=Han}/u;
-
-/**
- * 流程的中文显示名：内置工作流走 `workflow-display-copy`（单源）；非内置取目录名，
- * 并去掉「（…）」补充说明——绝不把 `W028` / `research-to-insight` 这类技术 id 上屏。
- */
-export function workflowLabel(w: { readonly stableId: string; readonly name: string }): string {
-  const head = (w.name.split(/[（(]/)[0] ?? "").trim();
-  const builtin = findBuiltinWorkflow(w.stableId) ?? findBuiltinWorkflow(head.replace(/\s+/g, "-"));
-  if (builtin) return builtin.name;
-  // 英文在前、中文在括号里（「Knowledge Capture Loop（知识捕获循环）」）→ 只显示括号里的中文。
-  if (!HAN.test(head)) {
-    const paren = /[（(]([^）)]*)[）)]/.exec(w.name)?.[1]?.trim();
-    if (paren && HAN.test(paren)) return paren;
-  }
-  // 纯英文且无中文括注的名字不上屏（复审 r4：自动匹配示例里出现「Research-to-Brief」）。
-  if (!head || !HAN.test(head)) return "未命名流程";
-  return head;
-}
-
-export function workflowLabelsOf(card: { readonly workflows: readonly { readonly stableId: string; readonly name: string }[] } | undefined): string[] {
-  return [...new Set((card?.workflows ?? []).map(workflowLabel))].filter((l) => l !== "未命名流程");
 }

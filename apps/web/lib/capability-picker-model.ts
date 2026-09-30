@@ -13,7 +13,8 @@
 import { identity } from "@repo/contracts";
 import type { CapabilityListing } from "./live-capabilities";
 import { ROLE_CATEGORY_LABEL, type AgentDirectoryCard, type PendingOfficialRole } from "./agent-directory";
-import { findBuiltinWorkflow, workflowLabel, workflowLabelsOf } from "./workflow-display-copy";
+import { findBuiltinWorkflow } from "./workflow-display-copy";
+import { workflowLabel, workflowLabelsOf } from "./workflow-catalog-title-copy";
 
 export type PickerDirectory = ReadonlyMap<string, AgentDirectoryCard>;
 export type PickerFilter = { readonly kind: "tag"; readonly value: string } | null;

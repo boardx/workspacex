@@ -158,6 +158,16 @@ export interface CopilotKitV2PlanControlProps {
   readonly onLivePlanChange?: (plan: LivePlan) => void;
 }
 
+/**
+ * 折叠头文案。UIUX r3 屏 6：本轮已正常结束（`done` 且 run 不在跑）时，「1/3 步已标记完成」
+ * 读起来像计划没做完——结束态只说「已完成」，不再摆计数器；步骤明细与 #2451 的
+ * 「账本没标满」说明仍在展开后可见。进行中 / 失败 / 取消照旧显示 N/M。
+ */
+export function planSummaryText(stateLabel: string, phase: string, runLive: boolean, completed: number, total: number): string {
+  if (phase === "done" && !runLive) return `执行计划 · ${stateLabel} · 已完成`;
+  return `执行计划 · ${stateLabel}${total > 0 ? ` · ${completed}/${total} 步已标记完成` : ""}`;
+}
+
 export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): React.JSX.Element {
   return <PlanControlSession key={JSON.stringify([props.threadId, props.projectId ?? null])} {...props} />;
 }
@@ -574,7 +584,7 @@ function PlanControlSession(
           className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
-          <span data-testid="chat-task-workbench-plan-summary">执行计划 · {stateLabel}{ledger.steps.length > 0 ? ` · ${completed}/${ledger.steps.length} 步已标记完成` : ""}</span>
+          <span data-testid="chat-task-workbench-plan-summary">{planSummaryText(stateLabel, ledger.phase, runLive, completed, ledger.steps.length)}</span>
         </button>
         {!collapsed && !readOnlyLedger && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button

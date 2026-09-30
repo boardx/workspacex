@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   AgentDirectoryError,
   getAgentDirectoryCard,
+  getAgentDirectoryProfile,
   listAgentDirectory,
   type AgentDirectoryRepository,
   type AgentDirectoryRow,
@@ -30,6 +31,7 @@ function row(over: Partial<AgentDirectoryRow> = {}): AgentDirectoryRow {
     catalogSource: "official",
     workflowAllowlist: [],
     toolPolicyLength: 0,
+    duty: null, roleRef: null, skillMountIds: [], skillVersionIds: [], delegationTargetRefs: [], requireApprovalForHandoff: true,
     ...over,
   };
 }
@@ -154,5 +156,33 @@ describe("可发起 = 本组织已发布的流程", () => {
     expect(card!.workflows.map((w) => w.stableId)).toEqual(["W001"]);
     const one = await getAgentDirectoryCard({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, { ...d, repository: { ...d.repository, findVisible: async () => row({ workflowAllowlist: ["W001", "W011"] }) } });
     expect(one.workflows.map((w) => w.stableId)).toEqual(["W001"]);
+  });
+});
+
+describe("AG04 follow-up getAgentDirectoryProfile", () => {
+  it("未认证 → UNAUTHENTICATED；不可见 → AGENT_NOT_FOUND", async () => {
+    await expect(getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "a" }, deps({ authed: false }))).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    await expect(getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "a" }, deps({ found: null }))).rejects.toMatchObject({ code: "AGENT_NOT_FOUND" });
+  });
+
+  it("占位职责（等于名字）不回显；真实职责原样返回；技能引用去重", async () => {
+    const placeholder = await getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, deps({ found: row({ duty: "研究员小艾" }) }));
+    expect(placeholder.duty).toBeNull();
+    const real = await getAgentDirectoryProfile(
+      { orgId: ORG, actorId: "u1", agentId: "agent-1" },
+      deps({ found: row({ duty: "做结构化调研", skillMountIds: ["s1", "s1", "s2"], skillVersionIds: ["sv1"] }) }),
+    );
+    expect(real.duty).toBe("做结构化调研");
+    expect(real.mountedSkillIds).toEqual(["s1", "s2"]);
+    expect(real.pinnedSkillVersionIds).toEqual(["sv1"]);
+  });
+
+  it("转交对象只列目录里可见、且被委派策略引用的角色（不含自己）", async () => {
+    const self = row({ agentId: "agent-1", roleRef: "D002", delegationTargetRefs: ["D003", "D099"] });
+    const pm = row({ agentId: "agent-3", name: "产品经理", roleRef: "D003" });
+    const sales = row({ agentId: "agent-5", name: "销售", roleRef: "D005" });
+    const out = await getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, deps({ found: self, rows: [self, pm, sales] }));
+    expect(out.delegationTargets.map((t) => t.agentId)).toEqual(["agent-3"]);
+    expect(out.delegationTargets[0]!.initials).toBe("产");
   });
 });

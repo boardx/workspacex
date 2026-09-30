@@ -420,6 +420,9 @@ describe("formal Chat read path", () => {
       render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
       const button = await screen.findByTestId("chat-thread-sidebar-toggle");
       expect(button).not.toBeDisabled();
+      // 右栏 lg 以下不存在，手机宽度不渲染这枚开关
+      expect(button.className).toContain("hidden");
+      expect(button.className).toContain("lg:inline-flex");
       fireEvent.click(button);
       expect(onToggle).toHaveBeenCalledTimes(1);
     } finally {

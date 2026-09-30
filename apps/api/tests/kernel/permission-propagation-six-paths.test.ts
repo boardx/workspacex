@@ -1406,11 +1406,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // ceiling 118): union = main's 118 (includes CT10's pg-board-run-source.ts) + home-config's
     // own pg-home-config-repository.ts (already counted above, this branch's ceiling was 118
     // pre-merge) = 119 (measured: allowlisted=129, boundary rules=10, 129-10=119).
+    // 2026-09-30 AG07 adds pg-agent-handoff-store.ts (120 -> 121): handoff rows are scoped by the
+    // frozen `requester_user_id` column (the question is "did you trigger the run that asked for
+    // this handoff", not an ObjectRef ACL), evidence is re-read through the filtered file doorway.
+    // Pinned by tests/agent/handoff-delegation.test.ts. Remove this increment with that test.
     // #4728 adds the root-only deployment compatibility audit (+1 -> 120).
     // Its companion bootstrap-compatibility.test.ts proves the read-only SQL guard,
     // unconditional rollback, redacted identity result, and absence of HTTP imports.
     // Remove this increment and the audit exemption if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(120);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(121);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

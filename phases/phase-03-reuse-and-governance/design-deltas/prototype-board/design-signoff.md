@@ -1,18 +1,18 @@
 ---
-status: pending
+status: confirmed
 bundle: prototype-board
 base_bundle: design-prototype
 scope: free-canvas-board-primitive-sticky-shape-link-cursor
 covers: []
-confirmed_by: ""
-confirmed_at: ""
-confirmed_via: ""
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-27T18:10:00+08:00"
+confirmed_via: "chat 2026-09-27：「签核通过，合并 #4373，继续做更多菜单」"
 ---
 
 # design delta 签核 · 自由画布原语 board
 
 ⚠ `status`、`confirmed_by`、`confirmed_at`、`confirmed_via` 只能由人类修改；agent 不代签
-（ADR-023 / AGENTS.md「设计签核（三件、一处签）」）。**status 停在 pending**。
+（ADR-023 / AGENTS.md「设计签核（三件、一处签）」）。签核由人类在对话中给出（见 `confirmed_via` 原话），由 agent 按 `human-decision-packaging.md` 规则二回填，经本 PR 的人类 review 合入生效。
 
 规范唯一来源：[`contract.md`](./contract.md)。验收口径：[`verification.md`](./verification.md)。
 

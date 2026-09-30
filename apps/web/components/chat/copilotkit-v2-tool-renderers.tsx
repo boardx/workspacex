@@ -2,6 +2,11 @@
 
 import * as React from "react";
 import { z } from "zod";
+import { agentRole } from "@repo/contracts";
+import { handoffRefusalNotice } from "@/lib/agent-handoff";
+import { AgentIdentityRow, AssistantIdentityDrawnContext } from "./copilotkit-v2-agent-identity";
+import { useCopilotKitV2MessageActions } from "./copilotkit-v2-message-actions";
+import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 import { Loader2, CheckCircle2, AlertCircle, ListTodo, FileSearch, FileText, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -249,6 +254,15 @@ export function CopilotKitV2ToolRenderers(): null {
     },
     [],
   );
+  // UIUX r1 屏 4：转交被拒是一条友好的行内提示；已登记的转交由消息流里的转交卡片承载，这里不画。
+  useRenderTool(
+    {
+      name: agentRole.REQUEST_HANDOFF_TOOL_NAME,
+      parameters: z.object({}).passthrough(),
+      render: ({ status, result, toolCallId }) => <HandoffRefusalNotice toolCallId={toolCallId} result={status === "complete" ? result : undefined} />,
+    },
+    [],
+  );
   // 其余工具（`read_document`/`lookup_time`/未来新增的工具）没有专属卡片，走通用
   // 兜底卡——与旧手写面板 `ToolChainStepBody` 的 `default: GenericToolBody` 同一条
   // 纪律：没有专属渲染不是缺陷，是设计。
@@ -371,4 +385,69 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
       ) : null}
     </div>
   );
+}
+
+/** 转交没有发起时的行内提示：说明原因（服务端给出的中文句子），并告诉用户对话会继续。 */
+export function HandoffRefusalNotice({ result, toolCallId }: { result: string | undefined; toolCallId: string | undefined }) {
+  const notice = handoffRefusalNotice(result);
+  const isOwner = useSingleNoticeOwner(notice === null ? undefined : toolCallId);
+  // UIUX r6 屏 5：提示条是助手这一回合的内容，和其他回合一样带头像 + 名字。回合自己已经画了身份行
+  // （有正文）就不重复；回合正文被收走、只剩提示时由这里补一行。
+  const identityDrawn = React.useContext(AssistantIdentityDrawnContext);
+  const actions = useCopilotKitV2MessageActions();
+  const runId = React.useContext(MessageRunContext);
+  if (notice === null || !isOwner) return null;
+  const banner = (
+    <p
+      role="status"
+      data-testid="handoff-refused-notice"
+      className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-12 text-warning-tint-foreground"
+    >
+      <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0">
+        <span className="font-medium">没有转交</span>
+        <span className="mx-1" aria-hidden>·</span>
+        {notice}
+      </span>
+    </p>
+  );
+  if (identityDrawn) return banner;
+  return (
+    <div data-testid="handoff-refused-turn" className="flex flex-col gap-1">
+      <AgentIdentityRow agentId={actions?.agentId} runId={runId} />
+      {banner}
+    </div>
+  );
+}
+
+/**
+ * UIUX r4：同一次 `request_handoff` 调用在实时流里可能被渲染不止一处（流式气泡 + 回填气泡），
+ * 「没有转交」提示条因此出现两次。按工具调用 id 只让第一个挂载的实例画出来；它卸载后由剩下的接手。
+ */
+const noticeOwners = new Map<string, symbol>();
+const noticeListeners = new Set<() => void>();
+function emitNoticeOwners(): void { for (const listener of noticeListeners) listener(); }
+function subscribeNoticeOwners(listener: () => void): () => void {
+  noticeListeners.add(listener);
+  return () => { noticeListeners.delete(listener); };
+}
+export function useSingleNoticeOwner(key: string | undefined): boolean {
+  const token = React.useRef<symbol>(Symbol("handoff-notice")).current;
+  const owner = React.useSyncExternalStore(
+    subscribeNoticeOwners,
+    () => (key === undefined ? undefined : noticeOwners.get(key)),
+    () => undefined,
+  );
+  React.useEffect(() => {
+    if (key === undefined || noticeOwners.has(key)) return;
+    noticeOwners.set(key, token);
+    emitNoticeOwners();
+  }, [key, owner, token]);
+  React.useEffect(() => () => {
+    if (key !== undefined && noticeOwners.get(key) === token) {
+      noticeOwners.delete(key);
+      emitNoticeOwners();
+    }
+  }, [key, token]);
+  return key === undefined || owner === token;
 }

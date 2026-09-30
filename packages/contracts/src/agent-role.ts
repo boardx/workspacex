@@ -173,6 +173,76 @@ export const HandoffPacket = z.object({
 export const HandoffNotAllowedReason = z.enum([
   "target_not_in_allowed_targets", "target_not_published", "target_disabled", "depth_exceeded",
 ]);
+export type HandoffNotAllowedReason = z.infer<typeof HandoffNotAllowedReason>;
+
+/**
+ * E5 拒绝时聊天可见的文案（中文，不含原因码；「原线程继续，提示用户可手动联系人」）。
+ * 单一事实源：API 交回 Agent 的工具结果与前端 handoff 卡片共用这一份，不在两处各写一套。
+ */
+/**
+ * 每一句转交拒绝文案都含这半句（E5：原线程继续）——前端据此从工具结果里认出拒绝并截出给用户看的那句，
+ * 无论结果后面有没有跟着只给模型看的指令（真实工具体有、loopback 替身没有）。
+ */
+export const HANDOFF_REFUSAL_MARK = "当前对话会继续";
+
+export function handoffNotAllowedCopy(reason: z.infer<typeof HandoffNotAllowedReason>, targetRole: string): string {
+  const tail = `${HANDOFF_REFUSAL_MARK}；如需要，可以直接联系对应负责人。`;
+  switch (reason) {
+    case "target_not_in_allowed_targets":
+      return `该角色不能转交给 ${targetRole}，未发起转交。${tail}`;
+    case "depth_exceeded":
+      return `转交层级已达上限，不能再继续转交给 ${targetRole}。${tail}`;
+    case "target_not_published":
+      return `本组织还没有可用的 ${targetRole} 角色，未发起转交。${tail}`;
+    case "target_disabled":
+      return `${targetRole} 角色目前已停用，未发起转交。${tail}`;
+  }
+}
+
+/** E8：接收方对发起人无权读的引用固定显示的文案（ui.md §四）。 */
+export const HANDOFF_SOURCE_UNAVAILABLE_COPY = "无法展示此来源";
+
+/**
+ * CONTRACT §11 `request-handoff` 的内核工具名（Python `tools.py` 的 `@tool def request_handoff`；
+ * 原生准入表经生成物同步到 Python 侧）。每次调用都中断，由网关按 run 钉住的 `delegationPolicy` 判定。
+ */
+export const REQUEST_HANDOFF_TOOL_NAME = "request_handoff" as const;
+
+/** Agent 发出的 request-handoff 参数：目标角色 + 交接包（只引用，不含摘录）。 */
+export const RequestHandoffArgs = z.object({
+  targetRole: AgentRoleRef,
+  packet: HandoffPacket,
+}).strict();
+
+/** Handoff 聚合状态（domain.md）：`requested → confirmed | cancelled | rejected`。 */
+export const HandoffStatus = z.enum(["requested", "confirmed", "cancelled", "rejected"]);
+
+/**
+ * 接收方重读的一条引用（E8）：以**发起人**身份重查读权限。无权 / 不存在 ⇒ `readable:false`，
+ * 不带任何内容（不泄露存在性）；前端固定显示「无法展示此来源」。
+ */
+export const HandoffEvidenceItem = z.discriminatedUnion("readable", [
+  z.object({ ref: Id, readable: z.literal(true), mime: z.string().max(255) }).strict(),
+  z.object({ ref: Id, readable: z.literal(false) }).strict(),
+]);
+
+/** 聊天 handoff 卡片的读模型（只给发起人本人）。 */
+export const HandoffView = z.object({
+  handoffId: Id,
+  sourceThreadId: Id,
+  /** 发出转交请求的 Agent（卡片以它的消息呈现：头像 + 名字）。 */
+  sourceAgentId: Id,
+  targetRole: AgentRoleRef,
+  targetAgentId: Id.nullable(),
+  targetName: z.string().nullable(),
+  status: HandoffStatus,
+  packet: HandoffPacket,
+  depth: z.number().int().min(1).max(2),
+  /** `rejected` 时的原因（确认时复核失败）；其余状态为 null。 */
+  notAllowedReason: HandoffNotAllowedReason.nullable(),
+  newThreadId: Id.nullable(),
+  createdAt: z.string(),
+}).strict();
 
 export const AgentRoleErrorCode = z.enum([
   "UNAUTHENTICATED",
@@ -205,6 +275,29 @@ export const AgentDirectoryCard = z.object({
   catalogSource: AgentCatalogSource,
   workflows: z.array(z.object({ stableId: WorkflowStableId, name: z.string() }).strict()),
   readiness: CapabilityReadiness,
+}).strict();
+
+/**
+ * 成员详情页补充读模型（AG04 follow-up，`/agent/[id]`）：只读、同目录卡片同一可见性判定（E9 一律 404）。
+ * 不含授权详情（R5）：技能只给 ID（名字由成员可读的技能端点换），转交对象只列本组织目录里可见的角色。
+ * `duty` 为空 = 未登记职责一句话（与名字/角色标签相同的占位值也视为空，不回显）。
+ */
+export const AgentDirectoryProfile = z.object({
+  agentId: Id,
+  duty: z.string().nullable(),
+  /** Agent 行上直接挂载的技能（`agents.skill_mounts`）。 */
+  mountedSkillIds: z.array(z.string()).max(64),
+  /** 已发布版本钉住的技能版本（`agent_versions.skill_version_ids`）。 */
+  pinnedSkillVersionIds: z.array(z.string()).max(64),
+  /** 委派策略允许转交、且当前在目录中可见的角色。 */
+  delegationTargets: z.array(z.object({
+    agentId: Id,
+    name: z.string(),
+    initials: z.string(),
+    roleLabel: z.string(),
+    avatar: AgentAvatar.nullable(),
+  }).strict()).max(32),
+  requireApprovalForHandoff: z.boolean(),
 }).strict();
 
 /** 管理详情「角色」区块：含分类 → 已授权工具/缺失清单。 */
@@ -278,6 +371,13 @@ export const operations = {
     out: AgentDirectoryCard,
     err: ["UNAUTHENTICATED", "AGENT_NOT_FOUND"] as const,
   },
+  /** AG04 follow-up：成员详情页补充信息（职责、技能引用、可转交对象）。 */
+  getAgentDirectoryProfile: {
+    method: "GET", path: "/agents/directory/:agentId/profile",
+    in: z.object({ agentId: Id }).strict(),
+    out: AgentDirectoryProfile,
+    err: ["UNAUTHENTICATED", "AGENT_NOT_FOUND"] as const,
+  },
   /** AG04 管理详情角色区块。 */
   getAgentRoleAdmin: {
     method: "GET", path: "/admin/agents/:agentId/role",
@@ -323,5 +423,18 @@ export const operations = {
     in: z.object({ handoffId: Id }).strict(),
     out: z.object({ handoffId: Id, status: z.literal("cancelled") }).strict(),
     err: ["UNAUTHENTICATED", "HANDOFF_NOT_FOUND"] as const,
+  },
+  /**
+   * AG07：线程上的 handoff 卡片数据（只返回调用者本人发起的）。`requested` = 该线程里 Agent 发出、
+   * 仍待确认或已处理的转交；`origin` = 该线程若由转交新开，其交接包与以发起人身份重读的引用（E8）。
+   */
+  listThreadHandoffs: {
+    method: "GET", path: "/agent-handoffs",
+    in: z.object({ threadId: Id }).strict(),
+    out: z.object({
+      requested: z.array(HandoffView),
+      origin: z.object({ handoff: HandoffView, evidence: z.array(HandoffEvidenceItem) }).strict().nullable(),
+    }).strict(),
+    err: ["UNAUTHENTICATED", "VALIDATION_FAILED"] as const,
   },
 } as const;

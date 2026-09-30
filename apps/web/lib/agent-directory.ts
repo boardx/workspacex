@@ -90,3 +90,76 @@ export async function enableOfficialRolePack(
     body: { packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: `picker-enable-${offer.packId}@${offer.packVersion}` },
   });
 }
+
+export type AgentDirectoryProfile = z.infer<typeof agentRole.AgentDirectoryProfile>;
+
+/** AG04 follow-up：成员详情页补充信息（职责 / 技能引用 / 可转交对象）。 */
+export async function getAgentDirectoryProfile(agentId: string): Promise<AgentDirectoryProfile> {
+  const out = await apiRequest<unknown>(
+    agentRole.operations.getAgentDirectoryProfile.path.replace(":agentId", encodeURIComponent(agentId)),
+    { method: "GET" },
+  );
+  return agentRole.operations.getAgentDirectoryProfile.out.parse(out);
+}
+
+/**
+ * 官方数字人的中文称呼与一句话职责——**只是展示层本地化**，按头像 key（官方角色包里每个角色
+ * 独占一个 `dh-NN-*` 头像）查。官方角色包的名字是英文角色头衔（签名包内容，改它会改摘要），
+ * 成员界面不直接露英文（uiux-r1 cross-cutting）。查不到的 key 原样用后端给的名字。
+ */
+const OFFICIAL_ROLE_ZH: Readonly<Record<string, { readonly name: string; readonly duty: string }>> = {
+  "dh-02-research-knowledge-analyst": {
+    name: "研究与知识分析师",
+    duty: "做结构化调研，每个结论都对应一条可追溯的来源，并把发现沉淀进组织知识库；不在证据之外加主观判断。",
+  },
+  "dh-03-product-manager": {
+    name: "产品经理",
+    duty: "把调研信号变成有优先级的问题陈述和需求文档，让路线图可以追溯到证据，交付可直接进迭代的范围。",
+  },
+  "dh-05-sales-representative": {
+    name: "销售代表",
+    duty: "筛选线索，推进从首次会面到签约的整条销售管道，每次阶段变化都以客户管理系统里的记录为准。",
+  },
+  "dh-11-design-thinking-expert": {
+    name: "设计思维专家",
+    duty: "主持从洞察到机会、再到实验验证的循环，在做决定前保留多个方向，并把取舍理由记在选中的方案旁边。",
+  },
+};
+
+type NamedAgent = Pick<AgentDirectoryCard, "name" | "catalogSource" | "avatar">;
+
+/** 成员界面上的数字人称呼（官方角色本地化，其余原样）。 */
+export function agentDisplayName(agent: NamedAgent): string {
+  const zh = agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key] : undefined;
+  return zh?.name ?? agent.name;
+}
+
+/** 按头像 key 取中文称呼（聊天消息身份行只有头像 key 与名字时用）。 */
+export function agentDisplayNameByAvatar(avatarKey: string | null | undefined, fallback: string): string {
+  return (avatarKey ? OFFICIAL_ROLE_ZH[avatarKey]?.name : undefined) ?? fallback;
+}
+
+/** 官方角色的中文一句话职责；非官方或未登记返回 null。 */
+export function officialRoleDuty(agent: NamedAgent): string | null {
+  return agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key]?.duty ?? null : null;
+}
+
+/**
+ * 角色副标题：与称呼相同（或只是英文原名）时不重复显示——回退到职责一句话，再回退到分类。
+ */
+export function agentSubtitle(card: AgentDirectoryCard, duty: string | null = null): string | null {
+  const display = agentDisplayName(card);
+  const label = card.roleLabel.trim();
+  const redundant = label.length === 0 || label === display || label === card.name.trim();
+  if (!redundant && !/^[\x20-\x7e]+$/.test(label)) return label;
+  const d = duty ?? officialRoleDuty(card);
+  if (d) return d;
+  return card.roleCategory ? `${ROLE_CATEGORY_LABEL[card.roleCategory]}类数字人` : null;
+}
+
+/** 「开始对话 / 在对话中发起」的深链：`?agent=` 选中数字人，`?prefill=` 预填输入框（新对话一次性）。 */
+export function agentChatHref(agentId: string, prefill?: string): string {
+  const q = new URLSearchParams({ agent: agentId });
+  if (prefill) q.set("prefill", prefill);
+  return `/chat?${q.toString()}`;
+}
