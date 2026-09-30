@@ -88,10 +88,15 @@ jobs:
           $PSQL "SELECT org_id, enabled, updated_at::timestamp(0) FROM kg_org_extraction_settings ORDER BY 3 DESC" 2>&1 | head -12
           echo "── 最近 7 天的消息量与抽取结果 ──"
           $PSQL "SELECT count(*), count(*) FILTER (WHERE author_kind='human') FROM chat_messages WHERE created_at > now() - interval '7 days'" 2>&1
-          $PSQL "SELECT status, count(*) FROM kg_message_extraction_outcomes WHERE created_at > now() - interval '7 days' GROUP BY 1" 2>&1 | head -8
-          $PSQL "SELECT status, count(*) FROM kg_message_extraction_outcomes GROUP BY 1" 2>&1 | head -8
+          echo "  最近 7 天人发的消息 × 抽取结果（null = 从没进过抽取）："
+          $PSQL "SELECT coalesce(o.outcome,'<无记录>'), count(*) FROM chat_messages m LEFT JOIN kg_message_extraction_outcomes o ON o.message_id = m.id WHERE m.author_kind='human' AND m.created_at > now() - interval '7 days' GROUP BY 1 ORDER BY 2 DESC" 2>&1 | head -8
+          echo "  全部抽取结果："; $PSQL "SELECT outcome, count(*), max(recorded_at)::timestamp(0) FROM kg_message_extraction_outcomes GROUP BY 1" 2>&1 | head -8
+          echo "  最近 12 条人发的消息：时间 / 长度 / 个人还是项目会话 / 抽取结果（不打印正文）"
+          $PSQL "SELECT m.created_at::timestamp(0), length(m.body), CASE WHEN t.project_id IS NULL THEN 'personal' ELSE 'project' END, coalesce(o.outcome,'<无记录>') FROM chat_messages m JOIN chat_threads t ON t.id = m.thread_id LEFT JOIN kg_message_extraction_outcomes o ON o.message_id = m.id WHERE m.author_kind='human' ORDER BY m.created_at DESC LIMIT 12" 2>&1
+          echo "  抽取失败 / 跳过原因（SLO 表若有）："
+          $PSQL "SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'kg_%slo%' OR table_name LIKE 'kg_%gate%'" 2>&1 | head -5
           echo "── API 最近 24h 抽取相关日志（最多 15 行）──"
-          journalctl -u workspacex-api --since "-24h" 2>&1 | grep -iE 'kg extraction|extraction (skipped|failed|disabled)|KG_EXTRACTION' | tail -15 || true
+          journalctl -u workspacex-api --since "-72h" 2>&1 | grep -iE 'kg.extraction|extraction|not worth|KG_EXTRACTION|kg-extraction' | grep -oE '"(msg|message|code|reason|level)":"[^"]{0,80}"' | sort | uniq -c | sort -rn | head -20 || true
           echo "── API 最近 24h 与嵌入 / 图 / 召回相关的报错（最多 25 行）──"
           journalctl -u workspacex-api --since "-24h" 2>&1 | grep -iE 'embedding|KG_GRAPH|graph_unavailable|vector|recall.*(fail|degrad)' | grep -viE 'debug' | tail -25
           echo "── deep-agent 最近 24h 嵌入报错（最多 10 行）──"
