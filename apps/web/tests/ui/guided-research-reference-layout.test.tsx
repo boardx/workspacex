@@ -45,6 +45,21 @@ describe("guided research reference layout", () => {
     expect(screen.getByRole("textbox", { name: "小章节 1.1" })).toHaveValue("准入政策");
     expect(screen.queryByText("AI 生成的章节摘要")).not.toBeInTheDocument();
   });
+  it("derives questions from edited new chapter and subchapter titles while preserving existing questions", () => {
+    const state = runtimeFixture("report");
+    const save = vi.fn();
+    render(<ResearchChaptersWorkspace runtime={state} disabled={false} onSave={save} onOptimize={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "新增章节" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "章节标题" }), { target: { value: "审批风险" } });
+    fireEvent.click(screen.getByRole("button", { name: "新增小章节" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "小章节 2.1" }), { target: { value: "地方许可时长" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存章节结构" }));
+    const saved = save.mock.calls[0]![0];
+    expect(saved[0].questions).toEqual(state.outline[0]!.questions);
+    expect(saved[1].questions[0]).toContain("审批风险");
+    expect(saved[1].subsections[0].questions[0]).toContain("地方许可时长");
+    expect(JSON.stringify(saved)).not.toContain("需要回答什么问题");
+  });
   it("renders unavailable steps as circular indicators, not disabled button tiles", () => {
     const navigate = vi.fn();
     render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={navigate} main="需求" />);

@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { research as C } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { researchPlanTitle } from "@/lib/guided-research-markdown";
+import { prepareResearchOutline, researchPlanTitle, researchQuestionsForTitle } from "@/lib/guided-research-markdown";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 
 type Outline = GuidedResearchRuntime["outline"];
@@ -50,7 +50,7 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
           {chapter.subsections?.length ? <ol className="ml-4 mt-1 list-none space-y-1 text-sm text-muted-foreground">{chapter.subsections.map((sub, subIndex) => <li key={sub.id}>{position + 1}.{subIndex + 1} <span>{researchPlanTitle(sub.title)}</span></li>)}</ol> : null}
         </li>)}</ol>
         <Button variant="outline" disabled={disabled || chapters.length >= 30} onClick={() => {
-          const id = crypto.randomUUID(); setChapters((items) => [...items, { id, title: "新章节", enabled: true, order: items.length, questions: ["需要回答什么问题？"] }]); setSelectedId(id);
+          const id = crypto.randomUUID(); setChapters((items) => [...items, { id, title: "新章节", enabled: true, order: items.length, questions: researchQuestionsForTitle("新章节") }]); setSelectedId(id);
         }}><Plus className="mr-2 size-4" />新增章节</Button>
       </nav>
       {selected && <article className="space-y-4" data-testid="research-selected-chapter">
@@ -65,9 +65,9 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
           <Input aria-label={`小章节 ${index + 1}.${subIndex + 1}`} value={sub.title} maxLength={200} disabled={disabled} onChange={(event) => patch({ subsections: selected.subsections!.map((item) => item.id === sub.id ? { ...item, title: event.target.value } : item) })} />
           <Button size="icon" variant="ghost" aria-label={`删除小章节 ${index + 1}.${subIndex + 1}`} disabled={disabled} onClick={() => { const remaining = selected.subsections!.filter((item) => item.id !== sub.id); patch({ subsections: remaining.length ? remaining : undefined }); }}><Trash2 className="size-4" /></Button>
         </li>)}</ol>
-        <Button variant="outline" disabled={disabled || (selected.subsections?.length ?? 0) >= 8} onClick={() => patch({ subsections: [...(selected.subsections ?? []), { id: crypto.randomUUID(), title: "新小章节", questions: ["需要回答什么问题？"] }] })}><Plus className="mr-2 size-4" />新增小章节</Button>
+        <Button variant="outline" disabled={disabled || (selected.subsections?.length ?? 0) >= 8} onClick={() => patch({ subsections: [...(selected.subsections ?? []), { id: crypto.randomUUID(), title: "新小章节", questions: researchQuestionsForTitle("新小章节") }] })}><Plus className="mr-2 size-4" />新增小章节</Button>
       </article>}
     </div>
-    <div className="flex flex-wrap justify-end gap-3">{changed && <Button variant="primary" disabled={disabled || !valid} onClick={() => onSave(chapters)}>保存章节结构</Button>}{onBack && <Button variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</Button>}<Button variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button></div>
+    <div className="flex flex-wrap justify-end gap-3">{changed && <Button variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>保存章节结构</Button>}{onBack && <Button variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</Button>}<Button variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button></div>
   </section>;
 }

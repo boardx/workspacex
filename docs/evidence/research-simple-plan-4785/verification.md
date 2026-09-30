@@ -28,6 +28,12 @@ explicitly waived by the user. No production mutation or autonomous merge.
 
 ## Baseline limitation
 
+Review follow-up on 2026-10-01: two failing regressions confirmed newly added plan
+and chapter questions were fixed placeholders. The shared save preparation now
+derives questions from final titles for new items only. Fresh UI: 319/319 passed
+across 36 files, 15s; web typecheck and lint passed. Initial PR head 9390c9c42
+passed all cloud checks; the review correction requires fresh exact-head CI.
+
 `pnpm -w run verify:base` stops at `lint:oss-secret-scan`, before the full suite:
 existing assigned-secret findings in
 `apps/api/tests/whiteboard/joint-drill-diagnostics.test.ts` and

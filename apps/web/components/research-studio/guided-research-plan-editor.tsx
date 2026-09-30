@@ -6,7 +6,7 @@ import { research as C } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { researchPlanTitle } from "@/lib/guided-research-markdown";
+import { prepareResearchOutline, researchPlanTitle, researchQuestionsForTitle } from "@/lib/guided-research-markdown";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 
 type Outline = GuidedResearchRuntime["outline"];
@@ -34,7 +34,7 @@ export function GuidedResearchPlanEditor({ value, disabled, onSave, onDirtyChang
   async function save() {
     setConfirm(false); setSaving(true); setError(null);
     try {
-      if (await onSave(items)) setEditing(null);
+      if (await onSave(prepareResearchOutline(items, value))) setEditing(null);
       else setError("计划未保存，请重试。");
     } catch { setError("计划未保存，请重试。"); }
     finally { setSaving(false); }
@@ -57,7 +57,7 @@ export function GuidedResearchPlanEditor({ value, disabled, onSave, onDirtyChang
     <div className="flex flex-wrap justify-between gap-3">
       <Button variant="outline" disabled={locked || items.length >= 30} onClick={() => {
         const id = crypto.randomUUID();
-        setItems((current) => [...current, { id, title: "新计划", enabled: true, order: current.length, questions: ["需要回答什么问题？"] }]); setEditing(id);
+        setItems((current) => [...current, { id, title: "新计划", enabled: true, order: current.length, questions: researchQuestionsForTitle("新计划") }]); setEditing(id);
       }}><Plus className="mr-2 size-4" />新增计划</Button>
       {dirty && <div className="flex gap-2"><Button variant="outline" disabled={locked} onClick={() => { setItems(value); setEditing(null); setError(null); }}>取消</Button><Button variant="primary" disabled={locked || !valid} onClick={() => setConfirm(true)}>保存计划</Button></div>}
     </div>
