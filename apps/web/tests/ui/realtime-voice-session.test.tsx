@@ -80,7 +80,11 @@ describe("RealtimeVoiceSession", () => {
     expect(handle.setMuted).toHaveBeenLastCalledWith(true);
     expect(screen.getByTestId("realtime-voice-mute")).toHaveAttribute("aria-pressed", "true");
     expect(status()).toHaveTextContent("已静音");
+    const scope = document.getElementById("realtime-voice-session-scope")!;
+    expect(scope).toHaveTextContent("已静音，对方听不到你");
+    expect(scope).not.toHaveTextContent("可随时开口打断");
     fireEvent.keyDown(screen.getByTestId("realtime-voice-status"), { key: "m" });
+    expect(scope).toHaveTextContent("可随时开口打断");
     expect(handle.setMuted).toHaveBeenLastCalledWith(false);
 
     expect(screen.getByTestId("realtime-voice-interrupt")).toBeDisabled();

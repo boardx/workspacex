@@ -18,6 +18,13 @@
 import type { WebSocket } from "ws";
 
 export const OMNI_SAMPLE_USER_TRANSCRIPT = "（模拟语音）你好，我想了解一下产品方案";
+/**
+ * 夹具转写前缀「（模拟语音）」只是测试数据标记：标题取材时剥掉它（仅夹具侧使用，
+ * 通过 `appendRealtimeVoiceTurn` 的可选 `titleText` 注入；产品路径默认不剥任何内容）。
+ */
+export function stripSimulatedVoiceMarker(text: string): string {
+  return text.replace(/^\s*[（(]模拟语音[）)]\s*/, "");
+}
 /** 16kHz s16le mono 下约 0.4 秒的输入音频，达到才判为「开始说话」。 */
 const SPEECH_START_BYTES = 12_800;
 /** 约 1 秒输入音频后判为「说完」。 */

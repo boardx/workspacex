@@ -2,6 +2,7 @@
  * Chat 语音模式用例（`application/chat/realtime-voice-session.ts`）：线程判权、已发布角色解析
  * （fail closed）、服务端人设/音色推导、转写落库形状。个人线程路径，假仓储，无数据库。
  */
+import { stripSimulatedVoiceMarker } from "../../scripts/loopback-omni-realtime";
 import { describe, expect, it } from "vitest";
 import {
   appendRealtimeVoiceTurn,
@@ -126,6 +127,25 @@ describe("appendRealtimeVoiceTurn auto-title", () => {
     state = { ...state, source: "user" };
     await appendRealtimeVoiceTurn(d, s, { role: "user", text: "再说一个很具体的新话题关于预算" });
     expect(titled).toHaveLength(1);
+  });
+});
+
+describe("appendRealtimeVoiceTurn fixture title marker", () => {
+  it("strips the simulated marker from the title only when titleText is injected; body is stored verbatim", async () => {
+    const { d } = deps();
+    const titled: string[] = [];
+    Object.assign(d.chat, {
+      readThreadTitleState: async () => ({ title: "新对话", source: "default", stage: 0, humanMessageCount: 1 }),
+      autoTitleThread: async (_o: unknown, _t: string, title: string) => { titled.push(title); return true; },
+    });
+    const s = await openRealtimeVoiceSession(d, { orgId: ORG, userId: "u-1", threadId: "t-1", agentId: null });
+    const text = "（模拟语音）你好，我想了解一下产品方案";
+    await appendRealtimeVoiceTurn(d, s, { role: "user", text });
+    await appendRealtimeVoiceTurn({ ...d, titleText: stripSimulatedVoiceMarker }, s, { role: "user", text });
+    expect(titled[0]).toContain("模拟语音");
+    expect(titled[1]).not.toContain("模拟语音");
+    expect(titled[1]).toMatch(/^你好/);
+    expect(stripSimulatedVoiceMarker("普通（模拟语音）")).toBe("普通（模拟语音）");
   });
 });
 

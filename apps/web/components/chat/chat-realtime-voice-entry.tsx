@@ -6,6 +6,7 @@ import { getAgentDirectoryCard } from "@/lib/agent-directory";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
 import { deleteThread } from "@/lib/live-chat";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RealtimeVoiceSession, type RealtimeVoicePersona } from "@/components/chat/realtime-voice-session";
 
 /**
@@ -22,6 +23,8 @@ export interface ChatRealtimeVoiceEntryProps {
   readonly resolveThreadId: () => Promise<string>;
   readonly onEnded: (info: { readonly threadId: string | null; readonly persistedMessageIds: readonly string[] }) => void;
 }
+
+export const REALTIME_ENTRY_TOOLTIP = "和数字人语音通话（实时对话）；想把话转成文字填进输入框，请用「语音输入」";
 
 export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnded }: ChatRealtimeVoiceEntryProps): JSX.Element {
   const [open, setOpen] = React.useState(false);
@@ -48,18 +51,24 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
 
   return (
     <>
-      <button
-        type="button"
-        data-testid="chat-composer-realtime-voice"
-        onClick={() => setOpen(true)}
-        disabled={disabled}
-        aria-label={`与${persona.name}实时对话`}
-        title="和数字人语音通话（实时对话）"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
-      >
-        <AudioLines aria-hidden className="h-4 w-4" />
-        <span className="whitespace-nowrap">实时对话</span>
-      </button>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+          <button
+            type="button"
+            data-testid="chat-composer-realtime-voice"
+            onClick={() => setOpen(true)}
+            disabled={disabled}
+            aria-label={`与${persona.name}实时对话`}
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+          >
+            <AudioLines aria-hidden className="h-4 w-4" />
+            <span className="whitespace-nowrap">实时对话</span>
+          </button>
+          </TooltipTrigger>
+          <TooltipContent data-testid="chat-composer-realtime-voice-tooltip">{REALTIME_ENTRY_TOOLTIP}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <RealtimeVoiceSession open={open} onOpenChange={setOpen} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} />
     </>
   );

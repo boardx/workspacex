@@ -51,6 +51,8 @@ const REASON_FAILURE: Record<OmniErrorReason, Failure> = {
 
 const ACTIVITY_LABEL: Record<Activity, string> = { idle: "空闲", listening: "在听", thinking: "思考中", speaking: "在说" };
 /** 静音时字幕区的提示（不能再说「直接开口说话」）。 */
+export const MUTED_FOOTER = "已静音，对方听不到你。";
+export const LIVE_FOOTER = "可随时开口打断。";
 export const MUTED_HINT = "已静音，点击取消静音后说话";
 export const SAVE_NOTICE = "本次通话的文字记录会保存到此对话。";
 const MAX_RECONNECTS = 2;
@@ -303,7 +305,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
           </ControlButton>
         </div>
         <p id="realtime-voice-session-scope" className="max-w-md text-center text-11 text-muted-foreground">
-          可随时开口打断。语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。{phase === "live" ? SAVE_NOTICE : null}
+          {muted && phase === "live" ? MUTED_FOOTER : LIVE_FOOTER}语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。{phase === "live" ? SAVE_NOTICE : null}
         </p>
       </footer>
     </div>

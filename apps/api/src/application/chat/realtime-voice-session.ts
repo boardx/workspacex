@@ -83,7 +83,7 @@ export async function openRealtimeVoiceSession(
 
 /** 返回落库消息 id；空白转写不落库，返回 null。 */
 export async function appendRealtimeVoiceTurn(
-  deps: Pick<ResolveVisibilityDeps, "chat">,
+  deps: Pick<ResolveVisibilityDeps, "chat"> & { readonly titleText?: (body: string) => string },
   session: RealtimeVoiceSession,
   turn: { readonly role: "user" | "assistant"; readonly text: string },
 ): Promise<string | null> {
@@ -98,7 +98,7 @@ export async function appendRealtimeVoiceTurn(
     agentId: turn.role === "user" ? null : session.role.agentId,
     body,
   });
-  if (turn.role === "user") await autoTitleFromVoiceTurn(deps, session, body);
+  if (turn.role === "user") await autoTitleFromVoiceTurn(deps, session, deps.titleText ? deps.titleText(body) : body);
   return id;
 }
 
