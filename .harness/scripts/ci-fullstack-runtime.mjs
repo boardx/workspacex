@@ -26,14 +26,23 @@ export function pnpmPackageRoot(executable) {
   throw new Error('PNPM_PACKAGE_ENTRYPOINT_NOT_FOUND');
 }
 
-export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, socketGid, env, geometry = false }) {
+export function runtimeCommand(geometry) {
+  return geometry ? ['pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'] : ['pnpm', 'run', 'verify:fullstack-smoke'];
+}
+
+export function assertRuntimeCommand(mode, argv) {
+  const expected = ['--', ...runtimeCommand(mode === 'geometry')];
+  if (JSON.stringify(argv) !== JSON.stringify(expected)) throw new Error('RUNTIME_COMMAND_CONTRACT_MISMATCH');
+}
+
+export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false }) {
   if (![uid, gid].every(v => Number.isInteger(v) && v >= 0)) throw new Error('INVALID_RUNTIME_IDENTITY');
   if (!/^mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('UNSEALED_RUNTIME_IMAGE');
   if (!Number.isInteger(socketGid) || socketGid < 0) throw new Error('INVALID_DOCKER_SOCKET_GROUP');
   const args = ['run', '--rm', '--init', '--network', 'host', '--ipc', 'host', '--user', `${uid}:${gid}`,
     '--group-add', String(socketGid), '--workdir', root, '--volume', `${root}:${root}`, '--volume', `${home}:${home}`,
     '--volume', `${tools}:/wsx-ci-tools:ro`, '--volume', `${node}:/wsx-ci-tools/bin/node:ro`,
-    '--volume', `${pnpm}:/wsx-ci-tools/pnpm:ro`, '--volume', `${docker}:/wsx-ci-tools/bin/docker:ro`,
+    '--volume', `${pnpm}:/wsx-ci-tools/pnpm:ro`, '--volume', `${docker}:/wsx-ci-tools/bin/docker:ro`, '--volume', `${unzip}:/wsx-ci-tools/bin/unzip:ro`,
     '--volume', `${compose}:${home}/.docker/cli-plugins/docker-compose:ro`,
     '--volume', '/var/run/docker.sock:/var/run/docker.sock', '--volume', `${tools}/bin/apt-get:/usr/bin/apt-get:ro`, '--volume', `${tools}/bin/apt-get:/usr/bin/apt:ro`,
     '--env', `HOME=${home}`, '--env', 'PATH=/wsx-ci-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
@@ -43,7 +52,7 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
   }
   args.push(image, 'bash', '-euc',
-    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + (geometry ? 'pnpm --filter web run e2e:trace-geometry' : 'pnpm run verify:fullstack-smoke')); 
+    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry).join(' ')); 
   return args;
 }
 
@@ -61,14 +70,19 @@ async function main(mode) {
   if (mode === 'browser') {
     const blockedApt = spawnSync('apt-get', ['--version'], { timeout: 5000, stdio: 'ignore' });
     if (blockedApt.error || blockedApt.status !== 78) throw new Error('APT_NOT_BLOCKED');
+    const dependencies = spawnSync('ldd', ['/wsx-ci-tools/bin/unzip'], { encoding: 'utf8', timeout: 5000 });
+    if (dependencies.error || dependencies.status !== 0 || dependencies.stdout.includes('not found')) throw new Error('UNZIP_DEPENDENCIES_UNAVAILABLE');
+    const unzip = spawnSync('unzip', ['-v'], { encoding: 'utf8', timeout: 5000 });
+    if (unzip.error || unzip.status !== 0) throw new Error('UNZIP_EXECUTABLE_UNAVAILABLE');
     const browser = await req('playwright-core').chromium.launch({ headless: true });
     try { const page = await browser.newPage(); await page.setContent('<p>runtime-ready</p>');
       if (await page.textContent('p') !== 'runtime-ready') throw new Error('BROWSER_PROBE_FAILED');
-      console.log(JSON.stringify({ browserReady: true, playwrightVersion: version, aptBlocked: true }));
+      console.log(JSON.stringify({ browserReady: true, playwrightVersion: version, aptBlocked: true, unzipDependenciesResolved: true }));
     } finally { await browser.close(); }
     return;
   }
   if (!['run', 'geometry'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
+  assertRuntimeCommand(mode, process.argv.slice(3));
   const catalog = JSON.parse(readFileSync(new URL('../playwright-runtime-images.json', import.meta.url), 'utf8'));
   const image = sealedImage(version, catalog);
   command('docker', ['pull', '--platform', 'linux/amd64', image], { stdio: 'inherit' });
@@ -88,10 +102,10 @@ async function main(mode) {
   writeFileSync(resolve(tools, 'bin/pnpm'), '#!/bin/sh\nexec node /wsx-ci-tools/pnpm/bin/pnpm.cjs "$@"\n', { mode: 0o700 });
   chmodSync(resolve(tools, 'bin/pnpm'), 0o700);
   writeFileSync(resolve(tools, 'bin/apt-get'), '#!/bin/sh\nexit 78\n', { mode: 0o700 });
-  for (const path of ['bin/node', 'bin/docker']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
+  for (const path of ['bin/node', 'bin/docker', 'bin/unzip']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
   console.log(JSON.stringify({ runtimeImage: image, playwrightVersion: version, network: 'host', uid: process.getuid(), aptInstall: false }));
   const args = runtimeArgs({ root, home, tools, uid: process.getuid(), gid: process.getgid(), image,
-    node: realpathSync(process.execPath), pnpm, docker, compose, socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry' });
+    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry' });
   const child = spawn(docker, args, { stdio: 'inherit' });
   const forward = signal => child.kill(signal);
   const term = () => forward('SIGTERM');

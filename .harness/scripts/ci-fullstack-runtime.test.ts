@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, realpathSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pnpmPackageRoot, sealedImage, runtimeArgs } from './ci-fullstack-runtime.mjs';
+import { assertRuntimeCommand, pnpmPackageRoot, sealedImage, runtimeArgs } from './ci-fullstack-runtime.mjs';
 
 const catalog = JSON.parse(readFileSync(new URL('../playwright-runtime-images.json', import.meta.url), 'utf8'));
 const inputs = { root: '/runner/work/repo', home: '/runner/temp/home', tools: '/runner/temp/tools',
   uid: 1001, gid: 127, socketGid: 999, image: `mcr.microsoft.com/playwright@sha256:${'a'.repeat(64)}`,
-  node: '/opt/node/bin/node', pnpm: '/opt/pnpm', docker: '/usr/bin/docker', compose: '/opt/docker-compose',
+  node: '/opt/node/bin/node', pnpm: '/opt/pnpm', docker: '/usr/bin/docker', compose: '/opt/docker-compose', unzip: '/usr/bin/unzip',
   env: { CI: 'true', GITHUB_SHA: 'abc', GH_TOKEN: 'must-not-enter', GITHUB_TOKEN: 'must-not-enter' } };
 
 describe('preinstalled fullstack CI runtime', () => {
@@ -34,12 +34,18 @@ describe('preinstalled fullstack CI runtime', () => {
     const args = runtimeArgs(inputs).join(' ');
     for (const token of ['--network host', '--ipc host', '--user 1001:127', '--group-add 999', '/var/run/docker.sock',
       '/opt/docker-compose:/runner/temp/home/.docker/cli-plugins/docker-compose:ro',
-      '/runner/work/repo:/runner/work/repo', '/ms-playwright', '/usr/bin/apt-get:ro',
+      '/runner/work/repo:/runner/work/repo', '/ms-playwright', '/usr/bin/unzip:/wsx-ci-tools/bin/unzip:ro', '/usr/bin/apt-get:ro',
       'docker compose version', 'ci-fullstack-runtime.mjs browser', 'exec pnpm run verify:fullstack-smoke']) expect(args).toContain(token);
     expect(args).not.toContain('must-not-enter');
     expect(args).not.toContain('GITHUB_TOKEN');
     expect(args).toContain('DOCKER_CONFIG=/runner/temp/home/.docker');
     expect(args).not.toContain('DOCKER_CONFIG=/wsx-ci-tools');
+  });
+  it('requires the workflow explicit canonical command and refuses partial or altered coverage', () => {
+    expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).not.toThrow();
+    expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'])).not.toThrow();
+    expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
+    expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke', '--grep', 'one'])).toThrow();
   });
   it('runs existing independent geometry with the same prepared browser environment', () => {
     const args = runtimeArgs({ ...inputs, geometry: true }).join(' ');
