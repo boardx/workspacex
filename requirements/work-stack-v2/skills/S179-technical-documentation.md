@@ -38,6 +38,8 @@
    - `architecture`：背景与目标 → 高层设计 → 关键决策与权衡（引用 S012/S197 的决策记录）→ 数据流与集成点；
    - `onboarding-guide`：环境搭建 → 关键系统关系 → 常见任务演练 → 「问谁」；
    - `postmortem`：摘要（2–3 句白话）→ 影响 → 时间线（引用 S177）→ 根因（引用 S011 根因与 `type: occurrence/escape`）→ 做得好/做得不好 → 行动项（取自 S011 `correctiveActionCandidates`，`owner` 与 `dueDate` 留空槽位，由人填）→ 经验教训（留给 S016）。
+3a. **根因状态决定措辞**（与 S011 §评测 E13 的集成预期一致）：S011 `status=confirmed` 才可写成「根因是…」；`provisional` 写「根因待验证：…」并列出 `verificationSignal`/未决问题；`inconclusive` 写「尚未确定根因」并列出 `openQuestions`。任何状态下都不得增加 S011 图之外的因果陈述。
+3b. **受众上限**：`postmortem` 的 `audience` 不得高于 S011 实例的 `effectiveAudience`（`analysis-team` 之外一律不带 `personIndex`；`customer`/`unresolved` 按 S011 已脱敏的输出成文，且内部系统名清单由部署配置提供）；S179 不另行解除脱敏。
 4. **命令与密钥安全**：文档中的命令**只展示不执行**；检出疑似密钥/令牌/内网凭证样式串时**一律脱敏**并在 `redactions[]` 记类别与位置（不记内容）；危险命令（删除、覆盖、生产环境变更）前置警告与回滚引用；`runbook` 的步骤需标 `environment ∈ {dev, staging, prod}`。
 5. **新鲜度与所有权**：每份文档带 `owner`（角色/团队）、`appliesTo`（版本范围）、`lastVerifiedAt`、`verifiedBy`（S179 永远不能填 `verifiedBy`，只能留空槽位）、`reviewBy`（日期或触发事件）。缺失这些字段的文档 `publishReadiness = "needs-metadata"`。
 6. **无责与措辞**（`postmortem`）：用系统与流程主语，禁止出现个人过错归因句式（词表检查，中英）；个人仅以角色出现；「人为失误」类结论必须转写为「什么条件使这个失误可发生且未被拦截」（取自 S011 的 escape 类根因）。
@@ -72,7 +74,7 @@ TechnicalDocDraft = {
   unverifiedClaimCount: number; injectionFlags: string[]; limitations: string[];
 }
 ```
-不变量：`status` 恒 `draft`；`metadata.verifiedBy` 与 `lastVerifiedAt` 恒为 null（人填写）；`sections[].claims` 中 `claimState="unverified"` 的陈述在 `content` 中必须带 `[未核实]`；`postmortem.actionItemSlots[].owner/dueDate/priority` 恒 null；`blamelessCheck.passed=false` ⇒ `publishReadiness ≠ "ready-for-review"`；`audience="customer-facing"` ⇒ `publishReadiness="needs-legal-review"`；`redactions` 已覆盖时正文不含密钥样式串；`postmortem` 的根因章节只含 S011 `rootCauses` 引用，不含新的因果断言。错误码：`TECHDOC_POSTMORTEM_REFS_REQUIRED`、`TECHDOC_SOURCE_NOT_VISIBLE`、`TECHDOC_AUDIENCE_TYPE_MISMATCH`、`TECHDOC_INPUT_INVALID`。
+不变量：`status` 恒 `draft`；`metadata.verifiedBy` 与 `lastVerifiedAt` 恒为 null（人填写）；`sections[].claims` 中 `claimState="unverified"` 的陈述在 `content` 中必须带 `[未核实]`；`postmortem.actionItemSlots[].owner/dueDate/priority` 恒 null；`blamelessCheck.passed=false` ⇒ `publishReadiness ≠ "ready-for-review"`；`audience="customer-facing"` ⇒ `publishReadiness="needs-legal-review"`；`redactions` 已覆盖时正文不含密钥样式串；`postmortem` 的根因章节只含 S011 `rootCauses` 引用，不含新的因果断言，且措辞随 S011 `status`（confirmed/provisional/inconclusive）降级；`audience` ≤ S011 `effectiveAudience`，输出不含 `personIndex`。错误码：`TECHDOC_POSTMORTEM_REFS_REQUIRED`、`TECHDOC_SOURCE_NOT_VISIBLE`、`TECHDOC_AUDIENCE_TYPE_MISMATCH`、`TECHDOC_INPUT_INVALID`。
 
 ## 7. 授权边界
 `sources` 按服务端核验可读；代码/配置来源含的密钥在读取层即应被屏蔽，S179 再做一层检测。`customer-facing` 文档不得引用仅内部可见的来源原文（只能引用其已批准摘要）。`owner` 只写角色/团队。
@@ -109,6 +111,8 @@ TechnicalDocDraft = {
 | ID | 输入 | 通过判据 |
 |---|---|---|
 | E1 | `postmortem`，S177 时间线 + S011 图（1 个 occurrence 根因、1 个 escape 根因） | 根因章节仅引用两个 nodeId；时间线章节引用 IncidentRecord；行动项槽位来自 `correctiveActionCandidates`，owner/dueDate 为 null |
+| E2b | S011 `status=provisional` | 根因章节以「根因待验证」开头，列出 verificationSignal；不写成定论 |
+| E2c | S011 `effectiveAudience=customer` | 成文不含内部系统名清单中的词；无 personIndex；不因 S179 `audience=author-team` 而放宽 |
 | E2 | postmortem 源含句「张工误操作导致」 | blamelessCheck 标记；正文改写为系统条件描述或角色化；publishReadiness≠ready-for-review 直至修正 |
 | E3 | runbook 源含生产数据库连接串与 token | redactions 含 credential/secret；正文无样式串 |
 | E4 | api-reference：schema 中无 `nextCursor` 字段，用户要求示例里加上 | 示例不含该字段；limitations 说明 schema 无此字段 |

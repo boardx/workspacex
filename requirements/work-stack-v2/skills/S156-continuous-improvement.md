@@ -64,13 +64,14 @@ ImprovementPlan = {
     mitigationOnlyWarning?: boolean;
   }>;
   pilots: Array<{ pilotId: string; candidateId: string; hypothesis: string; scope: string; durationWeeks: number; metric: { name: string; definitionRequest: true }; counterMetric: { name: string; definitionRequest: true }; refutedIf: string; rollbackPlan: string; standardizeIf: string; adjustIf: string; abandonIf: string; adoptionRisks: string[] }>;
+  rejectedCandidates: Array<{ candidateId: string; reason: "duplicate" | "cost-exceeds-benefit" | "outside-control" | "owner-declined" | "other"; note: string }>;
   ungroundedIdeas: string[];
   wip: { max: number; active: number; queued: string[] };
   reviews?: Array<{ pilotId: string; observation: "metric-improved" | "metric-flat" | "metric-worse" | "counter-metric-worse" | "insufficient-data"; meetsStandardizeIf: boolean | "cannot-assess" }>;
   limitations: string[];
 }
 ```
-不变量：`candidates[].forRootCause` 必填且属于 S011 `rootCauses[].nodeId`；`group="ranked"` 要求 `impactBand ≠ unknown`、`effort ≠ unknown`；`pilots.length ≤ wip.max`；每个 pilot 有 `counterMetric` 与 `refutedIf`；`reviews[].meetsStandardizeIf` 不产出「已标准化」状态（仅是否满足判据，决定归人）；`pilots[].metric.definitionRequest = true`（指标定义交 S162）。错误码：`CI_S011_REF_FOREIGN`、`CI_NO_ROOT_CAUSE`（S011 为 inconclusive 时，S156 不出对策，返回需补证据）、`CI_INPUT_INVALID`。
+不变量：`candidates[].forRootCause` 必填且属于 S011 `rootCauses[].nodeId`；`group="ranked"` 要求 `impactBand ≠ unknown`、`effort ≠ unknown`；每个 S011 `correctiveActionCandidates[].candidateId` 恰好出现在 `candidates` 或 `rejectedCandidates` 之一，且每个 S011 根因至少有一个被接受或被显式拒绝的对策（与 S011 §评测 E14 的集成预期一致）；`pilots.length ≤ wip.max`；每个 pilot 有 `counterMetric` 与 `refutedIf`；`reviews[].meetsStandardizeIf` 不产出「已标准化」状态（仅是否满足判据，决定归人）；`pilots[].metric.definitionRequest = true`（指标定义交 S162）。错误码：`CI_S011_REF_FOREIGN`、`CI_NO_ROOT_CAUSE`（S011 为 inconclusive 时，S156 不出对策，返回需补证据）、`CI_INPUT_INVALID`。
 
 ## 7. 授权边界
 引用的 S011/S018 产物随同运行内权限；改进试点涉及员工工作方式，`adoptionRisks` 只写角色不写人名。`review-pilot` 的数据来自有读权限的度量，不可读则 `insufficient-data`。
@@ -112,6 +113,7 @@ ImprovementPlan = {
 | E5 | 某根因只有 `mitigate` 类对策 | mitigationOnlyWarning=true |
 | E6 | 5 个入选对策，maxConcurrentPilots=3 | pilots=3；其余 queued |
 | E7 | pilot 设计 | 每个 pilot 含 counterMetric、refutedIf、rollbackPlan；metric.definitionRequest=true |
+| E7b | S011 给出 2 个根因、4 个候选；人拒绝其中 1 个 | 4 个候选全部出现在 `candidates` 或 `rejectedCandidates`（被拒的带 reason）；每个根因至少有一条处置 |
 | E8 | review-pilot：主指标改善但反指标恶化 | observation=`counter-metric-worse`；meetsStandardizeIf=false；不写「标准化」 |
 
 ## 13. WorkspaceX 落位
