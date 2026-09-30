@@ -187,7 +187,7 @@ function BlueprintCard({
           {/* 引用计数门控：被套用过 → [归档]；从未套用 → [删除]（O-18①）*/}
           {row.appliedByProject
             ? <Button size="sm" variant="outline" onClick={() => onDanger("archive")} data-testid="tpl-row-archive"><Archive aria-hidden className="h-3 w-3" /> 归档</Button>
-            : <Button size="sm" variant="ghost" className="text-destructive transition-colors duration-200 hover:bg-destructive/10" onClick={() => onDanger("delete")} data-testid="tpl-row-delete"><Trash2 aria-hidden className="h-3 w-3" /> 删除</Button>}
+            : <Button size="sm" variant="ghost" className="text-destructive transition-colors duration-fast hover:bg-destructive/10" onClick={() => onDanger("delete")} data-testid="tpl-row-delete"><Trash2 aria-hidden className="h-3 w-3" /> 删除</Button>}
         </>
       }
     >
