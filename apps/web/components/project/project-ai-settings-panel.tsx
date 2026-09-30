@@ -111,7 +111,7 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
                 </Button>
               </span>
             ) : (
-              <span className="text-11 text-muted-foreground">只有本项目的引导师（或组织负责人 / 管理员）能修改。</span>
+              <span className="text-11 text-muted-foreground">只有项目负责人（或组织负责人 / 管理员）能修改。</span>
             )}
           </div>
         )}
@@ -132,7 +132,7 @@ function describeFailure(e: unknown): string {
     switch (e.reasonCode) {
       case "NO_PROJECT_ROLE": return "你不在这个项目里，看不到它的 AI 权限。";
       case "ADMIN_NOT_SUPERUSER": return "组织管理员不自动拥有项目内容的读权限，需要先被加入项目。";
-      case "PROJECT_ROLE_INSUFFICIENT": return "只有本项目的引导师（或组织负责人 / 管理员）能修改 AI 权限。";
+      case "PROJECT_ROLE_INSUFFICIENT": return "只有项目负责人（或组织负责人 / 管理员）能修改 AI 权限。";
       case "ORG_ROLE_INSUFFICIENT": return "你的组织角色不足以修改这个项目的 AI 权限。";
       case "AUTH_SERVICE_UNAVAILABLE": return "身份校验服务暂时不可用，请稍后重试。";
     }

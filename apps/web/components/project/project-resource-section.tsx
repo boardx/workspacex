@@ -1,11 +1,12 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, FileSearch, Link2, Mic, Palette, PenLine, Plus, Unlink, Users, type LucideIcon } from "lucide-react";
+import { ClipboardList, FileSearch, Link2, MoreHorizontal, Mic, Palette, PenLine, Plus, Unlink, Users, type LucideIcon } from "lucide-react";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
+import { ProjectContentCard, CONTENT_GRID_CLASS } from "./project-content-card";
 import { SectionTitle } from "./parts";
 import { withProjectId, type ProjectResearchSub } from "./project-breadcrumb";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
@@ -254,7 +255,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   const Icon = meta.icon;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6" data-testid="project-resources" data-kind={meta.resourceKind}>
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-resources" data-kind={meta.resourceKind}>
       <div className="flex flex-wrap items-center gap-2">
         <SectionTitle meta={meta.meta} className="mb-0">{label}</SectionTitle>
         <span className="flex-1" />
@@ -336,30 +337,32 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
           </p>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-1.5" data-testid="project-resources-list">
+        <ul className={CONTENT_GRID_CLASS} data-testid="project-resources-list">
           {items.map((it) => (
             <li key={it.id}>
-              <a
+              <ProjectContentCard
                 href={withProjectId(meta.detailHref(it.id), projectId)}
-                data-testid={`project-resource-${it.id}`}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5 transition-colors hover:border-primary"
-              >
-                <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-12 font-medium">{it.title}</div>
-                  <div className="truncate text-10 text-muted-foreground">
-                    更新于 {formatDate(it.updatedAt)} · 挂入 {formatDate(it.linkedAt)}
-                  </div>
-                </div>
-                {it.status && <Badge tone="outline">{it.status}</Badge>}
-                {canWrite && linkable && (
-                  <span onClick={(e) => e.preventDefault()}>
-                    <Button size="xs" variant="ghost" disabled={busyId === it.id} onClick={() => void unlink(it.id)} data-testid={`project-resource-unlink-${it.id}`}>
-                      <Unlink aria-hidden className="h-3 w-3" />移出项目
-                    </Button>
-                  </span>
-                )}
-              </a>
+                linkTestId={`project-resource-${it.id}`}
+                icon={Icon}
+                title={it.title}
+                typeLabel={label}
+                status={it.status}
+                meta={`更新于 ${formatDate(it.updatedAt)} · 挂入 ${formatDate(it.linkedAt)}`}
+                menu={canWrite && linkable ? (
+                  <Menu>
+                    <MenuTrigger asChild>
+                      <Button size="icon" variant="ghost" aria-label="更多操作" className="h-7 w-7" data-testid={`project-resource-more-${it.id}`}>
+                        <MoreHorizontal aria-hidden className="h-4 w-4" />
+                      </Button>
+                    </MenuTrigger>
+                    <MenuContent align="end">
+                      <MenuItem disabled={busyId === it.id} onSelect={() => void unlink(it.id)} data-testid={`project-resource-unlink-${it.id}`}>
+                        <Unlink aria-hidden className="h-3.5 w-3.5" />移出项目
+                      </MenuItem>
+                    </MenuContent>
+                  </Menu>
+                ) : null}
+              />
             </li>
           ))}
         </ul>

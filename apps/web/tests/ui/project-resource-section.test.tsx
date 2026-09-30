@@ -119,6 +119,8 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
       return json(RESOURCES);
     });
     const { unmount } = render(<TabResearch view="facilitator" sub="survey" projectId="p1" />);
+    // 移出项目在卡片右上「更多操作」菜单里（#4743）
+    fireEvent.keyDown(await screen.findByTestId("project-resource-more-s1"), { key: "Enter" });
     fireEvent.click(await screen.findByTestId("project-resource-unlink-s1"));
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(true));
     const del = fetchMock.mock.calls.find(([, init]) => init?.method === "DELETE")!;
@@ -127,7 +129,7 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
     render(<TabResearch view="facilitator" sub="itv" projectId="p1" />);
     await screen.findByTestId("project-resource-i1");
     expect(screen.getByTestId("project-resources-link-open")).toBeInTheDocument();
-    expect(screen.getByTestId("project-resource-unlink-i1")).toBeInTheDocument();
+    expect(screen.getByTestId("project-resource-more-i1")).toBeInTheDocument();
     expect(screen.getByTestId("project-resources-new")).toBeInTheDocument();
   });
 
