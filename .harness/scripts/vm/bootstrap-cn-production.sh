@@ -12,10 +12,11 @@ TRUSTED_DEPLOY_BIN=${TRUSTED_DEPLOY_BIN:-/usr/local/bin/workspacex-cn-deploy}
 TRUSTED_CANDIDATE_BIN=${TRUSTED_CANDIDATE_BIN:-/usr/local/bin/workspacex-cn-build-candidate}
 TRUSTED_PUBLISH_BIN=${TRUSTED_PUBLISH_BIN:-/usr/local/lib/workspacex-cn/publish-cn-release.sh}
 TRUSTED_PREFLIGHT_BIN=${TRUSTED_PREFLIGHT_BIN:-/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh}
+TRUSTED_COLLECTOR_BIN=${TRUSTED_COLLECTOR_BIN:-/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh}
 TRUSTED_PROMOTION_BIN=${TRUSTED_PROMOTION_BIN:-/usr/local/bin/workspacex-cn-verify-promotion}
 SUDOERS_FILE=${SUDOERS_FILE:-/etc/sudoers.d/workspacex-cn-deploy}
 
-[[ "$REPOSITORY_DIR" == /* && "$TRUSTED_DEPLOY_BIN" == /* && "$TRUSTED_CANDIDATE_BIN" == /* && "$TRUSTED_PUBLISH_BIN" == /* && "$TRUSTED_PREFLIGHT_BIN" == /* && "$TRUSTED_PROMOTION_BIN" == /* && "$SUDOERS_FILE" == /* ]] || {
+[[ "$REPOSITORY_DIR" == /* && "$TRUSTED_DEPLOY_BIN" == /* && "$TRUSTED_CANDIDATE_BIN" == /* && "$TRUSTED_PUBLISH_BIN" == /* && "$TRUSTED_PREFLIGHT_BIN" == /* && "$TRUSTED_COLLECTOR_BIN" == /* && "$TRUSTED_PROMOTION_BIN" == /* && "$SUDOERS_FILE" == /* ]] || {
   echo "CN_BOOTSTRAP_PATHS_MUST_BE_ABSOLUTE" >&2; exit 1;
 }
 [[ "$RUNNER_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { echo "CN_BOOTSTRAP_INVALID_RUNNER_USER" >&2; exit 1; }
@@ -40,8 +41,9 @@ source_script="$REPOSITORY_DIR/.harness/scripts/vm/deploy-cn-production.sh"
 candidate_script="$REPOSITORY_DIR/.harness/scripts/vm/build-cn-release-candidate.sh"
 publisher_script="$REPOSITORY_DIR/.harness/scripts/vm/publish-cn-release.sh"
 preflight_script="$REPOSITORY_DIR/.harness/scripts/vm/verify-cn-release-preflight.sh"
+collector_script="$REPOSITORY_DIR/.harness/scripts/vm/collect-cn-release-preflight.sh"
 promotion_script="$REPOSITORY_DIR/.harness/scripts/vm/verify-cn-release-promotion.sh"
-[[ -f "$candidate_script" && ! -L "$candidate_script" && -f "$publisher_script" && ! -L "$publisher_script" && -f "$preflight_script" && ! -L "$preflight_script" && -f "$promotion_script" && ! -L "$promotion_script" ]] || { echo "CN_BOOTSTRAP_CANDIDATE_SOURCE_MISSING" >&2; exit 1; }
+[[ -f "$candidate_script" && ! -L "$candidate_script" && -f "$publisher_script" && ! -L "$publisher_script" && -f "$preflight_script" && ! -L "$preflight_script" && -f "$collector_script" && ! -L "$collector_script" && -f "$promotion_script" && ! -L "$promotion_script" ]] || { echo "CN_BOOTSTRAP_CANDIDATE_SOURCE_MISSING" >&2; exit 1; }
 
 install -d -o root -g "$RUNNER_GROUP" -m 0750 /etc/workspacex-cn /etc/workspacex-cn/releases
 install -d -o root -g root -m 0700 /etc/workspacex-cn/requests
@@ -55,6 +57,12 @@ install -o root -g root -m 0755 "$source_script" "$TRUSTED_DEPLOY_BIN"
 install -d -o root -g root -m 0755 "$(dirname "$TRUSTED_PUBLISH_BIN")"
 install -o root -g root -m 0755 "$publisher_script" "$TRUSTED_PUBLISH_BIN"
 install -o root -g root -m 0755 "$preflight_script" "$TRUSTED_PREFLIGHT_BIN"
+install -o root -g root -m 0755 "$collector_script" "$TRUSTED_COLLECTOR_BIN"
+for helper in cn-release-preflight-evidence.mjs cn-release-orphans.py cn-bootstrap-source-probe.mjs; do
+  source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
+  [[ -f "$source" && ! -L "$source" ]] || { echo "CN_BOOTSTRAP_COLLECTOR_HELPER_MISSING" >&2; exit 1; }
+  install -o root -g root -m 0755 "$source" "/usr/local/lib/workspacex-cn/$helper"
+done
 install -o root -g root -m 0755 "$candidate_script" "$TRUSTED_CANDIDATE_BIN"
 install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"
 

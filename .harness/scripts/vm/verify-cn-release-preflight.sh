@@ -2,8 +2,8 @@
 # Validate and persist one exact, root-protected CN release preflight receipt.
 set -euo pipefail
 
-[[ $# -eq 3 && "$1" =~ ^(prebuild|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ ]] || {
-  echo "usage: verify-cn-release-preflight <prebuild|preactivate> <40-hex-revision> <semantic-release>" >&2
+[[ $# -eq 4 && "$1" =~ ^(prebuild|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ && "$4" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
+  echo "usage: verify-cn-release-preflight <prebuild|preactivate> <40-hex-revision> <semantic-release> <attempt-id>" >&2
   exit 2
 }
 [[ ${EUID} -eq 0 ]] || { echo "CN_RELEASE_PREFLIGHT_REQUIRES_ROOT" >&2; exit 1; }
@@ -11,12 +11,13 @@ set -euo pipefail
 phase=$1
 revision=$2
 release=$3
+attempt_id=$4
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 INPUT_ROOT=/etc/workspacex-cn/preflights
 RECEIPT_ROOT=/var/lib/workspacex-cn/preflight-receipts
 LOCK_FILE=/var/lib/workspacex-cn/runtime/release.lock
-input="$INPUT_ROOT/$revision.$phase.json"
-receipt_dir="$RECEIPT_ROOT/$revision"
+input="$INPUT_ROOT/$revision/$attempt_id/$phase.json"
+receipt_dir="$RECEIPT_ROOT/$revision/$attempt_id"
 raw_receipt="$receipt_dir/$phase.json"
 validated_receipt="$receipt_dir/$phase.validated.json"
 stored_prebuild="$receipt_dir/prebuild.json"
@@ -40,7 +41,7 @@ install_once_or_identical() {
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "repository missing"
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
 private_root_file "$input"
-install -d -o root -g root -m 0700 "$RECEIPT_ROOT" "$receipt_dir"
+install -d -o root -g root -m 0700 "$RECEIPT_ROOT" "$RECEIPT_ROOT/$revision" "$receipt_dir"
 
 # Do not trust a static heldByAttempt claim. Both trusted callers open the
 # canonical lock as fd 9 before invoking this verifier. The parent-fd check
@@ -73,7 +74,7 @@ const value=JSON.parse(fs.readFileSync(inputPath,"utf8"));
 const lock=value?.checks?.["runtime.release_lock"];
 if(!lock||value.phase!==phase||typeof value.attemptId!=="string"||!value.attemptId)process.exit(1);
 const fact=`${value.attemptId}|${phase}|canonical-release-lock-held`;
-value.checks["runtime.release_lock"]={status:"passed",evidenceSha256:crypto.createHash("sha256").update(fact).digest("hex"),metadata:{heldByAttempt:true}};
+value.checks["runtime.release_lock"]={status:"passed",evidenceSha256:crypto.createHash("sha256").update(fact).digest("hex"),metadata:{heldByAttempt:true,attemptId:value.attemptId}};
 fs.writeFileSync(outputPath,`${JSON.stringify(value)}\n`,{mode:0o600,flag:"wx"});
 NODE
 
@@ -85,13 +86,13 @@ fi
 grep -q '^CN_RELEASE_PREFLIGHT_JSON=' "$output" || fail "validator machine record is missing"
 sed 's/^CN_RELEASE_PREFLIGHT_JSON=//' "$output" >"$work/result.json"
 
-node - "$evidence" "$work/result.json" "$phase" "$revision" "$release" "$stored_prebuild" <<'NODE' \
+node - "$evidence" "$work/result.json" "$phase" "$revision" "$release" "$attempt_id" "$stored_prebuild" <<'NODE' \
   || fail "receipt identity, readiness, or prior evidence differs"
 const fs=require("node:fs");
-const [inputPath,resultPath,phase,revision,release,storedPrebuild]=process.argv.slice(2);
+const [inputPath,resultPath,phase,revision,release,attemptId,storedPrebuild]=process.argv.slice(2);
 const input=JSON.parse(fs.readFileSync(inputPath,"utf8"));
 const result=JSON.parse(fs.readFileSync(resultPath,"utf8"));
-if(result.phase!==phase||result.sourceSha!==revision||result.release!==release||result.ready!==true)process.exit(1);
+if(result.phase!==phase||result.sourceSha!==revision||result.release!==release||result.attemptId!==attemptId||input.attemptId!==attemptId||result.ready!==true)process.exit(1);
 if(phase==="preactivate"){
   if(!fs.existsSync(storedPrebuild))process.exit(1);
   const prior=JSON.parse(fs.readFileSync(storedPrebuild,"utf8"));

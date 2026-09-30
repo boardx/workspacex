@@ -18,7 +18,7 @@ import { ensureSystemAgent, type SystemAgentTemplate } from "./pg-system-agent-r
  * `DeepResearchModelProvider`，见该文件头注）。lock key 用 661（与默认 agent 的 660
  * 分开，两个模板不会互相排队等同一把锁）。
  */
-const DEEP_RESEARCH_AGENT_TEMPLATE: SystemAgentTemplate = {
+export const DEEP_RESEARCH_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: DEEP_RESEARCH_AGENT_STABLE_NAME,
   name: DEEP_RESEARCH_AGENT_NAME,
   abbr: "DR",

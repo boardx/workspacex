@@ -25,6 +25,7 @@ RUN set -eu; for entry in \
   src/infrastructure/db/migrate-cli.ts \
   scripts/prepare-starter-roles.ts \
   scripts/provision-admin.ts \
+  scripts/provision-admin-compatibility.ts \
   scripts/data-readiness.ts \
   scripts/cloud-service-readiness.ts \
   scripts/backup-target-readiness.ts \
