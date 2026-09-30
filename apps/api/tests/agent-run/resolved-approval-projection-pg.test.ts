@@ -175,3 +175,29 @@ it("从来没被裁决过的中断不留痕：这正是「等待服务端确认�
   expect(view.permissionDecisions.count).toBe(0);
   expect(view.resolvedApprovals).toEqual([]);
 });
+
+it("uiux-r3 #4.5：升级裁决留下「决定人 · 同意/驳回 · 说明 · 时间」记录，刷新后照样读得到", async () => {
+  const repo = new PgAgentRunRepository(db);
+  const payload = JSON.stringify({ matter: "合同变更", reason: "要改付款条款", target: "requester", contextRefs: [] });
+  await repo.markAwaitingToolPermission(org, RUN, {
+    toolName: "escalate_matter", argsSummary: payload,
+    toolCallId: "esc-call", toolArgsDigest: "e".repeat(64),
+  });
+  const requestId = await pendingRequestId();
+  const before = await readProjection(repo);
+  expect(before.resolvedEscalations ?? [], "待决中不是已裁决").toEqual([]);
+  expect(await repo.decidePermissionRequest(org, RUN, requestId, "edit", "resolved-user",
+    JSON.stringify({ decision: "resolve", decisionText: "同意，只改付款周期。" }))).toBe(true);
+  const after = await readProjection(repo);
+  expect(after.resolvedEscalations).toHaveLength(1);
+  const record = after.resolvedEscalations![0]!;
+  expect(record.permissionRequestId).toBe(requestId);
+  expect(record.decision).toBe("resolve");
+  expect(record.text).toBe("同意，只改付款周期。");
+  expect(record.argsSummary).toBe(payload);
+  expect(record.decidedBy?.userId).toBe("resolved-user");
+  expect(record.decidedAt).not.toBeNull();
+  expect(Number.isNaN(Date.parse(record.decidedAt!))).toBe(false);
+  // 升级不是 RestorableInterrupt 表单：不混进 resolvedApprovals 的表单留痕。
+  expect(after.resolvedApprovals).toEqual([]);
+});

@@ -32,7 +32,7 @@ const api = vi.hoisted(() => ({
 
 vi.mock("@/lib/plan-control-api", () => api);
 
-import { CopilotKitV2PlanControl } from "@/components/chat/copilotkit-v2-plan-control";
+import { CopilotKitV2PlanControl, planSummaryText } from "@/components/chat/copilotkit-v2-plan-control";
 const PLAN_PHASE_INDICATOR_TESTID = "chat-task-workbench-plan-summary";
 import { PLAN_PANEL_TESTID, PLAN_STEP_TESTID } from "@/components/plan-control/plan-panel-readonly";
 import { PLAN_STEP_DELETE_TESTID, PLAN_STEP_REORDER_TESTID } from "@/components/plan-control/plan-panel-edit";
@@ -545,7 +545,8 @@ describe("compact plan presentation", () => {
     render(<CopilotKitV2PlanControl threadId="ordinary" />);
     const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(toggle.textContent).toContain("0/2 步已标记完成");
+    expect(toggle.textContent).toContain("已完成");
+    expect(toggle.textContent, "UIUX r3 屏 6：结束态不摆 N/M 计数器").not.toContain("步已标记完成");
     expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
     fireEvent.click(toggle);
     expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
@@ -801,7 +802,8 @@ describe("#3245① 结束且账本跑满时不常驻，其余态照旧", () => {
       "t-3245-done-incomplete",
     );
     expect(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeInTheDocument();
-    expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toHaveTextContent("1/2 步已标记完成");
+    expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toHaveTextContent("已完成");
+    expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).not.toHaveTextContent("1/2 步已标记完成");
   });
 
   /*
@@ -846,5 +848,17 @@ describe("#3245① 结束且账本跑满时不常驻，其余态照旧", () => {
       "t-3245-failed",
     );
     expect(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeInTheDocument();
+  });
+});
+
+describe("planSummaryText（UIUX r3 屏 6）", () => {
+  it("结束态（done、run 不在跑）⇒ 已完成，不显示 1/3 计数", () => {
+    expect(planSummaryText("本轮已结束", "done", false, 1, 3)).toBe("执行计划 · 本轮已结束 · 已完成");
+  });
+  it("进行中 ⇒ 保留 N/M", () => {
+    expect(planSummaryText("执行中", "executing", true, 1, 3)).toBe("执行计划 · 执行中 · 1/3 步已标记完成");
+  });
+  it("失败 ⇒ 保留 N/M", () => {
+    expect(planSummaryText("执行遇到问题", "failed", false, 1, 3)).toContain("1/3 步已标记完成");
   });
 });

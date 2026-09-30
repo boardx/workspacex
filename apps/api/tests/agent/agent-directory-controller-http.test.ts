@@ -19,6 +19,7 @@ function row(): AgentDirectoryRow {
     agentId: "agent-1", versionId: "v-1", name: "研究员小艾", roleLabel: "研究专家",
     avatar: null, roleCategory: "research", tags: ["调研"], catalogSource: "official",
     workflowAllowlist: [], toolPolicyLength: 0,
+    duty: null, roleRef: null, skillMountIds: [], skillVersionIds: [], delegationTargetRefs: [], requireApprovalForHandoff: true,
   };
 }
 
@@ -66,5 +67,14 @@ describe("AG04 AgentDirectoryController HTTP mapping", () => {
   it("getOne: 不存在 → 404", async () => {
     const controller = setup({ found: null });
     await expect(controller.getOne(MEMBER, "nope")).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe("AG04 follow-up getProfile HTTP mapping", () => {
+  it("可见 → 200 契约形状；未认证 → 401；不存在 → 404", async () => {
+    const out = await setup().getProfile(MEMBER, "agent-1");
+    expect(R.operations.getAgentDirectoryProfile.out.parse(out).agentId).toBe("agent-1");
+    await expect(setup({ authed: false }).getProfile(MEMBER, "agent-1")).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(setup({ found: null }).getProfile(MEMBER, "nope")).rejects.toBeInstanceOf(NotFoundException);
   });
 });

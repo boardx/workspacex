@@ -1,6 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
+import { handoffDraftText, type HandoffView } from "@/lib/agent-handoff";
+import { seedComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
+import { displayThreadTitle } from "@/lib/thread-title-display";
+import { useOptionalCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
@@ -863,6 +868,20 @@ export function CopilotKitV2Shell({
     pushThreadRoute(threadId);
   }, [applyThreadSelection, pushThreadRoute]);
 
+  /* AG07：handoff 卡片——一轮对话有动静后重读；确认转交后切到接收方新线程并选中目标 Agent。 */
+  const [handoffRefreshKey, setHandoffRefreshKey] = React.useState(0);
+  const agentSelection = useOptionalCopilotKitV2AgentSelection();
+  const selectHandoffAgent = agentSelection?.setSelectedAgentId;
+  const draftOrgId = session?.currentOrgId ?? null;
+  const draftUserId = session?.userId ?? null;
+  const openHandoffThread = React.useCallback((result: { newThreadId: string; targetAgentId: string }, view?: HandoffView) => {
+    // UIUX r1 屏 4 P0-3：新线程不是空白——交接包摘要预填成首条消息草稿（接收方不自动开跑，发不发由用户定）。
+    if (view) seedComposerDraft({ orgId: draftOrgId, userId: draftUserId, projectId, threadId: result.newThreadId }, handoffDraftText(view));
+    selectHandoffAgent?.(result.targetAgentId);
+    void reloadThreads();
+    selectThread(result.newThreadId);
+  }, [reloadThreads, selectHandoffAgent, selectThread, draftOrgId, draftUserId, projectId]);
+
   /**
    * `copilotkit-v2-panel.tsx` 把这次调用挂在 `onThreadResolved` —— 见该文件新增的
    * prop。只在 URL 尚未带真实 id 时才需要写地址栏（`selectedThreadId === null`，
@@ -1270,7 +1289,7 @@ export function CopilotKitV2Shell({
           >
             {selectedThreadId === null
               ? (projectId ? "项目对话" : "个人对话")
-              : cards.find((card) => card.id === selectedThreadId)?.title ?? (projectId ? "项目对话" : "个人对话")}
+              : displayThreadTitle(cards.find((card) => card.id === selectedThreadId)?.title) ?? (projectId ? "项目对话" : "个人对话")}
           </span>
           <span
             className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
@@ -1295,6 +1314,14 @@ export function CopilotKitV2Shell({
             这层补 `min-h-0 flex-1` 让面板继续占满剩余高度，不然 flex-col 默认按
             内容撑高，消息区会失去可滚动的固定高度。 */}
         <div className="min-h-0 flex-1">
+        {/* AG07 handoff 卡片经 context 进消息流（Agent 的一条消息），不再钉在线程头下（UIUX r1 屏 4 P0-1）。 */}
+        <ChatHandoffStream
+          threadId={selectedThreadId}
+          sessionToken={bearer ?? undefined}
+          refreshKey={handoffRefreshKey}
+          onOpenThread={openHandoffThread}
+          onOpenSourceThread={selectThread}
+        >
         {/* issue #4244：助手消息引用来自同一次 `getThread`（`onMessageSent` 会重读）。 */}
         <ThreadCitationsProvider messages={threadDetail?.messages}>
         <CopilotKitV2Panel
@@ -1314,6 +1341,7 @@ export function CopilotKitV2Shell({
           onMessageSent={() => {
             void loadRightPanel();
             void reloadThreads();
+            setHandoffRefreshKey((n) => n + 1);
           }}
           /* issue #2050 —— 落地成功后重读右栏「产物」，让新产物真的出现在栏里。 */
           onArtifactLanded={() => void loadRightPanel()}
@@ -1334,6 +1362,7 @@ export function CopilotKitV2Shell({
           canGeneratePersona={canGeneratePersona}
         />
         </ThreadCitationsProvider>
+        </ChatHandoffStream>
         </div>
       </div>
       {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态
