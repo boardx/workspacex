@@ -203,6 +203,22 @@ export class PgWorkflowEventStore implements WorkflowEventStore, WorkflowInstanc
     });
   }
 
+  triggerInputs(orgId: string, instanceIds: readonly string[]): Promise<Map<string, Record<string, unknown>>> {
+    if (instanceIds.length === 0) return Promise.resolve(new Map());
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const { rows } = await s.query<{ instance_id: string; input: unknown }>(
+        `SELECT instance_id, data->'input' AS input FROM workflow_events
+          WHERE org_id = $1 AND instance_id = ANY($2::text[]) AND seq = 1 AND type = 'instance_started'`,
+        [orgId, [...instanceIds]],
+      );
+      const out = new Map<string, Record<string, unknown>>();
+      for (const r of rows) {
+        if (r.input && typeof r.input === "object" && !Array.isArray(r.input)) out.set(r.instance_id, r.input as Record<string, unknown>);
+      }
+      return out;
+    });
+  }
+
   /** UC-WR-10：开过人工门的实例 id（新近优先）。 */
   listGateInstanceIds(orgId: string, q: { openOnly: boolean; limit: number }): Promise<string[]> {
     return this.db.withTenant(toOrgId(orgId), async (s) => {

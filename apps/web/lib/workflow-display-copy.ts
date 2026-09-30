@@ -33,6 +33,18 @@ export function workflowDisplayName(keyOrId: string, fallbackTitle?: string): st
   return findBuiltinWorkflow(keyOrId)?.name ?? fallbackTitle ?? keyOrId;
 }
 
+const RUN_TITLE_ID = /^\s*(W\d{3})\b\s*([^·:：]*?)\s*(?=[·:：]|$)/i;
+
+/** 运行卡标题：`W029 Problem-to-PRD · xxx` → `问题定义到 PRD · xxx`；开头不是内置编号时原样返回。 */
+export function runTitleDisplay(title: string): string {
+  const m = RUN_TITLE_ID.exec(title);
+  if (!m) return title;
+  const name = findBuiltinWorkflow(m[1]!)?.name;
+  if (!name) return title;
+  const rest = title.slice(m[0].length).trim();
+  return rest ? `${name} ${rest}` : name;
+}
+
 const STAGES: Record<string, string> = {
   activation_define: "定义激活指标",
   adjudicate: "裁决分歧",
@@ -115,4 +127,24 @@ export function stageDisplayName(stageId: string, title: string, index: number):
   // 运行时给的是人话标题（定义里写了中文名）时优先用它；标题只是 id 本身时才查 copy 表。
   if (title && title !== stageId && !/^[a-z0-9_.-]+$/i.test(title)) return title;
   return STAGES[stageId] ?? `步骤 ${index + 1}`;
+}
+
+/**
+ * 阶段产出显示名：运行时对内置工作流产出只给技术标签 `W029/intake`，不上屏——
+ * 换成「<阶段名>的产出」；运行时给的是人话标签时原样用。
+ */
+export function outputDisplayLabel(label: string, stageName: string): string {
+  if (/^[a-z]+\d+\/[a-z0-9_.-]+$/i.test(label.trim()) || /^[a-z0-9_.-]+$/i.test(label.trim())) return `「${stageName}」的产出`;
+  return label;
+}
+
+/**
+ * 审批门的人话标题：`<阶段显示名>` · `<工作流中文名>`。
+ * 运行时的 summary 对内置工作流只是阶段 id（或 `target_gate（problem-to-prd@1）` 这类拼接），不直接上屏。
+ */
+export function gateDisplayTitle(gate: { stageId: string; summary: string }, workflowKey?: string): { stage: string; workflow: string | null } {
+  const summary = gate.summary.trim();
+  const looksTechnical = summary === gate.stageId || /^[a-z0-9_.-]+(（.*）|\(.*\))?$/i.test(summary);
+  const stage = looksTechnical ? STAGES[gate.stageId] ?? "审批事项" : summary;
+  return { stage, workflow: workflowKey ? workflowDisplayName(workflowKey) : null };
 }

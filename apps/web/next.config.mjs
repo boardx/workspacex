@@ -442,6 +442,10 @@ export default {
       // 裸路径与 `:path*` 各一条：前者匹配不到子路径为空的清单读。
       { source: `${prefix}/tool-permission-grants`, destination: `${apiOrigin}/tool-permission-grants` },
       { source: `${prefix}/tool-permission-grants/:path*`, destination: `${apiOrigin}/tool-permission-grants/:path*` },
+      // 工作流权限授予（组织 admin）：`WorkflowCapabilityGrantController` 同样是 `@Controller()`（空前缀），
+      // 裸路径 `GET /workflow-capability-grants` + `PUT/DELETE /workflow-capability-grants/:capabilityCategory`。
+      { source: `${prefix}/workflow-capability-grants`, destination: `${apiOrigin}/workflow-capability-grants` },
+      { source: `${prefix}/workflow-capability-grants/:path*`, destination: `${apiOrigin}/workflow-capability-grants/:path*` },
       // #3440：composer「自动批准文档生成所需权限」开关。`DocumentGenerationAutoApproveController`
       // 同样是 `@Controller()`（空前缀），路径是裸的 `GET/PUT /document-generation-auto-approve`——
       // 与上面 `/tool-permission-grants` 同一个形状同一个坑，没有 `:path*` 子路径，只需一条。

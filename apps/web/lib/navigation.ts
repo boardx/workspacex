@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
-  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler, Home,
+  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler, Home, Workflow,
 } from "lucide-react";
 
 /**
@@ -221,6 +221,9 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // phase-18 的 UC 直接放在 requirements/ 下（没有 NN-模块 子目录），故以阶段目录名作前缀。
       { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["phase-18-org-brain-knowledge-graph/uc-18-4", "phase-18-org-brain-knowledge-graph/uc-18-3"] },
       { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo, ucRefs: ["11-board/uc-11-1"] },
+      // uiux-r4：工作流（我的运行 / 待我审批 / 运行看板）此前只有子页、主导航无入口，/workflows 本身 404。
+      // 入口指 /workflows（落地即重定向到「我的运行」），子页左栏 WorkflowNav 负责三者切换。
+      { key: "workflows", label: "工作流", href: "/workflows", icon: Workflow, ucRefs: [] },
       // 束: agent-role（AG04，phase-20 work-stack-foundation）—— 成员 Agent 目录顶层路由
       // `/agent`（与 `/skill` 平行，见 ui.md「成员目录作为新顶层路由 /agent」）。此前只有
       // 页面本体、没有导航入口——普通成员没有可发现的方式到达（review #AG04 指出）。

@@ -267,6 +267,8 @@ export const BoardWorkflowRunCard = z
     column: z.enum(["in_progress", "review", "done"]),
     badge: BoardRunBadge,
     initiatorUserId: z.string(),
+    goal: z.string().nullable().default(null), // 目标摘录（与实例列表同一份 goalFromTriggerInput）
+    createdAt: z.string().nullable().default(null), // ISO；卡上显示发起时间
     agents: z.array(BoardRunCardAgent), // 发起 Agent + 转交链；A1 时为空
     draggable: z.literal(false),
     href: z.string(), // 跳实例详情

@@ -1,7 +1,7 @@
 /**
  * WF08 —— 运行面板文案。key 集合与契约枚举同一件事：新增枚举值时 TS 报「缺 key」。
  */
-import type { WorkflowErrorCode, WorkflowInstanceStatus, WorkflowReasonCode, WorkflowStageView } from "@/lib/workflow-runtime-api";
+import type { WorkflowSseEnvelope, WorkflowErrorCode, WorkflowInstanceStatus, WorkflowReasonCode, WorkflowStageView } from "@/lib/workflow-runtime-api";
 
 export const INSTANCE_STATUS_TEXT: Record<WorkflowInstanceStatus, string> = {
   running: "运行中",
@@ -74,3 +74,22 @@ export const STAGE_FAILURE_KIND_TEXT: Record<string, string> = {
 export function stageFailureKindText(kind: unknown): string | null {
   return typeof kind === "string" && Object.hasOwn(STAGE_FAILURE_KIND_TEXT, kind) ? STAGE_FAILURE_KIND_TEXT[kind]! : null;
 }
+
+type WorkflowSseEventType = Extract<WorkflowSseEnvelope, { type: "delta" }>["payload"]["event"];
+
+/** 运行日志事件名 → 人话（日志区不上屏内部事件名）。 */
+export const EVENT_TEXT: Record<WorkflowSseEventType, string> = {
+  instance_started: "开始运行",
+  stage_started: "步骤开始",
+  stage_output_written: "写入产出",
+  stage_succeeded: "步骤完成",
+  stage_failed: "步骤失败",
+  stage_retried: "步骤重试",
+  gate_opened: "等待审批",
+  gate_decided: "审批已处理",
+  effect_begun: "开始执行操作",
+  effect_finalized: "操作完成",
+  effect_blocked: "操作因权限暂停",
+  status_changed: "状态变化",
+  cancel_requested: "请求取消",
+};

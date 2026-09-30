@@ -14,6 +14,7 @@ import {
 import { deriveGates, gateView, isApproverOfAnyGate } from "./human-gate-state";
 import { WorkflowUseCaseError } from "./workflow-errors";
 import type { WorkflowActor, WorkflowDefinitionRepository } from "./workflow-ports";
+import { goalFromTriggerInput } from "./trigger-goal";
 import type {
   WorkflowAccessPort,
   WorkflowEventStore,
@@ -34,8 +35,9 @@ export function isTerminal(status: WorkflowInstanceStatus): boolean {
   return WORKFLOW_TERMINAL_STATUSES.includes(status);
 }
 
+/** 阶段产出链接指向前端产出页（与 Board 运行卡 href 同一族）；API 没有 `/outputs/:id` 路由。 */
 export function stageOutputHref(instanceId: string, outputId: string): string {
-  return `/workflow-instances/${encodeURIComponent(instanceId)}/outputs/${encodeURIComponent(outputId)}`;
+  return `/workflows/runs/${encodeURIComponent(instanceId)}/result?output=${encodeURIComponent(outputId)}`;
 }
 
 export function buildProjection(
@@ -115,6 +117,7 @@ export function buildProjection(
     status: instance.status,
     stateVersion: instance.stateVersion,
     reasonCode: instance.reasonCode,
+    goal: goalFromTriggerInput(events.find((e) => e.type === "instance_started")?.data.input),
     stages,
     openGate: openGateView(events, definition, viewer, instance),
     effects: [],

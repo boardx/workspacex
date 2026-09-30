@@ -2,9 +2,24 @@
  * /workflows/* 左栏与页标题：用设计 token 的样式渲染（不是挤在一起的裸文本），当前页高亮。
  */
 import * as React from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
+import { TOP_LEVEL_NAV_ITEMS } from "@/lib/navigation";
+
+const redirectMock = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", async (orig) => ({ ...((await orig()) as object), redirect: redirectMock }));
+
+describe("工作流主导航入口 + /workflows 落地", () => {
+  it("主导航有「工作流」一级入口指向 /workflows；/workflows 重定向到我的运行", async () => {
+    const item = TOP_LEVEL_NAV_ITEMS.find((i) => i.key === "workflows");
+    expect(item?.label).toBe("工作流");
+    expect(item?.href).toBe("/workflows");
+    const { default: Landing } = await import("@/app/workflows/page");
+    Landing();
+    expect(redirectMock).toHaveBeenCalledWith("/workflows/runs");
+  });
+});
 
 describe("WorkflowNav / WorkflowPage", () => {
   it("从项目进入（带 projectId）时左栏顶部有「返回项目」，全局视图没有", () => {
