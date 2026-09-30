@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Search, Plus, MoreHorizontal, AlertTriangle, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
+import { Search, Plus, MoreHorizontal, AlertTriangle, Check, Link2, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -302,6 +302,17 @@ function ProjectRealCard({
 
   const close = () => { setOpen(false); setConfirming(false); };
 
+  const [copied, setCopied] = React.useState(false);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/projects/${project.id}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);            // 剪贴板不可用（非安全上下文等）：不假装成功
+    }
+  };
+
   const submit = async () => {
     if (busy) return;               // 提交进行中不发第二个请求
     setBusy(true);
@@ -407,15 +418,13 @@ function ProjectRealCard({
               </div>
             ) : (
               <>
-                <MenuItemUnavailable testid={`projects-more-${project.id}-edit`}>编辑项目</MenuItemUnavailable>
-                <MenuItemUnavailable testid={`projects-more-${project.id}-bigscreen`}>看现场大屏</MenuItemUnavailable>
-                <MenuItemUnavailable testid={`projects-more-${project.id}-copy-invite`}>复制邀请链接</MenuItemUnavailable>
-                <p
-                  className="px-2 py-1 text-9 text-muted-foreground"
-                  data-testid={`projects-more-${project.id}-unavailable-note`}
+                <MenuItem
+                  data-testid={`projects-more-${project.id}-copy-link`}
+                  onSelect={(event) => { event.preventDefault(); void copyLink(); }}
                 >
-                  上面三项后端尚未实现，暂不可用。
-                </p>
+                  {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Link2 aria-hidden className="h-3.5 w-3.5" />}
+                  {copied ? "已复制项目链接" : "复制项目链接"}
+                </MenuItem>
                 <MenuSeparator />
                 {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
                     子态，不能让 Radix「选中即关闭」抢先把菜单关掉。 */}
@@ -427,9 +436,6 @@ function ProjectRealCard({
                   <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
                   {archived ? "恢复项目" : "归档项目"}
                 </MenuItem>
-                <p className="px-2 py-1 text-9 text-muted-foreground">
-                  不提供「删除项目」（Q-9）：归档 = 退役且可只读回看，不销毁内容。
-                </p>
               </>
             )}
           </MenuContent>
@@ -540,15 +546,6 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
         </span>
       ) : null}
     </div>
-  );
-}
-
-/** 后端未实现的菜单项：禁用 + 如实说明，不做成点了弹「演示」的假按钮。 */
-function MenuItemUnavailable({ children, testid }: { children: React.ReactNode; testid: string }) {
-  return (
-    <MenuItem disabled data-testid={testid} className="text-muted-foreground opacity-60">
-      {children}
-    </MenuItem>
   );
 }
 

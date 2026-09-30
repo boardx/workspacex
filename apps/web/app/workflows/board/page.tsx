@@ -3,15 +3,14 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { BackToProjectLink, WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
+import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 import { LiveBoardRunColumns } from "@/components/work-stack/board-run-card";
 import { listBoardRunCards } from "@/lib/board-run-cards-api";
 
 function BoardRuns() {
   const projectId = useSearchParams().get("projectId");
   return (
-    <WorkflowPage title={projectId ? "项目 Board · Workflow 运行" : "Board · Workflow 运行"}>
-      {projectId ? <BackToProjectLink projectId={projectId} testId="workflow-page-back-to-project" /> : null}
+    <WorkflowPage title="运行看板" subtitle={projectId ? "本项目发起的 Workflow 运行（只读看板）" : "我参与的 Workflow 运行（只读看板）"}>
       <LiveBoardRunColumns projectId={projectId} load={listBoardRunCards} />
     </WorkflowPage>
   );

@@ -31,6 +31,13 @@ describe("WorkflowNav / WorkflowPage", () => {
     expect(screen.queryByTestId("workflow-nav-back-to-project")).toBeNull();
   });
 
+  it("项目视图下三个入口都带 projectId，退路不丢", () => {
+    render(<WorkflowNav active="runs" projectId="p 1" />);
+    expect(screen.getByTestId("workflow-nav-runs")).toHaveAttribute("href", "/workflows/runs?projectId=p%201");
+    expect(screen.getByTestId("workflow-nav-approvals")).toHaveAttribute("href", "/workflows/approvals?projectId=p%201");
+    expect(screen.getByTestId("workflow-nav-board")).toHaveAttribute("href", "/workflows/board?projectId=p%201");
+  });
+
   it("三个入口各自成块、带图标，当前页 aria-current + 高亮样式", () => {
     render(<WorkflowNav active="approvals" />);
     const nav = screen.getByTestId("workflow-nav");
