@@ -195,9 +195,17 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('button',{name:'1. 设计问卷'})).toBeInTheDocument();
   expect(screen.getByRole('button',{name:'2. 发布回收'})).toBeInTheDocument();
   expect(screen.getByRole('button',{name:'3. 查看答卷'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'1. 设计问卷'})).toHaveAttribute('aria-current','step');
   expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledTimes(1);
+ });
+ it('keeps the design step active while editing the optional report template',async()=>{
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+  await screen.findByRole('navigation',{name:'问卷工作流'});
+  expect(screen.getByRole('button',{name:'1. 设计问卷'})).toHaveAttribute('aria-current','step');
+  expect(screen.getByRole('button',{name:'2. 发布回收'})).not.toHaveAttribute('aria-current');
  });
  it('shows optional report-template and latest-report readiness without blocking responses',async()=>{
   request.mockResolvedValueOnce(runtime());
