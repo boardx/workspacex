@@ -23,10 +23,11 @@ import {
   EXPECTED_STABLE_IDS,
   PACK_ID,
   PACK_VERSION,
+  PENDING_REVIEW_IDS,
   specFor,
   WorkContentPackBuildError,
 } from "../../scripts/build-work-customer-success-skill-pack";
-import { serializePack } from "../../scripts/work-content-pack";
+import { buildWorkContentPack, serializePack } from "../../scripts/work-content-pack";
 import { isRegisteredCapabilityCategory } from "../../src/domain/skill/capability-category-registry";
 import { judgeWorkStackGates } from "../../src/application/work-eval/work-stack-gates";
 import { scanFixtureForPersonalData } from "../../src/application/work-eval/fixture-privacy";
@@ -58,6 +59,15 @@ describe("客户成功线 · starter-pack 构建（work-customer-success）", ()
       expect(s.files.filter(f => f.path === "SKILL.md")).toHaveLength(1);
       expect(s.semanticVersion).toBe("1.0.0");
     }
+  });
+
+  it("待评审实体只能经显式 pendingReviewIds 入包：不带登记时整包按「未 PASS」拒绝（E1 不被悄悄绕过）", () => {
+    expect([...PENDING_REVIEW_IDS]).toEqual(IDS);
+    let caught: unknown;
+    try { buildWorkContentPack({ ...specFor(), pendingReviewIds: [] }); } catch (e) { caught = e; }
+    expect(caught).toBeInstanceOf(WorkContentPackBuildError);
+    const flagged = new Set((caught as WorkContentPackBuildError).issues.map(i => /S\d{3}/.exec(i.message)?.[0]));
+    for (const id of IDS) expect(flagged.has(id), id).toBe(true);
   });
 
   it("重复构建 packDigest 不变；已提交的 1.0.0.json 与源重建字节一致", () => {
