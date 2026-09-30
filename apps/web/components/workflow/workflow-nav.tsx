@@ -1,6 +1,6 @@
 /** WF08 —— Workflow 路由左栏导航（我的运行 / 待我审批）；CT10 加 Board 运行卡视图。 */
 import * as React from "react";
-import { CheckSquare, KanbanSquare, PlayCircle } from "lucide-react";
+import { ArrowLeft, CheckSquare, KanbanSquare, PlayCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +13,10 @@ const ITEMS: ReadonlyArray<{ key: WorkflowNavKey; href: string; label: string; i
 ];
 
 /** 左栏样式同后台左栏（`admin-nav.tsx`）：标题 + 一列带图标的链接，当前页高亮。 */
-export function WorkflowNav({ active }: { readonly active: WorkflowNavKey }) {
+export function WorkflowNav({ active, projectId }: { readonly active: WorkflowNavKey; readonly projectId?: string | null }) {
   return (
     <nav aria-label="Workflow" data-testid="workflow-nav" className="flex flex-col gap-4 p-3">
+      {projectId ? <BackToProjectLink projectId={projectId} testId="workflow-nav-back-to-project" /> : null}
       <span className="px-1 text-13 font-semibold">Workflow</span>
       <div className="flex flex-col gap-1">
         {ITEMS.map((item) => {
@@ -41,6 +42,19 @@ export function WorkflowNav({ active }: { readonly active: WorkflowNavKey }) {
         })}
       </div>
     </nav>
+  );
+}
+
+/** 从项目进入 Workflow 视图后的退路：回到该项目（项目默认页，组织由服务端按 principal 解析）。 */
+export function BackToProjectLink({ projectId, testId }: { readonly projectId: string; readonly testId: string }) {
+  return (
+    <a
+      href={`/projects/${encodeURIComponent(projectId)}`}
+      data-testid={testId}
+      className="inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"
+    >
+      <ArrowLeft aria-hidden className="h-3.5 w-3.5" />返回项目
+    </a>
   );
 }
 
