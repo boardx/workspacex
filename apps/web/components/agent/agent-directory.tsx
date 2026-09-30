@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { DeniedState, EmptyState, ErrorState, LoadingSkeleton } from "@/components/work-stack/states";
+import { workflowLabelsOf } from "@/lib/workflow-display-copy";
 import {
   AGENT_ROLE_CATEGORIES,
   ROLE_CATEGORY_LABEL,
@@ -63,7 +64,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
         <div className="flex items-center justify-between gap-2">
           <span data-testid="agent-card-workflows" className="truncate text-11 text-muted-foreground">
             {card.workflows.length > 0
-              ? `可发起：${card.workflows.map((w) => w.name).join("、")}`
+              ? `可发起：${workflowLabelsOf(card).join("、")}`
               : "暂无可发起 Workflow"}
           </span>
           <ReadinessBadge readiness={card.readiness} />

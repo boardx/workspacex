@@ -19,7 +19,7 @@ import {
   type OfficialRolePackOffer,
   type PendingOfficialRole,
 } from "@/lib/agent-directory";
-import { buildPickerGroups, examplePromptsFor, joinWithOverflow, reasonCopy, shortReason, strengthsFor, workflowLabelsOf, type PickerEntry, type PickerFilter } from "@/lib/capability-picker-model";
+import { autoExamplePrompts, buildPickerGroups, examplePromptsFor, pendingWorkflowLabels, joinWithOverflow, reasonCopy, shortReason, strengthsFor, workflowLabelsOf, type PickerEntry, type PickerFilter } from "@/lib/capability-picker-model";
 
 export { agentTagsOf } from "@/lib/capability-picker-model";
 
@@ -567,6 +567,13 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
         <p className="text-11 leading-relaxed text-muted-foreground">
           启用后可在这里直接选用{pending.workflowAllowlist.length > 0 ? "，并按角色发起相应的工作流程" : ""}。启用由组织管理员一次完成，所需的技能与流程会一并准备好。
         </p>
+        <PendingWorkflows role={pending} />
+        <ol data-testid="chat-task-workbench-capability-pending-steps" className="flex flex-col gap-1 border-t border-border pt-2 text-11 text-card-foreground">
+          <li className="text-10 font-medium text-muted-foreground">启用之后</li>
+          <li>1. 出现在上方「数字人」分组，可直接选用</li>
+          <li>2. 在对话里说出任务，由它按流程推进</li>
+          <li>3. 需要审批的步骤会先请你确认</li>
+        </ol>
       </>
     );
   } else {
@@ -593,7 +600,13 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
             ))}
           </div>
         ) : null}
-        <p className="text-11 leading-relaxed text-muted-foreground">想固定由某位数字人处理，从左侧选择即可。</p>
+        <div data-testid="chat-task-workbench-capability-examples" className="flex flex-col gap-1 border-t border-border pt-2">
+          <p className="text-10 font-medium text-muted-foreground">适合这样问</p>
+          <ul className="flex flex-col gap-1">
+            {autoExamplePrompts(suggestions).map((q) => <li key={q} className="rounded-md bg-muted px-2 py-1 text-11 text-card-foreground">{q}</li>)}
+          </ul>
+        </div>
+        <p className="border-t border-border pt-2 text-11 leading-relaxed text-muted-foreground">按消息里的任务与标签挑最合适的一位；想固定由某位数字人处理，从左侧选择即可。</p>
       </>
     );
   }
@@ -601,6 +614,20 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
     <aside aria-label="数字人详情" data-testid="chat-task-workbench-capability-preview" className="hidden w-[18rem] shrink-0 flex-col gap-2.5 overflow-y-auto p-3 sm:flex">
       {body}
     </aside>
+  );
+}
+
+function PendingWorkflows({ role }: { role: PendingOfficialRole }): JSX.Element | null {
+  const { labels, unknown } = pendingWorkflowLabels(role);
+  if (labels.length === 0 && unknown === 0) return null;
+  return (
+    <div data-testid="chat-task-workbench-capability-pending-workflows" className="flex flex-col gap-1 border-t border-border pt-2">
+      <p className="text-10 font-medium text-muted-foreground">启用后可发起</p>
+      <ul className="flex flex-col gap-0.5 text-11 text-card-foreground">
+        {labels.slice(0, 5).map((w) => <li key={w} className="truncate" title={w}>{w}</li>)}
+        {labels.length > 5 || unknown > 0 ? <li className="text-muted-foreground">{labels.length > 0 ? "另有" : "共"} {Math.max(0, labels.length - 5) + unknown} 个流程</li> : null}
+      </ul>
+    </div>
   );
 }
 

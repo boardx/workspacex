@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPickerGroups, examplePromptsFor, joinWithOverflow, reasonCopy, shortReason, strengthsFor, subtitleFor, workflowLabel } from "@/lib/capability-picker-model";
+import { buildPickerGroups, examplePromptsFor, joinWithOverflow, reasonCopy, shortReason, strengthsFor, subtitleFor, workflowLabel, pendingWorkflowLabels, autoExamplePrompts } from "@/lib/capability-picker-model";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { AgentDirectoryCard, PendingOfficialRole } from "@/lib/agent-directory";
 
@@ -74,5 +74,21 @@ describe("capability picker model", () => {
     const flows = [{ stableId: "W029", name: "Problem-to-PRD" }] as unknown as AgentDirectoryCard["workflows"];
     expect(examplePromptsFor(card("a", { workflows: flows }))).toEqual(["帮我走一遍「问题定义到 PRD」"]);
     expect(examplePromptsFor(undefined).length).toBeGreaterThan(0);
+  });
+  it("English-first workflow names show only the parenthesised Chinese", () => {
+    expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop（知识捕获循环）" })).toBe("知识捕获循环");
+    expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop (知识捕获循环)" })).toBe("知识捕获循环");
+    expect(workflowLabel({ stableId: "zz", name: "Weekly Sync" })).toBe("Weekly Sync");
+  });
+
+  it("pending preview lists builtin workflows in Chinese and counts unknown ids", () => {
+    expect(pendingWorkflowLabels({ workflowAllowlist: ["W029", "W030", "W011"] })).toEqual({ labels: ["问题定义到 PRD", "PRD 到迭代计划"], unknown: 1 });
+    expect(pendingWorkflowLabels(pending)).toEqual({ labels: [], unknown: 1 });
+  });
+
+  it("auto preview examples come from candidates, with a generic fallback", () => {
+    const e = { listing: mk("a", "A"), card: card("a", { workflows: [{ stableId: "W029", name: "x" }] as AgentDirectoryCard["workflows"] }), subtitle: null, tags: [] };
+    expect(autoExamplePrompts([e])).toEqual(["帮我走一遍「问题定义到 PRD」"]);
+    expect(autoExamplePrompts([])).toHaveLength(2);
   });
 });

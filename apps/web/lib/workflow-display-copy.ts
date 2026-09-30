@@ -136,3 +136,25 @@ export function gateDisplayTitle(gate: { stageId: string; summary: string }, wor
   const stage = looksTechnical ? STAGES[gate.stageId] ?? "审批事项" : summary;
   return { stage, workflow: workflowKey ? workflowDisplayName(workflowKey) : null };
 }
+
+const HAN = /\p{Script=Han}/u;
+
+/**
+ * 流程的中文显示名：内置工作流走 `workflow-display-copy`（单源）；非内置取目录名，
+ * 并去掉「（…）」补充说明——绝不把 `W028` / `research-to-insight` 这类技术 id 上屏。
+ */
+export function workflowLabel(w: { readonly stableId: string; readonly name: string }): string {
+  const head = (w.name.split(/[（(]/)[0] ?? "").trim();
+  const builtin = findBuiltinWorkflow(w.stableId) ?? findBuiltinWorkflow(head.replace(/\s+/g, "-"));
+  if (builtin) return builtin.name;
+  // 英文在前、中文在括号里（「Knowledge Capture Loop（知识捕获循环）」）→ 只显示括号里的中文。
+  if (!HAN.test(head)) {
+    const paren = /[（(]([^）)]*)[）)]/.exec(w.name)?.[1]?.trim();
+    if (paren && HAN.test(paren)) return paren;
+  }
+  return head || "未命名流程";
+}
+
+export function workflowLabelsOf(card: { readonly workflows: readonly { readonly stableId: string; readonly name: string }[] } | undefined): string[] {
+  return [...new Set((card?.workflows ?? []).map(workflowLabel))];
+}

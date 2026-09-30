@@ -13,7 +13,7 @@
 import { identity } from "@repo/contracts";
 import type { CapabilityListing } from "./live-capabilities";
 import { ROLE_CATEGORY_LABEL, type AgentDirectoryCard, type PendingOfficialRole } from "./agent-directory";
-import { findBuiltinWorkflow } from "./workflow-display-copy";
+import { findBuiltinWorkflow, workflowLabel, workflowLabelsOf } from "./workflow-display-copy";
 
 export type PickerDirectory = ReadonlyMap<string, AgentDirectoryCard>;
 export type PickerFilter = { readonly kind: "tag"; readonly value: string } | null;
@@ -156,23 +156,29 @@ export function buildPickerGroups(input: {
   };
 }
 
-/**
- * 流程的中文显示名：内置工作流走 `workflow-display-copy`（单源）；非内置取目录名，
- * 并去掉「（…）」补充说明——绝不把 `W028` / `research-to-insight` 这类技术 id 上屏。
- */
-export function workflowLabel(w: { readonly stableId: string; readonly name: string }): string {
-  const head = (w.name.split(/[（(]/)[0] ?? "").trim();
-  const builtin = findBuiltinWorkflow(w.stableId) ?? findBuiltinWorkflow(head.replace(/\s+/g, "-"));
-  if (builtin) return builtin.name;
-  return head || "未命名流程";
-}
 
-export function workflowLabelsOf(card: AgentDirectoryCard | undefined): string[] {
-  return [...new Set((card?.workflows ?? []).map(workflowLabel))];
-}
+export { workflowLabel, workflowLabelsOf };
 
 /** 按条目边界截断：「A、B、C 等 5 个」——不在某个名字中间切断。 */
 export function joinWithOverflow(items: readonly string[], max: number): string {
   if (items.length <= max) return items.join("、");
   return `${items.slice(0, max).join("、")} 等 ${items.length} 个`;
+}
+
+/** 待启用官方数字人的可发起流程：只列内置工作流的中文名（未知 stableId 不上屏，只计数）。 */
+export function pendingWorkflowLabels(role: Pick<PendingOfficialRole, "workflowAllowlist">): { labels: string[]; unknown: number } {
+  const labels: string[] = [];
+  let unknown = 0;
+  for (const id of role.workflowAllowlist) {
+    const w = findBuiltinWorkflow(id);
+    if (w) labels.push(w.name);
+    else unknown += 1;
+  }
+  return { labels: [...new Set(labels)], unknown };
+}
+
+/** 自动匹配预览「适合这样问」：取候选数字人的第一条示例说法，最多 3 条；没有候选给通用说法。 */
+export function autoExamplePrompts(suggestions: readonly PickerEntry[]): string[] {
+  const out = [...new Set(suggestions.map((e) => examplePromptsFor(e.card)[0]).filter((q): q is string => Boolean(q)))].slice(0, 3);
+  return out.length > 0 ? out : ["帮我整理一下这件事的要点", "先听听你的建议"];
 }
