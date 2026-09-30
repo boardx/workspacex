@@ -72,6 +72,7 @@ type Call = [string, { method?: string; body?: Record<string, unknown>; query?: 
 const callsTo = (path: string, method = "GET") =>
   (apiRequest.mock.calls as Call[]).filter(([p, o]) => p === path && (o?.method ?? "GET") === method);
 
+
 describe("① 快速反馈：review 阶段只有标题 + 详细说说", () => {
   it("2026-09-10 人类反馈：不再渲染任何一排结构化输入框，类型切换也不变出来", async () => {
     render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);

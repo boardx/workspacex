@@ -176,12 +176,13 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);
-  const persistedSurvey = page.locator("article").filter({
+  // 2026-09-30：问卷卡片统一成标准 ResourceCard（testid `survey-card-<id>`），统计并入副标题「N 个题目 · M 份答卷（有效 K）」
+  const persistedSurvey = page.locator('[data-testid^="survey-card-"]').filter({
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
   await expect(persistedSurvey).toContainText("发布中");
-  await expect(persistedSurvey).toContainText("8题目数");
-  await expect(persistedSurvey).toContainText("2答卷数");
+  await expect(persistedSurvey).toContainText("8 个题目");
+  await expect(persistedSurvey).toContainText("2 份答卷");
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-desktop.png"),fullPage:true});
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("navigation", { name: "问卷二级导航" })).toBeVisible();

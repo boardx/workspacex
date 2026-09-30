@@ -59,8 +59,8 @@ describe("LiveSurveyLibrary", () => {
       {id:"r3",quality:"normal",analysis:"excluded"},
     ]})]);
     render(<LiveSurveyLibrary />);
-    const label = await screen.findByText("有效答卷");
-    expect(label.parentElement).toHaveTextContent("2有效答卷");
+    // 统计并入标准卡片的副标题：「N 个题目 · M 份答卷（有效 K）」，有效数口径不变
+    expect(await screen.findByTestId("survey-card-survey-1")).toHaveTextContent("有效 2");
   });
   it("shows real survey status and routes collecting surveys to response review", async () => {
     request.mockResolvedValueOnce([survey()]);
@@ -71,11 +71,11 @@ describe("LiveSurveyLibrary", () => {
     expect(push).toHaveBeenCalledWith("/studio/survey/survey-1/responses");
   });
 
-  it("presents the approved library hierarchy with a neutral visual cover", async () => {
+  it("presents the approved library hierarchy in the standard resource card", async () => {
     request.mockResolvedValueOnce([survey({ tags: ["客户调研", "满意度"] })]);
     render(<LiveSurveyLibrary />);
 
-    expect(await screen.findByTestId("survey-card-cover-survey-1")).toBeInTheDocument();
+    expect(await screen.findByTestId("survey-card-survey-1")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "导入 Markdown" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "问卷二级导航" })).toHaveClass("survey-library-nav");
     expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("发布中");
