@@ -31,6 +31,51 @@ jobs:
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 45
     steps:
+      - name: Check out the exact GitHub candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Seed the China source mirror from GitHub
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          revision="${RUN_SHA}"
+          [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && revision="${INPUT_SHA}"
+          [[ "${revision}" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "${revision}" ]] || { echo "::error::release SHA or checkout differs"; exit 1; }
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "${revision}" origin/main || { echo "::error::release SHA is not contained in main"; exit 1; }
+          cache=/opt/workspacex-cn/release-origin-cache.git
+          repository=/opt/workspacex-cn/repository
+          [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || { echo "::error::CN_SOURCE_CACHE_UNTRUSTED"; exit 1; }
+          [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
+          git -C "${cache}" fetch --no-tags "${GITHUB_WORKSPACE}" "+${revision}:refs/heads/main"
+          [[ "$(git -C "${cache}" rev-parse refs/heads/main)" == "${revision}" ]] || { echo "::error::CN_SOURCE_CACHE_REVISION_MISMATCH"; exit 1; }
+          GIT_NO_LAZY_FETCH=1 git -C "${cache}" fsck --full --no-reflogs
+
+      - name: Fail closed if privileged build entrypoints drifted
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A trusted=(
+            [.harness/scripts/vm/build-cn-release-candidate.sh]=/usr/local/bin/workspacex-cn-build-candidate
+            [.harness/scripts/vm/publish-cn-release.sh]=/usr/local/lib/workspacex-cn/publish-cn-release.sh
+            [.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+          )
+          for source in "${!trusted[@]}"; do
+            target=${trusted[$source]}
+            [[ -f "${target}" && ! -L "${target}" && -x "${target}" ]] && cmp --silent "${source}" "${target}" || {
+              echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT: ${target}; run the controlled CN bootstrap/update procedure"
+              exit 1
+            }
+          done
+
       - name: Build and seal exact release candidate
         shell: bash
         env:
