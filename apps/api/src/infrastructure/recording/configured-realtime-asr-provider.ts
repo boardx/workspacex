@@ -280,6 +280,8 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // 是自己没说话，实际是一个被吞掉的真实失败。`finalSeenEver` 一旦置真就不再重置，
     // 专门回答这个问题，与 `finalSeen`（每轮 finish 各自的等待状态）分开。
     let finalSeenEver = false;
+    /** 真正发往上游的 PCM16 单声道字节数（判定"空缓冲"是良性还是采音链路故障，见 error 分支）。 */
+    let audioBytesPushed = 0;
     let finishResolve: (() => void) | null = null;
     // #802 —— the actual root cause the wrong protocol fields could hide behind for 7+
     // days undetected: `finish()`/`abort()` are the only CALLER-INITIATED ways this
@@ -358,7 +360,13 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         // `finish()` 的显式 commit 打空才是"没有更多新音频可提交"的良性情况。如果
         // 整条会话从未见过 final，同样的错误消息意味着"这段录音本身就短到没转出
         // 任何东西"——那是一次真实失败，不能吞。
-        if (!manual && finishRequested && isBenignEmptyCommitError(message) && finalSeenEver) {
+        // 2026-09-30 人类实测（截图）—— 说完话（或静音自动暂停）后输入框是空的，却挂着「语音识别
+        // 暂时不可用」。根因：上游 VAD 把整段音频当成噪音/静音 commit 掉了、没产出任何 `completed`
+        // 事件，`finalSeenEver` 为假，于是 `finish()` 的显式 commit 打空缓冲的良性应答被当成故障。
+        // 「有没有真的把音频送到上游」才是区分：送过 ≥100ms 音频，说明缓冲是被上游自己消费掉的，
+        // 「没识别出文字」是正常结果（界面回到 idle）；一帧音频都没送过才是采音链路真坏了，仍报错。
+        const audioReachedUpstream = audioBytesPushed >= (audio.sampleRate * 2) / 10;
+        if (!manual && finishRequested && isBenignEmptyCommitError(message) && (finalSeenEver || audioReachedUpstream)) {
           // 同样要把 `finalSeen` 置真：`finish()` 在这个 promise resolve 之后还有
           // 第二道判断——`!finalSeen && !closed` 时会再报一次"上游没能及时给出最终
           // 结果"。这里跳过的正是"没有更多可提交的音频"，不是"该来的 final 没等到"，
@@ -402,6 +410,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           return;
         }
         observeFlow(socket.bufferedAmount);
+        audioBytesPushed += frame.byteLength;
         socket.send(payload);
       },
       commit() {
