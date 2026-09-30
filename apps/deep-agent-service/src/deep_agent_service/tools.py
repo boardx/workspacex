@@ -510,7 +510,7 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
     ) -> str:
         """当你遇到超出自己职责、需要人来拍板的事项（例如超预算、越权、合规风险）时，调用
         这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别（与本 Agent 的升级
-        策略里的事项名一致）；`reason` 说明为什么需要升级；`target` 可不填——由谁裁决只由
+        策略里的事项名一致）；`reason` 写成你要负责人拍板的**具体问题**（一句话，例如「客户要求在合同里写明 20% 折扣，是否同意？」），它会原样作为升级卡片的标题，不要只写类别或笼统的「超出职责」；`target` 可不填——由谁裁决只由
         升级策略决定，你自报的值会被忽略；`contextRefs` 是相关证据/对象的 ID 列表。"""
         # AG06 —— 三条到达路径（`packages/contracts/src/agent-role.ts` EscalatePayload /
         # EscalateDecision；网关判定见 `apps/api/.../tool-permission-gate.ts`）：

@@ -683,7 +683,16 @@ const ESCALATE_MATTER = process.env.LOOPBACK_ESCALATE_MATTER ?? "超出职责范
 function escalateReason(record: RunRecord): string | null {
   const m = ESCALATE_MARKER.exec(record.userText);
   const reason = m?.[1]?.trim();
-  return reason ? reason : null;
+  if (!reason) return null;
+  // uiux-r6 #4 —— 卡片标题取 reason（数字人要问你的那句话）。标记里只有类别式的泛称
+  // （「超出职责范围的事项」「超出我的职责」）时，换成一句具体的问句，避免决定人只看到类别。
+  return isGenericEscalateReason(reason) ? ESCALATE_SAMPLE_QUESTION : reason;
+}
+
+const ESCALATE_SAMPLE_QUESTION = "客户要求在合同里写明 20% 折扣，是否同意？";
+
+function isGenericEscalateReason(reason: string): boolean {
+  return reason === ESCALATE_MATTER || /超出.{0,4}职责/.test(reason);
 }
 
 function escalateArgs(reason: string): Record<string, unknown> {

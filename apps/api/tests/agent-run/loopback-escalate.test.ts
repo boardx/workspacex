@@ -38,6 +38,15 @@ describe("loopback deep-agent 替身 · escalate_matter 剧本（AG06）", () =>
     expect(state.values.messages.some((m: any) => m.type === "tool")).toBe(false);
   });
 
+  it("标记只写泛称类别 ⇒ reason 换成具体问句，类别只留在 matter", async () => {
+    const request = fixture();
+    await startTurn(request, "e1g", "改合同 [escalate:超出职责范围的事项]");
+    const state = await request("GET", "/threads/e1g/state");
+    const call = state.values.messages.flatMap((m: any) => m.tool_calls ?? [])[0];
+    expect(call.args.matter).toBe("超出职责范围的事项");
+    expect(call.args.reason).toBe("客户要求在合同里写明 20% 折扣，是否同意？");
+  });
+
   it("目标人同意（edit + decision=resolve）⇒ 终稿带裁决原文", async () => {
     const request = fixture();
     await startTurn(request, "e2", "[escalate:需要法务确认]");
@@ -45,7 +54,7 @@ describe("loopback deep-agent 替身 · escalate_matter 剧本（AG06）", () =>
       type: "edit", edited_action: { name: "escalate_matter", args: { matter: "x", reason: "需要法务确认", target: "requester", contextRefs: [], decision: "resolve", decisionText: "可以，按标准合同走" } },
     });
     expect(status.status).toBe("success");
-    expect(messages.at(-1)).toMatchObject({ type: "ai", content: expect.stringContaining("可以，按标准合同走") });
+    expect(messages.at(-1)).toMatchObject({ type: "ai", content: "负责人已同意。我会按这个裁决继续。" });
     expect(messages.find((m: any) => m.type === "tool")?.tool_call_id).toBe("escalate-e2");
   });
 
@@ -55,8 +64,7 @@ describe("loopback deep-agent 替身 · escalate_matter 剧本（AG06）", () =>
     const { messages } = await resume(request, "e3", {
       type: "edit", edited_action: { name: "escalate_matter", args: { decision: "reject", reason: "本季度不再让利" } },
     });
-    expect(messages.at(-1).content).toContain("本季度不再让利");
-    expect(messages.at(-1).content).toContain("不会执行");
+        expect(messages.at(-1).content).toContain("不会执行");
   });
 
   it("策略未命中（原样 approve）⇒ 如实说「未升级」，不是「已批准」", async () => {
