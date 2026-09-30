@@ -386,7 +386,9 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     render(<AgentScreen state="default" />);
     await screen.findByTestId("admin-agent-empty");
     // 2026-09-02：新增表单收进弹窗，消歧提示跟着进去——点开才看得到。
+    expect(screen.getByTestId("admin-agent-create")).toHaveTextContent("新增目录条目");
     fireEvent.click(screen.getByTestId("admin-agent-create"));
+    expect(screen.getByRole("dialog", { name: "新增目录条目" })).toBeVisible();
     expect(screen.getByTestId("admin-agent-create-agent-caveat")).toHaveTextContent(
       "新建 / 导入 Agent",
     );

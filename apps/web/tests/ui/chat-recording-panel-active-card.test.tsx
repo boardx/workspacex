@@ -33,8 +33,20 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   listMessages,
 }));
 
-import { ProjectRecordingPanel } from "@/components/chat/workbench/project-recording-panel";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
+
+/**
+ * #4744：项目对话不再挂「会话录音」面板（`ProjectRecordingPanel` 已删除，项目对话只走
+ * composer 自带的「语音」）。这里的 shim 只保留 `ChatRecordingPanel` 的 canRecord/切线程
+ * 行为覆盖——该面板仍由旧轨道 `chat-read-screen.tsx` 挂载。
+ */
+function ProjectRecordingPanel({ projectId, threadId, userId, bearer, canWrite, archived }: {
+  projectId: string | null; threadId: string | null; userId: string | null;
+  bearer: string | null; canWrite: boolean; archived: boolean;
+}) {
+  if (!projectId || !threadId || !userId || !bearer) return null;
+  return <ChatRecordingPanel key={JSON.stringify([projectId, threadId, userId])} projectId={projectId} threadId={threadId} userId={userId} bearer={bearer} canRecord={canWrite && !archived} />;
+}
 
 let asrHandlers: Parameters<typeof openAsrStream>[3] | null = null;
 

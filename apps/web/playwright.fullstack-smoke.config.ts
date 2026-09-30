@@ -139,7 +139,7 @@ const fixtureEnv = {
  * `ConfiguredRealtimeAsrProvider` 只认这一组变量，没有 list、没有 map、没有 default。
  *
  * 不配它会怎样：WS 面以 `ASR_NOT_CONFIGURED` **诚实地失败**，界面上
- * `chat-live-recording-error` 显示「本组织尚未配置转写服务」，
+ * 转写页 `rec-live-error` 显示「尚未配置…转录」（#4744 前是 `chat-live-recording-error`），
  * 绝不会冒出一段编造的转录。
  *
  * ⚠ `KERNEL_ASR_MODEL` 是一个**配置值**，不是源码里的字面量 ——

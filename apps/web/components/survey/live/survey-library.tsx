@@ -27,12 +27,12 @@ function statusFor(item: SurveyRuntime) {
 
 function LibraryLoading() {
   return (
-    <div role="status" aria-label="正在加载问卷" data-testid="survey-library-loading" className="grid gap-4 lg:grid-cols-2">
+    <div role="status" aria-label="正在加载问卷" data-testid="survey-library-loading" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       <span className="sr-only">正在加载问卷</span>
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index} className="animate-pulse rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex gap-4">
-            <div className="h-28 w-28 shrink-0 rounded-lg bg-muted" />
+            <div className="h-12 w-12 shrink-0 rounded-lg bg-muted" />
             <div className="flex-1 space-y-3 py-1">
               <div className="h-5 w-2/3 rounded bg-muted" />
               <div className="h-4 w-full rounded bg-muted" />
@@ -48,17 +48,12 @@ function LibraryLoading() {
 
 function SurveyStatus({ item }: { item: SurveyRuntime }) {
   const status = statusFor(item);
-  const dotClass = status.tone === "success"
-    ? "bg-success"
-    : status.tone === "warning"
-      ? "bg-destructive"
-      : "bg-primary";
   return (
     <span
       className="inline-flex shrink-0 items-center gap-2 rounded-full bg-muted px-3 py-1 text-12 font-medium"
       data-testid={`survey-status-${item.id}`}
     >
-      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dotClass}`} />
+      <span aria-hidden="true" className={`h-2 w-2 rounded-full bg-foreground`} />
       {status.label}
     </span>
   );
@@ -76,13 +71,13 @@ function SurveyCard({
 }) {
   const includedResponses = item.responses.filter((response) => response.analysis !== "excluded").length;
   return (
-    <article className="group rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-base hover:shadow-md">
+    <article className="group flex min-h-64 flex-col rounded-lg border border-border bg-card p-5 transition-colors duration-base hover:border-foreground/20">
       <div className="flex items-start gap-4">
         <div
           data-testid={`survey-card-cover-${item.id}`}
-          className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-muted to-border"
+          className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted"
         >
-          <FileText aria-hidden="true" className="h-10 w-10 text-muted-foreground" />
+          <FileText aria-hidden="true" className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -95,11 +90,6 @@ function SurveyCard({
             </Link>
             <SurveyStatus item={item} />
           </div>
-          <p className="mt-2 line-clamp-2 min-h-10 text-13 leading-relaxed text-muted-foreground">
-            {item.questions[0]?.title
-              ? `包含“${item.questions[0].title}”等问题，邀请目标受访者分享真实反馈。`
-              : "添加问题、发布问卷并收集真实反馈。"}
-          </p>
           {!!item.tags?.length && (
             <div className="mt-2 flex flex-wrap gap-2">
               {item.tags.slice(0, 3).map((value) => (
@@ -109,19 +99,19 @@ function SurveyCard({
           )}
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-3 divide-x divide-border border-b border-border pb-4 text-center">
+      <div className="mt-auto grid grid-cols-3 divide-x divide-border border-b border-border pb-4 pt-5 text-center">
         <div><p className="text-20 font-semibold">{item.questions.length}</p><p className="text-12 text-muted-foreground">题目数</p></div>
         <div><p className="text-20 font-semibold">{item.responses.length}</p><p className="text-12 text-muted-foreground">答卷数</p></div>
         <div><p className="text-20 font-semibold">{includedResponses}</p><p className="text-12 text-muted-foreground">有效答卷</p></div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <p className="mr-auto inline-flex items-center gap-2 text-12 text-muted-foreground">
+        <p className="inline-flex w-full items-center gap-2 text-12 text-muted-foreground">
           <Clock3 aria-hidden="true" className="h-4 w-4" />
           最近更新：{new Date(item.updatedAt).toLocaleString("zh-CN")}
         </p>
         <Button variant="outline" size="xs" onClick={() => onResponses(item)}>查看答卷</Button>
-        <Button size="xs" onClick={() => onOpen(item)}>{item.publication ? "继续编辑" : "继续设计"}</Button>
-        <details className="relative">
+        <Button variant="primary" size="xs" onClick={() => onOpen(item)}>{item.publication ? "继续编辑" : "继续设计"}</Button>
+        <details className="relative ml-auto">
           <summary
             aria-label={`更多操作：${item.title}`}
             className="flex h-7 w-9 cursor-pointer list-none items-center justify-center rounded-control border border-border transition-colors hover:bg-muted"
@@ -190,7 +180,6 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-30 font-semibold tracking-tight">问卷</h1>
-          <p className="mt-1 text-14 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
           <div className="relative min-w-0 sm:w-72">
@@ -203,11 +192,11 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <Button data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
+          <Button variant="primary" data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
+      <div className="flex flex-col gap-6">
         <SurveyLibraryNav active="surveys" />
 
         <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
@@ -225,7 +214,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           {error && <div role="alert" data-testid="err-survey-library" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">{error}</div>}
           {busy && <LibraryLoading />}
           {!busy && !error && (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {visibleItems.map((item) => (
                 <SurveyCard
                   key={item.id}
@@ -242,7 +231,6 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
                   <div className="relative z-10 max-w-md">
                     <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">报告模板（可选）</p>
                     <h2 className="mt-3 text-18 font-semibold">为该问卷设计报告模板</h2>
-                    <p className="mt-2 text-13 leading-relaxed text-muted-foreground">预设分析维度和图表样式，问卷回收后可一键生成专业报告。</p>
                     <Link href="/studio/survey?tab=reports" className="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted">去创建报告模板<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
                   </div>
                 </aside>
@@ -251,12 +239,13 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           )}
 
           {!busy && !error && items.length > 0 && visibleItems.length === 0 && (
-            <div role="status" className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">没有符合筛选条件的问卷</div>
+            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setTag(null); }}>清除筛选</Button></div>
           )}
           {!busy && !error && items.length === 0 && (
-            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border py-16 text-center">
+            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
               <h2 className="text-18 font-semibold">还没有问卷</h2>
-              <p className="text-14 text-muted-foreground">使用右上角“新建问卷”，或先从问卷模板中选择合适的结构。</p>
+              <p className="text-14 text-muted-foreground">创建第一份问卷，或从问卷模板中选择合适的结构。</p>
+              <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
             </div>
           )}
         </section>

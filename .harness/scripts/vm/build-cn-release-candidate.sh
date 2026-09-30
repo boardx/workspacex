@@ -2,23 +2,26 @@
 # Trusted root entrypoint that turns an exact main commit into one sealed release candidate.
 set -euo pipefail
 
-[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ ]] || {
-  echo "usage: workspacex-cn-build-candidate <40-hex-revision> <semantic-release>" >&2; exit 2;
+[[ $# -eq 3 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ && "$3" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
+  echo "usage: workspacex-cn-build-candidate <40-hex-revision> <semantic-release> <attempt-id>" >&2; exit 2;
 }
 [[ ${EUID} -eq 0 ]] || { echo "CN_CANDIDATE_REQUIRES_ROOT" >&2; exit 1; }
 revision=$1
 release=$2
+attempt_id=$3
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
 PUBLISH_ENV=/etc/workspacex-cn/publish.env
 PUBLISHER=/usr/local/lib/workspacex-cn/publish-cn-release.sh
 PREFLIGHT_VERIFIER=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+PREFLIGHT_COLLECTOR=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
 EVENTS_ROOT=/var/lib/workspacex-cn/release-events
 
 fail(){ echo "CN_CANDIDATE_REJECTED: $1" >&2; exit 1; }
 [[ -f "$PUBLISH_ENV" && ! -L "$PUBLISH_ENV" && "$(stat -c '%U:%G:%a' "$PUBLISH_ENV")" == root:root:600 ]] || fail "publish environment is not protected"
 [[ -x "$PUBLISHER" && ! -L "$PUBLISHER" ]] || fail "trusted publisher is unavailable"
 [[ -x "$PREFLIGHT_VERIFIER" && ! -L "$PREFLIGHT_VERIFIER" ]] || fail "trusted preflight verifier is unavailable"
+[[ -x "$PREFLIGHT_COLLECTOR" && ! -L "$PREFLIGHT_COLLECTOR" ]] || fail "trusted preflight collector is unavailable"
 install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
@@ -75,7 +78,9 @@ git -C "$REPOSITORY_DIR" clean -ffd
 # A fresh schema-v2 prebuild receipt is the admission ticket for any image build.
 # The verifier persists the exact raw evidence before candidate_build_started can
 # be recorded, so manifest/seal artifacts can never masquerade as preflight.
-"$PREFLIGHT_VERIFIER" prebuild "$revision" "$release" >/dev/null \
+"$PREFLIGHT_COLLECTOR" prebuild "$revision" "$release" "$attempt_id" >/dev/null \
+  || fail "prebuild evidence collection failed"
+"$PREFLIGHT_VERIFIER" prebuild "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "prebuild receipt is missing or invalid"
 record_event prebuild_validated
 record_event candidate_build_started
@@ -104,6 +109,10 @@ rm -f "$credentials_file"
 unset token
 
 "$PUBLISHER" "$revision" "$release"
+"$PREFLIGHT_COLLECTOR" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
+  || fail "preactivate evidence collection failed"
+"$PREFLIGHT_VERIFIER" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
+  || fail "preactivate receipt is missing or invalid"
 restore_checkout || fail "baseline checkout restoration failed"
 checkout_changed=0
 record_event candidate_sealed
