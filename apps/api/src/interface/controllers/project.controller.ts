@@ -75,6 +75,7 @@ import { removeProjectMember } from "../../application/project/remove-project-me
 import { listProjectMembers } from "../../application/project/list-project-members";
 import { listNonWorkshopMembers } from "../../application/project/list-non-workshop-member";
 import { addNonWorkshopMember } from "../../application/project/add-non-workshop-member";
+import { PROJECT_MEMBER_ADDED_NOTIFIER, type ProjectMemberAddedNotifier } from "../../application/project/project-invitation-ports";
 import { removeNonWorkshopMember } from "../../application/project/remove-non-workshop-member";
 import {
   NON_WORKSHOP_MEMBER_REPOSITORY,
@@ -237,6 +238,7 @@ export class ProjectController {
     @Inject(PROJECT_EVIDENCE_REPOSITORY) private readonly projectEvidence: ProjectEvidencePort,
     @Inject(EVIDENCE_SOURCE_REPOSITORY) private readonly evidenceSources: ProjectEvidenceSourcePort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Inject(PROJECT_MEMBER_ADDED_NOTIFIER) private readonly memberAddedNotifier: ProjectMemberAddedNotifier,
   ) {}
 
   /**
@@ -868,6 +870,10 @@ export class ProjectController {
       ids: this.decisions,
       members: this.nonWorkshopMembers,
       provenance: this.provenance,
+      // #4787：加人成功后尽力而为地通知被加的人；失败只记日志。
+      notifier: this.memberAddedNotifier,
+      log: (message: string, detail: Record<string, unknown>) =>
+        this.logger.error(message, { traceId: "project-member-added", err: detail.err ?? message }),
     };
   }
 
