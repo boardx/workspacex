@@ -20,6 +20,7 @@
  *   · 座位配额：满了拒绝且回滚（邀请仍有效、不留账号）；归档项目拒绝；
  *   · 限频：每条最多 5 次、60 秒冷却；每日上限；跨租户读 / 撤销读成零行。
  */
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { TransactionalMailError } from "../../src/application/notifications/transactional-mail-ports";
 import {
@@ -148,7 +149,7 @@ const activateDeps = () => ({
   verificationTokens: {
     newChallengeId: () => `ch-pinv-${++counter}`,
     tokenForChallenge: (c: string) => `vt-${c}`,
-    digest: (t: string) => `dg-${t}`,
+    digest: (t: string) => createHash("sha256").update(t).digest("hex"), // 库里 CHECK 要求 64 位十六进制
     pendingProofForChallenge: (c: string) => c,
     challengeIdFromPendingProof: (p: string) => p,
   },
