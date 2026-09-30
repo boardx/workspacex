@@ -19,7 +19,7 @@ import {
   type OfficialRolePackOffer,
   type PendingOfficialRole,
 } from "@/lib/agent-directory";
-import { buildPickerGroups, shortReason, strengthsFor, type PickerEntry, type PickerFilter } from "@/lib/capability-picker-model";
+import { buildPickerGroups, joinWithOverflow, shortReason, strengthsFor, workflowLabelsOf, type PickerEntry, type PickerFilter } from "@/lib/capability-picker-model";
 
 export { agentTagsOf } from "@/lib/capability-picker-model";
 
@@ -74,7 +74,7 @@ function statusLabel(status: CapabilityCardStatus): string {
 function abbrFor(listing: CapabilityListing): string {
   const trimmed = (listing.abbr ?? "").trim();
   if (trimmed) return trimmed.slice(0, 2).toUpperCase();
-  return (listing.name.trim() || listing.id).slice(0, 2).toUpperCase();
+  return (listing.name.trim() || "AI").slice(0, 2).toUpperCase();
 }
 
 export type DigitalHumanDirectory = ReadonlyMap<string, AgentDirectoryCard>;
@@ -259,7 +259,7 @@ export function CapabilityCardList({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); focusOption("first"); } }}
               placeholder="搜索名字、角色、标签或擅长的事"
-              className="text-12"
+              className="text-12 focus-visible:border-ring/50 focus-visible:ring-ring/25 focus-visible:ring-offset-0"
             />
             {groups.tagOptions.length > 0 ? (
               /* 复审 P0-1：不再单行横向裁切（半个 chip 露在边上、无滚动提示）——改为换行，超过一行的收进「更多」。 */
@@ -403,7 +403,7 @@ export function CapabilityCardList({
 
 function optionClass(selected: boolean): string {
   return [
-    "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35",
     selected ? "bg-primary/5" : "",
   ].join(" ");
 }
@@ -511,7 +511,7 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
     const { listing, card, tags } = entry;
     const ready = identity.isCapabilityReady(listing);
     const status: CapabilityCardStatus = !ready ? "failed" : acting && acting.agentId === listing.id ? acting.status : "ready";
-    const workflows = card?.workflows.map((w) => w.name) ?? [];
+    const workflows = workflowLabelsOf(card);
     const strengths = strengthsFor(listing, card) ?? "日常对话与问答";
     body = (
       <>
@@ -802,8 +802,8 @@ export function CapabilityPicker({
   const official = useOfficialRoleOffer(status === "ready" && open, onEnabled);
   const selected = listings?.find((l) => l.id === selectedAgentId) ?? null;
   const selectedCard = selected ? directory.get(selected.id) : undefined;
-  const abilities = selectedCard?.workflows.map((w) => w.name) ?? [];
-  const abilityHint = abilities.length > 0 ? `能做：${abilities.join("、")}` : null;
+  const abilities = workflowLabelsOf(selectedCard);
+  const abilityHint = abilities.length > 0 ? `能做：${joinWithOverflow(abilities, 3)}` : null;
   return (
     <div className="relative flex items-center">
       <button

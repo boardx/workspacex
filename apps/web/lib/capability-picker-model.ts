@@ -13,6 +13,7 @@
 import { identity } from "@repo/contracts";
 import type { CapabilityListing } from "./live-capabilities";
 import { ROLE_CATEGORY_LABEL, type AgentDirectoryCard, type PendingOfficialRole } from "./agent-directory";
+import { findBuiltinWorkflow } from "./workflow-display-copy";
 
 export type PickerDirectory = ReadonlyMap<string, AgentDirectoryCard>;
 export type PickerFilter = { readonly kind: "tag"; readonly value: string } | null;
@@ -70,8 +71,8 @@ export function strengthsFor(listing: Pick<CapabilityListing, "name" | "duty">, 
   if (duty && !echoes.includes(norm(duty))) return duty;
   const tags = agentTagsOf(card);
   if (tags.length > 0) return tags.join("、");
-  const flows = card?.workflows.map((w) => w.name) ?? [];
-  if (flows.length > 0) return flows.slice(0, 3).join("、") + (flows.length > 3 ? " 等" : "");
+  const flows = workflowLabelsOf(card);
+  if (flows.length > 0) return joinWithOverflow(flows, 3);
   return null;
 }
 
@@ -106,7 +107,7 @@ export function buildPickerGroups(input: {
   const entryMatches = (e: PickerEntry): boolean => {
     if (filter?.kind === "tag" && !e.tags.includes(filter.value)) return false;
     if (!q) return true;
-    return haystack([e.listing.name, e.listing.duty, e.card?.roleLabel, ...e.tags, ...(e.card?.workflows.map((w) => w.name) ?? [])]).includes(q);
+    return haystack([e.listing.name, e.listing.duty, e.card?.roleLabel, ...e.tags, ...workflowLabelsOf(e.card), ...(e.card?.workflows.map((w) => w.name) ?? [])]).includes(q);
   };
   const pendingMatches = (p: PendingOfficialRole): boolean => {
     if (filter?.kind === "tag" && !p.tags.includes(filter.value)) return false;
@@ -128,4 +129,25 @@ export function buildPickerGroups(input: {
     tagOptions,
     isEmpty: listings.length === 0 && pending.length === 0,
   };
+}
+
+/**
+ * 流程的中文显示名：内置工作流走 `workflow-display-copy`（单源）；非内置取目录名，
+ * 并去掉「（…）」补充说明——绝不把 `W028` / `research-to-insight` 这类技术 id 上屏。
+ */
+export function workflowLabel(w: { readonly stableId: string; readonly name: string }): string {
+  const head = (w.name.split(/[（(]/)[0] ?? "").trim();
+  const builtin = findBuiltinWorkflow(w.stableId) ?? findBuiltinWorkflow(head.replace(/\s+/g, "-"));
+  if (builtin) return builtin.name;
+  return head || "未命名流程";
+}
+
+export function workflowLabelsOf(card: AgentDirectoryCard | undefined): string[] {
+  return [...new Set((card?.workflows ?? []).map(workflowLabel))];
+}
+
+/** 按条目边界截断：「A、B、C 等 5 个」——不在某个名字中间切断。 */
+export function joinWithOverflow(items: readonly string[], max: number): string {
+  if (items.length <= max) return items.join("、");
+  return `${items.slice(0, max).join("、")} 等 ${items.length} 个`;
 }

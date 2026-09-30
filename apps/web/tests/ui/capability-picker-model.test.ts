@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPickerGroups, shortReason, strengthsFor, subtitleFor } from "@/lib/capability-picker-model";
+import { buildPickerGroups, joinWithOverflow, shortReason, strengthsFor, subtitleFor, workflowLabel } from "@/lib/capability-picker-model";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { AgentDirectoryCard, PendingOfficialRole } from "@/lib/agent-directory";
 
@@ -54,9 +54,17 @@ describe("capability picker model", () => {
   it("擅长不回显名字：duty(≠名字/头衔) → 标签 (无则分类) → 流程 → null", () => {
     expect(strengthsFor({ name: "设计思维专家", duty: "设计思维专家" }, card("a", { roleLabel: "设计思维专家", tags: ["设计", "创新"] }))).toBe("设计、创新");
     expect(strengthsFor({ name: "A", duty: "把问题拆成可验证的假设" }, card("a"))).toBe("把问题拆成可验证的假设");
-    const flows = ["一", "二", "三", "四"].map((n, i) => ({ stableId: `W00${i}`, name: n })) as unknown as AgentDirectoryCard["workflows"];
-    expect(strengthsFor({ name: "A", duty: "A" }, card("a", { workflows: flows }))).toBe("一、二、三 等");
+    const flows = ["一", "二", "三", "四"].map((n, i) => ({ stableId: `X90${i}`, name: n })) as unknown as AgentDirectoryCard["workflows"];
+    expect(strengthsFor({ name: "A", duty: "A" }, card("a", { workflows: flows }))).toBe("一、二、三 等 4 个");
     expect(strengthsFor({ name: "A", duty: null }, card("a", { roleCategory: "research" }))).toBe("研究");
     expect(strengthsFor({ name: "A", duty: null }, undefined)).toBeNull();
+  });
+  it("流程名上屏用中文显示名，不漏英文标识 / 技术 id；截断落在条目边界", () => {
+    expect(workflowLabel({ stableId: "W028", name: "Research-to-Insight（从一轮用户研究提炼洞察）" })).toBe("用户研究到洞察");
+    expect(workflowLabel({ stableId: "research-to-insight", name: "x" })).toBe("用户研究到洞察");
+    expect(workflowLabel({ stableId: "zz", name: "Experiment Loop" })).toBe("实验闭环");
+    expect(workflowLabel({ stableId: "zz", name: "周报汇总（按团队）" })).toBe("周报汇总");
+    expect(joinWithOverflow(["甲", "乙"], 3)).toBe("甲、乙");
+    expect(joinWithOverflow(["甲", "乙", "丙", "丁", "戊"], 3)).toBe("甲、乙、丙 等 5 个");
   });
 });
