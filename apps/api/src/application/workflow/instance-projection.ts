@@ -14,6 +14,7 @@ import {
 import { deriveGates, gateView, isApproverOfAnyGate } from "./human-gate-state";
 import { WorkflowUseCaseError } from "./workflow-errors";
 import type { WorkflowActor, WorkflowDefinitionRepository } from "./workflow-ports";
+import { goalFromTriggerInput } from "./trigger-goal";
 import type {
   WorkflowAccessPort,
   WorkflowEventStore,
@@ -116,6 +117,7 @@ export function buildProjection(
     status: instance.status,
     stateVersion: instance.stateVersion,
     reasonCode: instance.reasonCode,
+    goal: goalFromTriggerInput(events.find((e) => e.type === "instance_started")?.data.input),
     stages,
     openGate: openGateView(events, definition, viewer, instance),
     effects: [],

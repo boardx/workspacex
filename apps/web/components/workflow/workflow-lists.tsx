@@ -14,6 +14,8 @@ import {
   type WorkflowInstanceStatus,
   type WorkflowInstanceSummary,
 } from "@/lib/workflow-runtime-api";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { gateDisplayTitle, workflowDisplayName } from "@/lib/workflow-display-copy";
 import { INSTANCE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
@@ -23,6 +25,8 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
   const [items, setItems] = useState<WorkflowInstanceSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const key = (props.status ?? []).join(",");
+  const sessionCtx = useOptionalSession();
+  const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
   useEffect(() => {
     let live = true;
     listMyWorkflowInstances(props.status)
@@ -52,12 +56,18 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
         const when = new Date(i.updatedAt);
         return (
           <li key={i.instanceId} data-status={i.status} className="rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40">
-            <a href={href(i.instanceId)} className="flex items-center gap-3 px-4 py-3">
-              <span className="flex-1 truncate text-13 font-medium">{workflowDisplayName(i.workflowKey)}</span>
-              <span data-testid="workflow-run-status" className={`rounded-full px-2 py-0.5 text-11 ${RUN_TONE[i.status]}`}>{INSTANCE_STATUS_TEXT[i.status]}</span>
-              {Number.isNaN(when.getTime()) ? null : (
-                <time className="text-12 text-muted-foreground" dateTime={i.updatedAt}>{when.toLocaleString("zh-CN", { hour12: false })}</time>
-              )}
+            <a href={href(i.instanceId)} className="flex flex-col gap-1 px-4 py-3">
+              <span className="flex items-center gap-3">
+                <span className="flex-1 truncate text-13 font-medium">{workflowDisplayName(i.workflowKey)}</span>
+                <span data-testid="workflow-run-status" className={`rounded-full px-2 py-0.5 text-11 ${RUN_TONE[i.status]}`}>{INSTANCE_STATUS_TEXT[i.status]}</span>
+                {Number.isNaN(when.getTime()) ? null : (
+                  <time className="text-12 text-muted-foreground" dateTime={i.updatedAt}>{when.toLocaleString("zh-CN", { hour12: false })}</time>
+                )}
+              </span>
+              {i.goal ? <span data-testid="workflow-run-goal" className="truncate text-12">目标：{i.goal}</span> : null}
+              <span data-testid="workflow-run-initiator" className="text-12 text-muted-foreground">
+                发起人：{memberLabel(i.initiatorUserId, sessionCtx?.session?.userId, memberNames)}
+              </span>
             </a>
           </li>
         );

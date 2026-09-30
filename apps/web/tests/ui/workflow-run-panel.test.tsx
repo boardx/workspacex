@@ -374,17 +374,19 @@ describe("列表与入口", () => {
   });
 
   it("我的运行：卡片含中文名、状态徽标与更新时间", async () => {
-    const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i2", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1",
+    const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i2", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", goal: "梳理 Q3 增长瓶颈，输出 PRD",
       status: "succeeded", stateVersion: 2, reasonCode: null, createdAt: "2026-09-01T08:00:00Z", updatedAt: "2026-09-01T09:30:00Z" });
     api.listMyWorkflowInstances.mockResolvedValue({ items: [s], nextCursor: null });
     render(<WorkflowRunList />);
     const list = await screen.findByTestId("workflow-run-list");
     expect(screen.getByTestId("workflow-run-status").textContent).toBe("已完成");
     expect(list.querySelector("time")?.getAttribute("datetime")).toBe("2026-09-01T09:30:00Z");
+    expect(screen.getByTestId("workflow-run-goal").textContent).toBe("目标：梳理 Q3 增长瓶颈，输出 PRD");
+    expect(screen.getByTestId("workflow-run-initiator").textContent).toContain("发起人：");
   });
 
   it("我的运行：按状态筛选透传", async () => {
-    const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i1", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1",
+    const s = workflowRuntime.WorkflowInstanceSummary.parse({ instanceId: "i1", workflowKey: "weekly-report", definitionVersion: 3, agentId: "a1", initiatorUserId: "u1", goal: null,
       status: "failed", stateVersion: 2, reasonCode: null, createdAt: "t", updatedAt: "t" });
     api.listMyWorkflowInstances.mockResolvedValue({ items: [s], nextCursor: null });
     render(<WorkflowRunList status={["failed"]} />);

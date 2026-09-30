@@ -24,6 +24,7 @@ import {
 import { workflowRuntime } from "@repo/contracts";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { formatRunDuration, formatRunTime } from "@/lib/workflow-run-meta";
 import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { Badge } from "@/components/ui/badge";
@@ -224,6 +225,17 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
           {terminal ? "" : sse === "live" ? "实时" : sse === "reconnecting" ? "重连中…" : "已降级为轮询"}
         </span>
       </header>
+      <dl data-testid="workflow-run-meta" className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-12 text-muted-foreground">
+        <dt>发起人</dt>
+        <dd data-testid="workflow-run-initiator">{memberLabel(p.initiatorUserId, sessionCtx?.session?.userId, memberNames)}</dd>
+        <dt>开始时间</dt>
+        <dd data-testid="workflow-run-started">{formatRunTime(p.createdAt) ?? "—"}</dd>
+        <dt>{terminal ? "用时" : "最近更新"}</dt>
+        <dd data-testid="workflow-run-elapsed">
+          {(terminal ? formatRunDuration(p.createdAt, p.updatedAt) : formatRunTime(p.updatedAt)) ?? "—"}
+        </dd>
+        {p.goal ? (<><dt>目标</dt><dd data-testid="workflow-run-goal">{p.goal}</dd></>) : null}
+      </dl>
 
       {p.status === "needs_attention" ? (
         <div role="status" data-testid="workflow-banner-needs-attention" {...(p.reasonCode ? { "data-reason": p.reasonCode } : {})}
