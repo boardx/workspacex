@@ -62,11 +62,11 @@ export function AuthShell({
 function BrandPanel() {
   return (
     <aside
-      className="hidden w-5/12 max-w-xl flex-col justify-between border-r border-border-subtle bg-panel-alt p-12 lg:flex"
+      className="hidden w-5/12 max-w-xl shrink-0 flex-col justify-between gap-8 overflow-y-auto border-r border-border-subtle bg-panel-alt p-10 lg:sticky lg:top-0 lg:flex lg:h-screen"
       data-testid="auth-brand"
     >
-      <WorkspaceXWordmark className="-ml-3 h-20 w-auto self-start" />
-      <div className="flex flex-col gap-10">
+      <WorkspaceXWordmark className="-ml-2 h-14 w-auto shrink-0 self-start" />
+      <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
           <h2 className="text-30 font-semibold leading-tight tracking-tight">
             AI 原生的团队协作与知识工作空间
@@ -75,7 +75,7 @@ function BrandPanel() {
         </div>
         <Metamorphosis />
       </div>
-      <p className="text-11 text-muted-foreground">© WorkspaceX</p>
+      <p className="shrink-0 text-11 text-muted-foreground">© WorkspaceX</p>
     </aside>
   );
 }

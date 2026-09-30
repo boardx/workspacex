@@ -115,6 +115,15 @@ sudo -u "$RUN_AS" git log --oneline -1
 SOURCE_REVISION=$(sudo -u "$RUN_AS" git rev-parse HEAD)
 export SOURCE_REVISION
 
+step "1a. 反代路由预检与 Board 路由恢复"
+# #4733: a previous deployment built .next in place, then discovered that the
+# live Caddyfile lacked Board's WebSocket route and stopped before restarting
+# Next.js. The old process served a new asset directory and Board failed with a
+# missing chunk. Repair only this known route from the root-owned helper; other
+# route drift remains fail-closed. Run before any frontend build.
+ensure_board_sync_caddy_route /etc/caddy/Caddyfile "${APP_API_PORT:-3200}"
+assert_caddy_routes_current "$APP_DIR/.harness/scripts/vm/provision.sh" /etc/caddy/Caddyfile
+
 step "2. 依赖"
 sudo -u "$RUN_AS" pnpm install --frozen-lockfile
 
@@ -713,13 +722,6 @@ if ! sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   exit 1
 fi
 echo "  必需 env var 就绪"
-
-step "5d. 反代路由漂移 —— 在跑的 Caddyfile 必须覆盖模板声明的每一条 handle（#3073）"
-# 见 deploy-readiness.sh 里 `assert_caddy_routes_current` 的头注：本脚本不写 Caddyfile，
-# 于是「模板改了并合入 main」对机器上真正在跑的反代没有任何影响。这一步把那条缝变成
-# 会红的门——2026-09-08 devapp 的 agent-run 事件 WS 就是从这条缝里漏过去的。
-assert_caddy_routes_current "$APP_DIR/.harness/scripts/vm/provision.sh" "${CADDYFILE:-/etc/caddy/Caddyfile}"
-echo "  反代路由与模板一致"
 
 step "6. 重启服务"
 systemctl restart workspacex-api workspacex-web
