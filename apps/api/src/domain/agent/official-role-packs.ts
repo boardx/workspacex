@@ -29,7 +29,8 @@ import type { OfficialAgentStarterPack } from "./starter-pack";
 export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
 /** 1.1.0：四个官方角色挂上数字人肖像头像（`avatarKey`）；1.0.0 的 avatar 恒为 null。 */
 /** 1.2.0：四个官方角色带上中文标签（`tags`，目录/聊天选人按它筛选）。 */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.2.0";
+/** 1.3.0（AG07）：四个官方角色带上真实转交目标（`delegationPolicy`，见 `officialRoleDelegationTargets`）。 */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.3.0";
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -125,11 +126,37 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
       avatar: { kind: "illustration", key: seed.avatarKey, alt: seed.roleLabel },
       roleCategory: seed.roleCategory,
       workflowAllowlist: [...seed.workflowAllowlist],
-      delegationPolicy: { allowedTargets: [...DEFAULT_DELEGATION_POLICY.allowedTargets], maxDepth: DEFAULT_DELEGATION_POLICY.maxDepth, requireApproval: DEFAULT_DELEGATION_POLICY.requireApproval },
+      delegationPolicy: officialRoleDelegationPolicy(seed.roleRef),
       escalationPolicy: { rules: [...DEFAULT_ESCALATION_POLICY.rules] },
       kpi: [],
       tags: [...seed.tags],
     },
+  };
+}
+
+/** AG07 官方角色的转交深度：只允许一跳（转交出去的线程里不再继续转交）。 */
+export const OFFICIAL_ROLE_DELEGATION_MAX_DEPTH = 1;
+
+/**
+ * AG07 —— 官方角色 → 可转交目标（同一份 ROLE_SEEDS 的 workflowAllowlist 推导，不另立清单）：
+ * 目标 = 拥有「本角色白名单外的某个 Workflow」的其它官方角色——与 AG05 拒绝文案里的
+ * 「可转交给角色：…」是同一个判据（谁能跑我跑不了的流程，就能接我转交的活）。
+ */
+export function officialRoleDelegationTargets(): Readonly<Record<string, readonly string[]>> {
+  return Object.fromEntries(ROLE_SEEDS.map((self) => {
+    const mine = new Set(self.workflowAllowlist);
+    const targets = ROLE_SEEDS
+      .filter((other) => other.roleRef !== self.roleRef && other.workflowAllowlist.some((w) => !mine.has(w)))
+      .map((other) => other.roleRef);
+    return [self.roleRef, targets];
+  }));
+}
+
+function officialRoleDelegationPolicy(roleRef: string) {
+  return {
+    allowedTargets: [...(officialRoleDelegationTargets()[roleRef] ?? DEFAULT_DELEGATION_POLICY.allowedTargets)],
+    maxDepth: OFFICIAL_ROLE_DELEGATION_MAX_DEPTH,
+    requireApproval: DEFAULT_DELEGATION_POLICY.requireApproval,
   };
 }
 

@@ -41,6 +41,9 @@ import { addBinding, addCapability, addOrgMember, addProjectMember, asApp, ensur
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { addBrowserArtifact } from "../support/files-db";
 import { fixture } from "../agent-run/loopback-deep-agent-fixture";
+import { importOfficialAgentRolePack } from "../../src/application/agent-import/import-official-agent-role-pack";
+import { buildOfficialAgentRolePack, officialRoleDelegationTargets, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
+import { PgOfficialAgentRolePackImportRepository } from "../../src/infrastructure/agent/pg-official-agent-role-pack-import-repository";
 
 /* ── 一、纯判定（domain）──────────────────────────────────────────── */
 
@@ -458,5 +461,83 @@ describe("AG07 · handoff 端到端（真库、真网关、真路由）", () => 
        VALUES ('h-bad', $1, 'r', 't', 'th', 'a', 'v', 'u', 'D003', $2::jsonb, 1)`,
       [ORG, JSON.stringify({ ...PACKET, excerpt: "全文" })]).then(() => null, (x: { code?: string }) => x.code));
     expect(extra).toBe("23514");
+  });
+});
+
+/* ── 四、官方角色包开箱即可转交（1.3.0）───────────────────────────── */
+
+describe("AG07 · 官方角色包：D002 开箱转交给 D003（真导入、真网关、loopback 剧本同形参数）", () => {
+  const ORG2 = toOrgId("org-ag07-official");
+  const ADMIN = "u-ag07-official-admin";
+  let db: PgDatabase;
+  let runs: PgAgentRunRepository;
+  let handoffs: PgAgentHandoffStore;
+  const calls: ModelCallInput[] = [];
+  let script: ModelCallCompletion[] = [];
+  const model: ModelCallPort = {
+    async complete(input) { calls.push(input); const n = script.shift(); if (!n) throw new Error("unexpected model call"); return n; },
+  };
+
+  beforeAll(async () => {
+    ensureDatabase();
+    await migrateOnce();
+    db = new PgDatabase(appConfig());
+    runs = new PgAgentRunRepository(db);
+    handoffs = new PgAgentHandoffStore(db);
+    await resetOrgs(ORG2);
+    await seedOrg({ orgId: ORG2, projectId: "proj-ag07-official" });
+    await addOrgMember(ORG2, ADMIN, "admin", null);
+    await addProjectMember(ORG2, "proj-ag07-official", ADMIN, "member", null);
+    const pack = buildOfficialAgentRolePack();
+    await importOfficialAgentRolePack(
+      {
+        identities: new PgIdentityRepository(db),
+        packs: { load: async () => pack } as never,
+        workflows: { isRegistered: async () => true, workflowName: async () => null } as never,
+        imports: new PgOfficialAgentRolePackImportRepository(db),
+      },
+      { actorId: ADMIN, orgId: ORG2, packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() },
+    );
+  }, 120_000);
+
+  afterAll(async () => {
+    await resetOrgs(ORG2);
+    await db?.close();
+  });
+
+  it("官方包的转交目标由白名单推导，D002 → D003 登记 requested；D002 → D002 自己不在允许集", async () => {
+    expect(OFFICIAL_AGENT_ROLE_PACK_VERSION).toBe("1.3.0");
+    expect(officialRoleDelegationTargets().D002).toContain("D003");
+    const d002 = await asApp(ORG2, async (c) => (await c.query<{ agent_id: string; version_id: string; policy: unknown }>(
+      `SELECT a.id AS agent_id, a.published_version_id AS version_id, v.delegation_policy AS policy
+         FROM agents a JOIN agent_versions v ON v.id = a.published_version_id AND v.org_id = a.org_id
+        WHERE a.org_id = $1 AND a.stable_name = 'd002-research-knowledge-analyst'`, [ORG2])).rows[0]!);
+    expect(d002.policy).toEqual({ allowedTargets: [...officialRoleDelegationTargets().D002!], maxDepth: 1, requireApproval: true });
+
+    for (const [runId, role] of [["run-ag07-off-ok", "D003"], ["run-ag07-off-self", "D002"]] as const) {
+      // 每条 run 独立线程（同一线程上一条 run 未写回前不会认领下一条）。
+      await addChatThread({ orgId: ORG2, id: `thr-${runId}`, projectId: "proj-ag07-official", visibilityScope: "plenary", createdBy: ADMIN });
+      await addChatMessage({ orgId: ORG2, id: `${runId}-in`, threadId: `thr-${runId}`, body: `请转交 [request_handoff:${role}]`, authorId: ADMIN });
+      await asApp(ORG2, (c) => c.query(
+        `INSERT INTO agent_runs (id, org_id, thread_id, input_message_id, agent_id, agent_version_id, skill_version_ids, model_provider, model_id, status)
+         VALUES ($1,$2,'thr-' || $1,$3,$4,$5,'[]'::jsonb,'deep-agent','deep-agent','queued')`,
+        [runId, ORG2, `${runId}-in`, d002.agent_id, d002.version_id]));
+      // 参数与 loopback 剧本 `[request_handoff:Dxxx]` 发出的形状逐字相同。
+      const args = { targetRole: role, packet: { originalQuestion: "请转交", confirmedScope: "", evidenceRefs: [], openItems: [] } };
+      calls.length = 0;
+      script = [{ text: "", interrupted: { toolName: "request_handoff", toolCallId: `call-${runId}`, argsSummary: JSON.stringify(args) } }, { text: "好的。" }];
+      let n = 0;
+      const d = { runs, model, log: () => {}, handoffs, clock: { now: () => new Date().toISOString(), newStepId: () => `s-${runId}-${n++}` } } as unknown as ExecuteAgentRunDeps;
+      await executeQueuedRuns(d, { orgId: ORG2 });
+      const st = await asApp(ORG2, async (c) => (await c.query<{ status: string }>("SELECT status FROM agent_runs WHERE id=$1", [runId])).rows[0]!.status);
+      if (st === "queued") await executeQueuedRuns(d, { orgId: ORG2 });
+      expect(calls, "中断 + edit resume 共两次模型调用").toHaveLength(2);
+      const outcome = (JSON.parse((calls[1]!.resume as { editedAction: { argsJson: string } }).editedAction.argsJson) as { outcome: AgentHandoffOutcome }).outcome;
+      if (role === "D003") expect(outcome).toMatchObject({ status: "requested", targetRole: "D003" });
+      else expect(outcome).toMatchObject({ status: "refused", reason: "target_not_in_allowed_targets" });
+    }
+    const rows = await asApp(ORG2, async (c) => (await c.query<{ target_role: string; status: string; target_name: string }>(
+      "SELECT target_role, status, target_name FROM agent_handoffs WHERE org_id=$1", [ORG2])).rows);
+    expect(rows).toEqual([{ target_role: "D003", status: "requested", target_name: "Product Manager" }]);
   });
 });
