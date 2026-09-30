@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Check, ChevronDown, Loader2, Mic, Square } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
 import type { AsrDraftStatus } from "@/lib/use-asr-draft";
 import type { ComposerVoicePhase } from "@/lib/use-composer-voice-session";
@@ -146,49 +147,57 @@ export function ComposerVoiceControl({
 
   return (
     <div ref={containerRef} className={`relative flex h-8 items-stretch overflow-visible rounded-pill border transition-colors duration-fast ${shell}`}>
-      <button
-        type="button"
-        data-testid="chat-task-workbench-composer-mic"
-        data-mic-status={status}
-        data-voice-phase={phase}
-        aria-pressed={listening}
-        aria-busy={busy}
-        aria-label={ariaLabel}
-        title={phase === "idle" ? `语音输入：说话转成文字放进输入框，不会发起通话（${deviceText}）` : ariaLabel}
-        disabled={disabled || busy}
-        onClick={() => {
-          if (!onRequireSession()) return;
-          if (listening) onStop();
-          else if (paused) onResume();
-          else onStart();
-        }}
-        className={`flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
-      >
-        {busy ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-        ) : listening ? (
-          <Square aria-hidden className="h-3 w-3 fill-current" />
-        ) : (
-          <Mic aria-hidden className="h-4 w-4" />
-        )}
-        <span>
-          {phase === "connecting" ? "连接中"
-            : phase === "stopping" ? "停止中"
-            : listening ? "停止"
-            : paused ? "继续"
-            /*
-             * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
-             * 而「这里没开通语音」时两个都是死路。按钮只说它是什么（语音），要不要重试交给状态栏判断。
-             */
-            : "语音输入"}
-        </span>
-        {listening ? <LevelBars level={level} /> : null}
-        {listening || paused ? (
-          <span className="font-mono tabular-nums" data-testid="chat-task-workbench-composer-recording-timer">
-            {formatElapsed(elapsedSeconds)}
-          </span>
-        ) : null}
-      </button>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+          <button
+            type="button"
+            data-testid="chat-task-workbench-composer-mic"
+            data-mic-status={status}
+            data-voice-phase={phase}
+            aria-pressed={listening}
+            aria-busy={busy}
+            aria-label={ariaLabel}
+            disabled={disabled || busy}
+            onClick={() => {
+              if (!onRequireSession()) return;
+              if (listening) onStop();
+              else if (paused) onResume();
+              else onStart();
+            }}
+            className={`flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
+          >
+            {busy ? (
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+            ) : listening ? (
+              <Square aria-hidden className="h-3 w-3 fill-current" />
+            ) : (
+              <Mic aria-hidden className="h-4 w-4" />
+            )}
+            <span>
+              {phase === "connecting" ? "连接中"
+                : phase === "stopping" ? "停止中"
+                : listening ? "停止"
+                : paused ? "继续"
+                /*
+                 * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
+                 * 而「这里没开通语音」时两个都是死路。按钮只说它是什么（语音），要不要重试交给状态栏判断。
+                 */
+                : "语音输入"}
+            </span>
+            {listening ? <LevelBars level={level} /> : null}
+            {listening || paused ? (
+              <span className="font-mono tabular-nums" data-testid="chat-task-workbench-composer-recording-timer">
+                {formatElapsed(elapsedSeconds)}
+              </span>
+            ) : null}
+          </button>
+          </TooltipTrigger>
+          <TooltipContent data-testid="chat-task-workbench-composer-mic-tooltip">
+            {phase === "idle" ? `语音输入：说话转成文字放进输入框，不会发起通话（${deviceText}）` : ariaLabel}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <span aria-hidden className={`my-1.5 w-px ${divider}`} />
       <button
         type="button"

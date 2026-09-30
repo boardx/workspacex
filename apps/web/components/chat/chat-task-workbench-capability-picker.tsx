@@ -638,7 +638,7 @@ function PreviewPane({ active, entry, pending, acting, suggestions, step }: { st
 }
 
 /** 「可发起」列表：超过 5 项时「另有 n 个」可点开全部，「收起」还原（不是死路）。 */
-function ExpandableList({ items }: { items: readonly string[] }): JSX.Element {
+function ExpandableList({ items, testId = "chat-task-workbench-capability-facet-tools-more" }: { items: readonly string[]; testId?: string }): JSX.Element {
   const [open, setOpen] = React.useState(false);
   const shown = open ? items : items.slice(0, 5);
   return (
@@ -646,7 +646,7 @@ function ExpandableList({ items }: { items: readonly string[] }): JSX.Element {
       {shown.map((w) => <li key={w} className={open ? "break-words" : "truncate"} title={w}>{w}</li>)}
       {items.length > 5 ? (
         <li>
-          <button type="button" aria-expanded={open} data-testid="chat-task-workbench-capability-facet-tools-more" onClick={() => setOpen((v) => !v)} className="text-left text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button type="button" aria-expanded={open} data-testid={testId} onClick={() => setOpen((v) => !v)} className="text-left text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {open ? "收起" : `另有 ${items.length - 5} 个`}
           </button>
         </li>
@@ -661,10 +661,10 @@ function PendingWorkflows({ role }: { role: PendingOfficialRole }): JSX.Element 
   return (
     <div data-testid="chat-task-workbench-capability-pending-workflows" className="flex flex-col gap-1 border-t border-border pt-2">
       <p className="text-10 font-medium text-muted-foreground">启用后可发起</p>
-      <ul className="flex flex-col gap-0.5 text-11 text-card-foreground">
-        {labels.slice(0, 5).map((w) => <li key={w} className="truncate" title={w}>{w}</li>)}
-        {labels.length > 5 || unknown > 0 ? <li className="text-muted-foreground">{labels.length > 0 ? "另有" : "共"} {Math.max(0, labels.length - 5) + unknown} 个流程</li> : null}
-      </ul>
+      <div className="text-11 text-card-foreground">
+        {labels.length > 0 ? <ExpandableList key={role.name} items={labels} testId="chat-task-workbench-capability-pending-workflows-more" /> : null}
+        {unknown > 0 ? <p className="text-muted-foreground">{labels.length > 0 ? "另有" : "共"} {unknown} 个流程</p> : null}
+      </div>
     </div>
   );
 }

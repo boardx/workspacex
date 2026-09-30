@@ -151,6 +151,32 @@ describe("2026-09-30 重设计：分组 / 副标题去重 / 预览披露 / 待�
     expect(screen.queryByText("流程6")).toBeNull();
   });
 
+  it("手机抽屉详情步：可发起超过 5 项用同一个展开/收起开关（不是纯文字「另有 n 个」）", () => {
+    const many = { agentId: "a1", versionId: "v", name: "a1", initials: "XX", roleLabel: "x", avatar: null, roleCategory: "research", tags: [], catalogSource: "official", readiness: "ready", workflows: Array.from({ length: 6 }, (_, i) => ({ stableId: `w${i}` as AgentDirectoryCard["workflows"][number]["stableId"], name: `流程${i}` })) } as unknown as AgentDirectoryCard;
+    render(<CapabilityCardList sheet listings={[{ id: "a1", orgId: "org", kind: "agent", name: "研究员小林", scope: "org-wide", enabled: true, endpoint: null, abbr: "RL", duty: "文献检索", disabledReason: null, agentAvailable: true }]} selectedAgentId={null} onSelect={vi.fn()} directory={new Map([["a1", many]])} />);
+    fireEvent.click(screen.getByRole("option", { name: /研究员小林/ }));
+    const preview = screen.getByTestId("chat-task-workbench-capability-preview");
+    expect(preview).toHaveAttribute("data-step", "detail");
+    expect(screen.queryByText("流程5")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "另有 1 个" }));
+    expect(screen.getByText("流程5")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "收起" }));
+    expect(screen.queryByText("流程5")).toBeNull();
+  });
+
+  it("待启用官方数字人详情步：「启用后可发起」超过 5 项同样可展开/收起", () => {
+    const offer = { packId: "p", packVersion: "1", canEnable: false, pending: [
+      { roleRef: "D002", name: "产品经理", roleLabel: "产品经理", avatar: null, roleCategory: "product" as const, tags: [], workflowAllowlist: ["W001", "W002", "W027", "W028", "W029", "W030"] },
+    ] } as unknown as NonNullable<Parameters<typeof CapabilityCardList>[0]["official"]>["offer"];
+    render(<CapabilityCardList sheet listings={[]} selectedAgentId={null} onSelect={vi.fn()} official={{ offer, enabling: false, error: null, enable: vi.fn() }} />);
+    fireEvent.click(screen.getByTestId("chat-task-workbench-capability-pending"));
+    expect(screen.queryByText("PRD 到迭代计划")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "另有 1 个" }));
+    expect(screen.getByText("PRD 到迭代计划")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "收起" }));
+    expect(screen.queryByText("PRD 到迭代计划")).toBeNull();
+  });
+
   it("六项披露在预览栏里（高亮哪张显示哪张）", () => {
     render(<CapabilityCardList listings={listings} selectedAgentId={null} onSelect={vi.fn()} directory={directory} />);
     fireEvent.focus(screen.getByRole("option", { name: /Product Manager/ }));
