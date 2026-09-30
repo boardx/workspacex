@@ -103,8 +103,9 @@ export async function candidateConfigHostAction(action: "prepare" | "verify" | "
   if (!["prepare", "verify", "commit", "restore"].includes(action)) throw new Error("CANDIDATE_ACTION_INVALID");
   const identity = candidateIdentitySchema.parse(identityInput), paths = candidateConfigurationPaths(identity);
   await assertInheritedDeploymentLock();
-  await assertTrustedPath("/etc/workspacex-cn", { trustedRoot: "/", kind: "directory", private: true });
-  if ((await lstat("/etc/workspacex-cn")).gid !== 0) throw new Error("UNTRUSTED_CONFIGURATION_GROUP");
+  // Shared parent is root-owned and may grant the runner read/traverse access
+  // to sealed manifests. Only the candidate subtree and config files are private.
+  await assertTrustedPath("/etc/workspacex-cn", { trustedRoot: "/", kind: "directory" });
   const lock = "/etc/workspacex-cn/candidate-config.lock";
   await mkdir(lock, { mode: 0o700 }); // stale/crashed lock fails closed; never steal it
   try {

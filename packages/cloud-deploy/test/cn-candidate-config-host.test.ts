@@ -123,3 +123,12 @@ describe("trusted candidate host operations", () => {
     expect(memory.opens).toEqual([]);
   });
 });
+
+
+it("accepts root-owned runner-readable manifest parent while keeping candidate subtree root-private", async () => {
+  memory.entries.get("/etc/workspacex-cn")!.mode = 0o750;
+  memory.entries.get("/etc/workspacex-cn")!.gid = 1001;
+  const result = await candidateConfigHostAction("prepare", identity);
+  expect(result.state).toBe("prepared");
+  expect(memory.entries.get(paths.directory)!.mode).toBe(0o700);
+});

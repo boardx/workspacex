@@ -114,3 +114,21 @@ an unknown baseline. A run with an ambiguous CAS outcome remains failed, not gre
 `deploy-cn-production` is now a manual verification entry for an already accepted
 SHA/attempt. It does not activate again on `main-cn` push: the canonical promotion
 workflow has already activated that SHA before it writes the ref.
+
+
+## Attempt-owned candidate configuration (#4765)
+
+The build controller holds the canonical release lock and copies the active config
+into `/etc/workspacex-cn/candidate-configs/<SHA>/<attempt>/deployment.json`.
+Only `provision.release` changes; all durable profile references and stable identity
+inputs remain unchanged. Root-private baseline and candidate hashes bind the receipt.
+The collector, host preparation and canonical provision consume this same candidate.
+Preparation never replaces the active `/etc/workspacex-cn/deployment.json`.
+After runtime readiness and real browser acceptance, activation atomically commits
+that candidate using a byte-for-byte baseline compare-and-swap. Runtime rollback also
+restores the configuration using compare-and-swap; independent operator edits are
+rejected rather than overwritten. A lost GitHub CAS response retains the already
+accepted runtime/config pair until the remote ref is reconciled.
+
+This closes release-identity staging, but does not authorize or bypass the separate
+schema-changing release gate tracked in #4763.
