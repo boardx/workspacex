@@ -16,6 +16,7 @@ import * as skills from "../src/skills";
 import * as templates from "../src/templates";
 import * as research from "../src/research";
 import * as personalRealtimeTranscription from "../src/personal-realtime-transcription";
+import * as projectInvitation from "../src/project-invitation";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -44,6 +45,7 @@ const BUNDLES = [
   ["templates", templates.operations],
   ["research", research.operations],
   ["personal-realtime-transcription", personalRealtimeTranscription.operations],
+  ["project-invitation", projectInvitation.operations],
   // ── phase-16 束 ──
 ] as const;
 
