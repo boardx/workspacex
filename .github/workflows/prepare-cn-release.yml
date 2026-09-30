@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out the exact GitHub candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.event.workflow_run.head_sha }}
           fetch-depth: 0

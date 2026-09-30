@@ -32,13 +32,13 @@ describe("GitHub-based CN production promotion", () => {
   });
 
   it("fails closed on privileged script drift and seeds the domestic mirror from GitHub", () => {
-    expect(workflow).toContain("actions/checkout@v4");
+    expect(workflow).toContain("actions/checkout@v5");
     expect(workflow).toContain("CN_TRUSTED_ENTRYPOINT_DRIFT");
     expect(workflow).toContain("workspacex-cn-verify-promotion");
     expect(workflow).toContain("/opt/workspacex-cn/release-origin-cache.git");
     expect(workflow).toContain('fetch --no-tags "${GITHUB_WORKSPACE}" "+${REVISION}:refs/heads/main"');
     expect(workflow).toContain("GIT_NO_LAZY_FETCH=1");
-    expect(candidateWorkflow).toContain("actions/checkout@v4");
+    expect(candidateWorkflow).toContain("actions/checkout@v5");
     expect(candidateWorkflow).toContain("CN_SOURCE_CACHE_REVISION_MISMATCH");
     expect(candidateWorkflow).toContain("CN_TRUSTED_ENTRYPOINT_DRIFT");
   });
