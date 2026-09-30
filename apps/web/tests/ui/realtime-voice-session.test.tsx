@@ -53,7 +53,7 @@ describe("RealtimeVoiceSession", () => {
     const h = calls[0]!.handlers;
 
     act(() => h.onReady("qwen"));
-    expect(status()).toHaveTextContent("空闲");
+    expect(status()).toHaveTextContent("通话中，等你开口");
     expect(screen.getByRole("dialog")).toHaveAccessibleName("与研究员小周实时对话");
 
     act(() => h.onUserSpeech(true));
@@ -67,6 +67,9 @@ describe("RealtimeVoiceSession", () => {
     expect(screen.getByTestId("realtime-voice-caption-user")).toHaveTextContent("本周进展");
     expect(screen.getByTestId("realtime-voice-caption-assistant")).toHaveTextContent("好的，本周完成三件事");
     expect(screen.getByTestId("realtime-voice-portrait")).toHaveAttribute("data-activity", "speaking");
+    act(() => h.onAssistantAudio(false));
+    expect(status()).toHaveTextContent("通话中，等你开口");
+    expect(status()).not.toHaveTextContent("空闲");
   });
 
   it("mutes (button and M shortcut), interrupts while speaking, and hangs up", async () => {

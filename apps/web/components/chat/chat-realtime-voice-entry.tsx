@@ -66,7 +66,7 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
             <span className="whitespace-nowrap">实时对话</span>
           </button>
           </TooltipTrigger>
-          <TooltipContent data-testid="chat-composer-realtime-voice-tooltip">{REALTIME_ENTRY_TOOLTIP}</TooltipContent>
+          <TooltipContent side="top" align="start" collisionPadding={12} data-testid="chat-composer-realtime-voice-tooltip">{REALTIME_ENTRY_TOOLTIP}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <RealtimeVoiceSession open={open} onOpenChange={setOpen} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} />

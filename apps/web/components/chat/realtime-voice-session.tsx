@@ -49,7 +49,7 @@ const REASON_FAILURE: Record<OmniErrorReason, Failure> = {
   INVALID_FRAME: { title: "会话数据异常", detail: "请重新开始通话。", retryable: true },
 };
 
-const ACTIVITY_LABEL: Record<Activity, string> = { idle: "空闲", listening: "在听", thinking: "思考中", speaking: "在说" };
+const ACTIVITY_LABEL: Record<Activity, string> = { idle: "通话中，等你开口", listening: "在听", thinking: "思考中", speaking: "在说" };
 /** 静音时字幕区的提示（不能再说「直接开口说话」）。 */
 export const MUTED_FOOTER = "已静音，对方听不到你。";
 export const LIVE_FOOTER = "可随时开口打断。";
@@ -224,7 +224,8 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
     : phase === "reconnecting" ? "连接中断，正在重连…"
     : phase === "error" ? (failure?.title ?? "通话已断开")
     : muted && visibleActivity !== "speaking" ? "已静音"
-    : ACTIVITY_LABEL[visibleActivity];
+    : phase === "live" ? ACTIVITY_LABEL[visibleActivity]
+    : "空闲";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
