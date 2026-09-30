@@ -13,7 +13,7 @@ import { RealtimeVoiceSession, type RealtimeVoicePersona } from "@/components/ch
  *
  * 数字人 = composer 当前所选 Agent（未选则「通用助手」）。人设/音色由服务端按已发布角色解析，
  * 这里只取展示用的真人像（`GET /agents/directory/:agentId` 的 `avatar.key`，读失败静默退回插画）。
- * ⚠ 可访问名/title 刻意不含「语音/麦克风」：composer 只允许一个麦克风入口（TW-P0-5⑤ e2e 按名字计数）。
+ * ⚠ 可访问名（aria-label）与可见文字刻意不含「语音/麦克风」（title 含「语音通话」，e2e 只按 aria-label+文字计数）：composer 只允许一个麦克风入口（TW-P0-5⑤ e2e 按名字计数）。
  * 与语音输入（ASR 草稿）互不影响：那是「说话转文字填进输入框」，这是「和数字人直接语音对话」。
  */
 export interface ChatRealtimeVoiceEntryProps {
@@ -54,11 +54,11 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
         onClick={() => setOpen(true)}
         disabled={disabled}
         aria-label={`与${persona.name}实时对话`}
-        title="实时对话：像打电话一样和数字人交谈（不调用工具）"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+        title="和数字人语音通话（实时对话）"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
       >
         <AudioLines aria-hidden className="h-4 w-4" />
-        <span className="hidden sm:inline">实时对话</span>
+        <span className="whitespace-nowrap">实时对话</span>
       </button>
       <RealtimeVoiceSession open={open} onOpenChange={setOpen} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} />
     </>
