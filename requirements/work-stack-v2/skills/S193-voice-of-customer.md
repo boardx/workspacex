@@ -1,6 +1,6 @@
 # S193 — Voice of Customer（客户声音）
 
-> Type: Work Skill · Domain: Customer Success · Strategy: A2（上游 reference + 公开方法学）· 目标通道：candidate → verified（ADR-119 G5）
+> Type: Work Skill · Domain: Customer Success · Strategy: A2（上游 adapt 逐字引用规则 + 公开方法学）· 目标通道：candidate → verified（ADR-119 G5）
 > 基线：main@4518a6fcdd217f6094fdc3bbcebfa251afbdda16。本文独立作者化（AUTHOR-S193）；状态：待独立评审。
 
 ## 1. 解决什么问题
@@ -23,6 +23,7 @@
 | 源 | 路径 | commit | 许可 | 用法 |
 |---|---|---|---|---|
 | anthropics/knowledge-work-plugins | `customer-support/skills/customer-research/SKILL.md` | `da38ec1ee89d41e5380e652a97382695003396e7` | Apache-2.0（`customer-support/LICENSE`） | reference-only：借鉴「多源检索并标注来源、Gaps & Unknowns、先给答案再给证据」的输出顺序；该上游是单问题检索而非主题聚合，故不 adapt 正文，主题聚合方法为本文原创 |
+| anthropics/knowledge-work-plugins | `sales/skills/customer-voice/SKILL.md`（章节：Scope / Gather sources / Extract quotes (strict) / Output） | `da38ec1ee89d41e5380e652a97382695003396e7`（仓库 HEAD，同 SHA 最近提交该路径） | Apache-2.0（`sales/LICENSE`） | adapt：借鉴「只取带归属的逐字引语、严格抽取」与「个人范围为空时停下询问、不静默放宽到全组织」两条规则，分别落为步骤 2 与 `VOC_EMPTY_SCOPE`。该上游止于跨账户检索引语，**没有**主题聚合、去重计数、阈值与趋势，这些为本文原创。不复制正文；`references/upstream.md` 记 Apache-2.0 NOTICE |
 | 公开方法学：亲和图/主题分析（Braun & Clarke 主题分析思路）、NPS 反馈编码惯例 | n/a | n/a | 方法不受版权保护 | 构成步骤 3 的开放编码 → 主题归并；不使用专有分类体系 |
 | 公开方法学：客户流失原因分类（价格、产品缺口、服务、竞品、业务变化） | n/a | n/a | 同上 | 构成步骤 5 的 `driver` 枚举 |
 

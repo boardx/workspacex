@@ -75,7 +75,7 @@ TriageResult = {
 `ticketId`、`accountRef`、`accountTier` 均为调用方声明，服务端按调用者对账户/队列的读权限核验；不可见 → `TRIAGE_TICKET_NOT_VISIBLE`，错误文本不区分「不存在」与「无权」。`candidates` 只接受同一 Workflow 运行内检索得到的记录引用。工单正文含个人信息时，输出只引用 offset 与记录 ID，不复述联系方式。
 
 ## 8. 依赖与缺口（ADR-120 能力分类）
-- required：`ticket.read`（工单与客户消息）——**proposed-unwired**；平台无工单/帮助台领域模型（`grep -rli "ticket\b|helpdesk|zendesk" apps/api/src packages/contracts/src` 只命中与工单无关的 invite/recording 票据，VERIFIED@4518a6fc）。缺失时仅支持 `origin="uploaded"`（用户粘贴或上传单条内容）。
+- required：`ticket.read`（工单与客户消息）——**proposed-unwired**；平台无工单/帮助台领域模型（`grep -rli ticket apps/api/src packages/contracts/src` 只命中 invite-link 与 recording/ASR 的 ticket（连接票据）等无关文件，未见客户工单模型，VERIFIED@4518a6fc）。缺失时仅支持 `origin="uploaded"`（用户粘贴或上传单条内容）。
 - optional：`knowledge.search`（已知问题/KB）、`crm.read`（账户套餐，与 S033/S035 同一缺口）。
 - **外部系统缺口（显式）**：外部帮助台（任何工单系统）的连接、分类回写（`ticket.write`）均未建；S187 不声明写能力，`proposals` 由 W007 写阶段与人工门处理。副作用 = 只读；riskClass = low。
 

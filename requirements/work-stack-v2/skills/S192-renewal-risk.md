@@ -1,6 +1,6 @@
 # S192 — Renewal Risk（续约风险挽留方案）
 
-> Type: Work Skill · Domain: Customer Success · Strategy: A0（WorkspaceX 原创；理由见 §3）· 目标通道：candidate → verified（ADR-119 G5）
+> Type: Work Skill · Domain: Customer Success · Strategy: A2（决策网络部分 adapt 上游 stakeholder-map；其余原创）· 目标通道：candidate → verified（ADR-119 G5）
 > 基线：main@4518a6fcdd217f6094fdc3bbcebfa251afbdda16。本文独立作者化（AUTHOR-S192）；状态：待独立评审。**本文对目录有一条 MERGE 提议（§14 提议 1），评审应先裁决它。**
 
 ## 1. 解决什么问题
@@ -20,10 +20,11 @@ S033 已回答「哪些合同何时必须动作、是否有风险、依据是什
 S192 **不在 W017 行**（W017：S033, S035, S023, S189, S193）。W017 内部挽留方案由 S023 承担；这正是 §14 提议 1 的依据。
 
 ## 3. 上游来源与许可
-A0 的理由：kwp 的 `sales/renewal-radar` 已被 S033 采用，且其范围止于「识别与日历」，没有挽留方案环节；公开的「客户挽留」实践多是话术与折扣策略，没有适合采用的许可清晰 artifact。本文不采用上游文字。专业方法来自公开的采购决策研究常识（决策单元、采购中心）与客户成功实践（高管赞助、价值重申、成功计划重置）。
+来源说明：kwp 的 `sales/renewal-radar` 已被 S033 采用，且其范围止于「识别与日历」，没有挽留方案环节；公开的「客户挽留」实践多是话术与折扣策略，没有适合采用的许可清晰 artifact。仅决策网络（步骤 3）adapt 自上游 stakeholder-map，其余原创。专业方法来自公开的采购决策研究常识（决策单元、采购中心）与客户成功实践（高管赞助、价值重申、成功计划重置）。
 
 | 源 | 路径 | commit | 许可 | 用法 |
 |---|---|---|---|---|
+| anthropics/knowledge-work-plugins | `sales/skills/stakeholder-map/SKILL.md`（章节：Pull the known people / Classify each person / Find the gaps and the paths） | `da38ec1ee89d41e5380e652a97382695003396e7` | Apache-2.0（`sales/LICENSE`） | adapt：借鉴「按角色、影响力、立场给每个相关人分类，并找出缺失角色」用于步骤 3；不采用其「接入路径」部分（那是销售获客语境）。不复制正文；`references/upstream.md` 记 Apache-2.0 NOTICE |
 | anthropics/knowledge-work-plugins | `sales/skills/renewal-radar/SKILL.md` | `da38ec1ee89d41e5380e652a97382695003396e7` | Apache-2.0（`sales/LICENSE`） | reference-only：确认上游把「风险识别」做成一个独立 Skill 且不含挽留方案，据此把挽留方案与 S033 分开；S033 §3 已记其 adapt 行，S192 不再采用 |
 
 ## 4. 专业方法
