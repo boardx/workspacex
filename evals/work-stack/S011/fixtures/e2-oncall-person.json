@@ -1,0 +1,8 @@
+{
+  "evidenceId": "ev5",
+  "metadata": {
+    "userId": "u-oncall-a",
+    "displayName": "王某"
+  },
+  "quote": "值班工程师 A 未在 5 分钟内响应告警"
+}

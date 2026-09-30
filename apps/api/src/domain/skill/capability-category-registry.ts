@@ -11,6 +11,8 @@
  *   S035/S036。CT07 落地时漏登，`work-sales` 整包导入因此 422 WORK_SKILL_CAPABILITY_UNREGISTERED。）
  * （EV03 门脚本 `gate-policy.ts` 曾另抄一份更短的登记表，G3 与导入/就绪性判据因此漂移；现在它
  *   直接 re-export 本表，`knowledge.graph.read` 等原先只在那一份里的分类并入这里。）
+ * （高管线 S195/S199 补登：`finance.read`（预算/财务抽取）、`hr.headcount.read`（人员投放）——规格声明但背后的
+ *   ERP / HRIS 未接线（declared-but-unwired）；登记只为让 work-executive 整包能被导入，不代表能力已可用。）
  */
 const REGISTERED = [
   "analytics.read",
@@ -32,6 +34,8 @@ const REGISTERED = [
   "enrichment.company.read",
   "file.read",
   "finance.ledger.read",
+  "finance.read",
+  "hr.headcount.read",
   "interview.read",
   "knowledge.graph",
   "knowledge.graph.read",
