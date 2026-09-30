@@ -148,3 +148,13 @@ describe("任务 Board（项目待办看板）合并运行卡", () => {
     window.localStorage.clear();
   });
 });
+
+describe("BoardRunCard 区分信息", () => {
+  it("显示发起人、目标摘录与零填充时间", () => {
+    const d = new Date(2026, 8, 3, 9, 5);
+    render(<BoardRunCard card={card({ goal: "调研 Acme 的采购流程", createdAt: d.toISOString() })} />);
+    expect(screen.getByTestId("board-run-card-goal").textContent).toContain("调研 Acme 的采购流程");
+    expect(screen.getByTestId("board-run-card-initiator").textContent).toContain("发起人：");
+    expect(screen.getByTestId("board-run-card-time").textContent).toBe("2026-09-03 09:05");
+  });
+});

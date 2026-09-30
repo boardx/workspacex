@@ -12,6 +12,15 @@ export function formatRunDuration(startIso: string, endIso: string): string | nu
 }
 
 export function formatRunTime(iso: string): string | null {
+  return formatDateTime(iso);
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** 统一时间格式（本地时区，零填充）：2026-09-30 13:29。无法解析返回 null。 */
+export function formatDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleString("zh-CN", { hour12: false });
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }

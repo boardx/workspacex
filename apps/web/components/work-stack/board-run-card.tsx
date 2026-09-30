@@ -11,6 +11,9 @@ import type { z } from "zod";
 import type { BoardRunBadge, BoardWorkflowRunCard } from "@repo/contracts/work-content";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
+import { formatDateTime } from "@/lib/workflow-run-meta";
 import { runTitleDisplay } from "@/lib/workflow-display-copy";
 
 export type BoardRunCardData = z.infer<typeof BoardWorkflowRunCard>;
@@ -53,6 +56,9 @@ function WorkflowIcon() {
 
 export function BoardRunCard({ card, onOpen }: { card: BoardRunCardData; onOpen?: (href: string) => void }) {
   const badge = BADGE_VIEW[card.badge];
+  const sessionCtx = useOptionalSession();
+  const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
+  const when = formatDateTime(card.createdAt);
   const open = () => (onOpen ? onOpen(card.href) : window.location.assign(card.href));
   return (
     <article
@@ -76,6 +82,11 @@ export function BoardRunCard({ card, onOpen }: { card: BoardRunCardData; onOpen?
           {badge.label}
         </Badge>
       </div>
+      {card.goal ? <p data-testid="board-run-card-goal" className="line-clamp-2 text-12 text-muted-foreground">目标：{card.goal}</p> : null}
+      <p data-testid="board-run-card-meta" className="flex items-center gap-2 text-11 text-muted-foreground">
+        <span data-testid="board-run-card-initiator" className="truncate">发起人：{memberLabel(card.initiatorUserId, sessionCtx?.session?.userId, memberNames)}</span>
+        {when ? <time data-testid="board-run-card-time" dateTime={card.createdAt ?? undefined} className="ml-auto shrink-0">{when}</time> : null}
+      </p>
       <div className="flex -space-x-1" data-testid="board-run-card-agents">
         {card.agents.length > 0
           ? card.agents.map((a) => (

@@ -24,7 +24,7 @@ import {
 import { workflowRuntime } from "@repo/contracts";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { formatRunDuration, formatRunTime } from "@/lib/workflow-run-meta";
+import { formatDateTime, formatRunDuration, formatRunTime } from "@/lib/workflow-run-meta";
 import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { Badge } from "@/components/ui/badge";
@@ -252,7 +252,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
             {failureKindHint ? `，${failureKindHint}` : ""}
           </p>
           {failedStage?.finishedAt ? (
-            <p className="text-12" data-testid="workflow-banner-failed-at">最后一次失败：{new Date(failedStage.finishedAt).toLocaleString("zh-CN")}</p>
+            <p className="text-12" data-testid="workflow-banner-failed-at">最后一次失败：{formatDateTime(failedStage.finishedAt)}</p>
           ) : null}
         </div>
       ) : null}

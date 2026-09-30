@@ -23,6 +23,7 @@ import { workContent } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { BoardRunSource } from "../../application/board/list-board-run-cards";
 import type { RunCardAgent, VisibleRunSummary } from "../../domain/board/workflow-run-card";
+import { goalFromTriggerInput } from "../../application/workflow/trigger-goal";
 import { toOrgId } from "../../domain/org-id";
 
 interface RunRow {
@@ -33,6 +34,8 @@ interface RunRow {
   workflow_name: string;
   project_id: string | null;
   subject_label: string | null;
+  input: unknown;
+  created_at: Date | string;
 }
 
 interface ParticipantRow {
@@ -71,7 +74,8 @@ export class PgBoardRunSource implements BoardRunSource {
         `SELECT i.id, i.status, i.initiator_user_id, i.agent_id,
                 v.title AS workflow_name,
                 e.data->'input'->>'projectId' AS project_id,
-                COALESCE(e.data->'input'->>'subjectLabel', e.data->'input'->>'title') AS subject_label
+                COALESCE(e.data->'input'->>'subjectLabel', e.data->'input'->>'title') AS subject_label,
+                e.data->'input' AS input, i.created_at
            FROM workflow_instances i
            JOIN workflow_definition_versions v
              ON v.org_id = i.org_id AND v.key = i.workflow_key AND v.version = i.definition_version
@@ -116,6 +120,8 @@ export class PgBoardRunSource implements BoardRunSource {
         instanceId: r.id,
         workflowName: r.workflow_name,
         subjectLabel: r.subject_label,
+        goal: goalFromTriggerInput(r.input),
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
         status: r.status,
         initiatorUserId: r.initiator_user_id,
         agents: (chain.get(r.id) ?? [r.agent_id]).map((id) => toAgent(id, byId.get(id))),

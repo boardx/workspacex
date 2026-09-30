@@ -16,6 +16,8 @@ import {
 } from "@/lib/workflow-runtime-api";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
+import { formatDateTime } from "@/lib/workflow-run-meta";
+import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { gateDisplayTitle, workflowDisplayName } from "@/lib/workflow-display-copy";
 import { INSTANCE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
@@ -27,6 +29,7 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
   const key = (props.status ?? []).join(",");
   const sessionCtx = useOptionalSession();
   const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
+  const canManageGrants = sessionCtx?.identity?.orgRole === "admin";
   useEffect(() => {
     let live = true;
     listMyWorkflowInstances(props.status)
@@ -53,22 +56,28 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
   return (
     <ul data-testid="workflow-run-list" className="flex flex-col gap-2">
       {items.map((i) => {
-        const when = new Date(i.updatedAt);
+        const whenText = formatDateTime(i.updatedAt);
         return (
           <li key={i.instanceId} data-status={i.status} className="rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40">
             <a href={href(i.instanceId)} className="flex flex-col gap-1 px-4 py-3">
               <span className="flex items-center gap-3">
                 <span className="flex-1 truncate text-13 font-medium">{workflowDisplayName(i.workflowKey)}</span>
                 <span data-testid="workflow-run-status" className={`rounded-full px-2 py-0.5 text-11 ${RUN_TONE[i.status]}`}>{INSTANCE_STATUS_TEXT[i.status]}</span>
-                {Number.isNaN(when.getTime()) ? null : (
-                  <time className="text-12 text-muted-foreground" dateTime={i.updatedAt}>{when.toLocaleString("zh-CN", { hour12: false })}</time>
-                )}
+                {whenText ? <time className="text-12 text-muted-foreground" dateTime={i.updatedAt}>{whenText}</time> : null}
               </span>
               {i.goal ? <span data-testid="workflow-run-goal" className="truncate text-12">目标：{i.goal}</span> : null}
               <span data-testid="workflow-run-initiator" className="text-12 text-muted-foreground">
                 发起人：{memberLabel(i.initiatorUserId, sessionCtx?.session?.userId, memberNames)}
               </span>
             </a>
+            {i.status === "blocked_permission" ? (
+              <p data-testid="workflow-run-blocked-hint" className="px-4 pb-3 text-12 text-warning">
+                缺少工作流权限，运行已暂停。
+                {canManageGrants ? (
+                  <a href={`${WORKFLOW_GRANTS_HREF}?workflow=${encodeURIComponent(i.workflowKey)}`} data-testid="workflow-run-blocked-grant-link" className="ml-1 font-medium underline underline-offset-2">前往「工作流权限」授予</a>
+                ) : <span data-testid="workflow-run-blocked-contact-admin" className="ml-1">请联系管理员开通</span>}
+              </p>
+            ) : null}
           </li>
         );
       })}
@@ -168,7 +177,7 @@ export function WorkflowDecidedApprovalList() {
               {`${t.stage}${t.workflow ? ` · ${t.workflow}` : ""}`}
             </a>
             <span className="text-muted-foreground">{DECISION_TEXT[String(i.gate.decision)] ?? "已处理"}</span>
-            {i.gate.decidedAt ? <time className="text-muted-foreground" dateTime={i.gate.decidedAt}>{new Date(i.gate.decidedAt).toLocaleString("zh-CN", { hour12: false })}</time> : null}
+            {i.gate.decidedAt ? <time className="text-muted-foreground" dateTime={i.gate.decidedAt}>{formatDateTime(i.gate.decidedAt)}</time> : null}
           </li>
         );
       })}

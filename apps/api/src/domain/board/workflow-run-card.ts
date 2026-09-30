@@ -57,6 +57,8 @@ export interface VisibleRunSummary {
   readonly subjectLabel: string | null;
   readonly status: InstanceStatus;
   readonly initiatorUserId: string;
+  readonly goal?: string | null;
+  readonly createdAt?: string | null;
   /** 发起 Agent + 转交链，按参与顺序；A1（人直接发起）为空。 */
   readonly agents: readonly RunCardAgent[];
   readonly projectId: string | null;
@@ -83,6 +85,8 @@ export function projectRunCard(run: VisibleRunSummary): BoardWorkflowRunCard {
     column,
     badge,
     initiatorUserId: run.initiatorUserId,
+    goal: run.goal ?? null,
+    createdAt: run.createdAt ?? null,
     agents: agents.map((a) => ({ ...a })),
     draggable: false,
     href: runInstanceHref(run.instanceId),
