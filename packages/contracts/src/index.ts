@@ -139,3 +139,6 @@ export * as workSkillMeta from "./work-skill-meta";
 export * as workflowRuntime from "./workflow-runtime";
 export * as workContent from "./work-content";
 export * as workEval from "./work-eval";
+
+/** #4787 通用项目邀请（邮箱 / 链接 → 组织成员 + 通用项目 collaborator）。 */
+export * as projectInvitation from "./project-invitation";
