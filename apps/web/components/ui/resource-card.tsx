@@ -155,7 +155,8 @@ export function ResourceCard({
       </Card>
     );
   }
-  return <Card data-testid={testId} className={shell}>{body}</Card>;
+  // 纯展示卡：语义上是一篇独立内容（article），读屏能按「文章」导航，测试也按这个 role 找卡
+  return <article data-testid={testId} aria-label={ariaLabel} className={cn(cardSurface, shell)}>{body}</article>;
 }
 
 /** 标准标签芯片行（字符串标签用；标签外观唯一来源是 `TagChip`）。`onTagClick` 给了就可点击筛选。 */

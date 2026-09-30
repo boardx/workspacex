@@ -29,8 +29,8 @@ describe("SurveyResourceLibrary", () => {
 
     fireEvent.click(screen.getByTestId("survey-resource-new-survey"));
     fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "季度协作调查" } });
-    fireEvent.change(screen.getByLabelText("标签（可选）"), { target: { value: "协作" } });
-    fireEvent.keyDown(screen.getByLabelText("标签（可选）"), { key: "Enter" });
+    fireEvent.change(screen.getByTestId("survey-create-tag-input"), { target: { value: "协作" } });
+    fireEvent.keyDown(screen.getByTestId("survey-create-tag-input"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "创建问卷" }));
 
     const target = push.mock.calls[0]?.[0] as string;
