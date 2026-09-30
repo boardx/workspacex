@@ -53,6 +53,7 @@ export function ProjectsScreen() {
   const [listBusy, setListBusy] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
+  const createButtonRef = React.useRef<HTMLButtonElement>(null);
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -164,7 +165,7 @@ export function ProjectsScreen() {
               className="h-8 w-44 pl-7"
             />
           </div>
-          <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
+          <Button variant="primary" size="sm" data-testid="projects-new" ref={createButtonRef} onClick={() => setCreateOpen(true)}>
             <Plus aria-hidden className="h-3.5 w-3.5" />
             新建项目
           </Button>
@@ -271,7 +272,7 @@ export function ProjectsScreen() {
       )}
 
       {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
-      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} returnFocusRef={createButtonRef} />
     </div>
   );
 }

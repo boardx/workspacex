@@ -96,6 +96,17 @@ const mineItem = {
 };
 
 describe("FB-2 反馈弹层（采集侧）", () => {
+  it("自动整理失败时保留原文，并准确说明可手动提交", async () => {
+    mockSubmitThenList(mineItem);
+    openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "真实原文保留" } });
+    await proceedToReview();
+    expect(screen.getByText("自动整理暂不可用，原文已保留。请确认标题和正文后提交。")).toBeVisible();
+    expect(screen.queryByText("AI 整理好了，请确认后提交。")).toBeNull();
+    expect(screen.getByTestId("feedback-detail-input")).toHaveValue("真实原文保留");
+    expect(screen.getByTestId("feedback-submit")).toBeEnabled();
+  });
+
   it("① 请求体恰好六个字段（结构化字段全空 ⇒ 不带 structured 键），没有 submittedBy / status —— 按实际发出的请求断言", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });

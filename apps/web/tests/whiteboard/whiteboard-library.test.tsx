@@ -125,7 +125,7 @@ describe('Board library', () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />);
     expect(await screen.findByTestId(`board-open-${board.id}`)).toHaveAttribute('href', `/studio/board/${board.id}`);
     expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).toHaveTextContent('预览尚未生成'); expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).not.toHaveClass('bg-gradient-to-br');
-    await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-rename-${board.id}`)); expect(await screen.findByTestId('board-rename-dialog')).toBeInTheDocument(); expect(push).not.toHaveBeenCalled();
+    await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-rename-${board.id}`)); expect(await screen.findByTestId('board-rename-dialog')).toBeInTheDocument(); expect(screen.getByRole('textbox', { name: '白板名称' })).toBeVisible(); expect(push).not.toHaveBeenCalled();
   });
   it('updates board tags with the current CAS revision', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />); await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-tags-${board.id}`));

@@ -13,10 +13,12 @@ import { CreateProjectForm } from "./create-project-form";
  *
  * 表单组件随弹窗关闭卸载，所以每次打开都是空白状态。
  */
-export function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function CreateProjectDialog({ open, onOpenChange, returnFocusRef }: { open: boolean; onOpenChange: (open: boolean) => void; returnFocusRef?: React.RefObject<HTMLButtonElement> }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="project-new" data-mode="general">
+      <DialogContent data-testid="project-new" data-mode="general" onCloseAutoFocus={(event) => {
+        if (returnFocusRef?.current?.isConnected) { event.preventDefault(); returnFocusRef.current.focus(); }
+      }}>
         <DialogTitle data-testid="project-new-title">新建项目</DialogTitle>
         <DialogDescription>
           项目是团队的工作空间：对话、白板、访谈、问卷、研究都收在一起。起个名字就能开始，内容进项目后再加。

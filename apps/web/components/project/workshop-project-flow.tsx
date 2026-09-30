@@ -228,14 +228,14 @@ export function WorkshopProjectFlow() {
               );
             })}
           </div>
-          <p className="mt-2 text-10 leading-relaxed text-muted-foreground">{NEW_PROJECT_OPTIONS.blueprintNote}</p>
+          <p className="mt-2 text-10 leading-relaxed text-muted-foreground">当前从空白开始，无需选择蓝本。创建后可逐步添加环节和内容。</p>
         </section>
 
         {/* 步骤 2：主题与时长 */}
         <section>
           <div className="mb-2 flex items-center gap-2">
             <StepDot n={2} />
-            <SectionTitle className="mb-0" meta="选完蓝本，把骨架伸缩成这一场的议程">主题与时长</SectionTitle>
+            <SectionTitle className="mb-0" meta="先为这场工作坊命名">主题与时长</SectionTitle>
           </div>
           <Card><div className="flex flex-col gap-3.5 p-4" data-testid="project-new-details">
             <Field label="项目名称">

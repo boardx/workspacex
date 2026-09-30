@@ -14,13 +14,13 @@ import { OrgMenu } from "./org-menu";
 import { Button } from "@/components/ui/button";
 
 /**
- * `/chat?projectId=…` 的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
+ * 项目路径及 `/chat?projectId=…` 的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
  * 头注释），这里补上「id → 人类可读名」这一步。用**已经真实挂了**的
  * `listProjects(orgId)`（F185 之后是去重扁平数组），不新开一个「按 id 查单个项目」的
  * 端点——本组件只是从组织的项目列表里找同一个 id 那一条，找不到（列表还没到、或这个
- * id 不在当前组织可见范围）时诚实回退成裸 id，不拿组织名或别的字符串顶替。
+ * id 不在当前组织可见范围）时返回 null，由展示层沿用「项目」占位。
  *
- * ⚠ 只在真的进了 `/chat` 且带了 `chatProjectId` 时才发这次请求——不在其它路由上
+ * ⚠ 只在真实项目上下文内发请求——项目路径或带显式 projectId 的对话；不在独立工具页上
  *   为了「可能用得上」预取整个项目列表。
  */
 /**
@@ -38,27 +38,27 @@ function ChatProjectIdFromSearchParams({ onChange }: { onChange: (id: string | n
   return null;
 }
 
-function useChatProjectName(orgId: string, chatProjectId: string | null): string | null {
-  const [name, setName] = React.useState<string | null>(null);
+function useProjectName(orgId: string, projectId: string | null): string | null {
+  const [resolved, setResolved] = React.useState<{ orgId: string; projectId: string; name: string | null } | null>(null);
   React.useEffect(() => {
-    if (!chatProjectId) {
-      setName(null);
+    if (!projectId) {
+      setResolved(null);
       return;
     }
     let cancelled = false;
     void listProjects(orgId)
       .then((items) => {
         if (cancelled) return;
-        setName(items.find((p) => p.id === chatProjectId)?.name ?? null);
+        setResolved({ orgId, projectId, name: items.find((p) => p.id === projectId)?.name ?? null });
       })
       .catch(() => {
-        if (!cancelled) setName(null);
+        if (!cancelled) setResolved(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [orgId, chatProjectId]);
-  return name;
+  }, [orgId, projectId]);
+  return resolved?.orgId === orgId && resolved.projectId === projectId ? resolved.name : null;
 }
 
 /**
@@ -110,13 +110,10 @@ export function TopBar({
   const [chatProjectIdParam, setChatProjectIdParam] = React.useState<string | null>(null);
   const chatProjectId = pathname === "/chat" ? chatProjectIdParam : null;
   const project = resolveProjectContext(pathname, chatProjectId);
-  // 项目名统一解析：/chat?projectId= 与 /projects/<id> 都要，解析前不把裸 id 当项目名露出来
-  const ctxProjectId = project?.id ?? null;
-  const resolvedProjectName = useChatProjectName(identity.org.id, ctxProjectId);
-  // resolveProjectContext 对 /chat 只给得出裸 id 占位（见该函数注释）；名字解析出来后
-  // 覆盖显示值，解析完成前先诚实显示 id（不是空白，也不是编一个「加载中」的项目名）。
+  const projectName = useProjectName(identity.org.id, project?.id ?? null);
+  // 名称尚未解析或不在当前可见列表时沿用 main 的「项目」占位，不展示内部 ID。
   const displayProject = project
-    ? { ...project, name: resolvedProjectName ?? (project.name === project.id ? "项目" : project.name) }
+    ? { ...project, name: projectName ?? (project.name === project.id ? "项目" : project.name) }
     : project;
   const isDev = process.env.NODE_ENV !== "production";
   const projectLayer = project ? describeProjectLayer(identity) : null;

@@ -67,6 +67,7 @@ describe("#4743 列表页 → 新建项目弹窗", () => {
     expect(screen.queryByTestId("project-new")).toBeNull();
     const trigger = screen.getByTestId("projects-new");
     expect(trigger.tagName).toBe("BUTTON"); // 不再是指向 /project/new 的链接
+    trigger.focus();
     fireEvent.click(trigger);
     expect(await screen.findByTestId("project-new")).toBeInTheDocument();
     expect(screen.getByTestId("project-new-title")).toHaveTextContent("新建项目");
@@ -77,6 +78,7 @@ describe("#4743 列表页 → 新建项目弹窗", () => {
     expect(pushMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("project-new-cancel"));
     await waitFor(() => expect(screen.queryByTestId("project-new")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });
 
