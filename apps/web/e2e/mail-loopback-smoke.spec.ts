@@ -6,7 +6,7 @@
  * 后续要观察邀请等邮件的 spec 复用 `./support/mail-loopback` 即可。
  *
  * ① 正向：注册后替身里出现发给该邮箱的验证邮件；正文里的链接指向 web 服务的源，链接里的令牌
- *   与库里那枚待核销令牌**逐字相同**（不是「有一封邮件」的空断言）；点开链接真的完成验证并落到 `/projects`。
+ *   与库里那枚待核销令牌**逐字相同**（不是「有一封邮件」的空断言）；点开链接真的完成验证（验证前登录被拒、验证后同一账号能登录）。
  * ② 反证：只对该收件人把替身置为 `reject`（真实 Cloudflare 风格 503）——产品确实尝试了发送
  *   （替身的 `rejected` 计数增加），而邮件**不**出现在收件箱里。证明替身看得见失败，
  *   也证明①的绿不是「什么都会通过」。
@@ -62,8 +62,18 @@ test("验证邮件进入回环收件箱：链接源正确、令牌与库里逐�
   // 替身没有拒过任何一次鉴权：两个 transport 用的是各自正确的 token。
   expect((await getMailStats()).unauthorized).toBe(0);
 
+  // 验证前：未验证的账号不能登录——这是「邮件里的令牌真的起作用」的对照。
+  const before = await request.post(`${API}/auth/login`, { data: { email: user.email, password: user.password } });
+  expect(before.ok(), "邮箱未验证时不应能登录").toBe(false);
+
+  // 用 API 注册、再在一个全新页面打开邮件链接：页面没有「刚注册」的浏览器上下文，
+  // 所以不会自动登录跳转，而是如实显示「邮箱已验证」（同一浏览器里走 UI 注册才会自动进 /projects）。
   await page.goto(link.toString());
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByTestId("email-verification-success")).toBeVisible({ timeout: 30_000 });
+
+  // 验证后：同一个账号用注册时的密码能登录——证明是邮件里的令牌完成了验证。
+  const after = await request.post(`${API}/auth/login`, { data: { email: user.email, password: user.password } });
+  expect(after.ok(), "点开邮件里的链接后应能登录").toBe(true);
 });
 
 test("反证：替身对该收件人 reject ⇒ 产品确实尝试发送，但收件箱里没有这封邮件", async ({ request }) => {
