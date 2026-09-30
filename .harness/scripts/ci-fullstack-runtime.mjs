@@ -1,6 +1,6 @@
 /** #4842: exact web Playwright dependencies, without per-run APT installation. */
 import { createRequire } from 'node:module';
-import { realpathSync, readFileSync, mkdirSync, writeFileSync, chmodSync, statSync } from 'node:fs';
+import { realpathSync, readFileSync, mkdirSync, writeFileSync, chmodSync, statSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -13,7 +13,17 @@ export function sealedImage(version, catalog) {
 }
 
 export function pnpmPackageRoot(executable) {
-  return dirname(createRequire(realpathSync(executable)).resolve('pnpm/package.json'));
+  let parent = dirname(realpathSync(executable));
+  for (let depth = 0; depth < 8; depth++) {
+    for (const candidate of [parent, resolve(parent, 'pnpm')]) {
+      const metadata = resolve(candidate, 'package.json');
+      if (!existsSync(metadata)) continue;
+      const pkg = JSON.parse(readFileSync(metadata, 'utf8'));
+      if (pkg.name === 'pnpm' && existsSync(resolve(candidate, 'bin/pnpm.cjs'))) return realpathSync(candidate);
+    }
+    const next = dirname(parent); if (next === parent) break; parent = next;
+  }
+  throw new Error('PNPM_PACKAGE_ENTRYPOINT_NOT_FOUND');
 }
 
 export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, socketGid, env, geometry = false }) {

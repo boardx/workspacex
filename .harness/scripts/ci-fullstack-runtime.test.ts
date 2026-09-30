@@ -20,8 +20,9 @@ describe('preinstalled fullstack CI runtime', () => {
     const root = mkdtempSync(join(tmpdir(), 'wsx-pnpm-action-'));
     try { mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
       mkdirSync(join(root, 'node_modules/pnpm/bin'), { recursive: true });
-      writeFileSync(join(root, 'node_modules/pnpm/package.json'), JSON.stringify({ name: 'pnpm', version: '9.15.0' }));
+      writeFileSync(join(root, 'node_modules/pnpm/package.json'), JSON.stringify({ name: 'pnpm', version: '9.15.0', exports: { '.': './dist/pnpm.cjs' } }));
       writeFileSync(join(root, 'node_modules/.bin/pnpm'), '#!/bin/sh\n');
+      writeFileSync(join(root, 'node_modules/pnpm/bin/pnpm.cjs'), '');
       expect(pnpmPackageRoot(join(root, 'node_modules/.bin/pnpm'))).toBe(realpathSync(join(root, 'node_modules/pnpm')));
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
