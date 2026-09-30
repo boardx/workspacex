@@ -8,7 +8,7 @@ import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/t
 import { toolUrl } from "@/lib/chat-workbench/external-url";
 import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
-import { planFromTrace } from "@/lib/chat-workbench/trace-plan";
+import { planFromTrace, settlePlanTodos } from "@/lib/chat-workbench/trace-plan";
 import { LivePlanContext } from "@/lib/chat-workbench/live-plan-context";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
@@ -124,11 +124,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
-  const planTodos = React.useMemo(() => planFromTrace(entries), [entries]);
   const [now, setNow] = React.useState(Date.now);
   const status = [...events].reverse().find((event) => event.kind === "status");
   const legacy = events.every((event) => event.source === "legacy");
   const active = !legacy && (status?.kind === "status" ? status.status === "running" : running);
+  const finishedOk = !legacy && !active && status?.kind === "status" && status.status === "succeeded";
+  const planTodos = React.useMemo(() => settlePlanTodos(planFromTrace(entries), finishedOk), [entries, finishedOk]);
   // 进行中：读底部面板那份账本（同一份数据），底部展开时让位（同一时刻只一份完整列表）。
   // 结束后：本轮自己的计划快照。见 `LivePlanContext` 头注。
   const livePlan = React.useContext(LivePlanContext);
