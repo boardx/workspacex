@@ -108,6 +108,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                 </div>
                 {canManage ? (
                   <Select
+                    aria-label={`${m.displayName} 的项目角色（当前：${NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}）`}
                     data-testid={`project-collaborator-role-${m.userId}`}
                     value={m.role}
                     disabled={busy}
@@ -119,7 +120,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                   <Badge tone={m.role === "owner" ? "primary" : "outline"}>{NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}</Badge>
                 )}
                 {canManage && (
-                  <Button size="xs" variant="ghost" disabled={busy} data-testid={`project-collaborator-remove-${m.userId}`}
+                  <Button size="xs" variant="ghost" disabled={busy} aria-label={`将 ${m.displayName} 移出项目`} data-testid={`project-collaborator-remove-${m.userId}`}
                     onClick={() => void run(() => removeNonWorkshopMember(projectId, m.userId))}>
                     移出
                   </Button>

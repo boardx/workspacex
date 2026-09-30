@@ -13,10 +13,14 @@ import { CreateProjectForm } from "./create-project-form";
  *
  * 表单组件随弹窗关闭卸载，所以每次打开都是空白状态。
  */
-export function CreateProjectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function CreateProjectDialog({ open, onOpenChange, onCloseAutoFocus }: {
+  open: boolean; onOpenChange: (open: boolean) => void;
+  /** 弹窗是受控打开的（没有 DialogTrigger），Radix 不知道该把焦点还给谁——由调用方接管。 */
+  onCloseAutoFocus?: (event: Event) => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="project-new" data-mode="general">
+      <DialogContent data-testid="project-new" data-mode="general" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogTitle data-testid="project-new-title">新建项目</DialogTitle>
         <DialogDescription>
           项目是团队的工作空间：对话、白板、访谈、问卷、研究都收在一起。起个名字就能开始，内容进项目后再加。
