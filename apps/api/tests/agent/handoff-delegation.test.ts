@@ -571,6 +571,6 @@ describe("AG07 · 官方角色包：D002 开箱转交给 D003（真导入、真�
     }
     const rows = await asApp(ORG2, async (c) => (await c.query<{ target_role: string; status: string; target_name: string }>(
       "SELECT target_role, status, target_name FROM agent_handoffs WHERE org_id=$1", [ORG2])).rows);
-    expect(rows).toEqual([{ target_role: "D003", status: "requested", target_name: "Product Manager" }]);
+    expect(rows).toEqual([{ target_role: "D003", status: "requested", target_name: "产品经理" }]);
   });
 });
