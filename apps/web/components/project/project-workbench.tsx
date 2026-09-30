@@ -461,9 +461,9 @@ export function ProjectWorkbench({
     <AppShell identity={identity} previewRole={null} hideRoleSwitcher>
       <div className="flex h-full min-h-0 flex-col bg-card" data-testid="project-workbench">
         {/* ── 项目头 ─────────────────────────────────────────── */}
-        <div className="shrink-0 border-b border-border px-6 pt-4">
+        <div className={showWorkshopRoles ? "shrink-0 border-b border-border px-6 pt-4" : "shrink-0 border-b border-border px-4 pt-3 sm:px-6 sm:pt-4"}>
          {/* 通用项目：头部与正文同一列宽（max-w-5xl），不再头左贴边、正文居中两套对齐；工作坊保持全宽 */}
-         <div className={showWorkshopRoles ? undefined : "mx-auto w-full max-w-5xl px-6"}>
+         <div className={showWorkshopRoles ? undefined : "mx-auto w-full max-w-5xl sm:px-6"}>
           <div className="mb-3.5 flex flex-wrap items-start gap-3">
             <Button asChild size="sm" variant="outline" data-testid="project-back-to-list">
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
@@ -592,7 +592,7 @@ export function ProjectWorkbench({
             ) : (
             <StateShell
               state={uiState}
-              className="p-6"
+              className={showWorkshopRoles ? "p-6" : "p-0 sm:p-6"}
               emptyHint={`${tabLabelForKind(shownTab, projectKind)}还没有内容——套用蓝本或从空白开始后，这里才会有结构。`}
               errors={{ 发布范围: "发布结论前必须绑定一个确定的产出版本（不能绑草稿）" }}
               depFailure={{ what: "转写 / 知识图谱服务暂时不可用；已排队，恢复后自动补齐。" }}

@@ -6,7 +6,7 @@ import { WorkflowRunList } from "@/components/workflow/workflow-lists";
 export default function WorkflowMyRunsPage({ searchParams }: { searchParams?: { projectId?: string } }) {
   return (
     <AppShell previewRole={null} left={<WorkflowNav active="runs" projectId={searchParams?.projectId ?? null} />}>
-      <WorkflowPage title="我的运行">
+      <WorkflowPage active="runs" projectId={searchParams?.projectId ?? null} title="我的运行">
         <WorkflowRunList />
       </WorkflowPage>
     </AppShell>

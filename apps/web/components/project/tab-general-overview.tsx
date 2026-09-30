@@ -42,7 +42,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
   const isFresh = index.ready && index.entries.length === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-general-overview">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6" data-testid="project-general-overview">
       {isFresh && (
         <Card>
           <div className="flex flex-col gap-3 p-4" data-testid="project-general-overview-start">
