@@ -408,8 +408,19 @@
     },
     "HomeConfigController": {
       "useCases": [
+        "auth/upload-org-avatar",
         "home/get-home-config",
-        "home/update-home-config"
+        "home/home-config-errors",
+        "home/update-home-config",
+        "home/upload-home-banner"
+      ]
+    },
+    "HomeProjectPreviewsController": {
+      "useCases": [
+        "project/errors",
+        "project/list-non-workshop-member",
+        "project/list-project-members",
+        "project/list-projects"
       ]
     },
     "IdentityController": {
@@ -704,6 +715,11 @@
       ],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
     },
+    "WhiteboardImportController": {
+      "useCases": [
+        "whiteboard/import-service"
+      ]
+    },
     "WhiteboardTagController": {
       "useCases": [
         "whiteboard/recovery-service"
@@ -713,6 +729,7 @@
     "WorkflowRuntimeController": {
       "useCases": [
         "workflow/instance-commands",
+        "workflow/instance-queries",
         "workflow/workflow-errors",
         "workflow/workflow-runtime-service"
       ]
@@ -822,6 +839,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -860,7 +878,6 @@
       "screen": "apps/web/app/chat/(v2)/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-asr.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
@@ -873,7 +890,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -890,8 +908,8 @@
         "plan-permissions",
         "platform-members",
         "project",
-        "recording",
-        "skills"
+        "skills",
+        "whiteboard"
       ],
       "controllers": [
         "AgentRunController",
@@ -918,6 +936,7 @@
         "FilesExportController",
         "FilesRenameController",
         "FilesRetentionController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -935,12 +954,13 @@
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
-        "RecordingController",
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/chat/[threadId]": {
@@ -948,7 +968,6 @@
       "screen": "apps/web/app/chat/(v2)/[threadId]/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-asr.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
@@ -961,7 +980,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -978,8 +998,8 @@
         "plan-permissions",
         "platform-members",
         "project",
-        "recording",
-        "skills"
+        "skills",
+        "whiteboard"
       ],
       "controllers": [
         "AgentRunController",
@@ -1006,6 +1026,7 @@
         "FilesExportController",
         "FilesRenameController",
         "FilesRetentionController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -1023,12 +1044,13 @@
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
-        "RecordingController",
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/chat/copilotkit-preview": {
@@ -1040,19 +1062,21 @@
       "screen": "apps/web/app/chat/copilotkit-v2/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-asr.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
+        "artifact",
         "canvas",
         "chat",
         "chat-file-upload",
@@ -1060,11 +1084,14 @@
         "feedback-loop",
         "files",
         "identity",
-        "recording",
-        "skills"
+        "project",
+        "skills",
+        "whiteboard"
       ],
       "controllers": [
+        "ArtifactBindingController",
         "ArtifactFileVersionsController",
+        "ArtifactReferenceController",
         "CanvasInstanceController",
         "CanvasSegmentSkillController",
         "CanvasTemplateController",
@@ -1074,6 +1101,7 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
+        "EvidenceWithdrawalController",
         "FeedbackController",
         "FilesBrowserController",
         "FilesDeletionController",
@@ -1081,17 +1109,21 @@
         "FilesExportController",
         "FilesRenameController",
         "FilesRetentionController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
+        "ProjectAiSettingsController",
+        "ProjectController",
         "PublicDesignShareController",
-        "RecordingController",
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
-        "SkillTrialRunController"
+        "SkillTrialRunController",
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/chat/copilotkit-v2/[threadId]": {
@@ -1099,19 +1131,21 @@
       "screen": "apps/web/app/chat/copilotkit-v2/[threadId]/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-asr.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
         "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
+        "artifact",
         "canvas",
         "chat",
         "chat-file-upload",
@@ -1119,11 +1153,14 @@
         "feedback-loop",
         "files",
         "identity",
-        "recording",
-        "skills"
+        "project",
+        "skills",
+        "whiteboard"
       ],
       "controllers": [
+        "ArtifactBindingController",
         "ArtifactFileVersionsController",
+        "ArtifactReferenceController",
         "CanvasInstanceController",
         "CanvasSegmentSkillController",
         "CanvasTemplateController",
@@ -1133,6 +1170,7 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
+        "EvidenceWithdrawalController",
         "FeedbackController",
         "FilesBrowserController",
         "FilesDeletionController",
@@ -1140,17 +1178,21 @@
         "FilesExportController",
         "FilesRenameController",
         "FilesRetentionController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
+        "ProjectAiSettingsController",
+        "ProjectController",
         "PublicDesignShareController",
-        "RecordingController",
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
-        "SkillTrialRunController"
+        "SkillTrialRunController",
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/chat/landing": {
@@ -1178,7 +1220,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -1196,7 +1239,8 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard"
       ],
       "controllers": [
         "AgentRunController",
@@ -1223,6 +1267,7 @@
         "FilesExportController",
         "FilesRenameController",
         "FilesRetentionController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -1245,7 +1290,9 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/chat/live": {
@@ -1270,6 +1317,7 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "EvidenceWithdrawalController",
+        "HomeProjectPreviewsController",
         "ProjectAiSettingsController",
         "ProjectController"
       ]
@@ -1318,16 +1366,23 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-guided-research-api.ts",
         "apps/web/lib/live-home-config.ts",
+        "apps/web/lib/live-home-project-previews.ts",
         "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-interviews.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
-        "apps/web/lib/live-recording.ts"
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-mount.ts",
+        "apps/web/lib/live-tasks.ts"
       ],
       "contracts": [
         "agent-defaults",
         "artifact",
+        "auth",
+        "board",
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
@@ -1335,15 +1390,23 @@
         "feedback-loop",
         "home-config",
         "identity",
+        "interview",
         "org-admin",
         "plan-permissions",
         "platform-members",
-        "project"
+        "project",
+        "research",
+        "skills",
+        "work-content"
       ],
       "controllers": [
         "AgentRunController",
         "ArtifactBindingController",
         "ArtifactReferenceController",
+        "AuthController",
+        "AuthOrgController",
+        "AuthRegistrationController",
+        "BoardRunCardsController",
         "CapabilityController",
         "ChatAttachmentController",
         "ChatController",
@@ -1352,17 +1415,24 @@
         "CopilotkitAguiController",
         "DesignWorkbenchController",
         "DeviceSessionController",
+        "DigitalInterviewController",
         "DocumentGenerationAutoApproveController",
+        "EmailVerificationController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "GuidedResearchController",
         "HomeConfigController",
+        "HomeProjectPreviewsController",
         "IdentityController",
+        "InterviewInsightController",
+        "InterviewScopeController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
         "KnowledgeGraphController",
         "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
+        "MessageRatingController",
         "OrgAdminManagementController",
         "OrgAdminScopeController",
         "OrgInviteController",
@@ -1372,7 +1442,12 @@
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
-        "ToolPermissionGrantController"
+        "SkillController",
+        "SkillMountController",
+        "SkillReviewController",
+        "SkillTrialRunController",
+        "ToolPermissionGrantController",
+        "WorkflowRuntimeController"
       ]
     },
     "/itv": {
@@ -1605,6 +1680,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -1809,6 +1885,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -1850,6 +1927,7 @@
         "ArtifactBindingController",
         "ArtifactReferenceController",
         "EvidenceWithdrawalController",
+        "HomeProjectPreviewsController",
         "ProjectAiSettingsController",
         "ProjectController"
       ]
@@ -1903,6 +1981,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2005,6 +2084,7 @@
         "EvidenceWithdrawalController",
         "FeedbackController",
         "GuidedResearchController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "InterviewInsightController",
         "InterviewScopeController",
@@ -2170,6 +2250,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2203,6 +2284,7 @@
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-whiteboard-import.ts",
         "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
@@ -2218,7 +2300,8 @@
         "plan-permissions",
         "platform-members",
         "project",
-        "whiteboard"
+        "whiteboard",
+        "whiteboard-import"
       ],
       "controllers": [
         "AgentRunController",
@@ -2235,6 +2318,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2253,6 +2337,7 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
+        "WhiteboardImportController",
         "WhiteboardTagController"
       ]
     },
@@ -2261,7 +2346,6 @@
       "screen": "apps/web/app/studio/board/[boardId]/digital-human/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-asr.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
@@ -2272,6 +2356,7 @@
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
         "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard-import.ts",
         "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
@@ -2283,9 +2368,9 @@
         "feedback-loop",
         "files",
         "identity",
-        "recording",
         "skills",
-        "whiteboard"
+        "whiteboard",
+        "whiteboard-import"
       ],
       "controllers": [
         "ArtifactFileVersionsController",
@@ -2311,12 +2396,12 @@
         "LocalOrgController",
         "MessageRatingController",
         "PublicDesignShareController",
-        "RecordingController",
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
         "WhiteboardController",
+        "WhiteboardImportController",
         "WhiteboardTagController"
       ]
     },
@@ -2367,6 +2452,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "InboxController",
         "KernelProbeController",
@@ -2456,6 +2542,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2534,6 +2621,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2598,6 +2686,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2663,6 +2752,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2728,6 +2818,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2793,6 +2884,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2858,6 +2950,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2923,6 +3016,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -2988,6 +3082,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3050,6 +3145,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3111,6 +3207,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3180,6 +3277,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3269,6 +3367,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3330,6 +3429,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3391,6 +3491,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",
@@ -3452,6 +3553,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "HomeProjectPreviewsController",
         "IdentityController",
         "KernelProbeController",
         "KnowledgeConsolidationController",

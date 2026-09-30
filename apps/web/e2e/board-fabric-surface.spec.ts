@@ -88,31 +88,28 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const assertViewportBounds = async () => {
     const bounds = await surface.boundingBox();
     expect(bounds).not.toBeNull();
-    // Fabric fills the editor region below a pending-sync banner, or the whole
-    // shell once the server acknowledgement hides that banner.
+    // Sync notices overlay the editor; pending/ACK transitions must never
+    // resize the canvas or change its pointer coordinate origin.
     const region = page.getByTestId("board-editor-region");
     const shellBounds = await region.locator("..").boundingBox();
     const regionBounds = await region.boundingBox();
     const banner = page.getByTestId("board-sync-banner");
-    // boundingBox waits for a missing element; synchronized Boards intentionally
-    // remove this banner, so check visibility before measuring it.
     const bannerBounds = await banner.isVisible() ? await banner.boundingBox() : null;
     const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
-    const bannerHeight = bannerBounds?.height ?? 0;
     for (const [actual, expected] of [
       [shellBounds!.x, 0], [shellBounds!.y, 0],
       [shellBounds!.width, viewport.width], [shellBounds!.height, viewport.height],
       [regionBounds!.x, 0], [regionBounds!.width, viewport.width],
-      [regionBounds!.y, bannerHeight],
+      [regionBounds!.y, 0],
       [regionBounds!.y + regionBounds!.height, viewport.height],
       [bounds!.x, regionBounds!.x], [bounds!.y, regionBounds!.y],
       [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
     ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
     expect(regionBounds!.height).toBeGreaterThan(0);
     if (bannerBounds) {
-      expect(bannerBounds).toMatchObject({ x: 0, y: 0, width: viewport.width });
+      expect(bannerBounds).toMatchObject({ x: 0, y: 64, width: viewport.width });
       expect(bannerBounds.height).toBeGreaterThan(0);
     }
   };
