@@ -4,6 +4,8 @@ import * as React from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CopilotKitV2Shell } from "./copilotkit-v2-shell";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { seedComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 
 /**
  * 2026-09-02 人类实测反馈第五轮——round 4（PR #2506）把 `selectedThreadId` 改成
@@ -67,5 +69,14 @@ export function CopilotKitV2ShellRoute(): JSX.Element {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在挂载时判定一次（同 initialAgentId 纪律），不随后续 query 变化重跑
   }, []);
+  /* `?prefill=`（数字人详情「在对话中发起」）：只对新对话、只写一次、不覆盖用户已有草稿。
+   * 必须在渲染期写入：composer 的 `useComposerDraft` 在首次渲染时就读存储。 */
+  const prefill = search.get("prefill");
+  const session = useOptionalSession()?.session ?? null;
+  const seededPrefillRef = React.useRef(false);
+  if (!seededPrefillRef.current && prefill && threadId === null && session?.currentOrgId && session.userId) {
+    seededPrefillRef.current = true;
+    seedComposerDraft({ orgId: session.currentOrgId, userId: session.userId, projectId, threadId: null }, prefill.slice(0, 2000));
+  }
   return <CopilotKitV2Shell key={projectId ?? "personal"} initialThreadId={threadId} projectId={projectId} />;
 }

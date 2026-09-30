@@ -1,5 +1,6 @@
 "use client";
 
+import { AgentIdentityRow } from "./copilotkit-v2-agent-identity";
 import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
@@ -332,6 +333,7 @@ function V2AssistantMessageImpl(
     // 可点 + 气泡下方紧凑列表；流式中/无引用时不建作用域，渲染不变。
     <PersistedMessageCitationScope messageId={persistedMessageId}>
     <div className="flex flex-col gap-1">
+      <AgentIdentityRow agentId={actionsCtx?.agentId} />
       <CopilotChatAssistantMessage
         {...props}
         // issue #2307 —— 见上方 `effectiveIsRunning` 的完整推理：只对这一条消息

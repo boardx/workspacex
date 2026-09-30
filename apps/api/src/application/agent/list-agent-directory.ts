@@ -47,6 +47,14 @@ export interface AgentDirectoryRow {
   readonly workflowAllowlist: readonly string[];
   /** 只用长度判 ready/unknown（见文件头「就绪状态」）；不外泄具体分类内容。 */
   readonly toolPolicyLength: number;
+  /** 详情页补充（`getAgentDirectoryProfile`）：职责一句话（`capability_listings.duty`），可能为空或等于名字。 */
+  readonly duty: string | null;
+  /** 官方角色编号（`capability_listings.abbr`，仅 official），委派策略按它引用目标。 */
+  readonly roleRef: string | null;
+  readonly skillMountIds: readonly string[];
+  readonly skillVersionIds: readonly string[];
+  readonly delegationTargetRefs: readonly string[];
+  readonly requireApprovalForHandoff: boolean;
 }
 
 export interface AgentDirectoryRepository {
@@ -157,4 +165,61 @@ export async function getAgentDirectoryCard(
   if (row === null) throw new AgentDirectoryError("AGENT_NOT_FOUND");
   const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
   return toCard(onlyLaunchable(row, launchable), deps.workflows);
+}
+
+export interface AgentDirectoryProfileOut {
+  readonly agentId: string;
+  readonly duty: string | null;
+  readonly mountedSkillIds: readonly string[];
+  readonly pinnedSkillVersionIds: readonly string[];
+  readonly delegationTargets: readonly {
+    readonly agentId: string;
+    readonly name: string;
+    readonly initials: string;
+    readonly roleLabel: string;
+    readonly avatar: AgentAvatar | null;
+  }[];
+  readonly requireApprovalForHandoff: boolean;
+}
+
+/** 占位职责（迁移回填 `duty = name`）不算职责：与名字/角色标签相同即视为未登记。 */
+function meaningfulDuty(row: AgentDirectoryRow): string | null {
+  const duty = row.duty?.trim() ?? "";
+  if (duty.length === 0) return null;
+  if (duty === row.name.trim() || duty === row.roleLabel.trim()) return null;
+  return duty;
+}
+
+/**
+ * AG04 follow-up —— 成员详情页的补充读：同 `getAgentDirectoryCard` 的判定顺序（先成员、后仓储），
+ * 转交对象只保留**当前在目录里可见**的角色（引用了看不到的角色 ⇒ 不列，不泄露存在性）。
+ */
+export async function getAgentDirectoryProfile(
+  input: { readonly orgId: OrgId; readonly actorId: string; readonly agentId: string },
+  deps: Pick<AgentDirectoryDeps, "identities" | "repository">,
+): Promise<AgentDirectoryProfileOut> {
+  const membership = await deps.identities.findOrgMembership(input.actorId, input.orgId);
+  if (!membership) throw new AgentDirectoryError("UNAUTHENTICATED");
+
+  const row = await deps.repository.findVisible(input.orgId, input.agentId);
+  if (row === null) throw new AgentDirectoryError("AGENT_NOT_FOUND");
+  const refs = new Set(row.delegationTargetRefs);
+  const visible = refs.size === 0 ? [] : await deps.repository.listVisible(input.orgId);
+  const delegationTargets = visible
+    .filter((other) => other.agentId !== row.agentId && other.roleRef !== null && refs.has(other.roleRef))
+    .map((other) => ({
+      agentId: other.agentId,
+      name: other.name,
+      initials: initialsOf(other.name),
+      roleLabel: other.roleLabel,
+      avatar: other.avatar,
+    }));
+  return {
+    agentId: row.agentId,
+    duty: meaningfulDuty(row),
+    mountedSkillIds: [...new Set(row.skillMountIds)],
+    pinnedSkillVersionIds: [...new Set(row.skillVersionIds)],
+    delegationTargets,
+    requireApprovalForHandoff: row.requireApprovalForHandoff,
+  };
 }

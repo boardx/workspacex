@@ -101,7 +101,7 @@ describe("AgentApprovalPanel × escalate_matter", () => {
     render(<AgentApprovalPanel view={view} />);
     expect(screen.getByTestId("agent-escalation-card")).toBeTruthy();
     expect(screen.queryByTestId("agent-approval-args")).toBeNull();
-    await waitFor(() => expect(screen.getByTestId("agent-escalation-who").textContent).toBe("小销"));
+    await waitFor(() => expect(screen.getByTestId("agent-escalation-who").textContent).toBe("销售代表"));
     expect(screen.getByTestId("agent-escalation-avatar").getAttribute("data-avatar-key")).toBe("dh-05-sales-representative");
   });
 });

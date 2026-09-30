@@ -43,8 +43,11 @@ describe("AgentDirectory（成员目录）", () => {
     ]);
 
     await waitFor(() => expect(screen.queryByTestId("agent-directory-loading")).toBeNull());
-    expect(screen.getByTestId("agent-directory-group-research")).not.toBeNull();
-    expect(screen.getByTestId("agent-directory-group-sales")).not.toBeNull();
+    // 少量卡片：一张 2–3 列网格铺满容器（uiux-r1 #3：不再每类一列单卡、右半屏空着）
+    const grid = screen.getByTestId("agent-directory-grid");
+    expect(grid.className).toContain("md:grid-cols-2");
+    expect(grid.className).toContain("xl:grid-cols-3");
+    expect(screen.queryByTestId("agent-directory-group-research")).toBeNull();
     expect(within(screen.getByTestId("agent-card-a-research")).getByText("小析")).not.toBeNull();
     // 官方徽标只在 catalogSource=official 时出现
     expect(within(screen.getByTestId("agent-card-a-research")).getByTestId("agent-card-official-badge")).not.toBeNull();
@@ -105,7 +108,7 @@ describe("AgentDirectory（成员目录）", () => {
     vi.useRealTimers();
   });
 
-  it("avatar=null → 卡片头像回退首字母；readiness=missing 显示「能力未就绪」，不泄露细节", async () => {
+  it("avatar=null → 卡片头像回退首字母；readiness=missing 显示「部分能力待开通」，不泄露细节", async () => {
     const fetchDirectory = vi.fn().mockResolvedValue([
       card({ agentId: "a1", name: "Design", roleCategory: "design", readiness: "missing", avatar: null }),
     ]);
@@ -113,7 +116,7 @@ describe("AgentDirectory（成员目录）", () => {
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
     const avatar = screen.getByTestId("agent-card-avatar");
     expect(avatar.getAttribute("role")).toBeNull();
-    expect(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-readiness").textContent).toBe("能力未就绪");
+    expect(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-readiness").textContent).toBe("部分能力待开通");
   });
 
   it("avatar 为插画 key 时卡片头像渲染插画", async () => {
@@ -169,5 +172,32 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
   it("非法响应体（不符 AgentDirectoryCard 契约）抛错，不静默吞掉", async () => {
     vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ items: [{ agentId: "x" }] }), { status: 200 }));
     await expect(listAgentDirectory()).rejects.toThrow();
+  });
+
+  it("卡片多（超过一屏）才按类分组", async () => {
+    const many = Array.from({ length: 10 }, (_, i) => card({ agentId: `a${i}`, name: `角色${i}`, roleCategory: i % 2 ? "sales" : "research" }));
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue(many)} />);
+    await waitFor(() => expect(screen.getByTestId("agent-directory-group-research")).not.toBeNull());
+    expect(screen.getByTestId("agent-directory-group-sales")).not.toBeNull();
+  });
+
+  it("官方数字人显示中文称呼；副标题与名字重复（英文原名）时不重复，回退到中文职责", async () => {
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([
+      card({
+        agentId: "d2", name: "Research & Knowledge Analyst", roleLabel: "Research & Knowledge Analyst", catalogSource: "official",
+        roleCategory: "research", avatar: { kind: "illustration", key: "dh-02-research-knowledge-analyst", alt: "x" },
+      }),
+    ])} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-d2")).not.toBeNull());
+    const el = screen.getByTestId("agent-card-d2");
+    expect(within(el).getByTestId("agent-card-detail-link").textContent).toBe("研究与知识分析师");
+    expect(el.textContent).not.toContain("Research & Knowledge Analyst");
+    expect(within(el).getByTestId("agent-card-subtitle").textContent).toContain("调研");
+  });
+
+  it("未就绪时「开始对话」降为次要按钮，不与状态徽标打架", async () => {
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小研", roleCategory: "research", readiness: "unknown" })])} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-start-chat")).not.toBeNull());
+    expect(screen.getByTestId("agent-card-start-chat").className).toContain("bg-secondary");
   });
 });

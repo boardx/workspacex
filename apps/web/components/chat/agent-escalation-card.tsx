@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowUpRight, Loader2 } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   type EscalatePayload,
 } from "@/lib/agent-escalation";
 import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
+import { agentDisplayName } from "@/lib/agent-directory";
 
 /**
  * AG06（契约束 agent-role R3 ⑧ / E6）—— 升级卡片：数字人命中 escalationPolicy、把一件事
@@ -86,25 +87,29 @@ export function AgentEscalationCard({
   return (
     <section
       aria-label={`${who} 升级了一件事，需要你拍板`}
-      className="rounded-card border border-warning/40 bg-card p-3 shadow-sm"
+      className="overflow-hidden rounded-card border border-border bg-card shadow-sm"
       data-testid="agent-escalation-card"
       data-escalation-target={payload?.target ?? undefined}
     >
+      <div className="flex items-center gap-1.5 bg-warning-tint px-3 py-1.5 text-11 font-medium text-warning-tint-foreground" data-testid="agent-escalation-banner">
+        <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        {done ? "已给出决定" : "等你拍板 · 任务暂停中"}
+      </div>
+      <div className="p-3">
       <header className="flex items-start gap-2.5">
         <Avatar
           initials={agentInitials?.trim() || who.slice(0, 1)}
           avatarKey={agentAvatarKey}
           tone="ai"
-          size="md"
+          size="lg"
           data-testid="agent-escalation-avatar"
         />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-1.5 text-13 font-medium text-card-foreground">
-            <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning" />
             <span data-testid="agent-escalation-who">{who}</span>
             <span className="text-muted-foreground">把一件事升级给了</span>
             {payload ? (
-              <Badge tone="warning" data-testid="agent-escalation-target">{ESCALATION_TARGET_LABEL[payload.target]}</Badge>
+              <Badge tone="attention" data-testid="agent-escalation-target">{ESCALATION_TARGET_LABEL[payload.target]}</Badge>
             ) : null}
           </p>
           <p className="mt-0.5 text-11 text-muted-foreground">
@@ -115,7 +120,7 @@ export function AgentEscalationCard({
 
       {payload ? (
         <dl className="mt-3 grid gap-2 text-12">
-          <div className="rounded-control bg-muted px-2.5 py-2">
+          <div className="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2">
             <dt className="text-11 text-muted-foreground">需要你决定</dt>
             <dd className="mt-0.5 font-medium text-card-foreground" data-testid="agent-escalation-matter">{payload.matter}</dd>
           </div>
@@ -136,7 +141,8 @@ export function AgentEscalationCard({
       )}
 
       {done ? (
-        <p role="status" className="mt-3 rounded-control bg-success/10 px-2.5 py-2 text-12 text-success" data-testid="agent-escalation-done">
+        <p role="status" className="mt-3 flex items-center gap-1.5 rounded-control bg-muted px-2.5 py-2 text-12 text-card-foreground" data-testid="agent-escalation-done">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />
           {done === "resolve" ? "已提交你的决定，任务正在按它继续。" : "已告诉它你不同意，它会据此调整做法。"}
         </p>
       ) : actionable ? (
@@ -192,6 +198,7 @@ export function AgentEscalationCard({
           你当前只能查看这条对话，决定需要由{ESCALATION_TARGET_LABEL[payload.target]}给出。
         </p>
       ) : null}
+      </div>
     </section>
   );
 }
@@ -220,7 +227,7 @@ export function AgentEscalationForRun({
     <AgentEscalationCard
       interruptId={pending.permissionRequestId ?? null}
       payload={parseEscalatePayload(pending.argsSummary)}
-      agentName={card?.name ?? null}
+      agentName={card ? agentDisplayName(card) : null}
       agentInitials={card?.initials ?? null}
       agentAvatarKey={card?.avatar?.key ?? null}
       sessionToken={sessionToken}

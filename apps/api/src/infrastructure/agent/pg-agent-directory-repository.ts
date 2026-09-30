@@ -26,10 +26,16 @@ interface Row extends AgentRoleColumnsRow {
   name: string;
   role_label: string;
   tool_policy: readonly unknown[];
+  duty: string | null;
+  abbr: string | null;
+  skill_mounts: unknown;
+  skill_version_ids: readonly string[] | null;
 }
 
 const SELECT = `
-  SELECT a.id AS agent_id, v.id AS version_id, a.name, a.role_label, v.tool_policy, ${roleCols}
+  SELECT a.id AS agent_id, v.id AS version_id, a.name, a.role_label, v.tool_policy,
+         cl.duty, CASE WHEN a.catalog_source = 'official' THEN cl.abbr END AS abbr,
+         a.skill_mounts, v.skill_version_ids, ${roleCols}
     FROM agents a
     JOIN agent_versions v
       ON v.id = a.published_version_id AND v.agent_id = a.id AND v.org_id = a.org_id
@@ -37,6 +43,12 @@ const SELECT = `
       ON cl.id = a.id AND cl.org_id = a.org_id
    WHERE a.org_id = $1 AND a.status = 'enabled' AND cl.kind = 'agent'
      AND cl.scope = 'org-wide' AND cl.enabled = true AND v.role_category IS NOT NULL`;
+
+/** `agents.skill_mounts` 是 `[{skillId, skillVersion}]` jsonb；形状不对的元素直接跳过（容错读，不抛）。 */
+function skillIdsOf(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((m) => (m && typeof m === "object" && typeof (m as { skillId?: unknown }).skillId === "string" ? [(m as { skillId: string }).skillId] : []));
+}
 
 function toRow(row: Row): AgentDirectoryRow {
   const fields = toRoleFieldsTolerant(row, row.agent_id);
@@ -51,6 +63,12 @@ function toRow(row: Row): AgentDirectoryRow {
     catalogSource: fields.catalogSource,
     workflowAllowlist: fields.workflowAllowlist,
     toolPolicyLength: Array.isArray(row.tool_policy) ? row.tool_policy.length : 0,
+    duty: row.duty,
+    roleRef: row.abbr,
+    skillMountIds: skillIdsOf(row.skill_mounts),
+    skillVersionIds: Array.isArray(row.skill_version_ids) ? row.skill_version_ids.filter((id) => typeof id === "string") : [],
+    delegationTargetRefs: [...fields.delegationPolicy.allowedTargets],
+    requireApprovalForHandoff: fields.delegationPolicy.requireApproval,
   };
 }
 

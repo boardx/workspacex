@@ -70,7 +70,7 @@ describe("AG04 白名单条目的前提：授权确实存在，且在仓储调�
   });
 
   it("授权判定排在仓储调用之前（两个函数体内）", () => {
-    for (const fnName of ["listAgentDirectory", "getAgentDirectoryCard"]) {
+    for (const fnName of ["listAgentDirectory", "getAgentDirectoryCard", "getAgentDirectoryProfile"]) {
       const fnStart = useCaseSource.indexOf(`export async function ${fnName}(`);
       expect(fnStart).toBeGreaterThan(-1);
       const nextFnStart = useCaseSource.indexOf("export async function", fnStart + 1);
