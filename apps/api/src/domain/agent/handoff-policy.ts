@@ -13,11 +13,11 @@
  *   3. 目标角色在本组织有已发布版本；
  *   4. 目标 Agent 未停用。
  */
-import { handoffNotAllowedCopy } from "@repo/contracts/agent-role";
+import { handoffNotAllowedCopy, type HandoffNotAllowedReason } from "@repo/contracts/agent-role";
 import { CALL_CHAIN_MAX_DEPTH } from "./call-chain";
 
-export type HandoffNotAllowedReason =
-  | "target_not_in_allowed_targets" | "target_not_published" | "target_disabled" | "depth_exceeded";
+/** 原因码的唯一事实源在契约（agent-role）；这里只再导出，不另抄字面量。 */
+export type { HandoffNotAllowedReason };
 
 export interface DelegationPolicySnapshot {
   readonly allowedTargets: readonly string[];

@@ -173,6 +173,7 @@ export const HandoffPacket = z.object({
 export const HandoffNotAllowedReason = z.enum([
   "target_not_in_allowed_targets", "target_not_published", "target_disabled", "depth_exceeded",
 ]);
+export type HandoffNotAllowedReason = z.infer<typeof HandoffNotAllowedReason>;
 
 /**
  * E5 拒绝时聊天可见的文案（中文，不含原因码；「原线程继续，提示用户可手动联系人」）。
