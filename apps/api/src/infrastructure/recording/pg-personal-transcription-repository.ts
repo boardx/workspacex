@@ -224,16 +224,18 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
     });
   }
 
-  async stopActiveOwned(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string }) {
+  async stopActiveOwned(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string; captureId?: string }) {
     return this.db.withTenant(input.orgId, async (session) => {
       const owned = await session.query(
         `SELECT 1 FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3 FOR UPDATE`,
         [input.transcriptionId, input.orgId, input.ownerUserId],
       );
       if (owned.rows.length === 0) return { kind: "not_found" as const };
-      await endActiveCaptures(session, input.orgId, input.ownerUserId, input.transcriptionId);
+      await endActiveCaptures(session, input.orgId, input.ownerUserId, input.transcriptionId, input.captureId);
       await session.query(`UPDATE personal_transcriptions SET status='idle',updated_at=now()
-        WHERE id=$1 AND org_id=$2 AND owner_user_id=$3`,
+        WHERE id=$1 AND org_id=$2 AND owner_user_id=$3
+          AND NOT EXISTS (SELECT 1 FROM recording_sessions rs WHERE rs.org_id=$2
+            AND rs.source_type='personal' AND rs.source_ref_id=$1 AND rs.created_by=$3 AND rs.ended_at IS NULL)`,
       [input.transcriptionId, input.orgId, input.ownerUserId]);
       const row = await readSummary(session, input.orgId, input.ownerUserId, input.transcriptionId);
       if (!row) return { kind: "not_found" as const };
@@ -323,6 +325,7 @@ async function endActiveCaptures(
   orgId: OrgId,
   ownerUserId: string,
   transcriptionId: string,
+  captureId?: string,
 ): Promise<void> {
   await session.query(
     `UPDATE recording_sessions
@@ -330,7 +333,7 @@ async function endActiveCaptures(
             duration_ms=GREATEST(0,floor(extract(epoch FROM (now()-started_at))*1000)::bigint),
             materialize_job_id='personal:recovered:' || id
       WHERE org_id=$1 AND source_type='personal' AND source_ref_id=$2
-        AND created_by=$3 AND ended_at IS NULL`,
-    [orgId, transcriptionId, ownerUserId],
+        AND created_by=$3 AND ended_at IS NULL AND ($4::text IS NULL OR id=$4)`,
+    [orgId, transcriptionId, ownerUserId, captureId ?? null],
   );
 }
