@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { TagChip } from "@/components/ui/tag-chip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,17 +93,25 @@ export function ResourceCard({
   return <Card data-testid={testId} className={shell}>{body}</Card>;
 }
 
-/** 标准标签芯片行（字符串标签用；可编辑标签的调用方自己渲染，但芯片样式与此一致）。 */
-export function ResourceCardTags({ tags, max, testId }: { tags: readonly string[]; max?: number; testId?: string }) {
+/** 标准标签芯片行（字符串标签用；标签外观唯一来源是 `TagChip`）。`onTagClick` 给了就可点击筛选。 */
+export function ResourceCardTags({ tags, max, testId, onTagClick, selectedTags = [] }: {
+  tags: readonly string[]; max?: number; testId?: string; onTagClick?: (tag: string) => void; selectedTags?: readonly string[];
+}) {
   const shown = max === undefined ? tags : tags.slice(0, max);
   if (shown.length === 0) return null;
+  const extra = tags.length - shown.length;
   return (
     <div className="flex flex-wrap items-center gap-1" data-testid={testId}>
       {shown.map((tag) => (
-        <span key={tag} className="inline-flex max-w-full items-center break-all rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground">
+        <TagChip
+          key={tag}
+          onClick={onTagClick === undefined ? undefined : () => onTagClick(tag)}
+          selected={selectedTags.includes(tag)}
+        >
           {tag}
-        </span>
+        </TagChip>
       ))}
+      {extra > 0 ? <span className="text-10 text-muted-foreground">+{String(extra)}</span> : null}
     </div>
   );
 }

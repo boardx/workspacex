@@ -61,7 +61,9 @@ describe("ResourceCard", () => {
     const { container, rerender } = render(<ResourceCardTags tags={[]} />);
     expect(container.firstChild).toBeNull();
     rerender(<ResourceCardTags tags={["a", "b", "c", "d"]} max={3} />);
-    expect(container.querySelectorAll("span").length).toBe(3);
+    // 3 个胶囊 + 一个「+1」余量提示
+    expect(container.querySelectorAll("span").length).toBe(4);
+    expect(container.textContent).toContain("+1");
   });
 });
 

@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { TagChip } from "@/components/ui/tag-chip";
+import { hasTag, normalizeTag, sameTag } from "@/lib/tag-utils";
 
 /**
  * 标签输入器——**全仓唯一一份**（2026-09-09 人类指令：「标签的输入，请参考其他的界面的
@@ -65,14 +67,15 @@ export function TagInput({
   const full = maxTags !== undefined && value.length >= maxTags;
 
   function add(tag: string): void {
-    const t = maxTagLength === undefined ? tag.trim() : tag.trim().slice(0, maxTagLength);
+    const t = maxTagLength === undefined ? normalizeTag(tag) : normalizeTag(tag).slice(0, maxTagLength);
     setText("");
-    if (t.length === 0 || value.includes(t) || full) return;
+    // 忽略大小写去重：「Client」「client」是同一个标签（lib/tag-utils.ts）
+    if (t.length === 0 || hasTag(value, t) || full) return;
     onChange([...value, t]);
   }
 
   function remove(tag: string): void {
-    onChange(value.filter((t) => t !== tag));
+    onChange(value.filter((t) => !sameTag(t, tag)));
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
@@ -94,10 +97,10 @@ export function TagInput({
   const suggestions = React.useMemo(() => {
     if (full) return [];
     const pool = [...knownTags.entries()]
-      .filter(([tag]) => !value.includes(tag) && (trimmed.length === 0 || tag.includes(trimmed)))
+      .filter(([tag]) => !hasTag(value, tag) && (trimmed.length === 0 || tag.toLocaleLowerCase().includes(trimmed.toLocaleLowerCase())))
       .slice(0, 8)
       .map(([tag, count]) => ({ tag, note: noteFor?.(count) ?? "", isNew: false }));
-    if (trimmed.length > 0 && !knownTags.has(trimmed) && !value.includes(trimmed)) {
+    if (trimmed.length > 0 && !hasTag([...knownTags.keys()], trimmed) && !hasTag(value, trimmed)) {
       return [{ tag: trimmed, note: "回车也可以", isNew: true }, ...pool];
     }
     return pool;
@@ -110,24 +113,14 @@ export function TagInput({
         data-testid={`${testIdPrefix}-box`}
       >
         {value.map((tag) => (
-          <span
+          <TagChip
             key={tag}
-            className="flex items-center gap-1 rounded-full bg-inverse px-2 py-0.5 text-10 font-medium text-inverse-foreground"
-            data-testid={`${testIdPrefix}-chip-${tag}`}
+            testId={`${testIdPrefix}-chip-${tag}`}
+            removeTestId={`${testIdPrefix}-remove-${tag}`}
+            onRemove={disabled ? undefined : () => remove(tag)}
           >
             {tag}
-            {!disabled && (
-              <button
-                type="button"
-                className="text-inverse-foreground/70 transition-colors duration-fast hover:text-inverse-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={`移除标签 ${tag}`}
-                onClick={() => remove(tag)}
-                data-testid={`${testIdPrefix}-remove-${tag}`}
-              >
-                ×
-              </button>
-            )}
-          </span>
+          </TagChip>
         ))}
         <input
           className="min-w-32 flex-1 rounded-control bg-transparent text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
@@ -181,8 +174,8 @@ export function commitDraft(
   draft: string,
   opts?: { readonly maxTags?: number; readonly maxTagLength?: number },
 ): readonly string[] {
-  const t = opts?.maxTagLength === undefined ? draft.trim() : draft.trim().slice(0, opts.maxTagLength);
-  if (t === "" || value.includes(t)) return value;
+  const t = opts?.maxTagLength === undefined ? normalizeTag(draft) : normalizeTag(draft).slice(0, opts.maxTagLength);
+  if (t === "" || hasTag(value, t)) return value;
   if (opts?.maxTags !== undefined && value.length >= opts.maxTags) return value;
   return [...value, t];
 }
