@@ -1,0 +1,19 @@
+{
+  "org": "synthetic-org-acme",
+  "projects": [
+    {
+      "projectId": "P-SUPPLIER-2",
+      "title": "供应商门户二期",
+      "scopeSummary": "供应商门户二期：对账与开票模块，计划 Q3 上线",
+      "status": "in_progress",
+      "sourceRecordRef": "rec/P-SUPPLIER-2"
+    },
+    {
+      "projectId": "P-DATA-1",
+      "title": "经营数据中台一期",
+      "scopeSummary": "整合销售与财务数据，统一指标口径，含数据仓库与看板",
+      "status": "in_progress",
+      "sourceRecordRef": "rec/P-DATA-1"
+    }
+  ]
+}

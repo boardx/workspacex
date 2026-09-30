@@ -1,0 +1,16 @@
+{
+  "ref": "fin:qinghe-saas-2026H1",
+  "currency": "CNY",
+  "unit": "千元",
+  "revenue": 1200,
+  "cogs": {
+    "amount": 300,
+    "definition": "含云资源与客服，不含支付手续费"
+  },
+  "arpaMonthly": 1000,
+  "newCustomers": 100,
+  "acquisition": {
+    "withSalesSalary": 600000,
+    "withoutSalesSalary": 360000
+  }
+}

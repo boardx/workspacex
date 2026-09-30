@@ -1,0 +1,10 @@
+{
+  "F1": "We identified the sync issue on the integration side",
+  "F2": {
+    "text": "Eng lead says the Acme integration code is a mess, rewrite ETA unknown",
+    "audience": "internal-only",
+    "mentionsOrgs": [
+      "Acme"
+    ]
+  }
+}

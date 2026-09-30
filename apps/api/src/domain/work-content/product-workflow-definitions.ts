@@ -14,7 +14,7 @@ import type { WorkflowDefinitionVersionInput, WorkflowStageDefinition } from "@r
 export const PRODUCT_LINE_SKILL_VERSION = "1.0.0";
 export const PRODUCT_LINE_DEFINITION_VERSION = 1;
 
-export type ContentLine = "research" | "product" | "sales" | "shared";
+export type ContentLine = "research" | "product" | "sales" | "shared" | "operations";
 
 export interface ContentStageDefinition {
   stageId: string;

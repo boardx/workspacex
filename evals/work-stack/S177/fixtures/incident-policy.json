@@ -1,0 +1,28 @@
+{
+  "org": "synthetic-org-acme",
+  "severityTable": {
+    "SEV1": "全量用户不可用或确认数据外泄",
+    "SEV2": "核心路径部分用户受影响",
+    "SEV3": "非核心功能受影响",
+    "SEV4": "轻微"
+  },
+  "updateCadence": {
+    "SEV1": "每 30 分钟",
+    "SEV2": "每 60 分钟"
+  },
+  "jurisdictionTable": [
+    {
+      "name": "个人信息泄露通知（CN 个保法）",
+      "jurisdiction": "CN",
+      "durationText": "见法务 jurisdictionTable 条目 PIPL-NOTIFY"
+    },
+    {
+      "name": "州数据泄露通知法",
+      "jurisdiction": "US",
+      "durationText": "见法务 jurisdictionTable 条目 US-STATE-BREACH"
+    }
+  ],
+  "authorizedIncidentCommanders": [
+    "role:ic-oncall"
+  ]
+}

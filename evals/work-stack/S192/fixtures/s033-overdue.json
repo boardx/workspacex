@@ -1,0 +1,13 @@
+{
+  "runId": "run-9",
+  "renewals": {
+    "C-9": {
+      "contractId": "C-9",
+      "verdict": "at-risk",
+      "verdictTriggers": [
+        "notice-window-passed"
+      ],
+      "actionBy": "2026-09-19"
+    }
+  }
+}
