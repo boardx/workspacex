@@ -18,7 +18,7 @@ describe("guided research session routing and lifecycle", () => {
     await screen.findByTestId("guided-research-plan-panel");
     expect(screen.queryByRole("heading", { name: "确认研究边界" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled();
-    expect(screen.getAllByRole("heading", { name: "研究计划" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("list", { name: "研究计划" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
   });
   it("preserves an unsent assistant message when leaving is cancelled", async () => {
@@ -121,10 +121,10 @@ describe("guided research session routing and lifecycle", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
     render(<GuidedResearchFlow step={node} sessionId="grs-live" />);
     if (node === "outline") {
-      fireEvent.doubleClick(await screen.findByTestId("guided-research-markdown-preview"));
-      const field = await screen.findByTestId("guided-research-markdown-editor");
-      fireEvent.change(field, { target: { value: `${(field as HTMLTextAreaElement).value}\n人工修订` } });
-      expect((field as HTMLTextAreaElement).value).toContain("人工修订");
+      fireEvent.click(await screen.findByRole("button", { name: /编辑计划 1/ }));
+      const field = screen.getByRole("textbox", { name: "计划 1" });
+      fireEvent.change(field, { target: { value: "人工修订" } });
+      expect(field).toHaveValue("人工修订");
     } else {
       expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
       expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();

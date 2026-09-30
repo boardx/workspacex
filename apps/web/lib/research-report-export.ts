@@ -1,4 +1,20 @@
-/** Export the same sanitized document the reader sees, without workflow notices. */
+/** Strip export-only exclusions from a clone; never mutate the reader's evidence. */
+function exportDocument(root: HTMLElement): HTMLElement {
+  const clone = root.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('[data-report-ui], [data-testid="research-report-references"]').forEach((node) => node.remove());
+  clone.querySelectorAll('a[href$="research-report-references"]').forEach((node) => {
+    if (node.closest("nav")) (node.closest("li") ?? node).remove();
+  });
+  clone.querySelectorAll('a[href*="#research-reference-"]').forEach((node) => {
+    const marker = node.closest("sup");
+    if (marker) marker.remove();
+    else node.remove();
+  });
+  clone.querySelectorAll('[data-testid="research-inline-citation"]').forEach((node) => (node.closest("sup") ?? node).remove());
+  return clone;
+}
+
+/** Export report content, without workflow notices, references or citation markers. */
 export async function buildResearchWord(root: HTMLElement): Promise<Blob> {
   const { Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType } = await import("docx");
   type Inline = InstanceType<typeof TextRun> | InstanceType<typeof ExternalHyperlink>;
@@ -48,7 +64,7 @@ export async function buildResearchWord(root: HTMLElement): Promise<Blob> {
       for (const child of Array.from(element.children)) visit(child, level);
     }
   }
-  visit(root);
+  visit(exportDocument(root));
   return Packer.toBlob(new Document({ styles: { default: { document: { run: { font: "Arial Unicode MS", size: 22 } } } }, sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children, footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ children: [PageNumber.CURRENT] })] })] }) } }] }));
 }
 export async function downloadResearchWord(root: HTMLElement, title: string) {
@@ -62,8 +78,7 @@ export function printResearchPdf(root: HTMLElement, title?: string) {
   const target = frame.contentDocument; const view = frame.contentWindow;
   if (!target || !view) { frame.remove(); throw new Error("Print unavailable"); }
   const style = target.createElement("style"); style.textContent = "@page{size:A4;margin:20mm}body{font:11pt/1.8 sans-serif;color:#111}h2{font-size:22pt}h3{font-size:16pt}h4{font-size:13pt}h2,h3,h4,h5{break-after:avoid}p{orphans:3;widows:3}a{color:inherit;overflow-wrap:anywhere}sup{font-size:8pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6pt}nav{break-inside:avoid}li{margin-bottom:6pt}section{margin-top:18pt}";
-  const report = target.importNode(root, true);
-  report.querySelectorAll("[data-report-ui]").forEach((control) => control.remove());
+  const report = target.importNode(exportDocument(root), true);
   target.head.append(style); target.body.append(report); target.title = title ?? root.querySelector("h2")?.textContent ?? "研究报告";
   view.addEventListener("afterprint", () => frame.remove(), { once: true });
   // Give the isolated document one frame to lay out before printing.
