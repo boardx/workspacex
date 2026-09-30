@@ -1406,7 +1406,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // ceiling 118): union = main's 118 (includes CT10's pg-board-run-source.ts) + home-config's
     // own pg-home-config-repository.ts (already counted above, this branch's ceiling was 118
     // pre-merge) = 119 (measured: allowlisted=129, boundary rules=10, 129-10=119).
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(119);
+    // 2026-09-30 AG07 adds pg-agent-handoff-store.ts (119 -> 120): handoff rows are scoped by the
+    // frozen `requester_user_id` column (the question is "did you trigger the run that asked for
+    // this handoff", not an ObjectRef ACL), evidence is re-read through the filtered file doorway.
+    // Pinned by tests/agent/handoff-delegation.test.ts. Remove this increment with that test.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(120);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

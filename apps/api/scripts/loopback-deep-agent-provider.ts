@@ -653,17 +653,57 @@ interface RunRecord {
 const START_WORKFLOW_TOOL_NAME = "start_workflow";
 const START_WORKFLOW_MARKER = /\[start_workflow:([^\]\s]+)\]/;
 
+/**
+ * AG07 —— 聊天里请求转交的确定性剧本（`request_handoff` 工具调用），与上面 `start_workflow` 同形：
+ * 用户消息里带 `[request_handoff:<Dxxx>]`（可再带若干 `[evidence:<versionId>]`）⇒ 替身发出一个未配对的
+ * `request_handoff` 调用并停在 interrupted；网关（`handoff-gate.ts`）按钉住的 delegationPolicy 判定、以 edit
+ * resume 交回 `{...args, outcome}`；终稿正文就是 `outcome.message`。交接包只含问题原文与证据 ID，不含摘录。
+ */
+const REQUEST_HANDOFF_TOOL_NAME = "request_handoff";
+const REQUEST_HANDOFF_MARKER = /\[request_handoff:(D\d{3})\]/;
+const EVIDENCE_MARKER = /\[evidence:([^\]\s]+)\]/g;
+
+/** 一次「结果只由服务端算出」的工具调用剧本（`start_workflow` / `request_handoff`）。 */
+interface ServerComputedToolScript {
+  readonly name: string;
+  readonly idPrefix: string;
+  readonly args: Record<string, unknown>;
+  readonly pendingText: string;
+  readonly rejectedText: string;
+}
+
+function serverComputedToolScript(record: RunRecord): ServerComputedToolScript | null {
+  const wf = START_WORKFLOW_MARKER.exec(record.userText);
+  if (wf) {
+    return {
+      name: START_WORKFLOW_TOOL_NAME, idPrefix: "start-workflow", args: { workflowId: wf[1]!, input: {} },
+      pendingText: "正在发起流程。", rejectedText: "发起流程被拒绝，未创建实例。",
+    };
+  }
+  const handoff = REQUEST_HANDOFF_MARKER.exec(record.userText);
+  if (handoff) {
+    const evidenceRefs = [...record.userText.matchAll(EVIDENCE_MARKER)].map((m) => m[1]!);
+    const question = record.userText.replace(REQUEST_HANDOFF_MARKER, "").replace(EVIDENCE_MARKER, "").trim() || "（用户未写明问题）";
+    return {
+      name: REQUEST_HANDOFF_TOOL_NAME, idPrefix: "request-handoff",
+      args: { targetRole: handoff[1]!, packet: { originalQuestion: question, confirmedScope: "", evidenceRefs, openItems: [] } },
+      pendingText: "正在提交转交请求。", rejectedText: "转交请求被拒绝，未发起转交。",
+    };
+  }
+  return null;
+}
+
 function startWorkflowTarget(record: RunRecord): string | null {
-  const m = START_WORKFLOW_MARKER.exec(record.userText);
-  return m ? m[1]! : null;
+  return serverComputedToolScript(record) === null ? null : "scripted";
 }
 
 function startWorkflowReply(record: RunRecord): string {
-  if (record.decision === null) return "正在发起流程。";
+  const script = serverComputedToolScript(record);
+  if (record.decision === null) return script?.pendingText ?? "正在发起流程。";
   const outcome = record.decision.editedArgs?.outcome;
   const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
   if (typeof message === "string" && message !== "") return message;
-  return record.decision.type === "reject" ? "发起流程被拒绝，未创建实例。" : "流程发起结果未知。";
+  return record.decision.type === "reject" ? (script?.rejectedText ?? "发起流程被拒绝，未创建实例。") : "结果未知。";
 }
 
 function approvalReply(record: RunRecord): string {
@@ -1476,7 +1516,7 @@ const server = createServer((req, res) => {
     const isChoosing = isChooseOption(record);
     const isTwoInterruptTurn = isTwoInterrupt(record);
     const isTwoApprovalTurn = isTwoApproval(record);
-    const streamMessageId = startWorkflowTarget(record) !== null ? `start-workflow-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
+    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
     const isStartWorkflow = startWorkflowTarget(record) !== null;
     const reply = isStartWorkflow ? startWorkflowReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
@@ -1933,15 +1973,14 @@ const server = createServer((req, res) => {
       });
       return;
     }
-    const startWorkflowId = startWorkflowTarget(record);
-    if (startWorkflowId !== null) {
-      const callId = `start-workflow-${threadId}`;
-      const originalArgs = { workflowId: startWorkflowId, input: {} };
+    const serverScript = serverComputedToolScript(record);
+    if (serverScript !== null) {
+      const callId = `${serverScript.idPrefix}-${threadId}`;
       const pendingAi = {
-        id: `start-workflow-${threadId}:pending`,
+        id: `${serverScript.idPrefix}-${threadId}:pending`,
         type: "ai",
-        content: "正在发起流程。",
-        tool_calls: [{ id: callId, name: START_WORKFLOW_TOOL_NAME, args: originalArgs }],
+        content: serverScript.pendingText,
+        tool_calls: [{ id: callId, name: serverScript.name, args: serverScript.args }],
       };
       if (record.decision === null) {
         sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
@@ -1954,7 +1993,7 @@ const server = createServer((req, res) => {
             { type: "human", content: record.userText },
             pendingAi,
             { type: "tool", tool_call_id: callId, content: finalText },
-            { id: `start-workflow-${threadId}:final`, type: "ai", content: finalText },
+            { id: `${serverScript.idPrefix}-${threadId}:final`, type: "ai", content: finalText },
           ],
         },
       });

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { ChatHandoffPanel } from "@/components/chat/chat-handoff-panel";
+import { useOptionalCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
@@ -863,6 +865,16 @@ export function CopilotKitV2Shell({
     pushThreadRoute(threadId);
   }, [applyThreadSelection, pushThreadRoute]);
 
+  /* AG07：handoff 卡片——一轮对话有动静后重读；确认转交后切到接收方新线程并选中目标 Agent。 */
+  const [handoffRefreshKey, setHandoffRefreshKey] = React.useState(0);
+  const agentSelection = useOptionalCopilotKitV2AgentSelection();
+  const selectHandoffAgent = agentSelection?.setSelectedAgentId;
+  const openHandoffThread = React.useCallback((result: { newThreadId: string; targetAgentId: string }) => {
+    selectHandoffAgent?.(result.targetAgentId);
+    void reloadThreads();
+    selectThread(result.newThreadId);
+  }, [reloadThreads, selectHandoffAgent, selectThread]);
+
   /**
    * `copilotkit-v2-panel.tsx` 把这次调用挂在 `onThreadResolved` —— 见该文件新增的
    * prop。只在 URL 尚未带真实 id 时才需要写地址栏（`selectedThreadId === null`，
@@ -1294,6 +1306,12 @@ export function CopilotKitV2Shell({
         {/* 外层刚从整块 `flex-1` 改成 `flex-col`（给上面新加的顶部信息条腾一行）——
             这层补 `min-h-0 flex-1` 让面板继续占满剩余高度，不然 flex-col 默认按
             内容撑高，消息区会失去可滚动的固定高度。 */}
+        <ChatHandoffPanel
+          threadId={selectedThreadId}
+          sessionToken={bearer ?? undefined}
+          refreshKey={handoffRefreshKey}
+          onOpenThread={openHandoffThread}
+        />
         <div className="min-h-0 flex-1">
         {/* issue #4244：助手消息引用来自同一次 `getThread`（`onMessageSent` 会重读）。 */}
         <ThreadCitationsProvider messages={threadDetail?.messages}>
@@ -1314,6 +1332,7 @@ export function CopilotKitV2Shell({
           onMessageSent={() => {
             void loadRightPanel();
             void reloadThreads();
+            setHandoffRefreshKey((n) => n + 1);
           }}
           /* issue #2050 —— 落地成功后重读右栏「产物」，让新产物真的出现在栏里。 */
           onArtifactLanded={() => void loadRightPanel()}

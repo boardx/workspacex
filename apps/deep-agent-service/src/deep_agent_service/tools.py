@@ -551,9 +551,31 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         # 没有 outcome：服务端没有给出结果（通用裁决通路只允许 reject，正常不会到这里），如实说明未发起。
         return "流程未发起：没有收到系统的发起结果，未创建任何实例。不要重试，也不要改走其它流程。"
 
+    @tool
+    def request_handoff(
+        targetRole: str | None = None,
+        packet: dict | str | None = None,
+        outcome: SkipJsonSchema[dict | None] = None,
+    ) -> str:
+        """当用户的问题超出本角色职责、应由另一个数字人角色（编号形如 D003）接手时，调用这个工具
+        请求转交。`targetRole` 是目标角色编号；`packet` 是交接包对象，只能包含四个字段：
+        `originalQuestion`（用户问题原文）、`confirmedScope`（已和用户确认的范围）、
+        `evidenceRefs`（已有证据/来源的 ID 列表，只写 ID，不要附摘录或原文）、`openItems`（未决事项列表）。
+        转交需要用户确认；你只能转交给本角色允许的目标。"""
+        # `outcome` 不进模型可见的 tool schema，只由服务端经 edit resume 回填（同 start_workflow）。
+        # AG07 —— 网关（`apps/api/.../handoff-gate.ts`）在本工具执行前中断，按 run 钉住的 delegationPolicy
+        # 判定目标与深度，登记待用户确认的转交，再以 edit resume 带回 `outcome`：
+        # {status: requested|refused, message, ...}。`message` 是聊天可见的中文句子（不含原因码）。
+        if isinstance(outcome, dict) and isinstance(outcome.get("message"), str):
+            message = outcome["message"]
+            if outcome.get("status") == "requested":
+                return f"{message} 在用户确认前不要自行继续处理被转交的部分；把这句话告诉用户即可。"
+            return f"{message} 不要改转给其它角色，也不要重试；请把这句话告诉用户，并在本角色职责内继续帮助用户。"
+        return "转交未发起：没有收到系统的处理结果。不要重试；请在本角色职责内继续帮助用户。"
+
     # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.
     if interactions_only:
-        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter, start_workflow]
+        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter, start_workflow, request_handoff]
 
     @tool
     def spawn_async_task(description: str, config: RunnableConfig,
@@ -637,5 +659,6 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         choose_execution_option,
         escalate_matter,
         start_workflow,
+        request_handoff,
         spawn_async_task,
     ]

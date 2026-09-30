@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { Pencil, ShieldAlert } from "lucide-react";
+import { agentRole } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { decideAgentRun, type AgentRunView } from "@/lib/agent-run";
 
@@ -42,7 +43,8 @@ export function AgentApprovalPanel({
   const pending = view.pendingApproval;
   // AG05：start_workflow 的结果只由服务端算出，服务端对它只接受 reject（approve/edit 恒 409）——
   // 卡片不提供注定失败的按钮。工具名与 apps/api `AGENT_WORKFLOW_START_TOOL_NAME` 同值（待契约重签时收进 contracts）。
-  const rejectOnly = pending?.toolName === "start_workflow";
+  // AG07：request_handoff 同理（结果由网关按钉住的 delegationPolicy 算出），工具名取自契约。
+  const rejectOnly = pending?.toolName === "start_workflow" || pending?.toolName === agentRole.REQUEST_HANDOFF_TOOL_NAME;
 
   // draft 只在「首次进入编辑态」时用当前 argsSummary 播种；用户输入后不再被外部状态覆盖。
   const startEditing = () => {

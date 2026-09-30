@@ -646,6 +646,10 @@ import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-age
 import { AgentController } from "./interface/controllers/agent.controller";
 import { AgentRoleController } from "./interface/controllers/agent-role.controller";
 import { EscalationDecisionController } from "./interface/controllers/escalation-decision.controller";
+import { AgentHandoffController } from "./interface/controllers/agent-handoff.controller";
+import { AGENT_HANDOFF_STORE, SOURCE_READ_PERMISSION_CHECK } from "./application/agent/agent-handoff";
+import { ArtifactSourceReadPermissionCheck } from "./application/agent/artifact-source-read-check";
+import { PgAgentHandoffStore } from "./infrastructure/agent/pg-agent-handoff-store";
 import { ESCALATION_STORE } from "./application/agent-interrupts/decide-escalation";
 import { PgEscalationStore } from "./infrastructure/agent-interrupts/pg-escalation-store";
 import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
@@ -1257,6 +1261,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AgentController,
     AgentRoleController,
     EscalationDecisionController,
+    AgentHandoffController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
@@ -1721,6 +1726,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     { provide: ESCALATION_STORE, useFactory: (db: DatabasePort) => new PgEscalationStore(db), inject: [DATABASE_PORT] },
+    // AG07：handoff 聚合存储 + 以发起人身份重读证据引用（走文件预览同一道读门）。
+    { provide: AGENT_HANDOFF_STORE, useFactory: (db: DatabasePort) => new PgAgentHandoffStore(db), inject: [DATABASE_PORT] },
+    {
+      provide: SOURCE_READ_PERMISSION_CHECK,
+      useFactory: (grants: DeliveryDeps["grants"], urls: DeliveryDeps["urls"], objectStore: DeliveryDeps["objectStore"], integrity: DeliveryDeps["integrity"], repo: DeliveryDeps["repo"], ids: DeliveryDeps["ids"], idFactory: DeliveryDeps["idFactory"], provenance: DeliveryDeps["provenance"], agentArtifacts: AgentArtifactDeliverySource) =>
+        new ArtifactSourceReadPermissionCheck({ grants, urls, objectStore, integrity, repo, ids, idFactory, provenance, agentArtifacts, now: () => new Date() }),
+      inject: [DOWNLOAD_GRANT_REPOSITORY, DOWNLOAD_URL_BUILDER, OBJECT_STORE_PROBE, OBJECT_INTEGRITY_CHECKER, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, ID_FACTORY, PROVENANCE_WRITER, AGENT_ARTIFACT_DELIVERY_SOURCE],
+    },
     {
       provide: AGENT_ROLE_DRAFT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
@@ -2366,6 +2379,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
           // AG05：Agent 经 `start_workflow` 发起 Workflow 走的就是 WF03 的同一个运行时单例（start 准入全在 runStartCore）。
           workflows,
+          // AG07：Agent 经 `request_handoff` 请求转交——登记待发起人确认的 handoff 行（与 HTTP 面同一个存储实现）。
+          new PgAgentHandoffStore(db),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,

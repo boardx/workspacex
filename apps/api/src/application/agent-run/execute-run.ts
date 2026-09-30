@@ -92,6 +92,7 @@ import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
 import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
+import type { AgentHandoffStore } from "../agent/agent-handoff";
 import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
 
 /**
@@ -371,6 +372,8 @@ export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   readonly interjections?: InterjectionStore;
   /** AG05 —— `start_workflow` 中断走的 WF03 start（生产 = `WorkflowRuntimeService`）。缺省 ⇒ 如实拒绝，不假装发起。 */
   readonly workflowStarts?: AgentWorkflowStartPort;
+  /** AG07 —— `request_handoff` 中断落 handoff 行的存储。缺省 ⇒ 如实拒绝（转交暂不可用），不假装已提交。 */
+  readonly handoffs?: AgentHandoffStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
   /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测
