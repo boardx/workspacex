@@ -78,7 +78,7 @@ describe("capability picker model", () => {
   it("English-first workflow names show only the parenthesised Chinese", () => {
     expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop（知识捕获循环）" })).toBe("知识捕获循环");
     expect(workflowLabel({ stableId: "W040", name: "Knowledge Capture Loop (知识捕获循环)" })).toBe("知识捕获循环");
-    expect(workflowLabel({ stableId: "zz", name: "Weekly Sync" })).toBe("Weekly Sync");
+    expect(workflowLabel({ stableId: "zz", name: "Weekly Sync" })).toBe("未命名流程");
   });
 
   it("pending preview lists builtin workflows in Chinese and counts unknown ids", () => {
@@ -90,5 +90,23 @@ describe("capability picker model", () => {
     const e = { listing: mk("a", "A"), card: card("a", { workflows: [{ stableId: "W029", name: "x" }] as AgentDirectoryCard["workflows"] }), subtitle: null, tags: [] };
     expect(autoExamplePrompts([e])).toEqual(["帮我走一遍「问题定义到 PRD」"]);
     expect(autoExamplePrompts([])).toHaveLength(2);
+  });
+});
+
+describe("自动匹配示例不出现纯英文工作流名（r4）", () => {
+  it("Research-to-Brief 等 ASCII-only 名字都经中文 label 或被剔除", () => {
+    const wf = [
+      { stableId: "W001", name: "Research-to-Brief" },
+      { stableId: "research-to-brief", name: "Research-to-Brief" },
+      { stableId: "zz", name: "Weekly Sync" },
+      { stableId: "W029", name: "Problem-to-PRD" },
+    ] as AgentDirectoryCard["workflows"];
+    const entries = wf.map((w, i) => ({ listing: mk(`a${i}`, "A"), card: card(`a${i}`, { workflows: [w] }), subtitle: null, tags: [] }));
+    const all = [...autoExamplePrompts(entries), ...entries.flatMap((e) => examplePromptsFor(e.card))];
+    for (const q of all) {
+      for (const name of q.match(/「([^」]*)」/g) ?? []) expect(name).toMatch(/\p{Script=Han}/u);
+    }
+    expect(all.join()).not.toMatch(/Research-to-Brief|Weekly Sync/);
+    expect(examplePromptsFor(entries[0]!.card)).toEqual(["帮我走一遍「调研到简报」"]);
   });
 });

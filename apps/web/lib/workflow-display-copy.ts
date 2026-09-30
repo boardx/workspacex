@@ -13,6 +13,7 @@ interface WorkflowName {
 }
 
 const WORKFLOWS: readonly WorkflowName[] = [
+  { workflowId: "W001", key: "research-to-brief", name: "调研到简报" },
   { workflowId: "W002", key: "meeting-to-actions", name: "会议纪要转行动项" },
   { workflowId: "W027", key: "discovery-to-opportunity", name: "探索发现到机会评估" },
   { workflowId: "W028", key: "research-to-insight", name: "用户研究到洞察" },
@@ -152,9 +153,11 @@ export function workflowLabel(w: { readonly stableId: string; readonly name: str
     const paren = /[（(]([^）)]*)[）)]/.exec(w.name)?.[1]?.trim();
     if (paren && HAN.test(paren)) return paren;
   }
-  return head || "未命名流程";
+  // 纯英文且无中文括注的名字不上屏（复审 r4：自动匹配示例里出现「Research-to-Brief」）。
+  if (!head || !HAN.test(head)) return "未命名流程";
+  return head;
 }
 
 export function workflowLabelsOf(card: { readonly workflows: readonly { readonly stableId: string; readonly name: string }[] } | undefined): string[] {
-  return [...new Set((card?.workflows ?? []).map(workflowLabel))];
+  return [...new Set((card?.workflows ?? []).map(workflowLabel))].filter((l) => l !== "未命名流程");
 }
