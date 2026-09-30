@@ -200,12 +200,24 @@ export function ProjectsScreen() {
       ) : null}
 
       {listError !== null ? (
-        <p data-testid="projects-list-error" className="text-12 text-destructive">
-          {listError}
-        </p>
+        <div
+          role="alert"
+          data-testid="projects-list-error"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-13 font-medium text-destructive">项目列表暂时读不出来</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">你的项目没有丢，稍后重试即可。{" "}
+              <span className="font-mono text-11" data-testid="projects-list-error-code">{listError}</span>
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={listBusy} onClick={() => void refresh(orgId)} data-testid="projects-list-error-retry">
+            {listBusy ? "重试中…" : "重试"}
+          </Button>
+        </div>
       ) : null}
 
-      {projects === null ? (
+      {projects === null && listError !== null ? null : projects === null ? (
         <div
           data-testid="projects-list-empty-state"
           className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"

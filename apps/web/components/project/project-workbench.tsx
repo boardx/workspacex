@@ -156,6 +156,7 @@ export function ProjectWorkbench({
    * 会先挂 `TabTodo`，打出一次工作坊看板请求（`GET /tasks` → 403 NO_PROJECT_ROLE），随后才落回概览。
    */
   const [overviewSettled, setOverviewSettled] = React.useState(false);
+  const [overviewReloadKey, setOverviewReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     if (!projectId) {
@@ -193,7 +194,7 @@ export function ProjectWorkbench({
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, overviewReloadKey]);
 
   /**
    * 项目中枢 R1 —— 项目是必须受邀才能进的容器：`getProjectOverview` 在服务端按
@@ -228,8 +229,16 @@ export function ProjectWorkbench({
    * 角色说明条、角色专属按钮。种类未落定前也先不画（免得通用项目先闪一下再消失）；落定后仍未知
    * （读不到 overview）按工作坊渲染，同上面 tab 清单的处置。
    */
-  const showWorkshopRoles = projectKind === "workshop" || (projectKind === null && overviewSettled);
-  const kindPending = projectKind === null && !overviewSettled && !tabDefsForKind("general").some((t) => t.key === shownTab);
+  /**
+   * UIUX R4：overview 读取**失败**（网络 / 5xx）且种类未知时，不能假装是工作坊——此前会掉进工作坊壳
+   * （视角切换器、「引导师视角」、研究洞察 / 现场协作等 tab），通用项目的一次偶发故障看起来像换了个产品。
+   * 这时只给一个说清楚的失败面板 + 重试；访问受限（403）走上面的 `accessDenied`，不在此列。
+   */
+  const loadFailed = projectKind === null && liveOverviewError !== null && !accessDenied;
+  const showWorkshopRoles = !loadFailed && (projectKind === "workshop" || (projectKind === null && overviewSettled));
+  // UIUX R4：种类落定前所有 tab 都先给骨架——此前通用 tab（概览 / 内容 / 大脑…）会先闪出工作坊概览
+  // 的占位卡（「当前没有进行中的环节」「真实数据 / 请先登录」），再整页换成通用概览。
+  const kindPending = projectKind === null && !overviewSettled;
   /** 各 tab 专属拉取用的 tab：种类未落定时不为工作坊专属 tab 发请求（同上，通用项目会 403）。 */
   const fetchTab: ProjectTab | null = kindPending ? null : shownTab;
 
@@ -461,7 +470,7 @@ export function ProjectWorkbench({
             </Button>
             <div className="min-w-0 flex-1">
               <div className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
-                {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂不可用")}
+                {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂时读不到")}
               </div>
               {headerProject && (
                 <div className="mt-1 flex flex-wrap items-center gap-2" data-testid="project-header-meta">
@@ -498,6 +507,11 @@ export function ProjectWorkbench({
           </div>
 
           {/* ── 主标签 ─────────────────────────────────────── */}
+          {loadFailed || (projectKind === null && !overviewSettled) ? (
+            <div className="flex h-9 items-center gap-4" data-testid="project-tabs-skeleton" aria-hidden>
+              {loadFailed ? null : [0, 1, 2, 3].map((i) => <span key={i} className="h-3 w-10 animate-pulse rounded bg-muted" />)}
+            </div>
+          ) : (
           <nav className="flex gap-1 overflow-x-auto" data-testid="project-tabs" aria-label="项目标签">
             {tabDefs.map((t) => {
               const active = t.key === shownTab;
@@ -518,6 +532,7 @@ export function ProjectWorkbench({
               );
             })}
           </nav>
+          )}
          </div>
 
           {/* ── 视角说明条（仅工作坊） ───────────────────────── */}
@@ -572,6 +587,8 @@ export function ProjectWorkbench({
             )}
             {accessDenied ? (
               <ProjectAccessDenied code={liveOverviewError ?? ""} projectId={projectId ?? ""} />
+            ) : loadFailed ? (
+              <ProjectLoadFailed code={liveOverviewError ?? ""} busy={liveOverviewLoading} onRetry={() => setOverviewReloadKey((k) => k + 1)} />
             ) : (
             <StateShell
               state={uiState}
@@ -588,7 +605,11 @@ export function ProjectWorkbench({
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
               {kindPending ? (
-                <p className="text-12 text-muted-foreground" data-testid="project-tab-kind-pending">读取项目中…</p>
+                <div className="flex flex-col gap-3" data-testid="project-tab-kind-pending" role="status" aria-label="读取项目中">
+                  <span className="h-20 animate-pulse rounded-lg bg-muted" />
+                  <span className="h-32 animate-pulse rounded-lg bg-muted" />
+                  <span className="h-24 animate-pulse rounded-lg bg-muted" />
+                </div>
               ) : renderTab(
                 shownTab, projectKind, (t, sb) => href({ tab: t, sub: sb }), view, sub, orgDisabled, projectId ?? "",
                 liveProject, liveLoading, liveError,
@@ -606,6 +627,27 @@ export function ProjectWorkbench({
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/** overview 读取失败（非 403）：说清楚发生了什么、能怎么办；原始码只作小字附注。 */
+function ProjectLoadFailed({ code, busy, onRetry }: { code: string; busy: boolean; onRetry: () => void }) {
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6" data-testid="project-load-failed" role="alert">
+      <h2 className="text-16 font-semibold">项目暂时打不开</h2>
+      <p className="text-12 leading-relaxed text-muted-foreground">
+        读取项目信息时出了问题，你的内容没有丢。请稍后重试；如果反复出现，请联系管理员。
+      </p>
+      <p className="font-mono text-11 text-muted-foreground">{code}</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="primary" disabled={busy} onClick={onRetry} data-testid="project-load-failed-retry">
+          {busy ? "重试中…" : "重试"}
+        </Button>
+        <Button asChild size="sm" variant="outline" data-testid="project-load-failed-back">
+          <a href="/projects">回到项目列表</a>
+        </Button>
+      </div>
+    </div>
   );
 }
 
