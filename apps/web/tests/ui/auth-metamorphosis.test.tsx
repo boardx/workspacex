@@ -43,7 +43,7 @@ describe("auth metamorphosis animation", () => {
   it("defines the meta-* keyframes only in tailwind.config.ts", () => {
     const config = readFileSync(resolve(__dirname, "../../tailwind.config.ts"), "utf8");
     const css = readFileSync(resolve(__dirname, "../../app/globals.css"), "utf8");
-    for (const name of ["meta-chrysalis", "meta-burst", "meta-butterfly", "meta-step", "meta-step-bar"]) {
+    for (const name of ["meta-particle", "meta-draw", "meta-fill", "meta-wing", "meta-glow", "meta-orbit", "meta-step", "meta-step-bar"]) {
       expect(config).toContain(`"${name}": {`);
       expect(css).not.toContain(`@keyframes ${name}`);
     }
