@@ -95,7 +95,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
           .catch(e=>{logFinishFailure("persist-final",e);return fail("FINISH_TIMEOUT");}).then(()=>undefined);},
         onFlow:flow=>{if(!terminal)send({type:"flow",captureId:auth.captureId,...flow});},
-        onError:(reason,detail)=>void fail(asPersonalErrorReason(reason,detail,stopping)),
+        onError:(reason,detail)=>{if(stopping)process.stderr.write(`[personal-asr] provider error while stopping: ${reason} / ${String(detail).slice(0,120)}\n`);void fail(asPersonalErrorReason(reason,detail,stopping));},
         onClosed:()=>undefined,
       },{sampleRate:16_000,channels:1,encoding:"pcm16le"},{turnDetection:"recording"}).then(s=>{starting=false;
         if(terminal){s.abort();return;}providerReadyAt=Date.now();upstream=s;
@@ -104,21 +104,23 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         }).catch(()=>void fail("ASR_PROVIDER_UNAVAILABLE"));return;
     }
     if(!upstream||stopping||terminal){void fail("PROTOCOL_ERROR");return;} stopping=true;stopRequestedAt=Date.now();send({type:"stopping",captureId:auth.captureId});
-    void upstream.finish().then(async()=>{await writeChain;const durationSeconds=pcm16MonoDurationSeconds(receivedPcmBytes);
+    void atStage("upstream-finish",()=>upstream!.finish()).then(async()=>{await atStage("await-writes",()=>writeChain);const durationSeconds=pcm16MonoDurationSeconds(receivedPcmBytes);
       if(terminal)return;
-      if(!usageRecorded){usageRecorded=true;await deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
+      if(!usageRecorded){usageRecorded=true;await atStage("usage-record",()=>deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
       orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
-      model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)});}
-      await deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000});
+      model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)}));}
+      await atStage("finish-capture",()=>deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000}));
       if(terminal)return;terminal=true;observeTerminal("completed");send({type:"completed",captureId:auth.captureId});ws.close();
-    }).catch(e=>{logFinishFailure("finish",e);void fail("FINISH_TIMEOUT");});
+    }).catch(()=>void fail("FINISH_TIMEOUT"));
   });
   ws.on("close",()=>{if(!terminal)void fail("ASR_PROVIDER_UNAVAILABLE");});
 }
-/** 收尾失败统一对外报 FINISH_TIMEOUT；真正的原因（记用量 / 落库 / 等上游）只写服务端日志，便于排查。 */
+/** 收尾失败统一对外报 FINISH_TIMEOUT；真正卡在哪一步只写服务端日志（只记阶段与错误类名——err.message 可能含 SQL 片段，不外露）。 */
 function logFinishFailure(stage:string,error:unknown):void{
-  const detail=error instanceof Error?`${error.name}: ${error.message.slice(0,200)}`:"unknown";
-  process.stderr.write(`[personal-asr] ${stage} failed: ${detail}\n`);
+  process.stderr.write(`[personal-asr] ${stage} failed: ${safeErrorDetail(error)}\n`);
+}
+async function atStage<T>(stage:string,work:()=>Promise<T>):Promise<T>{
+  try{return await work();}catch(error){logFinishFailure(stage,error);throw error;}
 }
 function safeJson(value:string):unknown{try{return JSON.parse(value);}catch{return null;}}
 function safeErrorDetail(error:unknown):string{return error instanceof Error?error.name:"unknown";}
