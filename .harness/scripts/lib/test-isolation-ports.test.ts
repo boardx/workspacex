@@ -27,7 +27,7 @@ const PORT_KEYS = [
   "WORKSPACEX_API_PORT", "WORKSPACEX_WEB_PORT", "SKILL_SANDBOX_PORT",
   "WORKSPACEX_MODEL_PROVIDER_PORT", "WORKSPACEX_DEEP_AGENT_PROVIDER_PORT",
   "WORKSPACEX_ASR_PROVIDER_PORT", "WORKSPACEX_VISION_PROVIDER_PORT",
-  "WORKSPACEX_LOOPBACK_SANDBOX_PORT",
+  "WORKSPACEX_LOOPBACK_SANDBOX_PORT", "WORKSPACEX_MAIL_PROVIDER_PORT",
 ] as const;
 
 /** 段起点，与 `test-isolation.ts` 的 `PORT_BASE` 一一对应（这里刻意写死一份对照，
@@ -37,7 +37,7 @@ const BANDS: Record<(typeof PORT_KEYS)[number], number> = {
   WORKSPACEX_API_PORT: 24_000, WORKSPACEX_WEB_PORT: 25_000, SKILL_SANDBOX_PORT: 26_000,
   WORKSPACEX_MODEL_PROVIDER_PORT: 27_000, WORKSPACEX_DEEP_AGENT_PROVIDER_PORT: 28_000,
   WORKSPACEX_ASR_PROVIDER_PORT: 29_000, WORKSPACEX_VISION_PROVIDER_PORT: 30_000,
-  WORKSPACEX_LOOPBACK_SANDBOX_PORT: 31_000,
+  WORKSPACEX_LOOPBACK_SANDBOX_PORT: 31_000, WORKSPACEX_MAIL_PROVIDER_PORT: 19_000,
 };
 const BAND_WIDTH = 1_000;
 
@@ -150,7 +150,7 @@ describe("隔离端口必须完全避开内核临时端口区", () => {
  * 现算 `SKILL_SANDBOX_PORT`——两者都是 `50000 + m`、共用同一次哈希抽签，**逐位相同**。
  */
 describe("每个端口角色只声明一次，任何两个角色都不得算出同一个端口", () => {
-  it("同一个隔离里，12 个角色的推导值两两不同", () => {
+  it("同一个隔离里，13 个角色的推导值两两不同", () => {
     for (const seedId of ["a", "b", "collision-probe", "x".repeat(40)]) {
       const env = deriveTestIsolation({ isolationId: seedId, worktreePath: "/tmp/wt" });
       const values = PORT_KEYS.map((key) => env[key]);

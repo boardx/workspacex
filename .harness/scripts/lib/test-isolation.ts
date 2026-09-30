@@ -24,6 +24,7 @@ export interface TestIsolationEnv extends Record<string, string> {
   WORKSPACEX_ASR_PROVIDER_PORT: string;
   WORKSPACEX_VISION_PROVIDER_PORT: string;
   WORKSPACEX_LOOPBACK_SANDBOX_PORT: string;
+  WORKSPACEX_MAIL_PROVIDER_PORT: string;
   COMPOSE_PROJECT_NAME: string;
   WORKSPACEX_DB_CONNECTION_BUDGET: string;
 }
@@ -47,6 +48,7 @@ const ISOLATION_ENV_KEYS = [
   "WORKSPACEX_ASR_PROVIDER_PORT",
   "WORKSPACEX_VISION_PROVIDER_PORT",
   "WORKSPACEX_LOOPBACK_SANDBOX_PORT",
+  "WORKSPACEX_MAIL_PROVIDER_PORT",
   "COMPOSE_PROJECT_NAME",
   "WORKSPACEX_DB_CONNECTION_BUDGET",
 ] as const;
@@ -190,6 +192,12 @@ export const PORT_BASE = {
    * `SKILL_SANDBOX_PORT`、一个叫 `skillSandboxPort`，只差大小写，正是撞车的温床。
    */
   WORKSPACEX_LOOPBACK_SANDBOX_PORT: 31_000,
+  /**
+   * 确定性出站邮件替身（`apps/api/scripts/loopback-mail-provider.ts`，#4789）。
+   * 段起点取 19_000 而不是顺延的 32_000：32_000–32_999 与 Linux 临时端口区（32768 起）相交，
+   * 正是上面那段事故复盘要避开的区域；19_000–19_999 低于 20_000，同样不与任何临时端口区相交。
+   */
+  WORKSPACEX_MAIL_PROVIDER_PORT: 19_000,
 } as const;
 
 const PORT_KEYS = Object.keys(PORT_BASE) as Array<keyof typeof PORT_BASE>;
