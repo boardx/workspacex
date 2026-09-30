@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,14 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="truncate text-13 font-bold text-background-foreground">{card.name}</p>
+              <Link
+                href={`/agent/${encodeURIComponent(card.agentId)}`}
+                data-testid="agent-card-detail-link"
+                aria-label={`查看 ${card.name} 的详情`}
+                className="truncate rounded-sm text-13 font-bold text-background-foreground underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {card.name}
+              </Link>
               {card.catalogSource === "official" && (
                 <Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge>
               )}
@@ -68,14 +76,20 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           </span>
           <ReadinessBadge readiness={card.readiness} />
         </div>
-        <Button
-          size="sm"
-          variant="primary"
-          data-testid="agent-card-start-chat"
-          onClick={() => onStartChat(card.agentId)}
-        >
-          开始对话
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild size="sm" variant="outline" className="flex-1">
+            <Link href={`/agent/${encodeURIComponent(card.agentId)}`} data-testid="agent-card-view-detail">查看详情</Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            className="flex-1"
+            data-testid="agent-card-start-chat"
+            onClick={() => onStartChat(card.agentId)}
+          >
+            开始对话
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

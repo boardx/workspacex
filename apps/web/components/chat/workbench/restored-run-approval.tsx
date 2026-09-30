@@ -13,6 +13,8 @@ import {
   type ToolPermissionCardRequest,
 } from "@/components/agent-kernel/tool-permission-card";
 import { Button } from "@/components/ui/button";
+import { AgentEscalationForRun } from "@/components/chat/agent-escalation-card";
+import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 /**
@@ -195,6 +197,18 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
   // `call_skill`，其余工具只渲染一句"无法恢复"的 alert（还挂在线程顶部），run 停在
   // `awaiting_tool_permission` 却没有任何人能裁决；服务端 `decidePermissionRequest`
   // 本来就接受所有非表单工具。
+  // AG06：escalate_matter 是数字人把一件事交给人拍板，不是工具授权——走升级卡片，
+  // 裁决走契约 `decideEscalation`（不是 decidePermissionRequest 的 once/run/forever）。
+  if (run?.status === "awaiting_tool_permission" && request?.toolName === ESCALATE_TOOL_NAME) return <section data-testid="restored-run-approval" className="my-3">
+    <AgentEscalationForRun
+      key={request.permissionRequestId ?? "pending"}
+      agentId={run.agentId}
+      pending={request}
+      sessionToken={bearer}
+      canWrite={canWrite}
+      onDecided={() => { if (request.permissionRequestId) setConsumedRequestId(request.permissionRequestId); void getAgentRun(runId, bearer).then(setRun, () => undefined); }}
+    />
+  </section>;
   if (!error && (run?.status !== "awaiting_tool_permission" || !request)) return null;
   return <section
     data-testid="restored-run-approval"
