@@ -144,16 +144,30 @@ describe("AG07 · loopback deep-agent 替身 · request_handoff 剧本", () => {
     expect(R.RequestHandoffArgs.safeParse(calls[0].args).success).toBe(true);
   });
 
-  it("edit resume 交回 outcome ⇒ 终稿 = outcome.message", async () => {
+  it("edit resume 交回 requested outcome ⇒ 终稿 = outcome.message", async () => {
+    const request = fixture();
+    await startTurn(request, "h3", "[request_handoff:D003]");
+    const outcome = { status: "requested", handoffId: "hid-1", targetRole: "D003", message: "已提交转交给「产品经理」的请求，等待你在对话中确认；确认后会新开一个对话继续。" };
+    await request("POST", "/threads/h3/runs", {
+      command: { resume: { decisions: [{ type: "edit", edited_action: { name: "request_handoff", args: { outcome } } }] } },
+    });
+    expect((await request("GET", "/threads/h3/runs/h3")).status).toBe("success");
+    const msgs = (await request("GET", "/threads/h3/state")).values.messages;
+    expect(msgs.at(-1)).toMatchObject({ type: "ai", content: outcome.message });
+  });
+
+  it("edit resume 交回 refused outcome ⇒ 终稿不复述拒绝原因（提示条已展示，UIUX r2 屏 4 #3）", async () => {
     const request = fixture();
     await startTurn(request, "h2", "[request_handoff:D005]");
-    const outcome = { status: "refused", reason: "target_not_in_allowed_targets", targetRole: "D005", message: handoffNotAllowedMessage("target_not_in_allowed_targets", "D005") };
+    const outcome = { status: "refused", reason: "target_not_in_allowed_targets", targetRole: "D005", message: handoffNotAllowedMessage("target_not_in_allowed_targets", "产品经理") };
     await request("POST", "/threads/h2/runs", {
       command: { resume: { decisions: [{ type: "edit", edited_action: { name: "request_handoff", args: { outcome } } }] } },
     });
     expect((await request("GET", "/threads/h2/runs/h2")).status).toBe("success");
     const msgs = (await request("GET", "/threads/h2/state")).values.messages;
-    expect(msgs.at(-1)).toMatchObject({ type: "ai", content: outcome.message });
+    const aiTexts = msgs.filter((m: any) => m.type === "ai").map((m: any) => String(m.content ?? ""));
+    expect(aiTexts.some((t: string) => t.includes(outcome.message)), "拒绝原因只出现一次：在结构化提示条里").toBe(false);
+    expect(msgs.at(-1)).toMatchObject({ type: "ai", content: "我会继续在这个对话里、按我的职责范围帮你处理。" });
   });
 });
 
@@ -356,8 +370,11 @@ describe("AG07 · handoff 端到端（真库、真网关、真路由）", () => 
     await seedQueuedRun(runId, `${SOURCE}-v1`);
     const outcome = await agentRequests(runId, { targetRole: role, packet: PACKET });
     expect(outcome).toMatchObject({ status: "refused", reason, targetRole: role });
-    expect(outcome.message).toBe(handoffNotAllowedMessage(reason, role));
+    // UIUX r2 屏 4 #3：文案用目标的显示名，解析不到时用中性称呼——从不出现角色编号。
+    const seeded = role in TARGETS;
+    expect(outcome.message).toBe(handoffNotAllowedMessage(reason, seeded ? `角色 ${role}` : "所请求的角色"));
     expect(outcome.message).not.toContain(reason);
+    if (!seeded) expect(outcome.message).not.toContain(role);
     expect((await handoffRows()).length).toBe(before);
   });
 

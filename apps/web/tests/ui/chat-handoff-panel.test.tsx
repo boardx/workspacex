@@ -17,8 +17,14 @@ afterEach(cleanup);
 
 /** 替身消息流：按面板的摆法把 lead / tail 放在消息前后。 */
 function Stream() {
-  const { lead, tail, draftSeed } = useChatStreamSlots();
-  return <div data-testid="stream">{lead}<p data-testid="msg">消息</p>{tail}<output data-testid="seed">{draftSeed?.text ?? ""}</output></div>;
+  const { lead, tail, draftSeed, emptyState } = useChatStreamSlots();
+  const [draft, setDraft] = React.useState("");
+  return (
+    <>
+      <div data-testid="stream">{lead}<p data-testid="msg">消息</p>{tail}<output data-testid="seed">{draftSeed?.text ?? ""}</output></div>
+      <div>{emptyState?.(setDraft)}<output data-testid="draft">{draft}</output></div>
+    </>
+  );
 }
 const agents: Record<string, { name: string; initials: string; roleLabel: string }> = {
   "agt-d001": { name: "研究助理", initials: "研", roleLabel: "研究与知识分析" },
@@ -42,6 +48,27 @@ const view = (over: Partial<HandoffView> = {}): HandoffView => ({
 });
 
 describe("ChatHandoffPanel", () => {
+  it("转交新开的线程：来源卡下有「发送后开始」空态与首条消息建议，点建议填进输入框（UIUX r2 屏 4 #3）", async () => {
+    const load = vi.fn(async (): Promise<ThreadHandoffs> => ({
+      requested: [], origin: { handoff: view({ status: "confirmed", newThreadId: "thr-new" }), evidence: [] },
+    }));
+    render(<ChatHandoffPanel threadId="thr-new" load={load} />);
+    const waiting = await screen.findByTestId("handoff-waiting-state");
+    await waitFor(() => expect(waiting.textContent).toContain("产品经理会在你发送后开始接手"));
+    expect(waiting.textContent).not.toMatch(/D003|记忆/);
+    const chips = screen.getAllByTestId("handoff-suggestion");
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(chips[1]!);
+    expect(screen.getByTestId("draft").textContent).toBe(chips[1]!.textContent);
+  });
+
+  it("只有待确认请求（来源线程）⇒ 不渲染接收方空态", async () => {
+    const load = vi.fn(async (): Promise<ThreadHandoffs> => ({ requested: [view()], origin: null }));
+    render(<ChatHandoffPanel threadId="thr-a" load={load} />);
+    await screen.findByTestId("handoff-confirm");
+    expect(screen.queryByTestId("handoff-waiting-state")).toBeNull();
+  });
+
   it("无转交时不渲染", async () => {
     const load = vi.fn(async (): Promise<ThreadHandoffs> => ({ requested: [], origin: null }));
     const { container } = render(<ChatHandoffPanel threadId="thr-a" load={load} />);
@@ -67,6 +94,9 @@ describe("ChatHandoffPanel", () => {
     expect(stream.children[stream.children.length - 2]?.contains(card)).toBe(true);
     await waitFor(() => expect(screen.getByTestId("handoff-message-author").textContent).toBe("研究助理"));
     expect(screen.getByTestId("handoff-message-time").textContent).toMatch(/^\d{2}:\d{2}$/);
+    // 与 v2 助手身份行一致：时间不在身份行上显示，只在悬停提示 / 读屏里。
+    expect(screen.getByTestId("handoff-message-time").className).toContain("sr-only");
+    expect(screen.getByTestId("handoff-message-author").getAttribute("title")).toMatch(/^发送于 \d{2}:\d{2}$/);
     expect(screen.getByTestId("handoff-target").textContent).toContain("产品需求负责人");
     fireEvent.click(screen.getByTestId("handoff-confirm"));
     await waitFor(() => expect(onOpenThread).toHaveBeenCalledWith({ handoffId: "h-1", targetAgentId: "agt-d003", newThreadId: "thr-new" }, expect.objectContaining({ handoffId: "h-1" })));

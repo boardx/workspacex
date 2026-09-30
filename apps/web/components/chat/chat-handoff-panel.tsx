@@ -8,7 +8,7 @@ import { ChatStreamSlotsContext } from "@/components/chat/chat-stream-slots";
 import { getAgentDirectoryCard, type AgentDirectoryCard } from "@/lib/agent-directory";
 import {
   HANDOFF_SOURCE_UNAVAILABLE_COPY, cancelHandoff, confirmHandoff, handoffDraftText, handoffFailureText, handoffQuestionText, handoffRejectedText,
-  handoffStatusText, listThreadHandoffs, type ConfirmHandoffResult, type HandoffEvidenceItem, type HandoffView, type ThreadHandoffs,
+  handoffStatusText, handoffSuggestedMessages, listThreadHandoffs, type ConfirmHandoffResult, type HandoffEvidenceItem, type HandoffView, type ThreadHandoffs,
 } from "@/lib/agent-handoff";
 
 /**
@@ -73,9 +73,14 @@ export function ChatHandoffStream({
   }, [threadId, sessionToken, refreshKey, reloadTick, load]);
 
   const slots = React.useMemo(() => {
-    if (!data || (data.requested.length === 0 && data.origin === null)) return { lead: null, tail: null, draftSeed: null };
+    if (!data || (data.requested.length === 0 && data.origin === null)) return { lead: null, tail: null, draftSeed: null, emptyState: null };
     const origin = data.origin;
     const draftSeed = origin ? { key: origin.handoff.handoffId, text: handoffDraftText(origin.handoff) } : null;
+    const emptyState = origin
+      ? (setDraft: (text: string) => void) => (
+        <HandoffWaitingState handoff={origin.handoff} agent={agents.get(origin.handoff.targetAgentId ?? "")} onPick={setDraft} />
+      )
+      : null;
     const lead = origin && !dismissed.has(origin.handoff.handoffId) ? (
       <div data-testid="chat-handoff-panel" className="pb-3">
         <HandoffOriginCard
@@ -107,7 +112,7 @@ export function ChatHandoffStream({
         ))}
       </div>
     ) : null;
-    return { lead, tail, draftSeed };
+    return { lead, tail, draftSeed, emptyState };
   }, [data, agents, confirm, cancel, sessionToken, onOpenThread, onOpenSourceThread, dismissed, dismissOrigin]);
 
   return <ChatStreamSlotsContext.Provider value={slots}>{children}</ChatStreamSlotsContext.Provider>;
@@ -163,7 +168,7 @@ function mimeLabel(mime: string): string {
   return "文件";
 }
 
-/** 以 Agent 的一条消息呈现：头像 + 名字 + 时间，正文是卡片。 */
+/** 以 Agent 的一条消息呈现：头像 + 名字（时间在悬停提示里），正文是卡片。 */
 function AgentMessageFrame({
   agent, fallbackName, createdAt, testId, children,
 }: {
@@ -180,8 +185,9 @@ function AgentMessageFrame({
       <Avatar initials={agent?.initials ?? initialsOf(name)} avatarKey={agent?.avatar?.key ?? null} tone="ai" size="lg" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <header className="flex items-baseline gap-2">
-          <span className="text-13 font-medium text-card-foreground" data-testid="handoff-message-author">{name}</span>
-          {time && <time className="text-11 text-muted-foreground" dateTime={createdAt} data-testid="handoff-message-time">{time}</time>}
+          {/* 与 v2 助手身份行一致：身份行不显示时间；时间只在悬停提示里（读屏仍读得到）。 */}
+          <span className="text-13 font-medium text-card-foreground" data-testid="handoff-message-author" title={time ? `发送于 ${time}` : undefined}>{name}</span>
+          {time && <time className="sr-only" dateTime={createdAt} data-testid="handoff-message-time">{time}</time>}
         </header>
         {children}
       </div>
@@ -389,10 +395,52 @@ function HandoffOriginCard({
             回到原对话
           </Button>
         )}
-        <p className="text-11 text-muted-foreground" data-testid="handoff-origin-draft-hint">
-          {targetName}还没有开始处理：确认下方输入框里的交接草稿（可补充）后发送，TA 就会接手。
-        </p>
       </section>
     </AgentMessageFrame>
+  );
+}
+
+/**
+ * 转交新开的线程、接收方还没开口时的空态（UIUX r2 屏 4 #3）：来源卡下面不再是一大片空白。
+ * 说清「发送后才开始」（AG07：接收方不自动开跑），并给几条可一键填进输入框的首条消息——
+ * 只是填草稿，发不发仍由用户决定。线程有了第一条消息，面板就不再渲染这一块。
+ */
+function HandoffWaitingState({
+  handoff, agent, onPick,
+}: {
+  handoff: HandoffView;
+  agent: AgentDirectoryCard | undefined;
+  onPick: (text: string) => void;
+}) {
+  const name = agent?.name ?? handoff.targetName ?? "接手的数字人";
+  const suggestions = handoffSuggestedMessages(handoff);
+  return (
+    <section
+      className="mx-auto flex w-full max-w-md flex-col items-center gap-3 rounded-card border border-dashed border-border px-4 py-5 text-center"
+      data-testid="handoff-waiting-state"
+      aria-label="等待你发出第一条消息"
+    >
+      <Avatar initials={agent?.initials ?? initialsOf(name)} avatarKey={agent?.avatar?.key ?? null} tone="ai" size="lg" />
+      <div className="flex flex-col gap-1">
+        <p className="text-13 font-medium text-card-foreground">{name}会在你发送后开始接手</p>
+        <p className="text-12 text-muted-foreground">输入框里已经放好了交接草稿，可以补充后发送；也可以换一个开头：</p>
+      </div>
+      <ul className="flex flex-wrap justify-center gap-2" data-testid="handoff-suggestions">
+        {suggestions.map((text) => (
+          <li key={text}>
+            <Button
+              size="xs"
+              variant="secondary"
+              className="max-w-[20rem]"
+              title={text}
+              data-testid="handoff-suggestion"
+              onClick={() => onPick(text)}
+            >
+              <span className="truncate">{text}</span>
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

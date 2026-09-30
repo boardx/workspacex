@@ -103,11 +103,17 @@ export type AgentHandoffOutcome =
   | { readonly status: "requested"; readonly handoffId: string; readonly targetRole: string; readonly message: string }
   | { readonly status: "refused"; readonly targetRole: string | null; readonly reason: AgentHandoffRefusalReason; readonly message: string };
 
-function refused(reason: AgentHandoffRefusalReason, targetRole: string | null): AgentHandoffOutcome {
+/**
+ * UIUX r2 屏 4 #3：拒绝文案里只出现目标的**显示名**（「产品经理」），从不出现角色编号（`D002`）。
+ * 解析不到名字时用中性称呼，不回退到编号。
+ */
+const UNNAMED_TARGET = "所请求的角色";
+
+function refused(reason: AgentHandoffRefusalReason, targetRole: string | null, targetName?: string | null): AgentHandoffOutcome {
   let message: string;
   if (reason === "invalid_request") message = `转交请求的内容不完整（需要目标角色与交接包），未发起转交。${HANDOFF_REFUSAL_MARK}。`;
   else if (reason === "handoff_unavailable") message = `转交功能暂不可用，未发起转交。${HANDOFF_REFUSAL_MARK}；如需要，可以直接联系对应负责人。`;
-  else message = handoffNotAllowedMessage(reason, targetRole ?? "目标角色");
+  else message = handoffNotAllowedMessage(reason, targetName?.trim() || UNNAMED_TARGET);
   return { status: "refused", targetRole, reason, message };
 }
 
@@ -143,7 +149,7 @@ export async function requestAgentHandoff(
   const sourceDepth = await deps.handoffs.sourceThreadDepth(cmd.orgId, ctx.threadId);
   const target = await deps.handoffs.resolveTarget(cmd.orgId, args.targetRole);
   const decision = decideHandoff({ policy, targetRole: args.targetRole, sourceDepth, target });
-  if (!decision.ok) return refused(decision.reason, args.targetRole);
+  if (!decision.ok) return refused(decision.reason, args.targetRole, target?.name);
 
   const row = await deps.handoffs.insertRequested(cmd.orgId, {
     sourceRunId: cmd.runId, toolCallId: cmd.toolCallId, sourceThreadId: ctx.threadId,

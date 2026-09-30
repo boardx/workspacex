@@ -661,6 +661,8 @@ const START_WORKFLOW_MARKER = /\[start_workflow:([^\]\s]+)\]/;
  */
 const REQUEST_HANDOFF_TOOL_NAME = "request_handoff";
 const REQUEST_HANDOFF_MARKER = /\[request_handoff:(D\d{3})\]/;
+/** 转交被拒后的终稿：不复述拒绝原因（提示条已展示），只说对话会怎么继续。 */
+const HANDOFF_REFUSED_FOLLOWUP = "我会继续在这个对话里、按我的职责范围帮你处理。";
 const EVIDENCE_MARKER = /\[evidence:([^\]\s]+)\]/g;
 
 /** 一次「结果只由服务端算出」的工具调用剧本（`start_workflow` / `request_handoff`）。 */
@@ -702,6 +704,11 @@ function startWorkflowReply(record: RunRecord): string {
   if (record.decision === null) return script?.pendingText ?? "正在发起流程。";
   const outcome = record.decision.editedArgs?.outcome;
   const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  // UIUX r2 屏 4 #3：转交被拒时，拒绝原因已由结构化的「没有转交」提示条展示（工具结果本身），
+  // 终稿再逐字复述一遍就是同一句话出现两次。与真实工具体（`tools.py::request_handoff`）同一约定：
+  // 不复述，只说接下来怎么办。
+  const status = outcome && typeof outcome === "object" ? (outcome as { status?: unknown }).status : undefined;
+  if (script?.name === REQUEST_HANDOFF_TOOL_NAME && status === "refused") return HANDOFF_REFUSED_FOLLOWUP;
   if (typeof message === "string" && message !== "") return message;
   return record.decision.type === "reject" ? (script?.rejectedText ?? "发起流程被拒绝，未创建实例。") : "结果未知。";
 }

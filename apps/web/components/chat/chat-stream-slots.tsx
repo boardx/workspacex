@@ -17,6 +17,12 @@ export interface ChatStreamSlots {
    * 填一次（按 `key` 去重）——重新打开线程时草稿仍在，用户已打的字从不覆盖。
    */
   readonly draftSeed?: { readonly key: string; readonly text: string } | null;
+  /**
+   * 只在线程**还没有任何消息**时接在 `lead`/`tail` 之后渲染的空态块（UIUX r2 屏 4 #3：转交新开的线程
+   * 不再是卡片下面一大片空白）。面板把「替换输入框草稿」的回调交给它（例：建议首条消息的快捷选项）；
+   * 线程有了第一条消息就不再渲染。
+   */
+  readonly emptyState?: ((setDraft: (text: string) => void) => React.ReactNode) | null;
 }
 
 export const ChatStreamSlotsContext = React.createContext<ChatStreamSlots>({ lead: null, tail: null });

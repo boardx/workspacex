@@ -82,13 +82,38 @@ export function handoffQuestionText(view: HandoffView): string {
  * 确认转交后，接收方新线程的**首条消息草稿**（UIUX r1 屏 4 P0-3）：把交接包摘要预填进输入框，
  * 用户看一眼就能发出去。接收方不自动开跑（AG07 语义不变）——发不发由用户决定。
  */
+const HANDOFF_DRAFT_LEAD = "我从上一个对话转交过来，请你接手：";
+
 export function handoffDraftText(view: HandoffView): string {
   const { packet } = view;
-  const lines = [`我从上一个对话转交过来，请你接手：${handoffQuestionText(view)}`];
+  const lines = [`${HANDOFF_DRAFT_LEAD}${handoffQuestionText(view)}`];
   if (packet.confirmedScope.trim() !== "") lines.push(`已确认的范围：${packet.confirmedScope.trim()}`);
   if (packet.openItems.length > 0) lines.push(`还没定的事：${packet.openItems.join("；")}`);
   if (packet.evidenceRefs.length > 0) lines.push(`相关资料 ${packet.evidenceRefs.length} 份已随转交附上（见上方转交卡片）。`);
   return lines.join("\n");
+}
+
+/**
+ * 新线程里「接手的数字人」还没开口时，除了预填的交接草稿之外可以一键发出的首条消息（UIUX r2 屏 4 #3）。
+ * 只是输入建议：点了填进输入框，仍由用户决定发不发（AG07：接收方不自动开跑）。
+ */
+export function handoffSuggestedMessages(view: HandoffView): readonly string[] {
+  const question = handoffQuestionText(view);
+  return [
+    `${HANDOFF_DRAFT_LEAD}${question}`,
+    "先说说你打算怎么接手，需要我补充什么？",
+    "请先列出还没定的事项，再开始处理。",
+  ];
+}
+
+/**
+ * 这句话是转交的控制消息（带 `[request_handoff:…]` 触发标记，或就是转交草稿本身）——
+ * 这类消息不是用户在陈述事实，挂「记忆」提示只会是噪音（UIUX r2 屏 4 #5：转交界面上不出现记忆行话）。
+ */
+export function isHandoffControlStatement(text: string | undefined): boolean {
+  if (typeof text !== "string") return false;
+  const t = text.trim();
+  return t.startsWith(HANDOFF_DRAFT_LEAD) || /\[request_handoff:[^\]]*\]/u.test(t);
 }
 
 /**

@@ -10,6 +10,7 @@ import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { requestKnowledgeReload, requestRememberStatement, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
+import { isHandoffControlStatement } from "@/lib/agent-handoff";
 import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
 
 /**
@@ -156,6 +157,8 @@ export function ExtractionFeedbackChip({
 
   const visible = claims.filter((c) => !handled.has(c.claimId));
   const rememberText = statement?.trim() ?? "";
+  // UIUX r2 屏 4 #5：转交的控制消息（请求转交 / 转交草稿）不是陈述，不挂「没有记入记忆」这类说明。
+  if (visible.length === 0 && claims.length === 0 && status === "empty" && isHandoffControlStatement(statement)) return null;
   if (visible.length === 0 && claims.length === 0 && status === "empty") {
     return (
       <p

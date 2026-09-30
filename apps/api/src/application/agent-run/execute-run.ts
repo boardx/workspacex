@@ -1,4 +1,5 @@
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
+import { buildEscalationPolicyContext } from "../../domain/agent/escalation-policy-prompt";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -678,6 +679,20 @@ async function executeClaimed(
         deps.log("plan-control: reading the plan ledger for delivery failed, continuing without it", {
           runId: run.runId,
           detail: e instanceof Error ? e.message : "unexpected plan ledger read failure",
+        });
+      }
+    }
+    // AG06 真实模型缺口：deep-agent run 才挂 `escalate_matter`，把钉住策略里的事项名与裁决人（人话）
+    // 注入本轮 system 上下文，让真实模型知道哪些 `matter` 有效（`buildEscalationPolicyContext` 头注）。
+    // 读失败 ⇒ 记日志继续（同 plan ledger），不因此让 run 失败；没有规则 ⇒ system 逐字节不变。
+    if (isDeepAgentRun && deps.runs.readPinnedEscalationPolicy) {
+      try {
+        const escalationContext = buildEscalationPolicyContext(await deps.runs.readPinnedEscalationPolicy(orgId, run.runId));
+        if (escalationContext !== null) system = `${system}\n\n---\n\n${escalationContext}`;
+      } catch (e) {
+        deps.log("agent run escalation policy read failed, continuing without it", {
+          runId: run.runId,
+          detail: e instanceof Error ? e.message : "unexpected escalation policy read failure",
         });
       }
     }

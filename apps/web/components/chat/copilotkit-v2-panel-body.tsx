@@ -1879,7 +1879,7 @@ export function CopilotKitV2PanelBody({
     seededDraftKey.current = draftSeed.key;
     if (inputDraftRef.current.trim() === "") setInputDraft(draftSeed.text);
   }, [draftSeed, historyLoading, projectedMessages.length, setInputDraft]);
-  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail;
+  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail && !streamSlots.emptyState;
 
   return (
     <div className="flex h-full min-h-0 w-full gap-3">
@@ -2003,9 +2003,9 @@ export function CopilotKitV2PanelBody({
               <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
               <div className="h-14 w-3/4 rounded-lg bg-muted" />
             </div>
-          ) : projectedMessages.length === 0 && !agent.isRunning && (streamSlots.lead || streamSlots.tail) ? (
+          ) : projectedMessages.length === 0 && !agent.isRunning && (streamSlots.lead || streamSlots.tail || streamSlots.emptyState) ? (
             /* UIUX r1 屏 4：外壳塞进消息流的块（转交来源卡等）已是线程上下文，不再显示通用空态。 */
-            <div className="flex w-full flex-col gap-3">{streamSlots.lead}{streamSlots.tail}</div>
+            <div className="flex w-full flex-col gap-3">{streamSlots.lead}{streamSlots.tail}{streamSlots.emptyState?.(setInputDraft)}</div>
           ) : projectedMessages.length === 0 && !agent.isRunning ? (
             /* issue #2130（TW-P0-1，回指 #2068）—— 任务型空状态取代此前的会话隐喻
                两行静态文字，见 `chat-task-workbench-empty-state.tsx` 文件头注。 */

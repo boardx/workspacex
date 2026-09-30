@@ -504,8 +504,8 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         decisionText: str | None = None,
     ) -> str:
         """当你遇到超出自己职责、需要人来拍板的事项（例如超预算、越权、合规风险）时，调用
-        这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别（与本 Agent 的升级
-        策略里的事项名一致）；`reason` 说明为什么需要升级；`target` 可不填——由谁裁决只由
+        这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别，必须逐字等于系统上下文
+        「升级策略」清单里的某个事项名（清单里没有的事项不会升级给任何人）；`reason` 说明为什么需要升级；`target` 可不填——由谁裁决只由
         升级策略决定，你自报的值会被忽略；`contextRefs` 是相关证据/对象的 ID 列表。"""
         # AG06 —— 三条到达路径（`packages/contracts/src/agent-role.ts` EscalatePayload /
         # EscalateDecision；网关判定见 `apps/api/.../tool-permission-gate.ts`）：
@@ -570,7 +570,12 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
             message = outcome["message"]
             if outcome.get("status") == "requested":
                 return f"{message} 在用户确认前不要自行继续处理被转交的部分；把这句话告诉用户即可。"
-            return f"{message} 不要改转给其它角色，也不要重试；请把这句话告诉用户，并在本角色职责内继续帮助用户。"
+            # UIUX r2 屏 4 #3：这句拒绝原因已由界面上的「没有转交」提示条原样展示给用户（它就是本工具结果），
+            # 模型再复述一遍 = 同一句话出现两次。只让模型说接下来怎么办。
+            return (
+                f"{message} 界面已经用提示条把这句话展示给用户了，不要逐字复述它；"
+                "不要改转给其它角色，也不要重试；请用一句话告诉用户你会在本角色职责内继续帮助他。"
+            )
         return "转交未发起：没有收到系统的处理结果。不要重试；请在本角色职责内继续帮助用户。"
 
     # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.

@@ -251,6 +251,18 @@ describe("ExtractionFeedbackChip · issue #4352「这句没有需要记的 · �
     expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
   });
 
+  it.each([
+    "UIUX 这个需求请产品经理接手 [request_handoff:D003]",
+    "我从上一个对话转交过来，请你接手：UIUX 这个需求",
+  ])("转交控制消息「%s」⇒ 不挂记忆说明（UIUX r2 屏 4 #5）", async (text) => {
+    server.claims = [];
+    server.statuses = ["empty"];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={text} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+  });
+
   it("抽出了东西 ⇒ 显示「已记下」，不显示这一行", async () => {
     server.statuses = ["written"];
     render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
