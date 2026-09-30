@@ -77,6 +77,14 @@ jobs:
                           ms.append(int((time.monotonic() - t) * 1000))
                       print("  单条问题嵌入延迟 ms（长连接，5 次）", m, ms, "维度/错误:", dims)
               print("  召回向量通道时限 KG_VECTOR_RECALL_TIMEOUT_MS=400；E10 要求开记忆后首字延迟增量 ≤100ms")
+              # 服务端空闲多久会关连接：同一个 client（httpx 空闲过期关掉），隔 15/45/90 秒各打一次
+              with httpx.Client(timeout=30, limits=httpx.Limits(keepalive_expiry=None)) as c:
+                  def once():
+                      t = time.monotonic(); c.post(base + "/embeddings", headers=h, json={"model": "text-embedding-v4", "input": ["周会"]}); return int((time.monotonic() - t) * 1000)
+                  res = [("cold", once()), ("0s", once())]
+                  for idle in (15, 45, 90):
+                      time.sleep(idle); res.append((f"{idle}s", once()))
+                  print("  空闲后再请求的延迟 ms（keepalive_expiry=None）:", res)
           PY
           echo "── deep-agent 的 /internal/retrieval/embeddings 路由是否存在（不带密钥应 401）──"
           docker exec workspacex-deep-agent python -c "import httpx;print(httpx.post('http://127.0.0.1:2024/internal/retrieval/embeddings',json={'texts':['x']},timeout=10).status_code)" 2>&1 | tail -1
