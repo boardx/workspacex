@@ -93,7 +93,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
           lastFinalEndMs=endMs;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
           const segmentId=deps.ids.next("personal-segment");const cp=counterproofMode();if(cp==="drop-persist")throw new Error("counterproof drop-persist: the personal append port is deliberately broken");if(cp!=="noop-persist")await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});finalPersistedAt=Date.now();
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
-          .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
+          .catch(e=>{logFinishFailure("persist-final",e);return fail("FINISH_TIMEOUT");}).then(()=>undefined);},
         onFlow:flow=>{if(!terminal)send({type:"flow",captureId:auth.captureId,...flow});},
         onError:(reason,detail)=>void fail(asPersonalErrorReason(reason,detail,stopping)),
         onClosed:()=>undefined,
@@ -111,9 +111,14 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
       model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)});}
       await deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000});
       if(terminal)return;terminal=true;observeTerminal("completed");send({type:"completed",captureId:auth.captureId});ws.close();
-    }).catch(()=>void fail("FINISH_TIMEOUT"));
+    }).catch(e=>{logFinishFailure("finish",e);void fail("FINISH_TIMEOUT");});
   });
   ws.on("close",()=>{if(!terminal)void fail("ASR_PROVIDER_UNAVAILABLE");});
+}
+/** 收尾失败统一对外报 FINISH_TIMEOUT；真正的原因（记用量 / 落库 / 等上游）只写服务端日志，便于排查。 */
+function logFinishFailure(stage:string,error:unknown):void{
+  const detail=error instanceof Error?`${error.name}: ${error.message.slice(0,200)}`:"unknown";
+  process.stderr.write(`[personal-asr] ${stage} failed: ${detail}\n`);
 }
 function safeJson(value:string):unknown{try{return JSON.parse(value);}catch{return null;}}
 function safeErrorDetail(error:unknown):string{return error instanceof Error?error.name:"unknown";}
