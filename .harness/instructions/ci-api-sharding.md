@@ -19,14 +19,16 @@ public installed BaseSequencer to every configured index. No handwritten test li
 or copy of its hash algorithm is used. Vitest 2.1.9 `list --filesOnly --shard` itself
 ignores partitioning, so using those lists as partition evidence would be false.
 The gate rejects empty discovery, empty partitions, duplicate or unexpected files,
-and omissions. It also rejects drift from the currently proven serial/default
+and omissions using `(projectName, file)` identities; shared modules in multiple
+workspace projects remain distinct. A real two-project fixture verifies full,
+disjoint coverage without executing its deliberately throwing test module. It also rejects drift from the currently proven serial/default
 sequencer contract. Future custom sequencers/pools require corresponding validation.
 Its JSON is discovery evidence only; every actual matrix job must still run and
 finish SUCCESS before backend-required can pass.
 
 Initial local coverage evidence: 1,411 files, eight disjoint partitions containing
 177/177/177/177/177/177/177/172 files, union exactly the full discovery. File counts
-change with development and are not a policy input. Thirty-three focused tests
+change with development and are not a policy input. Thirty-four focused tests
 cover coverage counterexamples and preserved isolation/aggregate/runtime contracts.
 Actual eight-job CI success and elapsed times must be recorded after the PR run.
 

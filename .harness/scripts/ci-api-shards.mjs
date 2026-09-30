@@ -10,11 +10,14 @@ export function shardPlan(input) {
   return { count: input.count, shards: Array.from({length: input.count}, (_, i) => i + 1) };
 }
 export function assertCoverage(full, partitions) {
-  if (!full.length || new Set(full).size !== full.length || !partitions.length) throw new Error('INVALID_FULL_DISCOVERY');
-  const expected = new Set(full), seen = new Set();
+  const identity = row => typeof row === 'string' ? row : JSON.stringify([row.projectName ?? '', row.file]);
+  const fullKeys = full.map(identity);
+  if (!full.length || new Set(fullKeys).size !== full.length || !partitions.length) throw new Error('INVALID_FULL_DISCOVERY');
+  const expected = new Set(fullKeys), seen = new Set();
   for (const files of partitions) {
     if (!files.length) throw new Error('EMPTY_SHARD');
-    for (const file of files) {
+    for (const row of files) {
+      const file = identity(row);
       if (!expected.has(file)) throw new Error('UNEXPECTED_SHARD_FILE');
       if (seen.has(file)) throw new Error('DUPLICATE_SHARD_FILE');
       seen.add(file);
@@ -22,12 +25,12 @@ export function assertCoverage(full, partitions) {
   }
   if (seen.size !== expected.size) throw new Error('MISSING_SHARD_FILE');
   return { files: full.length, shards: partitions.length, counts: partitions.map(files => files.length),
-    discoverySha256: createHash('sha256').update([...full].sort().join('\n')).digest('hex') };
+    discoverySha256: createHash('sha256').update([...fullKeys].sort().join('\n')).digest('hex') };
 }
-export async function discoverCoverage(plan) {
-  const config = readFileSync(resolve(root, 'apps/api/vitest.config.ts'), 'utf8');
+export async function discoverCoverage(plan, apiRoot = resolve(root, 'apps/api'), configFile = resolve(apiRoot, 'vitest.config.ts')) {
+  const config = readFileSync(configFile, 'utf8');
   if (!/maxWorkers:\s*1\b/.test(config) || !/minWorkers:\s*1\b/.test(config) || /\b(?:sequencer|pool):/.test(config)) throw new Error('UNPROVEN_VITEST_SEQUENCE_OR_ISOLATION');
-  const cwd = resolve(root, 'apps/api'), directory = mkdtempSync(resolve(tmpdir(), 'wsx-api-discovery-'));
+  const cwd = apiRoot, directory = mkdtempSync(resolve(tmpdir(), 'wsx-api-discovery-'));
   const discover = (shard) => {
     const output = resolve(directory, shard ? `shard-${shard}.json` : 'full.json');
     const args = [resolve(root, 'node_modules/vitest/vitest.mjs'), 'list', '--filesOnly', `--json=${output}`];
@@ -36,18 +39,18 @@ export async function discoverCoverage(plan) {
     if (result.error || result.status !== 0) throw new Error('VITEST_DISCOVERY_FAILED');
     const rows = JSON.parse(readFileSync(output, 'utf8'));
     if (!Array.isArray(rows)) throw new Error('INVALID_DISCOVERY_OUTPUT');
-    return rows.map(row => { const file = relative(cwd, row.file); if (file.startsWith('..') || !file.endsWith('.test.ts')) throw new Error('INVALID_DISCOVERY_FILE'); return file; });
+    return rows.map(row => { const file = relative(cwd, row.file); const projectName = row.projectName ?? ''; if (file.startsWith('..') || !file.endsWith('.test.ts') || typeof projectName !== 'string') throw new Error('INVALID_DISCOVERY_FILE'); return { file, projectName }; });
   };
   try {
     // Vitest 2 list --filesOnly bypasses sharding. Use its public, installed
     // sequencer on actual full discovery, rather than copying a hash algorithm.
     const full = discover();
     const { BaseSequencer } = await import('vitest/node');
-    const specs = full.map(file => ({ moduleId: resolve(cwd, file) }));
+    const specs = full.map(row => ({ moduleId: resolve(cwd, row.file), project: { name: row.projectName }, discovery: row }));
     const partitions = [];
     for (const index of plan.shards) {
       const sequencer = new BaseSequencer({config:{root:cwd,shard:{index,count:plan.count}}});
-      partitions.push((await sequencer.shard(specs)).map(spec => relative(cwd, spec.moduleId)));
+      partitions.push((await sequencer.shard(specs)).map(spec => spec.discovery));
     }
     return assertCoverage(full, partitions);
   }

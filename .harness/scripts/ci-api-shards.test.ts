@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 import { assertCoverage, shardPlan, discoverCoverage } from './ci-api-shards.mjs';
@@ -32,3 +34,16 @@ describe('API isolated shard coverage',()=>{
   expect(result.counts.reduce((a:number,b:number)=>a+b,0)).toBe(result.files);
  },30000);
 });
+
+it('preserves two real workspace projects sharing the same module through disjoint shards',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'wsx-api-project-discovery-'));
+ try {
+  const configFile=join(directory,'vitest.config.ts');
+  writeFileSync(configFile,'export default {test:{maxWorkers:1,minWorkers:1}}');
+  writeFileSync(join(directory,'vitest.workspace.mjs'),"export default [{test:{name:'alpha',root:"+JSON.stringify(directory)+",include:['shared.test.ts']}},{test:{name:'beta',root:"+JSON.stringify(directory)+",include:['shared.test.ts']}}];");
+  writeFileSync(join(directory,'shared.test.ts'),"throw new Error('discovery must never execute tests');");
+  const result=await discoverCoverage(shardPlan({schemaVersion:1,count:2}),directory,configFile);
+  expect(result.files).toBe(2);expect(result.counts).toEqual([1,1]);
+  expect(()=>assertCoverage([{file:'shared.test.ts',projectName:'alpha'},{file:'shared.test.ts',projectName:'beta'}],[[{file:'shared.test.ts',projectName:'alpha'}],[{file:'shared.test.ts',projectName:'alpha'}]])).toThrow('DUPLICATE_SHARD_FILE');
+ } finally {rmSync(directory,{recursive:true,force:true});}
+},30000);
