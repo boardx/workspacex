@@ -52,7 +52,7 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
   }
   args.push(image, 'bash', '-euc',
-    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry).join(' ')); 
+    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry).join(' '));
   return args;
 }
 
