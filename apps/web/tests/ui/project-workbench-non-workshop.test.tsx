@@ -294,6 +294,18 @@ describe("#4615 通用项目的工作台", () => {
     expect(screen.queryByTestId("project-resource-sv1")).toBeNull();
   });
 
+  it("R6 地标与标题：项目名是 h1；不再嵌套第二个 <main>；内容筛选 tablist 里只有 tab，「文件」链接在外面", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    const { container } = renderWorkbench("content");
+    await screen.findByTestId("project-content-filters");
+    expect(screen.getByTestId("project-title").tagName).toBe("H1");
+    expect(container.querySelector("main")).toBeNull();
+    const tablist = screen.getByTestId("project-content-filters");
+    expect(tablist.querySelectorAll('[role="tab"]').length).toBeGreaterThan(0);
+    expect(Array.from(tablist.children).every((c) => c.getAttribute("role") === "tab")).toBe(true);
+    expect(tablist.contains(screen.getByTestId("project-content-files"))).toBe(false);
+  });
+
   it("R3 概览：项目空时给「开始使用」引导（新建内容 / 邀请协作者），有内容后不再出现", async () => {
     getProjectOverview.mockResolvedValue(overviewOf("general"));
     listThreads.mockResolvedValue({ groups: [] });

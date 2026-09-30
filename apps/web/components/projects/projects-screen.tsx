@@ -53,6 +53,12 @@ export function ProjectsScreen() {
   const [listBusy, setListBusy] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
+  // 受控弹窗没有 DialogTrigger：自己记住是谁打开的，关闭后把键盘焦点还给它（否则焦点落回 <body>，键盘用户要重新从头 Tab）。
+  const createTriggerRef = React.useRef<HTMLElement | null>(null);
+  const openCreate = () => {
+    createTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setCreateOpen(true);
+  };
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -164,7 +170,7 @@ export function ProjectsScreen() {
               className="h-8 w-44 pl-7"
             />
           </div>
-          <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
+          <Button variant="primary" size="sm" data-testid="projects-new" onClick={openCreate}>
             <Plus aria-hidden className="h-3.5 w-3.5" />
             新建项目
           </Button>
@@ -262,7 +268,7 @@ export function ProjectsScreen() {
                 也可以先不建项目，直接去「对话」里交一件事给 AI。
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
+                <Button variant="primary" onClick={openCreate} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
                 <Button variant="outline" asChild><Link href="/chat">先去对话</Link></Button>
               </div>
             </>
@@ -283,7 +289,11 @@ export function ProjectsScreen() {
       )}
 
       {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
-      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateProjectDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCloseAutoFocus={(event) => { event.preventDefault(); createTriggerRef.current?.focus(); }}
+      />
     </div>
   );
 }
@@ -345,6 +355,7 @@ function ProjectRealCard({
     <li>
       <ResourceCard
         testId={`projects-card-${project.id}`}
+        headingLevel={2}
         layout={layout === "list" ? "list" : "grid"}
         title={project.name}
         titleTestId={`projects-card-${project.id}-name`}

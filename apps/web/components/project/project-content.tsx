@@ -198,6 +198,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
           <p className="text-12 text-destructive" data-testid="project-content-create-error">{createError}</p>
         )}
 
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="project-content-filters-row">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="内容类型" data-testid="project-content-filters">
           {CONTENT_FILTERS.map((f) => {
             const active = f.key === filter;
@@ -222,6 +223,8 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
               </button>
             );
           })}
+        </div>
+          {/* 「文件」是一条页面链接、不是筛选项：放在 tablist 之外（tablist 里只能有 tab，否则辅助技术读不出来） */}
           <a
             href={`/projects/${encodeURIComponent(projectId)}/files`}
             data-testid="project-content-files"

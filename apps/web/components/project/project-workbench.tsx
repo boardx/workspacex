@@ -469,9 +469,9 @@ export function ProjectWorkbench({
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
             </Button>
             <div className="min-w-0 flex-1">
-              <div className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
+              <h1 className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
                 {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂时读不到")}
-              </div>
+              </h1>
               {headerProject && (
                 <div className="mt-1 flex flex-wrap items-center gap-2" data-testid="project-header-meta">
                   <Badge tone="outline">{PROJECT_KIND_LABEL[headerProject.kind]}</Badge>
@@ -579,7 +579,8 @@ export function ProjectWorkbench({
             </aside>
           )}
 
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
+          {/* 外层 AppShell 已经有唯一的 <main>；这里再用 <main> 会造成嵌套 / 重复地标，读屏软件读不清 */}
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
             {orgDisabled && (
               <div className="p-6 pb-0">
                 <OrgDisabledBanner {...orgDisabledBanner(null)} />
@@ -623,7 +624,7 @@ export function ProjectWorkbench({
               )}
             </StateShell>
             )}
-          </main>
+          </div>
         </div>
       </div>
     </AppShell>
