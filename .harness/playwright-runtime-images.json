@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "images": {
+    "1.62.0": {
+      "linux/amd64": "sha256:02bbb2155cd7109e3e9c741941097ed1608cf8b6fa44ee2595896da2bdc1f471"
+    }
+  }
+}
