@@ -10,6 +10,7 @@
  */
 import { navbarSide, type NavbarSide } from "@/lib/prototype-navbar";
 import * as React from "react";
+import { buildHtmlPageSrcdoc, HTML_PAGE_MESSAGE_SOURCE, type HtmlPageMessage } from "@/lib/html-page-srcdoc";
 import { CommentPins, type CommentPin } from "./comment-pins";
 import {
   Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
@@ -443,6 +444,8 @@ export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"
 };
 
 /** 项目级圆角 / 密度，由画布根下发给每个节点（与选中态同一种传法：context，不逐层透传 props）。 */
+/** HTML 页的 iframe 要知道画布的主题与保真度（线框 ⇒ 灰阶）；不走 props 层层传，与 ScaleCtx 同一处理。 */
+const HtmlPageCtx = React.createContext<{ readonly dark: boolean; readonly wireframe: boolean }>({ dark: false, wireframe: false });
 const ScaleCtx = React.createContext<{ readonly radius: designWorkbench.PrototypeRadiusScale; readonly density: designWorkbench.PrototypeDensity }>({ radius: "default", density: "default" });
 function useScale() {
   const { radius, density } = React.useContext(ScaleCtx);
@@ -724,6 +727,43 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
   );
 }
 
+/**
+ * 整页 HTML。iframe 里的点击经 postMessage 回来：预览态带 `data-goto` 的元素 ⇒ 跳转；
+ * 编辑态任意点击 ⇒ 选中这一页的 html 节点（元素级选择留给后续，见 PR 说明）。
+ */
+function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }>; tap: ReturnType<typeof useTap> }): React.ReactElement {
+  const { mode, links, onNavigate, onSelect, selectedId } = React.useContext(SelectionCtx);
+  const ref = React.useRef<HTMLIFrameElement>(null);
+  const view = React.useContext(HtmlPageCtx);
+  React.useEffect(() => {
+    const onMessage = (e: MessageEvent): void => {
+      if (e.source === null || e.source !== ref.current?.contentWindow) return;
+      const d = e.data as Partial<HtmlPageMessage> | null;
+      if (d === null || typeof d !== "object" || d.source !== HTML_PAGE_MESSAGE_SOURCE) return;
+      if (mode === "preview" && d.type === "goto" && typeof d.id === "string") {
+        const to = links.get(linkKey(d.id, undefined));
+        if (to !== undefined && onNavigate !== null) onNavigate(to);
+      } else if (mode === "edit" && d.type === "click" && node.id !== undefined) {
+        onSelect?.(node.id === selectedId ? null : node.id);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [mode, links, onNavigate, onSelect, selectedId, node.id]);
+  return (
+    <div className="relative min-h-0 w-full flex-1" data-node-id={tap["data-node-id"]} data-selected={tap["data-selected"]} data-changed={tap["data-changed"]}>
+      <iframe
+        ref={ref}
+        title="页面预览"
+        sandbox="allow-scripts"
+        srcDoc={buildHtmlPageSrcdoc(node.props.html, view)}
+        className="absolute inset-0 h-full w-full border-0"
+        data-testid="design-html-page"
+      />
+    </div>
+  );
+}
+
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
   const tap = useTap(node);
   const sc = useScale();
@@ -960,6 +1000,9 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     /* ── design-delta `prototype-board`：自由画布（白板 / 思维导图 / 流程图） ── */
     case "board":
       return <Board node={node} tap={tap} />;
+    /* ── HTML 页：模型写的整页 HTML，沙箱 iframe 渲染（安全边界见 `lib/html-page-srcdoc.ts`） ── */
+    case "html":
+      return <HtmlPage node={node} tap={tap} />;
     /* ── 对标 R5（#3933）：落地页的分区与页脚 ── */
     case "section": {
       const p = node.props ?? {};
@@ -1308,6 +1351,7 @@ export function PrototypeCanvas({
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit }}>
     <ScaleCtx.Provider value={scale}>
+    <HtmlPageCtx.Provider value={{ dark: theme !== "light", wireframe }}>
     <div
       className={cn(
         // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——
@@ -1414,6 +1458,7 @@ export function PrototypeCanvas({
       )}
       {(device.chrome === "phone" || device.chrome === "tablet") && <HomeIndicator />}
     </div>
+    </HtmlPageCtx.Provider>
     </ScaleCtx.Provider>
     </SelectionCtx.Provider>
   );
