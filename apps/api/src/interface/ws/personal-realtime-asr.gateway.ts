@@ -109,7 +109,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
       if(!usageRecorded){usageRecorded=true;await atStage("usage-record",()=>deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
       orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
       model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)}));}
-      await atStage("finish-capture",()=>deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000}));
+      await atStage("finish-capture",()=>deps.repository.finishCapture({...auth,durationMs:pcm16MonoDurationMs(receivedPcmBytes)}));
       if(terminal)return;terminal=true;observeTerminal("completed");send({type:"completed",captureId:auth.captureId});ws.close();
     }).catch(()=>void fail("FINISH_TIMEOUT"));
   });
@@ -132,6 +132,8 @@ function asPersonalErrorReason(reason:string,detail:string,stopping:boolean):typ
 
 const PCM16_MONO_16KHZ_BYTES_PER_SECOND=32_000;
 export function pcm16MonoDurationSeconds(bytes:number):number{return bytes/PCM16_MONO_16KHZ_BYTES_PER_SECOND;}
+/** `recording_sessions.duration_ms` 是 bigint：字节数不是 32 的倍数时 `秒*1000` 带小数，PG 会拒绝（整条收尾被误报成 FINISH_TIMEOUT）。必须取整。 */
+export function pcm16MonoDurationMs(bytes:number):number{return Math.round(pcm16MonoDurationSeconds(bytes)*1000);}
 export function billedPcm16MonoDurationSeconds(bytes:number):number{return Math.ceil(pcm16MonoDurationSeconds(bytes));}
 export function providerSessionUsageId(captureId:string,providerSessionId:string):string{
   return `personal:${captureId}:${providerSessionId}`;
