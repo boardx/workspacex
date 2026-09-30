@@ -211,7 +211,7 @@ describe("RealtimeVoiceSession", () => {
     act(() => h.onReady("omni-loopback"));
     expect(screen.getByText(/本次通话的文字记录会保存到此对话/)).toBeInTheDocument();
     expect(screen.getByTestId("realtime-voice-caption-user")).toHaveTextContent("直接开口说话");
-    act(() => h.onInputLevel(0.6));
+    act(() => h.onInputLevel?.(0.6));
     expect(screen.getByTestId("realtime-voice-input-level")).toHaveAttribute("aria-valuenow", "60");
     act(() => { h.onUserSpeech(true); h.onUserTranscript("（模拟语音）你好，", false); });
     expect(screen.getByTestId("realtime-voice-caption-user")).toHaveTextContent("（模拟语音）你好，");
