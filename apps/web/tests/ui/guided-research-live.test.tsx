@@ -94,7 +94,7 @@ describe("live research workspace", () => {
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...research, version: 8, sources: [{ ...research.sources[0]!, decision: "excluded" }] });
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     expect(await screen.findByTestId("research-source-description-src1")).toHaveAttribute("href", "https://example.org/policy");
-    expect(screen.getByText("A retrieved source")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Official source" })).toHaveAttribute("title", "A retrieved source");
     expect(screen.queryByText("研究主题")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "研究计划" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "继续重试" })).toBeEnabled();
