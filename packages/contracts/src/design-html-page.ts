@@ -82,6 +82,17 @@ const SVG_ATTRS = new Set([
 /** `data-goto` 与 `data-link` 是我们自己的两个协议属性；别的 `data-*` 不留（没有用途就不开口子）。 */
 const GOTO_ATTR = "data-goto";
 const LINK_ATTR = "data-link";
+/**
+ * 元素编号：清洗时按文档顺序给每个「值得单独选中」的元素补一个 `data-ref="r<N>"`。
+ * 画布上点哪个元素就选哪个（精确到元素，不是整块区域）；模型只改被选中的那一个，见 `replaceHtmlPageElement`。
+ * 输入里自带的 `data-ref` 一律丢掉重编——编号是服务端事实，不是模型写的；同一份 HTML 重编结果相同（幂等）。
+ */
+const REF_ATTR = "data-ref";
+const REF_TAGS = new Set([
+  "div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "a", "button", "img", "section", "header", "footer",
+  "nav", "main", "aside", "article", "figure", "figcaption", "table", "tr", "td", "th", "label", "input", "textarea", "select",
+  "form", "small", "strong", "em", "b", "i", "blockquote", "svg",
+]);
 
 const IMG_DATA_URI = /^data:image\/(?:png|jpe?g|gif|webp|svg\+xml)[;,]/i;
 
@@ -129,6 +140,7 @@ export function sanitizeHtmlPage(input: string): SanitizedHtmlPage {
   let out = "";
   let cursor = 0;
   let gotoSeq = 0;
+  let refSeq = 0;
   const usedLinkIds = new Set<string>();
   const re = new RegExp(COMMENT_OR_TAG.source, "gi");
 
@@ -182,6 +194,7 @@ export function sanitizeHtmlPage(input: string): SanitizedHtmlPage {
       const raw = a[2] ?? a[3] ?? a[4] ?? "";
       if (key === "") continue;
       if (key.startsWith("on")) { note(`属性 ${key}`); continue; }
+      if (key === REF_ATTR) continue; // 重编，不信输入里的
       if (key === GOTO_ATTR) { if (/^\d{1,2}$/.test(raw.trim())) goto = raw.trim(); continue; }
       if (key === LINK_ATTR) { if (/^[A-Za-z0-9_-]{1,32}$/.test(raw.trim())) link = raw.trim(); continue; }
       if (key.startsWith("aria-") && /^[a-z-]+$/.test(key)) { attrs += ` ${key}="${escapeAttr(raw)}"`; continue; }
@@ -216,6 +229,7 @@ export function sanitizeHtmlPage(input: string): SanitizedHtmlPage {
       gotoSeq += 1;
       attrs += ` ${LINK_ATTR}="${id}" ${GOTO_ATTR}="${goto}"`;
     }
+    if (REF_TAGS.has(name)) { refSeq += 1; attrs += ` ${REF_ATTR}="r${String(refSeq)}"`; }
     // form 只是个容器：不带 action/method（上面白名单里本来就没有），也不让它真的提交（渲染层不给 allow-forms）。
     out += `<${name}${attrs}${VOID_TAGS.has(name) ? " /" : ""}>`;
   }
@@ -255,4 +269,47 @@ export function htmlPageLinks(html: string): readonly HtmlPageLink[] {
 /** 这页里有多少个可点击的东西（button / a / input / select / 带 data-goto 的元素）。 */
 export function htmlPageInteractiveCount(html: string): number {
   return (html.match(/<(button|a|input|select|textarea)\b/gi) ?? []).length + (html.match(/\sdata-goto=/gi) ?? []).length;
+}
+
+/** 取出某个编号元素的 HTML（含自身）。找不到 ⇒ `null`。只认清洗后的 HTML，嵌套按同名标签配平。 */
+export function htmlPageElement(html: string, ref: string): { readonly start: number; readonly end: number; readonly html: string } | null {
+  if (!/^r\d{1,5}$/.test(ref)) return null;
+  const open = new RegExp(`<([a-z][a-z0-9]*)\\b[^>]*\\sdata-ref="${ref}"[^>]*>`, "i").exec(html);
+  if (open === null) return null;
+  const name = open[1]!.toLowerCase();
+  const start = open.index;
+  if (VOID_TAGS.has(name) || open[0].endsWith("/>")) return { start, end: start + open[0].length, html: open[0] };
+  const tag = new RegExp(`<(/?)${name}\\b[^>]*>`, "gi");
+  tag.lastIndex = start + open[0].length;
+  let depth = 1;
+  for (let m = tag.exec(html); m !== null; m = tag.exec(html)) {
+    depth += m[1] === "/" ? -1 : 1;
+    if (depth === 0) return { start, end: m.index + m[0].length, html: html.slice(start, m.index + m[0].length) };
+  }
+  return null;
+}
+
+/** 某个编号元素的一句话描述（标签 + 开头的文字），给焦点 chip 与模型用。 */
+export function describeHtmlPageElement(html: string, ref: string): string | null {
+  const el = htmlPageElement(html, ref);
+  if (el === null) return null;
+  const tag = /^<([a-z0-9]+)/i.exec(el.html)?.[1]?.toLowerCase() ?? "元素";
+  const text = htmlPageVisibleText(el.html).slice(0, 24);
+  return text === "" ? `<${tag}>` : `<${tag}>「${text}」`;
+}
+
+/**
+ * 只替换被选中的那一个元素（可选地往页面 `<style>` 末尾追加几条规则），整页再过一遍清洗。
+ * 这就是「局部修改」：模型只看见并只改这一块，其余版面逐字不动，也省 token。
+ * 编号不存在 ⇒ `null`（页面在选中之后变过了，调用方退回整页修改）。
+ */
+export function replaceHtmlPageElement(html: string, ref: string, replacement: string, addCss = ""): string | null {
+  const el = htmlPageElement(html, ref);
+  if (el === null) return null;
+  let next = html.slice(0, el.start) + replacement + html.slice(el.end);
+  if (addCss.trim() !== "") {
+    const css = addCss.replace(/<\/?style[^>]*>/gi, "");
+    next = /<\/style>/i.test(next) ? next.replace(/<\/style>(?![\s\S]*<\/style>)/i, `\n${css}\n</style>`) : `<style>${css}</style>${next}`;
+  }
+  return sanitizeHtmlPage(next).html;
 }

@@ -10,7 +10,7 @@
  */
 import { navbarSide, type NavbarSide } from "@/lib/prototype-navbar";
 import * as React from "react";
-import { buildHtmlPageSrcdoc, HTML_PAGE_MESSAGE_SOURCE, type HtmlPageMessage } from "@/lib/html-page-srcdoc";
+import { buildHtmlPageSrcdoc, HTML_PAGE_MESSAGE_SOURCE, HTML_PAGE_PARENT_SOURCE, type HtmlPageMessage } from "@/lib/html-page-srcdoc";
 import { CommentPins, type CommentPin } from "./comment-pins";
 import {
   Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
@@ -53,7 +53,10 @@ const SelectionCtx = React.createContext<{
   changed: ReadonlySet<string>;
   /** 对标 R7（#3933）：画布上双击直接改字，改完回调 `(节点 id, 属性键, 新文字)`；`null` = 这块画布不给改。 */
   onInlineEdit: ((id: string, key: string, value: string) => void) | null;
-}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set(), onInlineEdit: null });
+  /** HTML 页里选中的**元素**（`data-ref`）。只对 html 节点有意义；其余原语不看它。 */
+  selectedRef: string | null;
+  onSelectRef: ((ref: string | null) => void) | null;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set(), onInlineEdit: null, selectedRef: null, onSelectRef: null });
 
 /**
  * 对标 R7（#3933）—— 画布上直接改字：编辑态双击一段文字（或按钮上的字）⇒ 就地可编辑，
@@ -444,8 +447,8 @@ export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"
 };
 
 /** 项目级圆角 / 密度，由画布根下发给每个节点（与选中态同一种传法：context，不逐层透传 props）。 */
-/** HTML 页的 iframe 要知道画布的主题与保真度（线框 ⇒ 灰阶）；不走 props 层层传，与 ScaleCtx 同一处理。 */
-const HtmlPageCtx = React.createContext<{ readonly dark: boolean; readonly wireframe: boolean }>({ dark: false, wireframe: false });
+/** HTML 页的 iframe 要知道画布的保真度（线框 ⇒ 灰阶）；不走 props 层层传，与 ScaleCtx 同一处理。页面不跟画布的深浅主题走，见 `html-page-srcdoc.ts`。 */
+const HtmlPageCtx = React.createContext<{ readonly wireframe: boolean }>({ wireframe: false });
 const ScaleCtx = React.createContext<{ readonly radius: designWorkbench.PrototypeRadiusScale; readonly density: designWorkbench.PrototypeDensity }>({ radius: "default", density: "default" });
 function useScale() {
   const { radius, density } = React.useContext(ScaleCtx);
@@ -732,7 +735,7 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
  * 编辑态任意点击 ⇒ 选中这一页的 html 节点（元素级选择留给后续，见 PR 说明）。
  */
 function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }>; tap: ReturnType<typeof useTap> }): React.ReactElement {
-  const { mode, links, onNavigate, onSelect, selectedId } = React.useContext(SelectionCtx);
+  const { mode, links, onNavigate, onSelect, selectedId, selectedRef, onSelectRef } = React.useContext(SelectionCtx);
   const ref = React.useRef<HTMLIFrameElement>(null);
   const view = React.useContext(HtmlPageCtx);
   React.useEffect(() => {
@@ -743,20 +746,30 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
       if (mode === "preview" && d.type === "goto" && typeof d.id === "string") {
         const to = links.get(linkKey(d.id, undefined));
         if (to !== undefined && onNavigate !== null) onNavigate(to);
-      } else if (mode === "edit" && d.type === "click" && node.id !== undefined) {
-        onSelect?.(node.id === selectedId ? null : node.id);
+      } else if (mode === "edit" && d.type === "select" && node.id !== undefined) {
+        // 先选中这一页（会清掉旧的元素选择），再选元素：点在空白处（ref 为 null）⇒ 选中整页。
+        onSelect?.(node.id);
+        onSelectRef?.(typeof d.ref === "string" ? d.ref : null);
       }
     };
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [mode, links, onNavigate, onSelect, selectedId, node.id]);
+    // 选中了具体元素时，页面级的选中框让位给 iframe 里的元素框（两圈叠在一起分不清选中的是什么）。
+  return () => window.removeEventListener("message", onMessage);
+  }, [mode, links, onNavigate, onSelect, onSelectRef, node.id]);
+  // 把当前选中的元素告诉 iframe（桥据此画选中框）；iframe 重新加载后要再发一次。
+  const active = selectedId !== null && selectedId === node.id ? selectedRef : null;
+  const sendSelection = React.useCallback(() => {
+    ref.current?.contentWindow?.postMessage({ source: HTML_PAGE_PARENT_SOURCE, ref: active }, "*");
+  }, [active]);
+  React.useEffect(sendSelection, [sendSelection]);
   return (
-    <div className="relative min-h-0 w-full flex-1" data-node-id={tap["data-node-id"]} data-selected={tap["data-selected"]} data-changed={tap["data-changed"]}>
+    <div className="relative min-h-0 w-full flex-1" data-node-id={tap["data-node-id"]} data-selected={active === null ? tap["data-selected"] : undefined} data-changed={tap["data-changed"]}>
       <iframe
         ref={ref}
         title="页面预览"
         sandbox="allow-scripts"
-        srcDoc={buildHtmlPageSrcdoc(node.props.html, view)}
+        srcDoc={buildHtmlPageSrcdoc(node.props.html, { ...view, mode })}
+        onLoad={sendSelection}
         className="absolute inset-0 h-full w-full border-0"
         data-testid="design-html-page"
       />
@@ -1270,7 +1283,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
+  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -1279,6 +1292,9 @@ export function PrototypeCanvas({
    */
   thumbnail?: boolean;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
+  /** HTML 页里选中的元素（`data-ref`）与它的回调。不给 ⇒ 点 HTML 页只会选中整页。 */
+  selectedRef?: string | null;
+  onSelectRef?: ((ref: string | null) => void) | null;
   onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
   /** 对标 R8：要钉在节点上的批注编号（见 `comment-pins.tsx`）。 */
   pins?: readonly CommentPin[];
@@ -1349,9 +1365,9 @@ export function PrototypeCanvas({
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit }}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit, selectedRef, onSelectRef }}>
     <ScaleCtx.Provider value={scale}>
-    <HtmlPageCtx.Provider value={{ dark: theme !== "light", wireframe }}>
+    <HtmlPageCtx.Provider value={{ wireframe }}>
     <div
       className={cn(
         // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——

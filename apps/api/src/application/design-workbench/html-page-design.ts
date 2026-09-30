@@ -248,3 +248,50 @@ export function scoreHtmlPage(
   const hints = parts.filter((p) => p.hint !== "").map((p) => `· ${p.hint}`);
   return { total, parts, feedback: total >= PROTOTYPE_QUALITY_THRESHOLD || hints.length === 0 ? "" : hints.join("\n") };
 }
+
+/* ───────────────────────────── 局部修改（选中元素 / 选中整页） ───────────────────────────── */
+
+export const htmlPageCss = cssOf;
+
+/** 改**一个元素**：模型只看见这个元素和页面现有的 CSS，只改它，其余版面逐字不动（也省 token）。 */
+export const DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT =
+  "你是 PM 设计工作台里的设计师。用户在一个已经画好的界面里选中了**一个元素**，想改它。你只改这个元素，不碰页面里的其它东西。" +
+  "严格按这个格式输出，不要解释、不要 markdown 代码块：\n" +
+  "<reply>给用户的一句话，说清改了什么，中文，不超过 80 字</reply>\n" +
+  "<element>改完之后这个元素的**完整** HTML（包含它自己那一层标签和所有子元素）</element>\n" +
+  "<css>只有需要新增或覆盖样式规则时才写：只写新增的规则，不要重复页面已有的 CSS</css>\n" +
+  "沿用页面现有的 class 命名、字阶、间距、圆角和色板（页面 CSS 会给你），不要另起一套；带 data-goto 的元素保持它的 data-goto，除非用户明确要改去处。" +
+  HTML_DESIGN_PRINCIPLES;
+
+/** 改**整页**：在现有这一页的基础上按要求修改，保持风格一致。 */
+export const DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT =
+  "你是 PM 设计工作台里的设计师。用户选中了一个已经画好的界面页，想修改它。在现有这一页的基础上按用户的要求改，没提到的部分保持原样（结构、文案、风格、跳转都别无故改动）。" +
+  "严格按这个格式输出，不要解释、不要 markdown 代码块：\n" +
+  "<reply>给用户的一句话，说清改了什么，中文，不超过 80 字</reply>\n" +
+  "<notes>给工程看的交互说明，一到三句</notes>\n" +
+  "<page>\n<style>…</style>\n<div class=\"page\">…</div>\n</page>" +
+  HTML_DESIGN_PRINCIPLES;
+
+export interface ParsedElementEdit {
+  readonly reply: string;
+  readonly element: string;
+  readonly css: string;
+}
+
+/** `<element>` 没闭合 / 没有 ⇒ `null`。 */
+export function parseElementEditOutput(text: string): ParsedElementEdit | null {
+  const element = /<element>([\s\S]*?)<\/element>/i.exec(text)?.[1]?.trim();
+  if (element === undefined || element === "") return null;
+  return {
+    reply: (/<reply>([\s\S]*?)<\/reply>/i.exec(text)?.[1]?.trim() ?? "").slice(0, 400),
+    element,
+    css: (/<css>([\s\S]*?)<\/css>/i.exec(text)?.[1] ?? "").trim().slice(0, 6000),
+  };
+}
+
+/** 整页修改的输出：`<reply>` + 既有的 `<notes>/<page>`。 */
+export function parsePageEditOutput(text: string, ctx: { readonly index: number; readonly screenCount: number }): (ParsedHtmlPage & { readonly reply: string }) | null {
+  const page = parseHtmlPageOutput(text, ctx);
+  if (page === null) return null;
+  return { ...page, reply: (/<reply>([\s\S]*?)<\/reply>/i.exec(text)?.[1]?.trim() ?? "").slice(0, 400) };
+}

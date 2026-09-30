@@ -31,8 +31,9 @@ import type { FeedbackStructureModelConfig } from "../feedback/structure-feedbac
 import type { DesignProjectRow } from "./project-ports";
 import { describeScreenIssues, normalizeScreenCandidate, parseScreenJson } from "./prototype-screen-repair";
 import {
-  briefToText, DESIGN_ONE_HTML_SCREEN_SYSTEM_PROMPT, DESIGN_OUTLINE_HTML_ADDENDUM, htmlCanvasWidth, parseDesignBrief,
-  parseHtmlPageOutput, scoreHtmlPage, SIMPLER_HTML_HINT, summarizeHtmlScreen, type DesignBrief,
+  briefToText, DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, DESIGN_ONE_HTML_SCREEN_SYSTEM_PROMPT,
+  DESIGN_OUTLINE_HTML_ADDENDUM, htmlCanvasWidth, htmlPageCss, parseDesignBrief, parseElementEditOutput, parseHtmlPageOutput,
+  parsePageEditOutput, pruneInvalidGotos, scoreHtmlPage, SIMPLER_HTML_HINT, summarizeHtmlScreen, type DesignBrief,
 } from "./html-page-design";
 
 export type AiReplySource = z.infer<typeof designAiCollab.AiReplySource>;
@@ -74,7 +75,11 @@ export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "pr
    */
   readonly refImages?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[];
   /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
-  readonly focus?: { readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown };
+  readonly focus?: {
+    readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown;
+    /** 选中的是 HTML 页（或其中一个元素）：整页 HTML 与元素编号。只给服务端的局部修改那条路用，不进树形 prompt。 */
+    readonly html?: { readonly page: string; readonly ref?: string };
+  };
   /**
    * 迭代 16（#3773 R2）——**分页生成的中间结果出口**。
    *
@@ -307,6 +312,13 @@ function htmlTemplateLine(template: DesignChatContext["template"]): string {
       "图片位用带对角线的灰框，不要画成粗糙的方块堆";
 }
 
+/** 树形 prompt 里的 HTML 页只留摘要（一页几万字的 HTML 既吃上下文、模型也改不了它——要改得先选中它，走局部修改）。 */
+function summarizeHtmlNodes(n: designPrototype.PrototypeNode | null): unknown {
+  if (n === null) return null;
+  if (n.type === "html") return { ...(n.id === undefined ? {} : { id: n.id }), type: "html", note: "整页版面（HTML），要改请让用户在画布上选中它", summary: designHtmlPage.htmlPageVisibleText(n.props.html).slice(0, 120) };
+  return designPrototype.isPrototypeContainer(n) ? { ...n, children: n.children.map(summarizeHtmlNodes) } : n;
+}
+
 function describeProject(ctx: DesignChatContext, html = false): string {
   const lines = [
     `项目名称：${ctx.name}`,
@@ -330,7 +342,7 @@ function describeProject(ctx: DesignChatContext, html = false): string {
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
-    `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype)}`,
+    `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype.map(summarizeHtmlNodes))}`,
   ];
   if (ctx.focus !== undefined) {
     lines.push(
@@ -1004,6 +1016,60 @@ export class ModelDesignChatReplier implements DesignChatModel {
     return screen;
   }
 
+
+  /**
+   * 方向 C 步骤 4：**局部修改**。选中一个元素 ⇒ 只把这个元素 + 页面 CSS 发给模型，拼回去；
+   * 没选元素（选的是整页）或元素编号已失效 ⇒ 整页在原有基础上改。产出走既有的 `patch`（setProps + setLinks），
+   * 所以撤销、版本、连线清洗都是现成的。模型没给出可用输出 ⇒ `null`（调用方退回固定回执，如实说没改成）。
+   */
+  private async editHtml(ctx: DesignChatContext): Promise<DesignChatReplyResult | null> {
+    const focus = ctx.focus!;
+    const { page, ref } = focus.html!;
+    const hit = designPrototype.findPrototypeNodePath(ctx.prototype, focus.id);
+    const index = hit?.frameIndex ?? 0;
+    const screenCount = Math.max(ctx.prototype.length, 1);
+    const instruction = [...ctx.chat].reverse().find((t) => t.role === "user")?.text ?? "";
+    const css = htmlPageCss(page).slice(0, 6000);
+    const finish = (html: string, reply: string): DesignChatReplyResult | null => {
+      const pruned = pruneInvalidGotos(html, index, screenCount).html;
+      const node = { type: "html" as const, props: { html: pruned } };
+      if (!designPrototype.PrototypeNode.safeParse(node).success) return null;
+      return {
+        text: ((reply === "" ? "改好了。" : reply) + this.blindNotice(ctx)).slice(0, 4000),
+        source: "model",
+        writeback: {
+          patch: [
+            { op: "setProps", id: focus.id, props: { html: pruned } },
+            // `links` 是 HTML 的投影：改了 data-goto 就要跟着重算，不然「模型说连好了、屏上点不动」。
+            { op: "setLinks", screen: index, links: designHtmlPage.htmlPageLinks(pruned).map((l) => ({ from: l.from, to: l.to })) },
+          ],
+        },
+        suggestions: [],
+      };
+    };
+
+    if (ref !== undefined) {
+      const el = designHtmlPage.htmlPageElement(page, ref);
+      if (el !== null) {
+        const label = designHtmlPage.describeHtmlPageElement(page, ref) ?? "元素";
+        const out = await this.callModel(
+          `页面现有 CSS（沿用它的变量、字阶、间距与圆角）：\n${css}\n\n被选中的元素 ${label}：\n${el.html.slice(0, 12_000)}\n\n用户说：${instruction}`,
+          DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, ctx.refImages,
+        );
+        const parsed = out.truncated ? null : parseElementEditOutput(out.text);
+        const next = parsed === null ? null : designHtmlPage.replaceHtmlPageElement(page, ref, parsed.element, parsed.css);
+        if (parsed !== null && next !== null) return finish(next, parsed.reply);
+        this.deps.log("design chat: html element edit unusable, falling back to whole-page edit", { truncated: out.truncated });
+      }
+    }
+    const out = await this.callModel(
+      `现有这一页（共 ${String(screenCount)} 页，这是第 ${String(index)} 页「${focus.frame}」）：\n${page.slice(0, 40_000)}\n\n用户说：${instruction}\n\ndata-goto 的值用页序号（不要指向自己这一页）。`,
+      DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, ctx.refImages,
+    );
+    const parsed = out.truncated ? null : parsePageEditOutput(out.text, { index, screenCount });
+    return parsed === null ? null : finish(parsed.html, parsed.reply);
+  }
+
   /** 解析单页输出并做保守修正（#4321）；解析不了 ⇒ null。**不**判契约，调用方判。 */
   private acceptScreen(text: string, frame: string, index: number): Record<string, unknown> | null {
     let parsed: unknown;
@@ -1197,6 +1263,18 @@ export class ModelDesignChatReplier implements DesignChatModel {
 
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
     const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult => this.fallback(reason);
+    // 选中的是 HTML 页（或其中一个元素）⇒ 局部修改：模型只看见被选中的那一块，不走整页树形 JSON。
+    if (ctx.focus?.html !== undefined) {
+      try {
+        const edited = await this.editHtml(ctx);
+        if (edited !== null) return edited;
+      } catch (e) {
+        this.deps.log("design chat: html edit failed", { detail: e instanceof Error ? e.message : "unknown" });
+        if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
+        return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : "MODEL_CALL_FAILED");
+      }
+      return fallbackWith("MODEL_BAD_JSON");
+    }
     /**
      * 迭代 12：**首次生成走分页**（还没有任何树 ⇒ 这一句必然要模型吐出全部页）。
      * 已有原型时不走——那时用户多半是局部改动（patch），一次调用足够，分页只会多花 N 倍的钱。

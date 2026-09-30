@@ -145,6 +145,8 @@ export async function appendProjectChat(
    * 不给 ⇒ 不设限（行为与这个参数出现之前逐字相同）。
    */
   maxScreens?: number,
+  /** HTML 页里选中的元素编号（`focusNodeId` 是 html 页时才有意义）：模型只改这一个元素。 */
+  focusRef?: string,
 ): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -155,6 +157,7 @@ export async function appendProjectChat(
         ...(focusNodeId !== undefined ? { focusNodeId } : {}),
         ...(refImageIds !== undefined && refImageIds.length > 0 ? { refImageIds: [...refImageIds] } : {}),
         ...(maxScreens !== undefined ? { maxScreens } : {}),
+        ...(focusRef !== undefined ? { focusRef } : {}),
       },
       signal,
     },

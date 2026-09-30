@@ -29,3 +29,12 @@ describe("HTML 页渲染", () => {
     expect(markup).toContain("design-html-page");
   });
 });
+
+describe("HTML 页的交互桥", () => {
+  it("编辑态 srcdoc 带 data-mode=edit 和选中桥；预览态是 preview", () => {
+    expect(buildHtmlPageSrcdoc(html, { mode: "edit" })).toContain('data-mode="edit"');
+    expect(buildHtmlPageSrcdoc(html, { mode: "preview" })).toContain('data-mode="preview"');
+    expect(buildHtmlPageSrcdoc(html)).toContain('data-mode="preview"');
+    expect(buildHtmlPageSrcdoc(html, { mode: "edit" })).toContain("data-ref");
+  });
+});

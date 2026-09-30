@@ -201,3 +201,86 @@ describe("HTML 模式分页生成", () => {
     expect(complete.mock.calls[0]![0].system).not.toContain("brief");
   });
 });
+
+/* ───────────────────────── 局部修改 ───────────────────────── */
+
+describe("HTML 页局部修改", () => {
+  const page0 = parseHtmlPageOutput(wrap(goodPage(1)), { index: 0, screenCount: 2 })!.html;
+  const page1 = parseHtmlPageOutput(wrap(goodPage(0)), { index: 1, screenCount: 2 })!.html;
+  
+  const editCtx = (ref: string | undefined, text: string): DesignChatContext => ({
+    ...CTX, frames: ["账单", "明细"], prototype: [{ id: "p0", type: "html", props: { html: page0 } }, { id: "p1", type: "html", props: { html: page1 } }],
+    focus: { id: "p0", frame: "账单", path: ["整页版面"], node: {}, html: { page: page0, ...(ref === undefined ? {} : { ref }) } },
+    chat: [{ role: "user", text, at: "2026-09-30T00:00:00.000Z" }],
+  });
+  const make = (reply: (user: string, system: string) => string) => {
+    const complete = vi.fn(async (i: { system: string; user: string }) => ({ text: reply(i.user, i.system) }));
+    return { r: new ModelDesignChatReplier({ model: { complete } as never, chatModel: { provider: "p", modelId: "m" }, log: vi.fn(), htmlPages: true }), complete };
+  };
+
+  it("选中元素 ⇒ 只把这个元素 + 页面 CSS 发给模型，只替换这一个元素，整页其余逐字不动", async () => {
+    const ref = /data-ref="(r\d+)"[^>]*>本月账单/.exec(page0)![1]!;
+    const { r, complete } = make(() => "<reply>标题改成了更具体的。</reply><element><h1 class=\"t\">9 月账单</h1></element><css>.t{letter-spacing:.02em}</css>");
+    const out = await r.reply(editCtx(ref, "把标题改成 9 月账单"));
+    const sent = complete.mock.calls[0]![0];
+    expect(sent.user).toContain("本月账单");
+    expect(sent.user).not.toContain("查看明细"); // 没发整页，只发被选中的元素
+    expect(sent.user).toContain("font-size:28px"); // 但带着页面 CSS
+    expect(out.text).toBe("标题改成了更具体的。");
+    const [setProps, setLinks] = out.writeback.patch!;
+    expect(setProps).toMatchObject({ op: "setProps", id: "p0" });
+    const html = (setProps as unknown as { props: { html: string } }).props.html;
+    expect(html).toContain("9 月账单");
+    expect(html).toContain("letter-spacing:.02em");
+    expect(html).toContain("查看明细"); // 其余保留
+    expect(html).toContain('data-goto="1"');
+    expect(html).not.toContain("本月账单");
+    expect(setLinks).toMatchObject({ op: "setLinks", screen: 0 });
+    // 整条 patch 能被契约应用
+    const applied = designPrototype.applyPrototypePatch(
+      [{ root: { id: "p0", type: "html", props: { html: page0 } } }, { root: { id: "p1", type: "html", props: { html: page1 } } }] as never,
+      out.writeback.patch!,
+    );
+    expect(JSON.stringify(applied[0])).toContain("9 月账单");
+  });
+
+  it("模型在元素里夹带脚本 ⇒ 被清洗", async () => {
+    const ref = /data-ref="(r\d+)"[^>]*>本月账单/.exec(page0)![1]!;
+    const { r } = make(() => "<element><h1>x</h1><script>steal()</script></element>");
+    const out = await r.reply(editCtx(ref, "改"));
+    expect(JSON.stringify(out.writeback)).not.toMatch(/steal|<script/);
+  });
+
+  it("元素编号失效（页面在选中之后变过）⇒ 退回整页修改", async () => {
+    const { r, complete } = make((_u, system) => (system.includes("选中了**一个元素**") ? "<element>坏的" : `<reply>整页改了。</reply>${wrap(goodPage(1, "<p>新增一段说明文字</p>"))}`));
+    const out = await r.reply(editCtx("r9999", "加一段说明"));
+    expect(out.text).toBe("整页改了。");
+    expect(complete).toHaveBeenCalledTimes(1); // 编号找不到，不浪费一次元素调用
+    expect(JSON.stringify(out.writeback)).toContain("新增一段说明文字");
+  });
+
+  it("选中整页（没有元素）⇒ 整页在原有基础上改；新增的 data-goto 会重算 links；指向自己的被剪掉", async () => {
+    const { r, complete } = make(() => `<reply>加了返回。</reply>${wrap(goodPage(1, '<a data-goto="1">返回明细</a><a data-goto="0">自己</a>'))}`);
+    const out = await r.reply(editCtx(undefined, "加一个去明细的入口"));
+    expect(complete.mock.calls[0]![0].user).toContain("本月账单"); // 整页 HTML 发了过去
+    const links = (out.writeback.patch![1] as { links: { to: number }[] }).links;
+    expect(links.length).toBe(2);
+    expect(links.every((l) => l.to === 1)).toBe(true);
+  });
+
+  it("模型没给出可用输出 ⇒ 固定回执，不写一页坏数据", async () => {
+    const { r } = make(() => "抱歉我没法改");
+    const out = await r.reply(editCtx(undefined, "改一下"));
+    expect(out.source).toBe("fallback");
+    expect(out.writeback).toEqual({});
+  });
+
+  it("树形 prompt 里 HTML 页只留摘要，不塞整页 HTML", async () => {
+    const complete = vi.fn(async (_i: { system: string; user: string }) => ({ text: '{"reply":"好的","writeback":{}}' }));
+    const r = new ModelDesignChatReplier({ model: { complete } as never, chatModel: { provider: "p", modelId: "m" }, log: vi.fn() });
+    await r.reply({ ...editCtx(undefined, "随便聊聊"), focus: undefined });
+    const user = complete.mock.calls[0]![0].user;
+    expect(user).not.toContain("font-size:28px");
+    expect(user).toContain("整页版面");
+  });
+});

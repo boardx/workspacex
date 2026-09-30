@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { designPrototype } from "../src/index.js";
-import { HTML_PAGE_MAX_CHARS, htmlPageInteractiveCount, htmlPageLinks, htmlPageVisibleText, sanitizeHtmlPage } from "../src/design-html-page.js";
+import { HTML_PAGE_MAX_CHARS, describeHtmlPageElement, htmlPageElement, htmlPageInteractiveCount, htmlPageLinks, htmlPageVisibleText, replaceHtmlPageElement, sanitizeHtmlPage } from "../src/design-html-page.js";
 
 const dirty =
   '<!doctype html><html><head><title>x</title><meta charset="utf-8"><link rel="stylesheet" href="https://evil.test/a.css">' +
@@ -93,3 +93,40 @@ describe("html 节点进契约", () => {
     expect(r.links[0]).toEqual([{ from, to: 1 }]);
   });
 });
+
+describe("元素编号与局部替换", () => {
+  const { html } = sanitizeHtmlPage('<style>.a{color:red}</style><div class="page"><h1>标题</h1><ul><li>甲</li><li>乙</li></ul><button data-goto="1">去</button><img src="data:image/png;base64,AA" alt="x"></div>');
+
+  it("给块级元素按文档顺序编号；输入里自带的 data-ref 被丢掉重编；幂等", () => {
+    expect(html).toMatch(/<div[^>]*data-ref="r1"/);
+    expect(html).toMatch(/<h1[^>]*data-ref="r2"/);
+    expect(sanitizeHtmlPage('<div data-ref="r99"><p>x</p></div>').html).toBe('<div data-ref="r1"><p data-ref="r2">x</p></div>');
+    expect(sanitizeHtmlPage(html).html).toBe(html);
+  });
+
+  it("htmlPageElement 取出含嵌套的整个元素（同名标签配平）", () => {
+    const ul = designHtmlPage_element("r3");
+    expect(ul).toContain("甲");
+    expect(ul).toContain("乙");
+    expect(ul).not.toContain("<button");
+    expect(designHtmlPage_element("r999")).toBeNull();
+  });
+
+  it("只替换被选中的元素，其余逐字不动；可追加 CSS；替换内容同样被清洗", () => {
+    const out = replaceHtmlPageElement(html, "r2", '<h1 class="big">新标题<script>x()</script></h1>', ".big{color:blue}")!;
+    expect(out).toContain("新标题");
+    expect(out).toContain(".big{color:blue}");
+    expect(out).not.toContain("<script");
+    expect(out).toContain("甲");
+    expect(out).toContain('data-goto="1"');
+    expect(replaceHtmlPageElement(html, "r404", "<p>x</p>")).toBeNull();
+  });
+
+  it("describeHtmlPageElement", () => {
+    expect(describeHtmlPageElement(html, "r2")).toBe("<h1>「标题」");
+  });
+});
+
+function designHtmlPage_element(ref: string): string | null {
+  return htmlPageElement(sanitizeHtmlPage('<style>.a{color:red}</style><div class="page"><h1>标题</h1><ul><li>甲</li><li>乙</li></ul><button data-goto="1">去</button></div>').html, ref)?.html ?? null;
+}
