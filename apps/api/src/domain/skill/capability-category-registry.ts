@@ -9,6 +9,8 @@
  * （Phase 20 CT04 补登：产品线 27 个 PASS 实体文档 §依赖 实际使用的分类，如 S155/S007/S070/S062。）
  * （CT07 补登：销售线 18 个 PASS 实体文档 §依赖 实际使用的分类——S021/S024/S026/S030/S032/S033/S034/
  *   S035/S036。CT07 落地时漏登，`work-sales` 整包导入因此 422 WORK_SKILL_CAPABILITY_UNREGISTERED。）
+ * （运营/工程线补登：S141/S143/S144/S145/S148/S153/S154/S156/S177/S179 的 §依赖 新增 deploy.read / directory.read /
+ *   incident.read / monitoring.read / repo.read——均为 declared-but-unwired（外部系统无集成，就绪性显示未接线）。）
  * （EV03 门脚本 `gate-policy.ts` 曾另抄一份更短的登记表，G3 与导入/就绪性判据因此漂移；现在它
  *   直接 re-export 本表，`knowledge.graph.read` 等原先只在那一份里的分类并入这里。）
  */
@@ -26,12 +28,15 @@ const REGISTERED = [
   "crm.read",
   "crm.write",
   "data.read",
+  "deploy.read",
   "design.read",
+  "directory.read",
   "docs.read",
   "email.read",
   "enrichment.company.read",
   "file.read",
   "finance.ledger.read",
+  "incident.read",
   "interview.read",
   "knowledge.graph",
   "knowledge.graph.read",
@@ -43,6 +48,7 @@ const REGISTERED = [
   "mail.send",
   "metric.read",
   "metrics.read",
+  "monitoring.read",
   "notify.inapp",
   "org.config.read",
   "org.suppression.read",
@@ -53,6 +59,7 @@ const REGISTERED = [
   "project.write",
   "recording.read",
   "registry.cn.read",
+  "repo.read",
   "sandbox.exec",
   "skill-artifact.read",
   "sprint.history.read",

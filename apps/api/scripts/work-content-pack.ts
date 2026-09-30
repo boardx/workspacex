@@ -39,6 +39,13 @@ export interface WorkContentPackSpec {
   readonly expectedStableIds: readonly string[];
   /** PASS 清单路径；测试可指向夹具。 */
   readonly entityListPath?: string;
+  /**
+   * 已作者化、尚待独立评审（`reviews/<ID>.review.md` 未出具）的实体——人类授权「先实现、后补评审/签核」
+   * 的运营/工程线使用（Phase 20 之后的第二阶段实体）。这些 ID 在构建期免于「第一阶段 PASS」检查，
+   * 但仍必须出现在 `WORK-STACK-320-LIST.md`（任一阶段）里；一旦评审 PASS，应把它从这里删掉。
+   * 默认空：三条第一阶段内容线行为不变。
+   */
+  readonly pendingReviewIds?: readonly string[];
 }
 
 export class WorkContentPackBuildError extends Error {
@@ -48,6 +55,12 @@ export class WorkContentPackBuildError extends Error {
         issues.map(formatWorkSkillManifestIssue).join("\n"),
     );
   }
+}
+
+/** `WORK-STACK-320-LIST.md` 中任一阶段登记过的实体 ID（不论评审状态）。 */
+export function readListedIds(listPath: string = DEFAULT_ENTITY_LIST): Set<string> {
+  const text = readFileSync(listPath, "utf8");
+  return new Set([...text.matchAll(/^\|\s*(?:✅ 通过|⬜)\s*\|\s*([SWD]\d{3})\s*\|/gm)].map((m) => m[1]!));
 }
 
 /**
@@ -90,7 +103,14 @@ function listSkillDirectories(root: string): string[] {
 export function buildWorkContentPack(spec: WorkContentPackSpec): SkillStarterPack {
   const { packId, packVersion, root } = spec;
   const passIds = readPhaseOnePassIds(spec.entityListPath);
+  const pending = new Set(spec.pendingReviewIds ?? []);
   const issues: WorkSkillManifestIssue[] = [];
+  if (pending.size > 0) {
+    const listed = readListedIds(spec.entityListPath);
+    for (const id of [...pending].sort()) {
+      if (!listed.has(id)) issues.push({ file: `${packId}/`, fieldPath: "pendingReviewIds", message: `${id} 不在 WORK-STACK-320-LIST.md 中，不能登记为待评审实体` });
+    }
+  }
   const skills: SkillStarterPack["skills"] = [];
   const seen = new Map<string, string>();
 
@@ -118,7 +138,7 @@ export function buildWorkContentPack(spec: WorkContentPackSpec): SkillStarterPac
     }
 
     const stableId = work.manifest.stableId;
-    if (!passIds.has(stableId)) {
+    if (!passIds.has(stableId) && !pending.has(stableId)) {
       issues.push({ file: skillMdRelative, fieldPath: "metadata.work.stableId", message: `${stableId} 不是 WORK-STACK-320-LIST.md 第一阶段中已通过（PASS）的实体` });
       continue;
     }
