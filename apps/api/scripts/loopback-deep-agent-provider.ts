@@ -699,6 +699,12 @@ function startWorkflowTarget(record: RunRecord): string | null {
   return serverComputedToolScript(record) === null ? null : "scripted";
 }
 
+function serverComputedOutcomeMessage(record: RunRecord): string | null {
+  const outcome = record.decision?.editedArgs?.outcome;
+  const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  return typeof message === "string" && message !== "" ? message : null;
+}
+
 function startWorkflowReply(record: RunRecord): string {
   const script = serverComputedToolScript(record);
   if (record.decision === null) return script?.pendingText ?? "正在发起流程。";
@@ -1994,12 +2000,16 @@ const server = createServer((req, res) => {
         return;
       }
       const finalText = startWorkflowReply(record);
+      // UIUX r3 屏 5 #1：工具结果 = 服务端算出的 outcome.message（拒绝句含 HANDOFF_REFUSAL_MARK，
+      // 前端据此渲染「没有转交」提示条）；此前误用终稿文案，自转交等拒绝路径因此不出提示条。
+      const outcomeMessage = serverComputedOutcomeMessage(record);
       sendJson(res, 200, {
         values: {
           messages: [
             { type: "human", content: record.userText },
-            pendingAi,
-            { type: "tool", tool_call_id: callId, content: finalText },
+            // UIUX r3 屏 5 #2：有了结果，「正在提交……」这句过渡语就被结果取代，不留在最终气泡里。
+            { ...pendingAi, content: "" },
+            { type: "tool", tool_call_id: callId, content: outcomeMessage ?? finalText },
             { id: `${serverScript.idPrefix}-${threadId}:final`, type: "ai", content: finalText },
           ],
         },

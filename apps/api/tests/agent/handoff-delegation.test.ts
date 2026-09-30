@@ -169,6 +169,22 @@ describe("AG07 · loopback deep-agent 替身 · request_handoff 剧本", () => {
     expect(aiTexts.some((t: string) => t.includes(outcome.message)), "拒绝原因只出现一次：在结构化提示条里").toBe(false);
     expect(msgs.at(-1)).toMatchObject({ type: "ai", content: "我会继续在这个对话里、按我的职责范围帮你处理。" });
   });
+
+  it("UIUX r3 屏 5：自转交（D002→D002）被拒 ⇒ 工具结果是带显示名的拒绝句（含 HANDOFF_REFUSAL_MARK），过渡语被清掉", async () => {
+    const request = fixture();
+    await startTurn(request, "h4", "UIUX 这个需求请产品经理接手 [request_handoff:D002]");
+    const outcome = { status: "refused", reason: "target_not_in_allowed_targets", targetRole: "D002", message: handoffNotAllowedMessage("target_not_in_allowed_targets", "产品经理") };
+    await request("POST", "/threads/h4/runs", {
+      command: { resume: { decisions: [{ type: "edit", edited_action: { name: "request_handoff", args: { outcome } } }] } },
+    });
+    const msgs = (await request("GET", "/threads/h4/state")).values.messages;
+    const tool = msgs.find((m: any) => m.type === "tool");
+    expect(tool.content).toBe(outcome.message);
+    expect(tool.content).toContain(R.HANDOFF_REFUSAL_MARK);
+    expect(tool.content).toContain("产品经理");
+    const texts = msgs.filter((m: any) => m.type === "ai").map((m: any) => String(m.content ?? ""));
+    expect(texts.some((t: string) => t.includes("正在提交转交请求")), "过渡语不留在终态").toBe(false);
+  });
 });
 
 /* ── 三、真库端到端 ──────────────────────────────────────────────── */
