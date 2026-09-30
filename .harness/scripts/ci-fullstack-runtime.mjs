@@ -12,6 +12,10 @@ export function sealedImage(version, catalog) {
   return `mcr.microsoft.com/playwright@${digest}`;
 }
 
+export function pnpmPackageRoot(executable) {
+  return dirname(createRequire(realpathSync(executable)).resolve('pnpm/package.json'));
+}
+
 export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, socketGid, env, geometry = false }) {
   if (![uid, gid].every(v => Number.isInteger(v) && v >= 0)) throw new Error('INVALID_RUNTIME_IDENTITY');
   if (!/^mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('UNSEALED_RUNTIME_IMAGE');
@@ -62,12 +66,13 @@ async function main(mode) {
   const docker = which('docker');
   const plugins = JSON.parse(command(docker, ['info', '--format', '{{json .ClientInfo.Plugins}}']));
   const compose = realpathSync(plugins.find(p => p.Name === 'compose')?.Path ?? '');
-  const pnpm = dirname(dirname(which('pnpm')));
+  const pnpm = pnpmPackageRoot(which('pnpm'));
   if (!process.env.RUNNER_TEMP) throw new Error('RUNNER_TEMP_REQUIRED');
   const home = resolve(process.env.RUNNER_TEMP, 'wsx-smoke-runtime-home');
   const tools = resolve(process.env.RUNNER_TEMP, 'wsx-smoke-runtime-tools');
   mkdirSync(home, { recursive: true, mode: 0o700 });
   mkdirSync(resolve(tools, 'bin'), { recursive: true, mode: 0o700 });
+  mkdirSync(resolve(tools, 'pnpm'), { recursive: true, mode: 0o700 });
   mkdirSync(resolve(tools, 'docker-config/cli-plugins'), { recursive: true, mode: 0o700 });
   writeFileSync(resolve(tools, 'bin/pnpm'), '#!/bin/sh\nexec node /wsx-ci-tools/pnpm/bin/pnpm.cjs "$@"\n', { mode: 0o700 });
   chmodSync(resolve(tools, 'bin/pnpm'), 0o700);

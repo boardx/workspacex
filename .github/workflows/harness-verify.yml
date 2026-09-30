@@ -550,7 +550,7 @@ jobs:
       queue: max
     steps:
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+        with: { fetch-depth: 0, persist-credentials: false }
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { sealedImage, runtimeArgs } from './ci-fullstack-runtime.mjs';
+import { readFileSync, realpathSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pnpmPackageRoot, sealedImage, runtimeArgs } from './ci-fullstack-runtime.mjs';
 
 const catalog = JSON.parse(readFileSync(new URL('../playwright-runtime-images.json', import.meta.url), 'utf8'));
 const inputs = { root: '/runner/work/repo', home: '/runner/temp/home', tools: '/runner/temp/tools',
@@ -13,6 +15,15 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(sealedImage('1.62.0', catalog)).toMatch(/^mcr.microsoft.com\/playwright@sha256:[a-f0-9]{64}$/);
     expect(() => sealedImage('1.64.0', catalog)).toThrow('NOT_REVIEWED');
     for (const version of ['latest', '^1.62.0', '1.63.0-alpha', '1.62.0; echo bad']) expect(() => sealedImage(version, catalog)).toThrow();
+  });
+  it('resolves action-setup regular .bin wrapper to actual package, not node_modules', () => {
+    const root = mkdtempSync(join(tmpdir(), 'wsx-pnpm-action-'));
+    try { mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
+      mkdirSync(join(root, 'node_modules/pnpm/bin'), { recursive: true });
+      writeFileSync(join(root, 'node_modules/pnpm/package.json'), JSON.stringify({ name: 'pnpm', version: '9.15.0' }));
+      writeFileSync(join(root, 'node_modules/.bin/pnpm'), '#!/bin/sh\n');
+      expect(pnpmPackageRoot(join(root, 'node_modules/.bin/pnpm'))).toBe(realpathSync(join(root, 'node_modules/pnpm')));
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
   it('requires sealed digest and real numeric runner identity', () => {
     expect(() => runtimeArgs({ ...inputs, image: 'mcr.microsoft.com/playwright:v1.62.0-noble' })).toThrow('UNSEALED');
@@ -36,6 +47,8 @@ describe('preinstalled fullstack CI runtime', () => {
     const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
     const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));
     expect(lane).toContain('timeout-minutes: 20');
+    expect(lane).toContain('persist-credentials: false');
+    expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
     expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs run');
     expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs geometry');
     expect(lane).not.toContain('playwright install');
