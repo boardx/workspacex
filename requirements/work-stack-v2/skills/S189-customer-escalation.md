@@ -19,7 +19,7 @@
 | W007 Issue-to-Resolution | 矩阵第 13 行：S187, S011, S189, S015, S190 | 第 3 个 Skill，`mode: "support-escalation"`：S011 之后，把工程/产品/安全接收方所需的包打好 |
 | W017 Renewal Risk Review | 矩阵第 23 行：S033, S035, S023, S189, S193 | 第 4 个 Skill，`mode: "renewal-blocker"`：对 S033 标 `open-escalation` 的账户，核对升级是否真的有人接、是否卡住续约 |
 | D006 Customer Success Specialist | 矩阵第 12 行 Skill 列 | 聊天直调，`mode: "support-escalation"` |
-| D023 Insurance & Claims Expert | 第 30 行 Skill 列 | 理赔争议升级（D023 尚未作者化，仅记录边） |
+| D023 Insurance & Claims Expert | 第 29 行 Skill 列 | 理赔争议升级（D023 尚未作者化，仅记录边） |
 | D046 Customer Support Operations Specialist | 第 52 行 Skill 列 | 支持运营复盘升级质量（D046 尚未作者化，仅记录边） |
 
 ## 3. 上游来源与许可
