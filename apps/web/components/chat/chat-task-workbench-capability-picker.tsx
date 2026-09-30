@@ -2,7 +2,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { identity } from "@repo/contracts";
-import { Check, Loader2, SearchX, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, SearchX, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -166,6 +166,8 @@ export interface CapabilityCardListProps {
   readonly official?: OfficialOfferState;
   /** 父容器给的列表最大高度（px）；缺省 24rem。 */
   readonly maxListHeight?: number;
+  /** 手机底部抽屉：两步——先列表，点一行进详情步（带返回箭头与「选择」主按钮）。 */
+  readonly sheet?: boolean;
 }
 
 const EMPTY_DIRECTORY: DigitalHumanDirectory = new Map();
@@ -203,12 +205,14 @@ function TagChips({ tags, max = 3 }: { tags: readonly string[]; max?: number }):
 
 /** 数字人选择列表 + 预览：`role="listbox"`，可选项 `role="option"`。 */
 export function CapabilityCardList({
-  listings, selectedAgentId, onSelect, acting = null, directory = EMPTY_DIRECTORY, autoFocusSearch = false, official, maxListHeight,
+  listings, selectedAgentId, onSelect, acting = null, directory = EMPTY_DIRECTORY, autoFocusSearch = false, official, maxListHeight, sheet = false,
 }: CapabilityCardListProps): JSX.Element {
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<PickerFilter>(null);
   const [active, setActive] = React.useState<ActiveKey>(selectedAgentId ? { kind: "agent", id: selectedAgentId } : { kind: "auto" });
   const [allTags, setAllTags] = React.useState(false);
+  const [detailStep, setDetailStep] = React.useState(false);
+  const showDetail = sheet && detailStep;
   const listRef = React.useRef<HTMLDivElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
   const searchId = React.useId();
@@ -239,14 +243,15 @@ export function CapabilityCardList({
     entry,
     isSelected: entry.listing.id === selectedAgentId,
     acting,
-    onSelect,
+    onSelect: sheet ? (id: string) => { setActive({ kind: "agent", id }); setDetailStep(true); } : onSelect,
     onActivate: () => setActive({ kind: "agent", id: entry.listing.id }),
   });
+  const openDetail = (key: ActiveKey) => { setActive(key); setDetailStep(true); };
 
   return (
     <div className="flex w-full min-h-0 flex-col sm:w-[min(40rem,calc(100vw-2rem))]">
       <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col sm:max-w-[22rem] sm:border-r sm:border-border">
+        <div className={`min-w-0 flex-1 flex-col sm:max-w-[22rem] sm:border-r sm:border-border ${showDetail ? "hidden" : "flex"}`}>
           <div className="flex flex-col gap-1.5 border-b border-border p-2">
             <label htmlFor={searchId} className="sr-only">搜索数字人</label>
             <Input
@@ -297,7 +302,7 @@ export function CapabilityCardList({
                 role="option"
                 aria-selected={selectedAgentId === null}
                 data-testid="chat-task-workbench-capability-auto"
-                onClick={() => onSelect(null)}
+                onClick={() => (sheet ? openDetail({ kind: "auto" }) : onSelect(null))}
                 onMouseEnter={() => setActive({ kind: "auto" })}
                 onFocus={() => setActive({ kind: "auto" })}
                 className={optionClass(selectedAgentId === null)}
@@ -368,7 +373,7 @@ export function CapabilityCardList({
                 ) : null}
                 {official.error ? <p role="alert" className="px-2 pb-1 text-11 text-destructive">{official.error}</p> : null}
                 {groups.pending.map((p) => (
-                  <PendingRow key={p.roleRef} role={p} onActivate={() => setActive({ kind: "pending", roleRef: p.roleRef })} />
+                  <PendingRow key={p.roleRef} role={p} onActivate={() => setActive({ kind: "pending", roleRef: p.roleRef })} onOpen={sheet ? () => openDetail({ kind: "pending", roleRef: p.roleRef }) : undefined} />
                 ))}
               </section>
             ) : null}
@@ -391,7 +396,10 @@ export function CapabilityCardList({
             ) : null}
           </div>
         </div>
-        <PreviewPane active={active} entry={activeEntry} pending={activePending} acting={acting} suggestions={groups.digitalHumans} />
+        <PreviewPane
+          active={active} entry={activeEntry} pending={activePending} acting={acting} suggestions={groups.digitalHumans}
+          step={showDetail ? { onBack: () => setDetailStep(false), onChoose: () => onSelect(active.kind === "agent" ? active.id : null) } : undefined}
+        />
       </div>
       <div className="flex items-center gap-3 border-t border-border px-2.5 py-1 text-10 text-muted-foreground">
         <div className="min-w-0 flex-1"><CapabilityEditionNote compact /></div>
@@ -471,13 +479,14 @@ function UnavailableOption({ entry, onActivate }: { entry: PickerEntry; onActiva
   );
 }
 
-function PendingRow({ role, onActivate }: { role: PendingOfficialRole; onActivate: () => void }): JSX.Element {
+function PendingRow({ role, onActivate, onOpen }: { role: PendingOfficialRole; onActivate: () => void; onOpen?: () => void }): JSX.Element {
   return (
     <div
       data-testid="chat-task-workbench-capability-pending"
       data-role-ref={role.roleRef}
       onMouseEnter={onActivate}
-      className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
+      onClick={onOpen}
+      className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 ${onOpen ? "cursor-pointer hover:bg-muted" : ""}`}
     >
       <Avatar initials={role.roleRef} avatarKey={role.avatar?.key ?? null} tone="ai" size="md" className="opacity-70" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -505,7 +514,7 @@ function Facet({ label, testId, children, title, extra }: { label: string; testI
  * - 可读材料 / 写入外呼两项（`AgentDirectoryCard` 未承载）不再各占一行写「暂缺该项披露」，而是与记忆范围一起
  *   收成底部一行小字「边界」——六项披露（TW-P0-2②）的锚点都还在、都可见，只是不再用整栏说「不知道」。
  */
-function PreviewPane({ active, entry, pending, acting, suggestions }: { active: ActiveKey; entry: PickerEntry | undefined; pending: PendingOfficialRole | undefined; acting: CapabilityCardActingState | null; suggestions: readonly PickerEntry[] }): JSX.Element {
+function PreviewPane({ active, entry, pending, acting, suggestions, step }: { step?: { onBack: () => void; onChoose: () => void }; active: ActiveKey; entry: PickerEntry | undefined; pending: PendingOfficialRole | undefined; acting: CapabilityCardActingState | null; suggestions: readonly PickerEntry[] }): JSX.Element {
   let body: React.ReactNode;
   if (entry) {
     const { listing, card, tags } = entry;
@@ -531,10 +540,7 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
           <Facet label="擅长" testId="chat-task-workbench-capability-facet-strengths">{strengths}</Facet>
           {workflows.length > 0 ? (
             <Facet label="可发起" testId="chat-task-workbench-capability-facet-tools" extra={{ "data-count": String(workflows.length) }}>
-              <ul className="flex flex-col gap-0.5">
-                {workflows.slice(0, 5).map((w) => <li key={w} className="truncate" title={w}>{w}</li>)}
-                {workflows.length > 5 ? <li className="text-muted-foreground">另有 {workflows.length - 5} 个</li> : null}
-              </ul>
+              <ExpandableList key={listing.id} items={workflows} />
             </Facet>
           ) : null}
         </dl>
@@ -610,10 +616,42 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
       </>
     );
   }
+  const canChoose = step !== undefined && (entry ? identity.isCapabilityReady(entry.listing) : pending === undefined);
   return (
-    <aside aria-label="数字人详情" data-testid="chat-task-workbench-capability-preview" className="hidden w-[18rem] shrink-0 flex-col gap-2.5 overflow-y-auto p-3 sm:flex">
+    <aside
+      aria-label="数字人详情"
+      data-testid="chat-task-workbench-capability-preview"
+      data-step={step ? "detail" : undefined}
+      className={step ? "flex min-h-0 w-full flex-1 flex-col gap-2.5 overflow-y-auto p-3" : "hidden w-[18rem] shrink-0 flex-col gap-2.5 overflow-y-auto p-3 sm:flex"}
+    >
+      {step ? (
+        <button type="button" data-testid="chat-task-workbench-capability-detail-back" onClick={step.onBack} className="-ml-1 flex items-center gap-1 self-start rounded-md px-1 py-1 text-12 text-muted-foreground hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ArrowLeft aria-hidden className="size-4" />返回列表
+        </button>
+      ) : null}
       {body}
+      {step && canChoose ? (
+        <Button type="button" variant="primary" className="sticky bottom-0 mt-auto w-full" data-testid="chat-task-workbench-capability-detail-choose" onClick={step.onChoose}>选择</Button>
+      ) : null}
     </aside>
+  );
+}
+
+/** 「可发起」列表：超过 5 项时「另有 n 个」可点开全部，「收起」还原（不是死路）。 */
+function ExpandableList({ items }: { items: readonly string[] }): JSX.Element {
+  const [open, setOpen] = React.useState(false);
+  const shown = open ? items : items.slice(0, 5);
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {shown.map((w) => <li key={w} className={open ? "break-words" : "truncate"} title={w}>{w}</li>)}
+      {items.length > 5 ? (
+        <li>
+          <button type="button" aria-expanded={open} data-testid="chat-task-workbench-capability-facet-tools-more" onClick={() => setOpen((v) => !v)} className="text-left text-muted-foreground underline-offset-2 hover:text-card-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {open ? "收起" : `另有 ${items.length - 5} 个`}
+          </button>
+        </li>
+      ) : null}
+    </ul>
   );
 }
 
@@ -751,6 +789,7 @@ export function CapabilityPopover({ listings, status, selectedAgentId, onSelect,
         directory={directory ?? ownDirectory}
         official={official ?? ownOfficial}
         maxListHeight={placement?.listMax}
+        sheet={placement?.sheet === true}
         autoFocusSearch
         onSelect={(agentId) => { onSelect(agentId); setOpen(false); anchorRef?.current?.focus(); }}
       />

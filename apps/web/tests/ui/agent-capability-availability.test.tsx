@@ -127,6 +127,30 @@ describe("2026-09-30 重设计：分组 / 副标题去重 / 预览披露 / 待�
     expect(screen.queryByText("写权限未披露")).toBeNull();
   });
 
+  it("手机抽屉：点一行进详情步（返回箭头 + 选择按钮），选择才回传；返回回到列表", () => {
+    const select = vi.fn();
+    render(<CapabilityCardList sheet listings={listings} selectedAgentId={null} onSelect={select} directory={directory} />);
+    fireEvent.click(screen.getByRole("option", { name: /Product Manager/ }));
+    expect(select).not.toHaveBeenCalled();
+    const preview = screen.getByTestId("chat-task-workbench-capability-preview");
+    expect(preview).toHaveAttribute("data-step", "detail");
+    expect(preview).toHaveTextContent("适合这样问");
+    expect(screen.getByRole("listbox").parentElement).toHaveClass("hidden");
+    fireEvent.click(screen.getByTestId("chat-task-workbench-capability-detail-choose"));
+    expect(select).toHaveBeenCalledWith("dh1");
+    fireEvent.click(screen.getByTestId("chat-task-workbench-capability-detail-back"));
+    expect(screen.getByRole("listbox").parentElement).not.toHaveClass("hidden");
+  });
+
+  it("可发起超过 5 项：「另有 n 个」点开显示全部，「收起」还原", () => {
+    const many = { agentId: "a1", versionId: "v", name: "a1", initials: "XX", roleLabel: "x", avatar: null, roleCategory: "research", tags: [], catalogSource: "official", readiness: "ready", workflows: Array.from({ length: 7 }, (_, i) => ({ stableId: `w${i}` as AgentDirectoryCard["workflows"][number]["stableId"], name: `流程${i}` })) } as unknown as AgentDirectoryCard;
+    render(<CapabilityCardList listings={[{ id: "a1", orgId: "org", kind: "agent", name: "研究员小林", scope: "org-wide", enabled: true, endpoint: null, abbr: "RL", duty: "文献检索", disabledReason: null, agentAvailable: true }]} selectedAgentId="a1" onSelect={vi.fn()} directory={new Map([["a1", many]])} />);
+    fireEvent.click(screen.getByRole("button", { name: "另有 2 个" }));
+    expect(screen.getByText("流程6")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "收起" }));
+    expect(screen.queryByText("流程6")).toBeNull();
+  });
+
   it("六项披露在预览栏里（高亮哪张显示哪张）", () => {
     render(<CapabilityCardList listings={listings} selectedAgentId={null} onSelect={vi.fn()} directory={directory} />);
     fireEvent.focus(screen.getByRole("option", { name: /Product Manager/ }));

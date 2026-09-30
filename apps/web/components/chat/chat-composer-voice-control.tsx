@@ -154,7 +154,7 @@ export function ComposerVoiceControl({
         aria-pressed={listening}
         aria-busy={busy}
         aria-label={ariaLabel}
-        title={phase === "idle" ? `${ariaLabel}（${deviceText}）` : ariaLabel}
+        title={phase === "idle" ? `语音输入：说话转成文字放进输入框，不会发起通话（${deviceText}）` : ariaLabel}
         disabled={disabled || busy}
         onClick={() => {
           if (!onRequireSession()) return;
@@ -180,7 +180,7 @@ export function ComposerVoiceControl({
              * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
              * 而「这里没开通语音」时两个都是死路。按钮只说它是什么（语音），要不要重试交给状态栏判断。
              */
-            : "语音"}
+            : "语音输入"}
         </span>
         {listening ? <LevelBars level={level} /> : null}
         {listening || paused ? (

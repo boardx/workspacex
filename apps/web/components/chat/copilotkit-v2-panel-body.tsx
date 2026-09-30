@@ -2420,7 +2420,7 @@ export function CopilotKitV2PanelBody({
                 }}
               />
             </div>
-            <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
               {/* 左：三颗圆形图标按钮 + 已挂载 skill chip；`relative` 让技能候选浮层从这个角落向上开。 */}
               <div className="relative flex min-w-0 flex-wrap items-center gap-2.5">
                 <span data-testid="chat-task-workbench-composer-attach">
