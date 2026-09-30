@@ -27,10 +27,10 @@ SQL输出为严格对象：schemaVersion=1、kind=`cn-migration-ledger-output`�
 ```bash
 node --import tsx packages/cloud-deploy/src/cn-migration-plan-cli.ts \
   <frozen-checkout> <exact-target-sha> <exact-baseline-sha> \
-  <private-snapshot.json> <expected-source-binding.json> [legacy-evidence.json]
+  <private-snapshot.json> <expected-source-binding.json> <private-plan.json> [legacy-evidence.json]
 ```
 
-计划绑定snapshot、完整response、sourcebinding和ledger摘要/SQLcount/采集时间到planSha256。snapshot成功仅证明采集完整；canonical源码、drift、out-of-order、risk gates保持原逻辑，plan不能授权migration/activation。失败时不构建/迁移，先重新采集与诊断。不固定上次count；COUNT变化应改变证据，不能称新行都是漏行。
+完整计划写入EXCL/NOFOLLOW新建0600私有文件；不覆盖已有文件或symlink。stdout仅输出scope、ready、planSha256、productionMigrationAuthorized，绝不打印ledger/count/source。不能tee私有文件到CI。计划绑定snapshot、完整response、sourcebinding和ledger摘要/SQLcount/采集时间到planSha256。snapshot成功仅证明采集完整；canonical源码、drift、out-of-order、risk gates保持原逻辑，plan不能授权migration/activation。失败时不构建/迁移，先重新采集与诊断。不固定上次count；COUNT变化应改变证据，不能称新行都是漏行。
 
 synthetic rehearsal也改为同一新协议输入，并在report参数前增加expected-source-binding路径。它仍拒绝production profile/remote Docker；不执行生产写库，不能用synthetic prefix宣称真实数据演练通过。
 

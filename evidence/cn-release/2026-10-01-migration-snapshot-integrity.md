@@ -12,3 +12,5 @@ Failure coverage: legacy/missing/extra fields, provider Dropped, valid JSON subs
 Existing drift/out-of-order/risk tests remain green. Snapshot proof hashes/count are included in the canonical plan body. Synthetic rehearsal retains production-profile/remote-daemon refusal and ownership cleanup checks.
 
 Limit: evidence format and private trusted caller remain required. No provider signature is claimed; external protected source binding and a fresh independent SQL count/digest cannot be self-filled from a transformed old artifact. Production readiness and successful real-data rehearsal are not claimed.
+
+Self-review hardening: complete plan is written create-once EXCL/NOFOLLOW/0600/fsync to privatePlanPath. Public stdout contains only scope/ready/planSha256/productionMigrationAuthorized; the real CLI test checks no ledger or source values leak, preserves an existing plan on refusal, and checks mode0600. Source/legacy evidence errors return stable codes, not raw input or provider diagnostics. The 63-test suite was rerun after this change.
