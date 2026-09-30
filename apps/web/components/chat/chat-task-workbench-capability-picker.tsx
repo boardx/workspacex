@@ -486,7 +486,7 @@ function PendingRow({ role, onActivate, onOpen }: { role: PendingOfficialRole; o
       data-role-ref={role.roleRef}
       onMouseEnter={onActivate}
       onClick={onOpen}
-      className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 ${onOpen ? "cursor-pointer hover:bg-muted" : ""}`}
+      className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 ${onOpen ? "cursor-pointer transition-colors duration-fast hover:bg-muted" : ""}`}
     >
       <Avatar initials={role.roleRef} avatarKey={role.avatar?.key ?? null} tone="ai" size="md" className="opacity-70" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -625,7 +625,7 @@ function PreviewPane({ active, entry, pending, acting, suggestions, step }: { st
       className={step ? "flex min-h-0 w-full flex-1 flex-col gap-2.5 overflow-y-auto p-3" : "hidden w-[18rem] shrink-0 flex-col gap-2.5 overflow-y-auto p-3 sm:flex"}
     >
       {step ? (
-        <button type="button" data-testid="chat-task-workbench-capability-detail-back" onClick={step.onBack} className="-ml-1 flex items-center gap-1 self-start rounded-md px-1 py-1 text-12 text-muted-foreground hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="button" data-testid="chat-task-workbench-capability-detail-back" onClick={step.onBack} className="-ml-1 flex items-center gap-1 self-start rounded-md px-1 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <ArrowLeft aria-hidden className="size-4" />返回列表
         </button>
       ) : null}
@@ -646,7 +646,7 @@ function ExpandableList({ items }: { items: readonly string[] }): JSX.Element {
       {shown.map((w) => <li key={w} className={open ? "break-words" : "truncate"} title={w}>{w}</li>)}
       {items.length > 5 ? (
         <li>
-          <button type="button" aria-expanded={open} data-testid="chat-task-workbench-capability-facet-tools-more" onClick={() => setOpen((v) => !v)} className="text-left text-muted-foreground underline-offset-2 hover:text-card-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button type="button" aria-expanded={open} data-testid="chat-task-workbench-capability-facet-tools-more" onClick={() => setOpen((v) => !v)} className="text-left text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {open ? "收起" : `另有 ${items.length - 5} 个`}
           </button>
         </li>
