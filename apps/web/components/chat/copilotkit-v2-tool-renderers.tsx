@@ -256,7 +256,7 @@ export function CopilotKitV2ToolRenderers(): null {
     {
       name: agentRole.REQUEST_HANDOFF_TOOL_NAME,
       parameters: z.object({}).passthrough(),
-      render: ({ status, result }) => <HandoffRefusalNotice result={status === "complete" ? result : undefined} />,
+      render: ({ status, result, toolCallId }) => <HandoffRefusalNotice toolCallId={toolCallId} result={status === "complete" ? result : undefined} />,
     },
     [],
   );
@@ -385,9 +385,10 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
 }
 
 /** 转交没有发起时的行内提示：说明原因（服务端给出的中文句子），并告诉用户对话会继续。 */
-function HandoffRefusalNotice({ result }: { result: string | undefined }) {
+function HandoffRefusalNotice({ result, toolCallId }: { result: string | undefined; toolCallId: string | undefined }) {
   const notice = handoffRefusalNotice(result);
-  if (notice === null) return null;
+  const isOwner = useSingleNoticeOwner(notice === null ? undefined : toolCallId);
+  if (notice === null || !isOwner) return null;
   return (
     <p
       role="status"
@@ -402,4 +403,36 @@ function HandoffRefusalNotice({ result }: { result: string | undefined }) {
       </span>
     </p>
   );
+}
+
+/**
+ * UIUX r4：同一次 `request_handoff` 调用在实时流里可能被渲染不止一处（流式气泡 + 回填气泡），
+ * 「没有转交」提示条因此出现两次。按工具调用 id 只让第一个挂载的实例画出来；它卸载后由剩下的接手。
+ */
+const noticeOwners = new Map<string, symbol>();
+const noticeListeners = new Set<() => void>();
+function emitNoticeOwners(): void { for (const listener of noticeListeners) listener(); }
+function subscribeNoticeOwners(listener: () => void): () => void {
+  noticeListeners.add(listener);
+  return () => { noticeListeners.delete(listener); };
+}
+export function useSingleNoticeOwner(key: string | undefined): boolean {
+  const token = React.useRef<symbol>(Symbol("handoff-notice")).current;
+  const owner = React.useSyncExternalStore(
+    subscribeNoticeOwners,
+    () => (key === undefined ? undefined : noticeOwners.get(key)),
+    () => undefined,
+  );
+  React.useEffect(() => {
+    if (key === undefined || noticeOwners.has(key)) return;
+    noticeOwners.set(key, token);
+    emitNoticeOwners();
+  }, [key, owner, token]);
+  React.useEffect(() => () => {
+    if (key !== undefined && noticeOwners.get(key) === token) {
+      noticeOwners.delete(key);
+      emitNoticeOwners();
+    }
+  }, [key, token]);
+  return key === undefined || owner === token;
 }

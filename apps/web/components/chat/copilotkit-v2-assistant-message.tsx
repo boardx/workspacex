@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
+import { hasToolResult, toolPreambleCall, useLiveMessages } from "@/lib/chat-workbench/tool-preamble";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -316,6 +317,12 @@ function V2AssistantMessageImpl(
     [messageId],
   );
   const traceCovered = React.useContext(RunTraceCoveredContext);
+  // UIUX r4：转交请求的前导语「正在提交转交请求。」一旦工具结果到达（实时流里，不必等 resync）
+  // 就被结果（转交卡片 / 「没有转交」提示条）取代，不再留在气泡里。
+  const liveMessages = useLiveMessages(props.messages);
+  const handoffPreamble = toolPreambleCall(props.message, liveMessages, isInlineNoticeTool);
+  const handoffPreambleSettled = handoffPreamble !== null && text.trim() !== "" && hasToolResult(liveMessages, handoffPreamble.id);
+  if (handoffPreambleSettled && (props.message.toolCalls ?? []).length === 0) return <></>;
   // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
   // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回
   // null），可框架的消息外壳 + 空 markdown 容器照样占一格——20 次工具调用就叠出一屏空白。
@@ -337,6 +344,7 @@ function V2AssistantMessageImpl(
         // issue #2307 —— 见上方 `effectiveIsRunning` 的完整推理：只对这一条消息
         // 覆盖框架自己的"是否还在跑"判断，落库 id 一旦解析出来就不再让协议层
         // `RUN_FINISHED` 的到达时序卡住整条 toolbar（含下面的落地入口）。
+        {...(handoffPreambleSettled ? { message: { ...props.message, content: "" } } : {})}
         isRunning={effectiveIsRunning}
         markdownRenderer={markdownRenderer}
         copyButton={copyButton}
