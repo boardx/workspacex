@@ -290,7 +290,7 @@ export function TodayBoardLive() {
       await changeTaskStatus(id, target as never, "退回上一步");
       await refresh();
     } catch (e) {
-      setError(`标记阻塞失败：${describeFailure(e)}`);
+      setError(`退回失败：${describeFailure(e)}`);
     }
   };
 
@@ -377,7 +377,7 @@ export function TodayBoardLive() {
           <section className="flex flex-col gap-2" data-testid="tasks-live-other-tasks">
             <h2 className="text-14 font-semibold">我的其他待办</h2>
             <p className="text-11 text-muted-foreground">未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。</p>
-            {otherTasksError ? <div role="alert"><p className="text-12 text-destructive">{otherTasksError}</p><Button size="sm" variant="outline" onClick={() => void refresh()}>重试读取其他任务</Button></div> : otherTasks.length === 0 ? <p className="text-11 text-muted-foreground">没有其他待办</p> : otherTasks.map((card) => <LiveCard key={card.id} card={card} onAdvance={(id) => void advance(id, cardsById.get(id)!)} onBlock={(id) => void block(id, cardsById.get(id)!)} />)}
+            {loading ? <p role="status" className="text-11 text-muted-foreground">正在读取其他待办…</p> : otherTasksError ? <div role="alert"><p className="text-12 text-destructive">{otherTasksError}</p><Button size="sm" variant="outline" onClick={() => void refresh()}>重试读取其他任务</Button></div> : otherTasks.length === 0 ? <p className="text-11 text-muted-foreground">没有其他待办</p> : otherTasks.map((card) => <LiveCard key={card.id} card={card} onAdvance={(id) => void advance(id, cardsById.get(id)!)} onBlock={(id) => void block(id, cardsById.get(id)!)} />)}
           </section>
 
           <footer

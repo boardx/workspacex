@@ -1514,9 +1514,9 @@ export function CopilotKitV2PanelBody({
   const wasRunningRef = React.useRef(false);
   React.useEffect(() => {
     if (agent.isRunning && !wasRunningRef.current) announceToChat("正在处理你的请求……");
-    if (!agent.isRunning && wasRunningRef.current) announceToChat("回复已生成。");
+    if (!agent.isRunning && wasRunningRef.current) announceToChat(error ? "这次任务执行失败，请查看错误说明。" : "本次处理已结束，请查看任务结果。");
     wasRunningRef.current = agent.isRunning;
-  }, [agent.isRunning]);
+  }, [agent.isRunning, error]);
 
   /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。
    *

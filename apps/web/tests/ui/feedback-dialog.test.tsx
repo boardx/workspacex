@@ -39,7 +39,7 @@ import type { FeedbackTarget } from "@/lib/live-feedback";
 import { ApiError } from "@/lib/api-client";
 import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
 
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); vi.unstubAllGlobals(); });
 
 function openDialogFor(target: FeedbackTarget, label: string | null = null) {
   render(
@@ -694,10 +694,14 @@ describe("迭代 35：提反馈这个框——内部码不上屏，丢掉的东�
      * 用户只会以为它们也传上去了。
      */
     apiRequest.mockImplementation(async () => ({ items: [] }));
+    // 配额测试仍触发真实上传封装；stub HTTP 边界并等待上传结束，避免真实请求逃出测试环境。
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, text: async () => JSON.stringify({ attachmentId: "quota-test", url: "/feedback/attachments/quota-test" }) });
+    vi.stubGlobal("fetch", fetchMock);
     openDialogFor({ kind: "product" });
     const png = (n: string) => new File([new Uint8Array([1])], n, { type: "image/png" });
     const six = [png("1.png"), png("2.png"), png("3.png"), png("4.png"), png("5.png"), png("6.png")];
-    fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: six } });
+    await act(async () => { fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: six } }); });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     const note = await screen.findByTestId("feedback-attachment-quota");
     expect(note.textContent).toContain("只收下了 5 个");
     expect(note.textContent).toContain("1 个没加进来");
