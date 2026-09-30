@@ -5,6 +5,7 @@ import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { MessageRunContext, RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
 import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
+import { toolPreambleCall, useLiveMessages } from "@/lib/chat-workbench/tool-preamble";
 import { RunEscalationRecords } from "@/components/chat/agent-escalation-card";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
@@ -323,7 +324,12 @@ function V2AssistantMessageImpl(
   // uiux-r3 #4.2 —— 带升级调用的那一条是「正在提交…」式的待决旁白：待决时升级卡片就是这一轮
   // 的状态，裁决后结果由下一条回答与已裁决记录承载。这句话不会被结果替换，留着就是一条
   // 永远停在进行时的假状态，整条不渲染。
-  if (isPendingToolStatement(props.message) && producedFiles.length === 0) return <></>;
+  // UIUX r4：实时流里前导语与升级调用是两条消息（正文一条、`TOOL_CALL_START` 新造的气泡一条），
+  // 只看本条的 toolCalls 抓不到——裁决后那句「这件事超出了我的职责……」一直留到刷新。按同一轮里
+  // 紧随其后的调用判定，读实时消息列表（框架 memo 不会因后面的消息变化重渲染这一条）。
+  const liveMessages = useLiveMessages(props.messages);
+  const escalatePreamble = toolPreambleCall(props.message, liveMessages, (name) => name === ESCALATE_TOOL_NAME) !== null;
+  if ((isPendingToolStatement(props.message) || escalatePreamble) && producedFiles.length === 0) return <></>;
   // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
   // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回
   // null），可框架的消息外壳 + 空 markdown 容器照样占一格——20 次工具调用就叠出一屏空白。

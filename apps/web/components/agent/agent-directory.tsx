@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { DeniedState, ErrorState, LoadingSkeleton } from "@/components/work-stack/states";
 import { Bot, Workflow } from "lucide-react";
+import { agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
 import {
   AGENT_ROLE_CATEGORIES,
   agentDisplayName,
@@ -34,12 +35,13 @@ function ReadinessBadge({ readiness }: { readiness: AgentDirectoryCard["readines
   // 同一套 Badge 语义色（uiux-r1 cross-cutting：不再混用实底棕色 pill 与浅色 pill）——
   // 「部分待开通」用浅色 warning-tint，不是实底 warning：它不阻止开始对话。
   if (readiness === "ready") {
-    return <Badge tone="success" data-testid="agent-card-readiness">可用</Badge>;
+    return <Badge tone="success" data-testid="agent-card-readiness" className="shrink-0 whitespace-nowrap">可用</Badge>;
   }
   return (
     <Badge
       tone="attention"
       data-testid="agent-card-readiness"
+      className="shrink-0 whitespace-nowrap"
       title="日常对话可以直接开始；少数要连外部系统的动作还在等组织管理员开通"
     >
       部分能力待开通
@@ -51,6 +53,8 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
   const name = agentDisplayName(card);
   const subtitle = agentSubtitle(card);
   const detailHref = `/agent/${encodeURIComponent(card.agentId)}`;
+  const workflowLabels = [...new Set(card.workflows.map(agentWorkflowLabel))];
+  const workflowsLine = workflowLabels.length > 0 ? `可发起：${workflowLabels.join("、")}` : null;
   return (
     <Card data-testid={`agent-card-${card.agentId}`} className="flex h-full flex-col transition-colors hover:border-ai-tint-foreground/40">
       <CardContent className="flex flex-1 flex-col gap-3 pt-4">
@@ -87,7 +91,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <span data-testid="agent-card-workflows" className="flex min-w-0 items-center gap-1 truncate text-11 text-muted-foreground">
             <Workflow aria-hidden className="h-3.5 w-3.5 shrink-0" />
-            {card.workflows.length > 0 ? `${card.workflows.length} 个可发起的工作流` : "直接对话推进"}
+            <span className="min-w-0 truncate" title={workflowsLine ?? undefined}>{workflowsLine ?? "直接对话推进"}</span>
           </span>
           <ReadinessBadge readiness={card.readiness} />
         </div>

@@ -42,7 +42,7 @@ const SELECT = `
     JOIN capability_listings cl
       ON cl.id = a.id AND cl.org_id = a.org_id
    WHERE a.org_id = $1 AND a.status = 'enabled' AND cl.kind = 'agent'
-     AND cl.scope = 'org-wide' AND cl.enabled = true AND v.role_category IS NOT NULL`;
+     AND cl.scope = 'org-wide' AND cl.enabled = true`;
 
 /** `agents.skill_mounts` 是 `[{skillId, skillVersion}]` jsonb；形状不对的元素直接跳过（容错读，不抛）。 */
 function skillIdsOf(raw: unknown): string[] {
@@ -58,7 +58,9 @@ function toRow(row: Row): AgentDirectoryRow {
     name: row.name,
     roleLabel: row.role_label,
     avatar: fields.avatar,
-    roleCategory: fields.roleCategory,
+    // UIUX r4：没有角色分类的组织可见 Agent（系统预置「通用助手」、组织自建）归入「通用」，
+    // 不再被目录整个挡在外面——它们对成员可用，目录不列就找不到。
+    roleCategory: fields.roleCategory ?? "general",
     tags: fields.tags,
     catalogSource: fields.catalogSource,
     workflowAllowlist: fields.workflowAllowlist,

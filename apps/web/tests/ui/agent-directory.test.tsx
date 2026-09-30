@@ -215,4 +215,23 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
     await waitFor(() => expect(screen.getByTestId("agent-card-start-chat")).not.toBeNull());
     expect(screen.getByTestId("agent-card-start-chat").className).toContain("bg-secondary");
   });
+
+  it("UIUX r4：每张卡的「可发起」走同一解析——全中文、不漏英文 id；可用徽标不折行", async () => {
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([
+      card({ agentId: "a1", name: "小析", roleCategory: "research", workflows: [
+        { stableId: "W001", name: "Research-to-Brief" },
+        { stableId: "W010", name: "Knowledge Capture Loop" },
+        { stableId: "W099", name: "Custom Flow（自定义流程）" },
+      ] }),
+      card({ agentId: "a2", name: "小产", roleCategory: "product", workflows: [{ stableId: "W029", name: "Problem to PRD" }] }),
+    ])} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
+    const line1 = within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-workflows").textContent ?? "";
+    expect(line1).toBe("可发起：研究到简报、知识捕获闭环、自定义流程");
+    expect(within(screen.getByTestId("agent-card-a2")).getByTestId("agent-card-workflows").textContent).toBe("可发起：问题定义到 PRD");
+    expect(line1).not.toMatch(/[A-Za-z]{3,}/);
+    const badge = within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-readiness");
+    expect(badge.className).toContain("whitespace-nowrap");
+    expect(badge.className).toContain("shrink-0");
+  });
 });

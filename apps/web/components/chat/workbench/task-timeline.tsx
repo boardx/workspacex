@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { LiveMessagesContext } from "@/lib/chat-workbench/tool-preamble";
 import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 import { CopilotChatMessageView, CopilotChatAssistantMessage, useRenderToolCall } from "@copilotkit/react-core/v2";
 import { progressMessageIds, type TraceStore, type TraceEntry } from "@/lib/chat-workbench/run-trace";
@@ -98,7 +99,7 @@ export function TaskTimeline({ events, messageRuns, toolCallMessageIds = EMPTY_I
   // 同一份事实的另一面：有锚点的 run 由 inline 槽画，没锚点的才由 fallback 槽画。
   const displayed = new Set(Object.keys(anchors));
   return <TraceContext.Provider value={value}>
-    <CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} />
+    <LiveMessagesContext.Provider value={props.messages ?? null}><CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} /></LiveMessagesContext.Provider>
     {Object.entries(events).filter(([runId]) => !displayed.has(runId)).map(([runId, trace]) =>
       <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
   </TraceContext.Provider>;

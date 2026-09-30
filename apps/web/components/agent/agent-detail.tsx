@@ -22,8 +22,7 @@ import {
 } from "@/lib/agent-directory";
 import { getSkillDetail, listSkills, type SkillListItem } from "@/lib/live-skill";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
-import { workflowDisplayName } from "@/lib/workflow-display-copy";
-import { catalogWorkflowTitleZh } from "@/lib/workflow-catalog-title-copy";
+import { agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
 
 /**
  * AG04 follow-up（契约束 agent-role UC-4）—— 成员可见的数字人详情页 `/agent/[id]`，挂在标准
@@ -346,7 +345,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
               />
             ) : (
               <ul className="mt-3 flex flex-col divide-y divide-border rounded-control border border-border">
-                {card.workflows.map((wf) => ({ ...wf, name: workflowDisplayName(wf.stableId, catalogWorkflowTitleZh(wf.name)) })).map((w) => (
+                {card.workflows.map((wf) => ({ ...wf, name: agentWorkflowLabel(wf) })).map((w) => (
                   <li key={w.stableId} data-testid="agent-detail-workflow" className="flex items-center gap-3 px-3 py-2.5">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-accent text-accent-foreground">
                       <Workflow aria-hidden className="h-3.5 w-3.5" />

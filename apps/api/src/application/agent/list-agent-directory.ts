@@ -58,7 +58,7 @@ export interface AgentDirectoryRow {
 }
 
 export interface AgentDirectoryRepository {
-  /** 只返回 `roleCategory` 非空、`org-wide` 可见、已发布、启用中的行。 */
+  /** 只返回 `org-wide` 可见、已发布、启用中的行；未分类的行以 `general` 返回（UIUX r4：通用助手要进目录）。 */
   listVisible(orgId: OrgId): Promise<readonly AgentDirectoryRow[]>;
   findVisible(orgId: OrgId, agentId: string): Promise<AgentDirectoryRow | null>;
 }

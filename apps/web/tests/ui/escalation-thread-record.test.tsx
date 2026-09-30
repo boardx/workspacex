@@ -148,3 +148,29 @@ describe("⑥ 卡片文案", () => {
     expect(screen.getByTestId("agent-escalation-text").getAttribute("placeholder")).not.toContain("折");
   });
 });
+
+describe("UIUX r4：实时流里的升级前导语", () => {
+  it("正文与升级调用分成两条消息时，调用一到（含裁决后）前导语就不再显示，不等刷新", async () => {
+    const { LiveMessagesContext } = await import("@/lib/chat-workbench/tool-preamble");
+    listAgentDirectory.mockResolvedValue([DH]);
+    getAgentRun.mockResolvedValue(runView());
+    const identity = { resolve: () => null, resolvePersisted: () => null } as never;
+    const user = { id: "u", role: "user", content: "q" };
+    const pendingText = { id: "p", role: "assistant", content: "这件事超出了我的职责，需要负责人拍板。" };
+    const escalateCall = { id: "c", role: "assistant", content: "", toolCalls: [{ id: "esc-1", type: "function", function: { name: ESCALATE_TOOL_NAME, arguments: "{}" } }] };
+    const view = (live: readonly unknown[]) => (
+      <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+        <CopilotKitV2MessageActionsProvider value={{ identity, agentId: null, agentLabel: null, landing: null }}>
+          <LiveMessagesContext.Provider value={live as never}>
+            {/* 框架 memo 下 props.messages 是旧数组：只有前导语自己 */}
+            <V2AssistantMessage message={pendingText as never} messages={[user, pendingText] as never} isRunning />
+          </LiveMessagesContext.Provider>
+        </CopilotKitV2MessageActionsProvider>
+      </CopilotKit>
+    );
+    const { rerender } = render(view([user, pendingText]));
+    expect(screen.queryByText("这件事超出了我的职责，需要负责人拍板。")).not.toBeNull();
+    rerender(view([user, pendingText, escalateCall, { id: "r", role: "tool", toolCallId: "esc-1", content: "resolved" }, { id: "f", role: "assistant", content: "负责人已同意。" }]));
+    await waitFor(() => expect(screen.queryByText("这件事超出了我的职责，需要负责人拍板。")).toBeNull());
+  });
+});
