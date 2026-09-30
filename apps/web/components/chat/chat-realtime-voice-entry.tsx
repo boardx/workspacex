@@ -18,7 +18,7 @@ import { RealtimeVoiceSession, type RealtimeVoicePersona } from "@/components/ch
  */
 export interface ChatRealtimeVoiceEntryProps {
   readonly disabled: boolean;
-  readonly agent: { readonly id: string; readonly name: string; readonly duty: string | null } | null;
+  readonly agent: { readonly id: string; readonly name: string; readonly duty: string | null; readonly roleLabel?: string | null } | null;
   readonly resolveThreadId: () => Promise<string>;
   readonly onEnded: (info: { readonly threadId: string | null; readonly persistedMessageIds: readonly string[] }) => void;
 }
@@ -41,7 +41,8 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
   const persona: RealtimeVoicePersona = {
     agentId,
     name: agent?.name ?? "通用助手",
-    subtitle: agent?.duty ?? "随时可以聊，我会尽量简洁地回答",
+    // 名字下面放角色一句话（duty），与名字重复就退到头衔（roleLabel），都重复则不显示（见 realtimeVoiceSubtitle）。
+    subtitle: agent ? pickVoiceSubtitle(agent) : "随时可以聊，我会尽量简洁地回答",
     avatarKey,
   };
 
@@ -62,6 +63,16 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
       <RealtimeVoiceSession open={open} onOpenChange={setOpen} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} />
     </>
   );
+}
+
+/** duty / roleLabel 里第一个非空、且不等于名字的那条；都没有返回 null。 */
+export function pickVoiceSubtitle(agent: { readonly name: string; readonly duty: string | null; readonly roleLabel?: string | null }): string | null {
+  const name = agent.name.trim();
+  for (const c of [agent.duty, agent.roleLabel]) {
+    const t = c?.trim() ?? "";
+    if (t.length > 0 && t !== name) return t;
+  }
+  return null;
 }
 
 /** 结构类型：只用到 CopilotKit agent 的消息读写两件事。 */
@@ -107,6 +118,8 @@ export function createVoiceThreadLifecycle(
     readonly existingThreadId: () => string | null;
     readonly projectId: string | null;
     readonly onPersisted: (info: { readonly threadId: string; readonly createdByVoice: boolean; readonly messageIds: readonly string[] }) => void;
+    /** 通话结束但一句都没落库（没说话 / 没识别到）——调用方给一句提示，别让用户以为保存了。 */
+    readonly onNothingSaved?: () => void;
   },
   deps: VoiceThreadLifecycleDeps = defaultLifecycleDeps,
 ): { resolveThreadId: () => Promise<string>; onEnded: (info: { readonly threadId: string | null; readonly persistedMessageIds: readonly string[] }) => void } {
@@ -125,6 +138,7 @@ export function createVoiceThreadLifecycle(
       const own = created !== null && created.threadId === threadId ? created : null;
       if (threadId === null) return;
       if (persistedMessageIds.length === 0) {
+        opts.onNothingSaved?.();
         if (own) {
           created = null;
           void deps.discard(own.threadId, opts.projectId, own.version).catch(() => { /* 删失败只留一条空线程，不打扰用户 */ });

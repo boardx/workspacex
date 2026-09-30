@@ -54,7 +54,7 @@ describe("RealtimeVoiceSession", () => {
 
     act(() => h.onReady("qwen"));
     expect(status()).toHaveTextContent("空闲");
-    expect(screen.getByRole("dialog")).toHaveAccessibleName("与 研究员小周 实时对话");
+    expect(screen.getByRole("dialog")).toHaveAccessibleName("与研究员小周实时对话");
 
     act(() => h.onUserSpeech(true));
     expect(status()).toHaveAttribute("data-activity", "listening");
@@ -99,7 +99,53 @@ describe("RealtimeVoiceSession", () => {
     act(() => { calls[0]!.handlers.onReady("qwen"); calls[0]!.handlers.onTurnPersisted?.("user", "m-1"); calls[0]!.handlers.onTurnPersisted?.("assistant", "m-2"); });
     rerender(<RealtimeVoiceSession open={false} onOpenChange={onOpenChange} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} connect={connect} />);
     expect(calls[0]!.handle.stop).toHaveBeenCalled();
-    expect(onEnded).toHaveBeenCalledWith({ threadId: "thread-1", persistedMessageIds: ["m-1", "m-2"] });
+    await waitFor(() => expect(onEnded).toHaveBeenCalledWith({ threadId: "thread-1", persistedMessageIds: ["m-1", "m-2"] }));
+  });
+
+  it("waits for the hangup to settle: a turn persisted during stop() is still reported to onEnded", async () => {
+    const calls: FakeCall[] = [];
+    const connect = (async (target: string | OmniConversationTarget, handlers: OmniConversationHandlers) => {
+      const handle = {
+        // 服务端在挂断收尾时才落下最后一句
+        stop: vi.fn(async () => { await new Promise((r) => setTimeout(r, 20)); handlers.onTurnPersisted?.("user", "m-last"); }),
+        cancelResponse: vi.fn(), setMuted: vi.fn(),
+      };
+      calls.push({ target: target as OmniConversationTarget, handlers, handle });
+      return handle;
+    }) as unknown as typeof openOmniConversation;
+    const { rerender, onEnded, onOpenChange, resolveThreadId } = renderSession(connect);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    act(() => calls[0]!.handlers.onReady("qwen"));
+    rerender(<RealtimeVoiceSession open={false} onOpenChange={onOpenChange} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} connect={connect} />);
+    expect(onEnded).not.toHaveBeenCalled();
+    await waitFor(() => expect(onEnded).toHaveBeenCalledWith({ threadId: "thread-1", persistedMessageIds: ["m-last"] }));
+  });
+
+  it("subtitle under the name: shows the role one-liner, hidden when it just repeats the name", async () => {
+    const { connect } = fakeConnect();
+    const { unmount } = renderSession(connect);
+    expect(screen.getByTestId("realtime-voice-subtitle")).toHaveTextContent("行业研究");
+    unmount();
+    renderSession(fakeConnect().connect, { persona: { ...persona, name: "研究与知识分析师", subtitle: "研究与知识分析师" } });
+    expect(screen.queryByTestId("realtime-voice-subtitle")).toBeNull();
+    expect(screen.getAllByText("研究与知识分析师")).toHaveLength(1);
+  });
+
+  it("controls carry visible labels + aria-label/tooltip, and a live mic level meter follows capture RMS", async () => {
+    const { connect, calls } = fakeConnect();
+    renderSession(connect);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    act(() => calls[0]!.handlers.onReady("qwen"));
+    for (const [id, label] of [["realtime-voice-mute", "静音"], ["realtime-voice-hangup", "挂断"], ["realtime-voice-interrupt", "打断"]] as const) {
+      const button = screen.getByTestId(id);
+      expect(button.getAttribute("aria-label")).toBeTruthy();
+      expect(button.getAttribute("title")).toBeTruthy();
+      expect(button.parentElement).toHaveTextContent(label);
+    }
+    const meter = screen.getByTestId("realtime-voice-input-level");
+    expect(meter).toHaveAttribute("aria-valuenow", "0");
+    act(() => calls[0]!.handlers.onInputLevel?.(0.5));
+    expect(meter).toHaveAttribute("aria-valuenow", "50");
   });
 
   it("shows a friendly not-configured state (no raw codes) without retry", async () => {

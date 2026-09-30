@@ -1131,6 +1131,7 @@ export function CopilotKitV2PanelBody({
       }
       void mergePersistedVoiceTurns(agent, tid, messageIds, getStoredSessionToken() ?? undefined).catch(() => setError("语音对话已保存，刷新页面即可看到。"));
     },
+    onNothingSaved: () => setNotice("这次实时对话没有识别到说话内容，所以没有保存记录。"),
   }));
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",

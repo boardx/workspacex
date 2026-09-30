@@ -3,7 +3,7 @@
  * 落了库才回写；已有线程永远不删。
  */
 import { describe, expect, it, vi } from "vitest";
-import { createVoiceThreadLifecycle } from "@/components/chat/chat-realtime-voice-entry";
+import { createVoiceThreadLifecycle, pickVoiceSubtitle } from "@/components/chat/chat-realtime-voice-entry";
 
 function setup(existing: string | null = null) {
   const deps = { create: vi.fn(async () => ({ threadId: "t-new", version: 3 })), discard: vi.fn(async () => ({})) };
@@ -39,5 +39,23 @@ describe("createVoiceThreadLifecycle", () => {
     expect(deps.discard).not.toHaveBeenCalled();
     life.onEnded({ threadId: "t-existing", persistedMessageIds: ["m-2"] });
     expect(onPersisted).toHaveBeenCalledWith({ threadId: "t-existing", createdByVoice: false, messageIds: ["m-2"] });
+  });
+
+  it("tells the caller when nothing was saved (so the UI does not imply it was)", async () => {
+    const deps = { create: vi.fn(async () => ({ threadId: "t-new", version: 1 })), discard: vi.fn(async () => ({})) };
+    const onNothingSaved = vi.fn();
+    const life = createVoiceThreadLifecycle({ existingThreadId: () => null, projectId: null, onPersisted: vi.fn(), onNothingSaved }, deps);
+    await life.resolveThreadId();
+    life.onEnded({ threadId: "t-new", persistedMessageIds: [] });
+    expect(onNothingSaved).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("pickVoiceSubtitle", () => {
+  it("uses the duty one-liner, falls back to roleLabel, never repeats the name", () => {
+    expect(pickVoiceSubtitle({ name: "研究员小周", duty: "行业研究与竞品分析", roleLabel: "研究员" })).toBe("行业研究与竞品分析");
+    expect(pickVoiceSubtitle({ name: "研究与知识分析师", duty: "研究与知识分析师", roleLabel: "知识分析" })).toBe("知识分析");
+    expect(pickVoiceSubtitle({ name: "研究与知识分析师", duty: "研究与知识分析师", roleLabel: "研究与知识分析师" })).toBeNull();
+    expect(pickVoiceSubtitle({ name: "A", duty: null })).toBeNull();
   });
 });

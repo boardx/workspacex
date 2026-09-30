@@ -25,6 +25,19 @@ export interface OmniConversationHandlers {
   readonly onError: (message: string, reason?: OmniErrorReason) => void;
   readonly onClosed: () => void;
   readonly onTurnPersisted?: (role: "user" | "assistant", messageId: string) => void;
+  /** 麦克风输入电平 0..1（每帧 RMS，静音时报 0）——界面据此画输入电平条。 */
+  readonly onInputLevel?: (level: number) => void;
+}
+
+/** 挂断时等服务端把最后一句转写落库并回 `session.closed` 的上限。 */
+export const STOP_SETTLE_TIMEOUT_MS = 6_000;
+
+/** PCM16 帧的 RMS 电平，映射到 0..1（语音 RMS 通常远小于满幅，乘个增益让条看得见）。 */
+export function pcm16Level(frame: Int16Array): number {
+  if (frame.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < frame.length; i += 1) { const v = frame[i]! / 32768; sum += v * v; }
+  return Math.min(1, Math.sqrt(sum / frame.length) * 4);
 }
 
 export interface OmniConversationHandle {
@@ -69,6 +82,7 @@ export async function openOmniConversation(
   let capture: CaptureHandle | null = null;
   let closed = false;
   let muted = false;
+  let settle: (() => void) | null = null;
   socket.addEventListener("message", (event) => {
     const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
     if (!parsed.success) return handlers.onError("实时模型返回了无法识别的数据");
@@ -83,6 +97,7 @@ export async function openOmniConversation(
     if (frame.type === "user.transcript") return handlers.onUserTranscript(frame.text, frame.final);
     if (frame.type === "assistant.transcript") return handlers.onAssistantTranscript(frame.text, frame.final);
     if (frame.type === "assistant.audio") {
+      if (closed) return; // 挂断收尾期间不再出声
       handlers.onAssistantAudio(true);
       player.enqueue(frame.audio);
       return;
@@ -90,9 +105,11 @@ export async function openOmniConversation(
     if (frame.type === "assistant.audio_done") return handlers.onAssistantAudio(false);
     if (frame.type === "session.error") return handlers.onError(frame.message, frame.reason);
     if (frame.type === "turn.persisted") return handlers.onTurnPersisted?.(frame.role, frame.messageId);
+    if (settle) return settle();
     handlers.onClosed();
   });
   socket.addEventListener("close", () => {
+    settle?.();
     if (!closed) handlers.onClosed();
   });
   socket.addEventListener("error", () => handlers.onError("实时通话网络连接已中断"));
@@ -109,6 +126,7 @@ export async function openOmniConversation(
     throw new OmniConversationStartError(denied ? "mic-denied" : "mic-unavailable");
   }
   capture.onFrame((frame) => {
+    handlers.onInputLevel?.(muted ? 0 : pcm16Level(frame));
     if (muted) return;
     if (socket.readyState === WebSocket.OPEN) socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
   });
@@ -125,7 +143,13 @@ export async function openOmniConversation(
       closed = true;
       await capture?.stop();
       await player.close();
-      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "session.stop" }));
+      // 挂断：告诉服务端收尾，等它把最后一句转写落库（期间照常收 turn.persisted）并回 session.closed，
+      // 再关连接——直接关会丢掉「说完立刻挂断」的那一句（uiux-r4：挂断后线程为空）。
+      if (socket.readyState === WebSocket.OPEN) {
+        const settled = new Promise<void>((resolve) => { settle = resolve; });
+        socket.send(JSON.stringify({ type: "session.stop" }));
+        await Promise.race([settled, new Promise<void>((resolve) => setTimeout(resolve, STOP_SETTLE_TIMEOUT_MS))]);
+      }
       socket.close();
       handlers.onClosed();
     },

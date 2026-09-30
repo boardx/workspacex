@@ -90,6 +90,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
   const [userCaption, setUserCaption] = React.useState("");
   const [assistantCaption, setAssistantCaption] = React.useState("");
   const [elapsed, setElapsed] = React.useState(0);
+  const [inputLevel, setInputLevel] = React.useState(0);
 
   const handleRef = React.useRef<OmniConversationHandle | null>(null);
   const threadIdRef = React.useRef<string | null>(null);
@@ -125,6 +126,12 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
         },
         onAssistantAudio: (speaking) => { if (!stale()) setActivity(speaking ? "speaking" : "idle"); },
         onTurnPersisted: (_role, messageId) => { persistedRef.current.push(messageId); },
+        onInputLevel: (level) => {
+          if (stale()) return;
+          // 量化到 5% 一档，避免每帧都重渲染。
+          const q = Math.round(level * 20) / 20;
+          setInputLevel((current) => (current === q ? current : q));
+        },
         onError: (_message, reason) => {
           if (stale()) return;
           const next = reason ? REASON_FAILURE[reason] : { title: "网络连接中断", detail: "正在尝试恢复通话。", retryable: true };
@@ -166,8 +173,11 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
       generationRef.current += 1;
       const handle = handleRef.current;
       handleRef.current = null;
-      void handle?.stop();
-      onEnded?.({ threadId: threadIdRef.current, persistedMessageIds: [...persisted] });
+      const threadId = threadIdRef.current;
+      // 等服务端把最后一句落库（stop 内部有上限）再回报，否则「说完立刻挂断」那句不在 persisted 里。
+      void (handle ? handle.stop().catch(() => undefined) : Promise.resolve()).then(() => {
+        onEnded?.({ threadId, persistedMessageIds: [...persisted] });
+      });
     };
     // 只在挂载时开一次；`start` 的依赖变化不应重开会话。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,6 +214,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
   };
 
   const visibleActivity: Activity = phase === "live" ? activity : "idle";
+  const subtitle = realtimeVoiceSubtitle(persona);
   const statusText = phase === "connecting" ? "正在连接…"
     : phase === "reconnecting" ? "连接中断，正在重连…"
     : phase === "error" ? (failure?.title ?? "通话已断开")
@@ -212,9 +223,9 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
-      <header className="flex items-center justify-between gap-3 px-4 pt-4 sm:px-6">
+      <header className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-8 sm:pt-6">
         <div className="min-w-0">
-          <DialogPrimitive.Title className="truncate text-16 font-semibold">与 {persona.name} 实时对话</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="truncate text-16 font-semibold" data-testid="realtime-voice-title">{`与${persona.name}实时对话`}</DialogPrimitive.Title>
           <p className="text-12 text-muted-foreground">
             {phase === "live" ? <span data-testid="realtime-voice-elapsed">{formatElapsed(elapsed)}</span> : "语音模式"}
           </p>
@@ -225,7 +236,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
         <Portrait persona={persona} activity={visibleActivity} phase={phase} />
         <div className="flex flex-col items-center gap-1 text-center">
           <p className="text-20 font-semibold">{persona.name}</p>
-          {persona.subtitle ? <p className="max-w-md text-13 text-muted-foreground">{persona.subtitle}</p> : null}
+          {subtitle ? <p data-testid="realtime-voice-subtitle" className="max-w-md text-13 text-muted-foreground">{subtitle}</p> : null}
           <p
             role="status"
             aria-live="polite"
@@ -237,6 +248,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
             {phase === "connecting" || phase === "reconnecting" ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
             {statusText}
           </p>
+          {phase === "live" ? <InputLevelMeter level={muted ? 0 : inputLevel} muted={muted} /> : null}
         </div>
 
         {phase === "error" && failure ? (
@@ -257,45 +269,100 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
       </main>
 
       <footer className="flex flex-col items-center gap-3 px-4 pb-6 sm:px-6">
-        <div className="flex items-center gap-4">
-          <Button
+        <div className="flex items-start gap-6">
+          <ControlButton
+            label={muted ? "取消静音" : "静音"}
+            hint={muted ? "取消静音（快捷键 M）" : "静音（快捷键 M）"}
             variant="outline"
-            size="lg"
-            className="h-14 w-14 rounded-full p-0"
             onClick={toggleMute}
             disabled={phase !== "live"}
-            aria-pressed={muted}
-            aria-label={muted ? "取消静音（快捷键 M）" : "静音（快捷键 M）"}
-            data-testid="realtime-voice-mute"
+            pressed={muted}
+            testId="realtime-voice-mute"
           >
             {muted ? <MicOff aria-hidden className="h-6 w-6" /> : <Mic aria-hidden className="h-6 w-6" />}
-          </Button>
-          <Button
+          </ControlButton>
+          <ControlButton
+            label="挂断"
+            hint="挂断并保存（Esc）"
             variant="destructive"
-            size="lg"
-            className="h-16 w-16 rounded-full p-0"
+            large
             onClick={() => onOpenChange(false)}
-            aria-label="挂断（Esc）"
-            data-testid="realtime-voice-hangup"
+            testId="realtime-voice-hangup"
           >
             <PhoneOff aria-hidden className="h-7 w-7" />
-          </Button>
-          <Button
+          </ControlButton>
+          <ControlButton
+            label="打断"
+            hint="打断回答（也可以直接开口说话）"
             variant="outline"
-            size="lg"
-            className="h-14 w-14 rounded-full p-0"
             onClick={interrupt}
             disabled={phase !== "live" || visibleActivity !== "speaking"}
-            aria-label="打断回答（也可以直接开口说话）"
-            data-testid="realtime-voice-interrupt"
+            testId="realtime-voice-interrupt"
           >
             <Hand aria-hidden className="h-6 w-6" />
-          </Button>
+          </ControlButton>
         </div>
         <p id="realtime-voice-session-scope" className="max-w-md text-center text-11 text-muted-foreground">
-          可随时开口打断。语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。对话内容会保存到当前会话。
+          可随时开口打断。语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。你说的话和回答会以文字保存到当前会话。
         </p>
       </footer>
+    </div>
+  );
+}
+
+/** 名字下面那行：角色一句话简介；与名字相同（或为空）时不显示，免得重复。 */
+export function realtimeVoiceSubtitle(persona: Pick<RealtimeVoicePersona, "name" | "subtitle">): string | null {
+  const sub = persona.subtitle?.trim() ?? "";
+  if (sub.length === 0) return null;
+  return sub === persona.name.trim() ? null : sub;
+}
+
+function ControlButton({ label, hint, variant, large, onClick, disabled, pressed, testId, children }: {
+  label: string; hint: string; variant: "outline" | "destructive"; large?: boolean; onClick: () => void;
+  disabled?: boolean; pressed?: boolean; testId: string; children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <Button
+        variant={variant}
+        size="lg"
+        className={cn("rounded-full p-0", large ? "h-16 w-16" : "h-14 w-14")}
+        onClick={onClick}
+        disabled={disabled}
+        aria-pressed={pressed}
+        aria-label={hint}
+        title={hint}
+        data-testid={testId}
+      >
+        {children}
+      </Button>
+      <span aria-hidden className="text-12 text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+/** 麦克风输入电平条：让用户知道「它听得到我」。 */
+function InputLevelMeter({ level, muted }: { level: number; muted: boolean }): JSX.Element {
+  const bars = 12;
+  const lit = Math.round(level * bars);
+  return (
+    <div
+      role="meter"
+      aria-label="麦克风输入音量"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(level * 100)}
+      data-testid="realtime-voice-input-level"
+      data-level={level}
+      className="mt-1 flex h-4 items-end gap-0.5"
+    >
+      {Array.from({ length: bars }, (_, i) => (
+        <span
+          key={i}
+          className={cn("w-1 rounded-full transition-colors duration-base", !muted && i < lit ? "bg-primary" : "bg-border")}
+          style={{ height: `${6 + (i % 4) * 2}px` }}
+        />
+      ))}
     </div>
   );
 }
@@ -335,8 +402,8 @@ function Portrait({ persona, activity, phase }: { persona: RealtimeVoicePersona;
 function Caption({ who, text, placeholder, testId, emphasis }: { who: string; text: string; placeholder: string; testId: string; emphasis?: boolean }): JSX.Element | null {
   if (!text && !placeholder) return null;
   return (
-    <p data-testid={testId} className={cn("rounded-container px-4 py-3 text-14", emphasis ? "bg-card text-card-foreground" : "text-muted-foreground")}>
-      <span className="mr-2 text-12 font-medium text-muted-foreground">{who}</span>
+    <p data-testid={testId} className={cn("rounded-container px-4 py-3 text-14", emphasis ? "bg-card text-card-foreground" : "text-muted-foreground", !text && "text-center")}>
+      {text ? <span className="mr-2 text-12 font-medium text-muted-foreground">{who}</span> : null}
       {text || placeholder}
     </p>
   );

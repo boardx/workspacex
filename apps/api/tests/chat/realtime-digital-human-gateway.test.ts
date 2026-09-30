@@ -204,6 +204,88 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     ws.close();
   });
 
+  it("hangup mid-sentence (server VAD upstream): commits the open speech, persists the last user turn, THEN closes", async () => {
+    // 真实形状的假上游：session.updated → VAD speech_started → 客户端挂断 → 收到 commit 才回转写。
+    upstream.on("connection", (socket) => {
+      socket.on("message", (raw) => {
+        const event = JSON.parse(String(raw)) as Record<string, unknown>;
+        if (event.type === "input_audio_buffer.commit") {
+          socket.send(JSON.stringify({ type: "input_audio_buffer.committed", item_id: "item-2" }));
+          setTimeout(() => socket.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", item_id: "item-2", transcript: "最后一句：记得保存" })), 30);
+        }
+      });
+    });
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((f) => f.type === "session.ready"));
+    const up = upstreamSockets[0]!;
+    // 一轮完整对话（GA 事件名的助手转写也要落库）
+    up.send(JSON.stringify({ type: "input_audio_buffer.speech_started", audio_start_ms: 100 }));
+    up.send(JSON.stringify({ type: "input_audio_buffer.speech_stopped", audio_end_ms: 1200 }));
+    up.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", item_id: "item-1", transcript: "你好" }));
+    up.send(JSON.stringify({ type: "response.output_audio_transcript.delta", delta: "你好，" }));
+    up.send(JSON.stringify({ type: "response.output_audio_transcript.done", transcript: "你好，有什么可以帮你？" }));
+    ws.send(Buffer.alloc(3200));
+    up.send(JSON.stringify({ type: "input_audio_buffer.speech_started", audio_start_ms: 3000 }));
+    await until(() => frames.filter((f) => f.type === "turn.persisted").length === 2);
+    await until(() => upstreamMessages.some((m) => m.type === "input_audio_buffer.append"));
+    ws.send(JSON.stringify({ type: "session.stop" }));
+    await closed;
+    expect(upstreamMessages.some((m) => m.type === "input_audio_buffer.commit")).toBe(true);
+    expect(voice.appended).toEqual([
+      { role: "user", text: "你好" },
+      { role: "assistant", text: "你好，有什么可以帮你？" },
+      { role: "user", text: "最后一句：记得保存" },
+    ]);
+    const types = frames.map((f) => f.type);
+    expect(types.lastIndexOf("turn.persisted")).toBeLessThan(types.indexOf("session.closed"));
+    expect(frames.filter((f) => f.type === "turn.persisted")).toHaveLength(3);
+  });
+
+  it("hangup against an upstream without VAD (transcribes only on commit, like the stack's loopback): the spoken audio still lands in the thread", async () => {
+    upstream.on("connection", (socket) => {
+      let bytes = 0;
+      socket.on("message", (raw) => {
+        const event = JSON.parse(String(raw)) as { type: string; audio?: string };
+        if (event.type === "input_audio_buffer.append") bytes += Buffer.from(event.audio ?? "", "base64").byteLength;
+        if (event.type === "input_audio_buffer.commit") {
+          socket.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: bytes ? `收到 ${bytes} 字节` : "" }));
+        }
+      });
+    });
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));
+    await until(() => frames.some((f) => f.type === "session.ready"));
+    ws.send(Buffer.alloc(640));
+    await until(() => upstreamMessages.some((m) => m.type === "input_audio_buffer.append"));
+    ws.send(JSON.stringify({ type: "session.stop" }));
+    await closed;
+    expect(voice.appended).toEqual([{ role: "user", text: "收到 640 字节" }]);
+    expect(frames.some((f) => f.type === "turn.persisted")).toBe(true);
+  });
+
+  it("hangup with nothing said: no commit, closes promptly, nothing persisted", async () => {
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));
+    await until(() => frames.some((f) => f.type === "session.ready"));
+    const t0 = Date.now();
+    ws.send(JSON.stringify({ type: "session.stop" }));
+    await closed;
+    expect(Date.now() - t0).toBeLessThan(1_000);
+    expect(upstreamMessages.some((m) => m.type === "input_audio_buffer.commit")).toBe(false);
+    expect(voice.appended).toHaveLength(0);
+    expect(frames.at(-1)).toEqual({ type: "session.closed" });
+  });
+
+  it("asks the upstream for user transcription in session.update", async () => {
+    const { ws, frames } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));
+    await until(() => frames.some((f) => f.type === "session.ready"));
+    const update = upstreamMessages.find((m) => m.type === "session.update") as { session: { input_audio_transcription?: { model: string } } };
+    expect(update.session.input_audio_transcription?.model).toBeTruthy();
+    ws.close();
+  });
+
   it("maps upstream errors to a friendly UPSTREAM_FAILED without leaking provider details", async () => {
     const { ws, frames } = await connect(port);
     ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));

@@ -37,6 +37,8 @@ export interface RealtimeModelConfig {
   readonly model: string;
   readonly defaultVoice: string;
   readonly voiceMap: RealtimeVoiceMap;
+  /** 用户语音转写模型（Qwen omni realtime 不开 `input_audio_transcription` 就不回用户转写，挂断后线程里只剩空）。 */
+  readonly transcriptionModel?: string;
 }
 
 export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): RealtimeModelConfig {
@@ -46,6 +48,7 @@ export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): R
     model: env.KERNEL_OMNI_REALTIME_MODEL ?? "qwen3.8-omni-flash-realtime",
     defaultVoice: env.KERNEL_OMNI_REALTIME_VOICE ?? DEFAULT_REALTIME_VOICE,
     voiceMap: parseRealtimeVoiceMap(env.KERNEL_OMNI_REALTIME_VOICE_MAP),
+    transcriptionModel: env.KERNEL_OMNI_REALTIME_TRANSCRIPTION_MODEL ?? "gummy-realtime-v1",
   };
 }
 
@@ -104,6 +107,12 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
   let assistantDraft = "";
   let persistChain: Promise<void> = Promise.resolve();
   const pendingAudio: Buffer[] = [];
+  /** 上游有没有发过音频 / 是否跑 server VAD / 用户是否有一句还没转写完——决定挂断时要不要补一次 commit。 */
+  let audioSent = false;
+  let vadSeen = false;
+  let speechOpen = false;
+  let userTranscriptSettled: (() => void) | null = null;
+  let hangingUp = false;
   const close = (): void => {
     if (upstream?.readyState === UpstreamWebSocket.OPEN || upstream?.readyState === UpstreamWebSocket.CONNECTING) upstream.close();
     upstream = null;
@@ -142,6 +151,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
             input: { format: { type: "pcm", sample_rate: STREAM.audio.inputSampleRate, sample_format: "s16le", channels: 1, packing: "interleaved", channel_layout: "mono" } },
             output: { voice: plan.voice, format: { type: "pcm", sample_rate: STREAM.audio.outputSampleRate } },
           },
+          input_audio_transcription: { model: config.transcriptionModel ?? "gummy-realtime-v1" },
           turn_detection: { type: "server_vad", threshold: 0.2, silence_duration_ms: 600 },
         },
       }));
@@ -150,12 +160,20 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       }
     });
     socket.on("message", (message) => {
-      const event = safeJson(String(message)) as Record<string, unknown> | null;
-      if (!event || typeof event.type !== "string") return;
+      const event = normaliseUpstreamEvent(safeJson(String(message)));
+      if (!event) return;
       if (event.type === "session.updated") send({ type: "session.ready", model });
       // 转写落库：用户一句说完 / 数字人一段说完（或被打断）各落一条。
-      if (event.type === "conversation.item.input_audio_transcription.completed" && typeof event.transcript === "string") persist("user", event.transcript);
-      if (event.type === "input_audio_buffer.speech_started") flushAssistant();
+      if (event.type === "conversation.item.input_audio_transcription.completed" && typeof event.transcript === "string") {
+        speechOpen = false;
+        persist("user", event.transcript);
+        userTranscriptSettled?.();
+      }
+      if (event.type === "input_audio_buffer.speech_started") {
+        vadSeen = true;
+        speechOpen = true;
+        flushAssistant();
+      }
       if (event.type === "response.audio_transcript.delta" && typeof event.delta === "string") assistantDraft += event.delta;
       if (event.type === "response.audio_transcript.done") {
         assistantDraft = typeof event.transcript === "string" && event.transcript.trim() ? event.transcript : assistantDraft;
@@ -180,6 +198,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
         return;
       }
       upstream.send(JSON.stringify({ type: "input_audio_buffer.append", audio: raw.toString("base64") }));
+      audioSent = true;
       return;
     }
     const parsed = STREAM.client.safeParse(safeJson(String(raw)));
@@ -229,12 +248,55 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       }
       return;
     }
-    flushAssistant();
-    close();
-    send({ type: "session.closed" });
-    client.close();
+    // session.stop（挂断）：先把上游还没断句的那段话提交转写并等它落库，再回 session.closed——
+    // 否则「说完立刻挂断」的最后一句永远不会进线程（uiux-r4：挂断后线程为空）。
+    if (hangingUp) return;
+    hangingUp = true;
+    void settleBeforeHangup().finally(() => {
+      close();
+      send({ type: "session.closed" });
+      client.close();
+    });
   });
-  client.on("close", () => { flushAssistant(); close(); });
+  client.on("close", () => { if (!hangingUp) { flushAssistant(); close(); } });
+
+  const settleBeforeHangup = async (): Promise<void> => {
+    flushAssistant();
+    const socket = upstream;
+    // 有 server VAD 时只在「一句话说到一半」才补 commit；上游不做 VAD（只在 commit 时转写）时，发过音频就补。
+    if (socket?.readyState === UpstreamWebSocket.OPEN && audioSent && (vadSeen ? speechOpen : true)) {
+      const settled = new Promise<void>((resolve) => { userTranscriptSettled = resolve; });
+      socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+      await Promise.race([settled, delay(HANGUP_TRANSCRIPT_WAIT_MS)]);
+      userTranscriptSettled = null;
+    }
+    flushAssistant();
+    await Promise.race([persistChain, delay(HANGUP_PERSIST_WAIT_MS)]);
+  };
+}
+
+/** 挂断时等最后一句转写 / 落库的上限：到点就收尾，不让挂断卡住。 */
+const HANGUP_TRANSCRIPT_WAIT_MS = 2_500;
+const HANGUP_PERSIST_WAIT_MS = 2_000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms).unref?.());
+}
+
+/** OpenAI GA 事件名（`response.output_audio*`）与 beta / Qwen 事件名（`response.audio*`）统一成后者。 */
+const EVENT_ALIASES: Record<string, string> = {
+  "response.output_audio_transcript.delta": "response.audio_transcript.delta",
+  "response.output_audio_transcript.done": "response.audio_transcript.done",
+  "response.output_audio.delta": "response.audio.delta",
+  "response.output_audio.done": "response.audio.done",
+};
+
+function normaliseUpstreamEvent(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  const event = value as Record<string, unknown>;
+  if (typeof event.type !== "string") return null;
+  const alias = EVENT_ALIASES[event.type];
+  return alias ? { ...event, type: alias } : event;
 }
 
 function forwardUpstream(event: Record<string, unknown>, send: (frame: ServerFrame) => void, fail: (reason: ErrorReason) => void): void {
