@@ -16,6 +16,69 @@ jobs:
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 5
     steps:
+      - name: 记忆检索三路（字面 / 向量 / 图）在 devapp 上的实际状态（只读，密钥打码）
+        shell: bash
+        run: |
+          set +e
+          ENV=/opt/workspacex/deploy.env
+          host() { printf '%s' "$1" | sed -E 's#^([a-z]+://[^/?]+)([^?]*).*#\1\2#'; }
+          echo "── 部署的 commit ──"; (cd /opt/workspacex/app && git log --oneline -1) 2>&1
+          echo "── deploy.env 里与模型 / 嵌入相关的 key 名（只列名字）──"
+          grep -oE '^[A-Z0-9_]+' "$ENV" 2>/dev/null | grep -E 'MODEL|EMBED|DASHSCOPE|DEEP_AGENT|RERANK|KG_' | sort | tr '\n' ' '; echo
+          set -a; . "$ENV" 2>/dev/null; set +a
+          for v in KERNEL_EMBEDDING_MODEL_ID KERNEL_EMBEDDING_MODEL_VERSION KERNEL_EMBEDDING_DIMENSIONS KERNEL_MODEL_ID KERNEL_RERANK_MODE KERNEL_RERANK_MODEL_ID DASHSCOPE_MODEL; do
+            echo "  $v=${!v:-<未设置>}"; done
+          for v in KERNEL_MODEL_BASE_URL DASHSCOPE_BASE_URL KERNEL_DEEP_AGENT_BASE_URL; do echo "  $v=$(host "${!v:-<未设置>}")"; done
+          for v in KERNEL_MODEL_API_KEY DASHSCOPE_API_KEY DEEP_AGENT_SERVICE_INTERNAL_KEY; do [ -n "${!v}" ] && echo "  $v=<已设置>" || echo "  $v=<未设置>"; done
+          echo "── 运行中的 deep-agent 容器里有没有嵌入配置（只看 key 名）──"
+          docker ps --format '{{.Names}}' | grep -i deep
+          for c in $(docker ps --format '{{.Names}}' | grep -i deep); do docker exec "$c" printenv 2>/dev/null | grep -oE '^(KERNEL_EMBEDDING[A-Z_]*|KERNEL_MODEL_BASE_URL)' | tr '\n' ' '; echo " ← $c"; done
+          echo "── API 进程环境里有没有嵌入配置（只看 key 名）──"
+          pid=$(systemctl show -p MainPID --value workspacex-api 2>/dev/null); echo "  api pid=$pid"
+          sudo -n cat /proc/$pid/environ 2>/dev/null | tr '\0' '\n' | grep -oE '^KERNEL_EMBEDDING[A-Z_]*' | tr '\n' ' ' || echo "  (读不到进程环境)"; echo
+          probe_models() { # $1 base  $2 key  $3 label
+            [ -z "$1" ] || [ -z "$2" ] && { echo "  $3: 缺 base 或 key"; return; }
+            echo "  $3 /models 里带 embed 的："
+            curl -sS -m 20 -H "Authorization: Bearer $2" "$1/models" | python3 -c 'import sys,json
+          try:
+            d=json.load(sys.stdin); ids=[m.get("id") for m in d.get("data",[])]
+            print("   ", [i for i in ids if "embed" in (i or "").lower()][:20], "(共", len(ids), "个模型)")
+          except Exception as e: print("    解析失败", e)'
+            for m in text-embedding-v4 text-embedding-v3 text-embedding-v2 text-embedding-3-small; do
+              out=$(curl -sS -m 20 -H "Authorization: Bearer $2" -H 'content-type: application/json' "$1/embeddings" -d "{\"model\":\"$m\",\"input\":[\"记忆检索测试\"]}")
+              echo "    $m → $(printf '%s' "$out" | python3 -c 'import sys,json
+          try:
+            d=json.load(sys.stdin); e=d.get("data",[{}])[0].get("embedding")
+            print("OK 维度", len(e)) if e else print("失败", str(d.get("error",d))[:160])
+          except Exception as x: print("非 JSON", str(x)[:80])')"
+            done; }
+          echo "── 用部署已有的模型凭据试嵌入（只打印维度 / 错误码）──"
+          probe_models "$KERNEL_MODEL_BASE_URL" "$KERNEL_MODEL_API_KEY" "KERNEL_MODEL_*"
+          probe_models "$DASHSCOPE_BASE_URL" "$DASHSCOPE_API_KEY" "DASHSCOPE_*"
+          PSQL="docker exec workspacex-postgres-1 psql -U postgres -d workspacex -tAc"
+          echo "── 扩展：已装 / 可装版本 ──"
+          $PSQL "SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name IN ('age','vector')"
+          echo "── 登记的嵌入模型 ──"; $PSQL "SELECT model, model_version, dims FROM embedding_models"
+          echo "── object_embeddings / segment_embeddings 按模型计数 ──"
+          $PSQL "SELECT 'object', model, count(*) FROM object_embeddings GROUP BY 2 UNION ALL SELECT 'segment', model, count(*) FROM segment_embeddings GROUP BY 2"
+          echo "── 结论总数 / 活结论 ──"; $PSQL "SELECT count(*), count(*) FILTER (WHERE revoked_at IS NULL) FROM claims"
+          echo "── AGE 图数量、每张图的点/边 ──"
+          $PSQL "SELECT count(*) FROM ag_catalog.ag_graph"
+          for g in $($PSQL "SELECT name FROM ag_catalog.ag_graph" 2>/dev/null); do
+            echo "  $g: $($PSQL "SELECT (SELECT count(*) FROM \"$g\"._ag_label_vertex), (SELECT count(*) FROM \"$g\"._ag_label_edge)" 2>&1)"; done
+          echo "── 队列积压（抽取 / 投影 / 嵌入 / 冲突）──"
+          for t in kg_extraction_queue kg_projection_outbox kg_embedding_outbox kg_conflict_close_queue; do echo "  $t: $($PSQL "SELECT count(*) FROM $t" 2>&1)"; done
+          echo "── 最近 7 天的召回：轮数、降级轮数、各通道命中次数 ──"
+          $PSQL "SELECT count(*), count(*) FILTER (WHERE graph_degraded) FROM kg_turn_recalls WHERE created_at > now() - interval '7 days'"
+          $PSQL "SELECT ch, count(*) FROM kg_turn_recalls r, jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch WHERE r.created_at > now() - interval '7 days' GROUP BY 1 ORDER BY 2 DESC"
+          echo "── 抽取开关（部署级 / 组织级）──"
+          $PSQL "SELECT * FROM kg_deployment_settings" 2>&1 | head -3
+          $PSQL "SELECT org_id, enabled FROM kg_org_extraction_settings" 2>&1 | head -5
+          echo "── API 最近 24h 与嵌入 / 图 / 召回相关的报错（最多 25 行）──"
+          journalctl -u workspacex-api --since "-24h" 2>&1 | grep -iE 'embedding|KG_GRAPH|graph_unavailable|vector|recall.*(fail|degrad)' | grep -viE 'debug' | tail -25
+          echo "── deep-agent 最近 24h 嵌入报错（最多 10 行）──"
+          for c in $(docker ps --format '{{.Names}}' | grep -i deep); do docker logs --since 24h "$c" 2>&1 | grep -iE 'embedding' | tail -10; done
+
       - name: 我是谁、能 sudo 什么
         shell: bash
         run: |
