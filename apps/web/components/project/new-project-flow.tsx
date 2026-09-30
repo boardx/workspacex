@@ -1,14 +1,8 @@
 "use client";
-import * as React from "react";
-import { useRouter } from "next/navigation";
 import { ChevronLeft, Presentation } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ApiError } from "@/lib/api-client";
-import { httpFailureText } from "@/lib/http-failure-text";
-import { useSession } from "@/components/session/session-provider";
-import { createProject } from "@/lib/live-projects";
+import { CreateProjectForm } from "./create-project-form";
 import { WorkshopProjectFlow } from "./workshop-project-flow";
 
 /**
@@ -37,31 +31,6 @@ export function NewProjectFlow({ mode = "general" }: { mode?: NewProjectMode }) 
 }
 
 function GeneralProjectForm() {
-  const router = useRouter();
-  const { session } = useSession();
-  if (!session) throw new Error("NewProjectFlow requires an authenticated session");
-  const orgId = session.currentOrgId;
-
-  const [name, setName] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<{ text: string; code: string | null } | null>(null);
-
-  const trimmed = name.trim();
-  const canSubmit = trimmed !== "" && !busy;
-
-  const handleCreate = React.useCallback(async () => {
-    if (trimmed === "" || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const out = await createProject({ orgId, name: trimmed, kind: "general", blueprintVersionId: null });
-      router.push(`/projects/${encodeURIComponent(out.id)}?org=${encodeURIComponent(orgId)}`);
-    } catch (e) {
-      setError({ text: describeError(e), code: e instanceof ApiError ? e.reasonCode : null });
-      setBusy(false);
-    }
-  }, [trimmed, busy, orgId, router]);
-
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-5 p-6" data-testid="project-new" data-mode="general">
       <header className="flex flex-col gap-2">
@@ -76,37 +45,14 @@ function GeneralProjectForm() {
       </header>
 
       <Card>
-        <form
+        <CreateProjectForm
           className="flex flex-col gap-3 p-4"
-          data-testid="project-new-details"
-          onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}
-        >
-          <label className="flex flex-col gap-1.5">
-            <span className="text-11 text-muted-foreground">项目名称</span>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例如：新品上市调研"
-              aria-label="项目名称"
-              data-testid="project-new-name"
-              className="h-9 text-12"
-              autoFocus
-            />
-          </label>
-          {error !== null ? (
-            <p data-testid="project-new-error" data-reason={error.code ?? undefined} className="text-12 text-destructive">
-              创建失败：{error.text}
-            </p>
-          ) : null}
-          <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="project-new-create">
-              {busy ? "创建中…" : "创建"}
-            </Button>
+          cancel={
             <Button asChild size="sm" variant="ghost" className="transition-colors" data-testid="project-new-cancel">
               <a href="/projects">取消</a>
             </Button>
-          </div>
-        </form>
+          }
+        />
       </Card>
 
       <a
@@ -119,15 +65,4 @@ function GeneralProjectForm() {
       </a>
     </div>
   );
-}
-
-/** 说人话，不上屏内部码（原因码留在 `data-reason` 上供排障 / e2e 断言）。 */
-function describeError(e: unknown): string {
-  if (e instanceof ApiError) {
-    if (e.reasonCode === "ORG_ROLE_INSUFFICIENT") return "你在当前组织的角色不能新建项目，请联系组织负责人。";
-    if (e.status === 401) return "登录已失效，请重新登录。";
-    return httpFailureText(e.status);
-  }
-  if (e instanceof TypeError) return "连不上服务器，检查一下网络再试。";
-  return "出了点问题，稍后再试一次。";
 }
