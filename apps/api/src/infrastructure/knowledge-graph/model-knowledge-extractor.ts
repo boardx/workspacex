@@ -26,6 +26,9 @@ export const KG_EXTRACTION_SYSTEM_PROMPT =
   "每条结论用一句完整、可以脱离上下文读懂的中文陈述（把「他」「这个」替换成具体名称），" +
   "about 列出它涉及的实体名，决定类结论如果说了是谁拍板，填 decidedBy，quote 摘录本条消息里支撑它的原话。" +
   "结论只在一段时间内成立、或待办有截止时（如「这周」「到年底」「下个月之前」），timeExpr 原样摘出这个时间说法，否则填 null。" +
+  // 2026-09-30 devapp：没有约束解码时模型把 kind 写成中文，整条被当成「空」。这里把允许的值逐个列出（取自契约枚举）。
+  `entities[].kind 只能是这些英文值之一：${KG.KgObjectKind.options.join("、")}；` +
+  `claims[].kind 只能是这些英文值之一：${KG.KgClaimKind.options.map((k) => `${k}（${KG.KG_CLAIM_KIND_LABEL_ZH[k]}）`).join("、")}。` +
   "只输出一个 JSON 对象，不要输出任何其他文字。没有可记的内容就输出 {\"entities\":[],\"claims\":[]}。";
 
 export const KG_EXTRACTION_RESPONSE_SCHEMA = {
