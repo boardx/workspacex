@@ -23,9 +23,11 @@ import { cn } from "@/lib/utils";
  * ⚠ 只管版式：状态怎么算、菜单里有什么、点了去哪，全部由调用方传入——本组件不认识任何一种
  *   业务对象。`layout="list"` 是项目页的列表视图（操作列靠右），其余页面用默认的网格版式。
  */
+const INTERACTIVE = 'button, a, input, select, textarea, label, [role="menuitem"], [role="checkbox"], [data-card-stop]';
+
 export function ResourceCard({
   testId, title, titleTestId, subtitle, badges, menu, description, tags, meta, children, actions,
-  layout = "grid", href, className,
+  layout = "grid", density = "comfortable", href, onClick, selected = false, leading, media, ariaLabel, className,
 }: {
   testId?: string;
   title: React.ReactNode;
@@ -41,23 +43,49 @@ export function ResourceCard({
   children?: React.ReactNode;
   actions?: React.ReactNode;
   layout?: "grid" | "list";
+  /** `compact`：看板/侧栏里的紧凑卡（内边距与字号各降一档）。 */
+  density?: "comfortable" | "compact";
   /**
-   * 整张卡片是一条链接（首页「继续你的工作」这类只读预览卡用）：卡片本身渲染成 `<a>`，
-   * 键盘可达、有焦点环。带 `href` 时卡片里不要再放别的可点元素（不能嵌套链接/按钮）。
+   * 整张卡片是一条链接（首页预览卡、项目内容卡用）：卡片本身渲染成 `<a>`，键盘可达、有焦点环。
+   * 带 `href` 时卡片里不要再放别的可点元素（不能嵌套链接/按钮）。
    */
   href?: string;
+  /**
+   * 整张卡片可点（目录选中、打开编辑器等）：卡片是 `role="button"`，Enter/空格触发；
+   * 卡片里的按钮/链接/输入框/菜单自己的点击**不会**冒泡成整卡点击。
+   */
+  onClick?: () => void;
+  /** 选中态：加一圈焦点色描边（目录页「当前选中的那一项」）。 */
+  selected?: boolean;
+  /** 标题左侧的头像 / 图标槽。 */
+  leading?: React.ReactNode;
+  /** 卡片顶部通栏的缩略图 / 封面槽（贴边，随卡片圆角裁切）。 */
+  media?: React.ReactNode;
+  /** 整卡是链接/按钮时的读屏名（默认取内容文本）。 */
+  ariaLabel?: string;
   className?: string;
 }) {
   const list = layout === "list";
-  const shell = cn("flex h-full min-w-0 flex-col transition-all duration-base hover:shadow-md", className);
+  const compact = density === "compact";
+  const shell = cn(
+    "flex h-full min-w-0 flex-col overflow-hidden transition-all duration-base hover:shadow-md",
+    selected && "ring-2 ring-ring",
+    className,
+  );
+  const cardSurface = "rounded-card border border-border bg-card text-card-foreground shadow-sm";
+  const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const body = (
     <>
-      <CardContent className={cn("flex flex-1 flex-col gap-3 p-4", list && "sm:flex-row sm:items-center sm:justify-between")}>
+      {media ? <div className="shrink-0 border-b border-border-subtle">{media}</div> : null}
+      <CardContent className={cn("flex flex-1 flex-col", compact ? "gap-2 p-3" : "gap-3 p-4", list && "sm:flex-row sm:items-center sm:justify-between")}>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-col gap-1">
-              <h3 className="truncate text-14 font-semibold tracking-tight" data-testid={titleTestId}>{title}</h3>
-              {subtitle ? <p className="text-11 text-muted-foreground">{subtitle}</p> : null}
+            <div className="flex min-w-0 items-start gap-3">
+              {leading ? <div className="shrink-0">{leading}</div> : null}
+              <div className="flex min-w-0 flex-col gap-1">
+                <h3 className={cn("truncate font-semibold tracking-tight", compact ? "text-13" : "text-14")} data-testid={titleTestId}>{title}</h3>
+                {subtitle ? <p className="text-11 text-muted-foreground">{subtitle}</p> : null}
+              </div>
             </div>
             {badges || menu ? (
               <div className="flex shrink-0 items-center gap-1.5">
@@ -66,7 +94,7 @@ export function ResourceCard({
               </div>
             ) : null}
           </div>
-          {description ? <div className="line-clamp-2 text-12 leading-relaxed text-muted-foreground">{description}</div> : null}
+          {description ? <div className={cn("text-12 leading-relaxed text-muted-foreground", compact ? "line-clamp-2" : "line-clamp-2")}>{description}</div> : null}
           {tags}
           {children}
           {meta ? <div className="flex flex-wrap items-center justify-between gap-2 text-11 text-muted-foreground">{meta}</div> : null}
@@ -77,17 +105,33 @@ export function ResourceCard({
   );
   if (href !== undefined) {
     return (
-      <Link
-        href={href}
-        data-testid={testId}
-        className={cn(
-          "rounded-card border border-border bg-card text-card-foreground shadow-sm",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          shell,
-        )}
-      >
+      <Link href={href} data-testid={testId} aria-label={ariaLabel} className={cn(cardSurface, focusRing, shell)}>
         {body}
       </Link>
+    );
+  }
+  if (onClick !== undefined) {
+    const inner = (target: EventTarget | null, host: HTMLElement) => {
+      const el = target as Element | null;
+      const hit = el?.closest?.(INTERACTIVE) ?? null;
+      return hit !== null && hit !== host && host.contains(hit);
+    };
+    return (
+      <Card
+        data-testid={testId}
+        role="button"
+        tabIndex={0}
+        aria-label={ariaLabel}
+        aria-pressed={selected || undefined}
+        onClick={(e) => { if (!inner(e.target, e.currentTarget)) onClick(); }}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+        }}
+        className={cn("cursor-pointer", focusRing, shell)}
+      >
+        {body}
+      </Card>
     );
   }
   return <Card data-testid={testId} className={shell}>{body}</Card>;

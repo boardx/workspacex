@@ -2,7 +2,7 @@ import * as React from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: () => {} }) }));
 
@@ -83,5 +83,35 @@ describe("所有列表页的卡片都走 ResourceCard（版式单源）", () => 
     const src = read("components/research-studio/research-history-card.tsx");
     expect(src).not.toContain("next/image");
     expect(src).not.toContain("<article");
+  });
+});
+
+describe("ResourceCard 扩展能力（迭代2）", () => {
+  afterEach(() => cleanup());
+
+  it("onClick：整卡是 role=button，Enter/空格触发；内部按钮/菜单的点击不冒泡成整卡点击", () => {
+    const open = vi.fn(); const inner = vi.fn();
+    render(<ResourceCard testId="rc" title="A" onClick={open} actions={<button onClick={inner}>编辑</button>} />);
+    const card = screen.getByTestId("rc");
+    expect(card.getAttribute("role")).toBe("button");
+    expect(card.getAttribute("tabindex")).toBe("0");
+    fireEvent.click(card);
+    expect(open).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledTimes(1); // 没被内部按钮触发
+    fireEvent.keyDown(card, { key: "Enter" });
+    fireEvent.keyDown(card, { key: " " });
+    expect(open).toHaveBeenCalledTimes(3);
+  });
+
+  it("selected 加描边并标记 aria-pressed；leading / media 槽渲染；compact 用紧凑内边距", () => {
+    render(<ResourceCard testId="rc" title="A" onClick={() => {}} selected leading={<i data-testid="lead" />} media={<div data-testid="media" />} density="compact" />);
+    const card = screen.getByTestId("rc");
+    expect(card).toHaveClass("ring-2");
+    expect(card.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("lead")).toBeTruthy();
+    expect(screen.getByTestId("media")).toBeTruthy();
+    expect(card.querySelector(".p-3")).not.toBeNull();
   });
 });
