@@ -11,7 +11,7 @@ it("keeps configured unavailable Agents visible but unselectable alongside ready
   render(<CapabilityCardList listings={[saved, { ...saved, id: "ready", name: "Ready Agent", agentAvailable: true, disabledReason: null }]} selectedAgentId={null} onSelect={select} />);
   const unavailable = screen.getByRole("option", { name: /Saved Agent/ });
   expect(unavailable).toBeDisabled();
-  expect(unavailable).toHaveTextContent("尚无可用的已发布版本");
+  expect(unavailable).toHaveTextContent("尚未发布");
   fireEvent.click(unavailable);
   expect(select).not.toHaveBeenCalled();
   const ready = screen.getByRole("option", { name: /Ready Agent/ });
@@ -121,7 +121,7 @@ describe("2026-09-30 重设计：分组 / 副标题去重 / 预览披露 / 待�
     expect(dt.textContent?.match(/DT Agent/g)).toHaveLength(1);
     const group = screen.getByTestId("chat-task-workbench-capability-group-unavailable");
     expect(group).toHaveTextContent("不可用（1）");
-    expect(group).toHaveTextContent("尚无可用的已发布版本");
+    expect(group).toHaveTextContent("尚未发布");
     expect(group).not.toHaveTextContent("请联系管理员");
     // 卡片上不再常驻六项披露那行噪音
     expect(screen.queryByText("写权限未披露")).toBeNull();

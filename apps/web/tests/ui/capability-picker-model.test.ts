@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPickerGroups, joinWithOverflow, shortReason, strengthsFor, subtitleFor, workflowLabel } from "@/lib/capability-picker-model";
+import { buildPickerGroups, examplePromptsFor, joinWithOverflow, reasonCopy, shortReason, strengthsFor, subtitleFor, workflowLabel } from "@/lib/capability-picker-model";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { AgentDirectoryCard, PendingOfficialRole } from "@/lib/agent-directory";
 
@@ -46,8 +46,11 @@ describe("capability picker model", () => {
     expect(buildPickerGroups({ listings: [], directory: new Map(), pending: [pending] }).isEmpty).toBe(false);
   });
 
-  it("shortReason keeps the first clause", () => {
-    expect(shortReason("该 Agent 尚无可用的已发布版本，请联系管理员。")).toBe("尚无可用的已发布版本");
+  it("不可用原因映射成客户端中文文案，服务端原文（含端点 / id）不上屏", () => {
+    expect(shortReason("该 Agent 尚无可用的已发布版本，请联系管理员。")).toBe("尚未发布");
+    expect(shortReason("本地组织的产品承诺：…该条目的端点（https://x.example）不在本机")).toBe("本地组织不可用");
+    expect(shortReason("AGENT_D002_UNAVAILABLE")).toBe("暂不可用");
+    expect(reasonCopy("S061 failed").full).not.toMatch(/S061/);
     expect(shortReason(null)).toBe("暂不可用");
   });
 
@@ -66,5 +69,10 @@ describe("capability picker model", () => {
     expect(workflowLabel({ stableId: "zz", name: "周报汇总（按团队）" })).toBe("周报汇总");
     expect(joinWithOverflow(["甲", "乙"], 3)).toBe("甲、乙");
     expect(joinWithOverflow(["甲", "乙", "丙", "丁", "戊"], 3)).toBe("甲、乙、丙 等 5 个");
+  });
+  it("预览「适合这样问」由流程派生，无流程时给中性说法", () => {
+    const flows = [{ stableId: "W029", name: "Problem-to-PRD" }] as unknown as AgentDirectoryCard["workflows"];
+    expect(examplePromptsFor(card("a", { workflows: flows }))).toEqual(["帮我走一遍「问题定义到 PRD」"]);
+    expect(examplePromptsFor(undefined).length).toBeGreaterThan(0);
   });
 });

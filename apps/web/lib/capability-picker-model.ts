@@ -76,11 +76,36 @@ export function strengthsFor(listing: Pick<CapabilityListing, "name" | "duty">, 
   return null;
 }
 
-/** 不可用的一句短原因：取服务端 `disabledReason` 的第一小句（完整原文放 title）。 */
-export function shortReason(reason: string | null | undefined): string {
+/**
+ * 不可用原因 → 客户端中文文案（短句 + 完整一句）。服务端原文可能带端点 URL、技术 id 或英文，
+ * 一律不直接上屏：按已知口径归类，认不出的走中性兜底。
+ */
+const REASON_COPY: readonly { readonly match: RegExp; readonly short: string; readonly full: string }[] = [
+  { match: /已发布版本|no published|unpublished/i, short: "尚未发布", full: "这位数字人还没有可用的发布版本，请联系管理员发布后再选。" },
+  { match: /本地组织|不在本机|local/i, short: "本地组织不可用", full: "本地组织只使用本机上的服务，这一项在云端，所以无法选用。" },
+  { match: /停用|disabled/i, short: "已被停用", full: "组织管理员已停用这一项，如需使用请联系管理员。" },
+  { match: /权限|forbidden|permission/i, short: "无使用权限", full: "你当前没有使用它的权限，可以联系管理员开通。" },
+];
+
+export function reasonCopy(reason: string | null | undefined): { readonly short: string; readonly full: string } {
   const t = (reason ?? "").trim();
-  if (!t) return "暂不可用";
-  return t.split(/[，。,;；]/)[0]!.replace(/^该\s*Agent\s*/, "") || t;
+  const hit = t ? REASON_COPY.find((r) => r.match.test(t)) : undefined;
+  return hit ?? { short: "暂不可用", full: "这位数字人暂时无法选用，请稍后再试或联系管理员。" };
+}
+
+export function shortReason(reason: string | null | undefined): string {
+  return reasonCopy(reason).short;
+}
+
+/**
+ * 预览栏「适合这样问」：由可发起流程 / 标签派生的示例说法（最多 3 条），填预览下半部，不留空白。
+ */
+export function examplePromptsFor(card: AgentDirectoryCard | undefined): string[] {
+  const flows = workflowLabelsOf(card);
+  if (flows.length > 0) return flows.slice(0, 3).map((w) => `帮我走一遍「${w}」`);
+  const tags = agentTagsOf(card);
+  if (tags.length > 0) return tags.slice(0, 2).map((t) => `关于${t}，帮我梳理一下思路`).concat("先听听你的建议");
+  return ["帮我整理一下这件事的要点", "先听听你的建议"];
 }
 
 function haystack(parts: readonly (string | null | undefined)[]): string {

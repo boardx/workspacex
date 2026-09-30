@@ -19,7 +19,7 @@ import {
   type OfficialRolePackOffer,
   type PendingOfficialRole,
 } from "@/lib/agent-directory";
-import { buildPickerGroups, joinWithOverflow, shortReason, strengthsFor, workflowLabelsOf, type PickerEntry, type PickerFilter } from "@/lib/capability-picker-model";
+import { buildPickerGroups, examplePromptsFor, joinWithOverflow, reasonCopy, shortReason, strengthsFor, workflowLabelsOf, type PickerEntry, type PickerFilter } from "@/lib/capability-picker-model";
 
 export { agentTagsOf } from "@/lib/capability-picker-model";
 
@@ -457,11 +457,11 @@ function UnavailableOption({ entry, onActivate }: { entry: PickerEntry; onActiva
       role="option"
       disabled
       aria-selected={false}
-      aria-label={`${listing.name}（不可用：${listing.disabledReason ?? "暂不可用"}）`}
+      aria-label={`${listing.name}（不可用：${reasonCopy(listing.disabledReason).short}）`}
       data-testid="chat-task-workbench-capability-card"
       data-agent-id={listing.id}
       data-unavailable="true"
-      title={listing.disabledReason ?? undefined}
+      title={reasonCopy(listing.disabledReason).full}
       onMouseEnter={onActivate}
       className="flex w-full cursor-not-allowed items-center gap-2 rounded-md px-2 py-1 text-left text-disabled-foreground"
     >
@@ -526,7 +526,7 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
         <dl className="flex flex-col gap-1.5 border-t border-border pt-2">
           <Facet label="状态" testId="chat-task-workbench-capability-facet-status" extra={{ "data-status": status }}>
             <span className={status === "failed" ? "text-muted-foreground" : "text-success"}>{statusLabel(status)}</span>
-            {!ready && listing.disabledReason ? <span className="block text-10 text-muted-foreground">{listing.disabledReason}</span> : null}
+            {!ready ? <span className="block text-10 text-muted-foreground">{reasonCopy(listing.disabledReason).full}</span> : null}
           </Facet>
           <Facet label="擅长" testId="chat-task-workbench-capability-facet-strengths">{strengths}</Facet>
           {workflows.length > 0 ? (
@@ -538,7 +538,13 @@ function PreviewPane({ active, entry, pending, acting, suggestions }: { active: 
             </Facet>
           ) : null}
         </dl>
-        <p data-testid="chat-task-workbench-capability-boundary" className="mt-auto border-t border-border pt-2 text-10 leading-relaxed text-muted-foreground">
+        <div data-testid="chat-task-workbench-capability-examples" className="flex flex-col gap-1 border-t border-border pt-2">
+          <p className="text-10 font-medium text-muted-foreground">适合这样问</p>
+          <ul className="flex flex-col gap-1">
+            {examplePromptsFor(card).map((q) => <li key={q} className="rounded-md bg-muted px-2 py-1 text-11 text-card-foreground">{q}</li>)}
+          </ul>
+        </div>
+        <p data-testid="chat-task-workbench-capability-boundary" className="border-t border-border pt-2 text-10 leading-relaxed text-muted-foreground">
           {workflows.length === 0 ? <span data-testid="chat-task-workbench-capability-facet-tools" data-count="0">暂无可直接发起的流程，可以直接对话。</span> : null}
           <span data-testid="chat-task-workbench-capability-facet-memory" data-memory-scope="thread" title={MEMORY_SCOPE_FULL_LABEL}>记忆{MEMORY_SCOPE_SHORT_LABEL}</span>
           {" · "}
