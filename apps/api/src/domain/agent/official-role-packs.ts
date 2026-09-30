@@ -33,7 +33,16 @@ export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
  * 1.3.0（AG07）：四个官方角色带上真实转交目标（`delegationPolicy`，见 `officialRoleDelegationTargets`），
  * 以及真实升级规则（`escalationPolicy`，见 `officialRoleEscalationRules`；此前恒为空，AG06 升级在产品里不可达）。
  */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.3.0";
+/**
+ * 1.4.0：角色名/角色标签改为中文（界面不再露英文标识，UIUX 复审 2026-09-30）；已导入旧版的组织由
+ * 迁移 `20260930123000_dh_official_names_zh.sql` 改名（字面量由 official-role-pack-import.test.ts 核对）。
+ */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.4.0";
+
+/** Skill 起步包坐标（`skills/starter-packs/<packId>/<packVersion>.json`）。 */
+export interface OfficialRoleSkillPackRef { readonly packId: string; readonly packVersion: string }
+const WORK_RESEARCH: OfficialRoleSkillPackRef = { packId: "work-research", packVersion: "1.0.0" };
+const WORK_PRODUCT: OfficialRoleSkillPackRef = { packId: "work-product", packVersion: "1.0.0" };
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -84,6 +93,11 @@ interface RoleEntrySeed {
    */
   readonly tags: readonly string[];
   readonly workflowAllowlist: readonly string[];
+  /**
+   * 该角色白名单里的 Workflow 引用的 Skill 所在起步包。一键启用先导入它们（既有 UC-WC-I2 导入 +
+   * 导入后发布内置 Workflow 的 follow-up），角色才「启用即可用」，而不是空有白名单、一个都发不起来。
+   */
+  readonly skillPacks: readonly OfficialRoleSkillPackRef[];
   /** 本角色专属的升级规则（叠加在 `COMMON_ESCALATION_RULES` 之后）。 */
   readonly escalationRules: readonly EscalationRule[];
   readonly toolPolicy: readonly string[];
@@ -95,11 +109,12 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   {
     roleRef: "D002",
     avatarKey: "dh-02-research-knowledge-analyst",
-    roleLabel: "Research & Knowledge Analyst",
+    roleLabel: "研究与知识分析师",
     stableName: "d002-research-knowledge-analyst",
     roleCategory: "research",
     tags: ["调研", "知识管理", "分析"],
     workflowAllowlist: ["W001", "W060", "W009", "W006", "W057"],
+    skillPacks: [WORK_RESEARCH],
     escalationRules: [{ matter: M.sensitiveData, target: "org_admin" }],
     toolPolicy: ["knowledge.search"],
     instructions: "Run structured research, cite every claim to a retrievable source, and route findings into the org knowledge base without editorializing beyond what the evidence supports.",
@@ -107,11 +122,12 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   {
     roleRef: "D003",
     avatarKey: "dh-03-product-manager",
-    roleLabel: "Product Manager",
+    roleLabel: "产品经理",
     stableName: "d003-product-manager",
     roleCategory: "product",
     tags: ["产品", "需求", "规划"],
     workflowAllowlist: ["W027", "W028", "W029", "W030", "W031", "W032"],
+    skillPacks: [WORK_PRODUCT],
     escalationRules: [{ matter: M.budget, target: "org_admin" }],
     toolPolicy: ["knowledge.search"],
     instructions: "Turn discovery signals into prioritized problem statements and PRDs, keep the roadmap traceable to evidence, and hand off sprint-ready scope without silently narrowing it.",
@@ -119,11 +135,14 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   {
     roleRef: "D005",
     avatarKey: "dh-05-sales-representative",
-    roleLabel: "Sales Representative",
+    roleLabel: "销售代表",
     stableName: "d005-sales-representative",
     roleCategory: "sales",
     tags: ["销售", "客户", "商机"],
     workflowAllowlist: ["W011", "W012", "W013", "W014", "W015", "W016", "W018"],
+    // 销售线 Workflow（W011–W018）尚无运行时图（`create-workflow-runtime.ts` 只装配产品线 + 研究线），
+    // 导入 work-sales 也发布不出任何可发起流程——不假装「启用即可用」，销售线运行时落地后再挂。
+    skillPacks: [],
     escalationRules: [{ matter: M.pricing, target: "org_admin" }, { matter: M.contractTerms, target: "org_admin" }],
     toolPolicy: ["crm.read"],
     instructions: "Qualify leads, run the pipeline from first meeting to close, and keep every stage change grounded in the CRM record rather than a private recollection.",
@@ -131,11 +150,12 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
   {
     roleRef: "D011",
     avatarKey: "dh-11-design-thinking-expert",
-    roleLabel: "Design Thinking Expert",
+    roleLabel: "设计思维专家",
     stableName: "d011-design-thinking-expert",
     roleCategory: "design",
     tags: ["设计", "创新", "用户研究"],
     workflowAllowlist: ["W027", "W028", "W029", "W031", "W002"],
+    skillPacks: [WORK_PRODUCT],
     escalationRules: [{ matter: M.budget, target: "org_admin" }, { matter: M.sensitiveData, target: "org_admin" }],
     toolPolicy: ["knowledge.search"],
     instructions: "Facilitate discovery-to-opportunity and experiment loops, keep divergent options visible until a decision is made, and record the rationale next to the chosen option.",
@@ -228,6 +248,18 @@ export function officialRoleWorkflowAllowlists(): Readonly<Record<string, readon
 /** 官方角色 stableName → 肖像 key（同一份 ROLE_SEEDS；供回填迁移的核对测试使用，不另立副本）。 */
 export function officialRoleAvatarKeys(): Readonly<Record<string, string>> {
   return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, s.avatarKey]));
+}
+
+/** 一键启用须先导入的 Skill 起步包（全部官方角色所需的并集，去重、保持声明顺序；同一份 ROLE_SEEDS）。 */
+export function officialRoleSkillPacks(): readonly OfficialRoleSkillPackRef[] {
+  const seen = new Map<string, OfficialRoleSkillPackRef>();
+  for (const s of ROLE_SEEDS) for (const p of s.skillPacks) seen.set(`${p.packId}@${p.packVersion}`, p);
+  return [...seen.values()];
+}
+
+/** 官方角色 stableName → 中文名（同一份 ROLE_SEEDS；供改名迁移的核对测试使用）。 */
+export function officialRoleNames(): Readonly<Record<string, string>> {
+  return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, s.roleLabel]));
 }
 
 /** 官方角色 stableName → 标签（同一份 ROLE_SEEDS；供标签回填迁移的核对测试使用，不另立副本）。 */

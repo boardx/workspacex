@@ -7,8 +7,8 @@
 import { findBuiltinWorkflow } from "@/lib/workflow-display-copy";
 
 export const CATALOG_TITLE_ZH: Readonly<Record<string, string>> = {
-  "research-to-brief": "研究到简报",
   "knowledge capture loop": "知识捕获闭环",
+  "research-to-brief": "研究到简报",
   "evidence-to-recommendation": "证据到决策建议",
   "question-to-analysis": "问题到数据分析",
   "research-to-evidence": "研究到证据包",
@@ -35,4 +35,18 @@ export function agentWorkflowLabel(w: { readonly stableId: string; readonly name
   const paren = /[（(]([^）)]*)[）)]/.exec(w.name)?.[1]?.trim();
   if (paren && /\p{Script=Han}/u.test(paren)) return paren;
   return zh || UNNAMED_WORKFLOW_LABEL;
+}
+
+/** 严格版显示名：`agentWorkflowLabel` 之上再把「没有任何中文」的名字降为占位（纯英文不上屏）。 */
+export function workflowLabel(w: { readonly stableId: string; readonly name: string }): string {
+  const head = (w.name.split(/[（(]/)[0] ?? "").trim();
+  // 目录名本身就是中文（「周报汇总（按团队）」）→ 括号前的中文名，不取括注。
+  if (/\p{Script=Han}/u.test(head) && !findBuiltinWorkflow(w.stableId) && catalogWorkflowTitleZh(head) === head) return head;
+  const label = agentWorkflowLabel(w);
+  return /\p{Script=Han}/u.test(label) ? label : UNNAMED_WORKFLOW_LABEL;
+}
+
+/** 一组 Workflow 的去重显示名（丢掉无中文名的占位）——picker / 目录卡片共用。 */
+export function workflowLabelsOf(card: { readonly workflows: readonly { readonly stableId: string; readonly name: string }[] } | undefined): string[] {
+  return [...new Set((card?.workflows ?? []).map(workflowLabel))].filter((l) => l !== UNNAMED_WORKFLOW_LABEL);
 }

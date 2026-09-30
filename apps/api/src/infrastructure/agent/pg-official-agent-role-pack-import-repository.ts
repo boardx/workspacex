@@ -114,6 +114,12 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
     });
   }
 
+  importedOfficialStableNames(orgId: Parameters<OfficialAgentRolePackImportRepository["importedOfficialStableNames"]>[0]) {
+    return this.db.withTenant(orgId, async (s) => {
+      const rows = await s.query<{ stable_name: string }>("SELECT stable_name FROM agents WHERE org_id=$1 AND catalog_source='official'", [orgId]);
+      return rows.rows.map((r) => r.stable_name);
+    });
+  }
   recordFailure(input: Parameters<OfficialAgentRolePackImportRepository["recordFailure"]>[0]) {
     return this.db.withTenant(input.orgId, async (s) => {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 418))", [input.orgId]);

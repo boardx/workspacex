@@ -28,6 +28,16 @@ function renderCtl(over: Partial<React.ComponentProps<typeof ComposerVoiceContro
 }
 
 describe("ComposerVoiceControl", () => {
+  it("idle：语音输入的说明是真 DOM 气泡（焦点触发），不再靠原生 title", async () => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+    renderCtl({});
+    const mic = screen.getByTestId("chat-task-workbench-composer-mic");
+    expect(mic).not.toHaveAttribute("title");
+    fireEvent.focus(mic);
+    const tips = await screen.findAllByText(/语音输入：说话转成文字放进输入框，不会发起通话/);
+    expect(tips.length).toBeGreaterThan(0);
+  });
+
   it("idle：「语音」，点击 → onStart；aria-label=开始语音输入", () => {
     const h = renderCtl({});
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");

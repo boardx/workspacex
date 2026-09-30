@@ -13,6 +13,7 @@ interface WorkflowName {
 }
 
 const WORKFLOWS: readonly WorkflowName[] = [
+  { workflowId: "W001", key: "research-to-brief", name: "研究到简报" },
   { workflowId: "W002", key: "meeting-to-actions", name: "会议纪要转行动项" },
   { workflowId: "W027", key: "discovery-to-opportunity", name: "探索发现到机会评估" },
   { workflowId: "W028", key: "research-to-insight", name: "用户研究到洞察" },
