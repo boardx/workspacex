@@ -252,7 +252,7 @@ describe("official role pack availability and failed-import retry", () => {
 describe("dh portrait backfill migration (20260929150000)", () => {
   it("backfills exactly the stableName → avatar that the 1.1.0 pack seeds declare (the SQL literal is a checked copy)", () => {
     const sql = readFileSync(join(__dirname, "../../migrations/20260929150000_dh_portrait_avatars.sql"), "utf8");
-    // alt 随 1.3.0 改为中文名（历史迁移保留 1.1.0 的英文 alt）；核对的承重事实是 stableName → 肖像 key。
+    // alt 随 1.4.0 改为中文名（历史迁移保留 1.1.0 的英文 alt）；核对的承重事实是 stableName → 肖像 key。
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => { const a = JSON.parse(m[2]!) as { kind: string; key: string }; return [m[1], { kind: a.kind, key: a.key }]; }));
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, { kind: a.role.avatar?.kind, key: a.role.avatar?.key }]));
     expect(literal).toEqual(fromPack);
@@ -270,9 +270,9 @@ describe("agent tags backfill migration (20260929160000)", () => {
   });
 });
 
-describe("official names zh migration (20260930120000)", () => {
-  it("renames exactly the stableName → 中文名 that the 1.3.0 pack seeds declare (the SQL literal is a checked copy)", () => {
-    const sql = readFileSync(join(__dirname, "../../migrations/20260930120000_dh_official_names_zh.sql"), "utf8");
+describe("official names zh migration (20260930123000)", () => {
+  it("renames exactly the stableName → 中文名 that the 1.4.0 pack seeds declare (the SQL literal is a checked copy)", () => {
+    const sql = readFileSync(join(__dirname, "../../migrations/20260930123000_dh_official_names_zh.sql"), "utf8");
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'[^']+',\s*'([^']+)'\)/g)].map((m) => [m[1], m[2]]));
     expect(literal).toEqual(officialRoleNames());
   });

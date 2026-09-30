@@ -1,7 +1,7 @@
 /*
  * 官方数字人中文名（ad-hoc，UIUX 复审 2026-09-30：界面不再露英文标识）。
  *
- * 官方角色包 1.3.0 把四个官方角色的 name / role_label 改为中文（stableName → 中文名的唯一声明处 =
+ * 官方角色包 1.4.0 把四个官方角色的 name / role_label 改为中文（stableName → 中文名的唯一声明处 =
  * apps/api/src/domain/agent/official-role-packs.ts ROLE_SEEDS；official-role-pack-import.test.ts 核对
  * 本文件字面量与之一致）。已导入旧版包的组织：只改仍是旧英文原名的官方草稿行（目录读 agents 行的
  * name / role_label），组织改过的名字不动；重复执行无副作用。

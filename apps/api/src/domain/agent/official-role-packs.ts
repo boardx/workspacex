@@ -30,10 +30,10 @@ export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
 /** 1.1.0：四个官方角色挂上数字人肖像头像（`avatarKey`）；1.0.0 的 avatar 恒为 null。 */
 /** 1.2.0：四个官方角色带上中文标签（`tags`，目录/聊天选人按它筛选）。 */
 /**
- * 1.3.0：角色名/角色标签改为中文（界面不再露英文标识，UIUX 复审 2026-09-30）；已导入旧版的组织由
- * 迁移 `20260930120000_dh_official_names_zh.sql` 改名（字面量由 official-role-pack-import.test.ts 核对）。
+ * 1.4.0：角色名/角色标签改为中文（界面不再露英文标识，UIUX 复审 2026-09-30）；已导入旧版的组织由
+ * 迁移 `20260930123000_dh_official_names_zh.sql` 改名（字面量由 official-role-pack-import.test.ts 核对）。
  */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.3.0";
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.4.0";
 
 /** Skill 起步包坐标（`skills/starter-packs/<packId>/<packVersion>.json`）。 */
 export interface OfficialRoleSkillPackRef { readonly packId: string; readonly packVersion: string }
