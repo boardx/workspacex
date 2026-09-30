@@ -13,11 +13,14 @@ import { cn } from "@/lib/utils";
  *   · 可点击（点标签筛选）：传 `onClick`，整颗胶囊是按钮；`selected` 时反色
  */
 export function TagChip({
-  children, onRemove, onClick, selected = false, disabled = false, removeTestId, testId, className,
+  children, onRemove, onClick, selected = false, disabled = false, removeTestId, filterTestId, filterTitle, testId, className,
 }: {
   children: string;
   onRemove?: () => void;
   onClick?: () => void;
+  /** 既可点击筛选又可删除时，内层「筛选」按钮的 testid / 提示（整颗胶囊是 span，内含两个按钮）。 */
+  filterTestId?: string;
+  filterTitle?: string;
   selected?: boolean;
   disabled?: boolean;
   removeTestId?: string;
@@ -29,6 +32,32 @@ export function TagChip({
     selected ? "bg-inverse font-medium text-inverse-foreground" : "bg-muted text-muted-foreground",
     className,
   );
+  if (onClick !== undefined && onRemove !== undefined) {
+    return (
+      <span className={base} data-testid={testId}>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          title={filterTitle}
+          data-testid={filterTestId}
+          className="truncate underline-offset-2 transition-colors duration-fast hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {children}
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={disabled}
+          aria-label={`移除标签 ${children}`}
+          data-testid={removeTestId}
+          className="rounded-full text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        >
+          ×
+        </button>
+      </span>
+    );
+  }
   if (onClick !== undefined) {
     return (
       <button

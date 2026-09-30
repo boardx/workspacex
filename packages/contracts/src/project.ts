@@ -354,7 +354,8 @@ export const ProjectAiSettings = z
   .strict();
 
 /** `updateProjectTags` 单条 tag 的校验规则——与迁移里的 CHECK 校验函数逐字对应，不在两处各判一次不同的口径。 */
-export const ProjectTag = z.string().trim().min(1).max(40);
+export const PROJECT_TAG_MAX_LENGTH = 40;
+export const ProjectTag = z.string().trim().min(1).max(PROJECT_TAG_MAX_LENGTH);
 export const PROJECT_TAGS_MAX = 20;
 
 /**

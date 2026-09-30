@@ -1,4 +1,5 @@
 "use client";
+import { TagField, commitDraft } from "@/components/ui/tag-input";
 import * as React from "react";
 import { Plus, ShieldCheck, FlaskConical, Check, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
@@ -369,7 +370,8 @@ function AddModelDrawer({
   const [name, setName] = React.useState("");
   const [endpoint, setEndpoint] = React.useState("");
   const [apiKey, setApiKey] = React.useState("");
-  const [tags, setTags] = React.useState("");
+  const [tags, setTags] = React.useState<readonly string[]>([]);
+  const [tagDraft, setTagDraft] = React.useState("");
   const [contextWindow, setContextWindow] = React.useState("128000");
   const [unitPrice, setUnitPrice] = React.useState("0");
   const [submitting, setSubmitting] = React.useState(false);
@@ -394,10 +396,7 @@ function AddModelDrawer({
       kind,
       vendor: vendor.trim(),
       displayName: name.trim(),
-      capabilityTags: tags
-        .split(/[,，]/)
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0),
+      capabilityTags: [...commitDraft(tags, tagDraft, { maxTags: 10, maxTagLength: 20 })],
       contextWindow: contextWindowNum,
       unitPrice: unitPriceNum,
       apiKey: apiKey.trim().length > 0 ? apiKey.trim() : null,
@@ -497,13 +496,17 @@ function AddModelDrawer({
           disabled={submitting}
           autoComplete="off"
         />
-        <Field
-          id="admin-model-field-tags"
-          label="能力标签（逗号分隔）"
-          placeholder="如 推理, 工具, 长文"
+        <TagField
+          label="能力标签"
           value={tags}
-          onChange={(e) => setTags(e.currentTarget.value)}
+          onChange={setTags}
+          draft={tagDraft}
+          onDraftChange={setTagDraft}
+          maxTags={10}
+          maxTagLength={20}
           disabled={submitting}
+          testIdPrefix="admin-model-tag"
+          emptyHint="如 推理、工具、长文；回车或逗号确认"
         />
         <div className="grid grid-cols-2 gap-3">
           <Field

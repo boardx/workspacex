@@ -1,5 +1,7 @@
 "use client";
 
+import { TagField, commitDraft } from "@/components/ui/tag-input";
+import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, ClipboardList, X } from "lucide-react";
@@ -41,15 +43,7 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
     onOpenChange(false);
   };
 
-  const commitTag = () => {
-    const values = tagInput.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean);
-    if (values.length > 0) {
-      setDraft((current) => ({ ...current, tags: [...new Set([...current.tags, ...values])] }));
-    }
-    setTagInput("");
-  };
-
-  const normalized = normalizeSurveyCreationDraft(draft);
+  const normalized = normalizeSurveyCreationDraft({ ...draft, tags: [...commitDraft(draft.tags, tagInput, STUDIO_TAG_LIMITS)] });
   const submitMetadata = (event: React.FormEvent) => {
     event.preventDefault();
     if (!normalized) return;
@@ -88,23 +82,14 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
                 <Label htmlFor="survey-create-name">问卷名称</Label>
                 <Input id="survey-create-name" autoFocus maxLength={100} value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：季度协作健康度调查" />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="survey-create-tag-input">标签（可选）</Label>
-                <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-lg border border-input p-2">
-                  {draft.tags.map((tag) => (
-                    <span key={tag} data-testid="survey-create-tag" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-11">
-                      {tag}
-                      <button type="button" aria-label={`删除标签 ${tag}`} onClick={() => setDraft((current) => ({ ...current, tags: current.tags.filter((value) => value !== tag) }))} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-3 w-3" aria-hidden /></button>
-                    </span>
-                  ))}
-                  <Input id="survey-create-tag-input" value={tagInput} onChange={(event) => setTagInput(event.target.value)} onBlur={commitTag} onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === "," || event.key === "，") {
-                      event.preventDefault();
-                      commitTag();
-                    }
-                  }} placeholder="输入标签，按回车或逗号添加" className="min-w-48 flex-1 border-0 shadow-none focus-visible:ring-0" />
-                </div>
-              </div>
+              <TagField
+                value={draft.tags}
+                onChange={(next) => setDraft((current) => ({ ...current, tags: [...next] }))}
+                draft={tagInput}
+                onDraftChange={setTagInput}
+                {...STUDIO_TAG_LIMITS}
+                testIdPrefix="survey-create-tag"
+              />
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" size="lg" onClick={close}>取消</Button>
                 <Button type="submit" variant="primary" size="lg" disabled={!normalized}>{mode === "module" ? "下一步" : "创建问卷"}</Button>

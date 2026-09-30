@@ -11,15 +11,15 @@ describe("SurveyCreateDialog", () => {
 
     expect(screen.getByRole("button", { name: "创建问卷" })).not.toBeDisabled();
     fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "  季度协作调查  " } });
-    const tagInput = screen.getByLabelText("标签（可选）");
+    const tagInput = screen.getByTestId("survey-create-tag-input");
     fireEvent.change(tagInput, { target: { value: "协作" } });
     fireEvent.keyDown(tagInput, { key: "Enter" });
-    fireEvent.change(tagInput, { target: { value: "内部," } });
+    fireEvent.change(tagInput, { target: { value: "内部" } });
     fireEvent.keyDown(tagInput, { key: "," });
     fireEvent.change(tagInput, { target: { value: "协作" } });
     fireEvent.keyDown(tagInput, { key: "Enter" });
 
-    expect(screen.getAllByTestId("survey-create-tag")).toHaveLength(2);
+    expect(screen.getAllByTestId(/^survey-create-tag-chip-/)).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "创建问卷" }));
 
     expect(onCreate).toHaveBeenCalledWith({ name: "季度协作调查", tags: ["协作", "内部"] });
@@ -29,10 +29,10 @@ describe("SurveyCreateDialog", () => {
     const onOpenChange = vi.fn();
     const view = render(<SurveyCreateDialog open mode="blank" onOpenChange={onOpenChange} onCreate={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "临时问卷" } });
-    fireEvent.change(screen.getByLabelText("标签（可选）"), { target: { value: "临时" } });
-    fireEvent.keyDown(screen.getByLabelText("标签（可选）"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "删除标签 临时" }));
-    expect(screen.queryByTestId("survey-create-tag")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("survey-create-tag-input"), { target: { value: "临时" } });
+    fireEvent.keyDown(screen.getByTestId("survey-create-tag-input"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "移除标签 临时" }));
+    expect(screen.queryAllByTestId(/^survey-create-tag-chip-/)).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
 
@@ -45,8 +45,8 @@ describe("SurveyCreateDialog", () => {
     const onCreate = vi.fn();
     render(<SurveyCreateDialog open mode="module" onOpenChange={vi.fn()} onCreate={onCreate} />);
     fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "能力诊断" } });
-    fireEvent.change(screen.getByLabelText("标签（可选）"), { target: { value: "诊断" } });
-    fireEvent.keyDown(screen.getByLabelText("标签（可选）"), { key: "Enter" });
+    fireEvent.change(screen.getByTestId("survey-create-tag-input"), { target: { value: "诊断" } });
+    fireEvent.keyDown(screen.getByTestId("survey-create-tag-input"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
 
     expect(screen.getByRole("heading", { name: "选择问卷模块" })).toBeInTheDocument();

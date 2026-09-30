@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ResourceCard } from "@/components/ui/resource-card";
 import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { InlineTagEditor } from "@/components/ui/inline-tag-editor";
 import { aggregateTags, matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { ApiError } from "@/lib/api-client";
@@ -17,6 +18,7 @@ import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TAGS_MAX,
+  PROJECT_TAG_MAX_LENGTH,
   archiveProject,
   listProjects,
   unarchiveProject,
@@ -430,18 +432,16 @@ function ProjectRealCard({
  * 成功后靠 `onChanged`（父级 `refresh`）刷新，不在本地直接改 `project.tags`。
  */
 function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChanged: () => void }) {
-  const [adding, setAdding] = React.useState(false);
-  const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // 整体替换语义：每次操作都把当前完整标签集合发给 `updateProjectTags`，不是本地乐观拼接后假装成功——
+  // 提交中禁用，失败就地显示，成功后靠 `onChanged`（父级 `refresh`）刷新。
   const submitTags = async (nextTags: readonly string[]) => {
     setBusy(true);
     setError(null);
     try {
       await updateProjectTags(project.id, nextTags);
-      setAdding(false);
-      setDraft("");
       onChanged();
     } catch (e) {
       setError(describeTagsError(e));
@@ -450,74 +450,17 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
     }
   };
 
-  const removeTag = (tag: string) => void submitTags(project.tags.filter((t) => t !== tag));
-
-  const addTag = () => {
-    const t = draft.trim();
-    if (t === "" || project.tags.includes(t) || project.tags.length >= PROJECT_TAGS_MAX) return;
-    void submitTags([...project.tags, t]);
-  };
-
   return (
-    <div className="flex flex-wrap items-center gap-1" data-testid={`projects-card-${project.id}-tags`}>
-      {project.tags.map((tag) => (
-        <span
-          key={tag}
-          data-testid={`projects-card-${project.id}-tag-${tag}`}
-          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
-        >
-          {tag}
-          <button
-            type="button"
-            aria-label={`移除标签 ${tag}`}
-            data-testid={`projects-card-${project.id}-tag-${tag}-remove`}
-            onClick={() => void removeTag(tag)}
-            disabled={busy}
-            className="rounded-full transition-colors duration-200 hover:bg-border"
-          >
-            <X aria-hidden className="h-2.5 w-2.5" />
-          </button>
-        </span>
-      ))}
-
-      {adding ? (
-        <span className="inline-flex items-center gap-1">
-          <Input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); addTag(); }
-              if (e.key === "Escape") { setAdding(false); setDraft(""); }
-            }}
-            placeholder="新标签"
-            aria-label="新标签"
-            data-testid={`projects-card-${project.id}-tag-input`}
-            className="h-6 w-24 text-10"
-            disabled={busy}
-          />
-          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-10" onClick={addTag} disabled={busy || draft.trim() === ""} data-testid={`projects-card-${project.id}-tag-confirm`}>
-            确定
-          </Button>
-        </span>
-      ) : project.tags.length < PROJECT_TAGS_MAX ? (
-        <button
-          type="button"
-          data-testid={`projects-card-${project.id}-tag-add`}
-          onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-200 hover:bg-muted"
-        >
-          <Plus aria-hidden className="h-2.5 w-2.5" />
-          标签
-        </button>
-      ) : null}
-
-      {error !== null ? (
-        <span className="text-10 text-destructive" data-testid={`projects-card-${project.id}-tags-error`}>
-          {error}
-        </span>
-      ) : null}
-    </div>
+    <InlineTagEditor
+      tags={project.tags}
+      onChange={(next) => void submitTags(next)}
+      busy={busy}
+      error={error}
+      compact
+      maxTags={PROJECT_TAGS_MAX}
+      maxTagLength={PROJECT_TAG_MAX_LENGTH}
+      testidPrefix={`projects-card-${project.id}`}
+    />
   );
 }
 

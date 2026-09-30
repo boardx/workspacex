@@ -66,11 +66,17 @@ export function TagInput({
   const trimmed = text.trim();
   const full = maxTags !== undefined && value.length >= maxTags;
 
+  // 被拒绝/被截断时的一句人话（输入框再动就消失）——不静默吞掉用户的输入
+  const [notice, setNotice] = React.useState<string | null>(null);
+
   function add(tag: string): void {
-    const t = maxTagLength === undefined ? normalizeTag(tag) : normalizeTag(tag).slice(0, maxTagLength);
+    const normalized = normalizeTag(tag);
+    const t = maxTagLength === undefined ? normalized : normalized.slice(0, maxTagLength);
     setText("");
+    if (t.length === 0 || full) return;
     // 忽略大小写去重：「Client」「client」是同一个标签（lib/tag-utils.ts）
-    if (t.length === 0 || hasTag(value, t) || full) return;
+    if (hasTag(value, t)) { setNotice(`「${t}」已经有了`); return; }
+    setNotice(t.length < normalized.length ? `标签最多 ${String(maxTagLength)} 个字，已截断为「${t}」` : null);
     onChange([...value, t]);
   }
 
@@ -128,7 +134,7 @@ export function TagInput({
           value={text}
           disabled={disabled || full}
           maxLength={maxTagLength}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setNotice(null); }}
           onCompositionStart={() => { composing.current = true; }}
           onCompositionEnd={() => { composing.current = false; }}
           onKeyDown={onKeyDown}
@@ -160,7 +166,9 @@ export function TagInput({
       <span className="text-10 text-muted-foreground" data-testid={`${testIdPrefix}-hint`}>
         {full
           ? `最多 ${String(maxTags)} 个标签，已经满了——删掉一个才能再加`
-          : value.length > 0
+          : notice !== null
+            ? notice
+            : value.length > 0
             ? `已选 ${String(value.length)} 个标签`
             : (emptyHint ?? "输入即搜索已有标签，回车新建一个")}
       </span>
