@@ -1,3 +1,14 @@
+import { ApiError } from "./api-client";
+
+/** Transport classification only; never render this internal reason as UI text. */
+export function transcriptionFailureReason(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.reasonCode ?? (error.status >= 500 ? "ASR_PROVIDER_UNAVAILABLE" : error.message);
+  }
+  if (error instanceof TypeError) return "CONNECTION_FAILED";
+  return error instanceof Error ? error.message : "CONNECTION_FAILED";
+}
+
 /** Explicit allow-list: permission, ownership, quota and configuration need user action. */
 export function isRetryableTranscriptionError(reason: string): boolean {
   return ["CONNECTION_FAILED", "ASR_PROVIDER_UNAVAILABLE", "AUDIO_BACKPRESSURE", "START_TIMEOUT",

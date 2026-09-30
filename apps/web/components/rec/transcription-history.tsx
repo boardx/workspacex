@@ -22,8 +22,7 @@ import {
 import type { UiState } from "@/lib/ui-state";
 import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
-import { ApiError } from "@/lib/api-client";
-import { RealtimeReconnect, isRetryableTranscriptionError } from "@/lib/realtime-reconnect";
+import { RealtimeReconnect, isRetryableTranscriptionError, transcriptionFailureReason } from "@/lib/realtime-reconnect";
 import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
@@ -250,9 +249,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       if (!current() || failed) { void handle.stop().catch(() => undefined); return; }
       streamRef.current = handle;
     } catch (error) {
-      const reason = error instanceof ApiError
-        ? error.reasonCode ?? (error.status >= 500 ? "ASR_PROVIDER_UNAVAILABLE" : error.message)
-        : error instanceof TypeError ? "CONNECTION_FAILED" : error instanceof Error ? error.message : "CONNECTION_FAILED";
+      const reason = transcriptionFailureReason(error);
       reportFailure(reason, error instanceof LiveRecordingError ? error.message : streamErrorText(reason));
     } finally {
       openingRef.current = false;

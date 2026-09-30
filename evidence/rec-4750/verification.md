@@ -22,3 +22,7 @@ The full frontend suite was also started with `pnpm --filter web exec vitest run
 At initial review it reported unrelated whiteboard upload failures plus timing-dependent chat interjection and restored approval failures. The same 8 whiteboard upload failures were reproduced against an unmodified archive of the base main commit. Chat interjection (6 tests) and restored approval (16 tests) passed in isolated reruns. Full-suite completion and CI results are tracked on the issue/PR; this document does not claim full-suite green.
 
 No production deployment, real-provider network interruption test, or browser screenshot fidelity claim is made. Connection recovery does not replay unacknowledged audio: the UI explicitly warns that the disconnected interval was not transcribed. Server reservations after a lost ticket response remain governed by the existing backend; frontend cancellation does not issue delayed session-wide cleanup that could stop a newer capture.
+
+## CI follow-up
+
+The first CI run flagged internal retry reason extraction in a UI source file via `lint-user-facing-error-text`. Classification is now in the transport helper, separate from the existing user-facing `streamErrorText` mapping. No gate exemption or baseline change was introduced. `node .harness/scripts/lint-user-facing-error-text.mjs` now exits 0.
