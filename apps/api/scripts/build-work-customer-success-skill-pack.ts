@@ -6,7 +6,8 @@
  * digest 与落盘全部由共享的 `work-content-pack.ts` 实现。
  *
  * 与其他内容线的一处差别：这 8 个实体在 WORK-STACK-320-LIST.md 中仍是 ⬜（尚无独立评审 PASS），经人类授权先行实现，
- * 因此用 `provisionalStableIds` 放行 PASS 检查。评审通过、清单改为 ✅ 后删掉 `PROVISIONAL_STABLE_IDS`。
+ * 因此用 `pendingReviewIds`（唯一的自失效豁免，见 work-content-pack.ts）放行 PASS 检查。清单改为 ✅ 后构建会报
+ * pending-review-stale，届时删掉 `PENDING_REVIEW_IDS`。
  *
  * 用法：`npx tsx scripts/build-work-customer-success-skill-pack.ts`（构建并写出）
  *       `npx tsx scripts/build-work-customer-success-skill-pack.ts --check`（核对已提交产物，不符退出非 0）
@@ -29,10 +30,10 @@ export const DEFAULT_ROOT = resolve(HERE, "../../../skills/work-customer-success
 export const EXPECTED_STABLE_IDS: readonly string[] = ["S187", "S188", "S189", "S190", "S191", "S192", "S193", "S194"];
 
 /** 尚无独立评审 PASS、经人类授权先行实现的实体（见文件头）。 */
-export const PROVISIONAL_STABLE_IDS: readonly string[] = EXPECTED_STABLE_IDS;
+export const PENDING_REVIEW_IDS: readonly string[] = EXPECTED_STABLE_IDS;
 
 export function specFor(root: string = DEFAULT_ROOT): WorkContentPackSpec {
-  return { packId: PACK_ID, packVersion: PACK_VERSION, root, expectedStableIds: EXPECTED_STABLE_IDS, provisionalStableIds: PROVISIONAL_STABLE_IDS };
+  return { packId: PACK_ID, packVersion: PACK_VERSION, root, expectedStableIds: EXPECTED_STABLE_IDS, pendingReviewIds: PENDING_REVIEW_IDS };
 }
 
 export function buildWorkCustomerSuccessPack(root: string = DEFAULT_ROOT): SkillStarterPack {

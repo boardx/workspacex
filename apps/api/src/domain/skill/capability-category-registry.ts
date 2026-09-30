@@ -17,6 +17,8 @@
  *   ticket.read / crm.read / tracker.read / transcript.read / survey.read 等此前已登记。）
  * （EV03 门脚本 `gate-policy.ts` 曾另抄一份更短的登记表，G3 与导入/就绪性判据因此漂移；现在它
  *   直接 re-export 本表，`knowledge.graph.read` 等原先只在那一份里的分类并入这里。）
+ * （高管线 S195/S199 补登：`finance.read`（预算/财务抽取）、`hr.headcount.read`（人员投放）——规格声明但背后的
+ *   ERP / HRIS 未接线（declared-but-unwired）；登记只为让 work-executive 整包能被导入，不代表能力已可用。）
  */
 const REGISTERED = [
   "analytics.read",

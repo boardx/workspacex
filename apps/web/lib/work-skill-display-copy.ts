@@ -70,6 +70,11 @@ export const WORK_SKILL_NAMES: Readonly<Record<string, string>> = {
   S170: "科学研究规划",
   S171: "证据评审",
   S172: "数据叙事",
+  S195: "战略复盘",
+  S196: "董事会会议准备",
+  S197: "决策记账",
+  S198: "OKR 对齐",
+  S199: "商业模式分析",
 };
 
 const STABLE_ID = /^S\d{3}$/;
