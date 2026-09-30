@@ -71,6 +71,9 @@ beforeAll(() => {
   cpSync(MIGRATIONS_DIR, legacyDir, { recursive: true });
   unlinkSync(join(legacyDir, "20260807000000_i619_agent_roster_capability_convergence.sql"));
   unlinkSync(join(legacyDir, "20260821180000_i1705_agent_role_label.sql"));
+  // 同理：`20260930123000_dh_official_names_zh.sql` 读写 `agents.role_label` / `capability_listings.role_label`，
+  // 这两列由上面被摘掉的 i1705 加；它在 i619 之前的中间态上会 `column a.role_label does not exist`（真实部署不会出现）。
+  unlinkSync(join(legacyDir, "20260930123000_dh_official_names_zh.sql"));
 }, 120_000);
 
 afterAll(() => {

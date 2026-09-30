@@ -32,6 +32,8 @@ export interface SelectProps {
   readonly disabled?: boolean;
   readonly className?: string;
   readonly "data-testid"?: string;
+  /** 触发器的可访问名称：同一页有多个选择器（每行一个）时必须说清是谁的，否则读屏只会念出当前值。 */
+  readonly "aria-label"?: string;
 }
 
 export function Select({
@@ -42,6 +44,7 @@ export function Select({
   disabled,
   className,
   "data-testid": testId,
+  "aria-label": ariaLabel,
 }: SelectProps) {
   const selected = options.find((o) => o.value === value);
   return (
@@ -49,6 +52,7 @@ export function Select({
       <DropdownMenuTrigger
         disabled={disabled}
         data-testid={testId}
+        aria-label={ariaLabel}
         className={cn(
           "inline-flex h-8 min-w-[12rem] items-center justify-between gap-2 rounded-control border border-border bg-card px-3 text-13 text-card-foreground",
           "transition-all duration-base hover:bg-muted",

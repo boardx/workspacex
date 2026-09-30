@@ -1,0 +1,7 @@
+{
+  "sourceId": "fin:board-only-forecast",
+  "readableBy": [
+    "cfo"
+  ],
+  "caller": "strategy-analyst"
+}

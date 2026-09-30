@@ -10,6 +10,7 @@
  *   发起人 GET 卡片 ⇒ confirm ⇒ 接收方新线程 ⇒ 新线程上以**发起人**身份重读证据引用。
  */
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { HttpException } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -37,7 +38,7 @@ import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgProvenanceRepository } from "../../src/infrastructure/provenance/pg-provenance-repository";
 import { AgentHandoffController } from "../../src/interface/controllers/agent-handoff.controller";
-import { addBinding, addCapability, addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addBinding, addCapability, addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { addBrowserArtifact } from "../support/files-db";
 import { fixture } from "../agent-run/loopback-deep-agent-fixture";
@@ -539,7 +540,7 @@ describe("AG07 · 官方角色包：D002 开箱转交给 D003（真导入、真�
   });
 
   it("官方包的转交目标由白名单推导，D002 → D003 登记 requested；D002 → D002 自己不在允许集", async () => {
-    expect(OFFICIAL_AGENT_ROLE_PACK_VERSION).toBe("1.3.0");
+    expect(OFFICIAL_AGENT_ROLE_PACK_VERSION).toBe("1.5.0");
     expect(officialRoleDelegationTargets().D002).toContain("D003");
     const d002 = await asApp(ORG2, async (c) => (await c.query<{ agent_id: string; version_id: string; policy: unknown }>(
       `SELECT a.id AS agent_id, a.published_version_id AS version_id, v.delegation_policy AS policy
@@ -571,6 +572,28 @@ describe("AG07 · 官方角色包：D002 开箱转交给 D003（真导入、真�
     }
     const rows = await asApp(ORG2, async (c) => (await c.query<{ target_role: string; status: string; target_name: string }>(
       "SELECT target_role, status, target_name FROM agent_handoffs WHERE org_id=$1", [ORG2])).rows);
-    expect(rows).toEqual([{ target_role: "D003", status: "requested", target_name: "Product Manager" }]);
+    expect(rows).toEqual([{ target_role: "D003", status: "requested", target_name: "产品经理" }]);
+  });
+
+  it("rp-b2 1.5.0 回填迁移：仍是 1.3.0 旧值的官方行 ⇒ 换成推导出的新目标集（草稿 + 快照）；管理员改过的不碰；重复执行无副作用", async () => {
+    const OLD_D003 = { allowedTargets: ["D002", "D005", "D011"], maxDepth: 1, requireApproval: true };
+    const CUSTOM = { allowedTargets: ["D002"], maxDepth: 1, requireApproval: true };
+    const setPolicy = (stableName: string, policy: unknown) => asOwner(async (c) => {
+      await c.query("BEGIN");
+      await c.query("ALTER TABLE agent_versions DISABLE TRIGGER agent_versions_immutable_trg");
+      await c.query(`UPDATE agent_versions v SET delegation_policy = $3::jsonb FROM agents a WHERE v.agent_id = a.id AND v.org_id = a.org_id AND a.org_id = $1 AND a.stable_name = $2`, [ORG2, stableName, JSON.stringify(policy)]);
+      await c.query("ALTER TABLE agent_versions ENABLE TRIGGER agent_versions_immutable_trg");
+      await c.query(`UPDATE agents SET delegation_policy = $3::jsonb WHERE org_id = $1 AND stable_name = $2`, [ORG2, stableName, JSON.stringify(policy)]);
+      await c.query("COMMIT");
+    });
+    const read = (stableName: string) => asApp(ORG2, async (c) => (await c.query<{ draft: unknown; published: unknown }>(
+      `SELECT a.delegation_policy AS draft, v.delegation_policy AS published FROM agents a JOIN agent_versions v ON v.id = a.published_version_id AND v.org_id = a.org_id WHERE a.org_id = $1 AND a.stable_name = $2`, [ORG2, stableName])).rows[0]!);
+    await setPolicy("d003-product-manager", OLD_D003);
+    await setPolicy("d005-sales-representative", CUSTOM);
+    const sql = readFileSync(join(__dirname, "../../migrations/20260930141000_rp_b2_official_role_pack_1_5_0.sql"), "utf8");
+    for (let i = 0; i < 2; i += 1) await asOwner(async (c) => { await c.query("BEGIN"); await c.query(sql); await c.query("COMMIT"); });
+    const expected = { allowedTargets: [...officialRoleDelegationTargets().D003!], maxDepth: 1, requireApproval: true };
+    expect(await read("d003-product-manager")).toEqual({ draft: expected, published: expected });
+    expect(await read("d005-sales-representative")).toEqual({ draft: CUSTOM, published: CUSTOM });
   });
 });

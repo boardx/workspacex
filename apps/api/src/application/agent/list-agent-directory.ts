@@ -19,6 +19,7 @@
  * 所以本轮诚实地退化：`toolPolicy` 为空 ⇒ 不需要任何能力 ⇒ `ready`；非空 ⇒ 无法判定
  * ⇒ `unknown`（契约里「授权查询失败 → unknown，不整页报错」的合法状态，这里是「查询能力
  * 尚不存在」的等价情形）。WS04 落地后换成真实分类比对，调用方（本文件）的形状不用跟着改。
+ * 例外（2026-09-30）：非空但本组织已有**已发布**的白名单 Workflow ⇒ `ready`（见 `readinessOf`）。
  */
 import type { AgentRoleFieldsT } from "../../domain/agent/definition";
 import type { IdentityRepository } from "../identity/ports";
@@ -84,13 +85,20 @@ function initialsOf(name: string): string {
   return trimmed.length > 0 ? trimmed[0]!.toUpperCase() : "?";
 }
 
-function readinessOf(row: AgentDirectoryRow): "ready" | "unknown" {
-  return row.toolPolicyLength === 0 ? "ready" : "unknown";
+/**
+ * `toolPolicy` 为空 ⇒ ready。非空时：若装配了「可发起」端口且过滤后仍有可发起的 Workflow ⇒ ready——
+ * 那些 Workflow 已通过 UC-WR-1 发布校验（Skill 全部在本组织目录可解析），角色的能力是经由它们交付的；
+ * `toolPolicy` 只是能力分类声明（ADR-120 #2，不产生授权），不单独门控。其余 ⇒ unknown（如实不判）。
+ */
+function readinessOf(row: AgentDirectoryRow, launchableChecked: boolean): "ready" | "unknown" {
+  if (row.toolPolicyLength === 0) return "ready";
+  return launchableChecked && row.workflowAllowlist.length > 0 ? "ready" : "unknown";
 }
 
 async function toCard(
   row: AgentDirectoryRow,
   workflows: WorkflowDefinitionStore,
+  launchableChecked = false,
 ): Promise<AgentDirectoryCardOut> {
   const resolvedWorkflows = await Promise.all(
     row.workflowAllowlist.map(async (stableId) => ({
@@ -109,7 +117,7 @@ async function toCard(
     tags: [...row.tags],
     catalogSource: row.catalogSource,
     workflows: resolvedWorkflows,
-    readiness: readinessOf(row),
+    readiness: readinessOf(row, launchableChecked),
   };
 }
 
@@ -150,7 +158,7 @@ export async function listAgentDirectory(
     return true;
   });
   const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
-  return Promise.all(filtered.map((row) => toCard(onlyLaunchable(row, launchable), deps.workflows)));
+  return Promise.all(filtered.map((row) => toCard(onlyLaunchable(row, launchable), deps.workflows, launchable !== null)));
 }
 
 export async function getAgentDirectoryCard(
@@ -164,7 +172,7 @@ export async function getAgentDirectoryCard(
   const row = await deps.repository.findVisible(input.orgId, input.agentId);
   if (row === null) throw new AgentDirectoryError("AGENT_NOT_FOUND");
   const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
-  return toCard(onlyLaunchable(row, launchable), deps.workflows);
+  return toCard(onlyLaunchable(row, launchable), deps.workflows, launchable !== null);
 }
 
 export interface AgentDirectoryProfileOut {

@@ -66,7 +66,7 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
       <SectionTitle meta="哪些来源允许进入项目大脑（项目记忆只从这些来源生长）">AI 权限</SectionTitle>
       <Card>
         {settings === undefined && error === null && (
-          <p className="p-4 text-11 text-muted-foreground">加载中…</p>
+          <p className="p-4 text-12 text-muted-foreground">加载中…</p>
         )}
         {settings !== undefined && (
           <ul className="divide-y divide-border">
@@ -98,25 +98,25 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
         )}
         {settings !== undefined && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5">
-            <span className="text-11 text-muted-foreground" data-testid="project-ai-settings-meta">
+            <span className="text-12 text-muted-foreground" data-testid="project-ai-settings-meta">
               {settings.updatedAt === null
                 ? "尚未设置过（默认全部允许）"
                 : `最近由 ${settings.updatedBy ?? "—"} 于 ${new Date(settings.updatedAt).toLocaleString("zh-CN")} 更新`}
             </span>
             {canEdit ? (
               <span className="flex items-center gap-2">
-                {saved && !dirty && <span className="text-11 text-success" data-testid="project-ai-settings-saved">已保存</span>}
+                {saved && !dirty && <span className="text-12 text-success" data-testid="project-ai-settings-saved">已保存</span>}
                 <Button size="sm" data-testid="project-ai-settings-save" disabled={!dirty || busy} onClick={() => void save()}>
                   {busy ? "保存中…" : "保存"}
                 </Button>
               </span>
             ) : (
-              <span className="text-11 text-muted-foreground">只有项目负责人（或组织负责人 / 管理员）能修改。</span>
+              <span className="text-12 text-muted-foreground">只有项目负责人（或组织负责人 / 管理员）能修改。</span>
             )}
           </div>
         )}
         {error !== null && (
-          <p className="border-t border-border px-4 py-2.5 text-11 text-destructive" data-testid="project-ai-settings-error">{error}</p>
+          <p className="border-t border-border px-4 py-2.5 text-12 text-destructive" data-testid="project-ai-settings-error">{error}</p>
         )}
       </Card>
     </section>

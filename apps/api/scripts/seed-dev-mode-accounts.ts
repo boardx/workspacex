@@ -46,6 +46,10 @@ import { builtInWorkflowDefinitions, defaultCommandWorkflowGraphs, defaultWorkfl
 import { PgSkillCatalogVersionResolver } from "../src/infrastructure/workflow/pg-skill-catalog-version-resolver";
 import { PgWorkflowDefinitionRepository } from "../src/infrastructure/workflow/pg-workflow-definition-repository";
 import { WorkflowGraphRegistry } from "../src/infrastructure/workflow/workflow-graph-registry";
+import { WorkflowCapabilityGrantService } from "../src/application/workflow/workflow-capability-grants";
+import { PgWorkflowCapabilityGrantStore } from "../src/infrastructure/workflow/pg-effect-capability-authority";
+import { PgIdentityRepository } from "../src/infrastructure/identity/pg-identity-repository";
+import { PgProvenanceRepository } from "../src/infrastructure/provenance/pg-provenance-repository";
 
 assertDevModeAllowed();
 if (!isDevModeEnabled()) {
@@ -131,6 +135,31 @@ for (const r of results) {
       ? `  Workflow 已发布：${r.key}@${r.version}`
       : `  Workflow 不可用（Skill 引用未解析，导入 starter pack 后重跑）：${r.key}@${r.version} 缺 ${r.missingSkills.join(", ")}`,
   );
+}
+
+/**
+ * 仅开发模式：给内置 Workflow 的写阶段授 `write`（artifact.write / notify.inapp），否则 W029 等在
+ * `persist` / `notify` 停在 blocked_permission（生产默认只读不变，ADR-120 #2——本脚本上方已
+ * assertDevModeAllowed，生产环境走不到这里）。走管理面同一条 service（以本组织 admin 身份、写审计），
+ * 已配置过的分类不覆盖（尊重管理员在界面上做过的决定），重跑幂等。
+ */
+const DEV_SEEDED_GRANTS = ["artifact.write", "notify.inapp"] as const;
+const grantStore = new PgWorkflowCapabilityGrantStore(db);
+const provenance = new PgProvenanceRepository(db);
+const grantService = new WorkflowCapabilityGrantService({
+  identity: new PgIdentityRepository(db),
+  store: grantStore,
+  provenanceWriter: provenance,
+  provenanceReader: provenance,
+});
+const configured = new Set((await grantStore.list(devOrgId)).map((g) => g.capabilityCategory));
+for (const category of DEV_SEEDED_GRANTS) {
+  if (configured.has(category)) {
+    console.log(`  能力授权已存在（保留）：${category}`);
+    continue;
+  }
+  await grantService.grant(devOrgId, adminUserId, category, "write");
+  console.log(`  能力授权（仅开发模式）：${category} → write`);
 }
 
 console.log("done");

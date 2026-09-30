@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { DeniedState, ErrorState, LoadingSkeleton } from "@/components/work-stack/states";
 import { Bot, Workflow } from "lucide-react";
-import { agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
+import { workflowLabelsOf } from "@/lib/workflow-catalog-title-copy";
 import {
   AGENT_ROLE_CATEGORIES,
   agentDisplayName,
@@ -55,16 +55,16 @@ function ReadinessBadge({ readiness }: { readiness: AgentDirectoryCard["readines
  */
 export function readinessReasonText(card: Pick<AgentDirectoryCard, "readiness" | "roleCategory">): string | null {
   if (card.readiness === "ready") return null;
-  return card.roleCategory === "sales"
-    ? "部分能力待开通：销售类流程需接入 CRM 后开放。日常对话可直接开始。"
-    : "部分能力待开通：需要连接外部系统的动作，等组织管理员开通后开放。日常对话可直接开始。";
+  if (card.roleCategory === "sales") return "部分能力待开通：销售类流程需接入 CRM 后开放。日常对话可直接开始。";
+  if (card.roleCategory === "customer_success") return "部分能力待开通：客户问题处理需接入工单系统后开放，未接入时只能产出草稿。日常对话可直接开始。";
+  return "部分能力待开通：需要连接外部系统的动作，等组织管理员开通后开放。日常对话可直接开始。";
 }
 
 function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string) => void }) {
   const name = agentDisplayName(card);
   const subtitle = agentSubtitle(card);
   const detailHref = `/agent/${encodeURIComponent(card.agentId)}`;
-  const workflowLabels = [...new Set(card.workflows.map(agentWorkflowLabel))];
+  const workflowLabels = workflowLabelsOf(card);
   const readinessReason = readinessReasonText(card);
   // uiux-r5 #3.1：没有标签的数字人（通用助手）用角色类别兜一枚中性标签，不留空行。
   const displayTags = card.tags.length > 0 ? card.tags : [card.roleCategory ? ROLE_CATEGORY_LABEL[card.roleCategory] : "通用"];

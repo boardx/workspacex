@@ -39,7 +39,54 @@ export const Sha256Digest = z.string().regex(/^[0-9a-f]{64}$/);
 export const EvidenceRef = z.string().min(1).max(512);
 
 /** 三条内容线（包名为提案名，见 05 号 R1 系统边界）。 */
-export const WorkContentLine = z.enum(["research", "product", "sales", "shared"]);
+export const WorkContentLine = z.enum(["research", "product", "sales", "shared", "operations"]);
+
+/* ── 分阶段 Workflow 编号集（对账与 W017 守卫的单一事实源） ─────────────── */
+
+/**
+ * 按「交付阶段」分组的 Workflow 稳定编号。对账（`Phase1Reconciliation` 的 `unexpected`、销售线守卫、
+ * 白名单测试）一律按**阶段集合**判定，而不是「全库只允许这 19 个」——新阶段加 W 编号只是新增一组，
+ * 不会让第一阶段的守卫变红。新增阶段 = 在这里加一项 + 同步 `WORKFLOW_SKILL_MATRIX` 对账。
+ */
+export const PHASE_WORKFLOW_IDS = {
+  /** 第一阶段 19 个（研究 5 + 产品 6 + W002 + 销售 7）；`Phase1Reconciliation.expected.workflow` = 19。 */
+  phase1: [
+    "W001", "W006", "W009", "W057", "W060",
+    "W027", "W028", "W029", "W030", "W031", "W032", "W002",
+    "W011", "W012", "W013", "W014", "W015", "W016", "W018",
+  ],
+  /** 批次 2（D001 / D006 / D007 的共享与运营线）：W003、W004、W007（Shared）+ W052、W053、W055、W056（Operations）。 */
+  batch2: ["W003", "W004", "W007", "W052", "W053", "W055", "W056"],
+} as const;
+
+/** 已评估但推迟、当前任何阶段都不得出现的 Workflow（W017 缺 S142 等，见 D006 §14）。 */
+export const DEFERRED_WORKFLOW_IDS = ["W017"] as const;
+
+export type WorkflowPhaseKey = keyof typeof PHASE_WORKFLOW_IDS;
+
+/** 编号归属：某阶段 / 推迟 / 未知。`unexpected` = 非本阶段集合的一切（含其它阶段的编号不算「未知」）。 */
+export function workflowIdPhase(id: string): WorkflowPhaseKey | "deferred" | "unknown" {
+  if ((DEFERRED_WORKFLOW_IDS as readonly string[]).includes(id)) return "deferred";
+  for (const phase of Object.keys(PHASE_WORKFLOW_IDS) as WorkflowPhaseKey[]) {
+    if ((PHASE_WORKFLOW_IDS[phase] as readonly string[]).includes(id)) return phase;
+  }
+  return "unknown";
+}
+
+/**
+ * 批次 2 的 Workflow 槽位：目录线、runtime key、英文标题的唯一声明处。
+ * 注册步骤（写 Definition）必须使用这里的 key；`apps/web/lib/workflow-display-copy.ts` 的中文名表按同一 key
+ * 逐项核对。槽位存在 ≠ 已注册：Definition 依赖的 Skill 包就绪后才进各线目录。
+ */
+export const BATCH2_WORKFLOW_SLOTS = [
+  { workflowId: "W003", key: "decision-to-execution", title: "Decision-to-Execution", line: "shared" },
+  { workflowId: "W004", key: "weekly-executive-digest", title: "Weekly Executive Digest", line: "shared" },
+  { workflowId: "W007", key: "issue-to-resolution", title: "Issue-to-Resolution", line: "shared" },
+  { workflowId: "W052", key: "request-to-project", title: "Request-to-Project", line: "operations" },
+  { workflowId: "W053", key: "weekly-pmo-review", title: "Weekly PMO Review", line: "operations" },
+  { workflowId: "W055", key: "process-improvement", title: "Process Improvement", line: "operations" },
+  { workflowId: "W056", key: "incident-to-postmortem", title: "Incident-to-Postmortem", line: "operations" },
+] as const;
 
 /* ── 封闭枚举（新增成员须经 ADR；见 domain.md 第三节） ─────────────────── */
 
@@ -236,7 +283,7 @@ export const Phase1Reconciliation = z
     expected: z.object({ skill: z.literal(58), workflow: z.literal(19), agent: z.literal(4) }).strict(),
     entities: z.array(Phase1ReconciliationEntity),
     missing: z.array(z.string()),
-    unexpected: z.array(z.string()), // 例：W017 出现即进这里
+    unexpected: z.array(z.string()), // 例：W017 出现即进这里；判定按 PHASE_WORKFLOW_IDS 的阶段集合
     ok: z.boolean(),
   })
   .strict();
@@ -267,6 +314,8 @@ export const BoardWorkflowRunCard = z
     column: z.enum(["in_progress", "review", "done"]),
     badge: BoardRunBadge,
     initiatorUserId: z.string(),
+    goal: z.string().nullable().default(null), // 目标摘录（与实例列表同一份 goalFromTriggerInput）
+    createdAt: z.string().nullable().default(null), // ISO；卡上显示发起时间
     agents: z.array(BoardRunCardAgent), // 发起 Agent + 转交链；A1 时为空
     draggable: z.literal(false),
     href: z.string(), // 跳实例详情

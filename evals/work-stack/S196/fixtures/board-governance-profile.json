@@ -1,0 +1,15 @@
+{
+  "profileRef": "gov:qinghe-board-profile-2026",
+  "jurisdiction": "CN",
+  "noticeDays": 10,
+  "predeliverDays": 5,
+  "quorum": "过半数董事",
+  "recusalRule": "与议案有利害关系的董事回避表决",
+  "eVotingAllowed": true,
+  "minutesLanguage": "zh-CN",
+  "directors": 7,
+  "committees": [
+    "audit",
+    "remuneration"
+  ]
+}

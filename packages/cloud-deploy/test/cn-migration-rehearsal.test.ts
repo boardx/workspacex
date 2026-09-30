@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { acquireRehearsalRun, assertLocalDockerEndpoint, assertRehearsalResourcesAbsent, openPrivateReport } from "../src/cn-migration-rehearsal-safety";
+import { binding, fixture } from "./cn-migration-snapshot.fixture";
 const script = fileURLToPath(new URL("../src/cn-migration-rehearsal-cli.ts", import.meta.url));
 function failure(args: string[], profile?: string) {
   try {
@@ -15,7 +16,7 @@ function failure(args: string[], profile?: string) {
   } catch (error) { return String((error as { stderr?: unknown }).stderr); }
 }
 it("refuses any cloud profile before reading input or contacting Docker", () => {
-  expect(failure(["nonexistent-checkout", "a".repeat(40), "b".repeat(40), "nonexistent-ledger", "nonexistent-report"], "production")).toContain("synthetic rehearsal refuses cloud profile");
+  expect(failure(["nonexistent-checkout", "a".repeat(40), "b".repeat(40), "nonexistent-ledger", "nonexistent-binding", "nonexistent-report"], "production")).toContain("synthetic rehearsal refuses cloud profile");
 });
 it("reserves an exclusive 0600 report and refuses files or symlinks without altering them", () => {
   const dir = mkdtempSync(join(tmpdir(), "rehearsal-report-"));
@@ -78,10 +79,11 @@ it("refuses existing resources and remote Docker endpoints", () => {
 it("CLI rejects existing reports before attempting invalid checkout or Docker", () => {
   const dir = mkdtempSync(join(tmpdir(), "rehearsal-existing-"));
   try {
-    const ledger = join(dir, "ledger.json"); writeFileSync(ledger, JSON.stringify({ readOnly: true, ledger: [] }));
+    const ledger = join(dir, "ledger.json"); writeFileSync(ledger, JSON.stringify(fixture([]).snapshot), { mode: 0o600 });
+    const sourceBinding = join(dir, "binding.json"); writeFileSync(sourceBinding, JSON.stringify(binding), { mode: 0o600 });
     const report = join(dir, "report.json"); writeFileSync(report, "unchanged", { mode: 0o644 });
     const link = join(dir, "report-link.json"); symlinkSync(report, link);
-    for (const path of [report, link]) expect(failure(["missing", "a".repeat(40), "b".repeat(40), ledger, path])).toContain("EEXIST");
+    for (const path of [report, link]) expect(failure(["missing", "a".repeat(40), "b".repeat(40), ledger, sourceBinding, path])).toContain("EEXIST");
     expect(readFileSync(report, "utf8")).toBe("unchanged");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -89,7 +91,8 @@ it("refuses ledger input without read-only format before contacting Docker", () 
   const dir = mkdtempSync(join(tmpdir(), "rehearsal-refusal-"));
   try {
     const ledger = join(dir, "ledger.json");
-    writeFileSync(ledger, JSON.stringify({ readOnly: false, ledger: [] }));
-    expect(failure([dir, "a".repeat(40), "b".repeat(40), ledger, join(dir, "report.json")])).toContain("read-only ledger required");
+    writeFileSync(ledger, JSON.stringify({ readOnly: false, ledger: [] }), { mode: 0o600 });
+    const sourceBinding = join(dir, "binding.json"); writeFileSync(sourceBinding, JSON.stringify(binding), { mode: 0o600 });
+    expect(failure([dir, "a".repeat(40), "b".repeat(40), ledger, sourceBinding, join(dir, "report.json")])).toContain("MIGRATION_SNAPSHOT_SCHEMA_INVALID");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

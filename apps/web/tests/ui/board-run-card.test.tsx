@@ -56,6 +56,11 @@ describe("BoardRunCard", () => {
     expect(b.textContent).not.toContain(badge);
   });
 
+  it("标题里的内置工作流编号换中文名：W029 Problem-to-PRD → 问题定义到 PRD", () => {
+    render(<BoardRunCard card={card({ title: "W029 Problem-to-PRD · 离线同步" })} onOpen={vi.fn()} />);
+    expect(screen.getByTestId("board-run-card-title").textContent).toBe("问题定义到 PRD · 离线同步");
+  });
+
   it("Agent 头像：有插画 key 渲染插画、否则首字母", () => {
     render(<BoardRunCard card={card()} />);
     const avatars = screen.getByTestId("board-run-card-agents").children;
@@ -86,6 +91,15 @@ describe("BoardRunColumns", () => {
   });
 });
 
+describe("BoardRunColumns 空列", () => {
+  it("无运行时三列仍在，各自计数 0 与空态文案", () => {
+    render(<BoardRunColumns cards={[]} />);
+    expect(screen.getByTestId("board-run-column-count-done").textContent).toBe("0");
+    expect(screen.getByTestId("board-run-column-empty-in_progress").textContent).toContain("暂无进行中");
+    expect(screen.getByTestId("board-run-column-empty-done").textContent).toContain("还没有已完成");
+  });
+});
+
 describe("LiveBoardRunColumns（接真实 API 客户端）", () => {
   it("项目视图把 projectId 传给加载器并渲染服务端给出的卡", async () => {
     const load = vi.fn(async () => ({ cards: [card()] }));
@@ -100,6 +114,17 @@ describe("LiveBoardRunColumns（接真实 API 客户端）", () => {
     await waitFor(() => expect(screen.getByTestId("board-run-cards-error")).toBeTruthy());
     expect(load).toHaveBeenCalledWith(null);
     expect(document.body.textContent).not.toContain("secret_reason_code");
+  });
+
+  it("R4 加载失败给「重试」：点了会重新加载，成功后渲染卡", async () => {
+    const load = vi.fn()
+      .mockRejectedValueOnce(new Error("x"))
+      .mockResolvedValueOnce({ cards: [card()] });
+    render(<LiveBoardRunColumns projectId="p-1" load={load} />);
+    const retry = await screen.findByTestId("board-run-cards-retry");
+    fireEvent.click(retry);
+    expect(await screen.findByTestId("board-run-card-wi-1")).toBeTruthy();
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it("listBoardRunCards 走契约路径并按 out schema 校验", async () => {
@@ -132,5 +157,15 @@ describe("任务 Board（项目待办看板）合并运行卡", () => {
     expect(col.textContent).toContain("2");
     vi.unstubAllGlobals();
     window.localStorage.clear();
+  });
+});
+
+describe("BoardRunCard 区分信息", () => {
+  it("显示发起人、目标摘录与零填充时间", () => {
+    const d = new Date(2026, 8, 3, 9, 5);
+    render(<BoardRunCard card={card({ goal: "调研 Acme 的采购流程", createdAt: d.toISOString() })} />);
+    expect(screen.getByTestId("board-run-card-goal").textContent).toContain("调研 Acme 的采购流程");
+    expect(screen.getByTestId("board-run-card-initiator").textContent).toContain("发起人：");
+    expect(screen.getByTestId("board-run-card-time").textContent).toBe("2026-09-03 09:05");
   });
 });

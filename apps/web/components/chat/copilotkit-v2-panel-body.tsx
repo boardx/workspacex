@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
 import { queuedReplyCopy } from "@/lib/chat-composer-running-reply";
-import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
+import { lastRespondingAgentId, readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
   V2AssistantMessage,
@@ -651,6 +651,8 @@ export function CopilotKitV2PanelBody({
    * 为什么不能直接用 `message.id`（流式那半是临时聚合 id，评分会 404）见
    * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证。
    */
+  const onSelectAgentRef = React.useRef(onSelectAgent);
+  onSelectAgentRef.current = onSelectAgent;
   const { index: messageIdentity, registerHydrated, projectMessages, isSettledMessageId } = useChatMessageIdentity(agent);
   const projectedMessages = projectMessages(agent.messages);
   /**
@@ -744,6 +746,9 @@ export function CopilotKitV2PanelBody({
         rememberHistory(collected);
         hydratedRef.current = true;
         registerHydrated(identities);
+        // UIUX r4 —— 刷新后恢复该线程的已选数字人，芯片与消息身份行一致。
+        const threadAgentId = lastRespondingAgentId(collected, [ChatContract.PERSONA_SUMMARY_AUTHOR_ID]);
+        if (threadAgentId !== null) onSelectAgentRef.current(threadAgentId);
         // 见上方 `hydratedEvidence` 的文件头注——「生成用户画像」建议 chip 的证据源。
         setHydratedEvidence({
           threadId: initialChatThreadId,
@@ -2434,7 +2439,7 @@ export function CopilotKitV2PanelBody({
                 }}
               />
             </div>
-            <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
               {/* 左：三颗圆形图标按钮 + 已挂载 skill chip；`relative` 让技能候选浮层从这个角落向上开。 */}
               <div className="relative flex min-w-0 flex-wrap items-center gap-2.5">
                 <span data-testid="chat-task-workbench-composer-attach">
@@ -2493,6 +2498,7 @@ export function CopilotKitV2PanelBody({
                     status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
                     selectedAgentId={selectedAgentId}
                     onSelect={(agentId) => onSelectAgent(agentId)}
+                    onListingsChanged={agentOptions.status === "ready" ? agentOptions.reload : undefined}
                     disabled={!canWrite || agentOptions.status !== "ready" || archived}
                   />
                 </span>

@@ -42,7 +42,11 @@ export const AgentAvatar = z.object({
  * `enterprise-general|method-expert|industry-expert|professional-role|deep-professional`。
  * 本草案按 requirements（本 phase 的直接输入）取值，待签核人裁决。
  */
-export const AgentRoleCategory = z.enum(["research", "product", "sales", "design", "general"]);
+/**
+ * 批次 2 追加 `executive`（D001 高管战略）/ `customer_success`（D006 客户成功）/ `operations`（D007 项目运营）：
+ * 沿用 requirements 的「职能名」取值风格，不引入 PROP 体系。DB 侧 CHECK 约束须同步（迁移 20260930130000）。
+ */
+export const AgentRoleCategory = z.enum(["research", "product", "sales", "design", "general", "executive", "customer_success", "operations"]);
 export const AgentCatalogSource = z.enum(["official", "org"]);
 
 export const DelegationPolicy = z.object({
@@ -316,6 +320,35 @@ export const AgentRoleAdminView = z.object({
   version: z.number().int().nonnegative(),
 }).strict();
 
+/**
+ * 官方数字人「待启用」要约（picker-ux，2026-09-30 人类反馈「看不到新增的数字人」）。
+ * 官方角色包的导入仍是管理员动作（UC-3，本读模型不改变它）；这里只让成员/管理员在选人处
+ * **看得到**本组织尚未启用的官方数字人，管理员一键启用走既有 `importAgentStarterPack`。
+ * ⚠ 草案，未签核（additive 只读端点，待 agent-role 契约束补签）。
+ */
+export const OfficialRolePackOffer = z.object({
+  packId: z.string(),
+  packVersion: z.string(),
+  /** 调用者是否组织管理员（= 能否一键启用）。 */
+  canEnable: z.boolean(),
+  /** 本组织尚未导入的官方角色（已导入的不在此列——它们以正常目录卡片出现）。 */
+  pending: z.array(z.object({
+    roleRef: AgentRoleRef,
+    name: z.string(),
+    roleLabel: z.string(),
+    avatar: AgentAvatar.nullable(),
+    roleCategory: AgentRoleCategory,
+    tags: z.array(z.string()),
+    workflowAllowlist: z.array(WorkflowStableId),
+  }).strict()),
+  /**
+   * 一键启用时须先导入的 Skill 起步包（官方角色的 Workflow 所需；导入后由既有 follow-up 发布内置
+   * Workflow）。客户端按序调既有 `importSkillStarterPack`，再导入本角色包——启用后数字人即可用。
+   */
+  requiredSkillPacks: z.array(z.object({ packId: z.string(), packVersion: z.string() }).strict()),
+}).strict();
+export type OfficialRolePackOffer = z.infer<typeof OfficialRolePackOffer>;
+
 /* ── 六、operations ───────────────────────────────────────────────────── */
 
 export const operations = {
@@ -328,6 +361,13 @@ export const operations = {
     }).strict(),
     out: z.object({ items: z.array(AgentDirectoryCard) }).strict(),
     err: ["UNAUTHENTICATED", "VALIDATION_FAILED"] as const,
+  },
+  /** 官方数字人待启用要约（见 `OfficialRolePackOffer`）。 */
+  getOfficialRolePackOffer: {
+    method: "GET", path: "/agents/official-role-pack/offer",
+    in: z.object({}).strict(),
+    out: OfficialRolePackOffer,
+    err: ["UNAUTHENTICATED"] as const,
   },
   getAgentDirectoryCard: {
     method: "GET", path: "/agents/directory/:agentId",

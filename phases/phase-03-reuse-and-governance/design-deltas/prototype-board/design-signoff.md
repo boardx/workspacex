@@ -5,8 +5,8 @@ base_bundle: design-prototype
 scope: free-canvas-board-primitive-sticky-shape-link-cursor
 covers: []
 confirmed_by: "usamshen"
-confirmed_at: "2026-09-27T18:10:00+08:00"
-confirmed_via: "chat 2026-09-27：「签核通过，合并 #4373，继续做更多菜单」"
+confirmed_at: "2026-09-30T00:00:00+08:00"
+confirmed_via: "chat 2026-09-27：「签核通过，合并 #4373，继续做更多菜单」；2026-09-30：「我授权你来合并，并且签核」"
 ---
 
 # design delta 签核 · 自由画布原语 board

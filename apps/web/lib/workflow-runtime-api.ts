@@ -5,7 +5,7 @@
  * 路径、方法、形状全部取自契约，不在这里另写一份。服务端 projection 是唯一权威——
  * 本文件不合成状态，失败体原样交给调用方按 `WorkflowErrorCode` 渲染。
  */
-import { workflowRuntime } from "@repo/contracts";
+import { workContent, workflowRuntime } from "@repo/contracts";
 import type { z } from "zod";
 import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
@@ -42,6 +42,19 @@ export function workflowErrorCode(err: unknown): WorkflowErrorCode | null {
 
 export function getWorkflowInstance(instanceId: string): Promise<WorkflowInstanceProjection> {
   return apiRequest(fill(C.getInstance.path, { instanceId }));
+}
+
+export type WorkflowInstanceOutput = z.infer<typeof workContent.operations.getInstanceOutput.out>;
+
+/** UC-WC-3：实例产出（PRD / 简报 / 数据需求说明）；路径取自 work-content 契约。 */
+export function getWorkflowInstanceOutput(instanceId: string): Promise<WorkflowInstanceOutput> {
+  return apiRequest(fill(workContent.operations.getInstanceOutput.path, { instanceId }));
+}
+
+/** 运行面板里阶段产出链接指向的前端页面（API 的 `/outputs/:id` 不是可访问路由）。 */
+export function workflowOutputHref(instanceId: string, outputId?: string): string {
+  const base = `/workflows/runs/${encodeURIComponent(instanceId)}/result`;
+  return outputId ? `${base}?output=${encodeURIComponent(outputId)}` : base;
 }
 
 export function listMyWorkflowInstances(status?: readonly WorkflowInstanceStatus[]): Promise<z.infer<typeof C.listMyInstances.out>> {

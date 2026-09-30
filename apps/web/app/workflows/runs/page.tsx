@@ -3,10 +3,10 @@ import { AppShell } from "@/components/shell/app-shell";
 import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 import { WorkflowRunList } from "@/components/workflow/workflow-lists";
 
-export default function WorkflowMyRunsPage() {
+export default function WorkflowMyRunsPage({ searchParams }: { searchParams?: { projectId?: string } }) {
   return (
-    <AppShell previewRole={null} left={<WorkflowNav active="runs" />}>
-      <WorkflowPage title="我的运行">
+    <AppShell previewRole={null} left={<WorkflowNav active="runs" projectId={searchParams?.projectId ?? null} />}>
+      <WorkflowPage active="runs" projectId={searchParams?.projectId ?? null} title="我的运行">
         <WorkflowRunList />
       </WorkflowPage>
     </AppShell>

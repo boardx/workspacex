@@ -1,0 +1,31 @@
+{
+  "zh-CN": [
+    "将于",
+    "保证",
+    "我们会退",
+    "免费补偿",
+    "一定会",
+    "承诺",
+    "已为您退",
+    "退还",
+    "补偿",
+    "将为您",
+    "会为您"
+  ],
+  "en-US": [
+    "will ",
+    "guarantee",
+    "refund",
+    "free of charge",
+    "we promise",
+    "we'll "
+  ],
+  "datePatterns": [
+    "by \\d",
+    "by (monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|end of)",
+    "\\d{1,2}月\\d{1,2}日前",
+    "本周[一二三四五六日]前",
+    "下周",
+    "月底前"
+  ]
+}

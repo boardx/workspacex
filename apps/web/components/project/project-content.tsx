@@ -156,7 +156,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
 
   return (
     <div className="flex flex-col" data-testid="project-content" data-filter={filter}>
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-6 pt-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex flex-wrap items-center gap-2">
           <SectionTitle className="mb-0" meta="对话、白板、访谈、问卷、研究、转写与设计都在这一张列表里">内容</SectionTitle>
           <span className="flex-1" />
@@ -195,9 +195,10 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
         </div>
 
         {createError !== null && (
-          <p className="text-11 text-destructive" data-testid="project-content-create-error">{createError}</p>
+          <p className="text-12 text-destructive" data-testid="project-content-create-error">{createError}</p>
         )}
 
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="project-content-filters-row">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="内容类型" data-testid="project-content-filters">
           {CONTENT_FILTERS.map((f) => {
             const active = f.key === filter;
@@ -218,10 +219,12 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
                 )}
               >
                 {f.label}
-                {index.ready && <span className="font-mono text-10 text-muted-foreground">{count}</span>}
+                {index.ready && <span className="font-mono text-11 text-muted-foreground">{count}</span>}
               </button>
             );
           })}
+        </div>
+          {/* 「文件」是一条页面链接、不是筛选项：放在 tablist 之外（tablist 里只能有 tab，否则辅助技术读不出来） */}
           <a
             href={`/projects/${encodeURIComponent(projectId)}/files`}
             data-testid="project-content-files"
@@ -255,14 +258,14 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
   creating: boolean; onCreate: (kind: Exclude<ContentFilter, "all">) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-6" data-testid="project-content-all">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-4 sm:p-6" data-testid="project-content-all">
       {index.error !== null && (
-        <Card><p className="p-4 text-11 text-destructive" data-testid="project-content-error">{index.error}</p></Card>
+        <Card><p className="p-4 text-12 text-destructive" data-testid="project-content-error">{index.error}</p></Card>
       )}
       {!index.ready ? (
         index.error === null && (
           <Card>
-            <p className="p-4 text-11 text-muted-foreground" data-testid="project-content-loading">
+            <p className="p-4 text-12 text-muted-foreground" data-testid="project-content-loading">
               {index.loading ? "读取项目内容中…" : "请先登录。"}
             </p>
           </Card>
@@ -273,7 +276,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
             <Inbox aria-hidden className="h-5 w-5" />
           </span>
           <p className="text-13 font-medium text-card-foreground">还没有内容——新建一块白板或一段对话</p>
-          <p className="max-w-md text-11 leading-relaxed text-muted-foreground">
+          <p className="max-w-md text-12 leading-relaxed text-muted-foreground">
             对话、白板、访谈、问卷、研究、转写与设计都会收在这里
             {canWrite ? "；也可以点右上「关联已有」把你已有的挂进来。" : "。"}
           </p>
