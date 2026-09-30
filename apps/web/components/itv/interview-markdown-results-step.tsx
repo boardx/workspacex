@@ -55,6 +55,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     }
   }, [interviewId, receive]);
   React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
+  React.useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
   React.useEffect(() => {
     if (step !== "runs" || source?.execution?.status !== "running" || pending || error) return;
     const timer = window.setTimeout(() => void execute("advance"), dispatchDelay.current);

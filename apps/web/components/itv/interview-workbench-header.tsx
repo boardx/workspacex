@@ -74,13 +74,13 @@ export function InterviewWorkbenchHeader({
     </div>
     <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mx-auto mt-3 max-w-[1440px] overflow-x-auto pb-1">
       <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-center lg:min-w-0">{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; return <li key={step.id} className="relative flex min-w-32 flex-1 items-center lg:min-w-0">
-        {index < steps.length - 1 && <span aria-hidden className={`mx-2 hidden min-w-3 flex-1 border-t lg:block ${state === "completed" ? "border-primary" : "border-border"}`} />}
         <button data-testid={`itv-workbench-step-${step.id}`} data-state={runningStep === step.id ? "running" : state} aria-busy={runningStep === step.id} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={`relative flex w-full flex-col items-center gap-1 rounded-lg px-2 py-1 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${state === "current" || runningStep === step.id ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
           <span className={`grid size-8 shrink-0 place-items-center rounded-full border text-sm font-semibold ${runningStep === step.id || state === "current" ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2" : state === "completed" ? "border-success bg-success text-success-foreground" : "border-border bg-muted text-muted-foreground"}`}>{runningStep === step.id ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" /> : state === "completed" ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
           <span className={state === "current" || runningStep === step.id ? "text-sm font-semibold text-primary" : state === "completed" ? "text-sm font-medium text-success" : "text-sm text-muted-foreground"}>{step.label}</span>
           {runningStep === step.id && <span role="status" className="flex items-center gap-1 text-xs font-medium text-primary"><Loader2 aria-hidden className="size-3 motion-safe:animate-spin" />进行中</span>}
           <span className="sr-only">{step.detail}</span>
         </button>
+        {index < steps.length - 1 && <span aria-hidden className={`mx-2 hidden min-w-3 flex-1 border-t lg:block ${state === "completed" ? "border-primary" : "border-border"}`} />}
       </li>; })}</ol>
     </nav>
   </header>;
