@@ -691,7 +691,7 @@ function escalateArgs(reason: string): Record<string, unknown> {
 }
 
 function escalateReply(record: RunRecord): string {
-  if (record.decision === null) return "这件事超出了我的职责，已升级给负责人裁决。";
+  if (record.decision === null) return "正在提交升级请求。";
   const edited = record.decision.type === "edit" ? record.decision.editedArgs : undefined;
   const decision = edited?.decision;
   if (decision === "resolve") {
