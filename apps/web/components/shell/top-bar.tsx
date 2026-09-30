@@ -274,6 +274,7 @@ export function TopBar({
         2026-09-02 后台切成两面后，平台后台 `/platform-admin/*` 同理排除。
       */}
       {!project && !local && !sh.on && pathname !== "/chat"
+        && !["/research", "/itv", "/rec", "/studio/survey"].includes(pathname)
         && pathname !== "/admin" && !pathname.startsWith("/admin/")
         && pathname !== "/platform-admin" && !pathname.startsWith("/platform-admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">

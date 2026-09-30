@@ -1,3 +1,4 @@
+import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 /**
  * `RegistrationRepository` on PostgreSQL -- where invariant I-4 actually lives.
  *
@@ -144,13 +145,13 @@ export class PgRegistrationRepository implements RegistrationRepository {
     // The durable marker is independent of credentials on purpose: account cleanup must
     // never reopen the seed-admin path. It rolls back with every other bootstrap write.
     await s.query(
-      "INSERT INTO auth_bootstrap_state (singleton, consumed_at) VALUES (true, $1)",
+      `INSERT INTO auth_bootstrap_state (${BOOTSTRAP_WRITE_COLUMNS.marker.join(", ")}) VALUES (true, $1)`,
       [input.emailVerifiedAt],
     );
 
     try {
       await s.query(
-        `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
+        `INSERT INTO credentials (${BOOTSTRAP_WRITE_COLUMNS.credential.join(", ")})
          VALUES ($1, $2, $3, $4, $5)`,
         [input.userId, input.email, input.displayName, input.passwordHash, input.emailVerifiedAt],
       );
@@ -159,12 +160,12 @@ export class PgRegistrationRepository implements RegistrationRepository {
       throw e;
     }
 
-    await s.query(`INSERT INTO organizations (id, name, kind) VALUES ($1, $2, 'organization')`, [
+    await s.query(`INSERT INTO organizations (${BOOTSTRAP_WRITE_COLUMNS.organization.join(", ")}) VALUES ($1, $2, 'organization')`, [
       input.orgId,
       input.orgName,
     ]);
     await s.query(
-      `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+      `INSERT INTO org_memberships (${BOOTSTRAP_WRITE_COLUMNS.membership.join(", ")}) VALUES ($1, $2, 'admin', NULL)`,
       [input.userId, input.orgId],
     );
 
@@ -218,7 +219,7 @@ export class PgRegistrationRepository implements RegistrationRepository {
     // registration never touches `organizations` or `org_memberships` at all.
     try {
       await s.query(
-        `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
+        `INSERT INTO credentials (${BOOTSTRAP_WRITE_COLUMNS.credential.join(", ")})
          VALUES ($1, $2, $3, $4, NULL)`,
         [input.userId, input.email, input.displayName, input.passwordHash],
       );
@@ -238,7 +239,7 @@ export class PgRegistrationRepository implements RegistrationRepository {
 
     // (2) The organization. Under `app.current_org = input.orgId`, so the RLS WITH CHECK
     // passes only because the row's own id matches the tenant context.
-    await s.query(`INSERT INTO organizations (id, name, kind) VALUES ($1, $2, 'organization')`, [
+    await s.query(`INSERT INTO organizations (${BOOTSTRAP_WRITE_COLUMNS.organization.join(", ")}) VALUES ($1, $2, 'organization')`, [
       input.orgId,
       input.orgName,
     ]);
@@ -248,7 +249,7 @@ export class PgRegistrationRepository implements RegistrationRepository {
     // `team_id` is NULL: a brand new organization has no teams, and O-12's "one person, one
     // team per org" is about membership in an existing team, not about inventing one.
     await s.query(
-      `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+      `INSERT INTO org_memberships (${BOOTSTRAP_WRITE_COLUMNS.membership.join(", ")}) VALUES ($1, $2, 'admin', NULL)`,
       [input.userId, input.orgId],
     );
 
@@ -324,13 +325,13 @@ export class PgRegistrationRepository implements RegistrationRepository {
     try {
       await this.db.withTenant(input.orgId, async (s) => {
         await s.query(
-          `INSERT INTO organizations (id, name, kind) VALUES ($1, $2, 'organization')`,
+          `INSERT INTO organizations (${BOOTSTRAP_WRITE_COLUMNS.organization.join(", ")}) VALUES ($1, $2, 'organization')`,
           [input.orgId, input.orgName],
         );
         // Admin of the organization they created (UC-1.5 R3 step 5, same as registration).
         // `team_id` NULL: a brand new organization has no teams.
         await s.query(
-          `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+          `INSERT INTO org_memberships (${BOOTSTRAP_WRITE_COLUMNS.membership.join(", ")}) VALUES ($1, $2, 'admin', NULL)`,
           [input.userId, input.orgId],
         );
         const redeemed = await s.query<{ code: string }>(REDEEM_SQL, [

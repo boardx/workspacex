@@ -148,7 +148,7 @@ export function AgentPicker({
  *  - 选中项打勾（`Check`）。热插拔刷新与记忆在 `useAudioInputDevices` 里，这里只渲染。
  */
 export function MicDevicePicker({
-  devices, selectedDeviceId, disabled, onSelect, testIdPrefix = "chat", side = "up",
+  devices, selectedDeviceId, disabled, onSelect, testIdPrefix = "chat", side = "up", iconOnly = false,
 }: {
   devices: readonly { readonly deviceId: string; readonly label: string }[];
   selectedDeviceId: string | null;
@@ -156,6 +156,7 @@ export function MicDevicePicker({
   onSelect: (deviceId: string | null) => void;
   testIdPrefix?: string;
   side?: "up" | "down";
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
@@ -183,7 +184,7 @@ export function MicDevicePicker({
         onClick={() => setOpen((value) => !value)}
       >
         <Mic aria-hidden className="h-3 w-3 text-muted-foreground" />
-        <span className="truncate text-11">{triggerText}</span>
+        {!iconOnly && <span className="truncate text-11">{triggerText}</span>}
         <span aria-hidden className="text-9 text-muted-foreground">▾</span>
       </Button>
       {open ? (

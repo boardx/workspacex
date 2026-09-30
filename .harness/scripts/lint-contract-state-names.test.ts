@@ -90,10 +90,13 @@ describe("范围：谁在管、谁不在管", () => {
     expect(violationsIn(recorder)).toEqual(["recording"]);
   });
 
-  it("仓库里真有一个这样的文件（否则上一条只是假想）", () => {
-    const src = readFileSync(join(REPO_ROOT, "apps/web/e2e/core-loop.spec.ts"), "utf8");
-    expect(src).toContain('"data-phase", "recording"');
+  it("录音器那类文件（不提锚点）在范围外——用内联样本，不再依赖某个 e2e spec 恰好还留着它", () => {
+    // 2026-09-30 项目对话的「会话录音」面板移除后，core-loop.spec.ts 的录音步骤改走「转写」页，
+    // 不再断言 `data-phase`；这条守卫因此只用内联样本，不读仓库文件（避免被 spec 的改写拖红）。
+    const src = `import { test } from "@playwright/test";\n` +
+      `await expect(status).toHaveAttribute("data-phase", "recording");`;
     expect(inScope(src, PLAN_PHASE)).toBe(false);
+    expect(violationsIn(src)).toEqual(["recording"]);
   });
 });
 
