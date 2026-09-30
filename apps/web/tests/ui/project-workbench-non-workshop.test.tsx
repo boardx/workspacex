@@ -191,10 +191,22 @@ describe("#4615 通用项目的工作台", () => {
     renderWorkbench("overview");
     await waitFor(() => expect(screen.getByTestId("project-header-meta")).toHaveTextContent("项目"));
     expect(screen.queryByTestId("project-access-denied")).toBeNull();
+    expect(screen.queryByTestId("project-preview-bar")).toBeNull();
     for (const t of ["overview", "content", "brain", "results", "settings"]) expect(screen.getByTestId(`project-tab-${t}`)).toBeInTheDocument();
     expect(screen.getByTestId("project-tab-content")).toHaveTextContent("内容");
     expect(screen.getByTestId("project-tab-content")).toHaveAttribute("href", expect.stringContaining("tab=content"));
     for (const t of ["research", "prep", "live", "todo"]) expect(screen.queryByTestId(`project-tab-${t}`)).toBeNull();
+  });
+
+  it("#4743 通用项目：不出视角切换器 / 角色说明条 / 角色专属按钮，页面里没有四个工作坊角色名", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    renderWorkbench("overview");
+    await waitFor(() => expect(screen.getByTestId("project-header-meta")).toHaveTextContent("项目"));
+    for (const id of ["project-role-switcher", "project-role-scope-note", "project-role-badge", "project-scope-can-write", "project-scope-readonly", "project-scope-stage-control", "project-submit-group", "project-raise-hand"]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    const text = screen.getByTestId("project-workbench").textContent ?? "";
+    for (const name of ["引导师", "组长", "组员", "观察者", "视角", "可发言", "全场控制"]) expect(text).not.toContain(name);
   });
 
   it("工作坊：七个主标签照旧，不渲染通用概览", async () => {
@@ -206,6 +218,10 @@ describe("#4615 通用项目的工作台", () => {
     }
     expect(screen.queryByTestId("project-tab-content")).toBeNull();
     expect(screen.queryByTestId("project-general-overview")).toBeNull();
+    // #4743：工作坊保留角色预览切换器与角色说明条
+    expect(screen.getByTestId("project-role-switcher")).toHaveTextContent("引导师");
+    expect(screen.getByTestId("project-role-switcher")).toHaveTextContent("观察者");
+    expect(screen.getByTestId("project-role-scope-note")).toBeInTheDocument();
   });
 
   it("概览：成员 / 各类数量 / 最近更新 / 大脑摘要，全部来自接口；不渲染工作坊概览", async () => {
@@ -261,6 +277,12 @@ describe("#4615 通用项目的工作台", () => {
     renderWorkbench("content");
     await waitFor(() => expect(screen.getByTestId("project-content-list")).toBeInTheDocument());
     expect(screen.getByTestId("project-tab-content")).toHaveAttribute("aria-current", "page");
+    // #4743：卡片网格——整张卡是打开入口（标题 <a> 拉伸铺满），带类型徽标与更新时间
+    const card = screen.getByTestId("project-content-item-whiteboard-wb1").closest("li")!;
+    expect(screen.getByTestId("project-content-list").className).toContain("lg:grid-cols-3");
+    expect(card).toHaveTextContent("白板");
+    expect(card).toHaveTextContent("更新于");
+    expect(screen.getByTestId("project-content-item-whiteboard-wb1").className).toContain("after:inset-0");
     expect(screen.getByTestId("project-content-item-conv-th1")).toHaveAttribute("href", "/chat/th1?projectId=p-rp");
     expect(screen.getByTestId("project-content-item-whiteboard-wb1")).toHaveAttribute("href", "/studio/board/wb1?projectId=p-rp");
     expect(screen.getByTestId("project-content-item-design-ds1")).toHaveAttribute("href", "/studio/design-workbench/ds1?projectId=p-rp");
@@ -270,6 +292,18 @@ describe("#4615 通用项目的工作台", () => {
     await waitFor(() => expect(screen.getByTestId("project-resources")).toHaveAttribute("data-kind", "whiteboard"));
     expect(await screen.findByTestId("project-resource-wb1")).toBeInTheDocument();
     expect(screen.queryByTestId("project-resource-sv1")).toBeNull();
+  });
+
+  it("#4743 内容为空：友好的空状态卡，带新建白板 / 新建对话", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    listThreads.mockResolvedValue({ groups: [] });
+    listProjectResources.mockResolvedValue({ items: [] });
+    renderWorkbench("content");
+    const empty = await screen.findByTestId("project-content-empty");
+    expect(empty).toHaveTextContent("还没有内容——新建一块白板或一段对话");
+    expect(screen.getByTestId("project-content-empty-new-whiteboard")).toBeInTheDocument();
+    expect(screen.getByTestId("project-content-empty-new-conv")).toBeInTheDocument();
+    expect(screen.getByTestId("project-content-new-menu")).toBeInTheDocument();
   });
 
   it("内容：Studio 返回链接 ?tab=research&sub=survey 落到「内容 · 问卷」", async () => {

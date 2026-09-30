@@ -30,7 +30,7 @@ function statusFor(item: SurveyRuntime) {
 
 function LibraryLoading() {
   return (
-    <div role="status" aria-label="正在加载问卷" data-testid="survey-library-loading" className="grid gap-4 lg:grid-cols-2">
+    <div role="status" aria-label="正在加载问卷" data-testid="survey-library-loading" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       <span className="sr-only">正在加载问卷</span>
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index} className="animate-pulse rounded-card border border-border bg-card p-4 shadow-sm">
@@ -161,7 +161,6 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-30 font-semibold tracking-tight">问卷</h1>
-          <p className="mt-1 text-14 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
           <div className="relative min-w-0 sm:w-72">
@@ -174,11 +173,11 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <Button data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
+          <Button variant="primary" data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
+      <div className="flex flex-col gap-6">
         <SurveyLibraryNav active="surveys" />
 
         <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
@@ -196,7 +195,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           {error && <div role="alert" data-testid="err-survey-library" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">{error}</div>}
           {busy && <LibraryLoading />}
           {!busy && !error && (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {visibleItems.map((item) => (
                 <SurveyCard
                   key={item.id}
@@ -213,7 +212,6 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
                   <div className="relative z-10 max-w-md">
                     <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">报告模板（可选）</p>
                     <h2 className="mt-3 text-18 font-semibold">为该问卷设计报告模板</h2>
-                    <p className="mt-2 text-13 leading-relaxed text-muted-foreground">预设分析维度和图表样式，问卷回收后可一键生成专业报告。</p>
                     <Link href="/studio/survey?tab=reports" className="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted">去创建报告模板<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
                   </div>
                 </aside>
@@ -222,12 +220,13 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           )}
 
           {!busy && !error && items.length > 0 && visibleItems.length === 0 && (
-            <div role="status" className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">没有符合筛选条件的问卷</div>
+            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setTag(null); }}>清除筛选</Button></div>
           )}
           {!busy && !error && items.length === 0 && (
-            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border py-16 text-center">
+            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
               <h2 className="text-18 font-semibold">还没有问卷</h2>
-              <p className="text-14 text-muted-foreground">使用右上角“新建问卷”，或先从问卷模板中选择合适的结构。</p>
+              <p className="text-14 text-muted-foreground">创建第一份问卷，或从问卷模板中选择合适的结构。</p>
+              <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
             </div>
           )}
         </section>

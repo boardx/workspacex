@@ -33,7 +33,7 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
     attention: failed || missingEvidence,
     attentionLabel: missingEvidence ? "证据缺口" : failed ? "流程中断" : null,
     statusLabel: completed ? "已完成" : failed ? "需恢复" : stage.label,
-    statusTone: completed ? "primary" as const : failed || missingEvidence ? "danger" as const : session.resumeStage === "researching" ? "warning" as const : "neutral" as const,
+    statusTone: "neutral" as const,
     evidenceLabel: missingEvidence
       ? "报告阶段尚无可用来源"
       : evidenceRequired && session.sourceCount === 0 ? "正在收集证据，尚无来源"
@@ -81,7 +81,6 @@ export function GuidedResearchHomeSummary({ sessions, selectedFilter, onFilterCh
 
 export function GuidedResearchCardProgress({ session }: { session: GuidedResearchSession }) {
   const presentation = guidedResearchHomePresentation(session);
-  const completed = session.status === "completed";
   return <div className="space-y-2" data-testid={`research-stage-${session.sessionId}`}>
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -90,10 +89,10 @@ export function GuidedResearchCardProgress({ session }: { session: GuidedResearc
       </div>
       <span className="text-11 text-muted-foreground">第 {presentation.step} / 6 步</span>
     </div>
-    <Progress value={presentation.step} max={6} label={`研究流程：第 ${presentation.step} / 6 步，${presentation.label}`} tone={presentation.attention ? "destructive" : completed ? "primary" : "warning"} />
-    <div className="flex items-center justify-between gap-3">
-      <span className={presentation.attention ? "text-11 font-medium text-destructive" : "text-11 text-muted-foreground"}>{presentation.evidenceLabel}</span>
-      {presentation.attentionLabel && <Badge tone="danger">{presentation.attentionLabel}</Badge>}
-    </div>
+    <Progress value={presentation.step} max={6} label={`研究流程：第 ${presentation.step} / 6 步，${presentation.label}`} tone="primary" />
+    {presentation.attention && <div className="flex items-center justify-between gap-3">
+      <span className="text-11 text-muted-foreground">{presentation.evidenceLabel}</span>
+      {presentation.attentionLabel && <Badge tone="neutral">{presentation.attentionLabel}</Badge>}
+    </div>}
   </div>;
 }

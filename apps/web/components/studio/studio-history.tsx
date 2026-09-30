@@ -8,14 +8,12 @@ import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 
 export type HistorySort = "recent" | "oldest";
 
-export function StudioHistoryHeader({ business, title, description, count, createTestId, countTestId, onCreate }: {
+export function StudioHistoryHeader({ business, title, count, createTestId, countTestId, onCreate }: {
   business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: () => void;
 }) {
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">
-      <p className="text-11 font-medium text-muted-foreground">Studio / {business}</p>
-      <div className="flex items-center gap-2"><h1 className="text-24 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
-      <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">{description}</p>
+      <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
     </div>
     <Button type="button" variant="primary" size="lg" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</Button>
   </header>;
@@ -52,5 +50,5 @@ export function StudioHistoryCard({ testId, title, status, description, tags, me
 }
 
 export function StudioHistoryCreateCard({ business, testId, onCreate }: { business: string; testId: string; onCreate: () => void }) {
-  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">新建{business}</span><span className="text-11 font-normal text-muted-foreground">开始一次新的{business}</span></Button>;
+  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">新建{business}</span></Button>;
 }

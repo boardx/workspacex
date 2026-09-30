@@ -10,6 +10,7 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/compo
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
@@ -51,6 +52,7 @@ export function ProjectsScreen() {
   const [listError, setListError] = React.useState<string | null>(null);
   const [listBusy, setListBusy] = React.useState(false);
 
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -110,7 +112,7 @@ export function ProjectsScreen() {
       <header className="flex flex-col gap-1.5">
         <h1 className="text-24 font-semibold tracking-tight">项目</h1>
         <p className="text-13 text-muted-foreground">
-          一个项目就是一场协作：议程、分组、画布、录音、产出与决策都挂在它下面。
+          将对话、白板、研究与产出收在同一处团队工作空间。
         </p>
       </header>
 
@@ -162,11 +164,9 @@ export function ProjectsScreen() {
               className="h-8 w-44 pl-7"
             />
           </div>
-          <Button asChild variant="primary" size="sm" data-testid="projects-new">
-            <Link href="/project/new">
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              新建项目
-            </Link>
+          <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            新建项目
           </Button>
         </div>
       </div>
@@ -249,6 +249,10 @@ export function ProjectsScreen() {
                 <br />
                 也可以先不建项目，直接去「对话」里交一件事给 AI。
               </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
+                <Button variant="outline" asChild><Link href="/chat">先去对话</Link></Button>
+              </div>
             </>
           )}
         </div>
@@ -265,6 +269,9 @@ export function ProjectsScreen() {
           ))}
         </ul>
       )}
+
+      {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
+      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }

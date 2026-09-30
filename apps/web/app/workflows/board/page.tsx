@@ -18,10 +18,17 @@ function BoardRuns() {
 
 export default function WorkflowBoardPage() {
   return (
-    <AppShell previewRole={null} left={<WorkflowNav active="board" />}>
-      <Suspense fallback={<p className="p-6 text-12 text-muted-foreground">加载中…</p>}>
-        <BoardRuns />
-      </Suspense>
+    <Suspense fallback={<p className="p-6 text-12 text-muted-foreground">加载中…</p>}>
+      <BoardShell />
+    </Suspense>
+  );
+}
+
+function BoardShell() {
+  const projectId = useSearchParams().get("projectId");
+  return (
+    <AppShell previewRole={null} left={<WorkflowNav active="board" projectId={projectId} />}>
+      <BoardRuns />
     </AppShell>
   );
 }

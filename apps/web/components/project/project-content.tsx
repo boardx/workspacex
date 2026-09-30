@@ -1,12 +1,13 @@
 "use client";
+import { formatRelativeTime } from "@/lib/home-format";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, FolderOpen, Link2, MessagesSquare, Plus } from "lucide-react";
+import { ChevronDown, FolderOpen, Inbox, Link2, MessagesSquare, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { SectionTitle } from "./parts";
+import { ProjectContentCard, CONTENT_GRID_CLASS } from "./project-content-card";
 import { ProjectConversations, DEFAULT_PROJECT_THREAD_TITLE } from "./project-conversations";
 import {
   ProjectResourceSection, RESOURCE_KIND_TO_SUB, projectResourceHref, projectResourceIcon,
@@ -155,7 +156,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
 
   return (
     <div className="flex flex-col" data-testid="project-content" data-filter={filter}>
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 pt-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-6 pt-6">
         <div className="flex flex-wrap items-center gap-2">
           <SectionTitle className="mb-0" meta="对话、白板、访谈、问卷、研究、转写与设计都在这一张列表里">内容</SectionTitle>
           <span className="flex-1" />
@@ -232,7 +233,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
       </div>
 
       {filter === "all" ? (
-        <AllContentList index={index} canWrite={canWrite} />
+        <AllContentList index={index} canWrite={canWrite} creating={creating} onCreate={(k) => void createNew(k)} />
       ) : filter === "conv" ? (
         <ProjectConversations projectId={projectId} canWrite={canWrite} />
       ) : (
@@ -249,11 +250,12 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
   );
 }
 
-function AllContentList({ index, canWrite }: {
+function AllContentList({ index, canWrite, creating, onCreate }: {
   index: ReturnType<typeof useProjectContentIndex>; canWrite: boolean;
+  creating: boolean; onCreate: (kind: Exclude<ContentFilter, "all">) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 p-6" data-testid="project-content-all">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-6" data-testid="project-content-all">
       {index.error !== null && (
         <Card><p className="p-4 text-11 text-destructive" data-testid="project-content-error">{index.error}</p></Card>
       )}
@@ -266,33 +268,50 @@ function AllContentList({ index, canWrite }: {
           </Card>
         )
       ) : index.entries.length === 0 ? (
-        <Card>
-          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-content-empty">
-            本项目还没有内容。{canWrite ? "点右上「新建」开一段对话、一块白板或一份问卷，或点「关联已有」把你已有的挂进来。" : ""}
+        <Card data-testid="project-content-empty" className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-container bg-accent text-accent-foreground">
+            <Inbox aria-hidden className="h-5 w-5" />
+          </span>
+          <p className="text-13 font-medium text-card-foreground">还没有内容——新建一块白板或一段对话</p>
+          <p className="max-w-md text-11 leading-relaxed text-muted-foreground">
+            对话、白板、访谈、问卷、研究、转写与设计都会收在这里
+            {canWrite ? "；也可以点右上「关联已有」把你已有的挂进来。" : "。"}
           </p>
+          {canWrite && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="primary" disabled={creating} onClick={() => onCreate("whiteboard")} data-testid="project-content-empty-new-whiteboard">
+                <Plus aria-hidden className="h-3.5 w-3.5" />新建白板
+              </Button>
+              <Button size="sm" variant="outline" disabled={creating} onClick={() => onCreate("conv")} data-testid="project-content-empty-new-conv">
+                <Plus aria-hidden className="h-3.5 w-3.5" />新建对话
+              </Button>
+            </div>
+          )}
         </Card>
       ) : (
-        <ul className="flex flex-col gap-1.5" data-testid="project-content-list">
+        <ul className={CONTENT_GRID_CLASS} data-testid="project-content-list">
           {index.entries.map((e) => (
             <li key={`${e.type}-${e.id}`}>
-              <a
+              <ProjectContentCard
                 href={e.href}
-                data-testid={`project-content-item-${e.type}-${e.id}`}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5 transition-colors duration-base hover:border-primary"
-              >
-                <ContentEntryIcon entry={e} className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-12 font-medium">{e.title}</div>
-                  <div className="truncate text-10 text-muted-foreground">更新于 {formatDate(e.updatedAt)}</div>
-                </div>
-                <Badge tone="outline">{contentTypeLabel(e.type)}</Badge>
-              </a>
+                linkTestId={`project-content-item-${e.type}-${e.id}`}
+                icon={e.resourceKind ? projectResourceIcon(e.resourceKind) : MessagesSquare}
+                title={e.title}
+                typeLabel={contentTypeLabel(e.type)}
+                meta={<UpdatedAt iso={e.updatedAt} />}
+              />
             </li>
           ))}
         </ul>
       )}
     </div>
   );
+}
+
+/** 「更新于 3 分钟前」——悬停显示精确日期；解析不了时间就退回原来的日期文本。 */
+export function UpdatedAt({ iso }: { iso: string }): JSX.Element {
+  const rel = formatRelativeTime(iso);
+  return <time dateTime={iso} title={formatDate(iso)}>更新于 {rel ?? formatDate(iso)}</time>;
 }
 
 export function formatDate(iso: string): string {

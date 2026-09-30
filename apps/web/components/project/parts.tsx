@@ -13,8 +13,8 @@ export function SectionTitle({
   children, meta, className,
 }: { children: React.ReactNode; meta?: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("mb-3 flex items-baseline gap-2.5", className)}>
-      <h3 className="text-13 font-semibold tracking-tight">{children}</h3>
+    <div className={cn("mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5", className)}>
+      <h3 className="shrink-0 whitespace-nowrap text-13 font-semibold tracking-tight">{children}</h3>
       {meta != null && <span className="text-11 text-muted-foreground">{meta}</span>}
     </div>
   );

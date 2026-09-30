@@ -156,7 +156,8 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-collecting");
     expect(card).not.toHaveTextContent("证据缺口");
-    expect(card).toHaveTextContent("正在收集证据，尚无来源");
+    expect(card).toHaveTextContent("0 个来源");
+    expect(card).not.toHaveTextContent("正在收集证据，尚无来源");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理0");
   });
 
@@ -212,8 +213,9 @@ describe("F168 guided research home live data", () => {
     expect(cards()).toEqual(["research-history-grs-old"]);
     fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "采购" } });
     expect(screen.getByTestId("research-history-empty")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("research-history-tag-all"));
-    expect(cards()).toEqual(["research-history-grs-new"]);
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByTestId("research-history-search")).toHaveValue("");
+    expect(cards()).toEqual(["research-history-grs-old", "research-history-grs-new"]);
   });
 
   it("uses the shared Studio list-page width and card density", async () => {

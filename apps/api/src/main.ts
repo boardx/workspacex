@@ -25,7 +25,9 @@ import type { DebugRecorder } from "./application/diagnostics/debug-recorder";
 import { sweepDebugEvents } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
-import { attachRealtimeDigitalHumanGateway } from "./interface/ws/realtime-digital-human.gateway";
+import { attachRealtimeDigitalHumanGateway, readRealtimeModelConfig } from "./interface/ws/realtime-digital-human.gateway";
+import { AGENT_DIRECTORY_REPOSITORY } from "./application/agent/list-agent-directory";
+import { realtimeVoiceSessionService } from "./application/chat/realtime-voice-session";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
 import { attachAgentRunEventsGateway, checkRunVisibleViaReadAgentRun } from "./interface/ws/agent-run-events.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
@@ -214,6 +216,15 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   });
   attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    // Chat 语音模式：线程判权 + 已发布角色解析 + 转写落库（见 `realtime-voice-session.ts`）。
+    voice: realtimeVoiceSessionService({
+      repo: app.get(IDENTITY_REPOSITORY),
+      ids: app.get(DECISION_ID_FACTORY),
+      chat: app.get(CHAT_REPOSITORY),
+      directory: app.get(AGENT_DIRECTORY_REPOSITORY),
+      voiceMap: readRealtimeModelConfig().voiceMap,
+      defaultVoice: readRealtimeModelConfig().defaultVoice,
+    }),
   });
   attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
     tickets: app.get(REALTIME_ASR_TICKET_STORE),

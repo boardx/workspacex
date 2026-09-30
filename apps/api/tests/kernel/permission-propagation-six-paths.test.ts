@@ -1406,7 +1406,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // ceiling 118): union = main's 118 (includes CT10's pg-board-run-source.ts) + home-config's
     // own pg-home-config-repository.ts (already counted above, this branch's ceiling was 118
     // pre-merge) = 119 (measured: allowlisted=129, boundary rules=10, 129-10=119).
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(119);
+    // #4728 adds the root-only deployment compatibility audit (+1 -> 120).
+    // Its companion bootstrap-compatibility.test.ts proves the read-only SQL guard,
+    // unconditional rollback, redacted identity result, and absence of HTTP imports.
+    // Remove this increment and the audit exemption if those protections disappear.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(120);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -18,7 +18,7 @@ import { ensureSystemAgent, type SystemAgentTemplate } from "./pg-system-agent-r
  * 分派到 `BailianImageProvider`，见该文件头注）。lock key 用 662（与 660/661 分开，
  * 三个模板不会互相排队等同一把锁）。
  */
-const IMAGE_GEN_AGENT_TEMPLATE: SystemAgentTemplate = {
+export const IMAGE_GEN_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: IMAGE_GEN_AGENT_STABLE_NAME,
   name: IMAGE_GEN_AGENT_NAME,
   abbr: "图片",

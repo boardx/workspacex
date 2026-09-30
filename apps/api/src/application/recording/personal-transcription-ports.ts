@@ -41,7 +41,7 @@ export interface PersonalTranscriptionRepository {
   }): Promise<PersonalTranscriptionMutationResult<PersonalTranscriptionSummary>>;
 
   stopActiveOwned(input: { readonly orgId: OrgId; readonly ownerUserId: string;
-    readonly transcriptionId: string }): Promise<PersonalTranscriptionMutationResult<PersonalTranscriptionSummary>>;
+    readonly transcriptionId: string; readonly captureId?: string }): Promise<PersonalTranscriptionMutationResult<PersonalTranscriptionSummary>>;
 
   deleteOwned(input: { readonly orgId: OrgId; readonly ownerUserId: string;
     readonly transcriptionId: string }): Promise<PersonalTranscriptionMutationResult>;

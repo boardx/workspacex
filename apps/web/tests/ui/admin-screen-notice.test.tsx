@@ -53,6 +53,7 @@ describe("AdminScreen 页头提示的三态", () => {
   it("① 默认态：不传任何提示 ⇒ 渲染「示例组织配置」（阳性对照，证明这条提示还活着）", () => {
     render(shell());
     expect(screen.getByText(SAMPLE_NOTICE_TEXT)).toBeInTheDocument();
+    expect(screen.getByTestId("state-preview-switcher")).toBeInTheDocument();
   });
 
   it("② override 态：零后端的屏渲染自己的提示，且**不再**叠加示例配置那条", () => {
@@ -63,6 +64,7 @@ describe("AdminScreen 页头提示的三态", () => {
 
   it("③ liveBacked 态：已读真库的屏，两条屏级提示一条都没有", () => {
     render(shell({ liveBacked: true }));
+    expect(screen.queryByTestId("state-preview-switcher")).toBeNull();
     expect(screen.queryByText(SAMPLE_NOTICE_TEXT)).toBeNull();
     expect(screen.queryByTestId("admin-no-backend-notice")).toBeNull();
   });
