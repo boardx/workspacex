@@ -1,8 +1,11 @@
 "use client";
 import * as React from "react";
 import { Pencil, ShieldAlert } from "lucide-react";
+import { agentRole } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { decideAgentRun, type AgentRunView } from "@/lib/agent-run";
+import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
+import { AgentEscalationForRun } from "@/components/chat/agent-escalation-card";
 
 /**
  * agent-approval-panel（DA-07c，#1749，rubric D6 人在环的前端半边；UX-9 D4 补 edit
@@ -42,7 +45,8 @@ export function AgentApprovalPanel({
   const pending = view.pendingApproval;
   // AG05：start_workflow 的结果只由服务端算出，服务端对它只接受 reject（approve/edit 恒 409）——
   // 卡片不提供注定失败的按钮。工具名与 apps/api `AGENT_WORKFLOW_START_TOOL_NAME` 同值（待契约重签时收进 contracts）。
-  const rejectOnly = pending?.toolName === "start_workflow";
+  // AG07：request_handoff 同理（结果由网关按钉住的 delegationPolicy 算出），工具名取自契约。
+  const rejectOnly = pending?.toolName === "start_workflow" || pending?.toolName === agentRole.REQUEST_HANDOFF_TOOL_NAME;
 
   // draft 只在「首次进入编辑态」时用当前 argsSummary 播种；用户输入后不再被外部状态覆盖。
   const startEditing = () => {
@@ -52,6 +56,19 @@ export function AgentApprovalPanel({
   };
 
   if (view.status !== "awaiting_tool_permission" || pending == null) return null;
+
+  // AG06：escalate_matter 不是「批准一次工具调用」，是数字人把一件事交给人拍板——
+  // 走专用升级卡片（人话 + resolve/reject 两个契约动作），不落通用批准面板的原始 JSON。
+  if (pending.toolName === ESCALATE_TOOL_NAME) {
+    return (
+      <AgentEscalationForRun
+        agentId={view.agentId}
+        pending={pending}
+        sessionToken={sessionToken}
+        onDecided={() => onDecided?.()}
+      />
+    );
+  }
 
   const parsedDraft = ((): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } => {
     try {

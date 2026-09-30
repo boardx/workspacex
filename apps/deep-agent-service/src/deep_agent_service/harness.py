@@ -1510,6 +1510,9 @@ def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     # AG05：`start_workflow` 每次调用都中断，交网关按 run 钉住的 workflowAllowlist 判定、经 WF03 start
     # 执行，再以 edit resume 带回结果（工具体只转述 outcome.message）。同样不并入 DEFAULT_HITL_TOOL_NAMES。
     result["start_workflow"] = True
+    # AG07：`request_handoff` 每次调用都中断，交网关按 run 钉住的 delegationPolicy 判定目标与深度、
+    # 登记待用户确认的转交，再以 edit resume 带回结果。同样不并入 DEFAULT_HITL_TOOL_NAMES。
+    result["request_handoff"] = True
     result[_PLAN_CONFIRMATION_TOOL_NAME] = InterruptOnConfig(
         allowed_decisions=["approve", "edit", "reject"],
         when=_write_todos_requires_plan_confirmation,

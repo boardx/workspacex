@@ -459,6 +459,9 @@ export default {
       // `createAgent`（`AgentController`）现在挂了裸的 `POST /agents`，
       // `listAgents`（`GET /agents`，仍未接线）将来也落在同一条裸路径上。
       // 补上裸路径这一条，不能只靠 `:path*` 兜底（同一个坑的第八次）。
+      // AG06：`POST /agent-interrupts/:interruptId/escalation-decision`（升级卡片裁决）。
+      // `EscalationDecisionController` 是 `@Controller()`（空前缀），与上面 `/agent-runs` 同一个坑。
+      { source: `${prefix}/agent-interrupts/:path*`, destination: `${apiOrigin}/agent-interrupts/:path*` },
       { source: `${prefix}/agents`, destination: `${apiOrigin}/agents` },
       { source: `${prefix}/agents/:path*`, destination: `${apiOrigin}/agents/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },

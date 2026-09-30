@@ -1015,6 +1015,7 @@ function ThreadDetail({
           size="xs"
           variant="ghost"
           data-testid="chat-thread-sidebar-toggle"
+          className="hidden lg:inline-flex"
           aria-label="切换侧栏"
           title="展开/收起右侧栏（产物 · 材料）"
           onClick={() => requestShellRightPanelToggle()}

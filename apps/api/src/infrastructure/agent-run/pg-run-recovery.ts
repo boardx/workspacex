@@ -1,3 +1,6 @@
+import { REQUEST_HANDOFF_TOOL_NAME } from "@repo/contracts/agent-role";
+import { handoffEditedArgs, requestAgentHandoff } from "../../application/agent/agent-handoff";
+import { PgAgentHandoffStore } from "../agent/pg-agent-handoff-store";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
 import { AGENT_WORKFLOW_START_TOOL_NAME, recoverAgentWorkflowStart, workflowStartEditedArgs } from "../../application/agent/request-agent-workflow-start";
 import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
@@ -65,7 +68,12 @@ export class PgRunRecovery {
             const outcome=await recoverAgentWorkflowStart(new PgWorkflowReceiptStore(this.db),{orgId,runId:run.id,argsJson:result.argsSummary,toolCallId:result.toolCallId});
             if(await this.runs.requeueToolCallWithResult(orgId,run.id,result,workflowStartEditedArgs(result.argsSummary,outcome)))return;
           }
-          const authorized=result.toolName!==AGENT_WORKFLOW_START_TOOL_NAME&&(await this.grants?.hasGrant(orgId,run.id,result.toolName)??false);
+          // AG07：request_handoff 同理——重放网关判定（handoff 行按 run + 工具调用 id 幂等，只落一行），以 edit 交回。
+          if(result.toolName===REQUEST_HANDOFF_TOOL_NAME&&this.runs.requeueToolCallWithResult){
+            const outcome=await requestAgentHandoff({handoffs:new PgAgentHandoffStore(this.db)},{orgId,runId:run.id,argsJson:result.argsSummary,toolCallId:result.toolCallId});
+            if(await this.runs.requeueToolCallWithResult(orgId,run.id,result,handoffEditedArgs(result.argsSummary,outcome)))return;
+          }
+          const authorized=result.toolName!==AGENT_WORKFLOW_START_TOOL_NAME&&result.toolName!==REQUEST_HANDOFF_TOOL_NAME&&(await this.grants?.hasGrant(orgId,run.id,result.toolName)??false);
           if(!(authorized&&await this.runs.requeueAuthorizedToolCall?.(orgId,run.id,result)))
             await this.runs.markAwaitingToolPermission(orgId,run.id,result);
         }else if(result.kind==="failed"||(result.kind==="uncertain"&&run.recovery_attempts>=5)){

@@ -93,3 +93,13 @@ export function actionsByPlanStep(entries: readonly TraceEntry[]): ReadonlyMap<s
   }
   return out;
 }
+
+/**
+ * UIUX r5：本轮正常结束（status=succeeded 且不在跑）时，消息流里的计划快照也按「已完成」画，
+ * 与底部计划条 `planSummaryText` 的 `done && !runLive` 同一规则——否则快照停在最后一次
+ * `write_todos` 的 1/3，而脚注说「已完成」。失败 / 取消 / 暂停 / 等待确认不动它。
+ */
+export function settlePlanTodos(todos: PlanTodo[] | null, finished: boolean): PlanTodo[] | null {
+  if (todos === null || !finished) return todos;
+  return todos.map((todo) => (todo.status === "completed" ? todo : { ...todo, status: "completed" as const }));
+}
