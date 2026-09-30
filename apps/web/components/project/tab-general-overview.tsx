@@ -181,7 +181,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
         运行卡的只读投影（`listBoardRunCards`）对任何项目都按 WF03 canView 过滤，所以这里链到它的项目视图。
       */}
       <section>
-        <SectionTitle meta="本项目发起的 Workflow 运行（只读看板）">Workflow 运行</SectionTitle>
+        <SectionTitle meta="本项目发起的工作流运行（只读看板）">工作流运行</SectionTitle>
         <a
           href={`/workflows/board?projectId=${encodeURIComponent(projectId)}`}
           data-testid="project-general-overview-workflow-runs"

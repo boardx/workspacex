@@ -144,7 +144,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
               />
             </label>
             <label className="flex flex-col gap-1 text-11 text-muted-foreground">
-              <span>档位</span>
+              <span>角色</span>
               <Select
                 data-testid="project-collaborators-add-role"
                 value={pickRole}

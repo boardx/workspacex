@@ -454,7 +454,9 @@ export function ProjectWorkbench({
     return s ? `?${s}` : "?";
   };
 
-  const subNav = accessDenied ? undefined : SUB_NAV[shownTab];
+  // 通用项目的「成果」等 tab 没有分页可切：此前仍画出工作坊的「洞察报告 / 结论与决策 / 产出物 / 行动项」
+  // 子导航，点哪个都还是同一页——假导航。只有工作坊（各子页真的不同）才出子导航。
+  const subNav = accessDenied || projectKind === "general" ? undefined : SUB_NAV[shownTab];
 
   return (
     // hideRoleSwitcher：工作台自带四视角切换器（project-role-switcher），顶栏让位不再出第二套
