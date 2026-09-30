@@ -1835,3 +1835,22 @@ export const KNOWN_CONTRACT_GAPS = {
    */
   C_CHAT_12: "recommendCanvasTemplates (issue #2825) is a design delta pending human signoff (materials: phases/phase-01-run-a-project/design-deltas/canvas-template-recommendations/, whose design-signoff.md is the only signoff gate): read-only, no model call; recommends canvas templates in three fallback tiers (configured recommendAfter of what the thread drew, then entry templates, then any undrawn published template) so every turn offers a next step; open questions are that tier cascade with its entry out-degree ordering, and the 3-chip display cap",
 } as const;
+
+/**
+ * 用户可见标题里的**控制标记**（UIUX r1 屏 4 P0-2：侧栏出现「… [request_handoff:D003]」
+ * 「UIUX [start_workflow:W0…]」）。形如 `[小写蛇形标识:参数]`——回环替身/工具触发标记
+ * （`request_handoff` / `start_workflow` / `evidence` …）都是这个形状，对人没有意义。
+ *
+ * 唯一一份规则：服务端起名（`domain/chat/thread-title.ts`）与前端展示兜底（存量标题）共用。
+ * 也剥掉被截断后残留在末尾、未闭合的 `[start_workflow:W0…`。
+ */
+const CONTROL_MARKER = /\[[a-z][a-z0-9_]*:[^\]\n]*\]/gu;
+const TRAILING_OPEN_CONTROL_MARKER = /\[[a-z][a-z0-9_]*:[^\]\n]*$/u;
+
+export function stripControlMarkers(text: string): string {
+  return text
+    .replace(CONTROL_MARKER, " ")
+    .replace(TRAILING_OPEN_CONTROL_MARKER, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}

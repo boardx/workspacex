@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { z } from "zod";
+import { agentRole } from "@repo/contracts";
+import { handoffRefusalNotice } from "@/lib/agent-handoff";
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 import { Loader2, CheckCircle2, AlertCircle, ListTodo, FileSearch, FileText, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -249,6 +251,15 @@ export function CopilotKitV2ToolRenderers(): null {
     },
     [],
   );
+  // UIUX r1 屏 4：转交被拒是一条友好的行内提示；已登记的转交由消息流里的转交卡片承载，这里不画。
+  useRenderTool(
+    {
+      name: agentRole.REQUEST_HANDOFF_TOOL_NAME,
+      parameters: z.object({}).passthrough(),
+      render: ({ status, result }) => <HandoffRefusalNotice result={status === "complete" ? result : undefined} />,
+    },
+    [],
+  );
   // 其余工具（`read_document`/`lookup_time`/未来新增的工具）没有专属卡片，走通用
   // 兜底卡——与旧手写面板 `ToolChainStepBody` 的 `default: GenericToolBody` 同一条
   // 纪律：没有专属渲染不是缺陷，是设计。
@@ -370,5 +381,25 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** 转交没有发起时的行内提示：说明原因（服务端给出的中文句子），并告诉用户对话会继续。 */
+function HandoffRefusalNotice({ result }: { result: string | undefined }) {
+  const notice = handoffRefusalNotice(result);
+  if (notice === null) return null;
+  return (
+    <p
+      role="status"
+      data-testid="handoff-refused-notice"
+      className="flex items-start gap-2 rounded-md bg-warning-tint px-3 py-2 text-12 text-warning-tint-foreground"
+    >
+      <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0">
+        <span className="font-medium">没有转交</span>
+        <span className="mx-1" aria-hidden>·</span>
+        {notice}
+      </span>
+    </p>
   );
 }

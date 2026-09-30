@@ -4,15 +4,37 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ChatHandoffPanel } from "@/components/chat/chat-handoff-panel";
+import * as React from "react";
+import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
+import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { ApiError } from "@/lib/api-client";
-import type { HandoffView, ThreadHandoffs } from "@/lib/agent-handoff";
+import { handoffDraftText, handoffRefusalNotice, type HandoffView, type ThreadHandoffs } from "@/lib/agent-handoff";
+import { displayThreadTitle } from "@/lib/thread-title-display";
 import { toolLabel, toolObject } from "@/lib/chat-workbench/tool-label";
 
 afterEach(cleanup);
 
+/** 替身消息流：按面板的摆法把 lead / tail 放在消息前后。 */
+function Stream() {
+  const { lead, tail } = useChatStreamSlots();
+  return <div data-testid="stream">{lead}<p data-testid="msg">消息</p>{tail}</div>;
+}
+const agents: Record<string, { name: string; initials: string; roleLabel: string }> = {
+  "agt-d001": { name: "研究助理", initials: "研", roleLabel: "研究与知识分析" },
+  "agt-d003": { name: "产品经理", initials: "产", roleLabel: "产品需求负责人" },
+};
+const loadAgent = vi.fn(async (id: string) => {
+  const a = agents[id];
+  if (!a) throw new Error("not found");
+  return { agentId: id, versionId: "v", name: a.name, initials: a.initials, roleLabel: a.roleLabel, avatar: null, roleCategory: null,
+    tags: [], catalogSource: "official", workflows: [], readiness: "ready" } as never;
+});
+function ChatHandoffPanel(props: Omit<React.ComponentProps<typeof ChatHandoffStream>, "children">) {
+  return <ChatHandoffStream loadAgent={loadAgent} {...props}><Stream /></ChatHandoffStream>;
+}
+
 const view = (over: Partial<HandoffView> = {}): HandoffView => ({
-  handoffId: "h-1", sourceThreadId: "thr-a", targetRole: "D003", targetAgentId: "agt-d003", targetName: "产品经理",
+  handoffId: "h-1", sourceThreadId: "thr-a", sourceAgentId: "agt-d001", targetRole: "D003", targetAgentId: "agt-d003", targetName: "产品经理",
   status: "requested", depth: 1, notAllowedReason: null, newThreadId: null, createdAt: "2026-09-30T00:00:00Z",
   packet: { originalQuestion: "把调研结论整理成 PRD", confirmedScope: "仅 B 端", evidenceRefs: ["v1", "v2"], openItems: ["定价"] },
   ...over,
@@ -36,11 +58,17 @@ describe("ChatHandoffPanel", () => {
     const onOpenThread = vi.fn();
     render(<ChatHandoffPanel threadId="thr-a" load={load} confirm={confirm} onOpenThread={onOpenThread} />);
     const card = await screen.findByTestId("handoff-confirm-card");
-    expect(card.textContent).toContain("建议转交给 产品经理（D003）");
+    expect(card.textContent).toContain("建议转交给");
     expect(card.textContent).toContain("把调研结论整理成 PRD");
-    expect(card.textContent).toContain("2 条（接收方将按你的权限重新读取）");
+    expect(card.textContent).toContain("2 份（接收方将按你的权限重新读取）");
+    // 消息流里 Agent 的一条消息：排在消息之后，带发出者名字 + 时间；目标带角色。
+    const stream = screen.getByTestId("stream");
+    expect(stream.lastElementChild?.contains(card)).toBe(true);
+    await waitFor(() => expect(screen.getByTestId("handoff-message-author").textContent).toBe("研究助理"));
+    expect(screen.getByTestId("handoff-message-time").textContent).toMatch(/^\d{2}:\d{2}$/);
+    expect(screen.getByTestId("handoff-target").textContent).toContain("产品需求负责人");
     fireEvent.click(screen.getByTestId("handoff-confirm"));
-    await waitFor(() => expect(onOpenThread).toHaveBeenCalledWith({ handoffId: "h-1", targetAgentId: "agt-d003", newThreadId: "thr-new" }));
+    await waitFor(() => expect(onOpenThread).toHaveBeenCalledWith({ handoffId: "h-1", targetAgentId: "agt-d003", newThreadId: "thr-new" }, expect.objectContaining({ handoffId: "h-1" })));
     await waitFor(() => expect(screen.getByTestId("handoff-confirm-card").getAttribute("data-handoff-status")).toBe("confirmed"));
     expect(screen.queryByTestId("handoff-confirm")).toBeNull();
   });
@@ -53,7 +81,7 @@ describe("ChatHandoffPanel", () => {
     render(<ChatHandoffPanel threadId="thr-a" load={load} confirm={confirm} />);
     fireEvent.click(await screen.findByTestId("handoff-confirm"));
     const err = await screen.findByTestId("handoff-error");
-    expect(err.textContent).toBe("D003 角色目前已停用，未发起转交。当前对话会继续；如需要，可以直接联系对应负责人。");
+    expect(err.textContent).toBe("产品经理 角色目前已停用，未发起转交。当前对话会继续；如需要，可以直接联系对应负责人。");
     expect(err.textContent).not.toMatch(/HANDOFF_NOT_ALLOWED|target_disabled/);
   });
 
@@ -81,10 +109,43 @@ describe("ChatHandoffPanel", () => {
     expect(items[1]!.textContent).toBe("无法展示此来源");
     expect(items[1]!.textContent).not.toContain("v2");
     expect(screen.getByTestId("handoff-origin-card").textContent).toContain("这是转交给 产品经理 的对话");
+    // 来源卡是线程的起点：排在消息之前。
+    expect(screen.getByTestId("stream").firstElementChild?.contains(screen.getByTestId("handoff-origin-card"))).toBe(true);
+    expect(items[0]!.textContent).toBe("可查看的来源 · PDF 文档");
   });
 
   it("工具链标签：request_handoff 显示为「请求转交 · D003」", () => {
     expect(toolLabel("request_handoff")).toBe("请求转交");
     expect(toolObject("request_handoff", { targetRole: "D003", packet: {} })).toBe("D003");
+  });
+
+  it("无引用时不显示「引用 无」；问题原文里的触发标记被剥掉", async () => {
+    const load = vi.fn(async (): Promise<ThreadHandoffs> => ({
+      requested: [view({ packet: { originalQuestion: "UIUX 这个需求请产品经理接手 [request_handoff:D003]", confirmedScope: "", evidenceRefs: [], openItems: [] } })],
+      origin: null,
+    }));
+    render(<ChatHandoffPanel threadId="thr-a" load={load} />);
+    const card = await screen.findByTestId("handoff-confirm-card");
+    expect(screen.getByTestId("handoff-question").textContent).toBe("UIUX 这个需求请产品经理接手");
+    expect(card.textContent).not.toMatch(/引用|资料|\[request_handoff/);
+  });
+
+  it("新线程的首条消息草稿：交接包摘要", () => {
+    expect(handoffDraftText(view())).toBe(
+      "我从上一个对话转交过来，请你接手：把调研结论整理成 PRD\n已确认的范围：仅 B 端\n还没定的事：定价\n相关资料 2 份已随转交附上（见上方转交卡片）。",
+    );
+  });
+
+  it("拒绝提示：取服务端中文句子，不把给模型的指令摆给用户；已登记的不提示", () => {
+    expect(handoffRefusalNotice("该角色不能转交给 D003，未发起转交。当前对话会继续。 不要改转给其它角色，也不要重试；请把这句话告诉用户。"))
+      .toBe("该角色不能转交给 D003，未发起转交。当前对话会继续。");
+    expect(handoffRefusalNotice("已提交转交请求。 在用户确认前不要自行继续处理被转交的部分；把这句话告诉用户即可。")).toBeNull();
+    expect(handoffRefusalNotice(undefined)).toBeNull();
+  });
+
+  it("线程标题展示兜底：存量标题里的控制标记剥掉", () => {
+    expect(displayThreadTitle("UIUX [start_workflow:W0…")).toBe("UIUX");
+    expect(displayThreadTitle("[start_workflow:W029]")).toBeUndefined();
+    expect(displayThreadTitle("周报")).toBe("周报");
   });
 });

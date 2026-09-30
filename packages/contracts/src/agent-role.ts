@@ -223,6 +223,8 @@ export const HandoffEvidenceItem = z.discriminatedUnion("readable", [
 export const HandoffView = z.object({
   handoffId: Id,
   sourceThreadId: Id,
+  /** 发出转交请求的 Agent（卡片以它的消息呈现：头像 + 名字）。 */
+  sourceAgentId: Id,
   targetRole: AgentRoleRef,
   targetAgentId: Id.nullable(),
   targetName: z.string().nullable(),

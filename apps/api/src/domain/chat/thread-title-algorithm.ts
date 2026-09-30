@@ -1,3 +1,4 @@
+import { chat } from "@repo/contracts";
 /**
  * **会话级标题**的算法 —— 什么时候重算、拿哪些消息去算、算出来了要不要落地。
  * 纯函数，零 I/O，唯一的一处规则（2026-09-16 人类指令：「整个 chat 的 session 需要有
@@ -148,7 +149,7 @@ export function buildTitleEvidence(
     .map((m, index) => ({
       index,
       role: m.role,
-      text: clampCodePoints(m.body.replace(/\s+/gu, " ").trim(), EVIDENCE_PER_MESSAGE_MAX),
+      text: clampCodePoints(chat.stripControlMarkers(m.body).replace(/\s+/gu, " ").trim(), EVIDENCE_PER_MESSAGE_MAX),
     }))
     .filter((m) => m.text.length > 0 && !isLowInformation(m.text));
   const humans = usable.filter((m) => m.role === "human");

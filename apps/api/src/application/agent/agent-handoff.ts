@@ -228,7 +228,7 @@ export async function cancelAgentHandoff(
 
 export function toHandoffView(r: HandoffRecord) {
   return {
-    handoffId: r.handoffId, sourceThreadId: r.sourceThreadId, targetRole: r.targetRole,
+    handoffId: r.handoffId, sourceThreadId: r.sourceThreadId, sourceAgentId: r.sourceAgentId, targetRole: r.targetRole,
     targetAgentId: r.targetAgentId, targetName: r.targetName, status: r.status, packet: r.packet,
     depth: r.depth, notAllowedReason: r.notAllowedReason, newThreadId: r.newThreadId, createdAt: r.createdAt,
   };

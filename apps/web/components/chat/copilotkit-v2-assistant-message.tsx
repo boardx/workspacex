@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
-import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
+import { RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -69,10 +69,10 @@ function V2ToolCallsView(
 ): JSX.Element | null {
   const covered = React.useContext(RunTraceCoveredContext);
   const allToolCalls = props.message.toolCalls ?? [];
-  const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name));
+  const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name) || isInlineNoticeTool(call.function.name));
   // write_todos is projected into the durable plan ledger. Rendering its legacy
   // message card as well creates contradictory copies after updates and replay.
-  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name) && call.function.name !== "write_todos");
+  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name) && !isInlineNoticeTool(call.function.name) && call.function.name !== "write_todos");
   const decisions = decisionCalls.length ? <CopilotChatToolCallsView {...props} message={{ ...props.message, toolCalls: decisionCalls }} /> : null;
   const [expanded, setExpanded] = React.useState(false);
   // `React.useId()`：同一个组件实例在其生命周期内稳定不变（`aria-controls`
@@ -389,7 +389,7 @@ export function isInvisibleToolOnlyMessage(
 ): boolean {
   const calls = message.toolCalls ?? [];
   if (text.trim() !== "" || calls.length === 0) return false;
-  return calls.every((call) => !isDecisionTool(call.function.name) && (traceCovered || call.function.name === "write_todos"));
+  return calls.every((call) => !isDecisionTool(call.function.name) && !isInlineNoticeTool(call.function.name) && (traceCovered || call.function.name === "write_todos"));
 }
 
 /** 2026-09-27 人类反馈（截图：计划执行时正文里一段段「现在开始用 pptxgenjs…」「PPT 文件已生成，
