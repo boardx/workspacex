@@ -71,6 +71,28 @@ it("edits question content in the center canvas while the right panel only expos
   expect(within(settings).getByRole("combobox", { name: "题型" })).toHaveValue("short");
 });
 
+it("adds a real question when a toolbox item is dropped on the center canvas", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  function Designer() {
+    const [value, setValue] = React.useState<ReturnType<typeof createSurveyQuestion>[]>([]);
+    return <SurveyQuestionEditor studioLayout questions={value} onChange={setValue} />;
+  }
+  render(<Designer />);
+  const typeButton = screen.getByRole("button", { name: "单选" });
+  const canvas = screen.getByRole("region", { name: "问卷设计画布" });
+  const dataTransfer = {
+    effectAllowed: "copy",
+    dropEffect: "copy",
+    setData: vi.fn(),
+    getData: vi.fn(() => "single"),
+  };
+  fireEvent.dragStart(typeButton, { dataTransfer });
+  const dropZone = screen.getByTestId("survey-question-drop-zone");
+  fireEvent.dragOver(dropZone, { dataTransfer });
+  fireEvent.drop(dropZone, { dataTransfer });
+  expect(within(canvas).getByRole("textbox", { name: "问题内容" })).toHaveValue("单选");
+});
+
 it("keeps desktop side panels fixed and makes the center canvas the primary scroll surface", () => {
   const matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.stubGlobal("matchMedia", matchMedia);

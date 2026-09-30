@@ -42,6 +42,7 @@ import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
 import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
+import { WorkflowTimeline } from "./workflow-timeline";
 const STEPS = [
   ["design", "设计问卷"],
   ["publish", "发布回收"],
@@ -357,20 +358,11 @@ export function LiveSurveyWorkspace({
         {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{conflicted ? "检测到版本冲突，本地修改仍保留" : operation === "saving" ? "正在保存修改…" : error && dirty ? "保存失败，修改仍保留；请重试保存" : busy ? "正在处理…" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
         {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
       </div>
-      <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-x-auto px-5 py-2">
-        {workflowSteps.map(([id, label], i) => (
-          <button
-            type="button"
-            key={id}
-            aria-label={`${i + 1}. ${label}`}
-            onClick={() => selectStep(id)}
-            className={`flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 ${step === id ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${step === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
-            {label}
-          </button>
-        ))}
-      </nav>
+      <WorkflowTimeline
+        steps={workflowSteps}
+        activeStep={step === "template" ? "design" : step}
+        onSelect={selectStep}
+      />
       {error && (
         <div
           role="alert"
