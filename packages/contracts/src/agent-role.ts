@@ -276,6 +276,29 @@ export const AgentDirectoryCard = z.object({
   readiness: CapabilityReadiness,
 }).strict();
 
+/**
+ * 成员详情页补充读模型（AG04 follow-up，`/agent/[id]`）：只读、同目录卡片同一可见性判定（E9 一律 404）。
+ * 不含授权详情（R5）：技能只给 ID（名字由成员可读的技能端点换），转交对象只列本组织目录里可见的角色。
+ * `duty` 为空 = 未登记职责一句话（与名字/角色标签相同的占位值也视为空，不回显）。
+ */
+export const AgentDirectoryProfile = z.object({
+  agentId: Id,
+  duty: z.string().nullable(),
+  /** Agent 行上直接挂载的技能（`agents.skill_mounts`）。 */
+  mountedSkillIds: z.array(z.string()).max(64),
+  /** 已发布版本钉住的技能版本（`agent_versions.skill_version_ids`）。 */
+  pinnedSkillVersionIds: z.array(z.string()).max(64),
+  /** 委派策略允许转交、且当前在目录中可见的角色。 */
+  delegationTargets: z.array(z.object({
+    agentId: Id,
+    name: z.string(),
+    initials: z.string(),
+    roleLabel: z.string(),
+    avatar: AgentAvatar.nullable(),
+  }).strict()).max(32),
+  requireApprovalForHandoff: z.boolean(),
+}).strict();
+
 /** 管理详情「角色」区块：含分类 → 已授权工具/缺失清单。 */
 export const AgentRoleAdminView = z.object({
   agentId: Id,
@@ -309,6 +332,13 @@ export const operations = {
     method: "GET", path: "/agents/directory/:agentId",
     in: z.object({ agentId: Id }).strict(),
     out: AgentDirectoryCard,
+    err: ["UNAUTHENTICATED", "AGENT_NOT_FOUND"] as const,
+  },
+  /** AG04 follow-up：成员详情页补充信息（职责、技能引用、可转交对象）。 */
+  getAgentDirectoryProfile: {
+    method: "GET", path: "/agents/directory/:agentId/profile",
+    in: z.object({ agentId: Id }).strict(),
+    out: AgentDirectoryProfile,
     err: ["UNAUTHENTICATED", "AGENT_NOT_FOUND"] as const,
   },
   /** AG04 管理详情角色区块。 */

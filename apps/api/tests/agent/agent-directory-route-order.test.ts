@@ -53,4 +53,11 @@ describe("GET /agents/directory 路由不被 GET /agents/:agentId 吞掉", () =>
     const res = await get("/agents/directory?roleCategory=research&q=x");
     expect(res.status, await res.clone().text()).toBe(200);
   });
+
+  it("详情补充 /agents/directory/:id/profile 命中目录控制器：不可见 → 404 AGENT_NOT_FOUND（真实 SQL 可执行）", async () => {
+    const res = await get("/agents/directory/agent-missing/profile");
+    const text = await res.text();
+    expect(res.status, text).toBe(404);
+    expect(text).toContain("AGENT_NOT_FOUND");
+  });
 });

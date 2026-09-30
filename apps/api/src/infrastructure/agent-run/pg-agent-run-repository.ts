@@ -2,6 +2,8 @@ import { SkillActivityFact } from "@repo/contracts/skill-activity";
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
 import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import { ESCALATE_TOOL_NAME, EscalateDecision } from "@repo/contracts/agent-role";
+import type { z } from "zod";
 import { applyEditedInterruptArgs } from "../../application/agent-run/decided-interrupt";
 import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
 import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -733,7 +735,11 @@ export class PgAgentRunRepository implements AgentRunStore {
              'toolName', pending_tool_name,
              'interrupt', pending_interrupt,
              'editedArgs', $5::text,
-             'decision', $6::text
+             'decision', $6::text,
+             -- uiux-r3 #4.5：升级裁决要在线程里留「谁、何时、对哪件事」的记录（AG06 已裁决卡）。
+             'argsSummary', pending_args_summary,
+             'decidedBy', $7::text,
+             'decidedAt', now()
            ),
            error_code=CASE WHEN $4='reject' THEN NULL ELSE error_code END,
            ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END,
@@ -749,7 +755,7 @@ export class PgAgentRunRepository implements AgentRunStore {
            pending_grant_scope=CASE WHEN $4='reject' THEN NULL ELSE pending_grant_scope END
          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
            AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name, pending_grant_scope`,
-        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null, decision],
+        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null, decision, userId],
       );
       const row = updated.rows[0];
       if (!row) return false;
@@ -1069,6 +1075,47 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /**
+   * uiux-r3 #4.5 —— AG06 升级裁决的留痕（`resolved_approvals` 里 toolName = escalate_matter 的那几条），
+   * 投影成「谁、同意/驳回、说明、何时」；决定人显示名取自 credentials。解析不出的条目诚实地跳过。
+   */
+  private async readResolvedEscalations(orgId: OrgId, raw: unknown): Promise<NonNullable<RunProjection["resolvedEscalations"]>> {
+    const entries = (Array.isArray(raw) ? raw : []).flatMap((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const record = entry as Record<string, unknown>;
+      if (record.toolName !== ESCALATE_TOOL_NAME || typeof record.editedArgs !== "string") return [];
+      let decided: z.infer<typeof EscalateDecision>;
+      try {
+        const parsed = EscalateDecision.safeParse(JSON.parse(record.editedArgs));
+        if (!parsed.success) return [];
+        decided = parsed.data;
+      } catch { return []; }
+      return [{
+        permissionRequestId: typeof record.permissionRequestId === "string" ? record.permissionRequestId : null,
+        argsSummary: typeof record.argsSummary === "string" ? record.argsSummary : null,
+        decision: decided.decision,
+        text: decided.decision === "resolve" ? decided.decisionText : decided.reason,
+        decidedByUserId: typeof record.decidedBy === "string" ? record.decidedBy : null,
+        decidedAt: typeof record.decidedAt === "string" ? new Date(record.decidedAt).toISOString() : null,
+      }];
+    });
+    if (entries.length === 0) return [];
+    const ids = [...new Set(entries.flatMap((e) => (e.decidedByUserId ? [e.decidedByUserId] : [])))];
+    const names = new Map<string, string>();
+    if (ids.length > 0) {
+      await this.db.withTenant(orgId, async (s) => {
+        const r = await s.query<{ user_id: string; display_name: string | null }>(
+          `SELECT user_id, display_name FROM credentials WHERE user_id = ANY($1::text[])`, [ids],
+        );
+        for (const row of r.rows) if (row.display_name) names.set(row.user_id, row.display_name);
+      });
+    }
+    return entries.map(({ decidedByUserId, ...rest }) => ({
+      ...rest,
+      decidedBy: decidedByUserId ? { userId: decidedByUserId, displayName: names.get(decidedByUserId) ?? null } : null,
+    }));
+  }
+
   async readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null> {
     const found = await this.db.withTenant(orgId, async (s) => {
       const run = await s.query<RunRow>(
@@ -1233,6 +1280,8 @@ export class PgAgentRunRepository implements AgentRunStore {
           }];
         }),
     };
+    const escalations = await this.readResolvedEscalations(orgId, found.row.resolved_approvals);
+    if (escalations.length > 0) (projection as { resolvedEscalations?: RunProjection["resolvedEscalations"] }).resolvedEscalations = escalations;
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.
     return guard({ kind: "project", id: found.row.project_id }, projection);

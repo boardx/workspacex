@@ -60,6 +60,11 @@ describe("AG04 白名单条目的前提：仓储侧", () => {
   it("SQL 永远带 scope='org-wide' 谓词", () => {
     expect(repoSource).toContain("cl.scope = 'org-wide'");
   });
+
+  it("UIUX r4：未分类的组织可见 Agent（通用助手）不被挡在目录外，归入 general", () => {
+    expect(repoSource).not.toContain("role_category IS NOT NULL");
+    expect(repoSource).toContain('roleCategory: fields.roleCategory ?? "general"');
+  });
 });
 
 describe("AG04 白名单条目的前提：授权确实存在，且在仓储调用之前", () => {
@@ -70,7 +75,7 @@ describe("AG04 白名单条目的前提：授权确实存在，且在仓储调�
   });
 
   it("授权判定排在仓储调用之前（两个函数体内）", () => {
-    for (const fnName of ["listAgentDirectory", "getAgentDirectoryCard"]) {
+    for (const fnName of ["listAgentDirectory", "getAgentDirectoryCard", "getAgentDirectoryProfile"]) {
       const fnStart = useCaseSource.indexOf(`export async function ${fnName}(`);
       expect(fnStart).toBeGreaterThan(-1);
       const nextFnStart = useCaseSource.indexOf("export async function", fnStart + 1);

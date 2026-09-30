@@ -4,6 +4,8 @@ import { Pencil, ShieldAlert } from "lucide-react";
 import { agentRole } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { decideAgentRun, type AgentRunView } from "@/lib/agent-run";
+import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
+import { AgentEscalationForRun } from "@/components/chat/agent-escalation-card";
 
 /**
  * agent-approval-panel（DA-07c，#1749，rubric D6 人在环的前端半边；UX-9 D4 补 edit
@@ -54,6 +56,19 @@ export function AgentApprovalPanel({
   };
 
   if (view.status !== "awaiting_tool_permission" || pending == null) return null;
+
+  // AG06：escalate_matter 不是「批准一次工具调用」，是数字人把一件事交给人拍板——
+  // 走专用升级卡片（人话 + resolve/reject 两个契约动作），不落通用批准面板的原始 JSON。
+  if (pending.toolName === ESCALATE_TOOL_NAME) {
+    return (
+      <AgentEscalationForRun
+        agentId={view.agentId}
+        pending={pending}
+        sessionToken={sessionToken}
+        onDecided={() => onDecided?.()}
+      />
+    );
+  }
 
   const parsedDraft = ((): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } => {
     try {

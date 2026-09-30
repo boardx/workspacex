@@ -16,6 +16,7 @@ import {
   AGENT_DIRECTORY_REPOSITORY,
   AgentDirectoryError,
   getAgentDirectoryCard,
+  getAgentDirectoryProfile,
   LAUNCHABLE_WORKFLOWS,
   listAgentDirectory,
   type AgentDirectoryRepository,
@@ -69,6 +70,25 @@ export class AgentDirectoryController {
         { identities: this.identities, repository: this.repository, workflows: this.workflows, launchable: this.launchable },
       );
       return R.operations.getAgentDirectoryCard.out.parse(card);
+    } catch (error) {
+      if (error instanceof AgentDirectoryError) {
+        if (error.code === "UNAUTHENTICATED") throw new UnauthorizedException({ reasonCode: error.code });
+        throw new NotFoundException({ reasonCode: error.code });
+      }
+      throw error;
+    }
+  }
+
+  /** AG04 follow-up：成员详情页补充（职责 / 技能引用 / 可转交对象）。判定与 404 语义同 `getOne`。 */
+  @Get(R.operations.getAgentDirectoryProfile.path)
+  async getProfile(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string) {
+    assertPrincipal(principal);
+    try {
+      const profile = await getAgentDirectoryProfile(
+        { orgId: principal.orgId, actorId: principal.userId, agentId },
+        { identities: this.identities, repository: this.repository },
+      );
+      return R.operations.getAgentDirectoryProfile.out.parse(profile);
     } catch (error) {
       if (error instanceof AgentDirectoryError) {
         if (error.code === "UNAUTHENTICATED") throw new UnauthorizedException({ reasonCode: error.code });

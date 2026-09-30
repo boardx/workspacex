@@ -355,6 +355,15 @@ export interface RunProjection {
     readonly interrupt: RestorableInterrupt;
     readonly decision: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null;
   }[];
+  /** uiux-r3 #4.5：AG06 升级裁决留痕（契约 `AgentRunView.resolvedEscalations`）。缺省 = 没有。 */
+  readonly resolvedEscalations?: readonly {
+    readonly permissionRequestId: string | null;
+    readonly argsSummary: string | null;
+    readonly decision: "resolve" | "reject";
+    readonly text: string;
+    readonly decidedBy: { readonly userId: string; readonly displayName: string | null } | null;
+    readonly decidedAt: string | null;
+  }[];
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */

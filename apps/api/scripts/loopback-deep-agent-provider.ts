@@ -719,6 +719,56 @@ function startWorkflowReply(record: RunRecord): string {
   return record.decision.type === "reject" ? (script?.rejectedText ?? "发起流程被拒绝，未创建实例。") : "结果未知。";
 }
 
+/**
+ * AG06 —— 升级剧本（`escalate_matter` 工具调用），让升级卡片在回环模型上可达。
+ *
+ * 用户消息里带 `[escalate:<reason>]` ⇒ 替身发出一个**未配对**的 `escalate_matter` 调用并停在
+ * interrupted；网关（`tool-permission-gate.ts`）按该 run 钉住的 escalationPolicy 判定：命中 ⇒
+ * 挂起等目标人经 `decideEscalation` 裁决（edit resume 带回 `decision`/`decisionText`/`reason`），
+ * 没命中 ⇒ 原样 approve（「未升级」）。终稿措辞与真实工具体（deep-agent-service `tools.py`
+ * `escalate_matter`）的三条回复同构。`matter` 取 `LOOPBACK_ESCALATE_MATTER`（缺省「超出职责范围的事项」），
+ * 要让它真的挂起，被测 Agent 的升级策略里得有同名事项。
+ */
+const ESCALATE_TOOL_NAME = "escalate_matter";
+const ESCALATE_MARKER = /\[escalate:([^\]]+)\]/;
+const ESCALATE_MATTER = process.env.LOOPBACK_ESCALATE_MATTER ?? "超出职责范围的事项";
+
+function escalateReason(record: RunRecord): string | null {
+  const m = ESCALATE_MARKER.exec(record.userText);
+  const reason = m?.[1]?.trim();
+  if (!reason) return null;
+  // uiux-r6 #4 —— 卡片标题取 reason（数字人要问你的那句话）。标记里只有类别式的泛称
+  // （「超出职责范围的事项」「超出我的职责」）时，换成一句具体的问句，避免决定人只看到类别。
+  return isGenericEscalateReason(reason) ? ESCALATE_SAMPLE_QUESTION : reason;
+}
+
+const ESCALATE_SAMPLE_QUESTION = "客户要求在合同里写明 20% 折扣，是否同意？";
+
+function isGenericEscalateReason(reason: string): boolean {
+  return reason === ESCALATE_MATTER || /超出.{0,4}职责/.test(reason);
+}
+
+function escalateArgs(reason: string): Record<string, unknown> {
+  return { matter: ESCALATE_MATTER, reason, target: "requester", contextRefs: [] };
+}
+
+function escalateReply(record: RunRecord): string {
+  // uiux-r3 #4.2 —— 待决阶段不流出任何「正在提交…」正文：升级卡片就是这一轮的状态，
+  // 一句不会被结果替换掉的进行时旁白只会在 run 停下后永远挂在线程里。
+  if (record.decision === null) return "";
+  const edited = record.decision.type === "edit" ? record.decision.editedArgs : undefined;
+  const decision = edited?.decision;
+  if (decision === "resolve") {
+    // uiux-r5 #4.1 —— 裁决原文已由线程里的「决定：…」记录逐字展示，这句不再复述，只说接下来怎么办。
+    return "负责人已同意。我会按这个裁决继续。";
+  }
+  if (decision === "reject" || record.decision.type === "reject") {
+    // 同上：理由已由「理由：…」记录展示，不复述。
+    return "负责人不同意。这件事我不会执行，会据此调整方案。";
+  }
+  return `事项「${ESCALATE_MATTER}」不在我的升级策略范围内，未升级给任何人；我会按自己的职责边界处理。`;
+}
+
 function approvalReply(record: RunRecord): string {
   if (record.decision === null) return "这一步需要人工批准后才能继续。";
   const args = record.decision.type === "edit" && record.decision.editedArgs !== undefined
@@ -1434,6 +1484,10 @@ const server = createServer((req, res) => {
       sendJson(res, 200, { status: "interrupted" });
       return;
     }
+    if (escalateReason(record) !== null && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER && record.decision === null) {
       sendJson(res, 200, { status: "interrupted" });
       return;
@@ -1529,9 +1583,9 @@ const server = createServer((req, res) => {
     const isChoosing = isChooseOption(record);
     const isTwoInterruptTurn = isTwoInterrupt(record);
     const isTwoApprovalTurn = isTwoApproval(record);
-    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
+    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : escalateReason(record) !== null ? `escalate-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
     const isStartWorkflow = startWorkflowTarget(record) !== null;
-    const reply = isStartWorkflow ? startWorkflowReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+    const reply = isStartWorkflow ? startWorkflowReply(record) : escalateReason(record) !== null ? escalateReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       /*
@@ -1981,6 +2035,32 @@ const server = createServer((req, res) => {
                 ? "用户拒绝了这次技能调用，未执行。"
                 : `已执行技能：${JSON.stringify(secondArgs)}` },
             { id: `two-approval-${threadId}:final`, type: "ai", content: TWO_APPROVAL_FINAL_REPLY },
+          ],
+        },
+      });
+      return;
+    }
+    const escalation = escalateReason(record);
+    if (escalation !== null) {
+      const callId = `escalate-${threadId}`;
+      const pendingAi = {
+        id: `escalate-${threadId}:pending`,
+        type: "ai",
+        content: "这件事超出了我的职责，需要负责人拍板。",
+        tool_calls: [{ id: callId, name: ESCALATE_TOOL_NAME, args: escalateArgs(escalation) }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
+        return;
+      }
+      const finalText = escalateReply(record);
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            pendingAi,
+            { type: "tool", tool_call_id: callId, content: finalText },
+            { id: `escalate-${threadId}:final`, type: "ai", content: finalText },
           ],
         },
       });
