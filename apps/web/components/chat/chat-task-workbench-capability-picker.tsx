@@ -889,11 +889,11 @@ export function CapabilityPicker({
         title={selected ? [`当前数字人：${selected.name}`, abilityHint].filter(Boolean).join("\n") : "未指定时按任务自动匹配数字人，点击手选"}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-7 max-w-[11rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 sm:max-w-none text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
+        className="flex h-7 max-w-[11rem] min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
       >
         {selected ? <Avatar initials={selectedCard?.initials || abbrFor(selected)} avatarKey={selectedCard?.avatar?.key ?? null} tone="ai" size="xs" /> : null}
         {/* 复审 r1：芯片只放肖像 + 名字，能力清单移进 title 提示，不再两段截断。 */}
-        <span data-testid="chat-task-workbench-capability-picker-name" className="truncate sm:overflow-visible">{selected ? selected.name : "能力：自动匹配"}</span>
+        <span data-testid="chat-task-workbench-capability-picker-name" className="truncate">{selected ? selected.name : "能力：自动匹配"}</span>
         <span aria-hidden className="text-9">▾</span>
       </button>
       <CapabilityPopover

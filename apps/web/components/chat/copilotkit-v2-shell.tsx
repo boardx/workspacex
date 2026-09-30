@@ -7,7 +7,7 @@ import { Lock } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import type { ChatMaterialsUploadPort } from "@/components/chat/chat-composer-attachments";
 import {
-  NewThreadButton, SidebarBrandHeader, ThreadCardButton,
+  NEW_THREAD_TASK_LABEL, NewThreadButton, SidebarBrandHeader, ThreadCardButton,
 } from "@/components/chat/thread-list-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -1125,7 +1125,7 @@ export function CopilotKitV2Shell({
             起，铃铛不在这里了——它挂在全局图标导航栏底部（`components/shell/rail-notifications.tsx`）。
             铃铛顺带承担的「对话列表保鲜」那半边留在本文件：它属于聊天外壳，不该跟着搬走。 */}
         <div className="flex flex-col gap-1.5 px-3">
-          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
+          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label={NEW_THREAD_TASK_LABEL} />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
               现在与 `mutateFailure`（改名/删除失败）同一套呈现纪律，就地印一行红字。 */}
           {createFailure ? (
@@ -1195,10 +1195,10 @@ export function CopilotKitV2Shell({
                ⚠ 文案措辞也跟着改了：搜索现在查的是全部历史，不是手上这一页，
                  所以"没搜到"这次是真的没有。 */
             <p className="px-1 py-2 text-11 text-muted-foreground" data-testid="chat-task-workbench-thread-search-empty">
-              全部对话里都没有标题含「{appliedQuery}」的。换个词，或点上面「新建对话」。
+              全部对话里都没有标题含「{appliedQuery}」的。换个词，或点上面「{NEW_THREAD_TASK_LABEL}」。
             </p>
           ) : cards.length === 0 ? (
-            <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
+            <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「{NEW_THREAD_TASK_LABEL}」开始第一次对话</p>
           ) : (
             renderGroups.map((group) => (
               <React.Fragment key={group.label}>

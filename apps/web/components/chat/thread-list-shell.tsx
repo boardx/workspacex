@@ -462,6 +462,9 @@ export function shortTime(iso: string): string {
  *   **禁用**——空态引导文案明明写着「点上面「新建会话」开始第一次对话」，指向的却是一个
  *   点不动的按钮（rev-uiux 第 3/4 轮各抓到一次）。两个问题根子相同：没有共用这个组件。
  */
+/** 「交一件事给 AI」——左栏新建入口的按钮文案，空态引导文案引用同一个常量（单一事实源）。 */
+export const NEW_THREAD_TASK_LABEL = "交一件事给 AI";
+
 export function NewThreadButton({
   onClick, disabled, label = "新建对话",
 }: {
