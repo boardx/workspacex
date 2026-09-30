@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { constants } from "node:fs";
-const memory = vi.hoisted(() => ({ entries: new Map<string, { bytes: string; uid: number; mode: number; gid?: number; directory?: boolean; symlink?: boolean }>(), opens: [] as { path: string; flags: number }[], renameFailure: false, writes: [] as string[], syncs: [] as string[], fdInfo: "", fdLink: "", fdInode: 123 }));
+const memory = vi.hoisted(() => ({ entries: new Map<string, { bytes: string; uid: number; mode: number; gid?: number; directory?: boolean; symlink?: boolean }>(), opens: [] as { path: string; flags: number }[], renameFailure: false, renameFailureTarget: "", writes: [] as string[], syncs: [] as string[], fdInfo: "", fdLink: "", fdInode: 123 }));
 vi.mock("node:fs", async importOriginal => ({ ...(await importOriginal<typeof import("node:fs")>()),
   fstatSync: () => ({ dev: 1, ino: memory.fdInode, uid: 0, gid: 0, mode: 0o600, isFile: () => true }),
 }));
@@ -23,7 +23,7 @@ vi.mock("node:fs/promises", () => {
         writeFile: async (bytes: string) => { memory.writes.push(path); memory.entries.get(path)!.bytes = bytes; },
         sync: async () => { memory.syncs.push(path); }, close: async () => {} };
     }),
-    rename: vi.fn(async (from: string, to: string) => { if (memory.renameFailure) throw new Error("rename rejected"); const value = memory.entries.get(from)!; memory.entries.set(to, value); memory.entries.delete(from); }),
+    rename: vi.fn(async (from: string, to: string) => { if (memory.renameFailure || memory.renameFailureTarget === to) throw new Error("rename rejected"); const value = memory.entries.get(from)!; memory.entries.set(to, value); memory.entries.delete(from); }),
     unlink: vi.fn(async (path: string) => { if (!memory.entries.delete(path)) throw missing(); }),
     rmdir: vi.fn(async (path: string) => { if (!memory.entries.delete(path)) throw missing(); }),
   };
@@ -34,7 +34,7 @@ const identity = { revision: "a".repeat(40), release: "2026.9.30-cn.1", attemptI
 const paths = candidateConfigurationPaths(identity), originalPlatform = process.platform;
 const baseline = JSON.stringify(deploymentExample("production"));
 beforeEach(() => {
-  memory.entries.clear(); memory.opens.length = 0; memory.writes.length = 0; memory.syncs.length = 0; memory.renameFailure = false; memory.fdInfo = "lock:\t1: FLOCK ADVISORY WRITE 54321 00:01:123 0 EOF\n"; memory.fdLink = "/var/lib/workspacex-cn/runtime/release.lock"; memory.fdInode = 123;
+  memory.entries.clear(); memory.opens.length = 0; memory.writes.length = 0; memory.syncs.length = 0; memory.renameFailure = false; memory.renameFailureTarget = ""; memory.fdInfo = "lock:\t1: FLOCK ADVISORY WRITE 54321 00:01:123 0 EOF\n"; memory.fdLink = "/var/lib/workspacex-cn/runtime/release.lock"; memory.fdInode = 123;
   for (const path of ["/", "/etc", "/etc/workspacex-cn"]) memory.entries.set(path, { bytes: "", uid: 0, mode: path === "/etc/workspacex-cn" ? 0o700 : 0o755, directory: true });
   for (const path of ["/var", "/var/lib", "/var/lib/workspacex-cn", "/var/lib/workspacex-cn/runtime"]) memory.entries.set(path, { bytes: "", uid: 0, mode: 0o755, directory: true });
   memory.entries.set("/var/lib/workspacex-cn/runtime/release.lock", { bytes: "", uid: 0, gid: 0, mode: 0o600 });
@@ -131,4 +131,60 @@ it("accepts root-owned runner-readable manifest parent while keeping candidate s
   const result = await candidateConfigHostAction("prepare", identity);
   expect(result.state).toBe("prepared");
   expect(memory.entries.get(paths.directory)!.mode).toBe(0o700);
+});
+
+it("tracks same-version equal-byte activation using a protected marker and supports idempotent commit/restore", async () => {
+  await candidateConfigHostAction("prepare", identity);
+  const candidate = memory.entries.get(paths.candidate)!.bytes;
+  memory.entries.delete(paths.receipt); memory.entries.delete(paths.baseline); memory.entries.delete(paths.candidate); memory.entries.delete(paths.state);
+  memory.entries.get(paths.active)!.bytes = candidate;
+  expect((await candidateConfigHostAction("prepare", identity)).state).toBe("prepared");
+  expect(memory.entries.get(paths.baseline)!.bytes).toBe(memory.entries.get(paths.candidate)!.bytes);
+  for (let i=0;i<2;i++) expect((await candidateConfigHostAction("commit", identity)).state).toBe("activated");
+  expect((await candidateConfigHostAction("verify", identity)).state).toBe("activated");
+  for (let i=0;i<2;i++) expect((await candidateConfigHostAction("restore", identity)).state).toBe("prepared");
+  expect((await candidateConfigHostAction("verify", identity)).state).toBe("prepared");
+  expect(memory.entries.get(paths.active)!.bytes).toBe(candidate);
+  expect(memory.entries.get(paths.state)!.mode).toBe(0o600);
+});
+it.each(["commit", "restore"] as const)("recovers %s crash after config rename but before marker rename", async action => {
+  await candidateConfigHostAction("prepare", identity);
+  if (action === "restore") await candidateConfigHostAction("commit", identity);
+  memory.renameFailureTarget = paths.state;
+  await expect(candidateConfigHostAction(action, identity)).rejects.toThrow();
+  const expected = action === "commit" ? "activated" : "prepared";
+  expect((await candidateConfigHostAction("verify", identity)).state).toBe(expected);
+  memory.renameFailureTarget = "";
+  expect((await candidateConfigHostAction(action, identity)).state).toBe(expected);
+  expect(JSON.parse(memory.entries.get(paths.state)!.bytes).state).toBe(expected);
+});
+it("rejects changed or missing state receipt before any active config mutation", async () => {
+  await candidateConfigHostAction("prepare", identity);
+  const marker=memory.entries.get(paths.state)!;
+  marker.bytes=marker.bytes.replace(identity.revision,"b".repeat(40));
+  await expect(candidateConfigHostAction("commit", identity)).rejects.toThrow("CANDIDATE_STATE_CHANGED");
+  expect(memory.entries.get(paths.active)!.bytes).toBe(baseline);
+  memory.entries.delete(paths.state);
+  await expect(candidateConfigHostAction("commit", identity)).rejects.toThrow();
+});
+
+it("restore crash before config rename retains activated state and succeeds on retry", async () => {
+  await candidateConfigHostAction("prepare", identity); await candidateConfigHostAction("commit", identity);
+  memory.renameFailureTarget=paths.active;
+  await expect(candidateConfigHostAction("restore", identity)).rejects.toThrow();
+  expect((await candidateConfigHostAction("verify", identity)).state).toBe("activated");
+  memory.renameFailureTarget="";
+  expect((await candidateConfigHostAction("restore", identity)).state).toBe("prepared");
+});
+it("same-version marker rename failure never reports activation and is retryable", async () => {
+  await candidateConfigHostAction("prepare", identity);
+  const candidate=memory.entries.get(paths.candidate)!.bytes;
+  for (const path of [paths.receipt,paths.baseline,paths.candidate,paths.state]) memory.entries.delete(path);
+  memory.entries.get(paths.active)!.bytes=candidate;
+  await candidateConfigHostAction("prepare", identity);
+  memory.renameFailureTarget=paths.state;
+  await expect(candidateConfigHostAction("commit", identity)).rejects.toThrow();
+  expect((await candidateConfigHostAction("verify", identity)).state).toBe("prepared");
+  memory.renameFailureTarget="";
+  expect((await candidateConfigHostAction("commit", identity)).state).toBe("activated");
 });

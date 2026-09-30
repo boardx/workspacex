@@ -122,6 +122,10 @@ The build controller holds the canonical release lock and copies the active conf
 into `/etc/workspacex-cn/candidate-configs/<SHA>/<attempt>/deployment.json`.
 Only `provision.release` changes; all durable profile references and stable identity
 inputs remain unchanged. Root-private baseline and candidate hashes bind the receipt.
+A protected state receipt distinguishes prepared and accepted same-version re-publication
+when config bytes are identical. Config rename precedes state rename; unequal-byte
+crash recovery derives the real config and reconciles the marker on retry. An equal-byte
+marker failure stays unaccepted until the commit succeeds.
 The collector, host preparation and canonical provision consume this same candidate.
 Preparation never replaces the active `/etc/workspacex-cn/deployment.json`.
 After runtime readiness and real browser acceptance, activation atomically commits

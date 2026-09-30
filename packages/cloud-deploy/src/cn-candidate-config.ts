@@ -19,6 +19,7 @@ export const candidateReceiptSchema = candidateIdentitySchema.extend({
   allowedDiff: z.literal("provision.release"),
 }).strict();
 export type CandidateReceipt = z.infer<typeof candidateReceiptSchema>;
+const candidateStateSchema = candidateReceiptSchema.extend({ state: z.enum(["prepared", "activated"]) });
 export const configDigest = (bytes: string) => createHash("sha256").update(bytes).digest("hex");
 
 /** Copy all canonical fields; only the pinned release may change. Never resolve secrets. */
@@ -45,7 +46,7 @@ export function candidateConfigurationPaths(identityInput: CandidateIdentity) {
   const identity = candidateIdentitySchema.parse(identityInput);
   const directory = `/etc/workspacex-cn/candidate-configs/${identity.revision}/${identity.attemptId}`;
   return { directory, baseline: `${directory}/baseline.json`, candidate: `${directory}/deployment.json`,
-    receipt: `${directory}/receipt.json`, active: "/etc/workspacex-cn/deployment.json" };
+    receipt: `${directory}/receipt.json`, state: `${directory}/state.json`, active: "/etc/workspacex-cn/deployment.json" };
 }
 async function privateRead(path: string): Promise<string> {
   await assertTrustedPath(path, { trustedRoot: "/", kind: "file", private: true });
@@ -124,6 +125,7 @@ export async function candidateConfigHostAction(action: "prepare" | "verify" | "
         const baseline = await privateRead(paths.active), candidate = createCandidateConfiguration(baseline, identity);
         await writeExclusive(paths.baseline, baseline);
         await writeExclusive(paths.candidate, candidate.candidateBytes);
+        await writeExclusive(paths.state, `${JSON.stringify({ ...candidate.receipt, state: "prepared" })}\n`);
         await writeExclusive(paths.receipt, `${JSON.stringify(candidate.receipt)}\n`);
         await syncDirectory(paths.directory);
       }
@@ -131,9 +133,20 @@ export async function candidateConfigHostAction(action: "prepare" | "verify" | "
     const baseline = await privateRead(paths.baseline), candidate = await privateRead(paths.candidate);
     const receipt = candidateReceiptSchema.parse(JSON.parse(await privateRead(paths.receipt)));
     const active = await privateRead(paths.active);
-    const state = verifyCandidateConfiguration(baseline, candidate, receipt, identity, active);
-    if (action === "commit" && state === "prepared") await replaceActive(paths.active, active, candidate);
-    if (action === "restore" && state === "activated") await replaceActive(paths.active, active, baseline);
+    const byteState = verifyCandidateConfiguration(baseline, candidate, receipt, identity, active);
+    const stateBytes = await privateRead(paths.state), marker = candidateStateSchema.parse(JSON.parse(stateBytes));
+    const { state: markerState, ...markerReceipt } = marker;
+    if (!isDeepStrictEqual(markerReceipt, receipt)) throw new Error("CANDIDATE_STATE_CHANGED");
+    // Equal bytes cannot reveal whether the same-version activation was accepted.
+    // For unequal bytes, the actual config recovers a crash after config rename and
+    // before marker rename; the next commit/restore reconciles the protected marker.
+    const state = baseline === candidate ? markerState : byteState;
+    if (action === "commit" && state === "prepared" && active !== candidate) await replaceActive(paths.active, active, candidate);
+    if (action === "restore" && state === "activated" && active !== baseline) await replaceActive(paths.active, active, baseline);
+    if (action === "commit" || action === "restore") {
+      const nextState = action === "commit" ? "activated" : "prepared";
+      if (markerState !== nextState) await replaceActive(paths.state, stateBytes, `${JSON.stringify({ ...receipt, state: nextState })}\n`);
+    }
     return { ok: true, ...identity, configFile: paths.candidate, receiptFile: paths.receipt,
       baselineSha256: receipt.baselineSha256, candidateSha256: receipt.candidateSha256,
       state: action === "commit" ? "activated" : action === "restore" ? "prepared" : state };
