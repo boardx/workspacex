@@ -91,8 +91,10 @@ if(v.schemaVersion!==1||v.status!=="files-ready-ingress-installation-required"||
 NODE
 
 exec 9>"$RUNTIME_ROOT/release.lock"
+chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
 release=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")
+(cd "$release_checkout"; node --import tsx packages/cloud-deploy/src/cn-candidate-config-cli.ts verify "$revision" "$release" "$attempt_id") >/dev/null || fail "candidate configuration receipt rejected"
 "$PREFLIGHT_VERIFIER" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate receipt is missing, changed, or expired"
 
