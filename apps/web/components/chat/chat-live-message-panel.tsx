@@ -148,8 +148,8 @@ export function ChatLiveMessagePanel({
    * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
    *
    * ⚠ 这是纯粹的**位置**改动，不是把 `ChatRecordingPanel` 重写成条件渲染：
-   *   `core-loop.spec.ts:533`（发布门）直接点 `chat-live-recording-start`，
-   *   说明录音面板必须**始终挂载、始终可点**——把它做成「只在录音中才出现」
+   *   （历史）`core-loop.spec.ts` 发布门曾直接点 `chat-live-recording-start`，
+   *   说明旧轨道录音面板必须**始终挂载、始终可点**（#4744 后该发布门已改走转写页 `/rec`）——把它做成「只在录音中才出现」
    *   会让这个发布门的用例在页面刚加载时就点不到那个按钮。组件本身、
    *   它的全部 testid、它的可见性规则一个都没有变，只是换了个挂载位置。
    */
