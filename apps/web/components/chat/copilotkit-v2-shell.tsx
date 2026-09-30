@@ -1144,7 +1144,7 @@ export function CopilotKitV2Shell({
             起，铃铛不在这里了——它挂在全局图标导航栏底部（`components/shell/rail-notifications.tsx`）。
             铃铛顺带承担的「对话列表保鲜」那半边留在本文件：它属于聊天外壳，不该跟着搬走。 */}
         <div className="flex flex-col gap-1.5 px-3">
-          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
+          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="新建对话" />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
               现在与 `mutateFailure`（改名/删除失败）同一套呈现纪律，就地印一行红字。 */}
           {createFailure ? (

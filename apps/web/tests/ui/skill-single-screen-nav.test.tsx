@@ -145,3 +145,13 @@ describe("G7（2026-08-14，人类原话：「不需要右边的 column」）—
     expect(capturedAppShellProps!.right).toBeTruthy();
   });
 });
+
+describe("真实 Skill 库隔离预览工具", () => {
+  it("默认库无状态切换器，显式预览仍可检查七态", () => {
+    const view = renderApp(<SkillApp {...BASE_PROPS} screen="library" />);
+    expect(screen.queryByTestId("state-preview-switcher")).toBeNull();
+    view.unmount();
+    renderApp(<SkillApp {...BASE_PROPS} screen="library" previewEnabled />);
+    expect(screen.getByTestId("state-preview-switcher")).toBeVisible();
+  });
+});

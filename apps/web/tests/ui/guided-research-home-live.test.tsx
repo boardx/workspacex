@@ -213,8 +213,9 @@ describe("F168 guided research home live data", () => {
     expect(cards()).toEqual(["research-history-grs-old"]);
     fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "采购" } });
     expect(screen.getByTestId("research-history-empty")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("research-history-tag-all"));
-    expect(cards()).toEqual(["research-history-grs-new"]);
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByTestId("research-history-search")).toHaveValue("");
+    expect(cards()).toEqual(["research-history-grs-old", "research-history-grs-new"]);
   });
 
   it("uses the shared Studio list-page width and card density", async () => {

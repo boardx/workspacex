@@ -106,7 +106,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
     }
     // #619：agent 目录条目缺 abbr/duty 会在服务端 400——本地先说清楚缺哪个字段。
     if (isAgent && (!trimmedAbbr || !trimmedDuty)) {
-      setError("Agent 必须填写缩写与职责说明——AI 团队面板要求每个 agent 都说得出职责（I-17）。");
+      setError("请填写目录条目的缩写与职责说明。");
       return;
     }
     setBusy(true);
@@ -143,7 +143,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
         data-testid={`${ctx.prefix}-create`}
       >
         <Plus aria-hidden className="h-3.5 w-3.5" />
-        新增 {ctx.singular}
+        {isAgent ? "新增目录条目" : `新增 ${ctx.singular}`}
       </Button>
       {open ? <CreateModal /> : null}
     </>
@@ -152,7 +152,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
   function CreateModal() {
   return (
     <Modal
-      title={`新增 ${ctx.singular}`}
+      title={isAgent ? "新增目录条目" : `新增 ${ctx.singular}`}
       subtitle="写入的是当前组织的能力目录。出现在目录中只代表它可被选择，不代表已经具备运行时。"
       onClose={() => {
         setOpen(false);
@@ -170,9 +170,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
             就是 422 `AGENT_NOT_FOUND`。这里做"界面消歧"，不下线这个入口。
           */
           <p className="text-12 text-muted-foreground" data-testid={`${ctx.prefix}-create-agent-caveat`}>
-            ⚠ 这里新增的是目录条目本身，不会创建可执行的 agent——它不会自动获得
-            `agents`/`agent_versions` 记录，选中它发消息会失败。要新建一个真正能对话的
-            agent，请用「新建 / 导入 Agent」。
+            这里仅新增用于展示的目录条目，不能用于对话。要创建能执行任务的 Agent，请用「新建 / 导入 Agent」。
           </p>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -231,7 +229,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
                   onChange={(e) => setDuty(e.target.value)}
                   disabled={busy}
                   autoComplete="off"
-                  placeholder="这个 agent 是做什么的（I-17：不能为空）"
+                  placeholder="请简要描述这个目录条目的职责"
                   data-testid={`${ctx.prefix}-create-duty`}
                 />
               </label>
@@ -262,6 +260,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
           </Button>
           <Button
             size="sm"
+            variant="primary"
             disabled={busy}
             onClick={() => void submit()}
             data-testid={`${ctx.prefix}-create-submit`}
