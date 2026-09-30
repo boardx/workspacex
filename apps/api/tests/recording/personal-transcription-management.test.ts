@@ -55,6 +55,24 @@ async function create(name: string, tags: string[], userId = USER) {
 }
 
 describe("personal transcription management", () => {
+  it("releases only the canceled capture and leaves a newer capture recording", async () => {
+    const transcription = await create("取消连接", []);
+    const scope = { orgId: toOrgId(ORG), ownerUserId: USER, transcriptionId: transcription.sessionId };
+    await repository.startCapture({ ...scope, captureId: "capture-canceled", trackId: "track-canceled" });
+    const stop = (captureId: string) => fetch(`${baseUrl}/recording/realtime-asr/sessions/${transcription.sessionId}/stop`, {
+      method: "POST", headers: { ...auth(), "content-type": "application/json" }, body: JSON.stringify({ captureId }),
+    });
+    expect((await stop("capture-canceled")).status).toBe(200);
+    expect(await repository.hasActiveCapture(scope)).toBe(false);
+    await repository.startCapture({ ...scope, captureId: "capture-new", trackId: "track-new" });
+    const lateCleanup = await stop("capture-canceled");
+    expect(lateCleanup.status).toBe(200);
+    expect(await repository.hasActiveCapture(scope)).toBe(true);
+    expect((await repository.readOwned(scope))?.status).toBe("recording");
+    expect((await stop("capture-new")).status).toBe(200);
+    expect(await repository.hasActiveCapture(scope)).toBe(false);
+  });
+
   it("lists only distinct tags from the current user's transcriptions", async () => {
     await create("市场讨论", ["客户", "市场研究"]);
     await create("内部复盘", ["客户", "内部"]);

@@ -50,21 +50,29 @@ export async function openBoardxRealtimeAsr(
     readonly issueTicket?: (sessionId: string, sessionToken?: string | null, signal?: AbortSignal) => Promise<RealtimeAsrTicket>;
     readonly createSocket?: (url: string) => WebSocket;
     readonly capture?: (options: { readonly deviceId?: string }) => Promise<PcmAudioWorkletHandle>;
-    readonly cleanupCapture?: (sessionId: string, sessionToken?: string | null) => Promise<unknown>;
+    readonly cleanupCapture?: (sessionId: string, sessionToken?: string | null, captureId?: string) => Promise<unknown>;
     readonly handshakeTimeoutMs?: number;
     readonly finishTimeoutMs?: number;
   },
 ): Promise<BoardxRealtimeAsrHandle> {
   deps.handlers.onState("connecting");
   deps.signal?.throwIfAborted();
-  const ticket = await abortable((deps.issueTicket ?? issuePersonalRealtimeAsrTicket)(sessionId, deps.sessionToken, deps.signal), deps.signal);
+  // Do not abort the reservation POST: cancellation cannot roll back a server commit.
+  // Retain a late response and release only that capture, never a newer session capture.
+  const ticketRequest = (deps.issueTicket ?? issuePersonalRealtimeAsrTicket)(sessionId, deps.sessionToken);
+  void ticketRequest.then(async (lateTicket) => {
+    if (deps.signal?.aborted) {
+      await (deps.cleanupCapture ?? stopPersonalTranscription)(sessionId, deps.sessionToken, lateTicket.captureId);
+    }
+  }).catch(() => undefined);
+  const ticket = await abortable(ticketRequest, deps.signal);
   const url = new URL(apiWebSocketUrl(ticket.websocketPath));
   url.searchParams.set(C.streamOperation.ticketQueryParameter, ticket.ticket);
   const socket = (deps.createSocket ?? ((target) => new WebSocket(target)))(url.toString());
   socket.binaryType = "arraybuffer";
   const cleanupReservedCapture = async () => {
     try {
-      await (deps.cleanupCapture ?? stopPersonalTranscription)(sessionId, deps.sessionToken);
+      await (deps.cleanupCapture ?? stopPersonalTranscription)(sessionId, deps.sessionToken, ticket.captureId);
     } catch {
       // Preserve the startup failure. The stop endpoint is best-effort recovery for the
       // capture reserved when the ticket was issued; it must not mask the root cause.
@@ -74,7 +82,7 @@ export async function openBoardxRealtimeAsr(
     await abortable(waitForSocketOpen(socket, () => new Error("personal_realtime_asr_handshake_failed"), deps.handshakeTimeoutMs), deps.signal);
   } catch (error) {
     socket.close();
-    if (!deps.signal?.aborted) await cleanupReservedCapture();
+    await abortable(cleanupReservedCapture(), deps.signal).catch(() => undefined);
     throw error;
   }
 
@@ -195,7 +203,7 @@ export async function openBoardxRealtimeAsr(
     }
   } catch (error) {
     releaseResources();
-    if (!deps.signal?.aborted) await cleanupReservedCapture();
+    await abortable(cleanupReservedCapture(), deps.signal).catch(() => undefined);
     throw error;
   } finally {
     clearTimeout(readyTimer);

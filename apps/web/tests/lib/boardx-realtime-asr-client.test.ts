@@ -43,17 +43,19 @@ describe("BoardxRealtimeAsrClient", () => {
     const abort = new AbortController();
     let resolveTicket!: (value: { captureId: string; ticket: string; expiresAt: string; websocketPath: string }) => void;
     const createSocket = vi.fn();
+    const released: string[] = [];
     const opening = openBoardxRealtimeAsr("session-1", {
       signal: abort.signal,
       issueTicket: () => new Promise((resolve) => { resolveTicket = resolve; }),
       createSocket,
+      cleanupCapture: async (_session, _token, captureId) => { released.push(captureId!); },
       handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
     });
     const rejection = expect(opening).rejects.toThrow("ASR_START_CANCELLED");
     abort.abort();
     await rejection;
     resolveTicket({ captureId: "late", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(released).toEqual(["late"]));
     expect(createSocket).not.toHaveBeenCalled();
   });
   it("settles cancellation while microphone permission is pending and stops a late stream", async () => {
@@ -88,7 +90,7 @@ describe("BoardxRealtimeAsrClient", () => {
       issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
       createSocket: (url) => { transport = new FakeSocket(url); queueMicrotask(() => transport.open()); return transport as unknown as WebSocket; },
       capture: captureFactory,
-      cleanupCapture: async () => undefined,
+      cleanupCapture: () => new Promise(() => undefined),
       handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
     });
     const rejection = expect(opening).rejects.toThrow();
@@ -369,6 +371,27 @@ describe("BoardxRealtimeAsrClient", () => {
     expect(onError).toHaveBeenCalledWith("CONNECTION_FAILED");
   });
 
+  it("cancels while failed-startup cleanup is already stalled", async () => {
+    const abort = new AbortController();
+    let cleaning = false;
+    const opening = openBoardxRealtimeAsr("session-1", {
+      signal: abort.signal,
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => {
+        socket = new FakeSocket(url);
+        queueMicrotask(() => socket.dispatchEvent(new Event("error")));
+        return socket as unknown as WebSocket;
+      },
+      cleanupCapture: () => { cleaning = true; return new Promise(() => undefined); },
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    });
+    const rejection = expect(opening).rejects.toThrow("personal_realtime_asr_handshake_failed");
+    await vi.waitFor(() => expect(cleaning).toBe(true));
+    abort.abort();
+    await rejection;
+    expect(socket!.readyState).toBe(3);
+  });
+
   it("releases the capture reserved by a ticket when the WebSocket handshake fails", async () => {
     const cleanupCapture = vi.fn().mockResolvedValue(undefined);
 
@@ -388,7 +411,7 @@ describe("BoardxRealtimeAsrClient", () => {
     })).rejects.toThrow("personal_realtime_asr_handshake_failed");
 
     expect(cleanupCapture).toHaveBeenCalledOnce();
-    expect(cleanupCapture).toHaveBeenCalledWith("session-1", "jwt");
+    expect(cleanupCapture).toHaveBeenCalledWith("session-1", "jwt", "capture-1");
     expect(socket!.readyState).toBe(3);
   });
 
