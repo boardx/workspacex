@@ -6,3 +6,5 @@ Final UI tweaks: 4 files,46 passed
 Final typecheck: exit 0
 Final lint: exit 0; design and 49 shared tokens checked
 Browser evidence: report.md and latest/; genuine model and ASR unverified
+Rebase base: 557c1a6a0e
+Rebase impacted tests: 3 files59 passed; typecheck exit0

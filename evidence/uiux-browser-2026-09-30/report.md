@@ -77,3 +77,7 @@
 ![访谈最终暗色界面](latest/r10-interview-final.jpg)
 ![项目移动端直接操作](latest/r08-project-mobile-fixed.jpg)
 ![真实 Skill 库隔离预览工具](latest/r10-skill-fixed.jpg)
+
+## PR 同步更新
+
+PR #4776 创建后 main 更新导致冲突；已 rebase 至 557c1a6a0e，保留 main 新的访谈简洁标题、研究三列密度与共享筛选布局，并保留本 PR 的 Radix 页签及空态恢复。冲突涉及的3文件59项测试、typecheck通过。截图记录的是 rebase 前实际浏览器状态，不伪称最终新 SHA 的截图。
