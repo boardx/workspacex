@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function ProjectContentCard({
     <Card
       data-testid={cardTestId}
       className={cn(
-        "group relative flex h-full flex-col gap-3 p-4 transition-all duration-base",
+        "group relative flex h-full min-h-[6.5rem] flex-col gap-3 p-4 transition-all duration-base",
         "hover:border-primary hover:shadow-md",
       )}
     >
@@ -52,7 +52,14 @@ export function ProjectContentCard({
             {title}
           </a>
         </div>
-        {menu ? <div className="relative z-10 -mr-1 -mt-1 shrink-0">{menu}</div> : null}
+        {menu ? (
+          <div className="relative z-10 -mr-1 -mt-1 shrink-0">{menu}</div>
+        ) : (
+          <ArrowUpRight
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-transparent transition-colors duration-base group-hover:text-muted-foreground group-focus-within:text-muted-foreground"
+          />
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge tone="outline">{typeLabel}</Badge>

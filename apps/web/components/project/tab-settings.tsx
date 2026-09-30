@@ -35,7 +35,7 @@ export function TabSettings({ view, readOnly = false, projectId, projectKind = n
   const canConfigure = ROLE_STAGE_CONTROL[view] && !readOnly && !!projectId;
   const canInvite = canConfigure && !nonWorkshop;
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-settings">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-settings">
       {isObserver && (
         <ObserverNotice
           testId="project-settings-observer-notice"
