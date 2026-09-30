@@ -11,7 +11,7 @@ import type { workContent } from "@repo/contracts";
 import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { stageDisplayName, workflowDisplayName } from "@/lib/workflow-display-copy";
+import { outputDisplayLabel, stageDisplayName, workflowDisplayName } from "@/lib/workflow-display-copy";
 import {
   getWorkflowInstance,
   getWorkflowInstanceOutput,
@@ -91,7 +91,7 @@ export function WorkflowOutputViewer({ instanceId, outputId }: WorkflowOutputVie
   const { output, projection } = state;
   const source = outputId && projection
     ? projection.stages
-        .flatMap((s, i) => s.outputs.map((o) => ({ stageName: stageDisplayName(s.stageId, s.title, i), label: o.label, outputId: o.outputId })))
+        .flatMap((s, i) => s.outputs.map((o) => ({ stageName: stageDisplayName(s.stageId, s.title, i), label: outputDisplayLabel(o.label, "") === o.label ? o.label : null, outputId: o.outputId })))
         .find((o) => o.outputId === outputId)
     : undefined;
 
@@ -115,7 +115,7 @@ export function WorkflowOutputViewer({ instanceId, outputId }: WorkflowOutputVie
 
       {source ? (
         <div role="note" data-testid="workflow-output-source" className="rounded-lg border bg-muted p-3 text-12">
-          你点开的是「{source.stageName}」阶段的产出「{source.label}」。阶段产出会汇总进本次运行的最终产出，以下为最终产出全文。
+          你点开的是「{source.stageName}」阶段的产出{source.label ? `「${source.label}」` : ""}。阶段产出会汇总进本次运行的最终产出，以下为最终产出全文。
         </div>
       ) : null}
 

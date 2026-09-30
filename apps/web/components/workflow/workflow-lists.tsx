@@ -15,6 +15,7 @@ import {
   type WorkflowInstanceSummary,
 } from "@/lib/workflow-runtime-api";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
+import { gateDisplayTitle } from "@/lib/workflow-display-copy";
 import { INSTANCE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
 import { WorkflowStartForm, requiredTriggerFields } from "./workflow-start-form";
 
@@ -73,11 +74,12 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
         return (
         <li key={rowKey} data-gate-id={i.gate.gateId} data-instance-id={i.instanceId}>
           <button type="button" data-testid={`workflow-approval-open-${rowKey}`} onClick={() => setOpen(rowKey)}>
-            {i.gate.effectPreview.summary}（{`${i.workflowKey}@${i.definitionVersion}`}）
+            {(() => { const t = gateDisplayTitle({ stageId: i.gate.stageId, summary: i.gate.effectPreview.summary }, i.workflowKey); return `${t.stage}${t.workflow ? ` · ${t.workflow}` : ""}`; })()}
           </button>
           {open === rowKey ? (
             <WorkflowApprovalDrawer
               instanceId={i.instanceId}
+              workflowKey={i.workflowKey}
               gate={i.gate}
               initiatorUserId={i.initiatorUserId}
               agentId={i.agentId}

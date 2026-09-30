@@ -28,7 +28,7 @@ import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { stageDisplayName, workflowDisplayName } from "@/lib/workflow-display-copy";
+import { outputDisplayLabel, stageDisplayName, workflowDisplayName } from "@/lib/workflow-display-copy";
 import { EVENT_TEXT, INSTANCE_STATUS_TEXT, REASON_TEXT, STAGE_STATUS_TEXT, describeWorkflowError, stageFailureKindText } from "./workflow-copy";
 
 export type WorkflowSseStatus = "live" | "reconnecting" | "polling";
@@ -255,6 +255,11 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
               请联系组织管理员在「管理后台 → 工作流权限」中授予该权限{resumeInBanner ? "，授权后回到这里点「继续运行」即可从这一步接着运行。" : "，授权后即可继续运行。"}
             </p>
           )}
+          {!caps.canResume ? (
+            <p className="text-12" data-testid="workflow-banner-resume-unavailable">
+              只有本次运行的发起人或组织管理员可以在授权后继续运行；你可以查看进度，但无需操作。
+            </p>
+          ) : null}
           {resumeInBanner ? (
             <div>
               <Button size="sm" variant="primary" data-testid="workflow-banner-resume" disabled={busy} onClick={resume}>继续运行</Button>
@@ -298,7 +303,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
               <ul className="mt-1">
                 {s.outputs.map((o) => (
                   <li key={o.outputId}>
-                    <a data-testid={`workflow-output-${o.outputId}`} href={workflowOutputHref(p.instanceId, o.outputId)} className="text-12 underline underline-offset-2">{o.label}</a>
+                    <a data-testid={`workflow-output-${o.outputId}`} href={workflowOutputHref(p.instanceId, o.outputId)} className="rounded-sm text-12 text-primary underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">查看{outputDisplayLabel(o.label, stageNames.get(s.stageId) ?? "这一步")}</a>
                   </li>
                 ))}
               </ul>
@@ -316,6 +321,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
         <WorkflowApprovalDrawer
           key={`${p.openGate.gateId}:${p.openGate.decision ?? "open"}`}
           instanceId={instanceId}
+          workflowKey={p.workflowKey}
           gate={p.openGate}
           expectedStateVersion={ev}
           initiatorUserId={p.initiatorUserId}
@@ -365,6 +371,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
           {p.stages.map((s) => (
             <li key={s.stageId}>
               <code>{s.stageId}</code>
+              {s.outputs.length > 0 ? <> · 产出 <code data-testid={`workflow-stage-outputs-raw-${s.stageId}`}>{s.outputs.map((o) => o.label).join(", ")}</code></> : null}
               {s.pinnedSkills.length > 0 ? " · " : ""}
               <code data-testid={`workflow-stage-skills-${s.stageId}`}>{s.pinnedSkills.map((k) => `${k.stableId}@${k.version}`).join(", ")}</code>
             </li>

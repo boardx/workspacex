@@ -196,7 +196,7 @@ export function WorkflowGrantsScreen() {
                       data-focused={isFocused ? "true" : undefined}
                       aria-current={isFocused ? "location" : undefined}
                       className={cn("flex scroll-mt-6 flex-col gap-2 rounded-lg border bg-card p-4",
-                        isFocused ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background" : "border-border")}
+                        isFocused ? "border-primary ring-2 ring-ring ring-offset-2 ring-offset-background outline-none" : "border-border")}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-13 font-semibold">{workflowDisplayName(f.workflow.workflowKey, f.workflow.title)}</h3>
@@ -239,14 +239,17 @@ export function WorkflowGrantsScreen() {
 function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => void }) {
   const copy = capabilityCopy(row.category);
   const needsGrant = row.blocked.length > 0;
+  const granted = row.current !== "read" && row.current !== "none";
+  // 已授予过（哪怕仍有工作流要更高等级）一律叫「调整权限」；从未授予才叫「授予权限」。
+  const cta = granted ? "调整权限" : "授予权限";
   return (
     <li data-testid={`workflow-grant-row-${row.category}`} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-14 font-semibold">{copy.label}</h3>
-            <Badge tone={row.current === "read" || row.current === "none" ? "neutral" : "primary"} data-testid="workflow-grant-current">
-              {CAP_LEVEL[row.current].label}
+            <Badge tone={granted ? "primary" : "neutral"} data-testid="workflow-grant-current">
+              当前：{CAP_LEVEL[row.current].label}
             </Badge>
           </div>
           <p className="text-12 text-muted-foreground">{copy.allows}</p>
@@ -256,22 +259,23 @@ function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => voi
           variant={needsGrant ? "primary" : "outline"}
           onClick={onEdit}
           data-testid="workflow-grant-edit"
-          aria-label={`${needsGrant ? "授予" : "调整"}「${copy.label}」权限`}
+          aria-label={`${cta}：${copy.label}`}
         >
-          {needsGrant ? "授予权限" : "调整权限"}
+          {cta}
         </Button>
       </div>
       <div className="flex flex-col gap-1 text-12">
-        <p className="text-muted-foreground">用到它的工作流：</p>
+        <p className="text-muted-foreground">用到它的工作流及各自需要的等级：</p>
         <ul className="flex flex-wrap gap-1.5">
           {row.uses.map((u) => {
             const blocked = row.blocked.includes(u);
             return (
-              <li key={u.workflowId}>
+              <li key={u.workflowId} data-testid={`workflow-grant-use-${row.category}-${u.workflowId}`}>
                 <span className={cn("inline-flex items-center gap-1 rounded-control border px-2 py-0.5",
                   blocked ? "border-warning bg-warning-tint text-warning-tint-foreground" : "border-border")}>
                   {blocked ? <CircleAlert aria-hidden className="h-3 w-3" /> : <CheckCircle2 aria-hidden className="h-3 w-3 text-success" />}
                   {workflowDisplayName(u.workflowKey, u.title)}
+                  <span className="text-muted-foreground">· 需要「{CAP_LEVEL[u.requiredCap].label}」</span>
                   <span className="sr-only">{blocked ? "（权限不足，会暂停）" : "（可以运行）"}</span>
                 </span>
               </li>
@@ -279,7 +283,11 @@ function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => voi
           })}
         </ul>
         {needsGrant ? (
-          <p className="text-warning-tint-foreground">需要「{CAP_LEVEL[row.requiredMax].label}」才能让这些工作流完整运行。</p>
+          <p className="text-warning-tint-foreground" data-testid="workflow-grant-shortfall">
+            当前「{CAP_LEVEL[row.current].label}」不够：
+            {row.blocked.map((u) => `「${workflowDisplayName(u.workflowKey, u.title)}」需要「${CAP_LEVEL[u.requiredCap].label}」`).join("、")}，
+            这些工作流会在对应步骤暂停。
+          </p>
         ) : null}
       </div>
     </li>

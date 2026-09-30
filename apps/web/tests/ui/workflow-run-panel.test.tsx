@@ -276,7 +276,10 @@ describe("WorkflowRunPanel", () => {
     const visible = [...drawer.children].filter((c) => c !== tech).map((c) => c.textContent).join(" ");
     expect(visible).not.toMatch(/mail\.send|smtp|\bu1\b|\ba1\b/);
     expect(screen.getByTestId("workflow-approval-preview").textContent).toContain("team@x");
+    expect(screen.getByTestId("workflow-approval-preview").textContent).not.toContain("{");
+    expect(screen.getByTestId("workflow-approval-preview-raw").closest("details")).toBe(tech);
     fireEvent.click(screen.getByTestId("workflow-approve"));
+    fireEvent.click(screen.getByTestId("workflow-approve-confirm"));
     await waitFor(() => expect(screen.getByTestId("workflow-approval-result").getAttribute("data-decision")).toBe("approved"));
     expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "i1", gateId: "g1", expectedStateVersion: 5 });
   });
@@ -285,10 +288,11 @@ describe("WorkflowRunPanel", () => {
     api.denyWorkflowGate.mockResolvedValue({ gate: gate({ decision: "denied", reason: "不行" }), status: "rejected", stateVersion: 6 });
     render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "awaiting_gate_decision", openGate: gate() })} />);
     fireEvent.click(screen.getByTestId("workflow-deny"));
+    fireEvent.click(screen.getByTestId("workflow-deny-confirm"));
     expect(screen.getByTestId("workflow-approval-error").textContent).toContain("必须填写理由");
     expect(api.denyWorkflowGate).not.toHaveBeenCalled();
     fireEvent.change(screen.getByTestId("workflow-deny-reason"), { target: { value: " 不行 " } });
-    fireEvent.click(screen.getByTestId("workflow-deny"));
+    fireEvent.click(screen.getByTestId("workflow-deny-confirm"));
     await waitFor(() => expect(api.denyWorkflowGate).toHaveBeenCalledWith({ instanceId: "i1", gateId: "g1", expectedStateVersion: 5, reason: "不行" }));
   });
 
@@ -296,9 +300,35 @@ describe("WorkflowRunPanel", () => {
     api.approveWorkflowGate.mockRejectedValue(new ApiError(409, null, { code: "gate_already_decided", message: "x", decidedGate: gate({ decision: "denied", decidedBy: "other", reason: "r" }) }));
     render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "awaiting_gate_decision", openGate: gate() })} />);
     fireEvent.click(screen.getByTestId("workflow-approve"));
+    fireEvent.click(screen.getByTestId("workflow-approve-confirm"));
     await waitFor(() => expect(screen.getByTestId("workflow-approval-result").getAttribute("data-decision")).toBe("denied"));
     expect(screen.getByTestId("workflow-approval-error").textContent).toContain("已被他人决定");
     expect((screen.getByTestId("workflow-deny") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("审批标题是阶段中文名 + 工作流中文名，不出现 `target_gate（problem-to-prd@1）`", () => {
+    const g = gate({ stageId: "target_gate", effectPreview: { capabilityCategory: "workflow.gate", targetSystem: "workflow", summary: "target_gate（problem-to-prd@1）", payloadPreview: { stageId: "target_gate", sideEffect: "write" } } });
+    render(<WorkflowRunPanel instanceId="i1" initial={proj({ workflowKey: "problem-to-prd", status: "awaiting_gate_decision", openGate: g })} />);
+    expect(screen.getByTestId("workflow-approval-title").textContent).toBe("目标确认（审批）");
+    expect(screen.getByTestId("workflow-approval-workflow").textContent).toContain("问题定义到 PRD");
+    expect(screen.getByTestId("workflow-approval-capability").textContent).toBe("人工确认");
+    expect(screen.getByTestId("workflow-approval-preview").textContent).toContain("会在本组织内新建或修改内容");
+    const tech = screen.getByTestId("workflow-approval-tech-details");
+    const visible = [...screen.getByTestId("workflow-approval-drawer").children].filter((c) => c !== tech).map((c) => c.textContent).join(" ");
+    expect(visible).not.toMatch(/target_gate|problem-to-prd|sideEffect|\{/);
+  });
+
+  it("阶段产出链接：技术标签 W029/intake 不上屏，指向运行产出页；非发起人被阻断时看到为何不能继续", () => {
+    const base = proj();
+    const stages = [{ ...base.stages[0]!, stageId: "intake", title: "intake", outputs: [{ outputId: "out-1", label: "W029/intake", href: "/x" }] }];
+    render(<WorkflowRunPanel instanceId="i1" initial={proj({ workflowKey: "problem-to-prd", status: "blocked_permission", reasonCode: "capability_exceeds_side_effect_cap", stages, viewerCapabilities: { canCancel: false, canRetryStage: false, canResume: false } })} />);
+    const link = screen.getByTestId("workflow-output-out-1");
+    expect(link.textContent).toBe("查看「接收需求」的产出");
+    expect(link.getAttribute("href")).toBe("/workflows/runs/i1/result?output=out-1");
+    const tech = screen.getByTestId("workflow-tech-details");
+    expect(document.body.textContent!.replace(tech.textContent!, "")).not.toContain("W029/");
+    expect(screen.getByTestId("workflow-banner-resume-unavailable")).toBeTruthy();
+    expect(screen.queryByTestId("workflow-banner-resume")).toBeNull();
   });
 
   it("非指定审批人：viewerCanDecide=false 时按钮禁用", () => {
@@ -341,6 +371,7 @@ describe("列表与入口", () => {
     render(<WorkflowApprovalList />);
     fireEvent.click(await screen.findByTestId("workflow-approval-open-i1-g1"));
     fireEvent.click(screen.getByTestId("workflow-approve"));
+    fireEvent.click(screen.getByTestId("workflow-approve-confirm"));
     await waitFor(() => expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "i1", gateId: "g1", expectedStateVersion: 9 }));
   });
 
@@ -391,6 +422,7 @@ describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
     render(<WorkflowApprovalList />);
     fireEvent.click(await screen.findByTestId("workflow-approval-open-i1-g1"));
     fireEvent.click(screen.getByTestId("workflow-approve"));
+    fireEvent.click(screen.getByTestId("workflow-approve-confirm"));
     expect(await screen.findByTestId("workflow-run-list-empty")).toBeTruthy();
     expect(api.listMyWorkflowApprovals).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId("workflow-approve")).toBeNull();
@@ -405,6 +437,7 @@ describe("补充：重连计数 / 审批刷新 / 发起运行", () => {
     fireEvent.click(await screen.findByTestId("workflow-approval-open-run-b-publish-gate-1"));
     expect(screen.getAllByTestId("workflow-approve")).toHaveLength(1);
     fireEvent.click(screen.getByTestId("workflow-approve"));
+    fireEvent.click(screen.getByTestId("workflow-approve-confirm"));
     await waitFor(() => expect(api.approveWorkflowGate).toHaveBeenCalledWith({ instanceId: "run-b", gateId: "publish-gate-1", expectedStateVersion: 4 }));
   });
 

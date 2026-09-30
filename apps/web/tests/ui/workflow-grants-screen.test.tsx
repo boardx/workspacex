@@ -61,11 +61,29 @@ describe("工作流权限授予页", () => {
     const row = await screen.findByTestId("workflow-grant-row-artifact.write");
     expect(row.textContent).toContain("保存产出文档");
     expect(row.textContent).toContain("文件库");
-    expect(within(row).getByTestId("workflow-grant-current").textContent).toBe("只读（默认）");
+    expect(within(row).getByTestId("workflow-grant-current").textContent).toBe("当前：只读（默认）");
     expect(row.textContent).toContain("问题定义到 PRD");
     expect(screen.getByTestId("workflow-grants-summary").textContent).toContain("有 1 个会因权限不足在中途暂停");
     expect(screen.getByTestId("workflow-grants-audit-empty")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/capability_exceeds|NOT_ORG_ADMIN/);
+  });
+
+  it("按能力 / 按工作流 对同一能力的需求一致；已授予过的能力是「调整权限」而不是「授予权限」", async () => {
+    const d = data({ "artifact.write": "write" });
+    d.workflows.push({
+      workflowId: "W032", workflowKey: "roadmap-review", title: "Roadmap review",
+      capabilities: [{ capabilityCategory: "artifact.write", requiredCap: "external_send", stageIds: ["publish"] }],
+    });
+    api.listWorkflowCapabilityGrants.mockResolvedValue(d);
+    render(<OrgAdminWorkflowGrantsPage />);
+    const row = await screen.findByTestId("workflow-grant-row-artifact.write");
+    expect(within(row).getByTestId("workflow-grant-edit").textContent).toBe("调整权限");
+    expect(within(row).getByTestId("workflow-grant-use-artifact.write-W029").textContent).toContain("需要「可写入」");
+    expect(within(row).getByTestId("workflow-grant-use-artifact.write-W032").textContent).toContain("需要「可对外发送」");
+    expect(within(row).getByTestId("workflow-grant-shortfall").textContent).toContain("「路线图评审」需要「可对外发送」");
+    fireEvent.click(screen.getByTestId("workflow-grants-tab-workflow"));
+    expect(screen.getByTestId("workflow-grants-workflow-W029").textContent).toContain("保存产出文档需要「可写入」，当前「可写入」");
+    expect(screen.getByTestId("workflow-grants-workflow-W032").textContent).toContain("保存产出文档需要「可对外发送」，当前「可写入」");
   });
 
   it("授予：打开确认框（预选工作流所需等级、展示影响）→ 确认 → 调用 API → 刷新并提示", async () => {

@@ -73,7 +73,11 @@ export function WorkflowGrantDialog({
                 <span className="text-13 font-medium">
                   {CAP_LEVEL[l].label}
                   {l === current ? <span className="ml-2 text-11 font-normal text-muted-foreground">当前</span> : null}
-                  {l === row.requiredMax && l !== "read" ? <span className="ml-2 text-11 font-normal text-muted-foreground">工作流所需</span> : null}
+                  {l !== "read" && row.uses.some((u) => u.requiredCap === l) ? (
+                    <span className="ml-2 text-11 font-normal text-muted-foreground" data-testid={`workflow-grant-level-needed-by-${l}`}>
+                      {row.uses.filter((u) => u.requiredCap === l).map((u) => `「${workflowDisplayName(u.workflowKey, u.title)}」`).join("")}需要
+                    </span>
+                  ) : null}
                 </span>
                 <span className="text-12 text-muted-foreground">{CAP_LEVEL[l].description}</span>
               </span>
