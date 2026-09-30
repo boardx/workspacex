@@ -62,7 +62,7 @@ describe("China production trusted deployment entrypoints", () => {
   });
 
   it("accepts only one full SHA and rejects unpromoted code", () => {
-    expect(deploy).toContain('[[ $# -eq 1 && "$1" =~ ^[a-f0-9]{40}$ ]]');
+    expect(deploy).toContain('[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]]');
     expect(deploy).toContain('status --porcelain');
     expect(deploy).toContain('rev-parse origin/main-cn');
     expect(deploy).toContain('merge-base --is-ancestor "$revision" origin/main');
@@ -102,7 +102,7 @@ describe("China production trusted deployment entrypoints", () => {
     const prepareOnly = deploy.slice(prepareBranch, deployBranch);
     expect(prepareOnly).toContain("cn-release-browser-smoke.mjs --preflight");
     expect(deploy).toContain("for candidate in chromium-browser chromium google-chrome");
-    expect(deploy.match(/CN_BROWSER_EXECUTABLE_PATH="\$browser_executable"/g)).toHaveLength(2);
+    expect(deploy.match(/CN_BROWSER_EXECUTABLE_PATH="\$browser_executable"/g)).toHaveLength(4);
     expect(browserSmoke).toContain('createRequire(new URL("../../../apps/api/package.json", import.meta.url))');
     expect(browserSmoke).toContain('requireFromApi("playwright")');
     expect(browserSmoke).toContain("isAbsolute(executablePath)");

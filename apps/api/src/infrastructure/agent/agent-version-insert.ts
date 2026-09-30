@@ -1,3 +1,4 @@
+import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 /**
  * AG01（契约束 agent-role，ADR-116 #3）—— `agent_versions` 的**唯一**插入语句。
  *
@@ -105,9 +106,7 @@ export async function insertAgentVersionFromDraft(
   const draftCols = Object.values(AGENT_ROLE_COLUMN_OF).map((c) => `d.${c}`).join(", ");
   const inserted = await session.query<{ id: string }>(
     `INSERT INTO agent_versions
-       (id, org_id, agent_id, semantic_label, instruction_digest, instructions,
-        skill_version_ids, model_provider, model_id, tool_policy, creator_id,
-        created_at, published_at, ${AGENT_ROLE_COLUMNS})
+       (${BOOTSTRAP_WRITE_COLUMNS.version.join(", ")}, ${AGENT_ROLE_COLUMNS})
      SELECT $1::text, $2::text, $3::text, $4::text, $5::text, $6::text,
             $7::text[], $8::text, $9::text, $10::jsonb, $11::text,
             $12::timestamptz, $12::timestamptz, ${draftCols}

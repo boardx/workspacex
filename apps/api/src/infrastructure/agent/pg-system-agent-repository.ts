@@ -1,3 +1,4 @@
+import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
@@ -72,7 +73,7 @@ export async function ensureSystemAgent(
     const { provider, modelId } = template.resolveModel();
 
     await s.query(
-      "INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,role_label,role_label_needs_confirmation) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)",
+      `INSERT INTO agents (${BOOTSTRAP_WRITE_COLUMNS.agent.join(",")}) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)`,
       [agentId, input.orgId, template.stableName, template.name, input.actorId, nowIso, template.roleLabel],
     );
     await insertAgentVersionFromDraft(s, {
@@ -85,7 +86,7 @@ export async function ensureSystemAgent(
       [agentId, input.orgId, versionId, nowIso],
     );
     await s.query(
-      "INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint,role_label,role_label_needs_confirmation) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,false)",
+      `INSERT INTO capability_listings (${BOOTSTRAP_WRITE_COLUMNS.listing.join(",")}) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,false)`,
       [agentId, input.orgId, template.name, template.abbr, template.duty, template.roleLabel],
     );
     return { agentId, created: true };
