@@ -51,6 +51,17 @@ it("counts a finding once when supporting evidence is a nested list", () => {
   expect(screen.getByTestId("itv-report-metric-findings")).toHaveTextContent("2");
   expect(screen.getByTestId("itv-report-metric-actions")).toHaveTextContent("1");
 });
+it("shows a visible quality gate when analysis sections are missing", () => {
+  render(<InterviewReportStep document={{ documentId: "quality-report", step: "report", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 报告\n\n## 核心发现\n\n- 一项发现" }} />);
+  expect(screen.getByTestId("itv-report-quality")).toHaveTextContent("待补齐");
+  expect(screen.getByTestId("itv-report-quality-missing")).toHaveTextContent("跨回答综合");
+  expect(screen.getByTestId("itv-report-quality-missing")).toHaveTextContent("可验证行动建议");
+});
+it("marks a report structurally complete only when all quality sections exist", () => {
+  render(<InterviewReportStep document={{ documentId: "quality-complete", step: "report", version: 1, contentHash: "b".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 报告\n\n## 执行摘要\n\n跨回答综合。\n\n## 决策影响\n\n影响。\n\n## 分歧与反例\n\n- 反例。\n\n## 专家边界\n\n边界。\n\n## 建议行动\n\n- P0：验证。" }} />);
+  expect(screen.getByTestId("itv-report-quality")).toHaveTextContent("结构完整");
+  expect(screen.getByTestId("itv-report-quality-complete")).toHaveTextContent("已包含关键分析结构");
+});
 it("uses saved legacy workflow metadata instead of displaying false zero counts", () => {
   render(<InterviewReportStep
     document={{ documentId: "legacy-report", step: "report", version: 1, contentHash: "e".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 旧报告" }}
