@@ -86,16 +86,16 @@ describe("admin-model · 卡片目录 + 面板", () => {
     render(<ModelScreen state="default" />);
     await screen.findByTestId(`admin-model-card-${HOSTED.modelId}`);
     const filters = screen.getByTestId("admin-model-tag-filters");
-    expect(within(filters).getByTestId("admin-model-tag-filter-closed-api").textContent).toContain("闭源 API 1");
-    expect(within(filters).getByTestId("admin-model-tag-filter-untested").textContent).toContain("待测试 1");
-    expect(within(filters).getByTestId("admin-model-tag-filter-confidential-ok").textContent).toContain("可承接机密 1");
+    expect(within(filters).getByTestId("admin-model-tag-closed-api").textContent).toContain("闭源 API 1");
+    expect(within(filters).getByTestId("admin-model-tag-untested").textContent).toContain("待测试 1");
+    expect(within(filters).getByTestId("admin-model-tag-confidential-ok").textContent).toContain("可承接机密 1");
     expect(filters.textContent).toContain("均衡 1");
 
-    fireEvent.click(screen.getByTestId("admin-model-tag-filter-confidential-ok"));
+    fireEvent.click(screen.getByTestId("admin-model-tag-confidential-ok"));
     expect(screen.queryByTestId(`admin-model-card-${HOSTED.modelId}`)).toBeNull();
     expect(screen.getByTestId(`admin-model-card-${SELF_HOSTED.modelId}`)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("admin-model-tag-filter-all"));
+    fireEvent.click(screen.getByTestId("admin-model-tag-all"));
     fireEvent.change(screen.getByTestId("admin-model-search"), { target: { value: "anthropic" } });
     expect(screen.getByTestId(`admin-model-card-${HOSTED.modelId}`)).toBeInTheDocument();
     expect(screen.queryByTestId(`admin-model-card-${SELF_HOSTED.modelId}`)).toBeNull();

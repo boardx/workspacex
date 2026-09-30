@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface TagFilterOption {
+  /** 选择/匹配用的值（字符串标签就是标签本身；白板这类「标签是 id」的模型传 id）。 */
   readonly tag: string;
+  /** 显示名；不给就显示 `tag`。 */
+  readonly label?: string;
   /** 有这个标签的条目数（可选，显示在标签后）。 */
   readonly count?: number;
 }
@@ -21,7 +24,7 @@ export interface TagFilterOption {
  * testid：`${prefix}-tag-all` / `${prefix}-tag-${tag}` / `${prefix}-tag-more`。
  */
 export function TagFilterBar({
-  tags, selected, onChange, prefix, business, mode = "multi", match = "any", maxVisible = 8, className,
+  tags, selected, onChange, prefix, business, mode = "multi", match = "any", maxVisible = 8, className, extras, allActive,
 }: {
   tags: readonly TagFilterOption[];
   selected: readonly string[];
@@ -34,9 +37,14 @@ export function TagFilterBar({
   match?: "any" | "all";
   maxVisible?: number;
   className?: string;
+  /** 「全部标签」后面的额外筛选项（如白板的「无标签」）。 */
+  extras?: React.ReactNode;
+  /** 覆盖「全部标签」的高亮判断（有额外筛选项生效时它不该亮）。默认：没选任何标签就亮。 */
+  allActive?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  if (tags.length === 0) return null;
+  if (tags.length === 0 && extras === undefined) return null;
+  const allOn = allActive ?? selected.length === 0;
 
   const visible = expanded
     ? tags
@@ -52,13 +60,14 @@ export function TagFilterBar({
     <div className={cn("flex min-w-0 flex-wrap items-center gap-2", className)} role="group" aria-label={`按标签筛选${business}`}>
       <Button
         size="sm"
-        variant={selected.length === 0 ? "primary" : "outline"}
-        aria-pressed={selected.length === 0}
+        variant={allOn ? "primary" : "outline"}
+        aria-pressed={allOn}
         data-testid={`${prefix}-tag-all`}
         onClick={() => onChange([])}
       >
         全部标签
       </Button>
+      {extras}
       {visible.map((o) => (
         <Button
           key={o.tag}
@@ -69,8 +78,8 @@ export function TagFilterBar({
           data-testid={`${prefix}-tag-${o.tag}`}
           onClick={() => toggle(o.tag)}
         >
-          {o.tag}
-          {o.count !== undefined ? <span className="ml-1 text-10 opacity-70">{String(o.count)}</span> : null}
+          {o.label ?? o.tag}
+          {o.count !== undefined ? <>{" "}<span className="text-10 opacity-70">{String(o.count)}</span></> : null}
         </Button>
       ))}
       {mode === "multi" && selected.length > 1 ? (

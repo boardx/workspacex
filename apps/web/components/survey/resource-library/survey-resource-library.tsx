@@ -1,6 +1,8 @@
 "use client";
 
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -19,7 +21,7 @@ import { encodeSurveyCreationDraft, type SurveyCreationDraft } from "@/lib/surve
 import { SurveyCreateDialog, type SurveyCreationMode } from "./survey-create-dialog";
 
 const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; search: string }> = {
-  surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: "搜索问卷名称" },
+  surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: searchPlaceholder("问卷") },
   modules: { title: "问卷模块", description: "管理可复用的问题设计模块，快速组合问卷", search: "搜索问卷模块名称" },
   reports: { title: "报告模块", description: "管理报告结构、章节和输出方式", search: "搜索报告模块名称" },
 };
@@ -44,14 +46,12 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
 
   const availableTags = [...new Set(SURVEY_LIBRARY_CARDS.flatMap((item) => item.tags))];
   const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) => {
-    const matchesQuery = item.title.includes(query.trim());
-    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => item.tags.includes(tag));
-    return matchesQuery && matchesTags;
+    return matchesQuery(query, [item.title], item.tags) && matchesTags(item.tags, selectedTags, "any");
   });
   const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+    matchesQuery(query, [item.title]));
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+    matchesQuery(query, [item.title]));
   const copy = TAB_COPY[tab];
   const createSurvey = (draft: SurveyCreationDraft) => {
     const params = new URLSearchParams({ step: "design", draft: encodeSurveyCreationDraft(draft) });
@@ -84,14 +84,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" aria-hidden /></Button>
             </div>
 
-            {tab === "surveys" && <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="问卷标签筛选">
-              <span className="mr-1 text-11 text-muted-foreground">标签</span>
-              {availableTags.map((tag) => {
-                const selected = selectedTags.includes(tag);
-                return <button key={tag} type="button" aria-label={`筛选标签 ${tag}`} aria-pressed={selected} onClick={() => setSelectedTags((current) => selected ? current.filter((value) => value !== tag) : [...current, tag])} className={`rounded-full border px-3 py-1 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-accent text-primary" : "border-border bg-card text-muted-foreground hover:border-primary"}`}>{tag}</button>;
-              })}
-              {selectedTags.length > 0 && <button type="button" onClick={() => setSelectedTags([])} className="rounded-md px-2 py-1 text-11 text-primary underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">清除标签筛选</button>}
-            </div>}
+            {tab === "surveys" && <TagFilterBar className="mt-3" prefix="survey-lib" business="问卷" tags={availableTags.map((tag) => ({ tag }))} selected={selectedTags} onChange={(next) => setSelectedTags([...next])} />}
 
             <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>

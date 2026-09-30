@@ -1,5 +1,6 @@
 "use client";
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -776,32 +777,15 @@ export function TemplateAdmin({
         的筛选条只是噪音。
       */}
       {tagCounts.size > 0 && (
-        <div
-          className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle bg-panel px-4 py-2"
-          data-testid="tpladmin-tag-filters"
-        >
-          <span className="text-9 font-semibold uppercase tracking-wider text-muted-foreground">标签</span>
-          <Button
-            size="xs"
-            variant={tagFilter === "" ? "primary" : "outline"}
-            aria-pressed={tagFilter === ""}
-            onClick={() => setTagFilter("")}
-            data-testid="tpladmin-tag-filter-all"
-          >
-            全部
-          </Button>
-          {[...tagCounts.entries()].map(([tag, count]) => (
-            <Button
-              key={tag}
-              size="xs"
-              variant={tagFilter === tag ? "primary" : "outline"}
-              aria-pressed={tagFilter === tag}
-              onClick={() => setTagFilter(tagFilter === tag ? "" : tag)}
-              data-testid={`tpladmin-tag-filter-${tag}`}
-            >
-              {tag} {count}
-            </Button>
-          ))}
+        <div className="border-b border-border-subtle bg-panel px-4 py-2" data-testid="tpladmin-tag-filters">
+          <TagFilterBar
+            tags={[...tagCounts.entries()].map(([tag, count]) => ({ tag, count }))}
+            selected={tagFilter === "" ? [] : [tagFilter]}
+            onChange={(next) => setTagFilter(next[0] ?? "")}
+            prefix="tpladmin"
+            business="画布模板"
+            mode="single"
+          />
         </div>
       )}
       {tagFilter !== "" && rows.length === 0 && allRows.length > 0 && (

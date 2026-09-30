@@ -38,6 +38,7 @@
  *   筛空 `{prefix}-no-match` · 面板 `{prefix}-detail`（关闭按钮 `{prefix}-detail-close`）。
  */
 import { ResourceCard } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import * as React from "react";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -172,14 +173,6 @@ export function EntityCatalog<T>({
   const filterActive = trimmedQuery !== "" || effectiveTags.size > 0;
   const loading = status.kind === "loading";
 
-  function toggleTag(key: string) {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   return (
     <div className={cn("flex flex-col gap-4", className)} data-testid={rootTestId ?? `${prefix}-catalog`}>
@@ -228,32 +221,15 @@ export function EntityCatalog<T>({
           />
         </label>
         {tagIndex.size > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5" data-testid={`${prefix}-tag-filters`}>
-            <span className="text-9 font-semibold uppercase tracking-wider text-muted-foreground">标签</span>
-            <Button
-              size="xs"
-              variant={effectiveTags.size === 0 ? "primary" : "outline"}
-              aria-pressed={effectiveTags.size === 0}
-              onClick={() => setActiveTags(new Set())}
-              data-testid={`${prefix}-tag-filter-all`}
-            >
-              全部
-            </Button>
-            {[...tagIndex.entries()].map(([key, { label, count }]) => {
-              const on = effectiveTags.has(key);
-              return (
-                <Button
-                  key={key}
-                  size="xs"
-                  variant={on ? "primary" : "outline"}
-                  aria-pressed={on}
-                  onClick={() => toggleTag(key)}
-                  data-testid={`${prefix}-tag-filter-${key}`}
-                >
-                  {label} {count}
-                </Button>
-              );
-            })}
+          <div data-testid={`${prefix}-tag-filters`}>
+            <TagFilterBar
+              tags={[...tagIndex.entries()].map(([key, { label, count }]) => ({ tag: key, label, count }))}
+              selected={[...effectiveTags]}
+              onChange={(next) => setActiveTags(new Set(next))}
+              prefix={prefix}
+              business={title}
+              match="all"
+            />
           </div>
         )}
       </div>

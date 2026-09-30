@@ -1,5 +1,6 @@
 "use client";
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import * as React from "react";
 import Link from "next/link";
 import { Pencil, Copy, Trash2, Archive, Sparkles, LayoutGrid } from "lucide-react";
@@ -38,14 +39,6 @@ export function BlueprintListScreen({
   const [activeTags, setActiveTags] = React.useState<Set<string>>(new Set());
   const total = configTotal();
 
-  const toggleTag = (tag: string) => {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(tag)) next.delete(tag); else next.add(tag);
-      return next;
-    });
-  };
-
   const visible = BLUEPRINTS.filter((b) => activeTags.size === 0 || b.tags.some((t) => activeTags.has(t)));
 
   return (
@@ -62,25 +55,14 @@ export function BlueprintListScreen({
         </Button>
       </header>
 
-      {/* 标签过滤器 —— 多选，取交集为空集合时不过滤（全部可见） */}
-      <div className="flex flex-wrap items-center gap-1.5" data-testid="tpl-tag-filters">
-        <LayoutGrid aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-        {ALL_BLUEPRINT_TAGS.map((tag) => (
-          <Button
-            key={tag}
-            size="sm"
-            variant={activeTags.has(tag) ? "primary" : "ghost"}
-            onClick={() => toggleTag(tag)}
-            data-testid={`tpl-tag-filter-${tag}`}
-          >
-            {tag}
-          </Button>
-        ))}
-        {activeTags.size > 0 && (
-          <Button size="sm" variant="outline" onClick={() => setActiveTags(new Set())} data-testid="tpl-tag-filter-clear">
-            清除筛选
-          </Button>
-        )}
+      <div data-testid="tpl-tag-filters">
+        <TagFilterBar
+          prefix="tpl"
+          business="蓝本"
+          tags={ALL_BLUEPRINT_TAGS.map((tag) => ({ tag }))}
+          selected={[...activeTags]}
+          onChange={(next) => setActiveTags(new Set(next))}
+        />
       </div>
 
       <StateShell
