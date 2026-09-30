@@ -43,6 +43,20 @@ def test_provider_requests_never_exceed_ten_texts(monkeypatch):
  assert len(result['vectors'])==len(texts)
  assert result['vectors'][10]==[2.0,0.0]
 
+def test_consecutive_requests_reuse_one_pooled_provider_connection(monkeypatch):
+ clients=[]
+ async def send(self,request,**kwargs):
+  clients.append(id(self))
+  return httpx.Response(200,json={'data':[{'index':0,'embedding':[0.1,0.2]}],'model':'explicit-embedding','usage':{'prompt_tokens':1,'total_tokens':1}},request=request)
+ monkeypatch.setattr(httpx.AsyncClient,'send',send)
+ async def run():
+  await module.embed_texts(['first'])
+  await module.embed_texts(['second'])
+ asyncio.run(run())
+ # A fresh client per request re-did TCP+TLS every time (~530ms vs ~220ms warm on devapp),
+ # blowing the API's 400ms vector recall budget on every turn.
+ assert len(clients)==2 and len(set(clients))==1
+
 @pytest.mark.parametrize('body,status',[({'texts':['valid']},200),({'texts':['x'],'model':'override'},400),({'texts':['x'*32769]},400)])
 def test_authenticated_route_has_bounded_strict_request(monkeypatch,body,status):
  async def fake(texts):return {'model':'explicit','modelVersion':'1','vectors':[[1,0] for _ in texts]}
