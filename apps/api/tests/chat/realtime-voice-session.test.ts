@@ -107,6 +107,28 @@ describe("appendRealtimeVoiceTurn", () => {
   });
 });
 
+describe("appendRealtimeVoiceTurn auto-title", () => {
+  it("titles a default-named thread from the first user turn, never from assistant turns, never over a user title", async () => {
+    const { d } = deps();
+    const titled: Array<[string, number]> = [];
+    let state = { title: "新对话", source: "default", stage: 0, humanMessageCount: 1 };
+    Object.assign(d.chat, {
+      readThreadTitleState: async () => state,
+      autoTitleThread: async (_o: unknown, _t: string, title: string, stage: number) => { titled.push([title, stage]); return true; },
+    });
+    const s = await openRealtimeVoiceSession(d, { orgId: ORG, userId: "u-1", threadId: "t-1", agentId: null });
+    await appendRealtimeVoiceTurn(d, s, { role: "assistant", text: "你好，请讲" });
+    expect(titled).toEqual([]);
+    await appendRealtimeVoiceTurn(d, s, { role: "user", text: "（模拟语音）你好，我想了解一下产品方案" });
+    expect(titled).toHaveLength(1);
+    expect(titled[0]![0]).toMatch(/产品方案/);
+    expect(titled[0]![1]).toBe(1);
+    state = { ...state, source: "user" };
+    await appendRealtimeVoiceTurn(d, s, { role: "user", text: "再说一个很具体的新话题关于预算" });
+    expect(titled).toHaveLength(1);
+  });
+});
+
 describe("realtime voice persona (domain)", () => {
   it("falls back to the default voice and omits empty duty/tags lines", () => {
     const role = { agentId: null, name: "通用助手", duty: null, tags: [], avatarKey: null, roleCategory: null };

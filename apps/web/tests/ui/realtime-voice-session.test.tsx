@@ -201,4 +201,31 @@ describe("RealtimeVoiceSession", () => {
     renderSession(connect);
     expect(screen.getByText(/语音模式暂不支持调用工具、技能和工作流/)).toBeInTheDocument();
   });
+
+  it("renders live captions + level meter from a loopback-style turn; muted swaps the speak hint; save notice only while live", async () => {
+    const { connect, calls } = fakeConnect();
+    renderSession(connect);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    const h = calls[0]!.handlers;
+    expect(screen.queryByText(/文字记录会保存/)).toBeNull(); // not live yet: no saving claim
+    act(() => h.onReady("omni-loopback"));
+    expect(screen.getByText(/本次通话的文字记录会保存到此对话/)).toBeInTheDocument();
+    expect(screen.getByTestId("realtime-voice-caption-user")).toHaveTextContent("直接开口说话");
+    act(() => h.onInputLevel(0.6));
+    expect(screen.getByTestId("realtime-voice-input-level")).toHaveAttribute("aria-valuenow", "60");
+    act(() => { h.onUserSpeech(true); h.onUserTranscript("（模拟语音）你好，", false); });
+    expect(screen.getByTestId("realtime-voice-caption-user")).toHaveTextContent("（模拟语音）你好，");
+    act(() => { h.onUserTranscript("（模拟语音）你好，我想了解一下产品方案", true); h.onUserSpeech(false); });
+    act(() => { h.onAssistantTranscript("我是研究员小周，", false); h.onAssistantTranscript("好的。", false); });
+    expect(screen.getByTestId("realtime-voice-caption-user")).toHaveTextContent("我想了解一下产品方案");
+    expect(screen.getByTestId("realtime-voice-caption-assistant")).toHaveTextContent("我是研究员小周，好的。");
+    // muted with no caption yet → hint must not tell the user to speak
+    const second = fakeConnect();
+    renderSession(second.connect);
+    await waitFor(() => expect(second.calls).toHaveLength(1));
+    act(() => second.calls[0]!.handlers.onReady("m"));
+    fireEvent.click(screen.getAllByTestId("realtime-voice-mute").at(-1) as HTMLElement);
+    expect(screen.getAllByTestId("realtime-voice-caption-user").at(-1)).toHaveTextContent("已静音，点击取消静音后说话");
+    expect(screen.getAllByTestId("realtime-voice-caption-user").at(-1)).not.toHaveTextContent("直接开口说话");
+  });
 });

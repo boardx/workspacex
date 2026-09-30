@@ -17,6 +17,8 @@ import {
   type RealtimeVoiceRole,
 } from "../../domain/chat/realtime-voice-persona";
 import type { AgentDirectoryRepository } from "../agent/list-agent-directory";
+import { deriveThreadTitle } from "../../domain/chat/thread-title";
+import { isLowInformation, shouldReplaceTitle } from "../../domain/chat/thread-title-algorithm";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 
 export class RealtimeVoiceThreadUnavailableError extends Error {
@@ -96,7 +98,29 @@ export async function appendRealtimeVoiceTurn(
     agentId: turn.role === "user" ? null : session.role.agentId,
     body,
   });
+  if (turn.role === "user") await autoTitleFromVoiceTurn(deps, session, body);
   return id;
+}
+
+/**
+ * 语音线程的第一句用户转写就给线程起名（与文字路径同一套 `deriveThreadTitle` /
+ * `shouldReplaceTitle`，不另写规则）；只在还是默认名时落第 1 档，失败不影响落库。
+ */
+async function autoTitleFromVoiceTurn(
+  deps: Pick<ResolveVisibilityDeps, "chat">,
+  session: RealtimeVoiceSession,
+  body: string,
+): Promise<void> {
+  try {
+    if (isLowInformation(body)) return;
+    const state = await deps.chat.readThreadTitleState(session.orgId, session.threadId);
+    if (state === null || state.source !== "default") return;
+    const title = deriveThreadTitle(body);
+    if (!shouldReplaceTitle(state.title, title, state.source)) return;
+    await deps.chat.autoTitleThread(session.orgId, session.threadId, title as string, 1);
+  } catch {
+    // 标题是装饰：转写已落库，起名失败只是标题停在「新对话」。
+  }
 }
 
 /** 网关只依赖这个端口（便于用假实现测握手/落库路径）；`main.ts` 用上面两个用例装配。 */

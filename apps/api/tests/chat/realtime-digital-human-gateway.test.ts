@@ -8,6 +8,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { handleOmniRealtimeConnection, OMNI_SAMPLE_USER_TRANSCRIPT } from "../../scripts/loopback-omni-realtime";
 import { WebSocket, WebSocketServer } from "ws";
 import { chat as C } from "@repo/contracts";
 import { attachRealtimeDigitalHumanGateway, readRealtimeModelConfig, type RealtimeModelConfig } from "../../src/interface/ws/realtime-digital-human.gateway";
@@ -327,5 +328,28 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     expect(parsed.defaultVoice).toBe("Maia");
     expect(parsed.model).toBe("qwen3.8-omni-flash-realtime");
     expect(parsed.voiceMap).toEqual({ research: "Cherry" });
+  });
+
+  it("loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted", async () => {
+    for (const socket of upstreamSockets) socket.terminate();
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    upstream = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    upstream.on("connection", (socket) => handleOmniRealtimeConnection(socket as never));
+    config = { ...config, baseUrl: `ws://127.0.0.1:${await listen(upstream)}/omni-realtime` };
+    const { ws, frames } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: "agent-dh-01" }));
+    await until(() => frames.some((f) => f.type === "session.ready"));
+    for (let i = 0; i < 12; i += 1) ws.send(Buffer.alloc(3_200)); // 38.4KB of PCM ≥ speech window
+    await until(() => frames.filter((f) => f.type === "turn.persisted").length === 2, 5_000);
+    const types = frames.map((f) => f.type);
+    expect(types).toEqual(expect.arrayContaining(["user.speech_started", "user.speech_stopped", "assistant.audio", "assistant.audio_done"]));
+    expect(frames.some((f) => f.type === "user.transcript" && f.final === false && String(f.text).includes("（模拟语音）"))).toBe(true);
+    expect(frames).toContainEqual({ type: "user.transcript", text: OMNI_SAMPLE_USER_TRANSCRIPT, final: true });
+    const partials = frames.filter((f) => f.type === "assistant.transcript" && f.final === false);
+    expect(partials.length).toBeGreaterThan(1);
+    expect(voice.appended[0]).toEqual({ role: "user", text: OMNI_SAMPLE_USER_TRANSCRIPT });
+    expect(voice.appended[1]!.role).toBe("assistant");
+    expect(voice.appended[1]!.text).not.toMatch(/loopback-asr/);
+    ws.close();
   });
 });

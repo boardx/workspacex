@@ -149,6 +149,9 @@ const asrProviderEnv = {
   KERNEL_ASR_PROVIDER: "fullstack-loopback-asr",
   KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${asrProviderPort}`,
   KERNEL_ASR_API_KEY: "fullstack-smoke-loopback-asr-key-not-a-secret",
+  // 数字人实时语音（Chat「实时对话」）走同一个回环进程的 /omni-realtime 路径（确定性中文样例
+  // 转写 + 助手回复）。不配它会退回 KERNEL_ASR_BASE_URL，只有 ASR 调试串、没有助手回复。
+  KERNEL_OMNI_REALTIME_BASE_URL: `ws://127.0.0.1:${asrProviderPort}/omni-realtime`,
   KERNEL_ASR_MODEL: "loopback-transcribe",
   // 收尾等待：本地回环是毫秒级的，15 秒的生产默认值只会让失败等满 15 秒。
   KERNEL_ASR_FINISH_GRACE_MS: "5000",

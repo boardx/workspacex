@@ -50,6 +50,9 @@ const REASON_FAILURE: Record<OmniErrorReason, Failure> = {
 };
 
 const ACTIVITY_LABEL: Record<Activity, string> = { idle: "空闲", listening: "在听", thinking: "思考中", speaking: "在说" };
+/** 静音时字幕区的提示（不能再说「直接开口说话」）。 */
+export const MUTED_HINT = "已静音，点击取消静音后说话";
+export const SAVE_NOTICE = "本次通话的文字记录会保存到此对话。";
 const MAX_RECONNECTS = 2;
 const RECONNECT_DELAY_MS = 1_500;
 
@@ -223,16 +226,13 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
-      <header className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-8 sm:pt-6">
-        <div className="min-w-0">
+      <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col items-center justify-center gap-5 px-4 py-6 sm:px-6">
+        <div className="min-w-0 text-center">
           <DialogPrimitive.Title className="truncate text-16 font-semibold" data-testid="realtime-voice-title">{`与${persona.name}实时对话`}</DialogPrimitive.Title>
           <p className="text-12 text-muted-foreground">
             {phase === "live" ? <span data-testid="realtime-voice-elapsed">{formatElapsed(elapsed)}</span> : "语音模式"}
           </p>
         </div>
-      </header>
-
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 py-6 sm:px-6">
         <Portrait persona={persona} activity={visibleActivity} phase={phase} />
         <div className="flex flex-col items-center gap-1 text-center">
           <p className="text-20 font-semibold">{persona.name}</p>
@@ -261,8 +261,8 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
             ) : null}
           </div>
         ) : (
-          <section aria-label="实时字幕" data-testid="realtime-voice-captions" className="flex w-full max-w-xl flex-col gap-3">
-            <Caption who="你" text={userCaption} placeholder={phase === "live" ? "直接开口说话，说完稍作停顿即可" : ""} testId="realtime-voice-caption-user" />
+          <section aria-label="实时字幕" data-testid="realtime-voice-captions" className="flex min-h-[8.5rem] w-full flex-col gap-3">
+            <Caption who="你" text={userCaption} placeholder={phase !== "live" ? "" : muted ? MUTED_HINT : "直接开口说话，说完稍作停顿即可"} testId="realtime-voice-caption-user" />
             <Caption who={persona.name} text={assistantCaption} placeholder="" testId="realtime-voice-caption-assistant" emphasis />
           </section>
         )}
@@ -283,7 +283,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
           </ControlButton>
           <ControlButton
             label="挂断"
-            hint="挂断并保存（Esc）"
+            hint={phase === "live" ? "挂断并保存（Esc）" : "挂断（Esc）"}
             variant="destructive"
             large
             onClick={() => onOpenChange(false)}
@@ -303,7 +303,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
           </ControlButton>
         </div>
         <p id="realtime-voice-session-scope" className="max-w-md text-center text-11 text-muted-foreground">
-          可随时开口打断。语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。你说的话和回答会以文字保存到当前会话。
+          可随时开口打断。语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。{phase === "live" ? SAVE_NOTICE : null}
         </p>
       </footer>
     </div>
