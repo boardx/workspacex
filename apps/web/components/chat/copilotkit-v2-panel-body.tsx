@@ -2001,6 +2001,7 @@ export function CopilotKitV2PanelBody({
               materialsCount={pendingMaterialsCount}
               skillsCount={mountedSkillsCount}
               briefing={projectId === null ? <SessionBriefing onResume={setInputDraft} /> : undefined}
+              inProject={projectId !== null}
             />
           ) : (
             // issue #2039（第 2 轮 gap #5）的阅读宽度约束已由本文件中央列那一处

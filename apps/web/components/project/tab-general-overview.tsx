@@ -13,7 +13,7 @@ import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { listNonWorkshopMembers, type NonWorkshopMemberEntry } from "@/lib/live-project-collaborators";
 import { fetchProjectKnowledge, fetchProjectReasoning, knowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
-import { PROJECT_STATUS_LABEL, type ProjectOverview } from "@/lib/live-projects";
+import type { ProjectOverview } from "@/lib/live-projects";
 
 /**
  * 通用项目 ·「概览」tab（#4615，PROP-PROJECT-WORKSPACE-001 §3.4）。
@@ -28,7 +28,7 @@ import { PROJECT_STATUS_LABEL, type ProjectOverview } from "@/lib/live-projects"
  */
 const RECENT_LIMIT = 5;
 
-export function TabGeneralOverview({ projectId, liveOverview, tabHref }: {
+export function TabGeneralOverview({ projectId, tabHref }: {
   projectId: string;
   liveOverview: ProjectOverview | null;
   /** 拼到本工作台某个 tab（带 `sub`）的链接——由工作台提供，保留 `?org=` / `?as=` 等参数。 */
@@ -40,13 +40,10 @@ export function TabGeneralOverview({ projectId, liveOverview, tabHref }: {
   const recent = index.entries.slice(0, RECENT_LIMIT);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-general-overview">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-general-overview">
       <Card>
         <div className="flex flex-col gap-3 p-4" data-testid="project-general-overview-head">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-16 font-semibold tracking-tight">{liveOverview?.name ?? "项目"}</h2>
-            {liveOverview && <Badge tone="outline">{PROJECT_STATUS_LABEL[liveOverview.status]}</Badge>}
-          </div>
+          <h2 className="text-13 font-semibold tracking-tight">项目成员</h2>
           <div className="flex flex-wrap items-center gap-2" data-testid="project-general-overview-members">
             <Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
             {members.error !== null ? (
