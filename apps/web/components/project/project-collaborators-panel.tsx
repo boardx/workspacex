@@ -97,10 +97,10 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
           aria-label="搜索组织成员" data-testid="project-invite-name-search" />
       )}
       {candidates.length > SEARCH_THRESHOLD && q !== "" && visible.length === 0 && (
-        <p className="text-10 text-muted-foreground" data-testid="project-invite-name-nomatch">没有匹配的成员。</p>
+        <p className="text-11 text-muted-foreground" data-testid="project-invite-name-nomatch">没有匹配的成员。</p>
       )}
       <div className="flex flex-wrap items-end gap-2" data-testid="project-collaborators-add">
-              <label className="flex flex-col gap-1 text-10 text-muted-foreground">
+              <label className="flex flex-col gap-1 text-11 text-muted-foreground">
                 <span>从组织成员里指派</span>
                 <Select
                   data-testid="project-collaborators-add-user"
@@ -111,8 +111,8 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                   options={visible.map((c) => ({ value: c.userId, label: c.displayName }))}
                 />
               </label>
-              <label className="flex flex-col gap-1 text-10 text-muted-foreground">
-                <span>档位</span>
+              <label className="flex flex-col gap-1 text-11 text-muted-foreground">
+                <span>角色</span>
                 <Select
                   data-testid="project-collaborators-add-role"
                   value={pickRole}
@@ -122,7 +122,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                 />
               </label>
               {candidates.length === 0 && (
-                <p className="basis-full text-10 text-muted-foreground" data-testid="project-collaborators-add-hint">
+                <p className="basis-full text-11 text-muted-foreground" data-testid="project-collaborators-add-hint">
                   组织里暂时没有其他成员可指派；有新成员加入组织后就能在这里选到。
                 </p>
               )}

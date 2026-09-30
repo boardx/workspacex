@@ -168,15 +168,33 @@ function ReadyBody({ token, preview, loginUrl, onEntering, onVerify, onInvalid, 
   );
 }
 
+async function ensureProjectOrganization(session: ReturnType<typeof useOptionalSession>, orgId: string) {
+      if (session?.session && orgId !== session.session.currentOrgId) {
+        const s = session.session;
+        if (s.orgIds.includes(orgId)) {
+          await session.switchOrganization(orgId);
+        } else {
+          // 刚被加进这个组织：本地会话的组织清单里还没有它。服务端切换后，用同一个 bearer 重建本地会话。
+          await switchCurrentOrganization(orgId, s.sessionToken);
+          await session.startSession(
+            { sessionToken: s.sessionToken, userId: s.userId, orgs: [orgId, ...s.orgIds], expiresAt: s.expiresAt },
+            { expectedToken: s.sessionToken },
+          );
+        }
+      }
+}
+
 function AlreadyLink({ token }: { token: string }) {
   // already_member 时 preview 不带项目 id；接受是幂等的，借它拿到项目 id 再进去。
   const router = useRouter();
+  const session = useOptionalSession();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   async function go() {
     setBusy(true); setError(null);
     try {
       const out = await acceptInvitation(token);
+      await ensureProjectOrganization(session, out.orgId);
       router.replace(`/projects/${encodeURIComponent(out.projectId)}`);
     } catch (e) {
       setError(describeInvitationFailure(e));
@@ -204,20 +222,7 @@ function AcceptBlock({ token, preview, onEntering, onInvalid, goProject }: {
     setBusy(true); setError(null);
     try {
       const out = await acceptInvitation(token);
-      // 项目所在组织可能不是当前组织：先切过去再进项目，否则项目页会拿当前组织去读。
-      if (session?.session && out.orgId !== session.session.currentOrgId) {
-        const s = session.session;
-        if (s.orgIds.includes(out.orgId)) {
-          await session.switchOrganization(out.orgId);
-        } else {
-          // 刚被加进这个组织：本地会话的组织清单里还没有它。服务端切换后，用同一个 bearer 重建本地会话。
-          await switchCurrentOrganization(out.orgId, s.sessionToken);
-          await session.startSession(
-            { sessionToken: s.sessionToken, userId: s.userId, orgs: [out.orgId, ...s.orgIds], expiresAt: s.expiresAt },
-            { expectedToken: s.sessionToken },
-          );
-        }
-      }
+      await ensureProjectOrganization(session, out.orgId);
       onEntering();
       goProject(out.projectId);
     } catch (e) {

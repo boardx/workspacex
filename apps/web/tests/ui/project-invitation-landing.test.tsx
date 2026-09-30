@@ -113,6 +113,22 @@ describe("#4788 项目邀请落地页", () => {
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/projects/p9"));
   });
 
+  it("already_member：跨组织进入必须等待组织切换成功，失败不跳转且可重试", async () => {
+    sessionState = { status: "authenticated", session: { ...SESSION, orgIds: ["org-1", "org-2"] } };
+    previewInvitation.mockResolvedValue(preview({ nextStep: "already_member" }));
+    acceptInvitation.mockResolvedValue({ projectId: "p9", orgId: "org-2", joinedOrg: false, alreadyMember: true });
+    switchOrganization.mockRejectedValueOnce(new Error("offline"));
+    render(<ProjectInvitationLanding token="T" />);
+    fireEvent.click(await screen.findByTestId("project-join-open"));
+    await screen.findByTestId("project-join-error");
+    expect(switchOrganization).toHaveBeenCalledWith("org-2");
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("project-join-open")).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId("project-join-open"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/projects/p9"));
+    expect(switchOrganization).toHaveBeenCalledTimes(2);
+  });
+
   it("email_mismatch：说明受邀邮箱，可退出切换账号（回到带 next 的登录页）", async () => {
     sessionState = { status: "authenticated", session: SESSION };
     previewInvitation.mockResolvedValue(preview({ nextStep: "email_mismatch", invitedEmail: "other@x.com" }));
