@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -468,7 +469,7 @@ export function ProjectWorkbench({
          <div className={showWorkshopRoles ? undefined : "mx-auto w-full max-w-5xl sm:px-6"}>
           <div className="mb-3.5 flex flex-wrap items-start gap-3">
             <Button asChild size="sm" variant="outline" data-testid="project-back-to-list">
-              <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
+              <Link href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</Link>
             </Button>
             <div className="min-w-0 flex-1">
               <h1 className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
@@ -518,9 +519,12 @@ export function ProjectWorkbench({
             {tabDefs.map((t) => {
               const active = t.key === shownTab;
               return (
-                <a
+                // next/link：同页切 tab 走客户端导航（保留会话 / overview 等已拉取的状态）；
+                // 此前是裸 <a>，每次切 tab 都整页重载、重新确认登录、重拉概览（实测 2~4 秒）
+                <Link
                   key={t.key}
                   href={href({ tab: t.key, sub: undefined })}
+                  scroll={false}
                   data-testid={`project-tab-${t.key}`}
                   aria-current={active ? "page" : undefined}
                   className={[
@@ -530,7 +534,7 @@ export function ProjectWorkbench({
                   ].join(" ")}
                 >
                   {t.label}
-                </a>
+                </Link>
               );
             })}
           </nav>
@@ -564,9 +568,10 @@ export function ProjectWorkbench({
               {subNav.items.map((it, i) => {
                 const active = sub ? sub === it.key : i === 0;
                 return (
-                  <a
+                  <Link
                     key={it.key}
                     href={href({ sub: it.key })}
+                    scroll={false}
                     data-testid={`project-subnav-${it.key}`}
                     aria-current={active ? "true" : undefined}
                     className={[
@@ -575,7 +580,7 @@ export function ProjectWorkbench({
                     ].join(" ")}
                   >
                     <span className="min-w-0 flex-1 truncate">{it.label}</span>
-                  </a>
+                  </Link>
                 );
               })}
             </aside>
