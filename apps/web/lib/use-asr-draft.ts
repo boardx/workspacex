@@ -13,6 +13,7 @@
 import * as React from "react";
 import { openAsrDraftStream, type AsrDraftErrorReason } from "./live-asr-draft";
 import { LiveRecordingError } from "./live-recording";
+import { RealtimeReconnect } from "./realtime-reconnect";
 
 /**
  * ⚠ 2026-08-20 人类实测反馈（devapp）：「点击 mic 图标以后要反应半天」「终止转录也不能
@@ -37,6 +38,8 @@ export interface UseAsrDraftOptions {
    * 传给采音层——所以空闲时换设备，下次点开始即生效。空/未传 = 系统默认设备。
    */
   readonly deviceId?: string;
+  /** Opt in only for interview input; chat retains its existing terminal-error behavior. */
+  readonly autoReconnect?: boolean;
 }
 
 export interface UseAsrDraftResult {
@@ -77,6 +80,9 @@ export interface UseAsrDraftResult {
   readonly baseText: string;
   readonly committedText: string;
   readonly partialText: string;
+  readonly reconnecting?: boolean;
+  readonly connectionInterrupted?: boolean;
+  readonly retry?: () => void;
 }
 
 const ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
@@ -163,7 +169,7 @@ function stripTrailingTurnBoundaryPunctuation(text: string): string {
   return text.replace(/[、。，,.]+$/, "");
 }
 
-export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
+export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId, autoReconnect = false }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
   const [errorReason, setErrorReason] = React.useState<AsrDraftErrorReason | null>(null);
@@ -173,6 +179,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   const handleRef = React.useRef<{ stop: () => Promise<void> } | null>(null);
   const startingRef = React.useRef(false);
   const generationRef = React.useRef(0);
+  const startupAbortRef = React.useRef<AbortController | null>(null);
   // 防"停止过程中又点了开始"：UI 层已经在 stopping 态禁用按钮，这里是第二道防线
   // （直接调用 hook、不经过按钮的调用方也不该在这个窗口里重新起一条新的采音管线）。
   const stoppingRef = React.useRef(false);
@@ -190,15 +197,33 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
    * 复原到 `baseTextRef`（开始录音那一刻的文本）。不是另起一条采音/WS 逻辑。
    */
   const discardRef = React.useRef(false);
+  const [reconnecting, setReconnecting] = React.useState(false);
+  const [connectionInterrupted, setConnectionInterrupted] = React.useState(false);
+  const recoveryRef = React.useRef(false);
+  const continuingRef = React.useRef(false);
+  const attemptRef = React.useRef<() => void>(() => undefined);
+  const policyRef = React.useRef<RealtimeReconnect | null>(null);
+  if (!policyRef.current) policyRef.current = new RealtimeReconnect(
+    () => { continuingRef.current = true; attemptRef.current(); },
+    () => { recoveryRef.current = false; setReconnecting(false); setStatus("error"); setError("暂时无法恢复语音连接，请重新连接或手动输入。"); },
+  );
 
   const endSession = React.useCallback((discard: boolean) => {
+    policyRef.current?.cancel();
+    const wasRecovering = recoveryRef.current;
+    recoveryRef.current = false;
+    continuingRef.current = false;
+    setReconnecting(false);
     const handle = handleRef.current;
     handleRef.current = null;
     if (handle === null) {
-      if (!startingRef.current) return;
+      if (!startingRef.current && !wasRecovering) return;
       generationRef.current += 1;
+      startupAbortRef.current?.abort();
       startingRef.current = false;
       if (discard) onTranscriptRef.current(baseTextRef.current);
+      if (discard) { committedRef.current = ""; setSegments((s) => ({ ...s, committedText: "", partialText: "" })); }
+      setError(null);
       setStatus("idle");
       setLevel(0);
       return;
@@ -227,20 +252,48 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
       return;
     }
     const generation = ++generationRef.current;
+    const startupAbort = new AbortController();
+    startupAbortRef.current = startupAbort;
     const current = () => generationRef.current === generation;
-    baseTextRef.current = getBaseText();
-    committedRef.current = "";
+    const continuing = continuingRef.current;
+    continuingRef.current = false;
+    if (!continuing) {
+      policyRef.current?.begin();
+      recoveryRef.current = false;
+      setReconnecting(false);
+      setConnectionInterrupted(false);
+      baseTextRef.current = getBaseText();
+      committedRef.current = "";
+      setElapsedSeconds(0);
+    }
     discardRef.current = false;
-    setSegments({ baseText: baseTextRef.current, committedText: "", partialText: "" });
+    setSegments({ baseText: baseTextRef.current, committedText: committedRef.current, partialText: "" });
     setError(null);
     setErrorReason(null);
-    setElapsedSeconds(0);
     setLevel(0);
     startingRef.current = true;
     // 同步置位：真实上游的采音权限弹窗 + WS 握手不是 0 秒，界面必须立刻说"正在连接"，
     // 不能等到 openAsrDraftStream 的 promise resolve 才有反应——那正是 devapp 实测反馈的
     // "点击 mic 图标以后要反应半天"。
     setStatus("connecting");
+
+    const recover = (reason: AsrDraftErrorReason) => {
+      if (!autoReconnect || stoppingRef.current || discardRef.current || reason !== "ASR_PROVIDER_UNAVAILABLE") return false;
+      generationRef.current += 1;
+      startingRef.current = false;
+      handleRef.current = null;
+      recoveryRef.current = true;
+      setReconnecting(true);
+      setConnectionInterrupted(true);
+      setLevel(0);
+      setSegments((s) => ({ ...s, partialText: "" }));
+      onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
+      setStatus("connecting");
+      setError(null);
+      setErrorReason(reason);
+      policyRef.current?.failed(true);
+      return true;
+    };
 
     void openAsrDraftStream(
       {
@@ -259,6 +312,9 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
         },
         onError: (reason) => {
           if (!current()) return;
+          if (recover(reason)) return;
+          policyRef.current?.cancel();
+          recoveryRef.current = false; setReconnecting(false);
           handleRef.current = null;
           stoppingRef.current = false;
           setStatus("error");
@@ -278,30 +334,53 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
         // 不是渲染层自己画的假动画（见 `pcm16Level()` 头注）。
         onLevel: (value) => { if (current()) setLevel(value); },
       },
-      { sessionToken, deviceId: deviceIdRef.current },
+      { sessionToken, deviceId: deviceIdRef.current, signal: startupAbort.signal },
     ).then((handle) => {
       if (!current()) { void handle.stop().catch(() => undefined); return; }
       startingRef.current = false;
       handleRef.current = handle;
+      recoveryRef.current = false;
+      setReconnecting(false);
+      if (autoReconnect) policyRef.current?.connected();
       setStatus("listening");
     }).catch((caught: unknown) => {
       if (!current()) return;
       startingRef.current = false;
       handleRef.current = null;
       if (caught instanceof LiveRecordingError) {
+        policyRef.current?.cancel(); recoveryRef.current = false; setReconnecting(false);
         // `live-recording.ts` 已经把权限被拒绝/无设备/采音起不来分成具名的中文提示，
         // 这里原样透传，不重新发明第二套错误分类。
         setStatus(caught.kind === "permission-denied" ? "denied" : "error");
         setError(caught.message);
         return;
       }
+      if (caught instanceof Error && ["asr_draft_stream_handshake_failed", "asr_draft_stream_closed_during_capture_start", "ws_handshake_timeout"].includes(caught.message) && recover("ASR_PROVIDER_UNAVAILABLE")) return;
+      policyRef.current?.cancel(); recoveryRef.current = false; setReconnecting(false);
       setStatus("error");
       setError("无法启动语音识别，请重试。");
     });
-  }, [getBaseText, sessionToken]);
+  }, [getBaseText, sessionToken, autoReconnect]);
+  attemptRef.current = start;
+  const retry = React.useCallback(() => {
+    if (handleRef.current || startingRef.current || stoppingRef.current) return;
+    policyRef.current?.begin();
+    continuingRef.current = true;
+    recoveryRef.current = true;
+    setReconnecting(true);
+    attemptRef.current();
+  }, []);
+
+  React.useEffect(() => {
+    const online = () => policyRef.current?.online();
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, []);
 
   React.useEffect(() => () => {
+    policyRef.current?.cancel();
     generationRef.current += 1;
+    startupAbortRef.current?.abort();
     startingRef.current = false;
     const handle = handleRef.current;
     handleRef.current = null;
@@ -331,5 +410,8 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     baseText: segments.baseText,
     committedText: segments.committedText,
     partialText: segments.partialText,
+    reconnecting,
+    connectionInterrupted,
+    retry,
   };
 }
