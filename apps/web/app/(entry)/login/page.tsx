@@ -24,8 +24,8 @@ export default function LoginPage({
         title="登录 WorkspaceX"
         description="进入你的战略工作空间。"
         aside={
-          // dev 预览条：生产不渲染（StatePreviewSwitcher 自身判 NODE_ENV）
-          process.env.NODE_ENV === "production" ? null : (
+          // 仅显式 state 预览链接显示调试工具；正常登录不混入开发控件。
+          process.env.NODE_ENV === "production" || searchParams.state === undefined ? null : (
             <div className="flex flex-col gap-1">
               <StatePreviewSwitcher current={state} />
               <p className="text-10 text-muted-foreground">

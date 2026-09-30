@@ -239,12 +239,13 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           )}
 
           {!busy && !error && items.length > 0 && visibleItems.length === 0 && (
-            <div role="status" className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">没有符合筛选条件的问卷</div>
+            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setTag(null); }}>清除筛选</Button></div>
           )}
           {!busy && !error && items.length === 0 && (
-            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border py-16 text-center">
+            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
               <h2 className="text-18 font-semibold">还没有问卷</h2>
-              <p className="text-14 text-muted-foreground">使用右上角“新建问卷”，或先从问卷模板中选择合适的结构。</p>
+              <p className="text-14 text-muted-foreground">创建第一份问卷，或从问卷模板中选择合适的结构。</p>
+              <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
             </div>
           )}
         </section>
