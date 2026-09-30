@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "./parts";
+import { ProjectContentCard, CONTENT_GRID_CLASS } from "./project-content-card";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { listThreads, createProjectThread, getThread, setThreadVisibility, type ListThreadsOut } from "@/lib/live-chat";
@@ -84,7 +85,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
   const cards = data?.groups.flatMap((g) => g.cards.map((c) => ({ group: g.label, ...c }))) ?? [];
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6" data-testid="project-conversations">
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-conversations">
       <div className="flex flex-wrap items-center gap-2">
         <SectionTitle meta="本项目里的对话：成员按可见范围各看各的" className="mb-0">对话</SectionTitle>
         <span className="flex-1" />
@@ -115,35 +116,34 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
           {data.groups.filter((g) => g.cards.length > 0).map((g) => (
             <section key={g.label}>
               <h3 className="mb-1.5 px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">{g.label}</h3>
-              <ul className="flex flex-col gap-1.5">
+              <ul className={CONTENT_GRID_CLASS}>
                 {g.cards.map((c) => (
                   <li key={c.id}>
-                    <a
+                    <ProjectContentCard
                       href={threadHref(c.id)}
-                      data-testid={`project-conversation-${c.id}`}
-                      className="flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5 transition-colors hover:border-primary"
-                    >
-                      <MessagesSquare aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-12 font-medium">{c.title}</div>
-                        {c.subtitle && <div className="truncate text-10 text-muted-foreground">{c.subtitle}</div>}
-                      </div>
-                      {canWrite ? (
-                        <span onClick={(e) => e.preventDefault()}>
-                          <Select
-                            data-testid={`project-conversation-share-${c.id}`}
-                            value={c.visibilityScope}
-                            disabled={sharing === c.id}
-                            onValueChange={(v) => void share(c.id, v as ShareScope)}
-                            options={SHARE_SCOPES.map((k) => ({ value: k, label: CHAT_VISIBILITY_LABEL[k] }))}
-                            className="min-w-[7rem]"
-                          />
-                        </span>
-                      ) : (
-                        <Badge tone="outline">{CHAT_VISIBILITY_LABEL[c.visibilityScope] ?? c.visibilityScope}</Badge>
-                      )}
-                      {c.artifactCount > 0 && <Badge tone="neutral">产物 {c.artifactCount}</Badge>}
-                    </a>
+                      linkTestId={`project-conversation-${c.id}`}
+                      icon={MessagesSquare}
+                      title={c.title}
+                      typeLabel="对话"
+                      meta={c.subtitle}
+                      footer={
+                        <>
+                          {canWrite ? (
+                            <Select
+                              data-testid={`project-conversation-share-${c.id}`}
+                              value={c.visibilityScope}
+                              disabled={sharing === c.id}
+                              onValueChange={(v) => void share(c.id, v as ShareScope)}
+                              options={SHARE_SCOPES.map((k) => ({ value: k, label: CHAT_VISIBILITY_LABEL[k] }))}
+                              className="min-w-[7rem]"
+                            />
+                          ) : (
+                            <Badge tone="outline">{CHAT_VISIBILITY_LABEL[c.visibilityScope] ?? c.visibilityScope}</Badge>
+                          )}
+                          {c.artifactCount > 0 && <Badge tone="neutral">产物 {c.artifactCount}</Badge>}
+                        </>
+                      }
+                    />
                   </li>
                 ))}
               </ul>
