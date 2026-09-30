@@ -64,15 +64,19 @@ jobs:
           print("  容器里的嵌入 env key:", sorted(k for k in os.environ if k.startswith("KERNEL_EMBEDDING")))
           import time
           if base and key:
-              ms = []
-              for i in range(5):
-                  t = time.monotonic()
-                  try:
-                      httpx.post(base + "/embeddings", headers=h, json={"model": "text-embedding-v4", "input": ["我们团队周会现在是哪天"]}, timeout=30)
-                  except Exception:
-                      pass
-                  ms.append(int((time.monotonic() - t) * 1000))
-              print("  单条问题嵌入延迟（ms，直连 provider，5 次）:", ms, "| 召回向量通道时限 KG_VECTOR_RECALL_TIMEOUT_MS=400")
+              with httpx.Client(timeout=30) as c:  # 复用连接：API 侧同样是长连接，冷连接的 TLS 握手不算进每轮
+                  for m in ["text-embedding-v4", "text-embedding-v3", "text-embedding-v2", "qwen3.7-text-embedding-flash", "qwen3.7-text-embedding"]:
+                      ms, dims = [], None
+                      for i in range(5):
+                          t = time.monotonic()
+                          try:
+                              d = c.post(base + "/embeddings", headers=h, json={"model": m, "input": ["我们团队周会现在是哪天"]}).json()
+                              dims = len((d.get("data") or [{}])[0].get("embedding") or []) or d.get("error", {}).get("code")
+                          except Exception as e:
+                              dims = type(e).__name__
+                          ms.append(int((time.monotonic() - t) * 1000))
+                      print("  单条问题嵌入延迟 ms（长连接，5 次）", m, ms, "维度/错误:", dims)
+              print("  召回向量通道时限 KG_VECTOR_RECALL_TIMEOUT_MS=400；E10 要求开记忆后首字延迟增量 ≤100ms")
           PY
           echo "── deep-agent 的 /internal/retrieval/embeddings 路由是否存在（不带密钥应 401）──"
           docker exec workspacex-deep-agent python -c "import httpx;print(httpx.post('http://127.0.0.1:2024/internal/retrieval/embeddings',json={'texts':['x']},timeout=10).status_code)" 2>&1 | tail -1
