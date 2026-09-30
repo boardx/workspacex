@@ -3,7 +3,7 @@
 import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
-import { hasToolResult, toolPreambleCall, useLiveMessages } from "@/lib/chat-workbench/tool-preamble";
+import { toolPreambleCall, useLiveMessages } from "@/lib/chat-workbench/tool-preamble";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -317,11 +317,11 @@ function V2AssistantMessageImpl(
     [messageId],
   );
   const traceCovered = React.useContext(RunTraceCoveredContext);
-  // UIUX r4：转交请求的前导语「正在提交转交请求。」一旦工具结果到达（实时流里，不必等 resync）
-  // 就被结果（转交卡片 / 「没有转交」提示条）取代，不再留在气泡里。
+  // UIUX r5：转交请求的前导语「正在提交转交请求。」只要其后（或同条）存在 request_handoff 调用——
+  // 待确认（interrupt，尚无结果）或已有结果都算——就不画：确认卡 / 「没有转交」提示条已表达状态。
   const liveMessages = useLiveMessages(props.messages);
   const handoffPreamble = toolPreambleCall(props.message, liveMessages, isInlineNoticeTool);
-  const handoffPreambleSettled = handoffPreamble !== null && text.trim() !== "" && hasToolResult(liveMessages, handoffPreamble.id);
+  const handoffPreambleSettled = handoffPreamble !== null && text.trim() !== "";
   if (handoffPreambleSettled && (props.message.toolCalls ?? []).length === 0) return <></>;
   // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
   // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回

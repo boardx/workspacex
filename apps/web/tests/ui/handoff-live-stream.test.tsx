@@ -44,19 +44,30 @@ describe("UIUX r4：自转交被拒的实时流", () => {
     const stale = [user, pendingText];
     const { rerender } = render(view(pendingText, stale, stale));
     expect(screen.queryByText(PENDING)).not.toBeNull();
-    // 调用到了、结果还没到：仍在进行中，前导语保留
+    // 调用到了、结果还没到（待确认的 interrupt）：前导语同样隐藏，由确认卡表达状态
     rerender(view(pendingText, [user, pendingText, handoffCall], stale));
-    expect(screen.queryByText(PENDING)).not.toBeNull();
+    await waitFor(() => expect(screen.queryByText(PENDING)).toBeNull());
     rerender(view(pendingText, [user, pendingText, handoffCall, refused], stale));
     await waitFor(() => expect(screen.queryByText(PENDING)).toBeNull());
   });
 
-  it("前导语与调用同条：结果到达后正文清空", async () => {
+  it("前导语与调用同条：调用存在（待确认 / 已拒）正文即清空", async () => {
     const same = { ...handoffCall, content: PENDING };
     const { rerender } = render(view(same, [user, same], [user, same]));
-    expect(screen.queryByText(PENDING)).not.toBeNull();
+    await waitFor(() => expect(screen.queryByText(PENDING)).toBeNull());
     rerender(view(same, [user, same, refused], [user, same, refused]));
     await waitFor(() => expect(screen.queryByText(PENDING)).toBeNull());
+  });
+
+  it("刷新后（持久化列表：前导语 + 调用 + 结果）不显示前导语", async () => {
+    const persisted = [user, pendingText, handoffCall, refused];
+    render(view(pendingText, persisted, persisted));
+    await waitFor(() => expect(screen.queryByText(PENDING)).toBeNull());
+  });
+
+  it("没有 request_handoff 调用时前导语照常显示", () => {
+    render(view(pendingText, [user, pendingText], [user, pendingText]));
+    expect(screen.queryByText(PENDING)).not.toBeNull();
   });
 
   it("同一 toolCallId 的提示条只画一处；先画的卸载后由剩下的接手", async () => {

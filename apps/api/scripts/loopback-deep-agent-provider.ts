@@ -689,7 +689,7 @@ function serverComputedToolScript(record: RunRecord): ServerComputedToolScript |
     return {
       name: REQUEST_HANDOFF_TOOL_NAME, idPrefix: "request-handoff",
       args: { targetRole: handoff[1]!, packet: { originalQuestion: question, confirmedScope: "", evidenceRefs, openItems: [] } },
-      pendingText: "正在提交转交请求。", rejectedText: "转交请求被拒绝，未发起转交。",
+      pendingText: "", rejectedText: "转交请求被拒绝，未发起转交。",
     };
   }
   return null;
