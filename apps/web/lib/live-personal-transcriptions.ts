@@ -110,12 +110,14 @@ export async function createPersonalTranscription(
 export async function readPersonalTranscription(
   sessionId: string,
   sessionToken?: string | null,
+  signal?: AbortSignal,
 ): Promise<PersonalTranscriptionDetail> {
   const input = operations.readPersonalTranscription.in.parse({ sessionId });
   const path = operations.readPersonalTranscription.path.replace(":sessionId", encodeURIComponent(input.sessionId));
   const raw = await apiRequest<unknown>(path, {
     method: operations.readPersonalTranscription.method,
     sessionToken,
+    signal,
   });
   return parseDetail(raw);
 }
@@ -160,9 +162,10 @@ export async function deletePersonalTranscription(sessionId: string,
 }
 
 export async function stopPersonalTranscription(sessionId: string,
-  sessionToken?: string | null): Promise<PersonalTranscriptionSummary> {
-  const input = operations.stopPersonalTranscription.in.parse({ sessionId });
+  sessionToken?: string | null, captureId?: string): Promise<PersonalTranscriptionSummary> {
+  const input = operations.stopPersonalTranscription.in.parse({ sessionId, captureId });
   const path = operations.stopPersonalTranscription.path.replace(":sessionId", encodeURIComponent(input.sessionId));
-  const raw = await apiRequest<unknown>(path, { method: operations.stopPersonalTranscription.method, sessionToken });
+  const raw = await apiRequest<unknown>(path, { method: operations.stopPersonalTranscription.method, sessionToken,
+    ...(captureId ? { body: { captureId: input.captureId } } : {}) });
   return parseSummary(raw);
 }

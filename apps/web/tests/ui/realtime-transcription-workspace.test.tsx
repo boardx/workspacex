@@ -9,6 +9,14 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it("allows canceling the initial connection", () => {
+    const onStop = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="connecting"
+      onStart={vi.fn()} onStop={onStop} />);
+    expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+    expect(onStop).toHaveBeenCalledOnce();
+  });
   it("enables the only start button and invokes the real start action", () => {
     const onStart = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="idle" onStart={onStart} onStop={vi.fn()} />);
@@ -21,11 +29,11 @@ describe("RealtimeTranscriptionWorkspace", () => {
   it("treats a stopped transcription as resumable instead of completed", () => {
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="idle"
       onStart={vi.fn()} onStop={vi.fn()} />);
-    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("可续录");
+    expect(screen.queryByTestId("rec-live-status")).not.toBeInTheDocument();
     expect(screen.queryByText("已完成")).not.toBeInTheDocument();
     expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
     expect(screen.queryByTestId("rec-live-transient-notice")).not.toBeInTheDocument();
-    expect(screen.getByText("最终识别会持续追加并保存为一段正文，停止后可以修改。")).toBeVisible();
+    expect(screen.queryByText("最终识别会持续追加并保存为一段正文，停止后可以修改。")).not.toBeInTheDocument();
   });
 
   it("renders one body without segment timestamps and copies the whole body", async () => {
@@ -62,7 +70,7 @@ describe("RealtimeTranscriptionWorkspace", () => {
   it("distinguishes an interim confirmation from recoverable slow delivery", () => {
     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} onBack={vi.fn()}
       streamState="recording" flowState="slow" interimSegment="实时草稿" onStart={vi.fn()} onStop={vi.fn()} />);
-    expect(screen.getByTestId("rec-live-interim")).toHaveTextContent("自然停顿 800ms 后确认保存");
+    expect(screen.getByTestId("rec-live-interim")).toHaveTextContent(/^实时草稿$/);
     expect(screen.getByText("音频仍在传输或确认中")).toBeVisible();
     expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
   });
@@ -96,7 +104,8 @@ describe("RealtimeTranscriptionWorkspace", () => {
       streamState="idle" inputLevel={0} devices={[{ deviceId: "mic-1", label: "会议室麦克风" }]}
       selectedDeviceId="mic-1" onSelectDevice={onSelectDevice} onStart={vi.fn()} onStop={vi.fn()} />);
 
-    expect(screen.getByTestId("rec-mic-device-select")).toHaveTextContent("会议室麦克风");
+    expect(screen.getByTestId("rec-mic-device-select")).toHaveAttribute("title", "麦克风：会议室麦克风");
+    expect(screen.getByTestId("rec-mic-device-select")).not.toHaveTextContent("会议室麦克风");
     expect(screen.getByTestId("rec-live-toggle").parentElement).toHaveClass("flex-wrap");
     expect(screen.getByTestId("rec-live-input-level")).toHaveAttribute("aria-valuenow", "0");
     fireEvent.click(screen.getByTestId("rec-mic-device-select"));

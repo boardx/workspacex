@@ -22,6 +22,7 @@ import {
 import type { UiState } from "@/lib/ui-state";
 import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
+import { RealtimeReconnect, isRetryableTranscriptionError, transcriptionFailureReason } from "@/lib/realtime-reconnect";
 import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
@@ -80,11 +81,23 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
   const [reconnectableError, setReconnectableError] = React.useState(false);
+  const [reconnecting, setReconnecting] = React.useState(false);
+  const [connectionNotice, setConnectionNotice] = React.useState<string | null>(null);
   const [inputLevel, setInputLevel] = React.useState(0);
   const micDevices = useAudioInputDevices();
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
   const stoppingRef = React.useRef(false);
   const receivedFinalIdsRef = React.useRef(new Set<string>());
+  const generationRef = React.useRef(0);
+  const openingRef = React.useRef(false);
+  const mountedRef = React.useRef(true);
+  const abortRef = React.useRef<AbortController | null>(null);
+  const restartRef = React.useRef<() => void>(() => undefined);
+  const retryRef = React.useRef<RealtimeReconnect | null>(null);
+  if (!retryRef.current) retryRef.current = new RealtimeReconnect(
+    () => restartRef.current(),
+    () => { setReconnecting(false); setReconnectableError(true); },
+  );
 
   React.useEffect(() => {
     let active = true;
@@ -173,8 +186,30 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     }
   }
 
-  async function startRealtimeTranscription() {
-    if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
+  async function startRealtimeTranscription(automatic = false) {
+    if (!activeSession || streamRef.current || stoppingRef.current || openingRef.current) return;
+    const recovering = automatic || reconnectableError;
+    if (!automatic) { retryRef.current!.begin(); if (!recovering) setConnectionNotice(null); }
+    const generation = ++generationRef.current;
+    const current = () => generation === generationRef.current;
+    const abort = new AbortController();
+    abortRef.current = abort;
+    openingRef.current = true;
+    let failed = false;
+    let retryableFailure = false;
+    const reportFailure = (reason: string, message = streamErrorText(reason)) => {
+      if (!current() || failed || stoppingRef.current) return;
+      failed = true;
+      setInputLevel(0);
+      setStreamState("error");
+      streamRef.current = null;
+      const retryable = isRetryableTranscriptionError(reason);
+      retryableFailure = retryable;
+      setStreamError(message);
+      setReconnecting(retryable);
+      if (retryable) setConnectionNotice("连接中断，断线期间的音频未转录；请在恢复后补充。");
+      if (!openingRef.current) retryRef.current!.failed(retryable);
+    };
     setStreamError(null);
     setReconnectableError(false);
     setInterimSegment("");
@@ -183,37 +218,62 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
-      streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
+      if (recovering) {
+        const saved = await readPersonalTranscription(activeSession.sessionId, sessionToken, abort.signal);
+        if (!current()) return;
+        setActiveSession(saved);
+      }
+      const handle = await openBoardxRealtimeAsr(activeSession.sessionId, {
         sessionToken,
+        signal: abort.signal,
         deviceId: micDevices.selectedDeviceId ?? undefined,
         handlers: {
-          onState: (state) => setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state),
-          onInterim: setInterimSegment,
+          onState: (state) => {
+            if (!current() || failed) return;
+            setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state);
+            if (state === "recording") { setReconnecting(false); setStreamError(null); retryRef.current!.connected(); }
+          },
+          onInterim: (text) => { if (current() && !failed) setInterimSegment(text); },
           onFinal: (event) => {
+            if (!current() || failed) return;
             if (receivedFinalIdsRef.current.has(event.segmentId)) return;
             receivedFinalIdsRef.current.add(event.segmentId);
             setInterimSegment("");
             setActiveSession((current) => appendFinalEvent(current, event));
           },
-          onLevel: setInputLevel,
-          onFlow: (event) => setFlowState(event.state),
-          onError: (reason) => {
-            setInputLevel(0);
-            setReconnectableError(true);
-            setStreamError(streamErrorText(reason));
-            streamRef.current = null;
-          },
+          onLevel: (level) => { if (current() && !failed) setInputLevel(level); },
+          onFlow: (event) => { if (current() && !failed) setFlowState(event.state); },
+          onError: reportFailure,
         },
       });
+      if (!current() || failed) { void handle.stop().catch(() => undefined); return; }
+      streamRef.current = handle;
     } catch (error) {
-      streamRef.current = null;
-      setStreamState("error");
-      setReconnectableError(true);
-      setStreamError(error instanceof LiveRecordingError ? error.message : streamErrorText(error instanceof Error ? error.message : "CONNECTION_FAILED"));
+      const reason = transcriptionFailureReason(error);
+      reportFailure(reason, error instanceof LiveRecordingError ? error.message : streamErrorText(reason));
+    } finally {
+      openingRef.current = false;
+      if (current()) {
+        if (failed) retryRef.current!.failed(retryableFailure);
+      } else if (mountedRef.current && stoppingRef.current) {
+        stoppingRef.current = false;
+        setStreamState("idle");
+      }
     }
   }
+  restartRef.current = () => void startRealtimeTranscription(true);
 
   async function stopRealtimeTranscription() {
+    retryRef.current!.cancel();
+    setReconnecting(false);
+    if (openingRef.current) {
+      ++generationRef.current;
+      abortRef.current?.abort();
+      stoppingRef.current = true;
+      setStreamState("stopping");
+      setStreamError(null);
+      return;
+    }
     const handle = streamRef.current;
     const sessionId = activeSession?.sessionId;
     if (!handle && activeSession?.status === "recording") {
@@ -231,7 +291,11 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       }
       return;
     }
-    if (!handle || !sessionId || stoppingRef.current) return;
+    if (!handle || !sessionId || stoppingRef.current) {
+      setStreamState("idle");
+      setStreamError(null);
+      return;
+    }
     stoppingRef.current = true;
     setStreamError(null);
     setReconnectableError(false);
@@ -287,7 +351,20 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     }
   }
 
-  React.useEffect(() => () => { void streamRef.current?.stop().catch(() => undefined); }, []);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    const generationCounter = generationRef;
+    const online = () => retryRef.current!.online();
+    window.addEventListener("online", online);
+    return () => {
+      window.removeEventListener("online", online);
+      retryRef.current!.cancel();
+      mountedRef.current = false;
+      ++generationCounter.current;
+      abortRef.current?.abort();
+      void streamRef.current?.stop().catch(() => undefined);
+    };
+  }, []);
 
   // `?session=<id>` 直达：只在挂载时读一次；读不到就留在列表并如实报错。
   React.useEffect(() => {
@@ -303,12 +380,23 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} flowState={flowState} errorMessage={streamError} reconnectableError={reconnectableError}
+      reconnecting={reconnecting} connectionNotice={connectionNotice}
       inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
       onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
       onReconnect={() => void startRealtimeTranscription()}
       onSaveContent={saveContent}
-      onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;
+      onBack={() => {
+        if (streamRef.current || stoppingRef.current) return;
+        retryRef.current!.cancel();
+        ++generationRef.current;
+        abortRef.current?.abort();
+        setReconnecting(false);
+        setStreamState("idle");
+        setStreamError(null);
+        setConnectionNotice(null);
+        setActiveSession(null);
+      }} />;
   }
 
   return (
