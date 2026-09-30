@@ -21,7 +21,9 @@
     "initial-production-sync": "node --import tsx src/initial-production-sync-cli.ts",
     "cn-fast-safe-release": "node --import tsx src/cn-fast-safe-release-cli.ts",
     "provision": "node --import tsx src/provision-cli.ts",
-    "stable-secret-preflight": "node --import tsx src/stable-secret-continuity-cli.ts"
+    "stable-secret-preflight": "node --import tsx src/stable-secret-continuity-cli.ts",
+    "managed-data-preflight": "node --import tsx src/managed-data-preflight-cli.ts",
+    "runtime-environment-preflight": "node --import tsx src/runtime-environment-preflight-cli.ts"
   },
   "dependencies": {
     "zod": "3.25.76",

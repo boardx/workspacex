@@ -8,12 +8,14 @@ import re
 import sys
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 HEX40 = re.compile(r"^[a-f0-9]{40}$")
 HEX64 = re.compile(r"^[a-f0-9]{64}$")
 UTC_TIME = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 RELEASE = re.compile(r"^v?[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$")
+ATTEMPT_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 REQUIRED = {
     "source.exact_sha",
@@ -22,6 +24,7 @@ REQUIRED = {
     "toolchain.package_manager",
     "toolchain.pnpm_cli_protocol",
     "toolchain.stdout_protocol",
+    "toolchain.browser_runtime",
     "registry.acr_auth",
     "runtime.release_lock",
     "runtime.no_orphans",
@@ -36,8 +39,16 @@ REQUIRED = {
     "deploy.trusted_copy",
     "network.dependencies",
 }
-POSTBUILD_ONLY = {"build.target_image"}
+POSTBUILD_ONLY = {"build.target_images"}
 SERVICES = {"api", "web", "agent", "sandbox"}
+MANAGED_DATA_DESCRIBE_ACTIONS = {
+    "rds:DescribeDBInstanceAttribute",
+    "rds:DescribeDBInstanceSSL",
+    "rds:DescribeDBInstanceIPArrayList",
+    "rds:DescribeBackupPolicy",
+    "redis:DescribeInstanceAttribute",
+    "redis:DescribeInstanceSSL",
+}
 BOOTSTRAP_FAILURE_CODES = {
     "BOOTSTRAP_IMAGE_INCOMPATIBLE",
     "BOOTSTRAP_INPUT_INVALID",
@@ -111,6 +122,12 @@ def metadata(checks: dict, key: str) -> dict:
     return value
 
 
+def safe_metadata(checks: dict, key: str, allowed: set[str]) -> dict:
+    value = metadata(checks, key)
+    need(set(value) <= allowed, f"{key}.metadata contains a non-redacted key")
+    return value
+
+
 def receipt_hash(value: dict) -> str:
     return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
 
@@ -128,7 +145,7 @@ def validate(value: object, now: datetime | None = None) -> dict:
     need(value.get("schemaVersion") == 2, "schemaVersion must be 2")
     phase = value.get("phase")
     need(isinstance(phase, str) and phase in {"prebuild", "preactivate"}, "phase must be prebuild or preactivate")
-    need(isinstance(value.get("attemptId"), str) and value["attemptId"].strip(), "attemptId is required")
+    need(isinstance(value.get("attemptId"), str) and ATTEMPT_ID.fullmatch(value["attemptId"]) is not None, "attemptId must be a path-safe lowercase identifier")
     for field in ("sourceSha", "baselineSha"):
         need(isinstance(value.get(field), str) and HEX40.fullmatch(value[field]) is not None, f"{field} must be 40 lowercase hex")
     need(isinstance(value.get("release"), str) and RELEASE.fullmatch(value["release"]) is not None, "release must be semantic")
@@ -178,6 +195,14 @@ def validate(value: object, now: datetime | None = None) -> dict:
         if checks[key]["status"] == "passed":
             need(predicate, message)
 
+    exact = safe_metadata(checks, "source.exact_sha", {"requestedSha", "repositoryHead", "mirrorHead"})
+    if_passed(
+        "source.exact_sha",
+        exact.get("requestedSha") == value["sourceSha"]
+        and exact.get("repositoryHead") == value["sourceSha"]
+        and exact.get("mirrorHead") == value["sourceSha"],
+        "requested, repository and offline mirror source SHAs must be exact",
+    )
     complete = metadata(checks, "source.complete_artifact")
     if_passed("source.complete_artifact", complete.get("complete") is True and complete.get("offline") is True, "source artifact must be complete and offline")
     plan_b = metadata(checks, "source.offline_plan_b")
@@ -186,25 +211,89 @@ def validate(value: object, now: datetime | None = None) -> dict:
     if_passed("toolchain.package_manager", package.get("declared") == "pnpm@9.15.0" and package.get("actual") == "9.15.0", "pnpm must resolve exactly to packageManager pnpm@9.15.0")
     if_passed("toolchain.pnpm_cli_protocol", metadata(checks, "toolchain.pnpm_cli_protocol").get("doubleDashForwardingPassed") is True, "pnpm CLI forwarding counterproof did not pass")
     if_passed("toolchain.stdout_protocol", metadata(checks, "toolchain.stdout_protocol").get("exactlyOneMachineRecord") is True, "machine stdout protocol is unproved")
+    browser = safe_metadata(checks, "toolchain.browser_runtime", {"browserExecutable", "playwrightResolved", "launchPassed"})
+    browser_executable = browser.get("browserExecutable")
+    browser_ok = (
+        isinstance(browser_executable, str)
+        and "\x00" not in browser_executable
+        and PurePosixPath(browser_executable).is_absolute()
+        and browser.get("playwrightResolved") is True
+        and browser.get("launchPassed") is True
+    )
+    if_passed("toolchain.browser_runtime", browser_ok, "absolute browser executable, Playwright resolution and launch must all be proved")
     auth = metadata(checks, "registry.acr_auth")
     if_passed("registry.acr_auth", auth.get("authenticatedProbe") is True, "ACR authenticated probe is required")
     if_passed("registry.acr_auth", isinstance(auth.get("remainingTtlSeconds"), int) and auth["remainingTtlSeconds"] >= 1800, "ACR credential TTL must be at least 1800 seconds")
-    if_passed("runtime.release_lock", metadata(checks, "runtime.release_lock").get("heldByAttempt") is True, "release lock must be held by this attempt")
-    if_passed("runtime.no_orphans", metadata(checks, "runtime.no_orphans").get("count") == 0, "orphan release process count must be zero")
-    identity = metadata(checks, "config.release_manifest")
+    lock = safe_metadata(checks, "runtime.release_lock", {"heldByAttempt", "attemptId"})
+    if_passed("runtime.release_lock", lock.get("heldByAttempt") is True and lock.get("attemptId") == value["attemptId"], "release lock must be held by this exact attempt")
+    orphans = safe_metadata(checks, "runtime.no_orphans", {"scanPassed", "count"})
+    if_passed("runtime.no_orphans", orphans.get("scanPassed") is True and orphans.get("count") == 0, "orphan release process scan must pass with count zero")
+    identity = safe_metadata(checks, "config.release_manifest", {"sourceSha", "release", "kind", "imageDigest", "imageDigests"})
     identity_ok = identity.get("sourceSha") == value["sourceSha"] and identity.get("release") == value["release"]
     if phase == "prebuild":
-        identity_ok = identity_ok and identity.get("kind") == "source-plan" and "imageDigest" not in identity
+        identity_ok = identity_ok and identity.get("kind") == "source-plan" and "imageDigest" not in identity and "imageDigests" not in identity
     else:
-        image = metadata(checks, "build.target_image")
-        image_ok = image.get("sourceSha") == value["sourceSha"] and isinstance(image.get("digest"), str) and re.fullmatch(r"sha256:[a-f0-9]{64}", image["digest"]) is not None and image.get("entrypointVerified") is True
-        if_passed("build.target_image", image_ok, "target image digest, source identity or entrypoint is unproved")
-        identity_ok = identity_ok and identity.get("kind") == "sealed-image" and identity.get("imageDigest") == image.get("digest")
+        target_metadata = safe_metadata(checks, "build.target_images", {"services"})
+        targets = target_metadata.get("services")
+        targets_ok = isinstance(targets, dict) and set(targets) == SERVICES
+        if targets_ok:
+            for service in SERVICES:
+                target = targets[service]
+                targets_ok = (
+                    isinstance(target, dict)
+                    and set(target) <= {"sourceSha", "digest", "entrypointVerified"}
+                    and target.get("sourceSha") == value["sourceSha"]
+                    and isinstance(target.get("digest"), str)
+                    and DIGEST.fullmatch(target["digest"]) is not None
+                    and target.get("entrypointVerified") is True
+                )
+                if not targets_ok:
+                    break
+        if_passed("build.target_images", targets_ok, "all four target image digests, source identities and entrypoints must be proved")
+        manifest_digests = identity.get("imageDigests")
+        identity_ok = (
+            identity_ok
+            and identity.get("kind") == "sealed-images"
+            and isinstance(manifest_digests, dict)
+            and set(manifest_digests) == SERVICES
+            and targets_ok
+            and all(manifest_digests[service] == targets[service]["digest"] for service in SERVICES)
+        )
     if_passed("config.release_manifest", identity_ok, "config/manifest release identity or stage differs")
+    durable = safe_metadata(checks, "config.durable_profiles", {"asrConfigured", "githubIssueConfigured", "platformSuperuserConfigured"})
+    durable_ok = (
+        durable.get("asrConfigured") is True
+        and durable.get("githubIssueConfigured") is True
+        and durable.get("platformSuperuserConfigured") is True
+    )
+    if_passed("config.durable_profiles", durable_ok, "ASR, GitHub issue and platform superuser durable profiles must be proved")
     secrets = metadata(checks, "config.secret_serialization")
     if_passed("config.secret_serialization", isinstance(secrets.get("checkedRefs"), int) and secrets["checkedRefs"] > 0 and secrets.get("invalidKeys") == [], "all secret refs and runtime env maps must pass serialization")
-    managed = metadata(checks, "cloud.managed_data_permissions")
-    if_passed("cloud.managed_data_permissions", managed.get("liveDescribePassed") is True and managed.get("temporaryPolicyExpires") is True and managed.get("cleanupRegistered") is True, "managed-data Describe permissions and bounded cleanup must be proved")
+    managed = safe_metadata(
+        checks,
+        "cloud.managed_data_permissions",
+        {"mode", "liveDescribePassed", "passedActions", "temporaryPolicyExpires", "cleanupRegistered", "resourceScoped", "readOnlyActionsOnly"},
+    )
+    passed_actions = managed.get("passedActions")
+    live_describes_ok = (
+        managed.get("liveDescribePassed") is True
+        and isinstance(passed_actions, list)
+        and all(isinstance(action, str) for action in passed_actions)
+        and len(passed_actions) == len(set(passed_actions))
+        and set(passed_actions) == MANAGED_DATA_DESCRIBE_ACTIONS
+    )
+    permission_mode = managed.get("mode")
+    temporary_ok = (
+        permission_mode == "temporary-policy"
+        and managed.get("temporaryPolicyExpires") is True
+        and managed.get("cleanupRegistered") is True
+    )
+    persistent_ok = (
+        permission_mode == "persistent-resource-scoped-read-only"
+        and managed.get("resourceScoped") is True
+        and managed.get("readOnlyActionsOnly") is True
+    )
+    if_passed("cloud.managed_data_permissions", live_describes_ok and (temporary_ok or persistent_ok), "six live Describe actions and one bounded permission mode must be proved")
     drain = metadata(checks, "database.drain_read_access")
     if_passed("database.drain_read_access", drain.get("role") == "app_diag_ro" and drain.get("canReadAgentRuns") is True, "app_diag_ro drain read is unproved")
     bootstrap = metadata(checks, "bootstrap.compatibility")
@@ -239,8 +328,24 @@ def validate(value: object, now: datetime | None = None) -> dict:
         and continuity.get("noMutation") is True
     )
     if_passed("secrets.stable_continuity", continuity_ok, "all 12 stable deployment secrets must be reused without mutation")
-    affected = metadata(checks, "build.affected_services").get("services")
-    if_passed("build.affected_services", isinstance(affected, list) and len(affected) == len(set(affected)) and set(affected) <= SERVICES, "affected services must be a unique subset of api/web/agent/sandbox")
+    affected_metadata = safe_metadata(checks, "build.affected_services", {"diffComputed", "baselineSha", "sourceSha", "services"})
+    affected = affected_metadata.get("services")
+    affected_ok = (
+        affected_metadata.get("diffComputed") is True
+        and affected_metadata.get("baselineSha") == value["baselineSha"]
+        and affected_metadata.get("sourceSha") == value["sourceSha"]
+        and isinstance(affected, list)
+        and all(isinstance(service, str) for service in affected)
+        and len(affected) == len(set(affected))
+        and set(affected) <= SERVICES
+    )
+    if_passed("build.affected_services", affected_ok, "affected services must come from the exact baseline-to-source diff")
+    trusted = safe_metadata(checks, "deploy.trusted_copy", {"hashesMatch", "checkedEntrypoints"})
+    trusted_ok = trusted.get("hashesMatch") is True and isinstance(trusted.get("checkedEntrypoints"), int) and trusted["checkedEntrypoints"] > 0
+    if_passed("deploy.trusted_copy", trusted_ok, "trusted entrypoint hashes must be compared against the candidate")
+    network = safe_metadata(checks, "network.dependencies", {"probed", "acr", "oss", "rds", "redis"})
+    network_ok = network.get("probed") is True and all(network.get(name) is True for name in ("acr", "oss", "rds", "redis"))
+    if_passed("network.dependencies", network_ok, "ACR, OSS, RDS and Redis live network probes must all pass")
 
     return {
         "schemaVersion": 2,

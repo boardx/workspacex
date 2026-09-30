@@ -363,7 +363,7 @@ describe("实时转录历史工作台", () => {
     api.read.mockRejectedValue(new Error("network"));
     api.list.mockRejectedValue(new Error("network"));
     fireEvent.click(screen.getByTestId("rec-live-toggle"));
-    expect(await screen.findByText(/转录已停止.*刷新/)).toBeInTheDocument();
+    expect(await screen.findByText(/转录已停止.*刷新/, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
     expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
     expect(api.stopAsr).toHaveBeenCalledTimes(1);

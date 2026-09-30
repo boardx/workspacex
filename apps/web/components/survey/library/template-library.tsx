@@ -188,7 +188,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
           </Button>
         </div>
       </header>
-      <div className="grid gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
+      <div className="flex flex-col gap-6">
         <SurveyLibraryNav active={kind === "question" ? "modules" : "reports"} />
         <section className="min-w-0 space-y-6" aria-label={`${label}列表`}>
       {(error || loadError) && (
