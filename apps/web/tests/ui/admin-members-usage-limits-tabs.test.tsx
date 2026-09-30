@@ -31,10 +31,10 @@ function renderScreen() {
 }
 
 describe("①默认态：成员配额仍是默认打开的 tab", () => {
-  it("不切 tab 就能看到既有的 admin-members-list（不因加 tab 而回退）", () => {
+  it("不切 tab 就能看到成员配额面板（不因加 tab 而回退）", () => {
     renderScreen();
     expect(screen.getByTestId("admin-members-tabpanel-quota")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-members-list")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-members-tabpanel-quota")).toHaveTextContent("尚未选择组织。");
     // 另两个 tab 面板还没挂载/未激活时不应该抢先出现同名 testid 冲突
     expect(screen.getByTestId("admin-members-tab-quota")).toHaveAttribute("data-state", "active");
   });

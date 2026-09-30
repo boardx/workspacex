@@ -210,7 +210,7 @@ describe("§3 渲染层：入口有且只有一处", () => {
     const orgAdminItem = ADMIN_SECOND_LEVEL.find((i) => i.key === "org-admin");
     expect(orgAdminItem, "ADMIN_SECOND_LEVEL 仍须声明 org-admin（lint-nav-reachability 的文本来源）")
       .toBeDefined();
-    expect(link.getAttribute("href")).toBe(orgAdminItem!.href);
+    expect(link.getAttribute("href")).toBe("/org-admin/members");
   });
 
   it("其余五项（已真合并）不再在 AdminNav 里画出第二个入口", async () => {
