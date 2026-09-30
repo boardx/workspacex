@@ -345,12 +345,13 @@ export class RecordingController {
 
   @Post(PersonalC.operations.stopPersonalTranscription.path)
   @HttpCode(HttpStatus.OK)
-  async stopPersonal(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+  async stopPersonal(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string,
+    @Body(new ZodBodyPipe(PersonalC.operations.stopPersonalTranscription.in.omit({ sessionId: true }).default({}))) body: { captureId?: string }) {
     assertPrincipal(principal);
     try {
       return PersonalC.operations.stopPersonalTranscription.out.parse(
         await stopPersonalTranscription(this.personalDependencies(), {
-          userId: principal.userId, orgId: toOrgId(principal.orgId), transcriptionId: sessionId,
+          userId: principal.userId, orgId: toOrgId(principal.orgId), transcriptionId: sessionId, captureId: body.captureId,
         }),
       );
     } catch (error) { this.personalError(error); }
