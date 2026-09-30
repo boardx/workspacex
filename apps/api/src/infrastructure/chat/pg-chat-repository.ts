@@ -772,6 +772,27 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  /** 见 `ports.ts` 上的注释：语音模式转写落库。 */
+  async insertVoiceTranscriptMessage(
+    orgId: OrgId,
+    input: {
+      readonly id: string;
+      readonly threadId: string;
+      readonly authorKind: "human" | "agent";
+      readonly authorId: string;
+      readonly agentId: string | null;
+      readonly body: string;
+    },
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, agent_id, body)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [input.id, orgId, input.threadId, input.authorKind, input.authorId, input.agentId, input.body],
+      );
+    });
+  }
+
   /** 见 `ports.ts` 上的注释：判权与查询的起点都是它。 */
   async findMessageLocation(orgId: OrgId, messageId: string): Promise<MessageLocation | null> {
     return this.db.withTenant(orgId, async (s) => {

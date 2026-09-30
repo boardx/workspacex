@@ -74,6 +74,7 @@ import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button"
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
+import { ChatRealtimeVoiceEntry, mergePersistedVoiceTurns } from "@/components/chat/chat-realtime-voice-entry";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { SessionBriefing } from "@/components/chat/knowledge/session-briefing";
@@ -1112,6 +1113,22 @@ export function CopilotKitV2PanelBody({
     return attachmentThreadPromiseRef.current;
   }, [projectId]);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
+  // 「实时对话」（Chat 语音模式）：转写落进同一条线程；挂断后把新消息并进视图（新对话则回写地址栏触发 hydration）。
+  const selectedVoiceAgent = agentOptions.status === "ready" ? agentOptions.agents.find((a) => a.id === selectedAgentId) ?? null : null;
+  const resolveVoiceThreadId = React.useCallback(
+    async () => chatThreadIdRef.current ?? initialChatThreadId ?? resolveAttachmentThreadId(),
+    [initialChatThreadId, resolveAttachmentThreadId],
+  );
+  const onVoiceSessionEnded = React.useCallback(({ threadId: tid, persistedMessageIds }: { threadId: string | null; persistedMessageIds: readonly string[] }) => {
+    if (tid === null || persistedMessageIds.length === 0) return;
+    if (chatThreadIdRef.current === null && initialChatThreadId === null) {
+      chatThreadIdRef.current = tid;
+      setResolvedChatThreadId(tid);
+      onThreadResolved?.(tid);
+      return;
+    }
+    void mergePersistedVoiceTurns(agent, tid, persistedMessageIds, getStoredSessionToken() ?? undefined).catch(() => setError("语音对话已保存，刷新页面即可看到。"));
+  }, [agent, initialChatThreadId, onThreadResolved]);
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
     canWrite: canWrite && !archived,
@@ -2494,6 +2511,12 @@ export function CopilotKitV2PanelBody({
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
               <div className="flex shrink-0 items-center gap-3">
+                <ChatRealtimeVoiceEntry
+                  disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
+                  agent={selectedVoiceAgent}
+                  resolveThreadId={resolveVoiceThreadId}
+                  onEnded={onVoiceSessionEnded}
+                />
                 <ComposerVoiceControl
                   status={speech.status}
                   phase={voice.phase}
