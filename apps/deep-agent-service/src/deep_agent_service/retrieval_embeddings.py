@@ -53,6 +53,21 @@ class _BoundedTransport(httpx.AsyncBaseTransport):
     async def aclose(self):
         await self.transport.aclose()
 
+# One pooled client per event loop, reused across requests. A fresh client per request paid a
+# new TCP + TLS handshake every time: devapp-probe (2026-09-30) measured ~530ms per single-text
+# query on a fresh connection vs ~220ms kept alive, while the API's vector recall budget is
+# KG_VECTOR_RECALL_TIMEOUT_MS=400 — so every recall turn timed out and degraded to text only.
+_CLIENT=None
+_CLIENT_LOOP=None
+
+def _provider_client():
+    global _CLIENT,_CLIENT_LOOP
+    loop=asyncio.get_running_loop()
+    if _CLIENT is None or _CLIENT.is_closed or _CLIENT_LOOP is not loop:
+        _CLIENT=httpx.AsyncClient(transport=_BoundedTransport(),headers={'accept-encoding':'identity'},timeout=_L['deadlineMs']/1000,follow_redirects=False,trust_env=False)
+        _CLIENT_LOOP=loop
+    return _CLIENT
+
 async def embed_texts(texts):
     # Reuse the deployment model connection. Never accept provider configuration from input.
     base=os.environ.get('KERNEL_MODEL_BASE_URL','')
@@ -62,9 +77,8 @@ async def embed_texts(texts):
     if not all((base,key,model,revision)):
         raise RetrievalEmbeddingUnavailable('embedding_not_configured')
     try:
-        async with httpx.AsyncClient(transport=_BoundedTransport(),headers={'accept-encoding':'identity'},timeout=_L['deadlineMs']/1000,follow_redirects=False,trust_env=False) as client:
-            provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,chunk_size=_PROVIDER_BATCH,http_async_client=client)
-            vectors=await provider.aembed_documents(texts)
+        provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,chunk_size=_PROVIDER_BATCH,http_async_client=_provider_client())
+        vectors=await provider.aembed_documents(texts)
         output={'model':model,'modelVersion':revision,'vectors':vectors}
         Draft7Validator(_SCHEMA['output']).validate(output)
         if len(vectors)!=len(texts) or len({len(v) for v in vectors})!=1 or any(not math.isfinite(x) for v in vectors for x in v):
