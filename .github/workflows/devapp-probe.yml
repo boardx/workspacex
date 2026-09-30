@@ -83,6 +83,15 @@ jobs:
           $PSQL "SELECT ch, count(*) FROM kg_turn_recalls r, jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch WHERE r.created_at > now() - interval '7 days' GROUP BY 1 ORDER BY 2 DESC"
           echo "── 召回明细（最近 5 轮：每轮命中的通道）──"
           $PSQL "SELECT r.created_at::timestamp(0), r.graph_degraded, (SELECT string_agg(DISTINCT ch, ',') FROM jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch) FROM kg_turn_recalls r ORDER BY r.created_at DESC LIMIT 5"
+          echo "── 抽取三道闸门：部署开关 / 组织开关（provider 是否配置看 API 启动日志）──"
+          $PSQL "SELECT * FROM kg_extraction_state" 2>&1 | head -3
+          $PSQL "SELECT org_id, enabled, updated_at::timestamp(0) FROM kg_org_extraction_settings ORDER BY 3 DESC" 2>&1 | head -12
+          echo "── 最近 7 天的消息量与抽取结果 ──"
+          $PSQL "SELECT count(*), count(*) FILTER (WHERE author_kind='human') FROM chat_messages WHERE created_at > now() - interval '7 days'" 2>&1
+          $PSQL "SELECT status, count(*) FROM kg_message_extraction_outcomes WHERE created_at > now() - interval '7 days' GROUP BY 1" 2>&1 | head -8
+          $PSQL "SELECT status, count(*) FROM kg_message_extraction_outcomes GROUP BY 1" 2>&1 | head -8
+          echo "── API 最近 24h 抽取相关日志（最多 15 行）──"
+          journalctl -u workspacex-api --since "-24h" 2>&1 | grep -iE 'kg extraction|extraction (skipped|failed|disabled)|KG_EXTRACTION' | tail -15 || true
           echo "── API 最近 24h 与嵌入 / 图 / 召回相关的报错（最多 25 行）──"
           journalctl -u workspacex-api --since "-24h" 2>&1 | grep -iE 'embedding|KG_GRAPH|graph_unavailable|vector|recall.*(fail|degrad)' | grep -viE 'debug' | tail -25
           echo "── deep-agent 最近 24h 嵌入报错（最多 10 行）──"
