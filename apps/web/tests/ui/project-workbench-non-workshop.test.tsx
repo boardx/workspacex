@@ -191,6 +191,7 @@ describe("#4615 通用项目的工作台", () => {
     renderWorkbench("overview");
     await waitFor(() => expect(screen.getByTestId("project-header-meta")).toHaveTextContent("项目"));
     expect(screen.queryByTestId("project-access-denied")).toBeNull();
+    expect(screen.queryByTestId("project-preview-bar")).toBeNull();
     for (const t of ["overview", "content", "brain", "results", "settings"]) expect(screen.getByTestId(`project-tab-${t}`)).toBeInTheDocument();
     expect(screen.getByTestId("project-tab-content")).toHaveTextContent("内容");
     expect(screen.getByTestId("project-tab-content")).toHaveAttribute("href", expect.stringContaining("tab=content"));

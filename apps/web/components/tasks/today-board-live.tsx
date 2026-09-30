@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar } from "@/components/ui/avatar";
 import { ApiError } from "@/lib/api-client";
 import { describeFailure } from "@/lib/design-failure";
@@ -126,22 +128,31 @@ function NewTaskForm({ projectId, ownerUserId, onCreated }: {
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-card p-3" data-testid="tasks-new-task-form">
-      <input
-        className="rounded-md border border-border-subtle px-2 py-1 text-12"
-        placeholder="标题"
+      <Label className="block" htmlFor="new-task-title">任务标题</Label>
+      <Input
+        id="new-task-title"
+        autoFocus
+        placeholder="描述需要完成的事"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         data-testid="tasks-new-task-title"
       />
       <div className="flex flex-wrap gap-2">
-        <input
+        <div className="space-y-1">
+        <Label className="block" htmlFor="new-task-due">截止日期（可选）</Label>
+        <Input
+          id="new-task-due"
           type="date"
           className="rounded-md border border-border-subtle px-2 py-1 text-12"
           value={dueAt}
           onChange={(e) => setDueAt(e.target.value)}
           data-testid="tasks-new-task-due"
         />
+        </div>
+        <div className="space-y-1">
+        <Label className="block" htmlFor="new-task-risk">风险等级（可选）</Label>
         <select
+          id="new-task-risk"
           className="rounded-md border border-border-subtle px-2 py-1 text-12"
           value={riskLevel}
           onChange={(e) => setRiskLevel(e.target.value)}
@@ -152,8 +163,9 @@ function NewTaskForm({ projectId, ownerUserId, onCreated }: {
           <option value="R2">R2</option>
           <option value="R3">R3</option>
         </select>
+        </div>
       </div>
-      {error && <p className="text-11 text-destructive" data-testid="tasks-new-task-error">{error}</p>}
+      {error && <p role="alert" className="text-11 text-destructive" data-testid="tasks-new-task-error">{error}</p>}
       <div className="flex items-center gap-2">
         <Button size="sm" variant="primary" disabled={submitting || title.trim() === ""} onClick={submit} data-testid="tasks-new-task-submit">
           {submitting ? "创建中…" : "创建"}

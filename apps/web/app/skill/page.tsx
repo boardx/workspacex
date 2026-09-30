@@ -36,6 +36,7 @@ export default function SkillPage({
       previewRole={projectRole}
       uiState={uiState}
       screen={screen}
+      previewEnabled={Boolean(searchParams.state || searchParams.as)}
       view={view}
       qs={{ as: searchParams.as, org: searchParams.org }}
     />
