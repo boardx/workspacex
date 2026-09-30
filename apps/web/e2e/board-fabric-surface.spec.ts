@@ -93,6 +93,8 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     const region = page.getByTestId("board-editor-region");
     const shellBounds = await region.locator("..").boundingBox();
     const regionBounds = await region.boundingBox();
+    const banner = page.getByTestId("board-sync-banner");
+    const bannerBounds = await banner.isVisible() ? await banner.boundingBox() : null;
     const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
@@ -107,7 +109,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
     expect(regionBounds!.height).toBeGreaterThan(0);
     if (bannerBounds) {
-      expect(bannerBounds).toMatchObject({ x: 0, y: 0, width: viewport.width });
+      expect(bannerBounds).toMatchObject({ x: 0, y: 64, width: viewport.width });
       expect(bannerBounds.height).toBeGreaterThan(0);
     }
   };
