@@ -20,7 +20,6 @@ import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
 import { useRunTraceTail } from "@/lib/chat-workbench/use-run-trace-tail";
 import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
 import { traceEntries } from "@/lib/chat-workbench/run-trace";
-import { actionsByPlanStep, type PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { LivePlanContext, NO_LIVE_PLAN, type LivePlan } from "@/lib/chat-workbench/live-plan-context";
 import { useTemplateRecommendations, readTemplateSuggestionDismissed } from "@/lib/chat-workbench/use-template-recommendations";
 import { useTimelineScroll } from "@/lib/chat-workbench/use-timeline-scroll";
@@ -130,7 +129,6 @@ export function CopilotKitV2PanelBody({
   onRunStateChange,
   onPendingMaterialsChange,
   onUploadingMaterialsChange,
-  onPlanStepActionsChange,
   onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
@@ -194,8 +192,6 @@ export function CopilotKitV2PanelBody({
    * 在上传完成前毫无反馈——用户在右栏动作，回应却出现在屏幕另一端。这个回调把
    * "正在传几个"实时递给外壳，转给「材料」面板显示。 */
   onUploadingMaterialsChange?: (count: number) => void;
-  /** 2026-09-27 计划显示统一 —— 最近一轮里每一步计划下做过的动作，供右栏「进度」页签按步展开。 */
-  onPlanStepActionsChange?: (actions: ReadonlyMap<string, readonly PlanStepAction[]>) => void;
   /** issue #3347 —— 见下方 `attachUploadPort` 的文档：右栏「材料」页签的上传能力面。 */
   onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1443,19 +1439,6 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onUploadingMaterialsChange?.(uploadingMaterialsCount);
   }, [uploadingMaterialsCount, onUploadingMaterialsChange]);
-  /** 最近一轮带计划的执行过程 → 每步动作（见 `actionsByPlanStep`）。取**最后一条**有计划的 run：
-   * 右栏看的是当前这份计划，与账本（线程最新计划）对得上。 */
-  const planStepActions = React.useMemo(() => {
-    const runs = Object.values(runTrace.events);
-    for (let i = runs.length - 1; i >= 0; i -= 1) {
-      const actions = actionsByPlanStep(traceEntries(runs[i] ?? []));
-      if (actions.size > 0) return actions;
-    }
-    return new Map<string, readonly PlanStepAction[]>();
-  }, [runTrace.events]);
-  React.useEffect(() => {
-    onPlanStepActionsChange?.(planStepActions);
-  }, [planStepActions, onPlanStepActionsChange]);
 
   /**
    * issue #3347 —— 把 composer 这**同一个**附件控制器的最小上传能力面交给外壳，

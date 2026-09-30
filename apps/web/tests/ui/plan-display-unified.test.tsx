@@ -26,6 +26,7 @@ import { LivePlanContext, type LivePlan } from "@/lib/chat-workbench/live-plan-c
 import { actionsByPlanStep } from "@/lib/chat-workbench/trace-plan";
 import { traceEntries } from "@/lib/chat-workbench/run-trace";
 import { PlanRunProgress } from "@/components/plan-control/plan-run-progress";
+import { CopilotKitV2PlanControl } from "@/components/chat/copilotkit-v2-plan-control";
 import { deriveRunStatusView } from "@repo/contracts/plan-control";
 
 const base = { runId: "run-1", emittedAt: "2026-09-27T00:00:00Z" };
@@ -84,7 +85,7 @@ describe("① 消息流里的计划卡", () => {
   });
 });
 
-describe("③ 右栏「进度」页签：每一步做过的动作", () => {
+describe("③ 每一步做过的动作（现在在消息流计划卡里）", () => {
   const events = (): ExecutionEvent[] => [
     status("running"),
     ...tool("read_file", { path: "/skills/pptx-create/SKILL.md" }), // 计划开始前：不归任何一步
@@ -103,28 +104,57 @@ describe("③ 右栏「进度」页签：每一步做过的动作", () => {
     expect([...map.values()].flat().some((a) => a.tool === "read_file")).toBe(false);
   });
 
-  it("页签里每一步下面列出它的动作；没有动作的步骤不画占位", async () => {
-    api.fetchPlanLedger.mockResolvedValue({
-      revision: 2, engineEpoch: 1, origin: "engine", stepsAreProposal: false, pendingPermissionRequestId: null,
-      steps: [
-        { planStepId: "s1", content: "研究设计思维历史", status: "completed", constraints: [] },
-        { planStepId: "s2", content: "整理 PPT 大纲", status: "in_progress", constraints: [] },
-        { planStepId: "s3", content: "生成 PPT", status: "pending", constraints: [] },
-      ],
-      orphanedConstraints: [], phase: "executing", gate: { required: true, reason: "multi-step" },
-      progress: { completed: 1, total: 3, elapsedMs: 1000 }, pendingApplyAtNextRun: false,
-      runStatus: "running", activeRunId: "run-1", pausedAt: null, pauseRequestedAt: null, cancelRequestedAt: null,
-      errorCode: null, failedStepId: null,
-    } as unknown as PlanLedgerView);
+  it("消息流计划卡：每一步可展开看它做过的动作；没有动作的步骤不画占位", () => {
+    render(<RunTracePanel runId="run-1" events={events()} running />);
+    const steps = within(screen.getByTestId("agent-plan-panel")).getAllByRole("listitem").filter((li) => li.hasAttribute("data-plan-index"));
+    expect(steps).toHaveLength(3);
+    expect(within(steps[0]!).getAllByTestId("chat-task-workbench-plan-step-action")).toHaveLength(2);
+    expect(within(steps[1]!).getAllByTestId("chat-task-workbench-plan-step-action")).toHaveLength(1);
+    expect(within(steps[2]!).queryByTestId("chat-task-workbench-plan-step-actions")).toBeNull();
+    // 消息流里默认收起，计划卡保持紧凑。
+    expect(within(steps[1]!).getByTestId("chat-task-workbench-plan-step-actions")).not.toHaveAttribute("open");
+  });
+
+  it("右栏不再有「进度」页签——计划只留消息流一处", () => {
+    api.fetchPlanLedger.mockReturnValue(new Promise(() => {}));
     render(<ChatTaskInspector hasSelection threadId="t-1" artifacts={null} materials={null} loading={false}
       artifactsError={null} materialsError={null} onRetry={() => {}} pendingMaterialsCount={0} isRunning
-      runPhaseLabel={null} runStartedAt={null} planTodos={null} planStepActions={actionsByPlanStep(traceEntries(events()))} />);
+      runPhaseLabel={null} runStartedAt={null} planTodos={null} />);
     fireEvent.click(screen.getByTestId("chat-task-workbench-inspector-expand"));
-    await waitFor(() => expect(screen.getAllByTestId("chat-task-workbench-plan-step")).toHaveLength(3));
-    const [research, outline, build] = screen.getAllByTestId("chat-task-workbench-plan-step");
-    expect(within(research!).getAllByTestId("chat-task-workbench-plan-step-action")).toHaveLength(2);
-    expect(within(outline!).getAllByTestId("chat-task-workbench-plan-step-action")).toHaveLength(1);
-    expect(within(build!).queryByTestId("chat-task-workbench-plan-step-actions")).toBeNull();
+    const tabs = screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent ?? "");
+    expect(tabs.some((t) => t.includes("进度"))).toBe(false);
+    expect(tabs.some((t) => t.includes("材料"))).toBe(true);
+    expect(screen.queryByTestId("chat-task-workbench-plan-panel")).toBeNull();
+  });
+});
+
+describe("② 底部计划面板：执行中不再列步骤", () => {
+  const liveLedger = (): PlanLedgerView => ({
+    revision: 2, engineEpoch: 1, origin: "engine", stepsAreProposal: false, pendingPermissionRequestId: null,
+    steps: [
+      { planStepId: "s1", content: "研究设计思维历史", status: "completed", constraints: [] },
+      { planStepId: "s2", content: "整理 PPT 大纲", status: "in_progress", constraints: [] },
+    ],
+    orphanedConstraints: [], phase: "executing", gate: { required: true, reason: "multi-step" },
+    progress: { completed: 1, total: 2, elapsedMs: 1000 }, pendingApplyAtNextRun: false,
+    runStatus: "running", activeRunId: "run-1", pausedAt: null, pauseRequestedAt: null, cancelRequestedAt: null,
+    errorCode: null, failedStepId: null,
+  } as unknown as PlanLedgerView);
+
+  it("执行中展开底部：只有状态与控制，没有步骤列表（列表在消息流）", async () => {
+    api.fetchPlanLedger.mockResolvedValue(liveLedger());
+    render(<CopilotKitV2PlanControl threadId="t-1" />);
+    fireEvent.click(await screen.findByTestId("chat-task-workbench-plan-collapse-toggle"));
+    expect(screen.getByTestId("chat-task-workbench-run-progress")).toBeInTheDocument();
+    expect(screen.queryByText("研究设计思维历史")).toBeNull();
+  });
+
+  it("配对：点「编辑计划」时底部才列出可编辑的步骤", async () => {
+    api.fetchPlanLedger.mockResolvedValue(liveLedger());
+    render(<CopilotKitV2PlanControl threadId="t-1" />);
+    fireEvent.click(await screen.findByTestId("chat-task-workbench-plan-collapse-toggle"));
+    fireEvent.click(screen.getByTestId("chat-task-workbench-plan-edit-toggle"));
+    await waitFor(() => expect(screen.getByText("研究设计思维历史")).toBeInTheDocument());
   });
 });
 

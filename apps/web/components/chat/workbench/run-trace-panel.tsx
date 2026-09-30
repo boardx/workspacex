@@ -8,7 +8,8 @@ import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/t
 import { toolUrl } from "@/lib/chat-workbench/external-url";
 import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
-import { planFromTrace } from "@/lib/chat-workbench/trace-plan";
+import { planFromTrace, actionsByPlanStep } from "@/lib/chat-workbench/trace-plan";
+import { PlanStepActionList } from "@/components/chat/plan-step-action-list";
 import { LivePlanContext } from "@/lib/chat-workbench/live-plan-context";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
@@ -125,6 +126,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
   const planTodos = React.useMemo(() => planFromTrace(entries), [entries]);
+  // 2026-09-30 计划只留消息流这一处：每一步点开看它做过的动作（原右栏「进度」页签的内容搬到这里）。
+  const stepActions = React.useMemo(() => actionsByPlanStep(entries), [entries]);
   const [now, setNow] = React.useState(Date.now);
   const status = [...events].reverse().find((event) => event.kind === "status");
   const legacy = events.every((event) => event.source === "legacy");
@@ -191,7 +194,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
         已经在浏览器手上了。用「既有的」AgentPlanPanel 渲染，不另画一套。 */}
     {showPlanHere && shownTodos !== null ? (
       <div className="mb-1.5" data-testid="run-trace-plan">
-        <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos} />
+        <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos}
+          renderStepDetail={(todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} openWhenActive={false} />} />
       </div>
     ) : null}
     {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
