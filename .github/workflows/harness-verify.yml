@@ -566,15 +566,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
       - name: Execute trusted full-stack smoke
         if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
+          node .harness/scripts/ci-fullstack-runtime.mjs run 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
@@ -592,7 +590,7 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
+          node .harness/scripts/ci-fullstack-runtime.mjs geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
