@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BOOTSTRAP_RELATIONS, guardBootstrapReadOnly, initialBootstrapResult, parseBootstrapCompatibilityOutput, probeBootstrapCompatibility, type BootstrapProbeInput, type ReadOnlyClient } from "../../src/infrastructure/deploy/bootstrap-compatibility";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_AGENT_TEMPLATE } from "../../src/infrastructure/agent/pg-default-agent-repository";
 import { DEEP_RESEARCH_AGENT_TEMPLATE } from "../../src/infrastructure/agent/pg-deep-research-agent-repository";
 import { IMAGE_GEN_AGENT_TEMPLATE } from "../../src/infrastructure/agent/pg-image-gen-agent-repository";
@@ -92,10 +92,11 @@ describe("read-only bootstrap compatibility", () => {
     expect(() => parseBootstrapCompatibilityOutput(`pnpm noise\n${line}`)).toThrow("BOOTSTRAP_MACHINE_OUTPUT_INVALID");
     expect(() => parseBootstrapCompatibilityOutput(`${line}\n${line}`)).toThrow("BOOTSTRAP_MACHINE_OUTPUT_INVALID");
   });
-  it("loads actual source entry/dependency closure without contacting a database", () => {
-    const script = resolve("apps/api/scripts/provision-admin-compatibility.ts");
+  it.each(["package", "repository"])("loads actual source entry/dependency closure from %s cwd without database contact", (scope) => {
+    const script = fileURLToPath(new URL("../../scripts/provision-admin-compatibility.ts", import.meta.url));
+    const cwd = fileURLToPath(new URL(scope === "package" ? "../../" : "../../../../", import.meta.url));
     const run = spawnSync(process.execPath, ["--import", "tsx", script, "--static"], {
-      timeout: 10000, encoding: "utf8", cwd: resolve("apps/api"), env: { ...process.env,
+      timeout: 10000, encoding: "utf8", cwd, env: { ...process.env,
         WORKSPACEX_DEPLOY_PROFILE: "starter", PGHOST: "127.0.0.1", PGPORT: "1", PGDATABASE: "probe_never_connected",
         PGSSLMODE: "disable", PGSSLROOTCERT: "", APP_DB_USER: "app_rw", APP_DB_PASSWORD: "fixture-credential-at-least-16",
         CN_BOOTSTRAP_SOURCE_SHA: input.sourceSha, CN_BOOTSTRAP_PHASE: "prebuild",
@@ -103,6 +104,7 @@ describe("read-only bootstrap compatibility", () => {
         PROVISION_ADMIN_NAME: input.displayName, PROVISION_ORG_NAME: input.orgName,
       },
     });
+    expect(run.error).toBeUndefined();
     expect(run.status).toBe(0); const r = parseBootstrapCompatibilityOutput(run.stdout);
     expect(r.ready).toBe(true); expect(r.readOnlyTransaction).toBe(false);
   });
@@ -120,7 +122,7 @@ it("keeps the privileged deployment audit outside every HTTP interface import", 
       else if (path.endsWith(".ts")) files.push(path);
     }
   };
-  await walk(new URL("../../src/interface/", import.meta.url).pathname);
+  await walk(fileURLToPath(new URL("../../src/interface/", import.meta.url)));
   for (const file of files) {
     const source = await readFile(file, "utf8");
     expect(source).not.toMatch(/bootstrap-compatibility|provision-admin-compatibility/);
