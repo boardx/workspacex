@@ -38,7 +38,7 @@ function Harness({ rows, initialSelected = null }: { rows: readonly Row[]; initi
       keyOf={(r) => r.id}
       searchTextOf={(r) => `${r.name} ${r.id}`}
       tagsOf={(r) => [tagOf(r.status), tagOf(r.scope)]}
-      renderCard={(r) => <div>{r.name}</div>}
+      renderCard={(r) => ({ title: r.name })}
       onRefresh={() => {}}
       emptyState="没有行"
       selectedKey={selected}

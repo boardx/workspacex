@@ -6,6 +6,7 @@ import { ArrowRight, CalendarDays, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ExpertAvatarEditor } from "./expert-avatar";
+import { ResourceCard } from "@/components/ui/resource-card";
 import { StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
@@ -299,29 +300,30 @@ function ExpertContent({ state, preview = false, filtered, onRetry, onClearFilte
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {state.items.map((expert) => (
-        <article key={expert.expertId} data-testid={`itv-expert-card-${expert.expertId}`} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <ExpertAvatarEditor expertId={expert.expertId} displayName={expert.displayName} compact />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-card-foreground">{expert.displayName}</h2>
-                {preview && <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
+        <ResourceCard
+          key={expert.expertId}
+          testId={`itv-expert-card-${expert.expertId}`}
+          leading={<ExpertAvatarEditor expertId={expert.expertId} displayName={expert.displayName} compact />}
+          title={expert.displayName}
+          subtitle={expert.role}
+          badges={preview ? <Badge tone="primary">Mock 专家</Badge> : undefined}
+          actions={
+            <>
+              <Button asChild size="sm" variant="primary">
+                <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`}>快捷访谈</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/itv/experts/${expert.expertId}`}>查看专家</Link>
+              </Button>
+            </>
+          }
+        >
+          {expert.materialContextPackId && (
+            <div className="rounded-lg bg-muted/60 p-3 text-11 text-muted-foreground">
+              <span className="font-medium text-background-foreground">材料边界：</span>{expert.materialBoundary}
             </div>
-          </div>
-          {expert.materialContextPackId && <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-            <span className="font-medium text-background-foreground">材料边界：</span>{expert.materialBoundary}
-          </div>}
-          <div className="mt-5 flex items-center gap-3">
-            <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`} className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
-              快捷访谈
-            </Link>
-            <Link href={`/itv/experts/${expert.expertId}`} className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-medium text-background-foreground">
-              查看专家
-            </Link>
-          </div>
-        </article>
+          )}
+        </ResourceCard>
       ))}
     </div>
   );

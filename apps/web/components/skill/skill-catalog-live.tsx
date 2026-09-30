@@ -1,5 +1,7 @@
 "use client";
 
+import { ResourceCardTags } from "@/components/ui/resource-card";
+import { dedupeTags } from "@/lib/tag-utils";
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Building2, Plus } from "lucide-react";
@@ -391,36 +393,21 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       keyOf={(row) => row.skillId}
       searchTextOf={searchTextOf}
       tagsOf={tagsOf}
-      renderCard={(row) => (
-        <CardContent className="flex h-full flex-col gap-2 pt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-13 font-medium">{row.name}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge tone="outline">{row.source}</Badge>
-            <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>
-            <Badge tone="outline">{VISIBILITY_LABEL[row.visibility]}</Badge>
-          </div>
-          <p className="line-clamp-2 flex-1 text-11 text-muted-foreground">{row.duty}</p>
-          {/*
-            G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的
-            异常状态，不占位、不显示「无标签」这类提示语（同 contract.md §3④）。
-          */}
-          {(row.tags ?? []).length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1" data-testid="skill-catalog-tags">
-              {/* key 带下标：tags 是自由文本输入，不去重（G5 契约没有要求唯一）。 */}
-              {(row.tags ?? []).map((tag, i) => (
-                <Badge key={`${tag}-${i}`} tone="neutral" className="font-normal">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-          <p className="text-10 text-muted-foreground">
+      renderCard={(row) => ({
+        title: row.name,
+        subtitle: `${row.source} · ${VISIBILITY_LABEL[row.visibility]}`,
+        badges: <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>,
+        description: row.duty,
+        // G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的异常状态。
+        tags: (row.tags ?? []).length > 0 ? <ResourceCardTags tags={dedupeTags(row.tags ?? [])} testId="skill-catalog-tags" /> : undefined,
+        meta: (
+          <span>
             满意度{" "}
             {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
             {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
-          </p>
+          </span>
+        ),
+        actions: (
           <CardActions>
             {/*
               G2/G6：`isSourceFileBacked` 为真的行在 `skill_contracts` 里没有对应
@@ -442,8 +429,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
               </Button>
             )}
           </CardActions>
-        </CardContent>
-      )}
+        ),
+      })}
       onRefresh={() => void load()}
       emptyState={
         rows.length > 0

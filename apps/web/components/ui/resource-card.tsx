@@ -143,6 +143,7 @@ export function ResourceCard({
         tabIndex={0}
         aria-label={ariaLabel}
         aria-pressed={selected || undefined}
+        data-selected={selected ? "true" : undefined}
         onClick={(e) => { if (!inner(e.target, e.currentTarget)) onClick(); }}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return;

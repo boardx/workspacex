@@ -199,10 +199,11 @@ export function ModelScreen({ state }: { state: UiState }) {
         onRefresh={() => void refresh()}
         emptyState="模型池是空的——这是本组织在服务端的真实结果。用「接入模型」接一个。"
         searchPlaceholder="按模型名、供应商或能力标签搜索…"
-        renderCard={(m) => (
-          <CardContent className="flex h-full flex-col gap-2 pt-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-mono text-12 font-medium">{m.displayName}</span>
+        renderCard={(m) => ({
+          title: <span className="font-mono">{m.displayName}</span>,
+          subtitle: `${KIND_LABEL[m.kind]} · ${m.vendor} · ${tagsLabel(m)}`,
+          badges: (
+            <>
               {renderStatusBadge(m)}
               {m.kind === "self-hosted" && (
                 <Badge tone="ai" data-testid={`admin-model-confidential-${m.modelId}`}>
@@ -210,18 +211,19 @@ export function ModelScreen({ state }: { state: UiState }) {
                   可承接机密
                 </Badge>
               )}
-            </div>
-            <span className="text-11 text-muted-foreground">{KIND_LABEL[m.kind]} · {m.vendor} · {tagsLabel(m)}</span>
-            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
+            </>
+          ),
+          children: (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
               <span>上下文 {contextLabel(m)}</span>
               <span data-testid={`admin-model-price-${m.modelId}`}>{priceLabel(m)}</span>
               <span className="col-span-2" data-testid={`admin-model-key-status-${m.modelId}`}>
                 凭据 <span className="text-background-foreground">{hasApiKeyConfigured(m) ? "已配置" : "未配置"}</span>
               </span>
             </div>
-            <CardActions className="mt-auto justify-end pt-1">{renderSwitch(m)}</CardActions>
-          </CardContent>
-        )}
+          ),
+          actions: <CardActions className="justify-end">{renderSwitch(m)}</CardActions>,
+        })}
         selectedKey={selectedKey}
         onSelect={setSelectedKey}
         detailTitle={(m) => m.displayName}
