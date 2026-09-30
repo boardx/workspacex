@@ -60,6 +60,8 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("-F force=false");
     expect(workflow).not.toContain("git push origin");
     expect(workflow).toContain('[[ "${current}" == "${EXPECTED_MAIN_CN}" ]]');
+    expect(workflow).toContain('update-ref refs/heads/main-cn "${REVISION}" "${EXPECTED_MAIN_CN}"');
+    expect(workflow).toContain('rev-parse origin/main-cn)" == "${REVISION}"');
     expect(workflow).toContain("gh workflow run deploy-cn-production.yml");
     expect(workflow).not.toContain("workspacex-cn-deploy \"${REVISION}\"");
   });

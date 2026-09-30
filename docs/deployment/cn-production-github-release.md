@@ -51,7 +51,7 @@ bash .harness/scripts/vm/bootstrap-cn-production.sh
    - `release_sha`：准备好的 exact SHA；
    - `expected_main_cn_sha`：第 3 步读到的 SHA。
 5. 在 `production-cn` Environment 审批页面复核两个 SHA 后批准。
-6. 晋级工作流验证 GitHub Environment 审批规则、`main-cn` 写入限制、trusted script 版本、候选 manifest/seal、准备收据 TTL、live baseline 和 fast-forward 关系。只有全部通过才重新读取远端 ref，并以 GitHub API `force=false` 推进 `main-cn`。
+6. 晋级工作流验证 GitHub Environment 审批规则、`main-cn` 写入限制、trusted script 版本、候选 manifest/seal、准备收据 TTL、live baseline 和 fast-forward 关系。只有全部通过才重新读取远端 ref，并以 GitHub API `force=false` 推进 `main-cn`；随后以同一组旧/新 SHA 对国内 bare mirror 执行本地 CAS，并确认生产 repository 已读取到相同 `origin/main-cn`。
 7. 晋级成功后，工作流显式 dispatch 已有 `deploy-cn-production`。这是唯一 activation 路径；晋级工作流本身不切流。
 8. 以 `deploy-cn-production` 的浏览器验收和 `production_available` 事件作为发布完成证据。`main-cn` 已变化或 workflow success 均不能单独代表上线完成。
 

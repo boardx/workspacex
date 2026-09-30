@@ -157,20 +157,34 @@ jobs:
           EXPECTED_MAIN_CN: ${{ steps.release.outputs.expected_main_cn }}
         run: |
           set -euo pipefail
+          cache=/opt/workspacex-cn/release-origin-cache.git
+          repository=/opt/workspacex-cn/repository
           current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
           if [[ "${current}" == "${REVISION}" ]]; then
             echo "result=already-promoted" >> "${GITHUB_OUTPUT}"
-            exit 0
+          else
+            [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after approval; start a new promotion with the new baseline"; exit 1; }
+            git merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::main-cn update is not a fast-forward"; exit 1; }
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/main-cn" \
+              -f "sha=${REVISION}" -F force=false >/dev/null
+            echo "result=promoted" >> "${GITHUB_OUTPUT}"
           fi
-          [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after approval; start a new promotion with the new baseline"; exit 1; }
-          git merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::main-cn update is not a fast-forward"; exit 1; }
-          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/main-cn" \
-            -f "sha=${REVISION}" -F force=false >/dev/null
           [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)" == "${REVISION}" ]] || {
             echo "::error::main-cn did not advance to the exact release SHA"
             exit 1
           }
-          echo "result=promoted" >> "${GITHUB_OUTPUT}"
+          local_main_cn=$(git -C "${cache}" rev-parse refs/heads/main-cn)
+          if [[ "${local_main_cn}" == "${EXPECTED_MAIN_CN}" ]]; then
+            git -C "${cache}" update-ref refs/heads/main-cn "${REVISION}" "${EXPECTED_MAIN_CN}"
+          elif [[ "${local_main_cn}" != "${REVISION}" ]]; then
+            echo "::error::China source mirror main-cn has an unexpected baseline"
+            exit 1
+          fi
+          git -C "${repository}" fetch --no-tags origin main main-cn
+          [[ "$(git -C "${repository}" rev-parse origin/main-cn)" == "${REVISION}" ]] || {
+            echo "::error::China source mirror did not converge to the promoted SHA"
+            exit 1
+          }
 
       # Pushes made with GITHUB_TOKEN intentionally do not recursively start another
       # workflow. Dispatch the existing activation workflow explicitly instead.
