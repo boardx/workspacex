@@ -36,6 +36,16 @@ describe("AgentEscalationCard", () => {
     expect(screen.getByTestId("agent-escalation-card").textContent).not.toContain("escalate_matter");
   });
 
+  it("uiux-r5：有数字人写的原因时它是标题，事项名退成标签（且不再有第二块原因）", () => {
+    render(<AgentEscalationCard interruptId={IID} payload={payload} agentName="小销" />);
+    const matter = screen.getByTestId("agent-escalation-matter");
+    const reason = screen.getByTestId("agent-escalation-reason");
+    expect(matter.tagName).not.toBe("DD");
+    expect(reason.tagName).toBe("DD");
+    expect(screen.getAllByText(payload.reason)).toHaveLength(1);
+    expect(screen.getAllByText(payload.matter)).toHaveLength(1);
+  });
+
   it("没写意见时两个动作都禁用；resolve 按契约形状提交 decisionText", async () => {
     const submit = vi.fn().mockResolvedValue({ interruptId: IID, status: "resolved" });
     const onDecided = vi.fn();

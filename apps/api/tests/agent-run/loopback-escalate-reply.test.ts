@@ -35,14 +35,14 @@ it("待决阶段不流出进行时旁白", async () => {
   expect(pendingText).not.toContain("正在提交");
 });
 
-it("裁决原文自带句号：同意分支不出现「。。」", async () => {
+it("同意分支：终稿不复述裁决原文（线程里的「决定：…」记录已逐字展示）", async () => {
   const { finalText } = await escalateThenDecide({ decision: "resolve", decisionText: "同意，但你只整理需求。" });
-  expect(finalText).toContain("负责人已裁决同意：同意，但你只整理需求。我会按这个裁决继续。");
-  expect(finalText).not.toContain("。。");
+  expect(finalText).toBe("负责人已同意。我会按这个裁决继续。");
+  expect(finalText).not.toContain("只整理需求");
 });
 
-it("裁决原文自带句号：驳回分支不出现「。。」", async () => {
+it("驳回分支：终稿不复述理由原文", async () => {
   const { finalText } = await escalateThenDecide({ decision: "reject", reason: "预算不够！" });
-  expect(finalText).toContain("负责人不同意：预算不够。");
-  expect(finalText).not.toMatch(/[。！]。/);
+  expect(finalText).toBe("负责人不同意。这件事我不会执行，会据此调整方案。");
+  expect(finalText).not.toContain("预算不够");
 });

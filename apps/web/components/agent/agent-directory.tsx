@@ -49,11 +49,25 @@ function ReadinessBadge({ readiness }: { readiness: AgentDirectoryCard["readines
   );
 }
 
+/**
+ * uiux-r5 #3.2：「部分能力待开通」要说清缺什么。契约只给三档就绪度（R5 不列授权详情），所以原因按
+ * 角色类别映射成人话——销售类缺的是 CRM 连接；其余给通用说明。不含授权码 / 内部名。
+ */
+export function readinessReasonText(card: Pick<AgentDirectoryCard, "readiness" | "roleCategory">): string | null {
+  if (card.readiness === "ready") return null;
+  return card.roleCategory === "sales"
+    ? "部分能力待开通：销售类流程需接入 CRM 后开放。日常对话可直接开始。"
+    : "部分能力待开通：需要连接外部系统的动作，等组织管理员开通后开放。日常对话可直接开始。";
+}
+
 function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string) => void }) {
   const name = agentDisplayName(card);
   const subtitle = agentSubtitle(card);
   const detailHref = `/agent/${encodeURIComponent(card.agentId)}`;
   const workflowLabels = [...new Set(card.workflows.map(agentWorkflowLabel))];
+  const readinessReason = readinessReasonText(card);
+  // uiux-r5 #3.1：没有标签的数字人（通用助手）用角色类别兜一枚中性标签，不留空行。
+  const displayTags = card.tags.length > 0 ? card.tags : [card.roleCategory ? ROLE_CATEGORY_LABEL[card.roleCategory] : "通用"];
   const workflowsLine = workflowLabels.length > 0 ? `可发起：${workflowLabels.join("、")}` : null;
   return (
     <Card data-testid={`agent-card-${card.agentId}`} className="flex h-full flex-col transition-colors hover:border-ai-tint-foreground/40">
@@ -83,11 +97,9 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
             {subtitle ? <p data-testid="agent-card-subtitle" title={subtitle} className="mt-0.5 text-12 text-muted-foreground">{firstClause(subtitle)}</p> : null}
           </div>
         </div>
-        {card.tags.length > 0 && (
-          <div data-testid="agent-card-tags" className="flex flex-wrap gap-1">
-            {card.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}
-          </div>
-        )}
+        <div data-testid="agent-card-tags" className="flex flex-wrap gap-1">
+          {displayTags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}
+        </div>
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <span data-testid="agent-card-workflows" className="flex min-w-0 items-center gap-1 truncate text-11 text-muted-foreground">
             <Workflow aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -95,6 +107,9 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           </span>
           <ReadinessBadge readiness={card.readiness} />
         </div>
+        {readinessReason !== null ? (
+          <p data-testid="agent-card-readiness-reason" className="-mt-1 text-11 text-muted-foreground">{readinessReason}</p>
+        ) : null}
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline" className="flex-1">
             <Link href={detailHref} data-testid="agent-card-view-detail">查看详情</Link>
@@ -104,6 +119,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
             variant={card.readiness === "ready" ? "primary" : "secondary"}
             className="flex-1"
             data-testid="agent-card-start-chat"
+            title={readinessReason ?? undefined}
             onClick={() => onStartChat(card.agentId)}
           >
             开始对话

@@ -127,7 +127,7 @@ describe("AgentDirectory（成员目录）", () => {
     await waitFor(() => expect(screen.getByTestId("agent-card-avatar").getAttribute("data-avatar-key")).toBe("person-9"));
   });
 
-  it("卡片显示数字人标签；没有标签时不渲染标签行", async () => {
+  it("卡片显示数字人标签；没有标签时用角色类别兜一枚中性标签（uiux-r5）", async () => {
     const fetchDirectory = vi.fn().mockResolvedValue([
       card({ agentId: "a1", name: "小销", roleCategory: "sales", tags: ["销售", "客户"] }),
       card({ agentId: "a2", name: "小研", roleCategory: "research" }),
@@ -135,7 +135,25 @@ describe("AgentDirectory（成员目录）", () => {
     render(<AgentDirectory fetchDirectory={fetchDirectory} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
     expect(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-tags")).toHaveTextContent("销售客户");
-    expect(within(screen.getByTestId("agent-card-a2")).queryByTestId("agent-card-tags")).toBeNull();
+    expect(within(screen.getByTestId("agent-card-a2")).getByTestId("agent-card-tags")).toHaveTextContent("研究");
+  });
+
+  it("uiux-r5：无类别无标签的通用助手显示「通用」标签", async () => {
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card({ agentId: "g1", name: "通用助手", roleCategory: null })])} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-g1")).not.toBeNull());
+    expect(within(screen.getByTestId("agent-card-g1")).getByTestId("agent-card-tags")).toHaveTextContent("通用");
+  });
+
+  it("uiux-r5：未就绪的卡片在行内和「开始对话」的提示里说明缺什么（销售 = CRM），就绪的没有", async () => {
+    render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([
+      card({ agentId: "s1", name: "销售代表", roleCategory: "sales", readiness: "missing" }),
+      card({ agentId: "r1", name: "小研", roleCategory: "research", readiness: "ready" }),
+    ])} />);
+    await waitFor(() => expect(screen.getByTestId("agent-card-s1")).not.toBeNull());
+    const sales = within(screen.getByTestId("agent-card-s1"));
+    expect(sales.getByTestId("agent-card-readiness-reason")).toHaveTextContent("销售类流程需接入 CRM 后开放");
+    expect(sales.getByTestId("agent-card-start-chat").getAttribute("title")).toContain("CRM");
+    expect(within(screen.getByTestId("agent-card-r1")).queryByTestId("agent-card-readiness-reason")).toBeNull();
   });
 
   it("点击「开始对话」把 agentId 回传给宿主", async () => {

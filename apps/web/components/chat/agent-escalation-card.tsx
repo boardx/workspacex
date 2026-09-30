@@ -67,6 +67,7 @@ export function AgentEscalationCard({
 
   const who = agentName?.trim() || "数字人";
   const trimmed = text.trim();
+  const hasDistinctReason = payload !== null && payload.reason.trim() !== "" && payload.reason.trim() !== payload.matter.trim();
   const actionable = canWrite && interruptId !== null && payload !== null && done === null;
 
   const send = async (kind: EscalateDecision["decision"]) => {
@@ -123,17 +124,22 @@ export function AgentEscalationCard({
 
       {payload ? (
         <dl className="mt-3 grid gap-2 text-12">
-          <div className="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2">
-            <dt className="text-11 text-muted-foreground">需要你决定</dt>
-            <dd className="mt-0.5 font-medium text-card-foreground" data-testid="agent-escalation-matter">{payload.matter}</dd>
-          </div>
-          {/* uiux-r3 #4.6：原因与事项同文时不重复印一遍。 */}
-          {payload.reason.trim() !== payload.matter.trim() ? (
-            <div className="px-0.5">
-              <dt className="text-11 text-muted-foreground">它为什么来问你</dt>
-              <dd className="mt-0.5 whitespace-pre-wrap text-card-foreground" data-testid="agent-escalation-reason">{payload.reason}</dd>
+          {/* uiux-r5 #4.2：标题是数字人自己写的原因 / 摘要（它在问你什么）；事项名退成标签。
+              原因缺失或与事项同文时，仍以事项作标题、不重复印。 */}
+          {hasDistinctReason ? (
+            <div className="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2">
+              <dt className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground">
+                需要你决定
+                <Badge tone="neutral" data-testid="agent-escalation-matter">{payload.matter}</Badge>
+              </dt>
+              <dd className="mt-0.5 whitespace-pre-wrap font-medium text-card-foreground" data-testid="agent-escalation-reason">{payload.reason}</dd>
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2">
+              <dt className="text-11 text-muted-foreground">需要你决定</dt>
+              <dd className="mt-0.5 font-medium text-card-foreground" data-testid="agent-escalation-matter">{payload.matter}</dd>
+            </div>
+          )}
           {payload.contextRefs.length > 0 ? (
             <p className="px-0.5 text-11 text-muted-foreground" data-testid="agent-escalation-refs">
               附带 {payload.contextRefs.length} 条相关材料，可在任务过程区查看。
