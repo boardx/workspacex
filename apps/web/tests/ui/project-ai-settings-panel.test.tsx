@@ -74,7 +74,7 @@ describe("B2-S5 AI 权限面板", () => {
     fireEvent.click(await screen.findByTestId("project-ai-source-chat"));
     fireEvent.click(screen.getByTestId("project-ai-settings-save"));
     const err = await screen.findByTestId("project-ai-settings-error");
-    expect(err.textContent).toContain("引导师");
+    expect(err.textContent).toContain("项目负责人");
     expect(screen.queryByTestId("project-ai-settings-saved")).toBeNull();
   });
 

@@ -1,6 +1,5 @@
 "use client";
 import * as React from "react";
-import Link from "next/link";
 import { Search, Plus, MoreHorizontal, AlertTriangle, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +9,7 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/compo
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
@@ -51,6 +51,7 @@ export function ProjectsScreen() {
   const [listError, setListError] = React.useState<string | null>(null);
   const [listBusy, setListBusy] = React.useState(false);
 
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -162,11 +163,9 @@ export function ProjectsScreen() {
               className="h-8 w-44 pl-7"
             />
           </div>
-          <Button asChild variant="primary" size="sm" data-testid="projects-new">
-            <Link href="/project/new">
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              新建项目
-            </Link>
+          <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            新建项目
           </Button>
         </div>
       </div>
@@ -265,6 +264,9 @@ export function ProjectsScreen() {
           ))}
         </ul>
       )}
+
+      {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
+      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }
