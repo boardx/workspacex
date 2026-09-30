@@ -261,8 +261,12 @@ deep_agent_project_native_env() {
     printf 'NATIVE_SESSION_SOCKET=%s\n' "$container_socket"
     printf 'NATIVE_SESSION_SERVICE_BASE_URL=%s\n' "$service_base"
     printf 'NATIVE_SESSION_SERVICE_KEY=%s\n' "$service_key"
+    # 同一把 key、Deep Agent 的检索路由（/internal/retrieval/embeddings、/rerank）读的名字。
+    # 2026-09-30 devapp 实测：只投影了 NATIVE_SESSION_SERVICE_KEY ⇒ 这两条路由读到空值、
+    # API 的每一次嵌入请求都 401，向量通道静默关闭（kg_embedding_outbox 积压、0 条向量）。
+    printf 'DEEP_AGENT_SERVICE_INTERNAL_KEY=%s\n' "$service_key"
   } >> "$dest"
-  echo "  Native recovery env 已投影：admission=${admission} socket=PRESENT service-key=PRESENT" >&2
+  echo "  Native recovery env 已投影：admission=${admission} socket=PRESENT service-key=PRESENT retrieval-key=PRESENT" >&2
 }
 
 # Read the restarted process' NUL-delimited /proc environ and assert the runtime bindings

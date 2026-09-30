@@ -545,6 +545,8 @@ describe("#2929 native runtime deployment env — persistent owner with admissio
     expect(projected).toContain("NATIVE_SESSION_SOCKET=/run/native-sessions/skill-sandbox.sock");
     expect(projected).toContain("NATIVE_SESSION_SERVICE_BASE_URL=http://workspacex-api-host:3200");
     expect(projected).toContain(`NATIVE_SESSION_SERVICE_KEY=${service}`);
+    // retrieval_embeddings.py / retrieval_rerank.py 读的是这个名字；缺了它每次嵌入都 401。
+    expect(projected).toContain(`DEEP_AGENT_SERVICE_INTERNAL_KEY=${service}`);
     expect(projected).not.toContain("NATIVE_SESSION_BINDING_KEY");
     expect(result.stderr).toContain("admission=0");
     expect(result.stderr).not.toContain(service);
