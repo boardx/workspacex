@@ -84,3 +84,19 @@ describe("UIUX r4：自转交被拒的实时流", () => {
     expect(renderExecutionTool({ id: "rh-1", kind: "tool", text: agentRole.REQUEST_HANDOFF_TOOL_NAME, status: "succeeded" } as never)).toBeNull();
   });
 });
+
+describe("UIUX r6：刷新后的转交确认卡旁白", () => {
+  const requested = { id: "t", role: "tool", toolCallId: "rh-1", content: "已提交转交给「产品经理」的请求，等待你在对话中确认；确认后会新开一个对话继续。" };
+  const narration = { id: "n", role: "assistant", content: "已提交转交给「产品经理」的请求，等待你在对话中确认；确认后会新开一个对话继续。" };
+  it("已登记的转交之后复述确认卡的纯文本回合不画", async () => {
+    const list = [user, handoffCall, requested, narration];
+    render(view(narration, list, list));
+    await waitFor(() => expect(screen.queryByText(/已提交转交给/)).toBeNull());
+  });
+  it("被拒后的真实回答照常显示", () => {
+    const answer = { id: "a", role: "assistant", content: "好的，我继续在当前对话里处理。" };
+    const list = [user, handoffCall, refused, answer];
+    render(view(answer, list, list));
+    expect(screen.queryByText(/我继续在当前对话/)).not.toBeNull();
+  });
+});

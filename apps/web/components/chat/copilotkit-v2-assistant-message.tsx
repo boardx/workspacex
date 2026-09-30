@@ -4,6 +4,7 @@ import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
 import { toolPreambleCall, useLiveMessages } from "@/lib/chat-workbench/tool-preamble";
+import { isHandoffCardNarration } from "@/lib/chat-workbench/handoff-narration";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -322,7 +323,9 @@ function V2AssistantMessageImpl(
   const liveMessages = useLiveMessages(props.messages);
   const handoffPreamble = toolPreambleCall(props.message, liveMessages, isInlineNoticeTool);
   const handoffPreambleSettled = handoffPreamble !== null && text.trim() !== "";
-  if (handoffPreambleSettled && (props.message.toolCalls ?? []).length === 0) return <></>;
+  const handoffNarration = isHandoffCardNarration(props.message as never, liveMessages);
+  // 规则：所有 hook 都在此之前调用；下面的提前返回只许放在这一行之后（合并分支新增 hook 时加在本行之前）。
+  if ((handoffPreambleSettled && (props.message.toolCalls ?? []).length === 0) || (handoffNarration && producedFiles.length === 0)) return <></>;
   // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
   // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回
   // null），可框架的消息外壳 + 空 markdown 容器照样占一格——20 次工具调用就叠出一屏空白。
