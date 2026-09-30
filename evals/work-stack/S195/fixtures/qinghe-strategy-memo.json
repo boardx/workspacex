@@ -1,0 +1,41 @@
+{
+  "company": "青禾科技（合成）",
+  "documents": [
+    {
+      "docRef": "doc:qinghe-strategy-2027",
+      "version": "v3",
+      "paragraphs": [
+        {
+          "anchor": "p1",
+          "text": "诊断：制造业客户的交付周期压力上升，标准化产品难以覆盖其合规要求。"
+        },
+        {
+          "anchor": "p2",
+          "text": "方针：2027 年聚焦中大型制造客户；不再新建面向中小客户的标准化产品线。"
+        },
+        {
+          "anchor": "p3",
+          "text": "行动：组建行业方案团队；合规模块商业化；发展渠道伙伴。"
+        }
+      ]
+    },
+    {
+      "docRef": "doc:qinghe-strategy-no-tradeoff",
+      "version": "v1",
+      "paragraphs": [
+        {
+          "anchor": "p1",
+          "text": "诊断：增长放缓。"
+        },
+        {
+          "anchor": "p2",
+          "text": "方针：聚焦中大型制造客户，全面赋能，抓手到位。"
+        },
+        {
+          "anchor": "p3",
+          "text": "行动：多措并举。"
+        }
+      ]
+    }
+  ]
+}

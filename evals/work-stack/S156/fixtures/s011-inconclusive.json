@@ -1,0 +1,9 @@
+{
+  "org": "synthetic-org-acme",
+  "process": "报销审批",
+  "status": "inconclusive",
+  "rootCauses": [],
+  "openQuestions": [
+    "缺少审批日志，无法检验假设"
+  ]
+}

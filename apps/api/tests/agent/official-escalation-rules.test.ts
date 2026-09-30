@@ -38,9 +38,9 @@ const MIGRATION = join(__dirname, "../../migrations/20260930124000_ag06_official
 const LOOPBACK_DEFAULT_MATTER = "超出职责范围的事项";
 
 describe("AG06 官方角色升级规则（包声明）", () => {
-  it("四个官方角色都有非空、合契约的升级规则；目标只用 requester / org_admin；事项名不重复", () => {
+  it("七个官方角色都有非空、合契约的升级规则；目标只用 requester / org_admin；事项名不重复", () => {
     const pack = buildOfficialAgentRolePack();
-    expect(pack.agents).toHaveLength(4);
+    expect(pack.agents.map((a) => a.roleRef)).toEqual(["D001", "D002", "D003", "D005", "D006", "D007", "D011"]);
     for (const a of pack.agents) {
       const policy = agentRole.EscalationPolicy.parse(a.role.escalationPolicy);
       expect(policy.rules.length).toBeGreaterThan(0);
@@ -51,6 +51,17 @@ describe("AG06 官方角色升级规则（包声明）", () => {
     }
     const sales = pack.agents.find((a) => a.stableName === "d005-sales-representative")!;
     expect(sales.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.pricing, target: "org_admin" });
+    // D006（rp-b2）：退款/补偿承诺、疑似安全或数据泄露 → org_admin。
+    const cs = pack.agents.find((a) => a.stableName === "d006-customer-success-specialist")!;
+    expect(cs.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.refundOrCompensation, target: "org_admin" });
+    expect(cs.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.securityOrDataLeak, target: "org_admin" });
+    // D001 / D007 各两条新增事项（矩阵文档 §4）。
+    const exec = pack.agents.find((a) => a.stableName === "d001-executive-strategy-partner")!;
+    expect(exec.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.nonPublicDisclosure, target: "org_admin" });
+    expect(exec.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.boardOrRegulatorFinalization, target: "requester" });
+    const ops = pack.agents.find((a) => a.stableName === "d007-project-operations-manager")!;
+    expect(ops.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.approvedBaselineEdit, target: "requester" });
+    expect(ops.role.escalationPolicy.rules).toContainEqual({ matter: OFFICIAL_ESCALATION_MATTERS.incidentSeverityOrNotice, target: "org_admin" });
   });
 
   it("loopback 替身的缺省事项名命中官方规则（升级卡片在回环模型上对官方数字人可达）", () => {
@@ -61,8 +72,9 @@ describe("AG06 官方角色升级规则（包声明）", () => {
     const sql = readFileSync(MIGRATION, "utf8");
     const literal = Object.fromEntries([...sql.matchAll(/\('(d\d{3}-[a-z0-9-]+)',\s*'(\{[^']+\})'\)/g)].map((m) => [m[1], JSON.parse(m[2]!) as unknown]));
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.escalationPolicy]));
-    expect(Object.keys(literal)).toHaveLength(4);
-    expect(literal).toEqual(fromPack);
+    // 1.3.0 迁移只覆盖当时的四个官方角色；新增角色（D001/D006/D007）随导入带规则，没有旧行可回填。
+    expect(Object.keys(literal).sort()).toEqual(["d002-research-knowledge-analyst", "d003-product-manager", "d005-sales-representative", "d011-design-thinking-expert"]);
+    expect(literal).toEqual(Object.fromEntries(Object.keys(literal).map((k) => [k, fromPack[k]])));
     expect(fromPack).toEqual(officialRoleEscalationPolicies());
   });
 });

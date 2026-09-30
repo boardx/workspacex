@@ -1,0 +1,6 @@
+{
+  "metricId": "UNITS",
+  "max": 500000,
+  "reason": "产能上限 50 万台",
+  "projectedDemandHighCase": 700000
+}
