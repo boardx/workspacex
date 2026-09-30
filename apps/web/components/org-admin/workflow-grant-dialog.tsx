@@ -1,5 +1,6 @@
 "use client";
 
+import { workflowDisplayName } from "@/lib/workflow-display-copy";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,11 +84,11 @@ export function WorkflowGrantDialog({
         <div className="flex flex-col gap-1.5 rounded-control bg-muted p-3 text-12" data-testid="workflow-grant-impact">
           <p className="font-medium">确认后的影响</p>
           {unblocked.length > 0 ? (
-            <p>可以继续运行：{unblocked.map((u) => u.title).join("、")}</p>
+            <p>可以继续运行：{unblocked.map((u) => workflowDisplayName(u.workflowKey, u.title)).join("、")}</p>
           ) : null}
           {stillBlocked.length > 0 ? (
             <p className="text-destructive">
-              会在对应步骤暂停，等待管理员授权：{stillBlocked.map((u) => u.title).join("、")}
+              会在对应步骤暂停，等待管理员授权：{stillBlocked.map((u) => workflowDisplayName(u.workflowKey, u.title)).join("、")}
             </p>
           ) : (
             <p className="text-muted-foreground">所有用到这项能力的工作流都能正常完成。</p>

@@ -16,6 +16,8 @@ const api = vi.hoisted(() => ({
 const sessionState = vi.hoisted(() => ({ orgRole: "admin" as string }));
 
 vi.mock("@/lib/live-workflow-capability-grants", () => api);
+const orgApi = vi.hoisted(() => ({ listOrgMembers: vi.fn() }));
+vi.mock("@/lib/live-org-admin", () => orgApi);
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { userId: "u-admin", currentOrgId: "org-1" }, identity: { orgRole: sessionState.orgRole } }),
 }));
@@ -46,6 +48,10 @@ function data(grants: Partial<Record<string, "read" | "write">> = {}, audit: Wor
 beforeEach(() => {
   sessionState.orgRole = "admin";
   for (const f of Object.values(api)) f.mockReset();
+  orgApi.listOrgMembers.mockReset().mockResolvedValue({ members: [
+    { userId: "u-admin", displayName: "王管理", email: "admin@x", orgRole: "admin", teamId: null, joinedAt: "2026-01-01T00:00:00Z", status: "active" },
+    { userId: "u-other", displayName: "李运营", email: "li@x", orgRole: "admin", teamId: null, joinedAt: "2026-01-01T00:00:00Z", status: "active" },
+  ] });
 });
 
 describe("工作流权限授予页", () => {
@@ -56,7 +62,7 @@ describe("工作流权限授予页", () => {
     expect(row.textContent).toContain("保存产出文档");
     expect(row.textContent).toContain("文件库");
     expect(within(row).getByTestId("workflow-grant-current").textContent).toBe("只读（默认）");
-    expect(row.textContent).toContain("Problem-to-PRD");
+    expect(row.textContent).toContain("问题定义到 PRD");
     expect(screen.getByTestId("workflow-grants-summary").textContent).toContain("有 1 个会因权限不足在中途暂停");
     expect(screen.getByTestId("workflow-grants-audit-empty")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/capability_exceeds|NOT_ORG_ADMIN/);
@@ -73,13 +79,13 @@ describe("工作流权限授予页", () => {
     fireEvent.click(within(row).getByTestId("workflow-grant-edit"));
     const dialog = await screen.findByTestId("workflow-grant-dialog");
     expect((within(dialog).getByTestId("workflow-grant-level-write") as HTMLInputElement).checked).toBe(true);
-    expect(within(dialog).getByTestId("workflow-grant-impact").textContent).toContain("可以继续运行：Problem-to-PRD");
+    expect(within(dialog).getByTestId("workflow-grant-impact").textContent).toContain("可以继续运行：问题定义到 PRD");
     fireEvent.click(within(dialog).getByTestId("workflow-grant-confirm"));
     await waitFor(() => expect(api.setWorkflowCapabilityGrant).toHaveBeenCalledWith("artifact.write", "write"));
     await waitFor(() => expect(screen.queryByTestId("workflow-grant-dialog")).toBeNull());
     expect(screen.getByTestId("workflow-grants-notice").textContent).toContain("已授予「保存产出文档」可写入权限");
     const audit = screen.getAllByTestId("workflow-grants-audit-row");
-    expect(audit[0]!.textContent).toContain("我");
+    await waitFor(() => expect(within(audit[0]!).getByTestId("workflow-grants-audit-actor").textContent).toBe("王管理（我）"));
     expect(audit[0]!.textContent).toContain("只读（默认） → 可写入");
   });
 
@@ -123,6 +129,50 @@ describe("工作流权限授予页", () => {
     } finally {
       window.history.replaceState(null, "", "/");
     }
+  });
+
+  it("?workflow=W029（id）同样定位：滚动到卡片、获得焦点、显示「已定位到」；标题是中文显示名", async () => {
+    window.history.replaceState(null, "", "/org-admin/workflow-grants?workflow=W029");
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      api.listWorkflowCapabilityGrants.mockResolvedValue(data());
+      render(<OrgAdminWorkflowGrantsPage />);
+      const card = await screen.findByTestId("workflow-grants-workflow-W029");
+      expect(card.getAttribute("data-focused")).toBe("true");
+      expect(card.textContent).toContain("问题定义到 PRD");
+      expect(card.textContent).not.toContain("Problem-to-PRD");
+      expect(screen.getByTestId("workflow-grants-focus-chip").textContent).toContain("已定位到「问题定义到 PRD」");
+      await waitFor(() => expect(scroll).toHaveBeenCalled());
+      expect(document.activeElement).toBe(card);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("?workflow=<未知> 显示「找不到该工作流」，不静默", async () => {
+    window.history.replaceState(null, "", "/org-admin/workflow-grants?workflow=W999");
+    try {
+      api.listWorkflowCapabilityGrants.mockResolvedValue(data());
+      render(<OrgAdminWorkflowGrantsPage />);
+      expect((await screen.findByTestId("workflow-grants-focus-missing")).textContent).toContain("找不到该工作流");
+      expect(screen.getByTestId("workflow-grants-workflow-W029").getAttribute("data-focused")).toBeNull();
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("变更记录：操作人显示成员显示名，不显示内部 id；时间补零", async () => {
+    api.listWorkflowCapabilityGrants.mockResolvedValue(data({ "artifact.write": "write" }, [
+      { eventId: "e1", capabilityCategory: "artifact.write", action: "granted", fromCap: "read", toCap: "write", actorId: "u-other", at: "2026-09-03T01:04:05Z" },
+      { eventId: "e2", capabilityCategory: "notify.inapp", action: "revoked", fromCap: "write", toCap: "read", actorId: "u-gone", at: "2026-09-03T01:04:05Z" },
+    ]));
+    render(<OrgAdminWorkflowGrantsPage />);
+    const rows = await screen.findAllByTestId("workflow-grants-audit-row");
+    await waitFor(() => expect(within(rows[0]!).getByTestId("workflow-grants-audit-actor").textContent).toBe("李运营"));
+    expect(within(rows[1]!).getByTestId("workflow-grants-audit-actor").textContent).toBe("已离开组织的成员");
+    expect(document.body.textContent).not.toMatch(/u-other|u-gone/);
+    expect(rows[0]!.textContent).toMatch(/2026\/09\/03/);
   });
 
   it("非管理员：显示组织层无权限说明，不请求数据", async () => {

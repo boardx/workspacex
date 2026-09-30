@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, CircleAlert, History, KeyRound } from "lucide-react";
+import { CheckCircle2, CircleAlert, History, KeyRound, LocateFixed, SearchX } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { useSession } from "@/components/session/session-provider";
@@ -14,6 +14,8 @@ import {
   type WorkflowCapabilityAuditEntry, type WorkflowCapabilityGrantsOut,
 } from "@/lib/live-workflow-capability-grants";
 import { CAP_LEVEL, capabilityCopy, describeWorkflowGrantFailure } from "@/lib/workflow-capability-grant-copy";
+import { listOrgMembers } from "@/lib/live-org-admin";
+import { findBuiltinWorkflow, workflowDisplayName } from "@/lib/workflow-display-copy";
 import { WorkflowGrantDialog } from "./workflow-grant-dialog";
 import { capabilityRows, workflowRows, type CapabilityRow } from "./workflow-grant-model";
 
@@ -30,6 +32,8 @@ export function WorkflowGrantsScreen() {
   const { session, identity } = useSession();
   const isAdmin = identity?.orgRole === "admin";
   const me = session?.userId ?? null;
+  const orgId = session?.currentOrgId ?? null;
+  const memberNames = useMemberNames(isAdmin ? orgId : null);
 
   const [state, setState] = React.useState<UiState>("loading");
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -60,6 +64,15 @@ export function WorkflowGrantsScreen() {
 
   React.useEffect(() => { if (isAdmin) void load(); }, [isAdmin, load]);
 
+  // 深链落点：数据到位后把匹配的工作流卡片滚到视口并拿到焦点（横幅「去授权」进来的人一眼看到它）。
+  const focusedId = data && focusWorkflow ? resolveFocus(workflowRows(data), focusWorkflow)?.workflow.workflowId ?? null : null;
+  React.useEffect(() => {
+    if (!focusedId || view !== "workflow") return;
+    const el = document.getElementById(`workflow-grants-card-${focusedId}`);
+    el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    el?.focus({ preventScroll: true });
+  }, [focusedId, view]);
+
   async function confirm(level: "read" | "write" | "external_send") {
     if (!editing) return;
     const label = capabilityCopy(editing.category).label;
@@ -82,10 +95,9 @@ export function WorkflowGrantsScreen() {
   if (!isAdmin) {
     return (
       <GrantsShell>
-        <div role="alert" data-testid="denied" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted py-10 text-center">
-          <p className="text-13 font-medium">你没有查看这块内容的权限</p>
-          <p className="text-12 text-muted-foreground">组织层限制：工作流权限仅组织管理员可以查看和调整。</p>
-        </div>
+        <StateShell state="denied" denial={{ layer: "organization", reason: "工作流权限仅组织管理员可以查看和调整。需要授权时，请联系本组织的管理员。" }}>
+          {null}
+        </StateShell>
       </GrantsShell>
     );
   }
@@ -93,6 +105,7 @@ export function WorkflowGrantsScreen() {
   const caps = data ? capabilityRows(data) : [];
   const flows = data ? workflowRows(data) : [];
   const blockedFlows = flows.filter((f) => !f.ready).length;
+  const focused = focusWorkflow ? resolveFocus(flows, focusWorkflow) : null;
 
   return (
     <GrantsShell>
@@ -145,6 +158,20 @@ export function WorkflowGrantsScreen() {
               ))}
             </div>
 
+            {view === "workflow" && focusWorkflow ? (
+              focused ? (
+                <p role="status" data-testid="workflow-grants-focus-chip" className="inline-flex w-fit items-center gap-1.5 rounded-control border border-primary bg-card px-2 py-1 text-12">
+                  <LocateFixed aria-hidden className="h-3.5 w-3.5 text-primary" />
+                  已定位到「{workflowDisplayName(focused.workflow.workflowKey, focused.workflow.title)}」
+                </p>
+              ) : (
+                <p role="alert" data-testid="workflow-grants-focus-missing" className="inline-flex w-fit items-center gap-1.5 rounded-control border border-warning bg-warning-tint px-2 py-1 text-12 text-warning-tint-foreground">
+                  <SearchX aria-hidden className="h-3.5 w-3.5" />
+                  找不到该工作流，它可能不是内置工作流或已下线。下面列出全部内置工作流。
+                </p>
+              )
+            ) : null}
+
             {view === "capability" ? (
               <section role="tabpanel" id="workflow-grants-panel-capability" aria-labelledby="workflow-grants-tab-capability">
                 {caps.length === 0 ? (
@@ -158,16 +185,21 @@ export function WorkflowGrantsScreen() {
             ) : (
               <section role="tabpanel" id="workflow-grants-panel-workflow" aria-labelledby="workflow-grants-tab-workflow">
                 <ul className="flex flex-col gap-3">
-                  {flows.map((f) => (
+                  {flows.map((f) => {
+                    const isFocused = focused === f;
+                    return (
                     <li
                       key={f.workflow.workflowId}
+                      id={`workflow-grants-card-${f.workflow.workflowId}`}
+                      tabIndex={isFocused ? -1 : undefined}
                       data-testid={`workflow-grants-workflow-${f.workflow.workflowId}`}
-                      data-focused={focusWorkflow === f.workflow.workflowKey ? "true" : undefined}
-                      className={cn("flex flex-col gap-2 rounded-lg border bg-card p-4",
-                        focusWorkflow === f.workflow.workflowKey ? "border-primary ring-2 ring-ring" : "border-border")}
+                      data-focused={isFocused ? "true" : undefined}
+                      aria-current={isFocused ? "location" : undefined}
+                      className={cn("flex scroll-mt-6 flex-col gap-2 rounded-lg border bg-card p-4",
+                        isFocused ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background" : "border-border")}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-13 font-semibold">{f.workflow.title}</h3>
+                        <h3 className="text-13 font-semibold">{workflowDisplayName(f.workflow.workflowKey, f.workflow.title)}</h3>
                         {f.ready ? <Badge tone="success">可以完整运行</Badge> : <Badge tone="warning">会在中途暂停</Badge>}
                       </div>
                       <ul className="flex flex-col gap-1.5">
@@ -188,12 +220,13 @@ export function WorkflowGrantsScreen() {
                         })}
                       </ul>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </section>
             )}
 
-            <AuditTrail entries={data.audit} me={me} />
+            <AuditTrail entries={data.audit} me={me} names={memberNames} />
           </div>
         ) : null}
       </StateShell>
@@ -225,7 +258,7 @@ function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => voi
           data-testid="workflow-grant-edit"
           aria-label={`${needsGrant ? "授予" : "调整"}「${copy.label}」权限`}
         >
-          {needsGrant ? "授予权限" : "调整"}
+          {needsGrant ? "授予权限" : "调整权限"}
         </Button>
       </div>
       <div className="flex flex-col gap-1 text-12">
@@ -238,7 +271,7 @@ function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => voi
                 <span className={cn("inline-flex items-center gap-1 rounded-control border px-2 py-0.5",
                   blocked ? "border-warning bg-warning-tint text-warning-tint-foreground" : "border-border")}>
                   {blocked ? <CircleAlert aria-hidden className="h-3 w-3" /> : <CheckCircle2 aria-hidden className="h-3 w-3 text-success" />}
-                  {u.title}
+                  {workflowDisplayName(u.workflowKey, u.title)}
                   <span className="sr-only">{blocked ? "（权限不足，会暂停）" : "（可以运行）"}</span>
                 </span>
               </li>
@@ -253,7 +286,7 @@ function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => voi
   );
 }
 
-function AuditTrail({ entries, me }: { entries: readonly WorkflowCapabilityAuditEntry[]; me: string | null }) {
+function AuditTrail({ entries, me, names }: { entries: readonly WorkflowCapabilityAuditEntry[]; me: string | null; names: ReadonlyMap<string, string> }) {
   return (
     <section className="flex flex-col gap-2" aria-labelledby="workflow-grants-audit-title" data-testid="workflow-grants-audit">
       <div className="flex items-center gap-2">
@@ -276,8 +309,8 @@ function AuditTrail({ entries, me }: { entries: readonly WorkflowCapabilityAudit
             <tbody>
               {entries.map((e) => (
                 <tr key={e.eventId} className="border-t border-border" data-testid="workflow-grants-audit-row">
-                  <td className="whitespace-nowrap px-3 py-2">{new Date(e.at).toLocaleString("zh-CN")}</td>
-                  <td className="px-3 py-2">{e.actorId === me ? "我" : e.actorId}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{formatAuditTime(e.at)}</td>
+                  <td className="px-3 py-2" data-testid="workflow-grants-audit-actor">{actorLabel(e.actorId, me, names)}</td>
                   <td className="px-3 py-2">{capabilityCopy(e.capabilityCategory).label}</td>
                   <td className="px-3 py-2">
                     <Badge tone={e.action === "revoked" ? "outline" : "primary"}>{e.action === "revoked" ? "撤销" : "授予"}</Badge>
@@ -311,4 +344,44 @@ function GrantsShell({ children }: { children: React.ReactNode }) {
       </div>
     </AppShell>
   );
+}
+
+/** `?workflow=` 同时接受 workflowId（W029）与 key（problem-to-prd），大小写不敏感。 */
+function resolveFocus<T extends { workflow: { workflowId: string; workflowKey: string } }>(rows: readonly T[], raw: string): T | null {
+  const q = raw.trim().toLowerCase();
+  const builtin = findBuiltinWorkflow(q);
+  return rows.find((r) => {
+    const id = r.workflow.workflowId.toLowerCase();
+    const key = r.workflow.workflowKey.toLowerCase();
+    return id === q || key === q || (builtin !== null && (id === builtin.workflowId.toLowerCase() || key === builtin.key));
+  }) ?? null;
+}
+
+/** 操作人：成员目录里的显示名（自己加「（我）」）；已不在组织的人不回退成内部 id。 */
+function actorLabel(actorId: string, me: string | null, names: ReadonlyMap<string, string>): string {
+  const name = names.get(actorId);
+  if (actorId === me) return name ? `${name}（我）` : "我";
+  return name ?? "已离开组织的成员";
+}
+
+const AUDIT_TIME = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+});
+function formatAuditTime(iso: string): string {
+  return AUDIT_TIME.format(new Date(iso));
+}
+
+/** 组织成员 userId → 显示名（`GET /organizations/:orgId/members`，任何成员可读）。读失败时空表，表格照常显示。 */
+function useMemberNames(orgId: string | null): ReadonlyMap<string, string> {
+  const [names, setNames] = React.useState<ReadonlyMap<string, string>>(() => new Map());
+  React.useEffect(() => {
+    if (!orgId) return;
+    let alive = true;
+    listOrgMembers(orgId).then(
+      (out) => { if (alive) setNames(new Map(out.members.map((m) => [m.userId, m.displayName || m.email]))); },
+      () => { /* 成员目录读不到不挡审计表 */ },
+    );
+    return () => { alive = false; };
+  }, [orgId]);
+  return names;
 }

@@ -2,7 +2,7 @@
  * WF08 —— Workflow 运行面板与审批 UI（契约束 workflow-runtime ① UI 的七态 + 稳定 testid）。
  * 数据形状全部经契约 schema `.parse` 生成，不手写游离 mock。
  */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { workflowRuntime } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
@@ -168,6 +168,45 @@ describe("WorkflowRunPanel", () => {
       const link = screen.getByTestId("workflow-banner-grant-link");
       expect(link.getAttribute("href")).toBe(`/org-admin/workflow-grants?workflow=${encodeURIComponent(p.workflowKey)}`);
       expect(screen.queryByTestId("workflow-banner-contact-admin")).toBeNull();
+    } finally {
+      sessionState.orgRole = null;
+    }
+  });
+
+  it("权限阻断（W029 发起人是成员）：人话标题与步骤名、暂停步骤被标出、技术标识收进「技术详情」、横幅内可「继续运行」", async () => {
+    sessionState.orgRole = "member";
+    api.resumeWorkflowInstance.mockResolvedValue({ instanceId: "i1", status: "running", stateVersion: 6 });
+    try {
+      const p = proj({
+        workflowKey: "problem-to-prd", status: "blocked_permission", reasonCode: "capability_exceeds_side_effect_cap",
+        viewerCapabilities: { canCancel: true, canRetryStage: false, canResume: true },
+        stages: [
+          { stageId: "frame_gate", title: "frame_gate", status: "succeeded", attempt: 1, pinnedSkills: [], outputs: [], reasonCode: null, startedAt: null, finishedAt: null },
+          { stageId: "solutions_fill", title: "solutions_fill", status: "succeeded", attempt: 1,
+            pinnedSkills: [{ stageId: "solutions_fill", stableId: "S065", version: "1.0.0" }], outputs: [], reasonCode: null, startedAt: null, finishedAt: null },
+          { stageId: "estimate", title: "estimate", status: "blocked_permission", attempt: 1, pinnedSkills: [], outputs: [], reasonCode: "capability_exceeds_side_effect_cap", startedAt: null, finishedAt: null },
+        ],
+      });
+      render(<WorkflowRunPanel instanceId="i1" initial={p} />);
+      expect(screen.getByTestId("workflow-run-title").textContent).toBe("问题定义到 PRD");
+      const b = screen.getByTestId("workflow-banner-blocked-permission");
+      expect(screen.getByTestId("workflow-banner-contact-admin").textContent).toContain("请联系组织管理员");
+      expect(screen.getByTestId("workflow-banner-contact-admin").textContent).toContain("授予该权限");
+      expect(screen.getByTestId("workflow-banner-stage-link").getAttribute("href")).toBe("#workflow-stage-estimate");
+      const blocked = screen.getByTestId("workflow-stage-estimate");
+      expect(blocked.getAttribute("data-blocked")).toBe("true");
+      expect(blocked.textContent).toContain("工作量估算");
+      expect(blocked.textContent).toContain("已暂停");
+      expect(screen.getByTestId("workflow-stage-frame_gate").textContent).toContain("问题界定确认");
+      expect(screen.getByTestId("workflow-stage-solutions_fill").textContent).toContain("补全候选方案");
+      // 技术标识只在折叠的技术详情里
+      const tech = screen.getByTestId("workflow-tech-details");
+      expect(tech.hasAttribute("open")).toBe(false);
+      const outside = [...screen.getByTestId("workflow-run-panel").children].filter((c) => c !== tech).map((c) => c.textContent).join(" ");
+      expect(outside).not.toMatch(/problem-to-prd|S065@|frame_gate|solutions_fill/);
+      expect(screen.queryByTestId("workflow-action-resume")).toBeNull();
+      fireEvent.click(within(b).getByTestId("workflow-banner-resume"));
+      await waitFor(() => expect(api.resumeWorkflowInstance).toHaveBeenCalledWith({ instanceId: "i1", expectedStateVersion: 5 }));
     } finally {
       sessionState.orgRole = null;
     }
