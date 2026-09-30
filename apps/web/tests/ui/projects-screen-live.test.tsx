@@ -85,14 +85,14 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     render(<ProjectsScreen />);
     await screen.findByTestId("projects-list");
 
-    const chip = screen.getByTestId("projects-tag-filter-客户");
+    const chip = screen.getByTestId("projects-tag-客户");
     expect(chip).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("projects-card-p-real-1")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("projects-tag-filters-clear"));
+    fireEvent.click(screen.getByTestId("projects-tag-all"));
     expect(chip).toHaveAttribute("aria-pressed", "false");
   });
 

@@ -404,7 +404,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={() => setCreateOpen(true)} />
-        <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTag={activeTag} onTagChange={setActiveTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+        <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
         {(loadError || operationError) && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{loadError ? "历史转录读取失败，请稍后重试。" : "操作失败，请重试。已加载的转录仍可继续使用。"}</p>}

@@ -1383,8 +1383,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       render(<DesignWorkbenchHome state="default" />);
       await screen.findByTestId("workbench-tag-后台");
       fireEvent.click(screen.getByTestId("workbench-tag-后台"));
-      await screen.findByTestId("workbench-tag-clear");
-      fireEvent.click(screen.getByTestId("workbench-tag-clear"));
+      await screen.findByTestId("workbench-tag-all");
+      fireEvent.click(screen.getByTestId("workbench-tag-all"));
       await waitFor(() => expect(screen.getByTestId("project-card-dp-3")).toBeTruthy());
       expect(queries[queries.length - 1]?.tags).toBeUndefined();
     });

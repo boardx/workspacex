@@ -21,7 +21,7 @@ export interface TagFilterOption {
  * testid：`${prefix}-tag-all` / `${prefix}-tag-${tag}` / `${prefix}-tag-more`。
  */
 export function TagFilterBar({
-  tags, selected, onChange, prefix, business, mode = "multi", maxVisible = 8, className,
+  tags, selected, onChange, prefix, business, mode = "multi", match = "any", maxVisible = 8, className,
 }: {
   tags: readonly TagFilterOption[];
   selected: readonly string[];
@@ -30,6 +30,8 @@ export function TagFilterBar({
   /** 「按标签筛选{business}」读屏标签。 */
   business: string;
   mode?: "single" | "multi";
+  /** 多选时的匹配规则，仅用于提示文案（真正的匹配在页面/后端用 `matchesTags`）：默认命中任一；设计工作台是签核过的「同时包含」。 */
+  match?: "any" | "all";
   maxVisible?: number;
   className?: string;
 }) {
@@ -71,6 +73,11 @@ export function TagFilterBar({
           {o.count !== undefined ? <span className="ml-1 text-10 opacity-70">{String(o.count)}</span> : null}
         </Button>
       ))}
+      {mode === "multi" && selected.length > 1 ? (
+        <span className="text-11 text-muted-foreground" data-testid={`${prefix}-tag-rule`}>
+          {match === "all" ? "显示同时包含所选标签的" : "显示包含任一所选标签的"}
+        </span>
+      ) : null}
       {hidden > 0 || (expanded && tags.length > maxVisible) ? (
         <Button size="sm" variant="ghost" data-testid={`${prefix}-tag-more`} aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
           {expanded ? "收起" : `更多标签 (${String(hidden)})`}

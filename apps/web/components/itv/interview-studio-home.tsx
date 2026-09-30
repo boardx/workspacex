@@ -9,6 +9,7 @@ import { ExpertAvatarEditor } from "./expert-avatar";
 import { StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
+import { matchesQuery, matchesTags } from "@/lib/tag-utils";
 import {
   loadDigitalExperts,
   loadDigitalInterviewHistory,
@@ -65,7 +66,7 @@ export function InterviewStudioHome({
   const [revision, setRevision] = React.useState(0);
   const [expertRevision, setExpertRevision] = React.useState(0);
   const [tab, setTab] = React.useState<Tab>(initialTab);
-  const [selectedTag, setSelectedTag] = React.useState<string | undefined>();
+  const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
   const [domain, setDomain] = React.useState<string | undefined>();
   const [history, setHistory] = React.useState<LoadState<DigitalInterviewHistoryRow>>({ kind: "loading" });
   const [experts, setExperts] = React.useState<LoadState<DigitalExpertCatalogRow>>({ kind: "loading" });
@@ -116,8 +117,7 @@ export function InterviewStudioHome({
     }
     return Array.from(tags);
   }, [historyItems]);
-  const visibleHistoryItems = historyItems.filter(item => (!selectedTag || item.tags.includes(selectedTag)) &&
-    `${item.name} ${item.topic} ${item.tags.join(" ")}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  const visibleHistoryItems = historyItems.filter(item => matchesTags(item.tags, selectedTags) && matchesQuery(query, [item.name, item.topic], item.tags))
     .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
   const expertItems = React.useMemo(
     () => experts.kind === "ready" ? experts.items : [],
@@ -132,8 +132,8 @@ export function InterviewStudioHome({
     : expertItems.filter((expert) => expert.domains.includes(domain));
 
   React.useEffect(() => {
-    if (history.kind === "ready" && selectedTag && !availableTags.includes(selectedTag)) setSelectedTag(undefined);
-  }, [availableTags, history.kind, selectedTag]);
+    if (history.kind === "ready" && selectedTags.some(t => !availableTags.includes(t))) setSelectedTags(selectedTags.filter(t => availableTags.includes(t)));
+  }, [availableTags, history.kind, selectedTags]);
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
@@ -163,9 +163,9 @@ export function InterviewStudioHome({
 
         {tab === "history" ? (
           <TabsContent value="history" aria-label="历史访谈" className="pt-6">
-            <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+            <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTags={selectedTags} onTagsChange={setSelectedTags} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
             {notice && <p role="status" data-testid="itv-history-saved" className="mt-4 text-12 text-success">{notice}</p>}
-            <div className="mt-6"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} filtered={Boolean(query.trim() || selectedTag)} onClearFilters={() => { setQuery(""); setSelectedTag(undefined); }} onRetry={() => setRevision(value => value + 1)} /></div>
+            <div className="mt-6"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} filtered={Boolean(query.trim() || selectedTags.length > 0)} onClearFilters={() => { setQuery(""); setSelectedTags([]); }} onRetry={() => setRevision(value => value + 1)} /></div>
           </TabsContent>
         ) : (
           <TabsContent value="experts" aria-label="专家列表" className="pt-6">

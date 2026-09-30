@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ResourceCard } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { aggregateTags, matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -87,10 +89,11 @@ export function ProjectsScreen() {
     void refresh(orgId);
   }, [orgId, refresh]);
 
-  const allTags = React.useMemo(() => {
-    if (projects === null) return [];
-    return [...new Set(projects.flatMap((p) => p.tags))].sort();
-  }, [projects]);
+  const tagOptions = React.useMemo(
+    () => (projects === null ? [] : [...aggregateTags(projects).entries()].map(([tag, count]) => ({ tag, count }))),
+    [projects],
+  );
+  const allTags = tagOptions;
 
   /** 当前是不是处在「被筛选」的状态——决定空列表该说哪句话。 */
   const filtering = query.trim() !== "" || activeTags.length > 0;
@@ -99,13 +102,10 @@ export function ProjectsScreen() {
     if (projects === null) return [];
     const q = query.trim();
     return projects
-      .filter((p) => (q === "" ? true : p.name.includes(q)))
-      .filter((p) => (activeTags.length === 0 ? true : activeTags.some((t) => p.tags.includes(t))));
+      .filter((p) => matchesQuery(q, [p.name], p.tags))
+      .filter((p) => matchesTags(p.tags, activeTags));
   }, [projects, query, activeTags]);
 
-  const toggleTag = (tag: string) => {
-    setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-  };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6" data-testid="projects-screen">
@@ -158,10 +158,10 @@ export function ProjectsScreen() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索项目"
+              placeholder={searchPlaceholder("项目")}
               aria-label="搜索项目"
               data-testid="projects-search"
-              className="h-8 w-44 pl-7"
+              className="h-8 w-56 pl-7"
             />
           </div>
           <Button variant="primary" size="sm" data-testid="projects-new" onClick={() => setCreateOpen(true)}>
@@ -172,30 +172,8 @@ export function ProjectsScreen() {
       </div>
 
       {allTags.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5" data-testid="projects-tag-filters">
-          <TagIcon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-          {allTags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              aria-pressed={activeTags.includes(tag)}
-              data-testid={`projects-tag-filter-${tag}`}
-              onClick={() => toggleTag(tag)}
-              className={cn(
-                "rounded-full border px-2.5 py-0.5 text-11 transition-colors duration-200",
-                activeTags.includes(tag)
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {tag}
-            </button>
-          ))}
-          {activeTags.length > 0 ? (
-            <Button size="sm" variant="ghost" data-testid="projects-tag-filters-clear" onClick={() => setActiveTags([])}>
-              清除筛选
-            </Button>
-          ) : null}
+        <div data-testid="projects-tag-filters">
+          <TagFilterBar tags={tagOptions} selected={activeTags} onChange={setActiveTags} prefix="projects" business="项目" />
         </div>
       ) : null}
 
