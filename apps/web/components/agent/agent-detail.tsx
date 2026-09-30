@@ -21,6 +21,9 @@ import {
   type AgentDirectoryCard,
 } from "@/lib/agent-directory";
 import { getSkillDetail, listSkills, type SkillListItem } from "@/lib/live-skill";
+import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
+import { workflowDisplayName } from "@/lib/workflow-display-copy";
+import { catalogWorkflowTitleZh } from "@/lib/workflow-catalog-title-copy";
 
 /**
  * AG04 follow-up（契约束 agent-role UC-4）—— 成员可见的数字人详情页 `/agent/[id]`，挂在标准
@@ -75,7 +78,11 @@ export async function loadAgentDetailExtras(agentId: string, orgId: string | nul
   const byVersion = new Map(catalog.flatMap((s) => (s.currentVersionId ? [[s.currentVersionId, s] as const] : [])));
   const seen = new Set<string>();
   const skills: AgentSkillSummary[] = [];
-  const push = (s: AgentSkillSummary) => { if (!seen.has(s.skillId)) { seen.add(s.skillId); skills.push(s); } };
+  const push = (s: AgentSkillSummary) => {
+    // 平台技能的 name 是稳定编号（S061）——换中文名；查不到就不上屏，绝不打印编号。
+    const name = workSkillDisplayName(s.name);
+    if (name && !seen.has(s.skillId)) { seen.add(s.skillId); skills.push({ ...s, name }); }
+  };
 
   const missing = profile.mountedSkillIds.filter((id) => !byId.has(id));
   const fetched = await Promise.allSettled(missing.map((id) => getSkillDetail(id)));
@@ -100,7 +107,10 @@ export async function loadAgentDetailExtras(agentId: string, orgId: string | nul
   const org = catalog
     .filter((s) => s.visibility === "org-wide")
     .slice(0, ORG_FALLBACK_LIMIT)
-    .map((s) => ({ skillId: s.skillId, name: s.name, duty: skillDuty(s) }));
+    .flatMap((s) => {
+      const name = workSkillDisplayName(s.name);
+      return name ? [{ skillId: s.skillId, name, duty: skillDuty(s) }] : [];
+    });
   return { ...base, skillSource: "org", skills: org };
 }
 
@@ -336,7 +346,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
               />
             ) : (
               <ul className="mt-3 flex flex-col divide-y divide-border rounded-control border border-border">
-                {card.workflows.map((w) => (
+                {card.workflows.map((wf) => ({ ...wf, name: workflowDisplayName(wf.stableId, catalogWorkflowTitleZh(wf.name)) })).map((w) => (
                   <li key={w.stableId} data-testid="agent-detail-workflow" className="flex items-center gap-3 px-3 py-2.5">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-accent text-accent-foreground">
                       <Workflow aria-hidden className="h-3.5 w-3.5" />

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import { stripControlMarkersForDisplay } from "@/lib/chat-control-markers";
 import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment } from "@/lib/live-chat";
 import {
@@ -117,7 +118,7 @@ function V2UserMessageRenderer({
   return (
     <div className="flex flex-col gap-1" {...(messageId === null ? {} : { [MESSAGE_ANCHOR_ATTR]: messageId })}>
       <div data-testid="chat-user-message-text" className="whitespace-pre-wrap text-13 text-secondary-foreground">
-        {content}
+        {typeof content === "string" ? stripControlMarkersForDisplay(content) : content}
       </div>
       {attachments !== null && attachments.items.length > 0 ? (
         <MessageAttachments attachments={attachments.items} threadId={attachments.threadId} />

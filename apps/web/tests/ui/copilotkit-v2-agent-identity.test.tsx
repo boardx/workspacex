@@ -14,6 +14,7 @@ vi.mock("@/lib/agent-directory", async (orig) => ({ ...(await orig<object>()), l
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { V2AssistantMessage } from "@/components/chat/copilotkit-v2-assistant-message";
 import { CopilotKitV2MessageActionsProvider } from "@/components/chat/copilotkit-v2-message-actions";
+import { GENERIC_ASSISTANT_NAME, shouldShowAssistantIdentity } from "@/components/chat/copilotkit-v2-agent-identity";
 import { resetAgentDirectoryMapCache } from "@/lib/use-agent-directory-map";
 
 const DH = {
@@ -47,13 +48,24 @@ describe("v2 助手消息：数字人头像身份行", () => {
     expect(screen.getByTestId("copilot-assistant-message")).toBeInTheDocument();
   });
 
-  it("不是数字人（无头像）或没选 agent → 不画身份行", async () => {
+  it("不是数字人（无头像）或没选 agent → 画通用助手身份（普通线程也有作者）", async () => {
     listAgentDirectory.mockResolvedValue([DH, PLAIN]);
     renderFor("agent-plain");
-    await waitFor(() => expect(listAgentDirectory).toHaveBeenCalled());
-    expect(screen.queryByTestId("chat-v2-agent-identity")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("chat-v2-agent-identity").textContent).toContain("通用助手"));
     cleanup();
     renderFor(null);
-    expect(screen.queryByTestId("chat-v2-agent-identity")).toBeNull();
+    expect(screen.getByTestId("chat-v2-agent-identity").textContent).toContain(GENERIC_ASSISTANT_NAME);
+  });
+
+  it("空正文不画身份行；连续助手回合只在第一条画", () => {
+    const u = { id: "u", role: "user", content: "问" };
+    const a1 = { id: "a1", role: "assistant", content: "答一" };
+    const empty = { id: "e", role: "assistant", content: "" };
+    const a2 = { id: "a2", role: "assistant", content: "答二" };
+    const msgs = [u, a1, empty, a2];
+    expect(shouldShowAssistantIdentity(a1, msgs)).toBe(true);
+    expect(shouldShowAssistantIdentity(empty, msgs)).toBe(false);
+    expect(shouldShowAssistantIdentity(a2, msgs)).toBe(false);
+    expect(shouldShowAssistantIdentity(a2, [u, empty, a2])).toBe(true);
   });
 });

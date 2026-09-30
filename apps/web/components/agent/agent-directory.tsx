@@ -173,7 +173,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
               type="button"
               onClick={() => setCategory("all")}
               aria-pressed={category === "all"}
-              className={`rounded-control px-2.5 py-1 text-12 transition-colors hover:bg-muted ${
+              className={`rounded-control px-2.5 py-1 text-12 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 category === "all" ? "bg-muted font-medium text-background-foreground" : "text-muted-foreground"
               }`}
             >
@@ -185,7 +185,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
                 type="button"
                 onClick={() => setCategory(c)}
                 aria-pressed={category === c}
-                className={`rounded-control px-2.5 py-1 text-12 transition-colors hover:bg-muted ${
+                className={`rounded-control px-2.5 py-1 text-12 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   category === c ? "bg-muted font-medium text-background-foreground" : "text-muted-foreground"
                 }`}
               >
