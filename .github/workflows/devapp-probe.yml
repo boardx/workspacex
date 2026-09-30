@@ -99,6 +99,11 @@ jobs:
           $PSQL "SELECT count(*) FROM ag_catalog.ag_graph"
           for g in $($PSQL "SELECT name FROM ag_catalog.ag_graph" 2>/dev/null); do
             echo "  $g: $($PSQL "SELECT (SELECT count(*) FROM \"$g\"._ag_label_vertex), (SELECT count(*) FROM \"$g\"._ag_label_edge)" 2>&1)"; done
+          echo "── 关系表 vs 图：每个 org 的 objects / claims / ontology_edges（按 relation）、投影死信 ──"
+          $PSQL "SELECT 'objects', org_id, count(*)::text FROM ontology_objects GROUP BY 2 UNION ALL SELECT 'claims', org_id, count(*)::text FROM claims GROUP BY 2 UNION ALL SELECT 'edges:'||relation, org_id, count(*)::text FROM ontology_edges GROUP BY 1,2 ORDER BY 2,1" 2>&1 | head -20
+          $PSQL "SELECT kg_projection_dead_count()" 2>&1 | head -2
+          echo "  最近 3 次抽取写入：对象数 / 结论数 / 边数（按 created_at 就近 10 分钟窗口）"
+          $PSQL "SELECT date_trunc('minute', c.created_at)::timestamp(0), count(DISTINCT c.id), (SELECT count(*) FROM ontology_edges e WHERE e.src_kind='claim' AND e.src_id = ANY(array_agg(c.id))), (SELECT count(*) FROM ontology_objects o WHERE o.org_id = min(c.org_id) AND o.created_at BETWEEN min(c.created_at) - interval '5 seconds' AND max(c.created_at) + interval '5 seconds') FROM claims c GROUP BY 1 ORDER BY 1 DESC LIMIT 3" 2>&1 | head -5
           echo "── 队列积压（抽取 / 投影 / 嵌入 / 冲突）──"
           for t in kg_extraction_queue kg_projection_outbox kg_embedding_outbox kg_conflict_close_queue; do echo "  $t: $($PSQL "SELECT count(*) FROM $t" 2>&1)"; done
           echo "── 最近 7 天的召回：轮数、降级轮数、各通道命中次数 ──"
