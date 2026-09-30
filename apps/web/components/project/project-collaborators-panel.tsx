@@ -98,9 +98,9 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
               </li>
             )}
             {members.map((m) => (
-              <li key={m.userId} className="flex items-center gap-3 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
+              <li key={m.userId} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
                 <Avatar initials={m.displayName.slice(0, 1)} size="sm" />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[4.5rem] flex-1">
                   <div className="truncate text-12" title={m.userId}>
                     {m.displayName}
                     {m.userId === me && <span className="ml-1.5 text-11 text-muted-foreground">（你）</span>}
@@ -113,7 +113,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                     disabled={busy}
                     onValueChange={(v) => void run(() => addNonWorkshopMember({ projectId, userId: m.userId, role: v as NonWorkshopMemberRole }))}
                     options={roleOptions}
-                    className="min-w-[8rem]"
+                    className="min-w-[7rem]"
                   />
                 ) : (
                   <Badge tone={m.role === "owner" ? "primary" : "outline"}>{NON_WORKSHOP_MEMBER_ROLE_LABEL[m.role]}</Badge>

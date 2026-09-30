@@ -156,7 +156,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
 
   return (
     <div className="flex flex-col" data-testid="project-content" data-filter={filter}>
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-6 pt-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex flex-wrap items-center gap-2">
           <SectionTitle className="mb-0" meta="对话、白板、访谈、问卷、研究、转写与设计都在这一张列表里">内容</SectionTitle>
           <span className="flex-1" />
@@ -255,7 +255,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
   creating: boolean; onCreate: (kind: Exclude<ContentFilter, "all">) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-6" data-testid="project-content-all">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-4 sm:p-6" data-testid="project-content-all">
       {index.error !== null && (
         <Card><p className="p-4 text-12 text-destructive" data-testid="project-content-error">{index.error}</p></Card>
       )}

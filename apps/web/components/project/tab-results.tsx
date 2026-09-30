@@ -58,7 +58,7 @@ export function TabResults({
   const canPublish = ROLE_STAGE_CONTROL[view] && !readOnly;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-results">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6" data-testid="project-results">
       {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9）。真实内容排最前。 */}
       <section>
         <SectionTitle meta="已回流到项目的产出">成果去向</SectionTitle>
