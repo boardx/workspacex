@@ -27,6 +27,22 @@ def test_official_langchain_adapter_uses_explicit_model_and_actual_text(monkeypa
  assert seen[0].headers['authorization']=='Bearer existing-model-secret'
  assert b'Actual' in seen[0].content
 
+def test_provider_requests_never_exceed_ten_texts(monkeypatch):
+ sizes=[]
+ async def send(self,request,**kwargs):
+  import json as _json
+  inputs=_json.loads(request.content)['input']
+  sizes.append(len(inputs))
+  response=httpx.Response(200,json={'object':'list','data':[{'object':'embedding','index':i,'embedding':[float(len(sizes)),float(i)]} for i in range(len(inputs))],'model':'explicit-embedding','usage':{'prompt_tokens':1,'total_tokens':1}})
+  response.request=request
+  return response
+ monkeypatch.setattr(httpx.AsyncClient,'send',send)
+ texts=[f'text {i}' for i in range(module._L['maxBatch'])]
+ result=asyncio.run(module.embed_texts(texts))
+ assert sizes and max(sizes)<=10 and sum(sizes)==len(texts)
+ assert len(result['vectors'])==len(texts)
+ assert result['vectors'][10]==[2.0,0.0]
+
 @pytest.mark.parametrize('body,status',[({'texts':['valid']},200),({'texts':['x'],'model':'override'},400),({'texts':['x'*32769]},400)])
 def test_authenticated_route_has_bounded_strict_request(monkeypatch,body,status):
  async def fake(texts):return {'model':'explicit','modelVersion':'1','vectors':[[1,0] for _ in texts]}
