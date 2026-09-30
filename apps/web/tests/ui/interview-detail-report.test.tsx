@@ -188,8 +188,11 @@ describe("F06 interview answers to report", () => {
 
     fireEvent.click(screen.getByTestId("itv-report-export-word"));
     fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
-    expect(exportWord).toHaveBeenCalledWith(final.report, { evidenceMode: completed.studyEvidenceMode, review: completed.reportEvidenceEligibility });
-    expect(exportPdf).toHaveBeenCalledWith("itv-report-print-root");
+    expect(screen.getByTestId("itv-live-report-quality")).toHaveTextContent("需要补齐分析链");
+    expect(screen.getByTestId("itv-report-export-word")).toBeDisabled();
+    expect(screen.getByTestId("itv-report-export-pdf")).toBeDisabled();
+    expect(exportWord).not.toHaveBeenCalled();
+    expect(exportPdf).not.toHaveBeenCalled();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 

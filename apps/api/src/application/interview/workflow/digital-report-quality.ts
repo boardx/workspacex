@@ -8,44 +8,5 @@ export const INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS = `每项核心发现必须�
 /** Shared theme guidance for both canonical Markdown and streaming report generation. */
 export const INTERVIEW_REPORT_THEME_GUIDANCE = `先根据研究主题和决策目标选择最合适的主题化报告结构，再在结构中保留统一的研究骨架。统一骨架至少包含：研究结论摘要、证据与原始回答、不确定性与限制、下一步验证建议。主题化章节按主题选择：采购/决策链重点分析角色、否决点、推进阶段与决策影响；JTBD/使用场景重点分析触发事件、替代方案、行为过程与未满足需求；流失/体验复盘重点分析时间线、摩擦点、情绪转折与留存机会；竞品/切换重点分析离开推力、目标方案拉力、切换焦虑与反例；合规/风险重点分析约束、审批节点、风险等级与缓解动作。不要机械输出不适用于当前主题的章节。`;
 
-export type InterviewReportAnalysisGap =
-  | "cross_answer_synthesis"
-  | "decision_implication"
-  | "boundary_or_counterevidence";
-
-export type InterviewReportAnalysisAssessment = {
-  readonly ok: boolean;
-  readonly missing: readonly InterviewReportAnalysisGap[];
-};
-
-const SYNTHESIS_SIGNALS = [
-  /跨(?:回答|受访者|角色|专家|样本)(?:综合|归纳|分析|比较)/u,
-  /共同(?:模式|主题|约束|需求|指向)/u,
-  /(?:多位|两位|不同)(?:受访者|专家|角色).{0,24}(?:共同|一致|差异|分歧|互补)/u,
-];
-
-const DECISION_SIGNALS = [
-  /决策影响[：:]/u,
-  /(?:优先级|优先验证|应优先|暂缓|停止|继续|选择).{0,36}(?:因为|基于|依据|验证|行动|方案|投入)/u,
-  /P[012][：:]/u,
-  /成功信号[：:]/u,
-];
-
-const BOUNDARY_SIGNALS = [
-  /边界(?:与反例)?[：:]/u,
-  /(?:反例|反对证据|相反证据|负面案例)[：:]/u,
-  /(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)/u,
-];
-
-function hasAny(markdown: string, patterns: readonly RegExp[]): boolean {
-  return patterns.some((pattern) => pattern.test(markdown));
-}
-
-/** Rejects report-shaped interview notes that do not contain decision-grade synthesis. */
-export function assessInterviewReportAnalysis(markdown: string): InterviewReportAnalysisAssessment {
-  const missing: InterviewReportAnalysisGap[] = [];
-  if (!hasAny(markdown, SYNTHESIS_SIGNALS)) missing.push("cross_answer_synthesis");
-  if (!hasAny(markdown, DECISION_SIGNALS)) missing.push("decision_implication");
-  if (!hasAny(markdown, BOUNDARY_SIGNALS)) missing.push("boundary_or_counterevidence");
-  return { ok: missing.length === 0, missing };
-}
+export { assessInterviewReportAnalysis } from "@repo/contracts/interview-markdown";
+export type { InterviewReportAnalysisGap, InterviewReportAnalysisAssessment } from "@repo/contracts/interview-markdown";
