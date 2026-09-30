@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "stableId": "S190",
+  "entityKind": "skill",
+  "targetVersionRange": ">=1.0.0 <2.0.0",
+  "toolsUnderTest": [],
+  "baseline": {
+    "kind": "generic-agent-same-tools",
+    "tools": [
+      "wx_knowledge_search"
+    ]
+  },
+  "mustPassCaseIds": [
+    "E2",
+    "E3",
+    "E8"
+  ],
+  "caseTimeoutMs": 60000,
+  "llmJudge": null,
+  "graderVersion": "s190-rules-1.0.0"
+}

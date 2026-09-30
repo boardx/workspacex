@@ -22,6 +22,9 @@ export const ROLE_CATEGORY_LABEL: Record<AgentRoleCategory, string> = {
   sales: "销售",
   design: "设计",
   general: "通用",
+  executive: "高管战略",
+  customer_success: "客户成功",
+  operations: "项目运营",
 };
 
 export async function listAgentDirectory(

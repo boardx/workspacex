@@ -1,0 +1,7 @@
+{
+  "caller": "agent-1",
+  "managedQueues": [
+    "q-support"
+  ],
+  "note": "调用者不管理 q-billing"
+}

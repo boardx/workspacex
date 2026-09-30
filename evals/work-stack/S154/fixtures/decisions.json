@@ -1,0 +1,13 @@
+{
+  "org": "synthetic-org-acme",
+  "decisions": {
+    "decision/D-17": {
+      "adoptedBy": "u-proj-owner",
+      "projectRoles": {
+        "u-proj-owner": "member",
+        "u-observer": "observer"
+      },
+      "text": "从 7 月起停用旧 CRM 并迁移到新系统"
+    }
+  }
+}

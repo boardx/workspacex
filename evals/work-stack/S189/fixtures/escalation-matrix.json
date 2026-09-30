@@ -1,0 +1,30 @@
+{
+  "matrixVersion": "synthetic-1",
+  "routes": [
+    {
+      "reason": "bug-beyond-support",
+      "area": "*",
+      "to": "engineering-oncall"
+    },
+    {
+      "reason": "multi-customer-pattern",
+      "area": "*",
+      "to": "engineering-oncall"
+    },
+    {
+      "reason": "security",
+      "area": "*",
+      "to": "security-on-call"
+    },
+    {
+      "reason": "data-loss",
+      "area": "*",
+      "to": "security-on-call"
+    },
+    {
+      "reason": "churn-threat",
+      "area": "*",
+      "to": "customer-owner"
+    }
+  ]
+}

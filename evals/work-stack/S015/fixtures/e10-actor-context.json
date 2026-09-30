@@ -1,0 +1,5 @@
+{
+  "actor": "u-cs-agent",
+  "workflowReviewer": "u-cs-lead",
+  "requestedSignOff": "u-other-manager"
+}

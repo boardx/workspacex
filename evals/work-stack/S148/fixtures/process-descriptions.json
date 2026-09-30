@@ -1,0 +1,7 @@
+{
+  "org": "synthetic-org-acme",
+  "procurement": "采购申请由部门提交，财务和采购部门都会审批，最后谁批准没定",
+  "riskCommittee": "付款复核由风控委员会负责",
+  "noExceptions": "员工提交报销单，经理审批后财务付款。",
+  "kpiAsk": "请加一个 KPI：处理时长 < 2 小时"
+}

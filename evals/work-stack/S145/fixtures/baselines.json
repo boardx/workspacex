@@ -1,0 +1,21 @@
+{
+  "org": "synthetic-org-acme",
+  "baselines": {
+    "P-SUPPLIER-2@v3": {
+      "confirmedBy": "u-pmo-lead",
+      "milestones": [
+        {
+          "milestoneId": "M2",
+          "date": "2026-05-01"
+        }
+      ],
+      "modules": [
+        "对账",
+        "开票",
+        "门户登录",
+        "通知"
+      ],
+      "plannedEffortPersonDays": 180
+    }
+  }
+}
