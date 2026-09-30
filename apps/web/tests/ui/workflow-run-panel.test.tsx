@@ -37,7 +37,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 
 import { WorkflowRunPanel } from "@/components/workflow/workflow-run-panel";
-import { WorkflowApprovalList, WorkflowRunEntry, WorkflowRunList } from "@/components/workflow/workflow-lists";
+import { WorkflowApprovalList, WorkflowDecidedApprovalList, WorkflowRunEntry, WorkflowRunList } from "@/components/workflow/workflow-lists";
 import WorkflowRunPage from "@/app/workflows/runs/[instanceId]/page";
 import WorkflowMyRunsPage from "@/app/workflows/runs/page";
 import WorkflowApprovalsPage from "@/app/workflows/approvals/page";
@@ -359,6 +359,8 @@ describe("WorkflowRunPanel", () => {
     render(<WorkflowRunPanel instanceId="i1" />);
     await waitFor(() => expect(screen.getByTestId("workflow-run-panel").getAttribute("data-state")).toBe("error"));
     expect(screen.getByRole("alert").textContent).toContain("无权查看");
+    expect(screen.getByTestId("workflow-run-load-error-back").getAttribute("href")).toBe("/workflows/runs");
+    expect(screen.getByRole("alert").textContent).toContain("链接可能已失效");
   });
 });
 
@@ -376,6 +378,24 @@ describe("列表与入口", () => {
     render(<WorkflowRunList status={["failed"]} />);
     expect((await screen.findByTestId("workflow-run-list")).textContent).toContain("失败");
     expect(api.listMyWorkflowInstances).toHaveBeenCalledWith(["failed"]);
+    expect(screen.getByTestId("workflow-run-list").textContent).not.toContain("weekly-report@3");
+  });
+
+  it("已处理：只列出已裁决的审批，显示结果；无记录时给空态", async () => {
+    api.listMyWorkflowApprovals.mockResolvedValueOnce({ items: [
+      { instanceId: "i1", workflowKey: "problem-to-prd", definitionVersion: 1, agentId: "a1", initiatorUserId: "u1", gate: gate({ decision: "approved", decidedBy: "u2", decidedAt: "2026-09-30T01:00:00Z" }) },
+      { instanceId: "i2", workflowKey: "problem-to-prd", definitionVersion: 1, agentId: "a1", initiatorUserId: "u1", gate: gate() },
+    ] });
+    const { unmount } = render(<WorkflowDecidedApprovalList />);
+    const list = await screen.findByTestId("workflow-decided-list");
+    expect(list.querySelectorAll("li")).toHaveLength(1);
+    expect(list.textContent).toContain("已同意");
+    expect(list.textContent).not.toContain("problem-to-prd");
+    expect(api.listMyWorkflowApprovals).toHaveBeenCalledWith(true);
+    unmount();
+    api.listMyWorkflowApprovals.mockResolvedValueOnce({ items: [] });
+    render(<WorkflowDecidedApprovalList />);
+    expect(await screen.findByTestId("workflow-decided-empty")).toBeTruthy();
   });
 
   it("待我审批：空态 & 列表打开抽屉，裁决前读取当前 stateVersion", async () => {

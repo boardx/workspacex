@@ -10,7 +10,7 @@ import { listBoardRunCards } from "@/lib/board-run-cards-api";
 function BoardRuns() {
   const projectId = useSearchParams().get("projectId");
   return (
-    <WorkflowPage title={projectId ? "项目 Board · Workflow 运行" : "Board · Workflow 运行"}>
+    <WorkflowPage title={projectId ? "项目运行看板" : "运行看板"}>
       <LiveBoardRunColumns projectId={projectId} load={listBoardRunCards} />
     </WorkflowPage>
   );

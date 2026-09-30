@@ -15,7 +15,7 @@ import {
   type WorkflowInstanceSummary,
 } from "@/lib/workflow-runtime-api";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
-import { gateDisplayTitle } from "@/lib/workflow-display-copy";
+import { gateDisplayTitle, workflowDisplayName } from "@/lib/workflow-display-copy";
 import { INSTANCE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
 import { WorkflowStartForm, requiredTriggerFields } from "./workflow-start-form";
 
@@ -39,7 +39,7 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
     <ul data-testid="workflow-run-list">
       {items.map((i) => (
         <li key={i.instanceId} data-status={i.status}>
-          <a href={href(i.instanceId)}>{`${i.workflowKey}@${i.definitionVersion}`}</a> · {INSTANCE_STATUS_TEXT[i.status]}
+          <a href={href(i.instanceId)}>{workflowDisplayName(i.workflowKey)}</a> · {INSTANCE_STATUS_TEXT[i.status]}
         </li>
       ))}
     </ul>
@@ -65,7 +65,14 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
   };
   if (error) return <p role="alert">{error}</p>;
   if (items === null) return <p>加载中…</p>;
-  if (items.length === 0) return <p data-testid="workflow-run-list-empty">没有待你审批的事项。</p>;
+  if (items.length === 0) {
+    return (
+      <div data-testid="workflow-run-list-empty" className="rounded-lg border border-dashed border-border px-6 py-8 text-center">
+        <p className="text-13 font-medium">没有待你审批的事项。</p>
+        <p className="mt-1 text-12 text-muted-foreground">工作流走到需要你拍板的一步（例如对外发布、写入外部系统）时，会出现在这里，并通知你。处理过的记录见下方「已处理」。</p>
+      </div>
+    );
+  }
   return (
     <ul data-testid="workflow-approval-list">
       {items.map((i) => {
@@ -87,6 +94,40 @@ export function WorkflowApprovalList(props: { readonly includeDecided?: boolean 
             />
           ) : null}
         </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+const DECISION_TEXT: Record<string, string> = { approved: "已同意", denied: "已拒绝" };
+
+/** 「已处理」历史：待我审批页下方，列出我处理过的审批（只读，点进对应运行）。 */
+export function WorkflowDecidedApprovalList() {
+  const [items, setItems] = useState<WorkflowApprovalItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    listMyWorkflowApprovals(true)
+      .then((r) => live && setItems(r.items.filter((i) => i.gate.decision !== null)))
+      .catch((e) => live && setError(describeWorkflowError(workflowErrorCode(e))));
+    return () => { live = false; };
+  }, []);
+  if (error) return <p role="alert" className="text-12 text-muted-foreground">{error}</p>;
+  if (items === null) return <p className="text-12 text-muted-foreground">加载中…</p>;
+  if (items.length === 0) return <p data-testid="workflow-decided-empty" className="text-12 text-muted-foreground">还没有处理过的审批。</p>;
+  return (
+    <ul data-testid="workflow-decided-list" className="divide-y divide-border rounded-lg border border-border">
+      {items.map((i) => {
+        const t = gateDisplayTitle({ stageId: i.gate.stageId, summary: i.gate.effectPreview.summary }, i.workflowKey);
+        return (
+          <li key={`${i.instanceId}-${i.gate.gateId}`} className="flex items-center gap-3 px-3 py-2 text-12">
+            <a href={`/workflows/runs/${encodeURIComponent(i.instanceId)}`} className="flex-1 truncate transition-colors duration-base hover:underline">
+              {`${t.stage}${t.workflow ? ` · ${t.workflow}` : ""}`}
+            </a>
+            <span className="text-muted-foreground">{DECISION_TEXT[String(i.gate.decision)] ?? "已处理"}</span>
+            {i.gate.decidedAt ? <time className="text-muted-foreground" dateTime={i.gate.decidedAt}>{new Date(i.gate.decidedAt).toLocaleString("zh-CN", { hour12: false })}</time> : null}
+          </li>
         );
       })}
     </ul>

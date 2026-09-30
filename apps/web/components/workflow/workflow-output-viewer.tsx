@@ -19,7 +19,7 @@ import {
   type WorkflowInstanceOutput,
   type WorkflowInstanceProjection,
 } from "@/lib/workflow-runtime-api";
-import { evidenceSourceLabel, humaniseOutputText } from "@/lib/workflow-output-display";
+import { evidenceSourceLabel, humaniseMetricName, humaniseOutputText, isInternalMetricId } from "@/lib/workflow-output-display";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
 import { describeWorkflowError } from "./workflow-copy";
 
@@ -140,7 +140,7 @@ export function WorkflowOutputViewer({ instanceId, outputId }: WorkflowOutputVie
         </Block>
       ) : null}
 
-      {projection ? <Versions projection={projection} digest={output.output?.digest ?? null} evidenceRefs={collectEvidenceRefs(output)} /> : null}
+      {projection ? <Versions projection={projection} digest={output.output?.digest ?? null} evidenceRefs={collectEvidenceRefs(output)} metricIds={output.output?.kind === "prd" ? output.output.metrics.map((m) => m.name).filter(isInternalMetricId) : []} /> : null}
     </section>
   );
 }
@@ -200,7 +200,7 @@ function OutputBody({ output }: { readonly output: Output }) {
         <Block title="衡量指标" testId="workflow-output-metrics">
           <dl className="space-y-2 text-13">
             {output.metrics.map((m) => (
-              <div key={m.name}><dt className="font-medium">{m.name}</dt><dd className="text-muted-foreground">{m.definition}</dd></div>
+              <div key={m.name}><dt className="font-medium">{humaniseMetricName(m.name)}</dt><dd className="text-muted-foreground">{humaniseOutputText(m.definition)}</dd></div>
             ))}
           </dl>
         </Block>
@@ -241,7 +241,7 @@ function collectEvidenceRefs(output: WorkflowInstanceOutput): string[] {
   return [...new Set(refs)];
 }
 
-function Versions({ projection, digest, evidenceRefs }: { readonly projection: WorkflowInstanceProjection; readonly digest: string | null; readonly evidenceRefs: readonly string[] }) {
+function Versions({ projection, digest, evidenceRefs, metricIds }: { readonly projection: WorkflowInstanceProjection; readonly digest: string | null; readonly evidenceRefs: readonly string[]; readonly metricIds: readonly string[] }) {
   const pinned = projection.stages.flatMap((s, i) => s.pinnedSkills.map((p) => ({ ...p, stageName: stageDisplayName(s.stageId, s.title, i) })));
   return (
     <Block title="版本信息" testId="workflow-output-versions">
@@ -260,6 +260,7 @@ function Versions({ projection, digest, evidenceRefs }: { readonly projection: W
           {digest ? (<><dt>产出摘要</dt><dd><code className="break-all" data-testid="workflow-output-digest">{digest}</code></dd></>) : null}
           {pinned.length > 0 ? (<><dt>技能编号</dt><dd><code>{pinned.map((p) => `${p.stableId}@${p.version}`).join(", ")}</code></dd></>) : null}
           {evidenceRefs.length > 0 ? (<><dt>证据引用</dt><dd><code className="break-all">{evidenceRefs.join(", ")}</code></dd></>) : null}
+          {metricIds.length > 0 ? (<><dt>指标编号</dt><dd><code className="break-all">{metricIds.join(", ")}</code></dd></>) : null}
         </dl>
       </details>
     </Block>

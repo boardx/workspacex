@@ -9,6 +9,7 @@
  * 并触发一次 `getInstance` 重读。断线 → `reconnecting`，带 Last-Event-ID 续传；
  * 连续失败超过上限 → 降级 `polling`（getInstance 轮询）。终态停止订阅。
  */
+import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelWorkflowInstance,
@@ -175,7 +176,21 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   if (!projection) {
     return (
       <section data-testid="workflow-run-panel" data-state={loadError ? "error" : "loading"}>
-        {loadError ? <p role="alert">{loadError}</p> : <p>加载中…</p>}
+        {loadError ? (
+          <div
+            role="alert"
+            data-testid="workflow-run-load-error"
+            className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-lg border border-border bg-muted px-6 py-10 text-center"
+          >
+            <AlertTriangle aria-hidden className="h-6 w-6 text-muted-foreground" />
+            <p className="text-13 font-medium">{loadError}</p>
+            <p className="text-12 text-muted-foreground">链接可能已失效，或这次运行不在你可见的范围内。可以回到运行列表重新找，或稍后重试。</p>
+            <div className="flex items-center gap-2">
+              <a href="/workflows/runs" data-testid="workflow-run-load-error-back" className="rounded-md border border-border bg-card px-3 py-1.5 text-12 font-medium transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">返回我的运行</a>
+              <button type="button" onClick={() => void refresh()} className="rounded-md px-3 py-1.5 text-12 text-muted-foreground transition-colors duration-base hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">重试</button>
+            </div>
+          </div>
+        ) : <p className="p-6 text-12 text-muted-foreground">加载中…</p>}
       </section>
     );
   }

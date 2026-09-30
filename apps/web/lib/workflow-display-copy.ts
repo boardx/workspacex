@@ -33,6 +33,18 @@ export function workflowDisplayName(keyOrId: string, fallbackTitle?: string): st
   return findBuiltinWorkflow(keyOrId)?.name ?? fallbackTitle ?? keyOrId;
 }
 
+const RUN_TITLE_ID = /^\s*(W\d{3})\b\s*([^·:：]*?)\s*(?=[·:：]|$)/i;
+
+/** 运行卡标题：`W029 Problem-to-PRD · xxx` → `问题定义到 PRD · xxx`；开头不是内置编号时原样返回。 */
+export function runTitleDisplay(title: string): string {
+  const m = RUN_TITLE_ID.exec(title);
+  if (!m) return title;
+  const name = findBuiltinWorkflow(m[1]!)?.name;
+  if (!name) return title;
+  const rest = title.slice(m[0].length).trim();
+  return rest ? `${name} ${rest}` : name;
+}
+
 const STAGES: Record<string, string> = {
   activation_define: "定义激活指标",
   adjudicate: "裁决分歧",

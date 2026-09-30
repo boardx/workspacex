@@ -3331,6 +3331,10 @@
         "apps/web/lib/mock/canvas.ts"
       ]
     },
+    "/workflows": {
+      "kind": "shell",
+      "screen": "apps/web/app/workflows/page.tsx"
+    },
     "/workflows/approvals": {
       "kind": "wired",
       "screen": "apps/web/app/workflows/approvals/page.tsx",

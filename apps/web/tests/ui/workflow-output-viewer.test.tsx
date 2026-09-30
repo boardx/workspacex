@@ -82,6 +82,23 @@ describe("WorkflowOutputViewer", () => {
     expect(visible).not.toMatch(/loopback|S064|[0-9a-f]{64}/);
   });
 
+  it("指标名与需求来源不露内部编号：loopback_metric / [loopback] / S067@ver 只在技术详情", async () => {
+    api.getWorkflowInstanceOutput.mockResolvedValue(prdOutput({
+      ...PRD,
+      requirements: [{ id: "R1", text: "[loopback] requirement from S067@1.0.0", priority: "P1" }],
+      metrics: [{ name: "loopback_metric", definition: "[loopback] deterministic metric" }, { name: "sync_success_rate", definition: "成功率" }],
+    }));
+    render(<WorkflowRunOutputPage params={{ instanceId: "i1" }} />);
+    await waitFor(() => expect(screen.getByTestId("workflow-output-prd")).toBeTruthy());
+    expect(screen.getByTestId("workflow-output-requirements").textContent).toContain("来自「PRD / 需求规格撰写」技能的需求");
+    expect(screen.getByTestId("workflow-output-metrics").textContent).toContain("演示指标");
+    expect(screen.getByTestId("workflow-output-tech-details").textContent).toContain("loopback_metric");
+    const clone = screen.getByTestId("workflow-output-viewer").cloneNode(true) as HTMLElement;
+    clone.querySelector('[data-testid="workflow-output-tech-details"]')!.remove();
+    const visible = clone.textContent ?? "";
+    expect(visible).not.toMatch(/loopback|S0\d\d@|[a-z0-9]+_[a-z0-9_]+/i);
+  });
+
   it("尚无产出：空态", async () => {
     api.getWorkflowInstanceOutput.mockResolvedValue(prdOutput(null));
     render(<WorkflowRunOutputPage params={{ instanceId: "i1" }} />);

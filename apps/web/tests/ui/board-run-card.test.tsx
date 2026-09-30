@@ -56,6 +56,11 @@ describe("BoardRunCard", () => {
     expect(b.textContent).not.toContain(badge);
   });
 
+  it("标题里的内置工作流编号换中文名：W029 Problem-to-PRD → 问题定义到 PRD", () => {
+    render(<BoardRunCard card={card({ title: "W029 Problem-to-PRD · 离线同步" })} onOpen={vi.fn()} />);
+    expect(screen.getByTestId("board-run-card-title").textContent).toBe("问题定义到 PRD · 离线同步");
+  });
+
   it("Agent 头像：有插画 key 渲染插画、否则首字母", () => {
     render(<BoardRunCard card={card()} />);
     const avatars = screen.getByTestId("board-run-card-agents").children;

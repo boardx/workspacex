@@ -11,6 +11,7 @@ import type { z } from "zod";
 import type { BoardRunBadge, BoardWorkflowRunCard } from "@repo/contracts/work-content";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { runTitleDisplay } from "@/lib/workflow-display-copy";
 
 export type BoardRunCardData = z.infer<typeof BoardWorkflowRunCard>;
 type RunBadge = z.infer<typeof BoardRunBadge>;
@@ -63,7 +64,7 @@ export function BoardRunCard({ card, onOpen }: { card: BoardRunCardData; onOpen?
       <div className="flex items-start gap-2">
         <WorkflowIcon />
         <p data-testid="board-run-card-title" className="flex-1 text-12 font-medium text-background-foreground">
-          {card.title}
+          {runTitleDisplay(card.title)}
         </p>
         <Badge tone={badge.tone} data-testid="board-run-card-badge" data-badge={card.badge}>
           {badge.label}
