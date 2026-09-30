@@ -15,6 +15,7 @@ import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   PROJECT_TAGS_MAX,
+  PROJECT_TAG_MAX_LENGTH,
   archiveProject,
   listProjects,
   unarchiveProject,
@@ -505,7 +506,9 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
 
   const addTag = () => {
     const t = draft.trim();
-    if (t === "" || project.tags.includes(t) || project.tags.length >= PROJECT_TAGS_MAX) return;
+    if (t === "" || project.tags.length >= PROJECT_TAGS_MAX) return;
+    // 重复的标签此前被静默吞掉（按了回车什么都没发生）：就地说清楚
+    if (project.tags.includes(t)) { setError("已经有这个标签了"); return; }
     void submitTags([...project.tags, t]);
   };
 
@@ -515,7 +518,7 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
         <span
           key={tag}
           data-testid={`projects-card-${project.id}-tag-${tag}`}
-          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
+          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-11 text-muted-foreground"
         >
           {tag}
           <button
@@ -536,7 +539,8 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
           <Input
             autoFocus
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => { setDraft(e.target.value); if (error !== null) setError(null); }}
+            maxLength={PROJECT_TAG_MAX_LENGTH}
             onKeyDown={(e) => {
               if (e.key === "Enter") { e.preventDefault(); addTag(); }
               if (e.key === "Escape") { setAdding(false); setDraft(""); }
@@ -544,10 +548,10 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
             placeholder="新标签"
             aria-label="新标签"
             data-testid={`projects-card-${project.id}-tag-input`}
-            className="h-6 w-24 text-10"
+            className="h-6 w-24 text-11"
             disabled={busy}
           />
-          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-10" onClick={addTag} disabled={busy || draft.trim() === ""} data-testid={`projects-card-${project.id}-tag-confirm`}>
+          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-11" onClick={addTag} disabled={busy || draft.trim() === ""} data-testid={`projects-card-${project.id}-tag-confirm`}>
             确定
           </Button>
         </span>
@@ -556,7 +560,7 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
           type="button"
           data-testid={`projects-card-${project.id}-tag-add`}
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+          className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-11 text-muted-foreground transition-colors duration-base hover:bg-muted"
         >
           <Plus aria-hidden className="h-2.5 w-2.5" />
           标签
@@ -564,7 +568,7 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
       ) : null}
 
       {error !== null ? (
-        <span className="text-10 text-destructive" data-testid={`projects-card-${project.id}-tags-error`}>
+        <span className="text-11 text-destructive" data-testid={`projects-card-${project.id}-tags-error`}>
           {error}
         </span>
       ) : null}

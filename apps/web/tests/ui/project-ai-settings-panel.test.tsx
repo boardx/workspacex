@@ -56,6 +56,19 @@ describe("B2-S5 AI 权限面板", () => {
     expect(screen.getByTestId("project-ai-settings-save")).toBeDisabled();
   });
 
+  it("R8 整行可点（点文字也切开关）+ 有改动时提示「有未保存的修改」、保存变主按钮", async () => {
+    getProjectAiSettings.mockResolvedValue(DEFAULTS);
+    render(<ProjectAiSettingsPanel projectId="p1" canEdit />);
+    await screen.findByTestId("project-ai-source-chat");
+    expect(screen.queryByTestId("project-ai-settings-dirty")).toBeNull();
+    fireEvent.click(screen.getByText("问卷"));           // 点标签文字，不是点开关本体
+    expect(screen.getByTestId("project-ai-source-survey")).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByTestId("project-ai-settings-dirty")).toHaveTextContent("有未保存的修改");
+    expect(screen.getByTestId("project-ai-settings-meta").textContent).not.toContain("尚未设置过");
+    fireEvent.click(screen.getByText("问卷"));           // 改回去 ⇒ 不再脏
+    expect(screen.queryByTestId("project-ai-settings-dirty")).toBeNull();
+  });
+
   it("组员视角：只读徽标，没有开关、没有保存", async () => {
     getProjectAiSettings.mockResolvedValue({ ...DEFAULTS, allowedSources: ["chat", "research"], updatedAt: "2026-09-27T00:00:00.000Z", updatedBy: "u-fac" });
     render(<ProjectAiSettingsPanel projectId="p1" canEdit={false} />);
