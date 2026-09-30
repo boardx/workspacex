@@ -1,6 +1,5 @@
 # UIUX handoff
 
-分支 codex/uiux-core-polish-20260930。共享原 checkout 的其他人改动未修改。
-最终待办：补齐部分浏览器回归，归档最终类型/lint证据，提交并推送真实修复 PR（Refs #4773），跟踪到 CI 绿。
-个人页/Board/反馈闭环、真实模型及麦克风链路尚未完成，不标通过。
-本任务只占用自己创建的本地 runtime；收尾时停止该 runtime，不清别人的资源。
+分支 codex/uiux-core-polish-20260930；PR #4776；实现提交 eb659cccb。
+共享原checkout的其他人改动未修改。个人页已完成页面走查；Board/反馈完整闭环、真实模型及麦克风链路未验证，不标通过。
+自有runtime已停止，浏览器视口已恢复。后续跟进PR当前SHA的CI及review，不合并。
