@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { SectionTitle } from "./parts";
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
@@ -83,7 +84,7 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
 
   return (
     <section data-testid="project-collaborators-panel">
-      <SectionTitle meta="研究项目 / 用户洞察只有负责人与协作者两档；只有名单上的人能看到内容">协作者</SectionTitle>
+      <SectionTitle meta="项目只对名单上的人可见：负责人管理成员，协作者参与内容">协作者</SectionTitle>
       <Card>
         {loadError !== null ? (
           <p className="p-4 text-11 text-destructive" data-testid="project-collaborators-error">{loadError}</p>
@@ -98,9 +99,12 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
             )}
             {members.map((m) => (
               <li key={m.userId} className="flex items-center gap-3 px-3.5 py-2.5" data-testid={`project-collaborator-${m.userId}`}>
+                <Avatar initials={m.displayName.slice(0, 1)} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-12">{m.displayName}</div>
-                  <div className="font-mono text-10 text-muted-foreground">{m.userId}</div>
+                  <div className="truncate text-12" title={m.userId}>
+                    {m.displayName}
+                    {m.userId === me && <span className="ml-1.5 text-10 text-muted-foreground">（你）</span>}
+                  </div>
                 </div>
                 {canManage ? (
                   <Select
@@ -148,6 +152,11 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
                 className="min-w-[8rem]"
               />
             </label>
+            {candidates.length === 0 && (
+              <p className="basis-full text-10 text-muted-foreground" data-testid="project-collaborators-add-hint">
+                组织里暂时没有其他成员可指派；有新成员加入组织后就能在这里选到。
+              </p>
+            )}
             <Button size="sm" variant="primary" disabled={busy || pickUser === ""} data-testid="project-collaborators-add-submit"
               onClick={() => void run(async () => { await addNonWorkshopMember({ projectId, userId: pickUser, role: pickRole }); setPickUser(""); })}>
               加入

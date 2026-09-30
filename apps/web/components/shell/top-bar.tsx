@@ -110,10 +110,14 @@ export function TopBar({
   const [chatProjectIdParam, setChatProjectIdParam] = React.useState<string | null>(null);
   const chatProjectId = pathname === "/chat" ? chatProjectIdParam : null;
   const project = resolveProjectContext(pathname, chatProjectId);
-  const chatProjectName = useChatProjectName(identity.org.id, chatProjectId);
+  // 项目名统一解析：/chat?projectId= 与 /projects/<id> 都要，解析前不把裸 id 当项目名露出来
+  const ctxProjectId = project?.id ?? null;
+  const resolvedProjectName = useChatProjectName(identity.org.id, ctxProjectId);
   // resolveProjectContext 对 /chat 只给得出裸 id 占位（见该函数注释）；名字解析出来后
   // 覆盖显示值，解析完成前先诚实显示 id（不是空白，也不是编一个「加载中」的项目名）。
-  const displayProject = project && chatProjectName ? { ...project, name: chatProjectName } : project;
+  const displayProject = project
+    ? { ...project, name: resolvedProjectName ?? (project.name === project.id ? "项目" : project.name) }
+    : project;
   const isDev = process.env.NODE_ENV !== "production";
   const projectLayer = project ? describeProjectLayer(identity) : null;
   // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
@@ -273,7 +277,7 @@ export function TopBar({
         `/admin/skill/[id]` 这类多段路由，不是只排除 `/admin` 这一段路径）。
         2026-09-02 后台切成两面后，平台后台 `/platform-admin/*` 同理排除。
       */}
-      {!project && !local && !sh.on && pathname !== "/chat" && pathname !== "/rec"
+      {!project && !local && !sh.on && pathname !== "/chat" && pathname !== "/rec" && pathname !== "/projects" && !pathname.startsWith("/workflows")
         && pathname !== "/admin" && !pathname.startsWith("/admin/")
         && pathname !== "/platform-admin" && !pathname.startsWith("/platform-admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">

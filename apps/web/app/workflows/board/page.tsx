@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { BackToProjectLink, WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
+import { WorkflowNav, WorkflowPage } from "@/components/workflow/workflow-nav";
 import { LiveBoardRunColumns } from "@/components/work-stack/board-run-card";
 import { listBoardRunCards } from "@/lib/board-run-cards-api";
 
@@ -11,7 +11,6 @@ function BoardRuns() {
   const projectId = useSearchParams().get("projectId");
   return (
     <WorkflowPage title={projectId ? "项目 Board · Workflow 运行" : "Board · Workflow 运行"}>
-      {projectId ? <BackToProjectLink projectId={projectId} testId="workflow-page-back-to-project" /> : null}
       <LiveBoardRunColumns projectId={projectId} load={listBoardRunCards} />
     </WorkflowPage>
   );
