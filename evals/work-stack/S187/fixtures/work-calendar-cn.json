@@ -1,0 +1,19 @@
+{
+  "calendarId": "synthetic-cn-2026",
+  "timeZone": "Asia/Shanghai",
+  "businessHours": {
+    "start": "09:00",
+    "end": "18:00"
+  },
+  "holidays": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07"
+  ],
+  "makeUpWorkdays": [
+    "2026-10-10"
+  ],
+  "note": "合成日历，仅用于评测"
+}

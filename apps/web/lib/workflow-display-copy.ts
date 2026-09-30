@@ -21,6 +21,14 @@ const WORKFLOWS: readonly WorkflowName[] = [
   { workflowId: "W030", key: "prd-to-sprint", name: "PRD 到迭代计划" },
   { workflowId: "W031", key: "experiment-loop", name: "实验闭环" },
   { workflowId: "W032", key: "roadmap-review", name: "路线图评审" },
+  // 批次 2 槽位（key 与 `BATCH2_WORKFLOW_SLOTS` 逐项核对）：先有名字，Definition 随注册步骤上线。
+  { workflowId: "W003", key: "decision-to-execution", name: "决策到执行" },
+  { workflowId: "W004", key: "weekly-executive-digest", name: "高管周报" },
+  { workflowId: "W007", key: "issue-to-resolution", name: "问题到解决" },
+  { workflowId: "W052", key: "request-to-project", name: "请求到项目" },
+  { workflowId: "W053", key: "weekly-pmo-review", name: "PMO 周度复核" },
+  { workflowId: "W055", key: "process-improvement", name: "流程改进" },
+  { workflowId: "W056", key: "incident-to-postmortem", name: "事件到复盘" },
 ];
 
 /** 按 workflowKey 或 workflowId（大小写不敏感）找到内置工作流；找不到返回 null。 */

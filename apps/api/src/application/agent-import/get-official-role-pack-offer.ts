@@ -13,6 +13,8 @@
  * Skill 起步包。客户端先逐个走既有 Skill 起步包导入（管理员、幂等；导入后 follow-up 发布内置 Workflow），
  * 再导入角色包；否则启用后的数字人「能力未就绪 / 暂无可发起 Workflow」。
  */
+import type { z } from "zod";
+import type { agentRole } from "@repo/contracts";
 import type { IdentityRepository } from "../identity/ports";
 import type { OrgId } from "../../domain/org-id";
 import { buildOfficialAgentRolePack, officialRoleSkillPacks } from "../../domain/agent/official-role-packs";
@@ -27,7 +29,7 @@ export interface OfficialRolePackOfferView {
     readonly name: string;
     readonly roleLabel: string;
     readonly avatar: { readonly kind: "illustration"; readonly key: string; readonly alt: string } | null;
-    readonly roleCategory: "research" | "product" | "sales" | "design" | "general";
+    readonly roleCategory: z.infer<typeof agentRole.AgentRoleCategory>;
     readonly tags: readonly string[];
     readonly workflowAllowlist: readonly string[];
   }[];

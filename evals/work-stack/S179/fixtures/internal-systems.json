@@ -1,0 +1,9 @@
+{
+  "internalSystemNames": [
+    "ledger-core",
+    "pay-gateway-7"
+  ],
+  "internalOnlySources": {
+    "chat/internal-42": "内部备注：某内部备注"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "ruleTableId": "default-v1",
+  "rules": [
+    {
+      "id": "p1-data-or-outage",
+      "when": "dataRisk!=none OR (scope=all-users AND workaround=none)",
+      "level": "P1"
+    },
+    {
+      "id": "p2-many-or-blocked",
+      "when": "scope=many-users OR (scope=single-account AND urgency=blocking AND workaround=none)",
+      "level": "P2"
+    },
+    {
+      "id": "p3-default",
+      "when": "workaround in (partial, none)",
+      "level": "P3"
+    },
+    {
+      "id": "p4-default",
+      "when": "otherwise",
+      "level": "P4"
+    }
+  ],
+  "tierAffectsLevel": false
+}

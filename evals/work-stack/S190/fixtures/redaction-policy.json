@@ -1,0 +1,8 @@
+{
+  "policyVersion": "synthetic-1",
+  "patterns": [
+    "internal-ticket-id:INC-\\d+",
+    "user-data:email",
+    "customer-name:org-directory"
+  ]
+}

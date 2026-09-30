@@ -1,0 +1,13 @@
+{
+  "metric": {
+    "metricId": "ARR",
+    "name": "年度经常性收入",
+    "value": 120000000,
+    "unit": "CNY",
+    "asOf": "2026-09-01",
+    "sourceRef": {
+      "sourceId": "fin:arr-2026q3"
+    }
+  },
+  "note": "合成：青禾科技年度经常性收入 1.2 亿元"
+}

@@ -1,0 +1,15 @@
+{
+  "kb": [
+    {
+      "theme": "导出",
+      "articleId": "KB-1"
+    }
+  ],
+  "macros": [
+    {
+      "theme": "导出",
+      "macroId": "M-1"
+    }
+  ],
+  "note": "无「价格」主题的 KB 或宏"
+}

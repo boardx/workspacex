@@ -1,0 +1,11 @@
+{
+  "ref": "gov:conflict-register-D4",
+  "entries": [
+    {
+      "entry": "entry-2",
+      "director": "dir:D4",
+      "relatedParty": "并购标的 目标科技（合成）",
+      "note": "董事 D4 持有标的 3% 股权"
+    }
+  ]
+}
