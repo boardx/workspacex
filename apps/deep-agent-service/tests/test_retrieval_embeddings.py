@@ -105,3 +105,33 @@ def test_total_route_deadline_cancels_pending_embedding(monkeypatch):
    return await client.post('/internal/retrieval/embeddings',json={'texts':['source']},headers={'x-deep-agent-internal-key':'existing-service-secret'})
  response=asyncio.run(run());assert response.status_code==503;assert cancelled
  assert 'existing-model-secret' not in response.text
+
+def test_pooled_connection_outlives_httpx_default_idle_expiry():
+ # httpx's 5s default dropped the warm connection between chat turns; the provider keeps it >=90s.
+ transport=module._BoundedTransport()
+ assert transport.transport._pool._keepalive_expiry==module._KEEPALIVE_S>=60
+
+def test_warm_loop_pings_when_idle_and_stays_silent_when_unconfigured(monkeypatch):
+ calls=[]
+ async def fake(texts):calls.append(texts)
+ monkeypatch.setattr(module,'embed_texts',fake)
+ monkeypatch.setattr(module,'_last_provider_use',0.0)
+ async def run(seconds):
+  task=asyncio.create_task(module.keep_provider_connection_warm(check_every=0.01,idle_after=0))
+  await asyncio.sleep(seconds);task.cancel()
+ asyncio.run(run(0.05))
+ assert calls and calls[0]==['ping']
+ calls.clear();monkeypatch.delenv('KERNEL_EMBEDDING_MODEL_ID')
+ asyncio.run(run(0.05))
+ assert calls==[]
+
+def test_warm_loop_skips_while_connection_recently_used(monkeypatch):
+ calls=[]
+ async def fake(texts):calls.append(texts)
+ monkeypatch.setattr(module,'embed_texts',fake)
+ monkeypatch.setattr(module,'_last_provider_use',module.time.monotonic())
+ async def run():
+  task=asyncio.create_task(module.keep_provider_connection_warm(check_every=0.01,idle_after=60))
+  await asyncio.sleep(0.05);task.cancel()
+ asyncio.run(run())
+ assert calls==[]

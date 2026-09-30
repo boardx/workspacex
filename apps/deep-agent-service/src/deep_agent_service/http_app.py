@@ -27,8 +27,12 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
         selected = selected or production_runtime()
         app.state.runtime = selected
         await selected.start()
+        from deep_agent_service.retrieval_embeddings import keep_provider_connection_warm
+        warm = asyncio.create_task(keep_provider_connection_warm())
         try: yield
-        finally: await selected.stop()
+        finally:
+            warm.cancel()
+            await selected.stop()
 
     def rt(request: Request) -> Runtime:
         return request.app.state.runtime
