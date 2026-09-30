@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Brain, Users, Workflow } from "lucide-react";
+import { Brain, MessageSquarePlus, Users, UserPlus, Workflow } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -39,8 +39,44 @@ export function TabGeneralOverview({ projectId, tabHref }: {
   const brain = useBrainSummary(projectId);
   const recent = index.entries.slice(0, RECENT_LIMIT);
 
+  const isFresh = index.ready && index.entries.length === 0;
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-general-overview">
+      {isFresh && (
+        <Card>
+          <div className="flex flex-col gap-3 p-4" data-testid="project-general-overview-start">
+            <div>
+              <h2 className="text-14 font-semibold tracking-tight">开始使用这个项目</h2>
+              <p className="mt-0.5 text-12 text-muted-foreground">项目还是空的——先做下面任意一步，内容、成员和大脑都会在这里长出来。</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <a
+                href={tabHref("content")}
+                data-testid="project-general-overview-start-content"
+                className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-base hover:border-primary"
+              >
+                <MessageSquarePlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-13 font-medium">新建第一段内容</span>
+                  <span className="text-12 text-muted-foreground">一段对话、一块白板，或关联已有的访谈、问卷</span>
+                </span>
+              </a>
+              <a
+                href={tabHref("settings")}
+                data-testid="project-general-overview-start-invite"
+                className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-base hover:border-primary"
+              >
+                <UserPlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-13 font-medium">邀请协作者</span>
+                  <span className="text-12 text-muted-foreground">在「设置」里管理项目成员</span>
+                </span>
+              </a>
+            </div>
+          </div>
+        </Card>
+      )}
       <Card>
         <div className="flex flex-col gap-3 p-4" data-testid="project-general-overview-head">
           <h2 className="text-13 font-semibold tracking-tight">项目成员</h2>

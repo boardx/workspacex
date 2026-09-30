@@ -294,6 +294,24 @@ describe("#4615 通用项目的工作台", () => {
     expect(screen.queryByTestId("project-resource-sv1")).toBeNull();
   });
 
+  it("R3 概览：项目空时给「开始使用」引导（新建内容 / 邀请协作者），有内容后不再出现", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    listThreads.mockResolvedValue({ groups: [] });
+    listProjectResources.mockResolvedValue({ items: [] });
+    const { unmount } = renderWorkbench("overview");
+    const guide = await screen.findByTestId("project-general-overview-start");
+    expect(guide).toHaveTextContent("开始使用这个项目");
+    expect(screen.getByTestId("project-general-overview-start-content")).toHaveAttribute("href", expect.stringContaining("tab=content"));
+    expect(screen.getByTestId("project-general-overview-start-invite")).toHaveAttribute("href", expect.stringContaining("tab=settings"));
+    unmount();
+
+    listThreads.mockResolvedValue(THREADS);
+    listProjectResources.mockResolvedValue(RESOURCES);
+    renderWorkbench("overview");
+    await waitFor(() => expect(screen.getByTestId("project-general-overview-count-whiteboard")).toHaveTextContent("1"));
+    expect(screen.queryByTestId("project-general-overview-start")).toBeNull();
+  });
+
   it("#4743 内容为空：友好的空状态卡，带新建白板 / 新建对话", async () => {
     getProjectOverview.mockResolvedValue(overviewOf("general"));
     listThreads.mockResolvedValue({ groups: [] });
