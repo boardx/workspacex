@@ -320,8 +320,7 @@ export function TabOverview({
               className="border-t border-border px-4 py-3 text-11 leading-relaxed text-muted-foreground"
               data-testid="project-overview-current-segment-roles-unavailable"
             >
-              这个环节里各角色分别该做什么，契约里还没有出处，本版不显示。
-              环节的推进与角色分工属于现场协作那一束，接真后才会出现在这里。
+              环节内的分工与推进提示还没有开放，上线后会显示在这里。
             </p>
           </Card>
 
@@ -336,8 +335,7 @@ export function TabOverview({
               <SectionTitle>待办</SectionTitle>
               <Card>
                 <p className="px-3.5 py-3 text-11 leading-relaxed text-muted-foreground" data-testid="project-overview-todos-unavailable">
-                  项目待办还没有契约来源，本版不显示。它需要先定义「待办从哪里来、谁能改、
-                  完成算什么」，那是一次独立的契约设计，不是这一屏能顺手补出来的。
+                  项目待办还没有开放。
                 </p>
               </Card>
             </section>
@@ -350,8 +348,7 @@ export function TabOverview({
             <section>
               <SectionTitle>最新动态</SectionTitle>
               <p className="border-b border-border py-2.5 text-11 leading-relaxed text-muted-foreground" data-testid="project-overview-activity-unavailable">
-                项目动态流还没有契约来源，本版不显示。已回流的产出在上方「真实概览」里，
-                那是目前唯一有出处的「最近发生了什么」。
+                项目动态还没有开放。已回流的产出可以在上方的概览里看到。
               </p>
             </section>
           </div>

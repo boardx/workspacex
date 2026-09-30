@@ -1,5 +1,5 @@
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
-import { buildEscalationPolicyContext } from "../../domain/agent/escalation-policy-prompt";
+import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -80,7 +80,6 @@ import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
 import type { RunImagePort } from "./run-image-input";
 import { gatherVisionImages } from "./gather-vision-images";
-import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from "./execute-run-events";
@@ -670,32 +669,9 @@ async function executeClaimed(
     // instructions first, capability/plan context after" ordering the comment two blocks
     // up already documents for that block. See `ExecuteAgentRunDeps.planLedger`'s own doc
     // for why a read failure here is log-and-continue, not a run failure.
-    if (deps.planLedger) {
-      try {
-        const ledger = await deps.planLedger.getLatest(orgId, run.threadId);
-        const planText = ledger ? serializePlanForDelivery(ledger) : null;
-        if (planText !== null) system = `${system}\n\n---\n\n${planText}`;
-      } catch (e) {
-        deps.log("plan-control: reading the plan ledger for delivery failed, continuing without it", {
-          runId: run.runId,
-          detail: e instanceof Error ? e.message : "unexpected plan ledger read failure",
-        });
-      }
-    }
-    // AG06 真实模型缺口：deep-agent run 才挂 `escalate_matter`，把钉住策略里的事项名与裁决人（人话）
-    // 注入本轮 system 上下文，让真实模型知道哪些 `matter` 有效（`buildEscalationPolicyContext` 头注）。
-    // 读失败 ⇒ 记日志继续（同 plan ledger），不因此让 run 失败；没有规则 ⇒ system 逐字节不变。
-    if (isDeepAgentRun && deps.runs.readPinnedEscalationPolicy) {
-      try {
-        const escalationContext = buildEscalationPolicyContext(await deps.runs.readPinnedEscalationPolicy(orgId, run.runId));
-        if (escalationContext !== null) system = `${system}\n\n---\n\n${escalationContext}`;
-      } catch (e) {
-        deps.log("agent run escalation policy read failed, continuing without it", {
-          runId: run.runId,
-          detail: e instanceof Error ? e.message : "unexpected escalation policy read failure",
-        });
-      }
-    }
+    system = await appendPlanLedgerContext(deps, system, orgId, run);
+    // AG06：仅 deep-agent run 注入钉住的升级策略上下文（见模块头注）。
+    if (isDeepAgentRun) system = await appendEscalationPolicyContext(deps, system, orgId, run.runId);
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
     // could not be assembled from what was pinned. The distinguishing detail is logged.

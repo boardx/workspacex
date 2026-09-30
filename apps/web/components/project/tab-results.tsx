@@ -58,15 +58,13 @@ export function TabResults({
   const canPublish = ROLE_STAGE_CONTROL[view] && !readOnly;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-results">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6" data-testid="project-results">
       {/* 项目结论 —— 契约未建模，四视角都如实说明不可用（不发明结论文本） */}
       <section>
-        <SectionTitle meta="全仓无「项目结论」实体，暂不可用">项目结论</SectionTitle>
+        <SectionTitle meta="暂未开放">项目结论</SectionTitle>
         <Card>
           <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">
-            项目结论（结论文本 + 签字人）在 project 束契约里还没有出处——`getProjectOverview`
-            的白名单四件与 `queryProvenance` 都不覆盖它。要真，得先补一个承载结论文本与签字的
-            领域模型，那是接下来的 feature，本版不显示编造文案。
+            项目结论还没有开放。上线后，结论正文和签字人会显示在这里。
           </p>
         </Card>
       </section>
@@ -74,17 +72,16 @@ export function TabResults({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* 假设状态 —— 契约未建模 */}
         <section>
-          <SectionTitle meta="全仓无「假设」实体，暂不可用">假设状态</SectionTitle>
+          <SectionTitle meta="暂未开放">假设状态</SectionTitle>
           <Card>
             <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">
-              已验证/待验证/已推翻这三个计数在契约里没有任何字段能表达——全仓没有「假设」
-              这个实体，遑论它的状态机，不显示编造数字。
+              假设状态还没有开放。上线后，这里会显示已验证 / 待验证 / 已推翻各有多少条。
             </p>
           </Card>
         </section>
         {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9） */}
         <section>
-          <SectionTitle meta="listBackflow · 项目侧回流投影">成果去向</SectionTitle>
+          <SectionTitle meta="已回流到项目的产出">成果去向</SectionTitle>
           <Card>
             <BackflowPanel overview={liveOverview} loading={liveOverviewLoading} error={liveOverviewError} />
           </Card>
@@ -95,13 +92,10 @@ export function TabResults({
           却不产生真实副作用的危险按钮（那是假功能缺陷，不是数据展示缺口） */}
       {canPublish && (
         <section>
-          <SectionTitle meta="全仓无「发布结论」领域动作，暂不可用">发布结论</SectionTitle>
+          <SectionTitle meta="暂未开放">发布结论</SectionTitle>
           <Card>
             <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">
-              发布结论（绑定确定版本 + 二次确认 + 影响范围）在契约里还没有对应的写操作——
-              点一个只在本地弹对话框、不产生真实副作用的「发布」按钮比没有按钮更糟（用户会
-              以为真的发布了）。要真，得先补 `publishConclusion` 这类写操作与它的错误面，
-              那是接下来的 feature，本版不放这个按钮。
+              发布结论还没有开放。在它真正可用之前这里不放按钮，以免让人误以为已经发布。
             </p>
           </Card>
         </section>
@@ -110,12 +104,10 @@ export function TabResults({
       {/* 候选决策 —— 契约未建模：没有「候选决策」实体，同上理由不放签署按钮 */}
       {canWrite && (
         <section>
-          <SectionTitle meta="全仓无「候选决策」实体，暂不可用">候选决策</SectionTitle>
+          <SectionTitle meta="暂未开放">候选决策</SectionTitle>
           <Card>
             <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">
-              候选决策（来自转写、签署前可回听）在契约里没有承载它的实体——`provenance`
-              只记「谁在什么时候做了什么」，不记「转写里哪句话是一条待签署的决策」。要真，
-              得先补一个候选决策的领域模型与提取/签署两个写操作，本版不显示编造的候选列表。
+              候选决策还没有开放。上线后，转写里待签署的决策会列在这里，签署前可以回听。
             </p>
           </Card>
         </section>
@@ -123,7 +115,7 @@ export function TabResults({
 
       {/* 审计与反馈 —— 接真：queryProvenance（uc-00-1 V10 / uc-00-3 V11） */}
       <section>
-        <SectionTitle meta="queryProvenance · 按本项目收窄 · 不可删除">审计与反馈</SectionTitle>
+        <SectionTitle meta="仅本项目 · 不可删除">审计与反馈</SectionTitle>
         <Card data-testid="project-results-audit">
           <AuditPanel audit={liveAudit} loading={liveAuditLoading} error={liveAuditError} />
         </Card>

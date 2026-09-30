@@ -17,3 +17,10 @@ v2 `realtime-digital-human/` 要求 60 个角色都能实时语音交互（转�
 ## 后果
 - 角色文档只写实时语义，不写供应商 SDK。
 - 云 / 混合 / 私有化部署只换适配器，不改角色规格。
+
+## 落地记录：Chat 语音模式 MVP（2026-09-30）
+- 入口：Chat composer 的「实时对话」按钮 → 全屏数字人通话（`components/chat/realtime-voice-session.tsx`），与白板 POC 共用 `lib/live-omni-conversation.ts` 与 `WS /chat/realtime-digital-human`。
+- `session.start` 带 `threadId` + `agentId`（null = 通用助手）；服务端校验线程可见可写、Agent 为本组织已发布可见角色（不满足即 fail closed），并据角色（名称/职责/标签）生成指令。模型与音色只由服务端决定。
+- 音色绑定走部署策略：`KERNEL_OMNI_REALTIME_VOICE_MAP`（JSON，键按 agentId → 头像 key `dh-*` → roleCategory 匹配），未命中用 `KERNEL_OMNI_REALTIME_VOICE`（缺省 Maia）。
+- 每轮转写落成线程里的普通消息（用户 = human，数字人 = agent），不触发文字 run。
+- 明确不在 MVP：语音模式下的工具 / Skill / Workflow 调用（数字人会建议切回文字）；组织级密钥（仍是环境变量级配置）。

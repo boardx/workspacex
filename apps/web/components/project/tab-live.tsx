@@ -151,15 +151,13 @@ export function TabLive({
           {view === "facilitator" && (
             <CheckinBoard board={liveCheckin} loading={liveCheckinLoading} error={liveCheckinError} />
           )}
-          <SectionTitle meta={isObserver ? "只读" : "画布/转写接线未完成，暂不可用"}>
+          <SectionTitle meta={isObserver ? "只读" : "暂未开放"}>
             四组并行
           </SectionTitle>
           <Card>
             <p className="px-3.5 py-3 text-11 leading-relaxed text-muted-foreground" data-testid="project-live-groups-unavailable">
-              每组的实时引述、画布完成度、素材充足度、现场介入标记在项目域契约里还没有出处——
-              引述与画布归 canvas/recording 束，素材充足度与介入标记全仓目前没有任何字段能表达
-              （2026-08-19 已确认范围）。它们要真，得先补上对应契约与仓储，那是接下来的 feature，
-              本版不显示编造数字。
+              每组的实时引述、画布完成度、素材是否充足、现场介入提醒还没有开放。
+              上线后会显示在这里，在此之前不展示估算数字。
             </p>
           </Card>
         </>

@@ -5,7 +5,7 @@ import { Mic, PhoneOff, Volume2, VolumeX } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import { Button } from "@/components/ui/button";
 import { LiveBoard } from "./live-board";
-import { openOmniConversation, type OmniConversationHandle } from "@/lib/live-omni-conversation";
+import { describeOmniStartFailure, openOmniConversation, type OmniConversationHandle } from "@/lib/live-omni-conversation";
 
 export function RealtimeDigitalHumanWorkspace({ boardId }: { boardId: string }): JSX.Element {
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
@@ -62,7 +62,7 @@ export function RealtimeDigitalHumanWorkspace({ boardId }: { boardId: string }):
     } catch (error) {
       setLiveStatus("idle");
       setAvatarState("idle");
-      setLiveError(error instanceof Error ? error.message : "实时通话启动失败");
+      setLiveError(describeOmniStartFailure(error));
     }
   }, [boardId, stopSpeech]);
 

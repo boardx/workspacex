@@ -284,7 +284,13 @@ function PlanControlSession(
   const liveTodos = ledger !== null && runLive && ledger.steps.length > 0
     ? ledger.steps.map((s): PlanTodo => ({ content: s.content, status: s.status }))
     : null;
-  const livePlanKey = JSON.stringify([liveTodos, !collapsed]);
+  // 2026-09-30 人类：「三个地方有计划……保留一个地方就可以了」→ 执行中计划列表只在消息流里。
+  // 底部在执行中只是一行状态 + 控制；只有三种时候才列步骤：编辑中、确认提案前（提案步骤此刻只在
+  // 账本里，消息流还没有）、以及 run 已停下之后用户展开核对（失败/取消/账本没跑满，#2451 的提示指向
+  // 这份列表）。前两种时候消息流让位（`expanded`），同屏仍只一份列表。
+  const listsStepsHere = !collapsed && ledger !== null && ledger.steps.length > 0
+    && ((editing && canWrite) || ledger.phase === "planning" || !runLive);
+  const livePlanKey = JSON.stringify([liveTodos, listsStepsHere]);
   React.useEffect(() => {
     const [todos, expanded] = JSON.parse(livePlanKey) as [PlanTodo[] | null, boolean];
     onLivePlanChange?.({ todos, expanded });
@@ -674,7 +680,7 @@ function PlanControlSession(
 
       {ledger.pendingApplyAtNextRun && <fieldset disabled={!canWrite || busy} className="min-w-0"><PlanPendingApplyBanner onPauseNow={CHAT_RUN_PAUSE_ENTRY_ENABLED ? handlePause : undefined} /></fieldset>}
 
-      {!collapsed && ledger.steps.length > 0 && (editing && canOperate ? (
+      {listsStepsHere && (editing && canOperate ? (
         <PlanPanelEdit
           steps={ledger.steps}
           onReorder={handleReorder}

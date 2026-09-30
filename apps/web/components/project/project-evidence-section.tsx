@@ -83,7 +83,7 @@ export function ProjectEvidenceSection({ projectId }: { projectId: string }) {
   const total = page === null ? 0 : Object.values(page.countsBySource).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6" data-testid="project-evidence">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6" data-testid="project-evidence">
       <SectionTitle meta="五类材料归一后的证据单元：项目大脑的结论只引用这里的条目" className="mb-0">来源</SectionTitle>
 
       {page !== null && (
