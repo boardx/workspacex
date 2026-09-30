@@ -122,6 +122,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
                     <ProjectContentCard
                       href={threadHref(c.id)}
                       linkTestId={`project-conversation-${c.id}`}
+                      cardTestId={`project-conversation-card-${c.id}`}
                       icon={MessagesSquare}
                       title={c.title}
                       typeLabel="对话"
