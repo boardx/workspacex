@@ -1,6 +1,6 @@
 "use client";
 
-import { AgentIdentityRow, shouldShowAssistantIdentity } from "./copilotkit-v2-agent-identity";
+import { AgentIdentityRow, AssistantIdentityDrawnContext, shouldShowAssistantIdentity } from "./copilotkit-v2-agent-identity";
 import * as React from "react";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { MessageRunContext, RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
@@ -339,6 +339,8 @@ function V2AssistantMessageImpl(
   // 这类消息没有任何可见内容，整条不渲染；待决策的工具卡与产出文件仍照常显示。
   if ((isInvisibleToolOnlyMessage(props.message, text, traceCovered) || isProcessNarration(props.message, text, traceCovered))
     && producedFiles.length === 0) return <></>;
+  // UIUX r6 屏 5：复述确认卡的转交旁白不渲染，也不该算「已画过身份头」——按同一判据把它们排除在外。
+  const identityShown = shouldShowAssistantIdentity(props.message, props.messages, (m) => isHandoffCardNarration(m as never, liveMessages));
   return (
     // issue #2132（真实 devapp 实测：消息操作条位置不对）—— `gap-1` 收紧自
     // 此前的 `gap-1.5`：框架自己的 toolbar（复制/反馈/评分）与下面「落地为产物」
@@ -348,9 +350,10 @@ function V2AssistantMessageImpl(
     // issue #4244：已落库回答的引用（`ThreadCitationsProvider`，来自 `getThread`）——正文 `[n]`
     // 可点 + 气泡下方紧凑列表；流式中/无引用时不建作用域，渲染不变。
     <PersistedMessageCitationScope messageId={persistedMessageId}>
+    <AssistantIdentityDrawnContext.Provider value={identityShown}>
     <div className="flex flex-col gap-1">
-      {shouldShowAssistantIdentity(props.message, props.messages) ? <AgentIdentityRow agentId={actionsCtx?.agentId} runId={runId} /> : null}
-      {runId && shouldShowAssistantIdentity(props.message, props.messages) ? <RunEscalationRecords runId={runId} /> : null}
+      {identityShown ? <AgentIdentityRow agentId={actionsCtx?.agentId} runId={runId} /> : null}
+      {runId && identityShown ? <RunEscalationRecords runId={runId} /> : null}
       <CopilotChatAssistantMessage
         {...props}
         // issue #2307 —— 见上方 `effectiveIsRunning` 的完整推理：只对这一条消息
@@ -396,6 +399,7 @@ function V2AssistantMessageImpl(
         <TurnMemoryLine threadId={artifactThreadId} messageId={persistedMessageId} />
       ) : null}
     </div>
+    </AssistantIdentityDrawnContext.Provider>
     </PersistedMessageCitationScope>
   );
 }

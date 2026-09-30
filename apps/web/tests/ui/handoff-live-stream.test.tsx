@@ -13,9 +13,11 @@ vi.mock(copilotkitV2CssPath, () => ({}));
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { V2AssistantMessage } from "@/components/chat/copilotkit-v2-assistant-message";
 import { CopilotKitV2MessageActionsProvider } from "@/components/chat/copilotkit-v2-message-actions";
-import { useSingleNoticeOwner } from "@/components/chat/copilotkit-v2-tool-renderers";
+import { HandoffRefusalNotice, useSingleNoticeOwner } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { renderExecutionTool } from "@/components/chat/workbench/task-timeline";
 import { LiveMessagesContext } from "@/lib/chat-workbench/tool-preamble";
+import { AssistantIdentityDrawnContext, shouldShowAssistantIdentity } from "@/components/chat/copilotkit-v2-agent-identity";
+import { isHandoffCardNarration } from "@/lib/chat-workbench/handoff-narration";
 import { agentRole } from "@repo/contracts";
 
 afterEach(() => cleanup());
@@ -98,5 +100,45 @@ describe("UIUX r6：刷新后的转交确认卡旁白", () => {
     const list = [user, handoffCall, refused, answer];
     render(view(answer, list, list));
     expect(screen.queryByText(/我继续在当前对话/)).not.toBeNull();
+  });
+});
+
+describe("UIUX r6 屏 5：刷新后的身份行与拒绝提示", () => {
+  const requested = { id: "t", role: "tool", toolCallId: "rh-1", content: "已提交转交给「产品经理」的请求，等待你在对话中确认；确认后会新开一个对话继续。" };
+  const narration = { id: "n", role: "assistant", content: "已提交转交给「产品经理」的请求，等待你在对话中确认。" };
+  const answer = { id: "a", role: "assistant", content: "确认后我会把资料一并带过去。" };
+  const call = { ...handoffCall, content: "" };
+
+  it("隐藏的转交旁白既不画身份行，也不算已画过身份头", () => {
+    const list = [user, call, requested, narration, answer];
+    const hidden = (m: { id?: string }) => isHandoffCardNarration(m as never, list as never);
+    expect(shouldShowAssistantIdentity(narration, list, hidden)).toBe(false);
+    // 不传判据时保持旧行为（旁白算已画过）。
+    expect(shouldShowAssistantIdentity({ ...answer, id: "a2" }, [user, narration, { ...answer, id: "a2" }])).toBe(false);
+    // 隐藏的旁白在前、后面跟着不被隐藏的可见回合：旁白不再吃掉它的身份头。
+    const visible = { id: "v", role: "assistant", content: "另外补充一点。" };
+    expect(shouldShowAssistantIdentity(visible, [user, narration, visible], (m) => m.id === "n")).toBe(true);
+    expect(shouldShowAssistantIdentity(visible, [user, narration, visible])).toBe(false);
+  });
+
+  it("「没有转交」提示条：回合没画身份行时自带头像 + 名字", () => {
+    render(
+      <AssistantIdentityDrawnContext.Provider value={false}>
+        <HandoffRefusalNotice toolCallId="rh-x1" result={refused.content} />
+      </AssistantIdentityDrawnContext.Provider>,
+    );
+    expect(screen.getByTestId("handoff-refused-notice")).not.toBeNull();
+    expect(screen.getByTestId("chat-v2-agent-portrait")).not.toBeNull();
+    expect(screen.getByTestId("chat-v2-agent-identity").textContent).toContain("AI 助手");
+  });
+
+  it("回合已有身份行时提示条不重复画", () => {
+    render(
+      <AssistantIdentityDrawnContext.Provider value>
+        <HandoffRefusalNotice toolCallId="rh-x2" result={refused.content} />
+      </AssistantIdentityDrawnContext.Provider>,
+    );
+    expect(screen.getByTestId("handoff-refused-notice")).not.toBeNull();
+    expect(screen.queryByTestId("chat-v2-agent-identity")).toBeNull();
   });
 });

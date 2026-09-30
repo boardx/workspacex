@@ -16,6 +16,12 @@ import { InterruptRenderContext } from "./workbench/interrupt-render-context";
  */
 export const GENERIC_ASSISTANT_NAME = "AI 助手";
 
+/**
+ * 这条助手回合自己是否已经画了身份行。回合内的行内提示（如「没有转交」）在回合没画身份行时
+ * （正文被收走、只剩提示）自带一行，画了就不重复。默认 true：脱离回合渲染时不自作主张加身份行。
+ */
+export const AssistantIdentityDrawnContext = React.createContext<boolean>(true);
+
 export function AgentIdentityRow({
   agentId: selectedAgentId,
   runId,
@@ -74,15 +80,17 @@ function hasVisibleText(m: IdentityMessage): boolean {
 export function shouldShowAssistantIdentity(
   message: IdentityMessage,
   messages: readonly IdentityMessage[] | undefined,
+  /** 不渲染的回合（如复述确认卡的转交旁白）：既不画身份行，也不算「已画过身份头」。 */
+  isHidden?: (m: IdentityMessage) => boolean,
 ): boolean {
-  if (!hasVisibleText(message)) return false;
+  if (!hasVisibleText(message) || isHidden?.(message)) return false;
   const list = messages ?? [];
   const idx = list.findIndex((m) => m.id === message.id);
   for (let i = idx - 1; i >= 0; i--) {
     const prev = list[i]!;
     if (prev.role === "user") return true;
     // 带工具调用的回合多半是被执行轨迹收走的过程旁白（不渲染），不算已画过的身份头。
-    if (prev.role === "assistant" && hasVisibleText(prev) && !(prev.toolCalls?.length)) return false;
+    if (prev.role === "assistant" && hasVisibleText(prev) && !(prev.toolCalls?.length) && !isHidden?.(prev)) return false;
   }
   return true;
 }

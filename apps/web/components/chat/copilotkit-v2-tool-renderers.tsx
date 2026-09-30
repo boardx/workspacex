@@ -4,6 +4,9 @@ import * as React from "react";
 import { z } from "zod";
 import { agentRole } from "@repo/contracts";
 import { handoffRefusalNotice } from "@/lib/agent-handoff";
+import { AgentIdentityRow, AssistantIdentityDrawnContext } from "./copilotkit-v2-agent-identity";
+import { useCopilotKitV2MessageActions } from "./copilotkit-v2-message-actions";
+import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 import { Loader2, CheckCircle2, AlertCircle, ListTodo, FileSearch, FileText, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -385,11 +388,16 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
 }
 
 /** 转交没有发起时的行内提示：说明原因（服务端给出的中文句子），并告诉用户对话会继续。 */
-function HandoffRefusalNotice({ result, toolCallId }: { result: string | undefined; toolCallId: string | undefined }) {
+export function HandoffRefusalNotice({ result, toolCallId }: { result: string | undefined; toolCallId: string | undefined }) {
   const notice = handoffRefusalNotice(result);
   const isOwner = useSingleNoticeOwner(notice === null ? undefined : toolCallId);
+  // UIUX r6 屏 5：提示条是助手这一回合的内容，和其他回合一样带头像 + 名字。回合自己已经画了身份行
+  // （有正文）就不重复；回合正文被收走、只剩提示时由这里补一行。
+  const identityDrawn = React.useContext(AssistantIdentityDrawnContext);
+  const actions = useCopilotKitV2MessageActions();
+  const runId = React.useContext(MessageRunContext);
   if (notice === null || !isOwner) return null;
-  return (
+  const banner = (
     <p
       role="status"
       data-testid="handoff-refused-notice"
@@ -402,6 +410,13 @@ function HandoffRefusalNotice({ result, toolCallId }: { result: string | undefin
         {notice}
       </span>
     </p>
+  );
+  if (identityDrawn) return banner;
+  return (
+    <div data-testid="handoff-refused-turn" className="flex flex-col gap-1">
+      <AgentIdentityRow agentId={actions?.agentId} runId={runId} />
+      {banner}
+    </div>
   );
 }
 

@@ -41,8 +41,3 @@ export function useComposerDraft(scope: DraftScope) {
   }, [setText]);
   return { text: current.text, revision: current.revision, setText, clear };
 }
-/** Pre-fill a thread's draft before it is opened (e.g. a confirmed handoff). Never overwrites text the user already typed. */
-export function seedComposerDraft(scope: DraftScope, text: string): void {
-  const key = keyOf(scope);
-  if (read(key).trim() === "") write(key, text);
-}
