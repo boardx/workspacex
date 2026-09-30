@@ -1,0 +1,29 @@
+# Scoped synthetic migration rehearsal, 2026-09-30 (Refs #4763)
+
+This is local synthetic database evidence. It does not authorize production migration, waive F82 checksum drift, prove production backup/restore, or establish production schema equivalence. `productionReady=false` is unconditional.
+
+Exact source: `ea6c22be0d88f109d625925f107c3a87d5f66d5c`. Observed baseline identity: `ba6343199f3c834d6a198f83d0c771614292c82b`. Production inventory plan hash: `b3dbbb1e8224360252fa80ca47afd0074afde4770b2230c0c840e831f16b50e4`. Runtime script SHA-256: `d17c9084309e00b9e3c253e1d14f6ad7c253ef1e49e014af76a928c48d8d3847`. Private structured report SHA-256: `6972552716835ec421f1ffc2104cfaccf2662379294be9ebbcbec3964220d394`.
+
+The existing canonical `migrate-check.ts` exercises all-file replay using its force option and workshop fixtures. Existing upgrade-path tests construct partial migration directories, which can produce impossible intermediate schemas if dependent later files remain. This rehearsal instead records two separate models, calls the exact target's `migrationFiles()` and `migrate()` exports, and never sets the migrator force option.
+
+The first model selects precisely the 184 production-ledger names and executes their target SQL in an empty synthetic database. Checksums are generated from target source, not copied from the production ledger. This model failed at `20260814163000_f180_guided_research_status.sql`: `guided_research_sessions` does not exist. No missing migration was silently added to make this model pass. The production ledger alone cannot reconstruct a valid baseline from this target source; actual production schema and migration provenance remain necessary.
+
+The second model is explicitly scoped: canonical prefix of 365 SQL files before W1, then the remaining 12 exact suffix files. It pre-applies 181 of the 193 production-pending migrations, so it proves selected W1/portrait/tags behavior only. Its prefix source hash is `bf641ecd1dc55a63869e95bee6dccbd0677e634caa786ba2d935547f1546d232`. The private report lists all 181 pre-applied names. Synthetic fixtures contain two organizations, four legacy `research_project`/`user_insight` projects, eight owner/collaborator membership rows, and two official agents with immutable published versions.
+
+31 dynamic checks passed:
+
+- W1 preserves every project ID and organization, converts both old kinds to `general`, preserves all eight full membership tuples, and removes all four old subtype/member tables.
+- General tables retain RLS and FORCE flags. `app_rw` sees only its tenant's projects/members; an attempted write into the other tenant is rejected by RLS. A non-superuser/non-BYPASSRLS table owner sees zero rows without a tenant and only its tenant after setting context, proving FORCE is effective.
+- Deliberately failed transactions for W1, portrait and tags restore project rows, the full synthetic published-version data digest, immutable trigger state, and absence of the failed migration's ledger entry. Portrait/tags failures occur after disabling the immutable trigger and before re-enabling it, proving rollback restores protection.
+- Restoring the exact files and resuming canonical migration succeeds. Drafts and published versions receive portrait/tags backfills; a subsequent published-version update is rejected by the immutable trigger.
+- Direct replay of the three exact selected SQL files in isolated transactions leaves the observed project/version digest unchanged. A normal full migrator repeat applies zero and skips all 377 target files. No production-style force replay occurs.
+
+Fault injection file checksums (exact and modified) are retained in the private report, separated from target source identity. Synthetic data are not committed. The selected data digest is `682a4c6938b22dd266279a3a2595bf2882c11783ac7074a7493a7aed41876cb0`; it is a synthetic run observation, not a stable production fingerprint.
+
+Resource budget: one existing PG16+AGE+pgvector image, two temporary databases inside one compose project `wsx-cn-migration-rehearsal-4763`, 2 CPU, 1 GiB memory, 768 MiB tmpfs data, dynamically assigned loopback port. Actual Docker host limits were `2000000000` nano CPUs and `1073741824` bytes. Image identity: `sha256:41fd2ca4258b772dfce5c0907298f70217bcfb6b3977ac62ff7a4f00369cf8fa`. The final run started `2026-09-30T11:21:26.139Z` and finished `2026-09-30T11:21:35.310Z` (about 9.2 seconds including startup, assertions and cleanup).
+
+Every owned run uses `finally` to execute project-scoped `down --volumes --remove-orphans`. Post-cleanup Docker label queries returned empty container, volume and network sets in all three attempts. No existing stack was adopted, removed or modified. The first attempt's incorrect snapshot ordering assertion was retained separately, corrected before a new container run, and not reported as success. Both final successful reports and the failed attempt stay in private temporary evidence storage. The runner's temporary source directories and compose input are removed in `finally`.
+
+Verification after final code: 21 focused plan/rehearsal tests, cloud-deploy TypeScript check, diff whitespace check, and this real local database drill. The earlier full cloud-deploy package suite passed 361 tests before the new rehearsal/refusal tests were added. Initialization and coordinator gateway limits remain as documented in the earlier migration-plan evidence.
+
+The remaining production gate requires actual schema provenance, backup and measured restore evidence, a full 193-pending migration rehearsal from a production-equivalent baseline, maintenance/drain approval, target bootstrap/provision checks, and fresh baseline/target receipts. Final integration changes the target SHA; all source-bound plans and rehearsal receipts must be regenerated before production use. This document does not close #4763.
