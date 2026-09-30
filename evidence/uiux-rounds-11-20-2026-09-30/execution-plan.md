@@ -41,7 +41,8 @@ flowchart TD
   %% evidence S3: report.md；screenshots/；424条受影响测试通过
   class S4 tested
   %% evidence S4: validation.md：最新main上verify:quick退出0，757文件6363测试通过、5跳过；typecheck/lint绿；真实模型浏览器证据归档
-  class S5 doing
+  class S5 tested
+  %% evidence S5: PR #4796已创建并挂接；证据与交接已入库、local verify:quick绿；CI最终结果以该PR动态检查和评论为准
   class S6 blocked
   %% blocked S6: local env真实模型对话/反馈/研究主题与计划成功；资料研究启动失败、零来源；ASR、GitHub分诊/邮件与最终SHA独立评分仍待验收
 ```

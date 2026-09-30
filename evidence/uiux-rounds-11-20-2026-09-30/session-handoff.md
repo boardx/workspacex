@@ -18,6 +18,6 @@ local env真实模型qwen3.8-max +deep-agent对话完成并刷新保留；反馈
 
 ## 下一步最佳动作
 
-1. 当前PR创建与CI核对结果见本issue和progress.md；先运行 `gh pr list --repo boardx/workspacex --head codex/uiux-rounds-11-20-20260930` 确定PR编号，再用 `gh pr checks <编号> --repo boardx/workspacex` 查看动态事实。
+1. PR #4796：https://github.com/boardx/workspacex/pull/4796。本快照冻结于创建时，CI运行中；运行 `gh pr checks 4796 --repo boardx/workspacex` 查看最新head的动态事实，最终检查结果见PR收尾评论。
 2. 最终评分须独立实现者，对PR最终SHA验收；优先复现 `grs_5841169f07664271ad3dc16ff7316c85` 的规划任务错误，再补资料/报告闭环。不要把文本模型成功等同工具/报告成功。
 3. 恢复隔离分支后 `./init.sh`，再按ADR-106运行 `pnpm run verify:quick`。模型凭据仅来自本地配置并按所需变量传入，不提交.env或凭据。不要依赖残留端口/旧截图。
