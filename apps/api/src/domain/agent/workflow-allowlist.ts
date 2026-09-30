@@ -7,11 +7,13 @@
  *   版本快照白名单）。
  *
  * 白名单存 Workflow 稳定编号（`W0xx`，契约 `agentRole.WorkflowStableId`），Runtime 按 key 寻址；两者的
- * 对照只来自代码自带的内容线 Definition 注册表（产品线 / 研究线 / 销售线）。纯函数、无 IO。
+ * 对照只来自代码自带的内容线 Definition 注册表（产品线 / 研究线 / 销售线 / 共享线 / 运营线；后两条批次 2 起为脚手架，Definition 由注册步骤补）。纯函数、无 IO。
  */
 import { checkWorkflowAllowlisted, contentWorkflowIdOfKey } from "../work-content/content-workflow-registration";
 import { RESEARCH_WORKFLOW_DEFINITIONS } from "../work-content/definitions";
+import { OPERATIONS_WORKFLOW_DEFINITIONS } from "../work-content/definitions/operations";
 import { SALES_WORKFLOW_DEFINITIONS } from "../work-content/definitions/sales";
+import { SHARED_WORKFLOW_DEFINITIONS } from "../work-content/definitions/shared";
 import { PRODUCT_LINE_WORKFLOWS } from "../work-content/product-workflow-definitions";
 import { officialRoleWorkflowAllowlists } from "./official-role-packs";
 
@@ -19,6 +21,8 @@ const CONTENT_WORKFLOW_CATALOGS: ReadonlyArray<ReadonlyArray<{ key: string; work
   PRODUCT_LINE_WORKFLOWS,
   RESEARCH_WORKFLOW_DEFINITIONS,
   SALES_WORKFLOW_DEFINITIONS,
+  SHARED_WORKFLOW_DEFINITIONS,
+  OPERATIONS_WORKFLOW_DEFINITIONS,
 ];
 
 /** Runtime key → 受白名单约束的内容线稳定编号；非内容线（演示 / 组织自建）返回 null。 */

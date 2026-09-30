@@ -13,6 +13,7 @@
 import { workflowCapabilityGrants as C } from "@repo/contracts";
 import type { z } from "zod";
 import { PRODUCT_LINE_WORKFLOWS, type ContentWorkflowDefinition } from "../../domain/work-content/product-workflow-definitions";
+import { PLANNED_WORKFLOW_SIDE_EFFECT_CATEGORIES } from "../../domain/skill/capability-category-registry";
 import { toOrgId } from "../../domain/org-id";
 import type { TenantSession } from "../ports/database.port";
 import type { IdentityRepository } from "../identity/ports";
@@ -78,7 +79,10 @@ export function buildCapabilityCatalog(defs: readonly ContentWorkflowDefinition[
 }
 
 export function grantableCategories(catalog: readonly WorkflowCapabilityCatalogEntry[] = buildCapabilityCatalog()): Set<string> {
-  return new Set(catalog.flatMap((w) => w.capabilities.map((c) => c.capabilityCategory)));
+  return new Set([
+    ...catalog.flatMap((w) => w.capabilities.map((c) => c.capabilityCategory)),
+    ...PLANNED_WORKFLOW_SIDE_EFFECT_CATEGORIES,
+  ]);
 }
 
 function toView(capabilityCategory: string, row: StoredCapabilityGrant | null): WorkflowCapabilityGrant {
