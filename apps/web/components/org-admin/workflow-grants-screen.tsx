@@ -14,7 +14,7 @@ import {
   type WorkflowCapabilityAuditEntry, type WorkflowCapabilityGrantsOut,
 } from "@/lib/live-workflow-capability-grants";
 import { CAP_LEVEL, capabilityCopy, describeWorkflowGrantFailure } from "@/lib/workflow-capability-grant-copy";
-import { listOrgMembers } from "@/lib/live-org-admin";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 import { findBuiltinWorkflow, workflowDisplayName } from "@/lib/workflow-display-copy";
 import { WorkflowGrantDialog } from "./workflow-grant-dialog";
 import { capabilityRows, workflowRows, type CapabilityRow } from "./workflow-grant-model";
@@ -33,7 +33,7 @@ export function WorkflowGrantsScreen() {
   const isAdmin = identity?.orgRole === "admin";
   const me = session?.userId ?? null;
   const orgId = session?.currentOrgId ?? null;
-  const memberNames = useMemberNames(isAdmin ? orgId : null);
+  const memberNames = useOrgMemberNames(isAdmin ? orgId : null);
 
   const [state, setState] = React.useState<UiState>("loading");
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -310,7 +310,7 @@ function AuditTrail({ entries, me, names }: { entries: readonly WorkflowCapabili
               {entries.map((e) => (
                 <tr key={e.eventId} className="border-t border-border" data-testid="workflow-grants-audit-row">
                   <td className="whitespace-nowrap px-3 py-2">{formatAuditTime(e.at)}</td>
-                  <td className="px-3 py-2" data-testid="workflow-grants-audit-actor">{actorLabel(e.actorId, me, names)}</td>
+                  <td className="px-3 py-2" data-testid="workflow-grants-audit-actor">{memberLabel(e.actorId, me, names)}</td>
                   <td className="px-3 py-2">{capabilityCopy(e.capabilityCategory).label}</td>
                   <td className="px-3 py-2">
                     <Badge tone={e.action === "revoked" ? "outline" : "primary"}>{e.action === "revoked" ? "撤销" : "授予"}</Badge>
@@ -357,31 +357,9 @@ function resolveFocus<T extends { workflow: { workflowId: string; workflowKey: s
   }) ?? null;
 }
 
-/** 操作人：成员目录里的显示名（自己加「（我）」）；已不在组织的人不回退成内部 id。 */
-function actorLabel(actorId: string, me: string | null, names: ReadonlyMap<string, string>): string {
-  const name = names.get(actorId);
-  if (actorId === me) return name ? `${name}（我）` : "我";
-  return name ?? "已离开组织的成员";
-}
-
 const AUDIT_TIME = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
 });
 function formatAuditTime(iso: string): string {
   return AUDIT_TIME.format(new Date(iso));
-}
-
-/** 组织成员 userId → 显示名（`GET /organizations/:orgId/members`，任何成员可读）。读失败时空表，表格照常显示。 */
-function useMemberNames(orgId: string | null): ReadonlyMap<string, string> {
-  const [names, setNames] = React.useState<ReadonlyMap<string, string>>(() => new Map());
-  React.useEffect(() => {
-    if (!orgId) return;
-    let alive = true;
-    listOrgMembers(orgId).then(
-      (out) => { if (alive) setNames(new Map(out.members.map((m) => [m.userId, m.displayName || m.email]))); },
-      () => { /* 成员目录读不到不挡审计表 */ },
-    );
-    return () => { alive = false; };
-  }, [orgId]);
-  return names;
 }

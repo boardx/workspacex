@@ -22,6 +22,7 @@ import {
 import { workflowRuntime } from "@repo/contracts";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,9 @@ const toneOf = (status: string): Tone => STATUS_TONE[status] ?? "neutral";
 
 export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
   const { instanceId } = props;
-  const viewerIsOrgAdmin = useOptionalSession()?.identity?.orgRole === "admin";
+  const sessionCtx = useOptionalSession();
+  const viewerIsOrgAdmin = sessionCtx?.identity?.orgRole === "admin";
+  const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
   const reconnectDelayMs = props.reconnectDelayMs ?? 1_000;
   const maxReconnects = props.maxReconnects ?? 3;
   const pollIntervalMs = props.pollIntervalMs ?? 5_000;
@@ -260,7 +263,7 @@ export function WorkflowRunPanel(props: WorkflowRunPanelProps) {
       ) : null}
       {p.status === "rejected" ? (
         <div role="status" data-testid="workflow-banner-rejected" className="rounded-lg border border-border bg-muted p-3 text-13">
-          已被拒绝{p.openGate?.decidedBy ? `（${p.openGate.decidedBy}）` : ""}
+          已被拒绝{p.openGate?.decidedBy ? `（${memberLabel(p.openGate.decidedBy, sessionCtx?.session?.userId, memberNames)}）` : ""}
           {p.openGate?.reason ? `：${p.openGate.reason}` : p.reasonCode ? `：${REASON_TEXT[p.reasonCode]}` : ""}
         </div>
       ) : null}

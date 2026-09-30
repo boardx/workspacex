@@ -12,6 +12,9 @@ import {
   type WorkflowGateView,
 } from "@/lib/workflow-runtime-api";
 import { describeWorkflowError } from "./workflow-copy";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { capabilityCopy, targetSystemText } from "@/lib/workflow-capability-grant-copy";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
 
 export interface WorkflowApprovalDrawerProps {
   readonly instanceId: string;
@@ -27,6 +30,9 @@ export interface WorkflowApprovalDrawerProps {
 
 export function WorkflowApprovalDrawer(props: WorkflowApprovalDrawerProps) {
   const { gate } = props;
+  const session = useOptionalSession();
+  const names = useOrgMemberNames(session?.session?.currentOrgId ?? null);
+  const me = session?.session?.userId ?? null;
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,20 +70,29 @@ export function WorkflowApprovalDrawer(props: WorkflowApprovalDrawerProps) {
     <aside data-testid="workflow-approval-drawer" data-gate-id={gate.gateId} className="rounded-lg border p-4 space-y-3">
       <h3 className="font-medium">审批：{p.summary}</h3>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        <dt>目标系统</dt>
-        <dd data-testid="workflow-approval-target">{p.targetSystem}</dd>
-        <dt>能力分类</dt>
-        <dd data-testid="workflow-approval-capability">{p.capabilityCategory}</dd>
-        {props.initiatorUserId ? (<><dt>发起人</dt><dd data-testid="workflow-approval-initiator">{props.initiatorUserId}</dd></>) : null}
-        {props.agentId ? (<><dt>Agent</dt><dd data-testid="workflow-approval-agent">{props.agentId}</dd></>) : null}
+        <dt>操作对象</dt>
+        <dd data-testid="workflow-approval-target">{targetSystemText(p.targetSystem)}</dd>
+        <dt>需要的能力</dt>
+        <dd data-testid="workflow-approval-capability">{capabilityCopy(p.capabilityCategory).label}</dd>
+        {props.initiatorUserId ? (<><dt>发起人</dt><dd data-testid="workflow-approval-initiator">{memberLabel(props.initiatorUserId, me, names)}</dd></>) : null}
+        {props.agentId ? (<><dt>执行者</dt><dd data-testid="workflow-approval-agent">本工作流的智能体</dd></>) : null}
       </dl>
+      <details data-testid="workflow-approval-tech-details" className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer select-none">技术详情</summary>
+        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt>目标系统</dt><dd><code data-testid="workflow-approval-target-raw">{p.targetSystem}</code></dd>
+          <dt>能力分类</dt><dd><code data-testid="workflow-approval-capability-raw">{p.capabilityCategory}</code></dd>
+          {props.initiatorUserId ? (<><dt>发起人 ID</dt><dd><code data-testid="workflow-approval-initiator-raw">{props.initiatorUserId}</code></dd></>) : null}
+          {props.agentId ? (<><dt>Agent ID</dt><dd><code data-testid="workflow-approval-agent-raw">{props.agentId}</code></dd></>) : null}
+        </dl>
+      </details>
       <pre data-testid="workflow-approval-preview" className="max-h-48 overflow-auto rounded bg-muted p-2 text-xs">
         {JSON.stringify(p.payloadPreview, null, 2)}
       </pre>
       {shown.decision !== null ? (
         <p data-testid="workflow-approval-result" data-decision={shown.decision}>
           {shown.decision === "approved" ? "已批准" : "已拒绝"}
-          {shown.decidedBy ? `（${shown.decidedBy}）` : ""}
+          {shown.decidedBy ? `（${memberLabel(shown.decidedBy, me, names)}）` : ""}
           {shown.reason ? `：${shown.reason}` : ""}
         </p>
       ) : null}

@@ -28,9 +28,12 @@ vi.mock("@/components/shell/app-shell", () => ({
 vi.mock("@/components/admin/capability-edit-page", () => ({ CapabilityEditPage: () => <div data-testid="capability-edit-page" /> }));
 vi.mock("@/components/admin/agent-capability-graph", () => ({ AgentCapabilityGraph: () => null }));
 vi.mock("@/components/admin/admin-nav", () => ({ AdminNav: () => null }));
+const orgApi = vi.hoisted(() => ({ listOrgMembers: vi.fn() }));
+vi.mock("@/lib/live-org-admin", () => orgApi);
+const member = (userId: string, displayName: string) => ({ userId, displayName, email: `${userId}@x`, orgRole: "member", teamId: null, joinedAt: "2026-01-01T00:00:00Z", status: "active" });
 const sessionState = vi.hoisted(() => ({ orgRole: null as string | null }));
 vi.mock("@/components/session/session-provider", () => ({
-  useOptionalSession: () => (sessionState.orgRole ? { identity: { orgRole: sessionState.orgRole } } : null),
+  useOptionalSession: () => ({ session: { userId: "u-viewer", currentOrgId: "o1" }, identity: sessionState.orgRole ? { orgRole: sessionState.orgRole } : null }),
 }));
 
 import { WorkflowRunPanel } from "@/components/workflow/workflow-run-panel";
@@ -77,6 +80,7 @@ const hang = (_id: string, _last: number | null, _on: unknown, o: { signal?: Abo
 beforeEach(() => {
   for (const f of Object.values(api)) f.mockReset();
   api.openWorkflowInstanceStream.mockImplementation(hang);
+  orgApi.listOrgMembers.mockReset().mockResolvedValue({ members: [member("u1", "张发起"), member("boss", "赵主管"), member("u2", "钱审批")] });
   api.getWorkflowInstance.mockResolvedValue(proj());
 });
 
@@ -247,10 +251,10 @@ describe("WorkflowRunPanel", () => {
     expect(screen.getByTestId("workflow-banner-needs-attention").textContent).toContain("人工核对");
   });
 
-  it("被拒：显示拒绝人与理由，抽屉只读", () => {
+  it("被拒：显示拒绝人与理由，抽屉只读", async () => {
     const g = gate({ decision: "denied", decidedBy: "boss", decidedAt: "2026-09-29T01:00:00Z", reason: "内容不妥", viewerCanDecide: false });
     render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "rejected", reasonCode: "gate_denied", openGate: g })} />);
-    expect(screen.getByTestId("workflow-banner-rejected").textContent).toContain("boss");
+    await waitFor(() => expect(screen.getByTestId("workflow-banner-rejected").textContent).toContain("赵主管"));
     expect(screen.getByTestId("workflow-banner-rejected").textContent).toContain("内容不妥");
     expect(screen.getByTestId("workflow-approval-result").getAttribute("data-decision")).toBe("denied");
     expect((screen.getByTestId("workflow-approve") as HTMLButtonElement).disabled).toBe(true);
@@ -259,10 +263,18 @@ describe("WorkflowRunPanel", () => {
   it("等待审批：抽屉显示副作用预览/目标系统/能力分类/发起人与 Agent；批准走契约调用", async () => {
     api.approveWorkflowGate.mockResolvedValue({ gate: gate({ decision: "approved", decidedBy: "u2" }), status: "running", stateVersion: 6 });
     render(<WorkflowRunPanel instanceId="i1" initial={proj({ status: "awaiting_gate_decision", openGate: gate() })} />);
-    expect(screen.getByTestId("workflow-approval-target").textContent).toBe("smtp");
-    expect(screen.getByTestId("workflow-approval-capability").textContent).toBe("mail.send");
-    expect(screen.getByTestId("workflow-approval-initiator").textContent).toBe("u1");
-    expect(screen.getByTestId("workflow-approval-agent").textContent).toBe("a1");
+    expect(screen.getByTestId("workflow-approval-target").textContent).toBe("邮件服务");
+    expect(screen.getByTestId("workflow-approval-capability").textContent).toBe("发送邮件");
+    await waitFor(() => expect(screen.getByTestId("workflow-approval-initiator").textContent).toBe("张发起"));
+    expect(screen.getByTestId("workflow-approval-agent").textContent).toBe("本工作流的智能体");
+    // 原始标识只在折叠的技术详情里
+    const tech = screen.getByTestId("workflow-approval-tech-details");
+    expect(tech.hasAttribute("open")).toBe(false);
+    expect(screen.getByTestId("workflow-approval-capability-raw").textContent).toBe("mail.send");
+    expect(screen.getByTestId("workflow-approval-initiator-raw").textContent).toBe("u1");
+    const drawer = screen.getByTestId("workflow-approval-drawer");
+    const visible = [...drawer.children].filter((c) => c !== tech).map((c) => c.textContent).join(" ");
+    expect(visible).not.toMatch(/mail\.send|smtp|\bu1\b|\ba1\b/);
     expect(screen.getByTestId("workflow-approval-preview").textContent).toContain("team@x");
     fireEvent.click(screen.getByTestId("workflow-approve"));
     await waitFor(() => expect(screen.getByTestId("workflow-approval-result").getAttribute("data-decision")).toBe("approved"));

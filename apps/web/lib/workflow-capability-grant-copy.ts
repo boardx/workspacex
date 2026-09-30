@@ -29,6 +29,8 @@ const CAPABILITY_COPY: Record<string, CapabilityCopy> = {
   "interview.write": { label: "创建访谈", allows: "按工作流规划的提纲，在访谈模块里创建访谈。" },
   "interview.outline.write": { label: "导入访谈提纲", allows: "把工作流生成的访谈提纲导入到访谈模块。" },
   "workflow.record.write": { label: "写入实验记录", allows: "登记实验预注册与上线确认等过程记录。" },
+  "mail.send": { label: "发送邮件", allows: "把工作流生成的内容通过邮件发送给指定收件人。" },
+  "knowledge.read": { label: "查阅知识库", allows: "读取本组织知识库中的资料作为工作流的参考。" },
   "project.read": { label: "在审批中引用项目信息", allows: "在计划审批环节读取并引用项目资料，审批结论会被写回运行记录。" },
   "team.roster.read": { label: "在审批中引用团队名单", allows: "在估算审批环节读取团队成员名单，审批结论会被写回运行记录。" },
 };
@@ -58,4 +60,16 @@ export function describeWorkflowGrantFailure(err: unknown): string {
   }
   if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";
   return "操作没有完成，稍后再试一次";
+}
+
+const TARGET_SYSTEM_TEXT: Record<string, string> = {
+  smtp: "邮件服务",
+  inapp: "站内通知",
+  files: "组织文件库",
+  board: "任务看板",
+};
+
+/** 副作用目标系统的人话名；不认识时给兜底，原始值只进「技术详情」。 */
+export function targetSystemText(target: string): string {
+  return TARGET_SYSTEM_TEXT[target] ?? "组织内的其它系统";
 }
