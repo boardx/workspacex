@@ -14,6 +14,9 @@ export const CATALOG_TITLE_ZH: Readonly<Record<string, string>> = {
   "research-to-evidence": "研究到证据包",
 };
 
+/** 没有任何中文显示名时的占位名（显示用；不可拿去拼进预填句子）。 */
+export const UNNAMED_WORKFLOW_LABEL = "未命名流程";
+
 export function catalogWorkflowTitleZh(title: string): string {
   const bare = title.trim().replace(/^W\d{3}\s+/, "");
   return CATALOG_TITLE_ZH[bare.toLowerCase()] ?? bare;
@@ -31,5 +34,5 @@ export function agentWorkflowLabel(w: { readonly stableId: string; readonly name
   if (zh !== head.replace(/^W\d{3}\s+/, "")) return zh;
   const paren = /[（(]([^）)]*)[）)]/.exec(w.name)?.[1]?.trim();
   if (paren && /\p{Script=Han}/u.test(paren)) return paren;
-  return zh || "未命名流程";
+  return zh || UNNAMED_WORKFLOW_LABEL;
 }

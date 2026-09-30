@@ -22,7 +22,7 @@ import {
 } from "@/lib/agent-directory";
 import { getSkillDetail, listSkills, type SkillListItem } from "@/lib/live-skill";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
-import { agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
+import { UNNAMED_WORKFLOW_LABEL, agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
 
 /**
  * AG04 follow-up（契约束 agent-role UC-4）—— 成员可见的数字人详情页 `/agent/[id]`，挂在标准
@@ -263,7 +263,9 @@ function Section({ id, testid, icon: Icon, title, aside, children }: {
   );
 }
 
+/** 只有真有中文显示名才把名字拼进句子；纯英文名 / 占位名一律用中性句，避免「发起「未命名流程」」。 */
 export function workflowPrefill(name: string): string {
+  if (name === UNNAMED_WORKFLOW_LABEL || !/\p{Script=Han}/u.test(name)) return "帮我发起一个工作流。我的目标是：";
   return `请帮我发起「${name}」工作流。我的目标是：`;
 }
 

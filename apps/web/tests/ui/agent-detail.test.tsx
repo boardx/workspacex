@@ -16,7 +16,7 @@ const card: AgentDirectoryCard = {
   agentId: "a-sales", versionId: "v1", name: "小销", initials: "销", roleLabel: "Sales Representative",
   avatar: { kind: "illustration", key: "dh-05-sales-representative", alt: "小销" },
   roleCategory: "sales", tags: ["销售", "客户"], catalogSource: "official",
-  workflows: [{ stableId: "W005", name: "Lead-to-Proposal" }], readiness: "ready",
+  workflows: [{ stableId: "W005", name: "Lead-to-Proposal（线索到方案）" }], readiness: "ready",
 };
 
 const extras = (over: Partial<AgentDetailExtras> = {}): AgentDetailExtras => ({
@@ -54,7 +54,21 @@ describe("AgentDetail", () => {
     await waitFor(() => expect(screen.getAllByTestId("agent-detail-workflow")).toHaveLength(1));
     expect(screen.getByTestId("agent-detail-workflows").textContent).not.toContain("W005");
     fireEvent.click(screen.getByTestId("agent-detail-workflow-launch"));
-    expect(onStartChat).toHaveBeenCalledWith("a-sales", workflowPrefill("Lead-to-Proposal"));
+    expect(onStartChat).toHaveBeenCalledWith("a-sales", workflowPrefill("线索到方案"));
+    expect(onStartChat.mock.calls[0]![1]).toContain("「线索到方案」");
+  });
+
+  it("没有中文显示名的工作流：预填句不带占位名 / 英文名，用中性句", async () => {
+    const onStartChat = vi.fn();
+    const only = { ...card, workflows: [{ stableId: "zz-custom", name: "Zz-Custom-Flow" }] };
+    render(<AgentDetail agentId="a-sales" onStartChat={onStartChat} fetchCard={vi.fn().mockResolvedValue(only)} fetchExtras={vi.fn().mockResolvedValue(extras())} />);
+    await waitFor(() => expect(screen.getAllByTestId("agent-detail-workflow")).toHaveLength(1));
+    fireEvent.click(screen.getByTestId("agent-detail-workflow-launch"));
+    const prefill = onStartChat.mock.calls[0]![1] as string;
+    expect(prefill).toBe("帮我发起一个工作流。我的目标是：");
+    expect(prefill).not.toContain("未命名流程");
+    expect(workflowPrefill("未命名流程")).toBe(prefill);
+    expect(workflowPrefill("Zz-Custom-Flow")).toBe(prefill);
   });
 
   it("服务端职责优先；未就绪用白话说明；组织共享技能兜底有说明", async () => {
