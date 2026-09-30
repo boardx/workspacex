@@ -406,6 +406,31 @@ docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "$
   -c "ALTER ROLE app_diag_ro PASSWORD '${DIAG_DB_PASSWORD}';" >/dev/null
 echo "  app_diag_ro 密码已对齐"
 
+step "4b-iii. 记忆向量召回的嵌入模型 —— 缺就补默认值，再登记（幂等）"
+# 2026-09-30 devapp 实测：部署链从来没有配过嵌入模型（deploy.env 没有 KERNEL_EMBEDDING_*，
+# deep-agent.env 也不投影，embedding_models 表是空的），所以记忆召回的向量通道一直**静默关闭**
+# ——没配置时它按设计不提醒任何人，只剩字面 + 图两路。
+# 默认模型是这台机器现有的模型凭据（KERNEL_MODEL_BASE_URL / _API_KEY，不引入新凭据）实测
+# 能调通的那个（devapp-probe「记忆检索三路」一步打印维度）。已有值一律不覆盖；换模型 =
+# 改 deploy.env 并给新 VERSION（维度变了按 register-embedding-model.ts 的双写规则走）。
+# 登记是幂等的：已登记同维度直接通过；第一次登记由数据库触发器把全部活结论补排进嵌入队列，
+# 重启后 API 的嵌入 worker 自动补齐存量向量。补默认值的 embedding_backfill_defaults 在
+# deep-agent-lib.sh（脚本开头已 source，有测试）。
+EMBEDDING_DEFAULT_MODEL_ID=text-embedding-v4
+EMBEDDING_DEFAULT_MODEL_VERSION=dashscope-v4-1024
+EMBEDDING_DEFAULT_DIMENSIONS=1024
+embedding_backfill_defaults "$ENV_FILE" "$EMBEDDING_DEFAULT_MODEL_ID" "$EMBEDDING_DEFAULT_MODEL_VERSION" "$EMBEDDING_DEFAULT_DIMENSIONS"
+if [ -n "$(grep '^KERNEL_EMBEDDING_MODEL_ID=' "$ENV_FILE" | tail -1 | cut -d= -f2-)" ]; then
+  if ! sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+    pnpm --filter api exec tsx scripts/register-retrieval-embedding-model.ts; then
+    echo "✗ 嵌入模型登记失败（上一行是错误码）。维度与已登记的不一致时，换一个新的 KERNEL_EMBEDDING_MODEL_VERSION"
+    exit 1
+  fi
+  echo "  嵌入模型已登记：$(grep '^KERNEL_EMBEDDING_MODEL_ID=' "$ENV_FILE" | tail -1 | cut -d= -f2-) / $(grep '^KERNEL_EMBEDDING_MODEL_VERSION=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
+else
+  echo "  KERNEL_EMBEDDING_MODEL_ID 显式置空 —— 向量通道保持关闭（召回走字面 + 图）"
+fi
+
 step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认 agent）"
 # `ensureDefaultAgent` 只在组织**创建那一刻**触发（`/auth/bootstrap` 与 `/auth/register`
 # 各自的 controller 里）。#662 落地之前就存在的每一个组织永远不会自己补上——没有 cron，
@@ -564,6 +589,11 @@ fi
 # 开关，见 provision.sh 该键旁的说明），继续保留投影。
 deep_agent_project_capability_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
   DEEP_AGENT_CHECKPOINT_DB
+# 记忆向量召回（S9 #4366）：嵌入由 deep-agent-service 的 /internal/retrieval/embeddings 调模型，
+# 凭据复用上面的 KERNEL_MODEL_BASE_URL / _API_KEY，模型与版本从 deploy.env 投影（第 4h-i 步补齐）。
+# 值为空就不写行：embed_texts 视为未配置，向量通道关闭、召回走字面 + 图。
+deep_agent_project_capability_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
+  KERNEL_EMBEDDING_MODEL_ID KERNEL_EMBEDDING_MODEL_VERSION
 
 # Native recovery dependencies are projected regardless of KERNEL_NATIVE_RUNTIME. The flag
 # gates only new-run admission in API; removing this UDS/key wiring when the flag is 0 would
