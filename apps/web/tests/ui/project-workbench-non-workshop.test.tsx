@@ -294,6 +294,19 @@ describe("#4615 通用项目的工作台", () => {
     expect(screen.queryByTestId("project-resource-sv1")).toBeNull();
   });
 
+  it("R7 通用项目「成果」没有假子导航；概览与看板统一叫「工作流」，协作者面板叫「角色」不叫「档位」", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    const { unmount } = renderWorkbench("results");
+    await screen.findByTestId("project-results");
+    expect(screen.queryByTestId("project-sub-nav")).toBeNull();
+    unmount();
+
+    renderWorkbench("overview");
+    const runs = await screen.findByTestId("project-general-overview-workflow-runs");
+    expect(runs.closest("section")).toHaveTextContent("工作流运行");
+    expect(document.body.textContent ?? "").not.toMatch(/Workflow 运行/);
+  });
+
   it("R6 地标与标题：项目名是 h1；不再嵌套第二个 <main>；内容筛选 tablist 里只有 tab，「文件」链接在外面", async () => {
     getProjectOverview.mockResolvedValue(overviewOf("general"));
     const { container } = renderWorkbench("content");

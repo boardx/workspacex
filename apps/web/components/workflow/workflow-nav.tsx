@@ -15,7 +15,7 @@ const ITEMS: ReadonlyArray<{ key: WorkflowNavKey; href: string; label: string; i
 /** 左栏样式同后台左栏（`admin-nav.tsx`）：标题 + 一列带图标的链接，当前页高亮。 */
 export function WorkflowNav({ active, projectId }: { readonly active: WorkflowNavKey; readonly projectId?: string | null }) {
   return (
-    <nav aria-label="Workflow" data-testid="workflow-nav" className="flex flex-col gap-4 p-3">
+    <nav aria-label="工作流" data-testid="workflow-nav" className="flex flex-col gap-4 p-3">
       {projectId ? <BackToProjectLink projectId={projectId} testId="workflow-nav-back-to-project" /> : null}
       <span className="px-1 text-13 font-semibold">工作流</span>
       <div className="flex flex-col gap-1">
@@ -86,7 +86,7 @@ export function WorkflowPage({ title, subtitle, active, projectId, children }: {
 export function WorkflowMobileNav({ active, projectId }: { readonly active: WorkflowNavKey; readonly projectId: string | null }) {
   const q = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
   return (
-    <nav aria-label="Workflow" data-testid="workflow-mobile-nav" className="flex flex-col gap-2 md:hidden">
+    <nav aria-label="工作流" data-testid="workflow-mobile-nav" className="flex flex-col gap-2 md:hidden">
       {projectId ? <BackToProjectLink projectId={projectId} testId="workflow-mobile-back-to-project" /> : null}
       <div className="flex gap-1 overflow-x-auto">
         {ITEMS.map((item) => {
