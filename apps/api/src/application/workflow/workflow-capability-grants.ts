@@ -12,7 +12,9 @@
  */
 import { workflowCapabilityGrants as C } from "@repo/contracts";
 import type { z } from "zod";
-import { PRODUCT_LINE_WORKFLOWS, type ContentWorkflowDefinition } from "../../domain/work-content/product-workflow-definitions";
+import { PRODUCT_LINE_WORKFLOWS } from "../../domain/work-content/product-workflow-definitions";
+import { OPERATIONS_WORKFLOW_DEFINITIONS } from "../../domain/work-content/definitions/operations";
+import { SHARED_WORKFLOW_DEFINITIONS } from "../../domain/work-content/definitions/shared";
 import { PLANNED_WORKFLOW_SIDE_EFFECT_CATEGORIES } from "../../domain/skill/capability-category-registry";
 import { toOrgId } from "../../domain/org-id";
 import type { TenantSession } from "../ports/database.port";
@@ -54,8 +56,23 @@ export class WorkflowCapabilityGrantError extends Error {
 const DEFAULT_CAP: WorkflowSideEffectClass = "read";
 const SIDE_EFFECT_STAGES = new Set<WorkflowSideEffectClass>(["write", "external_send"]);
 
+/** 授权清单只需要的定义形状（产品线 `ContentWorkflowDefinition` 与共享/运营线 `WorkContentWorkflowModule` 都满足）。 */
+export interface CapabilityCatalogSource {
+  workflowId: string;
+  key: string;
+  title: string;
+  stages: readonly { stageId: string; sideEffect: WorkflowSideEffectClass; capabilityCategories: readonly string[] }[];
+}
+
+/** 默认目录：产品线 + 批次 2 共享线 / 运营线（销售线生产未接 CRM，不在授权页开放）。 */
+export const DEFAULT_CAPABILITY_CATALOG_SOURCES: readonly CapabilityCatalogSource[] = [
+  ...PRODUCT_LINE_WORKFLOWS,
+  ...SHARED_WORKFLOW_DEFINITIONS,
+  ...OPERATIONS_WORKFLOW_DEFINITIONS,
+];
+
 /** 纯函数：内置 Workflow 目录中每个 Workflow 需要的副作用能力（只列 write / external_send 阶段）。 */
-export function buildCapabilityCatalog(defs: readonly ContentWorkflowDefinition[] = PRODUCT_LINE_WORKFLOWS): WorkflowCapabilityCatalogEntry[] {
+export function buildCapabilityCatalog(defs: readonly CapabilityCatalogSource[] = DEFAULT_CAPABILITY_CATALOG_SOURCES): WorkflowCapabilityCatalogEntry[] {
   return defs.map((def) => {
     const byCat = new Map<string, { requiredCap: WorkflowSideEffectClass; stageIds: string[] }>();
     for (const stage of def.stages) {
