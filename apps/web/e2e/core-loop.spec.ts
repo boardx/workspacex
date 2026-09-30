@@ -534,6 +534,11 @@ test.describe("核心闭环八步", () => {
    */
   test("[#466] 步骤 7：转写内录音 → 停止 → 转录挂入项目且刷新仍在", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+    // 诊断：记下本用例期间所有失败的请求，停止后若界面仍报错，把它们连同报错原文一起写进失败信息。
+    const failedCalls: string[] = [];
+    page.on("response", (r) => {
+      if (r.status() >= 400) failedCalls.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
+    });
 
     const counterproof = process.env.CORE_LOOP_COUNTERPROOF_7;
     if (counterproof === "drop-persist" || counterproof === "noop-persist") {
@@ -619,7 +624,12 @@ test.describe("核心闭环八步", () => {
     // 中间结果不落库，收尾后必须已经清掉 ——
     // 它留在界面上会让下面「刷新后仍在」有可能被一段没写库的文字满足。
     await expect(page.getByTestId("rec-live-interim")).toHaveCount(0);
-    await expect(page.getByTestId("rec-live-error")).toHaveCount(0);
+    try {
+      await expect(page.getByTestId("rec-live-error")).toHaveCount(0);
+    } catch (error) {
+      const shown = (await page.getByTestId("rec-live-error").first().textContent().catch(() => null))?.trim();
+      throw new Error(`转写页在停止后仍报错：「${shown ?? "（已消失）"}」；期间失败的请求：${failedCalls.join(" | ") || "无"}\n${String(error)}`);
+    }
 
     const recorded = (await content.textContent())?.trim() ?? "";
     expect(recorded).not.toBe("");
