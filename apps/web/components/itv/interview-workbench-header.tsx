@@ -50,8 +50,8 @@ export function InterviewWorkbenchHeader({
         <h1 className={`${activeStep === "intake" ? "" : "mt-1 "}truncate text-xl font-semibold tracking-tight lg:text-2xl`}>{name}</h1>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <span data-testid="itv-workflow-status" className={activeStep === "intake" ? "sr-only" : "hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground md:inline-flex"}>状态：{status}</span>
-        <span data-testid="itv-workflow-version" className={activeStep === "intake" ? "sr-only" : "hidden text-xs text-muted-foreground md:inline"}>版本 {version}</span>
+        <span data-testid="itv-workflow-status" className="sr-only">状态：{status}</span>
+        <span data-testid="itv-workflow-version" className="sr-only">版本 {version}</span>
         {topic && <span data-testid="itv-persisted-topic" className="sr-only">已确认主题：{topic}</span>}
         {tags.map((tag) => <span key={tag} className="hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline-flex">{tag}</span>)}
         {onOpenSkill && <Button data-testid="itv-skill-drawer-trigger" type="button" variant="outline" onClick={onOpenSkill}><MessageSquareText className="size-4" aria-hidden />访谈助手</Button>}
