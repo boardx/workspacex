@@ -83,6 +83,12 @@ jobs:
           $PSQL "SELECT ch, count(*) FROM kg_turn_recalls r, jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch WHERE r.created_at > now() - interval '7 days' GROUP BY 1 ORDER BY 2 DESC"
           echo "── 召回明细（最近 5 轮：每轮命中的通道）──"
           $PSQL "SELECT r.created_at::timestamp(0), r.graph_degraded, (SELECT string_agg(DISTINCT ch, ',') FROM jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch) FROM kg_turn_recalls r ORDER BY r.created_at DESC LIMIT 5"
+          echo "── 召回明细加长（最近 5 轮：条目数 / 各通道 / retrievalReasons；不打印结论正文）──"
+          $PSQL "SELECT r.created_at::timestamp(0), r.graph_degraded, jsonb_array_length(r.items), (SELECT string_agg(DISTINCT ch, ',') FROM jsonb_array_elements(r.items) i, jsonb_array_elements_text(i->'channels') ch), (SELECT string_agg(DISTINCT rr, ',') FROM jsonb_array_elements(r.items) i, jsonb_array_elements_text(coalesce(i->'retrievalReasons','[]'::jsonb)) rr) FROM kg_turn_recalls r ORDER BY r.created_at DESC LIMIT 5" 2>&1
+          echo "── 最近 6 次 agent run：创建时间 / 状态 / 错误码 / 心跳（判 39 秒 network error 是服务端失败还是前端断流）──"
+          $PSQL "SELECT created_at::timestamp(0), status, coalesce(error_code,'-'), heartbeat_at::timestamp(0), model_id FROM agent_runs ORDER BY created_at DESC LIMIT 6" 2>&1
+          echo "── deep-agent 最近 30 分钟的错误行（只取前 160 字符，关键字过滤）──"
+          docker logs --since 30m workspacex-deep-agent 2>&1 | grep -iE 'traceback|exception|error|timeout|cancel' | grep -v '200 OK' | tail -15 | cut -c1-160 || true
           echo "── 抽取三道闸门：部署开关 / 组织开关（provider 是否配置看 API 启动日志）──"
           $PSQL "SELECT * FROM kg_extraction_state" 2>&1 | head -3
           $PSQL "SELECT org_id, enabled, updated_at::timestamp(0) FROM kg_org_extraction_settings ORDER BY 3 DESC" 2>&1 | head -12
