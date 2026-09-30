@@ -27,8 +27,7 @@ describe("reference research workflow", () => {
     const back = vi.fn();
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} visualStage="chapters" onBack={back} />);
-    fireEvent.click(await screen.findByText("编辑章节内容"));
-    fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "未保存章节" } });
+    fireEvent.change(await screen.findByLabelText("章节标题"), { target: { value: "未保存章节" } });
     fireEvent.click(screen.getByTestId("research-flow-back"));
     expect(back).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
@@ -39,9 +38,9 @@ describe("reference research workflow", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     await screen.findByTestId("guided-research-plan-panel");
-    expect(screen.getByTestId("guided-research-markdown-preview")).toBeVisible();
+    expect(screen.getByRole("list", { name: "研究计划" })).toBeVisible();
     expect(screen.queryByTestId("guided-research-markdown-editor")).not.toBeInTheDocument();
-    expect(within(screen.getByTestId("guided-research-plan-panel")).getAllByRole("heading", { name: "研究计划" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "新增计划" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
@@ -59,7 +58,6 @@ describe("reference research workflow", () => {
     const save = vi.fn();
     const props = { runtime: initial, disabled: false, onSave: save, onOptimize: vi.fn(), onNext: vi.fn() };
     const view = render(<ResearchChaptersWorkspace {...props} />);
-    fireEvent.click(screen.getByText("编辑章节内容"));
     fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "政策约束与实施路径" } });
     view.rerender(<ResearchChaptersWorkspace {...props} runtime={{ ...initial, outline: initial.outline.map((chapter) => ({ ...chapter })) }} />);
     expect(screen.getByLabelText("章节标题")).toHaveValue("政策约束与实施路径");
@@ -109,7 +107,8 @@ describe("reference research workflow", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} visualStage="chapters" />);
     fireEvent.click(await screen.findByRole("button", { name: "2. 第二章政策" }));
-    expect(screen.getByTestId("research-selected-chapter")).toHaveTextContent("核查政策约束");
+    expect(screen.getByLabelText("章节标题")).toHaveValue("第二章政策");
+    expect(screen.getByTestId("research-selected-chapter")).not.toHaveTextContent("核查政策约束");
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
   });
