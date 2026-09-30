@@ -56,3 +56,27 @@ confirmed_via: "人类在 GitHub 亲自签核"
 ## 待签核人裁决的开放问题
 
 见 `coverage.md` 第四节。
+## 增补签核（2026-09-30）：三组新增 operation
+
+本束 2026-09-27 已签核（`status: confirmed`）。本节签核在同一契约
+`packages/contracts/src/agent-role.ts` 上的增量，原有 7 个 operation 不变。
+
+| 来源分支 | operation | 说明 |
+|---|---|---|
+| `claude/tender-maxwell-dh21fg-picker-ux` | `GET /agents/official-role-pack/offer` | 只读：本组织尚未导入的官方角色 + `canEnable`（仅组织管理员为 true）。启用仍复用 `POST /admin/agents/starter-pack-imports`，导入记录保留真实 `administrator_id`，UC-3「管理员决定导入」不变。 |
+| `claude/tender-maxwell-dh21fg-ag07` | `GET /agent-handoffs?threadId=`（`listThreadHandoffs`） | 仅发起人可见，其他人一律 `HANDOFF_NOT_FOUND`。 |
+| 同上 | `POST /agent-handoffs/:id/confirm` | 确认前按接收方当前发布/启用状态复核，失败则 403 并记拒绝；成功则同事务新建发起人的私人线程。接收方以发起人身份重读证据。 |
+| 同上 | `POST /agent-handoffs/:id/cancel` | 仅发起人。 |
+| 同上 | `HandoffView`（含 `sourceAgentId`）、`handoffNotAllowedCopy`、`HANDOFF_REFUSAL_MARK` | 转交包仅四字段（问题 / 已确认范围 / 证据 / 未决事项），多余字段 zod + DB CHECK 双重拒绝。 |
+| `claude/tender-maxwell-dh21fg-dh-ui-gaps` | `GET /agents/directory/:agentId/profile` | 只读：职责文本、挂载/固定技能引用、可转交对象、是否需确认；先校验组织成员身份，不可见一律 404。 |
+
+签核要点：
+
+- [x] 新增 operation 跨组织 / 不可见一律 404。
+- [x] 转交一律需发起人确认（`requireApproval` 恒按 true 处理），fail closed；接收方以发起人权限重读。
+- [x] 官方角色包 1.3.0：四个官方角色 `allowedTargets` 为其余三个、`maxDepth: 1`；回填仅覆盖仍为包默认值的委派策略，不动管理员改过的策略、标签与头像。
+- [x] 官方角色仍由管理员「一键启用」导入，不自动安装。
+
+签核人：usamshen
+签核时间：2026-09-29T07:10:00Z
+签核方式：人类在 GitHub 亲自签核
