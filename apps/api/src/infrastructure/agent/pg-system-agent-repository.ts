@@ -73,7 +73,7 @@ export async function ensureSystemAgent(
     const { provider, modelId } = template.resolveModel();
 
     await s.query(
-      `INSERT INTO agents (${BOOTSTRAP_WRITE_COLUMNS.agent.join(",")}) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)`,
+      `INSERT INTO agents (${BOOTSTRAP_WRITE_COLUMNS.agentInsertColumns.join(",")}) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)`,
       [agentId, input.orgId, template.stableName, template.name, input.actorId, nowIso, template.roleLabel],
     );
     await insertAgentVersionFromDraft(s, {

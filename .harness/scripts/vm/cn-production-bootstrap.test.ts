@@ -179,3 +179,11 @@ describe("China production trusted deployment entrypoints", () => {
     expect(deploy).toContain("cn-release-browser-smoke.mjs");
   });
 });
+
+
+it("bounds database connection and exec time independently of statement timeout", () => {
+  const collector = readFileSync(resolve(import.meta.dirname, "collect-cn-release-preflight.sh"), "utf8");
+  expect(collector).toContain("timeout 15s docker exec workspacex-cn-api-1 node -e");
+  expect(collector).toContain("connectionTimeoutMillis:5000,statement_timeout:5000");
+  expect(collector).toContain('})().catch(()=>process.exit(1));');
+});

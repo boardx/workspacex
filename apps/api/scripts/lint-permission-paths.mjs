@@ -72,6 +72,10 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/deploy/bootstrap-compatibility.ts",
+    "CN release read-only operator audit (#4728): compares configured bootstrap admin identity and system-agent seed identities under BEGIN READ ONLY, returns only fixed booleans/classification codes and an email digest, and is never exposed to HTTP callers. Object visibility filters do not authorize environment-wide deployment compatibility. This exemption requires tests/deploy/bootstrap-compatibility.test.ts to prove read-only guard, rollback, password mismatch refusal, redacted result shape, and that no interface module imports the probe.",
+  ],
+  [
     "src/infrastructure/skill/pg-tool-grant-reader.ts",
     "Phase 20 WS04（`work-skill-meta` UC-6 就绪性输入）：`org_tool_capability_grants` 是授权元数据（本组织哪个工具提供哪个能力分类、是否启用、授权是否被拒），不是 `ObjectRef` 能表达的 Artifact/Segment/Capability/Project/Organization/Interview——把它推进 `authorize` 会退回 DEFAULT_SCOPE 对全组织放行，同 `pg-tool-permission-grant-repository.ts` 条目的论证。行内容从不直接交给调用方：`getWorkSkillReadiness` 先做 `findOrgMembership`（非成员 404）并确认目录行存在，之后才调用 `listForOrg`，且只把它折成逐项 satisfied/missing/denied 状态，不回 tool_ref。⚠ 豁免仅在（a）本文件只出现 `org_tool_capability_grants` 一张租户表，（b）从不调用 `withoutTenant`，（c）用例里成员判定仍先于 `grants.listForOrg`、响应不含 toolRef 时有效：tests/work-skill/readiness-compute.test.ts 的 repo-guard 用例逐条断言。该测试若被删除，本条目必须一并删除。",
   ],

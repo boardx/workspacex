@@ -51,7 +51,7 @@ export const BOOTSTRAP_RELATIONS = {
   credentials: { columns: W.credential, privileges: ["SELECT", "INSERT"] },
   organizations: { columns: W.personalLocal, privileges: ["SELECT", "INSERT"] },
   org_memberships: { columns: W.membership, privileges: ["SELECT", "INSERT"] },
-  agents: { columns: [...W.agent, ...Object.values(AGENT_ROLE_COLUMN_OF)], privileges: ["SELECT", "INSERT", "UPDATE"] },
+  agents: { columns: [...W.agentInsertColumns, ...Object.values(AGENT_ROLE_COLUMN_OF)], privileges: ["SELECT", "INSERT", "UPDATE"] },
   agent_versions: { columns: [...W.version, ...Object.values(AGENT_ROLE_COLUMN_OF)], privileges: ["SELECT", "INSERT"] },
   capability_listings: { columns: W.listing, privileges: ["SELECT", "INSERT"] },
 } as const;

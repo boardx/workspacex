@@ -163,14 +163,14 @@ const fs=require("node:fs"),raw=fs.readFileSync(process.argv[2],"utf8"),v=JSON.p
 if(v.ready!==true||v.checkedMaps!==7||!Object.values(v.durableProfiles).every(x=>x===true))process.exit(1);
 NODE
 
-docker exec workspacex-cn-api-1 node -e '
+timeout 15s docker exec workspacex-cn-api-1 node -e '
 const net=require("node:net");
 const targets=[[process.env.PGHOST,Number(process.env.PGPORT)],[process.env.REDIS_HOST,Number(process.env.REDIS_PORT)]];
 Promise.all(targets.map(([host,port])=>new Promise((resolve,reject)=>{if(!host||!port)return reject();const socket=net.createConnection({host,port});const timer=setTimeout(()=>socket.destroy(new Error()),5000);socket.once("connect",()=>{clearTimeout(timer);socket.destroy();resolve();});socket.once("error",reject);}))).then(()=>process.exit(0),()=>process.exit(1));' || fail "RDS or Redis data-plane network probe failed"
 
-docker exec workspacex-cn-api-1 node -e '
+timeout 15s docker exec workspacex-cn-api-1 node -e '
 const fs=require("node:fs"),{Client}=require("pg"),ssl=process.env.PGSSLMODE==="disable"?false:{rejectUnauthorized:true,...(process.env.PGSSLROOTCERT?{ca:fs.readFileSync(process.env.PGSSLROOTCERT,"utf8")}: {})};
-const client=new Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.DIAG_DB_USER,password:process.env.DIAG_DB_PASSWORD,ssl});
+const client=new Client({connectionTimeoutMillis:5000,statement_timeout:5000,host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.DIAG_DB_USER,password:process.env.DIAG_DB_PASSWORD,ssl});
 (async()=>{await client.connect();try{await client.query("BEGIN READ ONLY");await client.query("SET LOCAL statement_timeout=5000");const g=await client.query("SHOW transaction_read_only");if(g.rows[0].transaction_read_only!=="on")throw Error();await client.query("SELECT count(*)::int FROM agent_runs WHERE status=ANY($1)",[["queued","running","writeback_pending"]]);}finally{await client.query("ROLLBACK");await client.end();}})().catch(()=>process.exit(1));' || fail "read-only database drain probe failed"
 
 stable_out="$work/stable.out"

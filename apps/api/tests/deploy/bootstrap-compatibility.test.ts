@@ -107,3 +107,22 @@ describe("read-only bootstrap compatibility", () => {
     expect(r.ready).toBe(true); expect(r.readOnlyTransaction).toBe(false);
   });
 });
+
+
+it("keeps the privileged deployment audit outside every HTTP interface import", async () => {
+  const { readdir, readFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const files: string[] = [];
+  const walk = async (directory: string): Promise<void> => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) await walk(path);
+      else if (path.endsWith(".ts")) files.push(path);
+    }
+  };
+  await walk(new URL("../../src/interface/", import.meta.url).pathname);
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    expect(source).not.toMatch(/bootstrap-compatibility|provision-admin-compatibility/);
+  }
+});
