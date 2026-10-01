@@ -9,6 +9,7 @@ import { InterviewMarkdownPlanningStep } from "./interview-markdown-planning-ste
 import { InterviewMarkdownEditingStep } from "./interview-markdown-editing-step";
 import { InterviewMarkdownResultsStep } from "./interview-markdown-results-step";
 import type { WorkbenchStep } from "./digital-interview-workflow";
+import { InterviewRevisionAction } from "./interview-step-header";
 
 
 /** Legacy workflow contributes identity metadata only, never an editable research body. */
@@ -50,17 +51,18 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
     } catch { setError("新修订未创建；原版本保持不变。请重新载入当前版本后重试。"); }
     finally { setBranching(false); }
   }
-  const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onDirtyChange: (value: boolean) => { dirty.current = value; } };
-  return <main data-testid="itv-markdown-workbench" className="min-h-screen w-full bg-muted/20 px-4 py-4 lg:px-8">
-    <div className="mx-auto max-w-[1440px]">
+  const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onRunningStepChange: setRunningStep, onDirtyChange: (value: boolean) => { dirty.current = value; } };
+  return <div data-testid="itv-markdown-workbench" className="min-h-dvh min-w-0 bg-muted/20">
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} status="Markdown 研究工作台" version={version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
+      <main className="mx-auto min-w-0 max-w-[1440px] px-4 pb-8 pt-1 lg:px-8">
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-      {completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) && <div className="mt-4 flex justify-end"><Button variant="outline" disabled={branching} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button></div>}
+      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <Button variant="outline" disabled={branching} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button> : null}>
       <section key={`${step}:${branchEpoch}`} className="mt-4">
         {(step === "intake" || step === "analysis") && <InterviewMarkdownPlanningStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "experts" || step === "outline") && <InterviewMarkdownEditingStep {...editing} step={step} onContinue={onContinue} />}
-        {(step === "runs" || step === "report") && <InterviewMarkdownResultsStep interviewId={identity.interviewId} step={step} runs={[]} reportPin={reportPin} onVersionChange={setVersion} onBusyChange={(busy) => setRunningStep(busy ? step : null)} onReport={() => onContinue("report")} />}
+        {(step === "runs" || step === "report") && <InterviewMarkdownResultsStep interviewId={identity.interviewId} step={step} runs={[]} reportPin={reportPin} onVersionChange={setVersion} onRunningStepChange={setRunningStep} onReport={() => onContinue("report")} />}
       </section>
-    </div>
-  </main>;
+      </InterviewRevisionAction.Provider>
+      </main>
+  </div>;
 }

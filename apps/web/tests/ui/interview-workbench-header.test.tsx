@@ -26,9 +26,17 @@ it("distinguishes completed, current and upcoming stages with semantic visual st
   expect(screen.getByTestId("itv-workbench-step-intake")).toHaveAttribute("data-state", "completed");
   expect(screen.getByTestId("itv-workbench-step-experts")).toHaveAttribute("data-state", "current");
   expect(screen.getByTestId("itv-workbench-step-report")).toHaveAttribute("data-state", "upcoming");
-  expect(screen.getByTestId("itv-workbench-step-intake").querySelector(".bg-success")).not.toBeNull();
+  expect(screen.getByTestId("itv-workbench-step-intake").querySelector(".bg-primary")).not.toBeNull();
   expect(screen.getByTestId("itv-workbench-step-experts").querySelector(".bg-primary")).not.toBeNull();
-  expect(screen.getByTestId("itv-workbench-step-report").querySelector(".bg-muted")).not.toBeNull();
+  expect(screen.getByTestId("itv-workbench-step-report").querySelector(".text-muted-foreground")).not.toBeNull();
+});
+it("uses the research horizontal stepper without full-width selected tiles or visible technical badges", () => {
+  render(<InterviewWorkbenchHeader name="研究" tags={[]} steps={steps} activeStep="report" completedSteps={["intake"]} status="draft" version={3} topic={null} onStepChange={vi.fn()} onReturnToList={vi.fn()} />);
+  const current = screen.getByTestId("itv-workbench-step-report");
+  expect(current).not.toHaveClass("flex-col", "w-full", "bg-primary/10");
+  expect(screen.getByTestId("itv-workbench-timeline")).toHaveClass("flex-wrap");
+  expect(screen.queryByTestId("itv-workflow-status-badge")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("itv-workflow-version-badge")).not.toBeInTheDocument();
 });
 it("return to list remains accessible independently of the timeline", () => {
   const back = vi.fn();

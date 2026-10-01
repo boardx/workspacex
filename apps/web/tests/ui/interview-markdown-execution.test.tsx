@@ -23,7 +23,7 @@ it("persisted runtime tasks supply progress even when legacy runs are empty", as
   renderResults();
   expect(await screen.findByRole("heading", { name: "nurse-7" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "doctor-8" })).toBeVisible();
-  expect(screen.getByRole("progressbar", { name: "访谈整体进度" })).toHaveAttribute("aria-valuenow", "50");
+  expect(screen.getByText("已完成专家 1/2")).toBeVisible();
   expect(screen.queryByText("暂无已登记访谈任务，不会显示示例进度。")).not.toBeInTheDocument();
 });
 it("pause remains callable while an advance request is still pending", async () => {

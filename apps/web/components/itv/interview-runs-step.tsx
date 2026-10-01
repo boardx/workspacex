@@ -5,6 +5,7 @@ import { interviewMarkdown } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { ExpertAvatar } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
+import { InterviewStepHeader } from "./interview-step-header";
 type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pending" | "running" | "completed" | "failed"; completedQuestions: number; totalQuestions: number }>;
 type InsightKind = "观点" | "发现" | "风险" | "追问";
 const insightTitles: Record<InsightKind, string> = { 观点: "关键观点", 发现: "核心发现", 风险: "争议点与风险", 追问: "后续追问方向" };
@@ -35,10 +36,11 @@ function savedInsights(document: interviewMarkdown.InterviewMarkdownDocument, pr
   }
   return insights;
 }
-export function InterviewRunsStep({ runs, document, pending, onGenerateReport, taskProgress = false }: {
+export function InterviewRunsStep({ runs, document, pending, onGenerateReport, taskProgress = false, actions }: {
   readonly runs: readonly RunMetadata[]; readonly document?: interviewMarkdown.InterviewMarkdownDocument;
   readonly pending: boolean; readonly onGenerateReport: () => void;
   readonly taskProgress?: boolean;
+  readonly actions?: React.ReactNode;
 }) {
   const [expert, setExpert] = React.useState<string | null>(null);
   const projection = document ? interviewMarkdown.parseInterviewMarkdown(document) : null;
@@ -48,7 +50,6 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
   const answered = runs.reduce((sum, run) => sum + Math.min(run.completedQuestions, run.totalQuestions), 0);
-  const progress = total ? Math.round(answered / total * 100) : 0;
   const ready = runs.length > 0 && runs.every((run) => run.status === "completed") && Boolean(document?.markdown.trim());
   const statusCounts = [
     { status: "completed", label: "已完成", color: "bg-success/10 text-success" },
@@ -57,14 +58,14 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
     { status: "failed", label: "执行失败", color: "bg-destructive/10 text-destructive" },
   ] as const;
   return <div data-testid="itv-source-runs" className="space-y-5">
-    <div data-testid="itv-runs-report-action" style={{ top: "calc(var(--itv-header-height, 9rem) + 0.75rem)" }} className="sticky z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/95 px-5 py-4 shadow-sm backdrop-blur">
-      <div><h2 className="text-3xl font-semibold">访谈内容</h2><p className="mt-1 text-sm text-muted-foreground">{ready ? "访谈已完成，可以生成研究报告" : pending ? "正在处理访谈内容" : "访谈完成后可以生成报告"}</p></div>
+    <InterviewStepHeader title="访谈内容" testId="itv-runs-report-action">
+      {actions}
       <Button variant="primary" size="lg" disabled={!ready || pending} onClick={onGenerateReport}><FileText className="size-4" aria-hidden />{pending ? "正在生成报告…" : "生成报告"}<ArrowRight className="size-4" aria-hidden /></Button>
-    </div>
-    <section className="mb-5 rounded-xl border border-border p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">开始访谈</h2><p className="mt-2 text-base leading-7 text-muted-foreground">{taskProgress ? `已完成专家 ${completed}/${runs.length}` : `已保存回答 ${answered}/${total}`} · 模拟内容不替代真实受访者证据</p></div><div aria-label="专家任务状态" className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-3 py-1 text-sm font-medium ${color}`}>{label} {count}</span> : null; })}</div></div><div role="progressbar" aria-label="访谈整体进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-4 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${progress}%` }} /></div></section>
-    <div className="grid items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+    </InterviewStepHeader>
+    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><span>{taskProgress ? `已完成专家 ${completed}/${runs.length}` : `已保存回答 ${answered}/${total}`}</span><div aria-label="专家任务状态" className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-2 py-1 ${color}`}>{label} {count}</span> : null; })}</div></div>
+    <div className="grid items-start gap-8 xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10">
 <aside className="rounded-xl border border-border p-5"><h3 className="mb-4 font-semibold">专家进度（{runs.length}）</h3><div className="space-y-3">{runs.map((run) => { const selected = expert === run.expertId; return <button key={run.expertId} type="button" aria-current={selected ? "true" : undefined} onClick={() => setExpert(run.expertId)} className={`block w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/10 shadow-sm" : "border-border hover:border-primary/50 hover:bg-muted/40"}`}><div className="flex items-center gap-3"><ExpertAvatar expertId={run.expertId} displayName={run.displayName} /><h4 className="font-medium">{run.displayName}</h4></div><p className="mt-2 text-sm text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "执行失败，已保存内容保留" : run.status === "pending" ? "等待访谈" : "进行中"}{taskProgress ? "" : ` · ${run.completedQuestions}/${run.totalQuestions}`}</p></button>; })}</div>{!runs.length && <p className="text-sm text-muted-foreground">暂无已登记访谈任务，不会显示示例进度。</p>}</aside>
-      <section className="min-w-0 rounded-xl border border-border bg-card p-5 lg:p-8"><h3 className="text-lg font-semibold">访谈记录</h3>
+      <section className="min-w-0 bg-card"><h3 className="text-lg font-semibold">访谈记录</h3>
         <div role="tablist" aria-label="访谈摘要范围" className="mt-4 flex flex-wrap gap-2">
           {[{ id: null, name: "全部（实时汇总）" }, ...runs.map((run) => ({ id: run.expertId, name: run.displayName }))].map((tab) => <button key={tab.id ?? "all"} type="button" role="tab" aria-selected={expert === tab.id} onClick={() => setExpert(tab.id)} className={`rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring ${expert === tab.id ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"}`}>{tab.name}</button>)}
         </div>

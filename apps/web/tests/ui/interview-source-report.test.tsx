@@ -5,6 +5,25 @@ import { InterviewReportStep } from "@/components/itv/interview-report-step";
 import { InterviewMarkdownResultsStep } from "@/components/itv/interview-markdown-results-step";
 import * as exports from "@/lib/interview-report-export";
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+it("lets a small-screen reader collapse the directory without losing section links", () => {
+  render(<InterviewReportStep document={{ documentId: "mobile-report", step: "report", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 教育研究\n\n## 发现\n\n正文。" }} />);
+  const toggle = screen.getByRole("button", { name: "展开目录" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: "收起目录" })).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("link", { name: "发现" })).toHaveAttribute("href", "#section-2");
+});
+it("prioritizes the report document and keeps optional checks collapsed without hiding print disclosures", () => {
+  render(<InterviewReportStep document={{ documentId: "layout-report", step: "report", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 教育研究\n\n## 发现\n\n正文保留。" }} />);
+  const details = screen.getByTestId("itv-report-details");
+  expect(details.tagName).toBe("DETAILS");
+  expect(details).not.toHaveAttribute("open");
+  expect(screen.getByTestId("itv-source-report-markdown").compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole("navigation", { name: "报告目录" })).not.toHaveClass("rounded-xl");
+  expect(screen.getByTestId("itv-source-report-evidence-boundary")).toHaveClass("hidden", "print:block");
+  fireEvent.click(screen.getByText("材料统计与质量检查"));
+  expect(screen.getByTestId("itv-report-quality")).toHaveTextContent("待补齐");
+});
 it("export failure keeps the document visible and provides an error", async () => {
   vi.spyOn(exports, "exportInterviewReportWord").mockRejectedValue(new Error("download unavailable"));
   render(<InterviewReportStep document={{ documentId: "report-1", step: "report", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 保留报告\n\n原文内容。" }} />);
