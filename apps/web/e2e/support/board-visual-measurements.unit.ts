@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {validateVisualMeasurement,visualViewports} from './board-visual-measurements';
-const valid=()=>({canvasAvailable:.9,toolbarCount:1,toolbarHeight:54,controls:['sticky','shape','draw','connector'].map(name=>({name,width:48,height:48,reachable:true}))});
+const valid=()=>({canvasAvailable:.9,toolbarCount:1,toolbarHeight:54,controls:['sticky','text','shape','draw'].map(name=>({name,width:48,height:48,reachable:true}))});
 test('UNIT validates required viewport set and compact measured state without subjective score',()=>{
   assert.deepEqual(visualViewports.map(v=>v.width),[1440,1280,1024]);assert.deepEqual(validateVisualMeasurement(valid()),[]);
 });
