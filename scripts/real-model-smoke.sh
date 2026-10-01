@@ -5,7 +5,7 @@
 #   pnpm run e2e:real-model-smoke
 #
 # 它做什么：
-#   ① 装载凭据（$WORKSPACEX_ENV_FILE，默认 ./.env.local；缺变量逐个点名后红退）
+#   ① 装载凭据（${WORKSPACEX_ENV_FILE}，默认 ./.env.local；缺变量逐个点名后红退）
 #   ② 起本地真栈（`e2e-up.sh`：docker 依赖服务 + 技能沙箱 + 接真实 dashscope 的 API）
 #   ③ 跑 `playwright.real-model-smoke.config.ts`（它自己起前端；spec 与 devapp lane 同一份）
 #   ④ 把后端日志脱敏后收进同一个证据包目录
@@ -54,7 +54,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "[real-model-smoke] ① 起本地真栈（日志 → $STACK_LOG）"
+echo "[real-model-smoke] ① 起本地真栈（日志 → ${STACK_LOG}）"
 # e2e-up.sh 末尾是 `wait`（它要一直持有 API/沙箱两个子进程），所以放后台跑，
 # 就绪与否用 healthz 判——不靠解析它的 stdout。
 bash "${REPO_ROOT}/e2e-up.sh" > "$STACK_LOG" 2>&1 &
