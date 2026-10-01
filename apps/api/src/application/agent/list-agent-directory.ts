@@ -39,6 +39,7 @@ export class AgentDirectoryError extends Error {
 
 /** 一行「已发布且组织可见」的 Agent 投影——落库形状，不是契约 DTO（后者在用例里拼）。 */
 export interface AgentDirectoryRow {
+  readonly skillScope?: "general" | "agent_pins";
   readonly agentId: string;
   readonly versionId: string;
   /** 内部使用的当前发布快照指令；目录 DTO 不暴露。 */
@@ -182,6 +183,7 @@ export async function getAgentDirectoryCard(
 }
 
 export interface AgentDirectoryProfileOut {
+  readonly skillScope?: "general" | "agent_pins";
   readonly agentId: string;
   readonly duty: string | null;
   readonly mountedSkillIds: readonly string[];
@@ -232,6 +234,7 @@ export async function getAgentDirectoryProfile(
     }));
   return {
     agentId: row.agentId,
+    skillScope: row.skillScope ?? "agent_pins",
     duty: meaningfulDuty(row),
     mountedSkillIds: [...new Set(row.skillMountIds)],
     pinnedSkillVersionIds: [...new Set(row.skillVersionIds)],

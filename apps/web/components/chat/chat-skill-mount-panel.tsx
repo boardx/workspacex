@@ -144,7 +144,7 @@ export function ChatSkillMountPanel({
   const liveScope = React.useRef(roleScopeKey);
   liveScope.current = roleScopeKey;
   const [cleaning, setCleaning] = React.useState(false);
-  const [roleScope, setRoleScope] = React.useState<{ key: string; versions: ReadonlyMap<string, ReadonlySet<string>>; pending: readonly PendingRoleSkill[] } | null>(null);
+  const [roleScope, setRoleScope] = React.useState<{ key: string; versions: ReadonlyMap<string, ReadonlySet<string>>; pending: readonly PendingRoleSkill[]; general: boolean } | null>(null);
   const loadPool = React.useCallback(async () => {
     const key = roleScopeKey;
     const [items, profile] = await Promise.all([
@@ -158,7 +158,8 @@ export function ChatSkillMountPanel({
       pinned.add(versionId);
       versions.set(skillId, pinned);
     };
-    if (profile) {
+    const general = !actingAgentId || profile?.skillScope === "general";
+    if (profile && !general) {
       // The member profile resolves the published version IDs, including older pins.
       const pins = (profile as typeof profile & { pinnedSkills?: readonly { skillId: string; versionId: string }[] }).pinnedSkills;
       if (pins) for (const pin of pins) addVersion(pin.skillId, pin.versionId);
@@ -169,10 +170,10 @@ export function ChatSkillMountPanel({
       for (const item of enabled) if (item.currentVersionId) addVersion(item.skillId, item.currentVersionId);
     }
     const pendingBindings = profile ? (profile as typeof profile & { pendingSkillBindings?: readonly PendingRoleSkill[] }).pendingSkillBindings ?? [] : [];
-    setRoleScope({ key, versions, pending: pendingBindings });
-    setPool(profile ? enabled.filter((item) => versions.has(item.skillId)) : enabled);
+    setRoleScope({ key, versions, pending: pendingBindings, general });
+    setPool(general ? enabled : enabled.filter((item) => versions.has(item.skillId)));
   }, [actingAgentId, orgId, roleScopeKey]);
-  const scopedMounts = actingAgentId ? (roleScope?.key === roleScopeKey ? mounts.filter((entry) => roleScope.versions.get(entry.skillId)?.has(entry.versionId)) : []) : mounts;
+  const scopedMounts = actingAgentId ? (roleScope?.key === roleScopeKey ? (roleScope.general ? mounts : mounts.filter((entry) => roleScope.versions.get(entry.skillId)?.has(entry.versionId))) : []) : mounts;
 
   /**
    * ⚠ 服务端下发的乐观锁版本号，**不在客户端拼**（契约 `listThreadDeviations.out.version`）。
@@ -402,7 +403,7 @@ export function ChatSkillMountPanel({
 
   const cleanupAttempts = React.useRef(new Set<string>());
   React.useEffect(() => {
-    if (!actingAgentId || roleScope?.key !== roleScopeKey) return;
+    if (!actingAgentId || roleScope?.key !== roleScopeKey || roleScope.general) return;
     const key = roleScopeKey;
     const incompatible = mounts.filter((entry) => entry.removedAt === null && !roleScope.versions.get(entry.skillId)?.has(entry.versionId) && !cleanupAttempts.current.has(`${key}/${threadId}/${entry.mountId}`));
     if (!incompatible.length) return;

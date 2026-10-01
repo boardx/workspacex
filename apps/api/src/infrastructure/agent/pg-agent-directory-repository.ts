@@ -1,3 +1,4 @@
+import { agentSkillScopeForStableName } from "../../domain/agent/skill-scope";
 import { PendingSkillBinding } from "@repo/contracts/agent-role";
 /**
  * AG04 —— `listAgentDirectory` / `getAgentDirectoryCard` 落库读。
@@ -23,6 +24,7 @@ const roleCols = Object.values(AGENT_ROLE_COLUMN_OF)
 
 interface Row extends AgentRoleColumnsRow {
   agent_id: string;
+  stable_name: string | null;
   version_id: string;
   instructions: string | null;
   name: string;
@@ -37,7 +39,7 @@ interface Row extends AgentRoleColumnsRow {
 }
 
 const SELECT = `
-  SELECT a.id AS agent_id, v.id AS version_id, a.name, a.role_label, v.tool_policy, v.instructions,
+  SELECT a.id AS agent_id, a.stable_name, v.id AS version_id, a.name, a.role_label, v.tool_policy, v.instructions,
          cl.duty, CASE WHEN a.catalog_source = 'official' THEN cl.abbr END AS abbr,
          a.skill_mounts, v.skill_version_ids, v.pending_skill_bindings, ${roleCols}
     FROM agents a
@@ -58,6 +60,7 @@ function toRow(row: Row): AgentDirectoryRow {
   const fields = toRoleFieldsTolerant(row, row.agent_id);
   return {
     agentId: row.agent_id,
+    skillScope: agentSkillScopeForStableName(row.stable_name),
     versionId: row.version_id,
     instructions: row.instructions,
     name: row.name,

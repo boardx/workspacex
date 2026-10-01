@@ -58,3 +58,20 @@ it('keeps the skill picker open under the real coordinator and still closes it o
  await waitFor(()=>expect(screen.queryByTestId('chat-skill-mount-picker')).not.toBeInTheDocument());
  await waitFor(()=>expect(screen.getByTestId('chat-skill-mount')).toBeEnabled());fireEvent.click(screen.getByTestId('chat-skill-mount'));expect(await screen.findByTestId('chat-skill-mount-option-skill-research')).toBeInTheDocument();
 });
+
+it('preserves general-assistant mounts, including older versions, only with trusted server general scope', async () => {
+ api.profile.mockResolvedValue({skillScope:'general',mountedSkillIds:[],pinnedSkillVersionIds:[],pinnedSkills:[]});
+ api.mounts.mockResolvedValue({temporary:[{mountId:'old',threadId:'thread',skillId:'skill-pm',versionId:'older-version',removedAt:null}],version:'1'});
+ render(<ChatSkillMountPanel {...props} actingAgentId="default"/>);
+ expect(await screen.findByTestId('chat-skill-mounted-skill-pm')).toBeInTheDocument();
+ await waitFor(()=>expect(screen.getByTestId('chat-skill-mount')).toBeEnabled());fireEvent.click(screen.getByTestId('chat-skill-mount'));
+ expect(await screen.findByTestId('chat-skill-mount-option-skill-research')).toBeInTheDocument();
+ expect(api.unmount).not.toHaveBeenCalled();
+});
+it('an empty-pin role with no server scope cannot be treated as a general assistant', async () => {
+ api.profile.mockResolvedValue({mountedSkillIds:[],pinnedSkillVersionIds:[],pinnedSkills:[]});
+ render(<ChatSkillMountPanel {...props} actingAgentId="default-looking-role"/>);
+ await waitFor(()=>expect(screen.getByTestId('chat-skill-mount')).toBeEnabled());fireEvent.click(screen.getByTestId('chat-skill-mount'));
+ expect(await screen.findByTestId('chat-skill-mount-pool-empty')).toBeInTheDocument();
+ expect(screen.queryByTestId('chat-skill-mount-option-skill-pm')).not.toBeInTheDocument();
+});

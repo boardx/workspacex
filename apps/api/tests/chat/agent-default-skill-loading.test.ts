@@ -86,3 +86,12 @@ it("new acceptance idempotency rejects a changed scope but preserves historical 
   expect(sameRunSkillScope("agent_pins", "agent_pins")).toBe(true);
   expect(sameRunSkillScope(null, "agent_pins")).toBe(true);
 });
+
+import { agentSkillScopeForStableName } from "../../src/domain/agent/skill-scope";
+import { agentDefaults } from "@repo/contracts";
+it("only the trusted system stable identity grants general scope, never a label or fallback ID", () => {
+  expect(agentSkillScopeForStableName(agentDefaults.DEFAULT_AGENT_STABLE_NAME)).toBe("general");
+  for (const value of [null, undefined, "通用助手", "general", "some-default-fallback", "d003-product-manager"]) {
+    expect(agentSkillScopeForStableName(value)).toBe("agent_pins");
+  }
+});

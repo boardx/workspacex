@@ -301,6 +301,8 @@ export type AuthoredSkillBinding = z.infer<typeof AuthoredSkillBinding>;
 
 export const AgentDirectoryProfile = z.object({
   agentId: Id,
+  /** Trusted server catalog identity; newer clients treat absence as exact pins. */
+  skillScope: z.enum(["general", "agent_pins"]).optional(),
   duty: z.string().nullable(),
   /** Agent 行上直接挂载的技能（`agents.skill_mounts`）。 */
   mountedSkillIds: z.array(z.string()).max(64),

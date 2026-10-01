@@ -1,3 +1,4 @@
+import { agentSkillScopeForStableName } from "../../domain/agent/skill-scope";
 import { sameRunSkillScope } from "../../application/chat/agent-skill-scope";
 import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
 import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
@@ -276,7 +277,7 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
         skillVersionIds: row.skill_version_ids as string[],
         modelProvider: row.model_provider, modelId: row.model_id,
         instructions: row.instructions,
-        skillScope: row.stable_name === agentDefaults.DEFAULT_AGENT_STABLE_NAME ? "general" : "agent_pins",
+        skillScope: agentSkillScopeForStableName(row.stable_name),
       };
     });
   }
