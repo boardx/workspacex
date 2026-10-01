@@ -1,7 +1,7 @@
 entity_id,type,name,required_checks,status,actual_version,environment_sha,evidence_paths,blocker,tester
 D002,数字人,Research & Knowledge Analyst,D1-D6,NOT_RUN,,,,,
 D003,数字人,Product Manager,D1-D6,NOT_RUN,,,,,
-D005,数字人,Sales Representative,D1-D6,DEFERRED,,,,用户明确授权销售流程/CRM本轮暂缓；DEFERRED非PASS，恢复范围后另行验收。,
+D005,数字人,Sales Representative,D1-D6,NOT_RUN,,,,目录/启用/详情/普通聊天基础能力仍需验证；仅销售Workflow/CRM完整任务DEFERRED，非PASS。,
 D011,数字人,Design Thinking Expert,D1-D6,NOT_RUN,,,,,
 W001,Workflow,Research-to-Brief,W1-W6,NOT_RUN,,,,,
 W002,Workflow,Meeting-to-Actions,W1-W6,NOT_RUN,,,,,
