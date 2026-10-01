@@ -1,0 +1,75 @@
+# 执行计划 — 用户研究执行与资料获取优化 #4897
+
+> 规范：`.harness/instructions/execution-plan-visualization.md`。
+> 改状态用 `node .harness/scripts/execution-plan.mjs set <本文件> <节点> <状态>`，
+> 改完 `check` 一遍；不要手改 classDef 颜色。
+
+## 我理解的目标
+- 目标：落实用户交办的 7 项研究流程优化，执行状态清晰、步骤浏览不打断任务、资料获取保留有效结果、报告展示精简、补足相关来源。
+- 完成判据：受影响 UI/API 测试、类型检查、lint、初始化检查；浏览器/API/隔离数据库全链路验证。
+- 范围：guided research UI、检索适配与章节补搜；保留证据、来源排除与报告引用校验。
+- 接入：用户指定 coord-deep-research，并明确授权本次跳过不可达网关；复用当前 worktree，已 fetch 最新 main。
+
+## 执行计划
+
+图例：⬜ 灰=未开始 · 🟨 黄=已开始 · 🟩 绿=已完成 · 🟪 紫=已测试（有证据） · 🟥 红=被堵塞
+
+```mermaid
+flowchart TD
+  G([用户研究优化])
+  S1[1. 同步 main 与确认现状]
+  S2[2. 复现交互与检索缺陷]
+  S3[3. 修复状态、展示和来源获取]
+  S4[4. 回归与真实浏览器验证]
+  S5[5. PR 与交接]
+
+  G --> S1 --> S2 --> S3 --> S4 --> S5
+
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+
+  class G doing
+  class S1 tested
+  %% evidence S1: fetch main 与 init.sh 已通过
+  class S2 tested
+  %% evidence S2: UI/检索回归已先失败后通过
+  class S3 tested
+  %% evidence S3: API 155、UI 最终54回归及新增章节56测试通过，独立复审无 P1/P2。
+  class S4 tested
+  %% evidence S4: 正式构建 CI 36853704807 全栈步骤退出0；新增报告 active 状态断言通过。
+  class S5 doing
+```
+
+## 进度日志（append-only，每次改颜色追加一行）
+| 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
+|---|---|---|---|
+| 2026-10-01 | G, S1 | todo → doing | 接到目标，开始理解 |
+
+## 验证记录
+
+- `./init.sh`：修改后重新运行，退出 0。
+- Web/API `typecheck`：退出 0；Web 受影响组件 ESLint 与 API 官方 `lint`：退出 0。
+- API 隔离回归：7 文件 / 155 测试通过（检索适配、编排、正文读取、查询恢复、相关性筛选、报告证据与章节）。
+- Web guided research 回归：27 文件 / 232 测试；旧质量文案断言调整后，对应测试及最终受影响 6 文件 / 54 测试全部通过。覆盖执行中步骤浏览、POST/轮询结束保持页面、助手失败恢复、旧计划隐藏、报告生成状态与历史提示隐藏。
+- 公开搜索端点只读实测：返回 `results` 10 条，空摘要 0 条；旧适配器只保留 5 条。
+- 独立代码 review：两项 P2 已复现修复，复审无新增问题。
+- 浏览器全链路：官方 seeded 配置的单条 guided-research-runtime 未能启动；没有浏览器 passing 证据。
+
+## 未验证边界
+
+本次已按用户确认的正式构建方式完成浏览器验证，未部署生产环境；没有生产报错会话的运行日志，因此资料错误修复对应已复现的空摘要整批失败，不声称排除了所有外部检索故障。
+
+- 官方 seeded 浏览器运行：Web 冷构建启动超时（600 秒）；测试未开始，不记 passing。隔离外壳退出并完成资源清理，已核对本次构建进程与容器均不存在。
+- 开发服务复测：临时配置仅替换 Web 的启动命令为 `next dev`，沿用官方真实 API / 隔离 PostgreSQL / 回环模型 fixture；排队约 6 分钟后每核负载超过 15（准入上限 2.5），已停止本次排队；未启动测试栈。
+
+- 2026-10-01 用户要求正式环境方式验证后提交 PR：触发现有 CI harness-verify fullstack-smoke 车道，exact SHA `b105e0d28`，run `36850851389`；沿用 next build + next start、真实 API 与隔离 PostgreSQL，不使用 next dev。
+
+- 正式构建 CI run 36850851389：next build + next start 全栈 134 passed / 1 skipped；用户研究五步链路通过，几何验证 7 passed。已保存 exact SHA manifest 与两张研究截图。
+- 截图复核发现首次正文 delta 时 timeline 尚未推送 running 元数据、须等轮询：新增反证失败，persistTimeline 在写入成功后发送 snapshot（后续由 SSE controller 压缩为 progress）；章节编排 56 测试现已通过。补充 E2E active 状态断言，准备复测新 SHA。
+
+- 最终正式构建：CI [36853704807](https://github.com/boardx/workspacex/actions/runs/36853704807)，候选 `f4e864e26d1ae60bd22293a94639db49edb4d229`，134 passed / 1 skipped；用户研究用例包含新增 active 状态断言，几何验证 7 passed。截图确认整理证据已勾选、当前章节旋转加载，旧报告与缺口横幅不存在。manifest 和截图已入本目录。
+
+- PR #4905 的自动 review 提出两项 P2：历史步骤普通命令的运行标记错位、纯图标缺少屏幕阅读器状态。已先新增反证（5 项失败）再修复：单独保存 pendingNode，不影响正文加载/编辑器；为每种 timeline 状态添加 sr-only 文字。最终对应 2 文件 / 24 测试通过，其余受影响文件回归通过。等待新 head 的 PR CI 正式构建复验后解决审查对话。

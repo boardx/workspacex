@@ -1,144 +1,91 @@
 "use client";
 
-/**
- * 知识图谱画布 —— 真正 `import "@xyflow/react"` 的那一层（uc-18-3 R3 图视图）。
- * 单独拆文件以便上层用 `next/dynamic({ ssr: false })` 懒加载（xyflow 挂载时量测尺寸，
- * SSR 无浏览器 API）——与 `agent-capability-graph-canvas.tsx` 同一个坑同一个修法。
- *
- * 只读边界：`nodesDraggable/nodesConnectable=false`，不传 `onConnect`——看清现状，不编辑。
- * 编辑动作走列表视图的 `ClaimEditMenu`（本轮图视图只读）。
- */
 import * as React from "react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  Handle,
-  Position,
-  type Edge,
-  type Node,
-  type NodeProps,
-} from "@xyflow/react";
+import { Expand, RotateCcw, Scan, ZoomIn, ZoomOut, Network, UserRound, StickyNote } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ReactFlow, Background, Handle, Position, BaseEdge, EdgeLabelRenderer, getBezierPath, MarkerType, applyNodeChanges, useReactFlow, type Edge, type EdgeProps, type Node, type NodeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { KG_TRI_STATE_LABEL_ZH, claimTriState } from "@repo/contracts/chat-knowledge-graph";
-import { KG_OBJECT_KIND_LABEL_ZH, KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import { KG_TRI_STATE_LABEL_ZH } from "@repo/contracts/chat-knowledge-graph";
+import { layoutKnowledgeGraph, type GraphItem } from "@/lib/knowledge-graph-layout";
 import type { ThreadKnowledge } from "@/lib/knowledge-graph-api";
 
-type NodeVariant = "object" | "claim";
-
-interface KgNodeData extends Record<string, unknown> {
-  readonly label: string;
-  readonly sublabel: string;
-  readonly variant: NodeVariant;
-  readonly tone: "pending" | "confirmed" | "conflict" | "object";
-  readonly testId: string;
-}
-
-const TONE_STYLE: Record<KgNodeData["tone"], string> = {
+interface KgNodeData extends Record<string, unknown> { item: GraphItem; dimmed: boolean; focused: boolean }
+type KgNodeType = Node<KgNodeData, "kg">;
+interface KgEdgeData extends Record<string, unknown> { focused: boolean; sameColumn: boolean; lane: number }
+const TONE_STYLE = {
   object: "border-border bg-card text-background-foreground",
-  pending: "border-warning bg-warning-tint text-warning-tint-foreground",
-  confirmed: "border-success bg-success/10 text-background-foreground",
-  conflict: "border-destructive bg-destructive/10 text-background-foreground",
+  pending: "border-warning/40 bg-warning-tint text-warning-tint-foreground",
+  confirmed: "border-success/40 bg-card text-background-foreground",
+  conflict: "border-destructive/40 bg-destructive/10 text-background-foreground",
 };
-
-function KgNode({ data }: NodeProps) {
-  const d = data as KgNodeData;
-  return (
-    <div
-      className={`max-w-40 rounded-lg border px-3 py-2 text-left transition-colors duration-base ${TONE_STYLE[d.tone]}`}
-      data-testid={d.testId}
-    >
-      {/* 边要有挂点才画得出来：左入右出，挂点不可交互（图视图只读）。 */}
-      <Handle type="target" position={Position.Left} isConnectable={false} className="!opacity-0" />
-      <Handle type="source" position={Position.Right} isConnectable={false} className="!opacity-0" />
-      <div className="flex flex-col gap-0.5 text-11">
-        <span className="truncate">{d.label}</span>
-        <span className="text-10 text-muted-foreground">{d.sublabel}</span>
-      </div>
-    </div>
-  );
+function KgNode({ data }: NodeProps<KgNodeType>) {
+  const { item, dimmed, focused } = data;
+  const Icon = item.variant === "claim" ? StickyNote : item.kindLabel === "人物" ? UserRound : Network;
+  return <div title={item.label} data-testid={`kg-graph-node-${item.id.replace(":", "-")}`} style={{ width: item.width, height: item.height, opacity: dimmed ? 0.3 : 1 }} className={`rounded-xl border p-4 text-left shadow-sm transition-opacity duration-base ${TONE_STYLE[item.tone]} ${focused ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>
+    {item.ports.map(port => <Handle key={port.id} id={port.id} type={port.type} position={port.side === "left" ? Position.Left : Position.Right} isConnectable={false} style={{ top: `${port.offset}%` }} className="!h-1 !w-1 !border-0 !bg-muted-foreground !opacity-40" />)}
+    <div className="mb-2 flex items-center gap-2 text-11 text-muted-foreground"><Icon className="h-3.5 w-3.5" aria-hidden /><span>{item.kindLabel}</span>{item.tone !== "object" && <span className="ml-auto rounded-full border border-current/20 px-2 py-0.5 text-10">{KG_TRI_STATE_LABEL_ZH[item.tone]}</span>}</div>
+    <div className={`break-words text-sm font-medium leading-5 ${item.variant === "claim" ? "line-clamp-3" : "line-clamp-2"}`}>{item.label}</div>
+  </div>;
 }
-
+function KgEdge(props: EdgeProps<Edge<KgEdgeData>>) {
+  const d = props.data;
+  const [bezier, mx, my] = getBezierPath(props);
+  const laneX = Math.max(props.sourceX, props.targetX) + 48 + (d?.lane ?? 0) * 18;
+  const path = d?.sameColumn ? `M ${props.sourceX},${props.sourceY} C ${laneX},${props.sourceY} ${laneX},${props.targetY} ${props.targetX},${props.targetY}` : bezier;
+  // Focus limits labels to one neighborhood; its distinct endpoints spread labels along their curves.
+  const labelX = d?.sameColumn ? laneX : mx;
+  const labelY = my;
+  return <>
+    <BaseEdge id={props.id} path={path} markerEnd={props.markerEnd} style={props.style} interactionWidth={16} />
+    {d?.focused && <EdgeLabelRenderer><div data-testid={`kg-graph-label-${props.id.slice(5)}`} className="pointer-events-none absolute rounded-md border border-border bg-background px-2 py-1 text-11 font-medium text-background-foreground shadow-sm" style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>{props.label}</div></EdgeLabelRenderer>}
+  </>;
+}
 const NODE_TYPES = { kg: KgNode };
-
-export default function KnowledgeGraphCanvas({
-  data,
-  onOpenClaim,
-}: {
-  data: ThreadKnowledge;
-  /** 点一条「记下的」节点 → 打开来源抽屉（与列表视图同一个入口）。 */
-  onOpenClaim?: (claimId: string) => void;
-}) {
-  const { nodes, edges } = React.useMemo(() => {
-    const built: Node[] = [];
-    // 实体按左列纵向排布，结论按右列纵向排布——两列布局便于看清 about/decided_by 连边。
-    // claimCount = 0 的孤立人和事不渲染（契约 KgObject.claimCount 注释，uc-18-5 A1）。
-    data.objects.filter((o) => o.claimCount > 0).forEach((o, i) => {
-      built.push({
-        id: `object:${o.id}`,
-        type: "kg",
-        position: { x: 0, y: i * 90 },
-        data: {
-          label: o.name,
-          sublabel: KG_OBJECT_KIND_LABEL_ZH[o.kind],
-          variant: "object",
-          tone: "object",
-          testId: `kg-graph-node-object-${o.id}`,
-        } satisfies KgNodeData,
-        sourcePosition: Position.Right,
-        targetPosition: Position.Right,
-      });
-    });
-    data.claims.forEach((c, i) => {
-      const tri = claimTriState(c.status);
-      if (!tri) return;
-      built.push({
-        id: `claim:${c.id}`,
-        type: "kg",
-        position: { x: 420, y: i * 90 },
-        data: {
-          label: c.statement.length > 24 ? `${c.statement.slice(0, 24)}…` : c.statement,
-          sublabel: `${KG_CLAIM_KIND_LABEL_ZH[c.kind]} · ${KG_TRI_STATE_LABEL_ZH[tri]}`,
-          variant: "claim",
-          tone: tri,
-          testId: `kg-graph-node-claim-${c.id}`,
-        } satisfies KgNodeData,
-        sourcePosition: Position.Left,
-        targetPosition: Position.Left,
-      });
-    });
-    const ids = new Set(built.map((n) => n.id));
-    const built_edges: Edge[] = data.edges
-      .map((e) => ({
-        id: `edge:${e.id}`,
-        source: `${e.src.kind}:${e.src.id}`,
-        target: `${e.dst.kind}:${e.dst.id}`,
-        label: e.relation,
-        data: { testId: `kg-graph-edge-${e.id}` },
-      }))
-      .filter((e) => ids.has(e.source) && ids.has(e.target));
-    return { nodes: built, edges: built_edges };
-  }, [data]);
-
-  return (
-    <div className="h-[520px] w-full rounded-lg border border-border bg-background" data-testid="kg-graph-canvas">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable
-        panOnScroll
-        fitView
-        proOptions={{ hideAttribution: true }}
-        onNodeClick={(_event, node) => {
-          if (node.id.startsWith("claim:")) onOpenClaim?.(node.id.slice("claim:".length));
-        }}
-      >
-        <Background />
-        <Controls showInteractive={false} />
+const EDGE_TYPES = { kg: KgEdge };
+function GraphTools({ reset }: { reset: () => void }) {
+  const flow = useReactFlow();
+  return <div className="absolute bottom-3 left-3 z-10 flex gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+    <Button size="icon" variant="ghost" aria-label="放大" title="放大" onClick={() => void flow.zoomIn()}><ZoomIn className="h-4 w-4" /></Button>
+    <Button size="icon" variant="ghost" aria-label="缩小" title="缩小" onClick={() => void flow.zoomOut()}><ZoomOut className="h-4 w-4" /></Button>
+    <Button size="icon" variant="ghost" aria-label="适应画布" title="适应画布" onClick={() => void flow.fitView({ padding: 0.16 })}><Scan className="h-4 w-4" /></Button>
+    <Button size="icon" variant="ghost" aria-label="重新编排" title="重新编排" onClick={() => { reset(); requestAnimationFrame(() => void flow.fitView({ padding: 0.16 })); }}><RotateCcw className="h-4 w-4" /></Button>
+  </div>;
+}
+function GraphView({ data, expanded, onOpenClaim }: { data: ThreadKnowledge; expanded: boolean; onOpenClaim?: (id: string) => void }) {
+  const layout = React.useMemo(() => layoutKnowledgeGraph(data), [data]);
+  const [focus, setFocus] = React.useState<string | null>(null);
+  const [hover, setHover] = React.useState<string | null>(null);
+  const active = hover ?? focus;
+  const initial = React.useMemo<KgNodeType[]>(() => layout.items.map(item => ({ id: item.id, type: "kg", position: { x: item.x, y: item.y }, width: item.width, height: item.height, ariaLabel: `${item.kindLabel}：${item.label}`, data: { item, dimmed: false, focused: false } })), [layout]);
+  const [placed, setPlaced] = React.useState(initial);
+  React.useEffect(() => { setPlaced(initial); setFocus(null); setHover(null); }, [initial]);
+  const neighbors = new Set(active ? [active, ...layout.links.filter(l => l.source === active || l.target === active).flatMap(l => [l.source, l.target])] : []);
+  const nodes = placed.map(n => ({ ...n, data: { ...n.data, dimmed: !!active && !neighbors.has(n.id), focused: n.id === active } }));
+  const edges: Edge<KgEdgeData>[] = layout.links.map(l => {
+    const focused = !!active && (l.source === active || l.target === active);
+    return { ...l, type: "kg", data: { focused, sameColumn: l.sameColumn, lane: l.lane }, markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: focused ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }, style: { stroke: focused ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))", strokeWidth: focused ? 2 : 1.2, opacity: active ? focused ? 1 : 0.12 : 0.4 } };
+  });
+  const selected = layout.items.find(n => n.id === focus);
+  return <div className="flex h-full min-h-0 flex-col">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-11 text-muted-foreground">
+      <span>{layout.items.filter(n => n.variant === "object").length} 个人和事 · {layout.items.filter(n => n.variant === "claim").length} 条记忆</span>
+      <span>{expanded ? "拖动节点整理 · 点击记忆查看来源" : "点击人和事查看关联"}</span>
+      {selected && <Button size="xs" variant="ghost" className="max-w-full truncate" onClick={() => { setFocus(null); setHover(null); }}>取消聚焦：{selected.label}</Button>}
+    </div>
+    <div className="relative min-h-0 flex-1">
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} nodesDraggable={expanded} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null} onNodesChange={changes => setPlaced(current => applyNodeChanges(changes, current))} fitView minZoom={0.1} maxZoom={1.6} fitViewOptions={{ padding: 0.16, maxZoom: 1 }} proOptions={{ hideAttribution: true }} onNodeMouseEnter={(_e, n) => setHover(n.id)} onNodeMouseLeave={() => setHover(null)} onPaneClick={() => { setFocus(null); setHover(null); }} onNodeClick={(_e, n) => { if (n.id.startsWith("claim:")) onOpenClaim?.(n.id.slice(6)); else setFocus(n.id); }}>
+        <Background gap={24} size={1} color="hsl(var(--border))" />
+        <GraphTools reset={() => { setPlaced(initial); setFocus(null); setHover(null); }} />
       </ReactFlow>
     </div>
-  );
+  </div>;
+}
+export default function KnowledgeGraphCanvas({ data, onOpenClaim }: { data: ThreadKnowledge; onOpenClaim?: (claimId: string) => void }) {
+  const [expanded, setExpanded] = React.useState(false);
+  return <div className="relative flex h-[32rem] w-full flex-col overflow-hidden rounded-xl border border-border bg-background" data-testid="kg-graph-canvas">
+    <div className="flex items-center justify-between border-b border-border px-3 py-2"><span className="text-xs font-medium">关系图</span><Button size="xs" variant="outline" onClick={() => setExpanded(true)}><Expand className="mr-1.5 h-3 w-3" />放大关系图</Button></div>
+    <div className="min-h-0 flex-1"><GraphView data={data} expanded={false} onOpenClaim={onOpenClaim} /></div>
+    <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent className="max-w-7xl"><DialogHeader><DialogTitle>关系图</DialogTitle><DialogDescription>人物、记下的条目与相关人和事分栏展示。悬停或选中节点，查看它的关系。</DialogDescription></DialogHeader><div className="h-[75vh] w-full"><GraphView data={data} expanded onOpenClaim={id => { setExpanded(false); onOpenClaim?.(id); }} /></div></DialogContent></Dialog>
+  </div>;
 }

@@ -58,15 +58,27 @@ describe("GitHub-based CN production promotion", () => {
     expect(candidateWorkflow).toContain("CN_TRUSTED_ENTRYPOINT_DRIFT");
   });
 
-  it("prepares only when absent, then verifies protected evidence before CAS", () => {
+  it("prepares before approval and rejects incomplete evidence without a fallback", () => {
+    const readiness = workflow.indexOf("  readiness:");
     const verify = workflow.indexOf('workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}"');
-    const prepare = workflow.indexOf('workspacex-cn-deploy --prepare "${REVISION}"');
-    const promote = workflow.indexOf("Activate, browser-verify, then compare-and-swap main-cn");
-    expect(verify).toBeGreaterThan(-1);
-    expect(prepare).toBeGreaterThan(verify);
-    expect(promote).toBeGreaterThan(prepare);
+    const approval = workflow.indexOf("environment: production-cn-promotion");
+    const recheck = workflow.indexOf("Require a complete immutable preparation receipt");
+    const activate = workflow.indexOf("Activate, browser-verify, then compare-and-swap main-cn");
+    expect(readiness).toBeGreaterThan(-1);
+    expect(verify).toBeGreaterThan(readiness);
+    expect(approval).toBeGreaterThan(verify);
+    expect(workflow).toContain("needs: readiness");
+    expect(recheck).toBeGreaterThan(approval);
+    expect(activate).toBeGreaterThan(recheck);
+    expect(workflow).not.toContain('workspacex-cn-deploy --prepare "${REVISION}"');
     expect(workflow).toContain("if [[ ${verify_status} -eq 3 ]]");
-    expect(workflow).toContain("CN_PROMOTION_PREPARED_RECEIPT_REJECTED");
+    expect(workflow).toContain("CN_PROMOTION_NOT_READY");
+    const build = candidateWorkflow.indexOf("if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate");
+    const prepare = candidateWorkflow.indexOf('workspacex-cn-deploy --prepare "${revision}"');
+    const prepared = candidateWorkflow.indexOf('workspacex-cn-verify-promotion "${revision}"');
+    expect(build).toBeGreaterThan(-1);
+    expect(prepare).toBeGreaterThan(build);
+    expect(prepared).toBeGreaterThan(prepare);
   });
 
   it("activates before a strict GraphQL CAS and compensates if the final ref write fails", () => {

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CITATION_CORRECTABLE_SCOPES, KG_TRI_STATE_LABEL_ZH, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import {
   RETRIEVAL_CHANNEL_LABEL_ZH,
-  KG_RELATED_QUERY_DEGRADED_ZH,
+  recallDegradedNotice,
   graphPathText,
   personalOriginLabel,
   projectOriginLabel,
@@ -29,7 +29,7 @@ import { CitationDetail, type CitationCorrect } from "./citation-detail";
  *   点一下打开那一条的来源抽屉（默认经 `requestOpenClaimSources` 交给右栏记忆面板）。
  * - 「为什么用到它」：通道（全文 / 相似 / 关联）、召回理由（filter-action 单源展示名）、关系路径。
  *   **不显示 `score`**：那是原始 RRF 分（约 0.01–0.03），不是给人看的「相关度」。
- * - 查不全提示：**只看 `recallDegraded`**（本轮计划走关联查询但没能执行）。不看向量是否可用——
+ * - 查不全提示：**只看 `recallDegraded`**（本轮至少一个已配置的召回通道执行失败）。具体失败通道来自服务端记录，不由前端猜测——
  *   MVP 没部署向量，那不是降级，不该每条回答都挂一句「查不全」。
  * - S7（#4364）：chip 只画服务端对账后的 `cited`（本轮召回集合里、回答真的用到了的；省略 ⇒ 全部 `recalled`），
  *   chip 上写「依据你 {M/D} 的决定」。点 chip：照旧打开来源抽屉，同时在下面展开这一条（完整原话、「跳到原消息」、
@@ -38,6 +38,7 @@ import { CitationDetail, type CitationCorrect } from "./citation-detail";
 export function AnswerKnowledgeFooter({
   recalled,
   recallDegraded,
+  degradedChannels,
   cited,
   onOpenSource = requestOpenClaimSources,
   canCorrect = false,
@@ -46,6 +47,7 @@ export function AnswerKnowledgeFooter({
 }: {
   recalled: readonly KgRecalledMemory[];
   recallDegraded: boolean;
+  degradedChannels?: readonly ("graph" | "vector")[];
   /** S7：服务端对账后的引用 id（按召回名次）；省略 ⇒ 全部 `recalled` */
   cited?: readonly string[];
   /** 点引用 chip：打开这一条的来源抽屉 */
@@ -73,7 +75,7 @@ export function AnswerKnowledgeFooter({
           data-testid="kg-channel-unavailable"
         >
           <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-          {KG_RELATED_QUERY_DEGRADED_ZH}
+          {recallDegradedNotice(degradedChannels)}
         </p>
       ) : null}
 

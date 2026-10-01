@@ -1,0 +1,219 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-graph-layout.config.ts"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-graph-layout.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-graph-layout\\.acceptance\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-graph-layout/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-graph-layout.acceptance.ts",
+      "file": "kg-graph-layout.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[graph-cloud] 聊天入图 → 三栏无重叠 → 中文关系聚焦 → 整理复位 → 原文来源",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9842,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T11:33:36.981Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "graph-geometry",
+                      "contentType": "application/json",
+                      "body": "eyJub2RlcyI6W3siaWQiOiJvYmplY3Q6b2JqX2VjNjU5NjI5ZmE2OTQ1N2I5Y2U3MjRlNzkzMDRmNmMyIiwieCI6MjAwLCJ5IjozNzguNSwid2lkdGgiOjIwOCwiaGVpZ2h0Ijo5Nn0seyJpZCI6Im9iamVjdDpvYmpfY2Y0OTM5ZGU4NjkyNGNkYzk5MTU4OGM3NjMzYmQwMjYiLCJ4IjoyMDAsInkiOjUyMi41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial82N2FjZGQ2NmQ5NTk0MjNlYjJjMjRkMjllOTNhNzI0OSIsIngiOjEwMzIsInkiOjIzNC41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial9mNDc2MmY5NjdiNDU0ZjM3YWJiMDRlOGJjYWUxMWVmNyIsIngiOjEwMzIsInkiOjM3OC41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial82MTJmYTBjMzEwMDc0NmVhOGZjZjkyZmZkNTdlY2MwMCIsIngiOjEwMzIsInkiOjUyMi41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial80N2FjOTE1ZDBkZmU0NTNlOTlhMDIzMGY5MjlhM2QwYSIsIngiOjEwMzIsInkiOjY2Ni41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoiY2xhaW06Y2xtXzU4NzYxNGZmZjI0NDRkNjliOWJhYjFiZDRiYTY2NzE1IiwieCI6NTM2LCJ5IjoyNTguNSwid2lkdGgiOjM1MiwiaGVpZ2h0IjoxMjh9LHsiaWQiOiJjbGFpbTpjbG1fZTAxMWI1N2UxNDAwNDE3ODgzMjczYmQwMWVjYjNiZDkiLCJ4Ijo1MzYsInkiOjQzNC41LCJ3aWR0aCI6MzUyLCJoZWlnaHQiOjEyOH0seyJpZCI6ImNsYWltOmNsbV9hM2JhMTU1ODJhYWM0YWY1OTg3ZjEyN2IyM2UzYzMzYSIsIngiOjUzNiwieSI6NjEwLjUsIndpZHRoIjozNTIsImhlaWdodCI6MTI4fV0sIm92ZXJsYXBzIjpbXSwiZWRnZXMiOlsiTTMzMy41LDg4IEMyNzIsODggMjcyLDE5MiAyMTAuNSwxOTIiLCJNNjkwLjUsMTAwLjc5Njg3NSBDNzYwLDEwMC43OTY4NzUgNzYwLDE3Ny41OTM3NSA4MjkuNSwxNzcuNTkzNzUiLCJNNjkwLjUsMjQ0Ljc5Njg3NSBDNzYwLDI0NC43OTY4NzUgNzYwLDU3LjU5Mzc1IDgyOS41LDU3LjU5Mzc1IiwiTTY5MC41LDQyNy4xODc1IEM3NjAsNDI3LjE4NzUgNzYwLDIwNi4zOTA2MjUgODI5LjUsMjA2LjM5MDYyNSIsIk02OTAuNSw0NTIuNzk2ODc1IEM3NjAsNDUyLjc5Njg3NSA3NjAsNDgwIDgyOS41LDQ4MCIsIk02OTAuNSwyNjQgQzc2MCwyNjQgNzYwLDE5MiA4MjkuNSwxOTIiLCJNMzMzLjUsNDQwIEMyNzIsNDQwIDI3MiwzMzYgMjEwLjUsMzM2IiwiTTY5MC41LDc1LjE4NzUgQzc2MCw3NS4xODc1IDc2MCwzOC4zOTA2MjUgODI5LjUsMzguMzkwNjI1IiwiTTY5MC41LDI4My4xODc1IEM3NjAsMjgzLjE4NzUgNzYwLDMzNiA4MjkuNSwzMzYiXX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-44ea9-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8290c6c556b7afc355d9-84bbc44d655a52cb9668",
+          "file": "kg-graph-layout.acceptance.ts",
+          "line": 7,
+          "column": 7
+        },
+        {
+          "title": "[graph-local] 聊天入图 → 三栏无重叠 → 中文关系聚焦 → 整理复位 → 原文来源",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10520,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T11:33:47.043Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "graph-geometry",
+                      "contentType": "application/json",
+                      "body": "eyJub2RlcyI6W3siaWQiOiJvYmplY3Q6b2JqXzFmNTA2YWQ1NDUxZTRkMzJiMDE5NTExMTkzZWJkNzUyIiwieCI6MjAwLCJ5IjozNzguNSwid2lkdGgiOjIwOCwiaGVpZ2h0Ijo5Nn0seyJpZCI6Im9iamVjdDpvYmpfNDI3ZmEyMTYwMGQwNDJkNGJhZTUyZWY3YTEyNTU4ODQiLCJ4IjoyMDAsInkiOjUyMi41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial9iMzgyOTRjMmQ1YTA0ZjFiYTQ2YjJmMmEzMzA4NDA4MSIsIngiOjEwMzIsInkiOjIzNC41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial8xOWE3MmI2ZDc1YTI0MTlkYmYxNzAxZTYzMDQ4Zjk0OSIsIngiOjEwMzIsInkiOjM3OC41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial9lOTFiMWM0YTg2ZmY0OGZkODA3ZWRjOGI4MDI1NzIzZCIsIngiOjEwMzIsInkiOjUyMi41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoib2JqZWN0Om9ial83MzIyNzY5MDVjYzE0YWNkYWY3MDM4MGY2OTJlYTQ0NCIsIngiOjEwMzIsInkiOjY2Ni41LCJ3aWR0aCI6MjA4LCJoZWlnaHQiOjk2fSx7ImlkIjoiY2xhaW06Y2xtXzUxZjlkOTEyM2ViYTRhMTU4NWE1ZmM0YzgxODBmMjlmIiwieCI6NTM2LCJ5IjoyNTguNSwid2lkdGgiOjM1MiwiaGVpZ2h0IjoxMjh9LHsiaWQiOiJjbGFpbTpjbG1fOWU2YTg5MTRhZWNkNDZhYmI4N2M1ZjBhNDMxYzBiYzMiLCJ4Ijo1MzYsInkiOjQzNC41LCJ3aWR0aCI6MzUyLCJoZWlnaHQiOjEyOH0seyJpZCI6ImNsYWltOmNsbV83Njg4ZTA5ZjVkNjE0NTUzODk5ZGM4NWYzOTk2YTcyNyIsIngiOjUzNiwieSI6NjEwLjUsIndpZHRoIjozNTIsImhlaWdodCI6MTI4fV0sIm92ZXJsYXBzIjpbXSwiZWRnZXMiOlsiTTY5MC41LDQyNy4xODc1IEM3NjAsNDI3LjE4NzUgNzYwLDIwNi4zOTA2MjUgODI5LjUsMjA2LjM5MDYyNSIsIk02OTAuNSw0NTIuNzk2ODc1IEM3NjAsNDUyLjc5Njg3NSA3NjAsNDgwIDgyOS41LDQ4MCIsIk02OTAuNSwyNDQuNzk2ODc1IEM3NjAsMjQ0Ljc5Njg3NSA3NjAsNTcuNTkzNzUgODI5LjUsNTcuNTkzNzUiLCJNNjkwLjUsMjgzLjE4NzUgQzc2MCwyODMuMTg3NSA3NjAsMzM2IDgyOS41LDMzNiIsIk02OTAuNSwyNjQgQzc2MCwyNjQgNzYwLDE5MiA4MjkuNSwxOTIiLCJNNjkwLjUsMTAwLjc5Njg3NSBDNzYwLDEwMC43OTY4NzUgNzYwLDE3Ny41OTM3NSA4MjkuNSwxNzcuNTkzNzUiLCJNNjkwLjUsNzUuMTg3NSBDNzYwLDc1LjE4NzUgNzYwLDM4LjM5MDYyNSA4MjkuNSwzOC4zOTA2MjUiLCJNMzMzLjUsODggQzI3Miw4OCAyNzIsMTkyIDIxMC41LDE5MiIsIk0zMzMuNSw0NDAgQzI3Miw0NDAgMjcyLDMzNiAyMTAuNSwzMzYiXX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-93f31-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8290c6c556b7afc355d9-d10cd18eac9776bc8375",
+          "file": "kg-graph-layout.acceptance.ts",
+          "line": 7,
+          "column": 7
+        },
+        {
+          "title": "[graph-responsive] 375/768/1440画布和放大视图无页面横向溢出",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9134,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T11:33:57.572Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-76a28--375-768-1440画布和放大视图无页面横向溢出/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8290c6c556b7afc355d9-c4440cc7cfa58fde72ac",
+          "file": "kg-graph-layout.acceptance.ts",
+          "line": 69,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T11:33:25.477Z",
+    "duration": 41429.149000000005,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

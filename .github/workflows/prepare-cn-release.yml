@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: workspacex-cn-release-candidate
+  group: workspacex-cn-production-deploy
   cancel-in-progress: false
 
 jobs:
@@ -58,12 +58,17 @@ jobs:
           git -C "${cache}" fetch --no-tags "${GITHUB_WORKSPACE}" "+${revision}:refs/heads/main"
           [[ "$(git -C "${cache}" rev-parse refs/heads/main)" == "${revision}" ]] || { echo "::error::CN_SOURCE_CACHE_REVISION_MISMATCH"; exit 1; }
           GIT_NO_LAZY_FETCH=1 git -C "${cache}" fsck --full --no-reflogs
+          expected_main_cn=$(git rev-parse origin/main-cn)
+          [[ "$(git -C "${cache}" rev-parse refs/heads/main-cn)" == "${expected_main_cn}" ]] || { echo "::error::CN_RELEASE_NOT_READY_BASELINE_MIRROR"; exit 3; }
+          [[ "$(git -C "${repository}" rev-parse origin/main-cn)" == "${expected_main_cn}" ]] || { echo "::error::CN_RELEASE_NOT_READY_BASELINE_REPOSITORY"; exit 3; }
 
       - name: Fail closed if privileged build entrypoints drifted
         shell: bash
         run: |
           set -euo pipefail
           declare -A trusted=(
+            [.harness/scripts/vm/deploy-cn-production.sh]=/usr/local/bin/workspacex-cn-deploy
+            [.harness/scripts/vm/verify-cn-release-promotion.sh]=/usr/local/bin/workspacex-cn-verify-promotion
             [.harness/scripts/vm/build-cn-release-candidate.sh]=/usr/local/bin/workspacex-cn-build-candidate
             [.harness/scripts/vm/publish-cn-release.sh]=/usr/local/lib/workspacex-cn/publish-cn-release.sh
             [.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
@@ -80,7 +85,7 @@ jobs:
             }
           done
 
-      - name: Build and seal exact release candidate
+      - name: Build, seal, and host-prepare exact release candidate
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -97,12 +102,20 @@ jobs:
           fi
           attempt_id="gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release SHA must be exact"; exit 1; }
+          expected_main_cn=$(git rev-parse origin/main-cn)
+          [[ "${expected_main_cn}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::CN_RELEASE_BASELINE_NOT_READY"; exit 1; }
+          sudo -n /usr/local/bin/workspacex-cn-deploy --check-prepare-inputs "${revision}" "${attempt_id}"
           if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}" "${attempt_id}"; then
             echo "::error::CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED: verify the exact NOPASSWD sudoers rule and protected prebuild receipt"
             exit 1
           fi
+          # Build/seal success alone is never promotion readiness. This operation
+          # remains before human admission and never activates public traffic.
+          sudo -n /usr/local/bin/workspacex-cn-deploy --prepare "${revision}" "${attempt_id}"
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${revision}" "${expected_main_cn}" "${attempt_id}"
           {
-            echo "### CN release candidate"
+            echo "### CN host-prepared release candidate"
+            echo "- Expected main-cn: \`${expected_main_cn}\`"
             echo "- Exact SHA: \`${revision}\`"
             echo "- Release: \`${release}\`"
             echo "- Attempt: \`${attempt_id}\`"

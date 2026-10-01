@@ -1,0 +1,1044 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-user-acceptance.config.ts"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-user-acceptance.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-(?:user|mode|levels)-acceptance\\.acceptance\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-user-acceptance/results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "test-results/kg-user-acceptance/html",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-levels-acceptance.acceptance.ts",
+      "file": "kg-levels-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 34372,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('project-brain')\nExpected substring: \u001b[32m\"王芳\"\u001b[39m\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('project-brain')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('project-brain')\nExpected substring: \u001b[32m\"王芳\"\u001b[39m\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('project-brain')\u001b[22m\n\n    at /workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts:56:53",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts",
+                      "column": 53,
+                      "line": 56
+                    },
+                    "snippet": "  54 |     await page.getByTestId(\"brain-share-close\").click();\n  55 |     await page.goto(`/projects/${projectId}?tab=research`);\n> 56 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"王芳\");\n     |                                                     ^\n  57 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"分享自个人记忆\");\n  58 |     await page.screenshot({ path: info.outputPath(`${mode}-levels-05-project-brain.png`), fullPage: true });\n  59 |     await page.goto(`/projects/${projectId}?tab=research&sub=conv`);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts",
+                        "column": 53,
+                        "line": 56
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('project-brain')\nExpected substring: \u001b[32m\"王芳\"\u001b[39m\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('project-brain')\u001b[22m\n\n\n  54 |     await page.getByTestId(\"brain-share-close\").click();\n  55 |     await page.goto(`/projects/${projectId}?tab=research`);\n> 56 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"王芳\");\n     |                                                     ^\n  57 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"分享自个人记忆\");\n  58 |     await page.screenshot({ path: info.outputPath(`${mode}-levels-05-project-brain.png`), fullPage: true });\n  59 |     await page.goto(`/projects/${projectId}?tab=research&sub=conv`);\n    at /workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts:56:53"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:22:02.568Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-cf46c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-cf46c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-cf46c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts",
+                    "column": 53,
+                    "line": 56
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-34c322e88d159cd4f91e",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19493,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:22:38.165Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJwcm9qZWN0SWQiOiJvcmcta2ctbW9kZS1jbG91ZC1wcm9qZWN0Iiwic291cmNlVGhyZWFkIjoidGhyLTI0ZTdiZTgwLWY0ZjMtNDMxZS04MTI3LTY1NzJmZThlZTBmNSIsInNvdXJjZUNsYWltIjoiY2xtXzQ2NTZkZjZjNDY0NDRkYjdhOTI3NDg3NTljYWUzN2UwIiwicGVyc29uYWxBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsInByb2plY3RBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-49597--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-d14a8495b113cf63d37d",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 33015,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('project-brain')\nExpected substring: \u001b[32m\"王芳\"\u001b[39m\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('project-brain')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('project-brain')\nExpected substring: \u001b[32m\"王芳\"\u001b[39m\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('project-brain')\u001b[22m\n\n    at /workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts:56:53",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts",
+                      "column": 53,
+                      "line": 56
+                    },
+                    "snippet": "  54 |     await page.getByTestId(\"brain-share-close\").click();\n  55 |     await page.goto(`/projects/${projectId}?tab=research`);\n> 56 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"王芳\");\n     |                                                     ^\n  57 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"分享自个人记忆\");\n  58 |     await page.screenshot({ path: info.outputPath(`${mode}-levels-05-project-brain.png`), fullPage: true });\n  59 |     await page.goto(`/projects/${projectId}?tab=research&sub=conv`);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts",
+                        "column": 53,
+                        "line": 56
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('project-brain')\nExpected substring: \u001b[32m\"王芳\"\u001b[39m\nTimeout: 20000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('project-brain')\u001b[22m\n\n\n  54 |     await page.getByTestId(\"brain-share-close\").click();\n  55 |     await page.goto(`/projects/${projectId}?tab=research`);\n> 56 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"王芳\");\n     |                                                     ^\n  57 |     await expect(page.getByTestId(\"project-brain\")).toContainText(\"分享自个人记忆\");\n  58 |     await page.screenshot({ path: info.outputPath(`${mode}-levels-05-project-brain.png`), fullPage: true });\n  59 |     await page.goto(`/projects/${projectId}?tab=research&sub=conv`);\n    at /workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts:56:53"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:22:57.870Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-20265--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-20265--新会话引用-→-分享项目-→-项目对话引用-→-撤回/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-20265--新会话引用-→-分享项目-→-项目对话引用-→-撤回/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-levels-acceptance.acceptance.ts",
+                    "column": 53,
+                    "line": 56
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-1e7aae96a1aaa831b585",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21507,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:23:31.754Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJwcm9qZWN0SWQiOiJvcmctbG9jYWwta2ctbW9kZS1hY2NlcHRhbmNlLXByb2plY3QiLCJzb3VyY2VUaHJlYWQiOiJ0aHItOTk5Mzc2MzUtOTQxNC00MzBkLThiMmYtMjYxNmEwYTIwMGM1Iiwic291cmNlQ2xhaW0iOiJjbG1fNDk0MTYyZjQ5OGEyNGUwYmJjZjgyZGE3YTU1OWQ0MGUiLCJwZXJzb25hbEFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8mueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLrvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ44CCIiwicHJvamVjdEFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8mueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOadpeiHqumhueebruiusOW/hu+8jOeUsSDlj4zmqKHlvI/pqozmlLbnlKjmiLcg5YiG5Lqr6Ieq5Liq5Lq66K6w5b+G77yJ44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-a2e6c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-1446376a0b5deb563c16",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-team] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 17780,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:23:53.462Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJiZWZvcmUiOiLmiJHmsqHmnInmib7liLDnm7jlhbPnmoTorrDlv4bjgIIiLCJzaGFyZWQiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiIsImFmdGVyIjoi5oiR5rKh5pyJ5om+5Yiw55u45YWz55qE6K6w5b+G44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-433ff-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-433ff-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-433ff-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-fb175ff29193cd20475b",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 84,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-mode-acceptance.acceptance.ts",
+      "file": "kg-mode-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9541,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:24:11.264Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJvcmdJZCI6Im9yZy1rZy1tb2RlLWNsb3VkIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiOaYr+WboOS4uuaBkumAmueJqea1geeahOWPuOacuuS4u+imgeeUqOWuieWNk+aJi+acuu+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaGFubmVscyI6IlsxXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuWFqOaWh1xu5YWz6IGUXG7nm7jkvLxcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuWuieWNk+eJiCDigJTlhbPkuo7ihpIg546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIXG5cblsyXSDljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLpcbuWFqOaWh1xu5YWz6IGUXG7nm7jkvLxcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuWuieWNk+eJiCDigJTlhbPkuo7ihpIg5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py6XG5cblszXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuWMl+aegeaYn+mhueebriDigJTlhbPkuo7ihpIg6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwifQ=="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-a2f13-→-AGE关联和pgvector相似召回-→-来源原文/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-82bc21e3fbb7cdcca596",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9907,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:24:20.815Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJvcmdJZCI6Im9yZy1sb2NhbC1rZy1tb2RlLWFjY2VwdGFuY2UiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNoYW5uZWxzIjoiWzFdIOeOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiFxu5YWo5paHXG7lhbPogZRcbuebuOS8vFxuwrcg5Y+s5ZueXG7CtyDnur/ntKJcblxu5YyX5p6B5pif6aG555uuIOKAlOWFs+S6juKGkiDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcblxuWzJdIOWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiOaYr+WboOS4uuaBkumAmueJqea1geeahOWPuOacuuS4u+imgeeUqOWuieWNk+aJi+aculxu5YWo5paHXG7lhbPogZRcbuebuOS8vFxuwrcg5Y+s5ZueXG7CtyDnur/ntKJcblxu5YyX5p6B5pif6aG555uuIOKAlOWFs+S6juKGkiDljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLpcblxuWzNdIOi1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMXG7lhajmlodcbuWFs+iBlFxuwrcg5Y+s5ZueXG7CtyDnur/ntKJcblxu5YyX5p6B5pif6aG555uuIOKAlOWFs+S6juKGkiDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-4208e-→-AGE关联和pgvector相似召回-→-来源原文/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-3acfcdfe8e41ae2804e2",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "[M-isolation] 同一用户在云端与local组织间切换，记忆不自动互通",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 15051,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:24:30.735Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-ab541--同一用户在云端与local组织间切换，记忆不自动互通/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-39ad77c5ea9d66b37912",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7415,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:24:45.798Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYW52YXNXaWR0aCI6MjYzLCJub2RlcyI6W3sidGV4dCI6IuaBkumAmueJqea1geWFrOWPuCIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjQ0LjQyNDU2MDU0Njg3NX0seyJ0ZXh0Ijoi5a6J5Y2T54mI5Lqn5ZOBIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6MzcuNDE5NTU1NjY0MDYyNX0seyJ0ZXh0Ijoi546L6Iqz5Lq654mpIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6MzAuNDE0NDI4NzEwOTM3NX0seyJ0ZXh0Ijoi5YyX5p6B5pif6aG555uu6aG555uuIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6NTEuNDI5Njg3NX0seyJ0ZXh0IjoiR3JhcGhRTOacr+ivrSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjQ1LjQ3ODc1OTc2NTYyNX0seyJ0ZXh0Ijoi6LW156OK5Lq654mpIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6MzAuNDE0NDI4NzEwOTM3NX0seyJ0ZXh0Ijoi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5Yaz5a6aIMK3IEFJIOiusOS4i+eahCIsInZpc2libGVSYXRpbyI6MSwieCI6MTMwOS4xMTEwODM5ODQzNzUsIndpZHRoIjoxMDAuODg4OTE2MDE1NjI1fSx7InRleHQiOiLljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHigKbkuovlrp4gwrcgQUkg6K6w5LiL55qEIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMzA5LjExMTA4Mzk4NDM3NSwid2lkdGgiOjEwMC44ODg5MTYwMTU2MjV9LHsidGV4dCI6Iui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM5Yaz5a6aIMK3IEFJIOiusOS4i+eahCIsInZpc2libGVSYXRpbyI6MSwieCI6MTMwOS4xMTEwODM5ODQzNzUsIndpZHRoIjoxMDAuODg4OTE2MDE1NjI1fV0sIm1pblZpc2libGVSYXRpbyI6MX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-f0473-adability-默认窄侧栏关系图能完整显示记忆节点/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-ac1ce0d4b26848968851",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12110,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:24:53.223Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-73cd2-cal组织刷新、新会话仍可用；AGE故障如实提示并恢复/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-846ad43dcb4f2fd3fe3d",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 102,
+          "column": 5
+        },
+        {
+          "title": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18397,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:25:05.350Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "cloud-measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5vdGljZSI6Iui/measoeayoeiDveafpeWFqOS9oOeahOiusOW/hu+8iOebuOS8vOafpeivouaaguS4jeWPr+eUqO+8ie+8jOWbnuetlOWPr+iDveS4jeWujOaVtCIsImNoYW5uZWxzIjoiWzFdIOaBkumAmueJqea1geeahOWvueaOpeS6uuaYr+mZiOmdmVxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuaBkumAmueJqea1gSDigJTlhbPkuo7ihpIg5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZXG5cblsyXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu6K6w5LiL55qEXG7CtyDlj6zlm55cblszXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuiusOS4i+eahFxuwrcg5Y+s5ZueIn0="
+                    },
+                    {
+                      "name": "local-measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5vdGljZSI6Iui/measoeayoeiDveafpeWFqOS9oOeahOiusOW/hu+8iOebuOS8vOafpeivouaaguS4jeWPr+eUqO+8ie+8jOWbnuetlOWPr+iDveS4jeWujOaVtCIsImNoYW5uZWxzIjoiWzFdIOaBkumAmueJqea1geeahOWvueaOpeS6uuaYr+mZiOmdmVxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuaBkumAmueJqea1gSDigJTlhbPkuo7ihpIg5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZXG5cblsyXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu6K6w5LiL55qEXG7CtyDlj6zlm55cblszXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuiusOS4i+eahFxuwrcg5Y+s5ZueIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-3d1ef-ctor故障可继续回答，说明正确通道，恢复后可相似召回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-53c30d6bd9286f6c3509",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 129,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-user-acceptance.acceptance.ts",
+      "file": "kg-user-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[U01] 从个人菜单找到大脑、找到对话记忆并返回来源",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7540,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:25:23.767Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U01-从个人菜单找到大脑、找到对话记忆并返回来源/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-7fb8825f74f3ebe82547",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 24,
+          "column": 5
+        },
+        {
+          "title": "[U02] 用户输入的记忆在列表、关系图和刷新后均可用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6467,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:25:31.315Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U02-用户输入的记忆在列表、关系图和刷新后均可用/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-0f2ad2751fe261fa9464",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 37,
+          "column": 5
+        },
+        {
+          "title": "[U03] 只问预算时引用精准，不混入合同和团队人数",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7449,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:25:37.793Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67nmoTmgLvpooTnrpfmmK8gMzgwIOS4h+WFg++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJzdGF0ZW1lbnRzIjpbIuWMl+aegeaYn+mhueebrueahOaAu+mihOeul+aYryAzODAg5LiH5YWDIl0sInByZWNpc2lvbiI6MX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U03-只问预算时引用精准，不混入合同和团队人数/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-34b7cc8e21986f64a0b8",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "[U04] 改写预算后开新会话，旧数值与旧引用不复活",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9243,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:25:45.259Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U04-改写预算后开新会话，旧数值与旧引用不复活/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-90758da0e457dabb4b23",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "[U05] 忘掉合同金额后重新登录、新开会话，旧记忆不复活",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9590,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:25:54.516Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.accepta-02319-U05-忘掉合同金额后重新登录、新开会话，旧记忆不复活/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.accepta-02319-U05-忘掉合同金额后重新登录、新开会话，旧记忆不复活/test-finished-2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-6b64b72097939f06c698",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 93,
+          "column": 5
+        },
+        {
+          "title": "[U06] 已开放的项目与组织记忆有可继续操作的真实入口",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 23131,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('brain-shared')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('brain-shared')\u001b[22m\n\u001b[2m    44 × locator resolved to <div data-testid=\"brain-shared\" class=\"grid grid-cols-1 gap-3 sm:grid-cols-2\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('brain-shared')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('brain-shared')\u001b[22m\n\u001b[2m    44 × locator resolved to <div data-testid=\"brain-shared\" class=\"grid grid-cols-1 gap-3 sm:grid-cols-2\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n\n    at /workspace/workspacex/apps/web/e2e/kg-user-acceptance.acceptance.ts:131:56",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-user-acceptance.acceptance.ts",
+                      "column": 56,
+                      "line": 131
+                    },
+                    "snippet": "  129 |     if (await entry.count() === 0) continue;\n  130 |     await entry.first().click();\n> 131 |     if (scope === \"project\") {\n      |                               ^\n  132 |       await expect(page.getByTestId(\"brain-shared\")).not.toBeVisible();\n  133 |       await goToBrain(page);\n  134 |       await page.getByTestId(\"brain-tab-shared\").click();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-user-acceptance.acceptance.ts",
+                        "column": 56,
+                        "line": 131
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('brain-shared')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('brain-shared')\u001b[22m\n\u001b[2m    44 × locator resolved to <div data-testid=\"brain-shared\" class=\"grid grid-cols-1 gap-3 sm:grid-cols-2\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n\n\n  129 |     if (await entry.count() === 0) continue;\n  130 |     await entry.first().click();\n> 131 |     if (scope === \"project\") {\n      |                               ^\n  132 |       await expect(page.getByTestId(\"brain-shared\")).not.toBeVisible();\n  133 |       await goToBrain(page);\n  134 |       await page.getByTestId(\"brain-tab-shared\").click();\n    at /workspace/workspacex/apps/web/e2e/kg-user-acceptance.acceptance.ts:131:56"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:26:04.125Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U06-已开放的项目与组织记忆有可继续操作的真实入口/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U06-已开放的项目与组织记忆有可继续操作的真实入口/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U06-已开放的项目与组织记忆有可继续操作的真实入口/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-user-acceptance.acceptance.ts",
+                    "column": 56,
+                    "line": 131
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-fa564c359986a5e33fa4",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 118,
+          "column": 5
+        },
+        {
+          "title": "[U07] 他人私人会话不能通过 URL 或出处接口泄漏",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6326,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:26:28.186Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U07-他人私人会话不能通过-URL-或出处接口泄漏/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U07-他人私人会话不能通过-URL-或出处接口泄漏/test-finished-2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-c8d707aa19ab0ef4e21d",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 139,
+          "column": 5
+        },
+        {
+          "title": "[U08] 窄屏用户可打开记忆，正文与必需操作无横向溢出",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6246,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:26:34.758Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJ2aWV3cG9ydCI6MzkwLCJzY3JvbGxXaWR0aCI6MzkwfQ=="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U08-窄屏用户可打开记忆，正文与必需操作无横向溢出/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-1d09e3b8387ee4cdbd0c",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 173,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T09:21:39.084Z",
+    "duration": 302098.196,
+    "expected": 16,
+    "skipped": 0,
+    "unexpected": 3,
+    "flaky": 0
+  }
+}

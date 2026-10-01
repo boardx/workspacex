@@ -8,6 +8,7 @@ import {
 import {
   FRONTEND_DESIGN_COVERAGE, FRONTEND_DESIGN_SKILL_SHA256,
 } from "../../src/application/design-workbench/frontend-design-coverage";
+import { HTML_DESIGN_PRINCIPLES, DESIGN_OUTLINE_HTML_ADDENDUM, DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT } from "../../src/application/design-workbench/html-page-design";
 import { scorePrototypeScreen } from "../../src/application/design-workbench/prototype-quality";
 
 /**
@@ -16,6 +17,7 @@ import { scorePrototypeScreen } from "../../src/application/design-workbench/pro
  */
 const REPO = join(import.meta.dirname, "..", "..", "..", "..");
 const PROMPTS = { principles: DESIGN_PRINCIPLES, outline: DESIGN_OUTLINE_SYSTEM_PROMPT, qualityBar: DESIGN_QUALITY_BAR } as const;
+const HTML_PROMPTS = { htmlPrinciples: HTML_DESIGN_PRINCIPLES, htmlOutline: DESIGN_OUTLINE_HTML_ADDENDUM, htmlElementRevision: DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, htmlPageRevision: DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT } as const;
 const CLAUSES = ["⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱"];
 /** 条目 ⑧ 的文字 = 从 ⑧ 到下一个圈号之间。 */
 function clauseText(marker: string): string {
@@ -43,6 +45,13 @@ describe("frontend-design 翻译覆盖矩阵", () => {
           const where = t.clause === undefined ? PROMPTS[t.prompt] : clauseText(t.clause);
           if (!where.includes(t.anchor)) broken.push(`${e.id}: 「${t.anchor}」不在 ${t.prompt}${t.clause ?? ""} 里`);
         }
+        if (t.kind === "htmlPrompt" && !HTML_PROMPTS[t.prompt].includes(t.anchor)) broken.push(`${e.id}: HTML「${t.anchor}」不在 ${t.prompt} 里`);
+        if (t.kind === "htmlRenderer") {
+          const file = join(REPO, t.file);
+          if (!existsSync(file)) broken.push(`${e.id}: HTML文件不存在 ${t.file}`);
+          else for (const anchor of t.anchors) if (!readFileSync(file, "utf8").includes(anchor)) broken.push(`${e.id}: HTML ${t.file} 缺少 ${anchor}`);
+          if (t.anchors.length === 0) broken.push(`${e.id}: HTMLrenderer必须绑定真实实现anchor`);
+        }
         if (t.kind === "metric" && !metrics.has(t.metric)) broken.push(`${e.id}: 质量门没有指标 ${t.metric}`);
         if (t.kind === "renderer" && !existsSync(join(REPO, t.file))) broken.push(`${e.id}: 文件不存在 ${t.file}`);
         if (t.kind === "inexpressible" && t.reason.trim().length < 10) broken.push(`${e.id}: 「表达不了」要写明原因`);
@@ -55,6 +64,18 @@ describe("frontend-design 翻译覆盖矩阵", () => {
     const referenced = new Set(FRONTEND_DESIGN_COVERAGE.flatMap((e) => e.targets.flatMap((t) => (t.kind === "prompt" && t.clause !== undefined ? [t.clause] : []))));
     const orphans = CLAUSES.filter((c) => c !== "⑬" && !referenced.has(c));
     expect(orphans, `这些原则追溯不到上游判据：${orphans.join(" ")}`).toEqual([]);
+  });
+
+  it("HTML直接表达所有上游判据；旧原语表达不了不能充当HTML覆盖，生成与两种修改共用视觉单源", () => {
+    for (const entry of FRONTEND_DESIGN_COVERAGE) {
+      expect(entry.targets.some(t => t.kind === "htmlPrompt"), `${entry.id}: 缺少HTML提示词覆盖`).toBe(true);
+      for (const target of entry.targets) if (target.kind === "htmlPrompt" && target.prompt === "htmlPrinciples") {
+        expect(DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, `${entry.id}: 元素修改丢失原则`).toContain(target.anchor);
+        expect(DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, `${entry.id}: 整页修改丢失原则`).toContain(target.anchor);
+      }
+    }
+    const prompts = new Set(FRONTEND_DESIGN_COVERAGE.flatMap(e => e.targets.flatMap(t => t.kind === "htmlPrompt" ? [t.prompt] : [])));
+    expect([...prompts].sort()).toEqual(["htmlElementRevision", "htmlOutline", "htmlPageRevision", "htmlPrinciples"]);
   });
 
   it("id 不重复", () => {

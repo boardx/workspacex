@@ -1,0 +1,38 @@
+{
+  "runId": "kg-remediation-20261001-baseline-fresh",
+  "seen": {
+    "forget": {
+      "clicks": 2,
+      "gone": true
+    },
+    "revise": {
+      "clicks": 2,
+      "shown": true,
+      "answer": "根据之前的对话：北极星项目的总预算是 400 万元（本会话 10/01 的对话）；北极星项目暂停海外市场推广是因为预算要优先保证国内上线（来自个人空间知识，最早见于你 10/01 的对话）；赵磊决定北极星项目的接口统一改成 GraphQL（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；王芳决定北极星项目首发只做安卓版（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。"
+    },
+    "sayForget": {
+      "cardSeen": true,
+      "clicks": 1,
+      "nextAnswer": "根据之前的对话：赵磊决定北极星项目的接口统一改成 GraphQL（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；王芳决定北极星项目首发只做安卓版（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "nextCitations": [
+        "[1]\n依据你的决定\n赵磊决定北极星项目的接口统一改成 G…\nAI 记下的\n来自你 10/1 的对话\n[2]\n依据你的决定\n北极星项目决定暂停海外市场推广\nAI 记下的\n来自你 10/1 的对话\n[3]\n依据你的决定\n王芳决定北极星项目首发只做安卓版\nAI 记下的\n来自你 10/1 的对话\n[4]\n依据你的决定\n北极星项目决定采用 PostgreS…\nAI 记下的\n来自你 10/1 的对话",
+        "[1]\n依据你的决定\n赵磊决定北极星项目的接口统一改成 G…\nAI 记下的\n来自你 10/1 的对话",
+        "AI 记下的",
+        "[2]\n依据你的决定\n北极星项目决定暂停海外市场推广\nAI 记下的\n来自你 10/1 的对话",
+        "AI 记下的",
+        "[3]\n依据你的决定\n王芳决定北极星项目首发只做安卓版\nAI 记下的\n来自你 10/1 的对话",
+        "AI 记下的",
+        "[4]\n依据你的决定\n北极星项目决定采用 PostgreS…\nAI 记下的\n来自你 10/1 的对话",
+        "AI 记下的"
+      ]
+    }
+  },
+  "shots": {
+    "forget": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E5-forget.jpg",
+    "revise": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E5-revise.jpg",
+    "forget-card": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E5-forget-card.jpg",
+    "after-forget": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E5-after-forget.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

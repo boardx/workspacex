@@ -36,6 +36,11 @@
  *
  * 默认只报告不阻断。`--strict` 下任何缺失即失败——接进 CI 时用 strict，并同时补齐存量。
  *
+ * ⚠ 2026-10-01（#4893）：本门控接线时（2026-09-24）存量 8 处、已清零；此后技能语料
+ *   涨到 108 包，89 包缺清单（description / 命名空间 / license——license 属 D1 人类
+ *   决策）。存量未清期间本地链**回非 strict**（即本文件规定的默认）；恢复 strict 的
+ *   条件＝清单一处不差。
+ *
  * 用法（要经 tsx 跑，因为要 import TypeScript 写的唯一解析器）：
  *   pnpm run lint:maau-manifest
  *   pnpm exec tsx .harness/scripts/lint-maau-manifest.mjs --strict

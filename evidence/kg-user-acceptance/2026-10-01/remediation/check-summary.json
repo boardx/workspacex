@@ -1,0 +1,37 @@
+{
+  "runId": "kg-remediation-20261001-comprehensive-final",
+  "stats": {
+    "startTime": "2026-10-01T10:07:30.592Z",
+    "duration": 581119.2860000001,
+    "expected": 68,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "logicalChecks": 69,
+  "passed": 68,
+  "failed": 1,
+  "failures": [
+    "E3.c4"
+  ],
+  "userJourneys": {
+    "passed": 23,
+    "total": 23
+  },
+  "frozenBaseline": {
+    "passed": 45,
+    "total": 46
+  },
+  "independentAblationPipeline": {
+    "passed": 2,
+    "total": 2,
+    "model": "loopback",
+    "semanticQualityAccepted": false
+  },
+  "actualRealModelQuality": "blocked_by_network_proxy_CONNECT_403",
+  "unitTests": {
+    "api": 34,
+    "web": 41
+  },
+  "deployment": "local_workspace_only"
+}

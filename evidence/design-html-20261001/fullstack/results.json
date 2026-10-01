@@ -1,0 +1,38 @@
+{
+  "model": "real configured DashScope",
+  "url": "http://127.0.0.1:3192/studio/design-workbench/006d9395-5649-4471-91ab-fc9554534a0f",
+  "results": [
+    {
+      "name": "真实浏览器登录",
+      "ok": true
+    },
+    {
+      "name": "浏览器显示 HTML 并选择标题元素",
+      "ok": true
+    },
+    {
+      "name": "真实模型只改选中标题、刷新后持久化",
+      "ok": true
+    },
+    {
+      "name": "浏览器撤销及刷新持久化",
+      "ok": true
+    },
+    {
+      "name": "修复后真实浏览器重新登录",
+      "ok": true
+    },
+    {
+      "name": "真实预览模式页面跳转",
+      "ok": true
+    },
+    {
+      "name": "真实 HTML 下载与导出页面跳转",
+      "ok": true
+    },
+    {
+      "name": "真实项目375px手机无水平溢出",
+      "ok": true
+    }
+  ]
+}

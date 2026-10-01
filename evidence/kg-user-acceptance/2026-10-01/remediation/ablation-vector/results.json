@@ -1,0 +1,132 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-recall-ablation.config.ts"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-recall-ablation.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-recall-ablation/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-recall-ablation\\.acceptance\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-recall-ablation/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-recall-ablation.acceptance.ts",
+      "file": "kg-recall-ablation.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[A-vector_only] 独立检索模式：真实浏览器回答的通道和材料必须对应实际运行模式",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11475,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:03:07.324Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "ablation-observations",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoidmVjdG9yX29ubHkiLCJvYnNlcnZhdGlvbnMiOlt7InF1ZXN0aW9uIjoi5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yM5piv6LCB5Yaz5a6a55qE77yfIiwiZXhwZWN0ZWQiOiLnjovoirMiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNoYW5uZWxzIjpbIuebuOS8vCIsIuebuOS8vCJdfSx7InF1ZXN0aW9uIjoi5Li65LuA5LmI5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yfIiwiZXhwZWN0ZWQiOiLlronljZMiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNoYW5uZWxzIjpbIuebuOS8vCIsIuebuOS8vCJdfSx7InF1ZXN0aW9uIjoi5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQ5LqG5LuA5LmI77yfIiwiZXhwZWN0ZWQiOiJHcmFwaFFMIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2hhbm5lbHMiOlsi55u45Ly8Il19XSwiZGF0YXNldCI6InBpcGVsaW5lLXNtb2tlLU01LU03IiwicXVhbGl0eUFjY2VwdGFuY2UiOmZhbHNlfQ=="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-recall-ablation/artifacts/kg-recall-ablation.accepta-07f42-索模式：真实浏览器回答的通道和材料必须对应实际运行模式/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bcf98746e05569673350-5bb2c587fce7643c919a",
+          "file": "kg-recall-ablation.acceptance.ts",
+          "line": 8,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T10:02:59.129Z",
+    "duration": 20052.674,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,416 @@
+[
+  {
+    "id": "E1.c1",
+    "title": "[E1.c1] 新用户聊 3 轮，回答下方自动出现「已记下」，没点过任何记忆控件",
+    "status": "passed",
+    "durationMs": 11
+  },
+  {
+    "id": "E1.c2",
+    "title": "[E1.c2] 开新会话问之前说过的事，回答里答出来了（不用重新交代背景）",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E1.c3",
+    "title": "[E1.c3] 新会话的回答下方标着「来自你 … 的对话」，全程记忆相关点击 = 0",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E10.c1",
+    "title": "[E10.c1] 发消息到首字：有记忆比没有记忆慢不超过 100ms（中位数）",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E10.c2",
+    "title": "[E10.c2] 图路故障：回答照常出来、答得上，只多一行「这次没能查全你的记忆」",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c01",
+    "title": "[E2.c01] 人名：「北极星项目的负责人是谁？」答出「王芳」且带引用",
+    "status": "passed",
+    "durationMs": 6
+  },
+  {
+    "id": "E2.c02",
+    "title": "[E2.c02] 人名：「北极星的技术负责人是谁？」答出「赵磊」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c03",
+    "title": "[E2.c03] 人名：「恒通物流那边的对接人是谁？」答出「陈静」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c04",
+    "title": "[E2.c04] 人名：「设计稿由谁负责？」答出「孙悦」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c05",
+    "title": "[E2.c05] 决定：「主数据库最后定了用什么？」答出「PostgreSQL」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c06",
+    "title": "[E2.c06] 决定：「首发做哪个平台？」答出「安卓」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c07",
+    "title": "[E2.c07] 决定：「海外市场推广是怎么定的？」答出「暂停」且带引用",
+    "status": "passed",
+    "durationMs": 4
+  },
+  {
+    "id": "E2.c08",
+    "title": "[E2.c08] 决定：「接口最后统一成什么了？」答出「GraphQL」且带引用",
+    "status": "passed",
+    "durationMs": 1
+  },
+  {
+    "id": "E2.c09",
+    "title": "[E2.c09] 数字：「北极星项目的总预算是多少？」答出「380 万」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c10",
+    "title": "[E2.c10] 数字：「团队一共多少人？」答出「12 人」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c11",
+    "title": "[E2.c11] 数字：「恒通物流的合同金额是多少？」答出「96 万」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c12",
+    "title": "[E2.c12] 数字：「首月的活跃用户目标是多少？」答出「5000」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c13",
+    "title": "[E2.c13] 日期：「内测定在哪天？」答出「10 月 20 日」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c14",
+    "title": "[E2.c14] 日期：「正式上线是哪天？」答出「11 月 18 日」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c15",
+    "title": "[E2.c15] 日期：「设计稿什么时候交？」答出「10 月 15 日」且带引用",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E2.c16",
+    "title": "[E2.c16] 日期：「恒通物流的合同是哪天签的？」答出「9 月 30 日」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c17",
+    "title": "[E2.c17] 原因：「为什么首发只做安卓版？」答出「司机主要用安卓手机」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c18",
+    "title": "[E2.c18] 原因：「为什么暂停海外推广？」答出「优先保证国内上线」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c19",
+    "title": "[E2.c19] 原因：「为什么选 PostgreSQL？」答出「团队对它最熟」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E2.c20",
+    "title": "[E2.c20] 原因：「内测为什么定在 10 月 20 日？」答出「支付接口还没通过审核」且带引用",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E3.c1",
+    "title": "[E3.c1] 谁定的：「首发只做安卓版是谁定的？」答出王芳，且这条引用走了关联（图）",
+    "status": "passed",
+    "durationMs": 6
+  },
+  {
+    "id": "E3.c2",
+    "title": "[E3.c2] 为什么：「为什么首发只做安卓版？」答出原因",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E3.c3",
+    "title": "[E3.c3] 被什么取代：改口并选「以新的为准」后再问，回答用新的日期、不再出现旧的",
+    "status": "passed",
+    "durationMs": 2
+  },
+  {
+    "id": "E3.c4",
+    "title": "[E3.c4] 关系题 hybrid 比纯向量多答对 ≥ 20%（纯向量基线必须量得到）",
+    "status": "failed",
+    "durationMs": 3
+  },
+  {
+    "id": "E4.c1",
+    "title": "[E4.c1] 回答下方的每一个引用都点得开，打开的就是当时说的原话",
+    "status": "passed",
+    "durationMs": 9
+  },
+  {
+    "id": "E4.c2",
+    "title": "[E4.c2] 「跳到原消息」：原话那条消息滚到眼前，并且被高亮",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E4.c3",
+    "title": "[E4.c3] 跨会话：新会话里用到的长期记忆，点开是原会话的原话，跳过去原消息被高亮",
+    "status": "passed",
+    "durationMs": 7
+  },
+  {
+    "id": "E5.c1",
+    "title": "[E5.c1] 忘掉一条记错的：≤ 2 次点击，点完就从记忆里消失",
+    "status": "passed",
+    "durationMs": 5
+  },
+  {
+    "id": "E5.c2",
+    "title": "[E5.c2] 改写一条记错的：≤ 2 次点击（加打字），之后的回答用新的说法",
+    "status": "passed",
+    "durationMs": 5
+  },
+  {
+    "id": "E5.c3",
+    "title": "[E5.c3] 说「忘掉首月目标那条」：点一下确认，下一轮就不再提",
+    "status": "passed",
+    "durationMs": 5
+  },
+  {
+    "id": "E6.c1",
+    "title": "[E6.c1] 记忆界面上没有内部术语（实体、结论、三态、晋升、L0/L1、本体、知识面板）",
+    "status": "passed",
+    "durationMs": 9
+  },
+  {
+    "id": "E6.c2",
+    "title": "[E6.c2] 记忆界面上没有代码里的英文内部名（claim / pending / confirmed / revoke…）",
+    "status": "passed",
+    "durationMs": 4
+  },
+  {
+    "id": "E6.c3",
+    "title": "[E6.c3] 状态不只靠颜色：每个状态标签都写着「AI 记下的 / 你确认过 / 有矛盾」",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E7.c1",
+    "title": "[E7.c1] 改口那一轮的回答下面出现矛盾提醒卡",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E7.c2",
+    "title": "[E7.c2] 点「忽略」之后再说一遍，同一个矛盾不再提醒（刷新后也没有）",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E8.c1",
+    "title": "[E8.c1] 一轮对话里主动冒出来的卡片最多 1 张（最容易叠两张的那一轮也是）",
+    "status": "passed",
+    "durationMs": 12
+  },
+  {
+    "id": "E8.c2",
+    "title": "[E8.c2] 「已记下」提示只有一行",
+    "status": "passed",
+    "durationMs": 5
+  },
+  {
+    "id": "E8.c3",
+    "title": "[E8.c3] 「已记下」提示不遮挡回答正文",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "E9.c1",
+    "title": "[E9.c1] 记忆面板头部常驻「仅你可见」（列表、关系图、刷新后都在）",
+    "status": "passed",
+    "durationMs": 5
+  },
+  {
+    "id": "E9.c2",
+    "title": "[E9.c2] 另一个账号请求同一条记忆：404，与不存在的记忆逐字相同，且拿不到内容",
+    "status": "passed",
+    "durationMs": 4
+  },
+  {
+    "id": "E9.c3",
+    "title": "[E9.c3] 另一个账号打开这条记忆的链接：界面显示「无权查看」，看不到内容",
+    "status": "passed",
+    "durationMs": 3
+  },
+  {
+    "id": "L-cloud-general",
+    "title": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "status": "passed",
+    "durationMs": 19614
+  },
+  {
+    "id": "L-cloud-workshop",
+    "title": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "status": "passed",
+    "durationMs": 20455
+  },
+  {
+    "id": "L-local-general",
+    "title": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "status": "passed",
+    "durationMs": 24400
+  },
+  {
+    "id": "L-local-workshop",
+    "title": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "status": "passed",
+    "durationMs": 22591
+  },
+  {
+    "id": "L-team-workshop",
+    "title": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "status": "passed",
+    "durationMs": 18536
+  },
+  {
+    "id": "L-team-general",
+    "title": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "status": "passed",
+    "durationMs": 18920
+  },
+  {
+    "id": "L-undo-cloud",
+    "title": "[L-undo-cloud] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "status": "passed",
+    "durationMs": 13656
+  },
+  {
+    "id": "L-undo-local",
+    "title": "[L-undo-local] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "status": "passed",
+    "durationMs": 14095
+  },
+  {
+    "id": "M-cloud",
+    "title": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "status": "passed",
+    "durationMs": 10164
+  },
+  {
+    "id": "M-local",
+    "title": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "status": "passed",
+    "durationMs": 10561
+  },
+  {
+    "id": "M-isolation",
+    "title": "[M-isolation] 同一用户在云端与local组织间切换，记忆不自动互通",
+    "status": "passed",
+    "durationMs": 16913
+  },
+  {
+    "id": "M-graph-readability",
+    "title": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+    "status": "passed",
+    "durationMs": 9671
+  },
+  {
+    "id": "M-local-restart",
+    "title": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+    "status": "passed",
+    "durationMs": 11842
+  },
+  {
+    "id": "M-vector-fault",
+    "title": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+    "status": "passed",
+    "durationMs": 21090
+  },
+  {
+    "id": "M-both-fault",
+    "title": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+    "status": "passed",
+    "durationMs": 20015
+  },
+  {
+    "id": "U01",
+    "title": "[U01] 从个人菜单找到大脑、找到对话记忆并返回来源",
+    "status": "passed",
+    "durationMs": 7272
+  },
+  {
+    "id": "U02",
+    "title": "[U02] 用户输入的记忆在列表、关系图和刷新后均可用",
+    "status": "passed",
+    "durationMs": 7598
+  },
+  {
+    "id": "U03",
+    "title": "[U03] 只问预算时引用精准，不混入合同和团队人数",
+    "status": "passed",
+    "durationMs": 8013
+  },
+  {
+    "id": "U04",
+    "title": "[U04] 改写预算后开新会话，旧数值与旧引用不复活",
+    "status": "passed",
+    "durationMs": 9125
+  },
+  {
+    "id": "U05",
+    "title": "[U05] 忘掉合同金额后重新登录、新开会话，旧记忆不复活",
+    "status": "passed",
+    "durationMs": 9343
+  },
+  {
+    "id": "U06",
+    "title": "[U06] 已开放的项目与组织记忆有可继续操作的真实入口",
+    "status": "passed",
+    "durationMs": 3123
+  },
+  {
+    "id": "U07",
+    "title": "[U07] 他人私人会话不能通过 URL 或出处接口泄漏",
+    "status": "passed",
+    "durationMs": 5892
+  },
+  {
+    "id": "U08",
+    "title": "[U08] 窄屏用户可打开记忆，正文与必需操作无横向溢出",
+    "status": "passed",
+    "durationMs": 6053
+  }
+]

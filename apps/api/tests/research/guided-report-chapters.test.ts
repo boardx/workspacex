@@ -92,6 +92,8 @@ describe("chapter-based report generation", () => {
     const complete = vi.fn(async (input) => { const context = JSON.parse(input.user); contexts.push(context); inputs.push(input.system); return { text: JSON.stringify(answer(context)) }; });
     const model: ModelCallPort = { complete, completeStream: async (input, delta) => {
       const context = JSON.parse(input.user); contexts.push(context); inputs.push(input.system);
+      const latest = [...f.events].reverse().find((event) => event.type === "snapshot");
+      expect(latest?.type === "snapshot" && latest.state.reportTimeline?.some((item) => item.status === "running" && item.id === (context.reportStage === "synthesis" ? "synthesis" : `chapter:${context.section.id}`))).toBe(true);
       const text = JSON.stringify(answer(context)); await delta(text.slice(0, 24)); await delta(text.slice(24)); return { text };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
