@@ -80,7 +80,7 @@ async function visibleSkillIds(page: Page): Promise<string[]> {
 
 async function expectRoleSkillOptions(page: Page, scope: RoleSkillScope): Promise<void> {
   await expect.poll(() => visibleSkillIds(page)).toEqual(scope.pins.map(pin => pin.skillId).sort());
-  const pendingOptions = page.locator('[data-testid^="chat-skill-pending-"]');
+  const pendingOptions = page.locator('button[data-testid^="chat-skill-pending-"][data-skill-stable-id][data-skill-stable-name]');
   await expect.poll(() => pendingOptions.evaluateAll(options => options.map(option => option.getAttribute("data-skill-stable-id")).sort()))
     .toEqual(scope.pending.map(binding => binding.stableId).sort());
   for (const pending of scope.pending) {
