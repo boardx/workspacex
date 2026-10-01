@@ -79,12 +79,28 @@ function sortObject(v) {
  if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,sortObject(v[k])]));
  return v;
 }
+// GitHub serializes the same official timestamp as UTC or an explicit offset.
+// Normalize only official object metadata, never signed bytes or arbitrary fields.
+function governanceInstant(value) {
+ const m=typeof value==='string'&&/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+ if(!m)fail('FROZEN_RELEASE_GOVERNANCE_VERSION');
+ const [year,month,day,hour,minute,second]=m.slice(1,7).map(Number);
+ const leap=year%4===0&&(year%100!==0||year%400===0),days=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+ const instant=Date.parse(value);
+ if(month<1||month>12||day<1||day>days[month-1]||hour>23||minute>59||second>59||!Number.isFinite(instant))fail('FROZEN_RELEASE_GOVERNANCE_VERSION');
+ return instant;
+}
+function governanceMetadata(v) {
+ const result={...v};
+ for(const key of ['created_at','updated_at'])if(Object.hasOwn(result,key))result[key]=governanceInstant(result[key]);
+ return result;
+}
 export function validateLiveGovernance(signed,live) {
  validateTagGovernance(signed);
  const versioned=(a,b)=>{
-  if(!Number.isSafeInteger(a?.id)||a.id<=0||a.id!==b?.id||!Number.isFinite(Date.parse(a.updated_at))||a.updated_at!==b.updated_at)fail('FROZEN_RELEASE_GOVERNANCE_VERSION');
+  if(!Number.isSafeInteger(a?.id)||a.id<=0||a.id!==b?.id||governanceInstant(a.updated_at)!==governanceInstant(b.updated_at))fail('FROZEN_RELEASE_GOVERNANCE_VERSION');
  };
- for(const key of ['promotion','activation']){versioned(signed[key],live[key]);if(canonical(signed[key])!==canonical(live[key]))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');}
+ for(const key of ['promotion','activation']){versioned(signed[key],live[key]);if(canonical(governanceMetadata(signed[key]))!==canonical(governanceMetadata(live[key])))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');}
  for(const key of ['promotionPolicies','activationPolicies']){
   const order=rows=>{if(!Array.isArray(rows)||rows.some(r=>!Number.isSafeInteger(r.id)||r.id<=0)||new Set(rows.map(r=>r.id)).size!==rows.length)fail('FROZEN_RELEASE_GOVERNANCE_POLICY_ID');return [...rows].sort((a,b)=>a.id-b.id);};
   if(canonical(order(signed[key]))!==canonical(order(live[key])))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');
@@ -96,7 +112,7 @@ export function validateLiveGovernance(signed,live) {
  const completed=live.tagRules.map(r=>{
   const p=prior.get(key(r));versioned(p,r);
   if(!Array.isArray(p.bypass_actors))fail('FROZEN_RELEASE_TAG_RULES_VISIBILITY');
-  const a={...p},b={...r};delete a.bypass_actors;delete b.bypass_actors;
+  const a=governanceMetadata(p),b=governanceMetadata(r);delete a.bypass_actors;delete b.bypass_actors;
   if(canonical(a)!==canonical(b)||(Object.hasOwn(r,'bypass_actors')&&canonical(r.bypass_actors)!==canonical(p.bypass_actors)))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');
   // GitHub documents this one field as hidden from callers without ruleset write access.
   return {...r,bypass_actors:p.bypass_actors};
