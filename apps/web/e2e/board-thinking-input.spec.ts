@@ -23,7 +23,7 @@ async function login(page: Page): Promise<string> {
   await page.getByTestId("login-email").fill(required("WHITEBOARD_OWNER_EMAIL"));
   await page.getByTestId("login-password").fill(required("WHITEBOARD_OWNER_PASSWORD"));
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 30_000 });
   const token = await page.evaluate((key) => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(token).toBeTruthy();
   return token!;
@@ -80,6 +80,8 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await page.goto(`/studio/board/${board.id}`);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-sticky-square").click();
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 300, y: 220 } });
   const editor = page.getByTestId("board-thinking-editor");
   await expect(editor).toBeFocused();
   for (let index = 1; index <= 20; index += 1) {

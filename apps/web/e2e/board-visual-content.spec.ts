@@ -23,7 +23,7 @@ async function login(page: Page): Promise<string> {
   await page.getByTestId("login-email").fill(required("WHITEBOARD_OWNER_EMAIL"));
   await page.getByTestId("login-password").fill(required("WHITEBOARD_OWNER_PASSWORD"));
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 30_000 });
   const token = await page.evaluate((key) => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(token).toBeTruthy();
   return token!;
@@ -88,7 +88,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   // instead of relying on a hand-copied base64 payload with uncertain chunk CRCs.
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
   await page.getByTestId("board-image-input").setInputFiles({ name: "research.png", mimeType: "image/png", buffer: png });
-  await expect(page.getByText(/图片已在当前浏览器会话中验证并显示/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("board-a11y-mirror").locator('[aria-description*="图片已验证"]')).toHaveCount(1, { timeout: 15_000 });
 
   await expect(outline).toHaveCount(4);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
@@ -124,5 +124,5 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
   await expect.poll(() => readBoardProjection(page)).toEqual(afterRedo);
-  await expect(page.getByRole("button", { name: "图形：research.png" })).toHaveAttribute("aria-description", /图片需在当前会话重新验证/);
+  await expect(page.getByRole("button", { name: "图形：research.png" })).toHaveAttribute("aria-description", /图片已验证/);
 });

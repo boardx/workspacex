@@ -1,0 +1,189 @@
+{
+  "miro-workshop": [
+    {
+      "sourceId": "note",
+      "outcome": "downgraded",
+      "kind": "sticky",
+      "text": "你好 & hello",
+      "geometry": {
+        "x": 260,
+        "y": 260,
+        "width": 80,
+        "height": 40,
+        "rotation": 0
+      },
+      "parentSourceId": "frame",
+      "lossIncludes": [
+        "Rich text"
+      ],
+      "zIndex": 0
+    },
+    {
+      "sourceId": "frame",
+      "outcome": "success",
+      "kind": "frame",
+      "text": "Workshop",
+      "geometry": {
+        "x": 200,
+        "y": 200,
+        "width": 600,
+        "height": 400,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "zIndex": 1
+    },
+    {
+      "sourceId": "decision",
+      "outcome": "success",
+      "kind": "rectangle",
+      "text": "Proceed?",
+      "geometry": {
+        "x": 800,
+        "y": 350,
+        "width": 200,
+        "height": 100,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "zIndex": 2
+    },
+    {
+      "sourceId": "edge",
+      "outcome": "downgraded",
+      "kind": "connector",
+      "text": "决定\n\nnext",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 200,
+        "height": 120,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "fromSourceId": "note",
+      "toSourceId": "decision",
+      "lossIncludes": [
+        "routing"
+      ],
+      "zIndex": 3
+    }
+  ],
+  "mural-diagram": [
+    {
+      "sourceId": "area",
+      "outcome": "success",
+      "kind": "frame",
+      "text": "Journey",
+      "geometry": {
+        "x": 100,
+        "y": 200,
+        "width": 800,
+        "height": 600,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "zIndex": 0
+    },
+    {
+      "sourceId": "shape",
+      "outcome": "success",
+      "kind": "rectangle",
+      "text": "Start",
+      "geometry": {
+        "x": 140,
+        "y": 250,
+        "width": 160,
+        "height": 100,
+        "rotation": 0
+      },
+      "parentSourceId": "area",
+      "zIndex": 1
+    },
+    {
+      "sourceId": "text",
+      "outcome": "downgraded",
+      "kind": "text",
+      "text": "中文\nEnglish",
+      "geometry": {
+        "x": 400,
+        "y": 260,
+        "width": 200,
+        "height": 80,
+        "rotation": 0
+      },
+      "parentSourceId": "area",
+      "lossIncludes": [
+        "Rich text"
+      ],
+      "zIndex": 2
+    },
+    {
+      "sourceId": "arrow",
+      "outcome": "downgraded",
+      "kind": "connector",
+      "text": "next",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 60,
+        "height": 60,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "fromSourceId": "shape",
+      "toSourceId": "text",
+      "lossIncludes": [
+        "routing"
+      ],
+      "zIndex": 3
+    },
+    {
+      "sourceId": "missing-image",
+      "outcome": "failed",
+      "reasonCode": "ASSET_MISSING"
+    },
+    {
+      "sourceId": "comment",
+      "outcome": "skipped",
+      "reasonCode": "UNSUPPORTED_ITEM"
+    }
+  ],
+  "miro-media": [
+    {
+      "sourceId": "image",
+      "outcome": "success",
+      "kind": "image",
+      "text": "",
+      "geometry": {
+        "x": 540,
+        "y": 360,
+        "width": 120,
+        "height": 80,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "zIndex": 0
+    },
+    {
+      "sourceId": "note",
+      "outcome": "success",
+      "kind": "sticky",
+      "text": "Image context",
+      "geometry": {
+        "x": 210,
+        "y": 340,
+        "width": 180,
+        "height": 120,
+        "rotation": 0
+      },
+      "parentSourceId": null,
+      "zIndex": 1
+    },
+    {
+      "sourceId": "video",
+      "outcome": "skipped",
+      "reasonCode": "UNSUPPORTED_ITEM"
+    }
+  ]
+}

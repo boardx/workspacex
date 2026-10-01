@@ -24,16 +24,17 @@ function enterDemand() {
   fireEvent.change(screen.getByRole("textbox", { name: "访谈名称" }), { target: { value: "夜班研究" } });
   fireEvent.change(screen.getByRole("textbox", { name: "研究需求 Markdown" }), { target: { value: markdown } });
 }
-it("creates project-scoped identity metadata and saves the research body only as canonical Markdown", async () => {
+it("creates project-scoped identity metadata and saves the research body only as canonical Markdown on continue", async () => {
   render(<InterviewCreatePage projectId="project-night" />); enterDemand();
-  fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/itv/new-source-7/intake"));
+  expect(screen.queryByRole("button", { name: "保存草稿" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "下一步：确认分析" }));
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/itv/new-source-7/analysis"));
   expect(mocks.create).toHaveBeenCalledWith({ name: "夜班研究", tags: [], scope: { kind: "project", projectId: "project-night", researchProjectId: null }, requestId: expect.any(String) });
   const metadata = mocks.create.mock.calls[0]![0];
   expect(Object.keys(metadata).sort()).toEqual(["name", "requestId", "scope", "tags"]);
   expect(mocks.saveInterviewMarkdown).toHaveBeenCalledWith("new-source-7", "intake", { markdown, expectedVersion: 1, expectedDocumentVersion: 0 });
-  expect(mocks.confirmInterviewMarkdown).not.toHaveBeenCalled();
-  expect(mocks.generateInterviewMarkdown).not.toHaveBeenCalled();
+  expect(mocks.confirmInterviewMarkdown).toHaveBeenCalledTimes(1);
+  expect(mocks.generateInterviewMarkdown).toHaveBeenCalledTimes(1);
 });
 it("confirms the saved Markdown version before generating analysis and opening its route", async () => {
   render(<InterviewCreatePage />); enterDemand();

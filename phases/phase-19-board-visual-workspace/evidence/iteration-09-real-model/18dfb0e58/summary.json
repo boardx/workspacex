@@ -1,0 +1,71 @@
+{
+  "testedCommit": "18dfb0e58216bb8bb4aedf2160eacd7f9c5b6f5c",
+  "result": "passed",
+  "scope": "real provider, synthetic notes, two independent browser contexts with same account",
+  "model": "dashscope/qwen3.8-max",
+  "modelElapsedMs": 20482,
+  "revisions": {
+    "before": {
+      "epoch": 1,
+      "seq": 1
+    },
+    "applied": {
+      "epoch": 1,
+      "seq": 2
+    },
+    "undone": {
+      "epoch": 1,
+      "seq": 3
+    }
+  },
+  "clusters": [
+    {
+      "title": "新手引导与上手体验",
+      "notes": [
+        "注册完成后不知道第一步",
+        "希望有示例项目引导",
+        "新成员找不到邀请入口",
+        "初次使用按钮含义不清",
+        "教程缺少实际案例",
+        "希望新手任务清单",
+        "创建第一个项目步骤太多",
+        "找不到产品帮助",
+        "第一次进来界面太复杂",
+        "新用户需要快速上手提示"
+      ]
+    },
+    {
+      "title": "性能与响应速度",
+      "notes": [
+        "画布拖动明显卡顿",
+        "图片加载等待很久",
+        "搜索结果返回太慢",
+        "大量便利贴滚动掉帧",
+        "导出文件耗时过长",
+        "多人编辑偶尔冻结",
+        "打开项目需要十秒",
+        "缩放画布反应迟缓",
+        "上传大图进度停住",
+        "移动端输入延迟很高"
+      ]
+    },
+    {
+      "title": "定价、付费与账单",
+      "notes": [
+        "价格套餐难以比较",
+        "不知道哪些功能需要付费",
+        "希望支持按月订阅",
+        "团队席位价格偏高",
+        "账单明细不够透明",
+        "试用结束收费提醒太晚",
+        "需要教育组织折扣",
+        "购买席位审批流程复杂",
+        "付费后发票在哪里",
+        "希望明确免费版容量"
+      ]
+    }
+  ],
+  "pageErrors": [],
+  "visualAcceptance": "not passed: confirmed layout is outside viewport; organize panel occludes canvas",
+  "overallExperienceScore": null
+}

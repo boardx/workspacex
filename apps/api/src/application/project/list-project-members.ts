@@ -21,9 +21,9 @@
  *   `project-role-matrix.ts` 里持有 `read.published`），契约 `err` 里也没有它：
  *   任何拒绝一律折成 `NO_PROJECT_ROLE`，同 `listAgendaSegments` 的同型 catch-all。
  *
- * ## ⚠ 仅 `kind='workshop'`：非工作坊两类返回 `members: null`，**不是空数组**
+ * ## ⚠ 仅 `kind='workshop'`：非工作坊容器返回 `members: null`，**不是空数组**
  *
- * U-1 只裁了 `research_project` / `user_insight` 两类的数据形状；#609 明确「那两类在本操作上
+ * U-1 只裁了原 `research_project` / `user_insight` 两类（#4615 起并为 `general`）的数据形状；#609 明确「那两类在本操作上
  * **不做**，前端显式说明，不假装空列表」。2026-09-27（#4499）起那两类的名单走另一条路径
  * `list-non-workshop-member.ts`（`/projects/:projectId/collaborators`，两档 owner/collaborator，
  * 无 `projectRole` / `isHost`）——形状不同的东西不塞进 `ProjectMemberEntry`，本操作对它们

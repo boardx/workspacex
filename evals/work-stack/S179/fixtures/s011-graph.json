@@ -1,0 +1,51 @@
+{
+  "run-ref:s011/inc-1001": {
+    "status": "confirmed",
+    "effectiveAudience": "analysis-team",
+    "rootCauses": [
+      {
+        "nodeId": "n-occ",
+        "type": "occurrence",
+        "text": "配置变更缺少灰度"
+      },
+      {
+        "nodeId": "n-esc",
+        "type": "escape",
+        "text": "发布前校验未覆盖该配置项"
+      }
+    ],
+    "correctiveActionCandidates": [
+      {
+        "candidateId": "K1",
+        "text": "配置发布增加灰度阶段"
+      },
+      {
+        "candidateId": "K2",
+        "text": "发布前校验覆盖该配置项"
+      }
+    ]
+  },
+  "run-ref:s011/inc-1001-provisional": {
+    "status": "provisional",
+    "effectiveAudience": "analysis-team",
+    "rootCauses": [
+      {
+        "nodeId": "n-occ",
+        "type": "occurrence",
+        "text": "配置变更缺少灰度（待验证）",
+        "verificationSignal": "回放灰度发布后的错误率曲线"
+      }
+    ]
+  },
+  "run-ref:s011/inc-1001-customer": {
+    "status": "confirmed",
+    "effectiveAudience": "customer",
+    "rootCauses": [
+      {
+        "nodeId": "n-occ",
+        "type": "occurrence",
+        "text": "一次配置变更未经灰度"
+      }
+    ]
+  }
+}

@@ -10,7 +10,7 @@
  * `active`，那时「刚才查到的『没有 active 环节』」已经不成立，而写入仍会照常发生。
  *
  * ⚠ `agenda_segments` 是**工作坊机件**（F118 头部逐字：挂 `workshops` 不是
- * `projects`），非工作坊两类容器（`research_project` / `user_insight`）没有议程
+ * `projects`），非工作坊容器（`general`）没有议程
  * 环节这回事——对它们而言 `EXISTS (... workshop_id = $1 AND state = 'active')`
  * 天然为 false（没有任何一行的 `workshop_id` 会等于一个非工作坊容器的 id），
  * 不需要在这里另外按 `kind` 分支。

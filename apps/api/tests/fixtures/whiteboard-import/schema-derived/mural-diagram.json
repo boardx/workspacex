@@ -1,0 +1,67 @@
+{
+  "boardId": "synthetic-mural-diagram",
+  "value": [
+    {
+      "id": "area",
+      "type": "area",
+      "title": "Journey",
+      "x": 100,
+      "y": 200,
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "shape",
+      "type": "shape",
+      "shape": "diamond",
+      "text": "Start",
+      "parentId": "area",
+      "x": 40,
+      "y": 50,
+      "width": 160,
+      "height": 100,
+      "backgroundColor": "#ffffffFF"
+    },
+    {
+      "id": "text",
+      "type": "text",
+      "htmlText": "<p>中文</p><p>English</p>",
+      "parentId": "area",
+      "x": 300,
+      "y": 60,
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "arrow",
+      "type": "arrow",
+      "startRefId": "shape",
+      "endRefId": "text",
+      "label": {
+        "labels": [
+          {
+            "text": "next"
+          }
+        ]
+      },
+      "x": 0,
+      "y": 0,
+      "width": 60,
+      "height": 60
+    },
+    {
+      "id": "missing-image",
+      "type": "image",
+      "url": "https://example.invalid/private-image",
+      "x": 500,
+      "y": 100,
+      "width": 64,
+      "height": 48
+    },
+    {
+      "id": "comment",
+      "type": "comment",
+      "text": "vendor comment"
+    }
+  ]
+}

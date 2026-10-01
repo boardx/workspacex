@@ -1,0 +1,11 @@
+{
+  "org": "synthetic-org-acme",
+  "documents": [
+    {
+      "sourceId": "doc-title-trap",
+      "versionId": "v1",
+      "title": "API 迁移计划",
+      "body": "本文讨论前端组件库重构，与 API 无关。"
+    }
+  ]
+}

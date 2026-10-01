@@ -798,8 +798,7 @@
                   "type": "string",
                   "enum": [
                     "workshop",
-                    "research_project",
-                    "user_insight"
+                    "general"
                   ]
                 },
                 "status": {
@@ -884,8 +883,7 @@
                 "type": "string",
                 "enum": [
                   "workshop",
-                  "research_project",
-                  "user_insight"
+                  "general"
                 ]
               },
               "status": {

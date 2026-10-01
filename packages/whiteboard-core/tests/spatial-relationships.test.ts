@@ -33,6 +33,14 @@ function seed(...objects: WhiteboardObject[]): Y.Doc {
   return doc;
 }
 
+it('persists validated frame shape and template semantics while accepting legacy panels', () => {
+  const doc = seed(); const port = new SpatialRelationshipCommandPort(doc);
+  dispatch(port, 'semantic-frame', { type: 'create-panel', id: 'semantic-frame', geometry: geometry(), panel: { ...panel, shape: 'circle', template: 'timeline', mode: 'flow' } });
+  expect(readPanelMetadata(readObjects(doc)[0]!)).toMatchObject({ shape: 'circle', template: 'timeline', mode: 'flow' });
+  expect(() => dispatch(port, 'invalid-frame', { type: 'create-panel', id: 'invalid-frame', geometry: geometry(), panel: { ...panel, shape: 'star' } as never })).toThrow('PANEL_METADATA_INVALID');
+  doc.destroy();
+});
+
 describe('semantic panels and hierarchy', () => {
   it('creates freeform/grid/flow panels, rejects cycles and auto-expands on reparent', () => {
     const doc = seed(note('a', 300, 240)); const port = new SpatialRelationshipCommandPort(doc);

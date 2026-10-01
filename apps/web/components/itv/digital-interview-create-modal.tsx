@@ -65,7 +65,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
     try {
       const created = await createDigitalInterviewDraft({ ...payload, requestId: requestAttempt.current.requestId });
       close();
-      push(withProjectId(`/itv/${created.interviewId}/setup`, projectId));
+      push(withProjectId(`/itv/${created.interviewId}/intake`, projectId));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.reasonCode ?? cause.message : cause instanceof Error ? cause.message : "DEPENDENCY_UNAVAILABLE");
       setBusy(false);

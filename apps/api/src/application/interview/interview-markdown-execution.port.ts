@@ -11,8 +11,10 @@ export interface InterviewMarkdownExecutionRuntime {
 export interface InterviewMarkdownExecutionStore {
   control(input:MarkdownExecutionInput): Promise<void>;
   claim(input:MarkdownExecutionActor): Promise<null | {
-    claimId:string; expertId:string;
-    content:Guarded<{partial:string;sources:interviewMarkdown.InterviewMarkdownDocument[]}>;
+    claimId:string; tasks:readonly {
+      expertId:string;
+      content:Guarded<{partial:string;sources:interviewMarkdown.InterviewMarkdownDocument[]}>;
+    }[];
   }>;
-  finish(input:MarkdownExecutionActor & {claimId:string;markdown:string;failed:boolean}):Promise<void>;
+  finish(input:MarkdownExecutionActor & {claimId:string;results:readonly {expertId:string;markdown:string;failed:boolean}[]}):Promise<void>;
 }

@@ -31,12 +31,12 @@ describe("LoginSessionGate", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("sends an already authenticated browser to projects", async () => {
+  it("sends an already authenticated browser to the org home page", async () => {
     status = "authenticated";
     render(<LoginSessionGate><div>login form</div></LoginSessionGate>);
 
     expect(screen.queryByText("login form")).not.toBeInTheDocument();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/projects"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
   });
 
   // 画布模板后台管理刷新掉回根目录一案：带 `?next=` 深链进 /login 时，
@@ -54,7 +54,7 @@ describe("LoginSessionGate", () => {
     );
   });
 
-  it("falls back to /projects when `next` is unsafe (protocol-relative injection)", async () => {
+  it("falls back to /home when `next` is unsafe (protocol-relative injection)", async () => {
     status = "authenticated";
     render(
       <LoginSessionGate next="//evil.com">
@@ -62,6 +62,6 @@ describe("LoginSessionGate", () => {
       </LoginSessionGate>,
     );
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/projects"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
   });
 });

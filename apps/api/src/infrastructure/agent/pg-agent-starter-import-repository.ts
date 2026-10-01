@@ -1,16 +1,26 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
+import { insertAgentVersionFromDraft } from "./agent-version-insert";
 import type { AgentStarterImportRepository, AgentStarterImportResult, ExistingAgentImportOutcome, PersistVerifiedAgentImportOutcome } from "../../application/agent-import/ports";
 
-interface ImportRow { status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; }
+interface ImportRow { id: string; status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; }
 async function findImport(s: TenantSession, orgId: string, key: string): Promise<ImportRow | null> {
-  const result = await s.query<ImportRow>("SELECT status,payload_digest,result_json,failure_code FROM agent_starter_pack_imports WHERE org_id=$1 AND idempotency_key=$2", [orgId, key]);
+  const result = await s.query<ImportRow>("SELECT id,status,payload_digest,result_json,failure_code FROM agent_starter_pack_imports WHERE org_id=$1 AND idempotency_key=$2", [orgId, key]);
   return result.rows[0] ?? null;
 }
 function existing(row: ImportRow, digest: string): Exclude<ExistingAgentImportOutcome, { kind: "missing" }> {
   if (row.payload_digest !== digest) return { kind: "idempotency-conflict" };
   if (row.status === "succeeded" && row.result_json) return { kind: "replayed", result: row.result_json };
   return { kind: "previous-failure", failureCode: row.failure_code ?? "AGENT_STARTER_PACK_INVALID" };
+}
+
+/**
+ * 失败不是终局（与 skill 侧 `isRetryableFailure` 同一纪律）：请求体只有 `{packId, packVersion,
+ * idempotencyKey}`，失败原因（pack 根目录未配置、包缺失/不合规、名称冲突）都取决于服务端配置与状态；
+ * 缓存成终局会让运维修好后同键重试永远重放旧 404。同键同摘要的失败行由重试接管；不同摘要仍是冲突。
+ */
+function isRetryableFailure(row: ImportRow, digest: string): boolean {
+  return row.status === "failed" && row.payload_digest === digest;
 }
 
 export class PgAgentStarterImportRepository implements AgentStarterImportRepository {
@@ -25,10 +35,12 @@ export class PgAgentStarterImportRepository implements AgentStarterImportReposit
     return this.db.withTenant(input.orgId, async (s): Promise<PersistVerifiedAgentImportOutcome> => {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 417))", [input.orgId]);
       const prior = await findImport(s, input.orgId, input.idempotencyKey);
-      if (prior) return existing(prior, input.payloadDigest);
-      const importId = `agent-import-${randomUUID()}`;
+      const retrying = prior !== null && isRetryableFailure(prior, input.payloadDigest);
+      if (prior && !retrying) return existing(prior, input.payloadDigest);
+      const importId = retrying ? prior.id : `agent-import-${randomUUID()}`;
       const importedAt = new Date().toISOString();
-      await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',NULL,NULL)`, [importId,input.orgId,input.pack.packId,input.pack.packVersion,input.pack.packDigest,input.payloadDigest,input.idempotencyKey,input.actorId,importedAt]);
+      if (retrying) await s.query("UPDATE agent_starter_pack_imports SET status='pending',failure_code=NULL,result_json=NULL,pack_digest=$3,administrator_id=$4,imported_at=$5 WHERE id=$1 AND org_id=$2", [importId, input.orgId, input.pack.packDigest, input.actorId, importedAt]);
+      else await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',NULL,NULL)`, [importId,input.orgId,input.pack.packId,input.pack.packVersion,input.pack.packDigest,input.payloadDigest,input.idempotencyKey,input.actorId,importedAt]);
       const refs = input.pack.agents.flatMap((agent) => agent.skillVersions);
       if (refs.length) {
         const found = await s.query<{ id: string; content_digest: string }>("SELECT id,content_digest FROM skill_versions WHERE org_id=$1 AND id=ANY($2::text[]) AND published=true", [input.orgId, refs.map((ref) => ref.versionId)]);
@@ -57,7 +69,7 @@ export class PgAgentStarterImportRepository implements AgentStarterImportReposit
         // `stableName` 前两位大写复用同一条派生规则，避免与 abbr 撞得太像时再造一套。
         const roleLabel = agent.stableName.slice(0, 8);
         await s.query("INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,role_label,role_label_needs_confirmation) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,true)", [agentId,input.orgId,agent.stableName,agent.name,input.actorId,importedAt,roleLabel]);
-        await s.query(`INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10::jsonb,$11,$12,$12)`, [versionId,input.orgId,agentId,agent.semanticVersion,agent.instructionDigest,agent.instructions,agent.skillVersions.map((ref) => ref.versionId),agent.modelProvider,agent.modelId,JSON.stringify(agent.toolPolicy),input.actorId,importedAt]);
+        await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: agent.skillVersions.map((ref) => ref.versionId), modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });
         await s.query("UPDATE agents SET published_version_id=$3,updated_at=$4 WHERE id=$1 AND org_id=$2", [agentId,input.orgId,versionId,importedAt]);
         // #619：`capability_listings_agent_needs_abbr_duty` 要求 kind='agent' 的行非空
         // abbr/duty。pack schema（`AgentStarterPackEntry`）没有这两个字段——不新开一次
@@ -76,7 +88,11 @@ export class PgAgentStarterImportRepository implements AgentStarterImportReposit
     return this.db.withTenant(input.orgId, async (s) => {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 417))", [input.orgId]);
       const prior = await findImport(s,input.orgId,input.idempotencyKey);
-      if (prior) return existing(prior,input.payloadDigest);
+      if (prior && isRetryableFailure(prior, input.payloadDigest)) {
+        await s.query("UPDATE agent_starter_pack_imports SET failure_code=$3,pack_digest=$4,administrator_id=$5,imported_at=$6 WHERE id=$1 AND org_id=$2", [prior.id, input.orgId, input.failureCode, input.packDigest, input.actorId, new Date().toISOString()]);
+        return { kind: "previous-failure" as const, failureCode: input.failureCode };
+      }
+      if (prior) return existing(prior, input.payloadDigest);
       await s.query(`INSERT INTO agent_starter_pack_imports (id,org_id,pack_id,pack_version,pack_digest,payload_digest,idempotency_key,administrator_id,imported_at,status,result_json,failure_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'failed',NULL,$10)`, [`agent-import-${randomUUID()}`,input.orgId,input.packId,input.packVersion,input.packDigest,input.payloadDigest,input.idempotencyKey,input.actorId,new Date().toISOString(),input.failureCode]);
       return { kind: "previous-failure" as const, failureCode: input.failureCode };
     });

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "status": "passed",
+  "executedAt": "2026-09-27T10:03:10.678Z",
+  "scope": "synthetic-storage-fixture-not-model-inference",
+  "orgId": "proposal-drill-4069fd51-f61d-4e25-87ab-072c10baa2fd",
+  "sourceBoardId": "de5e5493-2695-4da5-9790-2e86d8572f7a",
+  "newBoardId": "50b8c266-7f57-4921-a705-71fcb7575915",
+  "portableBoardId": "73895e59-3153-4cea-a078-d8ab2162547d",
+  "proposalId": "0cce2a27-3c21-4bb2-ac3e-3ee4ba075378",
+  "genericOperationId": "d15857ed-cec0-42cb-ad74-df5967b7a22c",
+  "proposalCount": 3,
+  "sourceHistoryBlobCount": 9,
+  "proposalDigest": "b71a706b665c41b16df37b9ac3740864e4345cf3e7da8ba0a02d73a98cce84b7",
+  "undoBeforeHash": "3ec726f77d1e7ac6500f12ce38a778a4f13206fa0ec95092a11525ab01261d79",
+  "manifestHash": "b2c20bd97d780e6a060328adb99d21cb823ddfad442d0c8916449487beaca96c",
+  "pgDumpHash": "57bcfea5b1c08ddc61172b74439b1c533c8ceb8e36a8fb39387c224f0d8e4b62",
+  "checks": {
+    "pgPayloadEmpty": true,
+    "verifiedProposalFiles": true,
+    "legacyRollbackObserved": true,
+    "legacyRootRolledBack": true,
+    "legacyRetryMigrated": true,
+    "plaintextWriterRejected": true,
+    "proposalUndoApplied": true,
+    "restoredProposalReadable": true,
+    "restoredUndoApplied": true,
+    "newBoardOldAuthorityRows": {
+      "proposals": "0",
+      "undos": "0",
+      "operations": "0"
+    },
+    "portableOldAuthorityRows": {
+      "proposals": "0",
+      "undos": "0",
+      "operations": "0"
+    },
+    "portableOldAuthorityRequestsRejected": true
+  },
+  "cleanup": "Isolated source/target DB and private drill directory retained for root inspection."
+}

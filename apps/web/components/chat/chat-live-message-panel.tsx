@@ -46,6 +46,7 @@ import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { AgentApprovalPanel } from "@/components/chat/agent-approval-panel";
 import { ApiError } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
+import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -148,8 +149,8 @@ export function ChatLiveMessagePanel({
    * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
    *
    * ⚠ 这是纯粹的**位置**改动，不是把 `ChatRecordingPanel` 重写成条件渲染：
-   *   `core-loop.spec.ts:533`（发布门）直接点 `chat-live-recording-start`，
-   *   说明录音面板必须**始终挂载、始终可点**——把它做成「只在录音中才出现」
+   *   （历史）`core-loop.spec.ts` 发布门曾直接点 `chat-live-recording-start`，
+   *   说明旧轨道录音面板必须**始终挂载、始终可点**（#4744 后该发布门已改走转写页 `/rec`）——把它做成「只在录音中才出现」
    *   会让这个发布门的用例在页面刚加载时就点不到那个按钮。组件本身、
    *   它的全部 testid、它的可见性规则一个都没有变，只是换了个挂载位置。
    */
@@ -497,6 +498,7 @@ export function ChatLiveMessagePanel({
   // 「线程历史里最近实际用过的 agent」（`lastUsedAgentId`，见其文档注释），而不是
   // 直接落到「通用助手」；用户在这条线程手动选过时仍原样尊重那次选择。
   const selectedAgentId = pickDefaultAgentId(agents, agentId || lastUsedAgentId(messages));
+  const agentDirectory = useAgentDirectoryMap(Boolean(agents?.length));
 
   // V1 —— 新消息列表变化或流式 token 追加时，若用户还贴着底部就跟到底。
   // 原来是一次性 `requestAnimationFrame`，只对 `messages.length`/`streamingText`
@@ -1155,6 +1157,16 @@ export function ChatLiveMessagePanel({
                   data-testid="chat-message-row"
                   data-message-id={message.id}
                 >
+                  {isAgent && message.agentId && agentDirectory.get(message.agentId)?.avatar ? (
+                    <Avatar
+                      aria-hidden
+                      data-testid="chat-message-agent-portrait"
+                      initials={agentDirectory.get(message.agentId)?.initials ?? ""}
+                      avatarKey={agentDirectory.get(message.agentId)?.avatar?.key ?? null}
+                      tone="ai"
+                      size="md"
+                    />
+                  ) : (
                   <div
                     aria-hidden
                     className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
@@ -1163,6 +1175,7 @@ export function ChatLiveMessagePanel({
                   >
                     {isAgent ? <Bot className="h-3.5 w-3.5" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
                   </div>
+                  )}
                   <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
                     {/*
                       #728 D5 —— 身份行照原型：名字 + 角色 chip + 时间。
@@ -1608,7 +1621,7 @@ export function ChatLiveMessagePanel({
             {agents && agents.length > 0 ? (
               <span className="flex items-center -space-x-1" aria-hidden data-testid="chat-composer-context-agents">
                 {agents.slice(0, 4).map((agent) => (
-                  <Avatar key={agent.id} initials={agent.abbr} tone="ai" size="sm" className="ring-1 ring-background" />
+                  <Avatar key={agent.id} initials={agent.abbr} avatarKey={agentDirectory.get(agent.id)?.avatar?.key ?? null} tone="ai" size="sm" className="ring-1 ring-background" />
                 ))}
               </span>
             ) : null}

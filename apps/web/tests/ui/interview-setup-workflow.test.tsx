@@ -611,11 +611,20 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(screen.getByTestId("itv-workbench-step-experts")).toHaveTextContent("选择专家");
     expect(screen.getByTestId("itv-workbench-step-outline")).toHaveTextContent("专家提纲");
     expect(screen.getByTestId("itv-workbench-step-runs")).toHaveTextContent("开始访谈");
-    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("汇总报告");
+    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("生成报告");
 
     fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
     expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
     expect(screen.getByTestId("itv-step-markdown-artifact")).toHaveTextContent("分析建议.md");
+  });
+
+  it("opens a newly created setup route on canonical intake instead of the legacy brief", async () => {
+    installLiveFetch(topicPendingInterview);
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} canonicalNewInterview />);
+
+    expect(await screen.findByTestId("itv-markdown-intake")).toBeVisible();
+    expect(screen.getByTestId("itv-workbench-step-intake")).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByTestId("itv-research-brief")).not.toBeInTheDocument();
   });
 
   it("keeps full-screen navigation in one header and exposes one Markdown source to preview", async () => {
@@ -647,7 +656,9 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(push).toHaveBeenCalledWith(`/itv/${persistedInterview.interviewId}/experts`);
     setup.rerender(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="experts" />);
     expect(await screen.findByTestId("itv-markdown-experts")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toBeInTheDocument();
+    expect(screen.getByText("97 位模拟画像")).toBeVisible();
+    expect(screen.getByRole("button", { name: "添加虚拟专家" })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("itv-confirm-experts")).not.toBeInTheDocument();
   });
 

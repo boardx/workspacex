@@ -11,7 +11,7 @@ export function ResponsiveDesignerPanel({ title, enabled, disabled, children }: 
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     if (!enabled || !window.matchMedia) return;
-    const media = window.matchMedia("(max-width: 1279px)");
+    const media = window.matchMedia("(max-width: 1023px)");
     const update = () => { setNarrow(media.matches); if (!media.matches) setOpen(false); };
     update();
     media.addEventListener("change", update);

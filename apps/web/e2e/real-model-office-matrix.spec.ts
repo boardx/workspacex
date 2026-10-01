@@ -89,7 +89,7 @@ async function login(page: Page): Promise<void> {
   await page.getByTestId("login-email").fill(REAL_MODEL_SMOKE.email);
   await page.getByTestId("login-password").fill(REAL_MODEL_SMOKE.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 60_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 60_000 });
 }
 
 /** 发一句话并等这一轮落定。返回是否**真的跑起来过**——没跑起来与跑完是两件事。 */

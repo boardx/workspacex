@@ -36,6 +36,7 @@ import type {
   TransactionalMailResult,
   TransactionalMailTransport,
 } from "../../application/notifications/transactional-mail-ports";
+import { cloudflareApiBaseUrl, cloudflareEmailSendUrl } from "../cloudflare-email-api-base";
 import { assertMailFromOnSendingDomain } from "../cloudflare-email-sending-domain";
 import { renderBrandEmailHtml } from "./email-branding";
 
@@ -46,6 +47,8 @@ export interface TransactionalMailConfig {
   readonly apiToken: string;
   readonly mailFrom: string;
   readonly requestTimeoutMs: number;
+  /** 可选；缺省 = 官方地址。见 `cloudflare-email-api-base.ts`（生产禁止覆盖）。 */
+  readonly apiBaseUrl?: string;
 }
 
 export function transactionalMailConfig(env: NodeJS.ProcessEnv = process.env): TransactionalMailConfig {
@@ -62,7 +65,7 @@ export function transactionalMailConfig(env: NodeJS.ProcessEnv = process.env): T
   if (production) {
     assertMailFromOnSendingDomain(values.mailFrom, env);
   }
-  return { ...values, requestTimeoutMs: 10_000 };
+  return { ...values, requestTimeoutMs: 10_000, apiBaseUrl: cloudflareApiBaseUrl(env) };
 }
 
 /** 同 `lazyCloudflareEmailConfig`：一个可选子系统的配置缺失,不该拖垮整个 API 启动。 */
@@ -72,7 +75,7 @@ export function lazyTransactionalMailConfig(
   let resolved: TransactionalMailConfig | null = null;
   const get = (): TransactionalMailConfig => (resolved ??= transactionalMailConfig(env));
 
-  const KEYS = new Set<string | symbol>(["accountId", "apiToken", "mailFrom", "requestTimeoutMs"]);
+  const KEYS = new Set<string | symbol>(["accountId", "apiToken", "mailFrom", "requestTimeoutMs", "apiBaseUrl"]);
   return new Proxy({} as TransactionalMailConfig, {
     get: (_t, prop) => (KEYS.has(prop) ? get()[prop as keyof TransactionalMailConfig] : undefined),
     has: (_t, prop) => KEYS.has(prop),
@@ -108,6 +111,7 @@ export class CloudflareTransactionalEmailTransport implements TransactionalMailT
         apiToken: this.config.apiToken,
         mailFrom: this.config.mailFrom,
         requestTimeoutMs: this.config.requestTimeoutMs,
+        apiBaseUrl: this.config.apiBaseUrl,
       };
     } catch (cause) {
       throw new TransactionalMailError("configuration_invalid", { cause });
@@ -131,7 +135,7 @@ export class CloudflareTransactionalEmailTransport implements TransactionalMailT
       let response: Response;
       try {
         response = await this.request(
-          `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(config.accountId)}/email/sending/send`,
+          cloudflareEmailSendUrl(config.apiBaseUrl, config.accountId),
           {
             method: "POST",
             signal: abort.signal,

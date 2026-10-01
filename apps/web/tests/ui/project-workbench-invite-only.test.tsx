@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const getProjectOverview = vi.fn();
@@ -104,10 +104,23 @@ describe("R1 项目工作台：受邀才能进的容器", () => {
     expect(denied).toHaveTextContent("组织层限制");
   });
 
-  it("反证：真故障（DEPENDENCY_UNAVAILABLE）不走「需要邀请」分支，tab 内容照常渲染并显示可重试错误", async () => {
+  it("反证：真故障（DEPENDENCY_UNAVAILABLE）不走「需要邀请」分支，给可重试的失败面板，且不掉进工作坊壳", async () => {
     getProjectOverview.mockRejectedValue(new ApiError(503, "DEPENDENCY_UNAVAILABLE", {}));
     renderWorkbench();
-    await waitFor(() => expect(screen.getByTestId("project-overview-live-overview-error")).toBeInTheDocument());
+    const failed = await screen.findByTestId("project-load-failed");
+    expect(failed).toHaveTextContent("项目暂时打不开");
+    expect(failed).toHaveTextContent("DEPENDENCY_UNAVAILABLE");
     expect(screen.queryByTestId("project-access-denied")).toBeNull();
+    // R4：种类未知 + 读取失败时不能按工作坊渲染（视角切换器 / 角色说明条 / 工作坊 tab 条）
+    expect(screen.queryByTestId("project-role-switcher")).toBeNull();
+    expect(screen.queryByTestId("project-role-scope-note")).toBeNull();
+    expect(screen.queryByTestId("project-tabs")).toBeNull();
+
+    // 重试会真的重新请求，成功后失败面板消失
+    getProjectOverview.mockReset();
+    getProjectOverview.mockResolvedValue(OVERVIEW);
+    fireEvent.click(screen.getByTestId("project-load-failed-retry"));
+    await waitFor(() => expect(getProjectOverview).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId("project-load-failed")).toBeNull());
   });
 });

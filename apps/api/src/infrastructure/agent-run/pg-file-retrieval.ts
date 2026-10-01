@@ -88,6 +88,18 @@ SELECT 'canvas-artifact' AS kind, l.title AS title, l.content_excerpt AS text,
  WHERE l.org_id = $1
    AND l.content_excerpt IS NOT NULL
    AND l.search_tsv @@ q.tsq
+   -- FF-101：落地摘录是 artifact 正文的副本，召回它 = 披露那个 artifact。所以它必须过
+   -- 与文件浏览器 / 下载**同一个**谓词：artifact 未删除，且项目内由 wsx_visible_artifacts()
+   -- 判 ACL（team-only 只给本组）。不另写一套 scope 规则；项目外（个人线程）的 artifact
+   -- 没有项目层 ACL，只剩删除态，其余由上面的线程谓词兜住。
+   AND EXISTS (
+     SELECT 1 FROM artifacts ar
+      WHERE ar.org_id = l.org_id AND ar.id = l.artifact_id AND ar.deleted_at IS NULL
+        AND (ar.project_id IS NULL OR EXISTS (
+          SELECT 1 FROM wsx_visible_artifacts(ar.project_id,
+                   (SELECT om.team_id FROM org_memberships om
+                     WHERE om.org_id = l.org_id AND om.user_id = $5)) vis
+           WHERE vis.artifact_id = ar.id)))
    AND (
      ($4::text IS NULL
         AND t.id = $3 AND t.project_id IS NULL AND t.created_by = $5)

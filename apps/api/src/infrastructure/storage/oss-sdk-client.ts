@@ -51,7 +51,8 @@ export function wrapOssSdk(sdk: OSS): OssClientPort {
       return { content: result.content, headers: normalizeHeaders(result.res.headers) };
     },
     head: async (key) => ({ headers: normalizeHeaders((await sdk.head(key)).res.headers) }),
-    delete: async (key) => { await sdk.delete(key); },
+    delete: async (key, options) => { await sdk.delete(key, options as never); },
+    list:async input=>{const result=await sdk.list({prefix:input.prefix,marker:input.marker,'max-keys':input.maxKeys} as never,{} as never);return{objects:(result.objects??[]).map(object=>({name:object.name,size:Number(object.size),lastModified:String(object.lastModified),etag:String(object.etag)})),nextMarker:result.nextMarker};},
   };
 }
 

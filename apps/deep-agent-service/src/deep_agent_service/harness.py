@@ -1214,6 +1214,49 @@ class InterjectionMiddleware(AgentMiddleware):
             return await handler(request)
 
 
+_PINNED_MODEL_CONFIG_KEY = "model_id"
+_pinned_models: dict[str, BaseChatModel] = {}
+
+
+def _pinned_model_id() -> str | None:
+    """本次 run 的 `configurable.model_id`（数字人能力，决策 B）。缺席/空/不在 runnable 上下文 ⇒ None。"""
+    try:
+        config = get_config()
+    except RuntimeError:
+        return None
+    raw = (config.get("configurable") or {}).get(_PINNED_MODEL_CONFIG_KEY)
+    return raw.strip() if isinstance(raw, str) and raw.strip() else None
+
+
+def _prepare_pinned_model_request(request: ModelRequest) -> ModelRequest:
+    model_id = _pinned_model_id()
+    if model_id is None or getattr(request.model, "model_name", None) == model_id:
+        return request
+    model = _pinned_models.get(model_id)
+    if model is None:
+        from deep_agent_service.model import build_chat_model
+
+        model = _pinned_models.setdefault(model_id, build_chat_model(model_id))
+    return request.override(model=model)
+
+
+class PinnedModelMiddleware(AgentMiddleware):
+    """数字人能力（决策 B）：钉住具体模型（如官方数字人的 qwen-plus）的 Agent 经本运行时执行时，
+    每次模型调用换成它钉住的那个模型——同一端点，不换 provider。未送 `model_id` ⇒ 原样透传。"""
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        return handler(_prepare_pinned_model_request(request))
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        return await handler(_prepare_pinned_model_request(request))
+
+
 def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = None) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -1224,6 +1267,8 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # issue #2836：排第一——它的 before_agent 要先把上一轮的远端残留删掉，后面
         # 所有按 messages 判断的中间件（判类、插话、rubric）看到的才是本轮的窗口。
         TurnWindowMiddleware(),
+        # 数字人能力（决策 B）：最外层换模型，内层中间件看到的就是钉住的模型。
+        PinnedModelMiddleware(),
         TodoListMiddleware(),
         # Phase 14 后续 A（#2755）：紧跟规划工具之后、两个"钉 write_todos"的中间件之前——
         # 它的 before_model 要先把插话追加进 messages，后面 TaskClassifier 的判类与
@@ -1458,6 +1503,16 @@ def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     # 在网关没有显式启用这道门时恒返回 False（fail-open，见其头注的方向说明）。
     # `respond` 不在允许决策里：让人替 `write_todos` 直接编一个「工具结果」没有语义，
     # 用户的三个真实选择是确认（approve）/ 改计划（edit）/ 取消（reject）。
+    # AG06：`escalate_matter` 每次调用都中断，交网关按 run 钉住的 escalationPolicy 决定挂起
+    # 等目标人（edit 恢复带回 EscalateDecision）还是原样放行（approve ⇒ 工具体回复「未升级」）。
+    # 不并入 `DEFAULT_HITL_TOOL_NAMES`：那份清单由契约逐字钉住为 call_skill + 三个澄清工具。
+    result["escalate_matter"] = True
+    # AG05：`start_workflow` 每次调用都中断，交网关按 run 钉住的 workflowAllowlist 判定、经 WF03 start
+    # 执行，再以 edit resume 带回结果（工具体只转述 outcome.message）。同样不并入 DEFAULT_HITL_TOOL_NAMES。
+    result["start_workflow"] = True
+    # AG07：`request_handoff` 每次调用都中断，交网关按 run 钉住的 delegationPolicy 判定目标与深度、
+    # 登记待用户确认的转交，再以 edit resume 带回结果。同样不并入 DEFAULT_HITL_TOOL_NAMES。
+    result["request_handoff"] = True
     result[_PLAN_CONFIRMATION_TOOL_NAME] = InterruptOnConfig(
         allowed_decisions=["approve", "edit", "reject"],
         when=_write_todos_requires_plan_confirmation,

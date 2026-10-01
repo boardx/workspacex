@@ -456,3 +456,38 @@ describe("the grant table is inside the tenant net and cannot be rewritten by th
     expect(Number(row.policies)).toBe(4);
   });
 });
+
+/**
+ * FF-102 -- the token proves the link was ISSUED, not that the requester may still see the
+ * version. Redemption re-runs the same gate issuance ran. Counter-proof (run and restored):
+ * short-circuiting the `else` branch in `redeemDownloadUrl` turns both refusals below red.
+ */
+describe("⑤ 兑换时重判可见性 (FF-102)", () => {
+  it("an artifact deleted after the link was issued can no longer be downloaded through it", async () => {
+    await addBrowserArtifact({
+      orgId: ORG, id: "f32dl-ff102-del", projectId: PROJECT, title: "deleted later", mime: "application/pdf",
+    });
+    const { url } = await issue("u-fac", v("f32dl-ff102-del"));
+    await asOwner((c) => c.query(
+      "UPDATE artifacts SET deleted_at = now() WHERE org_id = $1 AND id = $2", [ORG, "f32dl-ff102-del"],
+    ));
+    expect(await codeOf(redeem("u-fac", url))).toBe("ARTIFACT_NOT_FOUND");
+  });
+
+  it("a requester removed from the project after issuance cannot redeem", async () => {
+    await addOrgMember(ORG, "u-ff102-leaver", "consultant", teams.energy!);
+    await addProjectMember(ORG, PROJECT, "u-ff102-leaver", "member", null);
+    const { url } = await issue("u-ff102-leaver");
+    await asOwner((c) => c.query(
+      "DELETE FROM project_memberships WHERE org_id = $1 AND project_id = $2 AND user_id = $3",
+      [ORG, PROJECT, "u-ff102-leaver"],
+    ));
+    expect(await codeOf(redeem("u-ff102-leaver", url))).toBe("ARTIFACT_NOT_FOUND");
+  });
+
+  it("positive control: a still-visible version redeems normally", async () => {
+    const { url } = await issue("u-fac");
+    const out = await redeem("u-fac", url);
+    expect(out.versionId).toBe(v("f32dl-open"));
+  });
+});

@@ -1,5 +1,5 @@
 /**
- * 项目中枢 B2-S1（#4425）`linkProjectResource` —— 把自己的问卷 / 深度研究 / 个人转写挂到项目上。
+ * 项目中枢 B2-S1（#4425）`linkProjectResource` —— 把自己的问卷 / 深度研究 / 个人转写（#4615 起 + 访谈 / 白板 / 设计）挂到项目上。
  *
  * 两道门，顺序固定：① 项目成员（同 `listProjectResources`，观察者也算）；② 资源存在**且**
  * 是调用者自己的——「不存在」与「不是你的」同一个 `RESOURCE_NOT_FOUND`，不泄露别人资源的存在性。
@@ -51,12 +51,14 @@ export async function linkProjectResource(
   if (outcome.kind === "project-not-found") throw new ProjectError("NO_PROJECT_ROLE");
 
   if (deps.evidence !== undefined) {
+    // #4615：设计第一版只挂载不采证据（`LINKABLE_KIND_TO_EVIDENCE.design = null`），访谈照旧顺带采。
+    const own = LINKABLE_KIND_TO_EVIDENCE[input.kind];
     try {
       await collectProjectEvidence(deps.evidence, {
         orgId: input.orgId,
         projectId: input.projectId,
         decision,
-        kinds: [LINKABLE_KIND_TO_EVIDENCE[input.kind], "interview_segment"],
+        kinds: own === null ? ["interview_segment"] : [own, "interview_segment"],
       });
     } catch (err) {
       deps.logger?.error("project evidence collect failed after link", {

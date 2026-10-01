@@ -2,7 +2,7 @@
  * 项目中枢 B3-T1（#4495）—— `PgProjectEvidenceRepository` / `PgEvidenceSources` 对真实 PostgreSQL 的断言
  * （装配同 `project-resources-pg.test.ts`）。用例层的编排见 `project-evidence.test.ts`。
  *
- * ⚠ 本地没有 PG，本文件按仓库约定写好但**未在本地执行**（回报里已写明）。
+ * #4786 的分页精度回归使用显式微秒时间，在独立 PostgreSQL 栈完成旧实现失败 / 修复通过验证。
  *
  * 钉住：
  *   · 列表按 (created_at, id) 倒序分页，游标不漏不重；按来源筛选；`countsBySource` 六类含 0、不受筛选影响；
@@ -93,13 +93,21 @@ describe("PgProjectEvidenceRepository（真实 PG）", () => {
   it("列表：倒序分页游标不漏不重；按来源筛选；countsBySource 六类含 0 且不受筛选影响；观察者可读", async () => {
     for (let i = 1; i <= 5; i += 1) await repo.upsert(cmd(`r${i}:q1`));
     await repo.upsert(cmd("seg-1", { sourceKind: "transcript_segment", resourceId: "t1" }));
+    // #4786: deterministic six-row counterexample; the fifth row shares the boundary millisecond.
+    await asApp(ORG, (c) => c.query(`UPDATE project_evidence SET created_at = CASE source_ref
+      WHEN 'r1:q1' THEN '2026-09-30T12:00:00.000900Z'::timestamptz
+      WHEN 'r2:q1' THEN '2026-09-30T12:00:00.000800Z'::timestamptz
+      WHEN 'r3:q1' THEN '2026-09-30T12:00:00.000700Z'::timestamptz
+      WHEN 'r4:q1' THEN '2026-09-30T12:00:00.000600Z'::timestamptz
+      WHEN 'r5:q1' THEN '2026-09-30T12:00:00.000500Z'::timestamptz
+      ELSE '2026-09-30T11:59:59.999900Z'::timestamptz END WHERE org_id = $1 AND project_id = $2`, [ORG, P_A]));
 
     const seen: string[] = [];
     let cursor: string | undefined;
     do {
       const page = await listProjectEvidence(deps, { ...asUser(OBSERVER), limit: 4, ...(cursor !== undefined ? { cursor } : {}) });
       seen.push(...page.items.map((x) => x.id));
-      expect(page.countsBySource).toEqual({ chat_message: 0, attachment: 0, survey_response: 5, interview_segment: 0, transcript_segment: 1, research_source: 0 });
+      expect(page.countsBySource).toEqual({ chat_message: 0, attachment: 0, survey_response: 5, interview_segment: 0, transcript_segment: 1, research_source: 0, whiteboard_note: 0 });
       cursor = page.nextCursor ?? undefined;
     } while (cursor !== undefined);
     expect(new Set(seen).size).toBe(6);
@@ -113,6 +121,30 @@ describe("PgProjectEvidenceRepository（真实 PG）", () => {
     // 坏游标 ⇒ 从头开始，不抛
     const fromStart = await listProjectEvidence(deps, { ...asUser(OWNER), cursor: "not-a-cursor", limit: 10 });
     expect(fromStart.items).toHaveLength(6);
+  });
+
+  it.each([1, 2, 4])("微秒游标与相同精确时间的 id 排序：limit=%i 不漏不重，显示仍是毫秒", async (limit) => {
+    const timestamps = ["12:00:00.000900", "12:00:00.000800", "12:00:00.000700", "12:00:00.000600", "12:00:00.000500", "12:00:00.000500", "11:59:59.999900"];
+    for (const [i, timestamp] of timestamps.entries()) {
+      const inserted = await repo.upsert(cmd(`precision-${i}`));
+      await asApp(ORG, (c) => c.query("UPDATE project_evidence SET created_at=$1::timestamptz WHERE id=$2 AND org_id=$3", [`2026-09-30T${timestamp}Z`, inserted.id, ORG]));
+    }
+    const expected = await asApp(ORG, async (c) => (await c.query<{ id: string }>("SELECT id FROM project_evidence WHERE org_id=$1 AND project_id=$2 ORDER BY created_at DESC,id DESC", [ORG, P_A])).rows.map(row => row.id));
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await listProjectEvidence(deps, { ...asUser(OBSERVER), limit, ...(cursor ? { cursor } : {}) });
+      seen.push(...page.items.map(row => row.id));
+      expect(page.countsBySource.survey_response).toBe(7);
+      for (const row of page.items) expect(row.createdAt).toMatch(/\.\d{3}Z$/);
+      if (page.nextCursor) {
+        const decoded = JSON.parse(Buffer.from(page.nextCursor, "base64url").toString("utf8"));
+        expect(decoded.createdAt).toMatch(/\.\d{6}Z$/);
+      }
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(seen).toEqual(expected);
+    expect(new Set(seen).size).toBe(7);
   });
 
   it("撤回：默认不出现、includeRevoked 才带出、find 仍回；再 upsert 同源取消撤回", async () => {

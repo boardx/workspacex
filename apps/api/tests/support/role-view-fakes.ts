@@ -11,6 +11,7 @@ import type {
   AclObjectRef,
   BindingRow,
   IdentityRepository,
+  NonWorkshopStandingRow,
   OrgMembershipRow,
   OrganizationRow,
   ProjectMembershipRow,
@@ -43,6 +44,10 @@ export class FakeRoleViewRepository implements IdentityRepository {
     const m = this.members[userId];
     if (!m || m.projectRole === null) return null;
     return { projectRole: m.projectRole, groupId: m.groupId ?? null, isHost: m.isHost ?? false };
+  }
+  /** #4584：本 fake 只装工作坊身份——非工作坊容器的两档身份一律「不是这类容器」。 */
+  async findNonWorkshopStanding(_userId: string, _projectId: string, _orgId: OrgId): Promise<NonWorkshopStandingRow | null> {
+    return null;
   }
   async findBindings(_o: OrgId, _objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>> {
     // No team-only bindings in these fixtures -- every object defaults to org-wide, which is

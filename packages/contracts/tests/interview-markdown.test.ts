@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewMarkdownDocument, parseInterviewMarkdown } from "../src/interview-markdown";
+import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown } from "../src/interview-markdown";
 import { DigitalInterviewArtifact } from "../src/interview";
 
 const markdown = "# 教育研究\r\n\r\n## 核心发现\r\n\r\n| 用户 | 观点 |\r\n| --- | --- |\r\n| 学生 | 保留 **自主性** |\r\n\r\n```md\r\n## 不是章节\r\n```\r\n";
@@ -10,6 +10,16 @@ const document = {
 };
 
 describe("访谈 Markdown 正文单源", () => {
+  it("accepts every non-empty virtual-expert description and rejects blank input", () => {
+    expect(PreviewVirtualExpertMarkdown.safeParse({
+      description: "客",
+      expectedVersion: 1,
+    }).success).toBe(true);
+    expect(PreviewVirtualExpertMarkdown.safeParse({
+      description: "   ",
+      expectedVersion: 1,
+    }).success).toBe(false);
+  });
   it("expert block includes nested sections until the next sibling expert", () => {
     const raw = "## [甲](#expert-a)\n\n简介\n\n### 局限\n\n不能替代真人。\n\n## [乙](#expert-b)\n\n乙的资料。";
     const blocks = parseInterviewMarkdown({ ...document, markdown: raw }).blocks;
@@ -87,5 +97,10 @@ describe("访谈 Markdown 正文单源", () => {
     ]);
     expect(result.anchors).toEqual([{ anchor: "answer-1", documentId: "answer-doc-1", version: 1 }]);
     expect(Object.isFrozen(result.anchors[0])).toBe(true);
+  });
+  it("preserves list nesting in the display projection without changing Markdown", () => {
+    const raw = "## 核心发现\n\n- 发现\n  - 证据\n    - 证据细节\n\n### 其他发现\n\n1. 第二项";
+    expect(parseInterviewMarkdown({ ...document, markdown: raw }).entries.map(({ listDepth }) => listDepth)).toEqual([1, 2, 3, 1]);
+    expect(raw).toContain("  - 证据");
   });
 });

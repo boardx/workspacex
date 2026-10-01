@@ -1,4 +1,5 @@
 import type { VerificationMailTransport } from "../../application/auth/email-verification-ports";
+import { cloudflareApiBaseUrl, cloudflareEmailSendUrl } from "../cloudflare-email-api-base";
 import { assertMailFromOnSendingDomain } from "../cloudflare-email-sending-domain";
 import { renderBrandEmailHtml } from "../notifications/email-branding";
 
@@ -10,6 +11,8 @@ export interface CloudflareEmailConfig {
   previewDisabledAttested: boolean;
   workerEnabled: boolean;
   requestTimeoutMs: number;
+  /** 可选；缺省 = 官方地址。见 `cloudflare-email-api-base.ts`（生产禁止覆盖）。 */
+  apiBaseUrl?: string;
 }
 
 export function cloudflareEmailConfig(env: NodeJS.ProcessEnv = process.env): CloudflareEmailConfig {
@@ -40,6 +43,7 @@ export function cloudflareEmailConfig(env: NodeJS.ProcessEnv = process.env): Clo
     previewDisabledAttested,
     workerEnabled: production || env.MAIL_OUTBOX_WORKER_ENABLED === "1",
     requestTimeoutMs: 10_000,
+    apiBaseUrl: cloudflareApiBaseUrl(env),
   };
 }
 
@@ -88,7 +92,7 @@ export function lazyCloudflareEmailConfig(
    */
   const KEYS = new Set<string | symbol>([
     "accountId", "apiToken", "mailFrom", "appPublicUrl",
-    "previewDisabledAttested", "workerEnabled", "requestTimeoutMs",
+    "previewDisabledAttested", "workerEnabled", "requestTimeoutMs", "apiBaseUrl",
   ]);
   return new Proxy({} as CloudflareEmailConfig, {
     get: (_t, prop) =>
@@ -135,7 +139,7 @@ export class CloudflareEmailTransport implements VerificationMailTransport {
       let response: Response;
       try {
         response = await this.request(
-          `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(this.config.accountId)}/email/sending/send`,
+          cloudflareEmailSendUrl(this.config.apiBaseUrl, this.config.accountId),
           {
             method: "POST",
             signal: abort.signal,

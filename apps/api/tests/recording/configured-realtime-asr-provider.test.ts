@@ -342,6 +342,27 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     expect(handlers.errors[0]?.reason).toBe("ASR_PROVIDER_UNAVAILABLE");
   });
 
+  it("2026-09-30 -- 'buffer too small' at finish() is benign when audio DID reach upstream but VAD produced no final (silence/noise): clean finish, no error", async () => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
+      if (frame.type === "input_audio_buffer.commit") {
+        ws.send(JSON.stringify({
+          type: "error",
+          error: { message: "Error committing input audio buffer: buffer too small. Expected at least 100ms of audio, but buffer only has 0.00ms of audio." },
+        }));
+      }
+    });
+    const provider = new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    });
+    const handlers = recordingHandlers();
+    const session = await provider.open(handlers, AUDIO);
+    session.pushAudio(new Uint8Array(AUDIO.sampleRate * 2)); // 1s of PCM16 silence
+    await session.finish();
+    expect(handlers.finals).toEqual([]);
+    expect(handlers.errors).toEqual([]);
+  });
+
   it("issue #2637 ③ -- the same 'buffer too small' error OUTSIDE of finish() (not caller-initiated) still reports as a real error", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") {

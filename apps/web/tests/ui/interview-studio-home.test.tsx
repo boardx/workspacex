@@ -115,11 +115,10 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
 
     expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
     const card = await screen.findByTestId("itv-history-card-itv-1");
-    expect(card).toHaveClass("min-h-64", "rounded-lg", "hover:shadow-md");
-    // F19（视觉系统 token 升级）：Badge 圆角从单值 rounded-sm 迁移到语义化三档的
-    // rounded-control（控件档，6px）——Badge 是小型交互标签，属于控件档，见
-    // tailwind.config.ts borderRadius 与 app/globals.css 顶部圆角分级注释。
-    expect(within(card).getByText("采购决策")).toHaveClass("rounded-control", "text-10");
+    // 2026-09-30：卡片统一成标准 ResourceCard（项目卡片版式）：rounded-card + hover 抬升 + 整格等高
+    expect(card).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
+    // 标签芯片是标准项目卡片的胶囊样式（与 `/projects` 卡片一致）
+    expect(within(card).getByText("采购决策")).toHaveClass("rounded-full", "text-10");
   });
 
   it("exposes saved expert completion rather than a fabricated workflow percentage", async () => {
@@ -142,14 +141,17 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("尚未选择专家")).toBeInTheDocument();
   });
 
-  it.each([{ projectId: null, path: "/itv/new" }, { projectId: "project night", path: "/itv/new?projectId=project%20night" }])("new creation entries open the Markdown intake route with scope $projectId", async ({ projectId, path }) => {
+  it.each([{ projectId: null }, { projectId: "project night" }])("new creation entries require name and tags before creating a scoped interview $projectId", async ({ projectId }) => {
     render(<InterviewStudioHome initialTab="history" projectId={projectId} />);
     await screen.findByTestId("itv-history-card-itv-1");
     fireEvent.click(screen.getByTestId("itv-create"));
-    expect(push).toHaveBeenLastCalledWith(path);
+    expect(screen.getByTestId("itv-create-dialog")).toBeVisible();
+    expect(screen.getByTestId("itv-create-scope")).toHaveTextContent(projectId ? "本项目访谈" : "独立访谈");
+    expect(push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
     fireEvent.click(screen.getByTestId("itv-create-card"));
-    expect(push).toHaveBeenLastCalledWith(path);
-    expect(screen.queryByTestId("itv-create-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("itv-create-dialog")).toBeVisible();
+    expect(push).not.toHaveBeenCalled();
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
@@ -204,7 +206,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
 
     render(<InterviewStudioHome initialTab="history" />);
 
-    const history = await screen.findByRole("region", { name: "历史访谈" });
+    const history = await screen.findByRole("tabpanel", { name: "历史访谈" });
     expect(within(history).getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed")).map((button) => button.textContent)).toEqual(["全部标签", "采购", "德国"]);
   });
 
@@ -314,7 +316,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(tagInput).toBeEnabled();
     fireEvent.click(within(dialog).getByTestId("itv-create-submit"));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/itv/${created.interviewId}/setup`));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/itv/${created.interviewId}/intake`));
     const createRequest = vi.mocked(fetch).mock.calls.find(([input, init]) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       return (init?.method ?? "GET") === "POST" && url.pathname === "/interviews/digital";
@@ -486,7 +488,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
 
   it("切到专家列表后消费正式专家目录，不注入 Mock persona", async () => {
     render(<InterviewStudioHome initialTab="history" />);
-    fireEvent.click(screen.getByTestId("itv-tab-experts"));
+    fireEvent.mouseDown(screen.getByTestId("itv-tab-experts"), { button: 0, ctrlKey: false });
     const card = await screen.findByTestId(`itv-expert-card-${catalogExpert.expertId}`);
     expect(within(card).getByText(catalogExpert.displayName)).toBeInTheDocument();
     expect(within(card).getByText(catalogExpert.role)).toBeInTheDocument();
@@ -516,10 +518,45 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(await screen.findByTestId(`itv-history-card-${draft.interviewId}`)).toBeInTheDocument();
   });
 
+  it("专家加载失败可重试且不泄露内部错误码", async () => {
+    const existing = vi.mocked(fetch).getMockImplementation()!;
+    let failed = false;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).includes("/interviews/digital/experts") && !failed) { failed = true; return json({ reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503); }
+      return existing(input, init);
+    });
+    render(<InterviewStudioHome initialTab="experts" />);
+    const error = await screen.findByTestId("itv-experts-error");
+    expect(error).toHaveTextContent("暂时无法加载专家");
+    expect(error).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    fireEvent.click(screen.getByRole("button", { name: "重新加载专家" }));
+    expect(await screen.findByTestId(`itv-expert-card-${catalogExpert.expertId}`)).toBeVisible();
+  });
+
   it("依赖失败显示错误，不伪装成空列表", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503));
     render(<InterviewStudioHome initialTab="history" />);
-    await waitFor(() => expect(screen.getByTestId("itv-history-error")).toHaveTextContent("DEPENDENCY_UNAVAILABLE"));
+    await waitFor(() => expect(screen.getByTestId("itv-history-error")).toHaveTextContent("暂时无法加载访谈"));
     expect(screen.queryByTestId("itv-history-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId("itv-history-error")).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    fireEvent.click(screen.getByRole("button", { name: "重新加载访谈" }));
+    expect(await screen.findByTestId("itv-history-card-itv-1")).toBeVisible();
+  });
+
+  it("首次使用提供主操作，筛选无结果可恢复全部访谈", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
+    const view = render(<InterviewStudioHome />);
+    const empty = await screen.findByTestId("itv-history-empty");
+    expect(empty).toHaveTextContent("还没有访谈");
+    expect(within(empty).getByRole("button", { name: "新建访谈" })).toHaveClass("bg-primary");
+    expect(screen.getByText("共 0 次访谈")).toBeVisible();
+    view.unmount();
+    render(<InterviewStudioHome />);
+    await screen.findByTestId("itv-history-card-itv-1");
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索访谈" }), { target: { value: "没有匹配项" } });
+    expect(screen.getByTestId("itv-history-empty")).toHaveTextContent("没有符合条件");
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByTestId("itv-history-card-itv-1")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "搜索访谈" })).toHaveValue("");
   });
 });

@@ -348,7 +348,9 @@ async function autoTitleFromFirstMessage(
   // 「首条消息起名」那条路径逐字不变。第 2 档起才去取会话摘要。
   let evidence: string | null;
   if (plan.stage <= 1) {
-    evidence = isLowInformation(input.text) ? null : input.text;
+    // 控制标记（`[start_workflow:W029]` 之类）不是话题：剥掉后才判信息量、才交给模型。
+    const topic = C.stripControlMarkers(input.text);
+    evidence = topic === "" || isLowInformation(topic) ? null : topic;
   } else {
     try {
       const rows = await deps.chat.readTitleEvidence(input.orgId, input.threadId, plan.recentHumanLimit);

@@ -1,0 +1,15 @@
+{
+  "runId": "run-9",
+  "renewals": {
+    "C-7": {
+      "contractId": "C-7",
+      "verdict": "at-risk",
+      "verdictTriggers": [
+        "open-escalation",
+        "signer-changed"
+      ],
+      "actionBy": "2026-11-15"
+    }
+  },
+  "note": "S033 输出桩"
+}

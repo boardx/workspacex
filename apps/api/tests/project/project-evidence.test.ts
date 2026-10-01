@@ -33,7 +33,7 @@ import { FakeDecisionIds, FakeRoleViewRepository } from "../support/role-view-fa
 const ORG = toOrgId("org-b3t1");
 const PROJECT = "p-b3t1";
 const ZERO_COUNTS: Record<ProjectEvidenceSourceKind, number> = {
-  chat_message: 0, attachment: 0, survey_response: 0, interview_segment: 0, transcript_segment: 0, research_source: 0,
+  chat_message: 0, attachment: 0, survey_response: 0, interview_segment: 0, transcript_segment: 0, research_source: 0, whiteboard_note: 0,
 };
 
 const row = (id: string, sourceKind: ProjectEvidenceSourceKind = "survey_response"): ProjectEvidenceRow => ({
@@ -148,6 +148,7 @@ function sources(): ProjectEvidenceSourcePort {
       sessionId: "g1", title: "储能政策研究",
       sources: [{ sourceId: "src1", title: "发改委通知", url: "https://x", summary: "2026 起并网补贴退坡" }],
     }]),
+    whiteboardsOf: async () => guard(ref, []),
     chatThreadProject: async () => null,
   };
 }

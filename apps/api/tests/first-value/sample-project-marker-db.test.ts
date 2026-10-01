@@ -45,14 +45,14 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetOrgs(ORG, ORG_B);
-  await seedOrg({ orgId: ORG, projectId: SAMPLE_PRJ, projectKind: "research_project", groupNames: [] });
+  await seedOrg({ orgId: ORG, projectId: SAMPLE_PRJ, projectKind: "general", groupNames: [] });
   await asApp(ORG, async (c) => {
-    await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'research_project')", [OWN_PRJ, ORG, "own"]);
-    await c.query("INSERT INTO research_projects (id, org_id) VALUES ($1, $2)", [OWN_PRJ, ORG]);
+    await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'general')", [OWN_PRJ, ORG, "own"]);
+    await c.query("INSERT INTO general_projects (id, org_id) VALUES ($1, $2)", [OWN_PRJ, ORG]);
     // 反例素材：用户给自己的项目打上同名标签——判据不能看标签。
     await c.query("INSERT INTO project_tags (project_id, org_id, tag) VALUES ($1, $2, $3)", [OWN_PRJ, ORG, SAMPLE_PROJECT_TAG]);
   });
-  await seedOrg({ orgId: ORG_B, projectId: B_SAMPLE_PRJ, projectKind: "research_project", groupNames: [] });
+  await seedOrg({ orgId: ORG_B, projectId: B_SAMPLE_PRJ, projectKind: "general", groupNames: [] });
   await addArtifact({ orgId: ORG, id: "i4245-art-sample", projectId: SAMPLE_PRJ });
   await addArtifact({ orgId: ORG, id: "i4245-art-own", projectId: OWN_PRJ });
   await addArtifact({ orgId: ORG, id: "i4245-art-loose", projectId: null });

@@ -72,7 +72,7 @@ export function AdminScreen({
 
       {liveBacked ? null : (noticeOverride ?? <SampleConfigNotice />)}
 
-      <StatePreviewSwitcher current={state} />
+      {!liveBacked && <StatePreviewSwitcher current={state} />}
 
       <StateShell
         state={state}

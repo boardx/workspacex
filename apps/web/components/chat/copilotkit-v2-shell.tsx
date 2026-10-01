@@ -1,6 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
+import { handoffDraftText, type HandoffView } from "@/lib/agent-handoff";
+import { seedComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
+import { displayThreadTitle } from "@/lib/thread-title-display";
+import { useOptionalCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
@@ -12,10 +17,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { ProjectChatContextBar } from "@/components/chat/project-chat-context-bar";
 import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
-import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { Input } from "@/components/ui/input";
 import {
   deleteThread, getAgentPanel, getThread,
@@ -70,7 +75,7 @@ import { useReportShellBusy } from "@/lib/shell-busy";
  *
  * ## 项目线程录音归档
  *
- * 项目线程已统一进入此壳；body 的 ProjectRecordingPanel 复用既有持久录音链路。
+ * 项目线程已统一进入此壳；顶部挂 ProjectChatContextBar（返回项目 + 项目名）；不再挂独立「会话录音」面板（#4744），录音只走 composer 的「语音」。
  * 个人线程缺少项目授权矩阵/保留期上下文，因此不提供该入口。
  *
  * ## issue #2053 CK-P8 的读侧接通了，写侧的缺口一并登记
@@ -863,6 +868,20 @@ export function CopilotKitV2Shell({
     pushThreadRoute(threadId);
   }, [applyThreadSelection, pushThreadRoute]);
 
+  /* AG07：handoff 卡片——一轮对话有动静后重读；确认转交后切到接收方新线程并选中目标 Agent。 */
+  const [handoffRefreshKey, setHandoffRefreshKey] = React.useState(0);
+  const agentSelection = useOptionalCopilotKitV2AgentSelection();
+  const selectHandoffAgent = agentSelection?.setSelectedAgentId;
+  const draftOrgId = session?.currentOrgId ?? null;
+  const draftUserId = session?.userId ?? null;
+  const openHandoffThread = React.useCallback((result: { newThreadId: string; targetAgentId: string }, view?: HandoffView) => {
+    // UIUX r1 屏 4 P0-3：新线程不是空白——交接包摘要预填成首条消息草稿（接收方不自动开跑，发不发由用户定）。
+    if (view) seedComposerDraft({ orgId: draftOrgId, userId: draftUserId, projectId, threadId: result.newThreadId }, handoffDraftText(view));
+    selectHandoffAgent?.(result.targetAgentId);
+    void reloadThreads();
+    selectThread(result.newThreadId);
+  }, [reloadThreads, selectHandoffAgent, selectThread, draftOrgId, draftUserId, projectId]);
+
   /**
    * `copilotkit-v2-panel.tsx` 把这次调用挂在 `onThreadResolved` —— 见该文件新增的
    * prop。只在 URL 尚未带真实 id 时才需要写地址栏（`selectedThreadId === null`，
@@ -1049,7 +1068,6 @@ export function CopilotKitV2Shell({
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
   const [uploadingMaterialsCount, setUploadingMaterialsCount] = React.useState(0);
-  const [planStepActions, setPlanStepActions] = React.useState<ReadonlyMap<string, readonly PlanStepAction[]>>(() => new Map());
 
   /**
    * 向壳层登记「这条会话有活在跑」。壳层切换组织之前要回答「切走会怎样」，
@@ -1124,7 +1142,7 @@ export function CopilotKitV2Shell({
             起，铃铛不在这里了——它挂在全局图标导航栏底部（`components/shell/rail-notifications.tsx`）。
             铃铛顺带承担的「对话列表保鲜」那半边留在本文件：它属于聊天外壳，不该跟着搬走。 */}
         <div className="flex flex-col gap-1.5 px-3">
-          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
+          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="新建对话" />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
               现在与 `mutateFailure`（改名/删除失败）同一套呈现纪律，就地印一行红字。 */}
           {createFailure ? (
@@ -1132,7 +1150,7 @@ export function CopilotKitV2Shell({
           ) : null}
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
-          <p className="text-10 text-muted-foreground">{projectId ? "项目上下文，按对话权限可见" : "不挂靠任何项目，仅自己可见"}</p>
+          <p className="text-10 text-muted-foreground">{projectId ? "本项目的对话，按对话权限可见" : "不挂靠任何项目，仅自己可见"}</p>
           {/* issue #2075（TW-P2-6）—— 搜索。纯前端过滤已经在手的这份列表，
               理由见上面 `query` 声明处（契约里没有服务端查询参数）。 */}
           <Input
@@ -1250,6 +1268,7 @@ export function CopilotKitV2Shell({
         </div>
       </aside>
       <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", mobileListOpen ? "hidden md:flex" : "flex")}>
+        {projectId ? <ProjectChatContextBar projectId={projectId} orgId={currentOrgId} bearer={bearer} /> : null}
         {/*
           2026-09-03（对照设计参照图补的缺口）—— 轻量顶部信息条：当前会话标题 +
           「仅自己可见」隐私提示。此前 `/chat` v2 整条路由 `hideTopBar`，用户切换
@@ -1261,19 +1280,19 @@ export function CopilotKitV2Shell({
             或还没建线程时不渲染标题、只显示隐私提示，不编一个假标题。
         */}
         <div
-          className="flex min-h-0 shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2"
+          className="flex min-h-0 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-6 py-3"
           data-testid="copilotkit-v2-thread-topbar"
         >
           <span
-            className="min-w-0 truncate text-13 font-medium text-card-foreground"
+            className="min-w-0 truncate text-16 font-semibold text-card-foreground"
             data-testid="copilotkit-v2-thread-topbar-title"
           >
             {selectedThreadId === null
               ? (projectId ? "项目对话" : "个人对话")
-              : cards.find((card) => card.id === selectedThreadId)?.title ?? (projectId ? "项目对话" : "个人对话")}
+              : displayThreadTitle(cards.find((card) => card.id === selectedThreadId)?.title) ?? (projectId ? "项目对话" : "个人对话")}
           </span>
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
             data-testid="copilotkit-v2-thread-topbar-visibility"
           >
             <Lock aria-hidden className="h-2.5 w-2.5" />
@@ -1295,6 +1314,14 @@ export function CopilotKitV2Shell({
             这层补 `min-h-0 flex-1` 让面板继续占满剩余高度，不然 flex-col 默认按
             内容撑高，消息区会失去可滚动的固定高度。 */}
         <div className="min-h-0 flex-1">
+        {/* AG07 handoff 卡片经 context 进消息流（Agent 的一条消息），不再钉在线程头下（UIUX r1 屏 4 P0-1）。 */}
+        <ChatHandoffStream
+          threadId={selectedThreadId}
+          sessionToken={bearer ?? undefined}
+          refreshKey={handoffRefreshKey}
+          onOpenThread={openHandoffThread}
+          onOpenSourceThread={selectThread}
+        >
         {/* issue #4244：助手消息引用来自同一次 `getThread`（`onMessageSent` 会重读）。 */}
         <ThreadCitationsProvider messages={threadDetail?.messages}>
         <CopilotKitV2Panel
@@ -1314,6 +1341,7 @@ export function CopilotKitV2Shell({
           onMessageSent={() => {
             void loadRightPanel();
             void reloadThreads();
+            setHandoffRefreshKey((n) => n + 1);
           }}
           /* issue #2050 —— 落地成功后重读右栏「产物」，让新产物真的出现在栏里。 */
           onArtifactLanded={() => void loadRightPanel()}
@@ -1322,7 +1350,6 @@ export function CopilotKitV2Shell({
           onRunStateChange={setRunState}
           onPendingMaterialsChange={setPendingMaterialsCount}
           onUploadingMaterialsChange={setUploadingMaterialsCount}
-          onPlanStepActionsChange={setPlanStepActions}
           /* issue #3347 —— 右栏「材料」页签的上传入口（点击 + 拖拽）要用的正是
              composer 那一个（同一个）附件控制器。面板把它的最小能力面上报到这里，外壳
              原样转给 `ChatTaskInspector`；外壳不自己 `useChatAttachments`——那会造出
@@ -1335,6 +1362,7 @@ export function CopilotKitV2Shell({
           canGeneratePersona={canGeneratePersona}
         />
         </ThreadCitationsProvider>
+        </ChatHandoffStream>
         </div>
       </div>
       {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态
@@ -1361,7 +1389,6 @@ export function CopilotKitV2Shell({
         onOpenArtifact={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
         pendingMaterialsCount={pendingMaterialsCount}
         uploadingMaterialsCount={uploadingMaterialsCount}
-        planStepActions={planStepActions}
         attachUploadPort={attachUploadPort}
         /* issue #3347 —— 只读/归档时上传入口禁用并写出理由，理由与 composer 底部
            那行同源（`canWriteThread`/`archived`）。服务端本就按 `composer.send` 能力

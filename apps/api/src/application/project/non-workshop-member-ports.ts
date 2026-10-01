@@ -1,9 +1,9 @@
 /**
- * 项目中枢 B3-T5（#4499）—— 研究项目 / 用户洞察两类容器成员表的仓储端口。
+ * 项目中枢 B3-T5（#4499）—— 非工作坊容器（#4615 起只有 `general`）成员表的仓储端口。
  *
  * ⚠ **故意不是 `ProjectMembershipRepository`（F125）的又一组方法**：那边写的是 `project_memberships`
- *   （工作坊四角色 + host + 分组），这边是 `research_project_members` / `user_insight_members`
- *   （两档、无 host、无分组、按 `projects.kind` 分派到两张表）。形状不同、表不同、判定不同，
+ *   （工作坊四角色 + host + 分组），这边是 `general_project_members`
+ *   （两档、无 host、无分组、按 `projects.kind` 分派成员表）。形状不同、表不同、判定不同，
  *   混进同一个接口只会让互不相关的断言绑在一起（同 `member-ports.ts` 文件头对 F117/F124 的理由）。
  *
  * ## 名单读侧交 `Guarded<T>`

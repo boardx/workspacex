@@ -623,7 +623,7 @@ export function compileSurveyReport(
       total: responses.length,
       pendingReview: responses.filter((response) => response.quality === "review").length,
       excluded: responses.filter((response) => response.analysis === "excluded").length,
-      included: responses.filter((response) => response.analysis !== "excluded").length,
+      included: responses.filter((response) => response.analysis !== "excluded" && response.quality === "normal").length,
     },
     warnings: sections.flatMap((section) =>
       section.blocks.flatMap((block) =>

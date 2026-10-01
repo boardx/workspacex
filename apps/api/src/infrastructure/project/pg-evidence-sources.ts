@@ -6,8 +6,12 @@
  *     `title / questions / publication.questions / responses`），答卷与题目都住在 jsonb 里，整份取出在应用层展开。
  *   · 个人转写：`project_resource_links (kind='personal_transcription')` → `personal_transcriptions`
  *     → `recording_sessions (source_type='personal', source_ref_id=转写 id)` → `recording_segments (status='final')`。
- *   · 访谈：`interview_sessions.project_id` → 同上的录音链（`source_type='interview'`）+ `interview_quotes`
+ *   · 访谈：`INTERVIEW_IN_PROJECT`（#4615：链接行优先，否则 `interview_sessions.project_id`；与资源视图同一个常量）
+ *     → 同上的录音链（`source_type='interview'`）+ `interview_quotes`
  *     （纪要引述，`subject_id` → `interview_subjects.display_name` 作说话人）。
+ *   · 白板（#4615）：`project_resource_links (kind='whiteboard')` → `whiteboards` + `whiteboard_documents.snapshot`
+ *     （Yjs 快照，经白板存储用的同一个校验器 `objects()` 在一次性 worker 里解码——不在主线程里碰二进制更新），
+ *     只取活着的 `sticky` / `text` 对象。
  *   · 深研：`project_resource_links (kind='guided_research')` → `guided_research_sessions` +
  *     `guided_research_runtime.state->'sources'`（`GuidedResearchSource[]`，只取 `decision='accepted'`）。
  *
@@ -24,7 +28,11 @@ import type {
   SurveySourceDoc,
   TranscriptSegmentSource,
   TranscriptionSourceDoc,
+  WhiteboardSourceDoc,
 } from "../../application/project/collect-evidence/ports";
+import type { WhiteboardUpdateValidator } from "../../application/whiteboard/collaboration-ports";
+import { WorkerWhiteboardUpdateValidator } from "../whiteboard/update-validator";
+import { INTERVIEW_IN_PROJECT, INTERVIEW_LINK_JOIN } from "./pg-project-resource-repository";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
 
@@ -93,8 +101,26 @@ const SEGMENTS_SQL = `
    WHERE rs.org_id = $1 AND rs.source_type = $2 AND rs.source_ref_id = ANY($3::text[]) AND seg.status = 'final'
    ORDER BY rs.source_ref_id, rs.started_at, rs.id, seg.ordinal`;
 
+/** 白板上能当证据的对象种类（便签 / 文本块）。 */
+const NOTE_KINDS: ReadonlySet<string> = new Set(["sticky", "text"]);
+
+/** 解码出的白板对象 → 端口形状：按白板上的顺序（`readObjects` 已按 orderKey 排好）编号，空白跳过。 */
+export function projectWhiteboardNotes(
+  objects: readonly { id: string; kind: string; text: string; hidden?: boolean }[],
+): WhiteboardSourceDoc["notes"] {
+  const notes: WhiteboardSourceDoc["notes"][number][] = [];
+  for (const o of objects) {
+    if (!NOTE_KINDS.has(o.kind) || o.hidden === true || o.text.trim() === "") continue;
+    notes.push({ objectId: o.id, kind: o.kind as "sticky" | "text", text: o.text, ordinal: notes.length + 1, authorLabel: null });
+  }
+  return notes;
+}
+
 export class PgEvidenceSources implements ProjectEvidenceSourcePort {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly whiteboardDecoder: Pick<WhiteboardUpdateValidator, "objects"> = new WorkerWhiteboardUpdateValidator(),
+  ) {}
 
   async surveysOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly SurveySourceDoc[]>> {
     const ref = { kind: "project" as const, id: projectId };
@@ -142,7 +168,8 @@ export class PgEvidenceSources implements ProjectEvidenceSourcePort {
     return this.db.withTenant(orgId, async (s) => {
       const heads = await s.query<{ id: string; title: string }>(
         `SELECT i.id, i.title FROM interview_sessions i
-          WHERE i.org_id = $1 AND i.project_id = $2
+           ${INTERVIEW_LINK_JOIN}
+          WHERE i.org_id = $1 AND ${INTERVIEW_IN_PROJECT}
           ORDER BY i.created_at, i.id`,
         [orgId, projectId],
       );
@@ -210,6 +237,30 @@ export class PgEvidenceSources implements ProjectEvidenceSourcePort {
         })),
       );
     });
+  }
+
+  async whiteboardsOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly WhiteboardSourceDoc[]>> {
+    const ref = { kind: "project" as const, id: projectId };
+    const rows = await this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ id: string; name: string; snapshot: Buffer | null }>(
+        `SELECT w.id::text AS id, w.name, d.snapshot
+           FROM project_resource_links l
+           JOIN whiteboards w ON w.org_id = l.org_id AND w.id::text = l.resource_id
+           LEFT JOIN whiteboard_documents d ON d.org_id = w.org_id AND d.board_id = w.id
+          WHERE l.org_id = $1 AND l.project_id = $2 AND l.kind = 'whiteboard'
+          ORDER BY l.linked_at, w.id`,
+        [orgId, projectId],
+      );
+      return r.rows;
+    });
+    // 解码在事务之外做（worker 往返不占着数据库连接）；快照是已提交的那一份。
+    const docs: WhiteboardSourceDoc[] = [];
+    for (const row of rows) {
+      const snapshot = row.snapshot === null ? null : new Uint8Array(row.snapshot);
+      const objects = snapshot === null || snapshot.byteLength === 0 ? [] : await this.whiteboardDecoder.objects(snapshot);
+      docs.push({ boardId: row.id, title: row.name, notes: projectWhiteboardNotes(objects) });
+    }
+    return guard(ref, docs);
   }
 
   async chatThreadProject(orgId: OrgId, threadId: string): Promise<{ readonly projectId: string; readonly title: string } | null> {

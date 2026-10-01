@@ -20,6 +20,6 @@ it("does not offer a no-op search when all tasks and reading metadata are comple
   state.sources = state.sources.map((source) => ({ ...source, presentation: { title: "政策资料", summary: "政策的适用范围。" } }));
   vi.mocked(getResearchRuntime).mockResolvedValue(state);
   render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-  await screen.findByTestId("research-sources");
+  await screen.findByTestId("guided-research-source-evidence");
   expect(screen.queryByRole("button", { name: /搜索资料|继续搜索|更新资料|补充搜索/ })).not.toBeInTheDocument();
 });

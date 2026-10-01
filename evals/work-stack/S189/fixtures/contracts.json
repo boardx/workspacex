@@ -1,0 +1,13 @@
+{
+  "contracts": [
+    {
+      "contractId": "C-100",
+      "accountRef": "A-7",
+      "arr": {
+        "amount": 800000,
+        "currency": "USD"
+      },
+      "sourceRecordRef": "rec-contract-C-100"
+    }
+  ]
+}

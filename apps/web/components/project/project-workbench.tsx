@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useOptionalSession } from "@/components/session/session-provider";
 import { ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -9,9 +10,10 @@ import { OrgDisabledBanner } from "./parts";
 import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import type { Identity } from "@/lib/identity";
 import {
-  TAB_DEFS, TAB_LABEL, SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
-  ROLE_BADGE_TONE, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
-  orgDisabledBanner, type ProjectTab, type ProjectRole,
+  SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
+  ROLE_BADGE_TONE, PROJECT_ROLE_LABEL, PROJECT_ROLES,
+  orgDisabledBanner, tabDefsForKind, resolveTabForKind, tabLabelForKind,
+  type ProjectTab, type ProjectRole, type ProjectContainerKind,
 } from "@/lib/project-workbench";
 import { getStoredSessionToken, ApiError } from "@/lib/api-client";
 import {
@@ -33,6 +35,9 @@ import { TabTodo } from "./tab-todo";
 import { TabResearch } from "./tab-research";
 import { TabPrep } from "./tab-prep";
 import { TabSettings } from "./tab-settings";
+import { TabGeneralOverview } from "./tab-general-overview";
+import { ProjectContent } from "./project-content";
+import { TabBrain } from "./tab-brain";
 
 /**
  * 项目工作台（project 域主编排 · Layout B / 原型 wsDetailView 的 React 转译）。
@@ -145,21 +150,31 @@ export function ProjectWorkbench({
   const [liveOverview, setLiveOverview] = React.useState<ProjectOverview | null>(null);
   const [liveOverviewLoading, setLiveOverviewLoading] = React.useState(false);
   const [liveOverviewError, setLiveOverviewError] = React.useState<string | null>(null);
+  /**
+   * 首次 overview 请求是否已落定（成功 / 失败 / 没有会话可发）。种类（`kind`）来自它：落定前种类未知，
+   * 工作台按工作坊渲染 tab 条；但**工作坊专属 tab 的内容**要等它落定再挂——否则通用项目上的 `?tab=todo`
+   * 会先挂 `TabTodo`，打出一次工作坊看板请求（`GET /tasks` → 403 NO_PROJECT_ROLE），随后才落回概览。
+   */
+  const [overviewSettled, setOverviewSettled] = React.useState(false);
+  const [overviewReloadKey, setOverviewReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     if (!projectId) {
       setLiveOverview(null);
       setLiveOverviewError(null);
+      setOverviewSettled(true);
       return;
     }
     const token = getStoredSessionToken();
     if (!token) {
       setLiveOverview(null);
       setLiveOverviewError(null);
+      setOverviewSettled(true);
       return;
     }
     let cancelled = false;
     setLiveOverviewLoading(true);
+    setOverviewSettled(false);
     setLiveOverviewError(null);
     getProjectOverview(projectId)
       .then((o) => {
@@ -171,12 +186,15 @@ export function ProjectWorkbench({
         }
       })
       .finally(() => {
-        if (!cancelled) setLiveOverviewLoading(false);
+        if (!cancelled) {
+          setLiveOverviewLoading(false);
+          setOverviewSettled(true);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, overviewReloadKey]);
 
   /**
    * 项目中枢 R1 —— 项目是必须受邀才能进的容器：`getProjectOverview` 在服务端按
@@ -187,6 +205,42 @@ export function ProjectWorkbench({
    */
   const accessDenied =
     liveOverviewError === "NO_PROJECT_ROLE" || liveOverviewError === "ADMIN_NOT_SUPERUSER";
+
+  /**
+   * 页头的项目名/类型/状态：优先用 `getProjectOverview`（不依赖 `?org=`，服务端按
+   * principal 取 org），其次才是带 `?org=` 时的 `findProject`。两者字段同源
+   * （`projects` 表同一行），这里只是取「先到的那份」。
+   */
+  const headerProject: { name: string; kind: ProjectListItem["kind"]; status: ProjectListItem["status"] } | null =
+    liveOverview ? { name: liveOverview.name, kind: liveOverview.kind, status: liveOverview.status } : liveProject;
+
+  /**
+   * #4615：每种容器一份显式的 tab 清单（工作坊 7 个；通用项目 概览 / 内容 / 大脑 / 成果 / 设置），
+   * 唯一事实源是 `lib/project-workbench.ts` 的 `TAB_DEFS_BY_KIND`；另一种容器的 tab 键经别名表映射
+   * （通用项目的 `?tab=research&sub=…` ⇒ 内容 / 大脑），映射不到落回概览。
+   * 种类未知（还没读到）时按工作坊渲染，同设置页的处置。
+   */
+  const projectKind = headerProject?.kind ?? null;
+  const tabDefs = tabDefsForKind(projectKind);
+  const shownTab = resolveTabForKind(tab, projectKind, sub);
+  /** 种类未落定时不挂通用项目没有的 tab 内容（见 `overviewSettled` 注释）。 */
+  /**
+   * #4743：四个工作坊角色名（引导师/组长/组员/观察者）只属于工作坊——通用项目里不出视角切换器、
+   * 角色说明条、角色专属按钮。种类未落定前也先不画（免得通用项目先闪一下再消失）；落定后仍未知
+   * （读不到 overview）按工作坊渲染，同上面 tab 清单的处置。
+   */
+  /**
+   * UIUX R4：overview 读取**失败**（网络 / 5xx）且种类未知时，不能假装是工作坊——此前会掉进工作坊壳
+   * （视角切换器、「引导师视角」、研究洞察 / 现场协作等 tab），通用项目的一次偶发故障看起来像换了个产品。
+   * 这时只给一个说清楚的失败面板 + 重试；访问受限（403）走上面的 `accessDenied`，不在此列。
+   */
+  const loadFailed = projectKind === null && liveOverviewError !== null && !accessDenied;
+  const showWorkshopRoles = !loadFailed && (projectKind === "workshop" || (projectKind === null && overviewSettled));
+  // UIUX R4：种类落定前所有 tab 都先给骨架——此前通用 tab（概览 / 内容 / 大脑…）会先闪出工作坊概览
+  // 的占位卡（「当前没有进行中的环节」「真实数据 / 请先登录」），再整页换成通用概览。
+  const kindPending = projectKind === null && !overviewSettled;
+  /** 各 tab 专属拉取用的 tab：种类未落定时不为工作坊专属 tab 发请求（同上，通用项目会 403）。 */
+  const fetchTab: ProjectTab | null = kindPending ? null : shownTab;
 
   /**
    * #853 —— 项目筹备 tab 专用的真实议程环节列表（`GET /workshops/:workshopId/
@@ -216,7 +270,7 @@ export function ProjectWorkbench({
   React.useEffect(() => {
     // F963：现场协作主持台状态条同一份真实数据（当前进行中环节），同「筹备」tab
     // 共用一次拉取，不重复声明第二份 state。
-    if (!projectId || (tab !== "prep" && tab !== "live")) {
+    if (!projectId || (fetchTab !== "prep" && fetchTab !== "live")) {
       setLiveSegments(null);
       setLiveSegmentsError(null);
       return;
@@ -228,7 +282,7 @@ export function ProjectWorkbench({
     }
     refreshSegments();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshSegments 只依赖 projectId，随它一起重建
-  }, [projectId, tab]);
+  }, [projectId, fetchTab]);
 
   /**
    * F950（2026-08-16 delta）—— 项目筹备 tab 的定题/分组，与上面 `liveSegments` 同一套
@@ -275,12 +329,12 @@ export function ProjectWorkbench({
    * F02（phase-10 viewer-role 束）—— `tab-live.tsx` 视角切换器的服务端权威数据源。
    * **不复用** `liveGrouping`（那份数据服务 `tab-prep.tsx` 的全量分组视图，见
    * `get-project-grouping.ts` 头注）；这里打独立端点 `getViewerOptions`，只在
-   * `tab === "live"` 时拉取。
+   * `shownTab === "live"` 时拉取。
    */
   const [liveViewerOptions, setLiveViewerOptions] = React.useState<ViewerOptionsOut | null>(null);
 
   React.useEffect(() => {
-    if (!projectId || tab !== "live" || !getStoredSessionToken()) {
+    if (!projectId || fetchTab !== "live" || !getStoredSessionToken()) {
       setLiveViewerOptions(null);
       return;
     }
@@ -289,24 +343,24 @@ export function ProjectWorkbench({
       .then((out) => { if (live) setLiveViewerOptions(out); })
       .catch(() => { if (live) setLiveViewerOptions(null); });
     return () => { live = false; };
-  }, [projectId, tab]);
+  }, [projectId, fetchTab]);
 
   React.useEffect(() => {
-    const needsGrouping = tab === "prep" || tab === "live";
+    const needsGrouping = fetchTab === "prep" || fetchTab === "live";
     if (!projectId || !needsGrouping || !getStoredSessionToken()) {
       setLiveGrouping(null);
       setLiveGroupingError(null);
     } else {
       refreshGrouping();
     }
-    if (!projectId || tab !== "prep" || !getStoredSessionToken()) {
+    if (!projectId || fetchTab !== "prep" || !getStoredSessionToken()) {
       setLiveTopic(null);
       setLiveTopicError(null);
       return;
     }
     refreshTopic();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId/tab，随它们一起重建
-  }, [projectId, tab]);
+  }, [projectId, fetchTab]);
 
   /**
    * F05（phase-10 group-checkin 束）—— 「分组与签到」聚合视图的真实数据源，只在
@@ -332,14 +386,14 @@ export function ProjectWorkbench({
   }, [projectId]);
 
   React.useEffect(() => {
-    if (!projectId || tab !== "live" || !getStoredSessionToken()) {
+    if (!projectId || fetchTab !== "live" || !getStoredSessionToken()) {
       setLiveCheckin(null);
       setLiveCheckinError(null);
       return;
     }
     refreshCheckin();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只依赖 projectId/tab，随它们一起重建
-  }, [projectId, tab]);
+  }, [projectId, fetchTab]);
 
   /**
    * F964 —— 「成果沉淀 · 审计与反馈」区的真实 `queryProvenance`，按
@@ -348,12 +402,16 @@ export function ProjectWorkbench({
    * 是必填字段，服务端不会替这条读路径从 principal 推断组织；没有 `?org=` 或未登录时
    * 保持 `null`，`TabResults` 据此显示诚实的「暂无真实数据」而不是空转（同 F353 纪律）。
    */
+  // 审计只读本项目的事件，链接没带 `?org=`（直接输入 / 收藏 / 邀请落地后跳转）时用当前会话所在的组织，
+  // 不再把它误报成「没登录」。项目基本信息（findProject）仍只认 `?org=`：不带时不发那次请求，避免非成员 403。
+  const sessionOrg = useOptionalSession()?.session?.currentOrgId;
+  const queryOrg = qs.org ?? sessionOrg;
   const [liveAudit, setLiveAudit] = React.useState<QueryProvenanceOut | null>(null);
   const [liveAuditLoading, setLiveAuditLoading] = React.useState(false);
   const [liveAuditError, setLiveAuditError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!projectId || tab !== "results" || !qs.org) {
+    if (!projectId || shownTab !== "results" || !queryOrg) {
       setLiveAudit(null);
       setLiveAuditError(null);
       return;
@@ -367,7 +425,7 @@ export function ProjectWorkbench({
     let cancelled = false;
     setLiveAuditLoading(true);
     setLiveAuditError(null);
-    queryProvenance(qs.org, 50, { targetKind: "project", targetId: projectId })
+    queryProvenance(queryOrg, 50, { targetKind: "project", targetId: projectId })
       .then((out) => {
         if (!cancelled) setLiveAudit(out);
       })
@@ -382,13 +440,13 @@ export function ProjectWorkbench({
     return () => {
       cancelled = true;
     };
-  }, [projectId, tab, qs.org]);
+  }, [projectId, shownTab, queryOrg]);
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
     if (qs.org) p.set("org", qs.org);
     if (orgDisabled) p.set("orgState", "disabled");
-    const t = o.tab ?? tab; if (t && t !== "overview") p.set("tab", t);
+    const t = o.tab ?? shownTab; if (t && t !== "overview") p.set("tab", t);
     const as = o.as ?? view; if (as) p.set("as", as);
     const st = o.state ?? uiState; if (st && st !== "default") p.set("state", st);
     const sb = "sub" in o ? o.sub : sub; if (sb) p.set("sub", sb);
@@ -396,30 +454,26 @@ export function ProjectWorkbench({
     return s ? `?${s}` : "?";
   };
 
-  const subNav = accessDenied ? undefined : SUB_NAV[tab];
-
-  /**
-   * 页头的项目名/类型/状态：优先用 `getProjectOverview`（不依赖 `?org=`，服务端按
-   * principal 取 org），其次才是带 `?org=` 时的 `findProject`。两者字段同源
-   * （`projects` 表同一行），这里只是取「先到的那份」。
-   */
-  const headerProject: { name: string; kind: ProjectListItem["kind"]; status: ProjectListItem["status"] } | null =
-    liveOverview ? { name: liveOverview.name, kind: liveOverview.kind, status: liveOverview.status } : liveProject;
+  // 通用项目的「成果」等 tab 没有分页可切：此前仍画出工作坊的「洞察报告 / 结论与决策 / 产出物 / 行动项」
+  // 子导航，点哪个都还是同一页——假导航。只有工作坊（各子页真的不同）才出子导航。
+  const subNav = accessDenied || projectKind === "general" ? undefined : SUB_NAV[shownTab];
 
   return (
     // hideRoleSwitcher：工作台自带四视角切换器（project-role-switcher），顶栏让位不再出第二套
     <AppShell identity={identity} previewRole={null} hideRoleSwitcher>
       <div className="flex h-full min-h-0 flex-col bg-card" data-testid="project-workbench">
         {/* ── 项目头 ─────────────────────────────────────────── */}
-        <div className="shrink-0 border-b border-border px-6 pt-4">
+        <div className={showWorkshopRoles ? "shrink-0 border-b border-border px-6 pt-4" : "shrink-0 border-b border-border px-4 pt-3 sm:px-6 sm:pt-4"}>
+         {/* 通用项目：头部与正文同一列宽（max-w-5xl），不再头左贴边、正文居中两套对齐；工作坊保持全宽 */}
+         <div className={showWorkshopRoles ? undefined : "mx-auto w-full max-w-5xl sm:px-6"}>
           <div className="mb-3.5 flex flex-wrap items-start gap-3">
             <Button asChild size="sm" variant="outline" data-testid="project-back-to-list">
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
             </Button>
             <div className="min-w-0 flex-1">
-              <div className="text-14 font-medium" data-testid="project-title">
-                {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂不可用")}
-              </div>
+              <h1 className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
+                {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂时读不到")}
+              </h1>
               {headerProject && (
                 <div className="mt-1 flex flex-wrap items-center gap-2" data-testid="project-header-meta">
                   <Badge tone="outline">{PROJECT_KIND_LABEL[headerProject.kind]}</Badge>
@@ -428,6 +482,8 @@ export function ProjectWorkbench({
               )}
             </div>
 
+            {showWorkshopRoles && (
+              <>
             {/* 视角切换器（四档）—— 预览手段，生产不可达在 page 层控制 */}
             <div
               data-testid="project-role-switcher"
@@ -448,12 +504,19 @@ export function ProjectWorkbench({
             {view === "member" && canWrite && (
               <Button size="sm" variant="outline" data-testid="project-raise-hand">举手</Button>
             )}
+              </>
+            )}
           </div>
 
           {/* ── 主标签 ─────────────────────────────────────── */}
+          {loadFailed || (projectKind === null && !overviewSettled) ? (
+            <div className="flex h-9 items-center gap-4" data-testid="project-tabs-skeleton" aria-hidden>
+              {loadFailed ? null : [0, 1, 2, 3].map((i) => <span key={i} className="h-3 w-10 animate-pulse rounded bg-muted" />)}
+            </div>
+          ) : (
           <nav className="flex gap-1 overflow-x-auto" data-testid="project-tabs" aria-label="项目标签">
-            {TAB_DEFS.map((t) => {
-              const active = t.key === tab;
+            {tabDefs.map((t) => {
+              const active = t.key === shownTab;
               return (
                 <a
                   key={t.key}
@@ -471,8 +534,11 @@ export function ProjectWorkbench({
               );
             })}
           </nav>
+          )}
+         </div>
 
-          {/* ── 视角说明条 ─────────────────────────────────── */}
+          {/* ── 视角说明条（仅工作坊） ───────────────────────── */}
+          {showWorkshopRoles && (
           <div
             data-testid="project-role-scope-note"
             className="-mx-6 mt-0 flex flex-wrap items-center gap-2.5 border-t border-border bg-panel px-6 py-2"
@@ -484,10 +550,11 @@ export function ProjectWorkbench({
               : <span className="shrink-0 font-mono text-9 text-muted-foreground" data-testid="project-scope-readonly">只读</span>}
             {stageControl && <span className="shrink-0 font-mono text-9 text-primary" data-testid="project-scope-stage-control">全场控制</span>}
           </div>
+          )}
         </div>
 
         {/* ── 预览调试条（仅 dev） ───────────────────────────── */}
-        <PreviewBar href={href} uiState={uiState} tab={tab} view={view} orgDisabled={orgDisabled} qs={qs} />
+        {(!projectId || identity) && <PreviewBar href={href} uiState={uiState} tab={tab} tabDefs={tabDefs} view={view} orgDisabled={orgDisabled} qs={qs} />}
 
         {/* ── 主体：可选左子导航 + 内容 ─────────────────────── */}
         <div className="flex min-h-0 flex-1">
@@ -514,7 +581,8 @@ export function ProjectWorkbench({
             </aside>
           )}
 
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
+          {/* 外层 AppShell 已经有唯一的 <main>；这里再用 <main> 会造成嵌套 / 重复地标，读屏软件读不清 */}
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
             {orgDisabled && (
               <div className="p-6 pb-0">
                 <OrgDisabledBanner {...orgDisabledBanner(null)} />
@@ -522,11 +590,13 @@ export function ProjectWorkbench({
             )}
             {accessDenied ? (
               <ProjectAccessDenied code={liveOverviewError ?? ""} projectId={projectId ?? ""} />
+            ) : loadFailed ? (
+              <ProjectLoadFailed code={liveOverviewError ?? ""} busy={liveOverviewLoading} onRetry={() => setOverviewReloadKey((k) => k + 1)} />
             ) : (
             <StateShell
               state={uiState}
-              className="p-6"
-              emptyHint={`${TAB_LABEL[tab]}还没有内容——套用蓝本或从空白开始后，这里才会有结构。`}
+              className={showWorkshopRoles ? "p-6" : "p-0 sm:p-6"}
+              emptyHint={`${tabLabelForKind(shownTab, projectKind)}还没有内容——套用蓝本或从空白开始后，这里才会有结构。`}
               errors={{ 发布范围: "发布结论前必须绑定一个确定的产出版本（不能绑草稿）" }}
               depFailure={{ what: "转写 / 知识图谱服务暂时不可用；已排队，恢复后自动补齐。" }}
               denial={{
@@ -537,8 +607,14 @@ export function ProjectWorkbench({
               }}
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
-              {renderTab(
-                tab, view, sub, orgDisabled, projectId ?? "",
+              {kindPending ? (
+                <div className="flex flex-col gap-3" data-testid="project-tab-kind-pending" role="status" aria-label="读取项目中">
+                  <span className="h-20 animate-pulse rounded-lg bg-muted" />
+                  <span className="h-32 animate-pulse rounded-lg bg-muted" />
+                  <span className="h-24 animate-pulse rounded-lg bg-muted" />
+                </div>
+              ) : renderTab(
+                shownTab, projectKind, (t, sb) => href({ tab: t, sub: sb }), view, sub, orgDisabled, projectId ?? "",
                 liveProject, liveLoading, liveError,
                 liveOverview, liveOverviewLoading, liveOverviewError,
                 liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,
@@ -550,15 +626,36 @@ export function ProjectWorkbench({
               )}
             </StateShell>
             )}
-          </main>
+          </div>
         </div>
       </div>
     </AppShell>
   );
 }
 
+/** overview 读取失败（非 403）：说清楚发生了什么、能怎么办；原始码只作小字附注。 */
+function ProjectLoadFailed({ code, busy, onRetry }: { code: string; busy: boolean; onRetry: () => void }) {
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6" data-testid="project-load-failed" role="alert">
+      <h2 className="text-16 font-semibold">项目暂时打不开</h2>
+      <p className="text-12 leading-relaxed text-muted-foreground">
+        读取项目信息时出了问题，你的内容没有丢。请稍后重试；如果反复出现，请联系管理员。
+      </p>
+      <p className="font-mono text-11 text-muted-foreground">{code}</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="primary" disabled={busy} onClick={onRetry} data-testid="project-load-failed-retry">
+          {busy ? "重试中…" : "重试"}
+        </Button>
+        <Button asChild size="sm" variant="outline" data-testid="project-load-failed-back">
+          <a href="/projects">回到项目列表</a>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /**
- * 非成员打开项目：说清楚「这是受邀才能进的容器」，给出下一步（找引导师 / 组长邀请），
+ * 非成员打开项目：说清楚「这是受邀才能进的容器」，给出下一步（找项目负责人邀请），
  * 不渲染任何 tab 内容。两种 403 分别说明（项目层 / 组织层），原始码保留在文案末尾。
  */
 function ProjectAccessDenied({ code, projectId }: { code: string; projectId: string }) {
@@ -568,8 +665,8 @@ function ProjectAccessDenied({ code, projectId }: { code: string; projectId: str
       <h2 className="text-16 font-semibold">你还不在这个项目里</h2>
       <p className="text-12 leading-relaxed text-muted-foreground">
         {projectLayer
-          ? "项目是受邀才能进入的容器：只有被引导师或组长邀请并加入后，才能看到项目内的对话、材料与产出。请向项目的引导师或组长索取邀请。"
-          : "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户，或由项目引导师邀请你加入。"}
+          ? "项目是受邀才能进入的空间：只有被项目负责人加入后，才能看到项目内的对话、材料与产出。请向负责人索取邀请。"
+          : "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户，或由项目负责人邀请你加入。"}
       </p>
       <p className="font-mono text-10 text-muted-foreground">
         项目 {projectId} · {code}
@@ -585,6 +682,8 @@ function ProjectAccessDenied({ code, projectId }: { code: string; projectId: str
 
 function renderTab(
   tab: ProjectTab,
+  projectKind: ProjectContainerKind | null,
+  tabHref: (tab: string, sub?: string) => string,
   view: ProjectRole,
   sub: string | null,
   orgDisabled: boolean,
@@ -617,6 +716,9 @@ function renderTab(
 ) {
   switch (tab) {
     case "overview":
+      if (projectKind === "general") {
+        return <TabGeneralOverview projectId={projectId} liveOverview={liveOverview} tabHref={tabHref} />;
+      }
       return (
         <TabOverview
           view={view}
@@ -630,6 +732,8 @@ function renderTab(
           liveOverviewError={liveOverviewError}
         />
       );
+    case "content": return <ProjectContent projectId={projectId} canWrite={ROLE_CAN_WRITE[view] && !orgDisabled} sub={sub} />;
+    case "brain": return <TabBrain projectId={projectId} />;
     case "research": return <TabResearch view={view} readOnly={orgDisabled} sub={sub} projectId={projectId} />;
     case "prep":
       return (
@@ -692,11 +796,12 @@ function renderTab(
 
 /** 仅开发/预览环境的调试切换条（生产构建不渲染，UC-0.4 R9 / R12 V8）*/
 function PreviewBar({
-  href, uiState, tab, view, orgDisabled, qs,
+  href, uiState, tab, tabDefs, view, orgDisabled, qs,
 }: {
   href: (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => string;
   uiState: UiState;
   tab: ProjectTab;
+  tabDefs: ReadonlyArray<{ key: ProjectTab; label: string }>;
   view: ProjectRole;
   orgDisabled: boolean;
   qs: { org?: string };
@@ -722,9 +827,9 @@ function PreviewBar({
         </Button>
       ))}
       <span className="ml-2 font-mono text-9 uppercase tracking-wider text-muted-foreground">屏</span>
-      {PROJECT_TABS.map((t) => (
-        <Button key={t} asChild size="xs" variant={t === tab ? "primary" : "ghost"} className="transition-colors" data-testid={`project-preview-tab-${t}`}>
-          <a href={href({ tab: t, sub: undefined })}>{TAB_LABEL[t]}</a>
+      {tabDefs.map((t) => (
+        <Button key={t.key} asChild size="xs" variant={t.key === tab ? "primary" : "ghost"} className="transition-colors" data-testid={`project-preview-tab-${t.key}`}>
+          <a href={href({ tab: t.key, sub: undefined })}>{t.label}</a>
         </Button>
       ))}
       <Button asChild size="xs" variant={orgDisabled ? "primary" : "ghost"} className="ml-2 transition-colors" data-testid="project-preview-orgdisabled">

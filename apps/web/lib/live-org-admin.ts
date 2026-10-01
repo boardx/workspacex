@@ -187,7 +187,7 @@ export async function uploadOrgAvatar(input: UploadOrgAvatarInput): Promise<Uplo
   return json as UploadOrgAvatarOut;
 }
 
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   // `crypto.subtle.digest` 的 TS lib 类型要求 `ArrayBuffer`-backed view，而
   // `input.file.arrayBuffer()` 返回的 `Uint8Array` 在某些 lib 版本下推成
   // `ArrayBufferLike`（含 `SharedArrayBuffer`）。拷贝一份新 `Uint8Array` 即可满足类型，

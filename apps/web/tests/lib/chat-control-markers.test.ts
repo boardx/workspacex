@@ -1,0 +1,40 @@
+import { describe, expect, it } from "vitest";
+import { stripControlMarkersForDisplay } from "@/lib/chat-control-markers";
+import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
+import { catalogWorkflowTitleZh } from "@/lib/workflow-catalog-title-copy";
+
+describe("显示层剥离回环控制标记", () => {
+  it("去掉 request_handoff / escalate / start_workflow / evidence 标记，保留正文", () => {
+    expect(stripControlMarkersForDisplay("UIUX 这个需求请产品经理接手 [request_handoff:D003]")).toBe("UIUX 这个需求请产品经理接手");
+    expect(stripControlMarkersForDisplay("[escalate:客户要求超额折扣]")).toBe("");
+    expect(stripControlMarkersForDisplay("做 [start_workflow:W001] 并附 [evidence:e1]")).toBe("做 并附");
+  });
+  it("普通方括号原样保留", () => {
+    expect(stripControlMarkersForDisplay("看 [1] 和 [note]")).toBe("看 [1] 和 [note]");
+  });
+});
+
+describe("技能/工作流中文显示名", () => {
+  it("稳定编号换中文名，查不到返回 null；普通名原样", () => {
+    expect(workSkillDisplayName("S061")).toBe("产品探索");
+    expect(workSkillDisplayName("S999")).toBeNull();
+    expect(workSkillDisplayName("周报助手")).toBe("周报助手");
+  });
+  it("目录英文 title 换中文", () => {
+    expect(catalogWorkflowTitleZh("Research-to-Brief")).toBe("研究到简报");
+    expect(catalogWorkflowTitleZh("W001 Research-to-Brief")).toBe("研究到简报");
+  });
+});
+
+import { firstClause } from "@/components/agent/agent-directory";
+describe("目录卡片描述句读截断", () => {
+  it("短文原样；长文截到第一句或逗号处", () => {
+    expect(firstClause("整理证据。")).toBe("整理证据。");
+    expect(firstClause("负责检索与整理内部证据。不在证据之外下结论，所有结论都标注出处并交给人审阅确认，必要时升级给负责人裁决。")).toBe("负责检索与整理内部证据。");
+  });
+  it("uiux-r3 #3.2：不停在分号/逗号上——超长首句收成以句号结尾的完整分句，不挂「；」「…」", () => {
+    const out = firstClause("把会议里的决策、待办与分歧逐条整理出来并沉淀进组织知识库；之后追踪每条待办的负责人与截止时间直到关闭。");
+    expect(out).toBe("把会议里的决策、待办与分歧逐条整理出来并沉淀进组织知识库。");
+    expect(out).not.toMatch(/[；，、…]$/);
+  });
+});

@@ -139,6 +139,21 @@ export class SurveyService {
           ? "collecting"
           : "draft";
     model.anonymity ??= "anonymous";
+    if (model.publication && !model.collectionBatches?.length) {
+      const legacyBatchId = `legacy-${createHash("sha256").update(model.publication.token).digest("hex").slice(0, 24)}`;
+      model.collectionBatches = [{
+        ...structuredClone(model.publication),
+        id: legacyBatchId,
+        createdAt: model.updatedAt ?? this.now().toISOString(),
+        closedAt: model.publication.status === "closed"
+          ? model.updatedAt ?? this.now().toISOString()
+          : null,
+      }];
+      model.activeCollectionBatchId = legacyBatchId;
+      for (const response of model.responses) {
+        response.collectionBatchId ??= legacyBatchId;
+      }
+    }
     model.source ??= this.sourceFromDraft(model, model.updatedAt ?? this.now().toISOString(), 1);
     for (const response of model.responses) {
       response.analysis ??= "included";
@@ -353,7 +368,7 @@ export class SurveyService {
     if (end.getTime() <= this.now().getTime())
       throw new SurveyError("expired");
     const token = `${Buffer.from(JSON.stringify([orgId, model.id])).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
-    model.publication = {
+    const publication: NonNullable<SurveyRuntime["publication"]> = {
       token,
       status: "collecting",
       questions: structuredClone(model.questions),
@@ -365,6 +380,10 @@ export class SurveyService {
         contentHash: model.source.contentHash,
       } : undefined,
     };
+    const batch = { ...publication, id: randomUUID(), createdAt: this.now().toISOString(), closedAt: null };
+    model.collectionBatches = [...(model.collectionBatches ?? []), batch];
+    model.activeCollectionBatchId = batch.id;
+    model.publication = publication;
   }
   startCollection(
     orgId: OrgId,
@@ -427,6 +446,17 @@ export class SurveyService {
         throw error;
       }
       m.publication.status = "closed";
+      const closedAt = this.now().toISOString();
+      m.collectionBatches = (m.collectionBatches ?? []).map((batch) => batch.id === m.activeCollectionBatchId ? { ...batch, status: "closed", closedAt } : batch);
+    });
+  }
+  republish(orgId: OrgId, actor: string, id: string, version: number, expiresAt?: string) {
+    return this.change(orgId, actor, id, version, (model) => {
+      try { model.status = transitionSurveyStatus(model.status, "republish"); }
+      catch (error) { if (error instanceof InvalidSurveyTransitionError) throw new SurveyError("invalid_transition"); throw error; }
+      const blockers = evaluateSurveyForPublish(model);
+      if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+      this.startPublication(orgId, model, expiresAt);
     });
   }
   review(
@@ -555,8 +585,13 @@ export class SurveyService {
     }
   }
   private publicRecord(record: SurveyRecord, token: string) {
-    const p = record.model.publication;
-    if (!p || !timingSafeEqual(hash(p.token), hash(token)))
+    const p = record.model.collectionBatches?.find((batch) =>
+      timingSafeEqual(hash(batch.token), hash(token)),
+    ) ?? (record.model.publication &&
+      timingSafeEqual(hash(record.model.publication.token), hash(token))
+      ? record.model.publication
+      : null);
+    if (!p)
       throw new SurveyError("not_found");
     if (p.status !== "collecting") throw new SurveyError("closed");
     if (new Date(p.expiresAt).getTime() <= this.now().getTime())
@@ -660,6 +695,11 @@ export class SurveyService {
           companySize: input.companySize,
           durationSeconds: input.durationSeconds,
           answers: input.answers,
+          ...("id" in p && typeof p.id === "string"
+            ? { collectionBatchId: p.id }
+            : r.model.activeCollectionBatchId
+              ? { collectionBatchId: r.model.activeCollectionBatchId }
+              : {}),
         });
         r.receipts[receiptKey] = { hash: fingerprint, responseId, ...(browserHash ? {browserHash} : {}) };
         r.model.answerRevision++;

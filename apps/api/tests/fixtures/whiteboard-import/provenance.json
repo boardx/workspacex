@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "auditedAt": "2026-09-27",
+  "realAccountBoards": 0,
+  "files": [
+    {
+      "path": "miro/archive.json",
+      "sha256": "c50eb9f5392963d2d29065943d3a1e00aafbafb71e325cbdef4994d9cbc05277",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "miro/brainstorm.json",
+      "sha256": "958eb250a0b1fa3e584885fa99f24b68b4056ea1f72c10f472b5b716b4df4ce5",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "miro/diagram.json",
+      "sha256": "f202b18a842875a87d0bdd9c1748dd18d173d4958e8dce2f5d8d08950f05f5c6",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "miro/workshop.csv",
+      "sha256": "ef9ad2340ed2040affe6c8c7fb9746b084de18c4a463aeee0400009b2420c3c6",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "mural/archive.json",
+      "sha256": "c02259930258e295626bc38785de0f0e7c59f3f0c8c15d9a7b778c9b0f048712",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "mural/brainstorm.json",
+      "sha256": "d813bef7bcf242505e78fe98f0be50f4de235abe4d4a7d4aef2866d2825e6f5b",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "mural/diagram.json",
+      "sha256": "c9939a856ddbe83476218cdb89e694ec61c2e71ca42bde6bfdc44b6bf9e4f4fa",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "mural/workshop.csv",
+      "sha256": "02af91f15f838fad372b8e5bbf35b62b7882ec8cad8602a75724cf27adbac7be",
+      "classification": "legacy-normalized-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "schema-derived/miro-media.json",
+      "sha256": "d3cd553c5fc25bbd1870c3a868d3043d0dc1f8eb372d4a135b0eec40226daf90",
+      "classification": "schema-derived-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "schema-derived/miro-workshop.json",
+      "sha256": "eac760b4ae5bc236c880e736af891a53062745c9e78f124c8c45931a99f1649e",
+      "classification": "schema-derived-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "schema-derived/mural-diagram.json",
+      "sha256": "ba7b996b4da3df3d45172ab400abadc03db2a0fccd65be11644282f29569f41a",
+      "classification": "schema-derived-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "schema-derived/sample.png",
+      "sha256": "395059ecf54669feecac6065abe928bbc4b76b3ae72f4c5e004a1e4da2f0e480",
+      "classification": "schema-derived-synthetic",
+      "capturedFromAccount": false
+    },
+    {
+      "path": "schema-derived/expected.json",
+      "sha256": "6ddf9745dd275271863ba940656f8081490ae75704e69bdc5c06b38c4e8acfa8",
+      "classification": "independent-synthetic-expectations",
+      "capturedFromAccount": false
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://developers.miro.com/reference/create-connector-1",
+      "purpose": "captions and endpoint REST schema"
+    },
+    {
+      "url": "https://developers.miro.com/reference/create-image-item-using-local-file",
+      "purpose": "center and parent-relative coordinate semantics"
+    },
+    {
+      "url": "https://developers.mural.co/public/reference/getmuralwidgets",
+      "purpose": "value list/widget REST schema; drawings excluded"
+    }
+  ],
+  "boundary": "All fixture boards are constructed contract examples. None is a captured vendor account export; three real migration board acceptance remains blocked."
+}

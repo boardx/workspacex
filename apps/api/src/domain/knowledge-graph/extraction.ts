@@ -65,6 +65,30 @@ export const clip = (s: string, max: number): string => Array.from(s).slice(0, m
 const MAX_ALIASES = 10;
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter((x) => x.length > 0) : []);
 
+/*
+ * 类型值的宽松识别（2026-09-30 devapp 实测：14 条抽取全部「空」）。部署没开 KERNEL_MODEL_JSON_SCHEMA 时没有约束解码，
+ * 真实模型常把 kind 写成中文（「决定」「人物」）或首字母大写（"Decision"）；以前这些项在下面的 safeParse 里被**静默丢弃**，
+ * 整条消息于是读作「没有可记的」。这里只认：枚举值本身（不分大小写）、契约里的中文标签、少数常见同义词——
+ * 不认识的照旧丢弃，不猜。中文标签取自契约（单一来源），不在这里另写一份。
+ */
+const kindTable = <K extends string>(labels: Record<K, string>, synonyms: Record<string, K>): Map<string, K> => {
+  const m = new Map<string, K>();
+  for (const [k, zh] of Object.entries(labels) as [K, string][]) { m.set(k.toLowerCase(), k); m.set(zh, k); }
+  for (const [alias, k] of Object.entries(synonyms)) m.set(alias, k);
+  return m;
+};
+const CLAIM_KINDS = kindTable(KG.KG_CLAIM_KIND_LABEL_ZH, {
+  猜想: "hypothesis", 假设: "hypothesis", 推测: "hypothesis", 决策: "decision", 任务: "todo", 待做: "todo",
+  意图: "goal", 打算: "goal", 喜好: "preference",
+});
+const OBJECT_KINDS = kindTable(KG.KG_OBJECT_KIND_LABEL_ZH, {
+  人: "person", 人名: "person", 组织: "organization", 机构: "organization", 企业: "organization", 客户: "organization",
+});
+const kindOf = <K extends string>(table: Map<string, K>, v: unknown): K | null => {
+  const s = str(v);
+  return table.get(s) ?? table.get(s.toLowerCase()) ?? null;
+};
+
 /** 解析模型输出（已是 JSON 值）。不认识的字段忽略，坏项丢弃，永不抛错。 */
 export function parseExtraction(raw: unknown): ExtractionResult {
   if (typeof raw !== "object" || raw === null) return EMPTY_EXTRACTION;
@@ -73,22 +97,22 @@ export function parseExtraction(raw: unknown): ExtractionResult {
   for (const e of Array.isArray(r.entities) ? r.entities : []) {
     const o = (e ?? {}) as Record<string, unknown>;
     const name = str(o.name);
-    const kind = KG.KgObjectKind.safeParse(o.kind);
-    if (name.length === 0 || name.length > MAX_NAME || !kind.success) continue;
-    entities.push({ name, kind: kind.data, aliases: strs(o.aliases).filter((a) => a.length <= MAX_NAME && a !== name).slice(0, MAX_ALIASES) });
+    const kind = kindOf(OBJECT_KINDS, o.kind);
+    if (name.length === 0 || name.length > MAX_NAME || kind === null) continue;
+    entities.push({ name, kind, aliases: strs(o.aliases).filter((a) => a.length <= MAX_NAME && a !== name).slice(0, MAX_ALIASES) });
     if (entities.length >= MAX_ENTITIES) break;
   }
   const claims: ExtractedClaim[] = [];
   for (const c of Array.isArray(r.claims) ? r.claims : []) {
     const o = (c ?? {}) as Record<string, unknown>;
     const statement = str(o.statement);
-    const kind = KG.KgClaimKind.safeParse(o.kind);
-    if (statement.length === 0 || statement.length > MAX_STATEMENT || !kind.success) continue;
+    const kind = kindOf(CLAIM_KINDS, o.kind);
+    if (statement.length === 0 || statement.length > MAX_STATEMENT || kind === null) continue;
     const conf = typeof o.confidence === "number" && Number.isFinite(o.confidence) ? Math.min(1, Math.max(0, o.confidence)) : 0.5;
     const decidedBy = str(o.decidedBy ?? o.decided_by);
     const timeExpr = str(o.timeExpr ?? o.time_expr);
     claims.push({
-      statement, kind: kind.data, confidence: conf, about: strs(o.about),
+      statement, kind, confidence: conf, about: strs(o.about),
       decidedBy: decidedBy.length > 0 ? decidedBy : null, quote: str(o.quote),
       timeExpr: timeExpr.length > 0 && timeExpr.length <= MAX_TIME_EXPR ? timeExpr : null,
     });
@@ -117,6 +141,47 @@ export function resolveEntity(e: ExtractedEntity, known: readonly KnownObject[])
   const names = new Set([e.name, ...e.aliases].map(normalizeName));
   const hit = (k: KnownObject) => [k.name, ...k.aliases].some((n) => names.has(normalizeName(n)));
   return known.find((k) => k.kind === e.kind && hit(k)) ?? known.find(hit) ?? null;
+}
+
+/** 容差匹配只认这么长以上的名字（归一后的字符数）：单字名放宽匹配会把「A」「张」连到一切。 */
+const MIN_FUZZY_NAME_CHARS = 2;
+
+type NamedTarget = { readonly id: string; readonly kind: KG.KgObjectKind };
+
+/**
+ * 一个名字 → 本批实体。先精确（归一后相等），再包含（「华东医药公司」⊇「华东医药」，取最长的那个名字）。
+ * 2026-09-30 devapp：真实模型给 about 的写法常与 entities[].name 不完全一致，精确匹配一条边都连不上（10 个实体、3 条结论、0 条边）。
+ */
+function matchName(name: string, byName: ReadonlyMap<string, NamedTarget>): NamedTarget | undefined {
+  const n = normalizeName(name);
+  const exact = byName.get(n);
+  if (exact !== undefined || n.length < MIN_FUZZY_NAME_CHARS) return exact;
+  let best: { key: string; target: NamedTarget } | undefined;
+  for (const [key, target] of byName) {
+    if (key.length < MIN_FUZZY_NAME_CHARS || !(n.includes(key) || key.includes(n))) continue;
+    if (best === undefined || key.length > best.key.length) best = { key, target };
+  }
+  return best?.target;
+}
+
+/**
+ * 一条结论该连到哪些实体：about 里的名字（精确 / 包含），再加陈述里直接出现的本批实体名——提示词要求陈述写出具体名称，
+ * 模型漏填或写偏 about 时由它兜住（拍板人除外，他走 decided_by）。去重，保持首次出现的顺序。
+ */
+function aboutTargets(
+  about: readonly string[], statement: string, byName: ReadonlyMap<string, NamedTarget>, deciderId?: string,
+): NamedTarget[] {
+  const out = new Map<string, NamedTarget>();
+  for (const name of about) {
+    const t = matchName(name, byName);
+    if (t !== undefined && !out.has(t.id)) out.set(t.id, t);
+  }
+  const text = normalizeName(statement);
+  for (const [key, t] of byName) {
+    // 拍板的人已经有 decided_by 边；陈述里出现他的名字不再额外连 about（about 里点名的照连）。
+    if (key.length >= MIN_FUZZY_NAME_CHARS && t.id !== deciderId && text.includes(key) && !out.has(t.id)) out.set(t.id, t);
+  }
+  return [...out.values()];
 }
 
 export interface BuildExtractionBatchInput {
@@ -199,18 +264,12 @@ export function buildCandidateBatch(input: BuildCandidateBatchInput): OntologyBa
       evidence: [input.evidenceFor(quote)],
       ...claimTime(c, input.sourceAt),
     });
-    const linked = new Set<string>();
-    for (const name of c.about) {
-      const target = byName.get(normalizeName(name));
-      if (target === undefined || linked.has(target.id)) continue;
-      linked.add(target.id);
+    const decider = c.kind === "decision" && c.decidedBy !== null ? matchName(c.decidedBy, byName) : undefined;
+    for (const target of aboutTargets(c.about, c.statement, byName, decider?.id)) {
       edges.push({ id: input.newId("edg"), srcKind: "claim", srcId: id, dstKind: "object", dstId: target.id, relation: "about" });
     }
-    if (c.kind === "decision" && c.decidedBy !== null) {
-      const who = byName.get(normalizeName(c.decidedBy));
-      if (who !== undefined && who.kind === "person") {
-        edges.push({ id: input.newId("edg"), srcKind: "claim", srcId: id, dstKind: "object", dstId: who.id, relation: "decided_by" });
-      }
+    if (decider !== undefined && decider.kind === "person") {
+      edges.push({ id: input.newId("edg"), srcKind: "claim", srcId: id, dstKind: "object", dstId: decider.id, relation: "decided_by" });
     }
   }
 

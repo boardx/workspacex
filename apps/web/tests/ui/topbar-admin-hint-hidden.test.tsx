@@ -39,6 +39,11 @@ function renderTopBar(pathname: string) {
 describe("F1971 · 后台管理界面顶栏不再出「不在具体项目里」提示", () => {
   afterEach(() => cleanup());
 
+  it("`/rec` focuses on transcription without unrelated role explanations", () => {
+    renderTopBar("/rec");
+    expect(screen.queryByTestId("topbar-no-project-hint")).toBeNull();
+  });
+
   it("`/admin` 总览页：提示不渲染", () => {
     renderTopBar("/admin");
     expect(screen.queryByTestId("topbar-no-project-hint")).toBeNull();

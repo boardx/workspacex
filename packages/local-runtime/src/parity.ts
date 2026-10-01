@@ -56,6 +56,19 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "以及一路回退到 KERNEL_MODEL_ID 的那些专用模型 id。显式再设一遍只会多一份会漂移的副本。",
     names: [
       "AGENT_STARTER_PACK_ROOT", // 仓库根本没有 agent starter pack 目录，云端同样未配；不是本地缺口
+      // AG03：未配置时退回仓库相对路径 requirements/work-stack-v2/workflows/（本地/云端都存在
+      // 同一份实体文档目录），默认值本来就对——不是本地缺口。
+      "WORKFLOW_DEFINITIONS_ROOT",
+      // main 上后合入、此前漏归档的变量（#4549 实时数字人 / KG S8 / 问卷 / workflow SSE）：
+      // 数字人 OMNI_REALTIME_* 与 DASHSCOPE_API_KEY 都回退到 config.ts 已供给的 KERNEL_ASR_* /
+      // KERNEL_MODEL_BASE_URL，模型/音色有内置默认；问卷模型回退 KERNEL_MODEL_ID；其余是带默认值的
+      // 间隔/开关/SLO 阈值——默认值就是本地要的答案。
+      "KERNEL_OMNI_REALTIME_API_KEY", "KERNEL_OMNI_REALTIME_BASE_URL", "KERNEL_OMNI_REALTIME_MODEL",
+      "KERNEL_OMNI_REALTIME_VOICE", "KERNEL_OMNI_REALTIME_VOICE_MAP", "KERNEL_OMNI_REALTIME_TRANSCRIPTION_MODEL",
+      "DASHSCOPE_API_KEY", "KERNEL_SURVEY_MODEL_ID",
+      "KERNEL_WORKFLOW_SSE_REPLAY_WINDOW", "KG_CONSOLIDATION_INTERVAL_MS", "KG_CONSOLIDATION_WORKER",
+      "KG_EXTRACTION_GATE_MODEL", "KG_EXTRACTION_SLO_FAILURE_RATE", "KG_EXTRACTION_SLO_P95_MS",
+      "KG_EXTRACTION_SLO_STUCK_LEASES",
       "DEBUG_TRACE_ENABLED", "DEBUG_TRACE_SLOW_MS", "DEBUG_TRACE_STALL_MS",
       "KERNEL_AGENT_RUN_AUTOSTART", "KERNEL_AGENT_RUN_STALE_RUNNING_MS",
       "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART", "KERNEL_SKILL_TRIALRUN_AUTOSTART",
@@ -102,6 +115,12 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "MAIL_FROM", "MAIL_OUTBOX_WORKER_ENABLED",
       "GITHUB_ISSUE_TOKEN", "GITHUB_ISSUE_REPO_OWNER", "GITHUB_ISSUE_REPO_NAME",
       "GITHUB_ISSUE_ATTACHMENTS_BRANCH",
+      // 白板对象存储的托管加密 / 定时 GC / 下载授权（main 上后合入）：SSE/KMS 只在 OSS 后端读取，
+      // 本地是 fs 后端（host-managed）；GC 调度只在云端多租户里开（WHITEBOARD_GC_SCHEDULER=1）；
+      // 下载授权签名密钥未设时 API 退回 Disabled signer（不签发、不放行），本地不额外造一把密钥。
+      "WORKSPACEX_BOARD_OBJECT_SSE", "WORKSPACEX_BOARD_OBJECT_KMS_KEY_ID",
+      "WHITEBOARD_GC_SCHEDULER", "WHITEBOARD_GC_INTERVAL_MS", "WHITEBOARD_GC_TENANTS",
+      "WORKSPACEX_BOARD_DOWNLOAD_SIGNING_KEY",
     ],
   },
   {
@@ -136,6 +155,9 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
     names: [
       "KERNEL_ALLOW_TEST_PRINCIPAL", "KERNEL_AGENT_CATALOG_SCHEMA",
       "WORKSPACEX_COUNTERPROOF_INGEST", "WORKSPACEX_COUNTERPROOF_SKILL_REVIEW",
+      // Board 公共 API 隔离验收通道的旁路 actor 仓库，以及回环 provider 别名：都是 CI/开发专用逃生口，
+      // 本地版设了就等于给真实用户留了测试后门。
+      "BOARD_AGENT_API_ACCEPTANCE", "WORKSPACEX_ISOLATION_ID", "KERNEL_LOOPBACK_PROVIDER_ALIASES",
     ],
   },
 ];

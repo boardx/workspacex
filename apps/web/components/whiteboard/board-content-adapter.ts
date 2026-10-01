@@ -1,3 +1,4 @@
+import { WHITEBOARD_ASSET_LIMITS } from '@repo/contracts/whiteboard-asset';
 import { readContentObject, type CanonicalContentObject, type DrawingTool, type ShapeVariant, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardImageMime } from "./board-session-image-assets";
 
@@ -12,9 +13,9 @@ export function readBoardContent(object: WhiteboardObject): BoardContentData | u
 }
 
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]);
-const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_IMAGE_BYTES = WHITEBOARD_ASSET_LIMITS.bytes;
 
-async function readBoundedBytes(source: Pick<Response, "body" | "arrayBuffer"> | Blob, limit: number): Promise<Uint8Array> {
+export async function readBoundedBytes(source: Pick<Response, "body" | "arrayBuffer"> | Blob, limit: number): Promise<Uint8Array> {
   if (!("body" in source) || !source.body) {
     if ("size" in source && source.size > limit) throw new Error("IMAGE_TOO_LARGE");
     const buffer = typeof source.arrayBuffer === "function" ? await source.arrayBuffer() : await new Promise<ArrayBuffer>((resolve, reject) => {
@@ -107,8 +108,8 @@ function sanitizeSvg(bytes: Uint8Array): { bytes: Uint8Array; width: number; hei
 }
 
 export type BoardRasterDecoder = (blob: Blob, signal?: AbortSignal) => Promise<{ width: number; height: number; close?: () => void }>;
-const MAX_IMAGE_DIMENSION = 32_768;
-const MAX_IMAGE_PIXELS = 100_000_000;
+const MAX_IMAGE_DIMENSION = WHITEBOARD_ASSET_LIMITS.dimension;
+const MAX_IMAGE_PIXELS = WHITEBOARD_ASSET_LIMITS.pixels;
 const IMAGE_DECODE_TIMEOUT_MS = 15_000;
 
 export async function browserRasterDecoder(blob: Blob, signal?: AbortSignal): Promise<{ width: number; height: number; close?: () => void }> {

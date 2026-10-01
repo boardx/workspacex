@@ -50,7 +50,7 @@ async function loginAsAdmin(page: Page) {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 /**
@@ -65,7 +65,7 @@ async function loginAsLead(page: Page) {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 /**

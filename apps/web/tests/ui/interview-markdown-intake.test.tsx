@@ -29,15 +29,14 @@ it("native file input saves imported Markdown through the sole source API", asyn
   const file = new File([imported], "材料.md", { type: "text/markdown" });
   fireEvent.change(screen.getByLabelText("导入研究文件"), { target: { files: [file] } });
   await waitFor(() => expect(input).toHaveValue((raw + "\n\n" + imported).replaceAll("\r\n", "\n")));
-  fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-  // Upload already atomically saved the source draft; saving unchanged text creates no JSON copy.
-  await waitFor(() => expect(screen.getByRole("button", { name: "保存草稿" })).toBeEnabled());
+  // Upload already atomically saved the source draft; no separate draft action is exposed.
+  expect(screen.queryByRole("button", { name: "保存草稿" })).not.toBeInTheDocument();
   expect(writes).toHaveLength(0);
   expect(source().documents[0]?.markdown).toBe(raw + "\n\n" + imported);
 });
 function Intake({ onImportFile, onVoice }: { onImportFile?: (file: File) => Promise<string>; onVoice?: () => Promise<string> }) {
   const [markdown, setMarkdown] = React.useState(raw);
-  return <InterviewIntakeStep markdown={markdown} onChange={setMarkdown} onSave={async () => undefined} onConfirm={async () => undefined} onImportFile={onImportFile} onVoice={onVoice} pending={false} />;
+  return <InterviewIntakeStep markdown={markdown} onChange={setMarkdown} onConfirm={async () => undefined} onImportFile={onImportFile} onVoice={onVoice} pending={false} />;
 }
 it("importsTextAsMarkdown keeps Markdown editable without a structured research copy", () => {
   render(<Intake />);

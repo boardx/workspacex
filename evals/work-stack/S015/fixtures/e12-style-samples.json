@@ -1,0 +1,17 @@
+{
+  "samples": [
+    {
+      "id": "mail:sent-1",
+      "salutation": "小林，你好：",
+      "signOff": "祝好\\n客服 小周"
+    },
+    {
+      "id": "mail:sent-2",
+      "salutation": "小林，你好："
+    },
+    {
+      "id": "mail:sent-3",
+      "body": "下次续约给您 9 折。"
+    }
+  ]
+}

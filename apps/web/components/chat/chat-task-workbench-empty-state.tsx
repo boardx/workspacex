@@ -83,6 +83,7 @@ export function TaskWorkbenchEmptyState({
   materialsCount,
   skillsCount,
   briefing,
+  inProject = false,
 }: {
   onUseTemplate: (goal: string) => void;
   materialsCount: number;
@@ -92,6 +93,8 @@ export function TaskWorkbenchEmptyState({
    * 简报自己决定有没有内容（没有就不渲染），这里只给位置，不影响模板与输入框。
    */
   briefing?: React.ReactNode;
+  /** 项目内对话：「项目」标签写「本项目对话」，不能再说「个人对话」。 */
+  inProject?: boolean;
 }): JSX.Element {
   return (
     <div
@@ -118,7 +121,7 @@ export function TaskWorkbenchEmptyState({
             type="button"
             data-testid={template.id}
             onClick={() => onUseTemplate(template.goal)}
-            className="flex items-center gap-3 rounded-card border border-border-subtle bg-card px-3.5 py-3 text-left text-12 leading-relaxed text-card-foreground transition-colors duration-fast hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-3 rounded-card border border-border-subtle bg-card px-3.5 py-3 text-left text-12 leading-relaxed text-card-foreground shadow-sm transition-colors duration-fast hover:border-primary/50 hover:bg-muted hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               aria-hidden="true"
@@ -138,7 +141,7 @@ export function TaskWorkbenchEmptyState({
           className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-project"
         >
-          项目：个人对话
+          项目：{inProject ? "本项目对话" : "个人对话"}
         </span>
         <span
           className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"

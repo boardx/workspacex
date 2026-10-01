@@ -17,7 +17,7 @@ const api=required('BOARD_ACL_API_URL').replace(/\/$/,''),owner=required('BOARD_
 const orgId=required('BOARD_ACL_ORG_ID'),memberId=required('BOARD_ACL_MEMBER_ID');
 assert(process.env.WORKSPACEX_ISOLATION_ID && /^wsx_[a-f0-9]{20}$/.test(process.env.WORKSPACEX_DB ?? ''));
 assert.equal(process.env.PGDATABASE,process.env.WORKSPACEX_DB);
-const database= migrationConfig();
+const database=migrationConfig();
 assert.equal(database.database,process.env.WORKSPACEX_DB);
 assert.equal(String(database.port),required('PGPORT'));
 assert(['localhost','127.0.0.1','::1'].includes(database.host));

@@ -1,0 +1,52 @@
+=== CT04 端到端验证日志 ===
+日期: 2026-09-29
+验证员: rev-e2e (Claude Sonnet 4.6)
+分支: claude/tender-maxwell-dh21fg-iter8
+
+--- CT04 feature_list.json 摘要 ---
+id: CT04
+title: 产品线 Skill 包作者化与导入
+status: not_started
+verification: pnpm --filter api exec vitest run tests/work-content/product-skill-pack-build.test.ts
+
+--- 验证结果 ---
+
+1. CT04 验证测试
+   命令: pnpm --filter api exec vitest run tests/work-content/product-skill-pack-build.test.ts
+   退出码: 0
+   结果: 15/15 PASS
+   
+   详情:
+   ✓ E1 digest 不符：已发布产物被篡改（文件 digest 与内容不符）或与源不一致 ⇒ 拒绝 314ms
+   ✓ CLI：缺一个 Skill 时进程退出码非 0 且不写出产物；完整源时退出 0 并写出可导入产物 2839ms
+   (+ 13 more tests)
+
+2. @repo/contracts typecheck
+   退出码: 0 ✓
+
+3. api typecheck
+   退出码: 0 ✓
+
+4. web typecheck
+   退出码: 143 (SIGTERM/OOM) - 环境资源不足，Next.js build 被内核 OOM killer 终止
+   状态: BLOCKED (基础设施)
+
+5. lint-arch-deps
+   退出码: 0 ✓ (1713 files, all dependencies point inward)
+
+6. lint-contract-source
+   退出码: 0 ✓ (1158 contract types)
+
+7. init.sh 基础验证
+   退出码: 0 ✓
+
+--- E2E Stack 状态 ---
+- postgres :55432 ✓
+- redis :56379 ✓
+- loopback providers ✓
+- api :24100 ✓
+- web :25100 FAILED (next build killed by OOM)
+
+CT04 是纯后端 Skill 包构建逻辑，无 UI journey。
+I8 对应的 UI journeys (D003-J1/J2/J3, D005-J1/J2/J3) 因 web OOM 无法走通。
+

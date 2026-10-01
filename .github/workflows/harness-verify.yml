@@ -164,10 +164,20 @@ jobs:
       # 本来就还没合，是鸡生蛋（backend-gates.yml 那份注释里记着同一个坑）。合并后的
       # backend-gates 仍然跑 --strict，两道互补：PR 拦伪造证据，合并后拦未落地。
       - name: 审计链体检
+        # Keep the full-repository findings visible on PRs. Only the scoped
+        # doctor below is a PR merge gate; main still requires the global audit.
+        continue-on-error: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
         env:
           # doctor 的 issue 检查走 gh；没有 token 时它自己降级为 WARN 而非阻断
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness doctor
+
+      - name: 本次改动 phase 审计链体检
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: node .harness/scripts/ci-change-scope.mjs doctor-soft
 
       # 签核第 ① 件的材料完整性：ui.md 引用的截图集合 == ui-preview/ 实存集合。
       # 放在 PR 门控而不是 backend-gates 的理由：它只读 phases/**，不需要 Docker/PG，
@@ -540,7 +550,7 @@ jobs:
       queue: max
     steps:
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+        with: { fetch-depth: 0, persist-credentials: false }
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -556,15 +566,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
       - name: Execute trusted full-stack smoke
         if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
+          node .harness/scripts/ci-fullstack-runtime.mjs run -- pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
@@ -582,7 +590,7 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
+          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6

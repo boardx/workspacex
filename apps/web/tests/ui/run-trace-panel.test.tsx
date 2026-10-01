@@ -36,6 +36,17 @@ describe("run trace disclosure", () => {
     fireEvent.click(screen.getByText("已执行 · search · 资料"));
     expect(screen.getByText("done")).toBeVisible();
   });
+  it("UIUX r5：本轮 succeeded 后消息流计划卡与脚注一致（3/3），失败时保持原样", () => {
+    const todos = [{ content: "a", status: "completed" }, { content: "b", status: "in_progress" }, { content: "c", status: "pending" }];
+    const plan: ExecutionEvent = { ...base, seq: 1, kind: "tool_start", toolCallId: "t-plan", toolName: "write_todos", args: { todos } };
+    const planEnd: ExecutionEvent = { ...base, seq: 2, kind: "tool_end", toolCallId: "t-plan", toolName: "write_todos", result: "ok", ok: true };
+    const done: ExecutionEvent = { ...base, seq: 3, kind: "status", status: "succeeded" };
+    const { unmount } = render(<RunTracePanel runId="run-1" events={[plan, planEnd, done]} />);
+    expect(screen.getByTestId("agent-plan-panel")).toHaveAttribute("data-plan-done", "3");
+    unmount();
+    render(<RunTracePanel runId="run-1" events={[plan, planEnd, { ...done, status: "failed" }]} />);
+    expect(screen.getByTestId("agent-plan-panel")).toHaveAttribute("data-plan-done", "1");
+  });
   it("mounts durable subtask projection only when the journal recorded a dispatch", () => {
     const spawn: ExecutionEvent = { ...base, seq: 1, kind: "tool_start", toolCallId: "tool-sub", toolName: "spawn_async_task", args: { description: "检索资料" } };
     render(<RunTracePanel runId="run-1" events={[spawn]} />);

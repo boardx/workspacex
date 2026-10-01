@@ -1,14 +1,25 @@
 import type { IdentityRepository } from "../identity/ports";
+import type { WorkGateStatus } from "@repo/contracts/work-eval";
+import type { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
 import {
   importPayloadDigest,
   InvalidSkillStarterPackError,
+  skillContentDigest,
   verifySkillStarterPack,
+  type SkillStarterPack,
 } from "../../domain/skill/starter-pack";
 import type { OrgId } from "../../domain/org-id";
+import {
+  checkWorkSkillManifests,
+  type WorkSkillImportRejectionCode,
+} from "../../domain/skill/work-skill-import-check";
+import type { WorkSkillManifestIssue } from "../../domain/skill/work-skill-manifest";
 import type {
   SkillStarterImportRepository,
   SkillStarterImportResult,
   SkillStarterPackSource,
+  StarterPackGateJudge,
+  StarterPackImportFollowUp,
 } from "./ports";
 
 export class SkillStarterPackNotFoundError extends Error {}
@@ -22,11 +33,27 @@ export class SkillStarterPackVersionLabelReusedError extends Error {
 }
 export class SkillStarterImportIdempotencyConflictError extends Error {}
 export class SkillStarterImportAdminRequiredError extends Error {}
+/** WS02（UC-2）：`metadata.work` 校验失败（E1/E6/E8）——整包拒绝，写库之前抛出。 */
+export class WorkSkillImportRejectedError extends Error {
+  constructor(readonly code: WorkSkillImportRejectionCode, readonly issues: readonly WorkSkillManifestIssue[]) {
+    super(`starter pack rejected: ${code}`);
+  }
+}
+/** WS02（E2）：`stableId` 已被本组织另一个 Skill 的目录行占用。 */
+export class WorkSkillStableIdConflictError extends Error {
+  constructor(readonly stableId: string, readonly conflictingSkillId: string) {
+    super(`work skill stableId ${stableId} already belongs to ${conflictingSkillId}`);
+  }
+}
 
 export interface ImportSkillStarterPackDeps {
   readonly identities: IdentityRepository;
   readonly packs: SkillStarterPackSource;
   readonly imports: SkillStarterImportRepository;
+  /** 可选：导入时写入确定性门判定（见 `StarterPackGateJudge`）；缺省 ⇒ 目录显示「未评测」。 */
+  readonly gateJudge?: StarterPackGateJudge;
+  /** 可选：导入成功（含重放）后发布变得可发布的内置 Workflow Definition（见 `StarterPackImportFollowUp`）。 */
+  readonly followUp?: StarterPackImportFollowUp;
 }
 
 export interface ImportSkillStarterPackInput {
@@ -69,14 +96,15 @@ export async function importSkillStarterPack(
     payloadDigest,
   });
   if (existing.kind === "replayed") {
-    return { created: false, result: existing.result, retiredSkillIds: await retireSuperseded(deps, input, existing.result) };
+    const retiredSkillIds = await retireSuperseded(deps, input, existing.result);
+    await followUp(deps, input);
+    return { created: false, result: existing.result, retiredSkillIds };
   }
   if (existing.kind === "idempotency-conflict") {
     throw new SkillStarterImportIdempotencyConflictError();
   }
-  if (existing.kind === "previous-failure") {
-    throwRecordedFailure(existing.failureCode);
-  }
+  // `previous-failure`：失败不是终局（服务端配置/状态可能已修好），往下重新判定；
+  // 仓储在同一条 provenance 行上接管这次重试（见 pg 仓储 `isRetryableFailure`）。
 
   const raw = await deps.packs.load(input.packId, input.packVersion);
   if (raw === null) {
@@ -115,17 +143,28 @@ export async function importSkillStarterPack(
     return replayOrThrow(recorded);
   }
 
+  // WS02：摘要校验之后、写库之前——任一 skill 的 metadata.work 不合规即整包拒绝（原子性）。
+  const work = checkWorkSkillManifests(pack);
+  if (work.kind === "rejected") throw new WorkSkillImportRejectedError(work.code, work.issues);
+
   const outcome = await deps.imports.persistVerified({
     orgId: input.orgId,
     actorId: input.actorId,
     idempotencyKey: input.idempotencyKey,
     payloadDigest,
     pack,
+    workManifests: work.manifests,
+    gateStatuses: judgeGates(deps.gateJudge, pack, work.manifests),
   });
   if (outcome.kind === "created" || outcome.kind === "replayed") {
-    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds: await retireSuperseded(deps, input, outcome.result, pack) };
+    const retiredSkillIds = await retireSuperseded(deps, input, outcome.result, pack);
+    await followUp(deps, input);
+    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds };
   }
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();
+  if (outcome.kind === "stable-id-conflict") {
+    throw new WorkSkillStableIdConflictError(outcome.stableId, outcome.conflictingSkillId);
+  }
   if (outcome.kind === "version-label-reused") {
     throw new SkillStarterPackVersionLabelReusedError(outcome.stableName, outcome.semanticVersion);
   }
@@ -133,6 +172,36 @@ export async function importSkillStarterPack(
     throw new SkillStarterImportIdempotencyConflictError();
   }
   throwRecordedFailure(outcome.failureCode);
+}
+
+/** 导入已提交；后续发布失败不改变导入结果（种子脚本可重跑补发布）。 */
+async function followUp(deps: ImportSkillStarterPackDeps, input: ImportSkillStarterPackInput): Promise<void> {
+  if (!deps.followUp) return;
+  try {
+    await deps.followUp.afterImport({ orgId: input.orgId, actorId: input.actorId });
+  } catch {
+    // 故意吞掉：见 `StarterPackImportFollowUp` 头注；实现侧自行记录日志。
+  }
+}
+
+/** 门判定失败绝不连累导入本身：判不出来 ⇒ 不写记录（目录如实「未评测」）。 */
+function judgeGates(
+  judge: StarterPackGateJudge | undefined,
+  pack: SkillStarterPack,
+  manifests: ReadonlyMap<string, WorkSkillManifest>,
+): ReadonlyMap<string, WorkGateStatus> | undefined {
+  if (!judge || manifests.size === 0) return undefined;
+  try {
+    return judge.judge({
+      packId: pack.packId,
+      skills: pack.skills.flatMap((skill) => {
+        const work = manifests.get(skill.stableName);
+        return work ? [{ stableName: skill.stableName, work, versionDigest: `sha256:${skillContentDigest(skill)}` }] : [];
+      }),
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 /**

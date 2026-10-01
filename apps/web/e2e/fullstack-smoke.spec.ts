@@ -79,10 +79,10 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto("/");
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByTestId("app-shell")).toBeVisible();
   // 2026-08-11 信息架构调整：组织切换器从顶栏并入左上角组织菜单（org-menu.tsx，
   // 人类直接要求）。触发器（org-switcher）现在呈现组织头像/首字，完整组织名要点开
@@ -138,7 +138,7 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await expect(page).toHaveURL(new RegExp(`/projects/${FULLSTACK_E2E.projectId}/files`));
   await expect(page.getByTestId("live-files-browser")).toBeVisible();
   await expect(page.getByTestId("live-files-list")).toContainText(FULLSTACK_E2E.sentinelFile);
-  await expect(page.getByTestId("live-files-row")).toHaveCount(1);
+  await expect(page.getByTestId("live-files-row").filter({hasText:FULLSTACK_E2E.sentinelFile})).toHaveCount(1);
 
   expect([...seen].sort()).toEqual(Object.keys(requiredResponses).sort());
   expect(failures).toEqual([]);

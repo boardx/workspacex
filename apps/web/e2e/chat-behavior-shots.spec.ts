@@ -77,7 +77,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   /* ── 进入个人对话（不带 projectId，devapp 的默认落地屏）─────────────── */
   await page.goto("/chat/legacy");

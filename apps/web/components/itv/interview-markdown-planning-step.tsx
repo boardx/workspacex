@@ -99,7 +99,6 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
       const result = await uploadInterviewMarkdownAttachment(interviewId, file, { expectedVersion: current.version, expectedDocumentVersion: current.documents.find((doc) => doc.step === "intake")?.version ?? 0 });
       receive(result.source); setMarkdown(result.source.documents.find((doc) => doc.step === "intake")?.markdown ?? markdown); callbacks.current.onDirtyChange(false);
     }} onChange={(text) => { setMarkdown(text); callbacks.current.onDirtyChange(true); }}
-      onSave={() => action(async () => { await saveIntake(source ?? await loadInterviewMarkdown(interviewId)); })}
       onConfirm={() => action(async () => {
         const saved = await saveIntake(source ?? await loadInterviewMarkdown(interviewId));
         const confirmed = await confirmStep(saved, "intake");

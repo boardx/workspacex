@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
-import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { useSession } from "@/components/session/session-provider";
 import type { ListThreadAttachmentsOut } from "@/lib/live-chat";
 import { useCopilotKitV2AgentOptions } from "@/lib/copilotkit-v2-agent-options";
@@ -304,13 +303,15 @@ export function CopilotKitV2Panel({
   onRunStateChange,
   onPendingMaterialsChange,
   onUploadingMaterialsChange,
-  onPlanStepActionsChange,
   onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
   canWrite = true,
   canDecide = true,
   canGeneratePersona = false,
+  realtimeContext = null,
+  onAssistantText,
+  onVoiceStateChange,
 }: {
   /**
    * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
@@ -364,7 +365,6 @@ export function CopilotKitV2Panel({
   /** 见 `copilotkit-v2-panel-body.tsx` 同名 prop 头注——右栏「材料」页签正在上传的
    * 附件数，让上传中的反馈不再只出现在 composer 里。 */
   onUploadingMaterialsChange?: (count: number) => void;
-  onPlanStepActionsChange?: (actions: ReadonlyMap<string, readonly PlanStepAction[]>) => void;
   /** issue #3347 —— composer 附件控制器的最小上传能力面，转给右栏「材料」页签。 */
   onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /**
@@ -389,6 +389,9 @@ export function CopilotKitV2Panel({
    * 同一条 landAsArtifact 写权门，没有这个能力摆按钮就是一枚必 403 的假按钮。
    */
   canGeneratePersona?: boolean;
+  realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] } | null;
+  onAssistantText?: (text: string) => void;
+  onVoiceStateChange?: (state: "idle" | "listening") => void;
 } = {}): JSX.Element {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -475,7 +478,6 @@ export function CopilotKitV2Panel({
           onRunStateChange={onRunStateChange}
           onPendingMaterialsChange={onPendingMaterialsChange}
           onUploadingMaterialsChange={onUploadingMaterialsChange}
-          onPlanStepActionsChange={onPlanStepActionsChange}
           onAttachUploadPortChange={onAttachUploadPortChange}
           onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
@@ -498,10 +500,12 @@ export function CopilotKitV2Panel({
           agentOptions={agentOptions}
           selectedAgentId={selectedAgentId}
           onSelectAgent={setSelectedAgentId}
+          realtimeContext={realtimeContext}
+          onAssistantText={onAssistantText}
+          onVoiceStateChange={onVoiceStateChange}
         />
       </div>
       </ChatPopoverCoordinatorProvider>
     </div>
   );
 }
-

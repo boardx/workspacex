@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Maximize2 } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
-import { markdownToCanvas, fitToContent, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
+import { markdownToCanvas, extractModel, type DiagramModel, fitToContent, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
 import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { acceptsSavedCanvasSource, canvasFenceIdentity } from "@/lib/canvas/canvas-fence-identity";
 import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
@@ -10,6 +10,7 @@ import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChatDiagramBoardHandoff } from './chat-diagram-board-handoff';
 import { ChatCanvasModal } from "./chat-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
@@ -140,7 +141,8 @@ export function ChatCanvasFabric({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [inView, setInView] = React.useState(false);
   const [maximized, setMaximized] = React.useState(false);
-  const [savedSource, setSavedSource] = React.useState<{ readonly markdown: string; readonly savedAt: string } | null>(null);
+  const [savedSource, setSavedSource] = React.useState<{ readonly markdown: string; readonly savedAt: string; readonly artifactId?: string; readonly immutableRevision?: string } | null>(null);
+  const [renderedModel, setRenderedModel] = React.useState<DiagramModel | null>(null);
   const [openingReadback, setOpeningReadback] = React.useState(false);
   // 只读预览（气泡里那张小画布）实际要画的源——优先用「这次会话里最新保存版」（无论
   // 是 G1 从服务端读回的，还是本地演示保存后 modal 关闭时带回来的），没有保存版
@@ -265,6 +267,8 @@ export function ChatCanvasFabric({
         containerRef={containerRef}
         openMaximized={openMaximized}
         openingReadback={openingReadback}
+        onRenderedModel={setRenderedModel}
+        boardHandoff={<ChatDiagramBoardHandoff model={renderedModel} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={orgId ?? undefined}/>}
       />
 
       {maximized && (
@@ -275,7 +279,10 @@ export function ChatCanvasFabric({
             // 关闭时如果带回了保存结果（真实落库或本地演示皆算），更新只读预览的
             // 渲染源——不然「保存」点了、「已保存」徽标也亮了，退出全屏后气泡卡片
             // 却纹丝不动（人类实测反馈，同 `ChatDiagramFabric` 同款修法）。
-            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+            if (result) {
+              setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+              if (threadId && messageId && bearer !== undefined) void fetchLatestSavedDiagramSource({threadId,messageId,projectId:projectId ?? null,bearer,accepts:acceptsSavedSource}).then(saved => { if (saved) setSavedSource(saved); });
+            }
             setMaximized(false);
           }}
           threadId={threadId}
@@ -296,7 +303,7 @@ export function ChatCanvasFabric({
  * 见 `ChatCanvasFabric`/`ChatDiagramFabric` 文件头大注释。
  */
 function CanvasFabricBody({
-  previewCode, lang, orgId, inView, closed, containerRef, openMaximized, openingReadback,
+  previewCode, lang, orgId, inView, closed, containerRef, openMaximized, openingReadback, onRenderedModel, boardHandoff,
 }: {
   previewCode: string;
   lang: CanvasFenceLang;
@@ -307,6 +314,8 @@ function CanvasFabricBody({
   containerRef: React.RefObject<HTMLDivElement>;
   openMaximized: () => void;
   openingReadback: boolean;
+  onRenderedModel: (model: DiagramModel) => void;
+  boardHandoff: React.ReactNode;
 }) {
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = React.useState<Status>({ phase: "validating" });
@@ -395,6 +404,7 @@ function CanvasFabricBody({
           obj.evented = false;
         });
         fitToContent(canvas, { padding: 24 });
+        onRenderedModel(extractModel(canvas));
         canvas.requestRenderAll();
         everReadyRef.current = true;
         setReady(true);
@@ -463,6 +473,7 @@ function CanvasFabricBody({
           <Maximize2 aria-hidden className="h-3.5 w-3.5" />
           {openingReadback ? "读取保存版…" : "最大化"}
         </Button>
+        {boardHandoff}
       </div>
 
       <div data-testid="chat-canvas-fabric-body" className="relative">

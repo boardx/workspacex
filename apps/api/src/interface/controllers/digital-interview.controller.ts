@@ -99,6 +99,15 @@ export class DigitalInterviewController {
     } catch (error) { return this.translate(error); }
   }
 
+  @Post("/:interviewId/markdown/virtual-expert/preview")
+  async previewVirtualExpert(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(interviewMarkdown.PreviewVirtualExpertMarkdown, body);
+    if (!this.markdownGenerator) throw new ServiceUnavailableException();
+    try { return await this.markdownGenerator.previewVirtualExpert({ ...input, orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId }); }
+    catch (error) { return this.translate(error); }
+  }
+
   @Post("/:interviewId/markdown/:step")
   async saveMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
     assertPrincipal(principal);

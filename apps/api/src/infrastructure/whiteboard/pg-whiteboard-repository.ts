@@ -13,6 +13,8 @@ import {
   type WhiteboardRepository,
 } from '../../application/whiteboard/ports';
 import { WhiteboardCursorCodec } from './whiteboard-cursor';
+import { NO_PROJECT_WHITEBOARD_ACCESS, type WhiteboardProjectAccess } from '../../application/whiteboard/project-access';
+import { unionWhiteboardRole } from '../../domain/whiteboard/access-decision';
 
 type Row = { id: string; name: string; owner_id: string; role: string; archived: boolean; lifecycle_revision: number; tags_revision: number; tag_ids: string[]; created_at: Date; updated_at: Date };
 const tagIds = `COALESCE(ARRAY(SELECT bt.tag_id FROM whiteboard_tag_bindings bt
@@ -32,7 +34,7 @@ function view(row: Row): C.Board {
 
 /** Tenant RLS and explicit actor predicates both apply; resource IDs never grant access. */
 export class PgWhiteboardRepository implements WhiteboardRepository {
-  constructor(private readonly db: DatabasePort, private readonly cursors = new WhiteboardCursorCodec()) {}
+  constructor(private readonly db: DatabasePort, private readonly cursors = new WhiteboardCursorCodec(), private readonly projectAccess: WhiteboardProjectAccess = NO_PROJECT_WHITEBOARD_ACCESS) {}
 
   async list(p: Principal, raw?: ListBoards): Promise<BoardListPage> {
     const input = C.ListBoards.parse(raw ?? {}), cursor = this.cursors.decode(p, input);
@@ -74,7 +76,16 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
     return this.db.withTenant(p.orgId, async session => {
       const result = await session.query<Row>(`SELECT ${columns} FROM whiteboards b ${membership}
         WHERE b.org_id=$1 AND b.id=$3 AND ${visible}`, [p.orgId,p.userId,id]);
-      return result.rows[0] ? view(result.rows[0]) : null;
+      const own = result.rows[0];
+      if (own && (own.role === 'owner' || own.role === 'editor')) return view(own);
+      // #4615: a board linked to a project is also reachable through the project (resolveProjectLayer
+      // in this same transaction). Only then is the board row read without the ACL predicate.
+      const borrowed = await this.projectAccess.roleIn(session, { userId: p.userId, orgId: p.orgId, boardId: id });
+      if (!borrowed) return own ? view(own) : null;
+      if (own) return view({ ...own, role: unionWhiteboardRole(own.role as C.Board['role'], borrowed) ?? own.role });
+      const linked = await session.query<Row>(`SELECT ${columns} FROM whiteboards b ${membership}
+        WHERE b.org_id=$1 AND b.id=$3`, [p.orgId,p.userId,id]);
+      return linked.rows[0] ? view({ ...linked.rows[0], role: borrowed }) : null;
     });
   }
 

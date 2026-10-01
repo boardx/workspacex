@@ -22,7 +22,7 @@ async function login(page: Page): Promise<string> {
   await page.getByTestId("login-email").fill(required("WHITEBOARD_OWNER_EMAIL"));
   await page.getByTestId("login-password").fill(required("WHITEBOARD_OWNER_PASSWORD"));
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 30_000 });
   const token = await page.evaluate((key) => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(token).toBeTruthy();
   return token!;
@@ -100,6 +100,9 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await page.goto(`/studio/board/${source.id}`);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-sticky-square").click();
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 300, y: 220 } });
+  await page.getByTestId("board-thinking-editor").press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
@@ -142,6 +145,9 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await page.goto(`/studio/board/${source.id}`);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-sticky-square").click();
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 540, y: 220 } });
+  await page.getByTestId("board-thinking-editor").press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(2);
   await page.goto(`/studio/board/${copy.id}`);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
@@ -176,37 +182,36 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   const token = cleanupToken = await login(page);
   const board = await apiJson<Board>(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Navigation-${randomUUID()}` });
   cleanupBoards.add(board.id);
+  // 2026-09-30：Board 收进左栏「更多」三点菜单；在 Board 页时「更多」按钮自身高亮
+  await page.getByTestId("rail-more").click();
   await page.getByTestId("rail-whiteboard").click();
   await expect(page).toHaveURL(/\/studio\/board$/);
-  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
-  await expect(page.getByTestId("rail-whiteboard")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("rail-more")).toBeVisible();
+  await expect(page.getByTestId("rail-more")).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("whiteboard-library")).toBeVisible();
   await expect(page.getByTestId(`board-card-${board.id}`)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("board-library-with-navigation.png") });
   await page.getByTestId(`board-open-${board.id}`).click();
   await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("rail-whiteboard")).not.toBeVisible();
+  await expect(page.getByTestId("rail-more")).not.toBeVisible();
   await expect(async () => {
     const region = page.getByTestId("board-editor-region");
     const shell = await region.locator("..").boundingBox();
-    const banner = await page.getByTestId("board-sync-banner").boundingBox();
     const bounds = await region.boundingBox();
     const editor = await page.getByTestId("collaborative-editor").boundingBox();
     expect(shell).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
-    expect(banner).not.toBeNull(); expect(bounds).not.toBeNull(); expect(editor).not.toBeNull();
-    expect(banner!.height).toBeGreaterThan(0); expect(bounds!.height).toBeGreaterThan(0);
-    expect(banner).toEqual({ x: 0, y: 0, width: 1280, height: banner!.height });
-    expect(bounds).toEqual({ x: 0, y: banner!.height, width: 1280, height: 800 - banner!.height });
+    await expect(page.getByTestId("board-sync-banner")).toBeHidden();
+    expect(bounds).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
     expect(editor).toEqual(bounds);
   }).toPass({ timeout: 5000 });
   await page.screenshot({ path: testInfo.outputPath("board-editor-fullscreen.png") });
   await page.getByRole("button", { name: "返回白板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/board$/);
-  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId("rail-more")).toBeVisible();
   await expect(page.getByTestId(`board-card-${board.id}`)).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId("rail-more")).toBeVisible();
   await expect(page.getByTestId("whiteboard-library")).toBeVisible();
 });
 

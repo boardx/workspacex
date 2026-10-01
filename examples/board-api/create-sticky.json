@@ -1,0 +1,9 @@
+{
+  "apiVersion": "2026-09-01",
+  "requestId": "00000000-0000-4000-8000-000000000002",
+  "boardId": "00000000-0000-4000-8000-000000000001",
+  "expectedRevision": { "epoch": 1, "seq": 0 },
+  "actor": { "kind": "service", "actorId": "board-bot", "orgId": "org-example", "role": "editor", "scopes": ["board:read", "board:write"], "delegatedBy": "user-example" },
+  "commands": [{ "type": "create", "object": { "id": "idea-1", "schemaVersion": 1, "kind": "sticky", "geometry": { "x": 120, "y": 160, "width": 200, "height": 200, "rotation": 0 }, "text": "First API idea", "style": { "fill": "#FFF2A8" }, "parentId": null, "orderKey": "a" } }],
+  "provenance": { "source": "public-api", "model": null, "skill": null, "sourceArtifactId": null, "sourceRevision": null, "layoutHash": null, "inputObjectIds": [] }
+}

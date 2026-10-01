@@ -4,7 +4,7 @@ import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
-  role: 'owner' | 'editor' | 'commenter' | 'viewer'; archived: boolean;
+  role: 'owner' | 'editor' | 'commenter' | 'viewer'; archived: boolean; epoch?: number | null;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
   retryAttempt: number; duplicateAcks: number; lastAckSequence: number | null; lastAckReceipt: {updateId:string;gestureId:string;seq:number}|null;
 };
@@ -36,7 +36,7 @@ export class WhiteboardProvider {
   private inFlight = new Set<string>();
   private persisted = new Set<string>();
   private pending: WhiteboardPendingMessage[] = [];
-  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
+  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, epoch: null, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
     doc.on('update', this.onUpdate);
@@ -179,7 +179,7 @@ export class WhiteboardProvider {
           }
           this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
           clearTimeout(handshake);
-          this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null, retryAttempt: 0 });
+          this.publish({ phase: 'online', role: message.role, archived: message.archived, epoch: message.epoch, reason: null, retryAttempt: 0 });
           this.inFlight.clear(); this.drain(); if (!this.pending.length) this.schedulePresence();
         } else if (message.type === 'update') {
           if (!this.ready || message.epoch !== this.epoch) { this.block('STALE_EPOCH'); return; }
@@ -236,9 +236,9 @@ export class WhiteboardProvider {
     };
     socket.onerror = () => {if(!this.stopped&&this.socket===socket)socket.close();};
   }
-  awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null, collaboration?: {viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}) {
+  awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null, collaboration?: {viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}, pointer: Extract<WhiteboardClientMessage,{type:"awareness"}>["pointer"]=null) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;
-    this.latestPresence = { type: 'awareness', cursor, selected: selected.slice(0,200), editingObjectId,viewport:collaboration?.viewport??null,presenting:collaboration?.presenting??false,followingActorId:collaboration?.followingActorId??null };
+    this.latestPresence = { type: 'awareness', pointer, cursor, selected: selected.slice(0,200), editingObjectId,viewport:collaboration?.viewport??null,presenting:collaboration?.presenting??false,followingActorId:collaboration?.followingActorId??null };
     this.schedulePresence();
   }
   retryNow() { if (this.stopped || this.state.phase === 'blocked') return; if (this.timer) clearTimeout(this.timer); this.retry = 0; this.socket?.close(); this.connect('MANUAL_RETRY'); }

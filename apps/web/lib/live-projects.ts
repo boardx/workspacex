@@ -80,9 +80,8 @@ export async function getProjectOverview(projectId: string): Promise<ProjectOver
 }
 
 export const PROJECT_KIND_LABEL: Record<z.infer<typeof project.ProjectKind>, string> = {
+  general: "项目",
   workshop: "工作坊",
-  research_project: "研究项目",
-  user_insight: "用户洞察",
 };
 
 export const PROJECT_STATUS_LABEL: Record<z.infer<typeof project.ProjectStatus>, string> = {

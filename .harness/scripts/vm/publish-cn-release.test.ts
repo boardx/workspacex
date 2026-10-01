@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -8,6 +9,7 @@ const apiDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/al
 const webDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/aliyun/images/web.Dockerfile"),"utf8");
 const agentDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/deep-agent-service/Dockerfile"),"utf8");
 const sandboxDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/skill-sandbox/Dockerfile"),"utf8");
+const projectionSyncWorker=readFileSync(resolve(import.meta.dirname,"../../../apps/api/src/infrastructure/retrieval/dev-process-projection-sync-worker.ts"),"utf8");
 const postgresAgeDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/api/docker/postgres-age/Dockerfile"),"utf8");
 const localEnvExample=readFileSync(resolve(import.meta.dirname,"../../config/local.env.example"),"utf8");
 
@@ -39,6 +41,23 @@ describe("China production release publisher",()=>{
     expect(source).toContain('docker push "$tag"');
     expect(source).toContain('docker pull --platform "$platform" "$tag"');
     expect(source).toContain("existing immutable $service tag has a different revision");
+  });
+  it("retries only transient pushes within a bounded budget and preserves immutable-tag verification",()=>{
+    execFileSync("bash",["-n",file]);
+    const start=source.indexOf("push_immutable_with_retry(){");
+    const end=source.indexOf("\nbuild_and_push(){",start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const retry=source.slice(start,end);
+    expect(retry).toContain("local max_attempts=4");
+    expect(retry).toContain('if docker push "$tag" >"$push_log" 2>&1; then');
+    expect(retry).toContain('docker pull --platform "$platform" "$tag"');
+    expect(retry).toContain("existing immutable $service tag has a different revision");
+    expect(retry).toMatch(/429.*500.*502.*503.*504/);
+    expect(retry).toContain('sleep "$delay_seconds"');
+    expect(retry.indexOf('docker pull --platform "$platform" "$tag"')).toBeLessThan(retry.indexOf("grep -Eqi"));
+    expect(source).toContain('push_immutable_with_retry "$service" "$tag"');
+    expect(source).not.toContain('docker push "$tag" >/dev/null');
   });
   it("publishes services in parallel and seals the immutable manifest once",()=>{
     expect(source).toContain("wait_for_builds");
@@ -87,6 +106,24 @@ describe("China production release publisher",()=>{
     expect(apiDockerfile).toContain("test -r ../../packages/contracts/package.json");
     expect(apiDockerfile).toContain('find migrations -maxdepth 1 -type f -print -quit');
     expect(apiDockerfile).toContain("node --import tsx --input-type=module");
+  });
+  it("keeps checkout-only projection code outside the production API compile graph",()=>{
+    expect(projectionSyncWorker).toContain('const PROJECTION_SYNC_MODULE_PATH = "../../../scripts/sync-dev-process-projection";');
+    expect(projectionSyncWorker).toContain("import(PROJECTION_SYNC_MODULE_PATH)");
+    expect(projectionSyncWorker).not.toContain('import("../../../scripts/sync-dev-process-projection")');
+    expect(apiDockerfile).not.toMatch(/COPY .*\.harness/);
+    expect(apiDockerfile).not.toMatch(/COPY .*phases/);
+  });
+  it("copies pnpm patches into every workspace image before installing dependencies",()=>{
+    for(const [dockerfile,patchesCopyLine] of [
+      [apiDockerfile,"COPY --chown=node:node patches ./patches"],
+      [webDockerfile,"COPY patches ./patches"],
+    ] as const){
+      const patchesCopy=dockerfile.indexOf(patchesCopyLine);
+      const install=dockerfile.indexOf("pnpm install --frozen-lockfile");
+      expect(patchesCopy).toBeGreaterThan(-1);
+      expect(patchesCopy).toBeLessThan(install);
+    }
   });
   it("passes validated package indexes only to integrity-locked dependency installs",()=>{
     expect(source).toContain('npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}');

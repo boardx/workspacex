@@ -8,6 +8,7 @@ import { completePasswordReset, contractFieldIssues, isResetTokenInvalid } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/entry/auth-shell";
 
 /**
  * F21 找回密码第 4-5 步（issue #2602）——邮件里的重置链接落地页。
@@ -157,7 +158,7 @@ export function ResetPassword({ token }: { token: string | null }) {
           </div>
         )}
 
-        <Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="reset-password-submit">
+        <Button type="submit" size="lg" variant="primary" disabled={!canSubmit} data-testid="reset-password-submit">
           {submitting ? (
             <>
               <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> 正在提交…
@@ -173,13 +174,13 @@ export function ResetPassword({ token }: { token: string | null }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-4 p-6">
-      <header className="flex items-center gap-2">
-        <KeyRound aria-hidden className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-16 font-semibold tracking-tight">重置密码</h1>
-      </header>
-      <div className="rounded-lg border border-border bg-card p-6 shadow-sm">{children}</div>
-    </div>
+    <AuthShell
+      icon={<KeyRound aria-hidden className="h-5 w-5 text-muted-foreground" />}
+      title="重置密码"
+      footer={<a href="/login" className="text-primary underline-offset-4 transition-colors duration-base hover:underline">返回登录</a>}
+    >
+      {children}
+    </AuthShell>
   );
 }
 

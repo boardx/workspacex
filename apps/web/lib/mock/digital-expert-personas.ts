@@ -1,5 +1,5 @@
 import type { DigitalExpertCatalogRow } from "@/lib/interview-api";
-import personaDatabase from "./experts-persona.json";
+import personaDatabase from "../interview-personas/experts-persona.json";
 
 export const MOCK_EXPERT_ID_PREFIX = "mock-persona:";
 

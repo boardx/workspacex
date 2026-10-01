@@ -14,6 +14,15 @@ The eight user-provided grayscale screenshots, beginning with `/var/folders/l8/7
 - Source/implementation pairs were viewed together. The shared selected-workflow header was about 345 px tall and its active step was white-on-white; it is now under 220 px with a dark active marker. List title/search and stage heading sizing were enlarged; the browser test measures these and verifies all direct routes and return-to-list shell behavior.
 - The reference's photographic avatars intentionally differ from the requested generated SVG expert icons. Browser fixture content is sparse (one expert/question group), so screenshot density cannot prove parity for a populated six-card list, multiple experts, or a long report. Pixel-perfect acceptance is not claimed.
 
+## Populated-density follow-up (#4544)
+
+- A separate, deterministic canonical-Markdown browser fixture renders six list cards, four analysis cards, five named expert/question groups, five execution states, and an eight-heading report. It uses an isolated real API/DB/Chromium stack, but intercepts the interview responses; it proves rendering and navigation, **not** persistence.
+- A second, no-`page.route` Chromium test (`digital-interview-density-live.spec.ts`) logs in with a seeded account, creates six interviews via the real Next proxy/API, initializes a Markdown revision, saves intake/analysis/experts/outline/report through the live controller, reloads the report route, then re-reads PostgreSQL-backed source via API. All five raw Markdown strings and the version are unchanged after reload. This isolated test passed (1/1). It does not simulate real participant evidence or AI model output.
+- At 1280 px, a RED browser assertion found the first two analysis cards 131 px apart vertically. The cards now use a responsive two-column grid; the same assertion is green. The outline intentionally shows one editable group at a time with five selectable groups in its left navigation.
+- The long report body was 13 px in a RED browser assertion. Report-only typography is now 16 px, leaving compact chat and preview Markdown unchanged. The fixture includes multi-paragraph sections, a GFM table, lists and a blockquote; browser assertions measure all content bounds at 768/390 px in addition to whole-page overflow. The first table assertion failed because the fixture had blank lines between GFM rows; the row formatting was corrected and the same browser test passed.
+- Reviewable list/analysis/report desktop and report-mobile screenshots are generated under `docs/evidence/interview-density/` by the fixture. The exact commands and measured assertions are documented there; local `apps/web/test-results/fullstack-smoke/` remains transient.
+- This is content-density and responsive evidence, not pixel-perfect visual signoff. It does not validate real model output quality or report metric correctness.
+
 ## Confirmed functional findings and fixes
 
 1. Queued expert tasks were labeled active. Regression failed before the fix; pending tasks now show 等待访谈. Related 32 UI tests pass.
@@ -22,6 +31,7 @@ The eight user-provided grayscale screenshots, beginning with `/var/folders/l8/7
 4. Two CI browser cases retained obsolete legacy fixtures for canonical routes. Fixtures and assertions are updated while preserving avatar persistence/reset, responsive checks, six-step navigation and legacy Skill coverage; the isolated six-case browser regression now passes.
 5. Real browser comparison exposed oversized stage chrome, invisible active-step contrast, undersized headings and a cramped list search. A RED-first browser assertion reproduced each mismatch, and the corrected list/workbench layouts pass.
 6. The question screen was only a raw Markdown textarea. A RED-first UI test now covers per-question editing and order; the screen projects question rows from Markdown and writes all edits back to the same Markdown document. The virtual-expert dialog now has an adjacent live Markdown preview and explicit simulation-boundary review.
+7. Issue #4571 projects the execution screen's completed/pending/running/failed counts from durable task metadata and its insight cards only from saved runs Markdown headings. UI tests went RED→GREEN, a Chromium direct-route/reload case passed at desktop/mobile widths with deterministic source fixtures, and the existing real PostgreSQL execution tests passed 8/8. The fullstack browser attempt did not reach assertions because the Next production build exceeded its 480-second server startup limit under machine load; this is not evidence of an integrated model-run browser pass.
 
 ## Verification boundary on this iteration
 
@@ -30,9 +40,9 @@ The eight user-provided grayscale screenshots, beginning with `/var/folders/l8/7
 
 ## Remaining acceptance
 
-- Repeat the side-by-side audit with a populated canonical Markdown fixture (six list cards, multiple expert profiles and question groups, and a long report); current sparse fixtures cannot substantiate one-to-one content density or all responsive layouts.
+- Verify report Word/PDF exports against the same saved version and validate live execution-state grouping; the no-mock persistence journey now proves saved Markdown and reload, but not those two downstream consumers.
 - Verify upload and voice failure recovery in an authenticated real browser; the six passing cases do not exercise these error states.
-- The prototype's AI-generated virtual-expert fields and rich live-report statistics are not established by the current modal/report browser evidence. Preserve the simulated-versus-real evidence boundary while implementing or explicitly accepting these differences.
+- The prototype's AI-generated virtual-expert fields and richer live-report statistics are not fully established. The execution screen now groups only explicitly saved Markdown insight sections; it does not invent category counts for unstructured model output or claim real participant evidence. Preserve the simulated-versus-real evidence boundary while implementing or explicitly accepting remaining differences.
 - Re-run current-head browser CI and resolve every genuine failure/review before claiming prototype acceptance or merge readiness.
 
 No assertion of complete one-to-one reconstruction or merge readiness is made.

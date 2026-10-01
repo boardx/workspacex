@@ -48,6 +48,26 @@ export type GuidedResearchMarkdownParseInput = {
 
 const briefHeadings = ["研究主题", "研究目标", "时间与地区", "重点关注"] as const;
 
+export function researchPlanTitle(title: string): string {
+  return title.replace(/^\s*(?:(?:第\s*)?[一二三四五六七八九十百千万]+\s*[.、．)）:]\s*|\d+\s*[、．)）:]\s*|\d+\s*\.\s+)/, "").trim();
+}
+
+export function researchQuestionsForTitle(title: string): string[] {
+  return [`「${researchPlanTitle(title)}」有哪些关键事实、影响因素和可执行结论？`];
+}
+
+/** Only new items derive questions; existing research design remains untouched. */
+export function prepareResearchOutline(items: GuidedResearchOutlineSection[], original: GuidedResearchOutlineSection[]): GuidedResearchOutlineSection[] {
+  return items.map((item) => {
+    const saved = original.find((entry) => entry.id === item.id);
+    return { ...item, questions: saved ? item.questions : researchQuestionsForTitle(item.title),
+      ...(item.subsections ? { subsections: item.subsections.map((sub) => ({ ...sub,
+        questions: saved?.subsections?.some((entry) => entry.id === sub.id) ? sub.questions : researchQuestionsForTitle(sub.title),
+      })) } : {}),
+    };
+  });
+}
+
 function section(markdown: string, heading: string): string | null {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = markdown.match(new RegExp(`(?:^|\\n)## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));
@@ -97,7 +117,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
     const sections = input.outline
       .slice()
       .sort((left, right) => left.order - right.order)
-      .map((item, index) => `## ${index + 1}. ${item.title}${item.enabled ? "" : "（未纳入）"}\n${item.objective ? `目标：${item.objective}\n\n` : ""}### 核心问题\n${item.questions.map((question) => `- ${question}`).join("\n")}${item.analysisApproach ? `\n\n### 分析方法\n${item.analysisApproach}` : ""}${item.expectedOutput ? `\n\n### 预期产出\n${item.expectedOutput}` : ""}${item.subsections?.length ? `\n\n### 子章节\n${item.subsections.map((section) => `- ${section.title}：${section.questions.join("；")}`).join("\n")}` : ""}`)
+      .map((item, index) => `## ${index + 1}. ${researchPlanTitle(item.title)}${item.enabled ? "" : "（未纳入）"}\n${item.objective ? `目标：${item.objective}\n\n` : ""}### 核心问题\n${item.questions.map((question) => `- ${question}`).join("\n")}${item.analysisApproach ? `\n\n### 分析方法\n${item.analysisApproach}` : ""}${item.expectedOutput ? `\n\n### 预期产出\n${item.expectedOutput}` : ""}${item.subsections?.length ? `\n\n### 子章节\n${item.subsections.map((section) => `- ${section.title}：${section.questions.join("；")}`).join("\n")}` : ""}`)
       .join("\n\n");
     return {
       node: "outline",
@@ -141,7 +161,7 @@ export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseIn
     return { ok: false, markdown, errors: [{ code: "immutable_citation", message: "报告引用必须保留已验证的来源标识。" }] };
   }
   if (document.node === "directions" && document.draft.node === "directions") {
-    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|\s*$)/gm)];
+    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|(?![\s\S]))/gm)];
     if (entries.length !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "研究主题必须保留全部编号章节。" }] };
     return { ok: true, draft: { node: "directions", value: document.draft.value.map((item, index) => {
       const entry = entries[index]!;
@@ -149,12 +169,24 @@ export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseIn
     }) } };
   }
   if (document.node === "outline" && document.draft.node === "outline") {
-    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|\s*$)/gm)];
+    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|(?![\s\S]))/gm)];
     if (entries.length !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "研究计划必须保留全部编号章节。" }] };
     return { ok: true, draft: { node: "outline", value: document.draft.value.map((item, index) => {
       const entry = entries[index]!; const body = entry[3]!;
       const questions = body.match(/### 核心问题\n([\s\S]*?)(?=\n### |$)/)?.[1]?.split("\n").filter((line) => line.startsWith("- ")).map((line) => line.slice(2).trim()).filter(Boolean) ?? [];
-      return { ...item, title: entry[1]!.trim(), enabled: !entry[2], objective: body.match(/^目标：(.*)$/m)?.[1]?.trim() || item.objective, questions };
+      const headingBody = (heading: string) => body.match(new RegExp(`### ${heading}\\n([\\s\\S]*?)(?=\\n### |$)`))?.[1]?.trim();
+      const subsectionLines = headingBody("子章节")?.split("\n").filter((line) => line.startsWith("- ")) ?? [];
+      const subsections = item.subsections?.map((subsection, subsectionIndex) => {
+        const line = subsectionLines[subsectionIndex]?.slice(2).trim();
+        if (!line) return subsection;
+        const separator = line.indexOf("：");
+        if (separator < 0) return { ...subsection, title: line };
+        return { ...subsection, title: line.slice(0, separator).trim(), questions: line.slice(separator + 1).split("；").map((question) => question.trim()).filter(Boolean) };
+      });
+      return { ...item, title: entry[1]!.trim(), enabled: !entry[2], objective: body.match(/^目标：(.*)$/m)?.[1]?.trim() || item.objective, questions,
+        analysisApproach: headingBody("分析方法") ?? item.analysisApproach,
+        expectedOutput: headingBody("预期产出") ?? item.expectedOutput,
+        ...(subsections ? { subsections } : {}) };
     }) } };
   }
   if (document.node === "research" && document.draft.node === "research") {

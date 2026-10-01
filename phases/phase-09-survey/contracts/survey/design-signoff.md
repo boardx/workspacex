@@ -1,21 +1,21 @@
 ---
 bundle: survey
 phase: "09"
-covers: [F01, F02, F03, F04, F05, F06, F07]
+covers: [F08, F09, F10, F11, F12, F13, F14]
 status: confirmed
 confirmed_by: shenyangjun
-confirmed_at: 2026-08-13T02:43:32+08:00
+confirmed_at: 2026-09-28T02:43:32+08:00
 ---
 
 # Design Signoff — Survey
 
 ## ① UI
-- status: pending_human
+- status: confirmed
 
 ## ② Use Cases
-- status: pending_human
+- status: confirmed
 
 ## ③ API Contract
-- status: pending_human
+- status: confirmed
 
 Agent 不可自行改为 signed。

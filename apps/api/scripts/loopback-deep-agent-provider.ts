@@ -642,6 +642,133 @@ interface RunRecord {
   cite?: CiteOutcome;
 }
 
+/**
+ * AG05 —— 聊天里发起 Workflow 的确定性剧本（`start_workflow` 工具调用）。
+ *
+ * 用户消息里带 `[start_workflow:<workflowId>]` 标记（input 恒为 `{}`）⇒ 替身发出一个**未配对**的 `start_workflow` 工具调用并停在 interrupted；
+ * 网关（`workflow-start-gate.ts`）按白名单判定、以 edit resume 交回 `{...args, outcome}`；
+ * 终稿正文就是 `outcome.message`（放行 = 「已发起流程…」，拒绝 = `workflow_not_allowed` 的友好文案）。
+ * 不吃环境变量：标记本身就是触发词，其它剧本逐字等值匹配，不会误中。
+ */
+const START_WORKFLOW_TOOL_NAME = "start_workflow";
+const START_WORKFLOW_MARKER = /\[start_workflow:([^\]\s]+)\]/;
+
+/**
+ * AG07 —— 聊天里请求转交的确定性剧本（`request_handoff` 工具调用），与上面 `start_workflow` 同形：
+ * 用户消息里带 `[request_handoff:<Dxxx>]`（可再带若干 `[evidence:<versionId>]`）⇒ 替身发出一个未配对的
+ * `request_handoff` 调用并停在 interrupted；网关（`handoff-gate.ts`）按钉住的 delegationPolicy 判定、以 edit
+ * resume 交回 `{...args, outcome}`；终稿正文就是 `outcome.message`。交接包只含问题原文与证据 ID，不含摘录。
+ */
+const REQUEST_HANDOFF_TOOL_NAME = "request_handoff";
+const REQUEST_HANDOFF_MARKER = /\[request_handoff:(D\d{3})\]/;
+/** 转交被拒后的终稿：不复述拒绝原因（提示条已展示），只说对话会怎么继续。 */
+const HANDOFF_REFUSED_FOLLOWUP = "我会继续在这个对话里、按我的职责范围帮你处理。";
+const EVIDENCE_MARKER = /\[evidence:([^\]\s]+)\]/g;
+
+/** 一次「结果只由服务端算出」的工具调用剧本（`start_workflow` / `request_handoff`）。 */
+interface ServerComputedToolScript {
+  readonly name: string;
+  readonly idPrefix: string;
+  readonly args: Record<string, unknown>;
+  readonly pendingText: string;
+  readonly rejectedText: string;
+}
+
+function serverComputedToolScript(record: RunRecord): ServerComputedToolScript | null {
+  const wf = START_WORKFLOW_MARKER.exec(record.userText);
+  if (wf) {
+    return {
+      name: START_WORKFLOW_TOOL_NAME, idPrefix: "start-workflow", args: { workflowId: wf[1]!, input: {} },
+      pendingText: "正在发起流程。", rejectedText: "发起流程被拒绝，未创建实例。",
+    };
+  }
+  const handoff = REQUEST_HANDOFF_MARKER.exec(record.userText);
+  if (handoff) {
+    const evidenceRefs = [...record.userText.matchAll(EVIDENCE_MARKER)].map((m) => m[1]!);
+    const question = record.userText.replace(REQUEST_HANDOFF_MARKER, "").replace(EVIDENCE_MARKER, "").trim() || "（用户未写明问题）";
+    return {
+      name: REQUEST_HANDOFF_TOOL_NAME, idPrefix: "request-handoff",
+      args: { targetRole: handoff[1]!, packet: { originalQuestion: question, confirmedScope: "", evidenceRefs, openItems: [] } },
+      pendingText: "", rejectedText: "转交请求被拒绝，未发起转交。",
+    };
+  }
+  return null;
+}
+
+function startWorkflowTarget(record: RunRecord): string | null {
+  return serverComputedToolScript(record) === null ? null : "scripted";
+}
+
+function serverComputedOutcomeMessage(record: RunRecord): string | null {
+  const outcome = record.decision?.editedArgs?.outcome;
+  const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  return typeof message === "string" && message !== "" ? message : null;
+}
+
+function startWorkflowReply(record: RunRecord): string {
+  const script = serverComputedToolScript(record);
+  if (record.decision === null) return script?.pendingText ?? "正在发起流程。";
+  const outcome = record.decision.editedArgs?.outcome;
+  const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  // UIUX r2 屏 4 #3：转交被拒时，拒绝原因已由结构化的「没有转交」提示条展示（工具结果本身），
+  // 终稿再逐字复述一遍就是同一句话出现两次。与真实工具体（`tools.py::request_handoff`）同一约定：
+  // 不复述，只说接下来怎么办。
+  const status = outcome && typeof outcome === "object" ? (outcome as { status?: unknown }).status : undefined;
+  if (script?.name === REQUEST_HANDOFF_TOOL_NAME && status === "refused") return HANDOFF_REFUSED_FOLLOWUP;
+  if (typeof message === "string" && message !== "") return message;
+  return record.decision.type === "reject" ? (script?.rejectedText ?? "发起流程被拒绝，未创建实例。") : "结果未知。";
+}
+
+/**
+ * AG06 —— 升级剧本（`escalate_matter` 工具调用），让升级卡片在回环模型上可达。
+ *
+ * 用户消息里带 `[escalate:<reason>]` ⇒ 替身发出一个**未配对**的 `escalate_matter` 调用并停在
+ * interrupted；网关（`tool-permission-gate.ts`）按该 run 钉住的 escalationPolicy 判定：命中 ⇒
+ * 挂起等目标人经 `decideEscalation` 裁决（edit resume 带回 `decision`/`decisionText`/`reason`），
+ * 没命中 ⇒ 原样 approve（「未升级」）。终稿措辞与真实工具体（deep-agent-service `tools.py`
+ * `escalate_matter`）的三条回复同构。`matter` 取 `LOOPBACK_ESCALATE_MATTER`（缺省「超出职责范围的事项」），
+ * 要让它真的挂起，被测 Agent 的升级策略里得有同名事项。
+ */
+const ESCALATE_TOOL_NAME = "escalate_matter";
+const ESCALATE_MARKER = /\[escalate:([^\]]+)\]/;
+const ESCALATE_MATTER = process.env.LOOPBACK_ESCALATE_MATTER ?? "超出职责范围的事项";
+
+function escalateReason(record: RunRecord): string | null {
+  const m = ESCALATE_MARKER.exec(record.userText);
+  const reason = m?.[1]?.trim();
+  if (!reason) return null;
+  // uiux-r6 #4 —— 卡片标题取 reason（数字人要问你的那句话）。标记里只有类别式的泛称
+  // （「超出职责范围的事项」「超出我的职责」）时，换成一句具体的问句，避免决定人只看到类别。
+  return isGenericEscalateReason(reason) ? ESCALATE_SAMPLE_QUESTION : reason;
+}
+
+const ESCALATE_SAMPLE_QUESTION = "客户要求在合同里写明 20% 折扣，是否同意？";
+
+function isGenericEscalateReason(reason: string): boolean {
+  return reason === ESCALATE_MATTER || /超出.{0,4}职责/.test(reason);
+}
+
+function escalateArgs(reason: string): Record<string, unknown> {
+  return { matter: ESCALATE_MATTER, reason, target: "requester", contextRefs: [] };
+}
+
+function escalateReply(record: RunRecord): string {
+  // uiux-r3 #4.2 —— 待决阶段不流出任何「正在提交…」正文：升级卡片就是这一轮的状态，
+  // 一句不会被结果替换掉的进行时旁白只会在 run 停下后永远挂在线程里。
+  if (record.decision === null) return "";
+  const edited = record.decision.type === "edit" ? record.decision.editedArgs : undefined;
+  const decision = edited?.decision;
+  if (decision === "resolve") {
+    // uiux-r5 #4.1 —— 裁决原文已由线程里的「决定：…」记录逐字展示，这句不再复述，只说接下来怎么办。
+    return "负责人已同意。我会按这个裁决继续。";
+  }
+  if (decision === "reject" || record.decision.type === "reject") {
+    // 同上：理由已由「理由：…」记录展示，不复述。
+    return "负责人不同意。这件事我不会执行，会据此调整方案。";
+  }
+  return `事项「${ESCALATE_MATTER}」不在我的升级策略范围内，未升级给任何人；我会按自己的职责边界处理。`;
+}
+
 function approvalReply(record: RunRecord): string {
   if (record.decision === null) return "这一步需要人工批准后才能继续。";
   const args = record.decision.type === "edit" && record.decision.editedArgs !== undefined
@@ -1353,6 +1480,14 @@ const server = createServer((req, res) => {
     // UX-9 D4：审批触发词且还没被裁决过 → 停在 interrupted，让真实 DA-07b 轮询循环
     // 读到「等人裁决」而不是直接终态。裁决（resume）到达后 record.decision 非 null，
     // 之后的轮询一律走终态分支——不会无限停在 interrupted。
+    if (startWorkflowTarget(record) !== null && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
+    if (escalateReason(record) !== null && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER && record.decision === null) {
       sendJson(res, 200, { status: "interrupted" });
       return;
@@ -1448,8 +1583,9 @@ const server = createServer((req, res) => {
     const isChoosing = isChooseOption(record);
     const isTwoInterruptTurn = isTwoInterrupt(record);
     const isTwoApprovalTurn = isTwoApproval(record);
-    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
-    const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : escalateReason(record) !== null ? `escalate-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
+    const isStartWorkflow = startWorkflowTarget(record) !== null;
+    const reply = isStartWorkflow ? startWorkflowReply(record) : escalateReason(record) !== null ? escalateReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       /*
@@ -1899,6 +2035,62 @@ const server = createServer((req, res) => {
                 ? "用户拒绝了这次技能调用，未执行。"
                 : `已执行技能：${JSON.stringify(secondArgs)}` },
             { id: `two-approval-${threadId}:final`, type: "ai", content: TWO_APPROVAL_FINAL_REPLY },
+          ],
+        },
+      });
+      return;
+    }
+    const escalation = escalateReason(record);
+    if (escalation !== null) {
+      const callId = `escalate-${threadId}`;
+      const pendingAi = {
+        id: `escalate-${threadId}:pending`,
+        type: "ai",
+        content: "这件事超出了我的职责，需要负责人拍板。",
+        tool_calls: [{ id: callId, name: ESCALATE_TOOL_NAME, args: escalateArgs(escalation) }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
+        return;
+      }
+      const finalText = escalateReply(record);
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            pendingAi,
+            { type: "tool", tool_call_id: callId, content: finalText },
+            { id: `escalate-${threadId}:final`, type: "ai", content: finalText },
+          ],
+        },
+      });
+      return;
+    }
+    const serverScript = serverComputedToolScript(record);
+    if (serverScript !== null) {
+      const callId = `${serverScript.idPrefix}-${threadId}`;
+      const pendingAi = {
+        id: `${serverScript.idPrefix}-${threadId}:pending`,
+        type: "ai",
+        content: serverScript.pendingText,
+        tool_calls: [{ id: callId, name: serverScript.name, args: serverScript.args }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
+        return;
+      }
+      const finalText = startWorkflowReply(record);
+      // UIUX r3 屏 5 #1：工具结果 = 服务端算出的 outcome.message（拒绝句含 HANDOFF_REFUSAL_MARK，
+      // 前端据此渲染「没有转交」提示条）；此前误用终稿文案，自转交等拒绝路径因此不出提示条。
+      const outcomeMessage = serverComputedOutcomeMessage(record);
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            // UIUX r3 屏 5 #2：有了结果，「正在提交……」这句过渡语就被结果取代，不留在最终气泡里。
+            { ...pendingAi, content: "" },
+            { type: "tool", tool_call_id: callId, content: outcomeMessage ?? finalText },
+            { id: `${serverScript.idPrefix}-${threadId}:final`, type: "ai", content: finalText },
           ],
         },
       });

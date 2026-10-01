@@ -106,6 +106,9 @@ describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", 
     //   `org-invites`（「邀请」）是把左上角组织菜单「组织管理」入口并入组织后台左栏、
     //   再按 issue #2615 拆平成与总览平级三项的结果，与本文件锁的
     //   「不新增 usage/limits/policy」无关，因此加入期望集合而不是被这条断言拦下。
-    expect(keys).toEqual(["overview", "org-members", "org-invites", "org-profile", "members", "local"]);
+    // ⚠ 2026-09-29：`home-config`（「首页配置」）是组织首页 ad-hoc feature（Refs #4634 /
+    //   #4660）新增的一项，与 `org-profile` 同一授权面（组织 admin）、同一组——不是
+    //   本文件锁的 usage/limits/policy 那类「同一屏拆出新菜单项」，因此同样加入期望集合。
+    expect(keys).toEqual(["overview", "org-members", "org-invites", "org-profile", "home-config", "workflow-grants", "members", "local"]);
   });
 });

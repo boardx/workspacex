@@ -67,7 +67,7 @@ async function loginAs(page: Page, email: string, password: string) {
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("capture the results tab against the real stack (facilitator + three other views)", async ({ page }) => {
@@ -128,7 +128,7 @@ test("probe: does logging in as the org lead surface any real audit data without
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/projects/${FULLSTACK_E2E.projectId}?org=${FULLSTACK_E2E.orgId}&tab=results`);
   await page.getByTestId("project-results").waitFor({ state: "visible", timeout: 30_000 });

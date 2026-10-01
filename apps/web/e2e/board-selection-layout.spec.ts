@@ -22,7 +22,7 @@ async function login(page: Page): Promise<string> {
   await page.getByTestId("login-email").fill(required("WHITEBOARD_OWNER_EMAIL"));
   await page.getByTestId("login-password").fill(required("WHITEBOARD_OWNER_PASSWORD"));
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/home$/, { timeout: 30_000 });
   return (await page.evaluate((key) => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY))!;
 }
 
@@ -362,6 +362,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
         const object = parseGeometry(original).find(value => value.kind === kind)!;
         const outline = page.getByTestId(`board-a11y-object-${object.id}`);
         await outline.focus(); await outline.press("Enter");
+        await page.getByLabel("对象文字", { exact: true }).press("Escape");
         await page.getByTestId("board-tool-select").focus();
         const toolbar = page.getByTestId("board-context-toolbar");
         await expect(toolbar).toHaveCount(1); await expect(toolbar).toBeVisible();

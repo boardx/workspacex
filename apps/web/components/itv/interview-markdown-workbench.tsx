@@ -50,12 +50,12 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
     finally { setBranching(false); }
   }
   const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onDirtyChange: (value: boolean) => { dirty.current = value; } };
-  return <main data-testid="itv-markdown-workbench" className="min-h-screen w-full bg-background px-4 py-6 lg:px-8">
+  return <main data-testid="itv-markdown-workbench" className="min-h-screen w-full bg-background px-4 py-4 lg:px-6">
     <div className="mx-auto max-w-[1440px]">
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} completedSteps={completed} status="Markdown 研究工作台" version={version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
       {completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) && <div className="mt-4 flex justify-end"><Button variant="outline" disabled={branching} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button></div>}
-      <section key={`${step}:${branchEpoch}`} className="mt-6">
+      <section key={`${step}:${branchEpoch}`} className="mt-4">
         {(step === "intake" || step === "analysis") && <InterviewMarkdownPlanningStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "experts" || step === "outline") && <InterviewMarkdownEditingStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "runs" || step === "report") && <InterviewMarkdownResultsStep interviewId={identity.interviewId} step={step} runs={[]} reportPin={reportPin} onVersionChange={setVersion} onReport={() => onContinue("report")} />}

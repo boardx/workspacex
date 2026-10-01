@@ -13,10 +13,14 @@ export function SurveyQuestionSettings({
   question: q,
   questions,
   onChange,
+  mode = "all",
+  inline = false,
 }: {
   question: SurveyWorkflowQuestion;
   questions: SurveyWorkflowQuestion[];
   onChange: (q: SurveyWorkflowQuestion) => void;
+  mode?: "all" | "content" | "advanced";
+  inline?: boolean;
 }) {
   const config = q.config ?? {};
   const [bulk, setBulk] = React.useState("");
@@ -37,6 +41,8 @@ export function SurveyQuestionSettings({
     "ranking",
     "allocation",
   ].includes(q.type);
+  const showContent = mode !== "advanced";
+  const showAdvanced = mode !== "content";
   function options(labels: string[], ids: string[]) {
     onChange({
       ...q,
@@ -157,27 +163,32 @@ export function SurveyQuestionSettings({
   );
   return (
     <div className="space-y-5">
+      {showContent && <>
       <label className="block text-12">
-        题目说明
+        {!inline && "题目说明"}
         <Textarea
           aria-label="题目说明"
+          placeholder={inline ? "添加题目说明" : undefined}
+          className={inline ? "min-h-8 resize-none border-transparent bg-transparent shadow-none transition-colors hover:border-border focus-visible:border-ring" : undefined}
           value={config.description ?? ""}
           onChange={(event) => patch({ description: event.target.value })}
         />
       </label>
       {hasChoices && (
         <div className="space-y-2">
-          <h3 className="text-13 font-medium">
+          <h3 className={inline ? "sr-only" : "text-13 font-medium"}>
             {q.type.startsWith("matrix_") ? "矩阵列选项" : "选项"}
           </h3>
           {choices.map((choice, index) => (
             <div
               key={choice.id}
-              className="space-y-2 rounded-md border border-border p-2"
+              className={inline ? "group/option space-y-2 py-1" : "space-y-2 rounded-md border border-border p-2"}
             >
               <div className="flex gap-2">
+                {inline && <span aria-hidden="true" className="mt-3 size-4 shrink-0 rounded-full border border-border" />}
                 <Input
                   aria-label={`选项 ${index + 1}`}
+                  className={inline ? "border-transparent bg-transparent shadow-none transition-colors hover:border-border focus-visible:border-ring" : undefined}
                   value={choice.label}
                   onChange={(event) =>
                     options(
@@ -190,7 +201,8 @@ export function SurveyQuestionSettings({
                 />
                 <Button
                   type="button"
-                  variant="outline"
+                  variant={inline ? "ghost" : "outline"}
+                  className={inline ? "invisible group-hover/option:visible group-focus-within/option:visible" : undefined}
                   aria-label={`删除选项 ${index + 1}`}
                   onClick={() =>
                     options(
@@ -275,7 +287,8 @@ export function SurveyQuestionSettings({
       {q.type === "description" && (
         <ImageSettings id="description" config={config} patch={patch} />
       )}
-      <details className="rounded-md border border-border p-3">
+      </>}
+      {showAdvanced && <details className="rounded-md border border-border p-3">
         <summary className="cursor-pointer text-13 font-medium">
           高级规则
         </summary>
@@ -422,7 +435,7 @@ export function SurveyQuestionSettings({
           )}
           <RuleSettings question={q} questions={questions} patch={patch} />
         </div>
-      </details>
+      </details>}
     </div>
   );
 }

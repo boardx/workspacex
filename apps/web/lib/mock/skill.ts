@@ -44,6 +44,7 @@
 export const SKILL_SCREENS = [
   "library",
   "catalog",
+  "work-catalog",
   "library-prototype",
   "tryrun",
   "binding",
@@ -57,6 +58,7 @@ export type SkillScreen = (typeof SKILL_SCREENS)[number];
 export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
   library: "Skill 库（真实数据）",
   catalog: "目录（组织后台 · 名称/可见范围/团队）",
+  "work-catalog": "Work Skill 目录（真实数据）",
   "library-prototype": "Skill 库与双门禁（原型 · mock）",
   tryrun: "试跑 · 场景×校验×回归",
   binding: "绑定到环节与角色",
@@ -69,6 +71,7 @@ export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
 export const SKILL_SCREEN_UC: Record<SkillScreen, string> = {
   library: "UC-3.1 · F61 · 接真实 API",
   catalog: "03-skill/uc-3-1 · uc-3-4 · 接真实 /capabilities（原 /admin/skill）",
+  "work-catalog": "Phase 20 WS05 · 接真实 /skills/catalog",
   "library-prototype": "UC-3.1 · F61/F62 · 原型",
   tryrun: "UC-3.1 R? · 试跑整屏",
   binding: "UC-3.2 · F63/F64",

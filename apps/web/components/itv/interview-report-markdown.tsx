@@ -39,7 +39,7 @@ const headingComponents: Record<string, ComponentType<HeadingProps>> = Object.fr
 );
 
 /** Report markdown is model output, so raw HTML and unsafe URLs are always sanitized. */
-export function InterviewReportMarkdown({ markdown, testId, document }: { readonly markdown: string; readonly testId: string; readonly document?: interviewMarkdown.InterviewMarkdownDocument }) {
+export function InterviewReportMarkdown({ markdown, testId, document, longForm = false }: { readonly markdown: string; readonly testId: string; readonly document?: interviewMarkdown.InterviewMarkdownDocument; readonly longForm?: boolean }) {
   const blocks = document ? interviewMarkdown.parseInterviewMarkdown(document).blocks : [];
   const components = document ? Object.fromEntries(HEADING_TAGS.map((Tag) => [Tag,
     ({ node, ...props }: HeadingProps & { node?: { position?: { start: { offset?: number } } } }) => {
@@ -50,7 +50,7 @@ export function InterviewReportMarkdown({ markdown, testId, document }: { readon
   return (
     <div
       data-testid={testId}
-      className="chat-markdown mt-6 text-sm leading-7 text-card-foreground"
+      className={`chat-markdown mt-6 leading-7 text-card-foreground ${longForm ? "interview-report-markdown" : "text-sm"}`}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>
         {markdown}

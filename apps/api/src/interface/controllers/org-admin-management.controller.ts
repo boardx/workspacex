@@ -198,7 +198,7 @@ function envMs(name: string, fallback: number): number {
   return Number.isFinite(raw) && raw > 0 ? raw : fallback;
 }
 
-function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
+export function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let received = 0;

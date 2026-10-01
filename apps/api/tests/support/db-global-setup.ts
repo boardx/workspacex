@@ -2,6 +2,8 @@ import pg from "pg";
 import { assertDatabaseCapacity, assertIsolatedDatabase } from "../../../../.harness/scripts/lib/test-isolation";
 import { migrationConfig } from "../../src/infrastructure/db/pg-config";
 import { ensureDatabase } from "./db";
+import { selectionIsDbFree } from "./db-free-tests";
+import { fileURLToPath } from "node:url";
 
 interface CapacityRow {
   max_connections: number;
@@ -10,6 +12,12 @@ interface CapacityRow {
 }
 
 export default async function databaseGlobalSetup(): Promise<() => Promise<void>> {
+  // EV03 review: a selection made only of verified DB-free files (tests/support/db-free-tests.ts)
+  // needs no database, so it must not require Docker/WORKSPACEX_DB to run.
+  if (selectionIsDbFree(fileURLToPath(new URL("../..", import.meta.url)))) {
+    console.log("[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup");
+    return async () => {};
+  }
   // #538：**第一行**就查跑法。红在 setup 阶段，一条用例都不跑——
   // 红在某条用例上等于把「跑法错了」伪装成「业务断言挂了」，那正是被浪费掉的那一轮。
   assertIsolatedDatabase({ resolvedDatabase: migrationConfig().database ?? "", env: process.env });

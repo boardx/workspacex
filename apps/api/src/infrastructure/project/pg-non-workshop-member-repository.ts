@@ -1,8 +1,8 @@
 /**
  * `NonWorkshopMemberRepository` 的 PostgreSQL 实现（项目中枢 B3-T5，#4499）。
  *
- * 按 `projects.kind` 分派到两张表：`research_project` → `research_project_members`，
- * `user_insight` → `user_insight_members`（F128 迁移 `20260801190000`）。表名来自一张闭合映射
+ * 按 `projects.kind` 分派成员表：`general` → `general_project_members`（F128 迁移 `20260801190000`
+ * 建表；#4615 迁移 `20260929050000` 把原研究项目 / 用户洞察两张表并为这一张）。表名来自一张闭合映射
  * `MEMBER_TABLE`，不是拼接调用方给的字符串——`kind` 在用例层已经是 `NonWorkshopKind` 闭集。
  *
  * 名单读侧返回 `guard({kind:"project"})`，披露由用例拿 `decideNonWorkshopMemberAccess()` 的决策解开。
@@ -32,9 +32,8 @@ import type { OrgId } from "../../domain/org-id";
 import type { ProjectKind } from "../../domain/project/create-project-rules";
 
 /** `kind` → 成员表。闭合映射，是「按 kind 分派」这件事在本文件里的唯一形式。 */
-const MEMBER_TABLE: Record<NonWorkshopKind, "research_project_members" | "user_insight_members"> = {
-  research_project: "research_project_members",
-  user_insight: "user_insight_members",
+const MEMBER_TABLE: Record<NonWorkshopKind, "general_project_members"> = {
+  general: "general_project_members",
 };
 
 function sqlState(e: unknown): string | undefined {

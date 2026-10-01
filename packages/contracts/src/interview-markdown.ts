@@ -30,6 +30,33 @@ export const InterviewMarkdownDocument = z.object({
 });
 export type InterviewMarkdownDocument = z.infer<typeof InterviewMarkdownDocument>;
 
+export type InterviewReportAnalysisGap = "cross_answer_synthesis" | "decision_implication" | "boundary_or_counterevidence" | "verifiable_action";
+export type InterviewReportAnalysisAssessment = { readonly ok: boolean; readonly missing: readonly InterviewReportAnalysisGap[] };
+const REPORT_SYNTHESIS_SIGNALS = [/跨(?:回答|受访者|角色|专家|样本)(?:综合|归纳|分析|比较)/u, /共同(?:模式|主题|约束|需求|指向)/u, /(?:多位|两位|不同)(?:受访者|专家|角色).{0,24}(?:共同|一致|差异|分歧|互补)/u];
+const REPORT_DECISION_SIGNALS = [/决策影响(?:[：:]|[。.]|$)/mu, /(?:优先级|优先验证|应优先|暂缓|停止|继续|选择).{0,36}(?:因为|基于|依据|验证|行动|方案|投入)/u, /P[012][：:]/u, /成功信号(?:[：:]|[。.]|$)/mu];
+// Boundary evidence must be an explicit report line, not incidental prose such as
+// “the answers differ”. Requiring line-start structure prevents transcript-like
+// reports from passing solely because they contain a generic “反例/边界” mention.
+const REPORT_BOUNDARY_SIGNALS = [
+  /边界与反例(?:[：:。.]|$)/u,
+  /^\s*(?:边界(?:与反例)?|反例|反对证据|相反证据|负面案例)(?:[：:。.]|$)/mu,
+  /^\s*(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)(?:[：:。.]|$)/mu,
+  /(?:置信度|适用范围|样本边界|仍待验证|尚待验证)(?:为|是|需|仍)/u,
+];
+const REPORT_ACTION_SIGNALS = [/(?:下一步验证建议|建议行动|行动建议|验证计划)(?:[：:]|[。.]|$)/mu, /P[012][：:]/u, /(?:优先验证|可验证).{0,36}(?:行动|假设|方案)/u];
+const reportHasAny = (markdown: string, patterns: readonly RegExp[]) => patterns.some((pattern) => pattern.test(markdown));
+export function assessInterviewReportAnalysis(markdown: string): InterviewReportAnalysisAssessment {
+  const missing: InterviewReportAnalysisGap[] = [];
+  if (!reportHasAny(markdown, REPORT_SYNTHESIS_SIGNALS)) missing.push("cross_answer_synthesis");
+  if (!reportHasAny(markdown, REPORT_DECISION_SIGNALS)) missing.push("decision_implication");
+  if (!reportHasAny(markdown, REPORT_BOUNDARY_SIGNALS)) missing.push("boundary_or_counterevidence");
+  if (!reportHasAny(markdown, REPORT_ACTION_SIGNALS)) missing.push("verifiable_action");
+  return { ok: missing.length === 0, missing };
+}
+export function hasInterviewReportVerifiableAction(markdown: string): boolean {
+  return reportHasAny(markdown, REPORT_ACTION_SIGNALS);
+}
+
 export const InterviewMarkdownExecution = z.object({
   status: z.enum(["running", "paused", "failed", "completed"]),
   tasks: z.array(z.object({
@@ -100,6 +127,11 @@ export const SaveInterviewMarkdownDraft = z.object({
 
 export const InterviewMarkdownGenerationStep = z.enum(["analysis", "experts", "outline", "report"]);
 export const GenerateInterviewMarkdown = SaveInterviewMarkdownDraft.omit({ markdown: true });
+export const PreviewVirtualExpertMarkdown = z.object({
+  description: z.string().trim().min(1).max(1000),
+  expectedVersion: z.number().int().positive(),
+}).strict();
+export const VirtualExpertMarkdownProposal = z.object({ markdown: z.string().min(20).max(8000) }).strict();
 export const InitializeInterviewMarkdown = GenerateInterviewMarkdown.omit({ expectedDocumentVersion: true });
 export const ConfirmInterviewMarkdown = GenerateInterviewMarkdown.extend({
   expectedDocumentVersion: z.number().int().positive(),
@@ -109,7 +141,7 @@ export type InterviewMarkdownProjection = Readonly<{
   evidenceMode: InterviewMarkdownDocument["evidenceMode"];
   headings: readonly Readonly<{ id: string; depth: number; text: string }>[];
   sections: readonly Readonly<{ headingId: string | null; text: string }>[];
-  entries: readonly Readonly<{ headingId: string | null; text: string }>[];
+  entries: readonly Readonly<{ headingId: string | null; text: string; listDepth: number }>[];
   anchors: readonly Readonly<InterviewMarkdownDocument["references"][number]>[];
   blocks: readonly Readonly<{ headingId: string; depth: number; title: string; start: number; contentStart: number; end: number; links: readonly Readonly<{ text: string; url: string }>[] }>[];
 }>;
@@ -129,7 +161,7 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
   const tree: MarkdownNode = parser.parse(document.markdown);
   const headings: { id: string; depth: number; text: string }[] = [];
   const sections: { headingId: string | null; text: string }[] = [];
-  const entries: { headingId: string | null; text: string }[] = [];
+  const entries: { headingId: string | null; text: string; listDepth: number }[] = [];
   const blocks: { headingId: string; depth: number; title: string; start: number; contentStart: number; end: number; links: readonly Readonly<{ text: string; url: string }>[] }[] = [];
   let headingId: string | null = null;
   let sectionText: string[] = [];
@@ -138,7 +170,7 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
     sectionText = [];
   }
   // Nested headings are content of their enclosing block, not document sections.
-  function visit(node: MarkdownNode, topLevel = false): void {
+  function visit(node: MarkdownNode, topLevel = false, listDepth = 0): void {
     if (topLevel && node.type === "heading") {
       finishSection();
       headingId = `section-${headings.length + 1}`;
@@ -153,8 +185,8 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
       blocks.push({ headingId, depth: node.depth!, title: plainText(node), start, contentStart: node.position?.end.offset ?? start,
         end: document.markdown.length, links: Object.freeze(links.map((link) => Object.freeze(link))) });
     }
-    if (node.type === "listItem") entries.push({ headingId, text: plainText(node) });
-    node.children?.forEach((child) => visit(child));
+    if (node.type === "listItem") entries.push({ headingId, text: plainText(node), listDepth });
+    node.children?.forEach((child) => visit(child, false, node.type === "list" ? listDepth + 1 : listDepth));
   }
   for (const node of tree.children ?? []) {
     visit(node, true);

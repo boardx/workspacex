@@ -183,11 +183,16 @@ export default {
       { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
+      // 首页项目预览（#4698）：`/home` 同时是前端页面前缀，所以只逐条放行这一个 API 路径，
+      // 不写 `/home/:path*` 通配——通配会吃掉以后 `/home` 下的前端子页面。
+      { source: `${prefix}/home/project-previews`, destination: `${apiOrigin}/home/project-previews` },
       // #3967: Board HTTP follows the same-origin full-stack proxy while its authenticated
       // WebSocket uses NEXT_PUBLIC_API_WS_URL directly. Both the collection and nested
       // resource routes are needed; :path* does not cover the bare collection.
       { source: `${prefix}/whiteboards`, destination: `${apiOrigin}/whiteboards` },
       { source: `${prefix}/whiteboards/:path*`, destination: `${apiOrigin}/whiteboards/:path*` },
+      // Public operations, AI proposals and room APIs share the authenticated proxy.
+      { source: `${prefix}/v1/whiteboards/:path*`, destination: `${apiOrigin}/v1/whiteboards/:path*` },
       // Iteration 02 library uses the organization tag catalog through the same
       // authenticated proxy. Keep bare list/create and nested rename/delete routes.
       { source: `${prefix}/whiteboard-tags`, destination: `${apiOrigin}/whiteboard-tags` },
@@ -402,6 +407,8 @@ export default {
       ...[
         "approval-requests", "artifacts", "citations", "messages", "presets",
         "projects", "tasks", "threads", "visibility", "asr-draft",
+        // 2026-09-29：契约里有、此前漏掉的三个 `/chat/*` 命名空间（`chat.ts`）。
+        "agent-runs", "observer-grants", "realtime-digital-human",
       ].flatMap((ns) => [
         { source: `${prefix}/chat/${ns}`, destination: `${apiOrigin}/chat/${ns}` },
         { source: `${prefix}/chat/${ns}/:path*`, destination: `${apiOrigin}/chat/${ns}/:path*` },
@@ -435,6 +442,10 @@ export default {
       // 裸路径与 `:path*` 各一条：前者匹配不到子路径为空的清单读。
       { source: `${prefix}/tool-permission-grants`, destination: `${apiOrigin}/tool-permission-grants` },
       { source: `${prefix}/tool-permission-grants/:path*`, destination: `${apiOrigin}/tool-permission-grants/:path*` },
+      // 工作流权限授予（组织 admin）：`WorkflowCapabilityGrantController` 同样是 `@Controller()`（空前缀），
+      // 裸路径 `GET /workflow-capability-grants` + `PUT/DELETE /workflow-capability-grants/:capabilityCategory`。
+      { source: `${prefix}/workflow-capability-grants`, destination: `${apiOrigin}/workflow-capability-grants` },
+      { source: `${prefix}/workflow-capability-grants/:path*`, destination: `${apiOrigin}/workflow-capability-grants/:path*` },
       // #3440：composer「自动批准文档生成所需权限」开关。`DocumentGenerationAutoApproveController`
       // 同样是 `@Controller()`（空前缀），路径是裸的 `GET/PUT /document-generation-auto-approve`——
       // 与上面 `/tool-permission-grants` 同一个形状同一个坑，没有 `:path*` 子路径，只需一条。
@@ -452,6 +463,9 @@ export default {
       // `createAgent`（`AgentController`）现在挂了裸的 `POST /agents`，
       // `listAgents`（`GET /agents`，仍未接线）将来也落在同一条裸路径上。
       // 补上裸路径这一条，不能只靠 `:path*` 兜底（同一个坑的第八次）。
+      // AG06：`POST /agent-interrupts/:interruptId/escalation-decision`（升级卡片裁决）。
+      // `EscalationDecisionController` 是 `@Controller()`（空前缀），与上面 `/agent-runs` 同一个坑。
+      { source: `${prefix}/agent-interrupts/:path*`, destination: `${apiOrigin}/agent-interrupts/:path*` },
       { source: `${prefix}/agents`, destination: `${apiOrigin}/agents` },
       { source: `${prefix}/agents/:path*`, destination: `${apiOrigin}/agents/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
@@ -518,6 +532,11 @@ export default {
       // 同 `/org-invites` 的做法，裸前缀与 `:path*` 各一条。
       { source: `${prefix}/project-invites`, destination: `${apiOrigin}/project-invites` },
       { source: `${prefix}/project-invites/:path*`, destination: `${apiOrigin}/project-invites/:path*` },
+      // #4787 通用项目邀请：受邀人落地页 `/projects/join?invite=` 打 `POST /project-invitations/{preview,accept,activate}`。
+      // 注意是 `project-invitations`（邀请实体）不是上面的 `project-invites`（工作坊邀请链接），两个前缀互不遮挡。
+      // 负责人一侧的 `/projects/:projectId/invitations…` 已被上面的 `/projects/:path*` 覆盖。
+      // 没有裸 `/project-invitations` 路由，只补 `:path*`（同 `/plan-control` 先例）。
+      { source: `${prefix}/project-invitations/:path*`, destination: `${apiOrigin}/project-invitations/:path*` },
       // F977：`PlanControlController` 是 `@Controller()`（空前缀），路径是裸的
       // `GET /plan-control/threads/:threadId/ledger` —— 与上面 `/agent-runs`、
       // `/threads`、`/copilotkit` 同一个形状、同一个坑（lint-rewrite-coverage 实测
@@ -546,6 +565,40 @@ export default {
       //   （`C.operations.x.path`）而不是字面量字符串，扫描器看不见——这条的补法照
       //   `/system` 的先例：没有裸 `/platform` 路由，只补 `:path*`。
       { source: `${prefix}/platform/:path*`, destination: `${apiOrigin}/platform/:path*` },
+      // 2026-09-29：契约里定义、却一直没有同源代理规则的路由族。实测缺口：workflow-runtime
+      // 整族（`/workflow-instances`、`/workflow-approvals`、`/workflows/:key/instances`…）走
+      // `/__fullstack_api` 时被 Next 接住返回 404，运行列表 / 运行详情 / 审批列表 /「运行 Workflow」
+      // 全部报「操作失败」。`lint-rewrite-coverage` 只扫 controller 字面量，这些路径来自契约常量
+      // （`C.operations.x.path`）——与上面 `/platform` 同一个盲区。现在该 lint 也按
+      // `packages/contracts` 的 path 定义逐条核对（`lib/contract-rewrite-coverage.ts`），漏一条就红。
+      // 生产不受影响：云 ingress 把 `/api/` 整体剥前缀转给 API（`packages/cloud-deploy/src/nginx.ts`），
+      // 不按前缀枚举；缺口只在这份枚举式同源代理里。
+      // 同 `/organizations` 的做法，每族裸前缀与 `:path*` 各一条（将来补裸集合路由时不再踩坑）。
+      ...[
+        "workflow-instances", "workflow-approvals", "workflow-triggers", "agent-handoffs",
+        "agent-interrupts", "admin-access-log", "anomalies", "audit",
+        "blueprint-change-requests", "board", "call-chains", "context-packs",
+        "design-facet-definitions", "ingestion-runs", "live", "materialization-specs",
+        "materializations", "mcp-servers", "mcp-tools", "org",
+        "org-audit", "private-chats", "research-conclusions", "research-conflicts",
+        "routing-decisions", "security-policy", "skill-bindings", "skill-proposals",
+        "skill-suggestions", "task-permission-grants", "thread-skill-mounts", "tool-calls",
+      ].flatMap((head) => [
+        { source: `${prefix}/${head}`, destination: `${apiOrigin}/${head}` },
+        { source: `${prefix}/${head}/:path*`, destination: `${apiOrigin}/${head}/:path*` },
+      ]),
+      // `/workflows/*` 不能写 `:path*`：`apps/web/app/workflows/{runs,approvals,board}` 是前端页面，
+      // 其中 `runs/[instanceId]` 是动态路由，afterFiles 通配会把它整页代理走（#3492 同坑）。
+      // 只逐条写契约里的 API 形状。
+      { source: `${prefix}/workflows/:key/versions`, destination: `${apiOrigin}/workflows/:key/versions` },
+      { source: `${prefix}/workflows/:key/instances`, destination: `${apiOrigin}/workflows/:key/instances` },
+      { source: `${prefix}/workflows/catalog`, destination: `${apiOrigin}/workflows/catalog` },
+      { source: `${prefix}/workflows/catalog/:path*`, destination: `${apiOrigin}/workflows/catalog/:path*` },
+      // 管理面契约里的三族（`/admin/[module]` 是前端动态页，所以不写 `/admin/:path*`，同上面
+      // `/admin/skills`、`/admin/agents` 的逐条写法）。
+      { source: `${prefix}/admin/nav`, destination: `${apiOrigin}/admin/nav` },
+      { source: `${prefix}/admin/work-stack/:path*`, destination: `${apiOrigin}/admin/work-stack/:path*` },
+      { source: `${prefix}/admin/skill-development/:path*`, destination: `${apiOrigin}/admin/skill-development/:path*` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },

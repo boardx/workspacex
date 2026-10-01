@@ -53,7 +53,7 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   await logout(page);
   await page.goto("/login");
   await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   const facilitatorToken = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(facilitatorToken).toBeTruthy();
   await page.request.delete(
@@ -65,7 +65,7 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   await logout(page);
   await page.goto("/login");
   await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(workbench());
   await expect(page.getByTestId("project-access-denied")).toBeVisible();
 
@@ -73,7 +73,7 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   await logout(page);
   await page.goto("/login");
   await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(workbench("?tab=settings"));
   await expect(page.getByTestId("project-invite-panel")).toBeVisible();
   await page.getByTestId("project-invite-issue").click();
@@ -96,7 +96,7 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   await logout(page);
   await page.goto("/login");
   await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(workbench("?tab=research&sub=conv"));
   await expect(page.getByTestId("project-conversations")).toBeVisible();
   const createResponse = page.waitForResponse((r) =>
@@ -110,7 +110,7 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   // 卡片不在当前页——先确认真的进了线程，再回到列表操作分享。
   await expect(page).toHaveURL(new RegExp(`/chat/${threadId}\\?projectId=${PROJECT}$`), { timeout: 20_000 });
   await page.goto(workbench("?tab=research&sub=conv"));
-  const card = page.getByTestId(`project-conversation-${threadId}`);
+  const card = page.getByTestId(`project-conversation-card-${threadId}`);
   await expect(card).toBeVisible();
   await expect(card).toContainText("本组共享");
   const share = page.waitForResponse((r) =>
@@ -124,7 +124,7 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   await logout(page);
   await page.goto("/login");
   await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(workbench("?tab=research&sub=conv"));
   await expect(page.getByTestId(`project-conversation-${threadId}`)).toBeVisible();
   await page.goto(workbench("?tab=research"));

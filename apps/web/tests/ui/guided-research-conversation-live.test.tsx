@@ -24,7 +24,7 @@ it("does not apply an old suggestion after the right-hand draft was edited", asy
   fireEvent.change(await screen.findByDisplayValue("德国储能市场"), { target: { value: "法国储能市场" } });
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getByRole("button", { name: "应用建议" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "保存草稿" })).not.toBeInTheDocument();
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });
 it.each(["stale", "busy", "error"])("does not present %s proposals as current drafts", async (condition) => {
@@ -106,5 +106,5 @@ it("requires adopting the first generated proposal before right-hand confirmatio
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getByRole("button", { name: "确认并继续" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "应用建议" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "保存草稿" })).not.toBeInTheDocument();
 });

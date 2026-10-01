@@ -515,6 +515,9 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
       "interview_step_attachments",
       "segment_text",
       "segments",
+      // Immutable Board layout eligibility metadata names an exact artifact version;
+      // it is verified by PgWhiteboardOperationRepository before a layout is bound.
+      "whiteboard_artifact_layout_bindings",
     ]);
 
     // The structural half of the F13 entry above. A second eligibility rule inside the pin

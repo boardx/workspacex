@@ -32,6 +32,7 @@ it("keeps canvas, marquee, and accessible outline selection controlled by canoni
   expect(screen.getByText("1 个已选对象", { exact: true })).toBeVisible();
   fireEvent.click(screen.getByTestId("marquee-all"));
   expect(screen.getByText("2 个已选对象", { exact: true })).toBeVisible();
+  fireEvent.pointerDown(screen.getByTestId("board-zoom-menu"), {button:0,ctrlKey:false,pointerType:"mouse"});
   expect(screen.getByTestId("board-zoom-fit-selection")).toBeEnabled();
   doc.destroy();
 });

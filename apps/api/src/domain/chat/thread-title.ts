@@ -65,6 +65,8 @@
  * 唯一的折叠/码点截断入口。
  */
 
+import { chat } from "@repo/contracts";
+
 /** 标题上限。远小于 `normalizeTitle` 的 200，侧栏一行放得下才有意义。 */
 export const AUTO_TITLE_MAX_LENGTH = 24;
 
@@ -87,7 +89,7 @@ const ELLIPSIS = "…";
  *          那比留着「新对话」更糟：用户看不出是没起名还是起名失败。
  */
 export function deriveThreadTitle(body: string): string | null {
-  return collapseAndClamp(stripLeadingRequestFraming(body));
+  return collapseAndClamp(stripLeadingRequestFraming(chat.stripControlMarkers(body)));
 }
 
 /**
@@ -174,5 +176,5 @@ function collapseAndClamp(text: string): string | null {
  * `deriveThreadTitle(首条消息原文)`，而不是把一个空标题写进 `title` 列。
  */
 export function clampModelGeneratedTitle(text: string): string | null {
-  return collapseAndClamp(text);
+  return collapseAndClamp(chat.stripControlMarkers(text));
 }

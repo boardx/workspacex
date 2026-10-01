@@ -14,6 +14,7 @@ import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 import { authorize } from "../identity/authorize";
+import { resolveProjectLayer } from "../identity/project-layer";
 import { AuthzUnavailableError } from "../chat/resolve-visibility";
 import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 import { KgReadError } from "./read-thread-knowledge";
@@ -28,16 +29,25 @@ interface Input {
   readonly rationale: string;
 }
 
-/** 项目成员（非观察者），且看得到这个项目（组织层 / 冻结 / 团队绑定等既有判定）。 */
+/**
+ * 项目成员（非观察者），且看得到这个项目（组织层 / 冻结 / 团队绑定等既有判定）。
+ *
+ * #4615：项目层身份走 `resolveProjectLayer`（唯一判据）——工作坊行照旧；通用项目负责人 / 协作者分别映射到
+ * facilitator / member 行，名单外的组织 lead / admin 映射到 observer 行（只读 ⇒ KG_NOT_OWNER）。
+ * 数据库函数 `kg_adopt_project_decision`（迁移 20260929110100）按同一张映射复核。
+ */
 async function requireProjectDecider(deps: PromotionDeps, input: Input) {
-  let membership;
+  let role;
   try {
-    membership = await deps.repo.findProjectMembership(input.userId, input.projectId, input.orgId);
+    const org = await deps.repo.findOrgMembership(input.userId, input.orgId);
+    role = (await resolveProjectLayer(deps.repo, {
+      userId: input.userId, projectId: input.projectId, orgId: input.orgId, orgRole: org?.orgRole ?? null,
+    })).role;
   } catch {
     throw new AuthzUnavailableError();
   }
-  if (membership === null) throw new KgReadError("KG_NOT_VISIBLE");
-  if (membership.projectRole === "observer") throw new KgHumanActionError("KG_NOT_OWNER", "observers take no project decisions");
+  if (role === null) throw new KgReadError("KG_NOT_VISIBLE");
+  if (role === "observer") throw new KgHumanActionError("KG_NOT_OWNER", "observers take no project decisions");
   let project: PermissionDecision;
   try {
     project = await authorize(

@@ -47,7 +47,7 @@ describe("guided research browser routing", () => {
 
     const { afterFiles } = await nextConfig.rewrites();
     const researchRewrites = afterFiles
-      .filter((rewrite) => rewrite.source.includes("/research"));
+      .filter((rewrite) => /\/research(?:\/|$)/.test(rewrite.source));
 
     expect(researchRewrites).toEqual([
       { source: "/__fullstack_api/research", destination: "http://127.0.0.1:3274/research" },

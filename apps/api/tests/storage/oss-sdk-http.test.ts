@@ -39,10 +39,10 @@ it('real ali-oss SDK sends write-once/integrity headers and decodes service erro
       const bytes = Buffer.concat(chunks);
       if (req.headers['content-md5'] !== createHash('md5').update(bytes).digest('base64')) { error(400, 'InvalidDigest'); return; }
       objects.set(key, { bytes, headers: { 'content-length': String(bytes.length),
-        'content-type': String(req.headers['content-type']), 'x-oss-meta-sha256': String(req.headers['x-oss-meta-sha256']) } });
+        'content-type': String(req.headers['content-type']), 'x-oss-meta-sha256': String(req.headers['x-oss-meta-sha256']), etag: `"${createHash('md5').update(bytes).digest('hex')}"` } });
       res.setHeader('ETag', `"${createHash('md5').update(bytes).digest('hex')}"`); res.end(); return;
     }
-    if (req.method === 'DELETE') { objects.delete(key); res.writeHead(204); res.end(); return; }
+    if (req.method === 'DELETE') { const object=objects.get(key);if(req.headers['if-match']&&req.headers['if-match']!==object?.headers.etag){error(412,'PreconditionFailed');return;}objects.delete(key);res.writeHead(204);res.end();return; }
     const object = objects.get(key);
     if (!object) { error(404, 'NoSuchKey'); return; }
     res.writeHead(200, object.headers); res.end(req.method === 'HEAD' ? undefined : object.bytes);
@@ -59,9 +59,9 @@ it('real ali-oss SDK sends write-once/integrity headers and decodes service erro
     const bytes = Buffer.from('真实SDK\u0000content');
     await store.putOnce('org/文件.txt', bytes, 'text/plain');
     expect(await store.get('org/文件.txt')).toEqual(bytes);
-    expect(await store.head('org/文件.txt')).toEqual({ sizeBytes: bytes.length, mime: 'text/plain' });
+    const head=await store.head('org/文件.txt');expect(head).toMatchObject({sizeBytes:bytes.length,mime:'text/plain',versionTag:expect.any(String)});
     await expect(store.putOnce('org/文件.txt', Buffer.from('overwrite'), 'text/plain')).rejects.toBeInstanceOf(ObjectExistsError);
-    expect(await purge.purgeAll(['org/文件.txt'])).toEqual([{ objectKey: 'org/文件.txt', deleted: true }]);
+    await expect(purge.purgeExact('org/文件.txt','stale')).resolves.toMatchObject({deleted:false,versionMatched:false});await expect(purge.purgeExact('org/文件.txt',head!.versionTag!)).resolves.toMatchObject({deleted:true,versionMatched:true});
     expect(await store.get('org/文件.txt')).toBeNull();
     versioned = true;
     await expect(store.putOnce('other', bytes, 'text/plain')).rejects.toBeInstanceOf(ObjectStoreUnavailableError);

@@ -1,8 +1,18 @@
+import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
+import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
+import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
+import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
+import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
+import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
+import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
+import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
+import { PLATFORM_ORG_ID, toOrgId } from "./domain/org-id";
+import { fileURLToPath } from 'node:url';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { PgWhiteboardCommentStore } from './infrastructure/whiteboard/pg-whiteboard-comment-store';
 import { PgWhiteboardRecoveryAdapter } from './infrastructure/whiteboard/pg-whiteboard-recovery';
-import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
 import { WhiteboardController, WhiteboardTagController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY, WHITEBOARD_TAG_REPOSITORY } from './application/whiteboard/ports';
@@ -10,6 +20,28 @@ import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
 import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
 import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WhiteboardPortableController } from './interface/controllers/whiteboard-portable.controller';
+import { PortableBoardService,WHITEBOARD_PORTABLE_SERVICE } from './application/whiteboard/portable-board';
+import { PgPortableBoard } from './infrastructure/whiteboard/pg-portable-board';
+import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
+import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
+import { BaselineWhiteboardImportScanner } from './application/whiteboard/import-upload-security';
+import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
+import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
+import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
+import { WHITEBOARD_OPERATION_SERVICE, WhiteboardOperationService } from './application/whiteboard/operation-service';
+import { WhiteboardOperationController } from './interface/controllers/whiteboard-operation.controller';
+import { WhiteboardServiceActorController } from './interface/controllers/whiteboard-service-actor.controller';
+import { WHITEBOARD_ACTOR_SERVICE, WhiteboardActorService } from './application/whiteboard/actor-service';
+import { AcceptanceWhiteboardActorRepository, boardAgentApiAcceptanceEnabled } from './infrastructure/whiteboard/acceptance-whiteboard-actor-repository';
+import { PgWhiteboardOperationRepository } from './infrastructure/whiteboard/pg-operation-repository';
+import { WHITEBOARD_PROPOSAL_SERVICE, WhiteboardProposalService } from './application/whiteboard/proposal-service';
+import { PgWhiteboardProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
+import { WHITEBOARD_PRESENTATION_SERVICE, WhiteboardPresentationService } from './application/whiteboard/presentation-service';
+import { PgWhiteboardPresentationRepository } from './infrastructure/whiteboard/pg-presentation-repository';
+import { PgWhiteboardExportRepository } from './infrastructure/whiteboard/pg-export-repository';
+import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
+import { PgWhiteboardProjectAccess } from './infrastructure/whiteboard/pg-whiteboard-project-access';
 import { PgWhiteboardTagRepository } from './infrastructure/whiteboard/pg-whiteboard-tag-repository';
 import { PgBoardContentCopyStore } from './infrastructure/whiteboard/pg-board-content-copy-store';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
@@ -66,7 +98,7 @@ import { StandardImageController } from "./interface/controllers/standard-image.
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
 import { selectImageProvider } from "./infrastructure/agent-run/select-image-provider";
 import { STANDARD_SCHEDULE, SCHEDULED_RUN_NOTIFIER, type ScheduledRunNotifier } from "./application/agent-run/standard-schedule";
-import { PgBossScheduler } from "./infrastructure/agent-run/pg-boss-scheduler";
+import { PgBossScheduler, type ScheduleWake } from "./infrastructure/agent-run/pg-boss-scheduler";
 import { PgStandardSchedule } from "./infrastructure/agent-run/pg-standard-schedule";
 import { ScheduledChatRunGateway } from "./infrastructure/agent-run/scheduled-chat-run-gateway";
 import { StandardScheduleRuntime } from "./infrastructure/agent-run/standard-schedule-runtime";
@@ -237,10 +269,22 @@ import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-fl
 import {
   SKILL_STARTER_IMPORT_REPOSITORY,
   SKILL_STARTER_PACK_SOURCE,
+  STARTER_PACK_GATE_JUDGE,
+  STARTER_PACK_IMPORT_FOLLOW_UP,
 } from "./application/skill-import/ports";
-import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { FileSkillStarterPackSource, resolveSkillStarterPackRoot } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { FsStarterPackGateJudge } from "./infrastructure/work-eval/fs-starter-pack-gate-judge";
+import { PublishBuiltInWorkflowsAfterImport } from "./infrastructure/workflow/publish-built-ins-after-import";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
+import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
+import { WorkGateStatusController } from "./interface/controllers/work-gate-status.controller";
+import { PgWorkGateStatusRepository } from "./infrastructure/work-eval/pg-work-gate-status-repository";
+import { WORK_GATE_OFFICIAL_ORG, WORK_GATE_STATUS_REPOSITORY, type WorkGateOfficialOrg } from "./application/work-eval/work-gate-status";
+import { PgWorkSkillCatalogRepository } from "./infrastructure/skill/pg-work-skill-catalog-repository";
+import { WORK_SKILL_CATALOG_REPOSITORY } from "./application/skill/work-skill-catalog";
+import { TOOL_GRANT_READER } from "./application/skill/work-skill-readiness";
+import { PgToolGrantReader } from "./infrastructure/skill/pg-tool-grant-reader";
 import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
 import {
   composeImportSkillFromUrlDeps,
@@ -261,9 +305,13 @@ import { createPgMcpServerStore } from "./infrastructure/mcp/pg-mcp-server-store
 import {
   AGENT_STARTER_IMPORT_REPOSITORY,
   AGENT_STARTER_PACK_SOURCE,
+  OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY,
+  WORKFLOW_DEFINITION_STORE,
 } from "./application/agent-import/ports";
 import { FileAgentStarterPackSource } from "./infrastructure/agent/file-agent-starter-pack-source";
 import { PgAgentStarterImportRepository } from "./infrastructure/agent/pg-agent-starter-import-repository";
+import { FileWorkflowDefinitionStore } from "./infrastructure/agent/file-workflow-definition-store";
+import { PgOfficialAgentRolePackImportRepository } from "./infrastructure/agent/pg-official-agent-role-pack-import-repository";
 import { AgentStarterImportController } from "./interface/controllers/agent-starter-import.controller";
 import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
 import { PgAgentSkillPinsRepository } from "./infrastructure/agent/pg-agent-skill-pins-repository";
@@ -289,6 +337,8 @@ import {
   PROVENANCE_READER,
   PROVENANCE_WRITER,
   REVIEW_NOTIFIER,
+  type ProvenanceReader,
+  type ProvenanceWriter,
 } from "./application/provenance/ports";
 import { EvidenceWithdrawalController } from "./interface/controllers/evidence-withdrawal.controller";
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
@@ -384,8 +434,9 @@ import { GuidedResearchController } from "./interface/controllers/guided-researc
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
 import { GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY, type GuidedResearchNodeReceiptRepository } from "./application/research/guided-workflow-receipt-ports";
-import { PgGuidedResearchNodeReceiptRepository } from "./infrastructure/research/pg-guided-research-node-receipt-repository";
-import { createGuidedResearchCheckpointer } from "./infrastructure/research/langgraph-guided-research-runtime";
+import { PgGuidedResearchWorkflowReceipts } from "./infrastructure/research/pg-guided-research-workflow-receipts";
+import { createWorkflowCheckpointerFactory } from "./infrastructure/workflow/workflow-checkpointer-factory";
+import { GUIDED_RESEARCH_GRAPH_REF } from "./application/research/guided-research-workflow-graph";
 import {
   GUIDED_RESEARCH_DIRECTION_GENERATOR,
   ModelGuidedResearchDirectionGenerator,
@@ -410,7 +461,7 @@ import {
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
 import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
-import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown, previewVirtualExpertMarkdown } from "./application/interview/generate-interview-markdown";
 import { INTERVIEW_MARKDOWN_EXECUTION, type MarkdownExecutionInput } from "./application/interview/interview-markdown-execution.port";
 import { executeInterviewMarkdown } from "./application/interview/execute-interview-markdown";
 import { PgInterviewMarkdownExecutionStore } from "./infrastructure/interview/pg-interview-markdown-execution-store";
@@ -516,6 +567,7 @@ import {
   BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
+import { kernelServedProviders, readLoopbackProviderAliases, withLoopbackProviderAliases } from "./infrastructure/agent-run/loopback-provider-aliases";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AcceptMessageCarryOverDelivery } from "./infrastructure/agent-run/accept-message-carry-over-delivery";
 import { INTERJECTION_CARRY_OVER_DELIVERY, type InterjectionCarryOverDelivery } from "./application/agent-run/interjection-carry-over";
@@ -539,6 +591,9 @@ import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 // issue #3068 —— 「以后都允许」的查看/撤销（组织 admin 面），见该文件头注。
 import { ToolPermissionGrantController } from "./interface/controllers/tool-permission-grant.controller";
+import { WorkflowCapabilityGrantController, WORKFLOW_CAPABILITY_GRANT_SERVICE } from "./interface/controllers/workflow-capability-grant.controller";
+import { WorkflowCapabilityGrantService } from "./application/workflow/workflow-capability-grants";
+import { PgWorkflowCapabilityGrantStore } from "./infrastructure/workflow/pg-effect-capability-authority";
 import { DocumentGenerationAutoApproveController } from "./interface/controllers/document-generation-auto-approve.controller";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { SubtaskRunController } from "./interface/controllers/subtask-run.controller";
@@ -594,6 +649,20 @@ import { PgSetAgentInstructionsRepository } from "./infrastructure/agent/pg-crea
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-agent-role-label-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
+import { AgentRoleController } from "./interface/controllers/agent-role.controller";
+import { EscalationDecisionController } from "./interface/controllers/escalation-decision.controller";
+import { AgentHandoffController } from "./interface/controllers/agent-handoff.controller";
+import { AGENT_HANDOFF_STORE, SOURCE_READ_PERMISSION_CHECK } from "./application/agent/agent-handoff";
+import { ArtifactSourceReadPermissionCheck } from "./application/agent/artifact-source-read-check";
+import { PgAgentHandoffStore } from "./infrastructure/agent/pg-agent-handoff-store";
+import { ESCALATION_STORE } from "./application/agent-interrupts/decide-escalation";
+import { PgEscalationStore } from "./infrastructure/agent-interrupts/pg-escalation-store";
+import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
+import { PgAgentRoleDraftRepository } from "./infrastructure/agent/pg-agent-role-draft-repository";
+import { AgentDirectoryController } from "./interface/controllers/agent-directory.controller";
+import { AGENT_DIRECTORY_REPOSITORY, LAUNCHABLE_WORKFLOWS } from "./application/agent/list-agent-directory";
+import { PgAgentDirectoryRepository } from "./infrastructure/agent/pg-agent-directory-repository";
+import { PgLaunchableWorkflows } from "./infrastructure/workflow/pg-launchable-workflows";
 import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
@@ -705,7 +774,7 @@ import {
   lazyGithubIssueConfig,
   type GithubIssueConfig,
 } from "./infrastructure/feedback/github-issue-creator";
-import { TRANSACTIONAL_MAIL_TRANSPORT } from "./application/notifications/transactional-mail-ports";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "./application/notifications/transactional-mail-ports";
 import {
   CloudflareTransactionalEmailTransport,
   TRANSACTIONAL_MAIL_CONFIG,
@@ -777,6 +846,11 @@ import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repos
 //   材料字节走同一个 `ObjectStore` 实例，键前缀 `org-avatars/` 区分即可。
 import { ORG_PROFILE_REPOSITORY } from "./application/auth/org-profile-ports";
 import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-repository";
+// 组织首页配置（ad-hoc feature，Refs #4634）。
+import { HOME_CONFIG_REPOSITORY } from "./application/home/home-config-ports";
+import { PgHomeConfigRepository } from "./infrastructure/home/pg-home-config-repository";
+import { HomeConfigController } from "./interface/controllers/home-config.controller";
+import { HomeProjectPreviewsController } from "./interface/controllers/home-project-previews.controller";
 import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
 import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
@@ -862,6 +936,7 @@ import {
   PROJECT_TAGS_REPOSITORY,
   type ProjectRepository,
   PROJECT_NAME_LOOKUP,
+  type ProjectNameLookupPort,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -881,6 +956,11 @@ import { PgProjectResourceRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的成员表（按 `projects.kind` 分派两张表）。
 import { NON_WORKSHOP_MEMBER_REPOSITORY } from "./application/project/non-workshop-member-ports";
 import { PgNonWorkshopMemberRepository } from "./infrastructure/project/pg-non-workshop-member-repository";
+// #4787 通用项目邀请（邮箱 / 链接）与「按姓名加人后通知被加的人」。
+import { APP_PUBLIC_URL_PROVIDER, PROJECT_INVITATION_REPOSITORY, PROJECT_MEMBER_ADDED_NOTIFIER, type AppPublicUrlProvider } from "./application/project/project-invitation-ports";
+import { PgProjectInvitationRepository } from "./infrastructure/project/pg-project-invitation-repository";
+import { DefaultProjectMemberAddedNotifier } from "./infrastructure/project/project-member-added-notifier";
+import { ProjectInvitationController } from "./interface/controllers/project-invitation.controller";
 import { PROJECT_EVIDENCE_REPOSITORY } from "./application/project/project-evidence-ports";
 import { PgProjectEvidenceRepository } from "./infrastructure/project/pg-project-evidence-repository";
 import { EVIDENCE_SOURCE_REPOSITORY } from "./application/project/collect-evidence/ports";
@@ -1073,14 +1153,30 @@ import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-t
 import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
+import pgModule from "pg";
+import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
+import { BoardRunCardsController } from "./interface/controllers/board-run-cards.controller";
+import { BOARD_RUN_CARDS_DEPS, type ListBoardRunCardsDeps } from "./application/board/list-board-run-cards";
+import { PgBoardRunSource } from "./infrastructure/board/pg-board-run-source";
+import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "./application/workflow/workflow-runtime-service";
+import { ModelContentSkillRunner } from "./application/work-content/content-skill-runner";
+import { PgSkillCatalogVersionResolver } from "./infrastructure/workflow/pg-skill-catalog-version-resolver";
+import { PgWorkflowAccess } from "./infrastructure/workflow/pg-workflow-access";
+import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
+import { createGeneralizedScheduleHandler } from "./infrastructure/workflow/workflow-scheduled-job-router";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
 
+const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
+const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
+
 @Module({
   controllers: [
+    WorkflowRuntimeController,
+    BoardRunCardsController,
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
@@ -1093,6 +1189,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ProvenanceController,
     CapabilityController,
     SkillStarterImportController,
+    WorkSkillCatalogController,
+    WorkGateStatusController,
     SkillUrlImportController,
     AgentUrlImportController,
     McpRemoteDiscoveryController,
@@ -1125,7 +1223,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteLinkController,
     CheckinBoardController,
     ProjectInviteController,
+    ProjectInvitationController,
     OrgAdminManagementController,
+    HomeConfigController,
+  HomeProjectPreviewsController,
     PlatformAccessController,
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,
@@ -1149,6 +1250,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentRunController,
     RunInterjectionController,
     ToolPermissionGrantController,
+    WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
     ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardRememberController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
@@ -1165,7 +1267,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     BoardController,
     AgentTrialRunController,
     SkillTrialRunController,
+    // ⚠ 必须排在 AgentController 之前：Express 按注册顺序匹配，`GET /agents/:agentId`
+    // 会把静态段 `GET /agents/directory` 当成 agentId="directory" 吃掉 → 404 AGENT_NOT_FOUND。
+    // 回归测试：tests/agent/agent-directory-route-order.test.ts。
+    AgentDirectoryController,
     AgentController,
+    AgentRoleController,
+    EscalationDecisionController,
+    AgentHandoffController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
@@ -1175,6 +1284,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardOperationController,
+    ...(BOARD_AGENT_API_ACCEPTANCE ? [WhiteboardServiceActorController] : []),
+    WhiteboardImportController,
+    WhiteboardPortableController,
+    WhiteboardAssetsController,
     WhiteboardTagController,
     PublicDesignShareController,
     SystemMailController,
@@ -1195,6 +1309,28 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
+    // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
+    {
+      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER],
+      useFactory: (db: DatabasePort, logger: LoggerPort, model: ModelCallPort, notifications: NotificationPublisher) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+        // CT06：Skill 版本从本组织 Work Skill 目录解析；内容线 Skill 以发起 Agent 固定版本的模型执行，
+        // PRD 经 effect-gateway 发布并通知发起人（W029）。
+        skills: new PgSkillCatalogVersionResolver(db),
+        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db)), notifications },
+        onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
+        // 阶段业务失败（含重试）落日志：只带 name/code/reason 与 failureKind，不带 message / 模型原文。
+        onStageFailure: (f) => logger.error(f.final ? "workflow.stage_failed" : "workflow.stage_retried", {
+          traceId: `workflow:${f.instanceId}`, instanceId: f.instanceId, stageId: f.stageId, attempt: f.attempt, failureKind: f.failureKind,
+          err: { ...f.error, stageId: f.stageId, attempt: f.attempt, failureKind: f.failureKind },
+        }),
+        replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
+      }),
+    },
+    // CT10：Board 运行卡读模型（候选运行 PG 读 + WF03 角色解析；权限过滤在应用层）。
+    {
+      provide: BOARD_RUN_CARDS_DEPS, inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort): ListBoardRunCardsDeps => ({ runs: new PgBoardRunSource(db), access: new PgWorkflowAccess(db) }),
+    },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
     // this pool.
@@ -1414,7 +1550,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // issue #3420 —— 与 executor / 控制器共用**同一个** `TOOL_PERMISSION_GRANT_STORE`
       // 单例：恢复流程必须能看见用户刚刚在这条 run 上落下的「本 run 内都允许」，否则它
       // 会把同一个工具再问一遍（见 `pg-run-recovery.ts` 构造函数注释）。
-      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null, grants: ToolPermissionGrantStore) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig()), nativeOutputs ?? undefined, nativeSessions ?? undefined, grants),
+      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null, grants: ToolPermissionGrantStore) => {
+        const deepAgentConfig = readDeepAgentProviderConfig();
+        const chatConfig = readModelProviderConfig();
+        return new PgRunRecovery(db, runs, new DeepAgentModelProvider(deepAgentConfig), nativeOutputs ?? undefined, nativeSessions ?? undefined, grants,
+          kernelServedProviders(chatConfig.provider, readLoopbackProviderAliases(process.env, chatConfig), deepAgentConfig.baseUrl));
+      },
       inject: [DATABASE_PORT, AGENT_RUN_STORE, NATIVE_OUTPUT_STAGING, NATIVE_SESSION_OWNER, TOOL_PERMISSION_GRANT_STORE],
     },
     {
@@ -1435,6 +1576,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PROVENANCE_READER,
       useExisting: PROVENANCE_WRITER,
     },
+    // Workflow 能力授权管理面：admin 判定 + 同事务审计在 service；store 与执行前重查读同一张表。
+    {
+      provide: WORKFLOW_CAPABILITY_GRANT_SERVICE,
+      useFactory: (db: DatabasePort, identity: IdentityRepository, provenance: ProvenanceWriter & ProvenanceReader) =>
+        new WorkflowCapabilityGrantService({
+          identity,
+          store: new PgWorkflowCapabilityGrantStore(db),
+          provenanceWriter: provenance,
+          provenanceReader: provenance,
+        }),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, PROVENANCE_WRITER],
+    },
     // Third view of the same instance (F08). A notice is a pointer into the trail and its
     // FK says so; a separate provider would be the first step toward a notification store
     // that can name events which do not exist.
@@ -1451,11 +1604,38 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // configures the verified pack source, while an unset source resolves no packs.
     {
       provide: SKILL_STARTER_PACK_SOURCE,
-      useFactory: () => new FileSkillStarterPackSource(process.env.SKILL_STARTER_PACK_ROOT),
+      useFactory: () => new FileSkillStarterPackSource(resolveSkillStarterPackRoot()),
     },
     {
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // EV04 × WS02：导入时用门脚本同一判定函数写入确定性门状态（仓库不在运行环境里则不判）。
+    { provide: STARTER_PACK_GATE_JUDGE, useFactory: () => new FsStarterPackGateJudge() },
+    // 导入之后发布变得可发布的内置 Workflow Definition（dev-mode 种子先于导入运行，否则它们永远未发布）。
+    {
+      provide: STARTER_PACK_IMPORT_FOLLOW_UP,
+      useFactory: (db: DatabasePort) => new PublishBuiltInWorkflowsAfterImport(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 WS03：Work Skill 目录读写（列表/搜索/详情 + 通道/后继 + 审计）。
+    {
+      provide: WORK_SKILL_CATALOG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWorkSkillCatalogRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: WORK_GATE_STATUS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWorkGateStatusRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 EV04 I-10：官方平台组织目录 = PLATFORM_ORG_ID（不读环境变量）。
+    { provide: WORK_GATE_OFFICIAL_ORG, useValue: { orgId: () => toOrgId(PLATFORM_ORG_ID) } satisfies WorkGateOfficialOrg },
+    // Phase 20 WS04：就绪性输入——本组织工具 × 能力分类授权快照。
+    {
+      provide: TOOL_GRANT_READER,
+      useFactory: (db: DatabasePort) => new PgToolGrantReader(db),
       inject: [DATABASE_PORT],
     },
     /**
@@ -1536,6 +1716,21 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      // AG03：已注册 Workflow 的单一事实源见 `file-workflow-definition-store.ts` 头注。显式配置过
+      // 的部署优先用它（同 `ensure-standard-skill-packs.ts` 的 `standardPackRoot()` 纪律），没配时
+      // 才退回仓库相对路径。
+      provide: WORKFLOW_DEFINITION_STORE,
+      useFactory: () => new FileWorkflowDefinitionStore(
+        process.env.WORKFLOW_DEFINITIONS_ROOT?.trim()
+        || fileURLToPath(new URL("../../../requirements/work-stack-v2/workflows/", import.meta.url)),
+      ),
+    },
+    {
+      provide: OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOfficialAgentRolePackImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: CREATE_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
       inject: [DATABASE_PORT],
@@ -1553,6 +1748,30 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: SET_AGENT_INSTRUCTIONS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: ESCALATION_STORE, useFactory: (db: DatabasePort) => new PgEscalationStore(db), inject: [DATABASE_PORT] },
+    // AG07：handoff 聚合存储 + 以发起人身份重读证据引用（走文件预览同一道读门）。
+    { provide: AGENT_HANDOFF_STORE, useFactory: (db: DatabasePort) => new PgAgentHandoffStore(db), inject: [DATABASE_PORT] },
+    {
+      provide: SOURCE_READ_PERMISSION_CHECK,
+      useFactory: (grants: DeliveryDeps["grants"], urls: DeliveryDeps["urls"], objectStore: DeliveryDeps["objectStore"], integrity: DeliveryDeps["integrity"], repo: DeliveryDeps["repo"], ids: DeliveryDeps["ids"], idFactory: DeliveryDeps["idFactory"], provenance: DeliveryDeps["provenance"], agentArtifacts: AgentArtifactDeliverySource) =>
+        new ArtifactSourceReadPermissionCheck({ grants, urls, objectStore, integrity, repo, ids, idFactory, provenance, agentArtifacts, now: () => new Date() }),
+      inject: [DOWNLOAD_GRANT_REPOSITORY, DOWNLOAD_URL_BUILDER, OBJECT_STORE_PROBE, OBJECT_INTEGRITY_CHECKER, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, ID_FACTORY, PROVENANCE_WRITER, AGENT_ARTIFACT_DELIVERY_SOURCE],
+    },
+    {
+      provide: AGENT_ROLE_DRAFT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_DIRECTORY_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentDirectoryRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: LAUNCHABLE_WORKFLOWS,
+      useFactory: (db: DatabasePort) => new PgLaunchableWorkflows(db),
       inject: [DATABASE_PORT],
     },
     {
@@ -1607,6 +1826,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
+    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:WhiteboardObjectInventory,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,WHITEBOARD_OBJECT_INVENTORY,PHYSICAL_PURGE_PORT]},
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,
@@ -1972,10 +2192,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: MODEL_CALL_PORT,
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
-        return new RoutingModelCallPort(new Map<string, ModelCallPort>([
-          [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
+        const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
+        const chatPort = new ConfiguredModelProvider(chatConfig, loopbackAliases);
+        // 数字人能力（决策 B）：内核与 chat 共用同一个 KERNEL_MODEL_* 端点，所以它能跑的 provider 名 =
+        // 配置的 chat provider + 回环别名。见 application/agent-run/capability-runtime-routing.ts。
+        const deepAgentConfig = readDeepAgentProviderConfig();
+        const kernelServed = kernelServedProviders(chatConfig.provider, loopbackAliases, deepAgentConfig.baseUrl);
+        // 回环/开发/CI 专用别名（生产无效：需显式 env + 回环 baseUrl），见 loopback-provider-aliases.ts。
+        return new RoutingModelCallPort(new Map<string, ModelCallPort>(withLoopbackProviderAliases<ModelCallPort>([
+          [chatConfig.provider, chatPort],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
-          [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
+          [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(deepAgentConfig)],
           /*
            * 2026-09-22 —— 本地版**不注册**这一家。否则图片生成 agent 的 run 会路由到它，
            * 而它在本地版拿到的是 `KERNEL_MODEL_API_KEY="ollama-local"`（给本机 Ollama 的
@@ -1987,7 +2214,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
             : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())] as const]),
-        ]));
+        ], loopbackAliases, chatPort)), kernelServed);
       },
     },
     {
@@ -2120,6 +2347,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         carryOver: InterjectionCarryOverDelivery,
         firstValue: FirstValueRecorder,
         embeddings: EmbeddingPort | null,
+        workflows: WorkflowRuntimeService,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2174,13 +2402,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           { citations: new PgChatRepository(db), firstValue },
           // #4361：「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代——同抽取任务用的三个端口（执行器 / 取代 / 自动记入）。
           { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
+          // AG05：Agent 经 `start_workflow` 发起 Workflow 走的就是 WF03 的同一个运行时单例（start 准入全在 runStartCore）。
+          workflows,
+          // AG07：Agent 经 `request_handoff` 请求转交——登记待发起人确认的 handoff 行（与 HTTP 面同一个存储实现）。
+          new PgAgentHandoffStore(db),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2279,19 +2511,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
         threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
         executor: AgentRunExecutorPort, model: ModelCallPort, titleModel: ThreadTitleModelConfig,
-        logger: LoggerPort, notifier?: ScheduledRunNotifier) => {
+        logger: LoggerPort, workflows: WorkflowRuntimeService, notifier?: ScheduledRunNotifier) => {
         if (process.env.KERNEL_STANDARD_SCHEDULER !== "1") return null;
         const provider = new PgBossScheduler(db, code => logger.error(code, {traceId:randomUUID(),err:code}));
         const gateway = new ScheduledChatRunGateway({repo,ids,chat,commands,publishedAgents,threadMounts,enabledSkills,
           model,titleModel,log: () => logger.error("schedule_chat_failed", {traceId:randomUUID(),err:"schedule_chat_failed"})},
           orgId => executor.kick(orgId));
-        return new StandardScheduleRuntime(provider, new PgStandardSchedule({db,authority,
-          visibility:{repo,ids,chat,runs},provider,gateway,notifier}));
+        const pgStandardSchedule = new PgStandardSchedule({db,authority,visibility:{repo,ids,chat,runs},provider,gateway,notifier});
+        // WF06「pg-boss 泛化」：{kind:'workflow',triggerId} 唤醒 Workflow 定时触发器；其余（原
+        // agent-run `{orgId,scheduleId}`）payload 原样交给既有 handler，行为不变（兼容）。
+        const deliver = createGeneralizedScheduleHandler<ScheduleWake>(
+          (job) => pgStandardSchedule.deliver(job),
+          (job) => workflows.deliverScheduledTrigger(job),
+        );
+        return new StandardScheduleRuntime(provider, { invoke: (...args) => pgStandardSchedule.invoke(...args), deliver });
       },
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY,
         CHAT_REPOSITORY, AGENT_RUN_STORE, CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER,
         THREAD_MOUNTED_SKILL_READER, ENABLED_SKILL_VERSION_READER, AGENT_RUN_EXECUTOR,
-        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, {token:SCHEDULED_RUN_NOTIFIER,optional:true}],
+        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, WORKFLOW_RUNTIME_SERVICE,
+        {token:SCHEDULED_RUN_NOTIFIER,optional:true}],
     },
     {
       provide: STANDARD_SQL_SOURCE,
@@ -2460,8 +2699,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         model: ModelCallPort,
       ) => {
         const config = readDigitalInterviewModelConfig();
+        const deps = { repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId };
         return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
-          generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
+          generateInterviewMarkdown(deps, input),
+          previewVirtualExpert: (input: Parameters<typeof previewVirtualExpertMarkdown>[1]) => previewVirtualExpertMarkdown(deps, input) };
       },
       inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
     },
@@ -2596,7 +2837,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         receipts: GuidedResearchNodeReceiptRepository,
         directions: GuidedResearchDirectionGenerator,
         outlines: GuidedResearchOutlineGenerator,
-      ) => new GuidedResearchWorkflowService(receipts, createGuidedResearchCheckpointer(appConfig()), directions, outlines),
+      ) => {
+        // WF07：引导式研究 = `guided-research:1`，checkpoint 经通用运行时唯一 checkpointer 工厂（langgraph_workflow）。
+        const pool = new pgModule.Pool({ ...appConfig(), max: 5 });
+        const saver = createWorkflowCheckpointerFactory(pool).saverFor(GUIDED_RESEARCH_GRAPH_REF);
+        return new GuidedResearchWorkflowService(receipts, saver, directions, outlines, () => pool.end());
+      },
       inject: [
         GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
         GUIDED_RESEARCH_DIRECTION_GENERATOR,
@@ -2605,7 +2851,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgGuidedResearchNodeReceiptRepository(db),
+      useFactory: (db: DatabasePort) => new PgGuidedResearchWorkflowReceipts(db),
       inject: [DATABASE_PORT],
     },
     {
@@ -2714,6 +2960,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, store: ObjectStore) => new PgOrgProfileRepository(db, store),
       inject: [DATABASE_PORT, OBJECT_STORE],
     },
+    // 组织首页配置（ad-hoc feature，Refs #4634）。
+    {
+      provide: HOME_CONFIG_REPOSITORY,
+      useFactory: (db: DatabasePort, store: ObjectStore) => new PgHomeConfigRepository(db, store),
+      inject: [DATABASE_PORT, OBJECT_STORE],
+    },
     // #638 delta，迭代 2：`uploadOwnAvatar`/`updateOwnProfile` 的头像元数据仓储。
     {
       provide: AVATAR_REPOSITORY,
@@ -2767,6 +3019,25 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgNonWorkshopMemberRepository(db),
       inject: [DATABASE_PORT],
     },
+    // #4787：通用项目邀请仓储（`project-invitation.controller.ts` 消费）。
+    {
+      provide: PROJECT_INVITATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectInvitationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #4787：站点公开地址（惰性——复用邮件配置的 lazy Proxy，配置缺项时读取才抛）。
+    {
+      provide: APP_PUBLIC_URL_PROVIDER,
+      useFactory: (emailConfig: CloudflareEmailConfig) => ({ get: () => emailConfig.appPublicUrl }),
+      inject: [CLOUDFLARE_EMAIL_CONFIG],
+    },
+    // #4787：按姓名加人之后通知被加的人（邮件优先、站内通知兜底；失败由调用方吞掉）。
+    {
+      provide: PROJECT_MEMBER_ADDED_NOTIFIER,
+      useFactory: (projects: ProjectNameLookupPort, credentials: CredentialRepository, notifications: NotificationPublisher, mail: TransactionalMailTransport, publicUrl: AppPublicUrlProvider) =>
+        new DefaultProjectMemberAddedNotifier(projects, credentials, notifications, mail, () => publicUrl.get()),
+      inject: [PROJECT_NAME_LOOKUP, CREDENTIAL_REPOSITORY, NOTIFICATION_CENTER, TRANSACTIONAL_MAIL_TRANSPORT, APP_PUBLIC_URL_PROVIDER],
+    },
     // 项目中枢 B3-T1（#4495）：证据单元仓储 + 采集器的只读来源（`project.controller.ts` 与 `KgExtractionWorker` 消费）。
     {
       provide: PROJECT_EVIDENCE_REPOSITORY,
@@ -2775,8 +3046,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: EVIDENCE_SOURCE_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgEvidenceSources(db),
-      inject: [DATABASE_PORT],
+      // #4615：白板便签证据要解码 Yjs 快照——用白板存储同一个校验器（一次性 worker）。
+      useFactory: (db: DatabasePort, validator: WhiteboardUpdateValidator) => new PgEvidenceSources(db, validator),
+      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR],
     },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
@@ -3106,23 +3378,43 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, objects: ObjectStore) => new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 120, objects, new PgWhiteboardProjectAccess()),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_COMMENT_STORE,
-      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator)=>new PgWhiteboardCommentStore(db,validator),
-      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR],
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration,objects,new PgWhiteboardProjectAccess()),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_RECOVERY_SERVICE,
-      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration);return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,objects,new PgWhiteboardProjectAccess());return new WhiteboardRecoveryService(adapter,adapter,objects);},
       inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
+      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db, undefined, new PgWhiteboardProjectAccess()),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_SECURE_OBJECT_STORE,
+      useFactory: (objects: ObjectStore) => new SecureWhiteboardObjectStore(objects, whiteboardObjectEncryptionPolicy()),
+      inject: [OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_IMAGE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_PORTABLE_SERVICE,
+      useFactory:(boards:PgWhiteboardRepository,collaboration:PgWhiteboardCollaborationStore,validator:WhiteboardUpdateValidator,db:DatabasePort,objects:ObjectStore,images:WhiteboardImageAssets)=>new PortableBoardService(boards,collaboration,validator,images,new SharpBoardImageVerifier(),new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db))),
+      inject:[WHITEBOARD_REPOSITORY,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_UPDATE_VALIDATOR,DATABASE_PORT,OBJECT_STORE,WHITEBOARD_IMAGE_ASSETS],
+    },
+    {
+      provide: WHITEBOARD_IMPORT_SERVICE,
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: SecureWhiteboardObjectStore, images: WhiteboardImageAssets) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db),undefined,images,new BaselineWhiteboardImportScanner()),
+      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE, WHITEBOARD_IMAGE_ASSETS],
     },
     {
       provide: WHITEBOARD_TAG_REPOSITORY,
@@ -3131,7 +3423,36 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: BOARD_CONTENT_COPY_PORT,
-      useFactory: (db: DatabasePort) => new PgBoardContentCopyStore(db),
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, objects: ObjectStore) => new PgBoardContentCopyStore(db, collaboration, objects),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_OPERATION_AUDIT_REPOSITORY,
+      useFactory: () => BOARD_AGENT_API_ACCEPTANCE ? new AcceptanceWhiteboardActorRepository() : new PgWhiteboardOperationRepository(),
+    },
+    {
+      provide: WHITEBOARD_OPERATION_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator,audit:PgWhiteboardOperationRepository) => new WhiteboardOperationService(db, collaboration, audit,undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_OPERATION_AUDIT_REPOSITORY],
+    },
+    ...(BOARD_AGENT_API_ACCEPTANCE ? [{
+      provide: WHITEBOARD_ACTOR_SERVICE,
+      useFactory: (db: DatabasePort, audit: AcceptanceWhiteboardActorRepository, operations: WhiteboardOperationService) => new WhiteboardActorService(db, audit, audit, operations),
+      inject: [DATABASE_PORT, WHITEBOARD_OPERATION_AUDIT_REPOSITORY, WHITEBOARD_OPERATION_SERVICE],
+    }] : []),
+    {
+      provide: WHITEBOARD_PROPOSAL_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService, agents:PublishedAgentReader, objects:ObjectStore) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(objects),operations,undefined,agents),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE,PUBLISHED_AGENT_READER,OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_ORGANIZE_SERVICE,
+      useFactory: (db:DatabasePort,collaboration:PgWhiteboardCollaborationStore,proposals:WhiteboardProposalService,agents:PublishedAgentReader,skills:AgentRunStore,model:ModelCallPort)=>new WhiteboardOrganizeService(db,new PgWhiteboardOperationRepository(),collaboration,proposals,agents,skills,model,new PgBoardOrganizeActorDirectory(db)),
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_PROPOSAL_SERVICE,PUBLISHED_AGENT_READER,AGENT_RUN_STORE,MODEL_CALL_PORT],
+    },
+    {
+      provide: WHITEBOARD_PRESENTATION_SERVICE,
+      useFactory: (db: DatabasePort) => new WhiteboardPresentationService(db,new PgWhiteboardOperationRepository(),new PgWhiteboardPresentationRepository()),
       inject: [DATABASE_PORT],
     },
     {

@@ -7,7 +7,7 @@ import type { MockDigitalInterviewDraft } from "@/lib/mock/digital-interview-dra
 import { DigitalInterviewWorkflow, PersistentDigitalInterviewWorkflow, type WorkbenchStep } from "./digital-interview-workflow";
 import { InterviewMarkdownWorkbench } from "./interview-markdown-workbench";
 
-export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, reportPin }: { interviewId: string; initialWorkbenchStep?: WorkbenchStep; reportPin?: { documentId: string; version: number } }) {
+export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, reportPin, canonicalNewInterview = false }: { interviewId: string; initialWorkbenchStep?: WorkbenchStep; reportPin?: { documentId: string; version: number }; canonicalNewInterview?: boolean }) {
   const [draft, setDraft] = React.useState<MockDigitalInterviewDraft | null>(null);
   const [workflow, setWorkflow] = React.useState<DigitalInterviewWorkflowView | null>(null);
   const [error, setError] = React.useState("");
@@ -27,6 +27,7 @@ export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, repor
 
   if (error) return <State text={`加载访谈失败：${error}`} />;
   if (workflow && initialWorkbenchStep) return <InterviewMarkdownWorkbench identity={workflow} step={initialWorkbenchStep} reportPin={reportPin} />;
+  if (workflow && canonicalNewInterview && workflow.currentStep === "topic") return <InterviewMarkdownWorkbench identity={workflow} step="intake" />;
   if (workflow) return <PersistentDigitalInterviewWorkflow initialView={workflow} />;
   if (!draft) return <State text="正在恢复访谈草稿…" />;
   return <DigitalInterviewWorkflow initialDraft={draft} />;

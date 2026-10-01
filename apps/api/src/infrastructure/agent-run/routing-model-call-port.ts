@@ -15,11 +15,22 @@ import type { ModelDeltaMetadata } from "../../application/agent-run/ports";
  */
 import type { kernelGateway as KG } from "@repo/contracts";
 import {
-  ModelCallError, type ModelCallInput, type ModelCallPort, type ModelCallProgressEvent,
+  DEEP_AGENT_PROVIDER_NAME, ModelCallError, type ModelCallInput, type ModelCallPort, type ModelCallProgressEvent,
 } from "../../application/agent-run/ports";
 
 export class RoutingModelCallPort implements ModelCallPort {
-  constructor(private readonly ports: ReadonlyMap<string, ModelCallPort>) {}
+  /**
+   * `kernelServedProviders`：deep-agent 内核的 LLM 端点同样提供的 chat provider 名（合成期由
+   * `kernel.module.ts` 给出：配置的 `KERNEL_MODEL_PROVIDER` + 回环别名）。缺省为空 ⇒ 不改路由。
+   */
+  constructor(
+    private readonly ports: ReadonlyMap<string, ModelCallPort>,
+    private readonly kernelServedProviders: ReadonlySet<string> = new Set(),
+  ) {}
+
+  servesViaKernelRuntime(modelProvider: string): boolean {
+    return this.kernelServedProviders.has(modelProvider) && this.ports.has(DEEP_AGENT_PROVIDER_NAME);
+  }
 
   async complete(input: ModelCallInput): Promise<
     { readonly text: string; readonly tokens?: number }

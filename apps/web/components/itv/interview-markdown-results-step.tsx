@@ -9,9 +9,10 @@ import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
 import { InterviewSourceReportReview } from "./interview-source-report-review";
 
-export function InterviewMarkdownResultsStep({ interviewId, step, runs, onVersionChange, onReport, reportPin }: {
+export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin }: {
   readonly interviewId: string; readonly step: "runs" | "report";
   readonly runs: DigitalInterviewWorkflowView["expertRuns"];
+  readonly legacySelectedExpertIds?: readonly string[];
   readonly onVersionChange: (version: number) => void; readonly onReport: () => void;
   readonly reportPin?: { documentId: string; version: number };
 }) {
@@ -75,9 +76,16 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, onVersio
   const execution = source?.execution;
   const experts = source?.documents.find((item) => item.step === "experts");
   const names = new Map(experts ? interviewMarkdown.projectInterviewMarkdownExperts(experts).map((expert) => [expert.expertId, expert.displayName]) : []);
-  const sourceRuns = execution ? execution.tasks.map((task) => ({ expertId: task.expertId, displayName: names.get(task.expertId) ?? task.expertId,
-    status: task.status,
-    completedQuestions: task.status === "completed" ? 1 : 0, totalQuestions: 1 })) : runs;
+  // Before the first `start` command there is no durable execution row yet. Keep
+  // the confirmed expert anchors visible in that state instead of rendering an
+  // empty progress column; the start action will create the tasks from these IDs.
+  const sourceRuns = execution
+    ? execution.tasks.map((task) => ({ expertId: task.expertId, displayName: names.get(task.expertId) ?? task.expertId,
+      status: task.status,
+      completedQuestions: task.status === "completed" ? 1 : 0, totalQuestions: 1 }))
+    : names.size
+      ? [...names].map(([expertId, displayName]) => ({ expertId, displayName, status: "pending" as const, completedQuestions: 0, totalQuestions: 1 }))
+      : runs;
   async function generateReport() {
     if (pending || !source || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")) return;
     setPending(true); setError("");
@@ -107,7 +115,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, onVersio
       {execution?.status === "failed" && <Button disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
       <p className="text-sm text-muted-foreground">暂停不取消正在生成的回答；已保存回答不会重复生成。</p>
     </div>}
-    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} /> : document ? <InterviewReportStep document={document} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p>}
+    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} /> : document ? <InterviewReportStep document={document} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p>}
     {step === "report" && (state?.status === "failed" || error) && <Button variant="outline" disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</Button>}
     {step === "report" && source && document && <InterviewSourceReportReview source={source} onSaved={receive} />}
   </div>;

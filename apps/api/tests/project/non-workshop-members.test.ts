@@ -43,12 +43,12 @@ const ARCHIVED = "p-archived";
 
 class FakeMembers implements NonWorkshopMemberRepository {
   readonly containers = new Map<string, NonWorkshopContainer>([
-    [RESEARCH, { kind: "research_project", status: "active" }],
-    [INSIGHT, { kind: "user_insight", status: "active" }],
+    [RESEARCH, { kind: "general", status: "active" }],
+    [INSIGHT, { kind: "general", status: "active" }],
     [WORKSHOP, { kind: "workshop", status: "active" }],
-    [ARCHIVED, { kind: "research_project", status: "archived" }],
+    [ARCHIVED, { kind: "general", status: "archived" }],
   ]);
-  /** `projectId` → `userId` → role；两张表在这里是两个 kind 前缀的键。 */
+  /** `projectId` → `userId` → role（#4615 起两个容器都是 general，同一张成员表）。 */
   readonly rows = new Map<string, Map<string, NonWorkshopMemberRole>>();
   readonly listCalls: string[] = [];
 
@@ -154,7 +154,7 @@ describe("addNonWorkshopMember：owner 才能加；空 owner 时 lead/admin 加�
       type: "role-changed",
       actorId: "owner",
       target: { kind: "membership", id: `${RESEARCH}:colleague` },
-      detail: { op: "non-workshop-member-upserted", containerKind: "research_project", role: "collaborator" },
+      detail: { op: "non-workshop-member-upserted", containerKind: "general", role: "collaborator" },
     });
   });
 

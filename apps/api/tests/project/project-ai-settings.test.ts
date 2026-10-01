@@ -58,7 +58,7 @@ describe("getProjectAiSettings：读门 + 默认值", () => {
     const out = await read(new FakeAiSettingsRepo(), "u-fac");
     expect(out).toEqual({
       projectId: PROJECT,
-      allowedSources: ["chat", "transcript", "survey", "interview", "research"],
+      allowedSources: ["chat", "whiteboard", "transcript", "survey", "interview", "research"],
       updatedAt: null,
       updatedBy: null,
     });

@@ -32,7 +32,7 @@ import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
 import { SurveyAiProposal } from './ai-proposal';
 import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
-import { CollectionOverview } from "./collection-overview";
+import { CollectionOverview, RecentCollectionActivity } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
 import { useSurveyAutosave } from "./use-survey-autosave";
 import { SurveyDraftCopy } from "./survey-draft-copy";
@@ -40,11 +40,15 @@ import { SurveyCollectionSettingsEditor } from './collection-settings';
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
+import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
+import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
+import { WorkflowTimeline } from "./workflow-timeline";
 const STEPS = [
   ["design", "设计问卷"],
   ["publish", "发布回收"],
   ["responses", "查看答卷"],
 ] as const;
+const IMPORT_STEPS = [["import", "导入内容"], ...STEPS] as const;
 const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTIONS_EMPTY: "问卷至少需要一道题",
   QUESTION_OPTIONS_EMPTY: "选项题必须包含有效选项",
@@ -62,10 +66,12 @@ function emptyDraft(): SurveyDraftInput {
 export function LiveSurveyWorkspace({
   surveyId,
   initialStep = "design",
+  creationMode,
   projectId = null,
 }: {
   surveyId: string;
   initialStep?: string;
+  creationMode?: "ai";
   /**
    * 项目中枢 B2-S2：带 `?projectId=` 进来的新建问卷，首次 `POST /surveys` 成功后立即
    * `linkProjectResource` 挂到该项目；挂失败不回滚问卷（问卷已经存在），只提示。
@@ -76,7 +82,9 @@ export function LiveSurveyWorkspace({
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
   const [draft, setDraft] = React.useState<SurveyDraftInput | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [operation, setOperation] = React.useState<"idle" | "saving" | "processing">("idle");
   const [generatingReport, setGeneratingReport] = React.useState(false);
+  const [secondaryActionsOpen, setSecondaryActionsOpen] = React.useState(false);
   const [error, setError] = React.useState("");
   const [retryable, setRetryable] = React.useState(false);
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
@@ -84,6 +92,7 @@ export function LiveSurveyWorkspace({
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
+  const [selectedBatchId, setSelectedBatchId] = React.useState<string | null>(null);
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
   const [publicationMarkdown,setPublicationMarkdown]=React.useState('# 发布与回收\n');
@@ -94,6 +103,7 @@ export function LiveSurveyWorkspace({
   const lock = React.useRef(false);
   const accept = React.useCallback((value: SurveyRuntime) => {
     setRuntime(value);
+    setSelectedBatchId(value.activeCollectionBatchId ?? value.collectionBatches?.at(-1)?.id ?? null);
     setConflicted(false);
     setRemoteVersion(null);
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
@@ -145,10 +155,11 @@ export function LiveSurveyWorkspace({
           template: runtime.template,
         }));
   useSurveyUnsavedNavigation(dirty);
-  const execute = async (action: () => Promise<void>) => {
+  const execute = async (action: () => Promise<void>, nextOperation: "saving" | "processing" = "processing") => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
+    setOperation(nextOperation);
     setError("");
     setRetryable(false);
     setNotice("");
@@ -164,6 +175,7 @@ export function LiveSurveyWorkspace({
     } finally {
       lock.current = false;
       setBusy(false);
+      setOperation("idle");
     }
   };
   const save = async () => {
@@ -184,7 +196,7 @@ export function LiveSurveyWorkspace({
     // A retry must update that draft rather than POST a duplicate survey.
     if (!runtime) {
       setRuntime(next);
-      router.replace(`/studio/survey/${next.id}?step=${step}`);
+      router.replace(withProjectId(surveyPath(next.id, step as SurveyDestination), projectId));
     }
     if (next.publication) {
       const persisted = await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema);
@@ -207,7 +219,7 @@ export function LiveSurveyWorkspace({
           setNotice("问卷已创建，但挂到项目失败——可回到项目页用「关联已有问卷」补挂");
         }
       }
-      router.replace(withProjectId(`/studio/survey/${next.id}?step=${step}`, projectId));
+      router.replace(withProjectId(surveyPath(next.id, step as SurveyDestination), projectId));
     }
     return persisted;
   };
@@ -228,10 +240,20 @@ export function LiveSurveyWorkspace({
       if (dirty && !window.confirm("刷新将放弃未保存的修改，继续吗？")) return;
       accept(await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema));
     });
-  const link =
-    runtime?.publication && typeof window !== "undefined"
-      ? `${window.location.origin}/surveys/${encodeURIComponent(runtime.publication.token)}`
-      : "";
+  const collectionBatches = runtime?.collectionBatches ?? [];
+  const activeBatchId = runtime?.activeCollectionBatchId ?? collectionBatches.at(-1)?.id ?? null;
+  const selectedBatch = collectionBatches.find((batch) => batch.id === selectedBatchId) ??
+    collectionBatches.find((batch) => batch.id === activeBatchId) ?? null;
+  const selectedPublication = selectedBatch ?? runtime?.publication ?? null;
+  const selectedIsActive = !selectedBatch || selectedBatch.id === activeBatchId;
+  const selectedResponseCount = runtime?.responses.filter((response) =>
+    !selectedBatch ||
+    response.collectionBatchId === selectedBatch.id ||
+    (collectionBatches.length <= 1 && response.collectionBatchId === undefined),
+  ).length ?? 0;
+  const link = selectedPublication && typeof window !== "undefined"
+    ? `${window.location.origin}/surveys/${encodeURIComponent(selectedPublication.token)}`
+    : "";
   const compiled = React.useMemo(() => {
     if (!draft) return null;
     const valid = survey.SurveyReportTemplateSchema.safeParse(draft.template);
@@ -251,19 +273,38 @@ export function LiveSurveyWorkspace({
   const reportShareBlockedReason = runtime?.report
     ? surveyReportShareBlockedReason(runtime.report)
     : undefined;
+  const hasImportStep = creationMode === "ai" || initialStep === "import";
+  const workflowSteps = hasImportStep ? IMPORT_STEPS : STEPS;
+  React.useEffect(() => {
+    if (surveyId === "new") return;
+    const restoreStep = () => {
+      const prefix = `/studio/survey/${encodeURIComponent(surveyId)}/`;
+      if (!window.location.pathname.startsWith(prefix)) return;
+      const destination = window.location.pathname.slice(prefix.length);
+      if (!(["design", "publish", "responses", "template", "report"] as string[]).includes(destination)) return;
+      setStep(destination);
+      setRepairQuestionId(null);
+    };
+    window.addEventListener("popstate", restoreStep);
+    return () => window.removeEventListener("popstate", restoreStep);
+  }, [surveyId]);
+  const collectionExpired = !!selectedPublication && new Date(selectedPublication.expiresAt).getTime() <= Date.now();
+  const collectionLabel = selectedPublication?.status === "closed"
+    ? "已停止回收"
+    : collectionExpired ? "已到截止时间" : "正在回收";
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
-    window.history.replaceState(null, "", `?step=${next}`);
+    if (surveyId !== "new") window.history.pushState(null, "", withProjectId(surveyPath(surveyId, next as SurveyDestination), projectId));
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
   const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
     !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
-    () => execute(async () => { await save(); }));
+    () => execute(async () => { await save(); }, "saving"));
   return (
-    <main className="min-w-0 bg-background">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
+    <main className={`min-w-0 bg-background ${step === "design" ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden" : ""}`}>
+      <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"
           onClick={() => {
@@ -276,6 +317,7 @@ export function LiveSurveyWorkspace({
         <div className="min-w-48 flex-1">
           <Input
             aria-label="问卷名称"
+            className="max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
             disabled={busy || !draft}
             value={draft?.title ?? ""}
             onChange={(e) =>
@@ -290,47 +332,37 @@ export function LiveSurveyWorkspace({
                 : "正在加载"}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => selectStep("template")}
-        >设计报告模板（可选）</Button>
-        {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
-        {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(`/studio/survey/${id}?step=design`)} />}
-        <Button
-          variant="outline"
-          disabled={busy || !runtime}
-          onClick={() => void refresh()}
-        >
-          刷新
-        </Button>
+        <div className="relative">
+          <Button variant="outline" aria-expanded={secondaryActionsOpen} aria-controls="survey-secondary-actions" onClick={() => setSecondaryActionsOpen(value => !value)}>更多操作</Button>
+          {secondaryActionsOpen && (
+            <div id="survey-secondary-actions" className="absolute right-0 top-full z-20 mt-2 flex min-w-52 flex-col gap-1 rounded-lg border border-border bg-card p-2 shadow-md">
+              <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("template"); }}>设计报告模板（可选）</Button>
+              {runtime && <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("report"); }}>分析报告（可选）</Button>}
+              {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
+              <Button variant="ghost" className="justify-start" disabled={busy || !runtime} onClick={() => { setSecondaryActionsOpen(false); void refresh(); }}>刷新</Button>
+            </div>
+          )}
+        </div>
         <Button
           disabled={busy || !draft || !dirty}
           onClick={() =>
             void execute(async () => {
               await save();
-            })
+            }, "saving")
           }
         >
-          {busy ? "处理中…" : "保存修改"}
+          {operation === "saving" ? "保存中…" : error && dirty && !conflicted ? "重试保存" : busy ? "处理中…" : "保存修改"}
         </Button>
       </header>
-      {step === 'design' && <div className="flex justify-end border-b border-border px-5 py-3"><Button disabled={!draft || busy} onClick={() => selectStep('publish')}>前往发布回收</Button></div>}
-      {step === "design" && <p role="status" className="px-5 py-2 text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
-      <nav
-        aria-label="问卷工作流"
-        className="flex overflow-auto border-b border-border bg-card"
-      >
-        {STEPS.map(([id, label], i) => (
-          <button
-            type="button"
-            key={id}
-            onClick={() => selectStep(id)}
-            className={`min-w-28 flex-1 border-b-2 px-4 py-4 text-12 ${step === id ? "border-primary bg-accent font-semibold" : "border-transparent"}`}
-          >
-            {i + 1}. {label}
-          </button>
-        ))}
-      </nav>
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-3 px-5 py-1">
+        {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{conflicted ? "检测到版本冲突，本地修改仍保留" : operation === "saving" ? "正在保存修改…" : error && dirty ? "保存失败，修改仍保留；请重试保存" : busy ? "正在处理…" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
+        {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
+      </div>
+      <WorkflowTimeline
+        steps={workflowSteps}
+        activeStep={step === "template" ? "design" : step}
+        onSelect={selectStep}
+      />
       {error && (
         <div
           role="alert"
@@ -376,26 +408,35 @@ export function LiveSurveyWorkspace({
       )}
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
-        <fieldset disabled={busy} className="min-w-0">
-          {step === "design" && (<>
+        <fieldset disabled={busy} className={`min-w-0 ${step === "design" ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""}`}>
+          {step === "import" && (<section className="mx-auto max-w-6xl space-y-5 p-5" aria-label="导入内容步骤">
+            <div><h1 className="text-24 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">描述需求，或上传文件、选择已保存的录音。先校对 AI 生成的 Markdown，再应用到问卷设计。</p></div>
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
               const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
               const canonical=result.draft.tags===undefined&&draft.tags?.length
                 ? serializeSurveyDesignMarkdown({...result.draft,tags:draft.tags}) : text;
               setMarkdown(canonical);setMarkdownNeedsApply(false);setError('');
               setDraft({...draft,title:result.draft.title,tags:result.draft.tags??draft.tags,questions:result.draft.questions});
+              clearPendingAiImport(surveyId);
+              selectStep("design");
             }}/>
-            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
+            <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-13 font-medium">直接编辑 Markdown（可选）</summary>
+              <div className="mt-4"><MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
                 setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
-                setMarkdownNeedsApply(false);
-              }} />
-            <fieldset disabled={!projectedInSync}>
+                setMarkdownNeedsApply(false);clearPendingAiImport(surveyId);selectStep("design");
+              }} /></div>
+            </details>
+            <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
+          </section>)}
+          {step === "design" && (<>
+            <fieldset disabled={!projectedInSync} className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               studioLayout
+              surveyTitle={draft.title}
               disabled={busy || !projectedInSync}
               questions={draft.questions}
               locked={!!runtime?.publication}
@@ -422,12 +463,18 @@ export function LiveSurveyWorkspace({
             />
           </>)}
           {step === "publish" && (
-            <section className="mx-auto max-w-6xl space-y-5 p-6">
-              <h1 className="text-20 font-semibold">发布与回收</h1>
-              <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
-              <p className="text-12 text-muted-foreground">
-                先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定，报告模板仍可继续编辑。
-              </p>
+            <section className="mx-auto max-w-screen-2xl space-y-5 p-5 sm:p-7 lg:p-10">
+              <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">检查问卷、设置回收方式，发布后分享链接并查看真实答卷。</p></div>
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
+              <div className="space-y-5">
+              <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
+                <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "发布准备"}</p>
+                <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
+                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
+                {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{selectedPublication.version}</p>}
+                {selectedPublication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {selectedResponseCount} 份答卷</p>}
+                {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
+              </section>
               {runtime?.status === "draft" ? (
                 <>
                   <Button
@@ -505,27 +552,18 @@ export function LiveSurveyWorkspace({
                     </Button>
                   </div>
                 </section>
-              ) : runtime?.publication ? (
+              ) : runtime && selectedPublication ? (
                 <>
-                  <CollectionOverview runtime={runtime} />
-                  <p className="text-14">
-                    {runtime.publication.status === "closed"
-                      ? "已停止回收"
-                      : new Date(runtime.publication.expiresAt).getTime() <
-                          Date.now()
-                        ? "已到截止时间"
-                        : "正在回收"}{" "}
-                    · {runtime.responses.length} 份答卷
-                  </p>
-                  <p className="text-12 text-muted-foreground">
-                    截止{" "}
-                    {new Date(runtime.publication.expiresAt).toLocaleString(
-                      "zh-CN",
-                    )}
-                  </p>
-                  <Input aria-label="答题链接" readOnly value={link} />
-                  <SurveyShareCode link={link} />
-                  <div className="flex flex-wrap gap-2">
+                  <CollectionOverview runtime={runtime} batchId={selectedBatch?.id} />
+                  <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-5">
+                    <div>
+                      <h2 className="text-16 font-semibold">分享问卷</h2>
+                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。截止 {new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}。</p>
+                    </div>
+                    <Input aria-label="答题链接" readOnly value={link} />
+                    <div className="flex flex-wrap items-center gap-4">
+                      <SurveyShareCode link={link} />
+                      <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       onClick={() =>
@@ -545,7 +583,10 @@ export function LiveSurveyWorkspace({
                     >
                       打开答题页
                     </a>
-                    {runtime.publication.status === "collecting" && (
+                      </div>
+                    </div>
+                  </section>
+                  {selectedIsActive && selectedPublication.status === "collecting" && (
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -560,20 +601,52 @@ export function LiveSurveyWorkspace({
                         停止回收
                       </Button>
                     )}
-                  </div>
+                  {selectedIsActive && selectedPublication.status === "closed" && (
+                    <Button onClick={() => void execute(() => command("republish"))}>
+                      再次发布
+                    </Button>
+                  )}
                 </>
               ) : (
                 <p className="text-12 text-muted-foreground">正在同步发布状态，请刷新后重试。</p>
               )}
+              </div>
+              <aside className="space-y-4" aria-label="回收设置面板">
+                {runtime && !runtime.publication && <section className="rounded-lg border border-border bg-card p-5">
+                  <label className="flex items-center justify-between gap-4 text-13 font-medium">
+                    匿名填写
+                    <input type="checkbox" disabled={busy} checked={runtime.anonymity === "anonymous"} onChange={event => {
+                      const anonymity = event.target.checked ? "anonymous" : "identified";
+                      void execute(async () => {
+                        const current = dirty ? await save() : runtime;
+                        if (!current) throw new Error("请先保存问卷");
+                        const next = await surveyRequest(`/surveys/${current.id}`, { method: "PUT", body: {
+                          expectedVersion: current.version,
+                          draft: { title: current.title, tags: current.tags, questions: current.questions, template: current.template },
+                          anonymity,
+                        } }, SurveyRuntimeSchema);
+                        accept(next);
+                      });
+                    }} />
+                  </label>
+                  <p className="mt-2 text-12 text-muted-foreground">关闭后可收集填写者信息；发布后不可更改。</p>
+                </section>}
+                <SurveyCollectionSettingsEditor markdown={selectedPublication?.sourceSnapshot?.documents.publication.markdown ?? publicationMarkdown} locked={busy || !!selectedPublication} onChange={setPublicationMarkdown}/>
+                {collectionBatches.length > 1 && (
+                  <label className="block rounded-lg border border-border bg-card p-5 text-13">
+                    回收批次
+                    <select aria-label="回收批次" className="mt-3 h-9 w-full rounded-md border border-border bg-background px-3" value={selectedBatch?.id ?? activeBatchId ?? ""} onChange={(event) => setSelectedBatchId(event.target.value)}>
+                      {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {batch.status === "collecting" ? "正在回收" : "已停止回收"} · {new Date(batch.createdAt).toLocaleString("zh-CN")}</option>)}
+                    </select>
+                  </label>
+                )}
+                {selectedPublication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+                {runtime && selectedPublication && <RecentCollectionActivity runtime={runtime} batchId={selectedBatch?.id} />}
+              </aside>
+              </div>
             </section>
           )}
           {step === "responses" && (<>
-            <section aria-label="报告准备状态" className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
-              <div><h2 className="text-16 font-semibold">分析报告（可选）</h2><p className="mt-1 text-12 text-muted-foreground">{runtime?.report
-                ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
-                : "尚未生成；不影响问卷发布和答卷回收"}</p></div>
-              <Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button>
-            </section>
             <LiveResponseList
               surveyId={runtime?.id}
               responses={runtime?.responses ?? []}
@@ -618,6 +691,20 @@ export function LiveSurveyWorkspace({
                 })
               }
             />
+            <details aria-label="分析报告（可选）" className="group mx-5 mb-5 rounded-lg border border-border bg-card p-4">
+              <summary className="cursor-pointer list-none text-14 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span aria-hidden="true" className="mr-2 inline-block transition-transform group-open:rotate-90">›</span>
+                分析报告（可选）
+                <span className="ml-2 text-12 font-normal text-muted-foreground">{runtime?.report ? reportIsStale ? "待更新" : "已生成" : "未生成"}</span>
+              </summary>
+              <div className="mt-4 space-y-4 border-t border-border pt-4">
+                <p className="text-12 text-muted-foreground">报告不会影响答卷查看。样本不足时仅展示描述性结果，不生成行动结论。</p>
+                <p className="text-12 text-muted-foreground">{runtime?.report
+                  ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
+                  : "尚未生成；可直接使用默认模板"}</p>
+                <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
+              </div>
+            </details>
           </>)}
           {step === "report" && (
             <section className="mx-auto max-w-5xl space-y-5 p-5">

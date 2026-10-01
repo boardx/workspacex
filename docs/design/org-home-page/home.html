@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkspaceX · 组织首页（生产用户视角）</title>
+<style>
+/* 色值/圆角/阴影镜像 apps/web/app/globals.css 的 token；左侧图标栏用的是
+   docs/design/ai-workspace-redesign/v4-nav.html 已核对过的真实 13 入口 + 五段分组
+   （UC-0.4 R4 A1 锁定，未改动），只是最上面新增了一条「首页」—— 这是本设计唯一
+   触碰导航的地方，见 README「未决问题」。 */
+:root{
+  --bg:#F4F4F1; --rail:#F2F2EF; --card:#FFFFFF; --muted:#F2F2EF; --hover:#ECEBE7;
+  --fg:#17171A; --fg2:#5F5F67; --fg3:#8A8A92;
+  --line:#EBEAE5; --border:#E0DED5;
+  --accent:#E4F2EF; --accent-fg:#0A6155; --success:#0B7967;
+  --ai:#4B3BE8; --ai-tint:#E9E7FB; --warn:#9E5F27; --warn-tint:#FAF1E5;
+  --shadow-sm:0 1px 2px rgba(23,23,26,.05),0 1px 1px rgba(23,23,26,.04);
+  --shadow-md:0 6px 16px -4px rgba(23,23,26,.12),0 2px 4px rgba(23,23,26,.05);
+  --shadow-lg:0 16px 36px -10px rgba(23,23,26,.18);
+  --r-sm:8px; --r:12px; --r-lg:18px;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;font:13.5px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;color:var(--fg);background:var(--bg);display:flex}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+
+/* 左侧图标栏（同 v4-nav.html，未改） */
+.rail{width:76px;min-width:76px;height:100vh;background:var(--rail);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;padding:14px 0;position:sticky;top:0}
+.org{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;margin-bottom:14px;
+  background:linear-gradient(135deg,#4B3BE8,#7A6CF0);color:#fff;font-weight:700;font-size:15px;box-shadow:var(--shadow-sm)}
+.scroll{flex:1;min-height:0;overflow-y:auto;width:100%;display:flex;flex-direction:column;align-items:center;
+  scrollbar-width:none;mask-image:linear-gradient(to bottom,transparent,black 8px,black calc(100% - 8px),transparent)}
+.scroll::-webkit-scrollbar{display:none}
+.seg{width:64px;display:flex;flex-direction:column;align-items:center;margin-bottom:10px;padding:6px 0;border-radius:var(--r)}
+.seg-label{font-size:9px;font-weight:600;letter-spacing:.04em;color:var(--fg3);text-transform:uppercase;margin:2px 0 6px}
+.item{width:56px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border-radius:var(--r-sm);color:var(--fg2);position:relative}
+.item:hover{background:var(--card);color:var(--fg);box-shadow:var(--shadow-sm)}
+.item span{font-size:9.5px;font-weight:500}
+.item[aria-current]{background:var(--card);color:var(--ai);box-shadow:var(--shadow-md)}
+.item[aria-current]::before{content:"";position:absolute;left:-8px;top:50%;translate:0 -50%;width:3px;height:18px;border-radius:2px;background:var(--ai)}
+.item.new::after{content:"新";position:absolute;top:2px;right:4px;font-size:8px;background:var(--ai);color:#fff;border-radius:4px;padding:0 3px;line-height:1.3}
+.bottom{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+.ib{width:40px;height:40px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--fg2)}
+.ib:hover{background:var(--card);color:var(--fg);box-shadow:var(--shadow-sm)}
+.me{width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:700;font-size:12px;box-shadow:var(--shadow-sm)}
+
+/* 主区 */
+main{flex:1;min-width:0;overflow-y:auto}
+.top{display:flex;align-items:center;gap:12px;padding:16px 32px 0}
+.search{flex:1;max-width:640px;margin:0 auto;display:flex;align-items:center;gap:10px;height:42px;padding:0 16px;
+  border-radius:999px;background:var(--card);box-shadow:var(--shadow-sm);color:var(--fg3)}
+.search input{border:0;background:none;outline:none;flex:1;font:inherit;color:var(--fg)}
+.topR{display:flex;align-items:center;gap:10px}
+
+.wrap{max-width:1160px;margin:0 auto;padding:20px 32px 48px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px}
+.col{min-width:0}
+
+/* ===== 组织 Banner（全部来自后台配置） ===== */
+.banner{position:relative;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);
+  min-height:250px;display:flex;flex-direction:column;justify-content:space-between;padding:28px 32px;color:#fff}
+.banner img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.banner .scrim{position:absolute;inset:0;background:linear-gradient(100deg,rgba(10,14,20,.62) 0%,rgba(10,14,20,.32) 45%,rgba(10,14,20,.05) 75%);z-index:1}
+.banner>*:not(img):not(.scrim){position:relative;z-index:2}
+.b-head{display:flex;align-items:center;gap:12px}
+.b-logo{width:36px;height:36px;border-radius:8px;object-fit:cover;background:#fff}
+.b-title{font-size:17px;font-weight:700;line-height:1.2}
+.b-title small{display:block;font-size:11.5px;font-weight:500;opacity:.75;margin-top:1px}
+.b-head-badges{margin-left:auto;display:flex;gap:6px}
+.b-cta{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.16);backdrop-filter:blur(6px);
+  padding:5px 5px 5px 14px;border-radius:999px;width:fit-content;font-size:12px}
+.b-cta button{background:#fff;color:var(--fg);border-radius:999px;padding:6px 14px;font-weight:600;font-size:12.5px;
+  display:flex;align-items:center;gap:6px}
+.b-h1{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.18;max-width:520px}
+.b-tag{font-size:13.5px;opacity:.92;margin-top:6px;max-width:480px;line-height:1.5}
+
+/* Universal command bar，落在 banner 下方 */
+.ask{margin-top:-22px;position:relative;z-index:5;background:var(--card);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);padding:6px 6px 6px 18px;display:flex;align-items:center;gap:10px}
+.ask svg{color:var(--ai)}
+.ask input{flex:1;border:0;outline:none;font:inherit;font-size:14px;background:none;color:var(--fg)}
+.ask input::placeholder{color:var(--fg3)}
+.ask .model{font-size:12px;color:var(--fg3);display:flex;align-items:center;gap:4px;padding:0 8px;border-right:1px solid var(--line)}
+.ask .go{width:34px;height:34px;border-radius:50%;background:var(--fg);color:#fff;display:grid;place-items:center}
+
+/* 快捷动作 4 宫格（可配置：显示哪几个、顺序、文案） */
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+.qc{border-radius:var(--r);background:var(--card);box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:10px;
+  transition:box-shadow .15s,transform .15s;text-align:left}
+.qc:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.qc i{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-style:normal}
+.qc b{font-size:13.5px}
+.qc small{color:var(--fg3);font-size:11.5px;line-height:1.4}
+.qc .go{margin-left:auto;color:var(--fg3)}
+.qc .row{display:flex;align-items:center;width:100%}
+
+/* 最近内容 tabs + 列表 */
+.section{margin-top:26px}
+.s-head{display:flex;align-items:center;gap:18px;border-bottom:1px solid var(--line);padding-bottom:2px}
+.tab{font-size:13px;color:var(--fg3);padding:8px 2px;position:relative}
+.tab[aria-selected="true"]{color:var(--fg);font-weight:600}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ai);border-radius:2px}
+.s-head .more{margin-left:auto;font-size:12px;color:var(--fg3);display:flex;align-items:center;gap:4px}
+
+.list{display:flex;flex-direction:column}
+.row2{display:flex;align-items:center;gap:12px;padding:12px 4px;border-radius:var(--r-sm)}
+.row2:hover{background:var(--card);box-shadow:var(--shadow-sm)}
+.thumb{width:44px;height:44px;border-radius:9px;object-fit:cover;background:var(--muted);flex:none}
+.row2 .t{min-width:0;flex:1}
+.row2 .t b{font-size:13.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row2 .t small{color:var(--fg3);font-size:11.5px}
+.pill{font-size:11px;padding:2px 9px;border-radius:999px;font-weight:600;flex:none}
+.pill.prog{background:var(--accent);color:var(--accent-fg)}
+.pill.pilot{background:var(--ai-tint);color:var(--ai)}
+.pill.plan{background:var(--muted);color:var(--fg2)}
+
+/* 右栏 */
+.side{display:flex;flex-direction:column;gap:16px}
+.box{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:16px}
+.box h3{margin:0 0 12px;font-size:13px;display:flex;align-items:center;justify-content:space-between}
+.box h3 span{font-weight:500;color:var(--fg3);font-size:12px}
+.task{display:flex;align-items:flex-start;gap:10px;padding:7px 0}
+.task input{margin-top:3px}
+.task b{font-size:12.5px;display:block;font-weight:500}
+.task small{color:var(--fg3);font-size:11px}
+.task small.due{color:var(--warn)}
+.ann{padding:9px 0;border-top:1px solid var(--line)}
+.ann:first-of-type{border-top:0}
+.ann b{font-size:12.5px;display:block}
+.ann p{margin:2px 0 0;color:var(--fg2);font-size:11.5px;line-height:1.4}
+.ann time{color:var(--fg3);font-size:10.5px}
+.invite{background:linear-gradient(135deg,var(--ai-tint),#fff);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px}
+.invite b{font-size:13px}
+.invite small{color:var(--fg2);font-size:11.5px;line-height:1.4}
+.invite button{align-self:flex-start;background:var(--ai);color:#fff;padding:7px 16px;border-radius:999px;font-size:12.5px;font-weight:600}
+
+.editbar{position:fixed;bottom:20px;left:50%;translate:-50% 0;display:flex;align-items:center;gap:10px;
+  background:var(--fg);color:#fff;padding:8px 8px 8px 16px;border-radius:999px;box-shadow:var(--shadow-lg);font-size:12.5px;z-index:30}
+.editbar button{background:rgba(255,255,255,.14);padding:6px 12px;border-radius:999px;font-weight:600}
+.editbar button.pri{background:#fff;color:var(--fg)}
+
+@media (max-width:860px){
+  .rail{display:none}
+  .top{padding:12px 16px 0}
+  .search{max-width:none}
+  .wrap{grid-template-columns:1fr;padding:14px 16px 90px;gap:18px}
+  .banner{min-height:auto;padding:20px}
+  .b-h1{font-size:22px}
+  .quick{grid-template-columns:repeat(2,1fr)}
+  .ask{margin-top:-16px}
+  .editbar{left:16px;right:16px;translate:0 0;flex-wrap:wrap;bottom:12px}
+}
+</style>
+</head>
+<body>
+
+<nav class="rail" aria-label="主导航">
+  <button class="org" title="BoardX">B</button>
+  <div class="scroll">
+    <div class="seg">
+      <button class="item new" aria-current="page"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg><span>首页</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>对话</span></button>
+    </div>
+    <div class="seg"><div class="seg-label">编排</div>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg><span>项目</span></button>
+    </div>
+    <div class="seg"><div class="seg-label">STUDIO</div>
+      <button class="item"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Board</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>研究</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>访谈</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4"/></svg><span>录音</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M9 3h6M9 21h6M4 8h16v11H4z"/></svg><span>问卷</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>设计</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>草稿</span></button>
+    </div>
+    <div class="seg"><div class="seg-label">能力</div>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M9.5 3a3 3 0 0 0-3 3v.3A3 3 0 0 0 5 12a3 3 0 0 0 1.5 5.7V18a3 3 0 0 0 3 3M14.5 3a3 3 0 0 1 3 3v.3A3 3 0 0 1 19 12a3 3 0 0 1-1.5 5.7V18a3 3 0 0 1-3 3"/></svg><span>大脑</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>任务</span></button>
+    </div>
+    <div class="seg"><div class="seg-label">治理</div>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>组织</span></button>
+      <button class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>平台</span></button>
+    </div>
+  </div>
+  <div class="bottom">
+    <button class="ib"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
+    <button class="me">U</button>
+  </div>
+</nav>
+
+<main>
+  <div class="top">
+    <span></span>
+    <div class="search"><svg viewBox="0 0 24 24" style="width:16px"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="搜索项目、文件、人、Agent…"><kbd style="font-size:11px;color:var(--fg3);border:1px solid var(--border);border-radius:5px;padding:1px 6px">⌘K</kbd></div>
+    <div class="topR">
+      <button class="ib" aria-label="通知" style="position:relative"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#E0483B"></span></button>
+      <button class="me">U</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="col">
+      <!-- ===== Banner：logo / 标题 / 一句话 / 背景图 / CTA 全部来自后台配置 ===== -->
+      <section class="banner" aria-label="组织首页横幅">
+        <img class="bg" alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='500'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23425a73'/><stop offset='.5' stop-color='%23a9b8c3'/><stop offset='1' stop-color='%23f2e8dc'/></linearGradient></defs><rect width='1200' height='500' fill='url(%23g)'/><path d='M0 500 L260 260 L360 340 L560 150 L700 300 L820 220 L1000 360 L1200 240 L1200 500Z' fill='%23ffffff' fill-opacity='.18'/></svg>">
+        <div class="scrim"></div>
+        <div class="b-head">
+          <img class="b-logo" alt="" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><rect width='36' height='36' rx='8' fill='%234B3BE8'/><text x='18' y='24' font-size='16' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='700'>B</text></svg>">
+          <div class="b-title">BoardX Inc.<small>企业空间 · 42 位成员</small></div>
+          <div class="b-head-badges"><button class="ib" style="background:rgba(255,255,255,.16);color:#fff" aria-label="观看介绍"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg></button></div>
+        </div>
+        <div>
+          <div class="b-h1">让创造更有人性，让协作更有效率</div>
+          <div class="b-tag">People + AI + Real Work —— BoardX 的团队工作空间</div>
+        </div>
+      </section>
+
+      <!-- Universal ask，悬浮压在 banner 下沿 -->
+      <div class="ask">
+        <svg viewBox="0 0 24 24" style="width:20px"><path d="M12 3l1.8 5.3L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.7z"/></svg>
+        <input placeholder="向 WorkspaceX 提问，或直接说出你想做的事…">
+        <span class="model">GPT-4o<svg viewBox="0 0 24 24" style="width:11px"><path d="m6 9 6 6 6-6"/></svg></span>
+        <button class="go" aria-label="发送"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </div>
+
+      <!-- 快捷入口 4 宫格：后台可配置显示哪几个、顺序、文案（默认给这四个） -->
+      <div class="quick">
+        <button class="qc"><div class="row"><i style="background:#FCE9E3;color:#C2410C">📄</i></div><b>创建</b><small>用 AI 写文档 / 演示文稿 / 报告</small></button>
+        <button class="qc"><div class="row"><i style="background:var(--accent);color:var(--accent-fg)">🗂</i></div><b>协作</b><small>Board · 项目 · 工作流</small></button>
+        <button class="qc"><div class="row"><i style="background:var(--ai-tint);color:var(--ai)">👥</i></div><b>与 Agent 协作</b><small>你的 AI 团队，随时待命</small></button>
+        <button class="qc"><div class="row"><i style="background:var(--warn-tint);color:var(--warn)">📚</i></div><b>知识库</b><small>找到并复用组织沉淀</small></button>
+      </div>
+
+      <!-- 最近内容 -->
+      <div class="section">
+        <div class="s-head">
+          <span class="tab" aria-selected="true">最近</span>
+          <span class="tab">项目</span>
+          <span class="tab">Board</span>
+          <span class="tab">文档</span>
+          <span class="tab">对话</span>
+          <span class="more">查看全部<svg viewBox="0 0 24 24" style="width:12px"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+        <div class="list">
+          <div class="row2"><img class="thumb" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23F0506E'/></svg>" alt="">
+            <div class="t"><b>WorkspaceX V1</b><small>Product · 2 小时前更新</small></div><span class="pill prog">进行中</span></div>
+          <div class="row2"><img class="thumb" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%233B82F6'/></svg>" alt="">
+            <div class="t"><b>海尔法务 AI</b><small>Enterprise · 5 小时前更新</small></div><span class="pill prog">进行中</span></div>
+          <div class="row2"><img class="thumb" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%2310B981'/></svg>" alt="">
+            <div class="t"><b>教育创新</b><small>Education · 1 天前更新</small></div><span class="pill pilot">试点</span></div>
+          <div class="row2"><img class="thumb" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23F2A516'/></svg>" alt="">
+            <div class="t"><b>设计思维工作坊</b><small>CreateX · 2 天前更新</small></div><span class="pill plan">规划中</span></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="box">
+        <h3>我的任务 <span>查看全部</span></h3>
+        <div class="task"><input type="checkbox"><div><b>Review HTML 设计提案</b><small class="due">今天</small></div></div>
+        <div class="task"><input type="checkbox"><div><b>提供 Haier POC 计划反馈</b><small class="due">今天</small></div></div>
+        <div class="task"><input type="checkbox"><div><b>准备工作坊材料</b><small>明天</small></div></div>
+        <div class="task"><input type="checkbox"><div><b>更新产品路线图</b><small>09/30</small></div></div>
+      </div>
+      <div class="box">
+        <h3>组织公告 <span>查看全部</span></h3>
+        <div class="ann"><b>Q4 战略更新</b><p>下一章：AI for real work</p><time>09/28</time></div>
+        <div class="ann"><b>新模板库上线</b><p>50+ 模板，开箱即用</p><time>09/26</time></div>
+        <div class="ann"><b>欢迎新同事！</b><p>本月新增 3 位成员</p><time>09/20</time></div>
+      </div>
+      <div class="invite"><b>邀请团队成员</b><small>一起把创造性的工作做得更好。</small><button>邀请</button></div>
+    </aside>
+  </div>
+</main>
+
+<div class="editbar">
+  <svg viewBox="0 0 24 24" style="width:15px"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+  仅组织管理员可见：这是你们的首页
+  <button>预览为普通成员</button>
+  <button class="pri">编辑首页</button>
+</div>
+</body>
+</html>

@@ -8,7 +8,8 @@ import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/t
 import { toolUrl } from "@/lib/chat-workbench/external-url";
 import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
-import { planFromTrace } from "@/lib/chat-workbench/trace-plan";
+import { planFromTrace, settlePlanTodos, actionsByPlanStep } from "@/lib/chat-workbench/trace-plan";
+import { PlanStepActionList } from "@/components/chat/plan-step-action-list";
 import { LivePlanContext } from "@/lib/chat-workbench/live-plan-context";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
@@ -124,11 +125,14 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
-  const planTodos = React.useMemo(() => planFromTrace(entries), [entries]);
+  // 2026-09-30 计划只留消息流这一处：每一步点开看它做过的动作（原右栏「进度」页签的内容搬到这里）。
+  const stepActions = React.useMemo(() => actionsByPlanStep(entries), [entries]);
   const [now, setNow] = React.useState(Date.now);
   const status = [...events].reverse().find((event) => event.kind === "status");
   const legacy = events.every((event) => event.source === "legacy");
   const active = !legacy && (status?.kind === "status" ? status.status === "running" : running);
+  const finishedOk = !legacy && !active && status?.kind === "status" && status.status === "succeeded";
+  const planTodos = React.useMemo(() => settlePlanTodos(planFromTrace(entries), finishedOk), [entries, finishedOk]);
   // 进行中：读底部面板那份账本（同一份数据），底部展开时让位（同一时刻只一份完整列表）。
   // 结束后：本轮自己的计划快照。见 `LivePlanContext` 头注。
   const livePlan = React.useContext(LivePlanContext);
@@ -164,9 +168,9 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const head = active ? null : failed ? `${label} · 有失败步骤` : label;
   // 「技能活动」只数技能脚本执行；为 0 时对用户没有信息量（人类反馈 2026-09-17），不显示。
   const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次${skills > 0 ? ` · 技能活动 ${String(skills)} 项` : ""}`;
-  return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 text-13 text-muted-foreground">
+  return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 rounded-card bg-card px-1 py-1 text-13 text-muted-foreground shadow-sm">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
-      data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      data-testid="run-trace-toggle" className="flex w-full max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {/* issue #3320 的活性动画就是这一枚：`active` 期间恒在、恒动（`animate-butterfly-fly`），
           挂在折叠区外面，不吃 `expanded`。它是这一行唯一的活性信号——活性文案此前另起一行、
           另带一枚 `Loader2`，两处讲同一件事，见 `run-trace-live-strip.tsx` 头注。 */}
@@ -177,7 +181,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
         <RunTraceLiveStrip entries={entries} active={active} />
         <span className="min-w-0">{head === null ? ` · ${tail}` : `${head} · ${tail}`}</span>
       </span>
-      <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
+      <ChevronRight aria-hidden className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
     {/*
       折叠区「外面」——与活性条、后台任务面板同一条先例（见 `RunTraceLivePreview` 头注：
@@ -191,11 +195,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
         已经在浏览器手上了。用「既有的」AgentPlanPanel 渲染，不另画一套。 */}
     {showPlanHere && shownTodos !== null ? (
       <div className="mb-1.5" data-testid="run-trace-plan">
-        <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos} />
+        <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos}
+          renderStepDetail={(todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} openWhenActive={false} />} />
       </div>
     ) : null}
     {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
-    <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
+    <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="mb-2 ml-4 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "tool-group"
           ? <li key={row.id} data-testid="run-trace-entry" data-kind="tool-group" data-status="succeeded" data-tool-name={row.tool} data-member-count={row.members.length}>

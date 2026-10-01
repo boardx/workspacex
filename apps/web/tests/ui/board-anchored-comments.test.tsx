@@ -76,7 +76,7 @@ it("lets a commenter create an object-anchored thread while keeping object editi
   render(<CollaborativeEditor boardId={boardId} clientId="commenter-client" currentUserId="commenter-1" role="commenter" doc={doc} readOnly title="协作板" status="已同步 · 只读" />);
 
   fireEvent.click(screen.getByTestId("select-object"));
-  expect(screen.getByLabelText("对象文字")).toBeDisabled();
+  expect(screen.queryByLabelText("对象文字")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "评论" }));
   fireEvent.change(screen.getByLabelText("评论内容"), { target: { value: "只评论，不编辑" } });
   expect(screen.getByRole("button", { name: "发布评论" })).toBeEnabled();

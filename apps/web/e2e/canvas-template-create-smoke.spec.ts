@@ -47,7 +47,7 @@ async function loginAsAdmin(page: Page) {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 /** 只记 `POST /canvas/templates` 的状态码；GET 列表不进这个数组。 */

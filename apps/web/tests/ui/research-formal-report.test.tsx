@@ -5,13 +5,19 @@ import { researchReportDocument, researchReportMarkdown } from "@/lib/research-r
 import { researchReportPreview } from "@/lib/research-report-preview";
 import { GuidedResearchReportDocument } from "@/components/research-studio/guided-research-report-document";
 import { GuidedResearchReportPreview } from "@/components/research-studio/guided-research-report-preview";
+import { ResearchPrototypeReport } from "@/components/research-studio/research-prototype-report";
 import { runtimeFixture } from "../guided-runtime-fixture";
 const runtime = runtimeFixture("report");
 const uuid = "550e8400-e29b-41d4-a716-446655440000";
 const sources = [{ ...runtime.sources[0]!, id: uuid }, { ...runtime.sources[0]!, id: "second", title: "Secondary", url: "https://example.org/second" }];
 describe("formal research report", () => {
+  it("renders subsection anchor targets used by the report workspace table of contents", () => {
+    const doc = researchReportDocument({ title: "欧洲储能市场进入研究", summary: "核心判断", sections: [{ sectionId: "o1", body: "### 准入要求\n\n核实并网", sourceIds: [] }] }, sources, runtime.outline);
+    const { container } = render(<ResearchPrototypeReport document={doc} sources={0} disabled={false} onRegenerate={() => undefined} />);
+    expect(container.querySelector("#research-report-section-0-subsection-0")).toHaveTextContent("准入要求");
+  });
   it("renders a numbered reading document and exports the same ordered synthesis and references", () => {
-    const doc = researchReportDocument({ title: "欧洲储能市场进入研究", summary: "核心判断[[source:second]]", introduction: `覆盖2026年欧洲市场，交叉核验政策[[${uuid}]]`, sections: [{ sectionId: "o1", body: `### 准入要求\n\n- 核实并网[${uuid}]`, sourceIds: [uuid] }], conclusion: "优先开展试点[[source:second]]" }, sources, runtime.outline);
+    const doc = researchReportDocument({ title: "欧洲储能市场进入研究", summary: "核心判断[[source:second]]", introduction: `覆盖2026年欧洲市场，交叉核验政策[[${uuid}]]`, sections: [{ sectionId: "o1", body: `### 准入要求\n\n- 核实并网[${uuid}]\n\n### 执行风险\n\n需验证周期`, sourceIds: [uuid] }], conclusion: "优先开展试点[[source:second]]" }, sources, runtime.outline);
     render(<GuidedResearchReportDocument document={doc} />);
     const reader = screen.getByTestId("research-report-document");
     expect(reader).toHaveClass("xl:grid-cols-[12rem_minmax(0,1fr)]");
@@ -21,6 +27,8 @@ describe("formal research report", () => {
     expect(screen.getByRole("heading", { name: "综合结论" })).toBeInTheDocument();
     const toc = within(screen.getByRole("navigation", { name: "报告目录" }));
     expect(toc.getByRole("link", { name: "1. 政策章节" })).toHaveAttribute("href", "#research-report-section-0");
+    expect(toc.getByRole("link", { name: "准入要求" })).toHaveAttribute("href", "#research-report-section-0-subsection-0");
+    expect(toc.getByRole("link", { name: "执行风险" })).toHaveAttribute("href", "#research-report-section-0-subsection-1");
     expect(screen.getAllByTestId("research-inline-citation").map((link) => link.textContent)).toEqual(["1", "2", "2", "1"]);
     expect(reader).not.toHaveTextContent(uuid);
     const markdown = researchReportMarkdown(doc);

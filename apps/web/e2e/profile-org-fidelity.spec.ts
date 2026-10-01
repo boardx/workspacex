@@ -48,7 +48,7 @@ test("profile fidelity shots", async ({ page }) => {
   await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.fidelityEmail);
   await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.fidelityPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   const viewports: Array<{ name: string; size: { width: number; height: number } }> = [
     { name: "mobile-375", size: MOBILE },

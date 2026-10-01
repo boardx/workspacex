@@ -1,27 +1,28 @@
-import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Buffer } from "node:buffer";
-import { webcrypto } from "node:crypto";
+import { createHash } from 'node:crypto';
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects, readPanelMetadata } from "@repo/whiteboard-core";
+import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
-// Keep comment/directory queries at their API boundary so the fetch spy exclusively
-// exercises image transport; never fulfill a member request with image bytes.
-vi.mock("@/components/whiteboard/board-comments", async (importOriginal) => ({
-  ...await importOriginal<typeof import("@/components/whiteboard/board-comments")>(),
-  listBoardMentionableMembers: vi.fn(async () => []),
-  listBoardCommentThreads: vi.fn(async () => []),
-}));
-
+vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick }: {
+  BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick, onObjectsTransform }: {
     objects: readonly BoardFabricObject[];
     onSelectionChange: (ids: string[], source: "canvas") => void;
-    onDrawingComplete?: (input: { tool: "pen" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
+    onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
     onCanvasClick?: (point: { x: number; y: number }) => void;
-  }) => <div data-testid="board-fabric-surface">
+    onObjectsTransform?: (items: Array<{ id: string; geometry: BoardFabricObject["geometry"] }>) => void;
+  }) => <div data-testid="board-fabric-surface"><output data-testid="image-preview">{objects.filter(object=>object.kind==="image").map(object=>object.imageAssetUrl).join(",")}</output>
     <button data-testid="select-first" onClick={() => objects[0] && onSelectionChange([objects[0].id], "canvas")}>select</button>
     <button data-testid="draw-stroke" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 10, y: 20, pressure: .2 }, { x: 50, y: 60, pressure: .9 }] })}>draw</button>
+    <button data-testid="draw-outside" onClick={() => onDrawingComplete?.({ tool: "marker", points: [{ x: -40, y: 5, pressure: .4 }, { x: 140, y: 180, pressure: .6 }] })}>draw outside</button>
+    <button data-testid="draw-after-move" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 120, y: 110, pressure: .4 }, { x: 140, y: 130, pressure: .6 }] })}>draw after move</button>
+    <button data-testid="draw-after-resize" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 30, y: 25, pressure: .4 }, { x: 70, y: 35, pressure: .6 }] })}>draw after resize</button>
+    <button data-testid="draw-after-rotate" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 0, y: 30, pressure: .4 }, { x: -20, y: 50, pressure: .6 }] })}>draw after rotate</button>
+    <button data-testid="move-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, x: 110, y: 100 } }])}>move</button>
+    <button data-testid="resize-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, width: 80, height: 20 } }])}>resize</button>
+    <button data-testid="rotate-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, rotation: 90 } }])}>rotate</button>
     <button data-testid="erase-stroke" onClick={() => onDrawingComplete?.({ tool: "eraser", points: [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }] })}>erase</button>
     <button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 200, y: 220 })}>canvas</button>
   </div>,
@@ -31,21 +32,22 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 const objectUrls = new Map<string, Blob>();
 const revokeObjectUrl = vi.fn((url: string) => { objectUrls.delete(url); });
-const nativeDigest = webcrypto.subtle.digest.bind(webcrypto.subtle);
 async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
   if (typeof blob.arrayBuffer === "function") return new Uint8Array(await blob.arrayBuffer());
   return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = reject; reader.onload = () => reader.result instanceof ArrayBuffer ? resolve(new Uint8Array(reader.result)) : reject(new Error("read")); reader.readAsArrayBuffer(blob); });
 }
 beforeEach(() => {
-  // jsdom byte buffers belong to another realm. Bridge only the bytes to Node;
-  // keep real WebCrypto hashing rather than replacing image-integrity checks.
-  vi.spyOn(crypto.subtle, "digest").mockImplementation((algorithm, data) => {
-    const bytes = ArrayBuffer.isView(data)
-      ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-      : new Uint8Array(data);
-    return nativeDigest(algorithm, Buffer.from(bytes));
-  });
   objectUrls.clear(); revokeObjectUrl.mockClear();
+  localStorage.setItem('wsx.sessionToken','test-token');
+  const persisted=new Map<string,Uint8Array>();
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+    if(init?.method==='POST'&&String(url).endsWith('/assets')){
+      const file=(init.body as FormData).get('file') as Blob,bytes=await readBlobBytes(file),digest=createHash('sha256').update(bytes).digest('hex'),assetId=`board-image-${digest}`,view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);persisted.set(assetId,bytes);
+      return Response.json({assetId,mimeType:file.type,magicMimeType:file.type,byteSize:bytes.length,contentDigest:`sha256:${digest}`,intrinsicWidth:view.getUint32(16),intrinsicHeight:view.getUint32(20),persistence:'durable'});
+    }
+    const id=String(url).split('/').at(-2),bytes=id?persisted.get(id):undefined;
+    return bytes?new Response(new Uint8Array(bytes),{headers:{'content-type':'image/png'}}):new Response(null,{status:404});
+  }));
   vi.stubGlobal("URL", class extends globalThis.URL {
     static createObjectURL(blob: Blob) { const url = `blob:verified-${objectUrls.size + 1}`; objectUrls.set(url, blob); return url; }
     static revokeObjectURL(url: string) { revokeObjectUrl(url); }
@@ -56,7 +58,7 @@ beforeEach(() => {
     const view = new DataView(bytes.buffer); return { width: view.getUint32(16), height: view.getUint32(20), close: vi.fn() };
   }));
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 function png(width = 32, height = 24): Uint8Array {
   const bytes = new Uint8Array(32);
@@ -82,22 +84,13 @@ function webp(kind: "VP8" | "VP8L" | "VP8X", width: number, height: number): Uin
 }
 const byteBuffer = (bytes: Uint8Array): ArrayBuffer => new Uint8Array(bytes).buffer;
 
-it("computes the real SHA-256 of jsdom byte buffers", async () => {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array([97, 98, 99]).buffer));
-  expect([...digest].map(value => value.toString(16).padStart(2, "0")).join(""))
-    .toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-});
-
 async function setupView() {
   const { CollaborativeEditor } = await import("@/components/whiteboard/collaborative-editor");
   const doc = createWhiteboardDocument();
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
 }
-function openAppearance() {
-  const panel = screen.getByTestId("board-context-toolbar");
-  if (panel.getAttribute("data-expanded") !== "true") fireEvent.click(screen.getByTestId("board-inspector-expand"));
-}
+function openAppearance() { const trigger = screen.queryByTestId("board-inspector-expand"); if (trigger) fireEvent.click(trigger); }
 async function setup() { return (await setupView()).doc; }
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
@@ -133,38 +126,114 @@ it("makes all fifteen canonical shape variants reachable from the dock", async (
 it("stores pressure-aware drawing and eraser strokes as vector compositing objects", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-draw"));
+  fireEvent.click(screen.getByTestId("board-draw-stroke-8"));
+  fireEvent.click(screen.getByTestId("board-draw-opacity-55"));
+  fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
   fireEvent.click(screen.getByTestId("draw-stroke"));
   const drawing = readObjects(doc)[0]!;
   expect(drawing.kind).toBe("drawing");
-  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", points: [{ pressure: .2 }, { pressure: .9 }] }] });
+  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", width:8, opacity:.55, color:"#2563EB", points: [{ pressure: .2 }, { pressure: .9 }] }] });
   fireEvent.click(screen.getByTestId("erase-stroke"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
   doc.destroy();
 });
 
+it("opens Frame from the F shortcut without creating twice and persists the chosen semantics", async () => {
+  const doc = await setup();
+  fireEvent.keyDown(window,{key:"f"});
+  expect(readObjects(doc)).toEqual([]);
+  expect(screen.getByTestId("board-frame-tool-panel")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-frame-circle"));
+  fireEvent.click(screen.getByTestId("board-frame-size-l"));
+  for (let index = 0; index < 8; index += 1) {
+    fireEvent.click(screen.getByTestId("canvas-click"));
+    expect(readObjects(doc), `Frame gesture ${index + 1} should add one object`).toHaveLength(index + 1);
+  }
+  const panels=readObjects(doc);
+  const panel=panels[0]!;
+  expect(new Set(panels.map((object) => object.id))).toHaveLength(8);
+  expect(panels.every((object) => object.kind === "frame")).toBe(true);
+  expect(panel).toMatchObject({kind:"frame",text:"Circle",geometry:{width:1280,height:800}});
+  expect(readPanelMetadata(panel)).toMatchObject({mode:"freeform",shape:"circle",template:"blank"});
+  doc.destroy();
+});
+
+it("moves selected-object chrome out of the way while Draw is active", async () => {
+  const doc=await setup();
+  fireEvent.click(screen.getByTestId("board-add-shape"));
+  fireEvent.click(screen.getByTestId("board-shape-circle"));
+  expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-add-draw"));
+  expect(screen.getByTestId("board-draw-tool-panel")).toBeVisible();
+  expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-draw-select"));
+  expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
+  doc.destroy();
+});
+
+it("expands an existing drawing around an out-of-bounds stroke without rebasing world points", async () => {
+  const { drawingToolStyle } = await import("@/components/whiteboard/drawing-tool-style");
+  const doc = await setup();
+  fireEvent.click(screen.getByTestId("board-add-draw"));
+  fireEvent.click(screen.getByTestId("draw-stroke"));
+  fireEvent.click(screen.getByTestId("draw-outside"));
+
+  const drawing = readObjects(doc)[0]!;
+  expect(drawing.geometry).toEqual({ x: -40, y: 5, width: 180, height: 175, rotation: 0 });
+  expect(drawing.extensionData?.contentObject).toMatchObject({
+    type: "drawing",
+    strokes: [
+      { tool: "pen", points: [{ x: 10, y: 20 }, { x: 50, y: 60 }] },
+      { tool: "marker", points: [{ x: -40, y: 5 }, { x: 140, y: 180 }], ...drawingToolStyle("marker") },
+    ],
+  });
+  doc.destroy();
+});
+
+it.each([
+  { transform: "move-first", draw: "draw-after-move", geometry: { x: 110, y: 100, width: 40, height: 40, rotation: 0 } },
+  { transform: "resize-first", draw: "draw-after-resize", geometry: { x: 10, y: 20, width: 80, height: 20, rotation: 0 } },
+  { transform: "rotate-first", draw: "draw-after-rotate", geometry: { x: 10, y: 20, width: 40, height: 40, rotation: 90 } },
+])("preserves drawing geometry after $transform and a follow-up stroke", async ({ transform, draw, geometry }) => {
+  const doc = await setup();
+  fireEvent.click(screen.getByTestId("board-add-draw"));
+  fireEvent.click(screen.getByTestId("draw-stroke"));
+  fireEvent.click(screen.getByTestId(transform));
+  fireEvent.click(screen.getByTestId(draw));
+
+  const drawing = readObjects(doc)[0]!;
+  expect(drawing.geometry).toEqual(geometry);
+  expect((drawing.extensionData?.contentObject as { strokes?: DrawingStroke[] }).strokes?.[1]?.points).toEqual([
+    { x: 20, y: 30, pressure: .4 },
+    { x: 40, y: 50, pressure: .6 },
+  ]);
+  doc.destroy();
+});
+
 it("keeps an unsupported image file recoverable without creating a broken object", async () => {
   const doc = await setup();
   const input = screen.getByTestId("board-image-input");
+  expect(input).toHaveAccessibleName("上传图片");
   fireEvent.change(input, { target: { files: [new File(["plain"], "notes.txt", { type: "text/plain" })] } });
   expect(screen.getByText(/请选择 JPG、PNG、WEBP、GIF 或 SVG/)).toBeVisible();
   expect(readObjects(doc)).toEqual([]);
   doc.destroy();
 });
 
-it("creates a verified local-session image without writing bytes or blob/data URLs into the shared document", async () => {
+it("creates a verified durable image without writing bytes or blob/data URLs into the shared document", async () => {
   const { doc, unmount } = await setupView();
   const input = screen.getByTestId("board-image-input");
   fireEvent.change(input, { target: { files: [new File([byteBuffer(png())], "photo.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   const image = readObjects(doc)[0]!;
   expect(image.kind).toBe("image");
-  expect(image.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", assetId: expect.stringMatching(/^local-session-/), sourceUrl: null, fileName: "photo.png", intrinsicWidth: 32, intrinsicHeight: 24, persistence: "local-session" });
+  expect(image.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", assetId: expect.stringMatching(/^board-image-/), sourceUrl: null, fileName: "photo.png", intrinsicWidth: 32, intrinsicHeight: 24, persistence: "durable" });
   expect(JSON.stringify(image)).not.toContain("data:image");
   expect(JSON.stringify(image)).not.toContain("blob:");
-  expect(screen.getByText(/当前浏览器会话中验证并显示/)).toBeVisible();
+  expect(screen.getByText(/图片已持久化/)).toBeVisible();
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-1");
+  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "替换" }));
   await waitFor(() => expect(screen.getByText("替换图片")).toBeVisible());
   fireEvent.change(input, { target: { files: [new File([byteBuffer(png(64, 48))], "replacement.png", { type: "image/png" })] } });
@@ -173,17 +242,16 @@ it("creates a verified local-session image without writing bytes or blob/data UR
   expect(readObjects(doc)[0]).toMatchObject({ id: image.id, extensionData: { contentObject: { replacementOf: image.id, intrinsicWidth: 64, intrinsicHeight: 48 } } });
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-2");
+  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
   fireEvent.click(screen.getByRole("button", { name: "撤销" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("photo.png"));
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-1");
+  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "重做" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("replacement.png"));
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-2");
-  fireEvent.click(screen.getByTestId("board-inspector-actions"));
-  fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
+  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
+  fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   unmount();
   expect(revokeObjectUrl).toHaveBeenCalledWith("blob:verified-1");
@@ -210,13 +278,12 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   const { doc, unmount } = await setupView();
   fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "shared.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
-  fireEvent.click(screen.getAllByRole("button", { name: "复制对象" })[0]!);
+  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
   expect(readObjects(doc)).toHaveLength(2);
   const assetIds = readObjects(doc).map((object) => (object.extensionData?.contentObject as { assetId?: string }).assetId);
   expect(new Set(assetIds).size).toBe(1);
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
-  fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
-  await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "删除对象" }));
+  expect(readObjects(doc)).toHaveLength(1);
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   act(() => executeCommands(doc, readObjects(doc).map((object) => ({ type: "delete" as const, id: object.id })), "remote-delete"));
   expect(readObjects(doc)).toEqual([]);
@@ -226,7 +293,7 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   doc.destroy();
 });
 
-it("uses the verified local-session path for clipboard paste", async () => {
+it("uses the verified durable path for clipboard paste", async () => {
   const doc = await setup();
   const pasted = new File([byteBuffer(png(20, 10))], "paste.png", { type: "image/png" });
   fireEvent.paste(screen.getByTestId("collaborative-editor"), { clipboardData: { files: [pasted], getData: () => "" } });
@@ -235,7 +302,7 @@ it("uses the verified local-session path for clipboard paste", async () => {
   doc.destroy();
 });
 
-it("uses the verified local-session path for file drop", async () => {
+it("uses the verified durable path for file drop", async () => {
   const doc = await setup();
   const dropped = new File([byteBuffer(png(40, 30))], "drop.png", { type: "image/png" });
   const target = screen.getByTestId("collaborative-editor"), drop = createEvent.drop(target);
@@ -270,15 +337,15 @@ it("preserves both endpoints for 513-point and very long deterministic drawing i
   }
 });
 
-it("validates HTTPS image MIME, size, and magic bytes before storing a durable URL reference", async () => {
+it("validates HTTPS image MIME, size, and magic bytes before storing a durable asset reference", async () => {
   const bytes = png(48, 36);
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}`, "content-length": String(bytes.length) } })));
+  const assets=fetch;vi.stubGlobal("fetch", vi.fn(async (url:RequestInfo|URL,init?:RequestInit) => String(url).startsWith("https://assets.example.com/")?new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}`, "content-length": String(bytes.length) } }):assets(url,init)));
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-image"));
   fireEvent.change(screen.getByTestId("board-image-url"), { target: { value: "https://assets.example.com/photo.png" } });
   fireEvent.click(screen.getByTestId("board-image-url-apply"));
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
-  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: "https://assets.example.com/photo.png", assetId: expect.stringMatching(/^local-session-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "local-session" });
+  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: null, assetId: expect.stringMatching(/^board-image-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "durable" });
   openAppearance();
   fireEvent.change(screen.getByLabelText("图片裁剪宽度"), { target: { value: ".8" } });
   fireEvent.change(screen.getByLabelText("图片裁剪高度"), { target: { value: ".8" } });
@@ -287,8 +354,8 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable U
   fireEvent.change(screen.getByLabelText("图片圆角"), { target: { value: "20" } });
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: 0, y: 0, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-1");
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
+  expect(fetch).toHaveBeenCalledTimes(3);
   expect(fetch).toHaveBeenCalledWith("https://assets.example.com/photo.png", expect.objectContaining({ credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers: { Range: "bytes=0-26214399" } }));
   doc.destroy();
 });
@@ -296,8 +363,7 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable U
 it("aborts and discards a remote image fetch that completes after editor unmount", async () => {
   const bytes = png(48, 36);
   let resolveFetch!: (value: Response) => void;
-  const fetcher = vi.fn((url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
-    expect(url).toBe("https://assets.example.com/late.png");
+  const fetcher = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
     resolveFetch = resolve;
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   }));
@@ -411,9 +477,9 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   fireEvent.change(screen.getByLabelText("形状填充色"), { target: { value: "#93C5FD" } });
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
   fireEvent.change(screen.getByLabelText("形状边框样式"), { target: { value: "dashed" } });
-  fireEvent.change(screen.getByLabelText("形状边框粗细"), { target: { value: "3" } });
-  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", borderWidth: 3 });
-  fireEvent.click(within(screen.getByTestId("board-context-toolbar")).getByRole("button", { name: "复制" }));
+  fireEvent.change(screen.getByLabelText("形状文字对齐"), { target: { value: "left" } });
+  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", horizontalAlign: "left", verticalAlign: "middle" });
+  fireEvent.click(screen.getByRole("button", { name: "复制" }));
   const records = readObjects(doc);
   expect(records).toHaveLength(2);
   const duplicate = records.find((record) => record.id !== source.id)!;
@@ -432,4 +498,28 @@ it("instantiates a template as one stable object set", async () => {
   expect(instance).toBeTruthy();
   expect(objects.map((object) => object.id).sort()).toEqual([`${instance}-tile-1`, `${instance}-tile-2`, `${instance}-tile-3`]);
   doc.destroy();
+});
+
+it("rehydrates a persisted image in a fresh editor session",async()=>{
+  const {doc,unmount}=await setupView();
+  fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'shared.png',{type:'image/png'})]}});
+  await waitFor(()=>expect(screen.getByTestId('image-preview').textContent).toMatch(/^blob:/));
+  const first=screen.getByTestId('image-preview').textContent,assetId=(readObjects(doc)[0]!.extensionData!.contentObject as {assetId:string}).assetId;
+  unmount();expect(objectUrls.size).toBe(0);
+  const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+  const peer=render(<CollaborativeEditor boardId="content-board" clientId="peer-client" currentUserId="peer" doc={doc} readOnly title="Peer" status="已连接"/>);
+  await waitFor(()=>expect(screen.getByTestId('image-preview').textContent).toMatch(/^blob:/));
+  expect(vi.mocked(fetch).mock.calls.filter(([url])=>String(url).includes(`/${assetId}/content`))).toHaveLength(2);
+  expect(first).toMatch(/^blob:/);peer.unmount();expect(objectUrls.size).toBe(0);doc.destroy();
+});
+it("never creates ready canonical content when durable upload fails",async()=>{
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(null,{status:503})));
+  const {doc,unmount}=await setupView();fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'fail.png',{type:'image/png'})]}});
+  await waitFor(()=>expect(screen.getByText(/图片未保存/)).toBeVisible());expect(readObjects(doc)).toEqual([]);expect(objectUrls.size).toBe(0);unmount();doc.destroy();
+});
+it("exposes the import callback in the editor header",async()=>{
+  const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor'),doc=createWhiteboardDocument(),onImport=vi.fn();
+  const view=render(<CollaborativeEditor boardId="content-board" clientId="client" doc={doc} readOnly={false} title="Board" status="已连接" onImport={onImport}/>);
+  fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
+  const button=await screen.findByTestId('board-import-open');fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
 });

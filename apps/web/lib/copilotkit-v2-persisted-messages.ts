@@ -104,3 +104,19 @@ export async function readAllPersistedMessages(
   }
   return { messages: collected, pendingRunId: findPendingRunId(rawForPendingRunLookup) };
 }
+
+/**
+ * 线程最近一次回复的数字人（UIUX r4：刷新后 composer 芯片退回「能力：自动匹配」，而消息身份行仍是
+ * 产品经理）。agent 写回的消息 `authorId === agent_id`（见 pg-agent-run-repository 写回 SQL），
+ * 取最后一条 assistant 消息的作者作为该线程的已选数字人；排除系统作者（如画像摘要）。
+ */
+export function lastRespondingAgentId(
+  messages: readonly Pick<PersistedMessage, "role" | "authorId">[],
+  excludeAuthorIds: readonly string[] = [],
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i]!;
+    if (m.role === "assistant" && m.authorId && !excludeAuthorIds.includes(m.authorId)) return m.authorId;
+  }
+  return null;
+}

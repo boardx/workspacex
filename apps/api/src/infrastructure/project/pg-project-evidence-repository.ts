@@ -4,7 +4,7 @@
  * 全部 `withTenant` + 每条谓词带 `org_id`；读侧返回 `guard({kind:"project"})`——披露由用例拿
  * `authorize()` 的决策解开（同 `pg-project-resource-repository.ts`）。
  *
- * 分页：`(created_at, id)` 复合游标，base64 编码的 JSON——同一毫秒建立的多条靠 `id` 定序，
+ * 分页：`(created_at, id)` 复合游标，base64 编码的 JSON——保留 PG 微秒精度，同一时刻靠 `id` 定序，
  * 翻页不会漏也不会重。`countsBySource` 与列表同一过滤面（`includeRevoked`），但不受 `sourceKind` /
  * 游标影响：角标要的是「这一类一共几条」。
  *
@@ -12,6 +12,7 @@
  * 取消撤回（源又出现了就是又在了），返回既有 id；`xmax = 0` 判是不是新插。
  */
 import { randomUUID } from "node:crypto";
+import { projectEvidence as PE } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   ProjectEvidenceListFilter,
@@ -38,15 +39,11 @@ interface EvidenceSqlRow {
   created_at: Date;
 }
 
-/** 六类全列，含 0——`countsBySource` 是 `z.record(enum, number)`，缺键会让契约解析失败。 */
-const SOURCE_KINDS: readonly ProjectEvidenceSourceKind[] = [
-  "chat_message",
-  "attachment",
-  "survey_response",
-  "interview_segment",
-  "transcript_segment",
-  "research_source",
-];
+/**
+ * 全部来源全列，含 0——`countsBySource` 是 `z.record(enum, number)`，缺键会让契约解析失败。
+ * 取值来自契约（#4615 起七类，+ whiteboard_note），这里不重列：重列就是缺键的那一天。
+ */
+const SOURCE_KINDS: readonly ProjectEvidenceSourceKind[] = PE.ProjectEvidenceSourceKind.options;
 
 const COLUMNS = `id, project_id, source_kind, resource_id, source_ref, excerpt, locator, speaker_label, resource_title, revoked, created_at`;
 
@@ -112,17 +109,20 @@ export class PgProjectEvidenceRepository implements ProjectEvidencePort {
         where.push(`(created_at, id) < ($${params.length - 1}::timestamptz, $${params.length})`);
       }
       params.push(filter.limit + 1);
-      const page = await s.query<EvidenceSqlRow>(
-        `SELECT ${COLUMNS} FROM project_evidence
+      const page = await s.query<EvidenceSqlRow & { cursor_created_at: string }>(
+        `SELECT ${COLUMNS},
+          to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at
+          FROM project_evidence
           WHERE ${where.join(" AND ")}
           ORDER BY created_at DESC, id DESC
           LIMIT $${params.length}`,
         params,
       );
       const rows = page.rows.slice(0, filter.limit).map(toRow);
-      const last = rows.at(-1);
+      // The display Date has millisecond precision; keyset boundaries must retain PG microseconds.
+      const last = page.rows.slice(0, filter.limit).at(-1);
       const nextCursor = page.rows.length > filter.limit && last !== undefined
-        ? encodeEvidenceCursor({ createdAt: last.createdAt, id: last.id })
+        ? encodeEvidenceCursor({ createdAt: last.cursor_created_at, id: last.id })
         : null;
 
       const counted = await s.query<{ source_kind: ProjectEvidenceSourceKind; n: number }>(

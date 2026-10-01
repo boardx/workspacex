@@ -1,15 +1,18 @@
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
+import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 interface MockProjectedObject {
-  data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string };
+  data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string; drawingPreview?: boolean };
   left: number; top: number; width: number; height: number; scaleX: number; scaleY: number; angle: number;
   selectable: boolean; evented: boolean;
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
   clipPath?: unknown;
   matrix?: number[];
+  text?: string; stroke?: string; strokeWidth?: number; opacity?: number;
   calcTransformMatrix: () => number[];
 }
 
@@ -66,7 +69,14 @@ vi.mock("fabric", () => {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
     constructor() { probe.instances += 1; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
-    remove(object: MockProjectedObject) { probe.objects.splice(probe.objects.indexOf(object), 1); }
+    remove(object: MockProjectedObject) {
+      probe.objects.splice(probe.objects.indexOf(object), 1);
+      if (probe.active === object || probe.activeId === object.data?.boardObjectId) {
+        probe.active = null;
+        probe.activeId = null;
+        probe.handlers.get("selection:cleared")?.({ target: object });
+      }
+    }
     getObjects() { return probe.objects as Array<MockObject>; }
     on(name: string, handler: (event: { target?: MockProjectedObject }) => void) { probe.handlers.set(name, handler); }
     dispose() {} requestRenderAll() { probe.renderCalls += 1; } setDimensions() {}
@@ -115,6 +125,17 @@ describe("BoardFabricSurface", () => {
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
 
+  it("renders sticky paper, blue corners and a world-anchored grid without changing persisted appearance", () => {
+    renderSurface({ objects: [{ ...OBJECTS[0]!, sticky: { variant: "square", sizingMode: "auto-height" } }], selectedObjectIds: ["s-1"] });
+    const sticky = probe.objects[0]!;
+    expect(sticky).toMatchObject(BOARD_FABRIC_VISUAL.selection);
+    expect(sticky.controls).toMatchObject({ tl: true, tr: true, bl: true, br: true, ml: false, mr: false });
+    expect(sticky.children![0]).toMatchObject({ fill: "#F8D76E", rx: 3, shadow: BOARD_FABRIC_VISUAL.sticky.shadow, strokeUniform: true });
+    expect(sticky.children![1]).toMatchObject({ fontFamily: BOARD_FABRIC_VISUAL.fontFamily, width: 172 });
+    expect(screen.getByTestId("board-fabric-surface")).toHaveStyle({ backgroundColor: "#FCFCFB", backgroundSize: "20px 20px", backgroundPosition: "-10px -10px" });
+    expect(probe.objects).toHaveLength(1);
+  });
+
   it("orients connector tips from each final path tangent", () => {
     expect(connectorTipAngles("straight", -50, -30, 50, 30)).toEqual({ start: expect.any(Number), end: expect.any(Number) });
     const elbow = connectorTipAngles("elbow", -50, -30, 50, 30);
@@ -134,6 +155,86 @@ describe("BoardFabricSurface", () => {
     expect(probe.clearCalls).toBe(0);
   });
 
+  it("renders a pressure-aware Fabric draft while drawing and clears it on cancel or completion", () => {
+    const onDrawingComplete = vi.fn();
+    renderSurface({ tool: "draw-pen", onDrawingComplete });
+    const pointer = (type: string, x: number, y: number, pressure: number) => {
+      const event = new MouseEvent(type, { clientX: x, clientY: y });
+      Object.defineProperty(event, "pressure", { value: pressure });
+      return event;
+    };
+
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 10, 20, .2) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 30, 40, .5) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 60, 80, .9) } as never);
+
+    const preview = probe.objects.filter((object) => object.data?.drawingPreview);
+    expect(preview).toHaveLength(2);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "2");
+    expect(preview.map((segment) => segment.text)).toEqual(["M 10 20 L 30 40", "M 30 40 L 60 80"]);
+    expect(preview[1]!.strokeWidth).toBeGreaterThan(preview[0]!.strokeWidth!);
+    expect(onDrawingComplete).not.toHaveBeenCalled();
+
+    fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"), { pointerType: "mouse", isPrimary: true });
+    expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "0");
+    expect(onDrawingComplete).not.toHaveBeenCalled();
+
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 100, 120, .3) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 140, 160, .8) } as never);
+    expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(true);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "1");
+    probe.handlers.get("mouse:up")?.({ e: pointer("pointerup", 140, 160, 0) } as never);
+    expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "0");
+    expect(onDrawingComplete).toHaveBeenCalledOnce();
+    expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", appearance: drawingToolStyle("pen"), points: [
+      { x: 100, y: 120, pressure: .3 },
+      { x: 140, y: 160, pressure: .8 },
+    ] });
+  });
+
+  it("uses one selected appearance for both the live preview and completed stroke", () => {
+    const onDrawingComplete = vi.fn();
+    const appearance = { color: "#7C3AED", width: 1.25, opacity: .58 };
+    renderSurface({ tool: "draw-pen", drawingAppearance: appearance, onDrawingComplete });
+    const pointer = (type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { clientX: x, clientY: y });
+      Object.defineProperties(event, { pressure: { value: 1 }, pointerType: { value: "mouse" } });
+      return event;
+    };
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 20, 30) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 60, 70) } as never);
+    expect(probe.objects.find((object) => object.data?.drawingPreview)).toMatchObject({ stroke: appearance.color, strokeWidth: appearance.width, opacity: appearance.opacity });
+    probe.handlers.get("mouse:up")?.({ e: pointer("pointerup", 60, 70) } as never);
+    expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", appearance, points: [
+      { x: 20, y: 30, pressure: 1 },
+      { x: 60, y: 70, pressure: 1 },
+    ] });
+  });
+
+  it.each([
+    ["draw-pen", "pen"],
+    ["draw-marker", "marker"],
+    ["draw-highlighter", "highlighter"],
+    ["erase", "eraser"],
+  ] as const)("uses the persisted %s style for its live preview", (tool, drawingTool) => {
+    renderSurface({ tool });
+    const pointer = (type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { clientX: x, clientY: y });
+      Object.defineProperty(event, "pressure", { value: 1 });
+      return event;
+    };
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 10, 20) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 30, 40) } as never);
+    const preview = probe.objects.find((object) => object.data?.drawingPreview)!;
+    expect(preview).toMatchObject({
+      stroke: drawingToolStyle(drawingTool).color,
+      strokeWidth: drawingToolStyle(drawingTool).width,
+      opacity: drawingToolStyle(drawingTool).opacity,
+    });
+  });
+
   it("constructs dedicated Fabric projections for shape, vector drawing, image state, and structured card", () => {
     const contentObjects: BoardFabricObject[] = [
       { ...OBJECTS[0]!, id: "shape", kind: "shape", boardContent: { version: 1, type: "shape", variant: "diamond", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" } },
@@ -144,6 +245,29 @@ describe("BoardFabricSurface", () => {
     renderSurface({ objects: contentObjects });
     expect(probe.objects.map((object) => object.data?.adapterKind)).toEqual(["shape", "drawing", "image", "card"]);
     expect(probe.primitiveKinds).toEqual(expect.arrayContaining(["Path", "Group", "Rect"]));
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "shape")?.children?.[0]).toMatchObject({ strokeUniform: true });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "image")?.children?.[0]).toMatchObject({ fill: "#FFFFFF", strokeUniform: true, rx: 10 });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "tile")?.children?.[0]).toMatchObject({ strokeUniform: true, rx: 12 });
+  });
+
+  it("renders canonical Panel shapes and non-interactive template guides with legacy defaults", () => {
+    const panel = (id: string, shape?: "rectangle" | "rounded" | "circle", template?: "blank" | "section" | "grid" | "timeline"): BoardFabricObject => ({
+      ...OBJECTS[0]!, id, kind: "panel", orderKey: id, geometry: { x: 20, y: 30, width: 360, height: 240, rotation: 0 },
+      panel: { title: id, mode: "freeform", autoExpand: true, clipContent: false, shape, template },
+    });
+    renderSurface({ objects: [panel("legacy"), panel("rounded", "rounded", "section"), panel("circle", "circle", "grid"), panel("timeline", "rectangle", "timeline")] });
+    const byId = (id: string) => probe.objects.find((object) => object.data?.boardObjectId === id)!;
+    expect(byId("legacy").children).toHaveLength(2);
+    expect(byId("legacy").children?.[0]).toMatchObject({ mockKind: "rect", rx: 0 });
+    expect(byId("rounded").children?.[0]).toMatchObject({ mockKind: "rect", rx: 16 });
+    expect(byId("circle").children?.[0]).toMatchObject({ mockKind: "circle" });
+    expect(byId("rounded").children).toHaveLength(3);
+    expect(byId("circle").children).toHaveLength(6);
+    expect(byId("timeline").children).toHaveLength(6);
+    for (const id of ["rounded", "circle", "timeline"]) {
+      expect(byId(id).children?.[1]).toMatchObject({ text: id });
+      for (const guide of byId(id).children!.slice(2)) expect(guide).toMatchObject({ selectable: false, evented: false, strokeUniform: true });
+    }
   });
 
   it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {
@@ -253,6 +377,20 @@ describe("BoardFabricSurface", () => {
     const replacement = probe.objects.find((item) => item.data?.boardObjectId === square.id)!;
     expect(replacement).not.toBe(prior);
     expect(replacement.children?.[0]?.mockKind).toBe("circle");
+  });
+
+  it("preserves controlled selection while replacing an updated Panel projection", () => {
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "selected-panel", kind: "panel", panel: { title: "Frame", mode: "freeform", autoExpand: true, clipContent: false } };
+    const onSelectionChange = vi.fn();
+    const view = renderSurface({ objects: [panel], selectedObjectIds: [panel.id], onSelectionChange });
+    expect(probe.activeId).toBe(panel.id);
+    onSelectionChange.mockClear();
+
+    view.rerender(<BoardFabricSurface objects={[{ ...panel, revision: 2, panel: { ...panel.panel!, autoExpand: false } }]} selectedObjectIds={[panel.id]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={onSelectionChange} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+
+    expect(onSelectionChange).not.toHaveBeenCalledWith([], "canvas");
+    expect(probe.activeId).toBe(panel.id);
+    expect(screen.getByTestId(`board-a11y-object-${panel.id}`)).toHaveAttribute("aria-pressed", "true");
   });
 
   it("patches a remote rich-text style revision onto the existing Fabric object", () => {
@@ -651,4 +789,19 @@ describe("BoardFabricSurface", () => {
     renderSurface({ selectedObjectIds: [], viewport: { ...VIEWPORT, fitRequest: 2, fitMode: "selection" }, onViewportChange });
     expect(onViewportChange).not.toHaveBeenCalled();
   });
+});
+
+it('focuses the real surface DOM from canvas pointerdown so keyboard all-selection reaches the editor',async()=>{
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+ const {createWhiteboardDocument,executeCommands}=await import('@repo/whiteboard-core');
+ const doc=createWhiteboardDocument();executeCommands(doc,[0,1].map(i=>({type:'create' as const,object:{id:`focus-${i}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:i*200,y:0,width:180,height:140,rotation:0},text:`focus ${i}`,style:{},parentId:null,orderKey:String(i)}})),'seed');
+ render(<CollaborativeEditor boardId="board-focus" clientId="client-focus" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const surface=screen.getByTestId('board-fabric-surface'),canvas=screen.getByTestId('board-fabric-canvas');
+ (document.activeElement as HTMLElement).blur();expect(document.activeElement).toBe(document.body);
+ fireEvent.pointerDown(canvas,{button:0});expect(document.activeElement).toBe(surface);
+ expect(fireEvent.keyDown(document.activeElement!,{key:'a',ctrlKey:true})).toBe(false);
+ expect(screen.getByTestId('board-a11y-selection-announcement')).toHaveTextContent('已选择 2 个对象');
+ const upper=document.createElement('canvas');upper.className='upper-canvas';surface.append(upper);(document.activeElement as HTMLElement).blur();fireEvent.pointerDown(upper,{button:0});expect(document.activeElement).toBe(surface);upper.remove();
+ const input=document.createElement('textarea');surface.append(input);input.focus();fireEvent.pointerDown(input,{button:0});
+ expect(document.activeElement).toBe(input);expect(fireEvent.keyDown(document.activeElement!,{key:'a',ctrlKey:true})).toBe(true);input.remove();doc.destroy();
 });

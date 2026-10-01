@@ -64,7 +64,7 @@ export {
   type SpatialEvent,
   type SpatialPrecondition,
 } from './spatial-relationships';
-export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode, type PanelShape, type PanelTemplate } from './spatial-model';
 export {
   DEFAULT_LAYOUT_GAP,
   SelectionLayoutCommandPort,
@@ -118,3 +118,9 @@ export {
   type ThinkingInputGeometry,
   type ThinkingPaste,
 } from './thinking-input';
+export { mapImportedBoard, type ImportedBoardItem, type ImportMappingIssue, type ImportMappingOutcome, type ImportMappingResult, type ImportSource } from './import-mapping';
+export { WhiteboardOperationKernel, digestWhiteboardObject, stableBoardDigest, type BoardHead, type BoardOperationAuthorizer, type OperationIds } from './operation-kernel';
+export { WhiteboardAIProposalManager, proposalCommands } from './ai-proposal';
+export { computeRenderedLayoutHash, renderedLayoutToCommands, verifyRenderedDiagramLayout } from './artifact-handoff';
+export { WhiteboardPresentationSession, type PresentationState } from './presentation';
+export {compensateWhiteboardSnapshot} from './snapshot-compensation';

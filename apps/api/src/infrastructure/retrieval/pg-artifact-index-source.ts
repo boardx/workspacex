@@ -9,7 +9,9 @@ import {disclose,guard} from '../../application/security/permission-filter';
 import type {ArtifactIndexInput,ArtifactIndexSource,ArtifactIndexBatch} from '../../application/retrieval/index-artifact-version';
 import {runExtractionAdapter} from '../../domain/files/extraction-adapters';
 interface Source {project_id:string|null;source:string;confidential:boolean;synthesized:boolean;ingestion_status:string;}
-/** Indexing runs as the actual version publisher, never a caller-selected principal. */
+/** Indexing runs as the actual version publisher, never a caller-selected principal.
+ *  FF-104: a deleted artifact has no source (the writer re-runs `load` inside its transaction,
+ *  so this one predicate also stops a write that races the deletion). */
 export class PgArtifactIndexSource implements ArtifactIndexSource {
  constructor(private db:DatabasePort,private artifacts:ArtifactRepository,private objects:ObjectStore,private identity:AuthorizeDeps){}
  async load(input:ArtifactIndexInput):Promise<ArtifactIndexBatch>{
@@ -17,7 +19,7 @@ export class PgArtifactIndexSource implements ArtifactIndexSource {
   if(!organization)throw new Error('artifact_index_unavailable');
   const version=await this.artifacts.findVersion(input.orgId,input.artifactVersionId);
   if(!version)throw new Error('artifact_index_unavailable');
-  const source=await this.db.withTenant(input.orgId,async s=>(await s.query<Source>('SELECT project_id,source,confidential,synthesized,ingestion_status FROM artifacts WHERE org_id=$1 AND id=$2',[input.orgId,version.artifactId])).rows[0]);
+  const source=await this.db.withTenant(input.orgId,async s=>(await s.query<Source>('SELECT project_id,source,confidential,synthesized,ingestion_status FROM artifacts WHERE org_id=$1 AND id=$2 AND deleted_at IS NULL',[input.orgId,version.artifactId])).rows[0]);
   if(!source||source.source!=='upload'||source.confidential||source.synthesized||!['SEGMENTED','ENRICHED','INDEXED','READY'].includes(source.ingestion_status))throw new Error('artifact_index_unavailable');
   const guarded=guard({kind:'artifact',id:version.artifactId},source);
   const permission={orgId:input.orgId,userId:version.pinnedBy,projectId:source.project_id??undefined,action:'read.allHands',path:'retrieval' as const};

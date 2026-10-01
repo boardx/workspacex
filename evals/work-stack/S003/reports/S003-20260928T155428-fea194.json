@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "runId": "S003-20260928T155428-fea194",
+  "stableId": "S003",
+  "subjectVersionDigest": "sha256:13b090e727064f996f3bfe4348f827fa5e9103f78779f05aed563bfc47c4c7b8",
+  "subjectVersionLabel": "entity-doc:S003-enterprise-search.md|lb:s003-loopback-1.0.0",
+  "fixturesDigest": "sha256:2d60ddf6827efc413ad04a0f3a37af1ddb326c017920214c2f65c075e8b3705c",
+  "graderVersion": "s003-rules-1.0.0",
+  "lane": "loopback",
+  "partial": false,
+  "subject": {
+    "results": [
+      {
+        "caseId": "E1",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 11
+      },
+      {
+        "caseId": "E2",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      },
+      {
+        "caseId": "E3",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      },
+      {
+        "caseId": "E4",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      },
+      {
+        "caseId": "E5",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 1
+      },
+      {
+        "caseId": "E6",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      },
+      {
+        "caseId": "E7",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      },
+      {
+        "caseId": "E8",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 1
+      },
+      {
+        "caseId": "E9",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      },
+      {
+        "caseId": "E10",
+        "outcome": "pass",
+        "reason": null,
+        "durationMs": 0
+      }
+    ],
+    "passed": 10,
+    "total": 10
+  },
+  "baseline": null,
+  "startedAt": "2026-09-28T15:54:28.364Z",
+  "finishedAt": "2026-09-28T15:54:28.377Z"
+}

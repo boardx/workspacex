@@ -1,0 +1,19 @@
+# CN migration plan provenance (Refs #4763)
+
+This is a read-only inventory gate, not a deployment receipt. It never connects to a database, changes `_kernel_migrations`, runs SQL, or authorizes migration. The baseline ledger must come from a separately proven read-only production observation. The CLI accepts `{ "readOnly": true, "ledger": [{ "name": "...sql", "checksum": "..." }] }`; this marker is input format, not independent proof of production origin. The controller must retain the observation's timestamp, baseline running identity and evidence hash in its attempt receipt.
+
+Run from the cloud-deploy package with the repository's TypeScript runtime:
+
+```sh
+node --import tsx src/cn-migration-plan-cli.ts /offline/frozen/checkout TARGET_40_HEX_SHA BASELINE_40_HEX_SHA /private/read-only-ledger.json /private/legacy-evidence.json
+```
+
+The optional evidence argument is an array of `LegacyDriftEvidence`. Output always contains the complete sorted ledger and pending filenames/checksums, ledger hash, full source inventory hash, pending hash, frozen target and baseline SHAs, risk classification, blockers, and a hash of the entire plan. Ledger query ordering does not change its hash. Each checksum uses the migrator's SHA-256 of UTF-8 SQL. Source enumeration calls the target checkout's actual `migrationFiles()` export; no numbered-filename approximation is accepted. HEAD, clean migration/migrator paths, tracked regular files and each file's target Git object are verified before inventory comparison.
+
+`ready=true` means only that this comparison has no blockers. `productionMigrationAuthorized=false` is unconditional. Invalid identities, duplicate/unsorted source files, missing applied source, checksum drift, late insertion before applied history, contract/destructive/unknown pending SQL all block the plan. The CLI still prints the complete blocked plan and exits 1. A deliberately narrow static classifier recognizes simple table/index creation, flags drops/truncation/deletes/renames, and leaves dynamic SQL, strings, quoted identifiers and unfamiliar SQL unknown. Classification is triage, not a PostgreSQL execution or backward-compatibility proof.
+
+Legacy checksum drift requires exact ledger, target file, baseline source and running-image source checksums plus a separately retained evidence SHA-256. That evidence is reported, never used to rewrite the ledger, force replay, or automatically waive the blocker. The known F82 mismatch therefore remains visible even when all three source copies agree. Approval and remediation belong to the full maintenance-window protocol.
+
+Before production mutation, #4763 still requires an isolated rehearsal from a production-like baseline, immutable backup and measured restore proof, maintenance/drain approval for risky migrations, old/target compatibility checks, post-migration target bootstrap/provision probes, and fresh runtime/baseline provenance. All rehearsal and approval evidence must bind this exact `planSha256`, target SHA and baseline ledger hash. Any drift requires a new plan and rehearsal. This first implementation does not close #4763.
+
+The synthetic rehearsal reserves a new private report inode with exclusive/no-follow creation and mode 0600 before contacting Docker; existing files and symlinks are refused. Final report output uses the held descriptor, and temporary-directory and lock cleanup run independently even if writing fails. Each invocation uses a UUID-suffixed compose project with an atomic host ownership lock, refuses existing labelled resources, and cleans only its own project. Concurrent invocations therefore cannot adopt or tear down another invocation's stack. Docker endpoints must be local Unix sockets; remote contexts and TCP endpoints are refused. These safety changes do not expand the synthetic model's production-equivalence claim.

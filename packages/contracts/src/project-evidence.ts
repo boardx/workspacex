@@ -20,6 +20,7 @@ export const ProjectEvidenceSourceKind = z.enum([
   "interview_segment",
   "transcript_segment",
   "research_source",
+  "whiteboard_note",
 ]);
 export type ProjectEvidenceSourceKind = z.infer<typeof ProjectEvidenceSourceKind>;
 
@@ -31,7 +32,8 @@ export const PROJECT_EVIDENCE_TO_AI_SOURCE = {
   interview_segment: "interview",
   transcript_segment: "transcript",
   research_source: "research",
-} as const satisfies Record<ProjectEvidenceSourceKind, "chat" | "transcript" | "survey" | "interview" | "research">;
+  whiteboard_note: "whiteboard",
+} as const satisfies Record<ProjectEvidenceSourceKind, "chat" | "whiteboard" | "transcript" | "survey" | "interview" | "research">;
 
 export const PROJECT_EVIDENCE_SOURCE_LABEL_ZH: Record<ProjectEvidenceSourceKind, string> = {
   chat_message: "对话",
@@ -40,6 +42,7 @@ export const PROJECT_EVIDENCE_SOURCE_LABEL_ZH: Record<ProjectEvidenceSourceKind,
   interview_segment: "访谈片段",
   transcript_segment: "转写片段",
   research_source: "深研来源",
+  whiteboard_note: "白板便签",
 };
 
 /** 定位到材料内部的位置：只填有意义的字段；消息类为空对象。 */

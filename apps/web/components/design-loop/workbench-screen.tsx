@@ -1,8 +1,11 @@
 "use client";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import * as React from "react";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
-import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap, X } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap, X, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -51,11 +54,6 @@ type IntakeQuestion = designWorkbench.IntakeQuestion;
  *     列表移除；失败都保留原列表 + 提示，不假装已经生效。
  */
 const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
-const TEMPLATE_EMOJI: Record<ProjectTemplate, string> = {
-  mobile: "📱",
-  ui: "🎨",
-  wireframe: "🧩",
-};
 const TEMPLATE_OPTIONS = PROJECT_TEMPLATE_OPTIONS.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
 
 /**
@@ -157,7 +155,7 @@ export function DesignWorkbenchHome({
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="denied">
         <ShieldAlert aria-hidden className="h-8 w-8 text-muted-foreground" />
         <p className="text-14 font-medium">PM 设计工作台仅 PM / 运营可见</p>
-        <p className="max-w-sm text-12 text-muted-foreground">这里用来把反馈深化成设计方案再推回排期。需要权限的话联系平台管理员。</p>
+        <p className="max-w-sm text-12 text-muted-foreground">这里用来把反馈深化成设计稿再交给开发排期。需要权限的话联系平台管理员。</p>
       </div>
     );
   }
@@ -299,7 +297,7 @@ export function DesignWorkbenchHome({
           * 而三张模板卡片在迭代 13 就删掉了（理由见下面那段注释）。**首屏第一句话在指一条
           * 已经不存在的路**，而且这是新用户看到的第一行字。改成现在真实的两条路。
           */}
-        <p className="mt-0.5 text-12 text-muted-foreground">说清要做什么，AI 问你几句再把它画出来；也可以把收件箱里的反馈深化成方案，再推回排期。</p>
+        <p className="mt-0.5 text-12 text-muted-foreground">说清要做什么，AI 问你几句再把它画出来；也可以把收件箱里的反馈深化成设计稿，再交给开发排期。</p>
       </div>
 
       {/*
@@ -528,41 +526,47 @@ function ProjectCard({
   onDelete: () => void;
 }) {
   return (
-    <div data-testid={`project-card-${project.id}`} className="flex flex-col rounded-card border border-border-subtle bg-card transition-colors duration-fast hover:border-primary">
-      <button type="button" onClick={onOpen} className="flex flex-1 flex-col items-start gap-2 p-4 text-left" data-testid={`project-open-${project.id}`}>
-        <span aria-hidden className="grid h-10 w-10 place-items-center rounded-card bg-panel text-20">{TEMPLATE_EMOJI[project.template]}</span>
-        <span className="text-13 font-medium">{project.name}</span>
-        <span className="text-11 text-muted-foreground">
-          {/* 「2026/9/23」是机器时间：他要判断的是「这是不是我刚才那个」。同 `human-time.ts` 单源。 */}
-          {TEMPLATE_LABEL[project.template]} · 改于 {humanTime(project.updatedAt)}
-        </span>
-        {project.tags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1" data-testid={`project-tags-${project.id}`}>
-            {project.tags.map((t) => (
-              <span key={t} className="rounded-control bg-panel px-1.5 py-0.5 text-10 text-muted-foreground">{t}</span>
-            ))}
-          </div>
-        )}
-        <div className="flex flex-wrap items-center gap-1">
+    <ResourceCard
+      testId={`project-card-${project.id}`}
+      title={project.name}
+      /* 「2026/9/23」是机器时间：他要判断的是「这是不是我刚才那个」。同 `human-time.ts` 单源。 */
+      subtitle={`${TEMPLATE_LABEL[project.template]} · 改于 ${humanTime(project.updatedAt)}`}
+      badges={
+        <>
           {project.linkedFeedbackId !== null && <LinkBadge text={`源自反馈`} testid={`project-link-${project.id}`} />}
           {project.pushed ? (
-            <span className="inline-flex items-center gap-0.5 rounded-control bg-success px-1.5 py-0.5 text-10 font-medium text-success-foreground">
-              <Check aria-hidden className="h-3 w-3" /> 已推送
-            </span>
+            <Badge tone="success"><Check aria-hidden className="mr-0.5 h-3 w-3" />已推送</Badge>
           ) : (
-            <span className="rounded-control bg-warning px-1.5 py-0.5 text-10 font-medium text-warning-foreground">未推送</span>
+            <Badge tone="warning">未推送</Badge>
           )}
-        </div>
-      </button>
-      <div className="flex justify-end gap-1 border-t border-border-subtle px-3 py-1.5">
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} disabled={busy} aria-label={`编辑「${project.name}」`} data-testid={`project-edit-${project.id}`}>
-          <Pencil aria-hidden className="h-3.5 w-3.5" />
+        </>
+      }
+      menu={
+        <Menu>
+          <MenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`「${project.name}」的更多操作`} disabled={busy} data-testid={`project-more-${project.id}`}>
+              {busy ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <MoreHorizontal aria-hidden className="h-4 w-4" />}
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end" sideOffset={4} className="w-44" data-testid={`project-menu-${project.id}`}>
+            <MenuItem onSelect={onEdit} data-testid={`project-edit-${project.id}`}>
+              <Pencil aria-hidden className="h-3.5 w-3.5" />改名字和标签
+            </MenuItem>
+            <MenuItem onSelect={onDelete} data-testid={`project-delete-${project.id}`} className="text-destructive data-[highlighted]:text-destructive">
+              <Trash2 aria-hidden className="h-3.5 w-3.5" />删除这个设计
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      }
+      tags={project.tags.length > 0 ? <ResourceCardTags tags={project.tags} testId={`project-tags-${project.id}`} /> : undefined}
+      /* design-delta `novice-workbench-list`：首屏可操作控件有预算（人类签核），每张卡只留「打开」+「⋯」两个控件，
+           所以标题是纯文字，「打开」由这颗主按钮承担（沿用 `project-open-*` testid，屏幕阅读器读到项目名）。 */
+      actions={
+        <Button variant="primary" size="sm" onClick={onOpen} disabled={busy} data-testid={`project-open-${project.id}`}>
+          打开设计<span className="sr-only">：{project.name}</span>
         </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onDelete} disabled={busy} aria-label={`删除「${project.name}」`} data-testid={`project-delete-${project.id}`}>
-          {busy ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Trash2 aria-hidden className="h-3.5 w-3.5" />}
-        </Button>
-      </div>
-    </div>
+      }
+    />
   );
 }
 

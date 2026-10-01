@@ -27,40 +27,22 @@ describe("reference research workflow", () => {
     const back = vi.fn();
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} visualStage="chapters" onBack={back} />);
-    fireEvent.click(await screen.findByText("编辑章节内容"));
-    fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "未保存章节" } });
+    fireEvent.change(await screen.findByLabelText("章节标题"), { target: { value: "未保存章节" } });
     fireEvent.click(screen.getByTestId("research-flow-back"));
     expect(back).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(screen.getByLabelText("章节标题")).toHaveValue("未保存章节");
   });
-  it("does not overwrite unsaved chapter edits when opening scope editing", async () => {
+  it("shows the research plan preview by default without the old scope cards", async () => {
     const initial = runtimeFixture("outline");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByText("编辑研究计划 Markdown 与章节结构"));
-    fireEvent.change(screen.getAllByRole("textbox", { name: "章节标题" })[0]!, { target: { value: "尚未保存的章节" } });
-    fireEvent.click(screen.getByRole("button", { name: "编辑成功标准" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("textbox", { name: "章节标题" })[0]).toHaveValue("尚未保存的章节");
-    expect(screen.getByText("请先保存研究计划中的章节修改，再编辑成功标准或来源范围。" )).toBeInTheDocument();
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(screen.getByRole("list", { name: "研究计划" })).toBeVisible();
+    expect(screen.queryByTestId("guided-research-markdown-editor")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新增计划" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
-  });
-  it("edits plan criteria through the real scope command without discarding internal sources", async () => {
-    const initial = runtimeFixture("outline");
-    initial.sourcePolicy!.internalSourceIds = ["internal-source-1"];
-    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: initial.version + 1 });
-    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "编辑成功标准" }));
-    const editor = within(screen.getByRole("dialog"));
-    fireEvent.change(editor.getByLabelText("成功标准"), { target: { value: "每项结论都有可定位原文" } });
-    fireEvent.click(editor.getByRole("button", { name: "确认研究边界" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
-      action: "refine_scope", expectedRevision: initial.planRevision,
-      intent: expect.objectContaining({ successCriteria: ["每项结论都有可定位原文"] }),
-      sourcePolicy: expect.objectContaining({ internalSourceIds: ["internal-source-1"] }),
-    })));
   });
   it("blocks topic confirmation until edited research information is saved", async () => {
     const initial = runtimeFixture("directions");
@@ -76,7 +58,6 @@ describe("reference research workflow", () => {
     const save = vi.fn();
     const props = { runtime: initial, disabled: false, onSave: save, onOptimize: vi.fn(), onNext: vi.fn() };
     const view = render(<ResearchChaptersWorkspace {...props} />);
-    fireEvent.click(screen.getByText("编辑章节内容"));
     fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "政策约束与实施路径" } });
     view.rerender(<ResearchChaptersWorkspace {...props} runtime={{ ...initial, outline: initial.outline.map((chapter) => ({ ...chapter })) }} />);
     expect(screen.getByLabelText("章节标题")).toHaveValue("政策约束与实施路径");
@@ -115,6 +96,8 @@ describe("reference research workflow", () => {
     const topic = await screen.findByRole("textbox", { name: "研究主题" });
     fireEvent.change(topic, { target: { value: "Revised European scope" } });
     fireEvent.click(screen.getByRole("button", { name: "保存研究信息" }));
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "确认并重新生成" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "brief", action: "save", draft: { node: "brief", value: { ...initial.brief, topic: "Revised European scope" } } })));
     expect(await screen.findByDisplayValue("Revised European scope")).toBeInTheDocument();
   });
@@ -124,23 +107,20 @@ describe("reference research workflow", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} visualStage="chapters" />);
     fireEvent.click(await screen.findByRole("button", { name: "2. 第二章政策" }));
-    expect(screen.getByTestId("research-selected-chapter")).toHaveTextContent("核查政策约束");
+    expect(screen.getByLabelText("章节标题")).toHaveValue("第二章政策");
+    expect(screen.getByTestId("research-selected-chapter")).not.toHaveTextContent("核查政策约束");
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
   });
-  it("restores actual server stage and structured plan/task details while research is busy", async () => {
+  it("shows only searched source descriptions while research is busy", async () => {
     const initial = runtimeFixture("research");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, status: "succeeded", title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }, ...Array.from({ length: 4 }, (_, index) => ({ ...initial.tasks[0]!, id: `extra-${index}`, status: index === 0 ? "succeeded" as const : "pending" as const }))] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByTestId("research-runtime-progress")).toHaveTextContent("检索资料 · 已处理 2 / 5 · 成功 2 · 失败 0");
-    expect(screen.getByRole("list", { name: "研究章节与任务" })).toHaveTextContent(initial.outline[0]!.title);
-    expect(screen.getByRole("progressbar")).toHaveAttribute("value", "2");
-    fireEvent.click(screen.getByText("查看搜索详情"));
-    fireEvent.click(screen.getByText("研究计划", { selector: "summary" }));
-    expect(screen.getByText("哪些市场值得优先进入？")).toBeVisible();
-    fireEvent.click(screen.getByText(/检索任务明细/));
-    expect(screen.getByText("政策与准入核查")).toBeVisible();
-    expect(screen.getByText("准入风险清单")).toBeVisible();
+    expect(await screen.findByRole("list", { name: "已获取的研究资料" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "报告章节" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
+    expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
+    expect(screen.queryByText("查看搜索详情")).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("does not let a poll issued before a progress snapshot roll its stage back", async () => {

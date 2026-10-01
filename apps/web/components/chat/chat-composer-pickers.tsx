@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
 import type { GetAgentPanelOut } from "@/lib/live-chat";
+import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
 
 /**
  * issue #2476 —— composer 行三个下拉触发按钮（Agent 选择/麦克风设备/能力挂载）
@@ -57,6 +58,9 @@ export function AgentPicker({
   const [open, setOpen] = useChatPopoverSlot("chat-agent-picker");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const selected = agents?.find((agent) => agent.id === selectedAgentId) ?? null;
+  // dh-* 数字人头像：按 id 从成员目录取 avatar.key；取不到回退首字母（只读展示）。
+  const directory = useAgentDirectoryMap(Boolean(agents?.length));
+  const avatarKeyOf = (id: string): string | null => directory.get(id)?.avatar?.key ?? null;
 
   /*
     issue #1803 gap #2（devapp 实测)——此前 `open` 只由触发按钮/选项的 onClick
@@ -102,7 +106,7 @@ export function AgentPicker({
         title={selected ? `运行 Agent：${selected.name}` : "运行 Agent"}
         onClick={() => setOpen((value) => !value)}
       >
-        {selected ? <Avatar initials={selected.abbr} tone="ai" size="xs" /> : null}
+        {selected ? <Avatar initials={selected.abbr} avatarKey={avatarKeyOf(selected.id)} tone="ai" size="xs" /> : null}
         <span className="truncate text-11">{selected?.name ?? (agents?.length ? "选择 Agent" : "没有可选 Agent")}</span>
         <span aria-hidden className="text-9 text-muted-foreground">▾</span>
       </Button>
@@ -129,7 +133,7 @@ export function AgentPicker({
                 agent.id === selectedAgentId ? "text-primary" : "text-card-foreground",
               ].join(" ")}
             >
-              <Avatar initials={agent.abbr} tone="ai" size="xs" />
+              <Avatar initials={agent.abbr} avatarKey={avatarKeyOf(agent.id)} tone="ai" size="xs" />
               <span className="truncate">{agent.name}</span>
             </button>
           ))}
@@ -148,7 +152,7 @@ export function AgentPicker({
  *  - 选中项打勾（`Check`）。热插拔刷新与记忆在 `useAudioInputDevices` 里，这里只渲染。
  */
 export function MicDevicePicker({
-  devices, selectedDeviceId, disabled, onSelect, testIdPrefix = "chat", side = "up",
+  devices, selectedDeviceId, disabled, onSelect, testIdPrefix = "chat", side = "up", iconOnly = false,
 }: {
   devices: readonly { readonly deviceId: string; readonly label: string }[];
   selectedDeviceId: string | null;
@@ -156,6 +160,7 @@ export function MicDevicePicker({
   onSelect: (deviceId: string | null) => void;
   testIdPrefix?: string;
   side?: "up" | "down";
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
@@ -183,7 +188,7 @@ export function MicDevicePicker({
         onClick={() => setOpen((value) => !value)}
       >
         <Mic aria-hidden className="h-3 w-3 text-muted-foreground" />
-        <span className="truncate text-11">{triggerText}</span>
+        {!iconOnly && <span className="truncate text-11">{triggerText}</span>}
         <span aria-hidden className="text-9 text-muted-foreground">▾</span>
       </Button>
       {open ? (

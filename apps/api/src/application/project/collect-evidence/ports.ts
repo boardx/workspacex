@@ -63,15 +63,38 @@ export interface ResearchSourceDoc {
   }[];
 }
 
+/**
+ * #4615：一块挂在项目上的白板里、可以当证据的文字——便签（`sticky`）与文本块（`text`）。
+ * 解码 Yjs 快照在基础设施里做（同白板存储用的那个校验器）；这里只描述形状。作者今天不在文档对象上，
+ * `authorLabel` 为 null 时证据的说话人就留空（不猜）。
+ */
+export interface WhiteboardSourceDoc {
+  readonly boardId: string;
+  readonly title: string;
+  readonly notes: readonly {
+    readonly objectId: string;
+    readonly kind: "sticky" | "text";
+    readonly text: string;
+    /** 在白板上的阅读顺序（1 起）；`orderKey` 排序后的序号。 */
+    readonly ordinal: number;
+    readonly authorLabel: string | null;
+  }[];
+}
+
 export interface ProjectEvidenceSourcePort {
   /** 经 `project_resource_links (kind = survey)` 挂在项目上的问卷。项目不存在 ⇒ `[]`（存在性由调用方另判）。 */
   surveysOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly SurveySourceDoc[]>>;
   /** 经 `project_resource_links (kind = personal_transcription)` 挂在项目上的个人转写及其最终段。 */
   transcriptionsOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly TranscriptionSourceDoc[]>>;
-  /** `interview_sessions.project_id = projectId` 的访谈（含已归档）及其转写段与纪要引述。 */
+  /**
+   * 属于这个项目的访谈（含已归档）及其转写段与纪要引述。归属判据同资源视图（#4615：链接行优先，
+   * 没有链接行时看 `interview_sessions.project_id`）。
+   */
   interviewsOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly InterviewSourceDoc[]>>;
   /** 经 `project_resource_links (kind = guided_research)` 挂在项目上的深研会话及其已接受来源。 */
   researchSessionsOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly ResearchSourceDoc[]>>;
+  /** #4615：经 `project_resource_links (kind = whiteboard)` 挂在项目上的白板及其便签 / 文本块。 */
+  whiteboardsOf(orgId: OrgId, projectId: string): Promise<Guarded<readonly WhiteboardSourceDoc[]>>;
   /**
    * chat 消息回填用：这个会话属于哪个项目（`chat_threads.project_id`）与它的标题。个人线程 ⇒ `null`。
    * 只回容器归属 + 线程标题，不回消息正文——正文已经在抽取批次里（由 `pg-kg-extraction.ts` 的豁免路径读出）。

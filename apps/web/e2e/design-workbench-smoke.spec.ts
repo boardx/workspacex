@@ -35,7 +35,7 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 function findInboxCard(page: Page, title: string): Locator {
@@ -178,6 +178,8 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-workbench")).toBeVisible();
     const projectCard = page.getByTestId(`project-card-${projectId}`);
     await expect(projectCard).toBeVisible();
+    // design-delta `novice-workbench-list`：编辑收进了卡片的「⋯」菜单。
+    await page.getByTestId(`project-more-${projectId}`).click();
     await page.getByTestId(`project-edit-${projectId}`).click();
     const editDialog = page.getByTestId("project-dialog");
     await expect(editDialog).toBeVisible();

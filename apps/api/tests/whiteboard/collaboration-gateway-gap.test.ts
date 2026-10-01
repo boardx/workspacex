@@ -25,6 +25,7 @@ it('fills an external seq gap before broadcasting the later local commit', async
       if (appended && vector) gapLoads++;
       return { epoch: 1, seq, role: 'owner', archived: false, update: Y.encodeStateAsUpdate(authority, vector) };
     },
+    loadInTransaction: async () => ({ epoch: 1, seq, role: 'owner', archived: false, update: Y.encodeStateAsUpdate(authority) }),
     append: async (_principal, _board, input) => {
       executeCommands(authority, [{ type: 'create', object: object('external-seq-2') }], null); seq = 2;
       Y.applyUpdate(authority, input.update); seq = 3; appended = true;
@@ -66,6 +67,7 @@ it('rejects an oversized inbound frame in transport before JSON or Zod parsing',
   const boardId = randomUUID(), principal = { orgId: toOrgId('gateway-frame-test'), userId: 'owner' };
   const store = {
     head: async () => { throw new Error('unreachable'); }, load: async () => { throw new Error('unreachable'); },
+    loadInTransaction: async () => { throw new Error('unreachable'); },
     append: async () => { throw new Error('unreachable'); }, writeCommands: async () => { throw new Error('unreachable'); },
     writeCommandsInTransaction: async () => { throw new Error('unreachable'); },
   } as WhiteboardCollaborationStore;
@@ -88,7 +90,7 @@ it('rejects an oversized inbound frame in transport before JSON or Zod parsing',
 it('classifies resume safely and publishes bounded editing presence without persisting it', async () => {
   const boardId=randomUUID(),principal={orgId:toOrgId('gateway-resume-test'),userId:'grace'},doc=createWhiteboardDocument();
   let appendCalls=0;
-  const store:WhiteboardCollaborationStore={head:async()=>({epoch:4,seq:8,role:'editor',archived:false}),load:async()=>({epoch:4,seq:8,role:'editor',archived:false,update:Y.encodeStateAsUpdate(doc)}),append:async()=>{appendCalls++;throw new Error('unused')},writeCommands:async()=>{throw new Error('unused')},writeCommandsInTransaction:async()=>{throw new Error('unused')}};
+  const store:WhiteboardCollaborationStore={loadInTransaction:async()=>{throw new Error('unused')},head:async()=>({epoch:4,seq:8,role:'editor',archived:false}),load:async()=>({epoch:4,seq:8,role:'editor',archived:false,update:Y.encodeStateAsUpdate(doc)}),append:async()=>{appendCalls++;throw new Error('unused')},writeCommands:async()=>{throw new Error('unused')},writeCommandsInTransaction:async()=>{throw new Error('unused')}};
   const boards:WhiteboardRepository={mentionableMembers:async()=>[],get:async()=>({id:boardId,name:'resume',ownerId:'owner',role:'editor',archived:false,lifecycleRevision:0,tagIds:[],tagsRevision:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}),list:async()=>({items:[],nextCursor:null}),permanentlyDelete:async()=>null,create:async()=>{throw new Error('unused')},update:async()=>null,members:async()=>null,putMember:async()=>false,removeMember:async()=>false};
   const server=createServer();servers.push(server);attachWhiteboardGateway(server,{store,boards,principals:{resolve:async()=>principal},identities:{resolve:async()=>({displayName:'Grace',avatarUrl:'https://assets.example/grace.png',principalKind:'user'})}});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
   const ws=new WebSocket(`ws://127.0.0.1:${(server.address() as AddressInfo).port}/whiteboards/${boardId}/sync`,[WHITEBOARD_SYNC.protocol,`${WHITEBOARD_SYNC.bearerSubprotocolPrefix}token`]);
@@ -113,6 +115,7 @@ it.each([
   const store:WhiteboardCollaborationStore={
     head:async()=>{throw failure==='DEPENDENCY_UNAVAILABLE'?new Error('store unavailable'):new WhiteboardCollaborationError(failure);},
     load:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
+    loadInTransaction:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
     append:async()=>{throw new Error('unused');},writeCommands:async()=>{throw new Error('unused');},writeCommandsInTransaction:async()=>{throw new Error('unused');},
   };
   const boards:WhiteboardRepository={mentionableMembers:async()=>[],get:async()=>({id:boardId,name:'monitor',ownerId:'owner',role:'viewer',archived:false,lifecycleRevision:0,tagIds:[],tagsRevision:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}),list:async()=>({items:[],nextCursor:null}),permanentlyDelete:async()=>null,create:async()=>{throw new Error('unused');},update:async()=>null,members:async()=>null,putMember:async()=>false,removeMember:async()=>false};

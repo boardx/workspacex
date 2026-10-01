@@ -6,7 +6,7 @@ import { SURVEY_PROPOSAL_FILE_MAX_BYTES,SurveyMarkdownProposalSchema,type Survey
 import { parseSurveyDesignMarkdown } from '@repo/contracts/survey-source';
 import { surveyRequest } from '@/lib/survey/runtime-client';
 import { listPersonalTranscriptions,type PersonalTranscriptionSummary } from '@/lib/live-personal-transcriptions';
-export function SurveyAiProposal({locked,onApply}:{locked:boolean;onApply:(markdown:string)=>void}) {
+export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onApply:(markdown:string)=>void|Promise<void>;storageKey?:string}) {
   const [text,setText]=React.useState('');const [busy,setBusy]=React.useState(false);const [error,setError]=React.useState('');
   const [proposal,setProposal]=React.useState<SurveyMarkdownProposal|null>(null);const [markdown,setMarkdown]=React.useState('');
   const [transcriptionId,setTranscriptionId]=React.useState('');
@@ -14,6 +14,21 @@ export function SurveyAiProposal({locked,onApply}:{locked:boolean;onApply:(markd
   const [reading,setReading]=React.useState(false);
   const [recordings,setRecordings]=React.useState<PersonalTranscriptionSummary[]|null>(null);
   const [recordingName,setRecordingName]=React.useState('');
+  const [applying,setApplying]=React.useState(false);
+  React.useEffect(()=>{
+    if(!storageKey)return;
+    try {const saved=window.sessionStorage.getItem(storageKey);if(!saved)return;
+      const value=JSON.parse(saved) as {text?:string;markdown?:string;proposal?:unknown};
+      if(typeof value.text==='string')setText(value.text);
+      if(typeof value.markdown==='string')setMarkdown(value.markdown);
+      const valid=SurveyMarkdownProposalSchema.safeParse(value.proposal);
+      if(valid.success)setProposal(valid.data);
+    } catch { /* A malformed browser draft must not block a new import. */ }
+  },[storageKey]);
+  React.useEffect(()=>{
+    if(!storageKey||!proposal)return;
+    window.sessionStorage.setItem(storageKey,JSON.stringify({text,markdown,proposal}));
+  },[storageKey,text,markdown,proposal]);
   async function chooseRecording(){
     const id=revision.current;setError('');
     try{const page=await listPersonalTranscriptions();if(id===revision.current)setRecordings(page.items.filter(item=>item.status==='idle'));}
@@ -56,7 +71,8 @@ export function SurveyAiProposal({locked,onApply}:{locked:boolean;onApply:(markd
       <p className="text-12 text-muted-foreground">{proposal?.execution.provider} / {proposal?.execution.modelId} · 来源：{proposal?.source.kind}</p>
       <div className="grid gap-4 md:grid-cols-2"><textarea aria-label="AI 提案 Markdown" value={markdown} onChange={event=>setMarkdown(event.target.value)} className="min-h-80 rounded-md border border-border bg-background p-3 font-mono text-13"/>
         <section aria-label="AI 题目预览">{parsed.ok?<><h2 className="text-18 font-semibold">{parsed.draft.title}</h2>{parsed.draft.questions.map((question,index)=><article key={question.id} className="space-y-2 border-b border-border py-3"><h3>{index+1}. {question.title}</h3>{question.options?.map(option=><p key={option} className="text-13 text-muted-foreground">○ {option}</p>)}</article>)}</>:<p role="alert">请修正 Markdown：{parsed.diagnostics.map(d=>d.message).join('；')}</p>}</section></div>
-      <div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setProposal(null)}>返回输入</Button><Button disabled={!parsed.ok} onClick={()=>{onApply(markdown);setProposal(null);}}>应用到问卷</Button></div>
+      <div className="flex justify-end gap-2"><Button variant="outline" disabled={applying} onClick={()=>setProposal(null)}>返回输入</Button><Button disabled={!parsed.ok||applying} onClick={()=>{setApplying(true);setError('');void Promise.resolve(onApply(markdown)).then(()=>setProposal(null)).catch(cause=>setError(cause instanceof Error?cause.message:'应用失败，请重试。')).finally(()=>setApplying(false));}}>{applying?'正在应用…':'应用到问卷'}</Button></div>
+      {error&&<p role="alert" className="text-destructive">{error}</p>}
     </DialogContent></Dialog>
   </section>;
 }

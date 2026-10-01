@@ -59,6 +59,11 @@ export function CopilotKitV2AgentSelectionProvider({
   );
 }
 
+/** 同上，但不在 provider 内时返回 null（AG07 handoff 跳转只是「顺带选中目标 Agent」，缺席不应让外壳崩）。 */
+export function useOptionalCopilotKitV2AgentSelection(): CopilotKitV2AgentSelectionValue | null {
+  return React.useContext(CopilotKitV2AgentSelectionContext);
+}
+
 export function useCopilotKitV2AgentSelection(): CopilotKitV2AgentSelectionValue {
   const ctx = React.useContext(CopilotKitV2AgentSelectionContext);
   if (ctx === null) {

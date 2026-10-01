@@ -2,6 +2,8 @@ import type { WhiteboardObject } from '@repo/contracts/whiteboard-document';
 
 export type PanelMode = 'freeform' | 'grid' | 'flow';
 export type FlowDirection = 'horizontal' | 'vertical';
+export type PanelShape = 'rectangle' | 'rounded' | 'circle';
+export type PanelTemplate = 'blank' | 'section' | 'grid' | 'timeline';
 
 export interface PanelMetadata {
   version: 1;
@@ -12,6 +14,8 @@ export interface PanelMetadata {
   gap: number;
   columns: number;
   flowDirection: FlowDirection;
+  shape?: PanelShape;
+  template?: PanelTemplate;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -37,6 +41,8 @@ export function parsePanelMetadata(value: unknown): PanelMetadata {
     throw new Error('PANEL_METADATA_INVALID');
   }
   if (!['horizontal', 'vertical'].includes(String(raw.flowDirection))) throw new Error('PANEL_METADATA_INVALID');
+  if (raw.shape !== undefined && !['rectangle', 'rounded', 'circle'].includes(String(raw.shape))) throw new Error('PANEL_METADATA_INVALID');
+  if (raw.template !== undefined && !['blank', 'section', 'grid', 'timeline'].includes(String(raw.template))) throw new Error('PANEL_METADATA_INVALID');
   return {
     ...structuredClone(raw),
     version: 1,
@@ -47,6 +53,8 @@ export function parsePanelMetadata(value: unknown): PanelMetadata {
     gap: bounded(raw.gap, 0, 500),
     columns: bounded(raw.columns, 1, 100, true),
     flowDirection: raw.flowDirection as FlowDirection,
+    ...(raw.shape === undefined ? {} : { shape: raw.shape as PanelShape }),
+    ...(raw.template === undefined ? {} : { template: raw.template as PanelTemplate }),
   } as PanelMetadata;
 }
 

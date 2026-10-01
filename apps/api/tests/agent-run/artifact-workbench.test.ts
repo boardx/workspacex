@@ -203,7 +203,14 @@ describe("artifact continuation over existing attachments",()=>{
     // running → queued 自动续跑那条边）。不放回去，同进程后续文件会在一个**回退到
     // 旧状态机**的库上跑——实测形态：`run-scope-grant-continues-run.test.ts` 红在
     // "may not move from running to queued"，而真因在这里。
-    const restoreFiles = ["20260911060000_interjection_carry_over.sql", "20260911120000_authorized_tool_call_requeue.sql"];
+    // AG05（#4672）：`20260929140000` 又一次重建了同一个函数（加 running → queued 且
+    // pending_decision='edit' 的 start_workflow 边）。漏列时同 shard 后续文件红在
+    // "may not move from running to queued"（实测：digital-human-capability-routing.test.ts）。
+    const restoreFiles = [
+      "20260911060000_interjection_carry_over.sql",
+      "20260911120000_authorized_tool_call_requeue.sql",
+      "20260929140000_ag05_tool_result_requeue.sql",
+    ];
     expect(migrationFiles().filter(name => restoreFiles.includes(name))).toEqual(restoreFiles);
     await asOwner(async c => {
       for (const name of restoreFiles) {

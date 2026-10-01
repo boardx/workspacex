@@ -118,7 +118,7 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-outline");
     expect(card).toHaveTextContent("研究大纲");
-    expect(card).toHaveTextContent("第 3 / 5 步");
+    expect(card).toHaveTextContent("第 3 / 6 步");
     fireEvent.click(screen.getByRole("button", { name: "审阅研究大纲" }));
     expect(onStepChange).toHaveBeenCalledWith("outline", "grs-outline");
   });
@@ -156,7 +156,8 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-collecting");
     expect(card).not.toHaveTextContent("证据缺口");
-    expect(card).toHaveTextContent("正在收集证据，尚无来源");
+    expect(card).toHaveTextContent("0 个来源");
+    expect(card).not.toHaveTextContent("正在收集证据，尚无来源");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理0");
   });
 
@@ -171,6 +172,7 @@ describe("F168 guided research home live data", () => {
     expect(await screen.findByTestId("research-home-summary")).toHaveTextContent("进行中2");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理1");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
+    expect(screen.getByTestId("research-stage-grs-complete")).toHaveTextContent("第 6 / 6 步");
   });
 
   it("uses the status summary to filter the library and composes it with search", async () => {
@@ -211,8 +213,9 @@ describe("F168 guided research home live data", () => {
     expect(cards()).toEqual(["research-history-grs-old"]);
     fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "采购" } });
     expect(screen.getByTestId("research-history-empty")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("research-history-tag-all"));
-    expect(cards()).toEqual(["research-history-grs-new"]);
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByTestId("research-history-search")).toHaveValue("");
+    expect(cards()).toEqual(["research-history-grs-old", "research-history-grs-new"]);
   });
 
   it("uses the shared Studio list-page width and card density", async () => {
@@ -228,7 +231,7 @@ describe("F168 guided research home live data", () => {
 
     const page = screen.getByTestId("research-home-page");
     expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
-    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:shadow-md");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
   });
 
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {
