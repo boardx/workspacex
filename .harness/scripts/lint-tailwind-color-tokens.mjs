@@ -22,9 +22,9 @@
  *      长得像工具类，但它不是。
  *   ③ 认 Tailwind 自带的非颜色关键字与内置颜色（`text-center`、`border-dashed`、
  *      `bg-transparent`、`text-sm`…）。
- *   ④ 存量基线**只准变小**：`text-foreground` 全仓 52 处（本脚本口径），它们今天在视觉上等于
- *      「继承父级颜色」，换成哪一个 token（`background-foreground`？`card-foreground`？）
- *      要看着屏幕判断，不能机械替换——所以这里登记成债，不假装它不存在，也不允许长大。
+ *   ④ 存量基线**按「文件 × 类名」登记、只准变小**：死类名今天在视觉上等于「继承父级颜色」，
+ *      换成哪一个 token（`background-foreground`？`card-foreground`？）要看着屏幕判断，
+ *      不能机械替换——所以登记成债，不假装它不存在，也不允许在别处长出来。
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
@@ -33,24 +33,51 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const WEB = join(ROOT, "apps", "web");
 
-/** 存量基线：`类名 → 处数`。只准变小；变大或**变小了没改这里**都判失败。 */
-/*
- * 2026-09-23（#3892）清零：`text-foreground` 全仓 62 处（跨行口径）一次性换成
- * `text-background-foreground`。基线机制留着——下一次再有人要登记存量，照这个形状写。
+/**
+ * 存量基线：按「文件 × 类名」登记处数（只准变小）。**按位置记，不只记类名总数**——
+ * 总数记不住位置：A 处修掉一处、B 处又新增一处，总数不变就漏过（#4894 评审意见）。
+ * 行号仍不记：行号随任何编辑漂移，记了是伪精度；同一文件内「修一处、加一处」的
+ * 增减互抵是本形状的已知盲区。
  *
+ * 2026-09-23（#3892）清零：`text-foreground` 全仓 62 处（跨行口径）一次性换成
+ * `text-background-foreground`。
  * 2026-10-01（#4893）：#3892 之后的新组件（itv / whiteboard / workflow /
- * board-workspace-preview / home 等）又引入同一族死类名 50 处——照上面那句
- * 「照这个形状写」登记为存量，**只准变小**；逐处换成哪个 token 需看着屏幕判断，
- * 留给各组件作者。同轮把 3 处误报（`bg-cover`、`bg-gradient-to-*` 是 v3 内置
- * 工具类）补进 BUILTIN，不再计入命中。
+ * board-workspace-preview 等）又引入同一族死类名 50 处——登记为存量；逐处换成
+ * 哪个 token 需看着屏幕判断，留给各组件作者。同轮把 3 处误报（`bg-cover`、
+ * `bg-gradient-to-*` 是 v3 内置工具类）移进 bg 专属豁免，不再计入命中。
  */
-const LEGACY = new Map([
-  ["text-foreground", 28],
-  ["border-foreground", 8],
-  ["bg-foreground", 9],
-  ["bg-success-tint", 3],
-  ["text-success-tint-foreground", 2],
-]);
+const LEGACY = [
+  { file: "components/board-workspace-preview/workspace.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/chat/knowledge/answer-knowledge-footer.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/itv/digital-interview-workflow.tsx", cls: "text-foreground", count: 4 },
+  { file: "components/itv/expert-avatar.tsx", cls: "text-foreground", count: 2 },
+  { file: "components/itv/interview-experts-step.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/itv/interview-outline-step.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/itv/interview-report-step.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/itv/interview-runs-step.tsx", cls: "bg-foreground", count: 1 },
+  { file: "components/itv/interview-runs-step.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/itv/interview-studio-home.tsx", cls: "bg-foreground", count: 1 },
+  { file: "components/itv/interview-studio-home.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/project/project-ai-settings-panel.tsx", cls: "text-foreground", count: 2 },
+  { file: "components/survey/live/question-editor.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/whiteboard/authoring-preview/board-object-authoring-preview.tsx", cls: "border-foreground", count: 1 },
+  { file: "components/whiteboard/authoring-preview/board-object-authoring-preview.tsx", cls: "text-foreground", count: 2 },
+  { file: "components/whiteboard/board-authoring-preview.tsx", cls: "bg-foreground", count: 2 },
+  { file: "components/whiteboard/board-draw-tool-panel.tsx", cls: "bg-foreground", count: 2 },
+  { file: "components/whiteboard/board-draw-tool-panel.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/whiteboard/board-editor-header.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/whiteboard/board-frame-tool-panel.tsx", cls: "bg-foreground", count: 3 },
+  { file: "components/whiteboard/board-frame-tool-panel.tsx", cls: "border-foreground", count: 7 },
+  { file: "components/whiteboard/board-frame-tool-panel.tsx", cls: "text-foreground", count: 3 },
+  { file: "components/whiteboard/board-selected-object-panel.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/whiteboard/board-tool-popover.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/whiteboard/collaborative-thinking-editor.tsx", cls: "text-foreground", count: 1 },
+  { file: "components/whiteboard/fabric-preview/board-fabric-preview.tsx", cls: "text-foreground", count: 2 },
+  { file: "components/whiteboard/whiteboard-library.tsx", cls: "bg-success-tint", count: 2 },
+  { file: "components/whiteboard/whiteboard-library.tsx", cls: "text-success-tint-foreground", count: 1 },
+  { file: "components/workflow/workflow-approval-drawer.tsx", cls: "bg-success-tint", count: 1 },
+  { file: "components/workflow/workflow-approval-drawer.tsx", cls: "text-success-tint-foreground", count: 1 },
+];
 
 /** 从 tailwind.config.ts 的 colors 块解析全部合法颜色名（单源）。 */
 export function colorNames(cfgText) {
@@ -79,7 +106,12 @@ const BUILTIN = new Set([
   "solid", "dashed", "dotted", "double", "hidden", "collapse", "separate",
   // ring- / divide-
   "inset", "offset", "reverse",
-  // bg- 的 background-size 与渐变方向（v3 内置工具类，不引用颜色 token）
+]);
+
+// bg- 专属的内置工具类（background-size / 渐变方向）：**只对 `bg-` 前缀放行**——
+// 放进共享 BUILTIN 会让 `text-cover` / `border-contain` 这类不存在的类名也蒙混过关
+// （#4894 评审意见）。
+const BUILTIN_BG = new Set([
   "cover", "contain",
   "gradient-to-t", "gradient-to-tr", "gradient-to-r", "gradient-to-br",
   "gradient-to-b", "gradient-to-bl", "gradient-to-l", "gradient-to-tl",
@@ -163,7 +195,7 @@ export function scan(root = WEB) {
     const text = readFileSync(file, "utf8");
     for (const { at, body } of classStrings(text)) {
       for (const m of body.matchAll(RE)) {
-        if (allowed.has(m[2]) || BUILTIN.has(m[2])) continue;
+        if (allowed.has(m[2]) || BUILTIN.has(m[2]) || (m[1] === "bg" && BUILTIN_BG.has(m[2]))) continue;
         const line = text.slice(0, at).split("\n").length;
         hits.push({ file: relative(root, file), line, cls: `${m[1]}-${m[2]}` });
       }
@@ -172,28 +204,36 @@ export function scan(root = WEB) {
   return hits;
 }
 
-function main() {
-  const hits = scan();
+/**
+ * 存量基线校验（纯函数，喂 fixture 单测）：按「文件 × 类名」盯位置——
+ * 别处新增同类名会以 `fresh` 形式判红，本处修掉不更新数字也判红。
+ */
+export function legacyFindings(hits, legacy = LEGACY) {
+  const key = (o) => `${o.file}\u0000${o.cls}`;
   const counts = new Map();
-  const fresh = [];
-  for (const h of hits) {
-    counts.set(h.cls, (counts.get(h.cls) ?? 0) + 1);
-    if (!LEGACY.has(h.cls)) fresh.push(h);
-  }
+  for (const h of hits) counts.set(key(h), (counts.get(key(h)) ?? 0) + 1);
+  const known = new Set(legacy.map(key));
   const problems = [];
-  for (const h of fresh) problems.push(`   ${h.file}:${String(h.line)}  ${h.cls}  ← 本仓没有这个颜色 token，Tailwind 什么都不会生成`);
-  for (const [cls, base] of LEGACY) {
-    const now = counts.get(cls) ?? 0;
-    if (now > base) problems.push(`   存量基线只准变小：${cls} 从 ${String(base)} 处涨到 ${String(now)} 处`);
-    else if (now < base) problems.push(`   ${cls} 已降到 ${String(now)} 处（基线写着 ${String(base)}）——把 LEGACY 里的数字改小，别让它虚高`);
+  for (const h of hits) {
+    if (!known.has(key(h))) problems.push(`   ${h.file}:${String(h.line)}  ${h.cls}  ← 本仓没有这个颜色 token，Tailwind 什么都不会生成`);
   }
+  for (const e of legacy) {
+    const now = counts.get(key(e)) ?? 0;
+    if (now > e.count) problems.push(`   存量基线只准变小：${e.file} 的 ${e.cls} 从 ${String(e.count)} 处涨到 ${String(now)} 处`);
+    else if (now < e.count) problems.push(`   ${e.file} 的 ${e.cls} 已降到 ${String(now)} 处（基线写着 ${String(e.count)}）——把 LEGACY 里的数字改小，别让它虚高`);
+  }
+  return problems;
+}
+
+function main() {
+  const problems = legacyFindings(scan());
   if (problems.length > 0) {
     console.error("❌ [tailwind-color-tokens] 颜色类名对不上 token：");
     for (const p of problems) console.error(p);
     console.error("   合法名来自 apps/web/tailwind.config.ts 的 colors 块（destructive / warning / success / muted-foreground …）。");
     process.exit(1);
   }
-  console.log(`✅ [tailwind-color-tokens] className 里的颜色类名都对得上 token；存量基线 ${String([...LEGACY.values()].reduce((a, b) => a + b, 0))} 处（只准变小）`);
+  console.log(`✅ [tailwind-color-tokens] className 里的颜色类名都对得上 token；存量基线 ${String(LEGACY.reduce((a, e) => a + e.count, 0))} 处（只准变小）`);
 }
 
 if (process.argv[1] !== undefined && import.meta.url.endsWith(process.argv[1].split("/").pop() ?? "")) main();
