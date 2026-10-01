@@ -31,3 +31,15 @@ it('explains the disabled title field and provides the return path for renaming'
  const input=await screen.findByRole('textbox',{name:'白板名称'});
  expect(input).toBeDisabled();expect(input).toHaveAccessibleDescription('请返回白板列表，通过更多操作重命名。');
 });
+
+it('uses the header cloud state for pending work and keeps offline recovery actionable',()=>{
+ const retry=vi.fn(),props={boardId:'board',title:'白板',status:'2 项修改等待服务器确认',readOnly:false,history:null,peers:null,more:null,onRetrySync:retry};
+ const view=render(<BoardEditorHeader {...props} syncPhase="pending" syncDetails="未确认修改会加密保存在此浏览器"/>);
+ const sync=screen.getByTestId('board-sync-status');expect(sync).toHaveAttribute('data-sync-phase','pending');
+ expect(sync.querySelector('svg')).toHaveClass('motion-safe:animate-pulse');expect(sync).toHaveTextContent('加密保存在此浏览器');
+ expect(screen.queryByTestId('board-retry-sync')).toBeNull();
+ view.rerender(<BoardEditorHeader {...props} syncPhase="offline" status="连接中断"/>);
+ expect(sync).toHaveAttribute('data-sync-phase','offline');fireEvent.click(screen.getByTestId('board-retry-sync'));expect(retry).toHaveBeenCalledOnce();
+ view.rerender(<BoardEditorHeader {...props} syncPhase="synced" status="已同步"/>);
+ expect(sync.querySelector('svg')).not.toHaveClass('motion-safe:animate-pulse');expect(screen.queryByTestId('board-retry-sync')).toBeNull();
+});
