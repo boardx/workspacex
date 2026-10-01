@@ -231,6 +231,28 @@ test("official roles: administrator enables dependencies; member checks seven ro
         await expect(directoryCard).toBeVisible();
         await directoryCard.getByTestId("agent-card-view-detail").click();
         await expect(member.getByTestId("agent-detail-name")).toContainText(role.name);
+        const detailScope = scopesByRole.get(role.ref)!;
+        const detailPins = member.getByTestId("agent-detail-skill");
+        await expect.poll(() => detailPins.evaluateAll(items => items.map(item => ({
+          skillId: item.getAttribute("data-skill-id"),
+          versionId: item.getAttribute("data-skill-version-id"),
+        })).sort((a, b) => String(a.skillId).localeCompare(String(b.skillId)))))
+          .toEqual([...detailScope.pins].sort((a, b) => a.skillId.localeCompare(b.skillId)));
+        const detailPending = member.getByTestId("agent-detail-pending-skill");
+        await expect.poll(() => detailPending.evaluateAll(items => items.map(item => ({
+          stableId: item.getAttribute("data-skill-stable-id"),
+          stableName: item.getAttribute("data-skill-stable-name"),
+          reason: item.getAttribute("data-state"),
+          disabled: item.getAttribute("aria-disabled"),
+        })).sort((a, b) => String(a.stableId).localeCompare(String(b.stableId)))))
+          .toEqual(detailScope.pending.map(binding => ({
+            stableId: binding.stableId, stableName: binding.stableName,
+            reason: binding.reason, disabled: "true",
+          })).sort((a, b) => a.stableId.localeCompare(b.stableId)));
+        const detailCounts = member.getByTestId("agent-detail-skill-counts");
+        await expect(detailCounts).toContainText(`可用 ${detailScope.pins.length}`);
+        await expect(detailCounts).toContainText(`待验证 ${detailScope.pending.length}`);
+        await expect(member.locator(`[data-testid="agent-detail-skill"][data-skill-id="${FULLSTACK_E2E.mountableSkillId}"]`)).toHaveCount(0);
         await expect(member.getByTestId("agent-detail-duty")).not.toBeEmpty();
         await screenshot(member, info, `${index + 6}a-${role.ref}-background-detail`);
         await member.getByTestId("agent-detail-start-chat").click();
