@@ -29,6 +29,8 @@ export interface DesignBrief {
   readonly type: string;
   readonly layout: string;
   readonly signature: string;
+  /** 设计计划复核：具体题材理由，以及排除或按用户要求保留的常见套路。 */
+  readonly review?: string;
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -50,7 +52,8 @@ export function parseDesignBrief(raw: unknown): DesignBrief | undefined {
   }
   if (palette.length < 3) return undefined;
   const text = (v: unknown, max: number): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
-  return { palette, type: text(o.type, 240), layout: text(o.layout, 320), signature: text(o.signature, 240) };
+  const review = text(o.review, 600);
+  return { palette, type: text(o.type, 240), layout: text(o.layout, 320), signature: text(o.signature, 240), ...(review === "" ? {} : { review }) };
 }
 
 /** 简报 → 给每页轮看的文字。 */
@@ -60,7 +63,8 @@ export function briefToText(b: DesignBrief): string {
     `· 色板：${b.palette.map((c) => `${c.name === "" ? "" : `${c.name} `}${c.hex}`).join("、")}\n` +
     (b.type === "" ? "" : `· 字体与字阶：${b.type}\n`) +
     (b.layout === "" ? "" : `· 版式：${b.layout}\n`) +
-    (b.signature === "" ? "" : `· 视觉记忆点：${b.signature}\n`)
+    (b.signature === "" ? "" : `· 视觉记忆点：${b.signature}\n`) +
+    (b.review === undefined ? "" : `· 设计计划复核：${b.review}\n`)
   );
 }
 
@@ -69,14 +73,16 @@ export function briefToText(b: DesignBrief): string {
 /** 骨架轮追加的一段：在页划分之外要一份设计简报。 */
 export const DESIGN_OUTLINE_HTML_ADDENDUM =
   " 另外，**在 outline 之外再给一个 brief 字段**（整套界面的设计简报，后面每一页都照它画）：" +
-  '"brief":{"palette":[{"name":"色名","hex":"#RRGGBB"}],"type":"字体与字阶","layout":"版式概念","signature":"视觉记忆点"}。' +
+  '"brief":{"palette":[{"name":"色名","hex":"#RRGGBB"}],"type":"字体与字阶","layout":"版式概念","signature":"视觉记忆点","review":"设计计划复核"}。' +
   "palette 给 4–6 个具名色值（底色、文字色、主色、一个辅助色、一个克制的中性色），必须是这个产品的题材里**该有的**颜色，" +
   "不是你最常用的颜色；不要默认暖米色底 + 衬线标题 + 陶土色强调，也不要默认近黑底 + 荧光绿/朱红单点强调；" +
   "type 写清标题与正文各用什么气质的**系统字体**（只能用系统字体栈：无衬线 system-ui/PingFang SC、衬线 Songti SC/Georgia、圆体 ui-rounded、等宽 ui-monospace）" +
   "以及字阶（例如 标题 28/600、小标题 17/600、正文 15/400、说明 12/400）；" +
   "layout 用一两句说清版式（对齐方式、留白多还是密、主要分几栏），" +
   "signature 写这套界面独有的**一个**视觉记忆点（例如「所有数字用等宽体并对齐小数点」）。" +
-  "先想这个产品的受众和主要任务，再定这些；生成前自己核对一遍：如果这份简报换成另一个题材也说得通，就说明它太泛，重写。";
+  "先想这个产品的受众和主要任务，再定这些；生成前自己核对一遍：如果这份简报换成另一个题材也说得通，就说明它太泛，重写。" +
+  "review 写清受众、主要任务、为什么这个题材适合这套字形/色板/版式，以及审查后改掉的一个泛化套路；" +
+  "用户明确要求的风格、字体气质、色板与布局优先于避免套路的默认建议，不能以避免套路为由偷偷改掉用户指定的米色、深色或卡片。";
 
 const CANVAS_WIDTH = { mobile: 393, wireframe: 820, ui: 1280 } as const;
 export const htmlCanvasWidth = (template: "mobile" | "ui" | "wireframe"): number => CANVAS_WIDTH[template];
@@ -92,6 +98,7 @@ export const HTML_DESIGN_PRINCIPLES =
   "宽度一律 100% / max-width / flex，**不要写超过画布宽度的固定像素宽**；图形用内联 SVG 或 CSS 画（几何、用简报色），不要 emoji 当图标；" +
   "可点击的元素写 `data-goto=\"目标页序号\"`（按钮、导航项、卡片都可以），不要写 href 和 onclick；" +
   "【视觉】①一页只有一个视觉重点（题材里最有代表性的东西，不是一排大数字配小标签），其余安静下来；" +
+  "用户明确指定的视觉方向优先，其余自由选择要有这个题材的理由，不要套用上一种产品的皮肤；" +
   "②字阶至少三档且级差明显（标题 / 正文 / 说明），标题一页最多一个，行宽不超过 40 个汉字，中文行高 1.5–1.7；" +
   "③间距成体系：只用 4 的倍数，相邻同级区块用同一档，区块之间比区块内部更松；" +
   "④颜色只用简报色板（及其明暗变体），主色只给主操作和重点，文字与底色对比度 ≥ 4.5:1，不用纯黑 #000，不用装饰性渐变；" +
@@ -101,8 +108,15 @@ export const HTML_DESIGN_PRINCIPLES =
   "【避免一眼看出是生成的套路】全大写小标签当眉头、「A · B · C」中点拼元信息、「词 —— 片段」破折号标签、按钮缀「→」、" +
   "只把标题里一个词换色或斜体、每个区块都配一行小标签、每页都用同一种渐变头图；" +
   "【内容与文案】真实的文案与数据（具体的数字、人名、日期、状态），不要「标题1」「示例文本」「Lorem ipsum」；" +
+  "图表位置、长度与刻度必须对应文字中的数值/时间；异常或冲突要符合实际业务条件，不能为装饰制造错误状态；" +
   "按钮说清点下去会发生什么，同一个动作全流程同名；空态与错误态另起一页说明，不要塞进正常页；" +
+  "操作用语义 button/input，输入有可见 label；用 :focus-visible 提供清晰键盘焦点，别清掉 outline 却不给替代。" +
+  "动效只帮助理解用户触发的变化，不要各区块自动淡入滑动；有动效时用 prefers-reduced-motion 尊重减少动画设置；" +
   "【布局】手机页：顶部标题区 → 内容 → 底部主操作或底部导航（贴底）；桌面页可用多栏，但主内容区要有明确的视觉重心；" +
+  "桌面页也要在实际 375px 宽度下可读：窄屏重排，不靠整体缩放；复杂数据表可局部滚动，主要操作与说明不能挤成零宽。" +
+  "使用 Grid 要显式核对跨列区域的 grid-column/span；百分比定位的父容器必须拥有预期宽度，不能把整条内容误塞进单个窄格。" +
+  "冲突标识、装饰层与按钮不能互相遮挡操作或文字，必要时让装饰层 pointer-events:none 并避开内容；核心数据不要全部被 ellipsis 隐去。" +
+  "多行内容的容器高度须覆盖实际行数×字号×行高和内边距，不能用窄固定高度裁掉名称、时间或状态等核心文字；" +
   "内容不够撑满时，用留白分组或把主操作贴底，**不要出现一大片没有意义的空白**；" +
   "【收尾自查】写完回看一遍：有没有一处装饰删掉也不损失信息？有就删掉它。";
 

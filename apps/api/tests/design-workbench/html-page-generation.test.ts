@@ -17,6 +17,7 @@ const BRIEF_RAW = {
   type: "标题 Songti SC 28/700，正文 PingFang SC 15/400，说明 12/400",
   layout: "左对齐，单栏，区块之间留白大",
   signature: "所有金额用等宽数字",
+  review: "面向月薪族核对账单；金额对齐便于比较，取消没有信息意义的装饰卡片。",
 };
 const BRIEF = parseDesignBrief(BRIEF_RAW)!;
 
@@ -37,6 +38,7 @@ describe("parseDesignBrief / briefToText", () => {
     expect(BRIEF.palette.map((c) => c.hex)).toEqual(["#1F2A44", "#F7F5F0", "#C8452C", "#8A94A6"]);
     expect(briefToText(BRIEF)).toContain("#C8452C");
     expect(briefToText(BRIEF)).toContain("所有金额用等宽数字");
+    expect(briefToText(BRIEF)).toContain(BRIEF_RAW.review);
   });
   it("色值不合法的丢掉；合法的不到 3 个 ⇒ 整份不要（不猜不补）", () => {
     expect(parseDesignBrief({ palette: [{ hex: "red" }, { hex: "#12345" }, { hex: "#AABBCC" }] })).toBeUndefined();
@@ -132,6 +134,7 @@ describe("HTML 模式分页生成", () => {
     expect(out.source).toBe("model");
     const outlineCall = complete.mock.calls.find((c) => c[0].system.includes("设计基调"))![0];
     expect(outlineCall.system).toContain("brief");
+    expect(outlineCall.system).toContain("用户明确要求的风格");
     expect(outlineCall.user).toContain("设计宽度 393px");
     const pageCalls = complete.mock.calls.map((c) => c[0]).filter((c) => !c.system.includes("设计基调"));
     expect(pageCalls).toHaveLength(2);
@@ -139,6 +142,9 @@ describe("HTML 模式分页生成", () => {
       expect(c.system).toContain("<page>");
       expect(c.user).toContain("#C8452C");
       expect(c.user).toContain("所有金额用等宽数字");
+      expect(c.user).toContain(BRIEF_RAW.review);
+      expect(c.system).toContain(":focus-visible");
+      expect(c.system).toContain("prefers-reduced-motion");
     }
     // 第二页的上下文里带着第一页的 CSS（风格锚）
     expect(pageCalls[1]!.user).toContain("font-size:28px");

@@ -14,4 +14,8 @@
 
 也可以从「工作台」新建设计，描述你想做的产品。本次测试站已接入你批准的真实模型。生成可能需要等待，失败应有回执与重试入口。
 
+Claude frontend-design skill 的另一题材走查项目（桌面咖啡生产排班）：
+http://127.0.0.1:3192/studio/design-workbench/5a6c2934-3964-48cf-bb3d-72be90e74012 。
+此项目保留模型首轮与截图复核后的修订历史；具体视觉验收结论见 fullstack-skill/ 报告。
+
 自动验收标准见 acceptance.md；真实链路报告见 fullstack/report.md，机器结果见 fullstack/results.json。当前是本地验收版本，未声称已部署上线。
