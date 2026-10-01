@@ -55,6 +55,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+
+- 2026-10-01：聊天选人提供官方角色启用，并不意味着后台目录也能发现它们；后台需明确提供待启用要约入口，复用完整 Skill/Workflow/角色依赖导入流程，仅显式点击写入，并在组织切换时取消旧视图回调（出处：[issue #4865](https://github.com/boardx/workspacex/issues/4865)）。
 - 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
   **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
   run 一写回，后台实例的每个事务都抛 `agent_run_lease_lost`，实例永远停在 `running`。派生后台工作必须
