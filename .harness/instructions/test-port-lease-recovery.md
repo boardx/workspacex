@@ -2,7 +2,12 @@
 
 Owning wrappers publish `starting: true` before releasing listeners or starting a
 command. Normal child exit and successful scoped Docker teardown release leases.
-Failed Docker teardown and deliberately retained stacks keep the quarantine.
+Signals, nonzero or signal-terminated children, spawn errors, failed Docker
+teardown and deliberately retained stacks keep the quarantine even if Docker
+cleanup succeeds. A launcher exiting after a signal does not prove its descendant
+exited. Only an unsignalled zero exit with successful scoped teardown releases
+leases; this assumes a normally successful command honors its descendant lifecycle
+contract and is not a general process-tree termination guarantee.
 SIGKILL, OOM, or `process.exit()` without completed teardown also retain it.
 A dead wrapper PID does **not** establish that its child or descendants are gone;
 these ports are never automatically reclaimed, even after the known child exits.

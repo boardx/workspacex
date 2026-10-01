@@ -140,7 +140,8 @@ export async function runWithTestIsolation(
     timing.stop();
     timing.start("清理");
     const cleanupError = cleanup();
-    teardownComplete = cleanupError === null && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1";
+    teardownComplete = receivedSignal === null && result.error === null && result.code === 0 &&
+      cleanupError === null && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1";
     timing.stop();
 
     const run = timing.finish(command.join(" "), isolation.WORKSPACEX_ISOLATION_ID);

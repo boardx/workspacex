@@ -88,7 +88,8 @@ describe("#3128 wrapper owns port leases through teardown", () => {
     if (!("signal" in options) && !("missingCommand" in options)) {
       expect(result.duringChild).toEqual(result.duringCleanup);
     }
-    if ("cleanupExit" in options && options.cleanupExit !== 0) {
+    if (("cleanupExit" in options && options.cleanupExit !== 0) ||
+        ("childExit" in options && options.childExit !== 0) || "signal" in options || "missingCommand" in options) {
       expect(result.remaining).toEqual(result.duringCleanup);
     } else {
       expect(result.remaining).toEqual([]);
@@ -110,14 +111,15 @@ describe("#3128 wrapper owns port leases through teardown", () => {
   });
 });
 
-it("#3128 SIGKILL of the wrapper cannot surrender an alive child's unbound startup port", async () => {
+it.each(["SIGKILL", "SIGTERM", "exit7"] as const)("#3128 %s cannot surrender a surviving descendant startup port", async (mode) => {
   const temp = mkdtempSync(join(tmpdir(), "orphan-startup-lease-"));
   const leaseDir = join(temp, "leases"), ready = join(temp, "ready.json");
   const go = join(temp, "go"), bound = join(temp, "bound"), stop = join(temp, "stop"), done = join(temp, "done");
   const docker = join(temp, "docker");
   writeFileSync(docker, "#!/bin/sh\nexit 0\n"); chmodSync(docker, 0o755);
   const script = `const fs=require('node:fs'),net=require('node:net');const paths=${JSON.stringify({ready,go,bound,stop,done})};let server;fs.writeFileSync(paths.ready,JSON.stringify({pid:process.pid,port:Number(process.env.WORKSPACEX_API_PORT)}));const timer=setInterval(()=>{if(fs.existsSync(paths.stop)){clearInterval(timer);const finish=()=>{fs.writeFileSync(paths.done,'done');process.exit(0)};if(server)server.close(finish);else finish();return;}if(!server&&fs.existsSync(paths.go)){server=net.createServer();server.listen(Number(process.env.WORKSPACEX_API_PORT),'127.0.0.1',()=>fs.writeFileSync(paths.bound,'bound'));}},20);`;
-  const wrapper = spawn(process.execPath, ["--import", "tsx", ".harness/scripts/fixtures/with-test-isolation-fixture.ts", "--", process.execPath, "-e", script], {
+  const launcher = mode === "SIGKILL" ? script : `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(script)}],{stdio:'ignore'}).unref();process.on('SIGTERM',()=>process.exit(0));const timer=setInterval(()=>{if(${JSON.stringify(mode)}==='exit7'&&require('node:fs').existsSync(${JSON.stringify(ready)})){clearInterval(timer);process.exit(7)}},20);`;
+  const wrapper = spawn(process.execPath, ["--import", "tsx", ".harness/scripts/fixtures/with-test-isolation-fixture.ts", "--", process.execPath, "-e", launcher], {
     cwd: ROOT, env: { ...process.env, WORKSPACEX_ISOLATION_ID: undefined, WORKSPACEX_ISOLATION_SEED: temp,
       WORKSPACEX_VERIFY_OUTER_DB: undefined, WORKSPACEX_VERIFY_OUTER_COMPOSE: undefined,
       WORKSPACEX_TEST_PORT_LEASE_DIR: leaseDir, PATH: `${temp}:${process.env.PATH ?? ""}` },
@@ -149,9 +151,10 @@ it("#3128 SIGKILL of the wrapper cannot surrender an alive child's unbound start
     const child = JSON.parse(readFileSync(ready, "utf8")) as { pid: number; port: number };
     expect(child.pid).not.toBe(wrapper.pid);
     expect(existsSync(bound)).toBe(false); // An actual command is alive, but has not bound yet.
-    const exited = new Promise<void>((resolve) => wrapper.once("exit", () => resolve()));
-    wrapper.kill("SIGKILL");
+    const exited = wrapper.exitCode !== null ? Promise.resolve() : new Promise<void>((resolve) => wrapper.once("exit", () => resolve()));
+    if (mode !== "exit7") wrapper.kill(mode);
     await exited;
+    process.kill(child.pid, 0); // The actual descendant still survives launcher exit.
     expect(await claim(child.port), "orphan-startup port must remain leased to the alive child").toBe(false);
     writeFileSync(go, "go");
     await until(() => existsSync(bound));

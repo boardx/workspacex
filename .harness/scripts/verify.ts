@@ -36,11 +36,14 @@ export async function verify(args: Args): Promise<void> {
   // #468：同 with-test-isolation —— 端口向 OS 预留，起子命令前释放。
   const reservation = await ensureReservedTestIsolation(process.env);
   let started = false;
+  let completed = false;
+  let abnormalChild = false;
   try {
     await verifyReserved(args, { ...reservation, markStarting: () => {
       reservation.markStarting();
       started = true;
-    } });
+    } }, (code) => { if (code !== 0) abnormalChild = true; });
+    completed = true;
   } finally {
     let teardownComplete = !started || !reservation.reserved;
     if (started && reservation.reserved && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1") {
@@ -48,12 +51,12 @@ export async function verify(args: Args): Promise<void> {
         fileURLToPath(new URL("../../apps/api/docker-compose.dev.yml", import.meta.url)),
         "-p", reservation.env.COMPOSE_PROJECT_NAME, "down", "-v"],
       { env: { ...process.env, ...reservation.env }, stdio: "ignore" });
-      teardownComplete = !cleanup.error && cleanup.status === 0;
-      if (!teardownComplete) console.error("[test-isolation] verify cleanup failed; port leases quarantined");
+      teardownComplete = completed && !abnormalChild && !cleanup.error && cleanup.status === 0;
+      if (!teardownComplete) console.error("[test-isolation] verify lifecycle or scoped teardown incomplete; port leases quarantined");
     }
     await reservation.dispose(teardownComplete);
     if (started && reservation.reserved && !teardownComplete && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1") {
-      throw new Error("[test-isolation] verify scoped teardown failed; port leases quarantined");
+      throw new Error("[test-isolation] verify lifecycle or scoped teardown incomplete; port leases quarantined");
     }
   }
 }
@@ -61,6 +64,7 @@ export async function verify(args: Args): Promise<void> {
 async function verifyReserved(
   args: Args,
   reservation: Awaited<ReturnType<typeof ensureReservedTestIsolation>>,
+  recordChildExit: (code: number) => void,
 ): Promise<void> {
   const isolation = reservation.env;
   Object.assign(process.env, isolation, {
@@ -177,6 +181,7 @@ async function verifyReserved(
     if (ok) {
       for (const cmd of f.verification) {
         const r = sh(cmd);
+        recordChildExit(r.code);
         logs.push(`$ ${cmd}\n[exit ${r.code}]\n${r.stdout}${r.stderr}`);
         if (r.code !== 0) {
           ok = false;
@@ -233,6 +238,7 @@ async function verifyReserved(
       } else {
         log.step(`运行基础验证（风险档=${level}）: ${baseCmd}`);
         br = sh(baseCmd);
+        recordChildExit(br.code);
         recordCredential({
           sha,
           fingerprint,
