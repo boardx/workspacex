@@ -360,6 +360,16 @@ export function DesignDetailScreen({
     const n = focus?.path[focus.path.length - 1];
     return n !== undefined && n.type === "html" ? n.props.html : null;
   }, [focus]);
+  // Element refs are positional: any HTML writeback can renumber them. Require a
+  // fresh click after a page changes rather than silently targeting a different element.
+  const previousHtmlFocus = React.useRef<{ id: string | null; html: string | null } | null>(null);
+  React.useEffect(() => {
+    const previous = previousHtmlFocus.current;
+    if (previous !== null && previous.id === selectedId && previous.html !== null && focusedHtml !== null && previous.html !== focusedHtml) {
+      setSelectedRef(null);
+    }
+    previousHtmlFocus.current = { id: selectedId, html: focusedHtml };
+  }, [focusedHtml, selectedId]);
   /** 迭代 11：每页出发的跳转表（服务端接线前可能没有 ⇒ 空）。 */
   // 预览旧版本时不画连线：版本快照里还没有 links（存储形状是 delta §5 要人类拍板的取舍 ②）。
   const frameLinks = React.useMemo(() => (preview === null ? project?.frameLinks : undefined) ?? [], [preview, project]);

@@ -298,6 +298,36 @@ export function describeHtmlPageElement(html: string, ref: string): string | nul
   return text === "" ? `<${tag}>` : `<${tag}>「${text}」`;
 }
 
+/** Split only top-level selector commas and reject syntax that could close our scope. */
+function scopeSelectors(raw: string, marker: string): string | null {
+  const selectors = raw.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+  if (selectors === "" || /[@;{}<>\/]/.test(selectors)) return null;
+  const parts: string[] = [];
+  const stack: string[] = [];
+  let quote = "";
+  let start = 0;
+  for (let i = 0; i < selectors.length; i += 1) {
+    const c = selectors[i]!;
+    if (quote !== "") { if (c === quote) quote = ""; continue; }
+    if (c === '"' || c === "'") { quote = c; continue; }
+    if (c === "(" || c === "[") stack.push(c);
+    else if (c === ")" || c === "]") {
+      if (stack.pop() !== (c === ")" ? "(" : "[")) return null;
+    } else if (c === "," && stack.length === 0) {
+      parts.push(selectors.slice(start, i).trim()); start = i + 1;
+    }
+  }
+  if (quote !== "" || stack.length > 0) return null;
+  parts.push(selectors.slice(start).trim());
+  if (parts.some((p) => p === "")) return null;
+  return parts.map((selector) => {
+    // Pseudo-elements cannot be inside :is(); put them after the scoped originating element.
+    const pseudo = /::[a-z-]+(?:\([^()]*\))?$/i.exec(selector)?.[0] ?? "";
+    const base = pseudo === "" ? selector : selector.slice(0, -pseudo.length).trim() || "*";
+    return `:is(${base}):where(.${marker})${pseudo}`;
+  }).join(",");
+}
+
 /**
  * 只替换被选中的那一个元素（可选地往页面 `<style>` 末尾追加几条规则），整页再过一遍清洗。
  * 这就是「局部修改」：模型只看见并只改这一块，其余版面逐字不动，也省 token。
@@ -306,10 +336,35 @@ export function describeHtmlPageElement(html: string, ref: string): string | nul
 export function replaceHtmlPageElement(html: string, ref: string, replacement: string, addCss = ""): string | null {
   const el = htmlPageElement(html, ref);
   if (el === null) return null;
-  let next = html.slice(0, el.start) + replacement + html.slice(el.end);
-  if (addCss.trim() !== "") {
-    const css = addCss.replace(/<\/?style[^>]*>/gi, "");
-    next = /<\/style>/i.test(next) ? next.replace(/<\/style>(?![\s\S]*<\/style>)/i, `\n${css}\n</style>`) : `<style>${css}</style>${next}`;
+  // Mark only the replacement subtree. The marker survives data-ref renumbering, and
+  // :where restricts the candidates without changing the model selector's specificity.
+  // A style tag embedded in the replacement must not escape this boundary either.
+  let css = addCss;
+  // Normalize complete input before extracting style tags, including </style > variants.
+  const fragment = sanitizeHtmlPage(replacement).html.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_tag, rules: string) => {
+    css += `\n${rules}`;
+    return "";
+  });
+  let marker = `wsx-local-${ref}`;
+  while (html.includes(marker)) marker += "x";
+  const scopedRules: string[] = [];
+  // Local edits support flat rules. Global at-rules and nested blocks are not copied;
+  // the original page already owns its responsive rules, fonts and animations.
+  // Validate after CSS cleaning: removing escapes afterward could change selector syntax.
+  for (const rule of sanitizeCss(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectors = scopeSelectors(rule[1]!, marker);
+    if (selectors === null) continue;
+    scopedRules.push(`${selectors}{${rule[2]}}`);
+  }
+  const cleanFragment = fragment;
+  const scoped = scopedRules.length === 0 ? cleanFragment : cleanFragment.replace(/<([a-z][a-z0-9]*)\b([^>]*)>/gi, (tag: string) => {
+    if (/\sclass="[^"]*"/.test(tag)) return tag.replace(/\sclass="([^"]*)"/, ` class="$1 ${marker}"`);
+    return tag.replace(/>$/, ` class="${marker}">`);
+  });
+  let next = html.slice(0, el.start) + scoped + html.slice(el.end);
+  if (scopedRules.length > 0) {
+    const rules = scopedRules.join("\n");
+    next = /<\/style>/i.test(next) ? next.replace(/<\/style>(?![\s\S]*<\/style>)/i, `\n${rules}\n</style>`) : `<style>${rules}</style>${next}`;
   }
   return sanitizeHtmlPage(next).html;
 }

@@ -115,11 +115,45 @@ describe("元素编号与局部替换", () => {
   it("只替换被选中的元素，其余逐字不动；可追加 CSS；替换内容同样被清洗", () => {
     const out = replaceHtmlPageElement(html, "r2", '<h1 class="big">新标题<script>x()</script></h1>', ".big{color:blue}")!;
     expect(out).toContain("新标题");
-    expect(out).toContain(".big{color:blue}");
+    expect(out).toContain(":is(.big):where(.wsx-local-r2){color:blue}");
     expect(out).not.toContain("<script");
+    expect(out).not.toContain("x()");
     expect(out).toContain("甲");
     expect(out).toContain('data-goto="1"');
     expect(replaceHtmlPageElement(html, "r404", "<p>x</p>")).toBeNull();
+  });
+
+  it("局部 CSS 不写全局规则，替换内容的 style 同样限定作用域", () => {
+    const page = sanitizeHtmlPage('<style>.btn{color:blue}</style><div><button class="btn">甲</button><button class="btn">乙</button></div>').html;
+    const out = replaceHtmlPageElement(page, "r2", '<button class="btn">新甲</button><style>.btn{background:red}</style>', '.btn{color:red}')!;
+    const second = htmlPageElement(out, "r3")!;
+    expect(second.html).toContain('class="btn"');
+    expect(second.html).not.toContain("wsx-local-");
+    expect(out).not.toContain('.btn{color:red}');
+    expect(out).not.toContain('.btn{background:red}');
+    expect(out).toContain(":where(.wsx-local-");
+    expect(sanitizeHtmlPage(out).html).toBe(out);
+  });
+
+  it("局部选择器不能闭合 scope 逃逸；伪元素跟随被选中的源元素", () => {
+    const page = sanitizeHtmlPage('<div><button class="btn">甲</button><button class="btn">乙</button></div>').html;
+    for (const css of ['.btn), .btn, :is(.btn{color:red}', '.btn\\), .btn, :is(.btn{color:red}', '[title="x] .btn{color:red}']) {
+      const out = replaceHtmlPageElement(page, "r2", '<button class="btn">新甲</button>', css)!;
+      expect(out).not.toContain('color:red');
+    }
+    const out = replaceHtmlPageElement(page, "r2", '<button class="btn">新甲</button>', '.btn::before{content:"新";color:red}.btn:hover,.btn:focus{color:blue}')!;
+    expect(out).toContain(':where(.wsx-local-r2)::before');
+    expect(out).toContain(':is(.btn:hover):where(.wsx-local-r2),:is(.btn:focus):where(.wsx-local-r2)');
+  });
+
+  it("先规范化 style 闭合标签再 scope，片段样式不能逃到整页", () => {
+    const page = sanitizeHtmlPage('<div><button class="btn">甲</button><button class="btn">乙</button></div>').html;
+    for (const close of ['</style >', '</STYLE\n>']) {
+      const out = replaceHtmlPageElement(page, "r2", `<style>.btn{color:red}${close}<button class="btn">新甲</button>`)!;
+      expect(out).not.toContain('.btn{color:red}');
+      expect(out).toContain(':is(.btn):where(.wsx-local-r2){color:red}');
+      expect(htmlPageElement(out, "r3")!.html).not.toContain('wsx-local-');
+    }
   });
 
   it("describeHtmlPageElement", () => {

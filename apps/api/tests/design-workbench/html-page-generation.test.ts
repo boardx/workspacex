@@ -225,6 +225,8 @@ describe("HTML 页局部修改", () => {
     const sent = complete.mock.calls[0]![0];
     expect(sent.user).toContain("本月账单");
     expect(sent.user).not.toContain("查看明细"); // 没发整页，只发被选中的元素
+    expect(sent.system).not.toContain("页面根元素用");
+    expect(sent.system).toContain("不要新增 page 根容器");
     expect(sent.user).toContain("font-size:28px"); // 但带着页面 CSS
     expect(out.text).toBe("标题改成了更具体的。");
     const [setProps, setLinks] = out.writeback.patch!;
@@ -251,12 +253,21 @@ describe("HTML 页局部修改", () => {
     expect(JSON.stringify(out.writeback)).not.toMatch(/steal|<script/);
   });
 
-  it("元素编号失效（页面在选中之后变过）⇒ 退回整页修改", async () => {
-    const { r, complete } = make((_u, system) => (system.includes("选中了**一个元素**") ? "<element>坏的" : `<reply>整页改了。</reply>${wrap(goodPage(1, "<p>新增一段说明文字</p>"))}`));
+  it("元素编号失效 ⇒ 页面保持原样，不扩大到整页修改", async () => {
+    const { r, complete } = make(() => `<reply>整页改了。</reply>${wrap(goodPage(1))}`);
     const out = await r.reply(editCtx("r9999", "加一段说明"));
-    expect(out.text).toBe("整页改了。");
-    expect(complete).toHaveBeenCalledTimes(1); // 编号找不到，不浪费一次元素调用
-    expect(JSON.stringify(out.writeback)).toContain("新增一段说明文字");
+    expect(out.source).toBe("fallback");
+    expect(complete).not.toHaveBeenCalled();
+    expect(out.writeback).toEqual({});
+  });
+
+  it("元素输出无效或截断 ⇒ 不再调用整页模型，不修改未选中内容", async () => {
+    const ref = /data-ref="(r\d+)"[^>]*>本月账单/.exec(page0)![1]!;
+    const { r, complete } = make(() => `<reply>整页改了。</reply>${wrap(goodPage(1))}`);
+    const out = await r.reply(editCtx(ref, "只改标题"));
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(out.source).toBe("fallback");
+    expect(out.writeback).toEqual({});
   });
 
   it("选中整页（没有元素）⇒ 整页在原有基础上改；新增的 data-goto 会重算 links；指向自己的被剪掉", async () => {

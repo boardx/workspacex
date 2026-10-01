@@ -1019,7 +1019,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
 
   /**
    * 方向 C 步骤 4：**局部修改**。选中一个元素 ⇒ 只把这个元素 + 页面 CSS 发给模型，拼回去；
-   * 没选元素（选的是整页）或元素编号已失效 ⇒ 整页在原有基础上改。产出走既有的 `patch`（setProps + setLinks），
+   * 没选元素（选的是整页）⇒ 整页在原有基础上改；元素编号失效或输出不可用时不写回。产出走既有的 `patch`（setProps + setLinks），
    * 所以撤销、版本、连线清洗都是现成的。模型没给出可用输出 ⇒ `null`（调用方退回固定回执，如实说没改成）。
    */
   private async editHtml(ctx: DesignChatContext): Promise<DesignChatReplyResult | null> {
@@ -1059,8 +1059,11 @@ export class ModelDesignChatReplier implements DesignChatModel {
         const parsed = out.truncated ? null : parseElementEditOutput(out.text);
         const next = parsed === null ? null : designHtmlPage.replaceHtmlPageElement(page, ref, parsed.element, parsed.css);
         if (parsed !== null && next !== null) return finish(next, parsed.reply);
-        this.deps.log("design chat: html element edit unusable, falling back to whole-page edit", { truncated: out.truncated });
+        this.deps.log("design chat: html element edit unusable, keeping page unchanged", { truncated: out.truncated });
       }
+      // Selecting an element authorizes only that element. Never silently widen a
+      // failed/stale local edit into a model rewrite of the entire page.
+      return null;
     }
     const out = await this.callModel(
       `现有这一页（共 ${String(screenCount)} 页，这是第 ${String(index)} 页「${focus.frame}」）：\n${page.slice(0, 40_000)}\n\n用户说：${instruction}\n\ndata-goto 的值用页序号（不要指向自己这一页）。`,

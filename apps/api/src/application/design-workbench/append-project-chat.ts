@@ -144,13 +144,13 @@ function focusFor(row: { readonly frames: readonly string[]; readonly prototype:
   if (target.type === "html") {
     // HTML 页：整页 HTML 不进树形 prompt（一页几万字），焦点只带摘要；真正的 HTML 交给 `ModelDesignChatReplier` 的局部修改那条路。
     const elementLabel = ref === undefined ? null : designHtmlPage.describeHtmlPageElement(target.props.html, ref);
-    const validRef = elementLabel === null ? undefined : ref;
     return {
       focus: {
         id, frame: row.frames[hit.frameIndex] ?? "",
         path: [...hit.path.map(designPrototype.prototypeNodeLabel), ...(elementLabel === null ? [] : [elementLabel])],
         node: { type: "html", summary: designHtmlPage.htmlPageVisibleText(target.props.html).slice(0, 200) },
-        html: { page: target.props.html, ...(validRef === undefined ? {} : { ref: validRef }) },
+        // Preserve a stale requested ref so the replier fails closed instead of rewriting the whole page.
+        html: { page: target.props.html, ...(ref === undefined ? {} : { ref }) },
       },
     };
   }

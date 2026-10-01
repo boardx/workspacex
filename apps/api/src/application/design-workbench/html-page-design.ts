@@ -81,11 +81,14 @@ export const DESIGN_OUTLINE_HTML_ADDENDUM =
 const CANVAS_WIDTH = { mobile: 393, wireframe: 820, ui: 1280 } as const;
 export const htmlCanvasWidth = (template: "mobile" | "ui" | "wireframe"): number => CANVAS_WIDTH[template];
 
+const HTML_PAGE_ROOT_PRINCIPLE =
+  "页面根元素用 `<div class=\"page\">`，设 `min-height:100vh; display:flex; flex-direction:column`，内容要**撑满画布高度**；";
+
 /** 给每页轮看的视觉与技术约束。**这是 HTML 模式视觉约束的唯一事实源**（树形链路的在 `DESIGN_PRINCIPLES`）。 */
 export const HTML_DESIGN_PRINCIPLES =
   " 【技术硬约束】只输出一个 `<style>` 加正文片段：不要 html/head/body/script/link/meta，不要 @import 和 @font-face，" +
   "不要任何外链（图片、字体、CDN 都会被拦）；样式全部写在那一个 `<style>` 里、用 class，不写内联 style 以外的 JS；" +
-  "页面根元素用 `<div class=\"page\">`，设 `min-height:100vh; display:flex; flex-direction:column`，内容要**撑满画布高度**；" +
+  HTML_PAGE_ROOT_PRINCIPLE +
   "宽度一律 100% / max-width / flex，**不要写超过画布宽度的固定像素宽**；图形用内联 SVG 或 CSS 画（几何、用简报色），不要 emoji 当图标；" +
   "可点击的元素写 `data-goto=\"目标页序号\"`（按钮、导航项、卡片都可以），不要写 href 和 onclick；" +
   "【视觉】①一页只有一个视觉重点（题材里最有代表性的东西，不是一排大数字配小标签），其余安静下来；" +
@@ -259,9 +262,11 @@ export const DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT =
   "严格按这个格式输出，不要解释、不要 markdown 代码块：\n" +
   "<reply>给用户的一句话，说清改了什么，中文，不超过 80 字</reply>\n" +
   "<element>改完之后这个元素的**完整** HTML（包含它自己那一层标签和所有子元素）</element>\n" +
-  "<css>只有需要新增或覆盖样式规则时才写：只写新增的规则，不要重复页面已有的 CSS</css>\n" +
+  "<css>只有需要新增或覆盖样式时才写：只写普通的选择器与声明，不写 @media/@keyframes 等全局或嵌套规则；规则只作用于这个元素及其子元素，不要重复页面已有 CSS</css>\n" +
   "沿用页面现有的 class 命名、字阶、间距、圆角和色板（页面 CSS 会给你），不要另起一套；带 data-goto 的元素保持它的 data-goto，除非用户明确要改去处。" +
-  HTML_DESIGN_PRINCIPLES;
+  HTML_DESIGN_PRINCIPLES
+    .replace("只输出一个 `<style>` 加正文片段", "样式只放在 <css>，元素只放在 <element>")
+    .replace(HTML_PAGE_ROOT_PRINCIPLE, "保持被选中元素的层级，不要把它扩成整页，不要新增 page 根容器或强制全屏高度；");
 
 /** 改**整页**：在现有这一页的基础上按要求修改，保持风格一致。 */
 export const DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT =
