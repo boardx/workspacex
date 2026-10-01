@@ -1,12 +1,12 @@
 {
-  "sourceSha": "c13426a18eabc09f7ed8412181fc254bfab0aae4",
+  "sourceSha": "ec3e4ae73033afe98c755eb312a1711644ab0778",
   "environment": "real Chromium, production Next, Nest, isolated PostgreSQL/Redis",
   "upstream": "explicit deterministic loopback; real model quality BLOCKED",
   "salesCRM": "DEFERRED by user",
   "stats": {
-    "startTime": "2026-10-01T11:39:43.061Z",
-    "duration": 547506.707,
-    "expected": 2,
+    "startTime": "2026-10-01T12:28:37.610Z",
+    "duration": 634682.388,
+    "expected": 3,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0
@@ -20,7 +20,19 @@
       "results": [
         {
           "status": "passed",
-          "durationMs": 91852
+          "durationMs": 87544
+        }
+      ]
+    },
+    {
+      "title": "real voice audio, interrupt, persisted hangup and remote disconnect cleanup/retry",
+      "file": "realtime-voice-journey.spec.ts",
+      "project": "work-stack-realtime-voice",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 16833
         }
       ]
     },
@@ -32,7 +44,7 @@
       "results": [
         {
           "status": "passed",
-          "durationMs": 30045
+          "durationMs": 17154
         }
       ]
     }
