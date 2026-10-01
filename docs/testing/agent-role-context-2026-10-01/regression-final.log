@@ -1,0 +1,33 @@
+[stack-admission] load1=2.02 cores=5 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mup41gr9-93b3bdbb-7a6dcc8d93a0 db=wsx_7a6dcc8d93a0eb973430 compose=wsx-7a6dcc8d93a0eb973430 pg=20141 redis=21141 api=24141 web=25141 sandbox=26141 model=27141 deep-agent=28141 asr=29141 vision=30141 loopback-sandbox=31141 mail=19141
+ Network wsx-7a6dcc8d93a0eb973430_default  Creating
+ Network wsx-7a6dcc8d93a0eb973430_default  Created
+ Container wsx-7a6dcc8d93a0eb973430-postgres-1  Creating
+ Container wsx-7a6dcc8d93a0eb973430-postgres-1  Created
+ Container wsx-7a6dcc8d93a0eb973430-postgres-1  Starting
+ Container wsx-7a6dcc8d93a0eb973430-postgres-1  Started
+ Container wsx-7a6dcc8d93a0eb973430-postgres-1  Waiting
+ Container wsx-7a6dcc8d93a0eb973430-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/agent-role-context-fixes/apps/api
+
+[db-isolation] db=wsx_7a6dcc8d93a0eb973430 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (13 tests) 30ms
+ ✓ tests/agent-runtime/deep-agent-model-provider.test.ts (19 tests) 326ms
+ ✓ tests/knowledge-graph/recall-ranking.test.ts (15 tests) 22ms
+ ✓ tests/agent-runtime/remember-tool-guidance.test.ts (2 tests) 4ms
+
+ Test Files  4 passed (4)
+      Tests  49 passed (49)
+   Start at  05:45:35
+   Duration  6.56s (transform 2.10s, setup 0ms, collect 4.30s, tests 381ms, environment 1ms, prepare 293ms)
+
+[db-isolation] db=wsx_7a6dcc8d93a0eb973430 peak_connections=1
+[timing] bash /tmp/workstack-role-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：21s
+  清理：1s
+  总计：22s

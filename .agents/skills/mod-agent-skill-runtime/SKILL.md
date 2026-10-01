@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-01：个人画像每轮召回时，必须区分“用户背景”和“当前角色职责”，尤其问候/能力介绍与附件分析；固定角色正文传到了模型不等于回答遵守，协议回归与真实模型专业效果应分开验收（出处：[issue #4868](https://github.com/boardx/workspacex/issues/4868)）。
 - 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
   **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
   run 一写回，后台实例的每个事务都抛 `agent_run_lease_lost`，实例永远停在 `running`。派生后台工作必须

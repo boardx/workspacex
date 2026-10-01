@@ -3,6 +3,7 @@ import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
+import { ROLE_CONTEXT_GUIDANCE } from "./role-context-guidance";
 import { routeCapabilityRun } from "./capability-runtime-routing";
 import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
@@ -636,6 +637,7 @@ async function executeClaimed(
       // #4344：本轮挂了工具（画布请求一个工具都不挂）才告诉模型怎么用 `wx_remember`。
       remember: !canvasRequested,
     });
+    system = `${system}\n\n${ROLE_CONTEXT_GUIDANCE}`;
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *
