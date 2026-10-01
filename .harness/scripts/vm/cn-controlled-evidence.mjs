@@ -11,6 +11,10 @@ const services=['api','web','agent','sandbox'];
 const sha=/^[a-f0-9]{40}$/;
 const fail=code=>{throw new Error(code)};
 export const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+export function evidenceWindow(clock=Date.now) {
+ const observed=clock();
+ return {observedAt:new Date(observed).toISOString(),expiresAt:new Date(observed+3600000).toISOString()};
+}
 export function protectedRead(file) {
  const s=lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o600)fail('CONTROLLED_FILE_NOT_PRIVATE');
  return readFileSync(file);
@@ -90,7 +94,7 @@ async function main(){
  }
  // Credentials supplied only to this separately reviewed operator process; never serialized.
  const data=kind==='governance'?{governance:collectGovernance()}:{raw:collectDevapp(Number(runId),source)};
- const observedAt=new Date().toISOString(),expiresAt=new Date(Date.now()+3600000).toISOString();
+ const {observedAt,expiresAt}=evidenceWindow();
  const payload=Buffer.from(JSON.stringify({schemaVersion:1,kind,repository:'boardx/workspacex',sourceSha:source,attemptId:attempt,observedAt,expiresAt,...data}));
  const key=protectedRead(kind==='governance'?'/etc/workspacex-cn/governance-signing.pem':'/etc/workspacex-devapp/evidence-signing.pem');
  writeFileSync(output,JSON.stringify({payload:payload.toString('base64'),signature:sign(null,payload,key).toString('base64')}),{mode:0o600,flag:'wx'});
