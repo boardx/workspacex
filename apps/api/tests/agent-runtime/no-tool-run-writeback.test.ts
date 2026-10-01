@@ -373,6 +373,79 @@ afterEach(() => {
 /* ═══════════════════════════ 1. the happy path ═══════════════════════════ */
 
 describe("executing a queued run", () => {
+  it("#3553: completed-run deletion retains read-only history, billing and append-only guards", async () => {
+    const accepted = await postMessage("Completed run retained for lifecycle deletion fixture");
+    expect(accepted.status).toBe(202);
+    await tick();
+    expect((await readRun(accepted.agentRunId)).status).toBe("succeeded");
+    const usageId = `usage-${randomUUID()}`;
+    const attemptId = `attempt-${randomUUID()}`;
+    await asApp(ORG, async c => {
+      await c.query(`INSERT INTO token_usage_events(id,org_id,user_id,run_id,model_provider,model_id,tokens_total,outcome)
+        VALUES($1,$2,$3,$4,$5,$6,42,'succeeded')`, [usageId, ORG, ACTOR, accepted.agentRunId, PROVIDER, MODEL_V1]);
+      await c.query(`INSERT INTO agent_run_attempts(id,org_id,run_id,attempt_seq,status)
+        SELECT $1,$2,$3,COALESCE(MAX(attempt_seq),0)+1,'succeeded'
+        FROM agent_run_attempts WHERE org_id=$2 AND run_id=$3`, [attemptId, ORG, accepted.agentRunId]);
+    });
+    const snapshots = async () => asApp(ORG, async c => ({
+      steps: (await c.query("SELECT * FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq", [ORG, accepted.agentRunId])).rows,
+      attempts: (await c.query("SELECT * FROM agent_run_attempts WHERE org_id=$1 AND run_id=$2 ORDER BY attempt_seq", [ORG, accepted.agentRunId])).rows,
+      usage: (await c.query("SELECT * FROM token_usage_events WHERE org_id=$1 AND id=$2", [ORG, usageId])).rows,
+      journal: (await c.query("SELECT * FROM agent_execution_events WHERE org_id=$1 AND run_id=$2 ORDER BY seq", [ORG, accepted.agentRunId])).rows,
+    }));
+    const before = await snapshots();
+    expect(before.steps.length).toBeGreaterThan(0);
+    expect(before.attempts.length).toBeGreaterThan(0);
+    const current = await asApp(ORG, c => c.query<{ version: number }>(
+      "SELECT version FROM chat_threads WHERE org_id=$1 AND id=$2", [ORG, THREAD]));
+    const version = current.rows[0]!.version;
+    const remove = (expectedVersion: number, org = ORG) => fetch(`${BASE}/chat/threads/mutate`, {
+      method: "POST", headers: principal(ACTOR, org),
+      body: JSON.stringify({ op: "delete", projectId: PROJECT, threadId: THREAD,
+        groupId: null, title: null, visibilityScope: null, expectedVersion, reason: "Lifecycle regression" }),
+    });
+    expect((await remove(version, OTHER_ORG)).status).toBe(404);
+    expect((await remove(version + 1)).status).toBe(409);
+    expect((await snapshots())).toEqual(before);
+    const response = await remove(version);
+    expect(response.status).toBe(200);
+    const result = await response.json() as { version: number; impactScope: string; auditEventId: string };
+    expect(result.version).toBe(version + 1);
+    expect(result.impactScope).toContain("历史保留");
+    const thread = await asApp(ORG, c => c.query<{ archived: boolean; version: number }>(
+      "SELECT archived,version FROM chat_threads WHERE org_id=$1 AND id=$2", [ORG, THREAD]));
+    expect(thread.rows[0]).toEqual({ archived: true, version: version + 1 });
+    expect(await snapshots()).toEqual(before);
+    const listing = await fetch(`${BASE}/chat/projects/${PROJECT}/threads`, { headers: principal(ACTOR, ORG) });
+    expect(listing.status).toBe(200);
+    const list = await listing.json() as { groups: { cards: { id: string }[] }[] };
+    expect(list.groups.flatMap(group => group.cards).some(card => card.id === THREAD)).toBe(false);
+    expect((await postMessage("Archived retained history cannot accept another message")).status).toBe(409);
+    const audit = await asApp(ORG, c => c.query<{ actor_id: string; detail: Record<string, unknown> }>(
+      "SELECT actor_id,detail FROM provenance_events WHERE org_id=$1 AND id=$2", [ORG, result.auditEventId]));
+    expect(audit.rows[0]).toMatchObject({ actor_id: ACTOR, detail: { retention: "agent-history", retainedVersion: version + 1 } });
+    // The application role cannot UPDATE history at all. Use the isolated
+    // fixture owner only to reach and independently verify each trigger itself.
+    await expect(asApp(ORG, c => c.query(
+      "UPDATE agent_run_steps SET tool_name='tamper' WHERE org_id=$1 AND run_id=$2", [ORG, accepted.agentRunId])))
+      .rejects.toThrow("permission denied");
+    await expect(asOwner(c => c.query(
+      "UPDATE agent_run_steps SET tool_name='tamper' WHERE org_id=$1 AND run_id=$2", [ORG, accepted.agentRunId])))
+      .rejects.toThrow("append-only");
+    await expect(asOwner(c => c.query(
+      "UPDATE agent_run_attempts SET status='failed' WHERE org_id=$1 AND id=$2", [ORG, attemptId])))
+      .rejects.toThrow("append-only");
+    await expect(asOwner(c => c.query(
+      "UPDATE token_usage_events SET tokens_total=0 WHERE org_id=$1 AND id=$2", [ORG, usageId])))
+      .rejects.toThrow("append-only");
+    expect(await snapshots()).toEqual(before);
+    // Organization teardown is still the explicitly authorized cascade lifecycle.
+    await resetOrgs(ORG);
+    const remaining = await asOwner(c => c.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM agent_runs WHERE org_id=$1", [ORG]));
+    expect(remaining.rows[0]?.n).toBe(0);
+  }, 60_000);
+
   /**
    * ⚠ Terminal state UPDATED by #413, not relaxed.
    *
@@ -567,6 +640,55 @@ describe("the run executes its acceptance snapshot, not the current head", () =>
    * time; nothing revalidates afterwards). The run must refuse rather than proceed with
    * the subset it happened to find.
    */
+  it.each([
+    ["pinned", "before acceptance"],
+    ["pinned", "after acceptance"],
+    ["mounted", "before acceptance"],
+    ["mounted", "after acceptance"],
+  ] as const)("#2529: disabled %s skill %s suppresses the whole prompt; re-enable restores the next run", async (source, timing) => {
+    if (source === "mounted") {
+      // A stays enabled and pinned; B enters ONLY through the persisted thread mount.
+      // This catches silently dropping the disabled mount and running with A alone.
+      await addAgentVersion({
+        versionId: V2, skillVersionIds: [SV_A], modelId: MODEL_V1,
+        instructions: "You are the mounted-skill agent.",
+      });
+      await asApp(ORG, c => c.query(
+        `INSERT INTO thread_skill_mounts
+           (mount_id,org_id,thread_id,skill_id,version_id,mounted_at,removed_at)
+         VALUES ($1,$2,$3,$4,$5,now(),NULL)`,
+        [randomUUID(), ORG, THREAD, SKILL_B, SV_B]));
+    }
+    const disable = () => asApp(ORG, c => c.query(
+      "UPDATE skills SET status='disabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_B]));
+    if (timing === "before acceptance") await disable();
+    const queued = await postMessage("Do not execute disabled skill content");
+    expect(queued.status).toBe(202);
+    expect((await readRun(queued.agentRunId)).skillVersionIds).toEqual([SV_A, SV_B]);
+    if (timing === "after acceptance") await disable();
+    await tick();
+    const blocked = await readRun(queued.agentRunId);
+    expect(blocked.status).toBe("failed");
+    expect(blocked.error).toBe("SKILL_VERSION_UNAVAILABLE");
+    expect(blocked.skillVersionIds).toEqual([SV_A, SV_B]);
+    expect(calls, "no system prompt or partial skill set may reach the provider").toHaveLength(0);
+    const failedContext = blocked.steps.find(step => step.kind === "context_built");
+    expect(failedContext?.failureCode).toBe("SKILL_VERSION_UNAVAILABLE");
+    await asApp(ORG, c => c.query(
+      "UPDATE skills SET status='enabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_B]));
+    const next = await postMessage("Execute restored skill content");
+    expect(next.status).toBe(202);
+    await tick();
+    const restored = await readRun(next.agentRunId);
+    expect(restored.status).toBe("succeeded");
+    expect(restored.skillVersionIds).toEqual([SV_A, SV_B]);
+    expect(calls).toHaveLength(1);
+    const system = calls[0]?.body.messages?.find(message => message.role === "system")?.content;
+    expect(system).toContain("# Skill A\nordered first");
+    expect(system).toContain("# Skill B\nordered second");
+    expect((await readRun(queued.agentRunId)).status).toBe("failed");
+  });
+
   it("fails closed when a pinned Skill version is unreachable, rather than dropping it", async () => {
     await asApp(ORG, (c) => c.query(
       "UPDATE agents SET published_version_id=NULL WHERE id=$1", [AGENT],

@@ -21,7 +21,7 @@ export async function validateBoardSoakArtifact(report, sha, key = process.env.B
     const {ledger, runtime} = artifacts;
     const {verifyBoardSoakLedger, BOARD_SOAK_REQUIREMENTS: policy} = await tsImport(new URL('../../api/scripts/board-acceptance-ledger.ts', import.meta.url).href, import.meta.url);
     if (!verifyBoardSoakLedger(ledger, key) || ledger.sha !== sha || ledger.buildSha !== sha) failures.push('SOAK_SIGNED_LEDGER');
-    const identities = [runtime.runtimeBefore, runtime.runtimeAfter, report.runtimeIdentity];
+    const identities = [runtime.runtimeBefore, runtime.runtimeAfter, runtime.recoveryRuntimeAfter, report.runtimeIdentity];
     for (const identity of identities) {
       if (!identity || identity.sha !== sha || identity.buildSha !== sha || identity.dirty !== false
         || identity.method !== 'fresh-server-marker-and-built-chunk-hashes' || !identity.deploymentMarker || !identity.buildId
@@ -66,20 +66,20 @@ export async function validateBoardSoakArtifact(report, sha, key = process.env.B
         || group.some(({sample, projection}) => Math.abs(sample.latencyMs - Math.max(0, time(projection.observedAt) - firstSend)) > 1)) failures.push('SOAK_MEASURED_CONVERGENCE');
       previousRevision = revision;
     }
-    const recoveries = runtime.recoveries ?? [], events = runtime.transport ?? [];
-    const inWindow = event => time(event.at) >= time(ledger.startedAt) && time(event.at) <= time(ledger.finishedAt);
-    const disconnects = events.filter(event => event.type === 'disconnect' && inWindow(event));
-    if (recoveries.length !== 3 || new Set(recoveries.map(item => item.clientId)).size !== 3 || disconnects.length !== 3
-      || events.some(event => event.type === 'error' && inWindow(event))) failures.push('SOAK_RECOVERY_COUNT');
-    for (const recovery of recoveries) {
-      if (byId.get(recovery.clientId) !== 'viewer' || !(time(recovery.disconnectedAt) >= time(ledger.startedAt))
-        || !(time(recovery.reconnectedAt) > time(recovery.disconnectedAt)) || !(time(recovery.reconnectedAt) <= time(ledger.finishedAt))
-        || !(recovery.afterRevision > recovery.beforeRevision)
-        || !ledger.samples.some(sample => sample.clientId === recovery.clientId && sample.revision >= recovery.afterRevision && time(sample.at) >= time(recovery.reconnectedAt) && time(sample.at) - time(recovery.reconnectedAt) <= policy.maxSampleGapMs)
-        || !disconnects.some(event => event.clientId === recovery.clientId && time(event.at) >= time(recovery.disconnectedAt) && time(event.at) <= time(recovery.reconnectedAt))
-        || !events.some(event => event.type === 'sync' && event.clientId === recovery.clientId && event.revision >= recovery.afterRevision
-          && time(event.at) >= time(recovery.disconnectedAt) && time(event.at) <= time(recovery.reconnectedAt))) failures.push('SOAK_RECOVERY_EVIDENCE');
+    const recoveries = runtime.recoveries ?? [], events = runtime.transport ?? [], recoveryPhase=runtime.recoveryPhase;
+    const {verifyRecoveryPhase}=await tsImport(new URL('../e2e/support/board-soak-recovery-phase.ts',import.meta.url).href,import.meta.url);
+    if(!verifyRecoveryPhase(recoveryPhase,key,sha,ledger.signature,ledger.finishedAt,Math.max(...ledger.acknowledgements.map(ack=>ack.revision)),actors)
+      ||JSON.stringify(recoveryPhase?.recoveries)!==JSON.stringify(recoveries))failures.push('SOAK_RECOVERY_EVIDENCE');
+    const inMeasurement=event=>time(event.at)>=time(ledger.startedAt)&&time(event.at)<=time(ledger.finishedAt);
+    if(events.some(event=>(event.type==='disconnect'||event.type==='error')&&inMeasurement(event)))failures.push('SOAK_MEASUREMENT_INTERRUPTED');
+    const inRecovery=event=>time(event.at)>=time(recoveryPhase?.startedAt)&&time(event.at)<=time(recoveryPhase?.finishedAt);
+    const disconnects=events.filter(event=>event.type==='disconnect'&&inRecovery(event));
+    if(recoveries.length!==5||new Set(recoveries.map(item=>item.clientId)).size!==5||disconnects.length!==5
+      ||events.some(event=>event.type==='error'&&inRecovery(event)))failures.push('SOAK_RECOVERY_COUNT');
+    for(const recovery of recoveries){
+      if(!disconnects.some(event=>event.clientId===recovery.clientId&&time(event.at)>=time(recovery.disconnectedAt)&&time(event.at)<=time(recovery.reconnectedAt))
+        ||!events.some(event=>event.type==='sync'&&event.clientId===recovery.clientId&&event.revision>=recovery.afterRevision&&time(event.at)>=time(recovery.disconnectedAt)&&time(event.at)<=time(recovery.reconnectedAt)))failures.push('SOAK_RECOVERY_EVIDENCE');
     }
-  } catch (error) { failures.push(error instanceof Error ? error.message : 'SOAK_ARTIFACT_INVALID'); }
+  } catch (error) { failures.push(error instanceof Error && /^(?:LEDGER_KEY_REQUIRED|SOAK_REPORT_SCHEMA|SOAK_(?:ledger|runtime)_(?:REFERENCE|HASH))$/.test(error.message) ? error.message : 'SOAK_ARTIFACT_INVALID'); }
   return {valid: failures.length === 0, failures, score: null, budgetStatus: 'engineering-targets'};
 }

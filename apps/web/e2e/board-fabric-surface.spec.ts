@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { readBoardViewportSnapshot } from "./board-viewport-snapshot";
 
 /** Real services only: authenticated UI, HTTP Board lifecycle and the production collaboration route. */
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -52,6 +53,34 @@ test.afterEach(async () => {
   }
 });
 
+// Real Chromium DOM geometry, with the exact transient ACK-removal ordering
+// observed in CI #4984. This helper regression does not emulate Board services.
+test('viewport snapshot survives ACK banner removal between protocol reads', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-testid="board-sync-banner">Pending ACK</aside></main>`);
+  const banner = page.getByTestId('board-sync-banner');
+  expect(await readBoardViewportSnapshot(page)).toMatchObject({ bannerBounds: { x: 0, y: 64, width: 1280, height: 32 } });
+  expect(await banner.isVisible()).toBe(true);
+  // An ACK commits between the old isVisible and boundingBox protocol calls.
+  await banner.evaluate((element) => element.remove());
+  await expect(banner.boundingBox({ timeout: 100 })).rejects.toThrow(/Timeout/);
+  const snapshot = await readBoardViewportSnapshot(page);
+  expect(snapshot).toEqual({
+    bounds: { x: 0, y: 0, width: 1280, height: 800, top: 0, right: 1280, bottom: 800, left: 0 },
+    shellBounds: { x: 0, y: 0, width: 1280, height: 800, top: 0, right: 1280, bottom: 800, left: 0 },
+    regionBounds: { x: 0, y: 0, width: 1280, height: 800, top: 0, right: 1280, bottom: 800, left: 0 },
+    bannerBounds: null, viewport: { width: 1280, height: 800 },
+  });
+  await page.setViewportSize({ width: 1024, height: 768 });
+  expect(await readBoardViewportSnapshot(page)).toMatchObject({ bounds: { width: 1024, height: 768 }, regionBounds: { width: 1024, height: 768 }, bannerBounds: null });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  expect(await readBoardViewportSnapshot(page)).toMatchObject({ bounds: { width: 1280, height: 800 }, regionBounds: { width: 1280, height: 800 }, bannerBounds: null });
+  // Genuine geometry drift must remain observable rather than be normalized.
+  await page.getByTestId('board-fabric-surface').evaluate((element) => { (element as HTMLElement).style.width = '1275px'; });
+  expect((await readBoardViewportSnapshot(page)).bounds?.width).toBe(1275);
+});
+
+
 test("fabric surface viewport", async ({ page, request: api }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const token = await login(page);
@@ -86,16 +115,12 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(4);
   const assertViewportBounds = async () => {
-    const bounds = await surface.boundingBox();
+    // ACK may remove the optional banner at any time. Separate locator calls
+    // race that transition and can wait forever for an already removed banner.
+    const { bounds, shellBounds, regionBounds, bannerBounds, viewport } = await readBoardViewportSnapshot(page);
     expect(bounds).not.toBeNull();
     // Sync notices overlay the editor; pending/ACK transitions must never
     // resize the canvas or change its pointer coordinate origin.
-    const region = page.getByTestId("board-editor-region");
-    const shellBounds = await region.locator("..").boundingBox();
-    const regionBounds = await region.boundingBox();
-    const banner = page.getByTestId("board-sync-banner");
-    const bannerBounds = await banner.isVisible() ? await banner.boundingBox() : null;
-    const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
     for (const [actual, expected] of [
@@ -151,7 +176,9 @@ test("fabric surface viewport", async ({ page, request: api }) => {
         throw new Error("No exposed Fabric canvas point for wheel zoom");
       });
       await page.mouse.move(point.x, point.y);
+      await page.keyboard.down("ControlOrMeta");
       await page.mouse.wheel(0, deltaY);
+      await page.keyboard.up("ControlOrMeta");
       await page.waitForTimeout(75);
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     }
@@ -323,4 +350,47 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await expect(heightResizer).toHaveAttribute("aria-valuenow", String(previousHeight - 24));
   await expect(page.getByTestId("board-inspector-scroll-content")).toBeVisible();
   await capture("selected-inspector-narrow");
+});
+
+test("live drag attachments follow before one durable transform and survive undo/redo/reload", async ({ page, request: api }, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const token = await login(page);
+  const response = await apiRequest(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Live attachments ${randomUUID()}` });
+  const board = await response.json() as { id: string; lifecycleRevision: number };
+  boardToArchive = { ...board, token };
+  const a = randomUUID(), b = randomUUID(), edge = randomUUID();
+  const geometry = { x: 220, y: 220, width: 180, height: 140, rotation: 0 };
+  const object = (id: string, kind: "sticky" | "connector", value: typeof geometry) => ({ id, schemaVersion: 1, kind, geometry: value, text: id, style: {}, parentId: null, orderKey: id });
+  await apiRequest(api, token, "POST", `/v1/whiteboards/${board.id}/operations`, {
+    apiVersion: "2026-09-01", requestId: randomUUID(), boardId: board.id, expectedRevision: { epoch: 1, seq: 0 },
+    actor: { kind: "human", actorId: FULLSTACK_E2E.adminUserId, orgId: FULLSTACK_E2E.orgId, role: "owner", scopes: ["board:read", "board:write"], delegatedBy: null },
+    provenance: { source: "public-api", model: null, skill: null, sourceArtifactId: null, sourceRevision: null, layoutHash: null, inputObjectIds: [] },
+    commands: [{ type: "create", object: object(a, "sticky", geometry) }, { type: "create", object: object(b, "sticky", { ...geometry, x: 850, y: 380 }) },
+      { type: "create", object: { ...object(edge, "connector", { x: 400, y: 290, width: 450, height: 160, rotation: 0 }), connector: { from: a, to: b, fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "Attached", semanticRelation: "" } } }],
+  });
+  await page.goto(`/studio/board/${board.id}`);
+  await expect(page.getByTestId("board-sync-status")).toHaveAttribute("aria-label", /已同步/);
+  const surface = page.getByTestId("board-fabric-surface");
+  const canonical = () => page.getByTestId("board-a11y-mirror").locator(`li[data-object-id="${a}"]`).getAttribute("data-geometry");
+  const scenes = () => surface.evaluate(el => ({ items: JSON.parse(el.getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>, z: Number(el.getAttribute("data-viewport-zoom")), px: Number(el.getAttribute("data-viewport-pan-x")), py: Number(el.getAttribute("data-viewport-pan-y")), box: el.getBoundingClientRect().toJSON() as { x: number; y: number } }));
+  const before = await canonical(), initial = await scenes(), note = initial.items.find(item => item.id === a)!;
+  const x = initial.box.x + initial.px + (note.left + note.width / 2) * initial.z, y = initial.box.y + initial.py + (note.top + note.height / 2) * initial.z;
+  await page.mouse.click(x, y);
+  const toolbar = page.getByTestId("board-context-toolbar"), handle = page.getByTestId(`connector-handle-${a}-right`);
+  await expect(toolbar).toBeVisible();
+  const menuBefore = (await toolbar.boundingBox())!, handleBefore = (await handle.boundingBox())!;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 100, y + 90, { steps: 8 });
+  await expect.poll(async () => Math.abs((await toolbar.boundingBox())!.x - menuBefore.x) + Math.abs((await toolbar.boundingBox())!.y - menuBefore.y)).toBeGreaterThan(20);
+  expect(await canonical(), "live drag must not commit before pointer release").toBe(before);
+  expect(Math.abs((await handle.boundingBox())!.x - handleBefore.x)).toBeGreaterThan(50);
+  const current = await scenes(), moved = current.items.find(item => item.id === a)!, attached = current.items.find(item => item.id === edge)!;
+  expect(Math.abs(attached.left - moved.left - moved.width)).toBeLessThan(8);
+  await info.attach("live-drag-attachments", { body: await page.screenshot(), contentType: "image/png" });
+  await page.mouse.up(); await expect.poll(canonical).not.toBe(before); const after = await canonical();
+  await page.getByRole("button", { name: "撤销", exact: true }).click(); await expect.poll(canonical).toBe(before);
+  await page.getByRole("button", { name: "重做", exact: true }).click(); await expect.poll(canonical).toBe(after);
+  await expect(page.getByTestId("board-sync-status")).toHaveAttribute("aria-label", /已同步/);
+  await page.reload(); await expect(page.getByTestId("board-sync-status")).toHaveAttribute("aria-label", /已同步/);
+  await expect.poll(canonical).toBe(after);
+  await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(3);
 });

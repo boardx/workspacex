@@ -57,3 +57,15 @@ activate it through this lane. Plan B keeps the current CN baseline serving whil
 failed product gate is fixed; it may reuse already verified unchanged service layers in
 the build cache, but the final manifest still contains four images labelled with the
 new exact source revision. Plan B never waives `product` or `unknown` failures.
+
+### 签名治理收据的实时复核
+
+签名证明收据来源，不证明 GitHub 当前仍保持原策略。冻结标签、readiness 与 admission 均重新读取两个 environment、完整 deployment policies 和所有 active tag rules（含父组织规则）。公开字段、对象 ID、environment/ruleset `updated_at` 和规则集合必须与受保护的签名收据一致；缺少版本字段或发生漂移即 NOT_READY。只有 GitHub 明确按权限隐藏的 `bypass_actors` 可在上述一致性成立后取签名值，不能把缺失当空数组。
+
+原始 governance envelope 的 SHA-256 同时进入 host snapshot、readiness request digest 和 annotated tag。刷新收据导致摘要变化时，必须创建新的受控 attempt；不能修改已有冻结标签。镜像可复用，治理证明不可跨 attempt 伪装复用。此门控仅验证权限，不修改 GitHub 策略。
+
+### Exact main source CI admission
+
+`cn-main-source-admission.mjs` distinguishes PR merge obligations from main runtime obligations. A release requires one actual merged PR whose merge commit equals the source and whose base is this repository's main. The source tree must equal the locally recomputed merge/squash tree. PR CI at merge time uses the original `pr-green` reconstruction and the first-parent policy; runtime CI uses the exact source policy aggregates and deployment dependencies, including every literal matrix shard. Actual failures, missing checks, unsupported matrix shapes and unproven merge-queue provenance remain NOT_READY.
+
+Promotion never fetches missing Git objects: complete the offline closure during preparation; admission uses `GIT_NO_LAZY_FETCH=1` and fails on missing objects. Canonically ordered historical run/status identities, source runtime evidence and policy hashes are bound into the frozen tag. Changed evidence requires a new prepared admission. This contract does not prove a successful production release until runtime and browser acceptance complete.
