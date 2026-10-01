@@ -240,3 +240,20 @@ export function toRuntimeDefinition(def: ContentWorkflowDefinition): WorkflowDef
     })),
   };
 }
+
+/** W029 v2 requires the user's task; v1 remains immutable for existing runs. */
+export function problemToPrdTriggerV2Definition(): WorkflowDefinitionVersionInput {
+  const legacy = toRuntimeDefinition(PRODUCT_LINE_WORKFLOWS.find((def) => def.key === "problem-to-prd")!);
+  return {
+    ...legacy,
+    version: 2,
+    graphRef: graphRefOf(legacy, 2),
+    inputSchema: {
+      type: "object",
+      required: ["rawInput"],
+      properties: {
+        rawInput: { type: "string", title: "产品问题或需求", minLength: 1, maxLength: 2000 },
+      },
+    },
+  };
+}

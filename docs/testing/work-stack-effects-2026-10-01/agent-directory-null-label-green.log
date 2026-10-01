@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /workspace/agent-directory-null-label-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent/list-agent-directory.test.ts (15 tests) 17ms
+ ✓ tests/agent/agent-directory-controller-http.test.ts (8 tests) 19ms
+ ✓ tests/agent/agent-directory-repo-guard.test.ts (10 tests) 7ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  08:17:01
+   Duration  3.91s (transform 1.88s, setup 0ms, collect 2.37s, tests 43ms, environment 1ms, prepare 229ms)

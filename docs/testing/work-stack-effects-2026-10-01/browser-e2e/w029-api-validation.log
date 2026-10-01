@@ -1,0 +1,41 @@
+[stack-admission] load1=3.55 cores=5 perCore=0.71 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mupa6jna-95aac7b3-f5d5d4ce1b98 db=wsx_f5d5d4ce1b98207a4d35 compose=wsx-f5d5d4ce1b98207a4d35 pg=20566 redis=21566 api=24566 web=25566 sandbox=26566 model=27566 deep-agent=28566 asr=29566 vision=30566 loopback-sandbox=31566 mail=19566
+ Network wsx-f5d5d4ce1b98207a4d35_default  Creating
+ Network wsx-f5d5d4ce1b98207a4d35_default  Created
+ Container wsx-f5d5d4ce1b98207a4d35-postgres-1  Creating
+ Container wsx-f5d5d4ce1b98207a4d35-postgres-1  Created
+ Container wsx-f5d5d4ce1b98207a4d35-postgres-1  Starting
+ Container wsx-f5d5d4ce1b98207a4d35-postgres-1  Started
+ Container wsx-f5d5d4ce1b98207a4d35-postgres-1  Waiting
+ Container wsx-f5d5d4ce1b98207a4d35-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] db=wsx_f5d5d4ce1b98207a4d35 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ✓ tests/work-content/problem-to-prd-e2e.test.ts (2 tests) 83232ms
+   ✓ CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（W029）与白名单外发起（W030） > V4：D003 经 HTTP 发起 W029 → S064→S065→S068→S067→S162→S067 → G1–G4 批准 → PRD 工件恰好发布一次 + 通知发起人 2071ms
+   ✓ CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（W029）与白名单外发起（W030） > E3：D011 经 startInstance 发起 W030 → 403 workflow_not_allowed + allowlistHint(D003)，不创建实例；白名单内的 W029 照常 201 25479ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ✓ tests/work-content/problem-to-prd-real-loopback-e2e.test.ts (2 tests) 12064ms
+   ✓ W029 end-to-end on the real loopback model script (dashscope alias) > frame (and every later Skill stage) completes; gates approve through to a published PrdArtifact 1612ms
+ ✓ tests/work-content/problem-to-prd-trigger-v2.test.ts (4 tests) 21ms
+
+ Test Files  3 passed (3)
+      Tests  8 passed (8)
+   Start at  08:37:38
+   Duration  111.93s (transform 16.01s, setup 0ms, collect 10.65s, tests 95.32s, environment 10ms, prepare 1.18s)
+
+[db-isolation] db=wsx_f5d5d4ce1b98207a4d35 peak_connections=7
+[timing] bash /tmp/workstack-w029-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m15s
+  清理：2s
+  总计：2m17s

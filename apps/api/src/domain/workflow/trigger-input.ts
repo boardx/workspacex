@@ -2,7 +2,7 @@
  * WF03 —— trigger 输入按 Definition 的 inputSchema 校验（R3 第 2b 步）。纯函数、无 IO。
  *
  * inputSchema 是 JSON Schema 的对象子集：`required`（字符串数组）与 `properties.<name>.type`
- * （string / number / integer / boolean / object / array）。未声明 additionalProperties=false 时
+ * （string / number / integer / boolean / object / array）及字符串 minLength/maxLength。未声明 additionalProperties=false 时
  * 允许额外字段。只判这一子集——Definition 发布时就只写这一子集（运行面板按它渲染表单）。
  */
 export interface TriggerInputIssue {
@@ -35,6 +35,17 @@ export function validateTriggerInput(schema: Record<string, unknown>, input: Rec
     const type = TYPE_CHECKS.object!(prop) ? (prop as Record<string, unknown>).type : undefined;
     const check = typeof type === "string" ? TYPE_CHECKS[type] : undefined;
     if (check && !check(value)) issues.push({ path: name, message: `expected ${String(type)}` });
+    if (typeof value === "string" && TYPE_CHECKS.object!(prop)) {
+      const constraints = prop as Record<string, unknown>;
+      const length = Array.from(value).length;
+      for (const bound of ["minLength", "maxLength"] as const) {
+        const limit = constraints[bound];
+        if (typeof limit === "number" && Number.isSafeInteger(limit) && limit >= 0 &&
+            (bound === "minLength" ? length < limit : length > limit)) {
+          issues.push({ path: name, message: `${bound} ${limit}` });
+        }
+      }
+    }
   }
   return issues;
 }

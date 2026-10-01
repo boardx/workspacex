@@ -161,7 +161,7 @@ describe("W029 end-to-end on the real loopback model script (dashscope alias)", 
   });
 
   it("frame (and every later Skill stage) completes; gates approve through to a published PrdArtifact", async () => {
-    const r = await pm().post(C.startInstance.path.replace(":key", W029.key), { agentId: D003_AGENT, requestId: rid(), input: { problem: "客户反馈导入太难" } });
+    const r = await pm().post(C.startInstance.path.replace(":key", W029.key), { agentId: D003_AGENT, requestId: rid(), version: 1, input: { problem: "客户反馈导入太难" } });
     expect(r.status).toBe(201);
     const started = C.startInstance.out.parse(r.body);
     let p = WorkflowInstanceProjection.parse((await settled(started.instanceId)).body);

@@ -22,6 +22,7 @@ import {
 } from "@/lib/agent-directory";
 import { getSkillDetail, listSkills, type SkillListItem } from "@/lib/live-skill";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
+import { WorkflowRunEntry } from "@/components/workflow/workflow-lists";
 import { UNNAMED_WORKFLOW_LABEL, agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
 
 /**
@@ -366,6 +367,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
                 ))}
               </ul>
             )}
+            {ready ? <WorkflowRunEntry key={card.agentId} agentId={card.agentId} /> : null}
           </Section>
 
           <Section id="agent-detail-skills-h" testid="agent-detail-skills" icon={Sparkles} title="能用的技能">

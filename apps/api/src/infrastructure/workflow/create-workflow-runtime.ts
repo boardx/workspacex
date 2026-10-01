@@ -22,7 +22,7 @@ import type { RunHooks, RunInstanceDeps } from "../../application/workflow/run-i
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
 import type { WorkflowDefinitionVersionInput } from "@repo/contracts/workflow-runtime";
-import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../domain/work-content/product-workflow-definitions";
+import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition, problemToPrdTriggerV2Definition } from "../../domain/work-content/product-workflow-definitions";
 import { RESEARCH_WORKFLOW_DEFINITIONS } from "../../domain/work-content/definitions";
 import { toResearchRuntimeDefinition } from "../../domain/work-content/workflow-definition";
 import { toLinearGraph } from "./work-content-graphs";
@@ -68,6 +68,7 @@ export function builtInWorkflowDefinitions(): WorkflowDefinitionVersionInput[] {
     structuredClone(DEMO_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
     structuredClone(DEMO_APPROVAL_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
     ...PRODUCT_LINE_WORKFLOWS.map(toRuntimeDefinition),
+    problemToPrdTriggerV2Definition(),
     ...RESEARCH_WORKFLOW_DEFINITIONS.map(toResearchRuntimeDefinition),
   ];
 }
@@ -77,6 +78,7 @@ export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
     demoWorkflowGraph(),
     demoApprovalWorkflowGraph(),
     ...productWorkflowGraphs(),
+    { ...productWorkflowGraphs().find((graph) => graph.graphRef === "problem-to-prd:1")!, graphRef: "problem-to-prd:2" },
     ...RESEARCH_WORKFLOW_DEFINITIONS.map(toLinearGraph),
   ];
 }
@@ -142,7 +144,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
       publishArtifact: publishPrdArtifact,
       notify: prdPublishedNotifier(opts.content.notifications),
     });
-    graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef), prd];
+    graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef && g.graphRef !== "problem-to-prd:2"), prd, { ...prd, graphRef: "problem-to-prd:2" }];
   }
   const registry = new WorkflowGraphRegistry(graphs, defaultCommandWorkflowGraphs());
   const capability = new PgEffectCapabilityAuthority(db);
