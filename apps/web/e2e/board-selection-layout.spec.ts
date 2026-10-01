@@ -394,7 +394,8 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           return free / total;
         });
         expect(uncovered, "normal selection must leave at least 80% canvas uncovered").toBeGreaterThanOrEqual(.8);
-        for (const tool of ["sticky", "shape", "draw", "connector"]) {
+        await expect(page.getByTestId("board-add-connector")).toHaveCount(0);
+        for (const tool of ["sticky", "shape", "draw"]) {
           const button = page.getByTestId(`board-add-${tool}`);
           await expect(button).toBeVisible(); const target = await button.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);

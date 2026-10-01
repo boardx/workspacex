@@ -318,9 +318,14 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await page.keyboard.press("ArrowLeft");
   await expect(widthResizer).toHaveAttribute("aria-valuenow", String(previousWidth - 24));
   const previousHeight = Number(await heightResizer.getAttribute("aria-valuenow"));
+  const maxHeight = Number(await heightResizer.getAttribute("aria-valuemax"));
+  const minHeight = Number(await heightResizer.getAttribute("aria-valuemin"));
+  const expandedHeight = Math.min(maxHeight, previousHeight + 24);
   await heightResizer.focus();
   await page.keyboard.press("ArrowDown");
-  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(previousHeight - 24));
+  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(expandedHeight));
+  await page.keyboard.press("ArrowUp");
+  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(Math.max(minHeight, expandedHeight - 24)));
   await expect(page.getByTestId("board-inspector-scroll-content")).toBeVisible();
   await capture("selected-inspector-narrow");
 });
