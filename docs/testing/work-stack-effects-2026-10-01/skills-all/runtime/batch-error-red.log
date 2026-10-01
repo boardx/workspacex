@@ -11,10 +11,10 @@
  FAIL  tests/work-eval/eval-all-skills-execution-error.test.ts > a failed current execution cannot reuse prior gate counts or hide its missing report
 AssertionError: expected { stableId: 'S003', …(8) } to be null
 
-- Expected: 
+- Expected:
 null
 
-+ Received: 
++ Received:
 Object {
   "baselinePassed": null,
   "decidedAt": "2026-10-01T11:58:47.139Z",
@@ -78,4 +78,3 @@ Object {
       Tests  1 failed (1)
    Start at  11:58:41
    Duration  5.38s (transform 3.17s, setup 0ms, collect 4.14s, tests 234ms, environment 0ms, prepare 99ms)
-

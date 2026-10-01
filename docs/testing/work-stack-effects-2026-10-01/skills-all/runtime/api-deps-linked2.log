@@ -79,7 +79,7 @@ AssertionError: expected '' to contain 'grader implementation changed'
     170|     expect(fresh.stdout).toContain("grader implementation changed");
        |                          ^
     171|   });
-    172| 
+    172|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
 
@@ -118,7 +118,7 @@ AssertionError: expected 'node:net:2145\n      const error = ne…' to contain '
     238|     expect(r.stdout + r.stderr).toContain("galaxy-aliases.json");
        |                                 ^
     239|   });
-    240| 
+    240|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
 
@@ -257,7 +257,7 @@ Node.js v24.19.0
     125|     const ok = runCli(suiteDir, ["--manifest-eval-suite-id", "S003"]);
     126|     expect(ok.status, ok.stderr).toBe(0);
        |                                  ^
-    127| 
+    127|
     128|     const tmp = mkdtempSync(join(tmpdir(), "ev01-"));
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
@@ -266,4 +266,3 @@ Node.js v24.19.0
       Tests  6 failed | 85 passed (91)
    Start at  11:56:32
    Duration  17.83s (transform 3.53s, setup 0ms, collect 9.09s, tests 5.70s, environment 2ms, prepare 684ms)
-

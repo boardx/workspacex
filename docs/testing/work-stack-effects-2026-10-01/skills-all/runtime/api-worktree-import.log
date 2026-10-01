@@ -4,8 +4,8 @@
 
  Test Files  no tests
       Tests  no tests
-   Start at  11:56:10
-   Duration  258ms (transform 123ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms)
+   Start at  11:55:40
+   Duration  336ms (transform 169ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
@@ -14,6 +14,3 @@ Error: Failed to load url zod (resolved id: /workspace/workspacex/node_modules/.
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
 Serialized Error: { code: 'ERR_LOAD_URL' }
-
-
-
