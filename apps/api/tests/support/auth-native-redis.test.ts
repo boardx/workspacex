@@ -22,7 +22,7 @@ it("fails closed for unavailable native Redis without starting Docker", () => {
   vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error("connection refused"); });
   expect(() => ensureRedis()).toThrow("redis-cli PING failed");
   expect(execFileSync).toHaveBeenCalledOnce();
-  expect(vi.mocked(execFileSync).mock.calls[0][0]).toBe("redis-cli");
+  expect(vi.mocked(execFileSync).mock.calls[0]?.[0]).toBe("redis-cli");
 });
 
 it("rejects a non-PONG response instead of treating any output as ready", () => {
@@ -35,7 +35,9 @@ it("rejects a non-PONG response instead of treating any output as ready", () => 
 it("keeps the existing Docker readiness path when opt-in is absent", () => {
   vi.stubEnv("WORKSPACEX_NATIVE_REDIS", "0");
   ensureRedis();
-  const [command, args] = vi.mocked(execFileSync).mock.calls[0];
+  const call = vi.mocked(execFileSync).mock.calls[0];
+  if (!call) throw new Error("Redis readiness probe was not called");
+  const [command, args] = call;
   expect(command).toBe("docker");
   expect(args).toContain("exec");
   expect(args?.slice(-5)).toEqual(["exec", "-T", "redis", "redis-cli", "PING"]);
