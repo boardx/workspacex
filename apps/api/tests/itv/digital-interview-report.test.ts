@@ -104,7 +104,7 @@ describe("F06 digital interview report contract", () => {
 
     expect(assessInterviewReportAnalysis(report)).toEqual({
       ok: false,
-      missing: ["cross_answer_synthesis", "decision_implication", "boundary_or_counterevidence"],
+      missing: ["cross_answer_synthesis", "decision_implication", "boundary_or_counterevidence", "verifiable_action"],
     });
   });
 });
