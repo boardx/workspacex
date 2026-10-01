@@ -166,6 +166,7 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
         || a.top + a.height <= b.top + 1 || b.top + b.height <= a.top + 1));
     }).toBe(true);
     const sticky = content.find(row => row.kind === 'sticky')!, tile = content.find(row => row.kind === 'card')!;
+    await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 4 个对象');
     await connectByHandles(page, sticky.id, tile.id);
     const mixed = await canonicalRows(page);
     expect(mixed).toHaveLength(5); expect(connectorsBound(mixed)).toBe(true);
