@@ -4,7 +4,7 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('producer',str(Path(__file__).with_name('canonical-evidence-producer.py')));m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 REAL_TEMP=tempfile.TemporaryDirectory
 class ProducerTests(unittest.TestCase):
- def exercise(self,wrongsource=False,wrongruntime=False,timeout=False,unsafe=False):
+ def exercise(self,wrongsource=False,wrongruntime=False,timeout=False,unsafe=False,on_communicate=None,on_removed=None):
   with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as directory:
    root=Path(directory);versions={'psycopg':'3.3.4','langgraph':'1.2.11','langgraph-checkpoint-postgres':'3.1.2'};names={'apps/deep-agent-service/src/deep_agent_service/'+n for n in ['memory_deployment.py','postgres_checkpointer.py','self_hosted_runtime.py']}|{'apps/deep-agent-service/pyproject.toml','apps/deep-agent-service/uv.lock'}
    raw={n:b'exact-committed-fixture' for n in names};manifest={'sourceSha':'a'*40,'filesSha256':{n:hashlib.sha256(v).hexdigest() for n,v in raw.items()},'expectedPackageVersions':versions}
@@ -17,13 +17,14 @@ class ProducerTests(unittest.TestCase):
     calls.append(args)
     if args[:2]==['image','inspect']:value=[{'Id':p['imageId'],'Os':'linux','Config':{'Labels':{'org.opencontainers.image.revision':p['runtimeSourceSha']}}}]
     elif args[0]=='inspect':value=[{'Id':'owned','Config':{'Labels':{'wsx.rehearsal.owner':owner}}}]
-    elif args[0]=='rm':removed.append(args[-1]);return subprocess.CompletedProcess(args,0,b'',b'')
+    elif args[0]=='rm':removed.append(args[-1]);on_removed and on_removed(args[-1]);return subprocess.CompletedProcess(args,0,b'',b'')
     elif args[:2]==['ps','-aq']:return subprocess.CompletedProcess(args,0,b'',b'')
     else:raise AssertionError(args)
     return subprocess.CompletedProcess(args,0,json.dumps(value).encode(),b'')
    class Process:
     returncode=None if timeout else 0
     def communicate(self,*a,**kw):
+     if on_communicate:on_communicate()
      if timeout:raise subprocess.TimeoutExpired('docker',180)
      proof={'candidateSha':'d'*40 if wrongruntime and number==2 else p['candidateSha'],'candidateUvLockSha256':manifest['filesSha256']['apps/deep-agent-service/uv.lock'],'packageVersions':versions,'sourceQueriesAttempted':0,'networkConnectionsAttempted':0}
      return json.dumps(proof).encode(),b''

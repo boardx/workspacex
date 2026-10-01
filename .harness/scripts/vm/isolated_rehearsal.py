@@ -90,7 +90,7 @@ class ProcessAdapter:
     if process.returncode!=0:raise UnknownOutcome('ADAPTER_PROCESS_FAILED')
    except subprocess.TimeoutExpired:
     os.killpg(process.pid,signal.SIGTERM)
-    try:process.communicate(timeout=30)
+    try:process.communicate(timeout=180)
     except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);process.communicate()
     raise UnknownOutcome('ADAPTER_PROCESS_TIMEOUT') from None
    if len(output)>1048576:raise ValueError('RECEIPT_LIMIT')
