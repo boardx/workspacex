@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import type { agentRole } from "@repo/contracts";
+import type { z } from "zod";
 import { Plus, RefreshCw, Wrench, X } from "lucide-react";
 import {
   listThreadMounts,
@@ -55,6 +57,8 @@ import { useChatPopoverSlot } from "./chat-popover-coordinator";
  * mention 触发时，额外调 `onMentionMounted`，让 composer 把 `#query` 从
  * 输入框正文里删掉——这是**唯一**跨组件的新增耦合面。
  */
+type PendingRoleSkill = z.infer<typeof agentRole.PendingSkillBinding>;
+
 export function ChatSkillMountPanel({
   threadId,
   actingAgentId,
@@ -140,7 +144,7 @@ export function ChatSkillMountPanel({
   const liveScope = React.useRef(roleScopeKey);
   liveScope.current = roleScopeKey;
   const [cleaning, setCleaning] = React.useState(false);
-  const [roleScope, setRoleScope] = React.useState<{ key: string; versions: ReadonlyMap<string, ReadonlySet<string>> } | null>(null);
+  const [roleScope, setRoleScope] = React.useState<{ key: string; versions: ReadonlyMap<string, ReadonlySet<string>>; pending: readonly PendingRoleSkill[] } | null>(null);
   const loadPool = React.useCallback(async () => {
     const key = roleScopeKey;
     const [items, profile] = await Promise.all([
@@ -164,7 +168,8 @@ export function ChatSkillMountPanel({
     } else {
       for (const item of enabled) if (item.currentVersionId) addVersion(item.skillId, item.currentVersionId);
     }
-    setRoleScope({ key, versions });
+    const pendingBindings = profile ? (profile as typeof profile & { pendingSkillBindings?: readonly PendingRoleSkill[] }).pendingSkillBindings ?? [] : [];
+    setRoleScope({ key, versions, pending: pendingBindings });
     setPool(profile ? enabled.filter((item) => versions.has(item.skillId)) : enabled);
   }, [actingAgentId, orgId, roleScopeKey]);
   const scopedMounts = actingAgentId ? (roleScope?.key === roleScopeKey ? mounts.filter((entry) => roleScope.versions.get(entry.skillId)?.has(entry.versionId)) : []) : mounts;
@@ -324,6 +329,8 @@ export function ChatSkillMountPanel({
 
   const currentPool = roleScope?.key !== roleScopeKey ? [] : pool;
   const visiblePool = mentionQuery ? currentPool.filter((item) => item.name.includes(mentionQuery)) : currentPool;
+  const rolePending = actingAgentId && roleScope?.key === roleScopeKey ? roleScope.pending : [];
+  const visiblePending = mentionQuery ? rolePending.filter((item) => (item.displayName ?? item.stableName).includes(mentionQuery) || item.stableName.includes(mentionQuery)) : rolePending;
 
   /** `openRequest` 变化 ⇒ 打开一次（见该 prop 头注）。 */
   const lastOpenRequestRef = React.useRef(openRequest);
@@ -484,6 +491,11 @@ export function ChatSkillMountPanel({
       style={headless ? { maxHeight: pickerMaxHeight } : undefined}
       data-testid="chat-skill-mount-picker"
     >
+      {actingAgentId && roleScope?.key === roleScopeKey ? (
+        <span className="px-1.5 py-1 text-10 text-muted-foreground" data-testid="chat-skill-role-counts" data-available-count={currentPool.length} data-pending-count={rolePending.length}>
+          可用 {currentPool.length} · 待验证 {rolePending.length}
+        </span>
+      ) : null}
       {mentionQuery ? (
         <span className="px-1.5 text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
           {mentionTriggerChar} {mentionQuery}
@@ -532,6 +544,18 @@ export function ChatSkillMountPanel({
           </Button>
         ))
       )}
+      {visiblePending.length > 0 ? (
+        <div className="min-h-0 overflow-y-auto overscroll-contain" data-testid="chat-skill-pending-options">
+          {visiblePending.map((item) => (
+            <button key={`${item.stableId}/${item.contentDigest}`} type="button" disabled
+              data-testid={`chat-skill-pending-${item.stableName}`} data-skill-stable-id={item.stableId} data-skill-stable-name={item.stableName}
+              className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-muted-foreground">
+              <span className="max-w-full truncate text-11 font-medium">{item.displayName ?? item.stableName}</span>
+              <span className="text-10">{item.reason === "missing_version" ? "版本缺失" : "待验证"} · 暂不可使用</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <Button
         size="xs"
         variant="ghost"
