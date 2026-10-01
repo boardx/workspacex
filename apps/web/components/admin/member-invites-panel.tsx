@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminModal, Toast } from "./panel";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure } from "@/lib/design-failure";
 import { buildActivationLink } from "@/lib/activation-link";
 import {
   listOrgMembers, listOrgInvites, resendOrgInvite,
@@ -65,7 +66,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     } catch (err) {
       if (!current()) return;
       // 失败就说失败，不退回 mock 名单——一屏看起来正常但人是假的，比一条错误消息危险得多。
-      setLoadError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+      setLoadError(err instanceof ApiError && err.status === 404 ? "这个组织找不到了，请重新选择组织。" : describeFailure(err));
       return;
     }
     try {
@@ -80,7 +81,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         setInvites(null);
         return;
       }
-      setLoadError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+      setLoadError(err instanceof ApiError && err.status === 404 ? "这个组织找不到了，请重新选择组织。" : describeFailure(err));
     }
   }, [orgId]);
 
@@ -97,7 +98,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
       await load();
     } catch (err) {
       if (!mounted.current) return;
-      setToast(err instanceof ApiError ? `重发失败：${err.reasonCode ?? err.status}` : "重发失败");
+      setToast(err instanceof ApiError && err.status === 404 ? "这条邀请找不到了，请刷新成员列表。" : `重发失败：${describeFailure(err)}`);
     } finally {
       if (mounted.current) setBusyId(null);
     }

@@ -212,3 +212,30 @@ it("旧组织重发完成后不向新组织显示链接或重新载入", async (
   expect(screen.queryByText(/已对 chenmo/)).not.toBeInTheDocument();
   expect(screen.queryByDisplayValue(/old-org-link/)).not.toBeInTheDocument();
 });
+
+it.each(['members', 'invites'])('%s 读取错误显示人话而不暴露内部码', async endpoint => {
+  fetchMock.mockImplementation((url: string, init?: RequestInit) => String(url).includes(`/${endpoint}`)
+    ? Promise.resolve(jsonResponse({ reasonCode: "INTERNAL_ORG_SERVICE_FAILURE" }, 500))
+    : routed()(url, init));
+  render(<MemberInvitesPanel />);
+  const panel = await screen.findByTestId("admin-members-load-failed");
+  expect(panel).toHaveTextContent("服务器出错了，稍后再试一次");
+  expect(panel).not.toHaveTextContent("INTERNAL_ORG_SERVICE_FAILURE");
+  expect(panel).not.toHaveTextContent("http_500");
+});
+
+it("成员404错误提示重新选择组织", async () => {
+  fetchMock.mockResolvedValue(jsonResponse({ reasonCode: "ORG_NOT_FOUND" }, 404));
+  render(<MemberInvitesPanel />);
+  expect(await screen.findByTestId("admin-members-load-failed")).toHaveTextContent("这个组织找不到了，请重新选择组织。");
+});
+
+it.each([500, 404])('重发%s错误显示可操作文案而不暴露内部码', async status => {
+  fetchMock.mockImplementation(routed({ invites: [invite()], resend: () => jsonResponse({ reasonCode: "INVITE_INTERNAL_FAILURE" }, status) }));
+  render(<MemberInvitesPanel />);
+  await screen.findByText("chenmo@x.test");
+  fireEvent.click(screen.getByTestId("admin-member-resend-inv-1"));
+  const expected = status === 404 ? "这条邀请找不到了，请刷新成员列表。" : "重发失败：服务器出错了，稍后再试一次";
+  await screen.findByText(expected);
+  expect(screen.getByTestId("admin-members-toast")).not.toHaveTextContent("INVITE_INTERNAL_FAILURE");
+});
