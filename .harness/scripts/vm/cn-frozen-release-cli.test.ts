@@ -16,21 +16,21 @@ function fixture(compatible = true) {
  writeFileSync(join(dir,'.github/workflows/promote-cn-production.yml'),compatible?'# CN_FROZEN_RELEASE_DISPATCHER_V1\n':'# historical dispatcher\n');writeFileSync(join(dir,'.harness/scripts/vm/cn-frozen-release-identity.mjs'),readFileSync(helper));git('add','.');git('commit','-qm','frozen compatible candidate');const source=git('rev-parse','HEAD');
  writeFileSync(join(dir,'new-main'),'later');git('add','.');git('commit','-qm','main advances');const main=git('rev-parse','HEAD');git('update-ref','refs/remotes/origin/main',main);git('update-ref','refs/remotes/origin/main-cn',baseline);git('checkout','-q','--detach',source);
  const attempt='gha-fixture-1',tag=releaseTag(source,attempt),hex='c'.repeat(64),repo='boardx/workspacex';
- const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,'sha256:'+hex])),devapp:{status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,source])),browserAccepted:true,evidenceSha256:hex,workflowRunId:55}};
- const binding={releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
+ const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,'sha256:'+hex])),devapp:{status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,source])),browserAccepted:true,evidenceSha256:hex,workflowRunId:55}};
+ const binding={releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
  git('tag','-a',tag,'-m',JSON.stringify(frozenTagBinding(binding)),source);const tagSha=git('rev-parse','refs/tags/'+tag);
  const checks=['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required'].map(name=>({name,head_sha:source,status:'completed',conclusion:'success',app:{slug:'github-actions'}}));
- const env=(review:boolean)=>({protection_rules:review?[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
+ const env=(review:boolean)=>({id:review?10:11,updated_at:'2026-10-01T00:00:00Z',protection_rules:review?[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
  const pattern={ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}};
  const maps:Record<string,unknown>={
   ["apps/github-actions"]:{id:1,slug:"github-actions"},
-  [`repos/${repo}/rulesets?includes_parents=true&per_page=100&page=1`]:[{id:1,target:'tag',enforcement:'active'},{id:2,target:'tag',enforcement:'active'}],
-  [`repos/${repo}/rulesets/1`]:{target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'}]},
-  [`repos/${repo}/rulesets/2`]:{target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'},{type:'deletion'}]},
+  [`repos/${repo}/rulesets?includes_parents=true&per_page=100&page=1`]:[{id:1,target:'tag',enforcement:'active',source_type:'Repository',source:repo},{id:2,target:'tag',enforcement:'active',source_type:'Repository',source:repo}],
+  [`repos/${repo}/rulesets/1`]:{id:1,source_type:'Repository',source:repo,updated_at:'2026-10-01T00:00:00Z',target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'}]},
+  [`repos/${repo}/rulesets/2`]:{id:2,source_type:'Repository',source:repo,updated_at:'2026-10-01T00:00:00Z',target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'},{type:'deletion'}]},
   [`repos/${repo}/environments/production-cn-promotion`]:env(true),
   [`repos/${repo}/environments/production-cn`]:env(false),
-  [`repos/${repo}/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1`]:{total_count:2,branch_policies:[{type:'branch',name:'main'},{type:'tag',name:'cn-prepared-*'}]},
-  [`repos/${repo}/environments/production-cn/deployment-branch-policies?per_page=100&page=1`]:{total_count:3,branch_policies:[{type:'branch',name:'main'},{type:'branch',name:'main-cn'},{type:'tag',name:'cn-prepared-*'}]},
+  [`repos/${repo}/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1`]:{total_count:2,branch_policies:[{id:1,type:'branch',name:'main'},{id:2,type:'tag',name:'cn-prepared-*'}]},
+  [`repos/${repo}/environments/production-cn/deployment-branch-policies?per_page=100&page=1`]:{total_count:3,branch_policies:[{id:1,type:'branch',name:'main'},{id:2,type:'branch',name:'main-cn'},{id:3,type:'tag',name:'cn-prepared-*'}]},
   [`repos/${repo}/git/ref/heads/main-cn`]:{object:{sha:baseline}},
   [`repos/${repo}/commits/${source}/check-runs?filter=latest&per_page=100&page=1`]:{total_count:checks.length,check_runs:checks},
   [`repos/${repo}/commits/${source}/statuses?per_page=100&page=1`]:[],
@@ -48,9 +48,16 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
  it('accepts actual ancestor candidate/tag after main advances without build or mutation',()=>{const f=fixture();expect(f.source).not.toBe(f.main);const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
  it('accepts root-verified governance adapter when workflow token cannot see bypass fields',()=>{
   const f=fixture(),p='repos/boardx/workspacex';
-  (f.snapshot as any).governance={schemaVersion:1,kind:'governance',repository:'boardx/workspacex',sourceSha:f.source,attemptId:'gha-fixture-1',observedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+300000).toISOString(),governance:{promotion:f.maps[p+'/environments/production-cn-promotion'],promotionPolicies:(f.maps[p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies,activation:f.maps[p+'/environments/production-cn'],activationPolicies:(f.maps[p+'/environments/production-cn/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies,tagRules:[f.maps[p+'/rulesets/1'],f.maps[p+'/rulesets/2']]}};
-  delete f.maps[p+'/rulesets?includes_parents=true&per_page=100&page=1'];delete f.maps[p+'/rulesets/1'];delete f.maps[p+'/rulesets/2'];
+  (f.snapshot as any).governance={schemaVersion:1,kind:'governance',repository:'boardx/workspacex',sourceSha:f.source,attemptId:'gha-fixture-1',observedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+300000).toISOString(),governance:{promotion:structuredClone(f.maps[p+'/environments/production-cn-promotion']),promotionPolicies:(f.maps[p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies,activation:structuredClone(f.maps[p+'/environments/production-cn']),activationPolicies:(f.maps[p+'/environments/production-cn/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies,tagRules:structuredClone([f.maps[p+'/rulesets/1'],f.maps[p+'/rulesets/2']])}};
+  delete (f.maps[p+'/rulesets/1'] as any).bypass_actors;delete (f.maps[p+'/rulesets/2'] as any).bypass_actors;
   expect(f.run().status).toBe(0);
+  const envkey=p+'/environments/production-cn-promotion',rulekey=p+'/rulesets/1';
+  const oldenv=structuredClone(f.maps[envkey]),oldrule=structuredClone(f.maps[rulekey]);
+  for(const patch of [{updated_at:'2026-10-01T00:00:01Z'},{updated_at:undefined},{id:99},{protection_rules:[]}]){f.maps[envkey]={...(oldenv as object),...patch};expect(f.run().status).toBe(3);}f.maps[envkey]=oldenv;
+  for(const patch of [{updated_at:'2026-10-01T00:00:01Z'},{bypass_actors:[{actor_id:1}]},{rules:[]}]){f.maps[rulekey]={...(oldrule as object),...patch};expect(f.run().status).toBe(3);}f.maps[rulekey]=oldrule;
+  const summary=p+'/rulesets?includes_parents=true&per_page=100&page=1',oldsummary=f.maps[summary];f.maps[summary]=[];expect(f.run().status).toBe(3);f.maps[summary]=oldsummary;
+  const result=f.run(),request=JSON.parse(result.stdout.split('CN_FROZEN_RELEASE_IDENTITY_JSON=')[1]).requestSha256;
+  (f.snapshot as any).governanceReceiptSha256='d'.repeat(64);expect(f.run({EXPECTED_REQUEST_SHA256:request}).status).toBe(3);(f.snapshot as any).governanceReceiptSha256='c'.repeat(64);
   (f.snapshot as any).governance.attemptId='other';expect(f.run().status).toBe(3);
  });
  it('rejects changed attestation and incomplete actual checks before approval',()=>{const f=fixture(),key=`repos/boardx/workspacex/git/tags/${f.tagSha}`;const old=f.maps[key];f.maps[key]={tag:f.tag,object:{type:'commit',sha:f.source},message:'present-only'};expect(f.run().status).toBe(3);expect(f.run({GITHUB_REF:'refs/heads/main'},'freeze-tag').status).toBe(3);f.maps[key]=old;f.maps[`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`]={total_count:101,check_runs:[]};expect(f.run().status).toBe(3)});

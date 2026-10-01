@@ -18,7 +18,7 @@ export function validateDispatchIdentity(v) {
  return {repository:v.repository,runId:v.runId,runAttempt:v.runAttempt,workflowSha:v.workflowSha,workflowRef:v.workflowRef,releaseSourceSha:v.releaseSourceSha,releaseTag:tag,expectedMainCnSha:v.expectedMainCnSha,attemptId:v.attemptId};
 }
 export function validateGitHubEvidence(identity,snapshot,facts) {
- if(snapshot.schemaVersion!==1||snapshot.releaseSourceSha!==identity.releaseSourceSha||snapshot.attemptId!==identity.attemptId||!digest.test(snapshot.receiptSha256??'')||!digest.test(snapshot.manifestSha256??'')||!digest.test(snapshot.baselineSha256??'')||services.some(k=>!/^sha256:[a-f0-9]{64}$/.test(snapshot.images?.[k]??'')))fail('FROZEN_RELEASE_PREPARED_BINDING');
+ if(snapshot.schemaVersion!==1||snapshot.releaseSourceSha!==identity.releaseSourceSha||snapshot.attemptId!==identity.attemptId||!digest.test(snapshot.receiptSha256??'')||!digest.test(snapshot.manifestSha256??'')||!digest.test(snapshot.baselineSha256??'')||!digest.test(snapshot.governanceReceiptSha256??'')||services.some(k=>!/^sha256:[a-f0-9]{64}$/.test(snapshot.images?.[k]??'')))fail('FROZEN_RELEASE_PREPARED_BINDING');
  const d=snapshot.devapp,r=facts.devappRun;
  if(d?.status!=='passed'||d.sourceSha!==identity.releaseSourceSha||d.browserAccepted!==true||!digest.test(d.evidenceSha256??'')||!Number.isSafeInteger(d.workflowRunId)||d.workflowRunId<=0||services.some(k=>d.runtimeSourceShas?.[k]!==identity.releaseSourceSha))fail('FROZEN_RELEASE_DEVAPP_RECEIPT');
  if(d.workflowRunAttempt!==undefined&&r?.run_attempt!==d.workflowRunAttempt)fail('FROZEN_RELEASE_DEVAPP_GITHUB_ATTEMPT');
@@ -28,7 +28,7 @@ export function validateGitHubEvidence(identity,snapshot,facts) {
  checks.push(...facts.contexts.map(c=>statusContextToCheck(c.context,c.state)));
  const verdict=classifyChecks(checks);
  if(verdict.blocked.length||verdict.changes.length||verdict.waitingCi.length)fail('FROZEN_RELEASE_CI_NOT_READY');
- return { ...identity, receiptSha256:snapshot.receiptSha256,manifestSha256:snapshot.manifestSha256,baselineSha256:snapshot.baselineSha256,images:snapshot.images,devappEvidenceSha256:d.evidenceSha256,devappWorkflowRunId:d.workflowRunId };
+ return { ...identity, receiptSha256:snapshot.receiptSha256,governanceReceiptSha256:snapshot.governanceReceiptSha256,manifestSha256:snapshot.manifestSha256,baselineSha256:snapshot.baselineSha256,images:snapshot.images,devappEvidenceSha256:d.evidenceSha256,devappWorkflowRunId:d.workflowRunId };
 }
 export function validateTagGovernance(v) {
  const env=(e,policies,branches,review)=>{
@@ -72,17 +72,48 @@ export function validateGovernanceReceipt(v,identity,now=Date.now()) {
  if(v?.schemaVersion!==1||v.kind!=="governance"||v.repository!==identity.repository||v.sourceSha!==identity.releaseSourceSha||v.attemptId!==identity.attemptId||!Number.isFinite(Date.parse(v.observedAt))||!Number.isFinite(Date.parse(v.expiresAt))||Date.parse(v.observedAt)>now||Date.parse(v.expiresAt)<=now||Date.parse(v.expiresAt)-Date.parse(v.observedAt)>3600000)fail("FROZEN_RELEASE_GOVERNANCE_RECEIPT");
  validateTagGovernance(v.governance);
 }
+// A signature authenticates a past observation; it never replaces live policy reads.
+const canonical=v=>JSON.stringify(sortObject(v));
+function sortObject(v) {
+ if(Array.isArray(v))return v.map(sortObject);
+ if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,sortObject(v[k])]));
+ return v;
+}
+export function validateLiveGovernance(signed,live) {
+ validateTagGovernance(signed);
+ const versioned=(a,b)=>{
+  if(!Number.isSafeInteger(a?.id)||a.id<=0||a.id!==b?.id||!Number.isFinite(Date.parse(a.updated_at))||a.updated_at!==b.updated_at)fail('FROZEN_RELEASE_GOVERNANCE_VERSION');
+ };
+ for(const key of ['promotion','activation']){versioned(signed[key],live[key]);if(canonical(signed[key])!==canonical(live[key]))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');}
+ for(const key of ['promotionPolicies','activationPolicies']){
+  const order=rows=>{if(!Array.isArray(rows)||rows.some(r=>!Number.isSafeInteger(r.id)||r.id<=0)||new Set(rows.map(r=>r.id)).size!==rows.length)fail('FROZEN_RELEASE_GOVERNANCE_POLICY_ID');return [...rows].sort((a,b)=>a.id-b.id);};
+  if(canonical(order(signed[key]))!==canonical(order(live[key])))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');
+ }
+ if(!Array.isArray(live.tagRules)||!Array.isArray(signed.tagRules))fail('FROZEN_RELEASE_GOVERNANCE_RULES');
+ const key=r=>`${r.source_type}:${r.source}:${r.id}`;
+ const prior=new Map(signed.tagRules.map(r=>[key(r),r]));
+ if(prior.size!==signed.tagRules.length||new Set(live.tagRules.map(key)).size!==live.tagRules.length||prior.size!==live.tagRules.length)fail('FROZEN_RELEASE_GOVERNANCE_RULE_SET');
+ const completed=live.tagRules.map(r=>{
+  const p=prior.get(key(r));versioned(p,r);
+  if(!Array.isArray(p.bypass_actors))fail('FROZEN_RELEASE_TAG_RULES_VISIBILITY');
+  const a={...p},b={...r};delete a.bypass_actors;delete b.bypass_actors;
+  if(canonical(a)!==canonical(b)||(Object.hasOwn(r,'bypass_actors')&&canonical(r.bypass_actors)!==canonical(p.bypass_actors)))fail('FROZEN_RELEASE_GOVERNANCE_CHANGED');
+  // GitHub documents this one field as hidden from callers without ruleset write access.
+  return {...r,bypass_actors:p.bypass_actors};
+ });
+ validateTagGovernance({...live,tagRules:completed});
+}
 function governance(repo,snapshot,identity) {
  const prefix=`repos/${repo}`;
  const issuer=gh('apps/github-actions');
  if(issuer.slug!=='github-actions'||!Number.isSafeInteger(issuer.id)||issuer.id<=0)fail('FROZEN_RELEASE_NATIVE_APP_IDENTITY');
- if(snapshot.governance){validateGovernanceReceipt(snapshot.governance,identity);return issuer.id;}
- const rules=pages(`${prefix}/rulesets?includes_parents=true`).filter(v=>v.target==='tag'&&v.enforcement==='active').map(v=>{const path=v.source_type==='Organization'&&v.source==='boardx'?`orgs/boardx/rulesets/${v.id}`:`${prefix}/rulesets/${v.id}`;return gh(path);});
- const v={promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};validateTagGovernance(v);return issuer.id;
+ if(snapshot.governance)validateGovernanceReceipt(snapshot.governance,identity);
+ const rules=pages(`${prefix}/rulesets?includes_parents=true`).filter(v=>v.target==='tag'&&v.enforcement==='active').map(v=>{if(!Number.isSafeInteger(v.id)||v.id<=0)fail('FROZEN_RELEASE_GOVERNANCE_RULE_OWNER');const path=v.source_type==='Organization'&&v.source==='boardx'?`orgs/boardx/rulesets/${v.id}`:v.source_type==='Repository'&&v.source===repo?`${prefix}/rulesets/${v.id}`:null;if(!path)fail('FROZEN_RELEASE_GOVERNANCE_RULE_OWNER');return gh(path);});
+ const v={promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};if(snapshot.governance)validateLiveGovernance(snapshot.governance.governance,v);else validateTagGovernance(v);return issuer.id;
 }
 export function frozenTagBinding(binding) {
- const {releaseSourceSha,attemptId,receiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
- return {schemaVersion:1,releaseSourceSha,attemptId,receiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId};
+ const {releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
+ return {schemaVersion:1,releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId};
 }
 export function validateFrozenTag(tagObject,tag,binding) {
  if(tagObject.tag!==tag||tagObject.object?.type!=='commit'||tagObject.object?.sha!==binding.releaseSourceSha||tagObject.message!==JSON.stringify(frozenTagBinding(binding)))fail('FROZEN_RELEASE_TAG_CHANGED');

@@ -124,12 +124,13 @@ const devapp=JSON.parse(fs.readFileSync(provenancePath,"utf8"));
 const signedDevapp=validateEnvelope(JSON.parse(protectedRead(rawEvidencePath)),protectedRead("/etc/workspacex-cn/devapp-evidence-public.pem"),source,attempt,"devapp");
 const derived=validateDevapp(signedDevapp.raw,source);
 if(Object.entries(derived).some(([k,v])=>JSON.stringify(devapp[k])!==JSON.stringify(v)))process.exit(1);
-const governance=validateEnvelope(JSON.parse(protectedRead(governancePath)),protectedRead("/etc/workspacex-cn/governance-public.pem"),source,attempt,"governance");
+const governanceBytes=protectedRead(governancePath);
+const governance=validateEnvelope(JSON.parse(governanceBytes),protectedRead("/etc/workspacex-cn/governance-public.pem"),source,attempt,"governance");
 const hash=v=>crypto.createHash("sha256").update(v).digest("hex"),services=["api","web","agent","sandbox"];
 if(receipt.sourceRevision!==source||devapp.status!=="passed"||devapp.sourceSha!==source||devapp.browserAccepted!==true||!Number.isSafeInteger(devapp.workflowRunId)||devapp.workflowRunId<=0||!/^[a-f0-9]{64}$/.test(devapp.evidenceSha256??"")||services.some(k=>devapp.runtimeSourceShas?.[k]!==source))process.exit(1);
 if(hash(fs.readFileSync(rawEvidencePath))!==devapp.evidenceSha256)process.exit(1);
 const safeDevapp={status:devapp.status,sourceSha:devapp.sourceSha,runtimeSourceShas:Object.fromEntries(services.map(k=>[k,devapp.runtimeSourceShas[k]])),browserAccepted:devapp.browserAccepted,evidenceSha256:devapp.evidenceSha256,workflowRunId:devapp.workflowRunId,workflowRunAttempt:devapp.workflowRunAttempt};
-const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp,governance};
+const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp,governance,governanceReceiptSha256:hash(governanceBytes)};
 if(manifest.sourceRevision!==source||snapshot.manifestSha256!==receipt.manifestSha256)process.exit(1);
 console.log("CN_PROMOTION_IDENTITY_JSON="+JSON.stringify(snapshot));
 NODE
