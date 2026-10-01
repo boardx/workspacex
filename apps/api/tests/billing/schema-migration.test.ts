@@ -1,6 +1,10 @@
 /**
- * F01（Phase 21 billing-payment）：计费六表迁移的结构 / 约束 / 授权面；
- * 并钉住「本域不设 RLS」是**有意决定**（表按 (owner_type, owner_id) 归属，没有 org_id 列）。
+ * F01（Phase 21 billing-payment）：计费六表迁移的结构 / 约束 / 授权面 / 租户面。
+ *
+ * 租户面按内核 I-6（0004 的 catalog 审计）钉住：五张无 org 维度的表以表注释声明
+ * `kernel-no-tenant-data:` 豁免（0004/0011 的约定——声明写在表上，不进 allowlist），
+ * org_billing_settings 有 org_id → ENABLE + FORCE RLS + app.current_org 策略；
+ * 并直接调审计函数钉住六表判决。归属校验在应用层（I-9）不变。
  *
  * 真实 PostgreSQL：约束由 DB 执行、授权面以 app_rw 实测；库内门见
  * `apps/api/migrations/20261001090000_billing_credits_core.sql` 头注（I-2/I-4/I-5/I-7/I-8/I-11）。
@@ -94,16 +98,43 @@ describe("计费六表结构", () => {
     ]);
   });
 
-  it("本域不设 RLS（有意决定：按 owner 归属、无 org_id；归属校验在应用层 I-9）", async () => {
+  it("五张无 org 维度的表维持无 RLS，并以表注释声明豁免（0004/0011 的约定）", async () => {
     for (const t of [
-      "credit_packages", "billing_orders", "credit_wallets", "credit_transactions",
-      "org_billing_settings", "billing_webhook_events",
+      "credit_packages", "billing_orders", "credit_wallets", "credit_transactions", "billing_webhook_events",
     ]) {
-      const row = await asOwner(async (c) => (await c.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
-        "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = $1 AND relnamespace = 'public'::regnamespace",
-        [t])).rows[0]);
-      expect(row, t).toEqual({ relrowsecurity: false, relforcerowsecurity: false });
+      const row = await asOwner(async (c) => (await c.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean; comment: string | null }>(
+        `SELECT relrowsecurity, relforcerowsecurity, obj_description(oid, 'pg_class') AS comment
+           FROM pg_class WHERE relname = $1 AND relnamespace = 'public'::regnamespace`, [t])).rows[0]);
+      expect(row, t).toMatchObject({ relrowsecurity: false, relforcerowsecurity: false });
+      expect(row?.comment, t).toMatch(/^kernel-no-tenant-data:/);
     }
+  });
+
+  it("org_billing_settings 按内核 I-6 上 RLS：ENABLE + FORCE + app.current_org 策略", async () => {
+    const row = await asOwner(async (c) => (await c.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
+      "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'org_billing_settings' AND relnamespace = 'public'::regnamespace")).rows[0]);
+    expect(row).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
+    const policy = await asOwner(async (c) => (await c.query<{ qual: string; with_check: string }>(
+      "SELECT qual, with_check FROM pg_policies WHERE schemaname = 'public' AND tablename = 'org_billing_settings'")).rows[0]);
+    // 审计只认「同时键住租户列与 session 设置」的策略（0004 的口径）
+    expect(policy?.qual).toContain("app.current_org");
+    expect(policy?.qual).toContain("org_id");
+    expect(policy?.with_check).toContain("app.current_org");
+  });
+
+  it("内核租户审计对本域六表的判决：五张已声明豁免 + org_billing_settings=ok", async () => {
+    const rows = await asApp(null, async (c) => (await c.query<{ table_name: string; verdict: string }>(
+      `SELECT table_name, verdict FROM kernel_tenant_table_audit()
+        WHERE table_name IN ('credit_packages','billing_orders','credit_wallets',
+                             'credit_transactions','org_billing_settings','billing_webhook_events')`)).rows);
+    expect(Object.fromEntries(rows.map((r) => [r.table_name, r.verdict]))).toEqual({
+      billing_orders: "exempt-declared-no-tenant-data",
+      billing_webhook_events: "exempt-declared-no-tenant-data",
+      credit_packages: "exempt-declared-no-tenant-data",
+      credit_transactions: "exempt-declared-no-tenant-data",
+      credit_wallets: "exempt-declared-no-tenant-data",
+      org_billing_settings: "ok",
+    });
   });
 
   it("授权面按最小化钉住：账本只增不改", async () => {

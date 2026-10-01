@@ -14,8 +14,14 @@
  *  · I-11 金额与额度一律整数（integer + CHECK）
  *  · 账本不可改：credit_transactions 只授 SELECT/INSERT（app_rw 无 UPDATE/DELETE）
  *
- * ⚠ 本域**不设 RLS**：表按 (owner_type, owner_id) 归属，没有 org_id 列；归属校验在应用层（I-9）。
- *   这是决定不是遗漏——测试以 relrowsecurity=false 逐表钉住。
+ * ⚠ 租户面（内核 0004 的 catalog 审计 I-6，首次全量验证时抓到本迁移，已修）：
+ *   · org_billing_settings **有 org_id 列** → 是租户表，必须 ENABLE+FORCE RLS + 以
+ *     app.current_org 为键的策略（豁免通道不适用），见本文件下方的 RLS 段。
+ *   · 其余五张按 (owner_type, owner_id) 归属、没有 org 维度 → 审计判
+ *     UNTENANTED_BUT_GRANTED（"无租户键但运行时可读"），答案按 0011 的标准**写在表上**：
+ *     kernel-no-tenant-data 注释，逐表说清装什么、被攻陷的 app_rw 实际能看到什么。
+ *   契约 domain.md 的「本域不设 RLS」按此收敛：五张表维持无 RLS（豁免声明型），
+ *   org_billing_settings 按内核标准上 RLS。归属校验仍在应用层（I-9）。
  */
 
 CREATE TABLE IF NOT EXISTS credit_packages (
@@ -139,6 +145,35 @@ VALUES
   ('pkg-plus',  'cn', 'CNY',  9900, 1200,  120, 0.1000, 1320, 'both', true, 2),
   ('pkg-pro',   'cn', 'CNY', 39900, 5000, 1000, 0.2000, 6000, 'both', true, 3)
 ON CONFLICT (package_id) DO NOTHING;
+
+-- ── 租户面（内核 I-6，见 0004 的 catalog 审计）──────────────────────────────
+
+-- org_billing_settings 有 org_id → 租户表，没有豁免通道：ENABLE + FORCE + 策略。
+DROP POLICY IF EXISTS org_billing_settings_tenant ON org_billing_settings;
+ALTER TABLE org_billing_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE org_billing_settings FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_billing_settings_tenant ON org_billing_settings
+  USING (org_id = current_setting('app.current_org', true))
+  WITH CHECK (org_id = current_setting('app.current_org', true));
+
+-- 五张无 org 维度的表：按 0004/0011 的约定，豁免声明写在表上——逐表说清装什么、
+-- 被攻陷的 app_rw 实际能看到什么（披露即审查对象；\d+ 里可见，不进任何 allowlist）。
+COMMENT ON TABLE credit_packages IS
+  'kernel-no-tenant-data: 套餐目录（金额/额度/启用位）——每个组织看到的是同一份事实，'
+  '无租户维度可泄；app_rw 只持有 SELECT。';
+COMMENT ON TABLE billing_orders IS
+  'kernel-no-tenant-data: 充值订单，按 (owner_type, owner_id) 归属个人或团队（契约裁决，'
+  '不是组织维度）。被攻陷的 app_rw 可读到全部订单的金额、订单号与二维码链接——这是本'
+  '豁免的实际敞口；归属校验在应用层（I-9）。';
+COMMENT ON TABLE credit_wallets IS
+  'kernel-no-tenant-data: 钱包，按 (owner_type, owner_id) 唯一归属（I-4），无 org 列。'
+  '被攻陷的 app_rw 可读到全部钱包的余额与累计充/赠/发数——实际敞口如上；归属校验在应用层。';
+COMMENT ON TABLE credit_transactions IS
+  'kernel-no-tenant-data: 额度流水，按 wallet 归属（I-2 去重键）。被攻陷的 app_rw 可读到'
+  '全部充值/赠送/发放流水，含人工发放的操作者与原因（I-8）——归属校验在应用层。';
+COMMENT ON TABLE billing_webhook_events IS
+  'kernel-no-tenant-data: 支付渠道回调的幂等记录（I-7），键为 (provider, provider_event_id)，'
+  '是系统级去重事实。被攻陷的 app_rw 可读到全部回调事件及其关联订单号。';
 
 -- 授权面（最小化）：账本只增不改、订单/钱包/设置可更新、套餐只读
 REVOKE ALL ON credit_packages, billing_orders, credit_wallets, credit_transactions,
