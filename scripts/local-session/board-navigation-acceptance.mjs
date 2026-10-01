@@ -34,6 +34,7 @@ const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifes
 const results = [];
 const browserErrors = [];
 const browserHTTPFailures = [];
+const connectorAcceptanceBoundary = 'R1 attached-line fixtures use no arrowhead to avoid entity-sample occlusion; arrowhead styles are NOT accepted by this matrix and require Round02. Free connector overlay fixtures retain arrowheads.';
 const requestScheduler = createAcceptanceRequestScheduler();
 let browser, page, token, boardId, principal, endAttestation, completed = false;
 const fixtureTitle = `Navigation acceptance ${randomUUID()}`;
@@ -361,7 +362,7 @@ try {
     const doc = createWhiteboardDocument();
     executeCommands(doc, canonical.objects.map(object => ({type: 'create', object})));
     new SpatialRelationshipCommandPort(doc).dispatch({boardId, clientId: 'acceptance-seed', gestureId: randomUUID(), command: {
-      type: 'create-connector', id: edgeId, relationship: {from: first.id, to: target.id, fromAnchor: 'right', toAnchor: 'left', type: 'straight', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: '', semanticRelation: ''},
+      type: 'create-connector', id: edgeId, relationship: {from: first.id, to: target.id, fromAnchor: 'right', toAnchor: 'left', type: 'straight', startStyle: 'none', endStyle: 'none', lineStyle: 'solid', label: '', semanticRelation: ''},
     }});
     const seededEdge = readObjects(doc).find(object => object.id === edgeId); assert(seededEdge);
     seededEdge.style = {stroke: '#CC00FF'}; doc.destroy();
@@ -373,6 +374,7 @@ try {
     });
     await api('POST', `/v1/whiteboards/${boardId}/operations`, seedOperation);
     await page.reload(); await synced(); await fitAndSettle();
+    assert.equal((await snapshot()).objects.find(object => object.id === edgeId).connector.endStyle, 'none', 'attached line fixture must not obscure independent entity fill samples with an arrowhead');
     await page.getByTestId('board-tool-select').click(); const start = await point(first.id);
     await page.mouse.click(start.x, start.y);
     const handle = page.getByTestId(`connector-handle-${first.id}-right`);
@@ -755,9 +757,9 @@ try {
   }
   await browser?.close().catch(error => browserErrors.push(redact(error.message)));
   const ok = completed && results.length > 0 && results.every(value => value.ok) && browserErrors.length === 0 && browserHTTPFailures.length === 0;
-  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, endAttestation, requestScheduling: requestScheduler.statistics, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, endAttestation, requestScheduling: requestScheduler.statistics, connectorAcceptanceBoundary, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
   writeFileSync(join(out, 'browser-errors.json'), JSON.stringify(browserErrors, null, 2));
   writeFileSync(join(out, 'request-scheduling.json'), JSON.stringify(requestScheduler.statistics, null, 2));
-  writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nHighlighter defaults NOT ACCEPTED pending Round05 #4969. This matrix explicitly configures Pen 100% and Highlighter 25% through real UI; it does not accept the default instrument appearance.\n\nRunner-only v1 pacing: ${requestScheduler.statistics.requestCount} requests, ${requestScheduler.statistics.throttleWaitMs} ms wait, minimum ${requestScheduler.statistics.intervalMs} ms dispatch interval. Real API limits remain enabled; 429 is a hard failure without retry.\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
+  writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${connectorAcceptanceBoundary}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nHighlighter defaults NOT ACCEPTED pending Round05 #4969. This matrix explicitly configures Pen 100% and Highlighter 25% through real UI; it does not accept the default instrument appearance.\n\nRunner-only v1 pacing: ${requestScheduler.statistics.requestCount} requests, ${requestScheduler.statistics.throttleWaitMs} ms wait, minimum ${requestScheduler.statistics.intervalMs} ms dispatch interval. Real API limits remain enabled; 429 is a hard failure without retry.\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
   process.exitCode = ok ? 0 : 1;
 }

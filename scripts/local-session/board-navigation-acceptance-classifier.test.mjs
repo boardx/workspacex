@@ -23,6 +23,7 @@ test('held rotation rejects frame-only motion, missing entities, oversized fill 
   assert.throws(() => assertHeldRotationFrame({ ...valid, entities: entities.slice(0, 1) }));
   assert.throws(() => assertHeldRotationFrame({ ...valid, entities: entities.map(entity => ({ ...entity, insideCounts: Array(8).fill(0) })) }));
   assert.throws(() => assertHeldRotationFrame({ ...valid, entities: entities.map(entity => ({ ...entity, outsideCounts: Array(4).fill(9) })) }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, entities: [{ ...entities[0], insideCounts: [9, 9, 9, 9, 9, 9, 9, 6] }, entities[1]] }), '6 of 9 fill pixels remains a failure, including legitimate overlapping ink');
   assert.throws(() => assertHeldRotationFrame({ ...valid, corners: [{ bluePixels: 5 }] }));
   assert.throws(() => assertHeldRotationFrame({ ...valid, corners: [...valid.corners.slice(0, 3), { bluePixels: 0 }] }));
 });
