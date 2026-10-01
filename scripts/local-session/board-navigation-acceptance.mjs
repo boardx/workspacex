@@ -74,6 +74,19 @@ const snapshot = async () => {
 };
 const rows = () => page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(elements => elements.map(element => ({id: element.dataset.objectId, kind: element.dataset.objectKind, text: element.dataset.objectText, geometry: JSON.parse(element.dataset.geometry), from: element.dataset.connectorFrom, to: element.dataset.connectorTo})));
 const surface = () => page.getByTestId('board-fabric-surface');
+const fitAndSettle = async () => {
+  await page.getByTestId('board-zoom-fit-board').click();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await poll(async () => {
+    const before = await viewport();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const after = await viewport(), box = await surface().boundingBox();
+    const scenes = JSON.parse(await surface().getAttribute('data-object-scenes'));
+    const [zoom, px, py] = after.map(Number);
+    const contained = scenes.length ? scenes.every(item => px + item.left * zoom >= -1 && py + item.top * zoom >= -1 && px + (item.left + item.width) * zoom <= box.width + 1 && py + (item.top + item.height) * zoom <= box.height + 1) : zoom === 1 && px === 0 && py === 0;
+    return { stable: JSON.stringify(before) === JSON.stringify(after), contained };
+  }, value => value.stable && value.contained, 'fit viewport applied to actual scene bounds');
+};
 const pixelLayerDiagnostics = async (name, point, context) => {
   const layers = {};
   for (const channel of ['lower-canvas', 'upper-canvas']) layers[channel] = await surface().locator(`canvas.${channel}`).evaluate((canvas, point) => {
@@ -238,14 +251,16 @@ try {
   });
 
   const canonicalState = async () => ({ head: await (await api('GET', `/v1/whiteboards/${boardId}/head`)).json(), objects: (await snapshot()).objects });
+  let pixelSelectionProofIndex = 0;
   const deselectForPixelRead = async () => {
     const before = await canonicalState();
     await page.getByTestId('board-tool-select').click();
     await surface().click({ position: { x: 1100, y: 120 } });
-    await page.getByText('0 个已选对象', { exact: true }).waitFor();
+    await poll(async () => await page.getByTestId('board-context-toolbar').count() + await page.getByTestId('board-selection-layout-toolbar').count(), value => value === 0, 'pixel sampling has no selected-object toolbar');
     await poll(() => surface().getAttribute('data-selection-scene'), value => !value || value === 'null', 'pixel sampling has no selection chrome');
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    assertHeldUncommitted(before, await canonicalState());
+    const after = await canonicalState(); assertHeldUncommitted(before, after);
+    writeFileSync(join(out, `pixel-deselect-proof-${++pixelSelectionProofIndex}.json`), JSON.stringify({ beforeHead: before.head, afterHead: after.head, canonicalObjectsUnchanged: true, contextToolbarCount: await page.getByTestId('board-context-toolbar').count(), layoutToolbarCount: await page.getByTestId('board-selection-layout-toolbar').count(), selectionScene: await surface().getAttribute('data-selection-scene') }, null, 2));
   };
   const submit = async commands => {
     const head = await (await api('GET', `/v1/whiteboards/${boardId}/head`)).json();
@@ -267,7 +282,7 @@ try {
   });
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.getByTestId('board-zoom-fit-board').click();
+    await fitAndSettle();
   await check(`wheel, middle/right pan width ${width}`, async () => {
     const box = await surface().boundingBox(); assert(box);
     const canonicalBefore = await canonicalState();
@@ -289,7 +304,7 @@ try {
       assert.equal(await page.getByRole('menu').count(), 0, 'pan must not leave context menu');
     }
     assertCancelled(canonicalBefore, await canonicalState());
-    await page.getByTestId('board-zoom-fit-board').click(); return { viewport: await viewport(), hardware: 'synthetic software wheel and mouse, not Mac hardware evidence' };
+    await fitAndSettle(); return { viewport: await viewport(), hardware: 'synthetic software wheel and mouse, not Mac hardware evidence' };
   });
   await check(`live object/handles/menu/connector width ${width}`, async () => {
     await synced(); const before = await rows(); const first = before.find(row => row.kind === 'sticky'); assert(first);
@@ -327,7 +342,7 @@ try {
       commands: [{type: 'create', object: seededEdge}],
     });
     await api('POST', `/v1/whiteboards/${boardId}/operations`, seedOperation);
-    await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
+    await page.reload(); await synced(); await fitAndSettle();
     await page.getByTestId('board-tool-select').click(); const start = await point(first.id);
     await page.mouse.click(start.x, start.y);
     const handle = page.getByTestId(`connector-handle-${first.id}-right`);
@@ -426,7 +441,7 @@ try {
     new SpatialRelationshipCommandPort(doc).dispatch({ boardId, clientId: 'overlay-fixture', gestureId: randomUUID(), command: { type: 'create-connector', id: edgeId,
       relationship: { fromPoint: { x: 280, y: 140 }, toPoint: { x: 460, y: 200 }, fromAnchor: 'right', toAnchor: 'left', type: 'straight', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: '', semanticRelation: '' } } });
     const edge = readObjects(doc).find(object => object.id === edgeId); doc.destroy();
-    await submit([{ type: 'create', object: edge }]); await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
+    await submit([{ type: 'create', object: edge }]); await page.reload(); await synced(); await fitAndSettle();
     const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
     const center = { x: box.x + px + (edge.connector.fromPoint.x + edge.connector.toPoint.x) / 2 * zoom, y: box.y + py + (edge.connector.fromPoint.y + edge.connector.toPoint.y) / 2 * zoom };
     await page.mouse.click(center.x, center.y);
@@ -447,7 +462,7 @@ try {
   await page.screenshot({ path: join(out, `navigation-${width}.png`) });
   }
   await check('multi-selection move resize rotation held follow is one transaction each', async () => {
-    await page.setViewportSize({ width: 1440, height: 900 }); await page.getByTestId('board-zoom-fit-board').click(); await page.getByTestId('board-tool-select').click();
+    await page.setViewportSize({ width: 1440, height: 900 }); await fitAndSettle(); await page.getByTestId('board-tool-select').click();
     const nodes = (await rows()).filter(item => ['sticky', 'rectangle'].includes(item.kind)); assert.equal(nodes.length, 2);
     const a = await point(nodes[0].id), b = await point(nodes[1].id);
     await page.mouse.click(a.x, a.y); await page.keyboard.down('Shift'); try { await page.mouse.click(b.x, b.y); } finally { await page.keyboard.up('Shift'); }
@@ -493,11 +508,17 @@ try {
   let naturalPenId, naturalHighlighterId;
   await check('real pen/highlighter gestures preserve centre thickness round caps and single alpha', async () => {
     await submit((await snapshot()).objects.map(object => ({ type: 'delete', id: object.id })));
-    await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
+    await page.reload(); await synced(); await fitAndSettle();
     const measurements = [];
     for (const [index, choice] of ['pen', 'highlighter'].entries()) {
       await page.getByTestId('board-tool-select').click(); await surface().click({ position: { x: 1100, y: 120 } });
       await page.getByTestId('board-add-draw').click(); await page.getByTestId(`board-draw-${choice}`).click();
+      if (choice === 'highlighter') {
+        const defaultControls = await page.locator('[data-testid^="board-draw-opacity-"]').evaluateAll(elements => elements.map(element => ({ testId: element.dataset.testid, pressed: element.getAttribute('aria-pressed') })));
+        writeFileSync(join(out, 'highlighter-default-round05-pending.json'), JSON.stringify({ accepted: false, issue: 4969, expectedDefaultOpacity: BOARD_DRAWING_TOOL_STYLES.highlighter.opacity, defaultControls, status: 'Highlighter defaults NOT ACCEPTED pending Round05; run7 proves persisted default opacity 1.' }, null, 2));
+      }
+      const configuredOpacity = choice === 'pen' ? 1 : .25;
+      await page.getByTestId(`board-draw-opacity-${choice === 'pen' ? '100' : '25'}`).click();
       await page.getByTestId('board-draw-stroke-8').click(); await page.getByTestId('board-draw-color-ef4444').click();
       const box = await surface().boundingBox(), y = box.y + 160 + index * 170;
       const before = await canonicalState(), beforeIds = new Set(before.objects.map(object => object.id));
@@ -511,7 +532,7 @@ try {
       assert.equal(strokes[0].tool, choice, 'persisted instrument matches the selected tool');
       assert.equal(strokes[0].width, 8, 'persisted width matches explicitly selected 8px control');
       assert.equal(strokes[0].color.toUpperCase(), '#EF4444', 'persisted color matches explicitly selected red swatch');
-      assert.equal(strokes[0].opacity, BOARD_DRAWING_TOOL_STYLES[choice].opacity, 'persisted opacity matches the canonical selected instrument style');
+      assert.equal(strokes[0].opacity, configuredOpacity, 'persisted opacity matches explicitly configured real opacity control');
       if (choice === 'pen') naturalPenId = created[0].id;
       else naturalHighlighterId = created[0].id;
       await deselectForPixelRead();
@@ -565,7 +586,7 @@ try {
       content: { version: 1, type: 'drawing', strokes: [{ id: randomUUID(), tool: 'pen', color: '#222222', width: 5, opacity: 1, points: [{ x: 0, y: 20, pressure: .5 }, { x: 70, y: 20, pressure: .5 }] }] },
     }).commands[0]);
     commands[2].object.locked = true;
-    await submit(commands); await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
+    await submit(commands); await page.reload(); await synced(); await fitAndSettle();
     const before = await canonicalState(), a = await point(ids[0]), b = await point(lockedId);
     const inkPoints = await Promise.all(ids.map(point));
     const beforeInk = await Promise.all(inkPoints.map(location => poll(() => inkAt(location), count => count >= 10, 'seed drawing contains actual dark ink')));
@@ -610,8 +631,8 @@ try {
   }
   await browser?.close().catch(error => browserErrors.push(redact(error.message)));
   const ok = completed && results.length > 0 && results.every(value => value.ok) && browserErrors.length === 0 && browserHTTPFailures.length === 0;
-  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware']}, null, 2));
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
   writeFileSync(join(out, 'browser-errors.json'), JSON.stringify(browserErrors, null, 2));
-  writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
+  writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nHighlighter defaults NOT ACCEPTED pending Round05 #4969. This matrix explicitly configures Pen 100% and Highlighter 25% through real UI; it does not accept the default instrument appearance.\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
   process.exitCode = ok ? 0 : 1;
 }

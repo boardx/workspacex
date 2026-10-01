@@ -566,6 +566,29 @@ describe("BoardFabricSurface", () => {
     expect(onSelectionChange).toHaveBeenCalledWith(["r-1", "s-1"], "canvas");
   });
 
+  it("styles a Fabric-created ActiveSelection without replacing its gesture or rotation control on echo", async () => {
+    const { ActiveSelection } = await import("fabric");
+    const { Control } = await vi.importActual<typeof import("fabric")>("fabric");
+    const onSelectionChange = vi.fn();
+    const { rerender } = renderSurface({ selectedObjectIds: [], onSelectionChange });
+    const automatic = new ActiveSelection(probe.objects as never[]);
+    automatic.set({ borderColor: "#B2CCFF" });
+    automatic.controls = { mtr: new Control({ x: 0, y: -.5, offsetX: 0, offsetY: -40 }) };
+    const visibility = vi.spyOn(automatic, "setControlsVisibility");
+    const gesture = { target: automatic };
+    probe.active = automatic as unknown as MockProjectedObject;
+    act(() => probe.handlers.get("selection:created")?.({ target: probe.active! }));
+    expect(automatic.borderColor).toBe(BOARD_FABRIC_VISUAL.selection.borderColor);
+    expect(automatic.controls.mtr).toMatchObject(BOARD_FABRIC_VISUAL.rotationControl);
+    expect(visibility).toHaveBeenCalledWith({ ml: false, mr: false, mt: false, mb: false });
+    const rotation = automatic.controls.mtr;
+    rerender(<BoardFabricSurface objects={OBJECTS} selectedObjectIds={["s-1", "r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={onSelectionChange} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    expect(probe.active).toBe(automatic);
+    expect(probe.active).toBe(gesture.target);
+    expect(automatic.controls.mtr).toBe(rotation);
+    expect(automatic).toMatchObject(BOARD_FABRIC_VISUAL.selection);
+  });
+
   it("renders alignment guides and equal 24 px spacing while an object moves", async () => {
     const spaced: BoardFabricObject[] = [
       { ...OBJECTS[0]!, id: "left", geometry: { x: 0, y: 60, width: 100, height: 80, rotation: 0 } },

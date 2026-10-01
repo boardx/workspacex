@@ -95,8 +95,15 @@ function textOptionsFor(object: BoardFabricObject, defaults: { fontSize: number;
 function applyRotationControl(projected: FabricObject): void {
   const rotation = projected.controls?.mtr;
   if (rotation && typeof rotation === "object") {
+    if (Object.entries(BOARD_FABRIC_VISUAL.rotationControl).every(([key, value]) => Reflect.get(rotation, key) === value)) return;
     projected.controls = { ...projected.controls, mtr: Object.assign(Object.create(Object.getPrototypeOf(rotation)), rotation, BOARD_FABRIC_VISUAL.rotationControl) };
   }
+}
+
+function applyActiveSelectionChrome(selection: ActiveSelection): void {
+  selection.set(BOARD_FABRIC_VISUAL.selection);
+  applyRotationControl(selection);
+  selection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
 }
 
 function applyFixedContainerLayout(projected: Group, width: number, height: number): void {
@@ -576,6 +583,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const selectionChanged = () => {
       if (reconcilingSelectionRef.current) return;
       const active = canvas.getActiveObject() as TaggedFabricObject | undefined;
+      if (active instanceof ActiveSelection) applyActiveSelectionChrome(active);
       const id = active?.data?.boardObjectId;
       if (id) { callbacksRef.current.onSelectionChange([id], "canvas"); return; }
       const nested = active && "getObjects" in active && typeof active.getObjects === "function" ? active.getObjects() as TaggedFabricObject[] : [];
@@ -1203,6 +1211,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     reconcilingSelectionRef.current = true;
     try {
       const current = canvas.getActiveObject() as TaggedFabricObject | undefined;
+      if (current instanceof ActiveSelection) applyActiveSelectionChrome(current);
       const currentMembers = current instanceof ActiveSelection ? current.getObjects() as TaggedFabricObject[] : current ? [current] : [];
       const desired = projected.length > 1 && transformable.length ? transformable : projected.slice(0, 1);
       const alreadyBound = currentMembers.length === desired.length && currentMembers.every((member, index) => member === desired[index]);
@@ -1211,8 +1220,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (alreadyBound) { /* Keep the gesture-owned projection instance. */ }
       else if (projected.length > 1 && transformable.length > 1) {
         const activeSelection = new ActiveSelection(transformable, { canvas, ...BOARD_FABRIC_VISUAL.selection });
-        applyRotationControl(activeSelection);
-        activeSelection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
+        applyActiveSelectionChrome(activeSelection);
         canvas.setActiveObject(activeSelection);
       }
       else if (projected.length > 1 && transformable[0]) canvas.setActiveObject(transformable[0]);
