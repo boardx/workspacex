@@ -82,3 +82,9 @@ CN operator 将 bundle 以 root:root 0600 暂存后执行
 promotion verifier 每次重新验签、重新导出 acceptance、核对原始字节 SHA，然后输出受控
 治理 snapshot；helper 对其 source/attempt/TTL 与全部治理规则重新校验。缺配置均 NOT_READY。
 Bootstrap 仅增加可信 helper 安装清单；本 PR 不执行安装、不创建密钥、不改变实际 token。
+
+### Nonproduction token proof visibility
+
+The nonproduction proof receipt has scope `actual-token-tag-behavior`. It always records `globalZeroBypassProven=false`: it proves this workflow token can create/update/delete an unprotected control and is denied protected update/deletion with exact readback. If `bypass_actors` is hidden, continuation requires the actual API field `current_user_can_bypass=never`; missing or other values fail closed. This field does not establish that every actor has no bypass. Explicit visible bypass actors still reject the proof.
+
+Production admission continues to require the separate controlled administrator signed snapshot and live governance comparison for global zero bypass. The token behavior receipt is never a substitute for that gate and grants no production authorization. No administrator PAT is introduced.
