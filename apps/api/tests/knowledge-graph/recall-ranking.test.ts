@@ -208,3 +208,46 @@ describe("F15: 图路只在字面分相同的几条之间抬名次", () => {
     expect(r.items.slice(1).every((i) => i.channels.includes("graph"))).toBe(true);
   });
 });
+
+it("同一实体的预算问题不召回仅共享项目名称的团队事实", () => {
+  const project = { id: "project", name: "北极星项目", aliases: [] };
+  const budget = claim("budget", "北极星项目的总预算是 380 万元");
+  const team = claim("team", "北极星项目团队有 12 人");
+  const r = fuseRecall({ query: "北极星项目的总预算是多少？只回答预算。", claims: [budget, team], objects: [project], graph: [{ claimId: team.id, path: [] }, { claimId: budget.id, path: [] }], vector: [{ claimId: team.id, similarity: 0.8 }, { claimId: budget.id, similarity: 0.8 }], limit: 8 });
+  expect(r.items.map((i) => i.claim.id)).toEqual(["budget"]);
+  expect(r.items[0]!.channels).toEqual(["fts", "graph", "vector"]);
+});
+
+it("缩小查询主题仍保留用户的有效决定与约束", () => {
+  const r = fuseRecall({ query: "北极星项目预算多少？", claims: [claim("budget", "北极星项目预算 380 万"), claim("decision", "我决定本周不发布", { kind: "decision", scope: "personal" })], objects: [{ id: "p", name: "北极星项目", aliases: [] }], graph: [], limit: 8 });
+  expect(r.items.map((i) => i.claim.id)).toContain("decision");
+});
+
+
+it("实体主题过滤不会删除高相似度的换说法", () => {
+  const r = fuseRecall({ query: "北极星项目预算多少？", claims: [claim("budget", "北极星项目预算 380 万"), claim("paraphrase", "这项工程的投入为三百八十万元")], objects: [{ id: "p", name: "北极星项目", aliases: [] }], graph: [], vector: [{ claimId: "paraphrase", similarity: 0.91 }], limit: 8 });
+  expect(r.items.find((i) => i.claim.id === "paraphrase")?.channels).toEqual(["vector"]);
+});
+
+it("独立纯向量模式不混入全文、图、强制决定或画像背景", () => {
+  const input = { query: "北极星项目预算多少？", claims: [claim("budget", "北极星项目预算 380 万"), claim("forced", "我决定本周不发布", { kind: "decision", scope: "personal" })], objects: [{ id: "p", name: "北极星项目", aliases: [] }], graph: [{ claimId: "budget", path: [] }], vector: [{ claimId: "budget", similarity: 0.8 }], limit: 8 };
+  const r = fuseRecall({ ...input, graph: null, evaluationMode: "vector_only" });
+  expect(r.items.map((i) => [i.claim.id, i.channels])).toEqual([["budget", ["vector"]]]);
+  expect(buildKnowledgeContextMessage(r)).not.toContain(RECALL_DEGRADED_NOTICE);
+  const hybrid = fuseRecall({ ...input, evaluationMode: "hybrid" });
+  expect(hybrid.items.map((i) => i.claim.id)).not.toContain("forced");
+  expect(hybrid.items[0]!.channels).toEqual(["fts", "graph", "vector"]);
+});
+
+
+describe("广义问题仍保留可见的完整背景", () => {
+  for (const query of ["客户 A 有什么要求？", "客户 A 的情况怎么样？", "介绍客户 A 的背景信息"]) {
+    it(query, () => {
+      const objects = [{ id: "customer", name: "客户 A", aliases: [] }];
+      const claims = [claim("contract", "客户 A 的合同在法务那里"), claim("demand", "客户 A 要求 v2 下周一上线", { scope: "personal", triState: "confirmed" })];
+      const graph = claims.map(c => ({ claimId: c.id, path: [{ src: "object:customer", relation: "about", dst: `claim:${c.id}` }] }));
+      const result = fuseRecall({ query, objects, claims, graph, limit: 8 });
+      expect(result.items.map(i => i.claim.id).sort()).toEqual(["contract", "demand"]);
+    });
+  }
+});

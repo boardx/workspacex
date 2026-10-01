@@ -1,0 +1,3412 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-comprehensive-acceptance.config.ts"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-comprehensive-acceptance.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-(?:user|mode|levels)-acceptance\\.acceptance\\.ts$/",
+          "/kg-experience-eval\\/.*\\.eval\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-comprehensive-acceptance/results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "test-results/kg-comprehensive-acceptance/html",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-experience-eval/e1-zero-effort.eval.ts",
+      "file": "kg-experience-eval/e1-zero-effort.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E1.c1] 新用户聊 3 轮，回答下方自动出现「已记下」，没点过任何记忆控件",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:07:41.787Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e1-zero-9e5c7-3-轮，回答下方自动出现「已记下」，没点过任何记忆控件/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYXB0dXJlZCI6IuW3suiusOS4iyAxIOadoVxuwrdcbuafpeeci1xuwrdcbuaSpOmUgCIsImNsaWNrcyI6eyJhbGwiOjAsIm1lbW9yeSI6MH19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e1-zero-9e5c7-3-轮，回答下方自动出现「已记下」，没点过任何记忆控件/attachments/shot-52a6537414869cbd35b154f01623427782aa928c.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f1bfecb6b874065da805-9fa67182d6ac41d9e05c",
+          "file": "kg-experience-eval/e1-zero-effort.eval.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "[E1.c2] 开新会话问之前说过的事，回答里答出来了（不用重新交代背景）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:07:51.479Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmmajlhYnpobnnm67nmoTpooTnrpfmmK8gMTIwIOS4h+WFg++8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJleHBlY3QiOiIxMjAg5LiHIn0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e1-zero-9d1e3-会话问之前说过的事，回答里答出来了（不用重新交代背景）/attachments/shot-ed968dcf990332cf665683e2d4faf1ac5a19b318.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f1bfecb6b874065da805-ac8afa2e1e964a8dde1b",
+          "file": "kg-experience-eval/e1-zero-effort.eval.ts",
+          "line": 78,
+          "column": 5
+        },
+        {
+          "title": "[E1.c3] 新会话的回答下方标着「来自你 … 的对话」，全程记忆相关点击 = 0",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:07:51.487Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJmb290ZXIiOiJbMV1cbuS+neaNruS9oOeahOS6i+Wunlxu5pmo5YWJ6aG555uu55qE6aKE566X5pivIDEyMCDkuIflhYNcbkFJIOiusOS4i+eahFxu5p2l6Ieq5L2gIDEwLzEg55qE5a+56K+dXG7kuLrku4DkuYjnlKjliLDlroMiLCJiYWRnZXMiOlsi5p2l6Ieq5L2gIDEwLzEg55qE5a+56K+dIl0sImNsaWNrcyI6eyJhbGwiOjEsIm1lbW9yeSI6MH19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e1-zero-8f1e6-答下方标着「来自你-…-的对话」，全程记忆相关点击-0/attachments/shot-ed968dcf990332cf665683e2d4faf1ac5a19b318.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f1bfecb6b874065da805-10742b85f0c59617769f",
+          "file": "kg-experience-eval/e1-zero-effort.eval.ts",
+          "line": 84,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e10-latency.eval.ts",
+      "file": "kg-experience-eval/e10-latency.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E10.c1] 发消息到首字：有记忆比没有记忆慢不超过 100ms（中位数）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:07:51.497Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e10-lat-bf1bd-到首字：有记忆比没有记忆慢不超过-100ms（中位数）/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e10-lat-bf1bd-到首字：有记忆比没有记忆慢不超过-100ms（中位数）/test-finished-2.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJsYXRlbmN5Ijp7Im9uTXMiOls2NTQsNjk0LDYyOSw3MjksNjExXSwib2ZmTXMiOls1ODgsNjAxLDY5OCw2MjksNTcwXSwib25NZWRpYW4iOjY1NCwib2ZmTWVkaWFuIjo2MDF9fQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b837e09fc2585d569a8a-8edd68d5a8e89d5c6833",
+          "file": "kg-experience-eval/e10-latency.eval.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "[E10.c2] 图路故障：回答照常出来、答得上，只多一行「这次没能查全你的记忆」",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:08:15.172Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJncmFwaERvd24iOnsiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2Z77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImRlZ3JhZGVkTGluZXMiOjF9fQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e10-lat-7bc74-回答照常出来、答得上，只多一行「这次没能查全你的记忆」/attachments/shot-c073506eb07e5f1e49634544426b1fa16d37aedb.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b837e09fc2585d569a8a-47b739ea9cb290adc0e6",
+          "file": "kg-experience-eval/e10-latency.eval.ts",
+          "line": 74,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e2-recall.eval.ts",
+      "file": "kg-experience-eval/e2-recall.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E2.c01] 人名：「北极星项目的负责人是谁？」答出「王芳」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:08:15.186Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-4b53c-人名：「北极星项目的负责人是谁？」答出「王芳」且带引用/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLljJfmnoHmmJ/pobnnm67nmoTotJ/otKPkurrmmK/osIHvvJ8iLCJleHBlY3QiOiLnjovoirMiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67nmoTotJ/otKPkurrmmK/njovoirPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5oqA5pyv6LSf6LSj5Lq65piv6LW156OK77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrueahOiuvuiuoeeov+eUseWtmeaCpui0n+i0o++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub/vvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNpdGF0aW9ucyI6WyLljJfmnoHmmJ/pobnnm67nmoTotJ/otKPkurrmmK/njovoirMiLCLljJfmnoHmmJ/pobnnm67nmoTmioDmnK/otJ/otKPkurrmmK/otbXno4oiLCLljJfmnoHmmJ/pobnnm67nmoTorr7orqHnqL/nlLHlrZnmgqbotJ/otKMiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-4b53c-人名：「北极星项目的负责人是谁？」答出「王芳」且带引用/attachments/shot-d718ea941827a9e24e688f7bf3e0d3c48ab8f56a.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-ed287785541a57af6592",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c02] 人名：「北极星的技术负责人是谁？」答出「赵磊」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.679Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLljJfmnoHmmJ/nmoTmioDmnK/otJ/otKPkurrmmK/osIHvvJ8iLCJleHBlY3QiOiLotbXno4oiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67nmoTmioDmnK/otJ/otKPkurrmmK/otbXno4rvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE6LSf6LSj5Lq65piv546L6Iqz77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrueahOiuvuiuoeeov+eUseWtmeaCpui0n+i0o++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub/vvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNpdGF0aW9ucyI6WyLljJfmnoHmmJ/pobnnm67nmoTmioDmnK/otJ/otKPkurrmmK/otbXno4oiLCLljJfmnoHmmJ/pobnnm67nmoTotJ/otKPkurrmmK/njovoirMiLCLljJfmnoHmmJ/pobnnm67nmoTorr7orqHnqL/nlLHlrZnmgqbotJ/otKMiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-9ee3e-人名：「北极星的技术负责人是谁？」答出「赵磊」且带引用/attachments/shot-6919fa443c2ce7b088bdf35c985c8d4bc6e690fb.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-40cd9e3f1a103cd3bdb1",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c03] 人名：「恒通物流那边的对接人是谁？」答出「陈静」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.687Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLmgZLpgJrnianmtYHpgqPovrnnmoTlr7nmjqXkurrmmK/osIHvvJ8iLCJleHBlY3QiOiLpmYjpnZkiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZIiwi6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwiLCLljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub8iLCLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiXX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-d4584-名：「恒通物流那边的对接人是谁？」答出「陈静」且带引用/attachments/shot-06f4302965bbfb8c7c41a3999ebf7595ed5cbd73.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-4f84685acd04b44c432d",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c04] 人名：「设计稿由谁负责？」答出「孙悦」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.694Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLorr7orqHnqL/nlLHosIHotJ/otKPvvJ8iLCJleHBlY3QiOiLlrZnmgqYiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67nmoTorr7orqHnqL/nlLHlrZnmgqbotJ/otKPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE6K6+6K6h56i/6KaB5ZyoIDEwIOaciCAxNSDml6XliY3kuqTvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5YyX5p6B5pif6aG555uu55qE6K6+6K6h56i/55Sx5a2Z5oKm6LSf6LSjIiwi5YyX5p6B5pif6aG555uu55qE6K6+6K6h56i/6KaB5ZyoIDEwIOaciCAxNSDml6XliY3kuqQiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-97007-c04-人名：「设计稿由谁负责？」答出「孙悦」且带引用/attachments/shot-7615c710cb6a3d2e39c5a5a15ce93d9928a5d508.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-765126e312e3b899bdf8",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c05] 决定：「主数据库最后定了用什么？」答出「PostgreSQL」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.701Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLkuLvmlbDmja7lupPmnIDlkI7lrprkuobnlKjku4DkuYjvvJ8iLCJleHBlY3QiOiJQb3N0Z3JlU1FMIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqT77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebruWGs+WumumHh+eUqCBQb3N0Z3JlU1FMIOS9nOS4uuS4u+aVsOaNruW6kyIsIui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/Iiwi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIl19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-0c481-最后定了用什么？」答出「PostgreSQL」且带引用/attachments/shot-f4ade019c302f386a0eefeb29a4ef252a65caa36.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-ca2c3ae315116c439997",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c06] 决定：「首发做哪个平台？」答出「安卓」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.708Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLpppblj5HlgZrlk6rkuKrlubPlj7DvvJ8iLCJleHBlY3QiOiLlronljZMiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub/vvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNpdGF0aW9ucyI6WyLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-74a0b-c06-决定：「首发做哪个平台？」答出「安卓」且带引用/attachments/shot-5df955b10434b92714a234c4a2968ac176bc319a.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-bfbcf9ada4d2cc734ef8",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c07] 决定：「海外市场推广是怎么定的？」答出「暂停」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.731Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLmtbflpJbluILlnLrmjqjlub/mmK/mgI7kuYjlrprnmoTvvJ8iLCJleHBlY3QiOiLmmoLlgZwiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67mmoLlgZzmtbflpJbluILlnLrmjqjlub/mmK/lm6DkuLrpooTnrpfopoHkvJjlhYjkv53or4Hlm73lhoXkuIrnur/vvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebruaaguWBnOa1t+WkluW4guWcuuaOqOW5v+aYr+WboOS4uumihOeul+imgeS8mOWFiOS/neivgeWbveWGheS4iue6vyIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqTIl19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-bfc97-决定：「海外市场推广是怎么定的？」答出「暂停」且带引用/attachments/shot-99415968b60eb0925f49b182490d26ce9364831e.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-73568f854afadd592dd1",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c08] 决定：「接口最后统一成什么了？」答出「GraphQL」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.740Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLmjqXlj6PmnIDlkI7nu5/kuIDmiJDku4DkuYjkuobvvJ8iLCJleHBlY3QiOiJHcmFwaFFMIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/Iiwi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqTIl19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-89dac-接口最后统一成什么了？」答出「GraphQL」且带引用/attachments/shot-ffe1b2322d9707a0645df62c9129d781aaff22b5.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-ee9da5df0c247feb5705",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c09] 数字：「北极星项目的总预算是多少？」答出「380 万」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.746Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLljJfmnoHmmJ/pobnnm67nmoTmgLvpooTnrpfmmK/lpJrlsJHvvJ8iLCJleHBlY3QiOiIzODAg5LiHIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu55qE5oC76aKE566X5pivIDM4MCDkuIflhYPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/5piv5Zug5Li66aKE566X6KaB5LyY5YWI5L+d6K+B5Zu95YaF5LiK57q/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebrueahOaAu+mihOeul+aYryAzODAg5LiH5YWDIiwi5YyX5p6B5pif6aG555uu5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/5piv5Zug5Li66aKE566X6KaB5LyY5YWI5L+d6K+B5Zu95YaF5LiK57q/Iiwi6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwiLCLljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub8iLCLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiXX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-0a838-北极星项目的总预算是多少？」答出「380-万」且带引用/attachments/shot-eb04bd0a6370f52b15e7ffdd9898bb021c48281a.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-5a26a5c91c29d38ac839",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c10] 数字：「团队一共多少人？」答出「12 人」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.753Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLlm6LpmJ/kuIDlhbHlpJrlsJHkurrvvJ8iLCJleHBlY3QiOiIxMiDkuroiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67nmoTlm6LpmJ/kuIDlhbEgMTIg5Lq677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebrueahOWboumYn+S4gOWFsSAxMiDkuroiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-45232-0-数字：「团队一共多少人？」答出「12-人」且带引用/attachments/shot-6bad2a4440bae5a633bebcce34a7f9dfea251a5c.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-e34e4550d26a66c3c1a9",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c11] 数字：「恒通物流的合同金额是多少？」答出「96 万」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.761Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLmgZLpgJrnianmtYHnmoTlkIjlkIzph5Hpop3mmK/lpJrlsJHvvJ8iLCJleHBlY3QiOiI5NiDkuIciLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlkIjlkIzph5Hpop3mmK8gOTYg5LiH5YWD77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+aBkumAmueJqea1geeahOWQiOWQjOWcqCA5IOaciCAzMCDml6Xnrb7nvbLvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5oGS6YCa54mp5rWB55qE5ZCI5ZCM6YeR6aKd5pivIDk2IOS4h+WFgyIsIuaBkumAmueJqea1geeahOWQiOWQjOWcqCA5IOaciCAzMCDml6Xnrb7nvbIiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-e7265-「恒通物流的合同金额是多少？」答出「96-万」且带引用/attachments/shot-23903d096187aa627b231aa26990b4ee914c89ce.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-46b60e357c6d1e79dd5a",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c12] 数字：「首月的活跃用户目标是多少？」答出「5000」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.768Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLpppbmnIjnmoTmtLvot4PnlKjmiLfnm67moIfmmK/lpJrlsJHvvJ8iLCJleHBlY3QiOiI1MDAwIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu55qE6aaW5pyI55uu5qCH5pivIDUwMDAg5Liq5rS76LeD55So5oi377yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebrueahOmmluaciOebruagh+aYryA1MDAwIOS4qua0u+i3g+eUqOaItyIsIui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/Iiwi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIl19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-5ee09-「首月的活跃用户目标是多少？」答出「5000」且带引用/attachments/shot-b389cf2bdc41e2f009fbe52c04bf4c3d6105c968.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-4d9c2fa4dcb0dbaf5ff5",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c13] 日期：「内测定在哪天？」答出「10 月 20 日」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.775Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLlhoXmtYvlrprlnKjlk6rlpKnvvJ8iLCJleHBlY3QiOiIxMCDmnIggMjAg5pelIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6XvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6XmmK/lm6DkuLrmlK/ku5jmjqXlj6Pov5jmsqHpgJrov4flrqHmoLjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5q2j5byP5LiK57q/5a6a5ZyoIDExIOaciCAxOCDml6XvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6UiLCLljJfmnoHmmJ/pobnnm67nmoTlhoXmtYvlrprlnKggMTAg5pyIIDIwIOaXpeaYr+WboOS4uuaUr+S7mOaOpeWPo+i/mOayoemAmui/h+WuoeaguCIsIuWMl+aegeaYn+mhueebrueahOato+W8j+S4iue6v+WumuWcqCAxMSDmnIggMTgg5pelIiwi6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwiLCLljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub8iLCLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiXX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-7cc62-：「内测定在哪天？」答出「10-月-20-日」且带引用/attachments/shot-a82509550181ea5faa88b00980a559bb2ddbe72c.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-a914ecaa0607b0f7e30b",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c14] 日期：「正式上线是哪天？」答出「11 月 18 日」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.782Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLmraPlvI/kuIrnur/mmK/lk6rlpKnvvJ8iLCJleHBlY3QiOiIxMSDmnIggMTgg5pelIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu55qE5q2j5byP5LiK57q/5a6a5ZyoIDExIOaciCAxOCDml6XvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5YyX5p6B5pif6aG555uu55qE5q2j5byP5LiK57q/5a6a5ZyoIDExIOaciCAxOCDml6UiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-51150-「正式上线是哪天？」答出「11-月-18-日」且带引用/attachments/shot-697aedf0ddc765015a44fb7c00a90a728b1fcbe9.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-0e79adae925ce17fe8fe",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c15] 日期：「设计稿什么时候交？」答出「10 月 15 日」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.789Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLorr7orqHnqL/ku4DkuYjml7blgJnkuqTvvJ8iLCJleHBlY3QiOiIxMCDmnIggMTUg5pelIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu55qE6K6+6K6h56i/55Sx5a2Z5oKm6LSf6LSj77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrueahOiuvuiuoeeov+imgeWcqCAxMCDmnIggMTUg5pel5YmN5Lqk77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebrueahOiuvuiuoeeov+eUseWtmeaCpui0n+i0oyIsIuWMl+aegeaYn+mhueebrueahOiuvuiuoeeov+imgeWcqCAxMCDmnIggMTUg5pel5YmN5LqkIiwi6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwiLCLljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub8iLCLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiXX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-c99ed-设计稿什么时候交？」答出「10-月-15-日」且带引用/attachments/shot-bfaf3a4529470eb51a1db2c6b0215cd086f357e0.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-90d005d7e9f3962cb2c7",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c16] 日期：「恒通物流的合同是哪天签的？」答出「9 月 30 日」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.799Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLmgZLpgJrnianmtYHnmoTlkIjlkIzmmK/lk6rlpKnnrb7nmoTvvJ8iLCJleHBlY3QiOiI5IOaciCAzMCDml6UiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlkIjlkIzph5Hpop3mmK8gOTYg5LiH5YWD77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+aBkumAmueJqea1geeahOWQiOWQjOWcqCA5IOaciCAzMCDml6Xnrb7nvbLvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5oGS6YCa54mp5rWB55qE5ZCI5ZCM6YeR6aKd5pivIDk2IOS4h+WFgyIsIuaBkumAmueJqea1geeahOWQiOWQjOWcqCA5IOaciCAzMCDml6Xnrb7nvbIiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-67fef-流的合同是哪天签的？」答出「9-月-30-日」且带引用/attachments/shot-413bbcea31e180842a773195f3e51b9630d882e6.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-85f5d29da0094a926858",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c17] 原因：「为什么首发只做安卓版？」答出「司机主要用安卓手机」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.806Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLkuLrku4DkuYjpppblj5Hlj6rlgZrlronljZPniYjvvJ8iLCJleHBlY3QiOiLlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLoiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCIsIuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiOaYr+WboOS4uuaBkumAmueJqea1geeahOWPuOacuuS4u+imgeeUqOWuieWNk+aJi+acuiIsIui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/Iiwi5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqTIl19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-75185-么首发只做安卓版？」答出「司机主要用安卓手机」且带引用/attachments/shot-551b366dc39364e4c544c012d9851177c32f99ac.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-26ffef124453482db848",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c18] 原因：「为什么暂停海外推广？」答出「优先保证国内上线」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.813Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLkuLrku4DkuYjmmoLlgZzmtbflpJbmjqjlub/vvJ8iLCJleHBlY3QiOiLkvJjlhYjkv53or4Hlm73lhoXkuIrnur8iLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub/vvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/5piv5Zug5Li66aKE566X6KaB5LyY5YWI5L+d6K+B5Zu95YaF5LiK57q/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIuWMl+aegeaYn+mhueebruaaguWBnOa1t+WkluW4guWcuuaOqOW5v+aYr+WboOS4uumihOeul+imgeS8mOWFiOS/neivgeWbveWGheS4iue6vyIsIui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqTIl19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-a2b8b-为什么暂停海外推广？」答出「优先保证国内上线」且带引用/attachments/shot-14e7430bbb8257834ff664cabd81d248eb231118.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-0fd1ba7d095bc9dd2ca1",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c19] 原因：「为什么选 PostgreSQL？」答出「团队对它最熟」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.820Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLkuLrku4DkuYjpgIkgUG9zdGdyZVNRTO+8nyIsImV4cGVjdCI6IuWboumYn+WvueWug+acgOeGnyIsImFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8muWMl+aegeaYn+mhueebrumAiSBQb3N0Z3JlU1FMIOaYr+WboOS4uuWboumYn+WvueWug+acgOeGn++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6XvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6XmmK/lm6DkuLrmlK/ku5jmjqXlj6Pov5jmsqHpgJrov4flrqHmoLjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5q2j5byP5LiK57q/5a6a5ZyoIDExIOaciCAxOCDml6XvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE6aaW5pyI55uu5qCH5pivIDUwMDAg5Liq5rS76LeD55So5oi377yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrueahOWboumYn+S4gOWFsSAxMiDkurrvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu55qE5oC76aKE566X5pivIDM4MCDkuIflhYPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaXRhdGlvbnMiOlsi5YyX5p6B5pif6aG555uu6YCJIFBvc3RncmVTUUwg5piv5Zug5Li65Zui6Zif5a+55a6D5pyA54afIiwi5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqTIiwi5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6UiLCLljJfmnoHmmJ/pobnnm67nmoTlhoXmtYvlrprlnKggMTAg5pyIIDIwIOaXpeaYr+WboOS4uuaUr+S7mOaOpeWPo+i/mOayoemAmui/h+WuoeaguCIsIuWMl+aegeaYn+mhueebrueahOato+W8j+S4iue6v+WumuWcqCAxMSDmnIggMTgg5pelIiwi5YyX5p6B5pif6aG555uu55qE6aaW5pyI55uu5qCH5pivIDUwMDAg5Liq5rS76LeD55So5oi3Iiwi5YyX5p6B5pif6aG555uu55qE5Zui6Zif5LiA5YWxIDEyIOS6uiIsIuWMl+aegeaYn+mhueebrueahOaAu+mihOeul+aYryAzODAg5LiH5YWDIiwi6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwiLCLljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub8iLCLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiXX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-acd33--PostgreSQL？」答出「团队对它最熟」且带引用/attachments/shot-ee70be1f476f8629ec16411695923e2110e1a721.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-9be2d2062a6867802bd5",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        },
+        {
+          "title": "[E2.c20] 原因：「内测为什么定在 10 月 20 日？」答出「支付接口还没通过审核」且带引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.826Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhc2siOiLlhoXmtYvkuLrku4DkuYjlrprlnKggMTAg5pyIIDIwIOaXpe+8nyIsImV4cGVjdCI6IuaUr+S7mOaOpeWPo+i/mOayoemAmui/h+WuoeaguCIsImFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8muWMl+aegeaYn+mhueebrueahOWGhea1i+WumuWcqCAxMCDmnIggMjAg5pel77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrueahOWGhea1i+WumuWcqCAxMCDmnIggMjAg5pel5piv5Zug5Li65pSv5LuY5o6l5Y+j6L+Y5rKh6YCa6L+H5a6h5qC477yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbIuWMl+aegeaYn+mhueebrueahOWGhea1i+WumuWcqCAxMCDmnIggMjAg5pelIiwi5YyX5p6B5pif6aG555uu55qE5YaF5rWL5a6a5ZyoIDEwIOaciCAyMCDml6XmmK/lm6DkuLrmlK/ku5jmjqXlj6Pov5jmsqHpgJrov4flrqHmoLgiLCLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCJdfQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e2-reca-055b8--月-20-日？」答出「支付接口还没通过审核」且带引用/attachments/shot-9b95edd5619cb07f5171d67cd8434e4e26557812.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ded01e257f6d1d210214-75bd45ba1eab9f35e7df",
+          "file": "kg-experience-eval/e2-recall.eval.ts",
+          "line": 43,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e3-relations.eval.ts",
+      "file": "kg-experience-eval/e3-relations.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E3.c1] 谁定的：「首发只做安卓版是谁定的？」答出王芳，且这条引用走了关联（图）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:07.838Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-f3d01-做安卓版是谁定的？」答出王芳，且这条引用走了关联（图）/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLrvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbeyJzdGF0ZW1lbnQiOiLljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLoiLCJjaGFubmVscyI6WyLlhajmlociLCLlhbPogZQiLCLnm7jkvLwiXX0seyJzdGF0ZW1lbnQiOiLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiLCJjaGFubmVscyI6WyLlhajmlociLCLlhbPogZQiLCLnm7jkvLwiXX0seyJzdGF0ZW1lbnQiOiLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsImNoYW5uZWxzIjpbIuiusOS4i+eahCJdfSx7InN0YXRlbWVudCI6IuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsImNoYW5uZWxzIjpbIuiusOS4i+eahCJdfSx7InN0YXRlbWVudCI6IuWMl+aegeaYn+mhueebruWGs+WumumHh+eUqCBQb3N0Z3JlU1FMIOS9nOS4uuS4u+aVsOaNruW6kyIsImNoYW5uZWxzIjpbIuiusOS4i+eahCJdfV19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-f3d01-做安卓版是谁定的？」答出王芳，且这条引用走了关联（图）/attachments/shot-f25b610f8c629c9f830b512a96c0495478f84cce.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2e7deeeda43de3cd6baf-e893a68307dc12b7655f",
+          "file": "kg-experience-eval/e3-relations.eval.ts",
+          "line": 82,
+          "column": 5
+        },
+        {
+          "title": "[E3.c2] 为什么：「为什么首发只做安卓版？」答出原因",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:36.624Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupPvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ44CCIiwiY2l0YXRpb25zIjpbeyJzdGF0ZW1lbnQiOiLnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYgiLCJjaGFubmVscyI6WyLlhajmlociLCLlhbPogZQiLCLnm7jkvLwiXX0seyJzdGF0ZW1lbnQiOiLljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLoiLCJjaGFubmVscyI6WyLlhajmlociLCLlhbPogZQiLCLnm7jkvLwiXX0seyJzdGF0ZW1lbnQiOiLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsImNoYW5uZWxzIjpbIuiusOS4i+eahCJdfSx7InN0YXRlbWVudCI6IuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsImNoYW5uZWxzIjpbIuiusOS4i+eahCJdfSx7InN0YXRlbWVudCI6IuWMl+aegeaYn+mhueebruWGs+WumumHh+eUqCBQb3N0Z3JlU1FMIOS9nOS4uuS4u+aVsOaNruW6kyIsImNoYW5uZWxzIjpbIuiusOS4i+eahCJdfV19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-9a716-E3-c2-为什么：「为什么首发只做安卓版？」答出原因/attachments/shot-084117bbea5b51e5ab9cd17bbf12ff32ee854ab4.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2e7deeeda43de3cd6baf-38eb692e65afba58492e",
+          "file": "kg-experience-eval/e3-relations.eval.ts",
+          "line": 92,
+          "column": 5
+        },
+        {
+          "title": "[E3.c3] 被什么取代：改口并选「以新的为准」后再问，回答用新的日期、不再出现旧的",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:36.632Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjb25mbGljdENhcmQiOnRydWUsImFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8muWMl+aegeaYn+mhueebrueahOato+W8j+S4iue6v+aUueWIsCAxMSDmnIggMjUg5pel77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+eOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub/vvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqT77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-ef88b-并选「以新的为准」后再问，回答用新的日期、不再出现旧的/attachments/shot-eb7f9d4018c49bc14b37568e8b155a2883762278.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2e7deeeda43de3cd6baf-136e79a997b4fc6813cd",
+          "file": "kg-experience-eval/e3-relations.eval.ts",
+          "line": 100,
+          "column": 5
+        },
+        {
+          "title": "[E3.c4] 关系题 hybrid 比纯向量多答对 ≥ 20%（纯向量基线必须量得到）",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: >= \u001b[32m0.2\u001b[39m\nReceived:    \u001b[31m0\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: >= \u001b[32m0.2\u001b[39m\nReceived:    \u001b[31m0\u001b[39m\n    at /workspace/workspacex/apps/web/e2e/kg-experience-eval/e3-relations.eval.ts:118:45",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-experience-eval/e3-relations.eval.ts",
+                      "column": 45,
+                      "line": 118
+                    },
+                    "snippet": "  116 |   await attach(testInfo, j, qs.map((_, i) => `baseline-${i}`), { hybrid, vectorOnly, total: qs.length, vectorChannelSeen: vectorSeen });\n  117 |   expect(vectorSeen, \"纯向量基线量不到：整段旅程里相似（向量）通道一次都没出现（本阶段没有嵌入，F05）\").toBe(true);\n> 118 |   expect((hybrid - vectorOnly) / qs.length).toBeGreaterThanOrEqual(0.2);\n      |                                             ^\n  119 | });\n  120 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-experience-eval/e3-relations.eval.ts",
+                        "column": 45,
+                        "line": 118
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: >= \u001b[32m0.2\u001b[39m\nReceived:    \u001b[31m0\u001b[39m\n\n  116 |   await attach(testInfo, j, qs.map((_, i) => `baseline-${i}`), { hybrid, vectorOnly, total: qs.length, vectorChannelSeen: vectorSeen });\n  117 |   expect(vectorSeen, \"纯向量基线量不到：整段旅程里相似（向量）通道一次都没出现（本阶段没有嵌入，F05）\").toBe(true);\n> 118 |   expect((hybrid - vectorOnly) / qs.length).toBeGreaterThanOrEqual(0.2);\n      |                                             ^\n  119 | });\n  120 |\n    at /workspace/workspacex/apps/web/e2e/kg-experience-eval/e3-relations.eval.ts:118:45"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:36.639Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJoeWJyaWQiOjMsInZlY3Rvck9ubHkiOjMsInRvdGFsIjozLCJ2ZWN0b3JDaGFubmVsU2VlbiI6dHJ1ZX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-003e2-d-比纯向量多答对-≥-20-（纯向量基线必须量得到）/attachments/shot-94fb5b2d390cd44e7823a4365706275727c8f09a.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-003e2-d-比纯向量多答对-≥-20-（纯向量基线必须量得到）/attachments/shot-327faf1e23e145ccdb2cb7535d830ca6241f5e49.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-003e2-d-比纯向量多答对-≥-20-（纯向量基线必须量得到）/attachments/shot-6d14cb481842aa20c2ac3aef7797d1d6efd4c14b.jpg"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-003e2-d-比纯向量多答对-≥-20-（纯向量基线必须量得到）/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e3-rela-003e2-d-比纯向量多答对-≥-20-（纯向量基线必须量得到）/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-experience-eval/e3-relations.eval.ts",
+                    "column": 45,
+                    "line": 118
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "2e7deeeda43de3cd6baf-c529b755bf7150b2fb80",
+          "file": "kg-experience-eval/e3-relations.eval.ts",
+          "line": 109,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e4-sources.eval.ts",
+      "file": "kg-experience-eval/e4-sources.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E4.c1] 回答下方的每一个引用都点得开，打开的就是当时说的原话",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:37.215Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e4-sour-2aaac--回答下方的每一个引用都点得开，打开的就是当时说的原话/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjaGlwcyI6W3sic3RhdGVtZW50Ijoi5oGS6YCa54mp5rWB55qE5ZCI5ZCM6YeR6aKd5pivIDk2IOS4h+WFgyIsIm9wZW5lZCI6dHJ1ZSwiZXhjZXJwdCI6IuWQiOWQjOmHkeminSA5NiDkuIflhYMifSx7InN0YXRlbWVudCI6IuaBkumAmueJqea1geeahOWQiOWQjOWcqCA5IOaciCAzMCDml6Xnrb7nvbIiLCJvcGVuZWQiOnRydWUsImV4Y2VycHQiOiI5IOaciCAzMCDml6Xnrb7nmoQifSx7InN0YXRlbWVudCI6Iui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIiwib3BlbmVkIjp0cnVlLCJleGNlcnB0Ijoi6LW156OK5a6a5LqG5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwifSx7InN0YXRlbWVudCI6IuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5vyIsIm9wZW5lZCI6dHJ1ZSwiZXhjZXJwdCI6Iua1t+WkluW4guWcuuaOqOW5v+WFiOaaguWBnCJ9LHsic3RhdGVtZW50Ijoi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIiwib3BlbmVkIjp0cnVlLCJleGNlcnB0Ijoi546L6Iqz5ouN5p2/6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIIn0seyJzdGF0ZW1lbnQiOiLljJfmnoHmmJ/pobnnm67lhrPlrprph4fnlKggUG9zdGdyZVNRTCDkvZzkuLrkuLvmlbDmja7lupMiLCJvcGVuZWQiOnRydWUsImV4Y2VycHQiOiLmiJHku6zlhrPlrprkuLvmlbDmja7lupPnlKggUG9zdGdyZVNRTCJ9XX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e4-sour-2aaac--回答下方的每一个引用都点得开，打开的就是当时说的原话/attachments/shot-65ddfd365b6c033f4174a8ba354e280fdb08f213.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e4-sour-2aaac--回答下方的每一个引用都点得开，打开的就是当时说的原话/attachments/shot-8d61f126a04ea220694992bf9e4e4f37043221fd.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d4f7742d3b289948db8-8e8375bed3e3d1446fe8",
+          "file": "kg-experience-eval/e4-sources.eval.ts",
+          "line": 122,
+          "column": 5
+        },
+        {
+          "title": "[E4.c2] 「跳到原消息」：原话那条消息滚到眼前，并且被高亮",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:54.832Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJqdW1wIjp7InVybCI6Imh0dHA6Ly8xMjcuMC4wLjE6MzQxMDEvY2hhdC90aHItODA0ZWZjODEtOGZkOC00ODM2LWIwYTItMmE1MmI2MjZhOGUxP2ZvY3VzTWVzc2FnZT04NDk5ZmY5Zi1kNTRmLTQ2OWQtYmRlMi02ZDA4MWM4MmJiODUiLCJoaWdobGlnaHRlZCI6dHJ1ZSwiaW5WaWV3Ijp0cnVlLCJ0ZXh0Ijoi5a6i5oi35oGS6YCa54mp5rWB6YKj6L6555qE5a+55o6l5Lq65piv6ZmI6Z2Z77yM5ZCI5ZCM6YeR6aKdIDk2IOS4h+WFg++8jDkg5pyIIDMwIOaXpeetvueahOOAgiIsInJpbmciOiJub25lIDNweCAvIHJnYigyNTEsIDI1MSwgMjUwKSAwcHggMHB4IDBweCA0cHgsIHJnYigxMCwgOTcsIDgzKSAwcHggMHB4IDBweCA2cHgsIHJnYmEoMCwgMCwgMCwgMCkgMHB4IDBweCAwcHggMHB4In19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e4-sour-9261f-c2-「跳到原消息」：原话那条消息滚到眼前，并且被高亮/attachments/shot-004e53ea36007e59c8e9ccd4e3c301b0ab035e69.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d4f7742d3b289948db8-c5898f43f7f400ba2411",
+          "file": "kg-experience-eval/e4-sources.eval.ts",
+          "line": 129,
+          "column": 5
+        },
+        {
+          "title": "[E4.c3] 跨会话：新会话里用到的长期记忆，点开是原会话的原话，跳过去原消息被高亮",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:54.844Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjaGlwcyI6W3sic3RhdGVtZW50Ijoi5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZIiwib3BlbmVkIjp0cnVlLCJleGNlcnB0Ijoi5oGS6YCa54mp5rWB6YKj6L6555qE5a+55o6l5Lq65piv6ZmI6Z2ZIn0seyJzdGF0ZW1lbnQiOiLotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCIsIm9wZW5lZCI6dHJ1ZSwiZXhjZXJwdCI6Iui1teejiuWumuS6huaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMIn0seyJzdGF0ZW1lbnQiOiLljJfmnoHmmJ/pobnnm67lhrPlrprmmoLlgZzmtbflpJbluILlnLrmjqjlub8iLCJvcGVuZWQiOnRydWUsImV4Y2VycHQiOiLmtbflpJbluILlnLrmjqjlub/lhYjmmoLlgZwifSx7InN0YXRlbWVudCI6IueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiCIsIm9wZW5lZCI6dHJ1ZSwiZXhjZXJwdCI6IueOi+iKs+aLjeadv+mmluWPkeWPquWBmuWuieWNk+eJiCJ9LHsic3RhdGVtZW50Ijoi5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqTIiwib3BlbmVkIjp0cnVlLCJleGNlcnB0Ijoi5oiR5Lus5Yaz5a6a5Li75pWw5o2u5bqT55SoIFBvc3RncmVTUUwifV0sInBlcnNvbmFsQ2hpcCI6dHJ1ZSwianVtcCI6eyJ1cmwiOiJodHRwOi8vMTI3LjAuMC4xOjM0MTAxL2NoYXQvdGhyLTgwNGVmYzgxLThmZDgtNDgzNi1iMGEyLTJhNTJiNjI2YThlMT9mb2N1c01lc3NhZ2U9ODQ5OWZmOWYtZDU0Zi00NjlkLWJkZTItNmQwODFjODJiYjg1IiwiaGlnaGxpZ2h0ZWQiOnRydWUsImluVmlldyI6dHJ1ZSwidGV4dCI6IuWuouaIt+aBkumAmueJqea1gemCo+i+ueeahOWvueaOpeS6uuaYr+mZiOmdme+8jOWQiOWQjOmHkeminSA5NiDkuIflhYPvvIw5IOaciCAzMCDml6Xnrb7nmoTjgIIiLCJyaW5nIjoibm9uZSAzcHggLyByZ2IoMjUxLCAyNTEsIDI1MCkgMHB4IDBweCAwcHggNHB4LCByZ2IoMTAsIDk3LCA4MykgMHB4IDBweCAwcHggNnB4LCByZ2JhKDAsIDAsIDAsIDApIDBweCAwcHggMHB4IDBweCIsImxhbmRlZEluQSI6dHJ1ZSwiZnJvbUIiOiJ0aHItZWQ5Yjg2Y2MtNWRkMS00ZGM2LTg0MzUtZWE5M2JmNjQ5MGRmIn19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e4-sour-1dbd5-用到的长期记忆，点开是原会话的原话，跳过去原消息被高亮/attachments/shot-bc431bd2adcfbcff3ac439c7407f682dff19239d.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e4-sour-1dbd5-用到的长期记忆，点开是原会话的原话，跳过去原消息被高亮/attachments/shot-5a83982a5fd53045bb91ded89f09445198fabdc8.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d4f7742d3b289948db8-876c1474e58d58f315bb",
+          "file": "kg-experience-eval/e4-sources.eval.ts",
+          "line": 137,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e5-correct.eval.ts",
+      "file": "kg-experience-eval/e5-correct.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E5.c1] 忘掉一条记错的：≤ 2 次点击，点完就从记忆里消失",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:09:54.867Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e5-corr-978c0-1-忘掉一条记错的：≤-2-次点击，点完就从记忆里消失/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJmb3JnZXQiOnsiY2xpY2tzIjoyLCJnb25lIjp0cnVlfX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e5-corr-978c0-1-忘掉一条记错的：≤-2-次点击，点完就从记忆里消失/attachments/shot-98005ebbe0fdd9740a54a6fdf2cccdf3f0af73bf.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "65f660ae2990a8044fad-b6e57e5ae1506cf9b2ff",
+          "file": "kg-experience-eval/e5-correct.eval.ts",
+          "line": 91,
+          "column": 5
+        },
+        {
+          "title": "[E5.c2] 改写一条记错的：≤ 2 次点击（加打字），之后的回答用新的说法",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:10:14.165Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJyZXZpc2UiOnsiY2xpY2tzIjoyLCJzaG93biI6dHJ1ZSwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya5YyX5p6B5pif6aG555uu55qE5oC76aKE566X5pivIDQwMCDkuIflhYPvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/5piv5Zug5Li66aKE566X6KaB5LyY5YWI5L+d6K+B5Zu95YaF5LiK57q/77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqT77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiJ9fQ=="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e5-corr-6f8cd-记错的：≤-2-次点击（加打字），之后的回答用新的说法/attachments/shot-25fd142aee43a05dc7cd9aa6e5ba0771317792da.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "65f660ae2990a8044fad-ef4e33c46f6e9ac03f50",
+          "file": "kg-experience-eval/e5-correct.eval.ts",
+          "line": 98,
+          "column": 5
+        },
+        {
+          "title": "[E5.c3] 说「忘掉首月目标那条」：点一下确认，下一轮就不再提",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:10:14.179Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJzYXlGb3JnZXQiOnsiY2FyZFNlZW4iOnRydWUsImNsaWNrcyI6MSwibmV4dEFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8mui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v++8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInvvJvnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVTUUwg5L2c5Li65Li75pWw5o2u5bqT77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5leHRDaXRhdGlvbnMiOlsiWzFdXG7kvp3mja7kvaDnmoTlhrPlrppcbui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBH4oCmXG5BSSDorrDkuIvnmoRcbuadpeiHquS9oCAxMC8xIOeahOWvueivnVxuWzJdXG7kvp3mja7kvaDnmoTlhrPlrppcbuWMl+aegeaYn+mhueebruWGs+WumuaaguWBnOa1t+WkluW4guWcuuaOqOW5v1xuQUkg6K6w5LiL55qEXG7mnaXoh6rkvaAgMTAvMSDnmoTlr7nor51cblszXVxu5L6d5o2u5L2g55qE5Yaz5a6aXG7njovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbkFJIOiusOS4i+eahFxu5p2l6Ieq5L2gIDEwLzEg55qE5a+56K+dXG5bNF1cbuS+neaNruS9oOeahOWGs+Wumlxu5YyX5p6B5pif6aG555uu5Yaz5a6a6YeH55SoIFBvc3RncmVT4oCmXG5BSSDorrDkuIvnmoRcbuadpeiHquS9oCAxMC8xIOeahOWvueivnSIsIlsxXVxu5L6d5o2u5L2g55qE5Yaz5a6aXG7otbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR+KAplxuQUkg6K6w5LiL55qEXG7mnaXoh6rkvaAgMTAvMSDnmoTlr7nor50iLCJBSSDorrDkuIvnmoQiLCJbMl1cbuS+neaNruS9oOeahOWGs+Wumlxu5YyX5p6B5pif6aG555uu5Yaz5a6a5pqC5YGc5rW35aSW5biC5Zy65o6o5bm/XG5BSSDorrDkuIvnmoRcbuadpeiHquS9oCAxMC8xIOeahOWvueivnSIsIkFJIOiusOS4i+eahCIsIlszXVxu5L6d5o2u5L2g55qE5Yaz5a6aXG7njovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbkFJIOiusOS4i+eahFxu5p2l6Ieq5L2gIDEwLzEg55qE5a+56K+dIiwiQUkg6K6w5LiL55qEIiwiWzRdXG7kvp3mja7kvaDnmoTlhrPlrppcbuWMl+aegeaYn+mhueebruWGs+WumumHh+eUqCBQb3N0Z3JlU+KAplxuQUkg6K6w5LiL55qEXG7mnaXoh6rkvaAgMTAvMSDnmoTlr7nor50iLCJBSSDorrDkuIvnmoQiXX19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e5-corr-8e99e-3-说「忘掉首月目标那条」：点一下确认，下一轮就不再提/attachments/shot-cc6c8afdc88381e1f969920fe05ec4d1851c5e60.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e5-corr-8e99e-3-说「忘掉首月目标那条」：点一下确认，下一轮就不再提/attachments/shot-3324f601003e27e417d8a68dcaab0dc13fcc9179.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "65f660ae2990a8044fad-2c01596989d01b6a3e86",
+          "file": "kg-experience-eval/e5-correct.eval.ts",
+          "line": 107,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e6-plain-words.eval.ts",
+      "file": "kg-experience-eval/e6-plain-words.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E6.c1] 记忆界面上没有内部术语（实体、结论、三态、晋升、L0/L1、本体、知识面板）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:10:14.194Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-4d4f8-（实体、结论、三态、晋升、L0-L1、本体、知识面板）/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJzdXJmYWNlcyI6WyJhbnN3ZXJzIiwicGFuZWwtbGlzdCIsInBhbmVsLWdyYXBoIiwiZHJhd2VyIiwiYnJhaW4iXX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-4d4f8-（实体、结论、三态、晋升、L0-L1、本体、知识面板）/attachments/shot-fedbe8154c00e1fc078c5176949ba1e719ace1b8.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-4d4f8-（实体、结论、三态、晋升、L0-L1、本体、知识面板）/attachments/shot-370da970c1524d0a4e8d7b095a240c976913775f.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-4d4f8-（实体、结论、三态、晋升、L0-L1、本体、知识面板）/attachments/shot-531077338e1e9e431957fa42756fdf7f2ac617d0.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-4d4f8-（实体、结论、三态、晋升、L0-L1、本体、知识面板）/attachments/shot-45fa34928e41a7adbbfb2ad5787f0968dbd41fb9.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-4d4f8-（实体、结论、三态、晋升、L0-L1、本体、知识面板）/attachments/shot-b7f701d1e47095cbf78265eab03842783f068609.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93cd3691027302afbc9c-86194358667b90bf5530",
+          "file": "kg-experience-eval/e6-plain-words.eval.ts",
+          "line": 84,
+          "column": 5
+        },
+        {
+          "title": "[E6.c2] 记忆界面上没有代码里的英文内部名（claim / pending / confirmed / revoke…）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:10:42.033Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-28860--pending-confirmed-revoke…）/attachments/shot-370da970c1524d0a4e8d7b095a240c976913775f.jpg"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-28860--pending-confirmed-revoke…）/attachments/shot-45fa34928e41a7adbbfb2ad5787f0968dbd41fb9.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93cd3691027302afbc9c-155ccac4c76be67db513",
+          "file": "kg-experience-eval/e6-plain-words.eval.ts",
+          "line": 91,
+          "column": 5
+        },
+        {
+          "title": "[E6.c3] 状态不只靠颜色：每个状态标签都写着「AI 记下的 / 你确认过 / 有矛盾」",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:10:42.045Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJiYWRnZXMiOlsiQUkg6K6w5LiL55qEIiwiQUkg6K6w5LiL55qEIiwi5pyJ55+b55u+IiwiQUkg6K6w5LiL55qEIiwi5pyJ55+b55u+Il19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e6-plai-b9500-：每个状态标签都写着「AI-记下的-你确认过-有矛盾」/attachments/shot-370da970c1524d0a4e8d7b095a240c976913775f.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "93cd3691027302afbc9c-2ccbfc492ff0e185eeb1",
+          "file": "kg-experience-eval/e6-plain-words.eval.ts",
+          "line": 97,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e7-conflict.eval.ts",
+      "file": "kg-experience-eval/e7-conflict.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E7.c1] 改口那一轮的回答下面出现矛盾提醒卡",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:10:42.058Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e7-conf-b76f0-ts--E7-c1-改口那一轮的回答下面出现矛盾提醒卡/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJmaXJzdENhcmQiOnsic2hvd24iOnRydWUsInRleHQiOiLov5nlkozkvaAgMTAvMSDor7TnmoTjgIzljJfmnoHmmJ/pobnnm67nmoTmraPlvI/kuIrnur/lrprlnKggMTEg5pyIIDE4IOaXpeOAjeS4jeS4gOiHtOOAgueOsOWcqOS9oOivtOeahOaYr+OAjOWMl+aegeaYn+mhueebrueahOato+W8j+S4iue6v+aUueWIsCAxMSDmnIggMjUg5pel44CN44CCXG5cbuS7peaWsOeahOS4uuWHhlxu5Lik5p2h6YO955WZXG7lv73nlaUifX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e7-conf-b76f0-ts--E7-c1-改口那一轮的回答下面出现矛盾提醒卡/attachments/shot-9572e5385c44663b64c862cbf173f9179ddefa04.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b3109cca3b4a323e6070-f0aacbd3277263f692ff",
+          "file": "kg-experience-eval/e7-conflict.eval.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "[E7.c2] 点「忽略」之后再说一遍，同一个矛盾不再提醒（刷新后也没有）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:11:14.179Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhZnRlcklnbm9yZSI6eyJjYXJkVW5kZXJTZWNvbmQiOjAsIm9wZW5DYXJkc0FmdGVyUmVsb2FkIjowfX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e7-conf-874f0-忽略」之后再说一遍，同一个矛盾不再提醒（刷新后也没有）/attachments/shot-6d91ce6433ad34470aeded928034a35d52b1f4ee.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b3109cca3b4a323e6070-0fda3801577bbf5f43e2",
+          "file": "kg-experience-eval/e7-conflict.eval.ts",
+          "line": 61,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e8-quiet.eval.ts",
+      "file": "kg-experience-eval/e8-quiet.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E8.c1] 一轮对话里主动冒出来的卡片最多 1 张（最容易叠两张的那一轮也是）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:11:14.198Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e8-quie-09374-动冒出来的卡片最多-1-张（最容易叠两张的那一轮也是）/test-finished-1.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYXJkc1RoYXRUdXJuIjoxLCJjYXJkc1BlclR1cm4iOlswLDAsMV19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e8-quie-09374-动冒出来的卡片最多-1-张（最容易叠两张的那一轮也是）/attachments/shot-be1ab506eda33f807f3a327165ecd0a51bc29bed.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8aa4479e297c5950060e-8ad2e94dc6950d3b752b",
+          "file": "kg-experience-eval/e8-quiet.eval.ts",
+          "line": 60,
+          "column": 5
+        },
+        {
+          "title": "[E8.c2] 「已记下」提示只有一行",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:11:45.863Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYXB0dXJlZExpbmUiOnsiaGVpZ2h0IjoxNSwibGluZUhlaWdodCI6MTUsIm92ZXJsYXBzQW5zd2VyIjpmYWxzZX19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e8-quiet.eval.ts--E8-c2-「已记下」提示只有一行/attachments/shot-4bc2b36a9cbbe63538e1a6df953f4071431dba99.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8aa4479e297c5950060e-2158225eb0ef71369846",
+          "file": "kg-experience-eval/e8-quiet.eval.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "[E8.c3] 「已记下」提示不遮挡回答正文",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:11:45.877Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYXB0dXJlZExpbmUiOnsiaGVpZ2h0IjoxNSwibGluZUhlaWdodCI6MTUsIm92ZXJsYXBzQW5zd2VyIjpmYWxzZX19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e8-quiet.eval.ts--E8-c3-「已记下」提示不遮挡回答正文/attachments/shot-4bc2b36a9cbbe63538e1a6df953f4071431dba99.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8aa4479e297c5950060e-b9749a249e08c3731747",
+          "file": "kg-experience-eval/e8-quiet.eval.ts",
+          "line": 73,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-experience-eval/e9-privacy.eval.ts",
+      "file": "kg-experience-eval/e9-privacy.eval.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[E9.c1] 记忆面板头部常驻「仅你可见」（列表、关系图、刷新后都在）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:11:45.893Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e9-priv-6f642-忆面板头部常驻「仅你可见」（列表、关系图、刷新后都在）/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e9-priv-6f642-忆面板头部常驻「仅你可见」（列表、关系图、刷新后都在）/test-finished-2.png"
+                    },
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJ2aXNpYmlsaXR5Ijp7Imxpc3QiOiLku4XkvaDlj6/op4EiLCJncmFwaCI6IuS7heS9oOWPr+ingSIsInJlbG9hZGVkIjoi5LuF5L2g5Y+v6KeBIn19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e9-priv-6f642-忆面板头部常驻「仅你可见」（列表、关系图、刷新后都在）/attachments/shot-e802ce0ef43e1fddd84491b5cab812497df4cbb8.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7907d7f7c9181d65267b-5e4093339327db8dfbe6",
+          "file": "kg-experience-eval/e9-privacy.eval.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "[E9.c2] 另一个账号请求同一条记忆：404，与不存在的记忆逐字相同，且拿不到内容",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:12:02.058Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJvdGhlckFwaSI6eyJzdGF0dXMiOjQwNCwibGVha2VkIjpmYWxzZSwibWlzc2luZ1N0YXR1cyI6NDA0LCJzYW1lQXNNaXNzaW5nIjp0cnVlfX0="
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e9-priv-40d3c-一条记忆：404，与不存在的记忆逐字相同，且拿不到内容/attachments/shot-708e077bccf2b1f70f53b7b491a1d45b58386a9a.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7907d7f7c9181d65267b-daddf86a640628b454b6",
+          "file": "kg-experience-eval/e9-privacy.eval.ts",
+          "line": 62,
+          "column": 5
+        },
+        {
+          "title": "[E9.c3] 另一个账号打开这条记忆的链接：界面显示「无权查看」，看不到内容",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:12:02.069Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJvdGhlclVpIjp7InNheXNOb0FjY2VzcyI6dHJ1ZSwibGVha2VkIjpmYWxzZX19"
+                    },
+                    {
+                      "name": "shot",
+                      "contentType": "image/jpeg",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-experience-eval-e9-priv-ff480-号打开这条记忆的链接：界面显示「无权查看」，看不到内容/attachments/shot-708e077bccf2b1f70f53b7b491a1d45b58386a9a.jpg"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7907d7f7c9181d65267b-f29eaf7dd3817b076f55",
+          "file": "kg-experience-eval/e9-privacy.eval.ts",
+          "line": 71,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-levels-acceptance.acceptance.ts",
+      "file": "kg-levels-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19614,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:12:02.083Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJwcm9qZWN0SWQiOiJwcmotYjNkOGViMGMtZDM1Ny00OWFjLTk4NzgtODZiZjE0OTQ0MzA1Iiwic291cmNlVGhyZWFkIjoidGhyLTQ5ODA5ZGVhLWJmMzYtNDI3OS1hODdhLTY5NTEyZWVkNWMzMCIsInNvdXJjZUNsYWltIjoiY2xtX2RiZTgyMTlmNmI1NTQyODNiNDNlYjk0NWIxMzgxNWYzIiwicGVyc29uYWxBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsInByb2plY3RBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-cf46c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-34c322e88d159cd4f91e",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20455,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:12:21.705Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJwcm9qZWN0SWQiOiJvcmcta2ctbW9kZS1jbG91ZC1wcm9qZWN0Iiwic291cmNlVGhyZWFkIjoidGhyLWEyNmM1NGNkLTA4YzAtNGJkOS1iYzFmLWVjNWM2YjdiYjg1MSIsInNvdXJjZUNsYWltIjoiY2xtX2U3N2VkMzUxMWFjOTQ3MDQ5YjRhNGUxM2E0YjY1ZjczIiwicGVyc29uYWxBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsInByb2plY3RBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-49597--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-d14a8495b113cf63d37d",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24400,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:12:42.174Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJwcm9qZWN0SWQiOiJwcmotZjU1NGMyYWUtYjZlNS00M2YyLTg5ZWEtMDU3ZmUzOGVmMzk2Iiwic291cmNlVGhyZWFkIjoidGhyLWZmOWVlYWVmLTFhNTctNDE4OS04MDg1LTIyNTUzZGE0NjkyYSIsInNvdXJjZUNsYWltIjoiY2xtX2U4ZjVlY2IwMzYxMDRhZGNiZTFkNDU4YzI1ZDhiOTA0IiwicGVyc29uYWxBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsInByb2plY3RBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-20265--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-1e7aae96a1aaa831b585",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 22591,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:13:06.594Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJwcm9qZWN0SWQiOiJvcmctbG9jYWwta2ctbW9kZS1hY2NlcHRhbmNlLXByb2plY3QiLCJzb3VyY2VUaHJlYWQiOiJ0aHItMTQ2ZWIzZTEtNmU4NS00NTAyLThiZWQtYTNlMTM4NmRlNGU2Iiwic291cmNlQ2xhaW0iOiJjbG1fNTQxNjAyN2VlNTcwNDJmMGIyMDM1OTJkNmQ1ZmU0NTUiLCJwZXJzb25hbEFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8mueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOadpeiHquS4quS6uuepuumXtOefpeivhu+8jOacgOaXqeingeS6juS9oCAxMC8wMSDnmoTlr7nor53vvInvvJvljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLrvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ44CCIiwicHJvamVjdEFuc3dlciI6IuagueaNruS5i+WJjeeahOWvueivne+8mueOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiO+8iOadpeiHqumhueebruiusOW/hu+8jOeUsSDlj4zmqKHlvI/pqozmlLbnlKjmiLcg5YiG5Lqr6Ieq5Liq5Lq66K6w5b+G77yJ44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-a2e6c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-1446376a0b5deb563c16",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18536,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:13:29.195Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJiZWZvcmUiOiLmiJHmsqHmnInmib7liLDnm7jlhbPnmoTorrDlv4bjgIIiLCJzaGFyZWQiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiIsImFmdGVyIjoi5oiR5rKh5pyJ5om+5Yiw55u45YWz55qE6K6w5b+G44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-d86ad-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-d86ad-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-d86ad-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-fb9c259b94e1655f5012",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 100,
+          "column": 5
+        },
+        {
+          "title": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18920,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:13:47.744Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJiZWZvcmUiOiLmiJHmsqHmnInmib7liLDnm7jlhbPnmoTorrDlv4bjgIIiLCJzaGFyZWQiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiIsImFmdGVyIjoi5oiR5rKh5pyJ5om+5Yiw55u45YWz55qE6K6w5b+G44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-b3025-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-b3025-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-b3025-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-f5785ad74df14b6868a8",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 100,
+          "column": 5
+        },
+        {
+          "title": "[L-undo-cloud] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13656,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:14:06.685Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-9264e-目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-03f57c72beb50d053ada",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 177,
+          "column": 7
+        },
+        {
+          "title": "[L-undo-local] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14095,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:14:20.353Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-levels-acceptance.accep-f208c-目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-42b4aa4dfaa1b57e2704",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 177,
+          "column": 7
+        }
+      ]
+    },
+    {
+      "title": "kg-mode-acceptance.acceptance.ts",
+      "file": "kg-mode-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10164,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:14:34.463Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJvcmdJZCI6Im9yZy1rZy1tb2RlLWNsb3VkIiwiYW5zd2VyIjoi5qC55o2u5LmL5YmN55qE5a+56K+d77ya546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+WMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiOaYr+WboOS4uuaBkumAmueJqea1geeahOWPuOacuuS4u+imgeeUqOWuieWNk+aJi+acuu+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInvvJvotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTO+8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJjaGFubmVscyI6IlsxXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuWFqOaWh1xu5YWz6IGUXG7nm7jkvLxcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuWuieWNk+eJiCDigJTlhbPkuo7ihpIg546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mIXG5cblsyXSDljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLpcbuWFqOaWh1xu5YWz6IGUXG7nm7jkvLxcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuWuieWNk+eJiCDigJTlhbPkuo7ihpIg5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py6XG5cblszXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuWMl+aegeaYn+mhueebriDigJTlhbPkuo7ihpIg6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUwifQ=="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-a2f13-→-AGE关联和pgvector相似召回-→-来源原文/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-82bc21e3fbb7cdcca596",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10561,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:14:44.636Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJvcmdJZCI6Im9yZy1sb2NhbC1rZy1tb2RlLWFjY2VwdGFuY2UiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ie+8m+i1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM77yI5pys5Lya6K+dIDEwLzAxIOeahOWvueivne+8ieOAgiIsImNoYW5uZWxzIjoiWzFdIOeOi+iKs+WGs+WumuWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiFxu5YWo5paHXG7lhbPogZRcbuebuOS8vFxuwrcg5Y+s5ZueXG7CtyDnur/ntKJcblxu5a6J5Y2T54mIIOKAlOWFs+S6juKGkiDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcblxuWzJdIOWMl+aegeaYn+mhueebrummluWPkeWPquWBmuWuieWNk+eJiOaYr+WboOS4uuaBkumAmueJqea1geeahOWPuOacuuS4u+imgeeUqOWuieWNk+aJi+aculxu5YWo5paHXG7lhbPogZRcbuebuOS8vFxuwrcg5Y+s5ZueXG7CtyDnur/ntKJcblxu5a6J5Y2T54mIIOKAlOWFs+S6juKGkiDljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHnlKjlronljZPmiYvmnLpcblxuWzNdIOi1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFMXG7lhajmlodcbuWFs+iBlFxuwrcg5Y+s5ZueXG7CtyDnur/ntKJcblxu5YyX5p6B5pif6aG555uuIOKAlOWFs+S6juKGkiDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTCJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-4208e-→-AGE关联和pgvector相似召回-→-来源原文/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-3acfcdfe8e41ae2804e2",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 25,
+          "column": 7
+        },
+        {
+          "title": "[M-isolation] 同一用户在云端与local组织间切换，记忆不自动互通",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16913,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:14:55.220Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-ab541--同一用户在云端与local组织间切换，记忆不自动互通/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-39ad77c5ea9d66b37912",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 51,
+          "column": 5
+        },
+        {
+          "title": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9671,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:15:12.142Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYW52YXNXaWR0aCI6MjYzLCJub2RlcyI6W3sidGV4dCI6IuWuieWNk+eJiOS6p+WTgSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjM3LjQxOTU1NTY2NDA2MjV9LHsidGV4dCI6IueOi+iKs+S6uueJqSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjMwLjQxNDQyODcxMDkzNzV9LHsidGV4dCI6IuWMl+aegeaYn+mhueebrumhueebriIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjUxLjQyOTY4NzV9LHsidGV4dCI6IuaBkumAmueJqea1geWFrOWPuCIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjQ0LjQyNDU2MDU0Njg3NX0seyJ0ZXh0Ijoi6LW156OK5Lq654mpIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6MzAuNDE0NDI4NzEwOTM3NX0seyJ0ZXh0IjoiR3JhcGhRTOacr+ivrSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjQ1LjQ3ODc1OTc2NTYyNX0seyJ0ZXh0Ijoi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5Yaz5a6aIMK3IEFJIOiusOS4i+eahCIsInZpc2libGVSYXRpbyI6MSwieCI6MTMwOS4xMTEwODM5ODQzNzUsIndpZHRoIjoxMDAuODg4OTE2MDE1NjI1fSx7InRleHQiOiLljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHigKbkuovlrp4gwrcgQUkg6K6w5LiL55qEIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMzA5LjExMTA4Mzk4NDM3NSwid2lkdGgiOjEwMC44ODg5MTYwMTU2MjV9LHsidGV4dCI6Iui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM5Yaz5a6aIMK3IEFJIOiusOS4i+eahCIsInZpc2libGVSYXRpbyI6MSwieCI6MTMwOS4xMTEwODM5ODQzNzUsIndpZHRoIjoxMDAuODg4OTE2MDE1NjI1fV0sIm1pblZpc2libGVSYXRpbyI6MX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-f0473-adability-默认窄侧栏关系图能完整显示记忆节点/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-ac1ce0d4b26848968851",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11842,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:15:21.826Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-73cd2-cal组织刷新、新会话仍可用；AGE故障如实提示并恢复/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-846ad43dcb4f2fd3fe3d",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 107,
+          "column": 5
+        },
+        {
+          "title": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21090,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:15:33.678Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "cloud-measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5vdGljZSI6Iui/measoeayoeiDveafpeWFqOS9oOeahOiusOW/hu+8iOebuOS8vOafpeivouaaguS4jeWPr+eUqO+8ie+8jOWbnuetlOWPr+iDveS4jeWujOaVtCIsImNoYW5uZWxzIjoiWzFdIOaBkumAmueJqea1geeahOWvueaOpeS6uuaYr+mZiOmdmVxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuaBkumAmueJqea1gSDigJTlhbPkuo7ihpIg5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZXG5cblsyXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu6K6w5LiL55qEXG7CtyDlj6zlm55cblszXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuiusOS4i+eahFxuwrcg5Y+s5ZueIn0="
+                    },
+                    {
+                      "name": "local-measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5vdGljZSI6Iui/measoeayoeiDveafpeWFqOS9oOeahOiusOW/hu+8iOebuOS8vOafpeivouaaguS4jeWPr+eUqO+8ie+8jOWbnuetlOWPr+iDveS4jeWujOaVtCIsImNoYW5uZWxzIjoiWzFdIOaBkumAmueJqea1geeahOWvueaOpeS6uuaYr+mZiOmdmVxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuaBkumAmueJqea1gSDigJTlhbPkuo7ihpIg5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZXG5cblsyXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu6K6w5LiL55qEXG7CtyDlj6zlm55cblszXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuiusOS4i+eahFxuwrcg5Y+s5ZueIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-3d1ef-ctor故障可继续回答，说明正确通道，恢复后可相似召回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-53c30d6bd9286f6c3509",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 134,
+          "column": 5
+        },
+        {
+          "title": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20015,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:15:54.782Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-mode-acceptance.accepta-87fb1-gvector同时失败时仍可回答，准确提示两通道并恢复/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-2d1bddd14125871065c1",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 167,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-user-acceptance.acceptance.ts",
+      "file": "kg-user-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[U01] 从个人菜单找到大脑、找到对话记忆并返回来源",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7272,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:14.813Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U01-从个人菜单找到大脑、找到对话记忆并返回来源/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-7fb8825f74f3ebe82547",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 24,
+          "column": 5
+        },
+        {
+          "title": "[U02] 用户输入的记忆在列表、关系图和刷新后均可用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7598,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:22.092Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U02-用户输入的记忆在列表、关系图和刷新后均可用/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-0f2ad2751fe261fa9464",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 37,
+          "column": 5
+        },
+        {
+          "title": "[U03] 只问预算时引用精准，不混入合同和团队人数",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8013,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:29.702Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrljJfmnoHmmJ/pobnnm67nmoTmgLvpooTnrpfmmK8gMzgwIOS4h+WFg++8iOacrOS8muivnSAxMC8wMSDnmoTlr7nor53vvInjgIIiLCJzdGF0ZW1lbnRzIjpbIuWMl+aegeaYn+mhueebrueahOaAu+mihOeul+aYryAzODAg5LiH5YWDIl0sInByZWNpc2lvbiI6MX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U03-只问预算时引用精准，不混入合同和团队人数/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-34b7cc8e21986f64a0b8",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "[U04] 改写预算后开新会话，旧数值与旧引用不复活",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9125,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:37.724Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U04-改写预算后开新会话，旧数值与旧引用不复活/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-90758da0e457dabb4b23",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "[U05] 忘掉合同金额后重新登录、新开会话，旧记忆不复活",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9343,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:46.857Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.accepta-02319-U05-忘掉合同金额后重新登录、新开会话，旧记忆不复活/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.accepta-02319-U05-忘掉合同金额后重新登录、新开会话，旧记忆不复活/test-finished-2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-6b64b72097939f06c698",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 93,
+          "column": 5
+        },
+        {
+          "title": "[U06] 已开放的项目与组织记忆有可继续操作的真实入口",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3123,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:56.213Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U06-已开放的项目与组织记忆有可继续操作的真实入口/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-fa564c359986a5e33fa4",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 118,
+          "column": 5
+        },
+        {
+          "title": "[U07] 他人私人会话不能通过 URL 或出处接口泄漏",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5892,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:16:59.349Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U07-他人私人会话不能通过-URL-或出处接口泄漏/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U07-他人私人会话不能通过-URL-或出处接口泄漏/test-finished-2.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-c8d707aa19ab0ef4e21d",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 142,
+          "column": 5
+        },
+        {
+          "title": "[U08] 窄屏用户可打开记忆，正文与必需操作无横向溢出",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6053,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T10:17:05.251Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJ2aWV3cG9ydCI6MzkwLCJzY3JvbGxXaWR0aCI6MzkwfQ=="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-comprehensive-acceptance/artifacts/kg-user-acceptance.acceptance.ts--U08-窄屏用户可打开记忆，正文与必需操作无横向溢出/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b87319c571bc99790aea-1d09e3b8387ee4cdbd0c",
+          "file": "kg-user-acceptance.acceptance.ts",
+          "line": 176,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T10:07:30.592Z",
+    "duration": 581119.2860000001,
+    "expected": 68,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

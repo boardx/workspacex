@@ -1,0 +1,32 @@
+{
+  "runId": "kg-remediation-20261001-baseline-fresh",
+  "seen": {
+    "latency": {
+      "onMs": [
+        512,
+        530,
+        543,
+        570,
+        515
+      ],
+      "offMs": [
+        545,
+        522,
+        514,
+        506,
+        527
+      ],
+      "onMedian": 530,
+      "offMedian": 522
+    },
+    "graphDown": {
+      "answer": "根据之前的对话：恒通物流的对接人是陈静（本会话 10/01 的对话）。",
+      "degradedLines": 1
+    }
+  },
+  "shots": {
+    "graph-down": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E10-graph-down.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

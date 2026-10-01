@@ -42,7 +42,7 @@ export async function recallThreadKnowledge(
   const { claims, objects } = await candidates;
   const seeds = graphSeeds(input.query, objects);
   const graphChannel = async (): Promise<Awaited<ReturnType<KnowledgeRecallPort["graphNeighbors"]>> | null> => {
-    if (seeds.length === 0) return [];
+    if (port.evaluationMode === "vector_only" || seeds.length === 0) return [];
     try {
       return await port.graphNeighbors(input.orgId, seeds.map((id) => `object:${id}`));
     } catch (e) {
@@ -54,9 +54,9 @@ export async function recallThreadKnowledge(
   };
   // S9（#4366）：两路并行，一轮的等待是较慢的那一路，不是两路相加。
   const [graph, vector] = await Promise.all([graphChannel(), vectorP]);
-  const recall = fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT, now });
+  const recall = fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT, now, evaluationMode: port.evaluationMode });
   // issue #4360 / S6：画像摘要同样只看「这一轮还算数」的（没过期、不是不做了的待办）——与召回候选同一个 recallable 判定。
-  return input.personalThread === true ? withProfileSummary(recall, claims.filter((c) => recallable(c, now))) : recall;
+  return input.personalThread === true && port.evaluationMode === undefined ? withProfileSummary(recall, claims.filter((c) => recallable(c, now))) : recall;
 }
 
 /**
@@ -149,7 +149,7 @@ async function recordTurn(
   if (recall.items.length === 0 && !graphDegraded) return true;
   try {
     await port.recordTurn(input.orgId, {
-      runId: input.runId, threadId: input.threadId, userId: input.userId, graphDegraded,
+      runId: input.runId, threadId: input.threadId, userId: input.userId, graphDegraded, degradedChannels: recall.degraded ?? [],
       items: recall.items.map((i) => ({
         claimId: i.claim.id, channels: i.channels, retrievalReasons: i.retrievalReasons, score: i.score, graphPath: i.graphPath,
       })),
