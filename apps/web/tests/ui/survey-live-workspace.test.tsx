@@ -9,12 +9,40 @@ vi.mock('@/lib/survey/runtime-client',async(importOriginal)=>({...(await importO
 vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
+const flushAutosave=async()=>{await act(async()=>{await new Promise(resolve=>setTimeout(resolve,1700));});};
 const openOptionalReport=()=>{
  const report=screen.getByRole('group',{name:'分析报告（可选）'});
  fireEvent.click(report.querySelector('summary')!);
  return report;
 };
 describe('live survey workspace persistence',()=>{
+ it('saves before opening publish and stays in the designer when that save fails',async()=>{
+  request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new Error('保存服务暂不可用'));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'尚未保存的设计'}});
+  fireEvent.click(screen.getByRole('button',{name:'发布回收'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('保存服务暂不可用');
+  expect(screen.getByRole('region',{name:'问卷设计画布'})).toBeInTheDocument();
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('尚未保存的设计');
+  request.mockResolvedValueOnce(runtime({title:'尚未保存的设计',version:5}));
+  fireEvent.click(screen.getByRole('button',{name:'发布回收'}));
+  expect(await screen.findByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
+ });
+ it('keeps a single header publish action and moves template saving into more actions',async()=>{
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  await screen.findByLabelText('问题内容');
+  expect(screen.queryByRole('button',{name:'保存修改'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'使用问卷模板'})).not.toBeInTheDocument();
+  expect(screen.queryByText('管理模板库')).not.toBeInTheDocument();
+  expect(screen.queryByText('所有修改已保存')).not.toBeInTheDocument();
+  const publish=screen.getByRole('button',{name:'发布回收'});
+  expect(publish.closest('header')).not.toBeNull();
+  expect(screen.queryByRole('button',{name:'保存为问卷模板'})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'更多操作'}));
+  fireEvent.click(screen.getByRole('button',{name:'保存为问卷模板'}));
+  expect(screen.getByRole('dialog',{name:'保存为问卷模板'})).toBeInTheDocument();
+ });
  it('puts real responses before the optional report area and keeps secondary operations grouped',async()=>{
   request.mockResolvedValueOnce(runtime({responses:[]}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
@@ -107,7 +135,7 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
   expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
   expect(screen.getByRole('heading',{name:'题型工具箱'})).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
+  fireEvent.click(screen.getByRole('button',{name:'发布回收'}));
   expect(screen.getByRole('button',{name:'检查发布条件'})).toBeInTheDocument();
   expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
   expect(screen.getByRole('complementary',{name:'回收设置面板'})).toBeInTheDocument();
@@ -116,7 +144,7 @@ describe('live survey workspace persistence',()=>{
   window.history.replaceState(null,'','/studio/survey/saved-survey/design');
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="design"/>);
-  fireEvent.click(await screen.findByRole('button',{name:'前往发布回收'}));
+  fireEvent.click(await screen.findByRole('button',{name:'发布回收'}));
   expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
   window.history.replaceState(null,'','/studio/survey/saved-survey/design');
   fireEvent(window,new PopStateEvent('popstate'));
@@ -148,11 +176,11 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   await screen.findByLabelText('问卷名称');
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'本地设计'}});
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await flushAutosave();
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button',{name:'读取最新版本并保留我的修改'}));
   fireEvent.click(await screen.findByRole('button',{name:'确认保留本地版本'}));
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await flushAutosave();
   await screen.findByText('修改已保存');
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({expectedVersion:5,documents:expect.objectContaining({reportTemplate:expect.stringContaining('模板报告')})})}),expect.anything());
  });
@@ -165,7 +193,7 @@ describe('live survey workspace persistence',()=>{
  it('reuses the created draft when saving its source fails',async()=>{
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:1,title:'未命名问卷'})).mockRejectedValueOnce(new Error('源文档暂时保存失败'));
   render(<LiveSurveyWorkspace surveyId="new"/>);
-  fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
+  await screen.findByLabelText('问卷名称'); fireEvent.click(screen.getByRole('button',{name:'发布回收'}));
   await screen.findByRole('alert');
   expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft/design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
@@ -179,7 +207,7 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   await screen.findByDisplayValue('已保存问卷');
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'我的修改'}});
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await flushAutosave();
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button',{name:'读取最新版本并保留我的修改'}));
   expect((await screen.findByLabelText('远端 Markdown') as HTMLTextAreaElement).value).toContain('# 其他人的修改');
@@ -245,7 +273,7 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   await screen.findByDisplayValue('已保存问卷');
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'尚未保存的新标题'}});
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await flushAutosave();
   expect(await screen.findByRole('alert')).toHaveTextContent('版本冲突');
   expect(screen.getByLabelText('问卷名称')).toHaveValue('尚未保存的新标题');
   expect(screen.getByText('有未保存修改')).toBeInTheDocument();
@@ -260,9 +288,9 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   await screen.findByDisplayValue('已保存问卷');
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'等待保存的标题'}});
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
-  expect(screen.getByRole('status')).toHaveTextContent('正在保存修改');
-  expect(screen.getByRole('button',{name:'保存中…'})).toBeDisabled();
+  await flushAutosave();
+  expect(screen.getByText('正在自动保存…')).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'发布回收'})).toBeDisabled();
   await act(async()=>finishSave(runtime({title:'等待保存的标题',version:5})));
   await screen.findByText('修改已保存');
  });
@@ -271,13 +299,13 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   await screen.findByDisplayValue('已保存问卷');
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'提交的标题'}});
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await flushAutosave();
   await screen.findByText('修改已保存');
   expect(screen.getByLabelText('问卷名称')).toHaveValue('服务端保存的标题');
-  expect(screen.getByRole('button',{name:'保存修改'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'发布回收'})).toBeEnabled();
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'再次修改'}});
   request.mockResolvedValueOnce(runtime({version:6,title:'再次修改'}));
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await flushAutosave();
   await waitFor(()=>expect(request).toHaveBeenCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({expectedVersion:5})}),expect.anything()));
  });
  it('marks an older report stale while preserving it and clears the warning after generation returns',async()=>{

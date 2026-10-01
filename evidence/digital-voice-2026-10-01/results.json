@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-01",
+  "command": "node --import tsx scripts/local-session/digital-voice-session.mjs --data-dir \"/private/tmp/wsx-digital-voice-final\" --base \"http://127.0.0.1:14310\" --out \"/private/tmp/wsx-digital-voice-20261001/evidence/digital-voice-2026-10-01\"",
+  "supplier": "explicit loopback simulator; fake microphone; real browser/API/PGlite",
+  "results": [
+    {
+      "name": "real local login",
+      "passed": true
+    },
+    {
+      "name": "pending seven official roles",
+      "passed": true
+    },
+    {
+      "name": "enable roles with dependencies",
+      "passed": true
+    },
+    {
+      "name": "select design thinking expert",
+      "passed": true
+    },
+    {
+      "name": "loopback live voice and captions",
+      "passed": true
+    },
+    {
+      "name": "hang up and refresh persisted turns",
+      "passed": true
+    }
+  ]
+}
