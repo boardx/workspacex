@@ -113,6 +113,7 @@ export class HomeConfigController {
           recommendedCapabilities: body.recommendedCapabilities,
           recommendedAgents: body.recommendedAgents,
           sections: body.sections,
+          themeColors: body.themeColors,
           updatedBy: principal.userId,
         },
       );

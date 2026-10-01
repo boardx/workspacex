@@ -2,6 +2,7 @@
 import * as React from "react";
 import { useSession } from "@/components/session/session-provider";
 import { getHomeConfig, type HomeConfig } from "@/lib/live-home-config";
+import { homeThemeStyle } from "@/lib/home-theme";
 import { describeHomeConfigFailure } from "@/lib/home-config-failure";
 import { HomeBanner } from "./home-banner";
 import { useHomeTasks, useHomeWork } from "./use-home-work";
@@ -36,8 +37,9 @@ export function HomeView({
   const work = useHomeWork(orgId, showRecent || showTasks);
   const tasks = useHomeTasks(work.projects, showTasks);
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8" data-testid="home-screen">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6" style={homeThemeStyle(c.themeColors)} data-testid="home-screen">
       <HomeBanner
+        orgId={orgId}
         title={c.title}
         greeting={displayName ? `你好，${displayName}` : "欢迎回来"}
         headline={c.bannerHeadline}
@@ -49,8 +51,8 @@ export function HomeView({
       <QuickActionsGrid actions={c.quickActions} />
       <AgentsStrip agents={c.recommendedAgents} />
       <CapabilityRecommendations items={c.recommendedCapabilities} />
-      {showTasks ? <CurrentTasksSection tasks={tasks} projects={work.projects} /> : null}
       {showRecent ? <RecentWorkSection work={work} /> : null}
+      {showTasks ? <CurrentTasksSection tasks={tasks} projects={work.projects} /> : null}
       <FeedbackRow />
     </div>
   );

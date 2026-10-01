@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { useOrgAvatarUrl } from "@/components/shell/org-menu";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { BANNER_PRESET_CATALOG, isValidBannerColor, readableTextOn } from "@/lib/home-config-catalog";
@@ -12,6 +14,7 @@ import { cn } from "@/lib/utils";
  * 裸 `<img src>` 发不出 Bearer 头）；拉取失败回落到配色，不留一块空白。
  */
 export interface HomeBannerProps {
+  readonly orgId?: string | null;
   readonly title: string;
   readonly greeting: string;
   readonly headline: string;
@@ -26,7 +29,10 @@ export interface HomeBannerProps {
 const TEXT_ON_DARK = "rgb(255 255 255)";
 const TEXT_ON_LIGHT = "rgb(23 23 26)";
 
-export function HomeBanner({ title, greeting, headline, tagline, preset, color, imageUrl, className }: HomeBannerProps) {
+export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, color, imageUrl, className }: HomeBannerProps) {
+  const session = useOptionalSession();
+  const logoUrl = useOrgAvatarUrl(orgId ?? session?.identity?.org.id ?? "", session?.identity?.org.avatarUrl ?? null, session?.identity?.orgRole === "admin");
+  const { src: logo } = useAuthedImageSrc(logoUrl ? apiUrl(logoUrl) : null);
   const { src } = useAuthedImageSrc(imageUrl === null ? null : apiUrl(imageUrl));
   const customColor = preset === "custom" && color !== null && isValidBannerColor(color) ? color : null;
   const presetMeta = preset === "custom" ? BANNER_PRESET_CATALOG.ocean : BANNER_PRESET_CATALOG[preset];
@@ -47,7 +53,7 @@ export function HomeBanner({ title, greeting, headline, tagline, preset, color, 
       data-banner-source={hasImage ? "image" : customColor !== null ? "custom" : "preset"}
       style={style}
       className={cn(
-        "relative overflow-hidden rounded-container px-8 py-10 shadow-lg",
+        "relative overflow-hidden rounded-container px-6 py-10 sm:px-10 sm:py-12 shadow-sm",
         !hasImage && customColor === null && presetMeta.className,
         textClass,
         className,
@@ -60,11 +66,15 @@ export function HomeBanner({ title, greeting, headline, tagline, preset, color, 
           <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-inverse/70 via-inverse/30 to-transparent" />
         </>
       ) : null}
-      <div className={cn("relative", hasImage && "text-inverse-foreground")}>
-        <p className={cn("text-11 font-medium uppercase tracking-wide", subtle)}>{title}</p>
-        <h1 className="mt-2 max-w-lg text-24 font-semibold leading-tight" data-testid="home-greeting">{greeting}</h1>
-        <p className={cn("mt-2 max-w-md text-13", subtle)}>{headline}</p>
+      <div className={cn("relative flex items-start gap-6", hasImage && "text-inverse-foreground")}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- authenticated organization logo */}
+        {logo ? <img src={logo} alt="组织 Logo" className="hidden h-24 w-24 shrink-0 object-contain sm:block" /> : null}
+        <div>
+        <p className="max-w-lg text-[36px] sm:text-[44px] font-semibold leading-tight tracking-tight">{title}</p>
+        <h1 className="mt-2 max-w-lg text-13 font-medium leading-tight" data-testid="home-greeting">{greeting}</h1>
+        <h2 className={cn("mt-3 max-w-lg text-20 font-medium leading-snug", subtle)}>{headline}</h2>
         {tagline.length > 0 ? <p className={cn("mt-1 max-w-md text-11", subtle)}>{tagline}</p> : null}
+        </div>
       </div>
     </section>
   );

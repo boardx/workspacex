@@ -1,3 +1,5 @@
+import type { ThemeColors } from "@/lib/home-theme";
+import { homeConfig } from "@repo/contracts";
 import { isValidBannerColor, QUICK_ACTION_ORDER } from "@/lib/home-config-catalog";
 import type {
   BannerPreset, HomeConfig, HomeSections, QuickActionKey, RecommendedAgent, RecommendedCapability, UpdateHomeConfigIn,
@@ -5,6 +7,7 @@ import type {
 
 /** 后台表单的本地状态。`bannerColorInput` 是输入框里的原始文本（可能还不合法）。 */
 export interface HomeConfigFormState {
+  themeColors: ThemeColors;
   title: string;
   tagline: string;
   bannerHeadline: string;
@@ -33,6 +36,7 @@ export function toFormState(config: HomeConfig): HomeConfigFormState {
     QUICK_ACTION_ORDER.map((k) => [k, enabled.get(k) ?? false]),
   ) as Record<QuickActionKey, boolean>;
   return {
+    themeColors: { ...(config.themeColors ?? homeConfig.DEFAULT_HOME_THEME) },
     title: config.title,
     tagline: config.tagline ?? "",
     bannerHeadline: config.bannerHeadline,
@@ -55,6 +59,7 @@ export function isFormDirty(baseline: HomeConfigFormState, form: HomeConfigFormS
 /** 表单 → 提交体前的校验。返回「字段 → 人话」；空对象 = 通过。 */
 export function validateForm(form: HomeConfigFormState): Record<string, string> {
   const v: Record<string, string> = {};
+  if (Object.values(form.themeColors).some((color) => !isValidBannerColor(color))) v.themeColors = "主题颜色请使用 #RRGGBB 格式";
   if (form.title.trim().length === 0) v.title = "标题不能为空";
   else if (form.title.length > 24) v.title = "标题不能超过 24 字";
   if (form.tagline.length > 80) v.tagline = "一句话简介不能超过 80 字";
@@ -70,6 +75,7 @@ export function validateForm(form: HomeConfigFormState): Record<string, string> 
 export function toUpdateInput(form: HomeConfigFormState): Omit<UpdateHomeConfigIn, "orgId"> {
   const tagline = form.tagline.trim();
   return {
+    themeColors: form.themeColors,
     title: form.title.trim(),
     tagline: tagline.length > 0 ? tagline : null,
     bannerHeadline: form.bannerHeadline.trim(),
@@ -92,6 +98,7 @@ export function toUpdateInput(form: HomeConfigFormState): Omit<UpdateHomeConfigI
 export function formToPreviewConfig(form: HomeConfigFormState, orgId: string): HomeConfig {
   const body = toUpdateInput(form);
   return {
+    themeColors: form.themeColors,
     orgId,
     title: body.title,
     tagline: body.tagline,

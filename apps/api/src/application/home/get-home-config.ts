@@ -36,6 +36,7 @@ export async function getHomeConfig(deps: GetHomeConfigDeps, orgId: OrgId): Prom
   const existing = await deps.repo.get(orgId);
   if (existing !== null) return existing;
   return {
+    themeColors: null,
     orgId,
     title: DEFAULT_HOME_CONFIG_TITLE,
     tagline: DEFAULT_HOME_CONFIG_TAGLINE,

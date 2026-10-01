@@ -20,6 +20,7 @@ export interface StoredHomeBanner {
 }
 
 export interface UpsertHomeConfigInput {
+  readonly themeColors?: HomeConfig["themeColors"];
   readonly title: string;
   readonly tagline: string | null;
   readonly bannerHeadline: string;

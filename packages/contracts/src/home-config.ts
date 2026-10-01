@@ -22,6 +22,16 @@ export const BannerPreset = z.enum([
 /** 自定义横幅色：只收 `#RRGGBB`（大小写均可），不收简写/带 alpha——一个格式一份校验。 */
 export const BannerColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
+/** 首页品牌色，旧客户端省略此字段时保留已保存配色。 */
+export const ThemeColors = z.object({
+  primary: BannerColor, secondary: BannerColor, accent: BannerColor,
+  success: BannerColor, warning: BannerColor, error: BannerColor,
+}).strict();
+export const DEFAULT_HOME_THEME = {
+  primary: "#2F6FED", secondary: "#089FA8", accent: "#C3EEEA",
+  success: "#158567", warning: "#A65B12", error: "#CC334B",
+} as const;
+
 /** 与 `apps/web/lib/navigation.ts` 里真实存在的顶层路由一一对应，不是自由字符串——
  *  首页快捷入口只能链到产品里真的走得到的地方（同 UC-0.4 R4 的精神）。 */
 export const QuickActionKey = z.enum([
@@ -80,6 +90,7 @@ export const HomeConfig = z
     tagline: z.string().max(80).nullable(),
     bannerHeadline: z.string().min(1).max(60),
     bannerTagline: z.string().max(120),
+    themeColors: ThemeColors.nullable().optional(),
     bannerPreset: BannerPreset,
     /** 仅 `bannerPreset === "custom"` 时生效；其余为 null。 */
     bannerColor: BannerColor.nullable(),
@@ -118,6 +129,7 @@ export const operations = {
         tagline: z.string().max(80).nullable(),
         bannerHeadline: z.string().min(1).max(60),
         bannerTagline: z.string().max(120),
+        themeColors: ThemeColors.nullable().optional(),
         bannerPreset: BannerPreset,
         bannerColor: BannerColor.nullable(),
         /** 上传得到的 `bannerImageArtifactId`；`null` = 不用图片。必须属于本组织。 */
