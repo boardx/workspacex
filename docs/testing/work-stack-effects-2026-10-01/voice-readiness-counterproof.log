@@ -1,0 +1,70 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/voice-config-fixes
+
+ ❯ .harness/scripts/vm/deploy-readiness.test.ts (26 tests | 6 failed | 20 skipped) 256ms
+   × public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 200 despite healthy API and web 51ms
+     → expected +0 not to be +0 // Object.is equality
+   × public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 404 despite healthy API and web 42ms
+     → expected +0 not to be +0 // Object.is equality
+   × public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 502 despite healthy API and web 37ms
+     → expected +0 not to be +0 // Object.is equality
+   × public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 101 despite healthy API and web 40ms
+     → expected +0 not to be +0 // Object.is equality
+   × public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 000 despite healthy API and web 41ms
+     → expected +0 not to be +0 // Object.is equality
+   × public realtime voice anonymous Upgrade readiness > accepts the authenticated gateway anonymous refusal without exposing credentials 44ms
+     → expected '  API trustworthy sample=1 stable=1/3…' to contain 'anonymous Upgrade=401'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/vm/deploy-readiness.test.ts > public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 200 despite healthy API and web
+ FAIL  .harness/scripts/vm/deploy-readiness.test.ts > public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 404 despite healthy API and web
+ FAIL  .harness/scripts/vm/deploy-readiness.test.ts > public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 502 despite healthy API and web
+ FAIL  .harness/scripts/vm/deploy-readiness.test.ts > public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 101 despite healthy API and web
+ FAIL  .harness/scripts/vm/deploy-readiness.test.ts > public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 000 despite healthy API and web
+AssertionError: expected +0 not to be +0 // Object.is equality
+ ❯ .harness/scripts/vm/deploy-readiness.test.ts:420:31
+    418|   it.each(["200", "404", "502", "101", "000"])("fails deployment for i…
+    419|     const result = run(["trusted", "trusted", "trusted"], 3, { voiceSt…
+    420|     expect(result.status).not.toBe(0);
+       |                               ^
+    421|     expect(result.stdout + result.stderr).toContain("realtime voice ha…
+    422|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  .harness/scripts/vm/deploy-readiness.test.ts > public realtime voice anonymous Upgrade readiness > accepts the authenticated gateway anonymous refusal without exposing credentials
+AssertionError: expected '  API trustworthy sample=1 stable=1/3…' to contain 'anonymous Upgrade=401'
+
+- Expected
++ Received
+
+- anonymous Upgrade=401
++   API trustworthy sample=1 stable=1/3
++   API trustworthy sample=2 stable=2/3
++   API trustworthy sample=3 stable=3/3
++   API trustworthy stable=3
++   {"trustworthy":true,"rlsForced":true,"appRoleIsOwner":false}
++ <html>ready</html>
++   Web response sample=1 stable=1/2
++ <html>ready</html>
++   Web response sample=2 stable=2/2
++   ✓ 探针面未对外暴露
++
+
+ ❯ .harness/scripts/vm/deploy-readiness.test.ts:426:27
+    424|     const result = run(["trusted", "trusted", "trusted"], 3, { voiceSt…
+    425|     expect(result.status).toBe(0);
+    426|     expect(result.stdout).toContain("anonymous Upgrade=401");
+       |                           ^
+    427|   });
+    428| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 20 skipped (26)
+   Start at  06:07:29
+   Duration  753ms (transform 67ms, setup 0ms, collect 70ms, tests 256ms, environment 0ms, prepare 83ms)
+

@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/voice-config-fixes
+
+ ✓ .harness/scripts/vm/deploy-readiness.test.ts (28 tests) 3920ms
+   ✓ anonymous Upgrade probe actual transport > passes production gateway 401 and fails a misrouted HTTP server 2789ms
+ ✓ .harness/scripts/vm/deploy-trusted-copy-drift.test.ts (5 tests) 215ms
+ ✓ .harness/scripts/vm/realtime-voice-route-repair.test.ts (5 tests) 261ms
+
+ Test Files  3 passed (3)
+      Tests  38 passed (38)
+   Start at  06:09:20
+   Duration  5.75s (transform 1.85s, setup 0ms, collect 178ms, tests 4.40s, environment 1ms, prepare 278ms)
+

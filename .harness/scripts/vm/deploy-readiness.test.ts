@@ -1,7 +1,9 @@
 import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
@@ -47,6 +49,10 @@ case "$url" in
   http://127.0.0.1:3100/)
     [ "\${FAKE_WEB_MODE:-ready}" = ready ] || exit 7
     printf '%s\n' '<html>ready</html>'
+    ;;
+  https://*/chat/realtime-digital-human)
+    [ "\${FAKE_VOICE_STATUS:-401}" = transport-error ] && exit 28
+    printf '%s' "\${FAKE_VOICE_STATUS:-401}"
     ;;
   https://*/kernel/probe/identity-session)
     [ "\${FAKE_PUBLIC_PROBE_MODE:-hidden}" = exposed ] && exit 0
@@ -135,6 +141,7 @@ function run(
   modes: {
     web?: "ready" | "refuse";
     publicProbe?: "hidden" | "exposed";
+    voiceStatus?: string;
   } = {},
 ) {
   const files = fixture(sequence);
@@ -155,6 +162,7 @@ function run(
       DEPLOY_DIAGNOSTIC_LINES: "40",
       FAKE_WEB_MODE: modes.web ?? "ready",
       FAKE_PUBLIC_PROBE_MODE: modes.publicProbe ?? "hidden",
+      FAKE_VOICE_STATUS: modes.voiceStatus ?? "401",
     },
   });
   return {
@@ -405,5 +413,48 @@ describe("#3073 live Caddyfile route drift", () => {
     expect(gateIndex).toBeGreaterThan(-1);
     expect(restartIndex).toBeGreaterThan(-1);
     expect(gateIndex).toBeLessThan(restartIndex);
+  });
+});
+
+describe("public realtime voice anonymous Upgrade readiness", () => {
+  it.each(["200", "404", "502", "101", "000", "transport-error"])("fails deployment for incorrect voice handshake %s despite healthy API and web", (voiceStatus) => {
+    const result = run(["trusted", "trusted", "trusted"], 3, { voiceStatus });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain("realtime voice handshake");
+  });
+  it("accepts the authenticated gateway anonymous refusal without exposing credentials", () => {
+    const result = run(["trusted", "trusted", "trusted"], 3, { voiceStatus: "401" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("anonymous Upgrade=401");
+    const helper = readFileSync(HELPER, "utf8");
+    const probe = helper.slice(helper.indexOf("assert_public_realtime_voice_handshake()"), helper.indexOf("run_post_restart_smoke()"));
+    expect(probe).toContain("curl -q --http1.1");
+    expect(probe).toContain("--connect-timeout 2 --max-time 5");
+    expect(probe).not.toMatch(/Authorization:|Sec-WebSocket-Protocol:|--cookie|--location|--insecure/);
+    expect(probe).not.toContain("-fsS");
+  });
+});
+
+// Real curl + production gateway, no Caddy/credential/vendor/DB required.
+describe("anonymous Upgrade probe actual transport", () => {
+  it("passes production gateway 401 and fails a misrouted HTTP server", async () => {
+    const { attachRealtimeDigitalHumanGateway } = await import("../../../apps/api/src/interface/ws/realtime-digital-human.gateway");
+    const execute = promisify(execFile);
+    const server = createServer((_req, response) => { response.writeHead(404); response.end(); });
+    const gateway = attachRealtimeDigitalHumanGateway(server, {
+      principals: { resolve: async () => { throw new Error("anonymous probe must never resolve credentials"); } },
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as { port: number }).port;
+    const probe = (path: string) => execute("bash", ["-c", 'source "$1"; assert_public_realtime_voice_handshake "$2"', "--", HELPER, `http://127.0.0.1:${port}${path}`], { timeout: 7_000 });
+    try {
+      expect((await probe("/chat/realtime-digital-human")).stdout).toContain("anonymous Upgrade=401");
+      // Remove only the gateway upgrade listener: the same request then reaches the HTTP fallback.
+      server.removeAllListeners("upgrade");
+      await expect(probe("/chat/realtime-digital-human")).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining("received 404") });
+    } finally {
+      gateway.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
