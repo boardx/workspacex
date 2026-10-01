@@ -621,6 +621,15 @@
         "project/update-project-tags"
       ]
     },
+    "ProjectInvitationController": {
+      "useCases": [
+        "auth/errors",
+        "project/accept-project-invitation",
+        "project/errors",
+        "project/manage-project-invitations",
+        "project/project-invitation-errors"
+      ]
+    },
     "ProjectInviteController": {
       "useCases": [
         "auth/issue-invite-link",
@@ -1906,6 +1915,14 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/ai-capability-studio/workbench/page.tsx"
     },
+    "/preview/billing": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/billing/page.tsx"
+    },
+    "/preview/board-authoring": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/board-authoring/page.tsx"
+    },
     "/preview/board-fabric-v01": {
       "kind": "preview",
       "screen": "apps/web/app/preview/board-fabric-v01/page.tsx"
@@ -1913,10 +1930,6 @@
     "/preview/board-object-authoring": {
       "kind": "preview",
       "screen": "apps/web/app/preview/board-object-authoring/page.tsx"
-    },
-    "/preview/board-authoring": {
-      "kind": "preview",
-      "screen": "apps/web/app/preview/board-authoring/page.tsx"
     },
     "/preview/board-workspace": {
       "kind": "preview",
@@ -2168,6 +2181,7 @@
         "apps/web/lib/live-project-ai-settings.ts",
         "apps/web/lib/live-project-collaborators.ts",
         "apps/web/lib/live-project-evidence.ts",
+        "apps/web/lib/live-project-invitations.ts",
         "apps/web/lib/live-project-invite.ts",
         "apps/web/lib/live-project-members.ts",
         "apps/web/lib/live-project-prep.ts",
@@ -2199,6 +2213,7 @@
         "platform-members",
         "project",
         "project-evidence",
+        "project-invitation",
         "provenance",
         "research",
         "templates",
@@ -2248,6 +2263,7 @@
         "PlatformAccessController",
         "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInvitationController",
         "ProjectInviteController",
         "ProvenanceController",
         "PublicDesignShareController",
@@ -2276,10 +2292,12 @@
       "kind": "wired",
       "screen": "apps/web/app/projects/join/page.tsx",
       "adapters": [
+        "apps/web/lib/live-project-invitations.ts",
         "apps/web/lib/live-project-invite.ts"
       ],
       "contracts": [
-        "org-admin"
+        "org-admin",
+        "project-invitation"
       ],
       "controllers": [
         "CheckinBoardController",
@@ -2289,6 +2307,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "ProjectController",
+        "ProjectInvitationController",
         "ProjectInviteController"
       ]
     },

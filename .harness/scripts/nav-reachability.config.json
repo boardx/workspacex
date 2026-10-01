@@ -43,7 +43,8 @@
       "/studio/board",
       "/agent",
       "/skill?screen=work-catalog",
-      "/workflows"
+      "/workflows",
+      "/preview/billing"
     ],
     "linkExemptRoutes": {
       "//": "这五条都是**故意**开成「只能敲 URL 进」的独立路由，各自的 page.tsx 头注写了原委，不是漏接入口。它们该不该长出正式入口是产品/IA 的裁决，不在门控里替人类做——但登记在这里，至少它们是**被点过名的**，不再是无人知晓的孤儿。",
@@ -89,7 +90,8 @@
       "/studio/board",
       "/preview/chat-knowledge-graph",
       "/agent",
-      "/workflows"
+      "/workflows",
+      "/preview/billing"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -128,7 +130,8 @@
       "/studio/board",
       "/preview/chat-knowledge-graph",
       "/agent",
-      "/workflows"
+      "/workflows",
+      "/preview/billing"
     ]
   },
   "phase-18-org-brain-knowledge-graph": {
@@ -149,6 +152,44 @@
       "/preview/agent-interrupts",
       "/preview/agent-kernel",
       "/preview/agent-runtime",
+      "/preview/plan-control",
+      "/projects",
+      "/projects/demo/files",
+      "/rec",
+      "/research",
+      "/skill",
+      "/skill?screen=work-catalog",
+      "/studio/board",
+      "/studio/design-workbench",
+      "/studio/feedback-drafts",
+      "/studio/survey",
+      "/tasks",
+      "/tpl",
+      "/agent",
+      "/workflows",
+      "/preview/billing"
+    ]
+  },
+  "phase-21-billing-payment": {
+    "//": "两束目前只有签核用静态原型屏 /preview/billing（ui-prototyper 交付，31 张截图按束分目录 billing-credits/24 张 + billing-subscription/9 张），落地面分别是用户菜单/组织管理页/平台后台——届时本段改指向真实路由。",
+    "bundleRoutes": {
+      "billing-credits": "/preview/billing",
+      "billing-subscription": "/preview/billing"
+    },
+    "allowRoutes": [
+      "/home",
+      "/admin",
+      "/asset-governance",
+      "/brain",
+      "/canvas",
+      "/chat",
+      "/itv",
+      "/org-admin/preview",
+      "/platform-admin",
+      "/preview/agent-interrupts",
+      "/preview/agent-kernel",
+      "/preview/agent-runtime",
+      "/preview/chat-knowledge-graph",
       "/preview/plan-control",
       "/projects",
       "/projects/demo/files",
