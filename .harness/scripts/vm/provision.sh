@@ -37,6 +37,7 @@
 #      当次 job 的 PATH，`sudo -u workspacex` 起的新进程看不到。现在 Node/pnpm 装
 #      在系统级路径（NodeSource + corepack），sudo 的默认 secure_path 与 workspacex
 #      的 shell 都能直接解析到。
+set +x
 set -euo pipefail
 
 PUBLIC_DOMAIN=${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN, e.g. devapp.boardx.us}
@@ -228,6 +229,15 @@ EOF
 else
   echo "${ENV_FILE} 已存在，不覆盖——避免把线上密码换成新值后服务连不上自己的库"
 fi
+
+# Deployment diagnostics use the same scrubber; credentials are read inside the shell.
+# shellcheck disable=SC1090
+source "$APP_DIR/.harness/scripts/vm/deploy-readiness.sh"
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+exec > >(redact_deploy_diagnostics) 2>&1
 
 # 2026-09-06 实测事故：上面那个块**只在 deploy.env 不存在时**跑。于是后来给部署链新增的
 # 每一个必需键（如 `DIAG_DB_PASSWORD`，2026-09-02 随 app_diag_ro 一起加的）在**已经存在
