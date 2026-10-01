@@ -137,7 +137,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         const updated = await s.query<{ id: string }>(
           `UPDATE chat_message_attachments
               SET message_id = $1
-            WHERE org_id = $2 AND thread_id = $3 AND message_id IS NULL
+            WHERE org_id = $2 AND thread_id = $3 AND message_id IS NULL AND cancelled_at IS NULL
               AND id = ANY($4::text[])
           RETURNING id`,
           [input.messageId, orgId, input.threadId, input.attachmentIds],
