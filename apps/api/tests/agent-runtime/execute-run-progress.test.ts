@@ -462,3 +462,25 @@ it("selected role and memory boundary reach the real executor model port without
   expect(received?.user).toBe("你可以做什么？");
   // This checks transport and boundaries, not real-model obedience.
 });
+
+
+it.each(["你是谁？", "请分析附件中的战略计划"])("recalled first-person user identity remains reference data, never an assistant utterance: %s", async (inputText) => {
+  const instructions = "你是高管战略伙伴，帮助评估战略取舍、资源配置与组织风险。";
+  const statement = "我是一名佛学修行者，我的方向是佛学的冥想";
+  const store = fakeStore(baseRun({ instructions, inputText, projectId: null, skillVersionIds: [] }), []);
+  let received: ModelCallInput | undefined;
+  const model: ModelCallPort = { complete: async (input) => { received = input; return { text: "capture only", inputTokens: 1, outputTokens: 1 }; } };
+  const d: ExecuteAgentRunDeps = { ...deps(store, model), knowledge: {
+    candidates: async () => ({ claims: [{ id: "synthetic-profile", statement, kind: "fact", triState: "confirmed", scope: "personal", saidAt: null }], objects: [] }),
+    graphNeighbors: async () => [], recordTurn: async () => {},
+  } };
+  await executeQueuedRuns(d, { orgId: ORG });
+  expect(received?.system).toContain(instructions);
+  const recalled = received?.history?.filter(m => m.content.includes(statement));
+  expect(recalled).toHaveLength(1);
+  expect(recalled![0]!.role).toBe("user");
+  expect(recalled![0]!.content).toContain("用户背景参考材料");
+  expect(received?.user).toBe(inputText);
+  expect(store.failedWith).toBeNull();
+  // Captured execution input is protocol evidence, not real-model role obedience.
+});
