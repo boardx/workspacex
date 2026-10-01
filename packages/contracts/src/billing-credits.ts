@@ -18,9 +18,16 @@ import { z } from "zod";
 export const BillingOwnerType = z.enum(["user", "team"]);
 export type BillingOwnerType = z.infer<typeof BillingOwnerType>;
 
-/** 支付渠道（本束仅微信 Native；Stripe 属 billing-subscription 束）。 */
+/** 支付渠道（**下单**枚举：本束仅微信 Native；Stripe 属 billing-subscription 束）。 */
 export const BillingProvider = z.enum(["wechat"]);
 export type BillingProvider = z.infer<typeof BillingProvider>;
+
+/**
+ * 渠道启用**读模型**（`GET /billing/config` 的 `enabledProviders`）：比下单枚举宽——
+ * Stripe 属 billing-subscription 束，但会出现在这个共享读模型里（要求 03 V4 的入口可用性判据）。
+ */
+export const BillingEnabledProvider = z.enum(["wechat", "stripe"]);
+export type BillingEnabledProvider = z.infer<typeof BillingEnabledProvider>;
 
 /** 金额：非负整数分（I-11，禁止浮点参与金额运算）。 */
 export const MoneyFen = z.number().int().nonnegative();
@@ -73,7 +80,7 @@ export type BillingErrorCode = z.infer<typeof BillingErrorCode>;
 /** 渠道配置读模型：未启用渠道时为 `[]`（不是错误，前端据此隐藏入口）。 */
 export const BillingConfig = z
   .object({
-    enabledProviders: z.array(BillingProvider),
+    enabledProviders: z.array(BillingEnabledProvider),
   })
   .strict();
 
@@ -137,6 +144,7 @@ export const CreditTransaction = z
     balanceAfter: z.number().int().nonnegative(), // 账实相符锚点（I-3）
     sourceType: BillingTransactionSourceType,
     sourceId: z.string().min(1), // 订单号 / 发放记录号
+    operatorId: z.string().min(1).nullable(), // 人工发放必填（I-8：操作者可查）；其余为 null
     reason: z.string().nullable(), // 人工发放必填（I-8），其余可空
     createdAt: IsoDateTime,
   })

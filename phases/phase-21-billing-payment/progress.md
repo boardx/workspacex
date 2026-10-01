@@ -41,3 +41,12 @@
 - 下一步最佳动作: 人类签核（决策包已发：材料提交策略 / 签核方式 / 两个设计裁决）→ 回填 `status: confirmed` 走签核 PR → `pnpm harness new-sprint --phase 21 --id 01` + `pnpm harness sync --phase 21 --apply` 建 issue → 逐 feature 实现。
 
 - 签核完成（2026-10-01T03:23:47Z）：两束 `design-signoff.md` + `design-coherence.md` 均回填 status: confirmed（confirmed_by: usamshen；人类对话确认，agent 按指示代为回填）；裁决记录入签核文件；doctor 0 FAIL。
+
+- 交付（2026-10-01）：PR [#4856](https://github.com/boardx/workspacex/pull/4856) 已开（design/phase-21-billing-payment → main，107 文件）；CI 跑动中（gates-fast / fullstack-smoke / verify-affected / merge-gate 等）；待 CI 绿 + 人类 review/merge 后进入 S7（new-sprint + sync --apply 建 issue）。
+- CI 分诊（2026-10-01）：verify-control-plane 红 = lint-rewrite-coverage 实测 15 条 /billing 契约路由缺同源代理 → 已在分支补 `apps/web/next.config.mjs` 15 条 afterFiles 规则（commit a516575fb），本地 `--strict` 复验 ✅（887 条全覆盖）；CI 重跑中。
+- CI 二轮修复（2026-10-01）：verify-control-plane 第一条修好后暴露链上第二条 `lint-ui-wiring`（新原型路由必须显式归类）→ 用官方 `--update` 重生成 ui-wiring 清单（/preview/billing → preview）；同时合并 origin/main（2 提交）追平主线。本地把 verify-control-plane 全步骤逐条预跑：除 `ci-change-scope`（需 CI 环境变量）外全绿；`.harness` 自测套件跑毕后推送。
+- 三轮推送（2026-10-01）：确认 vm/native-api-env-readiness 与 native-session-probe 的失败为本地环境特有时序 flake（主检出对照复现），与分支无关；推送 ui-wiring 修复 + 主线合并（433af460e），CI 第三轮跑动中。
+
+- ✅ CI 全绿（2026-10-01 13:2x，head 433af460e）：24 pass / 0 fail / 0 pending。重跑的 fullstack-smoke 通过——首轮 4 条 skill-github-import 失败确认为 CI flake（与 diff 零重叠）。PR #4856 等人类 Approve+Merge。
+
+- 评审回合（2026-10-01）：Codex 自动评审 6 条意见（P1×3/P2×3）逐条处理——契约读模型补 stripe、CreditTransaction 补 operatorId、收银台组织流水、发放整数校验、流水分页前类型筛选；31 张截图重拍同步；签核字段一条按 human-decision-packaging 说明（人类对话框确认 + 本 PR merge 为批准事件）。

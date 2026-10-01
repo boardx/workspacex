@@ -34,6 +34,7 @@
 | 余额 / 流水 | `billing-cashier-balance`、`billing-wallet-card`、`billing-wallet-balance`、`billing-recent-ledger`、`billing-view-all-ledger`、`billing-ledger-table`、`billing-ledger-empty` | 钱包与流水区（空态不编造） |
 | 权限（收银台） | `billing-cashier-denied` | 组织主体非 owner/admin：整窗替换权限说明，不泄露余额/流水 |
 | 管理端 | `billing-admin-host`、`billing-admin-subject`、`billing-admin-denied` | 发放与查询都有主体与权限态 |
+| 流水类型筛选 | `billing-ledger-type-filter` | 管理端流水列表按类型（充值 / 赠送 / 发放）筛选后再分页（04 R8） |
 | 发放表单 | `billing-grant-subject`、`billing-grant-amount`、`billing-grant-reason`、`billing-grant-submit`、`billing-err-grant-amount`、`billing-err-grant-reason` | 额度必须为正整数、原因必填 |
 | 发放确认 | `billing-grant-confirm-dialog`、`billing-grant-confirm-ok`、`billing-grant-confirm-cancel`、`billing-grant-saved` | 二次确认列四项影响；成功提示 |
 | 组织计费区块 | `billing-org-host`、`billing-org-wallet`、`billing-org-balance`、`billing-org-ledger`、`billing-org-billing-toggle`、`billing-org-billing-off-note`、`billing-org-purchase-btn`、`billing-org-denied`、`billing-org-toggle-saved` | 开关关闭：购买禁用 + 说明条 + 已购余额仍可见；普通成员不可见 |

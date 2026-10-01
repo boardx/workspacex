@@ -12,6 +12,7 @@ import {
   CREDIT_PACKAGES,
   LEDGER_SOURCE_LABEL,
   LEDGER_TYPE_LABEL,
+  ORG_LEDGER,
   ORG_WALLET,
   PERSONAL_LEDGER,
   PERSONAL_WALLET,
@@ -264,7 +265,7 @@ export function CashierDialog({
             </Button>
           </div>
           <div data-testid="billing-recent-ledger" className="divide-y divide-border-subtle py-1">
-            {PERSONAL_LEDGER.slice(0, RECENT_LEDGER_ROWS).map((entry) => (
+            {(subject === "org" ? ORG_LEDGER : PERSONAL_LEDGER).slice(0, RECENT_LEDGER_ROWS).map((entry) => (
               <RecentLedgerRow key={entry.id} entry={entry} />
             ))}
           </div>

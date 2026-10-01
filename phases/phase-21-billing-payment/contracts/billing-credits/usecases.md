@@ -9,7 +9,7 @@
 
 ### UC-BC-1 读取渠道配置 — `getBillingConfig`（GET `/billing/config`）
 - in: 无（登录态可选）。
-- out: `{ enabledProviders: ("wechat")[] }`；未配置渠道时为 `[]`（**不是错误**，前端据此隐藏入口，I-6/要求 E1）。
+- out: `{ enabledProviders: ("wechat" | "stripe")[] }`（Stripe 启用时含 `"stripe"`——共享读模型比下单枚举宽，见契约 `BillingEnabledProvider`）；未配置渠道时为 `[]`（**不是错误**，前端据此隐藏入口，I-6/要求 E1）。
 - pre: 无。
 - err: 无。
 

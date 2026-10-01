@@ -41,6 +41,7 @@ import {
   PERSONAL_LEDGER,
   formatCredits,
   type CreditLedgerEntry,
+  type LedgerType,
   type PreviewState,
 } from "@/lib/mock/billing";
 
@@ -50,6 +51,14 @@ const SUBJECT_OPTIONS: readonly SelectOption[] = [
   { value: "user-u1208", label: "用户 林晚秋（u1208）" },
   { value: "org-o301", label: "组织 深潜工作室（o301）" },
   { value: "org-o417", label: "组织 晨雾设计（o417）" },
+];
+
+/** 流水类型筛选（需求 04 R8：流水列表含类型筛选 + 分页） */
+const LEDGER_TYPE_OPTIONS: readonly SelectOption[] = [
+  { value: "all", label: "全部类型" },
+  { value: "purchase", label: "充值" },
+  { value: "bonus", label: "赠送" },
+  { value: "grant", label: "发放" },
 ];
 
 interface WalletView {
@@ -172,6 +181,7 @@ export function AdminConsole({
 }) {
   const [page, setPage] = useState(1);
   const [subject, setSubject] = useState<string>("user-u1208");
+  const [ledgerType, setLedgerType] = useState<"all" | LedgerType>("all");
   const [ledger, setLedger] = useState<CreditLedgerEntry[]>(() => subjectLedger("user-u1208"));
   const [wallet, setWallet] = useState<WalletView>(() => subjectWallet("user-u1208"));
 
@@ -207,10 +217,15 @@ export function AdminConsole({
     setWallet(subjectWallet(value));
   };
 
+  const handleLedgerTypeChange = (value: string) => {
+    setLedgerType(value as "all" | LedgerType);
+    setPage(1);
+  };
+
   const validate = (): boolean => {
     const errors: { amount?: string; reason?: string } = {};
     const parsed = Number(amount);
-    if (amount.trim() === "" || Number.isNaN(parsed) || parsed <= 0) {
+    if (amount.trim() === "" || Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
       errors.amount = "额度必须是大于 0 的整数";
     }
     if (reason.trim() === "") {
@@ -227,6 +242,7 @@ export function AdminConsole({
 
   const handleConfirm = () => {
     const parsed = Number(amount);
+    if (!Number.isInteger(parsed) || parsed <= 0) return; // 契约只接受正整数（I-11 / invalid_amount）
     const newEntry: CreditLedgerEntry = {
       id: `led-new-${Date.now()}`,
       type: "grant",
@@ -264,6 +280,8 @@ export function AdminConsole({
   }
 
   const ledgerEntries = state === "empty" ? [] : ledger;
+  const filteredLedger =
+    ledgerType === "all" ? ledgerEntries : ledgerEntries.filter((entry) => entry.type === ledgerType);
 
   return (
     <div data-testid="billing-admin-host" className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
@@ -321,10 +339,20 @@ export function AdminConsole({
         </div>
       )}
 
-      {/* 流水列表（类型 / 数量 / 时间 / 来源，分页） */}
+      {/* 流水列表（类型筛选 / 数量 / 时间 / 来源，分页；需求 04 R8） */}
       <div className="rounded-card border border-border bg-card p-4">
-        <h2 className="mb-3 text-14 font-medium text-background-foreground">流水明细</h2>
-        <LedgerTable entries={ledgerEntries} state={state} page={page} onPageChange={setPage} />
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-14 font-medium text-background-foreground">流水明细</h2>
+          <div className="w-32">
+            <Select
+              data-testid="billing-ledger-type-filter"
+              options={LEDGER_TYPE_OPTIONS}
+              value={ledgerType}
+              onValueChange={handleLedgerTypeChange}
+            />
+          </div>
+        </div>
+        <LedgerTable entries={filteredLedger} state={state} page={page} onPageChange={setPage} />
       </div>
 
       {/* 手工发额度（平台管理员专属；原因必填 + 二次确认，硬规则 ⑦ / 需求 04 R7.1） */}
