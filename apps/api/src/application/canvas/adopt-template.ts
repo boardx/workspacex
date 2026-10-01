@@ -87,6 +87,7 @@ export async function adoptTemplate(
   }
 
   const created = await createTemplate(deps, {
+    auditAction: "adopt",
     userId: input.userId,
     orgId: input.orgId,
     key: input.key,
