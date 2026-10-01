@@ -195,7 +195,12 @@ describe("test isolation contract (#74)", () => {
       expect(testTask).toContain(`"${name}"`);
     }
 
-    const baseline = deriveTestIsolation({ isolationId: "turbo-cache-a", worktreePath: ROOT });
+    const baseline = {
+      ...deriveTestIsolation({ isolationId: "turbo-cache-a", worktreePath: ROOT }),
+      // The test runner may itself opt into native PostgreSQL. Pin both probe
+      // environments instead of inheriting the caller's backend choice.
+      WORKSPACEX_NATIVE_POSTGRES: "0",
+    };
     const baselineHash = turboApiTestHash(baseline);
     expect(turboApiTestHash(baseline)).toBe(baselineHash);
     expect(turboApiTestHash({ ...baseline, WORKSPACEX_NATIVE_POSTGRES: "1" })).not.toBe(baselineHash);
