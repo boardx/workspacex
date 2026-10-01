@@ -5,6 +5,16 @@ import { describe, expect, it } from "vitest";
 const workflow = readFileSync(resolve(process.cwd(), ".github/workflows/prepare-cn-release.yml"), "utf8");
 
 describe("CN release candidate workflow", () => {
+  it("grants every new evidence read explicitly without deployment/check/status writes", () => {
+    const promotion = readFileSync(resolve(process.cwd(), ".github/workflows/promote-cn-production.yml"), "utf8");
+    for (const source of [workflow, promotion]) {
+      for (const permission of ["checks: read", "statuses: read", "deployments: read", "contents: write"]) expect(source).toContain(permission);
+      expect(source).not.toMatch(/(?:checks|statuses|deployments): write/);
+      expect(source).toContain("GH_TOKEN: ${{ github.token }}");
+    }
+    expect(workflow).toContain("actions: read");
+    expect(promotion).toContain("actions: write");
+  });
   it("starts only after a successful main backend-gates run", () => {
     expect(workflow).toContain("workflow_run:");
     expect(workflow).toContain('workflows: ["backend-gates"]');
