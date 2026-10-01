@@ -12,7 +12,7 @@ import { PgChatMessageCommandRepository } from "../../src/infrastructure/chat/pg
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
 import { toOrgId } from "../../src/domain/org-id";
 const org=toOrgId("runtime-profile-"+randomUUID());let db:PgDatabase;
-async function seed(scope: typeof org, id: string) {
+async function seed(scope: typeof org, id: string, createRun = true) {
   const project = `project-${scope}`, thread = `thread-${scope}`, agent = `agent-${scope}`, version = `version-${scope}`;
   await seedOrg({ orgId: scope, projectId: project });
   await addOrgMember(scope,"actor","consultant",null);
@@ -26,7 +26,7 @@ async function seed(scope: typeof org, id: string) {
       skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
       VALUES($1,$2,$3,'v1',$4,'pinned instructions','{}','test-provider','pinned-model','[]','actor',now(),now())`,
     [version,scope,agent,createHash("sha256").update("pinned instructions").digest("hex")]);
-    await c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,
+    if (createRun) await c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,
       skill_version_ids,model_provider,model_id,status) VALUES($1,$2,$3,$4,$5,$6,'[]','test-provider','pinned-model','queued')`,
     [id,scope,thread,`message-${scope}`,agent,version]);
   });
@@ -99,9 +99,8 @@ it("a role-scoped run with a forged skill snapshot fails before reading content 
 
 it.each(["agent_pins", "general"] as const)("message acceptance persists server snapshot %s scope", async skillScope => {
   const scope = toOrgId("accepted-skill-scope-" + randomUUID()), seededRun = "seeded-" + randomUUID(), run = "accepted-" + randomUUID();
-  await seed(scope, seededRun);
+  await seed(scope, seededRun, false);
   try {
-    await asApp(scope, c => c.query("UPDATE agent_runs SET status='cancelled' WHERE id=$1", [seededRun]));
     await new PgChatMessageCommandRepository(db).accept(scope, {
       projectId: null, threadId: `thread-${scope}`, actorId: "actor", clientMessageId: randomUUID(), text: "scoped acceptance",
       selectedAgentId: `agent-${scope}`, messageId: "accepted-message-" + randomUUID(), runId: run,
