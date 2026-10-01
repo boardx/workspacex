@@ -3,7 +3,7 @@ import {expect} from '@playwright/test';
 import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
-import {connectionGestureMetric} from '../scripts/board-journey-policy.mjs';
+import {connectionGestureMetric} from '../scripts/board-connection-gesture-metric.mjs';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';

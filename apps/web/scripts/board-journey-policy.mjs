@@ -1,8 +1,9 @@
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {validateRuntimeBinding} from './board-observation-policy.mjs';
+import {connectionGestureMetric} from './board-connection-gesture-metric.mjs';
+export {connectionGestureMetric} from './board-connection-gesture-metric.mjs';
 const names=['Brainstorm:','Organize:','Panel:','Diagram:','Visual Research:','AI Ready API:'];
-export const connectionGestureMetric = {name:'connection-gestures-per-edge',limit:1};
 const requirements={'ttfi-ms':5000,'ten-stickies-ms':30000,'organize-actions-after-selection':2,[connectionGestureMetric.name]:connectionGestureMetric.limit,'screenshot-paste-actions':1,'prepared-proposal-confirm-actions':2};
 export async function validateJourneyArtifact(report,sha,context){
  const failures=[],pending=['real-model semantic AI Organize and complete <=2-action journey'];

@@ -1,4 +1,4 @@
-export const connectionGestureMetric: {name: 'connection-gestures-per-edge'; limit: 1};
+export {connectionGestureMetric} from './board-connection-gesture-metric.mjs';
 
 export function validateJourneyArtifact(report: unknown, sha: string, context: unknown): Promise<{
   valid: boolean;
