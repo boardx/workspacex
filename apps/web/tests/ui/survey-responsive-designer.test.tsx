@@ -7,6 +7,51 @@ import { ResponsiveDesignerPanel } from "@/components/survey/live/responsive-des
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("keeps the selected question in reading mode until its title is clicked and exits editing on blur", () => {
+  const first = { ...createSurveyQuestion("single", "q1", 1), title: "所属行业", options: ["制造业", "服务业"] };
+  function Designer() {
+    const [value, setValue] = React.useState([first]);
+    return <SurveyQuestionEditor studioLayout questions={value} onChange={setValue} />;
+  }
+  render(<Designer />);
+  const canvas = screen.getByRole("region", { name: "问卷设计画布" });
+  expect(within(canvas).queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
+  fireEvent.click(within(canvas).getByRole("button", { name: "编辑第 1 题：所属行业" }));
+  const title = within(canvas).getByRole("textbox", { name: "问题内容" });
+  expect(title).toHaveFocus();
+  fireEvent.change(title, { target: { value: "行业类型" } });
+  fireEvent.blur(title);
+  expect(within(canvas).queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
+  expect(within(canvas).getByRole("button", { name: "编辑第 1 题：行业类型" })).toBeInTheDocument();
+  fireEvent.click(within(canvas).getByRole("button", { name: "编辑选项 1：制造业" }));
+  const option = within(canvas).getByRole("textbox", { name: "选项 1" });
+  fireEvent.change(option, { target: { value: "教育行业" } });
+  fireEvent.blur(option);
+  expect(within(canvas).getByRole("button", { name: "编辑选项 1：教育行业" })).toBeInTheDocument();
+});
+
+it("edits an unselected question without overwriting its neighbour and keeps contextual actions undoable", () => {
+  function Designer() {
+    const [value, setValue] = React.useState([
+      { ...createSurveyQuestion("single", "q1", 1), title: "第一题", options: ["甲", "乙"] },
+      { ...createSurveyQuestion("single", "q2", 2), title: "第二题", options: ["丙", "丁"] },
+    ]);
+    return <SurveyQuestionEditor studioLayout questions={value} onChange={setValue} />;
+  }
+  render(<Designer />);
+  fireEvent.click(screen.getByRole("button", { name: "编辑选项 1：丙" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "选项 1" }), { target: { value: "改后的丙" } });
+  fireEvent.blur(screen.getByRole("textbox", { name: "选项 1" }));
+  expect(screen.getByRole("button", { name: "编辑选项 1：甲" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "编辑选项 1：改后的丙" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "复制第 2 题" }));
+  expect(screen.getByRole("button", { name: "编辑第 3 题：第二题" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "删除第 3 题" }));
+  expect(screen.queryByRole("button", { name: "编辑第 3 题：第二题" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByRole("button", { name: "编辑第 3 题：第二题" })).toBeInTheDocument();
+});
+
 it("disables portaled inputs while a save is in flight", () => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   const view = render(<ResponsiveDesignerPanel title="题目设置" enabled disabled={false}><input aria-label="面板输入" /></ResponsiveDesignerPanel>);
@@ -90,6 +135,7 @@ it("adds a real question when a toolbox item is dropped on the center canvas", (
   const dropZone = screen.getByTestId("survey-question-drop-zone");
   fireEvent.dragOver(dropZone, { dataTransfer });
   fireEvent.drop(dropZone, { dataTransfer });
+  fireEvent.click(within(canvas).getByRole("button", { name: "编辑第 1 题：单选" }));
   expect(within(canvas).getByRole("textbox", { name: "问题内容" })).toHaveValue("单选");
 });
 
@@ -181,6 +227,7 @@ it("undoes and redoes designer changes with accessible toolbar controls", () => 
     return <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />;
   }
   render(<Designer />);
+  fireEvent.click(screen.getByRole("button", { name: "编辑第 1 题：原问题" }));
   fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "修改后的问题" } });
   fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
   expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("原问题");
@@ -200,9 +247,10 @@ it("clears local undo history when a template replaces the question set", () => 
     </>;
   }
   render(<Designer />);
+  fireEvent.click(screen.getByRole("button", { name: "编辑第 1 题：原问题" }));
   fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "本地修改" } });
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "应用外部模板" }));
-  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("模板问题");
+  expect(screen.getByRole("button", { name: "编辑第 1 题：模板问题" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
 });

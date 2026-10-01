@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowDown, ArrowUp, CalendarDays, CircleDot, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, Redo2, SquareCheck, Star, Undo2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, CircleDot, Copy, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, Plus, Redo2, SquareCheck, Star, Trash2, Undo2, Upload } from "lucide-react";
 import {
   SURVEY_QUESTION_TYPES,
   createSurveyQuestion,
@@ -17,6 +17,7 @@ import { moveItem } from "@/lib/survey/report-template";
 import { SurveyQuestionSettings } from "./question-settings";
 import { SurveyQuestionRenderer } from "./question-renderer";
 import { ResponsiveDesignerPanel } from "./responsive-designer-panel";
+import { InlineQuestionText } from "./inline-question-text";
 const questionTypeIcons: Partial<Record<SurveyQuestionType, typeof CircleDot>> = {
   single: CircleDot,
   multi: SquareCheck,
@@ -131,11 +132,11 @@ export function SurveyQuestionEditor({
     emit(next);
   };
   const update = (next: SurveyWorkflowQuestion) => {
-    const changed = JSON.stringify(next) !== JSON.stringify(question);
+    const changed = JSON.stringify(next) !== JSON.stringify(questions.find((item) => item.id === next.id));
     const provenance = changed && next.provenance?.certifiedAt
       ? { ...next.provenance, certifiedAt: undefined }
       : next.provenance;
-    change(questions.map((q) => (q.id === question?.id ? { ...next, ...(provenance ? { provenance } : {}) } : q)));
+    change(questions.map((q) => (q.id === next.id ? { ...next, ...(provenance ? { provenance } : {}) } : q)));
   };
   function add(type: SurveyQuestionType) {
     const next = createSurveyQuestion(
@@ -367,12 +368,12 @@ export function SurveyQuestionEditor({
       </div>
       <div
         data-testid={studioLayout ? "survey-designer-grid" : undefined}
-        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:overflow-hidden xl:grid-cols-[19rem_minmax(0,1fr)_22rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
+        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:overflow-hidden xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
         <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout} disabled={disabled}>
         <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} aria-label="题目大纲" className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
           {studioLayout && !locked && <section aria-label="题型工具箱" className="space-y-3">
-            <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
+            <div className="flex items-start justify-between gap-2"><h2 className="text-14 font-semibold">题型工具箱</h2><Button type="button" size="sm" variant="ghost" onClick={() => add("short")}>新增题目</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
               <h3 className="mb-2 text-12 font-medium text-muted-foreground">{group}</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -684,17 +685,17 @@ export function SurveyQuestionEditor({
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : ''}`}>
+          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : 'rounded-lg border border-border bg-card p-4'}`}>
             <div role="region" aria-label="问卷设计画布" className="space-y-4">
             {studioLayout && <h2 className="sr-only">问卷设计画布</h2>}
-            <div className="flex gap-2">
-              <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
+            <div className="sticky top-0 z-10 flex justify-center gap-2 bg-card p-2">
+              <Button type="button" variant={previewDevice === "desktop" ? "secondary" : "ghost"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览
               </Button>
-              <Button type="button" variant={previewDevice === "tablet" ? "primary" : "outline"} aria-pressed={previewDevice === "tablet"} onClick={() => setPreviewDevice("tablet")}>
+              <Button type="button" variant={previewDevice === "tablet" ? "secondary" : "ghost"} aria-pressed={previewDevice === "tablet"} onClick={() => setPreviewDevice("tablet")}>
                 平板预览
               </Button>
-              <Button type="button" variant={previewDevice === "mobile" ? "primary" : "outline"} aria-pressed={previewDevice === "mobile"} onClick={() => setPreviewDevice("mobile")}>
+              <Button type="button" variant={previewDevice === "mobile" ? "secondary" : "ghost"} aria-pressed={previewDevice === "mobile"} onClick={() => setPreviewDevice("mobile")}>
                 手机预览
               </Button>
             </div>
@@ -712,42 +713,29 @@ export function SurveyQuestionEditor({
                 if (type && SURVEY_QUESTION_TYPES.some((item) => item.type === type)) add(type);
                 setDraggingType(null);
               }}
-              className={`mx-auto space-y-7 bg-card px-4 py-8 sm:px-8 ${draggingType ? "ring-2 ring-ring" : ""} ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
+              className={`mx-auto space-y-2 bg-card py-6 shadow-sm ${draggingType ? "ring-2 ring-ring" : ""} ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full max-w-4xl"}`}
             >
-              {studioLayout && <section aria-label="问卷封面" className="grid gap-5 rounded-lg border border-border bg-card p-5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
-                <div className="flex aspect-[4/3] items-center justify-center rounded-md border border-dashed border-border bg-muted/50 text-muted-foreground" aria-label="尚未设置封面图">
-                  <ImageIcon className="h-8 w-8" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-12 font-medium text-muted-foreground">问卷封面</p>
-                  <h2 className="mt-2 text-20 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h2>
-                </div>
+              {studioLayout && <section aria-label="问卷封面" className="px-6 py-8 text-center">
+                <h2 className="text-24 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h2>
               </section>}
               {(studioLayout ? questions : visibleSurveyQuestions(questions, answers)).map((q, questionIndex) => (
                 <React.Fragment key={`${q.id}-${q.type}`}>
                   {studioLayout && (questionIndex === 0 || questions[questionIndex - 1]?.chapterId !== q.chapterId) &&
-                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
+                    <div className="mx-6 flex items-center justify-between gap-3 border-b border-border px-2 py-3">
                       <h3 className="text-16 font-semibold">{q.chapterId || "未分组"}</h3>
                       <span className="shrink-0 text-11 text-muted-foreground">
                         {questions.filter((item) => item.chapterId === q.chapterId).length} 题
                       </span>
                     </div>}
-                  <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group cursor-text border border-transparent px-6 py-6 transition-colors ${q.id === question?.id ? "border-ring" : "hover:border-border"}` : ""}>
-                    {studioLayout && <button type="button" data-survey-inline-edit aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
-                      className={`mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}
-                      onClick={() => { setId(q.id); setPendingType(undefined); }}>
-                      {String(questionIndex + 1).padStart(2, "0")}
-                    </button>}
-                    {studioLayout && q.id === question?.id ? (
-                      <fieldset disabled={locked} className="space-y-4" aria-label={`编辑第 ${questionIndex + 1} 题`}>
-                        <label className="block text-12 font-medium">
-                          <Textarea
-                            aria-label="问题内容"
-                            className="min-h-10 resize-none border-transparent bg-transparent text-16 font-medium shadow-none transition-colors hover:border-border focus-visible:border-ring"
-                            value={q.title}
-                            onChange={(event) => update({ ...q, title: event.target.value })}
-                          />
-                        </label>
+                  <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group border px-4 py-5 transition-colors sm:px-8 ${q.id === question?.id ? "border-ring" : "border-transparent hover:border-border"}` : ""}>
+                    {studioLayout && <div className="mb-2 flex items-start gap-2">
+                      <span aria-hidden="true" className="min-w-4 pt-2 text-destructive">{q.required ? "*" : ""}</span>
+                      <span className="pt-2 text-16 font-semibold tabular-nums">{String(questionIndex + 1).padStart(2, "0")}</span>
+                      <InlineQuestionText key={`${q.id}-title`} label="问题内容" editLabel={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`} multiline disabled={locked || disabled}
+                        className="text-16 font-medium" value={q.title} onSelect={() => { setId(q.id); setPendingType(undefined); }} onChange={(title) => update({ ...q, title })} />
+                    </div>}
+                    {studioLayout && ["single", "multi", "dropdown", "image_single", "image_multi"].includes(q.type) ? (
+                      <fieldset disabled={locked || disabled} className="pl-10 text-13" aria-label={`编辑第 ${questionIndex + 1} 题`}>
                         <SurveyQuestionSettings
                           key={`${q.id}-inline-content`}
                           question={q}
@@ -758,12 +746,28 @@ export function SurveyQuestionEditor({
                         />
                       </fieldset>
                     ) : (
+                      <div className={studioLayout ? "space-y-3 pl-10" : ""}>
+                      {studioLayout && <InlineQuestionText key={`${q.id}-description`} label="题目说明" placeholder="添加题目说明" multiline disabled={locked || disabled}
+                        className="text-13 text-muted-foreground" value={q.config?.description ?? ""} onChange={(description) => update({ ...q, config: { ...q.config, description } })} />}
                       <SurveyQuestionRenderer
                         question={q}
+                        showTitle={!studioLayout}
+                        showDescription={!studioLayout}
                         value={answers[q.id]}
                         onChange={(value) => setAnswers((current) => ({ ...current, [q.id]: value }))}
                       />
+                      {studioLayout && q.id === question?.id && !locked && <details className="text-12 text-muted-foreground"><summary className="cursor-pointer py-2">编辑题目内容</summary>
+                        <SurveyQuestionSettings question={q} questions={questions} onChange={update} mode="content" inline />
+                      </details>}
+                      </div>
                     )}
+                    {studioLayout && !locked && <div aria-label={`第 ${questionIndex + 1} 题操作`} className={`mt-3 flex justify-end gap-1 ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}>
+                      <Button type="button" size="icon" variant="ghost" aria-label={`在第 ${questionIndex + 1} 题后添加题目`} disabled={disabled} onClick={(event) => { event.stopPropagation(); const next = createSurveyQuestion("short", crypto.randomUUID(), questionIndex + 2); next.chapterId = q.chapterId; const all = [...questions]; all.splice(questionIndex + 1, 0, next); change(all); setId(next.id); }}><Plus className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={`复制第 ${questionIndex + 1} 题`} disabled={disabled} onClick={(event) => { event.stopPropagation(); const copy = { ...structuredClone(q), id: crypto.randomUUID(), provenance: q.provenance ? { ...q.provenance, certifiedAt: undefined } : undefined }; const all = [...questions]; all.splice(questionIndex + 1, 0, copy); change(all); setId(copy.id); }}><Copy className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={`上移第 ${questionIndex + 1} 题`} disabled={disabled || questionIndex === 0} onClick={(event) => { event.stopPropagation(); change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={`下移第 ${questionIndex + 1} 题`} disabled={disabled || questionIndex === questions.length - 1} onClick={(event) => { event.stopPropagation(); change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={`删除第 ${questionIndex + 1} 题`} disabled={disabled} onClick={(event) => { event.stopPropagation(); setDeleted({ question: q, index: questionIndex }); change(questions.filter((item) => item.id !== q.id)); setId(questions[questionIndex + 1]?.id ?? questions[questionIndex - 1]?.id); }}><Trash2 className="size-4" /></Button>
+                    </div>}
                   </section>
                 </React.Fragment>
               ))}

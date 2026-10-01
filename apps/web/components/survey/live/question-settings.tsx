@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { InlineQuestionText } from "./inline-question-text";
 type Config = NonNullable<SurveyWorkflowQuestion["config"]>;
 export function SurveyQuestionSettings({
   question: q,
@@ -166,13 +167,13 @@ export function SurveyQuestionSettings({
       {showContent && <>
       <label className="block text-12">
         {!inline && "题目说明"}
-        <Textarea
+        {inline ? <InlineQuestionText label="题目说明" placeholder="添加题目说明" multiline value={config.description ?? ""} onChange={(description) => patch({ description })} /> : <Textarea
           aria-label="题目说明"
           placeholder={inline ? "添加题目说明" : undefined}
           className={inline ? "min-h-8 resize-none border-transparent bg-transparent shadow-none transition-colors hover:border-border focus-visible:border-ring" : undefined}
           value={config.description ?? ""}
           onChange={(event) => patch({ description: event.target.value })}
-        />
+        />}
       </label>
       {hasChoices && (
         <div className="space-y-2">
@@ -186,7 +187,8 @@ export function SurveyQuestionSettings({
             >
               <div className="flex gap-2">
                 {inline && <span aria-hidden="true" className="mt-3 size-4 shrink-0 rounded-full border border-border" />}
-                <Input
+                {inline ? <InlineQuestionText label={`选项 ${index + 1}`} editLabel={`编辑选项 ${index + 1}：${choice.label}`} value={choice.label}
+                  onChange={(value) => options(q.options.map((label, i) => i === index ? value : label), choices.map((item) => item.id))} /> : <Input
                   aria-label={`选项 ${index + 1}`}
                   className={inline ? "border-transparent bg-transparent shadow-none transition-colors hover:border-border focus-visible:border-ring" : undefined}
                   value={choice.label}
@@ -198,7 +200,7 @@ export function SurveyQuestionSettings({
                       choices.map((item) => item.id),
                     )
                   }
-                />
+                />}
                 <Button
                   type="button"
                   variant={inline ? "ghost" : "outline"}
