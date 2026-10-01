@@ -107,6 +107,26 @@ pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release 
   "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null \
   || fail "prepared receipt, baseline, or manifest differs"
 
+# Frozen-tag requests require independently collected Devapp runtime/browser evidence.
+# This file is staged by the controlled producer, never by a workflow boolean.
+provenance="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/devapp-acceptance.json"
+protected_file "$provenance"
+raw_devapp_evidence="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/devapp-evidence.bin"
+protected_file "$raw_devapp_evidence"
+node - "$revision" "$attempt_id" "$fast_safe_receipt" "$manifest" "$provenance" "$raw_devapp_evidence" <<'NODE' || fail "frozen candidate identity/provenance is not ready"
+const fs=require("node:fs"),crypto=require("node:crypto");
+const [source,attempt,receiptPath,manifestPath,provenancePath,rawEvidencePath]=process.argv.slice(2);
+const bytes=fs.readFileSync(receiptPath),receipt=JSON.parse(bytes),manifestBytes=fs.readFileSync(manifestPath),manifest=JSON.parse(manifestBytes);
+const devapp=JSON.parse(fs.readFileSync(provenancePath,"utf8"));
+const hash=v=>crypto.createHash("sha256").update(v).digest("hex"),services=["api","web","agent","sandbox"];
+if(receipt.sourceRevision!==source||devapp.status!=="passed"||devapp.sourceSha!==source||devapp.browserAccepted!==true||!Number.isSafeInteger(devapp.workflowRunId)||devapp.workflowRunId<=0||!/^[a-f0-9]{64}$/.test(devapp.evidenceSha256??"")||services.some(k=>devapp.runtimeSourceShas?.[k]!==source))process.exit(1);
+if(hash(fs.readFileSync(rawEvidencePath))!==devapp.evidenceSha256)process.exit(1);
+const safeDevapp={status:devapp.status,sourceSha:devapp.sourceSha,runtimeSourceShas:Object.fromEntries(services.map(k=>[k,devapp.runtimeSourceShas[k]])),browserAccepted:devapp.browserAccepted,evidenceSha256:devapp.evidenceSha256,workflowRunId:devapp.workflowRunId};
+const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp};
+if(manifest.sourceRevision!==source||snapshot.manifestSha256!==receipt.manifestSha256)process.exit(1);
+console.log("CN_PROMOTION_IDENTITY_JSON="+JSON.stringify(snapshot));
+NODE
+
 branch_state=expected
 [[ "$current_main_cn" == "$revision" ]] && branch_state=already-promoted
 printf 'CN_PROMOTION_READY revision=%s expected_main_cn=%s branch_state=%s\n' "$revision" "$expected_main_cn" "$branch_state"

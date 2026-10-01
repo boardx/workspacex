@@ -16,7 +16,11 @@ on:
         type: string
 
 permissions:
-  contents: read
+  checks: read
+  statuses: read
+  deployments: read
+  contents: write
+  actions: read
 
 concurrency:
   group: workspacex-cn-production-deploy
@@ -49,6 +53,8 @@ jobs:
           revision="${RUN_SHA}"
           [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && revision="${INPUT_SHA}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "${revision}" ]] || { echo "::error::release SHA or checkout differs"; exit 1; }
+          # Old candidates cannot inherit a dispatcher introduced after their source freeze.
+          [[ -f .harness/scripts/vm/cn-frozen-release-identity.mjs ]] && grep -q CN_FROZEN_RELEASE_DISPATCHER_V1 .github/workflows/promote-cn-production.yml || { echo "::error::CN_FROZEN_RELEASE_DISPATCHER_NOT_READY"; exit 3; }
           git rev-parse --verify origin/main >/dev/null
           git merge-base --is-ancestor "${revision}" origin/main || { echo "::error::release SHA is not contained in main"; exit 1; }
           cache=/opt/workspacex-cn/release-origin-cache.git
@@ -92,6 +98,8 @@ jobs:
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_SHA: ${{ inputs.release_sha }}
           INPUT_RELEASE: ${{ inputs.release }}
+          GH_TOKEN: ${{ github.token }}
+          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           revision="${RUN_SHA}"
@@ -112,7 +120,11 @@ jobs:
           # Build/seal success alone is never promotion readiness. This operation
           # remains before human admission and never activates public traffic.
           sudo -n /usr/local/bin/workspacex-cn-deploy --prepare "${revision}" "${attempt_id}"
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${revision}" "${expected_main_cn}" "${attempt_id}"
+          identity_file=$(mktemp)
+          trap 'rm -f "${identity_file}"' EXIT
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${revision}" "${expected_main_cn}" "${attempt_id}" > "${identity_file}"
+          # No tag until complete host gates and actual exact-source GitHub/Devapp facts pass.
+          REVISION="${revision}" EXPECTED_MAIN_CN="${expected_main_cn}" ATTEMPT_ID="${attempt_id}" node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs freeze-tag "${identity_file}"
           {
             echo "### CN host-prepared release candidate"
             echo "- Expected main-cn: \`${expected_main_cn}\`"

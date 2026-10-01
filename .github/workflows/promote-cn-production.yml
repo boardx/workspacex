@@ -1,4 +1,5 @@
 name: promote-cn-production
+# CN_FROZEN_RELEASE_DISPATCHER_V1: candidate must contain this compatible dispatcher.
 
 on:
   workflow_dispatch:
@@ -17,6 +18,9 @@ on:
         type: string
 
 permissions:
+  checks: read
+  statuses: read
+  deployments: read
   actions: write
   contents: write
 
@@ -30,6 +34,8 @@ jobs:
   readiness:
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 3
+    outputs:
+      request_sha256: ${{ steps.identity.outputs.request_sha256 }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,26 +43,32 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Fail NOT_READY before asking for production admission
+        id: identity
         shell: bash
         env:
           REVISION: ${{ inputs.release_sha }}
           EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
           ATTEMPT_ID: ${{ inputs.release_attempt_id }}
+          GH_TOKEN: ${{ github.token }}
+          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
-          [[ "${GITHUB_REF}" == refs/heads/main && "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_IDENTITY"; exit 1; }
+          [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* && "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_IDENTITY"; exit 1; }
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::CN_PROMOTION_NOT_READY_INPUT"; exit 2; }
           github_main_cn=$(git rev-parse origin/main-cn)
           [[ "${github_main_cn}" == "${EXPECTED_MAIN_CN}" || "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_BASELINE"; exit 3; }
           git merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::CN_PROMOTION_NOT_READY_MAIN"; exit 1; }
           cmp --silent .harness/scripts/vm/verify-cn-release-promotion.sh /usr/local/bin/workspacex-cn-verify-promotion || { echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT"; exit 1; }
           set +e
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
+          identity_file=$(mktemp)
+          trap 'rm -f "${identity_file}"' EXIT
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
           status=$?
           set -e
           [[ ${status} -eq 0 ]] || { echo "::error::CN_PROMOTION_NOT_READY: complete exact preparation and live gates first"; exit "${status}"; }
-  # This is the only human approval. release_sha must equal GITHUB_SHA, so the
-  # successful Environment deployment is bound to the exact promoted commit.
+          node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs verify-dispatch "${identity_file}"
+  # This is the only human approval. The immutable protected tag keeps
+  # release_sha == GITHUB_SHA and native Deployment.sha truthful when main advances.
   admit:
     needs: readiness
     environment: production-cn-promotion
@@ -66,6 +78,7 @@ jobs:
       revision: ${{ steps.release.outputs.revision }}
       expected_main_cn: ${{ steps.release.outputs.expected_main_cn }}
       attempt_id: ${{ steps.release.outputs.attempt_id }}
+      request_sha256: ${{ needs.readiness.outputs.request_sha256 }}
     steps:
       - name: Check out the exact candidate from GitHub
         uses: actions/checkout@v5
@@ -88,34 +101,8 @@ jobs:
           ruleset_details=$(mktemp)
           trap 'rm -f "${promotion_json}" "${promotion_policies_json}" "${activation_json}" "${policies_json}" "${rulesets_json}" "${ruleset_details}"' EXIT
 
-          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn-promotion" > "${promotion_json}"
-          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn-promotion/deployment-branch-policies?per_page=100" > "${promotion_policies_json}"
-          node - "${promotion_json}" "${promotion_policies_json}" <<'NODE'
-          const fs=require("node:fs"),v=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-          const policies=JSON.parse(fs.readFileSync(process.argv[3],"utf8")).branch_policies??[];
-          const rule=v.protection_rules?.find(rule=>rule.type==="required_reviewers");
-          const branchPolicy=v.deployment_branch_policy;
-          const exact=policies.filter(policy=>policy.type==="branch"&&policy.name==="main");
-          if(!rule||!Array.isArray(rule.reviewers)||rule.reviewers.length<1||branchPolicy?.custom_branch_policies!==true||branchPolicy?.protected_branches!==false||exact.length!==1||policies.length!==1){
-            console.error("::error::production-cn-promotion must require reviewers and allow only main");
-            process.exit(1);
-          }
-          NODE
-
-          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn" > "${activation_json}"
-          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn/deployment-branch-policies?per_page=100" > "${policies_json}"
-          node - "${activation_json}" "${policies_json}" <<'NODE'
-          const fs=require("node:fs"),v=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-          const policies=JSON.parse(fs.readFileSync(process.argv[3],"utf8")).branch_policies??[];
-          const reviewerRule=v.protection_rules?.find(rule=>rule.type==="required_reviewers");
-          const branchPolicy=v.deployment_branch_policy;
-          const names=policies.filter(policy=>policy.type==="branch").map(policy=>policy.name).sort();
-          if(reviewerRule||branchPolicy?.custom_branch_policies!==true||branchPolicy?.protected_branches!==false||JSON.stringify(names)!==JSON.stringify(["main","main-cn"])){
-            console.error("::error::production-cn must allow exactly main and main-cn and must not require a second reviewer");
-            process.exit(1);
-          }
-          NODE
-
+          # Exact environment/tag policies are revalidated by the shared identity gate.
+          # The main-cn branch rules below still require native successful admission.
           gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&per_page=100" > "${rulesets_json}"
           while read -r id; do
             gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" >> "${ruleset_details}"
@@ -146,11 +133,11 @@ jobs:
           ATTEMPT_ID: ${{ inputs.release_attempt_id }}
         run: |
           set -euo pipefail
-          [[ "${GITHUB_REF}" == refs/heads/main ]] || { echo "::error::promotion workflow must be dispatched from main"; exit 1; }
+          [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* ]] || { echo "::error::promotion must use the frozen protected release tag"; exit 1; }
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release_sha must be a full lowercase commit SHA"; exit 1; }
           [[ "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::expected_main_cn_sha must be a full lowercase commit SHA"; exit 1; }
           [[ "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::release_attempt_id is invalid"; exit 1; }
-          [[ "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::release_sha must equal the exact main tip captured by this approved run"; exit 1; }
+          [[ "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::release_sha must equal the frozen native Deployment source captured by this approved run"; exit 1; }
           [[ "$(git rev-parse HEAD)" == "${REVISION}" ]] || { echo "::error::GitHub checkout does not match release_sha"; exit 1; }
           git rev-parse --verify origin/main >/dev/null
           git rev-parse --verify origin/main-cn >/dev/null
@@ -189,25 +176,15 @@ jobs:
             }
           done
 
-      - name: Seed the China source mirror from the exact GitHub checkout
+      - name: Verify the already staged offline candidate without source supplementation
         shell: bash
         env:
           REVISION: ${{ steps.release.outputs.revision }}
         run: |
           set -euo pipefail
-          cache=/opt/workspacex-cn/release-origin-cache.git
           repository=/opt/workspacex-cn/repository
-          [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || {
-            echo "::error::CN_SOURCE_CACHE_UNTRUSTED"
-            exit 1
-          }
-          [[ -d "${repository}/.git" && ! -L "${repository}" ]] || { echo "::error::CN_RELEASE_REPOSITORY_UNTRUSTED"; exit 1; }
-          [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
-          git -C "${cache}" fetch --no-tags "${GITHUB_WORKSPACE}" "+${REVISION}:refs/heads/main"
-          [[ "$(git -C "${cache}" rev-parse refs/heads/main)" == "${REVISION}" ]] || { echo "::error::CN_SOURCE_CACHE_REVISION_MISMATCH"; exit 1; }
-          GIT_NO_LAZY_FETCH=1 git -C "${cache}" fsck --full --no-reflogs
-          git -C "${repository}" fetch --no-tags origin main main-cn
-          [[ "$(git -C "${repository}" rev-parse origin/main)" == "${REVISION}" ]] || { echo "::error::CN_RELEASE_REPOSITORY_REVISION_MISMATCH"; exit 1; }
+          GIT_NO_LAZY_FETCH=1 git -C "${repository}" cat-file -e "${REVISION}^{commit}" || { echo "::error::CN_FROZEN_RELEASE_OFFLINE_SOURCE_NOT_READY"; exit 3; }
+          git -C "${repository}" merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::CN_FROZEN_RELEASE_MAIN_LINEAGE"; exit 3; }
 
       - name: Require a complete immutable preparation receipt
         shell: bash
@@ -215,10 +192,15 @@ jobs:
           REVISION: ${{ steps.release.outputs.revision }}
           EXPECTED_MAIN_CN: ${{ steps.release.outputs.expected_main_cn }}
           ATTEMPT_ID: ${{ steps.release.outputs.attempt_id }}
+          EXPECTED_REQUEST_SHA256: ${{ needs.readiness.outputs.request_sha256 }}
+          GH_TOKEN: ${{ github.token }}
+          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           set +e
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
+          identity_file=$(mktemp)
+          trap 'rm -f "${identity_file}"' EXIT
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
           verify_status=$?
           set -e
           if [[ ${verify_status} -eq 3 ]]; then
@@ -228,6 +210,8 @@ jobs:
             echo "::error::CN_PROMOTION_NOT_READY: immutable receipt or live admission gate rejected"
             exit "${verify_status}"
           fi
+          [[ "${EXPECTED_REQUEST_SHA256}" =~ ^[a-f0-9]{64}$ ]] || { echo "::error::CN_FROZEN_RELEASE_READINESS_DIGEST_MISSING"; exit 3; }
+          node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs verify-dispatch "${identity_file}"
 
   # The admission job must finish successfully first. GitHub then records a
   # successful production-cn-promotion deployment for this exact GITHUB_SHA.
@@ -240,6 +224,11 @@ jobs:
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.admit.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Activate, browser-verify, then compare-and-swap main-cn
         id: promotion
         shell: bash
@@ -248,9 +237,18 @@ jobs:
           REVISION: ${{ needs.admit.outputs.revision }}
           EXPECTED_MAIN_CN: ${{ needs.admit.outputs.expected_main_cn }}
           ATTEMPT_ID: ${{ needs.admit.outputs.attempt_id }}
+          EXPECTED_REQUEST_SHA256: ${{ needs.admit.outputs.request_sha256 }}
+          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::admission outputs are invalid"; exit 1; }
+          identity_file=$(mktemp)
+          trap 'rm -f "${identity_file}"' EXIT
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
+          [[ "${EXPECTED_REQUEST_SHA256}" =~ ^[a-f0-9]{64}$ ]] || { echo "::error::CN_FROZEN_RELEASE_READINESS_DIGEST_MISSING"; exit 3; }
+          node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs verify-admission "${identity_file}"
+          rm -f "${identity_file}"
+          trap - EXIT
           cache=/opt/workspacex-cn/release-origin-cache.git
           repository=/opt/workspacex-cn/repository
           [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || { echo "::error::CN_SOURCE_CACHE_UNTRUSTED"; exit 1; }

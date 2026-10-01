@@ -234,3 +234,17 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 ## 迁移账本完整性门（#4828）
 
 采集与计划必须使用 [versioned完整只读快照契约](migration-snapshot.md)。旧readOnly+ledger格式、截断Cloud Assistant输出或缺独立SQLCOUNT的数组均拒绝；先核验外部sourcebinding与完整provider响应，再生成canonical计划。完整性通过不解除drift/out-of-order/risk门，不授权生产迁移。
+
+## 固定候选 tag 派发（#4919；治理生效后才能使用）
+
+候选必须先包含 `CN_FROZEN_RELEASE_DISPATCHER_V1` 和对应 identity validator。历史候选不能借新 main 的 workflow 改写自己的 source；不兼容返回 `CN_FROZEN_RELEASE_DISPATCHER_NOT_READY`，不得悄悄替换为最新 main。
+
+`prepare-cn-release` 在完整 host verifier、实际 exact-source CI 和 Devapp 证据通过后，创建不可变 annotated tag `cn-prepared-<40位source>-<attempt>`。tag message 绑定完整 prepared 收据原始 hash、manifest、四镜像 digest、baseline、Devapp 证据 hash 和实际验收 run。已经存在的 tag 只允许完全一致的复用，不更新或删除。
+
+从此 tag 派发 `promote-cn-production`：GitHub 的 `GITHUB_SHA`、实际 workflow SHA、candidate source 和 native Environment Deployment SHA 保持一致；后续 main 提交进入下一候选。workflow 身份与 release source 在请求中分别记录，即使两者值相同也不混作一个字段。readiness 请求 digest 包括实际 run ID/attempt，在唯一人工审批后逐字复验。审批后只验证已存在离线对象，不从 GitHub补 source，不 prepare/build。
+
+实际 Devapp 验收记录由受控适配器以 root:root0600 保存到 candidate attempt 目录的 `devapp-acceptance.json`，引用同目录 `devapp-evidence.bin` 的真实字节 SHA。字段为 `status=passed`、`sourceSha`、`runtimeSourceShas`（api/web/agent/sandbox 均为候选）、`browserAccepted=true`、`evidenceSha256`、`workflowRunId`。它是既有真实运行体/浏览器验收记录的机器适配，不是靠 CI head_sha 推断运行体、不是新 Devapp 部署平台。verifier 核验实际 evidence 字节并只输出安全字段；GitHub identity gate 再核查对应 `real-model-chat-evidence.yml` run 的 actual repository/head_sha/status/conclusion。缺真实记录、缺 byte binding 或 run 不匹配均 NOT_READY，不生成假成功。
+
+prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须显式声明；contents write 仅用于候选 tag/main-cn CAS。不得给部署状态写权限来制造成功。激活前必须读到同 source/ref、同 workflow run 的真实 successful native `production-cn-promotion` Deployment status，不能拿其它 run 或 latest-main 的成功替代。
+
+环境/tag 治理与 runner 已安装可信入口必须先完成独立审阅及实际验证，见 [固定 tag 治理审阅清单](frozen-tag-governance.md)。本代码不修改这些规则。`CN_RELEASE_TAG_APP_ID` 只是预期 issuer 输入，必须与 GitHub 返回的 github-actions App ID 相等；真实 token/tag 创建能力仍需独立非生产演练，变量存在不代表授权路径已通过。完整发布收据未完成前不承诺五分钟 READY。
