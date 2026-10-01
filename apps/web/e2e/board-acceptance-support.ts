@@ -207,7 +207,7 @@ export async function seedExistingFrame(page: Page, x: number, y: number, width 
   const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
   const id = `existing-frame-${randomUUID()}`;
   await boardApi(page.request, token!, 'POST', `/whiteboards/${boardId}/commands`, {
-    requestId: randomUUID(), epoch: 1, commands: createCommands([object(id, 'frame', x, y, 'Existing Frame', width, height)]),
+    requestId: randomUUID(), epoch: 1, commands: createCommands([{...object(id, 'frame', x, y, 'Existing Frame', width, height), extensionData: {spatial: {version: 1, mode: 'freeform', autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: 'horizontal'}}}]),
   });
   await expect(page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${id}"]`)).toBeVisible();
   return id;
