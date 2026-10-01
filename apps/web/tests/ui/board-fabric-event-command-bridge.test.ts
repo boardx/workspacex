@@ -83,6 +83,9 @@ vi.mock("fabric", async (importOriginal) => {
   return {
     ...actual,
     Canvas,
+    Line: MockFabricObject,
+    Path: MockFabricObject,
+    Triangle: MockFabricObject,
     Circle: MockFabricObject,
     Group: MockFabricObject,
     Point: MockFabricObject,
@@ -109,7 +112,8 @@ const base: BoardFabricObject = {
 const viewport = { zoom: 1, panX: 0, panY: 0, fitRequest: 0 };
 const callbacks = () => ({
   onSelectionChange: vi.fn(),
-  onObjectTransform: vi.fn(),
+  onObjectTransform: vi.fn(() => false),
+  onTransformPreview: vi.fn(),
   onViewportChange: vi.fn(),
 });
 const surface = (objects: readonly BoardFabricObject[], events: ReturnType<typeof callbacks>, readOnly = false) => createElement(BoardFabricSurface, {
@@ -133,6 +137,37 @@ const firstProjected = (canvas: ReturnType<typeof mountedCanvas>) => {
 
 describe("Board Fabric event-to-command boundary", () => {
   beforeEach(() => { fabricHarness.state.canvases.length = 0; });
+
+  it("previews attached connectors and chrome after snapping without committing, then restores rejection", () => {
+    const events = callbacks();
+    const edge: BoardFabricObject = { ...base, id: "edge", kind: "connector", orderKey: "b", geometry: { x: 210, y: 90, width: 290, height: 10, rotation: 0 }, connector: { from: base.id, fromAnchor: "right", toAnchor: "left", fromOffset: { x: 5, y: 0 }, type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 215, y: 90 }, end: { x: 500, y: 100 } } };
+    render(surface([base, edge], events));
+    const canvas = mountedCanvas(), target = canvas.objects.find(item => item.data?.boardObjectId === base.id)!;
+    target.set({ left: 80, top: 130 });
+    act(() => canvas.emit("object:moving", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([{ id: base.id, geometry: { x: 80, y: 130, width: 200, height: 140, rotation: 0 } }]);
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.left).toBe(285);
+    act(() => canvas.emit("object:modified", { target }));
+    expect(events.onObjectTransform).toHaveBeenCalledTimes(1);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
+    expect(target.left).toBe(base.geometry.x);
+    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.left).toBe(215);
+  });
+
+  it("reports rotated and scaled geometry and clears preview on native cancellation", () => {
+    const events = callbacks(); render(surface([base], events));
+    const canvas = mountedCanvas(), target = firstProjected(canvas);
+    target.set({ angle: 90, scaleX: 2, scaleY: 2 });
+    act(() => canvas.emit("object:rotating", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
+    expect(events.onTransformPreview.mock.calls.at(-1)?.[0][0]?.geometry).toMatchObject({ width: 400, height: 280, rotation: 90 });
+    canvas._currentTransform = { target };
+    act(() => canvas.emit("mouse:down", { target, e: new MouseEvent("mousedown", { clientX: 20, clientY: 30 }) }));
+    const cancel = new Event("pointercancel", { bubbles: true }); Object.assign(cancel, { pointerType: "mouse", isPrimary: true });
+    fireEvent(screen.getByTestId("board-fabric-canvas"), cancel);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+  });
 
   it("pans unmodified wheel input without publishing an object command", () => {
     const events = callbacks();
