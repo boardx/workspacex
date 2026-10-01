@@ -81,6 +81,7 @@ it('syncs fifty distinct same-tenant WebSocket sessions and rechecks fresh revoc
     revoked = true;
     await expect.poll(() => sockets[0]!.readyState,{timeout:3000}).toBe(WebSocket.CLOSED);
     expect(checks.get('session-0')).toBeGreaterThan(1);
+    expect(maximum).toBeLessThanOrEqual(4);
   } finally {
     for(const socket of sockets) socket.terminate();
     await new Promise<void>(resolve => server.close(() => resolve())); doc.destroy();

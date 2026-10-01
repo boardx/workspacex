@@ -10,7 +10,7 @@ import type { WhiteboardRepository } from '../../application/whiteboard/ports';
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardPresenceIdentityResolver } from '../../application/whiteboard/collaboration-ports';
 import type { Principal } from '../../domain/principal';
 
-type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
+type Peer = { ws: WebSocket; credentialKey: string; lifetime: AbortController; principal: Principal; boardId: string; token: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
 export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; identities?:WhiteboardPresenceIdentityResolver; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
@@ -60,7 +60,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
       lifetime.signal.throwIfAborted();
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
+        const peer:Peer={ws,credentialKey,lifetime,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
         const deadline=setTimeout(()=>ws.close(4408,'handshake timeout'),10000);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -130,14 +130,14 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       if(!peer.ready || peer.checking || peer.ws.readyState!==peer.ws.OPEN) continue;
       peer.checking=true;
       void (async()=>{
-        const current=await deps.principals.resolve({authorization:`Bearer ${peer.token}`});
+        const current=await authentication.run(peer.credentialKey,()=>deps.principals.resolve({authorization:`Bearer ${peer.token}`}),peer.lifetime.signal);
         if(!current || current.userId!==peer.principal.userId || current.orgId!==peer.principal.orgId) { fail(peer.ws,'ACCESS_REVOKED');return; }
-        const head=await deps.store.head(current,peer.boardId);
+        const head=await admission.run(current.orgId,()=>deps.store.head(current,peer.boardId),peer.lifetime.signal);
         const state=head;
         if(state.epoch!==peer.epoch) { fail(peer.ws,'STALE_EPOCH');return; }
         if(state.role!==peer.role || state.archived!==peer.archived) { fail(peer.ws,state.archived?'BOARD_ARCHIVED':'ACCESS_REVOKED');return; }
         if(peer.ws.readyState!==peer.ws.OPEN) return;
-        if(state.seq>peer.seq) { const diff=await deps.store.load(current,peer.boardId,Y.encodeStateVector(peer.mirror)); if(peer.ws.readyState!==peer.ws.OPEN) return; Y.applyUpdate(peer.mirror,diff.update);peer.seq=Math.max(peer.seq,diff.seq);send(peer.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)}); }
+        if(state.seq>peer.seq) { const diff=await admission.run(current.orgId,()=>deps.store.load(current,peer.boardId,Y.encodeStateVector(peer.mirror)),peer.lifetime.signal); if(peer.ws.readyState!==peer.ws.OPEN) return; Y.applyUpdate(peer.mirror,diff.update);peer.seq=Math.max(peer.seq,diff.seq);send(peer.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)}); }
       })().catch(error=>failFromError(peer.ws,error)).finally(()=>{peer.checking=false;});
     }
   },1000);
