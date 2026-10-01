@@ -2,6 +2,8 @@
  * #946 · V9-a F150 —— `AttachmentCommandRepository` 的 PostgreSQL 实现。
  * 走 `DatabasePort.withTenant`（RLS 租户会话），与 pg-chat-message-command-repository 同一套。
  */
+import { AttachmentUploadError } from "../../application/chat/upload-attachment";
+import { checkAttachmentCount } from "../../domain/chat/attachment-upload";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
@@ -34,8 +36,23 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
   }
 
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set；extracted_ref 恒 NULL=V9-a）。 */
-  async insertAttachment(row: AttachmentRow): Promise<void> {
+  async insertAttachment(row: AttachmentRow, writeObject: () => Promise<void>): Promise<void> {
     await this.db.withTenant(row.orgId, async (s) => {
+      // The thread row is the serialization point across API replicas; lock before
+      // counting so the next transaction sees the previous contender's committed row.
+      const thread = await s.query<{ id: string }>(
+        "SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE",
+        [row.orgId, row.threadId],
+      );
+      if (!thread.rows.length) throw new Error("attachment_thread_unavailable");
+      const pending = await s.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2 AND message_id IS NULL",
+        [row.orgId, row.threadId],
+      );
+      if (checkAttachmentCount(pending.rows[0]?.n ?? 0)) {
+        throw new AttachmentUploadError("ATTACHMENT_LIMIT_EXCEEDED");
+      }
+      await writeObject();
       await s.query(
         `INSERT INTO chat_message_attachments
            (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes, extracted_ref, created_at)
