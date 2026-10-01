@@ -3,6 +3,7 @@ import {expect} from '@playwright/test';
 import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
+import {connectionGestureMetric} from '../scripts/board-journey-policy.mjs';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';
@@ -103,14 +104,14 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 
-test('Diagram: A->B->C via two-click connections remain attached after each shape moves', async ({page, request}) => {
+test('Diagram: A->B->C via one-drag connections remain attached after each shape moves', async ({page, request}) => {
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance diagram');
   try {
     const shapes = ['A', 'B', 'C'].map((name, index) => object(name, 'rectangle', 150 + index * 360, 300, name, 200, 140));
     await operate(request, token, id, createCommands(shapes)); await openBoard(page, id, 3);
-    const clicks = [await connectByHandles(page, 'A', 'B'), await connectByHandles(page, 'B', 'C')];
-    await metric('connection-clicks-per-edge', Math.max(...clicks), 2);
-    expect(clicks.every(count => count <= 2)).toBe(true);
+    const gestures = [await connectByHandles(page, 'A', 'B'), await connectByHandles(page, 'B', 'C')];
+    await metric(connectionGestureMetric.name, Math.max(...gestures), connectionGestureMetric.limit);
+    expect(gestures.every(count => count === 1)).toBe(true);
     let rows = await canonicalRows(page);
     expect(rows.filter(row => row.kind === 'connector')).toHaveLength(2); expect(connectorsBound(rows)).toBe(true);
     // Fit-to-board places the outer shapes against opposite viewport edges. Drag

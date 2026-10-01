@@ -1,6 +1,7 @@
 import {expect, type APIRequestContext, type Page} from '@playwright/test';
 import {createHash,randomUUID} from 'node:crypto';
 import type {WhiteboardCommand, WhiteboardObject} from '@repo/whiteboard-core';
+import {rotatedAnchorPoint} from '@repo/whiteboard-core';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 
@@ -150,19 +151,37 @@ export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
 }
 export async function connectByHandles(page: Page, from: string, to: string) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
-  await page.keyboard.press('c');
-  await expect(page.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('board-zoom-fit-board').click();
-  const source = await objectPoint(page, from); await page.mouse.move(source.x, source.y);
-  // Connector mode exposes handles even when the previous action left a multi-selection active.
-  let clicks = 0;
+  const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
+  const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token).toBeTruthy();
+  const before = await canonicalBoardSnapshot(page.request, token!, boardId);
+  const source = await objectPoint(page, from);
+  await page.mouse.click(source.x, source.y); await page.mouse.move(source.x, source.y);
   const sourceHandle = page.getByTestId(`connector-handle-${from}-right`);
-  await expect(sourceHandle).toBeVisible(); await sourceHandle.click(); clicks++;
-  const target = await objectPoint(page, to); await page.mouse.move(target.x, target.y);
-  const targetHandle = page.getByTestId(`connector-handle-${to}-left`);
-  await expect(targetHandle).toBeVisible(); await targetHandle.click(); clicks++;
+  await expect(sourceHandle).toBeVisible();
+  const sourceBounds = await sourceHandle.boundingBox(); expect(sourceBounds).not.toBeNull();
+  const target = before.objects.find(object => object.id === to)!; expect(target).toBeTruthy();
+  const anchor = rotatedAnchorPoint(target, 'left');
+  const surface = page.getByTestId('board-fabric-surface'), bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
+  const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
+  const destination = {x: bounds!.x + Number(await surface.getAttribute('data-viewport-pan-x')) + anchor.x * zoom,
+    y: bounds!.y + Number(await surface.getAttribute('data-viewport-pan-y')) + anchor.y * zoom};
+  await page.mouse.move(sourceBounds!.x + sourceBounds!.width / 2, sourceBounds!.y + sourceBounds!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(destination.x, destination.y, {steps: 12});
+  await expect(page.getByTestId('board-connector-snap-cue')).toHaveAttribute('data-target-id', to);
+  expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(before);
+  await page.mouse.up();
   await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'connector' && row.from === from && row.to === to).length).toBe(1);
-  return clicks;
+  await expect(page.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => boardHead(page.request, token!, boardId)).toEqual({epoch: before.revision.epoch, seq: before.revision.seq + 1});
+  const after = await canonicalBoardSnapshot(page.request, token!, boardId);
+  expect(after.objects).toHaveLength(before.objects.length + 1);
+  expect(after.objects.filter(object => object.kind === 'connector' && object.connector?.from === from && object.connector?.to === to)).toHaveLength(1);
+  await page.reload(); await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
+  expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(after);
+  return 1;
 }
 export function connectorsBound(rows: CanonicalRow[]) {
   return rows.filter(row => row.kind === 'connector').every(edge => {
