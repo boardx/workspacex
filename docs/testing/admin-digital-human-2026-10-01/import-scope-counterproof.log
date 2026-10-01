@@ -1,0 +1,15 @@
+BASELINE COUNTERPROOF: expected stop after first POST, actual 3 POSTs; completion incorrectly succeeds.
+[
+  {
+    "path": "/skill-import",
+    "current": true
+  },
+  {
+    "path": "/skill-import",
+    "current": false
+  },
+  {
+    "path": "/agent-import",
+    "current": false
+  }
+]

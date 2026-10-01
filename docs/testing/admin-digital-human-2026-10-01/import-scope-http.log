@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/admin-import-scope-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/starter-import-org-scope.test.ts (6 tests) 233ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  06:11:00
+   Duration  4.14s (transform 2.17s, setup 0ms, collect 3.00s, tests 233ms, environment 0ms, prepare 67ms)

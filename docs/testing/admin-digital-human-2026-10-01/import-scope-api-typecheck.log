@@ -1,0 +1,3 @@
+
+> @repo/api@0.0.0 typecheck /workspace/admin-import-scope-fixes/apps/api
+> tsc --noEmit

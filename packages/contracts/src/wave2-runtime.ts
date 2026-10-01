@@ -744,6 +744,8 @@ export const operations = {
       packId: PackCoordinate,
       packVersion: PackCoordinate,
       idempotencyKey: z.string().min(1).max(255),
+      /** Optional fail-closed organization binding for multi-request admin imports. */
+      expectedOrgId: z.string().min(1).max(255).optional(),
     }).strict(),
     out: SkillStarterImportResult,
     err: SkillStarterImportError.options,
@@ -809,6 +811,8 @@ export const operations = {
       packId: PackCoordinate,
       packVersion: PackCoordinate,
       idempotencyKey: z.string().min(1).max(255),
+      /** Optional fail-closed organization binding for multi-request admin imports. */
+      expectedOrgId: z.string().min(1).max(255).optional(),
     }).strict(),
     out: AgentStarterImportResult,
     /** AG03：同端点分流出的官方角色包导入额外失败码（`UNRESOLVED_WORKFLOW_REF`/`UNRESOLVED_SKILL_REF`/`AGENT_STARTER_TOOL_POLICY_INVALID`）。 */

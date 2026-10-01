@@ -10,7 +10,7 @@ vi.mock("@/lib/agent-directory", async (original) => ({
   getOfficialRolePackOffer: mocks.get,
   enableOfficialRolePack: mocks.enable,
 }));
-vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: { currentOrgId: mocks.org }, identity: { orgRole: "admin" } }) }));
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: { currentOrgId: mocks.org, sessionToken: "token-a" }, identity: { orgRole: "admin" } }) }));
 vi.mock("@/components/admin/capability-catalog-screen", () => ({
   CapabilityCatalogScreen: ({ headerActions, definitionsRefreshKey }: { headerActions: React.ReactNode; definitionsRefreshKey: number }) => <div>{headerActions}<span data-testid="refresh-key">{definitionsRefreshKey}</span></div>,
 }));
@@ -37,7 +37,7 @@ describe("后台官方数字人发现与启用", () => {
     mocks.get.mockResolvedValue({ ...offer, pending: [] });
     fireEvent.click(screen.getByRole("button", { name: "启用官方数字人" }));
     await screen.findByText("本组织已启用全部官方数字人。");
-    expect(mocks.enable).toHaveBeenCalledWith(offer, expect.any(Function));
+    expect(mocks.enable).toHaveBeenCalledWith(offer, expect.any(Function), expect.objectContaining({ orgId: "org-a", sessionToken: "token-a", signal: expect.any(AbortSignal), isCurrent: expect.any(Function) }));
     expect(screen.getByTestId("refresh-key")).toHaveTextContent("1");
   });
 
@@ -55,7 +55,7 @@ describe("后台官方数字人发现与启用", () => {
     fireEvent.click(await screen.findByRole("button", { name: "启用官方数字人" }));
     await screen.findByRole("alert");
     expect(mocks.refresh).not.toHaveBeenCalled();
-    expect(screen.queryByText("官方数字人已启用，目录已刷新。")).toBeNull();
+    expect(screen.queryByText("官方数字人已启用。")).toBeNull();
     mocks.get.mockResolvedValue({ ...offer, pending: [] });
     fireEvent.click(screen.getByRole("button", { name: "启用官方数字人" }));
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
@@ -79,6 +79,8 @@ describe("后台官方数字人发现与启用", () => {
     mocks.org = "org-b";
     view.rerender(<AgentScreen state="default" />);
     expect(screen.queryByText("产品经理")).toBeNull();
+    expect(mocks.enable.mock.calls[0]![2].signal.aborted).toBe(true);
+    expect(mocks.enable.mock.calls[0]![2].isCurrent()).toBe(false);
     finish();
     await waitFor(() => expect(screen.getByTestId("refresh-key")).toHaveTextContent("0"));
   });
