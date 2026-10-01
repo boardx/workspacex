@@ -204,6 +204,9 @@ const asrProviderEnv = {
  * 界面上 `chat-live-agent-run-status` 显示 failed，绝不会冒出一条编造的回复。
  */
 const modelProviderEnv = {
+  // Official role snapshots pin dashscope. Alias it only in this explicit
+  // loopback fixture; this does not configure a real provider or prove quality.
+  KERNEL_LOOPBACK_PROVIDER_ALIASES: "dashscope",
   KERNEL_GUIDED_SEARCH_URL: `http://127.0.0.1:${modelProviderPort}/search`,
   KERNEL_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
   KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
@@ -402,6 +405,23 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
     },
     {
+      // Import official roles after empty-catalog checks, in explicit order.
+      name: "official-digital-human",
+      testMatch: ["digital-human-journey.spec.ts"],
+      dependencies: ["seeded", "board-collaboration-regressions"],
+      retries: 0, // Published imports persist; retry cannot restore pending state.
+      workers: 1,
+      fullyParallel: false,
+    },
+    {
+      name: "official-role-workflow",
+      testMatch: ["w029-browser-journey.spec.ts"],
+      dependencies: ["official-digital-human"],
+      retries: 0,
+      workers: 1,
+      fullyParallel: false,
+    },
+    {
       /**
        * 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
        * 这条用户旅程的验收线**不能**并进上面的 `seeded`（尽管它同样要用种子里的组织
@@ -461,7 +481,9 @@ export default defineConfig({
         "board-drawing-live-preview.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
-      dependencies: ["seeded", "board-collaboration-regressions"],
+      // Official imports must follow seeded empty-catalog checks and precede
+      // later mutation journeys; dependency ordering also survives parallel CI.
+      dependencies: ["official-role-workflow"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.

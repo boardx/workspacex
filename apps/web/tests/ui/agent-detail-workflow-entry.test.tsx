@@ -5,7 +5,7 @@ import type {AgentDirectoryCard} from '@/lib/agent-directory';
 import {ApiError} from '@/lib/api-client';
 const api=vi.hoisted(()=>({list:vi.fn(),start:vi.fn(),navigate:vi.fn()}));
 vi.mock('@/lib/workflow-runtime-api',async()=>({...await vi.importActual<typeof import('@/lib/workflow-runtime-api')>('@/lib/workflow-runtime-api'),listRunnableWorkflows:api.list,startWorkflowInstance:api.start}));
-const card:AgentDirectoryCard={agentId:'pm-agent',versionId:'v1',name:'产品经理',initials:'产',roleLabel:'Product Manager',roleCategory:'product',tags:[],catalogSource:'official',workflows:[{stableId:'W029',name:'问题定义到 PRD'}],readiness:'ready'};
+const card:AgentDirectoryCard={agentId:'pm-agent',versionId:'v1',name:'产品经理',initials:'产',avatar:null,roleLabel:'Product Manager',roleCategory:'product',tags:[],catalogSource:'official',workflows:[{stableId:'W029',name:'问题定义到 PRD'}],readiness:'ready'};
 const extras:AgentDetailExtras={duty:'产品需求',skillSource:'agent',skills:[],delegationTargets:[],requireApprovalForHandoff:true};
 function view(value=card){return <AgentDetail agentId={value.agentId} onStartChat={vi.fn()} fetchCard={vi.fn().mockResolvedValue(value)} fetchExtras={vi.fn().mockResolvedValue(extras)}/>;}
 beforeEach(()=>{api.list.mockReset();api.start.mockReset();api.navigate.mockReset();vi.stubGlobal('location',{...window.location,assign:api.navigate});});

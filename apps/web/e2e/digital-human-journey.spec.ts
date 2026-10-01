@@ -7,8 +7,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { agentRole, wave2Runtime } from "@repo/contracts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-import { openAuthoritativeFreshThread } from "./support/authoritative-thread";
-import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-run-evidence";
+import { submitWorkbenchRun } from "./support/workbench-run-evidence";
 import { expectSendNotBlockedOnRun } from "./support/chat-path-coverage";
 
 test.use({ trace: "on", screenshot: "on" });
@@ -17,6 +16,7 @@ const API = "/__fullstack_api";
 const ROLES = [
   { ref: "D002", name: "研究与知识分析师", avatar: "dh-02-research-knowledge-analyst" },
   { ref: "D003", name: "产品经理", avatar: "dh-03-product-manager" },
+  { ref: "D005", name: "销售代表", avatar: "dh-05-sales-representative" },
   { ref: "D011", name: "设计思维专家", avatar: "dh-11-design-thinking-expert" },
 ] as const;
 
@@ -53,7 +53,7 @@ async function storedMessages(page: Page, threadId: string): Promise<StoredMessa
   return result.messages;
 }
 
-test("official roles: administrator enables dependencies; member runs three independent persisted chats", async ({ page, browser }, info) => {
+test("official roles: administrator enables dependencies; member runs four independent persisted chats", async ({ page, browser }, info) => {
   await info.attach("verification-boundary", { contentType: "application/json", body: Buffer.from(JSON.stringify({
     upstream: "existing fullstack loopback", browserApiAndDatabase: "real", realModelQuality: "BLOCKED: no model credentials",
     salesWorkflowAndCrm: "excluded by user authorization", roles: ROLES.map(r => r.ref),
@@ -116,7 +116,7 @@ test("official roles: administrator enables dependencies; member runs three inde
   await info.attach("actual-import-receipts", { body: Buffer.from(JSON.stringify(imports, null, 2)), contentType: "application/json" });
 
   const memberContext = await browser.newContext({ baseURL: info.project.use.baseURL, viewport: info.project.use.viewport });
-  await memberContext.tracing.start({ screenshots: true, snapshots: true, sources: true });
+  // trace:on records this context automatically, including its API requests.
   const member = await memberContext.newPage();
   try {
     await test.step("member logs in and sees the real published directory", async () => {
@@ -131,10 +131,23 @@ test("official roles: administrator enables dependencies; member runs three inde
       await test.step(`${role.ref}: select, send, persist and restore an independent chat`, async () => {
         const card = cards.find(c => c.avatar?.key === role.avatar && c.catalogSource === "official");
         expect(card, `${role.ref} must be published and member-visible`).toBeDefined();
-        await expect(member.getByTestId(`agent-card-${card!.agentId}`)).toBeVisible();
-        const threadId = await openAuthoritativeFreshThread(member);
+        const directoryCard = member.getByTestId(`agent-card-${card!.agentId}`);
+        await expect(directoryCard).toBeVisible();
+        await directoryCard.getByTestId("agent-card-view-detail").click();
+        await expect(member.getByTestId("agent-detail-name")).toContainText(role.name);
+        await screenshot(member, info, `${index + 6}a-${role.ref}-detail`);
+        await member.getByTestId("agent-detail-start-chat").click();
+        await expect(member.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+        await expect(member.getByTestId("chat-task-workbench-capability-picker-name")).toContainText(role.name);
+        // Exercise the actual New conversation button. The preceding role's
+        // successful run leaves no empty draft; authoritative reads prove this
+        // UI action creates a distinct empty thread rather than reusing history.
+        await member.getByTestId("chat-thread-create").click();
+        await member.waitForURL(url => /^\/chat\/[^/]+$/.test(url.pathname));
+        const threadId = decodeURIComponent(new URL(member.url()).pathname.split("/").at(-1)!);
         expect(verified.some(r => r.threadId === threadId)).toBe(false);
-        await selectWorkbenchAgent(member, card!.agentId);
+        expect(await storedMessages(member, threadId)).toHaveLength(0);
+        await expect(member.getByTestId("chat-task-workbench-capability-picker-name")).toContainText(role.name);
         await screenshot(member, info, `${index + 6}a-${role.ref}-selected`);
         const prompt = `ROLE-JOURNEY-${role.ref}-${info.workerIndex}: 请说明你能提供哪些帮助。`;
         await member.getByTestId("copilotkit-v2-input").fill(prompt);
@@ -162,9 +175,6 @@ test("official roles: administrator enables dependencies; member runs three inde
     }
     await info.attach("persisted-role-runs", { body: Buffer.from(JSON.stringify(verified, null, 2)), contentType: "application/json" });
   } finally {
-    const trace = info.outputPath("member-trace.zip");
-    await memberContext.tracing.stop({ path: trace });
-    await info.attach("member-trace", { path: trace, contentType: "application/zip" });
     await memberContext.close();
   }
 });
