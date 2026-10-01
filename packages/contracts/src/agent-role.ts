@@ -363,12 +363,30 @@ export const OfficialRolePackOffer = z.object({
    * Workflow）。客户端按序调既有 `importSkillStarterPack`，再导入本角色包——启用后数字人即可用。
    */
   requiredSkillPacks: z.array(z.object({ packId: z.string(), packVersion: z.string() }).strict()),
+  /** Only untouched, provenance-checked official versions are offered for explicit admin upgrade. */
+  upgrades: z.array(z.object({ agentId: Id, expectedPublishedVersionId: Id, name: z.string(), currentVersion: z.string(), targetVersion: z.string(), readySkillCount: z.number().int().nonnegative(), pendingSkillCount: z.number().int().nonnegative() }).strict()).optional(),
 }).strict();
 export type OfficialRolePackOffer = z.infer<typeof OfficialRolePackOffer>;
 
 /* ── 六、operations ───────────────────────────────────────────────────── */
 
+export const OfficialRoleUpgradeInput = z.object({
+  packVersion: z.string().min(1).max(64),
+  expectedOrgId: Id,
+  selections: z.array(z.object({ agentId: Id, expectedPublishedVersionId: Id }).strict()).min(1).max(7)
+    .refine((items) => new Set(items.map((i) => i.agentId)).size === items.length, "duplicate agent selection"),
+  idempotencyKey: z.string().min(1).max(255),
+}).strict();
+export const OfficialRoleUpgradeResult = z.object({
+  packVersion: z.string(), agentIds: z.array(Id), versionIds: z.array(Id), upgradedAt: z.string(),
+}).strict();
+
 export const operations = {
+  upgradeOfficialRoles: {
+    method: "POST", path: "/admin/agents/official-role-upgrades", in: OfficialRoleUpgradeInput,
+    out: OfficialRoleUpgradeResult,
+    err: ["UNAUTHENTICATED", "VALIDATION_FAILED", "AGENT_STARTER_IMPORT_ADMIN_REQUIRED", "OFFICIAL_ROLE_UPGRADE_CONFLICT"] as const,
+  },
   /** AG04：成员目录。只返回已发布且 visibility 覆盖调用者的 Agent。 */
   listAgentDirectory: {
     method: "GET", path: "/agents/directory",
