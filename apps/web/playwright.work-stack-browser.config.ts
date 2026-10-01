@@ -9,7 +9,7 @@ const executablePath = process.env.WORK_STACK_BROWSER_EXECUTABLE_PATH;
 const buildCacheDir = process.env.WORK_STACK_BROWSER_BUILD_CACHE_DIR;
 const quoteShell = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
 const prepareBuildCache = buildCacheDir
-  ? `mkdir -p ${distDir} ${quoteShell(buildCacheDir)} && ln -s ${quoteShell(buildCacheDir)} ${distDir}/cache && `
+  ? `mkdir -p ${distDir} ${quoteShell(buildCacheDir)} && work_stack_build_cache=$(mktemp -d ${quoteShell(`${buildCacheDir}/build.XXXXXXXX`)}) && ln -s "$work_stack_build_cache" ${distDir}/cache && `
   : "";
 const servers = (
   Array.isArray(fullstack.webServer) ? fullstack.webServer : [fullstack.webServer]
