@@ -10,7 +10,7 @@ import {fileURLToPath} from 'node:url';
 import { verifyNavigationRuntime } from './board-navigation-acceptance-runtime.mjs';
 import { savedSequence } from './board-acceptance-runtime.mjs';
 import { createAcceptanceRequestScheduler } from './board-navigation-acceptance-scheduler.mjs';
-import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame, rotationEntitySamplePoints, rotateScenePoint, assertRotationEntities } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame, rotationEntitySamplePoints, rotateScenePoint, assertRotationEntities, assertToolbarAnchor } from './board-navigation-acceptance-classifier.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const arg = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback;
@@ -25,9 +25,10 @@ const {chromium} = createRequire(join(root, 'apps/web/package.json'))('playwrigh
 const {register} = createRequire(join(root, 'package.json'))('tsx/esm/api');
 register();
 const {WhiteboardOperationRequest} = await import('../../packages/contracts/src/whiteboard-operation.ts');
-const {createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, createContentObjectEnvelope, scenePointFromLocal, localPointFromScene} = await import('../../packages/whiteboard-core/src/index.ts');
+const {createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, createContentObjectEnvelope, scenePointFromLocal, localPointFromScene, rotatedGeometryCorners} = await import('../../packages/whiteboard-core/src/index.ts');
 const { BOARD_DRAWING_TOOL_STYLES } = await import('../../apps/web/components/whiteboard/drawing-tool-style.ts');
 const { BOARD_FABRIC_VISUAL } = await import('../../apps/web/components/whiteboard/fabric/board-fabric-visual.ts');
+const { boardToolbarPosition } = await import('../../apps/web/components/whiteboard/use-board-toolbar-position.ts');
 mkdirSync(out, {recursive: true});
 const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
 const results = [];
@@ -77,6 +78,18 @@ const snapshot = async () => {
 };
 const rows = () => page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(elements => elements.map(element => ({id: element.dataset.objectId, kind: element.dataset.objectKind, text: element.dataset.objectText, geometry: JSON.parse(element.dataset.geometry), from: element.dataset.connectorFrom, to: element.dataset.connectorTo})));
 const surface = () => page.getByTestId('board-fabric-surface');
+const pointBounds = points => ({ left: Math.min(...points.map(point => point.x)), top: Math.min(...points.map(point => point.y)), width: Math.max(...points.map(point => point.x)) - Math.min(...points.map(point => point.x)), height: Math.max(...points.map(point => point.y)) - Math.min(...points.map(point => point.y)) });
+const toolbarAnchorEvidence = async (toolbar, bounds) => {
+  const layout = await toolbar.evaluate(element => {
+    const parent = element.offsetParent ?? element.closest('[data-testid="collaborative-editor"]'), frame = parent.getBoundingClientRect(), actual = element.getBoundingClientRect();
+    const chrome = [...document.querySelectorAll('[data-board-chrome]')].map(element => { const rect = element.getBoundingClientRect(); return { x: rect.x - frame.x, y: rect.y - frame.y, width: rect.width, height: rect.height }; }).filter(rect => rect.width > 0 && rect.height > 0);
+    return { parent: { x: frame.x, y: frame.y, width: frame.width, height: frame.height }, size: { width: actual.width, height: actual.height }, actual: { x: actual.x, y: actual.y }, chrome };
+  });
+  const [zoom, panX, panY] = (await viewport()).map(Number);
+  const geometry = { x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height };
+  const expected = boardToolbarPosition(geometry, { zoom, panX, panY }, layout.parent, layout.size, layout.chrome);
+  return { ...layout, geometry, viewport: { zoom, panX, panY }, expected: { x: layout.parent.x + expected.left, y: layout.parent.y + expected.top } };
+};
 const entityFillMeasurements = (points, fill) => surface().locator('canvas.lower-canvas').evaluate((canvas, { points, fill }) => {
   const rect = canvas.getBoundingClientRect(), sx = canvas.width / rect.width, sy = canvas.height / rect.height;
   const rgb = [1, 3, 5].map(index => Number.parseInt(fill.slice(index, index + 2), 16));
@@ -550,7 +563,11 @@ try {
           await page.screenshot({ path: join(out, `multi-rotate-${pointerAngle}-held.png`) });
           assertHeldRotationFrame({ pointerAngle, entities, corners }); assertHeldUncommitted(before, await canonicalState());
           const stepToolbar = await toolbar.boundingBox(), stepPixels = await connectorPixels(); assert(stepToolbar && stepPixels.count > 20);
-          rotationSteps.push({ pointerAngle, waypoint, entities, expectedCorners, corners, toolbar: stepToolbar, connectorPixels: stepPixels });
+          const entityCorners = nodes.flatMap(node => rotatedGeometryCorners(before.objects.find(item => item.id === node.id).geometry).map(point => rotateScenePoint(point, worldCenter, pointerAngle)));
+          const stepAnchorEvidence = await toolbarAnchorEvidence(toolbar, pointBounds(entityCorners));
+          writeFileSync(join(out, `multi-rotate-${pointerAngle}-toolbar-anchor.json`), JSON.stringify({ canonicalBefore: before, scene, entityCorners, actualToolbar: stepToolbar, anchorEvidence: stepAnchorEvidence }, null, 2));
+          assertToolbarAnchor(stepToolbar, stepAnchorEvidence.expected);
+          rotationSteps.push({ pointerAngle, waypoint, entities, expectedCorners, corners, toolbar: stepToolbar, anchorEvidence: stepAnchorEvidence, connectorPixels: stepPixels });
         }
       } else await page.mouse.move(start.x + 40, start.y + 25, { steps: 12 });
       const liveScene = await poll(async () => JSON.parse(await surface().getAttribute('data-selection-scene')), value => value && ['left', 'top', 'width', 'height'].some(key => Math.abs(value.bounds[key] - scene.bounds[key]) > 1), `multi ${mode} actual ActiveSelection bounds move`);
@@ -563,7 +580,14 @@ try {
         assert(Math.hypot(liveCorner.point.x - beforeCorner.point.x, liveCorner.point.y - beforeCorner.point.y) > 3, 'real selection corner moves before release');
       }
       const liveToolbar = await toolbar.boundingBox(); assert(liveToolbar);
-      assert(Math.hypot(liveToolbar.x - beforeToolbar.x, liveToolbar.y - beforeToolbar.y) > 1, `multi ${mode} menu follows before release`);
+      const actualObjectScenes = JSON.parse(await surface().getAttribute('data-object-scenes'));
+      const measuredChildren = nodes.map(node => actualObjectScenes.find(item => item.id === node.id)); assert(measuredChildren.every(Boolean));
+      const worldCenter = { x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 };
+      const entityCorners = mode === 'rotate' ? nodes.flatMap(node => rotatedGeometryCorners(before.objects.find(item => item.id === node.id).geometry).map(point => rotateScenePoint(point, worldCenter, -60))) : measuredChildren.flatMap(item => [{ x: item.left, y: item.top }, { x: item.left + item.width, y: item.top + item.height }]);
+      const entityBounds = pointBounds(entityCorners);
+      const anchorEvidence = await toolbarAnchorEvidence(toolbar, entityBounds);
+      writeFileSync(join(out, `multi-${mode}-toolbar-anchor.json`), JSON.stringify({ canonicalBefore: before, beforeSelection: scene, liveSelection: liveScene, actualObjectScenes, entityCorners, entityBounds, expectedGeometrySource: mode === 'rotate' ? 'Canonical baseline child corners rotated by independent final pointer angle -60' : 'Actual Fabric child entity bounding rectangles, never ActiveSelection chrome', beforeToolbar, liveToolbar, anchorEvidence }, null, 2));
+      assertToolbarAnchor(liveToolbar, anchorEvidence.expected);
       assert(liveToolbar.x >= 0 && liveToolbar.x + liveToolbar.width <= 1441, 'held multi-selection toolbar stays inside viewport');
       const livePixels = await poll(connectorPixels, value => value.count > 20 && Math.hypot(value.x - beforePixels.x, value.y - beforePixels.y) > 1, `multi ${mode} attached connector ink follows`);
       assertHeldUncommitted(before, await canonicalState());
@@ -601,7 +625,7 @@ try {
         persistence = { undoneHead: undone.head, redoneHead: redone.head, reloadedHead: reloaded.head, entities };
       }
       if (mode === 'resize') assert(changed.every(item => item.before.width !== item.after.width || item.before.height !== item.after.height), 'multi resize changes both canonical dimensions');
-      gestures.push({ mode, rotationSteps, persistence, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Four rotated baseline control corners at two independent pointer angles; independent screenshot review also required.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
+      gestures.push({ mode, rotationSteps, persistence, anchorEvidence, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Four rotated baseline control corners at two independent pointer angles; independent screenshot review also required.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
     }
     return gestures;
   });

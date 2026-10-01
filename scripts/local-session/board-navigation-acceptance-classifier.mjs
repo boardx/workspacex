@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+export function assertToolbarAnchor(actual, expected) {
+  assert(Math.abs(actual.x - expected.x) <= 1 && Math.abs(actual.y - expected.y) <= 1, 'held toolbar matches independently measured live-selection anchor and chrome constraints');
+}
 export function rotateScenePoint(point, center, degrees) {
   const radians = degrees * Math.PI / 180, dx = point.x - center.x, dy = point.y - center.y;
   return { x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians), y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians) };

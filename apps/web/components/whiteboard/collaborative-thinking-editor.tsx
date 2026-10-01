@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent,
 import {useBoardFrame,boardFrameCenter,followBoardFrame} from "./use-board-frame";
 import { Undo2, Redo2, Copy, Clipboard, Trash2, MoreHorizontal } from "lucide-react";
 import * as Y from "yjs";
+import { canonicalSceneBounds } from "@repo/whiteboard-core";
 import { ContentObjectCommandPort, STICKY_COLOR_PRESETS, DEFAULT_LAYOUT_GAP, SelectionLayoutCommandPort, createContentObjectEnvelope, createLayoutPreconditions, createStickyBatchEnvelope, instantiateTemplateEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readContentObject, readObjects, readPanelMetadata, resolveStickyColor, rotatedAnchorPoint, SpatialRelationshipCommandPort, validateTextAttributes, type BoardCommandEnvelope, type CanonicalContentObject, type ConnectorAnchor, type ConnectorRelationship, type DrawingStroke, type DrawingTool, type PanelMetadata, type SpatialCommand, type StickyVariant, type TextAttributes, type TextStylePreset, type WhiteboardCommand, type WhiteboardLayoutCommand, type WhiteboardLayoutKind, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { WhiteboardConnectionState } from "@/lib/whiteboard-provider";
 import { Button } from "@/components/ui/button";
@@ -582,11 +583,19 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
       if (replaceContent(object!.id, next as CanonicalContentObject)) setStructuredDraft(null);
     } catch { setNotice("结构化字段不是有效 JSON，原内容未修改。"); }
   };
-  const selectionBounds = selected.length ? model.objects.filter(object=>selected.includes(object.id)).map(object=>transformPreview.get(object.id)??object.geometry) : [];
-  const selectionGeometry = selectionBounds.length ? {x:Math.min(...selectionBounds.map(g=>g.x)),y:Math.min(...selectionBounds.map(g=>g.y)),width:Math.max(...selectionBounds.map(g=>g.x+g.width))-Math.min(...selectionBounds.map(g=>g.x)),height:Math.max(...selectionBounds.map(g=>g.y+g.height))-Math.min(...selectionBounds.map(g=>g.y))} : undefined;
+  const selectionBounds = selected.length ? model.objects.filter(object => selected.includes(object.id)).map(object => canonicalSceneBounds(transformPreview.get(object.id) ?? object.geometry)) : [];
+  const selectionGeometry = selectionBounds.length ? {
+    x: Math.min(...selectionBounds.map(bounds => bounds.left)),
+    y: Math.min(...selectionBounds.map(bounds => bounds.top)),
+    width: Math.max(...selectionBounds.map(bounds => bounds.right)) - Math.min(...selectionBounds.map(bounds => bounds.left)),
+    height: Math.max(...selectionBounds.map(bounds => bounds.bottom)) - Math.min(...selectionBounds.map(bounds => bounds.top)),
+  } : undefined;
   const connectorControlLayoutKey = selectedConnector ? JSON.stringify([viewport.panX, viewport.panY, viewport.zoom, connectorGesture.path ?? selectedConnectorPath, connectorGesture.relationship ?? connectorRelationship]) : undefined;
   const selectionToolbarPosition = useBoardToolbarPosition(selectionGeometry,viewport,connectorControlLayoutKey);
-  const contentToolbarPosition = useBoardToolbarPosition(selectedObject ? transformPreview.get(selectedObject.id)??selectedObject.geometry : undefined, viewport);
+  const selectedObjectBounds = selectedObject ? canonicalSceneBounds(transformPreview.get(selectedObject.id) ?? selectedObject.geometry) : undefined;
+  const contentToolbarPosition = useBoardToolbarPosition(selectedObjectBounds ? {
+    x: selectedObjectBounds.left, y: selectedObjectBounds.top, width: selectedObjectBounds.width, height: selectedObjectBounds.height,
+  } : undefined, viewport);
   const [inspectorTab, setInspectorTab] = useState<"actions" | "properties">("actions");
   const selectionActions = <BoardToolPopover key={selected.join(":")} label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4"/></Button>}><div className="mb-3 flex gap-2"><Button aria-pressed={inspectorTab === "actions"} onClick={() => setInspectorTab("actions")}>操作</Button><Button data-testid="board-properties-open" aria-pressed={inspectorTab === "properties"} onClick={() => setInspectorTab("properties")}>精确属性</Button></div><div hidden={inspectorTab !== "actions"}>
       {selected.length === 1 && !contextObject ? <Button onClick={() => setCommentObjectId(selected[0]!)}>评论</Button> : null}

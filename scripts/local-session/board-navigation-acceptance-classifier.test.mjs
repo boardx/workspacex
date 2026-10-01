@@ -1,9 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'tsx/esm/api';
-import { assertHeldRotationFrame, rotationEntitySamplePoints } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldRotationFrame, rotationEntitySamplePoints, assertToolbarAnchor } from './board-navigation-acceptance-classifier.mjs';
 register();
 const { scenePointFromLocal } = await import('../../packages/whiteboard-core/src/spatial-geometry.ts');
+const { boardToolbarPosition } = await import('../../apps/web/components/whiteboard/use-board-toolbar-position.ts');
+test('toolbar permits a centered resize or clamp-static anchor but rejects a stale anchor', () => {
+  const viewport = { zoom: 1, panX: 0, panY: 0 }, windowSize = { width: 1000, height: 800 }, toolbarSize = { width: 100, height: 40 };
+  const position = geometry => { const value = boardToolbarPosition(geometry, viewport, windowSize, toolbarSize); return { x: value.left, y: value.top }; };
+  const original = position({ x: 100, y: 200, width: 200, height: 100 });
+  assert.deepEqual(original, { x: 150, y: 148 });
+  assertToolbarAnchor(original, position({ x: 50, y: 200, width: 300, height: 150 }));
+  const clamped = position({ x: -1000, y: 200, width: 100, height: 100 });
+  assert.deepEqual(clamped, { x: 16, y: 148 });
+  assertToolbarAnchor(clamped, position({ x: -900, y: 200, width: 100, height: 100 }));
+  assert.throws(() => assertToolbarAnchor(original, position({ x: 300, y: 200, width: 200, height: 100 })));
+});
 test('held rotation rejects frame-only motion, missing entities, oversized fill and missing corners', () => {
   const entities = ['a', 'b'].map(id => ({ id, insideCounts: Array(8).fill(9), outsideCounts: Array(4).fill(0) }));
   const valid = { pointerAngle: -30, entities, corners: Array.from({ length: 4 }, () => ({ bluePixels: 5 })) };

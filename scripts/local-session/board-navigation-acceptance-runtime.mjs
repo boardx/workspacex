@@ -25,6 +25,7 @@ export const sourceFiles = [
   'packages/whiteboard-core/src/document.ts',
   'packages/whiteboard-core/src/spatial-relationships.ts',
   'packages/whiteboard-core/src/spatial-geometry.ts',
+  'packages/whiteboard-core/src/selection-layout.ts',
   'packages/whiteboard-core/src/content-object-model.ts',
   'packages/contracts/src/whiteboard-operation.ts',
   'scripts/local-session/board-navigation-acceptance.mjs',
