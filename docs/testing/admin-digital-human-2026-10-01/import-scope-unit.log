@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/admin-import-scope-fixes/apps/web
+
+ ✓ tests/lib/official-role-import-scope.test.ts (7 tests) 11ms
+ ✓ tests/ui/admin-official-digital-human.test.tsx (5 tests) 369ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  06:15:10
+   Duration  8.35s (transform 4.81s, setup 886ms, collect 7.73s, tests 380ms, environment 1.89s, prepare 203ms)

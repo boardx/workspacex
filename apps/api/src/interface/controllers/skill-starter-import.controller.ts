@@ -54,6 +54,7 @@ type ImportBody = {
   readonly packId: string;
   readonly packVersion: string;
   readonly idempotencyKey: string;
+  readonly expectedOrgId?: string;
 };
 
 @Controller()
@@ -73,6 +74,8 @@ export class SkillStarterImportController {
     @Res({ passthrough: true }) response: Response,
   ) {
     assertPrincipal(principal);
+    if (body.expectedOrgId !== undefined && body.expectedOrgId !== principal.orgId) throw new ForbiddenException();
+    const { expectedOrgId: _expectedOrgId, ...importBody } = body;
     try {
       const imported = await importSkillStarterPack(
         {
@@ -80,7 +83,7 @@ export class SkillStarterImportController {
           ...(this.gateJudge ? { gateJudge: this.gateJudge } : {}),
           ...(this.followUp ? { followUp: this.followUp } : {}),
         },
-        { actorId: principal.userId, orgId: principal.orgId, ...body },
+        { actorId: principal.userId, orgId: principal.orgId, ...importBody },
       );
       response.status(imported.created ? HttpStatus.CREATED : HttpStatus.OK);
       return C.operations.importSkillStarterPack.out.parse(imported.result);
