@@ -32,6 +32,17 @@ import {
 export function MemberInvitesPanel() {
   const session = useOptionalSession()?.session ?? null;
   const orgId = session?.currentOrgId ?? null;
+  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">尚未选择组织。</p>;
+  return <OrgMemberInvitesPanel key={orgId} orgId={orgId} />;
+}
+
+function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
+  const mounted = React.useRef(false);
+  const loadEpoch = React.useRef(0);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; loadEpoch.current += 1; };
+  }, []);
 
   const [members, setMembers] = React.useState<ListOrgMembersOut | null>(null);
   const [invites, setInvites] = React.useState<ListOrgInvitesOut | null>(null);
@@ -43,20 +54,27 @@ export function MemberInvitesPanel() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
-    if (!orgId) return;
+    if (!mounted.current) return;
+    const epoch = ++loadEpoch.current;
+    const current = () => mounted.current && loadEpoch.current === epoch;
     setLoadError(null);
     try {
-      setMembers(await listOrgMembers(orgId));
+      const out = await listOrgMembers(orgId);
+      if (!current()) return;
+      setMembers(out);
     } catch (err) {
+      if (!current()) return;
       // 失败就说失败，不退回 mock 名单——一屏看起来正常但人是假的，比一条错误消息危险得多。
       setLoadError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
       return;
     }
     try {
       const out = await listOrgInvites(orgId);
+      if (!current()) return;
       setInvites(out);
       setInvitesDenied(false);
     } catch (err) {
+      if (!current()) return;
       if (err instanceof ApiError && err.status === 403) {
         setInvitesDenied(true);
         setInvites(null);
@@ -69,17 +87,19 @@ export function MemberInvitesPanel() {
   React.useEffect(() => { void load(); }, [load]);
 
   async function resend(inviteId: string, email: string) {
-    if (!orgId) return;
+    if (!mounted.current) return;
     setBusyId(inviteId);
     try {
       const out = await resendOrgInvite(orgId, inviteId);
+      if (!mounted.current) return;
       setOneTimeLink({ email, url: buildActivationLink(out.activationToken, window.location.origin), kind: "resent" });
       setToast(`已对 ${email} 重发；旧链接立即失效（冷却 ${out.cooldownSec} 秒）`);
       await load();
     } catch (err) {
+      if (!mounted.current) return;
       setToast(err instanceof ApiError ? `重发失败：${err.reasonCode ?? err.status}` : "重发失败");
     } finally {
-      setBusyId(null);
+      if (mounted.current) setBusyId(null);
     }
   }
 

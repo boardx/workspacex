@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-f11" }));
 
@@ -69,6 +69,7 @@ function routed(opts: { members?: unknown[]; invites?: Invite[] | { status: numb
 }
 
 beforeEach(() => {
+  sessionState.currentOrgId = "org-f11";
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -153,4 +154,61 @@ describe("MemberInvitesPanel —— 名册 + 待处理邀请（真栈）", () =>
     expect(within(dialog).getByTestId("org-admin-invite-email")).toBeInTheDocument();
     expect(within(dialog).getByTestId("org-admin-invite-role")).toBeInTheDocument();
   });
+});
+
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>(r => { resolve = r; });
+  return { promise, resolve };
+}
+
+it("组织切换立即隐藏旧邀请、关闭弹窗并清除激活链接", async () => {
+  const pending = deferredResponse();
+  fetchMock.mockImplementation(routed({ invites: [invite()] }));
+  const view = render(<MemberInvitesPanel />);
+  await screen.findByText("chenmo@x.test");
+  fireEvent.click(screen.getByTestId("admin-member-resend-inv-1"));
+  await screen.findByText(/新的激活链接/);
+  fireEvent.click(screen.getByTestId("admin-members-invite-open"));
+  expect(screen.getByTestId("admin-members-invite-dialog")).toBeInTheDocument();
+  fetchMock.mockImplementation(() => pending.promise);
+  sessionState.currentOrgId = "org-new";
+  view.rerender(<MemberInvitesPanel />);
+  expect(screen.queryByText("chenmo@x.test")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("admin-members-invite-dialog")).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue(/tok-resent/)).not.toBeInTheDocument();
+  expect(screen.getByText("正在读取成员…")).toBeInTheDocument();
+  view.unmount();
+  await act(async () => pending.resolve(jsonResponse({ members: [] })));
+});
+
+it("旧组织成员响应完成后不再发邀请请求或覆盖新组织", async () => {
+  const old = deferredResponse();
+  fetchMock.mockImplementation(() => old.promise);
+  const view = render(<MemberInvitesPanel />);
+  sessionState.currentOrgId = "org-new";
+  fetchMock.mockImplementation(routed({ invites: [invite({ email: "new@x.test", inviteId: "inv-new" })] }));
+  view.rerender(<MemberInvitesPanel />);
+  await screen.findByText("new@x.test");
+  const count = fetchMock.mock.calls.length;
+  await act(async () => old.resolve(jsonResponse({ members: [member()] })));
+  expect(fetchMock).toHaveBeenCalledTimes(count);
+  expect(screen.getByText("new@x.test")).toBeInTheDocument();
+});
+
+it("旧组织重发完成后不向新组织显示链接或重新载入", async () => {
+  const old = deferredResponse();
+  fetchMock.mockImplementation((url: string, init?: RequestInit) => init?.method === "POST" ? old.promise : routed({ invites: [invite()] })(url, init));
+  const view = render(<MemberInvitesPanel />);
+  await screen.findByText("chenmo@x.test");
+  fireEvent.click(screen.getByTestId("admin-member-resend-inv-1"));
+  sessionState.currentOrgId = "org-new";
+  fetchMock.mockImplementation(routed({ invites: [] }));
+  view.rerender(<MemberInvitesPanel />);
+  await screen.findByTestId("admin-members-roster-count");
+  const count = fetchMock.mock.calls.length;
+  await act(async () => old.resolve(jsonResponse({ newTokenIssued: true, cooldownSec: 60, activationToken: "old-org-link" })));
+  expect(fetchMock).toHaveBeenCalledTimes(count);
+  expect(screen.queryByText(/已对 chenmo/)).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue(/old-org-link/)).not.toBeInTheDocument();
 });
