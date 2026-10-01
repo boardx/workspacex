@@ -1,0 +1,23 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-voice-20261001
+
+ ✓ .harness/scripts/vm/deploy-trusted-copy-drift.test.ts (5 tests) 154ms
+ ✓ .harness/scripts/vm/realtime-voice-route-repair.test.ts (5 tests) 20208ms
+   ✓ reviewed realtime voice route repair > repairs missing voice on an existing Board deployment; a second run makes no change 10711ms
+   ✓ reviewed realtime voice route repair > repairs both reviewed routes on older deployments 7099ms
+   ✓ reviewed realtime voice route repair > leaves live config unchanged when candidate validation fails 425ms
+   ✓ reviewed realtime voice route repair > restores previous config when reload and restart fail 1965ms
+ ✓ .harness/scripts/vm/deploy-readiness.test.ts (20 tests) 24831ms
+   ✓ #448 post-restart readiness > resets after success -> refusal and passes only after three trustworthy recovery samples 3446ms
+   ✓ #448 post-restart readiness > does not count an HTTP 200 whose security assertions are false 7214ms
+   ✓ #448 post-restart readiness > fails permanently unavailable API and emits bounded, redacted diagnostics for both services 4154ms
+   ✓ #448 post-restart readiness > fails when Web never becomes ready and diagnoses both services 3493ms
+   ✓ #448 post-restart readiness > fails when the private probe is exposed and diagnoses both services 2352ms
+   ✓ #448 post-restart readiness > preserves a trusted root deploy failure before smoke without probing healthy old services 2162ms
+   ✓ #448 post-restart readiness > fails closed when a repository-controlled pre-smoke command forges the old stdout marker 1847ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  09:47:10
+   Duration  25.38s (transform 199ms, setup 0ms, collect 243ms, tests 45.19s, environment 1ms, prepare 304ms)
+

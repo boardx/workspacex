@@ -304,6 +304,10 @@ ${PUBLIC_DOMAIN} {
 	# apps/web/lib/api-client.ts 里 apiWebSocketUrl() 的头注）。这两条面不走 /api
 	# 前缀（apiWebSocketUrl() 直连 API 源、不套 NEXT_PUBLIC_API_PATH_PREFIX），所以
 	# 必须在这里单独各开一条路由，不能指望上面那条 /api/* 顺带盖住。
+	# Realtime conversation is a root-path WebSocket; Next rewrites cannot proxy its Upgrade.
+	handle /chat/realtime-digital-human {
+		reverse_proxy 127.0.0.1:${APP_API_PORT}
+	}
 	handle /chat/asr-draft {
 		reverse_proxy 127.0.0.1:${APP_API_PORT}
 	}
