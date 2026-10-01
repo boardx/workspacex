@@ -1,4 +1,4 @@
-# 契约束 `board-object-authoring` — 领域模型与不变量（支撑材料）
+# 候选契约束 `board-object-authoring` — 领域模型与不变量（支撑材料）
 
 > 本束定义 BV04–BV06 的 Sticky/Text、快速创作、基础历史、Reaction 与 Link Preview 语义。
 > 它扩展 S01 的 `BoardObject` 与 command，不改变 Yjs/whiteboard-core 唯一事实源、稳定 object id、

@@ -1,4 +1,4 @@
-# 契约束 `board-object-authoring` — ① UI（签核面第 ① 件）
+# 候选契约束 `board-object-authoring` — ① UI（签核面第 ① 件）
 
 > **自检：本文件引用 8 张截图，目录下实际 8 张。N == M == 8。**
 > 截图目录：`ui-preview/board-object-authoring/`。
@@ -11,7 +11,7 @@
 
 依据：`requirements/02-object-authoring.md` R1–R12、
 `requirements/05-collaboration-history.md` R3/R7，以及原始 PRD 第 6–11、37、47–49、57–58 节。
-覆盖 feature 的权威在 `design-signoff.md` frontmatter `covers:`。
+候选 feature 范围记录在 `design-signoff.md` 的 `covers:`，不作为正式签核或开工权威。
 
 ## 一、界面落点
 

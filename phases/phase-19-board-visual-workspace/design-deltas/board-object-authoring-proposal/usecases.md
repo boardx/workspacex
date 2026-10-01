@@ -1,4 +1,4 @@
-# 契约束 `board-object-authoring` — ② 用例接口与失败模式（签核面第 ② 件）
+# 候选契约束 `board-object-authoring` — ② 用例接口与失败模式（签核面第 ② 件）
 
 > 本束扩展 S01 的 canonical `dispatchBoardCommand`，不新增公开 HTTP Object CRUD。
 > Fabric event、inline editor、DOM 大纲、AI 或未来 API 都只能调用相同 Board command；

@@ -1,4 +1,4 @@
-# 契约束 `board-object-authoring` — UC 覆盖证明（支撑材料）
+# 候选契约束 `board-object-authoring` — UC 覆盖证明（支撑材料）
 
 > 需求单一事实源：`requirements/02-object-authoring.md`，并引用
 > `requirements/05-collaboration-history.md` 的基础 Undo 成功时序。本束覆盖 BV04–BV06；

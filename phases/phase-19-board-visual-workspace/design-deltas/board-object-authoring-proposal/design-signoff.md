@@ -7,7 +7,7 @@ confirmed_by: ""
 confirmed_at: ""
 ---
 
-# 契约束 `board-object-authoring` 设计签核
+# 候选契约束 `board-object-authoring` 设计签核
 
 覆盖意图（派生视图；权威是 frontmatter `covers:`）：
 
