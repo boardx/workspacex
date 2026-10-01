@@ -1910,6 +1910,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/board-fabric-v01/page.tsx"
     },
+    "/preview/board-object-authoring": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/board-object-authoring/page.tsx"
+    },
     "/preview/board-authoring": {
       "kind": "preview",
       "screen": "apps/web/app/preview/board-authoring/page.tsx"
