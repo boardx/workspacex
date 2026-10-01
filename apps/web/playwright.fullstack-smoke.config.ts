@@ -414,6 +414,13 @@ export default defineConfig({
       fullyParallel: false,
     },
     {
+      name: "realtime-voice",
+      testMatch: ["realtime-voice-journey.spec.ts"],
+      dependencies: ["official-digital-human"],
+      retries: 0,
+      workers: 1,
+    },
+    {
       name: "official-role-workflow",
       testMatch: ["w029-browser-journey.spec.ts"],
       dependencies: ["official-digital-human"],
@@ -675,6 +682,7 @@ export default defineConfig({
       env: {
         ...process.env,
         LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
+        LOOPBACK_OMNI_E2E_CONTROL: "1",
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
       },
     },

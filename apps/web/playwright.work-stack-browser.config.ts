@@ -27,6 +27,11 @@ export default defineConfig({
   projects: [
     { name: "work-stack-digital-human", testMatch: ["digital-human-journey.spec.ts"] },
     {
+      name: "work-stack-realtime-voice",
+      testMatch: ["realtime-voice-journey.spec.ts"],
+      dependencies: ["work-stack-digital-human"],
+    },
+    {
       name: "work-stack-workflow",
       testMatch: ["w029-browser-journey.spec.ts"],
       dependencies: ["work-stack-digital-human"],

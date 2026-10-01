@@ -5,7 +5,7 @@
  * `input_audio_buffer.append/commit`、`conversation.item.create` + `response.create`、`response.cancel`；
  * 上游回：`session.updated`、`input_audio_buffer.speech_started/stopped`、
  * `conversation.item.input_audio_transcription.text/.completed`、`response.audio_transcript.delta/done`、
- * `response.output_audio.delta`（短静音 PCM）、`response.output_audio.done`、`response.done`。
+ * `response.output_audio.delta`（测试音调 PCM）、`response.output_audio.done`、`response.done`。
  *
  * 这不是产品代码里的 fallback：只有部署/测试配置显式把 `KERNEL_OMNI_REALTIME_BASE_URL` 指到它才会被用到；
  * 没配就仍然是 `NOT_CONFIGURED` / 真实 DashScope。它回的是**可读的中文样例**，不是 loopback ASR 的
@@ -30,8 +30,12 @@ const SPEECH_START_BYTES = 12_800;
 /** 约 1 秒输入音频后判为「说完」。 */
 const SPEECH_END_BYTES = 32_000;
 const STEP_MS = 120;
-/** 24kHz s16le 静音，约 0.2 秒一块。 */
-const SILENT_CHUNK = Buffer.alloc(9_600).toString("base64");
+/** 24kHz s16le 测试音调，约 0.2 秒一块；用于验证真实播放链，不模拟供应商语义。 */
+const outputPcm = Buffer.alloc(9_600);
+for (let sample = 0; sample < outputPcm.length / 2; sample += 1) {
+  outputPcm.writeInt16LE(Math.round(Math.sin(sample * 2 * Math.PI * 440 / 24_000) * 1_000), sample * 2);
+}
+const OUTPUT_CHUNK = outputPcm.toString("base64");
 
 export function omniAssistantReply(roleName: string | null): string {
   const who = roleName ? `我是${roleName}，` : "";
@@ -46,7 +50,13 @@ export function roleNameFromInstructions(instructions: unknown): string | null {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export function handleOmniRealtimeConnection(ws: WebSocket): void {
+export interface OmniLoopbackObserver {
+  readonly clientEvent: (type: string) => void;
+  readonly serverEvent: (type: string) => void;
+  readonly audioBytes: (bytes: number) => void;
+}
+
+export function handleOmniRealtimeConnection(ws: WebSocket, observer?: OmniLoopbackObserver): void {
   let roleName: string | null = null;
   let ready = false;
   let bytes = 0;
@@ -55,7 +65,10 @@ export function handleOmniRealtimeConnection(ws: WebSocket): void {
   let busy = false;
   let cancelled = false;
   const emit = (event: Record<string, unknown>): void => {
-    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(event));
+    if (ws.readyState === ws.OPEN) {
+      observer?.serverEvent(String(event.type));
+      ws.send(JSON.stringify(event));
+    }
   };
 
   const reply = async (): Promise<void> => {
@@ -67,7 +80,7 @@ export function handleOmniRealtimeConnection(ws: WebSocket): void {
       if (cancelled) return;
       await sleep(60);
       emit({ type: "response.audio_transcript.delta", delta: part });
-      emit({ type: "response.output_audio.delta", delta: SILENT_CHUNK });
+      emit({ type: "response.output_audio.delta", delta: OUTPUT_CHUNK });
     }
     emit({ type: "response.audio_transcript.done", transcript: text });
     emit({ type: "response.output_audio.done" });
@@ -98,6 +111,7 @@ export function handleOmniRealtimeConnection(ws: WebSocket): void {
     if (isBinary) return;
     let event: { type?: string; audio?: string; session?: { instructions?: unknown } };
     try { event = JSON.parse(String(raw)) as typeof event; } catch { return; }
+    observer?.clientEvent(String(event.type));
     if (event.type === "session.update") {
       roleName = roleNameFromInstructions(event.session?.instructions);
       ready = true;
@@ -106,7 +120,9 @@ export function handleOmniRealtimeConnection(ws: WebSocket): void {
     }
     if (event.type === "input_audio_buffer.append") {
       if (!ready) { emit({ type: "error", error: { message: "audio before session update" } }); return; }
-      bytes += Buffer.from(String(event.audio ?? ""), "base64").byteLength;
+      const frameBytes = Buffer.from(String(event.audio ?? ""), "base64").byteLength;
+      observer?.audioBytes(frameBytes);
+      bytes += frameBytes;
       if (turns === 0 && !busy) {
         if (!speaking && bytes >= SPEECH_START_BYTES) { speaking = true; emit({ type: "input_audio_buffer.speech_started" }); }
         if (speaking && bytes >= SPEECH_END_BYTES) void userTurn();
