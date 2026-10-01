@@ -29,12 +29,14 @@ REVISION=${revision}
 EXPECTED_MAIN_CN=${baseline}
 ATTEMPT_ID=gha-regression-1
 GITHUB_SHA=${sha}
-GITHUB_REF=refs/heads/main
+GITHUB_REF=refs/tags/cn-prepared-${revision}-gha-regression-1
+EXPECTED_REQUEST_SHA256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+node() { [[ "$1" == --experimental-strip-types && "$3" == verify-dispatch ]] || exit 98; return 0; }
 cmp() { return 0; }
 git() { if [[ "$1" == rev-parse ]]; then echo ${baseline}; else return 0; fi; }
 sudo() {
   [[ "$#" -eq 5 && "$1" == -n && "$2" == /usr/local/bin/workspacex-cn-verify-promotion ]] || exit 99
-  printf 'VERIFIER_CALLED\\n'
+  printf 'VERIFIER_CALLED\\n' >&2
   return ${status}
 }
 `;
@@ -57,7 +59,7 @@ describe("CN complete preparation before production approval", () => {
         const result = run(block, status);
         expect(result.error).toBeUndefined();
         expect(result.status).toBe(status);
-        expect(result.stdout).toContain("VERIFIER_CALLED");
+        expect((result.stdout + result.stderr)).toContain("VERIFIER_CALLED");
         expect(result.stdout.includes("CN_PROMOTION_NOT_READY")).toBe(status !== 0);
       }
     });
@@ -67,14 +69,14 @@ describe("CN complete preparation before production approval", () => {
     const result = run(ready, 0, baseline);
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("CN_PROMOTION_NOT_READY_IDENTITY");
-    expect(result.stdout).not.toContain("VERIFIER_CALLED");
+    expect((result.stdout + result.stderr)).not.toContain("VERIFIER_CALLED");
   });
 
   it("rejects trusted verifier drift and malformed attempt before receipt access", () => {
     for (const block of [ready.replace("cmp --silent", "false"), ready.replace('"${ATTEMPT_ID}" =~', '"invalid/attempt" =~')]) {
       const result = run(block, 0);
       expect(result.status).not.toBe(0);
-      expect(result.stdout).not.toContain("VERIFIER_CALLED");
+      expect((result.stdout + result.stderr)).not.toContain("VERIFIER_CALLED");
     }
   });
 
@@ -82,7 +84,7 @@ describe("CN complete preparation before production approval", () => {
     const changed = ready.replace('github_main_cn=$(git rev-parse origin/main-cn)', 'github_main_cn=' + "c".repeat(40));
     const rejected = run(changed, 0);
     expect(rejected.status).toBe(3);
-    expect(rejected.stdout).not.toContain("VERIFIER_CALLED");
+    expect((rejected.stdout + rejected.stderr)).not.toContain("VERIFIER_CALLED");
     const replay = ready.replace('github_main_cn=$(git rev-parse origin/main-cn)', 'github_main_cn=' + revision);
     expect(run(replay, 0).status).toBe(0);
   });
