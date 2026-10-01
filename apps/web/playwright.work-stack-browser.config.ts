@@ -28,6 +28,7 @@ export default defineConfig({
     { name: "work-stack-digital-human", testMatch: ["digital-human-journey.spec.ts"] },
     {
       name: "work-stack-realtime-voice",
+      use: { actionTimeout: 30_000 },
       testMatch: ["realtime-voice-journey.spec.ts"],
       dependencies: ["work-stack-digital-human"],
     },

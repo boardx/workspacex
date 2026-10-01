@@ -426,6 +426,36 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     ws.close();
   });
 
+  it("explicit browser loopback keeps a finite PCM stream actionable and cancels its next chunk", async () => {
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    let emittedAudio = 0;
+    let cancelReceived = false;
+    upstream = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    upstream.on("connection", (socket) => {
+      upstreamSockets.push(socket);
+      handleOmniRealtimeConnection(socket as never, {
+        holdAudioMs: 800,
+        clientEvent: (type) => { if (type === "response.cancel") cancelReceived = true; },
+        serverEvent: (type) => { if (type === "response.output_audio.delta") emittedAudio += 1; },
+        audioBytes: () => {},
+      });
+    });
+    config = { ...config, baseUrl: `ws://127.0.0.1:${await listen(upstream)}/omni-realtime` };
+    const { ws, frames } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    ws.send(JSON.stringify({ type: "conversation.text", text: "测试真实音频窗口" }));
+    await until(() => frames.some((frame) => frame.type === "assistant.transcript" && String(frame.text).includes("简要建议")));
+    expect(emittedAudio).toBeGreaterThan(0);
+    expect(frames.some((frame) => frame.type === "assistant.audio_done")).toBe(false);
+    ws.send(JSON.stringify({ type: "response.cancel" }));
+    await until(() => cancelReceived);
+    const audioAtCancel = emittedAudio;
+    await new Promise((resolve) => setTimeout(resolve, 250)); // Cross the next real 200 ms streaming tick.
+    expect(emittedAudio).toBe(audioAtCancel);
+    ws.close();
+  });
+
   it("loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted", async () => {
     for (const socket of upstreamSockets) socket.terminate();
     await new Promise<void>((resolve) => upstream.close(() => resolve()));

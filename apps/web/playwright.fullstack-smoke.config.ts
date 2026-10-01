@@ -415,6 +415,7 @@ export default defineConfig({
     },
     {
       name: "realtime-voice",
+      use: { actionTimeout: 30_000 },
       testMatch: ["realtime-voice-journey.spec.ts"],
       dependencies: ["official-digital-human"],
       retries: 0,

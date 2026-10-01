@@ -97,6 +97,7 @@ wss.on("connection", (ws, req) => {
     if (OMNI_CONTROL) omniConnections.set(id, entry);
     ws.on("close", () => { entry.closed = true; });
     handleOmniRealtimeConnection(ws, OMNI_CONTROL ? {
+      holdAudioMs: 8_000,
       clientEvent: (type) => { entry.clientEvents[type] = (entry.clientEvents[type] ?? 0) + 1; },
       serverEvent: (type) => { entry.serverEvents[type] = (entry.serverEvents[type] ?? 0) + 1; },
       audioBytes: (count) => { entry.audioBytes += count; },

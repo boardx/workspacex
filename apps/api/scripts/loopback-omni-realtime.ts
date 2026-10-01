@@ -54,6 +54,8 @@ export interface OmniLoopbackObserver {
   readonly clientEvent: (type: string) => void;
   readonly serverEvent: (type: string) => void;
   readonly audioBytes: (bytes: number) => void;
+  /** Explicit browser E2E may keep a finite real PCM stream open for an actionable interrupt window. */
+  readonly holdAudioMs?: number;
 }
 
 export function handleOmniRealtimeConnection(ws: WebSocket, observer?: OmniLoopbackObserver): void {
@@ -79,7 +81,16 @@ export function handleOmniRealtimeConnection(ws: WebSocket, observer?: OmniLoopb
     for (const part of parts) {
       if (cancelled) return;
       await sleep(60);
+      if (cancelled || ws.readyState !== ws.OPEN) return;
       emit({ type: "response.audio_transcript.delta", delta: part });
+      emit({ type: "response.output_audio.delta", delta: OUTPUT_CHUNK });
+    }
+    // Text may finish quickly, while a real answer's audio is still being streamed.
+    // Only an explicitly observed browser fixture requests this bounded output window.
+    const holdUntil = Date.now() + Math.min(8_000, Math.max(0, observer?.holdAudioMs ?? 0));
+    while (Date.now() < holdUntil) {
+      await sleep(200); // 9,600-byte PCM16 chunk = 200 ms at 24 kHz, within stream contract bounds.
+      if (cancelled || ws.readyState !== ws.OPEN) return;
       emit({ type: "response.output_audio.delta", delta: OUTPUT_CHUNK });
     }
     emit({ type: "response.audio_transcript.done", transcript: text });

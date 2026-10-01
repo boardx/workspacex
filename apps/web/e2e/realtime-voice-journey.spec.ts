@@ -113,6 +113,10 @@ test("real voice audio, interrupt, persisted hangup and remote disconnect cleanu
   await expect.poll(() => binaryFrames).toBeGreaterThan(0);
   await expect.poll(() => binaryBytes).toBeGreaterThanOrEqual(32_000);
   await expect.poll(async () => (await mediaSnapshot(page)).nonzero).toBeGreaterThan(0);
+  await expect.poll(async () => {
+    const media = await mediaSnapshot(page);
+    return media.contexts.length >= 2 && media.contexts.every(state => state === "running");
+  }, { message: "both native capture and output AudioContexts must actually run" }).toBe(true);
   await expect(page.getByTestId("realtime-voice-caption-assistant")).toContainText("我是产品经理");
   const first = (await observation(page)).find(connection => !baselineIds.has(connection.id) && !connection.closed)!;
   expect(first).toBeDefined();
