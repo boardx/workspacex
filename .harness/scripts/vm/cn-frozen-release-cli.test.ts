@@ -57,6 +57,7 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
   f.maps[`${prefix}/deployments?sha=${f.source}&environment=production-cn-promotion&per_page=100&page=1`]=[{id:1,sha:f.source,ref:f.tag,environment:'production-cn-promotion',creator:actor,performed_via_github_app:{id:1,slug:'github-actions'}}];
   f.maps[`${prefix}/deployments/1/statuses?per_page=100&page=1`]=[{created_at:'2026-10-01T00:00:00Z',state:'success',creator:actor,performed_via_github_app:null,log_url:url}];
   const r=f.run({},'verify-admission');expect(r.status,r.stderr).toBe(0);
+  const rulekey=`${prefix}/rulesets/2`,prior=f.maps[rulekey];f.maps[rulekey]={...(prior as object),bypass_actors:undefined};expect(f.run().status).toBe(3);f.maps[rulekey]=prior;
   f.maps[key]={total_count:1,jobs:[{...job,conclusion:'failure'}]};expect(f.run({},'verify-admission').status).toBe(3);
  });
 
@@ -76,7 +77,9 @@ file=Path(os.environ['FIXTURE_STATE']);state=json.loads(file.read_text()) if fil
 source='a'*40;other='b'*40;obj='c'*40;mode=os.environ['FIXTURE_MODE'];status=200;body={}
 name=path.split('/tags/')[-1];protected=name.startswith('cn-release-proof-')
 if '/rulesets?' in path:body=[{'id':1,'target':'tag','enforcement':'active'}]
-elif path.endswith('/rulesets/1'):body={'id':1,'target':'tag','enforcement':'active','bypass_actors':[],'conditions':{'ref_name':{'include':['refs/tags/cn-release-proof-*'],'exclude':[]}},'rules':[{'type':'update'},{'type':'deletion'}]}
+elif path.endswith('/rulesets/1'):
+ body={'id':1,'target':'tag','enforcement':'active','bypass_actors':[],'conditions':{'ref_name':{'include':['refs/tags/cn-release-proof-*'],'exclude':[]}},'rules':[{'type':'update'},{'type':'deletion'}]}
+ if mode=='missing-bypass':body.pop('bypass_actors')
 elif '/git/commits/' in path:body={'parents':[{'sha':other}]}
 elif method=='POST' and path.endswith('/git/tags'):
  state['tag']={'tag':fields['tag'],'object':{'type':'commit','sha':source,'url':'fixture'},'message':fields['message'],'sha':obj};body=state['tag'];status=201
@@ -103,7 +106,7 @@ file.write_text(json.dumps(state))
 print('HTTP/2 '+str(status)+'\\ncontent-type: application/json\\n\\n'+(json.dumps(body) if body is not None else ''))
 sys.exit(0 if 200<=status<300 else 1)
 `;
- for(const mode of ['success','permission','patch-success','delete-success','mutated-ref','cleanup-failure'])it('executes real proof code with '+mode,()=>{
+ for(const mode of ['success','permission','patch-success','delete-success','mutated-ref','cleanup-failure','missing-bypass'])it('executes real proof code with '+mode,()=>{
   const dir=mkdtempSync(join(tmpdir(),'cn-tag-proof-'));owned.push(dir);mkdirSync(join(dir,'proof-evidence'));mkdirSync(join(dir,'bin'));
   writeFileSync(join(dir,'proof.py'),code);writeFileSync(join(dir,'bin/gh'),fakeGh);chmodSync(join(dir,'bin/gh'),0o700);
   const r=spawnSync('python3',['proof.py'],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:join(dir,'bin')+':'+process.env.PATH,GH_REPO:'boardx/workspacex',SOURCE_SHA:'a'.repeat(40),RUN_ID:'123',RUN_ATTEMPT:'1',FIXTURE_MODE:mode,FIXTURE_STATE:join(dir,'state.json')}});

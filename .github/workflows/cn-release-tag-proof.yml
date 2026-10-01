@@ -67,6 +67,7 @@ jobs:
           matches=[r for r in rules if r.get('conditions',{}).get('ref_name')=={'include':['refs/tags/cn-release-proof-*'],'exclude':[]}]
           kinds=[]
           for rule in matches:
+            if not isinstance(rule.get('bypass_actors'),list): raise RuntimeError('PROOF_RULE_BYPASS_NOT_VISIBLE')
             relevant=[r['type'] for r in rule.get('rules',[]) if r['type'] in ['update','deletion']]
             if relevant and rule.get('bypass_actors'): raise RuntimeError('PROOF_RULE_BYPASS')
             if any(r['type']=='creation' for r in rule.get('rules',[])): raise RuntimeError('PROOF_CREATION_RESTRICTION')

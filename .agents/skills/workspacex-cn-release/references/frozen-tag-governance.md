@@ -37,3 +37,7 @@ GitHub 返回权限不足或治理读不到时失败，不能以“配置存在�
 tag 是不可变源码定位符，不是准备收据或发布授权。普通 writer 可创建 tag，但缺 root 保护的 exact receipt/images/actual Devapp+CI、合法 main lineage、可信 dispatcher 和人工 native admission 一律 NOT_READY。不同 payload 预占同名 tag 会 fail closed，不会改写已存在 tag；必须使用新的受控 attempt 重新完成全流程。代价是具有已有仓库写权限者可造成名称抢占/拒绝服务；以创建专用 App/PAT 生态避免该 DOS 不符合最小发布目标。保留 update/deletion zero-bypass 与全部数据/身份门控。
 
 参考：[GitHub rules 官方说明](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets) 分别定义 creation/update/deletion 规则；目前内建 Actions App 不在实际组织安装清单，不能从 metadata 推断其 ruleset bypass 可用。
+
+## 规则读取的真实权限边界
+
+[GitHub Rules API](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset) 明确 `bypass_actors` 仅返回给对 ruleset 有写访问的调用者。Metadata read 可以读 ruleset，不保证看到 bypass 列表。字段缺失绝不能当成 `[]`；prepare/promotion 与非生产proof均返回 NOT_READY/失败。GITHUB_TOKEN 不提供 administration:write 工作流权限；若实际读取缺该字段，必须另行审阅受控 root-admin 治理收据适配，不扩大 token 或改用 PAT。Root-admin 配置读回证明实际 zero-bypass，不证明 workflow token 的读取可见性或 tag 写能力。当前代码没有实现该适配，不声称发布闭环已可用。

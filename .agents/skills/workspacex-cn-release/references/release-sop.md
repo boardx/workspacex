@@ -252,3 +252,5 @@ prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须
 冻结候选的原生审批不能假定 creator 为 bot：Actions Environment Deployment 使用触发者身份。校验 GitHub Actions App、actual current run/attempt actor/triggering_actor、精确 source/ref/env、成功 admit job 与其 html_url；最新 status 必须同 actor 与 exact job。人工生成成功状态或借旧 attempt 的 URL 不能放行。
 
 非生产 `cn-release-tag-proof` 工作流只在初次治理安装/治理规则变更后证明真实 GITHUB_TOKEN 的创建能力及 zero-bypass update/delete 拒绝；不在每次已 prepared activation 重跑。其 `cn-release-proof-*` 规则/审计 tag 与生产 `cn-prepared-*` 严格分离，不可用 proof 规则冒充生产就绪。实际 proof 缺失即治理未验收；本地 mock 反证或规则存在不算 token proof。
+
+治理规则的 bypass_actors 缺失是 NOT_READY，不是零 bypass。GitHub 只向规则写权限调用者显示该字段；若实际 GITHUB_TOKEN 隐藏它，应先审阅受控管理员治理收据适配，不能在普通读 API 返回中推断零绕过或更换高权限 PAT。

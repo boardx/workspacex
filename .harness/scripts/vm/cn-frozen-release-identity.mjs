@@ -37,7 +37,8 @@ export function validateTagGovernance(v) {
  };
  env(v.promotion,v.promotionPolicies,['main'],true);env(v.activation,v.activationPolicies,['main','main-cn'],false);
  const rules=v.tagRules.filter(r=>r.target==='tag'&&r.enforcement==='active'&&JSON.stringify(r.conditions?.ref_name?.include)===JSON.stringify(['refs/tags/cn-prepared-*'])&&r.conditions?.ref_name?.exclude?.length===0);
- const immutable=rules.filter(r=>(r.bypass_actors??[]).length===0).flatMap(r=>r.rules??[]).map(r=>r.type);
+ if(rules.some(r=>!Array.isArray(r.bypass_actors)))fail('FROZEN_RELEASE_TAG_RULES_VISIBILITY');
+ const immutable=rules.filter(r=>r.bypass_actors.length===0).flatMap(r=>r.rules??[]).map(r=>r.type);
  if(rules.some(r=>r.rules?.some(x=>['update','deletion'].includes(x.type))&&(r.bypass_actors??[]).length)||!immutable.includes('update')||!immutable.includes('deletion'))fail('FROZEN_RELEASE_TAG_RULES');
 }
 export function validateAdmissionDeployment(identity,deployments,readStatuses,run,jobs,appId) {
