@@ -23,12 +23,25 @@ const base = { source: z.literal("legacy").optional(), attemptId: z.string().opt
  * 要复用同一批字段名与校验规则，而 AGENTS.md「同一事实不得声明在两处」禁止在那边照抄一份。
  * 这里只是把原本内联的对象字面量抬出来，union 成员的形状逐字不变。
  */
+/** Observed tool adapter source. A remote build revision is optional until verified;
+ * capability package descriptors used for admission remain strictly pinned.
+ */
+const sourceDescriptor = StandardCapabilityDescriptor.innerType().shape.source;
+export const ToolImplementationSource = sourceDescriptor.extend({ revision: sourceDescriptor.shape.revision.optional() });
+const standardToolTraceFields = {
+  capabilityId: z.string().regex(/^WX-T[0-9]{3}$/).optional(),
+  implementationSource: ToolImplementationSource.optional(),
+};
 export const ToolCallStartFields = {
+  ...standardToolTraceFields,
   toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(),
   capability: StandardCapabilityDescriptor.optional(), args: z.unknown(),
   planningNote: z.string().max(4000).optional(), skillDisplayName: z.string().min(1).max(200).optional(),
 } as const;
 export const ToolCallEndFields = {
+  ...standardToolTraceFields,
+  /** Elapsed time between the observed start and completion callbacks. */
+  durationMs: z.number().int().nonnegative().finite().optional(),
   toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(),
   capability: StandardCapabilityDescriptor.optional(), result: z.unknown(), ok: z.boolean(),
 } as const;
