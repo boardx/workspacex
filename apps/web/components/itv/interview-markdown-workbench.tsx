@@ -51,7 +51,7 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
     finally { setBranching(false); }
   }
   const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onDirtyChange: (value: boolean) => { dirty.current = value; } };
-  return <main data-testid="itv-markdown-workbench" className="min-h-screen w-full bg-background px-4 py-4 lg:px-6">
+  return <main data-testid="itv-markdown-workbench" className="min-h-screen w-full bg-muted/20 px-4 py-4 lg:px-8">
     <div className="mx-auto max-w-[1440px]">
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} status="Markdown 研究工作台" version={version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
