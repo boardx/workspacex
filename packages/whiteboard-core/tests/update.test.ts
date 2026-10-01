@@ -129,3 +129,18 @@ it('rejects a client update that writes directly into the delete-attribution led
   tampered.getMap('deleteAttribution').set('a', { actorId: 'mallory', deletedAt: Date.now(), tombstoneClient: 0, tombstoneClock: 0 });
   expect(() => prepareWhiteboardUpdate(authority, Y.encodeStateAsUpdate(tampered, Y.encodeStateVector(authority)), 'mallory')).toThrow('ATTRIBUTION_TAMPERED');
 });
+
+it.each(['delete', 'clear'] as const)('rejects a DeleteSet-only ledger %s and preserves legitimate self-undo', operation => {
+  const { authority, resurrect, now } = deletedBySelf('alice');
+  const tampered = cloneDocument(authority);
+  const ledger = tampered.getMap('deleteAttribution');
+  if (operation === 'delete') ledger.delete('a');
+  else ledger.clear();
+  const incoming = Y.encodeStateAsUpdate(tampered, Y.encodeStateVector(authority));
+  expect(Y.decodeUpdate(incoming).structs).toHaveLength(0);
+  expect(() => prepareWhiteboardUpdate(authority, incoming, 'mallory', now + 1_000)).toThrow('ATTRIBUTION_TAMPERED');
+  expect(authority.getMap('deleteAttribution').has('a')).toBe(true);
+  const accepted = prepareWhiteboardUpdate(authority, resurrect(), 'alice', now + 2_000);
+  Y.applyUpdate(authority, accepted);
+  expect(readObjects(authority).map(o => o.id)).toEqual(['a']);
+});

@@ -49,6 +49,18 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array, ac
       if (item.get('kind') !== next.get('kind') || item.get('schemaVersion') !== next.get('schemaVersion')) throw new Error('IMMUTABLE_FIELD_CHANGED');
     }
     const attributionRoot = attribution(candidate);
+    const authorityAttribution = attribution(authority);
+    // DeleteSet-only updates contain no new structs. Check the ledger projection
+    // before server bookkeeping as well, so clients cannot erase undo ownership.
+    if (attributionRoot.size !== authorityAttribution.size) throw new Error('ATTRIBUTION_TAMPERED');
+    for (const [id, record] of authorityAttribution) {
+      const next = attributionRoot.get(id);
+      if (!next || !sameItem(authorityAttribution._map.get(id), attributionRoot._map.get(id))
+        || next.actorId !== record.actorId || next.deletedAt !== record.deletedAt
+        || next.tombstoneClient !== record.tombstoneClient || next.tombstoneClock !== record.tombstoneClock) {
+        throw new Error('ATTRIBUTION_TAMPERED');
+      }
+    }
     for (const struct of decoded.structs) {
       if (!(struct instanceof Y.Item)) continue;
       const integrated = Y.getItem(candidate.store, struct.id);
