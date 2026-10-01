@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { acquireTestPortLease, testPortLeaseDir } from "./test-port-lease";
+import { acquireTestPortLease, testPortLeaseDir } from "./test-port-lease.ts";
 
 export interface IsolationOptions {
   isolationId?: string;

@@ -26,6 +26,15 @@ function turboApiTestHash(env: Record<string, string>): string {
 }
 
 describe("test isolation contract (#74)", () => {
+  it("loads the studio isolation guard through the native ESM-only tsx entry", () => {
+    const child = spawnSync(process.execPath, ["--input-type=module", "-e",
+      "import 'tsx/esm'; await import('./scripts/studio-skill-files-guards.mts'); console.log('STUDIO_GUARD_LOADED');",
+    ], { cwd: ROOT, encoding: "utf8" });
+    expect(child.stderr).not.toContain("Cannot find module");
+    expect(child.status, child.stderr).toBe(0);
+    expect(child.stdout).toContain("STUDIO_GUARD_LOADED");
+  });
+
   it("reuses every derived resource for the same explicit isolation id", () => {
     const first = deriveTestIsolation({
       isolationId: "reuse-proof",

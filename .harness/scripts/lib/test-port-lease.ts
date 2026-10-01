@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { alive } from "./stack-admission";
+import { alive } from "./stack-admission.ts";
 
 interface PortLeaseOwner {
   pid: number;
