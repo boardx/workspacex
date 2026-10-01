@@ -123,6 +123,12 @@ test("official roles: administrator enables dependencies; member runs four indep
       await login(member, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
       await member.goto("/agent");
       await expect(member.getByTestId("agent-directory")).toBeVisible();
+      for (const role of ROLES) {
+        const portrait = member.locator(`img[src="/avatars/digital-humans/${role.avatar}.webp"]`);
+        await expect(portrait).toBeVisible();
+        await expect.poll(() => portrait.evaluate(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0))
+          .toBe(true);
+      }
       await screenshot(member, info, "05-member-directory");
     });
     const cards = await directory(member);

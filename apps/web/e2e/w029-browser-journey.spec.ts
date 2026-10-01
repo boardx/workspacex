@@ -73,7 +73,13 @@ test("W029 direct role launch: real grants, four real approval confirmations, pe
     const input = C.startInstance.in.parse(response.request().postDataJSON());
     expect(input).toMatchObject({ key: KEY, agentId: pm!.agentId, version: 2, input: { rawInput: RAW_INPUT } });
     expect(input.input).toEqual({ rawInput: RAW_INPUT });
-    instanceId = C.startInstance.out.parse(await response.json()).instanceId;
+    // The production entry hard-navigates after parsing its start receipt.
+    // Chromium can discard that old document's response body on navigation;
+    // read the actual destination and verify it through the authoritative API.
+    await page.waitForURL(url => /^\/workflows\/runs\/[^/]+$/.test(url.pathname));
+    instanceId = decodeURIComponent(new URL(page.url()).pathname.split("/").at(-1)!);
+    expect(C.getInstance.out.parse(await readApi(page, fill(C.getInstance.path, { instanceId }))))
+      .toMatchObject({ instanceId, agentId: pm!.agentId, agentVersionId: pm!.versionId });
     await info.attach("business-input-submission", { body: Buffer.from(JSON.stringify({ definitionVersion: definition!.version,
       inputSchema: definition!.inputSchema, actualSubmittedInput: input.input, status: "PASS: actual browser POST accepted the exact authored input",
       stageInputEvidence: "Separate real PostgreSQL/API integration test; instance projection does not expose private trigger input" }, null, 2)), contentType: "application/json" });
