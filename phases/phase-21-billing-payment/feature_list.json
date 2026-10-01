@@ -2,14 +2,14 @@
   "phase": "21",
   "features": [
     {
-      "id": "F-TBD-billing-schema",
+      "id": "F01",
       "priority": 1,
       "area": "billing-credits",
       "title": "计费域数据表迁移与套餐种子数据",
       "user_visible_behavior": "运行数据库迁移后出现 credit_packages / billing_orders / credit_wallets / credit_transactions / org_billing_settings / billing_webhook_events 六张表；credit_packages 含部署种子套餐（amount_fen 与 base_credits + bonus_credits = total_credits 一致）；credit_wallets 对 (owner_type, owner_id) 唯一、billing_webhook_events.provider_event_id 唯一、流水 (source_type, source_id, type) 去重键全部生效（迁移可重复执行、可回滚）。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-billing",
       "capability": "CAP-DATA",
       "spec_ref": "02-payment-order-notify.md#R6",
       "depends_on": [],
@@ -56,7 +56,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "01-credits-topup.md#R3",
       "depends_on": [
-        "F-TBD-billing-schema",
+        "F01",
         "F-TBD-billing-config"
       ],
       "points": 7,
@@ -81,7 +81,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "04-billing-admin.md#R3",
       "depends_on": [
-        "F-TBD-billing-schema"
+        "F01"
       ],
       "points": 4,
       "wave": 2,
@@ -104,7 +104,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "02-payment-order-notify.md#R3",
       "depends_on": [
-        "F-TBD-billing-schema",
+        "F01",
         "F-TBD-billing-config"
       ],
       "points": 8,
@@ -129,7 +129,7 @@
       "capability": "CAP-WORKFLOW",
       "spec_ref": "02-payment-order-notify.md#R6",
       "depends_on": [
-        "F-TBD-billing-schema"
+        "F01"
       ],
       "points": 3,
       "wave": 2,
@@ -294,7 +294,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "03-subscription-stripe.md#R3",
       "depends_on": [
-        "F-TBD-billing-schema",
+        "F01",
         "F-TBD-billing-config"
       ],
       "points": 5,
