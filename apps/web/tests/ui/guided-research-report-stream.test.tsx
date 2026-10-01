@@ -100,10 +100,10 @@ describe("research report stream UI", () => {
     await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
     expect(screen.getByText("刷新恢复摘要")).toBeInTheDocument();
     expect(screen.getByText("已保存章节")).toBeInTheDocument();
-    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("正在处理");
+    expect(screen.getByTestId("research-report-timeline").querySelector("[aria-busy=true]")).not.toBeNull();
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByText("已保存章节")).toBeInTheDocument();
-    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("已完成");
+    expect(screen.getByTestId("research-report-timeline").querySelector("[data-status=completed]")).not.toBeNull();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("accepts a higher-sequence server reset when a provider cannot stream tokens", async () => {

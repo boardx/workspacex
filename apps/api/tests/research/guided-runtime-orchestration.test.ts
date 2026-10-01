@@ -16,6 +16,24 @@ function fixture() {
 }
 
 describe("durable research orchestration", () => {
+  it("supplements chapter evidence with scoped queries until three readable sources exist", async () => {
+    const f = fixture();
+    f.state.tasks = [{ id: "t", sectionId: "o", query: "Grid EU policy", status: "pending", attempts: 0, errorCode: null }];
+    const search = vi.fn(async (query: string) => [{ title: "Grid policy", url: `https://example.org/${query.includes("Which policy?") ? "third" : query.includes("primary source") ? "second" : "first"}`, content: "Grid EU policy requires permits." }]);
+    const read = vi.fn(async () => ({ text: "Grid EU policy requires permits.", contentKind: "text" as const, truncated: false }));
+    const model = { complete: vi.fn(async (input: { user: string }) => {
+      const context = JSON.parse(input.user);
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
+        matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Policy evidence", relevance: "direct" }] })) }) };
+    }) };
+    const service = new GuidedRuntimeService(f.store, model, { search, read }, { provider: "test", id: "test" });
+    const result = await service.execute(f.actor, f.session, { sessionId: "session", node: "research", action: "start", requestId: "scoped-coverage", expectedVersion: 0 });
+    expect(result.errorCode).toBeNull();
+    expect(result.sources.filter((source) => source.decision === "accepted" && source.document)).toHaveLength(3);
+    expect(search.mock.calls.slice(1).every(([query]) => query.includes("Grid") && query.includes("EU"))).toBe(true);
+    expect(search.mock.calls.some(([query]) => query.includes("Which policy?"))).toBe(true);
+  });
+
   it("loads authorized internal artifacts into the evidence pipeline", async () => {
     const f = fixture();
     f.state.sourcePolicy = { mode: "open", domains: [], internalSourceIds: ["artifact-1"], revision: 1 };

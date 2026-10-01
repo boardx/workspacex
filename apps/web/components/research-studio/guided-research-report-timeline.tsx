@@ -1,21 +1,37 @@
 import { CheckCircle2, Circle, Loader2, AlertCircle } from "lucide-react";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
-const stages = { evidence: "整理研究证据", chapter: "撰写章节", review: "核验章节", synthesis: "综合研究结论", validation: "最终验证" };
-const statuses = { pending: "等待处理", running: "正在处理", retrying: "正在自动重试", completed: "已完成", warning: "已处理，存在证据缺口", failed: "处理失败" };
+const stages = { evidence: "整理研究证据", chapter: "生成", review: "生成", synthesis: "生成综合结论", validation: "保存报告" };
+type TimelineStep = NonNullable<GuidedResearchRuntime["reportTimeline"]>[number];
+function generationSteps(timeline: TimelineStep[]): TimelineStep[] {
+  const sections = new Set<string>();
+  return timeline.flatMap((item) => {
+    if ((item.stage !== "chapter" && item.stage !== "review") || !item.sectionId) return [{ ...item }];
+    if (sections.has(item.sectionId)) return [];
+    sections.add(item.sectionId);
+    const chapter = timeline.find((step) => step.stage === "chapter" && step.sectionId === item.sectionId);
+    const review = timeline.find((step) => step.stage === "review" && step.sectionId === item.sectionId);
+    let status = chapter?.status ?? item.status;
+    // A pending review must not hide active writing or mark a chapter complete.
+    if (status === "completed" && review) status = review.status === "pending" ? "running" : review.status;
+    else if (review && review.status !== "pending" && status !== "running" && status !== "retrying" && status !== "failed") status = review.status;
+    return [{ ...item, stage: "chapter" as const, status, attempts: Math.max(chapter?.attempts ?? 0, review?.attempts ?? 0) }];
+  });
+}
 export function GuidedResearchReportTimeline({ state, interrupted = false }: { state: GuidedResearchRuntime; interrupted?: boolean }) {
   if (!state.reportTimeline?.length) return null;
   const finished = Boolean(state.report && !state.busy && !state.errorCode && !interrupted && state.reportTimeline.some((step) => step.stage === "validation" && step.status === "completed"));
   const collapsed = finished || Boolean(state.reportDraft && !state.busy) || interrupted || Boolean(state.errorCode && !state.busy);
   return <details key={collapsed ? "settled" : "active"} open={!collapsed} className="rounded-xl border border-border bg-card p-5" data-testid="research-report-timeline" aria-label="报告生成过程">
     <summary className="cursor-pointer text-16 font-semibold">报告生成过程{collapsed ? " · 查看详情" : ""}</summary>
-    <p className="mt-2 text-12 text-muted-foreground">{finished ? "报告已生成并保存。" : state.reportDraft && !state.busy ? "完整报告已保存，部分章节仍需核验。" : interrupted ? "执行已中断，已保存的进度仍可继续。" : state.errorCode ? "本次生成已暂停，请查看错误后重试。" : "各阶段连续处理，进度自动保存。"}</p>
-    <ol className="mt-4 space-y-4">{state.reportTimeline.map((item) => {
+    {(interrupted || state.errorCode) && <p className="mt-2 text-12 text-muted-foreground">{interrupted ? "执行已中断，已保存的进度仍可继续。" : "本次生成已暂停，请查看错误后重试。"}</p>}
+    <ol className="mt-4 space-y-4">{generationSteps(state.reportTimeline).map((item) => {
       const active = item.status === "running" || item.status === "retrying";
       const Icon = item.status === "completed" ? CheckCircle2 : item.status === "failed" || item.status === "warning" ? AlertCircle : active ? Loader2 : Circle;
       const title = item.sectionId && state.outline.find((section) => section.id === item.sectionId)?.title;
-      return <li key={item.id} className="relative flex min-w-0 gap-3 text-12 before:absolute before:-bottom-4 before:left-2 before:top-5 before:w-px before:bg-border last:before:hidden" data-testid="research-report-timeline-step" data-stage={item.stage} data-section-id={item.sectionId} data-status={item.status}>
-        <Icon className={`mt-0.5 size-4 shrink-0 ${active && !interrupted ? "animate-spin text-primary" : "text-muted-foreground"}`} aria-hidden />
-        <div className="min-w-0 space-y-1"><p className="break-words font-medium">{stages[item.stage]}{title ? ` · ${title}` : ""}</p><p className="text-muted-foreground">{interrupted && active ? "执行中断" : item.status === "warning" && item.stage !== "evidence" ? "已生成，待质量核验" : statuses[item.status]}{item.attempts > 1 ? (item.stage === "evidence" ? ` · 已调用模型 ${item.attempts} 次` : ` · 第 ${item.attempts} 次尝试`) : ""}{item.total !== undefined && item.completed !== undefined ? ` · ${item.completed} / ${item.total}` : ""}</p></div>
+      const detail = interrupted && active ? "执行中断" : item.status === "failed" ? "生成失败" : item.status === "warning" ? (item.stage === "evidence" ? "存在证据缺口" : "需要完善") : null;
+      return <li key={item.id} className="relative flex min-w-0 gap-3 text-12 before:absolute before:-bottom-4 before:left-2 before:top-5 before:w-px before:bg-border last:before:hidden" data-testid="research-report-timeline-step" data-stage={item.stage} data-section-id={item.sectionId} data-status={item.status} aria-busy={active && !interrupted || undefined}>
+        <Icon className={`mt-0.5 size-4 shrink-0 ${active && !interrupted ? "animate-spin motion-reduce:animate-none text-primary" : "text-muted-foreground"}`} aria-hidden />
+        <p className="min-w-0 break-words font-medium">{stages[item.stage]}{title ? ` · ${title}` : ""}{detail && <span className="ml-2 font-normal text-muted-foreground">{detail}</span>}{item.attempts > 1 && <span className="ml-2 font-normal text-muted-foreground">第 {item.attempts} 次尝试</span>}</p>
       </li>;
     })}</ol>
   </details>;

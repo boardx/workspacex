@@ -57,9 +57,17 @@ describe("BoardX Google guided research search", () => {
     await expect(new GoogleGuidedSearch(provider({ results: [{ ...hit, snippet: " " }] })).search("policy"))
       .rejects.toMatchObject({ reasonCode: "RESEARCH_SEARCH_CONTENT_EMPTY" });
   });
+  it("keeps usable sources when another result has an empty excerpt", async () => {
+    const hits = await new GoogleGuidedSearch(provider({ results: [{ ...hit, url: "https://example.org/empty", snippet: " " }, hit] })).search("policy");
+    expect(hits).toEqual([{ title: hit.title, url: hit.url, content: hit.snippet }]);
+  });
+  it("deduplicates URLs before applying the source limit", async () => {
+    const hits = await new GoogleGuidedSearch(provider({ results: [...Array.from({ length: 10 }, () => hit), { ...hit, url: "https://example.org/other" }] })).search("policy");
+    expect(hits).toHaveLength(2);
+  });
   it("bounds source count and excerpt size", async () => {
-    const hits = await new GoogleGuidedSearch(provider({ results: Array.from({ length: 10 }, () => ({ ...hit, snippet: "x".repeat(31000) })) })).search("policy");
-    expect(hits).toHaveLength(5);
+    const hits = await new GoogleGuidedSearch(provider({ results: Array.from({ length: 15 }, (_, index) => ({ ...hit, url: `https://example.org/policy/${index}`, snippet: "x".repeat(31000) })) })).search("policy");
+    expect(hits).toHaveLength(10);
     expect(hits[0]?.content).toHaveLength(30000);
   });
   it("reads the linked document separately from the search excerpt", async () => {
