@@ -8,6 +8,8 @@
 > 实测全仓 975 条真实 feature `verification` 命令，**0 条用 curl，749 条用 vitest**，
 > 其余是 shell 脚本（如 `verify-ui-states.sh`）。本次重写只描述本仓实际在用的模式。
 
+接单、环境预检、浏览器执行、证据判决与复测流程见 [端到端测试执行 SOP](./e2e-test-sop.md)。
+
 ## 验证分层(测试金字塔)
 - 单元:纯逻辑,快;不算 feature 的完成判据,只是基础门槛。
 - 集成:跨包/跨服务的真实交互(vitest + 真实 Postgres,不是 mock)。
