@@ -1,0 +1,4 @@
+id,type,x,y,width,height,text,color,parentId,fromId,toId,shape
+p,panel,0,0,900,600,Workshop,#ffffff,,,,
+s,sticker,50,80,180,180,Insight,#fff4a3,p,,,,
+t,card,280,80,280,160,Research artifact,#ffffff,p,,,,

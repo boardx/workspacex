@@ -1,0 +1,24 @@
+# Web fail-without-fix (branch s5): tests/brain/about-me.test.tsx, tests/knowledge/session-briefing.test.tsx, tests/brain/brain-screen.test.tsx
+===== reverted to base: components/chat/chat-task-workbench-empty-state.tsx — empty state has no briefing slot
+   × 开场简报（issue #4362） > 空状态只给位置：传了简报就摆在引导语与模板之间；不传（项目对话）模板照旧、没有简报
+      Tests  1 failed | 36 passed (37)
+===== reverted to base: components/brain/brain-screen.tsx — /brain without 「关于我」
+   × 大脑页：真实数据 > 取的是两个真实接口；长期记忆按类型分组，计数来自数据，没有任何示例数字
+      Tests  1 failed | 36 passed (37)
+===== mutation in components/chat/knowledge/session-briefing.tsx — 续上 does not prefill
+   × 开场简报（issue #4362） > 续上 ⇒ 首问填进输入框（不发送）、留一行引用、记「采纳」
+      Tests  1 failed | 36 passed (37)
+===== mutation in components/chat/knowledge/session-briefing.tsx — dismissal not persisted
+   × 开场简报（issue #4362） > 关闭 ⇒ PUT dismissed=true + 记「关闭」，整块收起
+      Tests  1 failed | 36 passed (37)
+===== mutation in components/chat/knowledge/session-briefing.tsx — empty briefing still rendered
+   × 开场简报（issue #4362） > 没有记忆 ⇒ 什么都不显示，也不记「展示」
+   × 开场简报（issue #4362） > 关掉过 ⇒ 不显示
+      Tests  2 failed | 35 passed (37)
+===== mutation in lib/about-me-view.ts — goal links ignored
+   × 「关于我」投影 > 四组固定顺序；挂了目标的决定折叠到目标下；与「你」无关的事实不进画像
+   × /brain「关于我」 > 分组显示、每条带「来自你 M/D 的对话」与点回原话的链接；文案不含内部术语
+      Tests  2 failed | 35 passed (37)
+===== mutation in components/brain/about-me.tsx — rewrite not sent
+   × /brain「关于我」 > 改写：POST revise（新说法），成功后静默重读
+      Tests  1 failed | 36 passed (37)

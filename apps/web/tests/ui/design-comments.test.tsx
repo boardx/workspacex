@@ -140,7 +140,9 @@ describe("批注模式（详情页）", () => {
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
     fireEvent.click(screen.getByTestId("design-detail-view-single"));
-    fireEvent.click(screen.getByTestId("design-detail-mode-comment"));
+    // design-delta `novice-progressive-disclosure`：「批注」收进了「更多」菜单（Radix，pointerdown 打开）。
+    fireEvent.pointerDown(screen.getByTestId("design-detail-more"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("design-detail-mode-comment"));
     fireEvent.click(screen.getByText("立即购买"));
     // 批注模式下选中不出属性面板（点节点 = 给它写一句，不是去改它）。
     expect(screen.queryByTestId("design-inspector")).toBeNull();

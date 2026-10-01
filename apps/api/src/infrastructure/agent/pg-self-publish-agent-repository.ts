@@ -53,6 +53,7 @@ import {
   type AgentDefinitionRow,
 } from "./pg-create-agent-repository";
 import { resolveDeepAgentModel } from "./pg-default-agent-repository";
+import { insertAgentVersionFromDraft } from "./agent-version-insert";
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -103,25 +104,20 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
       if (instructions === "") throw new Error("self_publish_agent_has_no_instructions");
       const { provider, modelId } = resolveDeepAgentModel();
 
-      await session.query(
-        `INSERT INTO agent_versions
-           (id,org_id,agent_id,semantic_label,instruction_digest,instructions,
-            skill_version_ids,model_provider,model_id,tool_policy,creator_id,
-            created_at,published_at)
-         VALUES ($1,$2,$3,$4,$5,$6,'{}'::text[],$7,$8,'[]'::jsonb,$9,$10,$10)`,
-        [
-          versionId,
-          input.orgId,
-          input.agentId,
-          SELF_PUBLISH_SEMANTIC_LABEL,
-          sha256(instructions),
-          instructions,
-          provider,
-          modelId,
-          input.actorId,
-          nowIso,
-        ],
-      );
+      await insertAgentVersionFromDraft(session, {
+        versionId,
+        orgId: input.orgId,
+        agentId: input.agentId,
+        semanticLabel: SELF_PUBLISH_SEMANTIC_LABEL,
+        instructionDigest: sha256(instructions),
+        instructions,
+        skillVersionIds: [],
+        modelProvider: provider,
+        modelId,
+        toolPolicy: [],
+        creatorId: input.actorId,
+        at: nowIso,
+      });
 
       // ⚠ `publish_state` 与 `published_version_id` **同一条 UPDATE**：只改前者
       // 会让界面显示"运行中"而 `resolvePublished` 的 JOIN 依然查不到 ⇒ 发消息仍是 422

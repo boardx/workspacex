@@ -26,7 +26,7 @@ const SCREENS = [
   "/admin", "/admin/members",
   "/platform-admin/agent", "/admin/skill", "/platform-admin/model",
   "/platform-admin/mcp", "/platform-admin/members", "/platform-admin/feedback",
-  "/studio/prototype", "/studio/interview", "/studio/survey", "/studio/research",
+  "/studio/prototype", "/studio/interview", "/studio/survey",
   "/studio/interview/i-wang?tab=design", "/studio/interview/i-wang?tab=respondents",
   "/studio/interview/i-wang?tab=record", "/studio/interview/i-wang?tab=insight",
   "/studio/interview?tab=templates",

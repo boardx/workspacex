@@ -6,6 +6,15 @@ vi.mock('@/lib/survey/runtime-client',()=>({surveyRequest:request}));
 const published={id:'survey',title:'匿名调研',version:1,expiresAt:'2026-12-01T00:00:00.000Z',questions:[{id:'multi',title:'选择工具',type:'multi',chapterId:'general',order:1,required:true,options:['工具甲','工具乙']}]};
 beforeEach(()=>request.mockReset());
 describe('public survey submission',()=>{
+ it('renders frozen success Markdown without executable HTML after a prior browser submission',async()=>{
+  request.mockResolvedValueOnce({...published,alreadySubmitted:true,successMessageMarkdown:'# 感谢参与\n\n**我们已收到反馈**\n<script>alert(1)</script>\n[危险](javascript:alert(1))'});
+  const {container}=render(<PublicSurveyForm token="public-token"/>);
+  expect(await screen.findByRole('heading',{name:'感谢参与'})).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('我们已收到反馈');
+  expect(screen.queryByRole('button',{name:'提交答卷'})).not.toBeInTheDocument();
+  expect(container.querySelector('script')).toBeNull();
+  expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
+ });
  it('requires at least one answer for a required multi-choice question before submitting',async()=>{
   request.mockResolvedValue(published);
   render(<PublicSurveyForm token="public-token"/>);

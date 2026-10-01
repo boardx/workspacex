@@ -489,6 +489,29 @@ const isToolFailureTurn = (record: RunRecord): boolean =>
  */
 const EMPTY_REPLY_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER;
 
+/**
+ * issue #4260 —— 第一个价值时刻的**引用闭环**剧本：`wx_knowledge_search` → `wx_cite` → 带 `[n]` 的终稿。
+ *
+ * ## 这两次工具调用是真的打到 API 上，不是替身自己编结果
+ *
+ * 与 `spawnAsyncTask` 同一条纪律：真实上游（`deep_agent_service/standard_context_tools.py::_invoke`）
+ * 在模型运行**内部**同步 POST `<run_control_callback.base_url>/internal/agent-runs/<run_id>/standard-context/invoke`，
+ * 体 `{orgId, attemptId, leaseEpoch, toolCallId, toolName, toolArgs[, permissionRequestId]}`，
+ * 头 `x-deep-agent-internal-key`。替身逐字照抄这条线格式，于是：
+ *   · 检索结果来自真实的组织索引（`OrganizationContextSource`），不是替身写死的 sourceId；
+ *   · `wx_cite` 由 API 真的**重读**来源并校验版本（`standard-cite.ts`），通过的才进
+ *     `agent_runs.cited_sources`，写回时编号落 `chat_citations`、记价值时刻。
+ * 替身只负责「模型决定查什么、引哪一条、答案里写 `[n]`」——正是真实部署里模型承担的那部分。
+ *
+ * `[n]` 取 `wx_cite` **真实回给的** `accepted[0].index`；检索无命中 / 引用被拒 / 回调缺席时，
+ * 终稿如实说明、**不带任何 `[n]`**——前端的可点标记因此只在引用真的落库时才会出现。
+ *
+ * 触发词（逐字相等）与检索词都默认关闭：未设置时这条分支恒不命中，其余剧本逐字节不变。
+ * 唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `firstValueCiteTrigger` / `firstValueCiteQuery`。
+ */
+const CITE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CITE_TRIGGER;
+const CITE_QUERY = process.env.LOOPBACK_DEEP_AGENT_CITE_QUERY;
+
 /** system prompt 的 skill **目录**里真的出现了这个 stable_name 吗。开关未给全时恒 `false`。 */
 function skillCatalogReachedUpstream(body: CreateRunBody): boolean {
   if (SKILL_CATALOG_STABLE_NAME === null || SKILL_CATALOG_ECHO_PREFIX === null) return false;
@@ -615,6 +638,135 @@ interface RunRecord {
    * 0.32.4）。替身记一个稳定的 task id 就是为了原样回放这个形状。
    */
   pausedInterruptTaskId?: string;
+  /** issue #4260 —— 引用闭环剧本这一轮真实拿到的两次工具结果；未命中剧本时 `undefined`。 */
+  cite?: CiteOutcome;
+}
+
+/**
+ * AG05 —— 聊天里发起 Workflow 的确定性剧本（`start_workflow` 工具调用）。
+ *
+ * 用户消息里带 `[start_workflow:<workflowId>]` 标记（input 恒为 `{}`）⇒ 替身发出一个**未配对**的 `start_workflow` 工具调用并停在 interrupted；
+ * 网关（`workflow-start-gate.ts`）按白名单判定、以 edit resume 交回 `{...args, outcome}`；
+ * 终稿正文就是 `outcome.message`（放行 = 「已发起流程…」，拒绝 = `workflow_not_allowed` 的友好文案）。
+ * 不吃环境变量：标记本身就是触发词，其它剧本逐字等值匹配，不会误中。
+ */
+const START_WORKFLOW_TOOL_NAME = "start_workflow";
+const START_WORKFLOW_MARKER = /\[start_workflow:([^\]\s]+)\]/;
+
+/**
+ * AG07 —— 聊天里请求转交的确定性剧本（`request_handoff` 工具调用），与上面 `start_workflow` 同形：
+ * 用户消息里带 `[request_handoff:<Dxxx>]`（可再带若干 `[evidence:<versionId>]`）⇒ 替身发出一个未配对的
+ * `request_handoff` 调用并停在 interrupted；网关（`handoff-gate.ts`）按钉住的 delegationPolicy 判定、以 edit
+ * resume 交回 `{...args, outcome}`；终稿正文就是 `outcome.message`。交接包只含问题原文与证据 ID，不含摘录。
+ */
+const REQUEST_HANDOFF_TOOL_NAME = "request_handoff";
+const REQUEST_HANDOFF_MARKER = /\[request_handoff:(D\d{3})\]/;
+/** 转交被拒后的终稿：不复述拒绝原因（提示条已展示），只说对话会怎么继续。 */
+const HANDOFF_REFUSED_FOLLOWUP = "我会继续在这个对话里、按我的职责范围帮你处理。";
+const EVIDENCE_MARKER = /\[evidence:([^\]\s]+)\]/g;
+
+/** 一次「结果只由服务端算出」的工具调用剧本（`start_workflow` / `request_handoff`）。 */
+interface ServerComputedToolScript {
+  readonly name: string;
+  readonly idPrefix: string;
+  readonly args: Record<string, unknown>;
+  readonly pendingText: string;
+  readonly rejectedText: string;
+}
+
+function serverComputedToolScript(record: RunRecord): ServerComputedToolScript | null {
+  const wf = START_WORKFLOW_MARKER.exec(record.userText);
+  if (wf) {
+    return {
+      name: START_WORKFLOW_TOOL_NAME, idPrefix: "start-workflow", args: { workflowId: wf[1]!, input: {} },
+      pendingText: "正在发起流程。", rejectedText: "发起流程被拒绝，未创建实例。",
+    };
+  }
+  const handoff = REQUEST_HANDOFF_MARKER.exec(record.userText);
+  if (handoff) {
+    const evidenceRefs = [...record.userText.matchAll(EVIDENCE_MARKER)].map((m) => m[1]!);
+    const question = record.userText.replace(REQUEST_HANDOFF_MARKER, "").replace(EVIDENCE_MARKER, "").trim() || "（用户未写明问题）";
+    return {
+      name: REQUEST_HANDOFF_TOOL_NAME, idPrefix: "request-handoff",
+      args: { targetRole: handoff[1]!, packet: { originalQuestion: question, confirmedScope: "", evidenceRefs, openItems: [] } },
+      pendingText: "", rejectedText: "转交请求被拒绝，未发起转交。",
+    };
+  }
+  return null;
+}
+
+function startWorkflowTarget(record: RunRecord): string | null {
+  return serverComputedToolScript(record) === null ? null : "scripted";
+}
+
+function serverComputedOutcomeMessage(record: RunRecord): string | null {
+  const outcome = record.decision?.editedArgs?.outcome;
+  const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  return typeof message === "string" && message !== "" ? message : null;
+}
+
+function startWorkflowReply(record: RunRecord): string {
+  const script = serverComputedToolScript(record);
+  if (record.decision === null) return script?.pendingText ?? "正在发起流程。";
+  const outcome = record.decision.editedArgs?.outcome;
+  const message = outcome && typeof outcome === "object" ? (outcome as { message?: unknown }).message : undefined;
+  // UIUX r2 屏 4 #3：转交被拒时，拒绝原因已由结构化的「没有转交」提示条展示（工具结果本身），
+  // 终稿再逐字复述一遍就是同一句话出现两次。与真实工具体（`tools.py::request_handoff`）同一约定：
+  // 不复述，只说接下来怎么办。
+  const status = outcome && typeof outcome === "object" ? (outcome as { status?: unknown }).status : undefined;
+  if (script?.name === REQUEST_HANDOFF_TOOL_NAME && status === "refused") return HANDOFF_REFUSED_FOLLOWUP;
+  if (typeof message === "string" && message !== "") return message;
+  return record.decision.type === "reject" ? (script?.rejectedText ?? "发起流程被拒绝，未创建实例。") : "结果未知。";
+}
+
+/**
+ * AG06 —— 升级剧本（`escalate_matter` 工具调用），让升级卡片在回环模型上可达。
+ *
+ * 用户消息里带 `[escalate:<reason>]` ⇒ 替身发出一个**未配对**的 `escalate_matter` 调用并停在
+ * interrupted；网关（`tool-permission-gate.ts`）按该 run 钉住的 escalationPolicy 判定：命中 ⇒
+ * 挂起等目标人经 `decideEscalation` 裁决（edit resume 带回 `decision`/`decisionText`/`reason`），
+ * 没命中 ⇒ 原样 approve（「未升级」）。终稿措辞与真实工具体（deep-agent-service `tools.py`
+ * `escalate_matter`）的三条回复同构。`matter` 取 `LOOPBACK_ESCALATE_MATTER`（缺省「超出职责范围的事项」），
+ * 要让它真的挂起，被测 Agent 的升级策略里得有同名事项。
+ */
+const ESCALATE_TOOL_NAME = "escalate_matter";
+const ESCALATE_MARKER = /\[escalate:([^\]]+)\]/;
+const ESCALATE_MATTER = process.env.LOOPBACK_ESCALATE_MATTER ?? "超出职责范围的事项";
+
+function escalateReason(record: RunRecord): string | null {
+  const m = ESCALATE_MARKER.exec(record.userText);
+  const reason = m?.[1]?.trim();
+  if (!reason) return null;
+  // uiux-r6 #4 —— 卡片标题取 reason（数字人要问你的那句话）。标记里只有类别式的泛称
+  // （「超出职责范围的事项」「超出我的职责」）时，换成一句具体的问句，避免决定人只看到类别。
+  return isGenericEscalateReason(reason) ? ESCALATE_SAMPLE_QUESTION : reason;
+}
+
+const ESCALATE_SAMPLE_QUESTION = "客户要求在合同里写明 20% 折扣，是否同意？";
+
+function isGenericEscalateReason(reason: string): boolean {
+  return reason === ESCALATE_MATTER || /超出.{0,4}职责/.test(reason);
+}
+
+function escalateArgs(reason: string): Record<string, unknown> {
+  return { matter: ESCALATE_MATTER, reason, target: "requester", contextRefs: [] };
+}
+
+function escalateReply(record: RunRecord): string {
+  // uiux-r3 #4.2 —— 待决阶段不流出任何「正在提交…」正文：升级卡片就是这一轮的状态，
+  // 一句不会被结果替换掉的进行时旁白只会在 run 停下后永远挂在线程里。
+  if (record.decision === null) return "";
+  const edited = record.decision.type === "edit" ? record.decision.editedArgs : undefined;
+  const decision = edited?.decision;
+  if (decision === "resolve") {
+    // uiux-r5 #4.1 —— 裁决原文已由线程里的「决定：…」记录逐字展示，这句不再复述，只说接下来怎么办。
+    return "负责人已同意。我会按这个裁决继续。";
+  }
+  if (decision === "reject" || record.decision.type === "reject") {
+    // 同上：理由已由「理由：…」记录展示，不复述。
+    return "负责人不同意。这件事我不会执行，会据此调整方案。";
+  }
+  return `事项「${ESCALATE_MATTER}」不在我的升级策略范围内，未升级给任何人；我会按自己的职责边界处理。`;
 }
 
 function approvalReply(record: RunRecord): string {
@@ -830,6 +982,99 @@ async function spawnAsyncTask(parsed: CreateRunBody, description: string, contex
     const name = error instanceof Error ? error.message.split(":")[0]! : "Exception";
     return { failure: `派发子任务失败（${name}），未能加入后台队列，请改为同步处理这个子任务。` };
   }
+}
+
+/** issue #4260 —— 引用闭环剧本一轮的真实工具往返（见 `CITE_TRIGGER` 头注）。 */
+interface CiteOutcome {
+  readonly searchCallId: string;
+  readonly citeCallId: string;
+  readonly searchArgs: Record<string, unknown>;
+  /** 真实回调的响应体（JSON 原样）或失败说明（回调缺席时也是一句失败说明）。 */
+  readonly searchResult: string;
+  readonly citeArgs: Record<string, unknown> | null;
+  readonly citeResult: string | null;
+  /** `wx_cite` 真实回给的 `accepted[0]`；没有 ⇒ 终稿不带 `[n]`。 */
+  readonly accepted: { readonly index: number; readonly sourceFullName: string } | null;
+}
+
+function isCiteTurn(record: RunRecord): boolean {
+  return CITE_TRIGGER !== undefined && CITE_QUERY !== undefined && record.userText === CITE_TRIGGER;
+}
+
+/** 终稿正文——`/stream` 与 `/state` 共用这一份（#3389 单一事实源）。 */
+function citeReply(record: RunRecord): string {
+  const accepted = record.cite?.accepted ?? null;
+  return accepted
+    ? `根据你上传的材料《${accepted.sourceFullName}》作答：结论见原文 [${accepted.index}]。`
+    : "没能引用到你上传的材料：检索没有命中可引用的来源，或引用未通过校验，因此不给出带引用的结论。";
+}
+
+/**
+ * 照 `standard_context_tools.py::_invoke` 读回调：`base_url`/`key`/`org_id`/`run_id`/`attempt_id`
+ * 必须是非空字符串、`lease_epoch` 必须是正整数，否则真实工具抛错——替身同样不发请求。
+ */
+function readStandardContextCallback(parsed: CreateRunBody): {
+  baseUrl: string; key: string; runId: string; identity: Record<string, unknown>;
+} | undefined {
+  const raw = parsed.config?.configurable?.run_control_callback;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const v = raw as Record<string, unknown>;
+  const str = (k: string) => (typeof v[k] === "string" && (v[k] as string).trim() !== "" ? v[k] as string : undefined);
+  const baseUrl = str("base_url"), key = str("key"), orgId = str("org_id"), runId = str("run_id"), attemptId = str("attempt_id");
+  const leaseEpoch = v.lease_epoch;
+  if (!baseUrl || !key || !orgId || !runId || !attemptId || typeof leaseEpoch !== "number"
+    || !Number.isInteger(leaseEpoch) || leaseEpoch < 1) return undefined;
+  const identity: Record<string, unknown> = { orgId, attemptId, leaseEpoch };
+  if (typeof v.permission_request_id === "string") identity.permissionRequestId = v.permission_request_id;
+  return { baseUrl, key, runId, identity };
+}
+
+async function invokeStandardContext(
+  callback: NonNullable<ReturnType<typeof readStandardContextCallback>>,
+  toolCallId: string, toolName: string, toolArgs: Record<string, unknown>,
+): Promise<{ ok: true; body: unknown } | { ok: false; text: string }> {
+  const url = `${callback.baseUrl.replace(/\/+$/, "")}/internal/agent-runs/${encodeURIComponent(callback.runId)}/standard-context/invoke`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-deep-agent-internal-key": callback.key },
+      body: JSON.stringify({ ...callback.identity, toolCallId, toolName, toolArgs }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`HTTPStatusError:${response.status}`);
+    return { ok: true, body: await response.json() };
+  } catch (error) {
+    // 与真实工具同一句措辞（`StandardContextError`），附上失败形态便于排查。
+    const name = error instanceof Error ? error.message : "Exception";
+    return { ok: false, text: `Workspace context unavailable or request refused; no content confirmed (${name}).` };
+  }
+}
+
+/** 这一轮真的检索一次、真的引用检索到的第一条来源。结果记进 record，由 `/state`/`/stream` 揭示。 */
+async function runCiteScenario(parsed: CreateRunBody, threadId: string): Promise<CiteOutcome> {
+  const searchCallId = `cite-search-${threadId}`;
+  const citeCallId = `cite-cite-${threadId}`;
+  const searchArgs: Record<string, unknown> = { query: CITE_QUERY ?? "", scope: "organization-index", limit: 1 };
+  const callback = readStandardContextCallback(parsed);
+  if (!callback) {
+    return { searchCallId, citeCallId, searchArgs, citeArgs: null, citeResult: null, accepted: null,
+      searchResult: "Workspace context unavailable or request refused; no content confirmed (run_control_callback missing)." };
+  }
+  const search = await invokeStandardContext(callback, searchCallId, "wx_knowledge_search", searchArgs);
+  if (!search.ok) return { searchCallId, citeCallId, searchArgs, searchResult: search.text, citeArgs: null, citeResult: null, accepted: null };
+  const first = (search.body as { items?: { sourceId?: unknown; versionId?: unknown }[] }).items?.[0];
+  if (typeof first?.sourceId !== "string" || typeof first.versionId !== "string") {
+    return { searchCallId, citeCallId, searchArgs, searchResult: JSON.stringify(search.body), citeArgs: null, citeResult: null, accepted: null };
+  }
+  const citeArgs = { citations: [{ sourceId: first.sourceId, versionId: first.versionId }] };
+  const cite = await invokeStandardContext(callback, citeCallId, "wx_cite", citeArgs);
+  const acceptedRaw = cite.ok ? (cite.body as { accepted?: { index?: unknown; sourceFullName?: unknown }[] }).accepted?.[0] : undefined;
+  const accepted = typeof acceptedRaw?.index === "number" && typeof acceptedRaw.sourceFullName === "string"
+    ? { index: acceptedRaw.index, sourceFullName: acceptedRaw.sourceFullName } : null;
+  return {
+    searchCallId, citeCallId, searchArgs, searchResult: JSON.stringify(search.body),
+    citeArgs, citeResult: cite.ok ? JSON.stringify(cite.body) : cite.text, accepted,
+  };
 }
 
 /**
@@ -1144,6 +1389,13 @@ const server = createServer((req, res) => {
           record.spawnFailureText = "failure" in outcome ? outcome.failure : null;
         }
       }
+      // issue #4260 —— 引用闭环剧本：同 spawn 那步，在 run 创建应答之前真的打两次回调
+      // （模型运行内部同步调用工具的时序），`wx_cite` 只在 run 仍是 running 时才会被 API 接受。
+      if (CITE_TRIGGER !== undefined && CITE_QUERY !== undefined && lastUserText === CITE_TRIGGER) {
+        const outcome = await runCiteScenario(parsed, threadId);
+        const record = runs.get(threadId);
+        if (record !== undefined) record.cite = outcome;
+      }
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -1228,6 +1480,14 @@ const server = createServer((req, res) => {
     // UX-9 D4：审批触发词且还没被裁决过 → 停在 interrupted，让真实 DA-07b 轮询循环
     // 读到「等人裁决」而不是直接终态。裁决（resume）到达后 record.decision 非 null，
     // 之后的轮询一律走终态分支——不会无限停在 interrupted。
+    if (startWorkflowTarget(record) !== null && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
+    if (escalateReason(record) !== null && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER && record.decision === null) {
       sendJson(res, 200, { status: "interrupted" });
       return;
@@ -1323,8 +1583,9 @@ const server = createServer((req, res) => {
     const isChoosing = isChooseOption(record);
     const isTwoInterruptTurn = isTwoInterrupt(record);
     const isTwoApprovalTurn = isTwoApproval(record);
-    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
-    const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : escalateReason(record) !== null ? `escalate-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
+    const isStartWorkflow = startWorkflowTarget(record) !== null;
+    const reply = isStartWorkflow ? startWorkflowReply(record) : escalateReason(record) !== null ? escalateReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       /*
@@ -1337,6 +1598,9 @@ const server = createServer((req, res) => {
       ? multiCanvasBodies(record.userText).join("\n\n")
       : isToolFailureTurn(record)
       ? TOOL_FAILURE_REPLY
+      // issue #4260 —— 与 `/state` 同一份终稿（`citeReply`）。
+      : isCiteTurn(record)
+      ? citeReply(record)
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
         // 只拼在默认模板上：特殊剧本各有既有断言盯着措辞，不动它们。
@@ -1426,6 +1690,26 @@ const server = createServer((req, res) => {
     // 这条触发词就永远到不了（C4 的「specific 判定被 ambient 判定永久遮住」同形）。
     if (EMPTY_REPLY_TRIGGER !== undefined && record.userText === EMPTY_REPLY_TRIGGER) {
       sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }] } });
+      return;
+    }
+    // issue #4260 —— 引用闭环：两次工具调用的结果是 API 真实回的那两份（见 `runCiteScenario`）。
+    if (isCiteTurn(record)) {
+      const cite = record.cite;
+      const messages: unknown[] = [{ type: "human", content: record.userText }];
+      if (cite !== undefined) {
+        messages.push(
+          { type: "ai", content: "我先在你的材料里检索相关来源。", tool_calls: [{ id: cite.searchCallId, name: "wx_knowledge_search", args: cite.searchArgs }] },
+          { type: "tool", tool_call_id: cite.searchCallId, content: cite.searchResult },
+        );
+        if (cite.citeArgs !== null) {
+          messages.push(
+            { type: "ai", content: "", tool_calls: [{ id: cite.citeCallId, name: "wx_cite", args: cite.citeArgs }] },
+            { type: "tool", tool_call_id: cite.citeCallId, content: cite.citeResult ?? "" },
+          );
+        }
+      }
+      messages.push({ type: "ai", content: citeReply(record) });
+      sendJson(res, 200, { values: { messages } });
       return;
     }
     const toolCallId = `call-${threadId}`;
@@ -1751,6 +2035,62 @@ const server = createServer((req, res) => {
                 ? "用户拒绝了这次技能调用，未执行。"
                 : `已执行技能：${JSON.stringify(secondArgs)}` },
             { id: `two-approval-${threadId}:final`, type: "ai", content: TWO_APPROVAL_FINAL_REPLY },
+          ],
+        },
+      });
+      return;
+    }
+    const escalation = escalateReason(record);
+    if (escalation !== null) {
+      const callId = `escalate-${threadId}`;
+      const pendingAi = {
+        id: `escalate-${threadId}:pending`,
+        type: "ai",
+        content: "这件事超出了我的职责，需要负责人拍板。",
+        tool_calls: [{ id: callId, name: ESCALATE_TOOL_NAME, args: escalateArgs(escalation) }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
+        return;
+      }
+      const finalText = escalateReply(record);
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            pendingAi,
+            { type: "tool", tool_call_id: callId, content: finalText },
+            { id: `escalate-${threadId}:final`, type: "ai", content: finalText },
+          ],
+        },
+      });
+      return;
+    }
+    const serverScript = serverComputedToolScript(record);
+    if (serverScript !== null) {
+      const callId = `${serverScript.idPrefix}-${threadId}`;
+      const pendingAi = {
+        id: `${serverScript.idPrefix}-${threadId}:pending`,
+        type: "ai",
+        content: serverScript.pendingText,
+        tool_calls: [{ id: callId, name: serverScript.name, args: serverScript.args }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pendingAi] } });
+        return;
+      }
+      const finalText = startWorkflowReply(record);
+      // UIUX r3 屏 5 #1：工具结果 = 服务端算出的 outcome.message（拒绝句含 HANDOFF_REFUSAL_MARK，
+      // 前端据此渲染「没有转交」提示条）；此前误用终稿文案，自转交等拒绝路径因此不出提示条。
+      const outcomeMessage = serverComputedOutcomeMessage(record);
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            // UIUX r3 屏 5 #2：有了结果，「正在提交……」这句过渡语就被结果取代，不留在最终气泡里。
+            { ...pendingAi, content: "" },
+            { type: "tool", tool_call_id: callId, content: outcomeMessage ?? finalText },
+            { id: `${serverScript.idPrefix}-${threadId}:final`, type: "ai", content: finalText },
           ],
         },
       });

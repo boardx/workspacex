@@ -1,15 +1,16 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Search, Plus, MoreHorizontal, AlertTriangle, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
+import { Search, Plus, MoreHorizontal, AlertTriangle, Check, Link2, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { ResourceCard } from "@/components/ui/resource-card";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
@@ -51,6 +52,13 @@ export function ProjectsScreen() {
   const [listError, setListError] = React.useState<string | null>(null);
   const [listBusy, setListBusy] = React.useState(false);
 
+  const [createOpen, setCreateOpen] = React.useState(false);
+  // 受控弹窗没有 DialogTrigger：自己记住是谁打开的，关闭后把键盘焦点还给它（否则焦点落回 <body>，键盘用户要重新从头 Tab）。
+  const createTriggerRef = React.useRef<HTMLElement | null>(null);
+  const openCreate = () => {
+    createTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setCreateOpen(true);
+  };
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<readonly string[]>([]);
 
@@ -110,7 +118,7 @@ export function ProjectsScreen() {
       <header className="flex flex-col gap-1.5">
         <h1 className="text-24 font-semibold tracking-tight">项目</h1>
         <p className="text-13 text-muted-foreground">
-          一个项目就是一场协作：议程、分组、画布、录音、产出与决策都挂在它下面。
+          将对话、白板、研究与产出收在同一处团队工作空间。
         </p>
       </header>
 
@@ -162,11 +170,9 @@ export function ProjectsScreen() {
               className="h-8 w-44 pl-7"
             />
           </div>
-          <Button asChild variant="primary" size="sm" data-testid="projects-new">
-            <Link href="/project/new">
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              新建项目
-            </Link>
+          <Button variant="primary" size="sm" data-testid="projects-new" onClick={openCreate}>
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            新建项目
           </Button>
         </div>
       </div>
@@ -200,12 +206,24 @@ export function ProjectsScreen() {
       ) : null}
 
       {listError !== null ? (
-        <p data-testid="projects-list-error" className="text-12 text-destructive">
-          {listError}
-        </p>
+        <div
+          role="alert"
+          data-testid="projects-list-error"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-13 font-medium text-destructive">项目列表暂时读不出来</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">你的项目没有丢，稍后重试即可。{" "}
+              <span className="font-mono text-11" data-testid="projects-list-error-code">{listError}</span>
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={listBusy} onClick={() => void refresh(orgId)} data-testid="projects-list-error-retry">
+            {listBusy ? "重试中…" : "重试"}
+          </Button>
+        </div>
       ) : null}
 
-      {projects === null ? (
+      {projects === null && listError !== null ? null : projects === null ? (
         <div
           data-testid="projects-list-empty-state"
           className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
@@ -245,10 +263,14 @@ export function ProjectsScreen() {
             <>
               <p className="text-13 text-card-foreground">这里还没有项目。</p>
               <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
-                一个项目把一场协作的议程、分组、画布、录音、产出与决策收在一起。
+                一个项目是一处团队工作空间：对话、白板、访谈、问卷、研究、设计都收在一起，AI 在项目大脑里帮你推演结论。
                 <br />
                 也可以先不建项目，直接去「对话」里交一件事给 AI。
               </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <Button variant="primary" onClick={openCreate} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
+                <Button variant="outline" asChild><Link href="/chat">先去对话</Link></Button>
+              </div>
             </>
           )}
         </div>
@@ -265,6 +287,13 @@ export function ProjectsScreen() {
           ))}
         </ul>
       )}
+
+      {/* #4743：新建项目走弹窗（同系统其它创建弹窗），不再跳独立页 */}
+      <CreateProjectDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCloseAutoFocus={(event) => { event.preventDefault(); createTriggerRef.current?.focus(); }}
+      />
     </div>
   );
 }
@@ -295,6 +324,17 @@ function ProjectRealCard({
 
   const close = () => { setOpen(false); setConfirming(false); };
 
+  const [copied, setCopied] = React.useState(false);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/projects/${project.id}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);            // 剪贴板不可用（非安全上下文等）：不假装成功
+    }
+  };
+
   const submit = async () => {
     if (busy) return;               // 提交进行中不发第二个请求
     setBusy(true);
@@ -313,134 +353,124 @@ function ProjectRealCard({
 
   return (
     <li>
-      <Card data-testid={`projects-card-${project.id}`} className="transition-all duration-200 hover:shadow-md">
-        <CardContent className={cn("flex flex-col gap-3 p-4", layout === "list" && "sm:flex-row sm:items-center sm:justify-between")}>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 flex-col gap-1">
-                <h3 className="truncate text-14 font-semibold tracking-tight" data-testid={`projects-card-${project.id}-name`}>
-                  {project.name}
-                </h3>
-                <p className="text-11 text-muted-foreground">{PROJECT_KIND_LABEL[project.kind]}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Badge tone={project.status === "active" ? "primary" : "outline"} data-testid={`projects-card-${project.id}-status`}>
-                  {PROJECT_STATUS_LABEL[project.status]}
-                </Badge>
-                {project.readOnlyReason !== null ? (
-                  <Badge tone="outline" data-testid={`projects-card-${project.id}-readonly`}>
-                    只读 · {project.readOnlyReason === "archived" ? "已归档" : "组织已停用"}
-                  </Badge>
-                ) : null}
-
-                <Menu
-                  open={open}
-                  onOpenChange={(next) => {
-                    setOpen(next);
-                    setConfirming(false);
-                    setError(null);
-                  }}
-                >
-                  <MenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="更多操作"
-                      data-testid={`projects-card-${project.id}-more`}
-                    >
-                      <MoreHorizontal aria-hidden className="h-4 w-4" />
-                    </Button>
-                  </MenuTrigger>
-                  <MenuContent align="end" sideOffset={4} data-testid={`projects-more-menu-${project.id}`} className="w-64">
-                    {confirming ? (
-                      <div className="flex flex-col gap-2 p-2" data-testid={`projects-archive-confirm-${project.id}`}>
-                        <p className="text-12 font-medium">
-                          {archived ? "确认恢复这个项目？" : "确认归档这个项目？"}
-                        </p>
-                        <div className="rounded-md border border-warning/30 bg-warning/5 p-2">
-                          {archived ? (
-                            <p className="text-11 text-muted-foreground">恢复后项目重新可写，内容与引用关系不变。</p>
-                          ) : (
-                            <>
-                              <p className="text-11 font-medium text-warning-foreground">归档会影响：</p>
-                              {/* 这几条都来自 F124（已 passing）真实验证过的归档语义，不是文案想象 */}
-                              <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground">
-                                <li>项目转为只读：写入被拒绝，读仍然可用</li>
-                                <li>不删除任何内容，误归档可一键恢复</li>
-                                <li>已定版的快照仍可被下游引用</li>
-                                <li>默认不再被上下文召回，需要时可显式请求</li>
-                              </ul>
-                            </>
-                          )}
-                        </div>
-                        {error !== null ? (
-                          <p className="text-11 text-destructive" data-testid={`projects-archive-error-${project.id}`}>
-                            {error}
-                          </p>
-                        ) : null}
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            data-testid={`projects-archive-cancel-${project.id}`}
-                            onClick={close}
-                            disabled={busy}
-                          >
-                            取消
-                          </Button>
-                          <Button
-                            variant={archived ? "primary" : "destructive"}
-                            size="sm"
-                            data-testid={`projects-archive-submit-${project.id}`}
-                            onClick={() => void submit()}
-                            disabled={busy}
-                          >
-                            {busy ? "提交中…" : archived ? "确认恢复" : "确认归档"}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <MenuItemUnavailable testid={`projects-more-${project.id}-edit`}>编辑项目</MenuItemUnavailable>
-                        <MenuItemUnavailable testid={`projects-more-${project.id}-bigscreen`}>看现场大屏</MenuItemUnavailable>
-                        <MenuItemUnavailable testid={`projects-more-${project.id}-copy-invite`}>复制邀请链接</MenuItemUnavailable>
-                        <p
-                          className="px-2 py-1 text-9 text-muted-foreground"
-                          data-testid={`projects-more-${project.id}-unavailable-note`}
-                        >
-                          上面三项后端尚未实现，暂不可用。
-                        </p>
-                        <MenuSeparator />
-                        {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
-                            子态，不能让 Radix「选中即关闭」抢先把菜单关掉。 */}
-                        <MenuItem
-                          data-testid={`projects-more-${project.id}-archive`}
-                          onSelect={(event) => { event.preventDefault(); setConfirming(true); setError(null); }}
-                          className={cn(archived ? "text-card-foreground" : "text-destructive data-[highlighted]:text-destructive")}
-                        >
-                          <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-                          {archived ? "恢复项目" : "归档项目"}
-                        </MenuItem>
-                        <p className="px-2 py-1 text-9 text-muted-foreground">
-                          不提供「删除项目」（Q-9）：归档 = 退役且可只读回看，不销毁内容。
-                        </p>
-                      </>
-                    )}
-                  </MenuContent>
-                </Menu>
-              </div>
-            </div>
-
-            <TagsEditor project={project} onChanged={onChanged} />
-          </div>
-
-          <div className={cn(layout === "list" && "shrink-0")}>
-            <Button asChild variant="primary" size="sm">
-              <a href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</a>
+      <ResourceCard
+        testId={`projects-card-${project.id}`}
+        headingLevel={2}
+        layout={layout === "list" ? "list" : "grid"}
+        title={project.name}
+        titleTestId={`projects-card-${project.id}-name`}
+        subtitle={PROJECT_KIND_LABEL[project.kind]}
+        badges={
+          <>
+        <Badge tone={project.status === "active" ? "primary" : "outline"} data-testid={`projects-card-${project.id}-status`}>
+          {PROJECT_STATUS_LABEL[project.status]}
+        </Badge>
+        {project.readOnlyReason !== null ? (
+          <Badge tone="outline" data-testid={`projects-card-${project.id}-readonly`}>
+            只读 · {project.readOnlyReason === "archived" ? "已归档" : "组织已停用"}
+          </Badge>
+        ) : null}
+          </>
+        }
+        menu={
+        <Menu
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            setConfirming(false);
+            setError(null);
+          }}
+        >
+          <MenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="更多操作"
+              data-testid={`projects-card-${project.id}-more`}
+            >
+              <MoreHorizontal aria-hidden className="h-4 w-4" />
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </MenuTrigger>
+          <MenuContent align="end" sideOffset={4} data-testid={`projects-more-menu-${project.id}`} className="w-64">
+            {confirming ? (
+              <div className="flex flex-col gap-2 p-2" data-testid={`projects-archive-confirm-${project.id}`}>
+                <p className="text-12 font-medium">
+                  {archived ? "确认恢复这个项目？" : "确认归档这个项目？"}
+                </p>
+                <div className="rounded-md border border-warning/30 bg-warning/5 p-2">
+                  {archived ? (
+                    <p className="text-11 text-muted-foreground">恢复后项目重新可写，内容与引用关系不变。</p>
+                  ) : (
+                    <>
+                      <p className="text-11 font-medium text-warning-foreground">归档会影响：</p>
+                      {/* 这几条都来自 F124（已 passing）真实验证过的归档语义，不是文案想象 */}
+                      <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground">
+                        <li>项目转为只读：写入被拒绝，读仍然可用</li>
+                        <li>不删除任何内容，误归档可一键恢复</li>
+                        <li>已定版的快照仍可被下游引用</li>
+                        <li>默认不再被上下文召回，需要时可显式请求</li>
+                      </ul>
+                    </>
+                  )}
+                </div>
+                {error !== null ? (
+                  <p className="text-11 text-destructive" data-testid={`projects-archive-error-${project.id}`}>
+                    {error}
+                  </p>
+                ) : null}
+                <div className="flex justify-end gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid={`projects-archive-cancel-${project.id}`}
+                    onClick={close}
+                    disabled={busy}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    variant={archived ? "primary" : "destructive"}
+                    size="sm"
+                    data-testid={`projects-archive-submit-${project.id}`}
+                    onClick={() => void submit()}
+                    disabled={busy}
+                  >
+                    {busy ? "提交中…" : archived ? "确认恢复" : "确认归档"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <MenuItem
+                  data-testid={`projects-more-${project.id}-copy-link`}
+                  onSelect={(event) => { event.preventDefault(); void copyLink(); }}
+                >
+                  {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Link2 aria-hidden className="h-3.5 w-3.5" />}
+                  {copied ? "已复制项目链接" : "复制项目链接"}
+                </MenuItem>
+                <MenuSeparator />
+                {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
+                    子态，不能让 Radix「选中即关闭」抢先把菜单关掉。 */}
+                <MenuItem
+                  data-testid={`projects-more-${project.id}-archive`}
+                  onSelect={(event) => { event.preventDefault(); setConfirming(true); setError(null); }}
+                  className={cn(archived ? "text-card-foreground" : "text-destructive data-[highlighted]:text-destructive")}
+                >
+                  <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
+                  {archived ? "恢复项目" : "归档项目"}
+                </MenuItem>
+              </>
+            )}
+          </MenuContent>
+        </Menu>
+        }
+        tags={<TagsEditor project={project} onChanged={onChanged} />}
+        actions={
+          <Button asChild variant="primary" size="sm">
+            <a href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</a>
+          </Button>
+        }
+      />
     </li>
   );
 }
@@ -539,15 +569,6 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
         </span>
       ) : null}
     </div>
-  );
-}
-
-/** 后端未实现的菜单项：禁用 + 如实说明，不做成点了弹「演示」的假按钮。 */
-function MenuItemUnavailable({ children, testid }: { children: React.ReactNode; testid: string }) {
-  return (
-    <MenuItem disabled data-testid={testid} className="text-muted-foreground opacity-60">
-      {children}
-    </MenuItem>
   );
 }
 

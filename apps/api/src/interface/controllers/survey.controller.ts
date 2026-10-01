@@ -1,6 +1,8 @@
 import { SurveyTemplateInputSchema, SurveyTemplateSaveInputSchema, SurveyTemplateKindSchema } from "@repo/contracts/survey-template-library";
 import { SurveyTemplateService, SURVEY_TEMPLATE_REPOSITORY, type SurveyTemplateRepository } from "../../application/survey/survey-template-service";
 import { SurveySubmissionRateLimitGuard } from "../guards/survey-submission-rate-limit.guard";
+import { createHash } from 'node:crypto';
+import type { Request, Response } from 'express';
 import {
   BadRequestException,
   Body,
@@ -16,6 +18,8 @@ import {
   Post,
   Put,
   Query,
+  Req,
+  Res,
   UnprocessableEntityException,
   UseGuards,
 } from "@nestjs/common";
@@ -28,6 +32,7 @@ import {
   SurveyPublishInputSchema,
   SurveySubmissionInputSchema,
   SurveyResponseReviewInputSchema,
+  SurveySourceSaveCommandSchema,
 } from "@repo/contracts/survey-runtime";
 import {
   SurveyError,
@@ -65,6 +70,12 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
       throw new ConflictException({ reasonCode: "INVALID_TRANSITION" });
     if (e.code === "submission_conflict")
       throw new ConflictException(e.code);
+    if (e.code === 'already_submitted') throw new ConflictException({reasonCode:'SURVEY_ALREADY_SUBMITTED'});
+    if (e.code === "invalid_source")
+      throw new BadRequestException({
+        reasonCode: "SURVEY_SOURCE_INVALID",
+        diagnostics: e.details,
+      });
     if (e.code === "closed" || e.code === "expired")
       throw new GoneException(e.code);
     throw new BadRequestException(e.code);
@@ -127,6 +138,19 @@ export class SurveyController {
   @Get("/:id") get(@CurrentPrincipal() p: Principal, @Param("id") id: string) {
     assertPrincipal(p);
     return run(() => this.service.get(p.orgId, p.userId, id));
+  }
+  @Get("/:id/source") source(@CurrentPrincipal() p: Principal, @Param("id") id: string) {
+    assertPrincipal(p);
+    return run(async () => (await this.service.get(p.orgId, p.userId, id)).source);
+  }
+  @Put("/:id/source") saveSource(
+    @CurrentPrincipal() p: Principal,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(p);
+    const input = parse(SurveySourceSaveCommandSchema, body);
+    return run(() => this.service.saveSource(p.orgId, p.userId, id, input.expectedVersion, input.documents));
   }
   @Put("/:id") save(
     @CurrentPrincipal() p: Principal,
@@ -221,6 +245,13 @@ export class SurveyController {
       this.service.close(p.orgId, p.userId, id, input.expectedVersion),
     );
   }
+  @Post("/:id/republish") republish(
+    @CurrentPrincipal() p: Principal, @Param("id") id: string, @Body() body: unknown,
+  ) {
+    assertPrincipal(p);
+    const input = parse(SurveyPublishInputSchema, body);
+    return run(() => this.service.republish(p.orgId, p.userId, id, input.expectedVersion, input.expiresAt));
+  }
   @Patch("/:id/responses/:responseId") review(
     @CurrentPrincipal() p: Principal,
     @Param("id") id: string,
@@ -255,14 +286,27 @@ export class PublicSurveyController {
   constructor(@Inject(SURVEY_REPOSITORY) repo: SurveyRepository) {
     this.service = new SurveyService(repo);
   }
-  @Public() @Get("/:token") get(@Param("token") token: string) {
-    return run(() => this.service.publicGet(token));
+  private cookieName(token:string) { return `survey_browser_${createHash('sha256').update(token).digest('hex').slice(0,24)}`; }
+  private proof(token:string, req:Request) {
+    const name=this.cookieName(token);
+    const entry=req.headers.cookie?.split(';').map(part=>part.trim()).find(part=>part.startsWith(`${name}=`));
+    return entry?.slice(name.length+1);
+  }
+  @Public() @Get("/:token") get(@Param("token") token: string, @Req() req:Request, @Res({passthrough:true}) res:Response) {
+    return run(async () => {
+      const result=await this.service.openPublic(token,this.proof(token,req));
+      res.setHeader('Cache-Control','private, no-store');
+      if(result.browserProof) res.cookie(this.cookieName(token),result.browserProof,{
+        httpOnly:true,secure:process.env.NODE_ENV==='production' || req.secure,sameSite:'lax',path:'/',expires:new Date(result.data.expiresAt),
+      });
+      return result.data;
+    });
   }
   @Public()
   @UseGuards(SurveySubmissionRateLimitGuard)
   @Post("/:token/responses")
-  submit(@Param("token") token: string, @Body() body: unknown) {
+  submit(@Param("token") token: string, @Body() body: unknown, @Req() req:Request) {
     const input = parse(SurveySubmissionInputSchema, body);
-    return run(() => this.service.submit(token, input));
+    return run(() => this.service.submit(token, input,this.proof(token,req)));
   }
 }

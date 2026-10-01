@@ -38,7 +38,7 @@ async function loginAsAdmin(page: Page) {
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 async function openSkillCatalog(page: Page) {
@@ -49,7 +49,13 @@ async function openSkillCatalog(page: Page) {
 test("F192 · /skill 库屏没有「完全新建」入口，弹窗默认落在真实可达的导入路径上", async ({ page }) => {
   const failures: string[] = [];
   page.on("console", (m) => {
-    if (m.type() === "error") failures.push(`console error: ${m.text()}`);
+    if (m.type() !== "error") return;
+    // The home shell probes workshop projects for a readable Today board. A
+    // 403 on this one endpoint is handled by trying the next project; Chromium
+    // still reports that handled response as a resource console error.
+    if (m.location().url.includes("/__fullstack_api/tasks/today?")
+      && m.text() === "Failed to load resource: the server responded with a status of 403 (Forbidden)") return;
+    failures.push(`console error: ${m.text()}`);
   });
   page.on("pageerror", (e) => failures.push(`page error: ${e.message}`));
 

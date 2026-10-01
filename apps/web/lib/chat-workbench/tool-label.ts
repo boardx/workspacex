@@ -55,6 +55,10 @@ export const TOOL_LABEL: Record<string, string> = {
   wx_document_parse: "解析文档",
   wx_knowledge_search: "检索知识库",
   wx_knowledge_read: "读取知识库",
+  wx_cite: "标注引用来源",
+  // #4344：agent 唯一的记忆工具——只在回答下方放一张「记住」确认卡，用户点了才记。
+  wx_remember: "提议记住（待你确认）",
+  // 已退役（#4344），留着是为了旧 run 的轨迹仍显示中文名。
   wx_memory_search: "检索记忆",
   wx_memory_write: "记录记忆",
   wx_memory_delete: "删除记忆",
@@ -72,6 +76,11 @@ export const TOOL_LABEL: Record<string, string> = {
   wx_schedule_create: "创建日程",
   wx_schedule_list: "查看日程",
   wx_schedule_cancel: "取消日程",
+  // —— 流程 ——
+  // AG05：Agent 发起组织已发布的 Workflow（白名单外会被拒绝，结果句子在工具结果里）。
+  start_workflow: "发起流程",
+  // AG07：Agent 请求把问题转交给另一个数字人角色（需用户确认，结果句子在工具结果里）。
+  request_handoff: "请求转交",
   // —— 数据库 ——
   sql_db_list_tables: "查看数据表",
   sql_db_schema: "查看表结构",
@@ -119,7 +128,7 @@ export function toolObject(name: string, args: unknown): string | null {
   if (path !== null) return clamp(basename(path));
   const url = pick("url", "href");
   if (url !== null) return clamp(hostOf(url));
-  const query = pick("query", "q", "pattern", "search", "keyword", "description", "command", "sql", "prompt", "subject", "title", "name");
+  const query = pick("query", "q", "pattern", "search", "keyword", "description", "command", "sql", "prompt", "subject", "title", "name", "statement", "workflowId", "targetRole");
   if (query !== null) return clamp(query);
   return null;
 }

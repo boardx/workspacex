@@ -98,11 +98,17 @@ function toGuarded(row: Row): Guarded<CandidateRow> {
  * organization layer is always in scope, the project layer is only in scope when there is a
  * project. Personal-layer content is in scope only when it is not private -- i.e. only what the
  * owner explicitly raised, which is the rule R3 step 2 states.
+ *
+ * FF-104: rows of a logically-deleted artifact are out, too. F45's cascade removes them, but the
+ * browser hides a deleted artifact by `deleted_at` alone -- retrieval must not depend on the
+ * physical removal having happened (or on nobody re-indexing in between).
  */
 const CANDIDATE_SET = `
   st.org_id = $1
   AND NOT (st.layer = 'personal' AND st.private)
-  AND ($2::text IS NULL OR st.project_id = $2 OR st.layer <> 'project')`;
+  AND ($2::text IS NULL OR st.project_id = $2 OR st.layer <> 'project')
+  AND NOT EXISTS (SELECT 1 FROM artifacts da
+                   WHERE da.org_id = st.org_id AND da.id = st.artifact_id AND da.deleted_at IS NOT NULL)`;
 
 export class PgSegmentRetriever implements SegmentRetriever {
   /**

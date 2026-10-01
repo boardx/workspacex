@@ -297,6 +297,17 @@ export interface ChatRepository {
     expectedVersion: number,
   ): Promise<number | null>;
 
+  /**
+   * 改可见范围（项目中枢 R5，分享）。乐观并发同 `renameThread` / `setThreadPinned`：
+   * `expectedVersion` 不匹配返回 `null`。**不写 `last_activity_at`**——分享不是「有新动静」。
+   */
+  setThreadVisibility(
+    orgId: OrgId,
+    threadId: string,
+    visibilityScope: ThreadFacts["visibilityScope"],
+    expectedVersion: number,
+  ): Promise<number | null>;
+
   findThreadFile(orgId: OrgId, threadId: string): Promise<ThreadFileRecord | null>;
 
   /**
@@ -368,6 +379,24 @@ export interface ChatRepository {
   ): Promise<void>;
 
   /**
+   * Chat 语音模式（实时数字人）一轮转写落成普通消息：用户那句 `author_kind='human'`、
+   * 数字人那句 `author_kind='agent'`（`agent_id` = 所选已发布 Agent，通用助手为 null）。
+   * 不建 run、不走 `acceptHumanMessage`（那会排队一次文字 run）。判权不在这里——调用方
+   * （`realtime-voice-session.ts`）已过 `resolveVisibility` 且确认可写。
+   */
+  insertVoiceTranscriptMessage(
+    orgId: OrgId,
+    input: {
+      readonly id: string;
+      readonly threadId: string;
+      readonly authorKind: "human" | "agent";
+      readonly authorId: string;
+      readonly agentId: string | null;
+      readonly body: string;
+    },
+  ): Promise<void>;
+
+  /**
    * 引用锚点 kind 为 `message` 时，被指的那条消息**是否存在于本组织**（同租户即可，
    * 不额外判可见性——I-24 问的是"能不能定位到原件"，不是"当前请求者能不能读"）。
    */
@@ -383,6 +412,12 @@ export interface ChatRepository {
    * 早晚在某次改动里分家。
    */
   findCitationsForMessage(orgId: OrgId, messageId: string): Promise<readonly ChatCitationRow[]>;
+
+  /**
+   * #4227 —— 一批消息的全部引用（`getThread` 一次取齐，不逐条 N+1）。租户内读，按
+   * `(message_id, idx)` 排序。**可选**：未实现的仓储（既有测试替身）⇒ `getThread` 回 `citations: []`。
+   */
+  findCitationsForMessages?(orgId: OrgId, messageIds: readonly string[]): Promise<readonly ChatCitationRow[]>;
 
   /**
    * 引用的来源材料是否仍然存在（`SOURCE_ARTIFACT_DELETED`）。

@@ -41,7 +41,7 @@ vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: ORG } }),
 }));
 
-import { NewProjectFlow } from "@/components/project/new-project-flow";
+import { NewProjectFlow, resolveNewProjectMode } from "@/components/project/new-project-flow";
 import { INIT_CATEGORIES } from "@/lib/mock/tpl";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -95,7 +95,7 @@ describe("PJ-01 提交：真实 POST /projects", () => {
       jsonResponse({ id: "p-new-001", kind: "workshop", status: "active", provenanceEventId: "ev-1" }),
     );
 
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
 
     // 没填名字之前不能提交——契约 name 是 min(1)，空名字的请求不该发出去。
     expect(screen.getByTestId("project-new-create")).toBeDisabled();
@@ -143,7 +143,7 @@ describe("PJ-01 提交：真实 POST /projects", () => {
       }),
     );
 
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
     fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "重复提交测试" } });
 
     const btn = screen.getByTestId("project-new-create");
@@ -164,7 +164,7 @@ describe("PJ-01 失败面：不静默、不锁死", () => {
       jsonResponse({ error: "forbidden", traceId: "t-1", reasonCode: "ORG_ROLE_INSUFFICIENT" }, 403),
     );
 
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
     fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "无权限也要试一下" } });
     fireEvent.click(screen.getByTestId("project-new-create"));
 
@@ -194,7 +194,7 @@ describe("PJ-01 如实标注：没接的东西不装成接了", () => {
         ]),
     );
 
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
 
     const note = await screen.findByTestId("project-new-blueprint-unavailable");
     expect(note).toHaveTextContent("已有 2 个蓝本，但还没有可套用的已发布版本");
@@ -214,7 +214,7 @@ describe("PJ-01 如实标注：没接的东西不装成接了", () => {
       () => jsonResponse([]),
     );
 
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
 
     const note = await screen.findByTestId("project-new-blueprint-unavailable");
     await waitFor(() => expect(note).toHaveTextContent("这个组织还没有人建过蓝本"));
@@ -222,7 +222,7 @@ describe("PJ-01 如实标注：没接的东西不装成接了", () => {
   });
 
   it("契约收不到的四项标注为不写入后端，且不是可编辑输入框", () => {
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
 
     expect(screen.getByTestId("project-new-unpersisted-note")).toHaveTextContent("本版不写入后端");
     for (const id of [
@@ -236,11 +236,73 @@ describe("PJ-01 如实标注：没接的东西不装成接了", () => {
   });
 
   it("六类初始化一览仍与蓝本设计器同源（I-17），不多不少", () => {
-    render(<NewProjectFlow />);
+    render(<NewProjectFlow mode="workshop" />);
     const preview = screen.getByTestId("project-new-init-preview");
     expect(within(preview).getAllByTestId("project-new-init-item")).toHaveLength(INIT_CATEGORIES.length);
     for (const c of INIT_CATEGORIES) {
       expect(preview.textContent).toContain(c.label);
     }
+  });
+});
+
+/**
+ * #4615（PROP-PROJECT-WORKSPACE-001 §3.4）—— 默认的新建页一步到位：只填项目名称，建 `kind: "general"`；
+ * 工作坊向导退为次要入口 `?mode=workshop`（上面各用例以 `mode="workshop"` 渲染的就是它）。
+ */
+describe("#4615 新建项目（默认：通用项目，一步）", () => {
+  it("只有名称 + 创建；POST 的 kind 是 general；成功后进入刚建成的项目", async () => {
+    stubFetch(() => jsonResponse({ id: "p-gen-1", kind: "general", status: "active", provenanceEventId: "ev-g" }));
+    render(<NewProjectFlow />);
+
+    expect(screen.getByTestId("project-new-title")).toHaveTextContent("新建项目");
+    expect(screen.getByTestId("project-new")).toHaveTextContent("白板");
+    // 工作坊专属的占位全都不在默认路径上
+    for (const id of [
+      "project-new-blueprint-unavailable", "project-new-scratch", "project-new-linked-source",
+      "project-new-duration", "project-new-datetime", "project-new-headcount", "project-new-init-preview",
+    ]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+
+    expect(screen.getByTestId("project-new-create")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "  新品上市调研 " } });
+    fireEvent.click(screen.getByTestId("project-new-create"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith(`/projects/p-gen-1?org=${ORG}`));
+
+    // 默认路径不拉蓝本目录；只发了一次 POST /projects
+    expect(calls.filter((c) => c.pathname === "/blueprints")).toHaveLength(0);
+    const createCalls = calls.filter((c) => c.method === "POST" && c.pathname === "/projects");
+    expect(createCalls).toHaveLength(1);
+    expect(createCalls[0]!.body).toEqual({ orgId: ORG, name: "新品上市调研", kind: "general", blueprintVersionId: null });
+  });
+
+  it("次要入口「用工作坊模板创建」链到 ?mode=workshop；工作坊向导反向链回默认页", () => {
+    stubFetch(() => jsonResponse({}));
+    const { unmount } = render(<NewProjectFlow />);
+    const link = screen.getByTestId("project-new-workshop-link");
+    expect(link).toHaveAttribute("href", "/project/new?mode=workshop");
+    expect(link).toHaveTextContent("要办一场工作坊？用工作坊模板创建");
+    unmount();
+    render(<NewProjectFlow mode="workshop" />);
+    expect(screen.getByTestId("project-new-general-link")).toHaveAttribute("href", "/project/new");
+  });
+
+  it("失败时就地说人话（原因码只在 data-reason 上），按钮恢复可点", async () => {
+    stubFetch(() => jsonResponse({ error: "forbidden", reasonCode: "ORG_ROLE_INSUFFICIENT" }, 403));
+    render(<NewProjectFlow />);
+    fireEvent.change(screen.getByTestId("project-new-name"), { target: { value: "被拒绝的项目" } });
+    fireEvent.click(screen.getByTestId("project-new-create"));
+    const err = await screen.findByTestId("project-new-error");
+    expect(err).toHaveTextContent("你在当前组织的角色不能新建项目");
+    expect(err).not.toHaveTextContent("ORG_ROLE_INSUFFICIENT");
+    expect(err).toHaveAttribute("data-reason", "ORG_ROLE_INSUFFICIENT");
+    expect(screen.getByTestId("project-new-create")).toBeEnabled();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("resolveNewProjectMode：只有 workshop 走工作坊向导，其余一律默认", () => {
+    expect(resolveNewProjectMode("workshop")).toBe("workshop");
+    expect(resolveNewProjectMode(undefined)).toBe("general");
+    expect(resolveNewProjectMode("research_project")).toBe("general");
   });
 });

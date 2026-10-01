@@ -57,7 +57,7 @@ describe("F08: 每条带理由，缺席的通道显式记录", () => {
     }
   });
 
-  it("向量路本阶段没有嵌入：available = false 且 hitCount = 0，而不是悄悄略过（D-I1）", async () => {
+  it("没配置嵌入模型（S9 #4366 起向量路要部署配置才启用）：available = false 且 hitCount = 0，而不是悄悄略过（D-I1）", async () => {
     const r = await recall("v2 是谁定的？");
     expect(r.plan.find((p) => p.channel === "vector")).toEqual({ channel: "vector", weight: 0, hitCount: 0, available: false });
     for (const p of r.plan) if (!p.available) expect(p.hitCount).toBe(0);

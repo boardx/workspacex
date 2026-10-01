@@ -89,11 +89,11 @@ export async function deletePersonalTranscription(
 
 export async function stopPersonalTranscription(
   deps: { readonly identities: IdentityRepository; readonly repository: PersonalTranscriptionRepository },
-  input: { readonly userId: string; readonly orgId: OrgId; readonly transcriptionId: string },
+  input: { readonly userId: string; readonly orgId: OrgId; readonly transcriptionId: string; readonly captureId?: string },
 ) {
   await requireOrgMembership(deps.identities, input.userId, input.orgId);
   const result = await deps.repository.stopActiveOwned({ orgId: input.orgId, ownerUserId: input.userId,
-    transcriptionId: input.transcriptionId });
+    transcriptionId: input.transcriptionId, captureId: input.captureId });
   if (result.kind === "not_found") throw new PersonalTranscriptionNotFound();
   if (result.kind === "capture_active") throw new Error("stopActiveOwned returned an impossible active result");
   return result.value;

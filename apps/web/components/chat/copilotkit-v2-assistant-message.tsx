@@ -1,7 +1,13 @@
 "use client";
 
+import { AgentIdentityRow, AssistantIdentityDrawnContext, shouldShowAssistantIdentity } from "./copilotkit-v2-agent-identity";
 import * as React from "react";
-import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
+import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
+import { MessageRunContext, RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
+import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
+import { toolPreambleCall, useLiveMessages } from "@/lib/chat-workbench/tool-preamble";
+import { isHandoffCardNarration } from "@/lib/chat-workbench/handoff-narration";
+import { RunEscalationRecords } from "@/components/chat/agent-escalation-card";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -68,10 +74,10 @@ function V2ToolCallsView(
 ): JSX.Element | null {
   const covered = React.useContext(RunTraceCoveredContext);
   const allToolCalls = props.message.toolCalls ?? [];
-  const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name));
+  const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name) || isInlineNoticeTool(call.function.name));
   // write_todos is projected into the durable plan ledger. Rendering its legacy
   // message card as well creates contradictory copies after updates and replay.
-  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name) && call.function.name !== "write_todos");
+  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name) && !isInlineNoticeTool(call.function.name) && call.function.name !== "write_todos");
   const decisions = decisionCalls.length ? <CopilotChatToolCallsView {...props} message={{ ...props.message, toolCalls: decisionCalls }} /> : null;
   const [expanded, setExpanded] = React.useState(false);
   // `React.useId()`：同一个组件实例在其生命周期内稳定不变（`aria-controls`
@@ -84,7 +90,7 @@ function V2ToolCallsView(
     <>
     {decisions}
     <div
-      className="flex flex-col rounded-lg border border-border-subtle bg-muted/30"
+      className="flex flex-col rounded-card border border-border-subtle bg-card shadow-sm"
       data-testid="copilotkit-v2-tool-calls-group"
       data-tool-calls-count={toolCalls.length}
     >
@@ -314,18 +320,46 @@ function V2AssistantMessageImpl(
     ),
     [messageId],
   );
+  const traceCovered = React.useContext(RunTraceCoveredContext);
+  const runId = React.useContext(MessageRunContext);
+  // UIUX r5：转交请求的前导语「正在提交转交请求。」只要其后（或同条）存在 request_handoff 调用——
+  // 待确认（interrupt，尚无结果）或已有结果都算——就不画：确认卡 / 「没有转交」提示条已表达状态。
+  // uiux-r3 #4.2 / r4：升级调用的待决旁白同理（实时流里前导语与调用是两条消息，读实时消息列表判定）。
+  const liveMessages = useLiveMessages(props.messages);
+  const handoffPreamble = toolPreambleCall(props.message, liveMessages, isInlineNoticeTool);
+  const handoffPreambleSettled = handoffPreamble !== null && text.trim() !== "";
+  const handoffNarration = isHandoffCardNarration(props.message as never, liveMessages);
+  const escalatePreamble = toolPreambleCall(props.message, liveMessages, (name) => name === ESCALATE_TOOL_NAME) !== null;
+  // 规则：所有 hook 都在此之前调用；下面的提前返回只许放在这一行之后（合并分支新增 hook 时加在本行之前）。
+  if (((handoffPreambleSettled && (props.message.toolCalls ?? []).length === 0) || (handoffNarration && producedFiles.length === 0)) ) return <></>;
+  if ((isPendingToolStatement(props.message) || escalatePreamble) && producedFiles.length === 0) return <></>;
+  // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
+  // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回
+  // null），可框架的消息外壳 + 空 markdown 容器照样占一格——20 次工具调用就叠出一屏空白。
+  // 这类消息没有任何可见内容，整条不渲染；待决策的工具卡与产出文件仍照常显示。
+  if ((isInvisibleToolOnlyMessage(props.message, text, traceCovered) || isProcessNarration(props.message, text, traceCovered))
+    && producedFiles.length === 0) return <></>;
+  // UIUX r6 屏 5：复述确认卡的转交旁白不渲染，也不该算「已画过身份头」——按同一判据把它们排除在外。
+  const identityShown = shouldShowAssistantIdentity(props.message, props.messages, (m) => isHandoffCardNarration(m as never, liveMessages));
   return (
     // issue #2132（真实 devapp 实测：消息操作条位置不对）—— `gap-1` 收紧自
     // 此前的 `gap-1.5`：框架自己的 toolbar（复制/反馈/评分）与下面「落地为产物」
     // 是两个物理上分开的节点（CK-P3/CK-P7 各自的加法，见下方注释），够不着把两者
     // 塞进同一个 flex 容器统一对齐——但把间距收紧到跟框架 toolbar 内部同一量级，
     // 至少让它们读作"同一条消息下的连续操作区"，不是两个不相关的独立区块。
+    // issue #4244：已落库回答的引用（`ThreadCitationsProvider`，来自 `getThread`）——正文 `[n]`
+    // 可点 + 气泡下方紧凑列表；流式中/无引用时不建作用域，渲染不变。
+    <PersistedMessageCitationScope messageId={persistedMessageId}>
+    <AssistantIdentityDrawnContext.Provider value={identityShown}>
     <div className="flex flex-col gap-1">
+      {identityShown ? <AgentIdentityRow agentId={actionsCtx?.agentId} runId={runId} /> : null}
+      {runId && identityShown ? <RunEscalationRecords runId={runId} /> : null}
       <CopilotChatAssistantMessage
         {...props}
         // issue #2307 —— 见上方 `effectiveIsRunning` 的完整推理：只对这一条消息
         // 覆盖框架自己的"是否还在跑"判断，落库 id 一旦解析出来就不再让协议层
         // `RUN_FINISHED` 的到达时序卡住整条 toolbar（含下面的落地入口）。
+        {...(handoffPreambleSettled ? { message: { ...props.message, content: "" } } : {})}
         isRunning={effectiveIsRunning}
         markdownRenderer={markdownRenderer}
         copyButton={copyButton}
@@ -340,6 +374,7 @@ function V2AssistantMessageImpl(
           </>
         }
       />
+      <CitationList />
       {/* issue #2052（CK-P7）—— 打开后的表单/提交中/出错/完成四态，需要的宽度进不了
           行内工具栏，所以仍作为气泡的兄弟节点挂在下面（未打开时它自己不渲染任何东西，
           见 `MessageLandingPanel`）。⚠ 这不是第二层 slot 包装：`assistantMessage` slot
@@ -364,7 +399,43 @@ function V2AssistantMessageImpl(
         <TurnMemoryLine threadId={artifactThreadId} messageId={persistedMessageId} />
       ) : null}
     </div>
+    </AssistantIdentityDrawnContext.Provider>
+    </PersistedMessageCitationScope>
   );
+}
+
+/** 正文为空、且每个工具调用都不会在消息里画出任何东西（已被执行轨迹承载，或是由计划
+ * 账本承载的 `write_todos`）。待决策的工具调用会画确认卡，不算。 */
+export function isInvisibleToolOnlyMessage(
+  message: { toolCalls?: readonly { function: { name: string } }[] },
+  text: string,
+  traceCovered: boolean,
+): boolean {
+  const calls = message.toolCalls ?? [];
+  if (text.trim() !== "" || calls.length === 0) return false;
+  return calls.every((call) => !isDecisionTool(call.function.name) && !isInlineNoticeTool(call.function.name) && (traceCovered || call.function.name === "write_todos"));
+}
+
+/** 2026-09-27 人类反馈（截图：计划执行时正文里一段段「现在开始用 pptxgenjs…」「PPT 文件已生成，
+ * 现在进行渲染验证。」「渲染成功，13 页…」，「感觉很乱」「不要把细节给用户看」）。
+ *
+ * 一边说话、一边调工具的 assistant 消息是**过程旁白**：它说的就是那次工具调用在干什么，而
+ * 那次调用已在执行轨迹里（`traceCovered`）。正文只留给回答本身——没有工具调用的消息。
+ * 不算旁白的：会画确认卡的决策工具、只写计划的 `write_todos`（常与收尾回答同条出现）。 */
+/** uiux-r3 #4.2：结果会以另一条回答 + 卡片/记录出现的工具——它们调用时附带的正文只是待决旁白。 */
+export function isPendingToolStatement(message: { toolCalls?: readonly { function: { name: string } }[] }): boolean {
+  return (message.toolCalls ?? []).some((call) => call.function.name === ESCALATE_TOOL_NAME);
+}
+
+export function isProcessNarration(
+  message: { toolCalls?: readonly { function: { name: string } }[] },
+  text: string,
+  traceCovered: boolean,
+): boolean {
+  const calls = message.toolCalls ?? [];
+  if (!traceCovered || text.trim() === "") return false;
+  if (calls.some((call) => isDecisionTool(call.function.name))) return false;
+  return calls.some((call) => call.function.name !== "write_todos");
 }
 
 /**
@@ -492,7 +563,7 @@ export function FollowUpSuggestions({
         // 并列包在一个 `inline-flex` 容器里，**不**把关闭按钮嵌进 `chip.onSelect`
         // 那个 `<button>` 内部——`<button>` 套 `<button>` 是无效 HTML（浏览器会把
         // 内层拆出去，点击区域行为不可预期），关闭按钮必须是外层同级的兄弟节点。
-        <span key={chip.id} className="inline-flex items-stretch overflow-hidden rounded-full border border-border">
+        <span key={chip.id} className="inline-flex items-stretch overflow-hidden rounded-full border border-border-subtle bg-card shadow-sm">
           <button
             type="button"
             data-testid={chip.id}
@@ -508,7 +579,7 @@ export function FollowUpSuggestions({
               data-testid={`${chip.id}-dismiss`}
               aria-label="关闭这条建议"
               disabled={disabled}
-              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+              className="flex items-center border-l border-border-subtle px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
               onClick={chip.onDismiss}
             >
               <X aria-hidden className="h-3 w-3" />
@@ -522,7 +593,7 @@ export function FollowUpSuggestions({
           type="button"
           data-testid={`copilotkit-v2-suggestion-${i}`}
           disabled={disabled || s.isLoading}
-          className="rounded-full border border-border px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded-full border border-border-subtle bg-card px-3 py-1 text-12 shadow-sm text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           onClick={() => onSelect(s.message)}
         >
           {s.title || s.message}

@@ -21,9 +21,10 @@ from deepagents.middleware.skills import (
     _skill_metadata_from_response,
 )
 from langchain.agents import create_agent
-from langchain.agents.middleware import ToolRetryMiddleware
+from langchain.agents.middleware import AgentMiddleware, ToolRetryMiddleware
 from langchain.agents.middleware.types import PrivateStateAttr
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import ToolMessage
 from typing_extensions import NotRequired
 
 from .native_tool_authority import NativeToolAuthority, ToolAuthority, ToolAuthorityError
@@ -169,6 +170,7 @@ def create_native_graph(
     from .standard_run_cancel import StandardRunCancelError
     from .standard_browser_tools import StandardBrowserError
     from .standard_memory import StandardMemoryError
+    from .standard_remember import StandardRememberError
     from .standard_context_tools import StandardContextError
     from .standard_canvas_tools import StandardCanvasError
     from .standard_document_tools import StandardDocumentError
@@ -222,7 +224,7 @@ def create_native_graph(
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
                     "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")},
                    *([file_delegation_subagent(model, sandbox, delegated_inputs, tool_authority, file_authority)] if delegated_inputs else [])],
-        middleware=[_BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware, NativeTaskObservation()],
+        middleware=[_ReportToolOutcomeFailures(), _BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware, NativeTaskObservation()],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )
 
@@ -270,6 +272,7 @@ def _never_retry():
     from .standard_document_tools import StandardDocumentError
     from .standard_image_tools import StandardImageError
     from .standard_memory import StandardMemoryError
+    from .standard_remember import StandardRememberError
     from .standard_run_cancel import StandardRunCancelError
     from .standard_run_status import StandardRunStatusError
     from .standard_schedule import StandardScheduleError
@@ -280,6 +283,67 @@ def _never_retry():
     # 这三个是本模块顶层就导入的（第 29/33/34 行），不重复惰性导入。
     return (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError,
             StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError,
-            StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError,
+            StandardRunCancelError, StandardMemoryError, StandardRememberError, StandardContextError, StandardCanvasError,
             StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError,
             StandardAudioError, SkillDraftError, StandardSubtaskError, McpExecutionError)
+
+
+def _platform_invariant_errors():
+    """平台不变量类失败：沙箱传输结果未知 / 授权拒绝或未知 / 技能审计账本写不进去。
+
+    这三类出了问题，继续让模型往下跑就是在一个已经不可信的状态上继续执行——
+    照旧直接终止 run（`test_native_graph.py` 的 "outcome unknown" 用例守着这一侧）。
+    """
+    return (SandboxTransportError, ToolAuthorityError, SkillActivityError)
+
+
+def _tool_outcome_errors():
+    """「这个工具这次没做成」类失败：`_never_retry()` 去掉平台不变量之后的那一批。
+
+    ⚠ 从 `_never_retry()` 派生，不另抄一份清单——那份清单已经有两个副本由测试
+    机械核对，再抄第三份就是本仓头号病（同一事实声明在两处）。
+    """
+    invariants = _platform_invariant_errors()
+    return tuple(error for error in _never_retry() if error not in invariants)
+
+
+def _tool_failure_message(request, error: Exception) -> ToolMessage:
+    call = request.tool_call
+    name = call.get("name", "tool")
+    return ToolMessage(
+        content=(f"Tool '{name}' failed and was not retried automatically "
+                 f"(it may have side effects): {error}"),
+        tool_call_id=call.get("id"),
+        name=name,
+        status="error",
+    )
+
+
+class _ReportToolOutcomeFailures(AgentMiddleware):
+    """不重试 ≠ 掀翻整条 run（2026-09-27 devapp 实测，见
+    `tests/test_native_tool_failure_reporting.py` 头注）。
+
+    `_retry_policy` 把有副作用工具的错误判为不重试——意图正确。但
+    `ToolRetryMiddleware` 对 `retry_on` 不匹配的异常是**直接 re-raise、跳过
+    `on_failure`**（锁定版本源码 `tool_retry.py`：`if not should_retry_exception(...):
+    raise`），`on_failure="continue"` 只对"重试耗尽"生效。于是一次发布失败就让整张图
+    崩掉，工具调用永远没有结果 → API 判 `tool_call_unresolved`；已经渲染验收完的
+    12 页 PPT 连同 13 分钟的工作一起作废，模型连"发布失败"都没看到。
+
+    这里挂在**最外层**：内层所有中间件看到的异常与今天逐字相同（不改它们的行为），
+    只在异常即将掀翻整张图的最后一刻，把「工具结果类失败」转成一条
+    `status="error"` 的 ToolMessage 交还模型——不重试，由模型决定是用同一个幂等键
+    再发一次、换路，还是如实告诉用户。平台不变量类失败不在捕获范围内，照旧终止。
+    """
+
+    def wrap_tool_call(self, request, handler):
+        try:
+            return handler(request)
+        except _tool_outcome_errors() as error:
+            return _tool_failure_message(request, error)
+
+    async def awrap_tool_call(self, request, handler):
+        try:
+            return await handler(request)
+        except _tool_outcome_errors() as error:
+            return _tool_failure_message(request, error)

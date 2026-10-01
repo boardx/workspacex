@@ -8,6 +8,7 @@ import { contractFieldIssues } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/entry/auth-shell";
 import { useInvitationSession, INVITATION_COMPLETION_MESSAGES, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateViaOrgInviteLink.out._output;
@@ -184,7 +185,7 @@ export function LinkActivation({ token }: { token: string }) {
           </div>
         )}
 
-        <Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="link-activate-submit">
+        <Button type="submit" size="lg" variant="primary" disabled={!canSubmit} data-testid="link-activate-submit">
           {submitting ? (
             <>
               <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> 加入中…
@@ -200,16 +201,13 @@ export function LinkActivation({ token }: { token: string }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-4 p-6">
-      <header className="flex items-center gap-2">
-        <DoorOpen aria-hidden className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-16 font-semibold tracking-tight">加入组织</h1>
-      </header>
-      <div className="rounded-lg border border-border bg-card p-6 shadow-sm">{children}</div>
-      <p className="text-10 text-muted-foreground">
-        授予的角色以服务端链接记录为准；本页不显示组织信息，加入成功后可在工作台看到。
-      </p>
-    </div>
+    <AuthShell
+      icon={<DoorOpen aria-hidden className="h-5 w-5 text-muted-foreground" />}
+      title="加入组织"
+      footer="授予的角色以服务端链接记录为准；本页不显示组织信息，加入成功后可在工作台看到。"
+    >
+      {children}
+    </AuthShell>
   );
 }
 

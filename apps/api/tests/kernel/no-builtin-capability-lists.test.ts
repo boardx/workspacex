@@ -134,7 +134,6 @@ describe("V1 static: no built-in capability list exists in product code", () => 
       "apps/web/lib/mock/canvas.ts",       // phase-01 canvas 域 UI 先行
       "apps/web/lib/mock/skill.ts",
       "apps/web/lib/mock/research-studio.ts", // phase-01 research 域 UI 先行（D-20 补建）        // phase-01 skill 域 UI 先行
-      "apps/web/lib/mock/project.ts",      // phase-01 project（项目本身）域 UI 先行
       "apps/web/lib/mock/tpl.ts",          // phase-01 templates 域 UI 先行（tpl-v2 保真度重做：Agent 编排面板含 Scout）
       "apps/web/lib/mock/asset-governance.ts", // phase-01 asset-governance 域 UI 先行（六道关/查重/灰度/复核降级/文件树/试跑台）
       "apps/web/lib/mock/admin-limits.ts",  // org-admin 域 #923/#924 后台用量监控+限额策略两 tab 的 UI 先行（B1，2026-08-11）

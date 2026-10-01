@@ -44,13 +44,16 @@ const CONFIRM_BATCH_MAX = 50;
  * - `onPromote`：记到我的长期记忆（F11，`promoteToPersonal`）。真实 `/chat` 只在服务端
  *   `canEdit && canPromote` 时传（`useKnowledgeWriteActions`）；逐条结果由面板显示，整批失败 reject。
  *   `choices` 只在回答 `needs_choice` 时带。
- * - `onReindex`：整理本会话（F13）。真实 `/chat` 还不传，对应入口不渲染——不画一排点了没反应的按钮。
- *   签核预览传演示实现。
+ * - `onReindex`：整理本会话（UC-KG-4，issue #4352 起真实 `/chat` 也传：所有者且抽取开着时，
+ *   `useKnowledgeWriteActions` 接到 `requestReindex`）。「失败 · 重试」走同一条路。失败时 reject，面板把错误翻成人话。
+ *   不传 ⇒ 对应入口不渲染——不画一排点了没反应的按钮。签核预览传演示实现。
  */
 export interface KnowledgePanelWriteActions {
   readonly apply: (action: KgHumanAction) => Promise<void>;
   readonly onPromote?: PromoteFn;
-  readonly onReindex?: () => void;
+  /** 项目中枢 R7：记到项目大脑（`promoteToProject`）。服务端 `canPromoteToProject` 时才传。 */
+  readonly onPromoteToProject?: PromoteFn;
+  readonly onReindex?: () => void | Promise<void>;
 }
 
 /** 面板读取失败的人话（按契约 `getThreadKnowledge.err`）；不是本束可识别的码时给通用说法。 */
@@ -128,6 +131,15 @@ export function KnowledgePanel({
     }
   }, [writeActions]);
 
+  /** 「整理本会话」/「失败 · 重试」：失败把人话挂在面板顶部（同编辑动作）。 */
+  const onReindexAction = writeActions?.onReindex;
+  const reindex = React.useMemo(() => (onReindexAction === undefined ? undefined : () => {
+    setActionError(null);
+    void Promise.resolve()
+      .then(() => onReindexAction())
+      .catch((e: unknown) => { setActionError(describeHumanActionFailure(e)); });
+  }), [onReindexAction]);
+
   const canEdit = data?.canEdit ?? false;
   /** 编辑入口只在「服务端说可编辑」且「这些动作真的有通路」时渲染。 */
   const editable = canEdit && writeActions !== undefined;
@@ -140,6 +152,11 @@ export function KnowledgePanel({
   });
   const promoResult = promo.result;
   const promoteClaims = canPromote ? (ids: string[]) => { void promo.run(ids); } : undefined;
+  // 项目中枢 R7：记到项目大脑——独立的一条晋升流（结果、忙碌各自一份），与个人那条互不影响。
+  const onPromoteToProject = writeActions?.onPromoteToProject;
+  const canPromoteProject = (data?.canPromoteToProject ?? false) && onPromoteToProject !== undefined;
+  const promoP = usePromotionFlow({ onPromote: canPromoteProject ? onPromoteToProject : undefined, onError: setActionError });
+  const promotedToProject = promoP.result?.results.filter((r) => r.outcome === "promoted" || r.outcome === "merged_into_existing" || r.outcome === "coexisting").length ?? 0;
   const shownNominations = canPromote && !nominationsDismissed
     ? visibleNominations(nominations, data?.claims ?? [], promoResult)
     : null;
@@ -217,7 +234,7 @@ export function KnowledgePanel({
         ) : null}
 
         {/* 整理状态行（uc-18-1 R8） */}
-        {data ? <IngestionStatus data={data} onReindex={writeActions?.onReindex} /> : null}
+        {data ? <IngestionStatus data={data} onReindex={reindex} /> : null}
 
         {/* 三态计数 */}
         {data && data.claims.length > 0 ? (
@@ -231,11 +248,12 @@ export function KnowledgePanel({
         {/* issue #4179（F17 手动入口 ②）—— 手打一句话，走同一条「记住」确认卡路径 */}
         {editable ? <RememberQuickAdd /> : null}
 
-        {/* 记到长期记忆入口（仅个人线程 canPromote） */}
-        {data && canPromote && data.claims.length > 0 ? (
+        {/* 记到长期记忆入口（个人线程 canPromote）/ 记到项目大脑入口（项目线程 canPromoteToProject，R7） */}
+        {data && (canPromote || canPromoteProject) && data.claims.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {selectMode ? (
               <>
+                {canPromote ? (
                 <Button
                   size="xs"
                   disabled={selectedIds.length === 0 || selectedIds.length > KG_PROMOTE_MAX_BATCH || promo.busy}
@@ -248,6 +266,22 @@ export function KnowledgePanel({
                 >
                   记到我的长期记忆（{selectedIds.length}）
                 </Button>
+                ) : null}
+                {canPromoteProject ? (
+                <Button
+                  size="xs"
+                  variant={canPromote ? "outline" : undefined}
+                  disabled={selectedIds.length === 0 || selectedIds.length > KG_PROMOTE_MAX_BATCH || promoP.busy}
+                  data-testid="kg-promote-project-submit"
+                  onClick={() => {
+                    void promoP.run(selectedIds);
+                    setSelectMode(false);
+                    setSelected({});
+                  }}
+                >
+                  记到项目大脑（{selectedIds.length}）
+                </Button>
+                ) : null}
                 <Button size="xs" variant="ghost" data-testid="kg-promote-cancel" onClick={() => { setSelectMode(false); setSelected({}); }}>
                   取消
                 </Button>
@@ -259,11 +293,14 @@ export function KnowledgePanel({
                 </span>
               </>
             ) : (
-              <Button size="xs" variant="outline" disabled={promo.busy} data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
-                {promo.busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : null}
-                记到我的长期记忆…
+              <Button size="xs" variant="outline" disabled={promo.busy || promoP.busy} data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
+                {promo.busy || promoP.busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : null}
+                {canPromote ? "记到我的长期记忆…" : "记到项目大脑…"}
               </Button>
             )}
+            {promotedToProject > 0 ? (
+              <span className="text-10 text-muted-foreground" data-testid="kg-promote-project-result">已记到项目大脑 {promotedToProject} 条</span>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -317,7 +354,7 @@ export function KnowledgePanel({
 
         {status === "ready" && data ? (
           data.claims.length === 0 && data.objects.length === 0 ? (
-            <KnowledgeEmpty onReindex={writeActions?.onReindex} />
+            <KnowledgeEmpty onReindex={reindex} />
           ) : view === "list" ? (
             <div className="flex flex-col gap-3">
               {shownNominations ? (
@@ -405,7 +442,7 @@ function promotionSummaryText(result: PromotionResults): string {
 /**
  * 来源抽屉的取数状态。换一条时丢弃上一条的在途结果（按请求代次），不让慢响应覆盖新选中的那条。
  */
-function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimSources>) | undefined) {
+export function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimSources>) | undefined) {
   const [claim, setClaim] = React.useState<string | null>(null);
   const [data, setData] = React.useState<ClaimSources | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -527,17 +564,29 @@ function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex
   const { queued, running, failed } = data.ingestion;
   const busy = queued + running > 0;
   if (!data.extractionActive) {
+    // issue #4352（人类决定 2026-09-27）：关着期间发的消息照旧不排队（不改行为），这里把后果说清楚。
     return (
-      <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive">
-        自动记忆未开启
-      </p>
+      <div className="flex flex-col gap-0.5" data-testid="kg-ingestion-inactive">
+        <p className="text-10 text-muted-foreground">自动记忆未开启</p>
+        <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive-hint">
+          关闭期间的消息不会整理，可用「整理本会话」补
+        </p>
+      </div>
     );
   }
   if (!busy && failed === 0) {
     return (
-      <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">
-        已整理到最新
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">
+          已整理到最新
+        </p>
+        {onReindex ? (
+          <Button size="xs" variant="ghost" data-testid="kg-reindex" onClick={onReindex}>
+            <RefreshCw aria-hidden className="h-3 w-3" />
+            整理本会话
+          </Button>
+        ) : null}
+      </div>
     );
   }
   return (

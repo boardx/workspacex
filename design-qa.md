@@ -1,73 +1,48 @@
-# Realtime transcription workbench · Design QA
+# Interview prototype acceptance
 
-**Final result: passed**
+final result: blocked
 
-## Comparison target
+## Source visual truth
 
-- Source visual truth: user-provided reference image attached to issue #945.
-- Implementation screenshot: `phases/phase-01-run-a-project/ui-preview/realtime-transcription/history-create-dialog.png`
-- Workbench screenshot: `phases/phase-01-run-a-project/ui-preview/realtime-transcription/live-workspace.png` (`539 × 930`, responsive completed state).
-- Route: `/rec`
-- State: history grid with the “新建转录” dialog open, name filled, two tags selected.
-- CSS viewport: `1488 × 1058`, `devicePixelRatio = 1`.
-- Source pixels: `1487 × 1058`; implementation pixels: `1488 × 1058`.
-- Density normalization: none. The source is one physical pixel narrower; comparison uses the common visible content frame and treats the single-pixel edge difference as capture noise.
+The eight user-provided grayscale screenshots, beginning with `/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/codex-clipboard-f966283d-98d3-41b1-acde-25c756e7eb02.png`, define the list, intake, analysis, experts, virtual-expert modal, questions, execution and report states. Fixed SVG avatars are an explicitly requested deviation from photographic reference avatars.
 
-## Full-view comparison evidence
+## Browser evidence limits
 
-The source and implementation were opened together at original detail after the browser capture. The major regions align: slim global rail, page title and count, top-right primary action, filter/search row, four-column card grid, dimmed overlay, centered create dialog, name field, tag editor, and right-aligned actions.
+- Implementation: local branch `codex/interview-prototype-completion`, PR #4486.
+- Native browser without a seeded session opened `http://localhost:3000/itv/new` and redirected to `/login?next=%2Fitv%2Fnew`; this does not count as interview acceptance.
+- With the user's authorization, isolated authenticated API/DB/Chromium regression now captures the list, six stages, and virtual-expert modal at 1440 × 1000. See `apps/web/test-results/fullstack-smoke/digital-interview-research-745c5--all-six-full-screen-stages-seeded/` (transient, ignored screenshots). All six `digital-interview-research-quality.spec.ts` browser cases pass.
+- Source/implementation pairs were viewed together. The shared selected-workflow header was about 345 px tall and its active step was white-on-white; it is now under 220 px with a dark active marker. List title/search and stage heading sizing were enlarged; the browser test measures these and verifies all direct routes and return-to-list shell behavior.
+- The reference's photographic avatars intentionally differ from the requested generated SVG expert icons. Browser fixture content is sparse (one expert/question group), so screenshot density cannot prove parity for a populated six-card list, multiple experts, or a long report. Pixel-perfect acceptance is not claimed.
 
-Focused-region comparison was required for the dialog because button widths, form density, and the tag focus treatment are too small to judge from page composition alone. The dialog region was inspected at the same viewport and state; its measured implementation box is `448 × 396` at `(520, 331)`.
+## Populated-density follow-up (#4544)
 
-## Required fidelity surfaces
+- A separate, deterministic canonical-Markdown browser fixture renders six list cards, four analysis cards, five named expert/question groups, five execution states, and an eight-heading report. It uses an isolated real API/DB/Chromium stack, but intercepts the interview responses; it proves rendering and navigation, **not** persistence.
+- A second, no-`page.route` Chromium test (`digital-interview-density-live.spec.ts`) logs in with a seeded account, creates six interviews via the real Next proxy/API, initializes a Markdown revision, saves intake/analysis/experts/outline/report through the live controller, reloads the report route, then re-reads PostgreSQL-backed source via API. All five raw Markdown strings and the version are unchanged after reload. This isolated test passed (1/1). It does not simulate real participant evidence or AI model output.
+- At 1280 px, a RED browser assertion found the first two analysis cards 131 px apart vertically. The cards now use a responsive two-column grid; the same assertion is green. The outline intentionally shows one editable group at a time with five selectable groups in its left navigation.
+- The long report body was 13 px in a RED browser assertion. Report-only typography is now 16 px, leaving compact chat and preview Markdown unchanged. The fixture includes multi-paragraph sections, a GFM table, lists and a blockquote; browser assertions measure all content bounds at 768/390 px in addition to whole-page overflow. The first table assertion failed because the fixture had blank lines between GFM rows; the row formatting was corrected and the same browser test passed.
+- Reviewable list/analysis/report desktop and report-mobile screenshots are generated under `docs/evidence/interview-density/` by the fixture. The exact commands and measured assertions are documented there; local `apps/web/test-results/fullstack-smoke/` remains transient.
+- This is content-density and responsive evidence, not pixel-perfect visual signoff. It does not validate real model output quality or report metric correctness.
 
-- Fonts and typography: uses the existing BoardX sans stack with the same Chinese UI hierarchy, semibold headings, compact labels, muted counters, and readable small text. Wrapping and truncation are stable.
-- Spacing and layout rhythm: header, controls and card tracks follow the reference. Four equal `321px` tracks render at the comparison viewport. Dialog vertical placement, padding, field gaps and footer alignment match the target rhythm.
-- Colors and tokens: all surfaces use the existing semantic BoardX tokens. Primary teal, muted borders, dim overlay, completed badges and focus ring reproduce the target without hard-coded colors.
-- Image and asset fidelity: the reference contains no photographic or illustrative raster assets. Standard navigation and control icons use the repository’s existing icon library; no placeholder, CSS art, handmade SVG or emoji asset was introduced.
-- Copy and content: title, count, explanation, filters, search, sort, representative history records, modal labels, counters and CTAs follow the selected reference and the confirmed product spec.
+## Confirmed functional findings and fixes
 
-## Comparison history
+1. Queued expert tasks were labeled active. Regression failed before the fix; pending tasks now show 等待访谈. Related 32 UI tests pass.
+2. Three new RLS policy migrations failed on forced replay. Policy recreation now preserves tenant restrictions; real isolated migration checks rebuild 322 migrations and verify schema/data equality after replay (exit 0).
+3. Navigation reachability did not recognize the conditional creation route. Explicit scoped/default router branches preserve navigation behavior and pass the gate.
+4. Two CI browser cases retained obsolete legacy fixtures for canonical routes. Fixtures and assertions are updated while preserving avatar persistence/reset, responsive checks, six-step navigation and legacy Skill coverage; the isolated six-case browser regression now passes.
+5. Real browser comparison exposed oversized stage chrome, invisible active-step contrast, undersized headings and a cramped list search. A RED-first browser assertion reproduced each mismatch, and the corrected list/workbench layouts pass.
+6. The question screen was only a raw Markdown textarea. A RED-first UI test now covers per-question editing and order; the screen projects question rows from Markdown and writes all edits back to the same Markdown document. The virtual-expert dialog now has an adjacent live Markdown preview and explicit simulation-boundary review.
+7. Issue #4571 projects the execution screen's completed/pending/running/failed counts from durable task metadata and its insight cards only from saved runs Markdown headings. UI tests went RED→GREEN, a Chromium direct-route/reload case passed at desktop/mobile widths with deterministic source fixtures, and the existing real PostgreSQL execution tests passed 8/8. The fullstack browser attempt did not reach assertions because the Next production build exceeded its 480-second server startup limit under machine load; this is not evidence of an integrated model-run browser pass.
 
-### Iteration 1
+## Verification boundary on this iteration
 
-- [P1] At the target viewport the first implementation rendered three card columns instead of four, reducing information density and changing the above-the-fold composition.
-- [P2] The create dialog was `512px` wide, visibly broader than the source.
-- Fixes: moved the desktop grid to four columns at `xl`; changed the dialog to the nearest existing design-system width (`max-w-md`).
-- Post-fix evidence: `history-create-dialog.png` shows four equal card columns and a centered `448px` dialog at the target viewport.
+- The targeted 60 UI tests, web typecheck and lint, and six isolated authenticated Chromium cases pass.
+- `pnpm run verify:quick` is **not green**: 25/27 affected tasks succeeded, while `web#test` reported 8 failures among 5,513 tests. Six reproduce in the unmodified whiteboard image test file with a `SubtleCrypto.digest`/cross-realm buffer error; the other two (Skill content editor and CopilotKit permission dialog) pass when rerun in isolation. These are not counted as interview acceptance or silently ignored. Current-head CI must adjudicate this broader test lane before merge readiness.
 
-### Iteration 2
+## Remaining acceptance
 
-- [P2] Dialog footer actions were too narrow/wide relative to the source, and the submit button contained an extra plus icon.
-- Fixes: removed the extra icon and assigned design-system minimum widths of `96px` and `128px` to the cancel and submit actions.
-- Post-fix evidence: the final screenshot shows the two-button group matching the reference proportions and copy.
+- Verify report Word/PDF exports against the same saved version and validate live execution-state grouping; the no-mock persistence journey now proves saved Markdown and reload, but not those two downstream consumers.
+- Verify upload and voice failure recovery in an authenticated real browser; the six passing cases do not exercise these error states.
+- The prototype's AI-generated virtual-expert fields and richer live-report statistics are not fully established. The execution screen now groups only explicitly saved Markdown insight sections; it does not invent category counts for unstructured model output or claim real participant evidence. Preserve the simulated-versus-real evidence boundary while implementing or explicitly accepting remaining differences.
+- Re-run current-head browser CI and resolve every genuine failure/review before claiming prototype acceptance or merge readiness.
 
-## Findings
-
-No actionable P0/P1/P2 mismatch remains.
-
-## Primary interactions verified
-
-- Opened the create dialog from the top-right action.
-- Filled the transcription name.
-- Added two tags with Enter and verified counters.
-- Submitted the form; the newly created session immediately replaced the history page with its recording workspace.
-- Stopped the new session; the UI moved through “正在收尾” before “已完成”, and analysis actions stayed disabled until completion.
-- Returned to history and opened an existing card; the matching completed workspace appeared.
-- Filtered by “客户”; six cards remained.
-- Searched for a missing item; the guided empty state appeared.
-- Checked `375 × 812`, `768 × 900`, and `1280 × 720`; none produced horizontal overflow.
-- Browser console: no page errors.
-
-## Follow-up polish
-
-- [P3] The repository-standard global rail is `76px`, while the generated reference is visually closer to `66px`. Changing it would alter every BoardX route, so the confirmed global shell token is preserved.
-- [P3] The nearest existing dialog width token is `448px`, roughly `20px` narrower than the source. This does not change hierarchy, wrapping, or task completion.
-
-## Implementation checklist
-
-- [x] Same route, viewport and open-dialog state captured.
-- [x] Reference and implementation inspected together.
-- [x] P1/P2 findings fixed and re-captured.
-- [x] Core interactions exercised in the real browser.
-- [x] Responsive overflow and console checked.
+No assertion of complete one-to-one reconstruction or merge readiness is made.

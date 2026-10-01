@@ -169,6 +169,52 @@ export async function createPersonalThread(title: string | null): Promise<Mutate
   });
 }
 
+/**
+ * 项目中枢 R4 —— 在**项目里**建一条线程（`projectId` 非空）。同一个 `mutateThread` 端口；
+ * `visibilityScope: null` 交给服务端取项目线程的默认值（`mutate-thread.ts`：`group-shared`），
+ * 不在前端复制那条默认规则。`groupId: null` = 不挂到某个分组（全场线程 / 引导师线程）。
+ */
+export async function createProjectThread(projectId: string, title: string | null): Promise<MutateThreadOut> {
+  return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
+    method: "POST",
+    body: {
+      op: "create",
+      projectId,
+      threadId: null,
+      groupId: null,
+      title,
+      visibilityScope: null,
+      expectedVersion: null,
+      reason: null,
+    },
+  });
+}
+
+/**
+ * 项目中枢 R5 —— 分享：改一条项目线程的可见范围（`mutateThread` op=setVisibility）。
+ * `expectedVersion` 来自 `getThread(...).version`（乐观并发，服务端不静默覆盖）。
+ */
+export async function setThreadVisibility(
+  threadId: string,
+  projectId: string,
+  visibilityScope: "member-private" | "group-shared" | "plenary",
+  expectedVersion: number,
+): Promise<MutateThreadOut> {
+  return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
+    method: "POST",
+    body: {
+      op: "setVisibility",
+      projectId,
+      threadId,
+      groupId: null,
+      title: null,
+      visibilityScope,
+      expectedVersion,
+      reason: null,
+    },
+  });
+}
+
 export async function getAgentPanel(
   threadId: string,
   /** `null` = 个人线程（issue #2052 / CK-P7）——不传这个 query 参数，controller 把
@@ -240,10 +286,9 @@ export async function listThreadArtifacts(
 
 /**
  * 把一条消息落地为 Artifact（issue #708）——`POST /chat/threads/:threadId/artifacts`。
- * ⚠ 调用方目前**只应该传 `mode: "draft"`**：`live`/`pinned` 要求消息挂有非空
- * citations（I-33），而 citations 的写入路径目前不存在（`get-thread.ts` 的
- * `toMessage()` 恒 `citations: []`），传 `live`/`pinned` 会 100% 命中
- * `MISSING_PROVENANCE_BACKLINK`——这不是本函数的限制，是后端契约现状。
+ * ⚠ `live`/`pinned` 要求消息挂有非空 citations（I-33）；对没有引用的消息传它们会命中
+ * `MISSING_PROVENANCE_BACKLINK`——这不是本函数的限制，是后端契约。引用本身自 #4230 起
+ * 由 `getThread` 的 `messages[].citations` 下发。
  */
 export async function landAsArtifact(
   threadId: string,

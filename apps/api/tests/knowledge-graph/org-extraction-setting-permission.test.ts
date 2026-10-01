@@ -44,10 +44,19 @@ beforeEach(async () => {
 });
 
 describe("F4178 HTTP: 记忆抽取设置的读写权限", () => {
+  it("组织从未设置过（没有行）⇒ 读到 orgEnabled: true（默认开）", async () => {
+    // `seedOrg` 给测试组织写了一条显式关掉的行（见 tests/support/db.ts）；删掉它回到新组织的真实初始状态。
+    await asOwner((c) => c.query("DELETE FROM kg_org_extraction_settings WHERE org_id = $1", [ORG]));
+    const r = await request("/knowledge-graph/extraction-setting", "GET", MEMBER);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ orgEnabled: true });
+  });
+
   it("任何组织成员都能读到现值（非 admin 不 403）", async () => {
     const asAdmin = await request("/knowledge-graph/extraction-setting", "GET", ADMIN);
     expect(asAdmin.status).toBe(200);
     const adminBody = await asAdmin.json() as { deploymentCapable: boolean; orgEnabled: boolean };
+    // `seedOrg` 的显式关掉行 ⇒ false（显式关优先于默认开）。
     expect(adminBody).toMatchObject({ orgEnabled: false });
     expect(typeof adminBody.deploymentCapable).toBe("boolean");
 
@@ -64,8 +73,8 @@ describe("F4178 HTTP: 记忆抽取设置的读写权限", () => {
     const row = await asOwner((c) => c.query(
       "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [ORG],
     ));
-    // 非 admin 的写从未落地——要么行不存在（默认关），要么值仍是关。
-    expect(row.rows[0]?.enabled ?? false).toBe(false);
+    // 非 admin 的写从未落地——`seedOrg` 写的那条显式关掉的行原样还在。
+    expect(row.rows[0]?.enabled).toBe(false);
   });
 
   it("admin 写 ⇒ 200，且立即反映在下一次读上；组织开关可来回切换", async () => {
@@ -100,6 +109,7 @@ describe("F4178 HTTP: 记忆抽取设置的读写权限", () => {
     const untouched = await asOwner((c) => c.query(
       "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [ORG],
     ));
-    expect(untouched.rows[0]?.enabled ?? false).toBe(false);
+    // `seedOrg` 写的那条显式关掉的行原样还在（行不存在也算被改——没有行 = 默认开）。
+    expect(untouched.rows[0]?.enabled).toBe(false);
   });
 });

@@ -1,0 +1,23 @@
+===== reverted to origin/main: apps/web/components/chat/knowledge/extraction-feedback-chip.tsx
+   × ExtractionFeedbackChip > 有新 claim ⇒ 出现「已记下{类型}：{摘要}·撤销」 55ms
+   × ExtractionFeedbackChip · issue #4283 本人的决定已记入个人记忆 > 显示「已记下{类型}：{摘要} · 已记入个人记忆 · 撤销」 15ms
+   × ExtractionFeedbackChip · issue #4343 目标 / 偏好带类型 > goal ⇒「已记下目标：…· 已记入个人记忆 · 撤销」 8ms
+   × ExtractionFeedbackChip · issue #4343 目标 / 偏好带类型 > preference ⇒「已记下偏好：…· 已记入个人记忆 · 撤销」 7ms
+ Test Files  1 failed | 3 passed (4)
+      Tests  4 failed | 77 passed (81)
+===== reverted to origin/main: apps/web/components/chat/knowledge/answer-knowledge-footer.tsx
+   × AnswerKnowledgeFooter：引用 chip 标类型（issue #4343） > 每个 chip 标出类型：目标 / 偏好 / 决定；title 仍是原文（不混进类型字） 20ms
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 80 passed (81)
+===== reverted to origin/main: apps/web/lib/knowledge-graph-view.ts apps/web/lib/brain-view.ts
+   × AnswerKnowledgeFooter：引用 chip 标类型（issue #4343） > 每个 chip 标出类型：目标 / 偏好 / 决定；title 仍是原文（不混进类型字） 12ms
+   × 大脑页：本人的目标 / 偏好（issue #4343） > 类型表与分组先后覆盖契约的每一种类型（漏一种 = 那一类永远不渲染） 7ms
+   × 大脑页：本人的目标 / 偏好（issue #4343） > 长期记忆里「目标 · 1」「偏好 · 1」各成一组（决定之后、事实之前），类型筛选有「目标 1」「偏好 1」 34ms
+   × ExtractionFeedbackChip · issue #4343 目标 / 偏好带类型 > goal ⇒「已记下目标：…· 已记入个人记忆 · 撤销」 12ms
+   × ExtractionFeedbackChip · issue #4343 目标 / 偏好带类型 > preference ⇒「已记下偏好：…· 已记入个人记忆 · 撤销」 6ms
+   × 记忆面板：issue #4343 目标 / 偏好 > 本人的目标、偏好各成一组，标题是「目标」「偏好」，排在决定之后、事实之前 113ms
+ Test Files  4 failed (4)
+      Tests  6 failed | 75 passed (81)
+===== all restored (HEAD)
+ Test Files  4 passed (4)
+      Tests  81 passed (81)

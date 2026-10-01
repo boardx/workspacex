@@ -77,16 +77,29 @@ describe("waitForHttpOrExit", () => {
 });
 
 describe("startManaged", () => {
-  it("stop() takes the whole process group down, not just the direct child", async () => {
-    // sh forks `sleep`; killing only sh would leave sleep running (the uvicorn --workers shape)
-    const m = startManaged({ name: "tree", command: "sh", args: ["-c", "sleep 300 & wait"], cwd: process.cwd(), env: {} }, () => {});
-    await new Promise((r) => setTimeout(r, 300));
-    const pgid = m.child.pid!;
-    const before = execSync(`ps -o pid= -g ${pgid} | wc -l`).toString().trim();
-    expect(Number(before)).toBeGreaterThanOrEqual(2);
+  it("stop() 连孙进程一起收，不只是直接子进程", async () => {
+    // 形状同 uvicorn --workers / next 的 worker：子进程再起一个长活的进程。只杀直接子进程
+    // 会留下孙进程占着端口。POSIX 靠进程组、Windows 靠 taskkill /T——同一条断言两边都判。
+    // （原先用 `ps -g` 数组员，Windows 上没有 ps，那条测试在那里永远红、也永远证明不了什么。）
+    const parent = [
+      "const { spawn } = require('node:child_process');",
+      "const g = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
+      "console.log('GRANDCHILD ' + g.pid);",
+      "setInterval(() => {}, 1000);",
+    ].join("\n");
+    const lines: string[] = [];
+    const m = startManaged({ name: "tree", command: process.execPath, args: ["-e", parent], cwd: process.cwd(), env: {} }, (l) => lines.push(l));
+    let gpid = 0;
+    for (let i = 0; i < 100 && gpid === 0; i += 1) {
+      const hit = lines.map((l) => /GRANDCHILD (\d+)/.exec(l)).find((x) => x !== null);
+      if (hit) gpid = Number(hit[1]);
+      else await new Promise((r) => setTimeout(r, 50));
+    }
+    const alive = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    expect(gpid, "孙进程没报 pid").toBeGreaterThan(0);
+    expect(alive(gpid), "正面对照：停之前孙进程活着").toBe(true);
     await m.stop();
-    await new Promise((r) => setTimeout(r, 300));
-    const after = execSync(`ps -o pid= -g ${pgid} | wc -l`).toString().trim();
-    expect(Number(after)).toBe(0);
+    for (let i = 0; i < 30 && alive(gpid); i += 1) await new Promise((r) => setTimeout(r, 100));
+    expect(alive(gpid)).toBe(false);
   });
 });

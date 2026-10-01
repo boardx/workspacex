@@ -4,7 +4,7 @@ import { ChevronRight, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { openCitation } from "@/lib/live-chat";
+import { CitationList, CitationScope } from "./message-citations";
 import { MarkdownMessage } from "./markdown-message";
 import { MessageEntrance } from "./message-entrance";
 import { SubtaskRunLivePanel } from "./subtask-run-live-panel";
@@ -14,7 +14,6 @@ import {
   type MessageBadgeView,
   type ToolCallLog,
   type ToolCallStatus,
-  type CitationView,
 } from "@/lib/mock/chat";
 
 type AiMessage = Extract<ChatMessage, { kind: "ai" }>;
@@ -57,10 +56,12 @@ export function AiMessage({ msg }: { msg: AiMessage }) {
             ))}
           </header>
 
-          <MarkdownMessage text={msg.text} />
+          <CitationScope citations={msg.citations ?? []}>
+            <MarkdownMessage text={msg.text} />
 
-          {msg.tools && <ToolCalls log={msg.tools} />}
-          {msg.citations && msg.citations.length > 0 && <CitationList citations={msg.citations} />}
+            {msg.tools && <ToolCalls log={msg.tools} />}
+            <CitationList />
+          </CitationScope>
           {/* 后台任务面板（UC-8.2 相关，issue #2666）——贴在触发子任务的这条消息上，
               收起时不影响下方继续输入（自持局部展开态，不劫持 composer 焦点）。 */}
           <SubtaskRunLivePanel parentRunId={msg.subtaskRunParentId ?? null} />
@@ -129,38 +130,4 @@ function ToolStatusDot({ status }: { status: ToolCallStatus }) {
     done: "primary",
   };
   return <Badge tone={toneByStatus[status]}>{TOOL_CALL_STATUS_LABEL[status]}</Badge>;
-}
-
-/** 引用列表：编号 + 出处全称 + 页码/时间段，点开定位（UC-8.2 R7 引用层，三段缺一不可）*/
-function CitationList({ citations }: { citations: CitationView[] }) {
-  const [openIdx, setOpenIdx] = React.useState<number | null>(null);
-  return (
-    <ol className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2" data-testid="chat-citations">
-      {citations.map((c) => (
-        <li key={c.index}>
-          <button
-            type="button"
-            onClick={() => {
-              if (openIdx !== c.index && c.citationId) openCitation(c.citationId);
-              setOpenIdx((v) => (v === c.index ? null : c.index));
-            }}
-            aria-expanded={openIdx === c.index}
-            data-testid="chat-citation-row"
-            className="flex w-full items-baseline gap-2 rounded-sm px-1 py-0.5 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="shrink-0 text-11 font-semibold text-primary">{c.index}</span>
-            <span className="min-w-0 flex-1 text-11">
-              <span className="text-card-foreground">{c.sourceFullName}</span>
-              <span className="text-muted-foreground"> · {c.anchor}</span>
-            </span>
-          </button>
-          {openIdx === c.index && (
-            <p className="ml-5 mt-0.5 rounded-sm bg-muted px-2 py-1 text-10 text-muted-foreground" data-testid="chat-citation-anchor">
-              定位到 {c.anchor}（{c.anchorKind === "page" ? "文档页码" : c.anchorKind === "transcript" ? "转录时间码" : "消息锚点"}）· 不跳出线程
-            </p>
-          )}
-        </li>
-      ))}
-    </ol>
-  );
 }

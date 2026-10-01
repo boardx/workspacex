@@ -8,6 +8,9 @@
 set -euo pipefail
 MODEL="${ASR_MODEL_NAME:-sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20}"
 DEST_ROOT="${1:-$HOME/.workspacex-local/asr-models}"
+# Git Bash 下传进来的常是 Windows 路径（D:\a\_temp\…）：GNU tar 把 `D:` 当成远程主机名
+# （windows-latest 实测：tar: D\:\a\\_temp/asr-src: Cannot open）。统一成 POSIX 形式（#4315）。
+command -v cygpath >/dev/null 2>&1 && DEST_ROOT="$(cygpath -u "$DEST_ROOT")"
 URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${MODEL}.tar.bz2"
 mkdir -p "$DEST_ROOT"
 if [ -f "$DEST_ROOT/$MODEL/tokens.txt" ]; then

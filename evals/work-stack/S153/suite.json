@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "stableId": "S153",
+  "entityKind": "skill",
+  "targetVersionRange": ">=1.0.0 <2.0.0",
+  "toolsUnderTest": [],
+  "baseline": {
+    "kind": "generic-agent-same-tools",
+    "tools": [
+      "wx_project_read"
+    ]
+  },
+  "mustPassCaseIds": [
+    "E2",
+    "E4",
+    "E7",
+    "E8"
+  ],
+  "caseTimeoutMs": 60000,
+  "llmJudge": null,
+  "graderVersion": "s153-rules-1.0.0"
+}

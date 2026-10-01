@@ -14,6 +14,7 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   KG_THREAD_NOT_FOUND: "这条对话不存在或已被删除。",
   KG_NOT_VISIBLE: "你没有这条对话的访问权限。",
   KG_NOT_OWNER: "只有对话的创建者可以修改这里的记忆。",
+  KG_SCOPE_NOT_PROJECT: "只有项目里的对话才能记到项目大脑。",
   KG_REVISION_CHANGED: "内容已变化，已为你刷新到最新，请再操作一次。",
   KG_CLAIM_NOT_FOUND: "这一条已经不在了，已为你刷新列表。",
   KG_OBJECT_NOT_FOUND: "相关的人和事已经不在了，已为你刷新列表。",
@@ -30,6 +31,12 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   // issue #4178：`setKnowledgeExtractionSetting` 专属码，人的编辑动作（applyHumanAction 等）从不
   // 返回它——这里只是让 Record<KgErrorCode, string> 保持穷举（漏配一个编译就不过）。
   KG_NOT_ORG_ADMIN: "只有组织管理员可以修改这项设置。",
+  // S8（#4365）：记忆整合的两个码，人的编辑动作从不返回它们——同上，只为穷举。
+  KG_CONSOLIDATION_RUN_NOT_FOUND: "这次整理已经撤销过了（或已不存在）。",
+  KG_CONSOLIDATION_DISABLED: "记忆整合开关关着，先打开再整合。",
+  // S10（#4367）「分享到项目…」专属码（同上：保持 Record<KgErrorCode, string> 穷举）。
+  KG_PROJECT_NOT_FOUND: "你不在这个项目里（或项目已不存在），没法分享到这里。",
+  KG_PROJECT_READ_ONLY: "你在这个项目里只能查看（或项目已归档），没法分享进去。",
 };
 
 /** 失败后应当重读面板的码：服务端状态已与界面不一致。 */
@@ -89,4 +96,27 @@ export function describeMemoryCardFailure(e: unknown): string {
   const code = knowledgeGraphErrorCode(e);
   if (code === null) return "没能完成这次操作，请稍后重试。";
   return MEMORY_CARD_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
+}
+
+/**
+ * issue #4302 —— 大脑页（/brain）「忘掉这条」「撤销取代」失败时的人话。这两个动作复用对话里的既有动作，
+ * 多数码沿用编辑动作那一句；这几句按大脑页的处境改说法（这里没有「提醒」，修改发生在出自的那个对话上）。
+ */
+const BRAIN_ACTION_FAILURE_ZH: Partial<Record<KnowledgeGraphErrorCode, string>> = {
+  KG_CLAIM_NOT_FOUND: "这一条已经变了（可能在对话里被改过或忘掉了），已为你刷新列表。",
+  KG_PROMPT_NOT_FOUND: "这次改口已经撤销过了，已为你刷新列表。",
+  KG_THREAD_NOT_FOUND: "出自的那个对话已经不在了，没法在这里修改。",
+  KG_NOT_OWNER: "只有你自己的对话里记下的，才能在这里修改。",
+};
+
+/**
+ * issue #4302 review：「忘掉这条」的每一步都成功了，重读后那条长期记忆却仍然活着——还有界面看不到的来源在撑着它
+ * （例如刚在别的对话里又记下了一次）。不报成功，如实说。
+ */
+export const BRAIN_FORGET_STILL_LIVE_ZH = "这条长期记忆还有别的来源，没有忘掉。";
+
+export function describeBrainActionFailure(e: unknown): string {
+  const code = knowledgeGraphErrorCode(e);
+  if (code === null) return "没能完成，请稍后重试。";
+  return BRAIN_ACTION_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
 }

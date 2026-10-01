@@ -1,0 +1,47 @@
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a7b4431b9f8b22ac7/apps/api
+
+[db-isolation] db=wsx_s6_r2 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ❯ tests/knowledge-graph/time-dimension.test.ts (8 tests | 1 failed | 7 skipped) 15849ms
+   × issue #4363 review（#4492）：改写一条结论不丢时间字段 > 做完了、带截止的待办改个说法：新条仍是「做完了」、截止不变；带「到年底」有效期的事实改写后有效期不变 450ms
+     → expected { …(19) } to match object { kind: 'todo', …(3) }
+(17 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/time-dimension.test.ts > issue #4363 review（#4492）：改写一条结论不丢时间字段 > 做完了、带截止的待办改个说法：新条仍是「做完了」、截止不变；带「到年底」有效期的事实改写后有效期不变
+AssertionError: expected { …(19) } to match object { kind: 'todo', …(3) }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "dueAt": "2026-10-04T16:00:00.000Z",
++   "dueAt": null,
+    "kind": "todo",
+    "supersedesClaimId": "clm_74a2fb26d672492fbee920021b9e1649",
+-   "todoStatus": "done",
++   "todoStatus": "open",
+  }
+
+ ❯ tests/knowledge-graph/time-dimension.test.ts:222:19
+    220|     expect(k.claims.map((c) => c.id)).not.toContain(todo.id);
+    221|     // 修之前：todoStatus = "open"、dueAt = null；validUntil = null
+    222|     expect(todo2).toMatchObject({ kind: "todo", todoStatus: "done", du…
+       |                   ^
+    223|     expect(stay2).toMatchObject({ validUntil: stay.validUntil, expired…
+    224|     const [row] = await asOwner(async (c) => (await c.query<{ same: bo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+   Start at  23:06:28
+   Duration  19.67s (transform 10.63s, setup 0ms, collect 2.78s, tests 15.85s, environment 0ms, prepare 69ms)
+
+[db-isolation] db=wsx_s6_r2 peak_connections=3
+exit=1

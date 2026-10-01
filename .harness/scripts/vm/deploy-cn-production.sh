@@ -3,14 +3,19 @@
 set -euo pipefail
 
 mode=deploy
-if [[ ${1:-} == --prepare ]]; then mode=prepare; shift; fi
-[[ $# -eq 1 && "$1" =~ ^[a-f0-9]{40}$ ]] || { echo "usage: workspacex-cn-deploy [--prepare] <40-hex-revision>" >&2; exit 2; }
+case ${1:-} in
+  --prepare) mode=prepare; shift ;;
+  --rollback) mode=rollback; shift ;;
+  --verify-active) mode=verify-active; shift ;;
+esac
+[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "usage: workspacex-cn-deploy [--prepare|--rollback|--verify-active] <40-hex-revision> <attempt-id>" >&2; exit 2; }
 [[ ${EUID} -eq 0 ]] || { echo "CN_DEPLOY_REQUIRES_ROOT" >&2; exit 1; }
 revision=$1
+attempt_id=$2
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 SOURCE_CACHE=/var/lib/workspacex-cn/source-cache.git
-CONFIG_FILE=/etc/workspacex-cn/deployment.json
+CONFIG_FILE="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/deployment.json"
 RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
@@ -109,6 +114,7 @@ fs.writeFileSync(process.argv[3],JSON.stringify({services:{api:{image:value.imag
 NODE
   install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG"
   nginx -t && systemctl reload nginx
+  candidate_config_action restore >/dev/null || fail "active configuration CAS restore failed"
   docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans
   rm -rf -- "$rollback_dir"
 }
@@ -160,7 +166,62 @@ install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATION
 install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
 
 exec 9>"$RUNTIME_ROOT/release.lock"
+chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another deployment is active"
+
+release=$(node -e 'process.stdout.write(require(process.argv[1]).release)' "$manifest")
+candidate_config_action() {
+  local action=$1 source="$release_checkout/packages/cloud-deploy/src/cn-candidate-config-cli.ts"
+  [[ -f "$source" && ! -L "$source" ]] || fail "trusted candidate configuration CLI unavailable"
+  (cd "$release_checkout"; node --import tsx "$source" "$action" "$revision" "$release" "$attempt_id")
+}
+verify_candidate_state() {
+  local expected=$1 result
+  result=$(candidate_config_action verify) || fail "candidate configuration verification rejected"
+  node -e 'const v=JSON.parse(process.argv[1]);if(v.ok!==true||v.state!==process.argv[2])process.exit(1)' "$result" "$expected" || fail "candidate configuration activation state differs"
+}
+
+verify_active_release() {
+  local config_file public_url browser_executable
+  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' workspacex-cn-api-1 2>/dev/null) \
+    || fail "active API container is unavailable"
+  [[ "$config_file" == "$runtime/compose.json" ]] || fail "active runtime does not match requested revision"
+  [[ -f "$runtime/bootstrap.env" && ! -L "$runtime/bootstrap.env" ]] || fail "active runtime browser credentials are unavailable"
+  public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
+  browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
+  cd "$release_checkout"
+  CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null \
+    || fail "active runtime browser smoke failed"
+}
+
+if [[ "$mode" == rollback ]]; then
+  private_root_file "$baseline_state"
+  private_root_file "$baseline_nginx"
+  [[ -d "$release_checkout/.git" ]] || fail "candidate release checkout is unavailable for rollback verification"
+  record_event promotion_cas_rollback_started
+  restore_baseline || fail "promotion CAS rollback failed"
+  baseline_runtime=$(node -e 'const p=require("node:path"),v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_state")
+  [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && -f "$baseline_runtime/bootstrap.env" && ! -L "$baseline_runtime/bootstrap.env" ]] \
+    || fail "baseline browser credentials are unavailable"
+  public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
+  browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
+  cd "$release_checkout"
+  CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$baseline_runtime/bootstrap.env" >/dev/null \
+    || fail "rollback browser smoke failed"
+  record_event promotion_cas_rollback_completed
+  printf 'CN_PRODUCTION_ROLLED_BACK candidate_revision=%s\n' "$revision"
+  exit 0
+fi
+
+if [[ "$mode" == verify-active ]]; then
+  [[ -d "$release_checkout/.git" ]] || fail "active release checkout is unavailable"
+  verify_candidate_state activated
+  verify_active_release
+  printf 'CN_PRODUCTION_ACTIVE_VERIFIED revision=%s\n' "$revision"
+  exit 0
+fi
 
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
 git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "revision is not contained in origin/main"
@@ -181,7 +242,7 @@ NODE
 if [[ "$mode" == prepare ]]; then
   # The post-build receipt must bind the exact immutable image to the same fresh
   # prebuild evidence before dependency installation, migration, or traffic work.
-  "$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" >/dev/null \
+  "$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
     || fail "preactivate receipt is missing or invalid"
   record_event preactivate_validated
   record_event prepare_started
@@ -215,6 +276,7 @@ if [[ "$mode" == prepare ]]; then
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" \
     node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
     || fail "browser runtime preflight failed"
+  verify_candidate_state prepared
   pnpm --filter @repo/cloud-deploy prepare-host "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
   [[ -f "$runtime/prepare-receipt.json" ]] || fail "prepare receipt missing"
   [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration missing"
@@ -238,7 +300,7 @@ cd "$release_checkout"
 
 # Revalidate freshness immediately before activation. A prepared receipt cannot
 # extend the one-hour evidence TTL or substitute static artifacts for live facts.
-"$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" >/dev/null \
+"$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
   || fail "preactivate receipt expired or changed after prepare"
 
 current_baseline_dir=$(mktemp -d "$runtime/.baseline-current.XXXXXX")
@@ -249,6 +311,7 @@ baseline_sha=$(baseline_fingerprint "$current_baseline" "$NGINX_CONFIG")
 pnpm --filter @repo/cloud-deploy cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
 verify_stable_identity "$current_baseline"
 
+verify_candidate_state prepared
 activation_started=1
 activation_deadline=$((SECONDS+300))
 record_event activation_started
@@ -302,6 +365,8 @@ browser_executable=$(resolve_browser_executable) || fail "browser executable mis
 CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout "${remaining}s" \
   node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null \
   || fail "browser smoke failed"
+candidate_config_action commit >/dev/null || fail "accepted configuration atomic commit failed"
+verify_candidate_state activated
 record_event production_available
 activation_started=0
 trap - EXIT

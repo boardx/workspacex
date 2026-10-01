@@ -1,0 +1,10 @@
+===== 20260928220000 as at 3bc5845b2 (project step follows any derived_from edge into the touched set, incl. session claims) — fresh db
+   × F4 review（PR #4507）：窗口未开始的也能到期（M1）、S10 项目副本一起到期（M2）、审计只列真到期的（L1）、长期记忆 anchor 继承时间（L2） > N1：项目对话里的会话结论「已过时」⇒ R7 记到项目大脑的副本、以及合并进去的同事的项目结论都不动，也不写项目作用域的审计 136ms
+     → expected { …(3) } to deeply equal { Object (clm-s7-n1-s, clm-s7-n1-r7, ...) }
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+===== restored — fresh db
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+DONE

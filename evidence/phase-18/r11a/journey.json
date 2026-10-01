@@ -1,0 +1,95 @@
+{
+  "ids": {
+    "threadA": "thr-848b225e-b08c-46ee-8ad0-e6fc58b606c8",
+    "threadB": "thr-4ef465d1-61bf-4113-93e5-f8f0ed9059bf"
+  },
+  "s1_answer": "好的，收到。",
+  "s1_chip": "已记下目标：我的目标是探索未来教育\n·\n已记入个人记忆\n·\n撤销",
+  "s1_threadClaims": [
+    {
+      "id": "clm_f1edd88828fa4eccbb72fb69327e9565",
+      "scope": {
+        "kind": "chat_session",
+        "id": "thr-848b225e-b08c-46ee-8ad0-e6fc58b606c8"
+      },
+      "kind": "goal",
+      "statement": "我的目标是探索未来教育",
+      "status": "proposed",
+      "triState": "pending",
+      "confidence": 0.9,
+      "createdBy": "model",
+      "reviewedBy": null,
+      "supersedesClaimId": null,
+      "derivedFromClaimId": null,
+      "aboutObjectIds": [],
+      "supportingCount": 1,
+      "contradictingCount": 0,
+      "createdAt": "2026-09-27T08:58:53.411Z"
+    }
+  ],
+  "s1_panelGroup": "目标\n1\n我的目标是探索未来教育\nAI 记下的\n证据 1\n对\n不对",
+  "s1_personal": {
+    "scope": {
+      "kind": "personal",
+      "id": "user-kg-eval-owner"
+    },
+    "revision": 1,
+    "objects": [],
+    "claims": [
+      {
+        "id": "act_77e337260dfb4e9da770215a4a2e35ce-p",
+        "scope": {
+          "kind": "personal",
+          "id": "user-kg-eval-owner"
+        },
+        "kind": "goal",
+        "statement": "我的目标是探索未来教育",
+        "status": "proposed",
+        "triState": "pending",
+        "confidence": 0.9,
+        "createdBy": "model",
+        "reviewedBy": null,
+        "supersedesClaimId": null,
+        "derivedFromClaimId": "clm_f1edd88828fa4eccbb72fb69327e9565",
+        "aboutObjectIds": [],
+        "supportingCount": 1,
+        "contradictingCount": 0,
+        "createdAt": "2026-09-27T08:58:53.459Z"
+      }
+    ],
+    "edges": [],
+    "replaced": []
+  },
+  "s2_answer": "根据之前的对话：我的目标是探索未来教育（来自个人空间知识，最早见于你 09/27 的对话）。",
+  "s2_chip": "[1]\n目标\n我的目标是探索未来教育\nAI 记下的\n来自你 9/27 的对话",
+  "s2_recalled": [
+    {
+      "claimId": "act_77e337260dfb4e9da770215a4a2e35ce-p",
+      "statement": "我的目标是探索未来教育",
+      "kind": "goal",
+      "triState": "pending",
+      "scope": "personal",
+      "saidAt": "2026-09-27T08:58:52.608Z",
+      "channels": [
+        "claim"
+      ],
+      "retrievalReasons": [
+        "recall"
+      ],
+      "score": 0,
+      "graphPath": null
+    }
+  ],
+  "s3_group": "目标 · 1\n\n我的目标是探索未来教育\n\nAI 记下的\n来自你 9/27 的对话\n我的目标是探索未来教育\n点开看原话\n忘掉这条",
+  "privacy": {
+    "scope": {
+      "kind": "personal",
+      "id": "user-kg-eval-other"
+    },
+    "revision": 0,
+    "objects": [],
+    "claims": [],
+    "edges": [],
+    "replaced": []
+  }
+}

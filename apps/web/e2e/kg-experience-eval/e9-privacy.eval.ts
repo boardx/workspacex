@@ -1,8 +1,9 @@
 /**
- * E9 放心（06-UX R4 / R2 M5）：面板常驻可见范围说明；另一个账号访问同一条记忆返回 403，界面显示「无权查看」。
+ * E9 放心（06-UX R4 / R2 M5）：面板常驻可见范围说明；另一个账号访问同一条记忆返回 404（与不存在逐字相同，不暴露资源是否存在），界面显示「无权查看」。
  *
  * - c1 「仅你可见」常驻：列表视图、关系图视图、刷新之后，面板头部都在；
- * - c2 另一个账号（同组织）请求这条记忆的来源：403（06-UX 原文就是状态码，这一条本来就要看接口）；
+ * - c2 另一个账号（同组织）请求这条记忆的来源：404，响应体与请求一条根本不存在的记忆逐字相同（除 traceId），且拿不到内容
+ *   （rubric 修订 R5，人类 2026-09-27：「404（不暴露资源是否存在）」「我批准你可以改」；原判据是 403，会暴露「这条存在」）；
  * - c3 另一个账号打开这条记忆的链接（大脑页「去对话里看」的那种链接）：界面上写着「无权查看」，且看不到内容。
  */
 import { expect, test } from "@playwright/test";
@@ -37,7 +38,12 @@ test.beforeAll(async ({ browser }) => {
     ctx.step("另一个账号请求这条记忆");
     const other = await ctx.pageAs(KG_EVAL.other);
     const r = await apiGet(other, `/knowledge-graph/claims/${encodeURIComponent(claimId)}/sources`);
-    ctx.see("otherApi", { status: r.status, leaked: JSON.stringify(r.body).includes(SECRET) });
+    const missing = await apiGet(other, `/knowledge-graph/claims/${encodeURIComponent(`${claimId}-does-not-exist`)}/sources`);
+    const noTrace = (b: unknown) => JSON.stringify(b !== null && typeof b === "object" ? { ...(b as Record<string, unknown>), traceId: undefined } : b);
+    ctx.see("otherApi", {
+      status: r.status, leaked: JSON.stringify(r.body).includes(SECRET) || JSON.stringify(r.body).includes(claimId),
+      missingStatus: missing.status, sameAsMissing: noTrace(r.body) === noTrace(missing.body),
+    });
     ctx.step("另一个账号打开这条记忆的链接");
     await other.goto(`/chat/${encodeURIComponent(thread)}?memory=${encodeURIComponent(claimId)}`);
     await other.waitForTimeout(6_000);
@@ -53,11 +59,13 @@ test("[E9.c1] 记忆面板头部常驻「仅你可见」（列表、关系图、
   expect([v.list, v.graph, v.reloaded]).toEqual(["仅你可见", "仅你可见", "仅你可见"]);
 });
 
-test("[E9.c2] 另一个账号请求同一条记忆：403，且拿不到内容", async ({}, testInfo) => {
+test("[E9.c2] 另一个账号请求同一条记忆：404，与不存在的记忆逐字相同，且拿不到内容", async ({}, testInfo) => {
   await attach(testInfo, j, ["other"], { otherApi: j.seen.otherApi ?? null });
-  const r = seen<{ status: number; leaked: boolean }>(j, "otherApi");
+  const r = seen<{ status: number; leaked: boolean; missingStatus: number; sameAsMissing: boolean }>(j, "otherApi");
   expect(r.leaked).toBe(false);
-  expect(r.status).toBe(403);
+  expect(r.status).toBe(404);
+  expect(r.missingStatus).toBe(404);
+  expect(r.sameAsMissing, "与请求一条不存在的记忆，响应应当无法区分").toBe(true);
 });
 
 test("[E9.c3] 另一个账号打开这条记忆的链接：界面显示「无权查看」，看不到内容", async ({}, testInfo) => {

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,7 +72,7 @@ export function StudioHistoryManagement({ business, prefix, id, name, tags, dele
   onSave: (draft: HistoryMetadata) => void | Promise<void>; onDelete: () => void | Promise<void>;
 }) {
   const [mode, setMode] = React.useState<"edit" | "delete" | null>(null);
-  return <><DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label={`${name} 更多操作`} data-testid={`${prefix}-history-actions-${id}`}><MoreVertical className="size-4" aria-hidden /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+  return <><DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label={`${name} 更多操作`} data-testid={`${prefix}-history-actions-${id}`}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
     <DropdownMenu.Item data-testid={`${prefix}-history-edit-${id}`} onSelect={() => setMode("edit")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="size-4" aria-hidden />修改</DropdownMenu.Item>
     <DropdownMenu.Item data-testid={`${prefix}-history-delete-${id}`} onSelect={() => setMode("delete")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="size-4" aria-hidden />删除</DropdownMenu.Item>
   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>

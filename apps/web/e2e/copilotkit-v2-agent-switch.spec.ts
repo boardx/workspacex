@@ -74,7 +74,7 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");
@@ -155,7 +155,7 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");

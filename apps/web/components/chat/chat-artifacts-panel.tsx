@@ -32,7 +32,7 @@ import type { ListThreadArtifactsOut } from "@/lib/live-chat";
  * 组件本身。
  */
 export function ChatArtifactsPanel({
-  hasSelection, artifacts, loading, error, onRetry, onOpen,
+  hasSelection, artifacts, loading, error, onRetry, onOpen, versions, versionsCount, onRefresh,
 }: {
   hasSelection: boolean;
   artifacts: ListThreadArtifactsOut | null;
@@ -40,13 +40,38 @@ export function ChatArtifactsPanel({
   error: string | null;
   onRetry: () => void;
   onOpen?: (item: ListThreadArtifactsOut["items"][number]) => void;
+  /**
+   * 2026-09-27 人类反馈「右边的 panel 需要改进 UIUX」—— 任务检查器的「产物」页签里，此前
+   * 是两块各自为政的面板上下叠放：`AgentArtifactVersionsPanel`（任务生成的文件 + 版本）
+   * 一个标题、一个刷新、一句空态；本面板又一个标题、一句空态——同一个"还没有产物"
+   * 说两遍，还用了内部词「线程」。传入 `versions` 时，两者合成一块：一个标题（总数）、
+   * 一个刷新、一个空态；版本面板只画自己的内容（`embedded`）。不传时行为不变。
+   */
+  versions?: React.ReactNode;
+  /** `versions` 里的条目数；`null` = 还在读，此时不下"没有产物"的结论。 */
+  versionsCount?: number | null;
+  onRefresh?: () => void;
 }) {
+  const unified = versions !== undefined;
+  const listCount = artifacts?.items.length ?? null;
+  const total = unified
+    ? (listCount === null || versionsCount == null ? null : listCount + versionsCount)
+    : listCount;
+  const showEmpty = artifacts !== null && artifacts.items.length === 0 && (!unified || versionsCount === 0);
   return (
     <div className="flex flex-col" data-testid="chat-artifacts-panel">
-      <div className="flex items-center gap-2 border-b border-border-subtle p-3">
+      <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
         <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium" data-testid="chat-artifacts-panel-title">产物预览{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
+        <h2 className="min-w-0 flex-1 text-12 font-medium" data-testid="chat-artifacts-panel-title">
+          {unified ? "产物" : "产物预览"}{total !== null ? `（${total}）` : ""}
+        </h2>
+        {onRefresh ? (
+          <Button size="xs" variant="ghost" className="w-6 px-0" aria-label="刷新产物与修改进度" title="刷新" data-testid="chat-artifacts-refresh" onClick={onRefresh}>
+            <RefreshCw aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
       </div>
+      {unified ? <div className="p-3 empty:hidden">{versions}</div> : null}
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
       {/* issue #2075（TW-COPY-1）—— 原文「选择线程后读取产物。」两处开发者味：
@@ -68,12 +93,17 @@ export function ChatArtifactsPanel({
           </Button>
         </div>
       ) : null}
-      {artifacts ? (
-        <div className="flex flex-col gap-2 p-3" data-testid="chat-artifacts-list">
-          {artifacts.items.length === 0 ? (
-            <p className="text-12 text-muted-foreground" data-testid="chat-artifacts-empty">
-              这条线程还没有落地的产物。
-            </p>
+      {/* 统一外壳下：列表为空、空态又不该出现（任务文件在上面）时整块不画，不留一截空白内边距。 */}
+      {artifacts && (!unified || artifacts.items.length > 0 || showEmpty) ? (
+        <div className={`flex flex-col gap-2 ${unified && versionsCount ? "px-3 pb-3" : "p-3"}`} data-testid="chat-artifacts-list">
+          {showEmpty ? (
+            <div className="flex flex-col items-center gap-1.5 px-3 py-8 text-center" data-testid="chat-artifacts-empty">
+              <Package aria-hidden className="h-5 w-5 text-muted-foreground" />
+              <p className="text-12 font-medium text-card-foreground">这条对话还没有产物</p>
+              <p className="max-w-64 text-11 text-muted-foreground">
+                任务生成的报告、PPT、表格等文件会出现在这里，可预览、下载，并基于历史版本继续修改。
+              </p>
+            </div>
           ) : null}
           {artifacts.items.map((item) => {
             const body = (

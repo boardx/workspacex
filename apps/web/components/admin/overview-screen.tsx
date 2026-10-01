@@ -2,6 +2,7 @@
 import { Download, FileBarChart } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { OverviewLive } from "./overview-live";
+import { FirstValueFunnelPanel } from "./first-value-funnel-panel";
 import { Button } from "@/components/ui/button";
 import type { UiState } from "@/lib/ui-state";
 
@@ -58,6 +59,9 @@ export function OverviewScreen({ state }: { state: UiState }) {
       <div className="flex flex-col gap-5">
         {/* 三块真指标 + 限额事件 + 活动流，全部真数据，见 overview-live.tsx */}
         <OverviewLive />
+
+        {/* 第一个价值时刻漏斗（issue #4248，真数据），见 first-value-funnel-panel.tsx */}
+        <FirstValueFunnelPanel />
 
         {/* 导出 / 月度报告：按钮如实禁用，原因见上方文件头注与 #1178。
             ⚠ 刻意没有把它们从界面上拿掉：拿掉等于替 #1178 做了「不做」的决定，

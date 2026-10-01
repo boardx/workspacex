@@ -7,13 +7,18 @@ import {
   ConflictPromptCard, ConflictPromptGoneError, type ConflictConditions, type ConflictResolution,
 } from "./conflict-prompt-card";
 import { MemoryCard, type MemoryCardActOptions, type MemoryCardDecision, type UndoOutcome } from "./memory-card";
+import { SupersedeNoticeLine } from "./supersede-notice-line";
 import type { KgMemoryCard } from "@repo/contracts/chat-knowledge-graph";
+import { jumpToCitationSource } from "@/lib/knowledge-graph-citation";
 import {
   actOnMemoryCard,
   applyHumanAction,
+  correctCitation,
+  type CitationCorrectionKind,
   fetchThreadKnowledge,
   fetchTurnMemory,
   knowledgeGraphErrorCode,
+  undoMemoryCard,
   type TurnMemory,
 } from "@/lib/knowledge-graph-api";
 import {
@@ -54,6 +59,10 @@ export const TURN_MEMORY_REPOLL_DELAYS_MS: readonly number[] = [3_000, 8_000];
  *   按钮只给所有者；点了经 `actOnMemoryCard` 执行，成功后让右栏记忆重读。卡片过期 / 不在了 ⇒ 重读这一轮
  *   （卡片据此显示「内容已经变了」）。「已记住 · 撤销」= 忘掉刚记下的那条（`applyHumanAction{revokeClaim}`，
  *   版本号点击时现取），个人空间的副本随它一起失效。
+ * - #4361：忘掉卡生效后可以撤销（`undoMemoryCard`，见 undoForget）；「你记得我什么」的清单卡同一个位置（MemoryCard 按 kind 分派）。
+ * - #4290：本轮的改口取代提示（`supersede`）——「已用〈新〉取代〈旧〉 · 撤销」一行，画在卡片之后、「已记下」之前。
+ *   「撤销」只给所有者；点了经 `applyHumanAction{undoSupersede}`（版本号点击时现取），结束后让右栏记忆重读。
+ *   提示已经不在了（`KG_PROMPT_NOT_FOUND`，别的标签页撤过）⇒ 重读这一轮，按服务端现在的状态显示。
  */
 export function TurnMemoryLine({ threadId, messageId }: { threadId: string; messageId: string }) {
   const [turn, setTurn] = React.useState<TurnMemory | null>(null);
@@ -101,6 +110,21 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     requestKnowledgeReload(threadId);
   }, [threadId, promptId]);
 
+  const supersede = turn?.supersede ?? null;
+  const noticeId = supersede?.noticeId;
+  const undoSupersede = React.useCallback(async (): Promise<void> => {
+    if (noticeId === undefined) return;
+    try {
+      const revision = (await fetchThreadKnowledge(threadId)).revision;
+      await applyHumanAction(threadId, revision, { type: "undoSupersede", noticeId });
+    } catch (e) {
+      requestKnowledgeReload(threadId);
+      if (knowledgeGraphErrorCode(e) === "KG_PROMPT_NOT_FOUND") setReloadKey((k) => k + 1);
+      throw new Error(describeHumanActionFailure(e));
+    }
+    requestKnowledgeReload(threadId);
+  }, [threadId, noticeId]);
+
   const memoryCard = turn?.prompt?.type === "memory_card" ? turn.prompt.card : null;
   const cardId = memoryCard?.cardId;
   const actOnCard = React.useCallback(async (decision: MemoryCardDecision, opts: MemoryCardActOptions) => {
@@ -145,6 +169,38 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     }
   }, [threadId, messageId, cardId]);
 
+  /**
+   * #4361：「已忘掉 N 条 · 撤销」——服务端 undoMemoryCard 把这张卡忘掉的恢复（连同长期记忆里的副本），返回撤销后的卡。
+   * 卡已经不是眼前的样子（别的标签页撤过 / 期间又被改过）⇒ 重读这一轮，按服务端现在的状态显示。
+   */
+  const undoForget = React.useCallback(async (): Promise<KgMemoryCard> => {
+    if (cardId === undefined) throw new Error(describeMemoryCardFailure(null));
+    try {
+      const out = await undoMemoryCard(cardId);
+      requestKnowledgeReload(threadId);
+      return out.card;
+    } catch (e) {
+      const code = knowledgeGraphErrorCode(e);
+      if (code !== null && MEMORY_CARD_RELOAD_ON_FAILURE.has(code)) setReloadKey((k) => k + 1);
+      throw new Error(describeMemoryCardFailure(e));
+    }
+  }, [threadId, cardId]);
+  /** S7（#4364）：引用 chip 展开行的「跳到原消息」（复用 R6 / F15 的跳转）。 */
+  const jumpToSource = React.useCallback((claimId: string) => jumpToCitationSource(claimId, threadId), [threadId]);
+  /**
+   * S7：「这条不对」/「已过时」。服务端再核一遍（所有者兼提问人、这一轮对账后的引用）；成功后让右栏记忆重读，
+   * 这一轮不重读——展开行已经如实显示了结果，重读会把刚纠正的 chip 连同结果一起收走。
+   */
+  const correct = React.useCallback(async (claimId: string, kind: CitationCorrectionKind, replacement?: string) => {
+    try {
+      return await correctCitation(threadId, messageId, claimId, kind, replacement);
+    } catch (e) {
+      throw new Error(describeHumanActionFailure(e));
+    } finally {
+      requestKnowledgeReload(threadId);
+    }
+  }, [threadId, messageId]);
+
   React.useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -182,10 +238,19 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
   if (turn === null) return null;
   const showFooter = turn.recalled.length > 0 || turn.recallDegraded;
   const showCaptured = turn.pending || turn.captured.length > 0;
-  if (!showFooter && !showCaptured && conflict === null && memoryCard === null) return null;
+  if (!showFooter && !showCaptured && conflict === null && memoryCard === null && supersede === null) return null;
   return (
     <>
-      {showFooter ? <AnswerKnowledgeFooter recalled={turn.recalled} recallDegraded={turn.recallDegraded} /> : null}
+      {showFooter ? (
+        <AnswerKnowledgeFooter
+          recalled={turn.recalled}
+          recallDegraded={turn.recallDegraded}
+          {...(turn.cited !== undefined ? { cited: turn.cited } : {})}
+          canCorrect={canEdit && turn.canCorrect === true}
+          onJump={jumpToSource}
+          onCorrect={correct}
+        />
+      ) : null}
       {conflict !== null ? (
         <ConflictPromptCard key={conflict.promptId} prompt={conflict} canResolve={canEdit} onResolve={resolveConflict} />
       ) : null}
@@ -196,6 +261,14 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
           canAct={canEdit}
           onAct={actOnCard}
           onUndo={undoRemember}
+          onUndoForget={undoForget}
+        />
+      ) : null}
+      {supersede !== null ? (
+        <SupersedeNoticeLine
+          key={`${supersede.noticeId}:${supersede.state}`}
+          notice={supersede}
+          onUndo={canEdit ? undoSupersede : undefined}
         />
       ) : null}
       {showCaptured ? (

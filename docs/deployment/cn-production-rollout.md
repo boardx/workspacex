@@ -15,6 +15,8 @@
 
 `main-cn` 是中国生产环境的发布指针，不承载日常开发。代码仍通过 PR 合入 `main`。`backend-gates` 在 `main` 成功后，`prepare-cn-release` 会提前构建四个应用镜像并封印 digest manifest；发布时只允许把已经封印且进入 `main` 的指定提交 fast-forward 到 `main-cn`。push 会触发 `deploy-cn-production`，生产只验证并激活该候选版本，不再构建 Next.js 或其他应用镜像。
 
+日常操作统一使用 [GitHub 中国生产发布执行书](./cn-production-github-release.md)。`promote-cn-production` 接受 exact SHA 和当前 `main-cn` SHA，在 `production-cn` Environment 审批后验证不可变候选与准备收据，再用 CAS fast-forward 晋级；已有 `deploy-cn-production` 仍是唯一 activation 路径。
+
 候选构建与生产激活共用 `/var/lib/workspacex-cn/runtime/release.lock`，避免构建、预热和切换同时修改发布工作区。候选构建通过 ECS RAM Role 获取一小时内有效的 ACR 临时密码，凭据只写入一次性 `DOCKER_CONFIG` 并在结束时注销、删除。目标机必须提供 root-owned `0600` 的 `/etc/workspacex-cn/publish.env`：
 
 ```dotenv
@@ -25,7 +27,8 @@ WSX_ECS_RAM_ROLE_NAME=<attached ECS RAM role>
 WSX_PLATFORM=linux/amd64
 WSX_NODE_IMAGE=<reviewed digest reference>
 WSX_PYTHON_IMAGE=<reviewed digest reference>
-WSX_POSTGRES_IMAGE=<reviewed digest reference>
+WSX_POSTGRES_IMAGE=<reviewed pgvector/pgvector base digest; AGE is built on top and pushed as <prefix>/postgres-age>
+# optional: WSX_AGE_REPOSITORY=<https git mirror of apache/age; the build pins and verifies the AGE commit>
 WSX_REDIS_IMAGE=<reviewed digest reference>
 ```
 
@@ -36,7 +39,7 @@ WSX_REDIS_IMAGE=<reviewed digest reference>
 1. 发布 SHA 是当前 `main-cn` tip，并且属于 `origin/main` 历史。
 2. canonical release manifest 的 `sourceRevision` 等于发布 SHA，且 `.sealed.json` 记录的 SHA-256 与 manifest 原始字节完全一致。
 3. 四个应用镜像位于 `CN_ACR_REPOSITORY_PREFIX` 指定的新 ACR namespace，全部固定为 `@sha256` digest。
-4. PostgreSQL/Redis 基础镜像仍在 canonical manifest 中固定 digest，但 production 使用托管 RDS/Redis，不要求将它们复制进 ACR。
+4. PostgreSQL/Redis 镜像仍在 canonical manifest 中固定 digest，但 production 使用托管 RDS/Redis。Redis 不要求复制进 ACR；PostgreSQL 必须带 Apache AGE（ADR-114 / #4081），因此候选构建以 `WSX_POSTGRES_IMAGE`（pgvector 基础 digest）为底、从 `apps/api/docker/postgres-age` 构建并推送 `<prefix>/postgres-age:<SHA>`，需要在同一 namespace 预建版本不可变的 `postgres-age` 仓库。托管 RDS 同样必须提供 `age` 扩展，否则图检索报 `KG_GRAPH_UNAVAILABLE`。
 5. runner 使用独立标签 `workspacex-cn-production`，GitHub Environment 固定为 `production-cn`；当前 Devapp workflow 不被触发。
 
 ## 五分钟 provision 之前必须完成

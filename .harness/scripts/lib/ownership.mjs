@@ -42,6 +42,7 @@ export const OWNERSHIP = {
   "packages/dev-mode-accounts": { class: "oss", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },
   "packages/cloud-deploy": { class: "oss", why: "自托管客户要用的部署、TLS、备份与发布工具（D23，2026-09-24 人类决策）；其中阿里云专属部分待改成通用写法" },
   "packages/fabric-markdown": { class: "oss", why: "上游 v0.1.0 由本项目作者自行开发，权利人 BoardX Inc.（2026-09-25 人类确认）；按 Apache-2.0 开源" },
+  "packages/whiteboard-core": { class: "oss", why: "白板协作内核（Yjs 文档引擎），随 apps/web 白板功能交付的核心库，不属于运营平面或企业版边界，按 apps/api、apps/web 同口径（D25/D26）开源" },
 };
 
 /** 仓库里每个带 package.json 的工作区目录，连同它的归属。 */

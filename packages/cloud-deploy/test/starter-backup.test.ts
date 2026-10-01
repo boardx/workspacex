@@ -20,3 +20,19 @@ it("rejects incompatible major version before database changes",async()=>{await 
 it("refuses symlinked backup payloads",async()=>{const root=await fixture();await rm(join(root,"database.dump"));await symlink(join(root,"manifest.json"),join(root,"database.dump"));await expect(restoreStarterDatabase(target,root)).rejects.toThrow();expect(invoked).not.toHaveBeenCalled();});
 it.each(["--help","source; DROP DATABASE workspacex","/escape"])("rejects unsafe restore name %s",async database=>{await expect(restoreStarterDatabase({...target,database},await fixture())).rejects.toThrow();expect(invoked).not.toHaveBeenCalled();});
 it("refuses a container option disguised as an identifier",async()=>{await expect(backupStarterDatabase({...target,container:"--privileged"},"unused")).rejects.toThrow();expect(invoked).not.toHaveBeenCalled();});
+
+it("accepts an existing short credential and passes it only through child environment",async()=>{
+ const password="legacy";
+ await expect(backupStarterDatabase({...target,password},"unused")).rejects.toThrow("must not invoke Docker before validation");
+ expect(invoked).toHaveBeenCalled();
+ for(const call of invoked.mock.calls as unknown as Array<[string,string[],{env:Record<string,string>;shell:boolean}]>){
+  expect(call[0]).toBe("docker");expect(call[1]).not.toContain(password);expect(call[2].shell).toBe(false);expect(call[2].env.PGPASSWORD).toBe(password);
+ }
+});
+it.each(["","bad\0credential","x".repeat(4097)])("rejects unusable credential before invoking a tool",async password=>{
+ await expect(backupStarterDatabase({...target,password},"unused")).rejects.toThrow();expect(invoked).not.toHaveBeenCalled();
+ await expect(restoreStarterDatabase({...target,password},await fixture())).rejects.toThrow();expect(invoked).not.toHaveBeenCalled();
+});
+it("accepts a short existing credential on restore while retaining integrity guards",async()=>{
+ await expect(restoreStarterDatabase({...target,password:"legacy"},await fixture({sha256:"0".repeat(64)}))).rejects.toThrow("BACKUP_CHECKSUM_MISMATCH");expect(invoked).not.toHaveBeenCalled();
+});

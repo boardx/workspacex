@@ -54,7 +54,8 @@ const SCENES: { name: string; scene: string; ready: string; prepare?: (page: Pag
   { name: "detail 画布", scene: "detail", ready: '[data-testid="design-detail-canvas"]' },
   {
     name: "detail 说明", scene: "detail", ready: '[data-testid="design-detail-canvas"]',
-    prepare: (p) => clickUntil(p, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'),
+    // design-delta `novice-progressive-disclosure`：说明页从「更多」→「需求说明与验收标准」进。
+    prepare: (p) => openSpecViaMore(p),
   },
   // 迭代 10：原型画布——画板视图（自身可平移，标 data-allow-x-scroll）与单页 + 属性面板 + 历史
   /*
@@ -75,6 +76,16 @@ const SCENES: { name: string; scene: string; ready: string; prepare?: (page: Pag
     },
   },
 ];
+
+async function openSpecViaMore(page: Page, tries = 20) {
+  for (let i = 0; i < tries; i++) {
+    if ((await page.locator('[data-testid="design-detail-spec"]').count()) > 0) return;
+    await page.getByTestId("design-detail-more").click({ timeout: 3000 }).catch(() => undefined);
+    await page.getByTestId("design-detail-tab-spec").click({ timeout: 3000 }).catch(() => undefined);
+    await page.waitForTimeout(200);
+  }
+  throw new Error("openSpecViaMore: design-detail-spec never appeared");
+}
 
 async function clickUntil(page: Page, selector: string, expected: string, tries = 20) {
   for (let i = 0; i < tries; i++) {

@@ -28,8 +28,13 @@ class StreamingChatModel:
         self._pieces = pieces
         self.invoked = 0
 
-    def stream(self, messages: list[dict[str, Any]]):
+    def stream(self, messages: list[dict[str, Any]], config: dict[str, Any] | None = None):
+        # `config` 是真 `BaseChatModel.stream()` 会接的位置——2026-09-25 之后
+        # `_focused_call` 显式传它（隔离环境态回调，见 `tools.py` 的
+        # `_ISOLATED_STREAM_CONFIG` 头注），鸭子替身补上同一个参数，不然会被当成
+        # "调用方传了这个替身不认的 kwarg"直接 TypeError，跟真实签名脱节。
         self.received_messages = messages
+        self.received_config = config
         for piece in self._pieces:
             yield Chunk(piece)
 

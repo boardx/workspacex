@@ -8,8 +8,10 @@ export * as identity from "./identity";
 export * as auth from "./auth";
 export * as artifact from "./artifact";
 export * as project from "./project";
+export * as projectEvidence from "./project-evidence";
 export * as files from "./files";
 export * as orgAdmin from "./org-admin";
+export * as homeConfig from "./home-config";
 export * as assetGovernance from "./asset-governance";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";
@@ -21,6 +23,7 @@ export * as agentDefaults from "./agent-defaults";
 
 /* ── phase-01 契约束 ─────────────────────────────────────────────── */
 export * as interview from "./interview";
+export * as interviewMarkdown from "./interview-markdown";
 export * as recording from "./recording";
 export * as canvas from "./canvas";
 export * as chat from "./chat";
@@ -33,6 +36,7 @@ export * as wave2Runtime from "./wave2-runtime";
 export * as templates from "./templates";
 export * as research from "./research";
 export * as survey from "./survey";
+export * as surveySource from "./survey-source";
 export * as personalRealtimeTranscription from "./personal-realtime-transcription";
 
 /* ── phase-03 契约束 ───────────────────────────────────────────────── */
@@ -117,3 +121,25 @@ export * as crmContacts from "./crm-contacts";
 
 /** Board 资源生命周期、成员角色与租户边界契约（#3926）。 */
 export * as whiteboard from "./whiteboard";
+export * as whiteboardDocument from "./whiteboard-document";
+export * as whiteboardSync from "./whiteboard-sync";
+export * as whiteboardCollaboration from "./whiteboard-collaboration";
+export * as whiteboardAsset from "./whiteboard-asset";
+export * as whiteboardImport from "./whiteboard-import";
+export * as whiteboardOperation from "./whiteboard-operation";
+export * as whiteboardActor from "./whiteboard-actor";
+export * as whiteboardStorage from "./whiteboard-storage";
+
+export * as whiteboardOrganize from "./whiteboard-organize";
+
+/* ── phase-20 契约束（work-stack-foundation，五束，2026-09-28 建，
+ *   design-signoff.md 全部 status: pending，人类授权先开发后补签）──────── */
+export * as agentRole from "./agent-role";
+export * as workSkillMeta from "./work-skill-meta";
+export * as workflowRuntime from "./workflow-runtime";
+export * as workflowCapabilityGrants from "./workflow-capability-grants";
+export * as workContent from "./work-content";
+export * as workEval from "./work-eval";
+
+/** #4787 通用项目邀请（邮箱 / 链接 → 组织成员 + 通用项目 collaborator）。 */
+export * as projectInvitation from "./project-invitation";

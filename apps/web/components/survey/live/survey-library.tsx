@@ -1,31 +1,139 @@
 "use client";
+
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
+import {
+  ArrowRight, ChevronDown, Clock3, FileText,
+  MoreHorizontal, Plus, Search,
+} from "lucide-react";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-export function LiveSurveyLibrary() {
+import { Badge } from "@/components/ui/badge";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
+import { hasPendingAiImport } from "@/lib/survey/pending-ai-import";
+import { surveyPath } from "@/lib/survey/paths";
+import { encodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
+import { CreateSurveyDialog } from "./create-survey-dialog";
+import { SurveyLibraryNav } from "../library/survey-library-nav";
+
+function statusFor(item: SurveyRuntime) {
+  if (item.publication?.status === "collecting") return { label: "发布中", tone: "success" } as const;
+  if (item.publication) return { label: "已停止", tone: "warning" } as const;
+  return { label: item.status === "ready" ? "待发布" : "草稿", tone: "info" } as const;
+}
+
+function LibraryLoading() {
+  return (
+    <div role="status" aria-label="正在加载问卷" data-testid="survey-library-loading" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <span className="sr-only">正在加载问卷</span>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="animate-pulse rounded-card border border-border bg-card p-4 shadow-sm">
+          <div className="h-4 w-2/3 rounded bg-muted" />
+          <div className="mt-2 h-3 w-1/3 rounded bg-muted" />
+          <div className="mt-4 h-3 w-full rounded bg-muted" />
+          <div className="mt-4 h-8 w-24 rounded bg-muted" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SurveyStatus({ item }: { item: SurveyRuntime }) {
+  const status = statusFor(item);
+  const tone = status.tone === "success" ? "success" : status.tone === "warning" ? "warning" : "primary";
+  return <Badge tone={tone} data-testid={`survey-status-${item.id}`}>{status.label}</Badge>;
+}
+
+/** 问卷卡片：标准 `ResourceCard` 版式（2026-09-30 人类要求所有卡片统一成标准项目卡片）。 */
+function SurveyCard({
+  item, busy, projectId, onOpen, onRemove, onResponses,
+}: {
+  item: SurveyRuntime;
+  busy: boolean;
+  projectId: string | null;
+  onOpen: (item: SurveyRuntime) => void;
+  onRemove: (item: SurveyRuntime) => void;
+  onResponses: (item: SurveyRuntime) => void;
+}) {
+  const includedResponses = item.responses.filter((response) => response.analysis !== "excluded").length;
+  return (
+    <ResourceCard
+      testId={`survey-card-${item.id}`}
+      title={
+        <Link
+          className="block truncate transition-colors hover:text-muted-foreground"
+          href={withProjectId(`/studio/survey/${item.id}`, projectId)}
+          onClick={(event) => { event.preventDefault(); onOpen(item); }}
+        >
+          {item.title}
+        </Link>
+      }
+      subtitle={`${item.questions.length} 个题目 · ${item.responses.length} 份答卷（有效 ${includedResponses}）`}
+      badges={<SurveyStatus item={item} />}
+      menu={
+        <Menu>
+          <MenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`更多操作：${item.title}`}>
+              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end" sideOffset={4} className="w-36">
+            <MenuItem disabled={busy} onSelect={() => onRemove(item)} className="text-destructive data-[highlighted]:text-destructive">删除问卷</MenuItem>
+          </MenuContent>
+        </Menu>
+      }
+      description={item.questions[0]?.title
+        ? `包含“${item.questions[0].title}”等问题，邀请目标受访者分享真实反馈。`
+        : "添加问题、发布问卷并收集真实反馈。"}
+      tags={<ResourceCardTags tags={item.tags ?? []} max={3} />}
+      meta={
+        <span className="inline-flex items-center gap-1.5">
+          <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
+          最近更新：{new Date(item.updatedAt).toLocaleString("zh-CN")}
+        </span>
+      }
+      actions={
+        <>
+          <Button variant="primary" size="sm" onClick={() => onOpen(item)}>{item.publication ? "继续编辑" : "继续设计"}</Button>
+          <Button variant="outline" size="sm" onClick={() => onResponses(item)}>查看答卷</Button>
+        </>
+      }
+    />
+  );
+}
+
+/** 项目入口保留 projectId；问卷数据和操作均来自正式 API。 */
+export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | null }) {
   const router = useRouter();
   const [items, setItems] = React.useState<SurveyRuntime[]>([]);
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState("");
   const [query, setQuery] = React.useState("");
+  const [tag, setTag] = React.useState<string | null>(null);
+  const [showAllTags, setShowAllTags] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
+  const tags = [...new Set(items.flatMap((item) => item.tags ?? []))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const visibleItems = items
+    .filter((item) => (!tag || item.tags?.includes(tag)) && [item.title, ...(item.tags ?? [])]
+      .some((text) => text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
   const refresh = React.useCallback(async () => {
     setBusy(true);
     setError("");
-    try {
-      setItems(await surveyRequest<SurveyRuntime[]>("/surveys"));
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    try { setItems(await surveyRequest<SurveyRuntime[]>("/surveys")); }
+    catch (reason) { setError((reason as Error).message); }
+    finally { setBusy(false); }
   }, []);
-  React.useEffect(() => {
-    void refresh();
-  }, [refresh]);
+
+  React.useEffect(() => { void refresh(); }, [refresh]);
+
   const remove = async (item: SurveyRuntime) => {
     if (!window.confirm("删除问卷及其答卷和报告？此操作不能撤销。")) return;
     setBusy(true);
@@ -35,86 +143,107 @@ export function LiveSurveyLibrary() {
         query: { expectedVersion: String(item.version) },
       });
       await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } catch (reason) { setError((reason as Error).message); }
+    finally { setBusy(false); }
   };
+
+  const open = (item: SurveyRuntime) => {
+    const pendingImport = !item.publication && hasPendingAiImport(item.id);
+    router.push(withProjectId(
+      pendingImport ? `/studio/survey/${item.id}?step=import&mode=ai` : surveyPath(item.id, "design"),
+      projectId,
+    ));
+  };
+
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <header className="flex items-center justify-between">
+    <main className="mx-auto max-w-screen-2xl space-y-7 p-5 sm:p-7 lg:p-10">
+      <ProjectBreadcrumb projectId={projectId} sub="survey" className="" />
+      <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p className="text-11 text-muted-foreground">Studio / 问卷</p>
-          <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
+          <h1 className="text-30 font-semibold tracking-tight">问卷</h1>
         </div>
-        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules")}>从模板创建</Button><Button onClick={() => router.push("/studio/survey/new")}>创建问卷</Button></div>
+        <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+          <div className="relative min-w-0 sm:w-72">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="w-full pl-9"
+              aria-label="搜索问卷"
+              placeholder="搜索问卷名称、标签或关键词…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <Button variant="primary" data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
+        </div>
       </header>
-      <div className="flex gap-2">
-        <Input
-          aria-label="搜索问卷"
-          placeholder="搜索问卷名称"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => void refresh()}
-        >
-          刷新
-        </Button>
+
+      <div className="flex flex-col gap-6">
+        <SurveyLibraryNav active="surveys" />
+
+        <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
+          <div className="flex flex-wrap items-center gap-2" aria-label="标签筛选">
+            <Button size="sm" className="rounded-full" variant={tag === null ? "primary" : "secondary"} onClick={() => setTag(null)}>全部</Button>
+            {(showAllTags ? tags : tags.slice(0, 7)).map((value) => <Button key={value} size="sm" className="rounded-full" variant={tag === value ? "primary" : "secondary"} onClick={() => setTag(value)}>{value}</Button>)}
+            {tags.length > 7 && (
+              <Button size="sm" className="rounded-full" variant="outline" aria-expanded={showAllTags} onClick={() => setShowAllTags((value) => !value)}>
+                {showAllTags ? "收起标签" : "更多标签"}<ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform duration-base ${showAllTags ? "rotate-180" : ""}`} />
+              </Button>
+            )}
+            <span className="ml-auto text-12 text-muted-foreground">共 {items.length} 个问卷</span>
+          </div>
+
+          {error && <div role="alert" data-testid="err-survey-library" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">{error}</div>}
+          {busy && <LibraryLoading />}
+          {!busy && !error && (
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {visibleItems.map((item) => (
+                <SurveyCard
+                  key={item.id}
+                  item={item}
+                  busy={busy}
+                  projectId={projectId}
+                  onOpen={open}
+                  onRemove={(value) => void remove(value)}
+                  onResponses={(value) => router.push(withProjectId(surveyPath(value.id, "responses"), projectId))}
+                />
+              ))}
+              {items.length > 0 && (
+                <aside className="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
+                  <div className="relative z-10 max-w-md">
+                    <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">报告模板（可选）</p>
+                    <h2 className="mt-3 text-18 font-semibold">为该问卷设计报告模板</h2>
+                    <Link href="/studio/survey?tab=reports" className="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted">去创建报告模板<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+                  </div>
+                </aside>
+              )}
+            </div>
+          )}
+
+          {!busy && !error && items.length > 0 && visibleItems.length === 0 && (
+            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setTag(null); }}>清除筛选</Button></div>
+          )}
+          {!busy && !error && items.length === 0 && (
+            <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
+              <h2 className="text-18 font-semibold">还没有问卷</h2>
+              <p className="text-14 text-muted-foreground">创建第一份问卷，或从问卷模板中选择合适的结构。</p>
+              <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
+            </div>
+          )}
+        </section>
       </div>
-      {error && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
-      {busy && <p role="status">正在加载…</p>}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {items
-          .filter((item) => item.title.includes(query))
-          .map((item) => (
-            <article
-              key={item.id}
-              className="rounded-lg border border-border bg-card p-5"
-            >
-              <Link
-                className="text-16 font-semibold"
-                href={`/studio/survey/${item.id}`}
-              >
-                {item.title}
-              </Link>
-              <p className="mt-3 text-12 text-muted-foreground">
-                {item.questions.length} 道题 · {item.responses.length} 份答卷 ·{" "}
-                {item.publication?.status === "collecting"
-                  ? "回收中"
-                  : item.publication
-                    ? "已关闭"
-                    : "未发布"}
-              </p>
-              <div className="mt-5 flex justify-between">
-                <Link
-                  className="text-12 text-primary"
-                  href={`/studio/survey/${item.id}`}
-                >
-                  打开问卷 →
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  disabled={busy}
-                  onClick={() => void remove(item)}
-                >
-                  删除
-                </Button>
-              </div>
-            </article>
-          ))}
-      </div>
-      {!busy && !error && items.length === 0 && (
-        <div className="space-y-4 py-16 text-center"><p className="text-muted-foreground">还没有问卷，可以使用内置模板开始，也可以创建空白问卷。</p><Link className="inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=modules">浏览问卷模板</Link><Link className="ml-3 inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=reports">浏览报告模板</Link></div>
-      )}
+
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id, mode, draft) => {
+        if (mode === "ai" && draft) {
+          router.push(withProjectId(`/studio/survey/new/import?draft=${encodeURIComponent(encodeSurveyCreationDraft(draft))}`, projectId));
+          return;
+        }
+        if (!id) return;
+        if (projectId) {
+          try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); }
+          catch { /* 项目页可补挂 */ }
+        }
+        router.push(withProjectId(surveyPath(id, "design"), projectId));
+      }} />
     </main>
   );
 }

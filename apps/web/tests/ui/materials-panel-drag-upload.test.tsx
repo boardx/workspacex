@@ -56,6 +56,7 @@ function Harness({ canWrite = true }: { canWrite?: boolean }) {
       materialsError={null}
       onRetry={() => {}}
       pendingMaterialsCount={attach.uploadedIds.length}
+      uploadingMaterialsCount={attach.uploadingCount}
       planTodos={null}
       isRunning={false}
       runPhaseLabel={null}
@@ -131,6 +132,36 @@ describe("issue #3347 右栏「材料」上传入口", () => {
     dropOnInspector([huge]);
     await waitFor(() => expect(screen.getByTestId("chat-materials-upload-error")).toHaveTextContent("huge.txt"));
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 人类实测截图：从「材料」页签点「+」上传，进度只出现在 composer 里——「材料 (0)」
+   * 在传完之前一个字都不说，用户在这个页签动作，回应却在屏幕另一端。
+   *
+   * 判据卡在**上传尚未 resolve 的那个窗口**：`pendingCount`（`uploadedIds`）此时还是
+   * 0（服务端还没回 id），如果只断言那一个字段，这条 bug 完全看不见——必须在
+   * `upload` 的 promise 还悬着的时候取证。
+   */
+  it("上传进行中（还没成功）：「材料」页签自己说出来，不是只有 composer 知道", async () => {
+    let resolveUpload!: (value: { id: string; bytes: number; mime: string }) => void;
+    upload.mockReturnValue(new Promise((resolve) => { resolveUpload = resolve; }));
+    const file = new File(["hello"], "slow.txt", { type: "text/plain" });
+    render(<Harness />);
+
+    dropOnInspector([file]);
+
+    // 上传还没 resolve：pending 计数（已上传）必须是 0——如果这条断言本身就通不过，
+    // 说明反证条件没搭对，不是产品修好了。
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("chat-materials-pending-count")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("chat-materials-uploading-count"))
+      .toHaveTextContent("正在上传 1 个文件"));
+
+    resolveUpload({ id: "server-att-slow", bytes: 5, mime: "text/plain" });
+
+    // 上传真的完成后，「正在上传」那句话必须消失，接力给「已加入下一条消息」。
+    await waitFor(() => expect(screen.getByTestId("chat-materials-pending-count")).toHaveTextContent("1 个"));
+    expect(screen.queryByTestId("chat-materials-uploading-count")).not.toBeInTheDocument();
   });
 
   it("只读会话：入口渲染但禁用并写出理由——不是悄悄消失，也不接受拖拽", async () => {

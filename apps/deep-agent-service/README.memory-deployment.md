@@ -1,6 +1,8 @@
 # Native memory deployment
 
-The Native graph always registers `wx_memory_search`, `wx_memory_write` and `wx_memory_delete`. Agent Server persistence (`DATABASE_URI`) does not configure this store. The memory service needs its own prepared database and identities.
+> **Retired from the agent (issue #4344).** The Native graph no longer registers `wx_memory_search`, `wx_memory_write` or `wx_memory_delete`. The agent's only memory tool is `wx_remember`, which opens the F17 「记住」 confirmation card; after the user confirms, the fact goes into the knowledge graph (visible in the chat 记忆 panel and /brain, and can be undone). The store, its code (`standard_memory.py`) and any existing data below are kept, not deleted; nothing in the agent reads or writes them any more.
+
+Before #4344 the Native graph always registered `wx_memory_search`, `wx_memory_write` and `wx_memory_delete`. Agent Server persistence (`DATABASE_URI`) does not configure this store. The memory service needs its own prepared database and identities.
 
 | Variable | Prepare job | Agent / readiness job |
 |---|---|---|

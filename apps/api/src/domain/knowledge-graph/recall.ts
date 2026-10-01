@@ -7,13 +7,18 @@
  *     二字组重合打分，不依赖 tsvector。
  *   - graph（关联）：问题里提到的实体（graphSeeds）→ AGE 邻域里的结论。**只加分**：图路命中但与问题
  *     毫无字面关联的结论，排在字面命中之后；关掉图路，结果集仍然合理（R7-2）。
- *   - vector：本阶段没有嵌入流水线（F05 不在 MVP），记为 available = false，不静默略过（R4-E2）。
- * 融合用 RRF（与 domain/retrieval/rrf.ts 同一个 k），最后按三态加一点权：你确认过的优先于 AI 记下的。
+ *   - vector（S9，#4366）：问题的嵌入 ↔ 候选结论的嵌入（object_embeddings，pgvector HNSW），余弦够高才算命中。
+ *     没配置嵌入模型 ⇒ available = false（未启用，不提醒）；配置了但这轮失败 ⇒ available = false 且记入
+ *     `degraded`，降级为字面 + 图，并如实告诉用户（R4-E1）。
+ * 融合用 RRF（与 domain/retrieval/rrf.ts 同一个 k），再按「直接命中（字面 / 向量）→ 贴切度 → 融合分」重排，
+ * 最后按三态加一点权：你确认过的优先于 AI 记下的。
  */
-import type { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
+import { knowledgeGraph as KG, type contextPack as CP } from "@repo/contracts";
 import type { z } from "zod";
 import { decisionLike, DECISION_RECALL_LIMIT } from "./decision-claim";
+import { selfIntentLike, SELF_INTENT_RECALL_LIMIT } from "./self-intent-claim";
 import { normalizeName } from "./extraction";
+import { claimExpired } from "./claim-time";
 
 export type RecallChannel = z.infer<typeof CP.RetrievalChannel>;
 type FilterAction = z.infer<typeof CP.FilterAction>;
@@ -35,10 +40,17 @@ export interface RecallClaim {
    * 这条结论对这一轮来说属于哪里：本会话（L0）或本人个人空间（F12 的 L1，以及 F15 起本人其他个人对话里记下的——
    * 「个人空间 = 同一用户全部个人线程」S0-2=A，06-UX R2 M1「开新会话不用重新交代背景」）。
    */
-  readonly scope: "chat_session" | "personal";
+  readonly scope: "chat_session" | "personal" | "project";
   /** 记在本人另一个个人对话里（不是本会话、也不是长期记忆）⇒ 那个对话的 id；其余 ⇒ 省略。 */
   readonly originThreadId?: string;
+  /** issue #4363（S6）：有效期终点（ISO，左闭右开）；null / 省略 = 长期有效。过期的不召回（claimExpired）。 */
+  readonly validUntil?: string | null;
+  /** issue #4363（S6）：待办状态（只有待办有）。「不做了」的不召回；「已完成」的照常召回但标明，模型不会再当成没做。 */
+  readonly todoStatus?: KG.KgTodoStatus | null;
+  /** S10（#4367）：项目记忆里由成员从个人记忆分享来的 ⇒ 分享人显示名（没有显示名为空串）；其余 ⇒ 省略。 */
+  readonly sharedByName?: string;
 }
+
 
 export interface GraphHop {
   readonly src: string;
@@ -50,6 +62,12 @@ export interface GraphHop {
 export interface GraphHit {
   readonly claimId: string;
   readonly path: readonly GraphHop[];
+}
+
+/** S9（#4366）向量通道的一条命中：候选集里的结论 + 与问题的余弦相似度（-1..1）。 */
+export interface VectorHit {
+  readonly claimId: string;
+  readonly similarity: number;
 }
 
 export interface RecallItem {
@@ -74,6 +92,11 @@ export interface KnowledgeRecall {
   readonly plan: readonly RecallChannelPlan[];
   /** 问题里解析出的实体（给可解释性 / 测试看）。 */
   readonly graphSeeds: readonly string[];
+  /**
+   * S9（#4366）：这一轮**出了故障**的通道（配置了、执行了、失败了）。与 plan 的 `available = false` 不同：
+   * 没配置嵌入模型的部署，vector 也是 available = false，但那不是故障、不该每轮提醒用户。
+   */
+  readonly degraded?: readonly RecallChannel[];
 }
 
 const RRF_K = 60;
@@ -133,10 +156,36 @@ export interface FuseInput {
   readonly objects: readonly RecallObject[];
   /** null ⇒ 图路这次没执行（AGE 不可用）。 */
   readonly graph: readonly GraphHit[] | null;
+  /**
+   * S9（#4366）向量通道：数组 ⇒ 执行了（按相似度的命中，已限定在候选集里、已截到 top-k）；
+   * null ⇒ 配置了但这次失败（嵌入服务挂了 / 超时 / 维度不符）——降级为字面 + 图，并如实告诉用户；
+   * 省略 ⇒ 这个部署没配置嵌入模型（通道未启用，不是故障）。
+   */
+  readonly vector?: readonly VectorHit[] | null;
   readonly limit: number;
   /** 字面分数低于它的不算字面命中。 */
   readonly minLexical?: number;
+  /** 相似度低于它的不算向量命中（默认 VECTOR_MIN_SIMILARITY）。 */
+  readonly minSimilarity?: number;
+  /** issue #4363（S6）：判「过期了没有」的时刻（测试注入；缺省 = 现在）。 */
+  readonly now?: Date;
 }
+
+/**
+ * issue #4363（S6）：这条记忆这一轮还算数吗——没过期（claimExpired，唯一判定）、不是「不做了」的待办。
+ * 不算数的直接不进候选：三路打分、决定 / 目标的强制召回都看不到它（大脑页与面板照样列出，标「已过期」/「不做了」）。
+ */
+export function recallable(c: RecallClaim, now: Date): boolean {
+  return !claimExpired(c.validUntil, now) && c.todoStatus !== "dropped";
+}
+
+/**
+ * 向量命中的相似度下限（余弦）。低于它的「最近邻」只是「没那么远」，不是「相关」：不进召回。
+ * 取值偏保守（宁可漏给字面 / 图，也不把无关的记忆塞给模型——06-UX R3「不打扰」）。
+ */
+export const VECTOR_MIN_SIMILARITY = 0.35;
+/** 向量通道每轮最多取多少条（top-k，SQL 侧 LIMIT 与这里一致）。 */
+export const VECTOR_RECALL_TOP_K = 8;
 
 /** 排好序的列表里第 i 项的竞争名次：与前面同分的项共用最前那一项的名次。 */
 function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): number {
@@ -145,13 +194,24 @@ function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): 
   return r;
 }
 
+/**
+ * 决定类强制召回认哪些来源（issue #4181 / #4278）：本会话（L0）与本人个人空间（L1）。跨会话（F15，
+ * originThreadId 有值）的不认。所有权不在这里判——候选集已按 F12 的条件只含本人的 L1（见 fuseRecall 注释）。
+ */
+export function forcedDecisionScope(c: RecallClaim): boolean {
+  return c.originThreadId === undefined && (c.scope === "chat_session" || c.scope === "personal" || c.scope === "project");
+}
+
 export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const minLexical = input.minLexical ?? 0.2;
   const seeds = graphSeeds(input.query, input.objects);
   const qTokens = lexicalTokens(input.query);
-  const byId = new Map(input.claims.map((c) => [c.id, c]));
+  // issue #4363（S6）：过期的、「不做了」的待办不进候选（三路打分与强制召回都从这里取）
+  const now = input.now ?? new Date();
+  const claims = input.claims.filter((c) => recallable(c, now));
+  const byId = new Map(claims.map((c) => [c.id, c]));
 
-  const lexical = input.claims
+  const lexical = claims
     .map((c) => ({ c, s: lexicalScore(qTokens, c.statement) }))
     .filter((x) => x.s >= minLexical)
     .sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id));
@@ -178,6 +238,23 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   // 图路权重 0.5：同一名次上永远比字面命中少一半——只加分，不压过字面。
   graphRanked.forEach((h, i) => add(h.claimId, "graph", sharedRank(graphRanked, i, (y) => y.path.length), 0.5));
 
+  // S9（#4366）向量通道：与图路同一条纪律——只认候选集里的（图 / 向量表里是全 org 的 id，作用域由候选集决定），
+  // 相似度够才算命中，按相似度排名、截到 top-k，权重与字面相同（换了说法的同一件事，字面抓不到，靠它）。
+  const minSimilarity = input.minSimilarity ?? VECTOR_MIN_SIMILARITY;
+  const vectorBest = new Map<string, number>();
+  for (const h of input.vector ?? []) {
+    if (!byId.has(h.claimId) || !Number.isFinite(h.similarity) || h.similarity < minSimilarity) continue;
+    vectorBest.set(h.claimId, Math.max(vectorBest.get(h.claimId) ?? -1, h.similarity));
+  }
+  const vectorRanked = [...vectorBest.entries()]
+    .map(([claimId, s]) => ({ claimId, s }))
+    .sort((a, b) => b.s - a.s || a.claimId.localeCompare(b.claimId))
+    .slice(0, VECTOR_RECALL_TOP_K);
+  vectorRanked.forEach((h, i) => add(h.claimId, "vector", sharedRank(vectorRanked, i, (y) => y.s), 1));
+  // 重排用的「贴切度」：字面分与相似度取大（两者都在 0..1）。没有向量通道时它就是字面分——排序与 S9 之前逐条相同。
+  const relevance = (id: string) => Math.max(lexScore.get(id) ?? 0, vectorBest.get(id) ?? 0);
+  const direct = (ch: readonly RecallChannel[]) => ch.includes("fts") || ch.includes("vector");
+
   const items: RecallItem[] = [...score.entries()]
     .map(([id, s]) => {
       const claim = byId.get(id)!;
@@ -195,50 +272,81 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
     // 图路只加分（R7-2）：有字面命中的一律排在只有图路命中的前面；字面命中的之间先比字面分，图路只在字面分相同的
     // 几条之间抬名次（F15 评测 E5.c2 量出来：刚改过的一条还没投影进图，一个人人都提到的实体——「北极星项目」——
     // 给其余几十条都加了图路分，字面最贴切的那条反被挤出前 8）。
-    .sort((a, b) => Number(b.channels.includes("fts")) - Number(a.channels.includes("fts"))
-      || (lexScore.get(b.claim.id) ?? 0) - (lexScore.get(a.claim.id) ?? 0)
+    // S9（#4366）：「直接命中」= 字面或向量（问题与这条本身说的是一件事）；直接命中之间按贴切度（字面分 / 相似度取大），
+    // 再按融合分（RRF）。图路仍然只加分。
+    // issue #4363（S6）：同一主题（贴切度与融合名次都相同——三路给不出先后）之间，问题本身的意图（「谁定的」⇒ 决定优先）
+    // 仍然先说话；意图也分不出时**新的优先**（saidAt 晚的在前，没有时间的最后），然后才轮到三态。
+    // S9 的融合（三路名次、贴切度、RRF）一个字不变。
+    .sort((a, b) => Number(direct(b.channels)) - Number(direct(a.channels))
+      || relevance(b.claim.id) - relevance(a.claim.id)
+      || (score.get(b.claim.id) ?? 0) - (score.get(a.claim.id) ?? 0)
+      || intentBonus(input.query, b.claim.kind) - intentBonus(input.query, a.claim.kind)
+      || (b.claim.saidAt ?? "").localeCompare(a.claim.saidAt ?? "")
       || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 
-  // Ad-hoc（issue #4181）：本会话内「决定类」结论，不管字面/图路打分有多低，都额外强制带上——
+  // Ad-hoc（issue #4181）：「决定类」结论，不管字面/图路打分有多低，都额外强制带上——
   // 一句「我决定关注 211 高校」这样的约束性决定，只有后续问题恰好带关键词才会被上面的排序选中；
   // 用户说「开始写报告吧」不会命中，等于决定在对话变长后失效，即使它理应一直生效（issue 原始报告）。
   //
-  // 三条边界，都是这一轮特意收窄的范围（人类签核前的默认实现，见 signoff-draft 的新开放问题）：
-  //   1. **只认本会话（不含跨会话 / 长期记忆）**：`scope === "chat_session" && originThreadId === undefined`
-  //      精确对应「这条结论记在当前这个会话里」（cross-thread 的 F15 结论会带 originThreadId，L1 长期记忆的
-  //      结论 scope 是 "personal"）——跨会话是否也要享受这条规则，留给 F15 跨会话召回一起裁决（issue 原文）。
+  // 四条边界（人类签核前的默认实现，见 signoff-draft usecases.md 的开放问题）：
+  //   1. **本会话 + 本人个人空间（L1），不含跨会话**：`originThreadId === undefined` 且 scope 是
+  //      `"chat_session"`（记在当前这个会话里）或 `"personal"`（本人长期记忆，issue #4278：晋升到个人空间的
+  //      决定，在新会话的无关轮次里也要带上）。跨会话的 F15 结论（本人其他个人对话里记下、未晋升的）带
+  //      originThreadId，**不**强制——它们只走正常打分。
+  //      **可见面不扩大**：这个纯函数不做权限判定，只在 `input.claims` 里挑；候选集由
+  //      `PgKnowledgeRecall.candidates()` 决定，`scope === "personal"` 的只可能是 F12 L1 那条查询取出来的——
+  //      `scope_id = 发起人本人`、只在发起人自己的个人线程与项目会话里取（issue #4284）、RLS 也只放本人（I-14）。别人的个人空间
+  //      根本进不了候选集，自然也进不了强制召回（tests/knowledge-graph/decision-recall-personal-space.test.ts）。
   //   2. **只挑活的**：`input.claims` 本身已经是 `candidates()` 查出来的活结论（`revoked_at IS NULL AND
   //      status <> 'superseded'`），撤销 / 被取代的结论从不会出现在这里，不需要在这个纯函数里再判一次。
   //   3. **额外名额，不占用 `KG_RECALL_LIMIT`**：issue 里两种方案都要人确认，这里先按「倾向额外加」实现
   //      （决定类通常很短，见 issue），已经在上面按 `input.limit`（=`KG_RECALL_LIMIT`）截断的 `items` 之外
-  //      再加最多 `DECISION_RECALL_LIMIT`（3）条——已经在 `items` 里的（正常打分就挤进了前 `limit`）不重复
-  //      加一份；超过上限时按结论最早证据时间（`saidAt`，没有就排最后）取最新的几条，同上面「决定类优先」
-  //      的直觉一致：越新的决定越可能仍然有效。
+  //      再加最多 `DECISION_RECALL_LIMIT`（3）条——本会话与个人空间**共用**这 3 条；已经在 `items` 里的
+  //      （正常打分就挤进了前 `limit`）不重复加一份；超过上限时按结论最早证据时间（`saidAt`，没有就排最后）
+  //      取最新的几条，不分来源：越新的决定越可能仍然有效。
+  //   4. **来源照实标**：强制带上的条目保留原 `claim.scope`，个人空间那条在给模型的材料里照样是
+  //      「来自个人空间知识」、在 turn memory（F13）里 scope = "personal"，与打分进来的 L1 条目同一个标签。
   const forcedIds = new Set(items.map((i) => i.claim.id));
-  const decisionForced: RecallItem[] = input.claims
-    .filter((c) => !forcedIds.has(c.id) && c.scope === "chat_session" && c.originThreadId === undefined && decisionLike(c.statement))
-    .sort((a, b) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id))
-    .slice(0, DECISION_RECALL_LIMIT)
+  const newestFirst = (a: RecallClaim, b: RecallClaim) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id);
+  // issue #4363（S6）：强制召回同样只在「还算数的」里挑——过期的决定（「这周先关注 211」）到了下周不再每轮带上。
+  const decisionPicked = claims
+    .filter((c) => !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
+    .sort(newestFirst)
+    .slice(0, DECISION_RECALL_LIMIT);
+  // issue #4343：本人的目标 / 偏好同样每一轮带上（同一来源边界 `forcedDecisionScope`），名额 `SELF_INTENT_RECALL_LIMIT`
+  // 另计、不与决定类抢（理由见 self-intent-claim.ts）；一条既像决定又是目标的，已经按决定带上就不再算一次。
+  const decisionIds = new Set(decisionPicked.map((c) => c.id));
+  const selfIntentPicked = claims
+    .filter((c) => !forcedIds.has(c.id) && !decisionIds.has(c.id) && forcedDecisionScope(c) && selfIntentLike(c.kind, c.statement))
+    .sort(newestFirst)
+    .slice(0, SELF_INTENT_RECALL_LIMIT);
+  const decisionForced: RecallItem[] = [...decisionPicked, ...selfIntentPicked]
     .map((claim) => ({
       claim,
       // "claim" 通道本来就是给「已复核的结论 / 决定」用的（见 `domain/retrieval/channel-plan.ts` 同名通道的注释），
       // 语义上正合适；不复用 fts/graph，这样界面 / 日志能一眼看出这条不是靠打分挤进来的。
       channels: ["claim"] as RecallChannel[],
       retrievalReasons: ["recall"] as FilterAction[],
-      score: Number.POSITIVE_INFINITY,
+      // 不是打分进来的：分数记 0，「强制」由 claim 通道表达。**不能是 Infinity**——它要写进
+      // `kg_turn_recalls.items`（jsonb），JSON 会把 Infinity 变成 null，读接口回 `score: null` 违反契约
+      // `KgRecalledMemory.score: z.number()`，前端解析失败、整轮回答下方（引用 / 确认卡）都不画（issue #4271）。
+      score: 0,
       graphPath: null,
     }));
 
   const allItems = [...items, ...decisionForced];
   const hits = (ch: RecallChannel) => allItems.filter((i) => i.channels.includes(ch)).length;
+  const vectorOn = Array.isArray(input.vector);
   return {
     items: allItems,
     graphSeeds: seeds,
+    degraded: [...(input.graph === null ? ["graph" as const] : []), ...(input.vector === null ? ["vector" as const] : [])],
     plan: [
       { channel: "fts", weight: 1, hitCount: hits("fts"), available: true },
       { channel: "graph", weight: 0.5, hitCount: input.graph === null ? 0 : hits("graph"), available: input.graph !== null },
-      { channel: "vector", weight: 0, hitCount: 0, available: false },
+      // S9（#4366）：配置了嵌入模型且这次执行成功 ⇒ available；没配置（省略）或失败（null）⇒ 不可用、hitCount = 0（D-I1）。
+      { channel: "vector", weight: vectorOn ? 1 : 0, hitCount: vectorOn ? hits("vector") : 0, available: vectorOn },
       // 决定类强制召回不是一路真正的检索通道（不排序、不参与融合），但同样需要不静默：这里如实报告
       // 命中了几条，供 F13 的回执与测试观察，不需要「不可用」这种降级状态（纯函数，不会失败）。
       { channel: "claim", weight: 0, hitCount: decisionForced.length, available: true },
@@ -248,6 +356,13 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
 
 /** 06-UX R5 的原话：图或向量不可用时对用户说的那一句。 */
 export const RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（关联查询暂不可用），回答可能不完整";
+/** S9（#4366）：向量通道（界面上叫「相似」）出了故障时的同一句话，括号里说清是哪一路。 */
+export const VECTOR_RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（相似查询暂不可用），回答可能不完整";
+
+/** S9（#4366）：这一轮有没有哪一路**故障**（不是「没配置」）——回答下方那一行说明与 F13 记录都看它。 */
+export function recallDegraded(recall: KnowledgeRecall): boolean {
+  return recall.plan.some((p) => p.channel === "graph" && !p.available) || (recall.degraded ?? []).includes("vector");
+}
 
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
@@ -260,20 +375,29 @@ const TRI_LABEL: Record<KG.KgTriState, string> = { pending: "AI 记下的", conf
 export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | null {
   // 图路只在「问题里有已知实体」时才会执行；它执行失败 ⇒ plan 里 graph.available = false。
   const graphDown = recall.plan.some((p) => p.channel === "graph" && !p.available);
-  // 一条也没召回到：图路正常 ⇒ 不塞空壳；图路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
-  if (recall.items.length === 0) return graphDown ? `【记忆】（${RECALL_DEGRADED_NOTICE}）` : null;
+  // S9（#4366）：向量通道配置了却失败 ⇒ 同样如实说（没配置不说：那不是故障）。
+  const vectorDown = (recall.degraded ?? []).includes("vector");
+  const notices = [...(graphDown ? [RECALL_DEGRADED_NOTICE] : []), ...(vectorDown ? [VECTOR_RECALL_DEGRADED_NOTICE] : [])];
+  // 一条也没召回到：各路正常 ⇒ 不塞空壳；有一路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
+  if (recall.items.length === 0) return notices.length > 0 ? notices.map((n) => `【记忆】（${n}）`).join("\n") : null;
   const lines = recall.items.map((i) => {
     const day = i.claim.saidAt === null ? null : i.claim.saidAt.slice(5, 10).replace("-", "/");
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
     const when = i.claim.scope === "personal"
       ? `（来自个人空间知识${day === null ? "" : `，最早见于你 ${day} 的对话`}）`
-      : day === null ? "" : `（本会话 ${day} 的对话）`;
+      : i.claim.scope === "project" && i.claim.sharedByName !== undefined
+        ? `（来自项目记忆，${oneLine(KG.sharedFromPersonalLabelZh(i.claim.sharedByName))}）`
+      : i.claim.scope === "project"
+        ? `（来自项目记忆${day === null ? "" : `，最早见于 ${day} 的项目对话`}）`
+        : day === null ? "" : `（本会话 ${day} 的对话）`;
     // 结论原文进上下文前压成一行：原文里的换行不能伪造出材料里的其他行（降级说明、「系统：」之类）。
-    return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${when}`;
+    // issue #4363（S6）：做完了的待办照样给模型（是背景），但标明已完成——不再被当成还没做的事去提醒。
+    const done = i.claim.todoStatus === "done" ? "（待办·已完成）" : "";
+    return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${done}${when}`;
   });
   return [
-    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。",
+    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出；标了「由 X 分享自个人记忆」的，引用时说明是 X 分享的。",
     ...lines,
-    ...(graphDown ? [`（${RECALL_DEGRADED_NOTICE}）`] : []),
+    ...notices.map((n) => `（${n}）`),
   ].join("\n");
 }

@@ -18,7 +18,8 @@
  *
  * ## 核心不变量（domain.md 有断言方式）
  *   · **三类独立容器**：`projects` 是超类型（**只有** id / org_id / name / status / kind，I-P33），
- *     `workshops` / `research_projects` / `user_insights` 三张 1:1 子类型表承载各自行为
+ *     `workshops` / `general_projects` 两张 1:1 子类型表承载各自行为（#4615 起原研究项目 /
+ *     用户洞察两类并为 `general`，迁移 `20260929050000_pw_w1_general_project_kind.sql`）
  *   · **子类型互斥**由 `UNIQUE(id, kind)` + 子表复合外键保证（I-P34 / U-9 A），
  *     **不是**靠「大家都小心」——纯 PK+FK 下一个容器同时挂两张子表完全合法
  *   · **四种项目角色只属工作坊**（I-P6 + 人类 2026-07-30 收窄裁决）；
@@ -31,8 +32,10 @@
  *   · 准备度百分比 —— 概览只放 Q-6② 白名单四件；口径见 O-32 ④，
  *     但「项目筹备侧的已定义项表是哪张」无出处（U-6 第二格空白）→ `KNOWN_CONTRACT_GAPS.P6`
  *   · 父子项目 / 删除项目 / 归档可逆之外的第三态 —— 裁决判负，不留码
- *   · 非工作坊两类的成员操作 —— U-1 已裁数据形状，**但 usecases.md 没有对应操作**
- *     → `KNOWN_CONTRACT_GAPS.P2`。裁决定的是形状，开操作要重新签核
+ *   · ~~非工作坊两类的成员操作~~ —— 2026-09-27 起**已开**（项目中枢 B3-T5，#4499）：
+ *     `listNonWorkshopMembers` / `addNonWorkshopMember` / `removeNonWorkshopMember`，
+ *     路径 `/projects/:projectId/collaborators`，与工作坊的 `/members` 三条**不共路径、不共形状**。
+ *     `KNOWN_CONTRACT_GAPS.P2` 留作档案，正文已标已解决
  *
  * ⚠ **一个不会被任何路径抛出的错误码读起来像覆盖，而它什么都没覆盖**
  *   （`apps/api/migrations/0008-f06-binding-modes.sql:29-31` 逐字）。
@@ -56,7 +59,11 @@ import { TemplateError } from "./templates";
  *
  * ⚠ 成员逐个等于 DB CHECK（`projects.kind`）与三张子表的 `kind` 常量 CHECK。
  */
-export const ProjectKind = z.enum(["workshop", "research_project", "user_insight"]);
+/*
+ * #4615（PROP-PROJECT-WORKSPACE-001，2026-09-29 人类裁决推翻 Q-12）：「项目」泛化为通用工作空间。
+ * `general` = 通用项目（原研究项目 / 用户洞察两类并入，未上线、不迁数据）；`workshop` 是一种可选形态。
+ */
+export const ProjectKind = z.enum(["workshop", "general"]);
 
 /**
  * 生命周期。**恰好两态**（Q-5 裁 B）：`archived` = 只读，**归档不删除任何内容**。
@@ -91,9 +98,11 @@ export const AgendaSegmentAdvanceAction = z.enum(["advance", "closeEarly", "skip
  * （逐字：「在访谈里是没有这几种角色的，引导师、组长什么的是不必要的」）。
  * ⚠ 「拥有者 / 协作者」这两个词**原型里没有逐字出现**，是 U-1 候选 B 对
  *   「负责人 + 其余可进来的人」的最小命名，人类已勾选采纳。
- * ⚠ 本枚举现在**没有任何操作使用它**——见 `KNOWN_CONTRACT_GAPS.P2`。
- *   留在这里是因为 `itv-v2` 已经在 `apps/web/lib/mock/itv.ts:26` 自造了三档视角并自注
- *   「待迁入 packages/contracts」；不落单源，它就是本仓第十次「同一事实两处声明」。
+ * ⚠ 2026-09-27 起（项目中枢 B3-T5，#4499）本枚举由三个操作使用：`listNonWorkshopMembers`
+ *   （`NonWorkshopMemberEntry.role`）、`addNonWorkshopMember.in.role` / `.out.role`。此前它
+ *   「有枚举无接口」的处境见 `KNOWN_CONTRACT_GAPS.P2`（已标已解决，留作档案）。
+ *   DB CHECK（`20260801190000_f128_non_workshop_member_tables.sql`）与本枚举逐字同值，
+ *   `tests/project/non-workshop-member-tables.test.ts` 钉住「只有一份事实源」。
  */
 export const NonWorkshopMemberRole = z.enum(["owner", "collaborator"]);
 
@@ -175,6 +184,11 @@ export const ProjectReason = z.enum([
    * 2026-08-16（F185，delta）：`updateProjectTags` 指向一个不存在（或不在当前组织下）的容器 id。
    */
   "PROJECT_NOT_FOUND",
+  /**
+   * 项目中枢 B2-S1（2026-09-27，ad-hoc）：`linkProjectResource` 指向一个不存在、或不属于调用者的资源
+   * （问卷 / 深度研究 / 个人转写）。「不存在」与「不是你的」同一个出口，不泄露别人资源的存在性。
+   */
+  "RESOURCE_NOT_FOUND",
 ]);
 
 type ProjectReasonT = z.infer<typeof ProjectReason>;
@@ -287,6 +301,58 @@ export const ProjectListItem = z
   })
   .strict();
 
+/* ─────────── 项目中枢 B2（2026-09-27，ad-hoc）：项目资源关联 + AI 权限 的形状 ─────────── */
+
+/**
+ * 能挂到项目上的资源类型（#4615 起访谈 / 白板 / 设计也走链接表；对话走 `chat_threads.project_id`，
+ * 文件走 `artifacts.project_id`，不在这里）。
+ */
+export const ProjectLinkableResourceKind = z.enum([
+  "survey", "guided_research", "personal_transcription", "interview", "whiteboard", "design",
+]);
+/** 项目资源视图里出现的全部类型（= 可链接的全部类型）。 */
+export const ProjectResourceKind = ProjectLinkableResourceKind;
+export const PROJECT_RESOURCE_KIND_LABEL_ZH: Record<z.infer<typeof ProjectResourceKind>, string> = {
+  survey: "问卷",
+  guided_research: "深度研究",
+  personal_transcription: "录音转写",
+  interview: "用户访谈",
+  whiteboard: "白板",
+  design: "设计",
+};
+export const ProjectResourceItem = z
+  .object({
+    kind: ProjectResourceKind,
+    id: z.string(),
+    title: z.string(),
+    ownerUserId: z.string(),
+    /** 资源自己的状态字符串（各域各自的枚举，这里不统一），没有就 null。 */
+    status: z.string().nullable(),
+    updatedAt: z.string(),
+    /** 挂到项目的时间；访谈按其自身创建时间。 */
+    linkedAt: z.string(),
+  })
+  .strict();
+
+/** 允许进入项目大脑的来源。 */
+export const ProjectAiSourceKind = z.enum(["chat", "whiteboard", "transcript", "survey", "interview", "research"]);
+export const PROJECT_AI_SOURCE_LABEL_ZH: Record<z.infer<typeof ProjectAiSourceKind>, string> = {
+  chat: "项目对话",
+  whiteboard: "白板",
+  transcript: "录音转写",
+  survey: "问卷",
+  interview: "用户访谈",
+  research: "深度研究",
+};
+export const ProjectAiSettings = z
+  .object({
+    projectId: z.string(),
+    allowedSources: z.array(ProjectAiSourceKind),
+    updatedAt: z.string().nullable(),
+    updatedBy: z.string().nullable(),
+  })
+  .strict();
+
 /** `updateProjectTags` 单条 tag 的校验规则——与迁移里的 CHECK 校验函数逐字对应，不在两处各判一次不同的口径。 */
 export const ProjectTag = z.string().trim().min(1).max(40);
 export const PROJECT_TAGS_MAX = 20;
@@ -356,6 +422,21 @@ export const ProjectMemberEntry = z
     /** ⚠ 四取值闭集，引用 phase-00 `identity.ProjectRole` 语义，本束不改写。 */
     projectRole: z.enum(["facilitator", "groupLead", "member", "observer"]),
     isHost: z.boolean(),
+  })
+  .strict();
+
+/**
+ * 非工作坊两类容器名单里的一条（`listNonWorkshopMembers`，#4499）。
+ *
+ * 字段名 `role` 而不是 `projectRole`：这**不是**工作坊的项目角色（I-P6 四角色只属工作坊），
+ * 与 DB 列 `general_project_members.role` 同名；沿用
+ * `projectRole` 反而会把两档与四角色混成一个概念。`displayName` 同 `ProjectMemberEntry`。
+ */
+export const NonWorkshopMemberEntry = z
+  .object({
+    userId: z.string(),
+    displayName: z.string(),
+    role: NonWorkshopMemberRole,
   })
   .strict();
 
@@ -490,6 +571,60 @@ export const operations = {
       .strict(),
     out: z.object({ id: z.string(), tags: z.array(z.string()) }).strict(),
     err: ["ORG_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE", "PROJECT_NOT_FOUND"] as const,
+  },
+
+  /**
+   * 项目中枢 B2-S1（2026-09-27，ad-hoc，无 design-signoff）：**项目资源关联层**。
+   * 问卷 / 深度研究（guided research）/ 个人转写三类各自的表没有 `project_id`，用一张链接表
+   * `project_resource_links` 挂到项目；访谈（`interview_sessions.project_id`）已有归属，直接按它列出。
+   * 读：项目成员（含观察者）；写（挂 / 解挂）：资源**所有者**且是项目成员。
+   */
+  listProjectResources: {
+    method: "GET",
+    path: "/projects/:projectId/resources",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z
+      .object({
+        items: z.array(ProjectResourceItem),
+        /** 每类的条数（含 0），供子导航角标；与 `items` 同一次查询算出。 */
+        counts: z.record(ProjectResourceKind, z.number().int().nonnegative()),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  linkProjectResource: {
+    method: "POST",
+    path: "/projects/:projectId/resources",
+    in: z.object({ projectId: z.string(), kind: ProjectLinkableResourceKind, resourceId: z.string() }).strict(),
+    out: z.object({ projectId: z.string(), kind: ProjectLinkableResourceKind, resourceId: z.string(), alreadyLinked: z.boolean() }).strict(),
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "RESOURCE_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  unlinkProjectResource: {
+    method: "DELETE",
+    path: "/projects/:projectId/resources/:kind/:resourceId",
+    in: z.object({ projectId: z.string(), kind: ProjectLinkableResourceKind, resourceId: z.string() }).strict(),
+    out: z.object({ removed: z.boolean() }).strict(),
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "RESOURCE_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 项目中枢 B2-S5（2026-09-27，ad-hoc）：设置页「AI 权限」落库——哪些来源允许进入项目大脑。
+   * 侧表 `project_ai_settings`（不动 `projects` 列集，I-P33）。没有行 = 默认全部允许（`allowedSources` 回全集）。
+   * 读：项目成员；写：`authorizeManageMembers` 同一条线（引导师，或组织 lead / admin）。
+   */
+  getProjectAiSettings: {
+    method: "GET",
+    path: "/projects/:projectId/ai-settings",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: ProjectAiSettings,
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  updateProjectAiSettings: {
+    method: "PUT",
+    path: "/projects/:projectId/ai-settings",
+    in: z.object({ projectId: z.string(), allowedSources: z.array(ProjectAiSourceKind) }).strict(),
+    out: ProjectAiSettings,
+    err: ["NO_PROJECT_ROLE", "PROJECT_ROLE_INSUFFICIENT", "ORG_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
   /**
@@ -716,8 +851,8 @@ export const operations = {
    * ⚠ 理由同「`readContent` 为什么不给个人层另开接口」：
    *   另开一个接口意味着不变量要写两遍，**漏掉的那一遍不会有任何东西报警**。
    *
-   * ⚠ **仅 `kind='workshop'`**。另两类各有一张成员表（U-1 裁 B），
-   *   但 `usecases.md` 没有对应操作 → `KNOWN_CONTRACT_GAPS.P2`。
+   * ⚠ **仅 `kind='workshop'`**。另两类各有一张成员表（U-1 裁 B），走本束下方
+   *   `addNonWorkshopMember`（#4499 起）——两档角色、无 host、无邀请令牌入口，不共用本操作。
    * ⚠ 展示别名**不落库**：「协同引导师」入库值是 `facilitator`（多实例，其中一名带 `isHost`）；
    *   研究员 / 参与者不落库；受访者**不持项目角色**（走一次性令牌）。
    */
@@ -836,13 +971,17 @@ export const operations = {
    * ## ⚠ **仅 `kind='workshop'`**，另两类容器 `members` 恒为 `null`，**不是空数组**
    *
    * U-1 只裁了 `research_project` / `user_insight` 两类的**数据形状**
-   * （`NonWorkshopMemberRole`，`owner`/`collaborator` 两档），**没有对应的契约操作**
-   * （`KNOWN_CONTRACT_GAPS.P2`）——真扩展要另走一轮签核。#609 因此明确：那两类
-   * **不做**，且前端要显式显示「尚未建（设计缺口）」，**不假装空列表**。
+   * （`NonWorkshopMemberRole`，`owner`/`collaborator` 两档）；#609 当时没有对应操作，
+   * 因此明确那两类在本操作上**不做**，前端显式显示「这条路径不在这里」，**不假装空列表**。
    *
-   * `null` 与 `[]` 的区别正是这句话在契约里的落点：一个空数组说的是「这个工作坊
-   * 一个成员都没有」（合法状态），`null` 说的是「这一类容器的名单这条路径还没有被设计」。
-   * 塌缩成空数组 = 把一个**设计缺口**渲染成一个**正常的空态**，没有任何东西会报警。
+   * 2026-09-27（#4499）起那两类的名单走**另一条路径** `listNonWorkshopMembers`
+   * （`/projects/:projectId/collaborators`）。本操作对它们**仍然返回 `null`**——不是因为
+   * 名单不存在，而是因为它们的名单**形状不同**（无 `projectRole` / `isHost`），塞进
+   * `ProjectMemberEntry` 就得编造一个工作坊角色。`null` 现在的含义是「这一类容器的名单
+   * 不在这条路径上」，前端据此改走 collaborators。
+   *
+   * `null` 与 `[]` 的区别仍然成立：一个空数组说的是「这个工作坊一个成员都没有」（合法状态），
+   * `null` 说的是「换一条路径」。塌缩成空数组没有任何东西会报警。
    * 形状与同束 `getProjectOverview.out.roleCounts` 的 `nullable`（「⚠ 仅 `kind='workshop'`；
    * 另两类此字段为 null」）逐字同型，不新造一套约定。
    *
@@ -876,11 +1015,165 @@ export const operations = {
     in: z.object({ projectId: z.string() }).strict(),
     out: z
       .object({
-        /** ⚠ **仅 `kind='workshop'`**；另两类容器恒为 `null`（见操作头注，不是空数组）。 */
+        /** ⚠ **仅 `kind='workshop'`**；另两类容器恒为 `null`（见操作头注，不是空数组；名单走 `listNonWorkshopMembers`）。 */
         members: z.array(ProjectMemberEntry).nullable(),
       })
       .strict(),
     err: ["NO_PROJECT_ROLE", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ═══════════ 非工作坊两类容器的成员（项目中枢 B3-T5，#4499；U-1 裁 B 的操作面） ═══════════ */
+
+  /**
+   * `getHomeProjectPreviews` —— 首页「项目卡协作者」与「当前任务锚点」（ad-hoc，Refs #4698）。
+   *
+   * 服务端在进程内复用 `listProjects` + 工作坊成员表 / 研究·洞察协作者表两个既有用例，
+   * **只返回调用者在其中有项目角色的项目**；没有角色的项目直接略过——200 且不出现，
+   * 而不是让客户端逐个 `GET /projects/:id/members` 去撞必然的 403（组织 admin/lead 能在列表里
+   * 「管理」看到很多自己不是成员的项目，逐个探测既是噪音也会在服务端留下被拒记录）。
+   * 「出现在这里 ⟺ 我是该项目成员」，所以首页也用它当 `GET /tasks/today` 的项目锚点。
+   * 只带 `userId`/`displayName`（同两个成员接口已经对项目成员公开的那两个字段），不含角色/邮箱。
+   */
+  getHomeProjectPreviews: {
+    method: "GET",
+    path: "/home/project-previews",
+    in: z.object({}).strict(),
+    out: z
+      .object({
+        items: z.array(
+          z
+            .object({
+              projectId: z.string(),
+              members: z.array(z.object({ userId: z.string(), displayName: z.string() }).strict()),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `listNonWorkshopMembers` —— 非工作坊（`general`）容器的协作者名单。
+   *
+   * ## 为什么是另一条路径而不是给 `listProjectMembers` 加分支
+   *
+   * 非工作坊容器的成员表（`general_project_members`）只有 `role`
+   * 两档，没有 `projectRole` / `isHost` / 分组——塞进 `ProjectMemberEntry` 就得替它编一个
+   * 工作坊角色。形状不同的东西不共用一个 `out`；`/members` 三条继续**仅工作坊**。
+   *
+   * ## `kind` 门：工作坊容器调本组三条 ⇒ **400，不带码**（`project_kind_mismatch`）
+   *
+   * 与 `project.controller.ts` 里 `project_id_mismatch` 同形：`BadRequestException("project_kind_mismatch")`，
+   * 响应体没有 `reasonCode` 字段。这是「调用方把路径用错了」（同「body 里的 projectId 与路径不符」），
+   * 不是一个业务裁决，所以不占 `ProjectReason` 的码位——`ProjectReason` 是闭合枚举，本组三条**不新增码**。
+   *
+   * ## 权限（读）
+   *
+   * 名单上的人（owner / collaborator 皆可）+ 组织 `lead` / `admin`（管理职责是组织范围的，
+   * 同 `list-projects.ts` 的 `isManager` 判据）。其余：在组织里但不在名单上 ⇒ `NO_PROJECT_ROLE`
+   * （I-P9「正常状态」）；不在组织里 ⇒ 同码（不泄露容器存在性，同 `getProjectOverview`）；
+   * 容器不存在 ⇒ 同码（与「没有角色」不可分辨，`permission-decision.ts` 文件头）。
+   *
+   * `displayName` 服务端 JOIN `credentials.display_name`，同 `listProjectMembers`。
+   */
+  listNonWorkshopMembers: {
+    method: "GET",
+    path: "/projects/:projectId/collaborators",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z
+      .object({
+        /** 按 owner 在前、再按 userId 排序。`[]` = 这个容器一个人都没有（合法：新建容器的初态）。 */
+        members: z.array(NonWorkshopMemberEntry),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `addNonWorkshopMember` —— 把组织成员加进研究项目 / 用户洞察，或改他的档位。
+   *
+   * ## 谁能加：**owner 才能增删**
+   *
+   *   容器里的 `owner`                                  → 放行
+   *   容器里的 `collaborator`                           → `PROJECT_ROLE_INSUFFICIENT`
+   *   不在容器里、容器**没有任何 owner 行**、组织 `lead`/`admin` → 放行（加第一位，通常是加自己）
+   *   不在容器里、其余情形、在组织里                    → `ORG_ROLE_INSUFFICIENT`
+   *   不在组织里                                        → `NO_PROJECT_ROLE`
+   *
+   * 「没有任何 owner 行 ⇒ lead/admin 可加第一位」是唯一的组织层旁路：`createProject` 不给非
+   * 工作坊容器写创建者成员行（U-1 只裁了表，没裁「创建即拥有」），没有这条旁路，容器建出来
+   * 之后**没有人**能进去。它只在名单为空 owner 时生效——有了第一位 owner，管理权就收回到容器内。
+   *
+   * ## 目标人必须是组织成员
+   *
+   * `userId` 不是本组织成员 ⇒ `ORG_ROLE_INSUFFICIENT`（他在本组织的角色是「没有」，
+   * 比「不够」更不够；不为它新增码，`ProjectReason` 闭合）。
+   *
+   * ## 幂等 + 改档合一
+   *
+   * 一人一行（主键 `(user_id, project_id)`）。同一人再 `add` 一次 = 改他的 `role`（upsert），
+   * 不报错——两档没有单独的 change 操作，这条就是它。响应里 `role` 是**写入后**的值。
+   *
+   * `PROJECT_ARCHIVED`：F124 RESTRICTIVE 策略的投影（同 `addProjectMember`）。
+   */
+  addNonWorkshopMember: {
+    method: "POST",
+    path: "/projects/:projectId/collaborators",
+    in: z
+      .object({
+        projectId: z.string(),
+        userId: z.string(),
+        role: NonWorkshopMemberRole,
+      })
+      .strict(),
+    out: z
+      .object({
+        projectId: z.string(),
+        userId: z.string(),
+        role: NonWorkshopMemberRole,
+        provenanceEventId: z.string(),
+      })
+      .strict(),
+    err: [
+      "NO_PROJECT_ROLE",
+      "PROJECT_ROLE_INSUFFICIENT",
+      "ORG_ROLE_INSUFFICIENT",
+      "PROJECT_ARCHIVED",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `removeNonWorkshopMember` —— 从研究项目 / 用户洞察移除一人。权限同 `addNonWorkshopMember`
+   * （owner；空 owner 时 lead/admin）。
+   *
+   * ## 幂等：`userId` 本来就不在名单上 ⇒ **成功**，`removed: false`，`provenanceEventId: null`
+   *
+   * 「移除一个不在的人」的目标状态与「移除成功」相同，对调用方是同一件事；不写审计，因为
+   * 没有发生任何状态变化（审计记的是变化，不是请求）。
+   * ⚠ 移除最后一名 owner **不拦**（同 `removeProjectMember` 对「最后一名引导师」的处置：未裁，
+   *   不为它设码）；空 owner 之后组织 lead/admin 又能加第一位，不会把容器锁死。
+   */
+  removeNonWorkshopMember: {
+    method: "DELETE",
+    path: "/projects/:projectId/collaborators/:userId",
+    in: z.object({ projectId: z.string(), userId: z.string() }).strict(),
+    out: z
+      .object({
+        projectId: z.string(),
+        userId: z.string(),
+        removed: z.boolean(),
+        provenanceEventId: z.string().nullable(),
+      })
+      .strict(),
+    err: [
+      "NO_PROJECT_ROLE",
+      "PROJECT_ROLE_INSUFFICIENT",
+      "ORG_ROLE_INSUFFICIENT",
+      "PROJECT_ARCHIVED",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
   },
 
   /* UC-P10 无项目归属内容的读取 —— **本束不提供操作**。
@@ -916,12 +1209,16 @@ export const KNOWN_CONTRACT_GAPS = {
    * ⚠ 不补的后果：`apps/web/lib/mock/itv.ts:26` 已自造三档视角（研究员/受访者/观察者）
    *   并自注「待迁入 packages/contracts」——那就是第二份事实源正在长出来的样子。
    *
-   * 🟡 **仍然成立，但自 #609 起它在响应里是可见的**：`listProjectMembers`（本束唯一的
-   *   成员读端点）对这两类容器返回 `members: null` 而不是空数组——名单这条路径对它们
-   *   **尚未设计**，而不是「这个容器没有成员」。这不补上本缺口（补它 = 为这两类新增
-   *   契约操作 = 重新签核），只是不再让缺口伪装成一个正常的空态。
+   * 🟡 #609：`listProjectMembers` 对这两类容器返回 `members: null` 而不是空数组——不让
+   *   缺口伪装成一个正常的空态。
+   *
+   * 🟢 **已解决（2026-09-27，项目中枢 B3-T5，issue #4499）**：本束新增
+   *   `listNonWorkshopMembers` / `addNonWorkshopMember` / `removeNonWorkshopMember`
+   *   （`/projects/:projectId/collaborators`），`NonWorkshopMemberRole` 自此有接口。
+   *   `listProjectMembers` 对两类容器仍返 `null`，含义改为「名单在另一条路径上」（见该操作头注）。
+   *   本条留作档案；`usecases.md` UC-P9 的回补是文档侧的事，不在契约里复述。
    */
-  P2: "U-1 ruled the member model for research_project / user_insight (owner|collaborator), but usecases.md UC-P9 still says 'not written, pending U-1'; no operation exists for either container type",
+  P2: "RESOLVED 2026-09-27 (#4499): listNonWorkshopMembers / addNonWorkshopMember / removeNonWorkshopMember now exist for research_project / user_insight (owner|collaborator); kept as an archive entry, listProjectMembers still returns null for those kinds because their roster has a different shape",
   /**
    * **`ProvenanceEventType` 里没有项目生命周期的事件类型。**
    * 本束四个操作返回 `provenanceEventId`（I-P3 要求写审计、且**不许另造**审计表），

@@ -1,4 +1,5 @@
 import type { NewAssistantCitation } from "../chat/persist-assistant-citations";
+import type { RunCitation } from "./standard-cite";
 import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import { designWorkbench } from "@repo/contracts";
 import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -354,6 +355,15 @@ export interface RunProjection {
     readonly interrupt: RestorableInterrupt;
     readonly decision: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null;
   }[];
+  /** uiux-r3 #4.5：AG06 升级裁决留痕（契约 `AgentRunView.resolvedEscalations`）。缺省 = 没有。 */
+  readonly resolvedEscalations?: readonly {
+    readonly permissionRequestId: string | null;
+    readonly argsSummary: string | null;
+    readonly decision: "resolve" | "reject";
+    readonly text: string;
+    readonly decidedBy: { readonly userId: string; readonly displayName: string | null } | null;
+    readonly decidedAt: string | null;
+  }[];
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */
@@ -399,12 +409,15 @@ export interface PendingWriteback {
   readonly files?: readonly RunOutputFile[];
   /**
    * E3 —— 这条回答携带的结构化引用。**可选**：缺省/空 ⇒ 不写 `chat_citations`。
-   * ⚠ 目前模型输出还没有结构化引用的产出方，此字段是写入侧的接线点。
+   * #4227：产出方是 `wx_cite` 工具（`standard-cite.ts`），它把校验通过的条目记在
+   * `agent_runs.cited_sources`，`claimWritebackPending` 经 `numberRunCitations` 编号 1..n。
    */
   readonly citations?: readonly NewAssistantCitation[];
 }
 
 export interface AgentRunStore {
+  /** #4227 —— `wx_cite` 的 run 引用账本，语义见 `standard-cite.ts` 的 `RunCitationLedger`。 */
+  appendRunCitations?(orgId: OrgId, runId: string, items: readonly RunCitation[]): Promise<readonly string[] | null>;
   /** Explicit rejection ends a waiting run without executing or reporting failure. */
   rejectAwaitingPermission?(orgId: OrgId, runId: string): Promise<boolean>;
   requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
@@ -457,6 +470,41 @@ export interface AgentRunStore {
   readToolCallAttributionSteps?(
     orgId: OrgId, runId: string,
   ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]>;
+
+  /**
+   * AG06 —— 该 run 钉住的 agent 版本上的 `escalation_policy` 原值（未解析；没有 ⇒ `null`）。
+   * 只被 `tool-permission-gate.ts` 在内核对 `escalate_matter` 中断时调用，判定这次升级是否
+   * 命中策略（`raiseEscalation`）。**可选**：未注入 ⇒ 视为无策略 ⇒ 不挂起、告诉 Agent 未升级。
+   */
+  readPinnedEscalationPolicy?(orgId: OrgId, runId: string): Promise<unknown>;
+
+  /**
+   * AG05 —— 该 run 钉住的 Agent 版本快照里 AG05 需要的字段（`agent_id`、`agent_version_id`、
+   * `workflow_allowlist`）与请求人（同 `findRequesterUserId`）。run 不存在 ⇒ `null`。
+   * 只被 `start_workflow` 中断的网关判定调用。**可选**：未注入 ⇒ 按读不到处理，拒绝（fail closed）。
+   */
+  readRunWorkflowContext?(orgId: OrgId, runId: string): Promise<{
+    readonly agentId: string; readonly agentVersionId: string;
+    readonly workflowAllowlist: readonly string[]; readonly requesterUserId: string | null;
+    /**
+     * 钉住的 Agent **版本自身**钉的 Skill 数（`agent_versions.skill_version_ids`）。区别于 run 的
+     * `skill_version_ids`：后者在 agent 没钉 skill 时会并入**组织里所有已启用 skill**，不代表这个
+     * Agent 有工具型能力（数字人路由判据，见 `capability-runtime-routing.ts`）。缺席 ⇒ 按 0。
+     */
+    readonly agentPinnedSkillCount?: number;
+  } | null>;
+
+  /**
+   * AG05 —— running → queued，带 `pending_decision='edit'` 与服务端算出的工具结果参数
+   * （`editedArgsJson`）：网关已经在服务端完成了这次工具调用（`start_workflow` 经 WF03 start），
+   * 把结果作为 edit resume 交回**同一个**被中断的工具调用。与 `requeueAuthorizedToolCall` 同一组
+   * pending_* 列（executor 下一拍据此恢复）；返回 false = run 已不在 running（输了竞态），不重试。
+   */
+  requeueToolCallWithResult?(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+    editedArgsJson: string,
+  ): Promise<boolean>;
 
   /**
    * Append one token-level delta (#654 阶段2a). Callers pass a monotonically increasing
@@ -1253,6 +1301,13 @@ export interface ModelCallCompletion {
 
 export interface ModelCallPort {
   supportsLiveInterjections?(modelProvider: string): boolean;
+  /**
+   * 数字人能力（决策 B）—— 这个 provider 名是否由 deep-agent 内核的 LLM 端点**同样**提供
+   * （同一个 `KERNEL_MODEL_*` 端点，见 `capability-runtime-routing.ts`）。为真时，带工具型
+   * 能力（Workflow 白名单 / 挂载 Skill）的 run 改走 deep-agent 运行时、底层模型仍是 run 钉住的
+   * `modelId`。缺席 = 不改路由（与本字段加入之前逐字相同）。
+   */
+  servesViaKernelRuntime?(modelProvider: string): boolean;
   /**
    * Perform the single model call for a pinned provider/model.
    *

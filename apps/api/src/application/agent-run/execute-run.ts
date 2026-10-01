@@ -1,8 +1,9 @@
-import type { KnowledgeRecallPort, MemoryCardPort } from "../knowledge-graph/ports";
-import { turnKnowledgeContext } from "../knowledge-graph/recall-knowledge";
+import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
+import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
+import { routeCapabilityRun } from "./capability-runtime-routing";
 import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { RunLeaseLostError, currentRunLease } from "./run-lease";
@@ -79,7 +80,6 @@ import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
 import type { RunImagePort } from "./run-image-input";
 import { gatherVisionImages } from "./gather-vision-images";
-import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from "./execute-run-events";
@@ -91,6 +91,9 @@ import { buildDeepAgentKernelFields } from "./deep-agent-kernel-fields";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
+import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
+import type { AgentHandoffStore } from "../agent/agent-handoff";
+import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -261,7 +264,8 @@ export function planLayeredHistoryIncrement(
   return { toSummarize, advanceCursorTo: toSummarize[toSummarize.length - 1]!.id! };
 }
 
-export interface ExecuteAgentRunDeps {
+/** 记忆相关的三个可选依赖（knowledge / memoryCards / memoryChange）定义在 recall-knowledge.ts 的 TurnKnowledgeDeps。 */
+export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   /**
    * 2026-09-22 —— 这份部署的版次。**可选**，缺省 `cloud`：既有测试与不关心版次的执行
    * 路径（`trial-run-agent` 一类）构造这个对象时不必都改，而生产合成
@@ -293,14 +297,6 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
    */
   readonly files?: FileRetrievalPort;
-  /**
-   * Phase 18 F08 —— 会话知识召回（uc-18-2）。**可选**，与 `files` 同一条既有理由：既有测试与不需要
-   * 记忆的执行路径不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
-   * 缺省不注入 ⇒ history 与 F08 之前逐字节相同。
-   */
-  readonly knowledge?: KnowledgeRecallPort;
-  /** Phase 18 F17 「记住 / 忘掉」只开确认卡（I-17）。可选，同 `knowledge`；两者都注入才生效。 */
-  readonly memoryCards?: MemoryCardPort;
   /**
    * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
    * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成
@@ -374,6 +370,10 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ `checkPendingInterjection` 恒为 no-op，行为与本 feature 之前逐字节相同。
    */
   readonly interjections?: InterjectionStore;
+  /** AG05 —— `start_workflow` 中断走的 WF03 start（生产 = `WorkflowRuntimeService`）。缺省 ⇒ 如实拒绝，不假装发起。 */
+  readonly workflowStarts?: AgentWorkflowStartPort;
+  /** AG07 —— `request_handoff` 中断落 handoff 行的存储。缺省 ⇒ 如实拒绝（转交暂不可用），不假装已提交。 */
+  readonly handoffs?: AgentHandoffStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
   /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测
@@ -482,7 +482,7 @@ export function buildSystemPrompt(
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
   mode: "full" | "deep-agent-catalog" | "native" = "full",
-  options: { readonly visualization?: boolean } = {},
+  options: { readonly visualization?: boolean; readonly remember?: boolean } = {},
 ): string {
   const skillParts = skills.length === 0 || mode === "native" ? []
     : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
@@ -490,6 +490,8 @@ export function buildSystemPrompt(
   // default true: every existing caller keeps a byte-identical prompt
   const parts = [instructions, ...skillParts, ...(options.visualization === false ? [] : [VISUALIZATION_GUIDANCE])];
   if (canvasGuidance) parts.push(canvasGuidance);
+  // issue #4344：`wx_remember` 只在原生执行档里有（NATIVE_PROFILE_TOOLS）；其余模式缺省不拼，逐字节不变。
+  if (options.remember === true && mode === "native") parts.push(REMEMBER_TOOL_GUIDANCE);
   return parts.join("\n\n");
 }
 
@@ -509,8 +511,11 @@ export function buildSystemPrompt(
 async function executeClaimed(
   deps: ExecuteAgentRunDeps,
   orgId: OrgId,
-  run: ClaimedAgentRun,
+  claimedRun: ClaimedAgentRun,
 ): Promise<void> {
+  // 数字人能力（决策 B）：带工具型能力（Workflow 白名单 / 挂载 Skill）的 run 改走 deep-agent 运行时，
+  // 模型仍是钉住的那个。普通 run 原样（同一对象）。见 capability-runtime-routing.ts。
+  const run = await routeCapabilityRun(deps, orgId, claimedRun);
   let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
   // #3749 R2：本轮不给模型看见的工具（画布请求排除 skill 工具，见下方赋值处的头注）。
   let excludedTools: readonly string[] | undefined;
@@ -628,6 +633,8 @@ async function executeClaimed(
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)
       visualization: (deps.canvasTemplates?.mode ?? "all") === "all" || mentionsDiagramIntent(run.inputText),
+      // #4344：本轮挂了工具（画布请求一个工具都不挂）才告诉模型怎么用 `wx_remember`。
+      remember: !canvasRequested,
     });
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
@@ -662,18 +669,9 @@ async function executeClaimed(
     // instructions first, capability/plan context after" ordering the comment two blocks
     // up already documents for that block. See `ExecuteAgentRunDeps.planLedger`'s own doc
     // for why a read failure here is log-and-continue, not a run failure.
-    if (deps.planLedger) {
-      try {
-        const ledger = await deps.planLedger.getLatest(orgId, run.threadId);
-        const planText = ledger ? serializePlanForDelivery(ledger) : null;
-        if (planText !== null) system = `${system}\n\n---\n\n${planText}`;
-      } catch (e) {
-        deps.log("plan-control: reading the plan ledger for delivery failed, continuing without it", {
-          runId: run.runId,
-          detail: e instanceof Error ? e.message : "unexpected plan ledger read failure",
-        });
-      }
-    }
+    system = await appendPlanLedgerContext(deps, system, orgId, run);
+    // AG06：仅 deep-agent run 注入钉住的升级策略上下文（见模块头注）。
+    if (isDeepAgentRun) system = await appendEscalationPolicyContext(deps, system, orgId, run.runId);
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
     // could not be assembled from what was pinned. The distinguishing detail is logged.
@@ -916,7 +914,7 @@ async function executeClaimed(
 
   // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
   // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
-  const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log) : [];
+  const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
   history = [...notes.map((content) => ({ role: "assistant" as const, content })), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。

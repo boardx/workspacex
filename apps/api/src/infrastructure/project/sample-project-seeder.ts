@@ -25,8 +25,9 @@ import { PgProjectTagsRepository } from "./pg-project-tags-repository";
 export function createSampleProjectSeeder(db: DatabasePort, store: ObjectStore): SampleProjectSeeder {
   const ids = new UuidIdFactory();
   const tags = new PgProjectTagsRepository(db);
+  const projects = new PgProjectRepository(db, ids);
   const deps = {
-    project: { repo: new PgProjectRepository(db, ids), identity: new PgIdentityRepository(db) },
+    project: { repo: projects, identity: new PgIdentityRepository(db) },
     upload: {
       store,
       repo: new PgArtifactRepository(db),
@@ -37,6 +38,7 @@ export function createSampleProjectSeeder(db: DatabasePort, store: ObjectStore):
     },
     tags,
     lookup: tags,
+    marker: projects,
   };
   return (input) => ensureSampleProject(deps, input);
 }

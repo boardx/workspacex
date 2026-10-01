@@ -22,7 +22,7 @@ import type { GetAgentPanelOut } from "@/lib/live-chat";
 export type CopilotKitV2AgentOptionsState =
   | { readonly status: "loading" }
   | { readonly status: "error"; readonly message: string; readonly retry: () => void }
-  | { readonly status: "ready"; readonly agents: GetAgentPanelOut["agents"]; readonly listings: readonly CapabilityListing[] };
+  | { readonly status: "ready"; readonly agents: GetAgentPanelOut["agents"]; readonly listings: readonly CapabilityListing[]; readonly reload?: () => void };
 
 /**
  * issue #2130（TW-P0-2，回指 #2068）—— 修掉一个真实 bug：`duty` 此前被硬编码成
@@ -78,6 +78,6 @@ export function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string
 
   if (!sourceKey) return { status: "loading" };
   if (failure?.key === sourceKey) return { status: "error", message: failure.message, retry: () => void load() };
-  if (result?.key === sourceKey) return { status: "ready", agents: result.agents, listings: result.listings };
+  if (result?.key === sourceKey) return { status: "ready", agents: result.agents, listings: result.listings, reload: () => void load() };
   return { status: "loading" };
 }

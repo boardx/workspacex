@@ -1,0 +1,152 @@
+{
+  "ids": {
+    "threadA": "thr-e2117d2c-ceb7-4abf-8b32-ba5ae823f57c",
+    "claimA": "clm_4ec821269180474ba87f172edf07f7a8",
+    "personalOld": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+    "threadB": "thr-8795a6cb-d163-4a48-b74f-684b9ca3bafe",
+    "answerB": "5d601611-0deb-41d5-a73f-1ec5879084d7",
+    "claimB": "clm_73cf2617a8c0462cab6f0100baaeb9b6",
+    "personalNew": "act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p",
+    "threadC": "thr-b4949780-9b59-4155-b5ec-c293b36819b7",
+    "threadD": "thr-78a89748-7962-48ea-85af-998aebc64e80"
+  },
+  "stepA_personal": [
+    {
+      "id": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+      "statement": "我决定关注 211 高校",
+      "status": "accepted"
+    }
+  ],
+  "stepB": {
+    "answerId": "5d601611-0deb-41d5-a73f-1ec5879084d7",
+    "text": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "notice": {
+      "noticeId": "act_79844890671e43378ee0ab22d1166011-0",
+      "newerClaim": {
+        "id": "clm_73cf2617a8c0462cab6f0100baaeb9b6",
+        "statement": "改成关注 985 高校"
+      },
+      "olderClaim": {
+        "id": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+        "statement": "我决定关注 211 高校"
+      },
+      "state": "applied"
+    },
+    "line": "已用〈改成关注 985 高校〉取代〈我决定关注 211 高校〉\n·\n撤销"
+  },
+  "stepB_personal_after_supersede": [],
+  "stepC": {
+    "answerId": "9870aba7-493d-400e-955d-9f94cbbe2feb",
+    "text": "根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p",
+        "statement": "改成关注 985 高校",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T15:03:40.623Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ],
+    "footer": "根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。\n\n[1]\n改成关注 985 高校\n来自你 9/26 的对话\n为什么用到它\n\n正在记…"
+  },
+  "stepUndo": {
+    "line": "已撤销：〈我决定关注 211 高校〉恢复为生效",
+    "personal": [
+      {
+        "id": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+        "statement": "我决定关注 211 高校",
+        "status": "accepted"
+      },
+      {
+        "id": "act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p",
+        "statement": "改成关注 985 高校",
+        "status": "accepted"
+      }
+    ],
+    "turn": {
+      "messageId": "5d601611-0deb-41d5-a73f-1ec5879084d7",
+      "captured": [
+        {
+          "claimId": "clm_73cf2617a8c0462cab6f0100baaeb9b6",
+          "statement": "改成关注 985 高校"
+        }
+      ],
+      "pending": false,
+      "prompt": null,
+      "supersede": {
+        "noticeId": "act_79844890671e43378ee0ab22d1166011-0",
+        "newerClaim": {
+          "id": "clm_73cf2617a8c0462cab6f0100baaeb9b6",
+          "statement": "改成关注 985 高校"
+        },
+        "olderClaim": {
+          "id": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+          "statement": "我决定关注 211 高校"
+        },
+        "state": "undone"
+      },
+      "recalled": [
+        {
+          "claimId": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+          "statement": "我决定关注 211 高校",
+          "triState": "confirmed",
+          "scope": "personal",
+          "saidAt": "2026-09-26T15:03:37.526Z",
+          "channels": [
+            "fts"
+          ],
+          "retrievalReasons": [
+            "recall"
+          ],
+          "score": 0.01639364262295082,
+          "graphPath": null
+        }
+      ],
+      "recallDegraded": false
+    }
+  },
+  "stepD": {
+    "answerId": "b099b170-3c23-42db-b356-73a3291f3c81",
+    "text": "根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）；我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p",
+        "statement": "改成关注 985 高校",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T15:03:40.623Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      },
+      {
+        "claimId": "act_3c2dc9d907fb4c1cae86c1195fe23746-p",
+        "statement": "我决定关注 211 高校",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T15:03:37.526Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ]
+  }
+}

@@ -48,7 +48,7 @@ import type { ChatAttachment, ListThreadAttachmentsOut } from "@/lib/live-chat";
  */
 export function ChatMaterialsPanel({
   hasSelection, threadId, materials, loading, error, onRetry, uploadCtl,
-  uploadNotice = null, readOnlyReason = null, pendingCount = 0, dropActive = false,
+  uploadNotice = null, readOnlyReason = null, pendingCount = 0, uploadingCount = 0, dropActive = false,
 }: {
   hasSelection: boolean;
   threadId: string | null;
@@ -64,6 +64,10 @@ export function ChatMaterialsPanel({
   readOnlyReason?: string | null;
   /** issue #3347 —— 已上传、还没随消息发出的附件数（同 composer 那一份，不另算）。 */
   pendingCount?: number;
+  /** 人类实测：从本页签点「+」上传时，进度只出现在 composer 里——「材料」这边在传完
+   *  之前一个字都不说，用户在这个页签点的动作，回应却出现在屏幕另一端。正在上传
+   *  （尚未成功/失败）的附件数，同 composer 那一份 `attach.uploadingCount`，不另算。 */
+  uploadingCount?: number;
   /** issue #3347 —— 整条右栏正在被拖拽悬停（落区在 `ChatTaskInspector` 根节点）。 */
   dropActive?: boolean;
 }) {
@@ -80,6 +84,18 @@ export function ChatMaterialsPanel({
       {uploadCtl ? (
         <p className="px-3 pt-2 text-10 text-muted-foreground" data-testid="chat-materials-upload-hint">
           {readOnlyReason ?? "点「+」选文件，或把文件拖到这一栏。上传的文件会加入下一条消息的附件，发送后才会出现在这个列表里。"}
+        </p>
+      ) : null}
+      {/* 人类实测：从本页签点「+」上传时，「材料 (0)」在传完之前毫无反馈，唯一的进度卡
+          出现在 composer 里——用户在这个页签动作，回应却在屏幕另一端。上传中就说出来，
+          不等它成功或失败才有下一句话。 */}
+      {uploadingCount > 0 ? (
+        <p
+          className="flex items-center gap-1.5 px-3 pt-2 text-10 text-muted-foreground"
+          data-testid="chat-materials-uploading-count"
+        >
+          <RefreshCw aria-hidden className="h-3 w-3 animate-spin" />
+          {`正在上传 ${String(uploadingCount)} 个文件…`}
         </p>
       ) : null}
       {/* issue #3347 —— 拖进来后「有没有生效」必须看得见。`pendingCount` 是 composer

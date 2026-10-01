@@ -809,7 +809,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   ): Promise<ModelCallCompletion> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
-    const text = readTurnReply(messages, turnKey);
+    const text = describeModelCallLimit(readTurnReply(messages, turnKey));
     if (text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
     }
@@ -1280,6 +1280,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
             configurable: {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
+              ...pinnedModelConfig(input),
               org_skills: toWireSkills(input.skills),
             // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
             ...(input.excludedTools && input.excludedTools.length > 0 ? { excluded_tools: [...input.excludedTools] } : {}),
@@ -1377,6 +1378,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           configurable: {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
+              ...pinnedModelConfig(input),
             org_skills: toWireSkills(input.skills),
             // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
             ...(input.excludedTools && input.excludedTools.length > 0 ? { excluded_tools: [...input.excludedTools] } : {}),
@@ -1536,6 +1538,29 @@ export class DeepAgentModelProvider implements ModelCallPort {
  * 消息）——那时无法区分本轮与历史轮，把历史回复也拼进来会让上一轮的答案凭空重现，
  * 比少拼更坏。这是诚实降级，不是猜。
  */
+/**
+ * 原生链路的步数熔断（`harness.py` 的 `ModelCallLimitMiddleware(run_limit=25,
+ * exit_behavior="end")`）到点时，注入的"最终回复"是库自己拼的裸英文——
+ * `Model call limits exceeded: run limit (25/25)`（`langchain.agents.middleware.
+ * model_call_limit._build_limit_exceeded_message`，逐字核对过源码，不是猜的）。
+ *
+ * `harness.py` 挂这道熔断时的注释原话是"用户看到的是「预算耗尽的明确通告」"——
+ * 但库不提供自定义消息文案的钩子，那句英文原样流到了用户屏幕上，这条承诺从没被
+ * 真正兑现过。这里在**读完成文本的唯一入口**上补上翻译：库文案是固定格式
+ * （`Model call limits exceeded: ` 前缀 + 逗号分隔的 `xxx limit (a/b)` 列表），
+ * 按前缀识别，翻成一句读得懂的中文说明，不改变"这轮到此为止"这件事本身。
+ *
+ * 识别不到就原样返回——这里只翻译**认得出来**的那一种库文案，不是猜着翻译
+ * 任何看起来像限额的英文句子。
+ */
+const MODEL_CALL_LIMIT_PREFIX = "Model call limits exceeded:";
+
+export function describeModelCallLimit(text: string): string {
+  if (!text.trim().startsWith(MODEL_CALL_LIMIT_PREFIX)) return text;
+  return "这一轮用掉的模型调用次数已经到了单次任务的上限，我先停在这里——"
+    + "可以把已经做完的部分继续往下推进，或者换一种更聚焦的说法重新开始这个任务。";
+}
+
 export function readTurnReply(messages: readonly ThreadMessage[], turnKey?: string): string {
   if (turnKey === undefined) return readFinalReply(messages);
   const anchor = messages.findIndex((message) => message.id === turnMessageId(turnKey, "user"));
@@ -1652,4 +1677,15 @@ function sleep(ms: number): Promise<void> {
     const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},ms);
     signal.addEventListener('abort',abort,{once:true});
   });
+}
+
+/**
+ * 数字人能力（决策 B，见 `application/agent-run/capability-runtime-routing.ts`）：一个钉住
+ * 具体模型（如 `qwen-plus`）的 run 经本运行时执行时，把那个模型 id 交给内核按次覆盖
+ * （`configurable.model_id`，内核侧 `PinnedModelMiddleware`）。原生 deep-agent run 的
+ * `modelId` 恒是路由标签 `"deep-agent"` ⇒ 不送，内核用自己的默认模型——与此前逐字相同。
+ */
+export function pinnedModelConfig(input: Pick<ModelCallInput, "modelId">): Record<string, string> {
+  const id = input.modelId.trim();
+  return id === "" || id === DEEP_AGENT_PROVIDER_NAME ? {} : { model_id: id };
 }

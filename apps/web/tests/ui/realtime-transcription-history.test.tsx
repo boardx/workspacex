@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RecApp } from "@/components/rec/rec-app";
 import { mockIdentity } from "@/lib/identity";
 
@@ -134,6 +134,73 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("offers manual reconnect after five failed retries and stops retrying", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    api.openAsr.mockRejectedValue(new Error("CONNECTION_FAILED"));
+    vi.useFakeTimers();
+    try {
+      act(() => api.handlers!.onError("CONNECTION_FAILED"));
+      for (const delay of [1000, 2000, 4000, 8000, 8000]) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(delay); });
+      }
+      expect(api.openAsr).toHaveBeenCalledTimes(6);
+      expect(screen.getByTestId("rec-live-reconnect-dialog")).toBeVisible();
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(api.openAsr).toHaveBeenCalledTimes(6);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("does not reconnect after leaving the workspace", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    act(() => api.handlers!.onError("CONNECTION_FAILED"));
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(api.openAsr).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("rec-history-page")).toBeVisible();
+  });
+  it("automatically reconnects a dropped stream and retains saved text without stale events", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    const old = api.handlers!;
+    act(() => { old.onState("recording"); old.onError("CONNECTION_FAILED"); });
+    expect(screen.getByText("正在重连")).toBeVisible();
+    expect(screen.queryByTestId("rec-live-reconnect-dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(api.openAsr).toHaveBeenCalledTimes(2), { timeout: 2500 });
+    act(() => { api.handlers!.onState("recording"); old.onInterim("过期连接文字"); });
+    expect(screen.queryByText("过期连接文字")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
+    expect(screen.getByText(/断线期间的音频未转录/)).toBeVisible();
+  });
+
+  it("cancels scheduled reconnect when the user stops", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    act(() => { api.handlers!.onState("recording"); api.handlers!.onError("CONNECTION_FAILED"); });
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(api.openAsr).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("正在重连")).not.toBeInTheDocument();
+  });
+
+  it("shows permanent errors without automatically retrying", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    act(() => api.handlers!.onError("QUOTA_EXCEEDED"));
+    expect(screen.getByTestId("rec-live-error")).toHaveTextContent("额度不足");
+    expect(screen.queryByText("正在重连")).not.toBeInTheDocument();
+  });
   it("历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗", async () => {
     renderHistory();
 
@@ -176,8 +243,7 @@ describe("实时转录历史工作台", () => {
     ));
     expect(await screen.findByTestId("rec-live-workspace")).toBeVisible();
     expect(screen.getByTestId("rec-live-title")).toHaveTextContent("江西九江");
-    expect(screen.getByText(/\u5ba2户成功/)).toBeVisible();
-    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("待开始");
+    expect(screen.queryByTestId("rec-live-status")).not.toBeInTheDocument();
     expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("开始转录");
     expect(screen.queryByText(/已连接/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("rec-history-page")).not.toBeInTheDocument();
@@ -215,7 +281,7 @@ describe("实时转录历史工作台", () => {
     await waitFor(() => expect(api.read).toHaveBeenCalledWith("europe-entry", "session-token"));
     expect(screen.getByTestId("rec-live-workspace")).toBeVisible();
     expect(screen.getByTestId("rec-live-title")).toHaveTextContent("欧洲市场进入讨论");
-    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("可续录");
+    expect(screen.queryByTestId("rec-live-status")).not.toBeInTheDocument();
     expect(screen.getByText("这是数据库中保存的真实逐字稿。")).toBeVisible();
     expect(screen.queryByText(/本次转录已完成，可以继续生成总结/)).not.toBeInTheDocument();
   });
@@ -297,7 +363,7 @@ describe("实时转录历史工作台", () => {
     api.read.mockRejectedValue(new Error("network"));
     api.list.mockRejectedValue(new Error("network"));
     fireEvent.click(screen.getByTestId("rec-live-toggle"));
-    expect(await screen.findByText(/转录已停止.*刷新/)).toBeInTheDocument();
+    expect(await screen.findByText(/转录已停止.*刷新/, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
     expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
     expect(api.stopAsr).toHaveBeenCalledTimes(1);

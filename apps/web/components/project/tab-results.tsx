@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Card } from "@/components/ui/card";
 import { SectionTitle, StatChip } from "./parts";
-import { ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, type ProjectRole } from "@/lib/mock/project";
+import { ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, type ProjectRole } from "@/lib/project-workbench";
 import { BACKFLOW_BADGE_LABEL, type ProjectOverview } from "@/lib/live-projects";
 import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provenance";
 
@@ -10,7 +10,7 @@ import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provena
  * 成果沉淀（原型 isWsAfter，F964 接真）—— 项目结论 / 假设状态 / 成果去向 /
  * 发布结论 / 候选决策 / 审计与反馈。
  *
- * ⚠ **这次的接线不是「全部接真」，是按 `lib/mock/project.ts` 头注（第 22-26 行）
+ * ⚠ **这次的接线不是「全部接真」，是按（现已删除的）`lib/mock/project.ts` 头注（第 22-26 行）
  *   逐条核实契约有没有出处，分两类处理**——同 F172（`tab-overview.tsx`）与 F963
  *   （`tab-live.tsx`）建立的纪律：把有出处的接真，把没出处的编造数据整块降级为
  *   如实空态，不让两者同屏并列、用户分不清真假。
@@ -23,7 +23,7 @@ import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provena
  *     的审计检索面，`live-provenance.ts` 头注「不许另造」），按 `targetKind:"project"`
  *     + `targetId` 收窄到本项目。
  *
- * 降级为如实空态的四块（`lib/mock/project.ts` 第 22-26 行逐条标注「契约未建模」）：
+ * 降级为如实空态的四块（原 `lib/mock/project.ts` 第 22-26 行逐条标注「契约未建模」）：
  *   · **项目结论**（结论文本 + 签字人）—— 全仓没有「项目结论」这个实体，`provenance`
  *     只记事件不记结论文本，`getProjectOverview` 白名单四件里没有它。
  *   · **假设状态**（已验证/待验证/已推翻计数）—— 全仓 grep `hypothesis`/「假设状态」
@@ -58,74 +58,49 @@ export function TabResults({
   const canPublish = ROLE_STAGE_CONTROL[view] && !readOnly;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-results">
-      {/* 项目结论 —— 契约未建模，四视角都如实说明不可用（不发明结论文本） */}
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6" data-testid="project-results">
+      {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9）。真实内容排最前。 */}
       <section>
-        <SectionTitle meta="全仓无「项目结论」实体，暂不可用">项目结论</SectionTitle>
+        <SectionTitle meta="已回流到项目的产出">成果去向</SectionTitle>
         <Card>
-          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">
-            项目结论（结论文本 + 签字人）在 project 束契约里还没有出处——`getProjectOverview`
-            的白名单四件与 `queryProvenance` 都不覆盖它。要真，得先补一个承载结论文本与签字的
-            领域模型，那是接下来的 feature，本版不显示编造文案。
-          </p>
+          <BackflowPanel overview={liveOverview} loading={liveOverviewLoading} error={liveOverviewError} />
         </Card>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* 假设状态 —— 契约未建模 */}
-        <section>
-          <SectionTitle meta="全仓无「假设」实体，暂不可用">假设状态</SectionTitle>
-          <Card>
-            <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">
-              已验证/待验证/已推翻这三个计数在契约里没有任何字段能表达——全仓没有「假设」
-              这个实体，遑论它的状态机，不显示编造数字。
-            </p>
-          </Card>
-        </section>
-        {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9） */}
-        <section>
-          <SectionTitle meta="listBackflow · 项目侧回流投影">成果去向</SectionTitle>
-          <Card>
-            <BackflowPanel overview={liveOverview} loading={liveOverviewLoading} error={liveOverviewError} />
-          </Card>
-        </section>
-      </div>
-
-      {/* 发布结论 —— 契约未建模：没有「发布」这个领域动作，不留一个只弹本地对话框
-          却不产生真实副作用的危险按钮（那是假功能缺陷，不是数据展示缺口） */}
-      {canPublish && (
-        <section>
-          <SectionTitle meta="全仓无「发布结论」领域动作，暂不可用">发布结论</SectionTitle>
-          <Card>
-            <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">
-              发布结论（绑定确定版本 + 二次确认 + 影响范围）在契约里还没有对应的写操作——
-              点一个只在本地弹对话框、不产生真实副作用的「发布」按钮比没有按钮更糟（用户会
-              以为真的发布了）。要真，得先补 `publishConclusion` 这类写操作与它的错误面，
-              那是接下来的 feature，本版不放这个按钮。
-            </p>
-          </Card>
-        </section>
-      )}
-
-      {/* 候选决策 —— 契约未建模：没有「候选决策」实体，同上理由不放签署按钮 */}
-      {canWrite && (
-        <section>
-          <SectionTitle meta="全仓无「候选决策」实体，暂不可用">候选决策</SectionTitle>
-          <Card>
-            <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">
-              候选决策（来自转写、签署前可回听）在契约里没有承载它的实体——`provenance`
-              只记「谁在什么时候做了什么」，不记「转写里哪句话是一条待签署的决策」。要真，
-              得先补一个候选决策的领域模型与提取/签署两个写操作，本版不显示编造的候选列表。
-            </p>
-          </Card>
-        </section>
-      )}
-
       {/* 审计与反馈 —— 接真：queryProvenance（uc-00-1 V10 / uc-00-3 V11） */}
       <section>
-        <SectionTitle meta="queryProvenance · 按本项目收窄 · 不可删除">审计与反馈</SectionTitle>
+        <SectionTitle meta="仅本项目 · 不可删除">审计与反馈</SectionTitle>
         <Card data-testid="project-results-audit">
           <AuditPanel audit={liveAudit} loading={liveAuditLoading} error={liveAuditError} />
+        </Card>
+      </section>
+      {/* 契约未建模的四项（项目结论 / 假设状态 / 发布结论 / 候选决策）收进一张「即将开放」卡，
+          不再各占一个整宽空框；不发明数据，也不放会产生假副作用的按钮（发布 / 签署）。 */}
+      <section>
+        <SectionTitle meta="还在路上，不会出现示例数据">即将开放</SectionTitle>
+        <Card>
+          <ul className="divide-y divide-border">
+            <li className="flex flex-col gap-0.5 px-4 py-3">
+              <span className="text-13 font-medium">项目结论</span>
+              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">结论正文和签字人会显示在这里。</p>
+            </li>
+            <li className="flex flex-col gap-0.5 px-4 py-3">
+              <span className="text-13 font-medium">假设状态</span>
+              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">已验证 / 待验证 / 已推翻各有多少条。</p>
+            </li>
+            {canPublish && (
+              <li className="flex flex-col gap-0.5 px-4 py-3">
+                <span className="text-13 font-medium">发布结论</span>
+                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">真正可用之前这里不放按钮，以免让人误以为已经发布。</p>
+              </li>
+            )}
+            {canWrite && (
+              <li className="flex flex-col gap-0.5 px-4 py-3">
+                <span className="text-13 font-medium">候选决策</span>
+                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">转写里待签署的决策会列在这里，签署前可以回听。</p>
+              </li>
+            )}
+          </ul>
         </Card>
       </section>
     </div>
@@ -136,34 +111,34 @@ function BackflowPanel({
   overview, loading, error,
 }: { overview: ProjectOverview | null; loading: boolean; error: string | null }) {
   if (loading) {
-    return <div className="p-4 text-11 text-muted-foreground" data-testid="project-results-destinations-loading">读取回流列表中…</div>;
+    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-loading">读取回流列表中…</div>;
   }
   if (error) {
     return (
-      <div className="p-4 text-11 text-destructive" data-testid="project-results-destinations-error">
+      <div className="p-4 text-12 text-destructive" data-testid="project-results-destinations-error">
         回流列表读取失败：{error}
       </div>
     );
   }
   if (overview === null) {
     return (
-      <div className="p-4 text-11 text-muted-foreground" data-testid="project-results-destinations-signed-out">
-        暂无真实数据（未登录，或链接未带 `?org=`）
+      <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-signed-out">
+        登录后才能查看，请重新登录后再试。
       </div>
     );
   }
   if (overview.backflow.length === 0) {
-    return <div className="p-4 text-11 text-muted-foreground" data-testid="project-results-destinations-empty">暂无已回流的产出</div>;
+    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-empty">暂无已回流的产出</div>;
   }
   return (
     <ul className="divide-y divide-border" data-testid="project-results-destinations-list">
       {overview.backflow.map((b) => (
-        <li key={b.bindingId} className="flex items-center gap-2.5 px-3.5 py-2.5 text-11">
+        <li key={b.bindingId} className="flex items-center gap-2.5 px-3.5 py-2.5 text-12">
           <StatChip tone={b.badge === "pinned" ? "success" : b.badge === "live" ? "ai" : "neutral"}>
             {BACKFLOW_BADGE_LABEL[b.badge]}
           </StatChip>
           <span className="min-w-0 flex-1 truncate">{b.title} · 版本 {b.version}</span>
-          <span className="shrink-0 text-10 text-muted-foreground">{b.pinnedBy} · {b.pinnedAt}</span>
+          <span className="shrink-0 text-11 text-muted-foreground">{b.pinnedBy} · {b.pinnedAt}</span>
         </li>
       ))}
     </ul>
@@ -178,24 +153,24 @@ function AuditPanel({
   audit, loading, error,
 }: { audit: QueryProvenanceOut | null; loading: boolean; error: string | null }) {
   if (loading) {
-    return <div className="p-3.5 text-11 text-muted-foreground" data-testid="project-results-audit-loading">读取审计事件中…</div>;
+    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-loading">读取审计事件中…</div>;
   }
   if (error) {
     return (
-      <div className="p-3.5 text-11 text-destructive" data-testid="project-results-audit-error">
+      <div className="p-3.5 text-12 text-destructive" data-testid="project-results-audit-error">
         审计事件读取失败：{error}
       </div>
     );
   }
   if (audit === null) {
     return (
-      <div className="p-3.5 text-11 text-muted-foreground" data-testid="project-results-audit-signed-out">
-        暂无真实数据（未登录，或链接未带 `?org=`）
+      <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-signed-out">
+        登录后才能查看，请重新登录后再试。
       </div>
     );
   }
   if (audit.events.length === 0) {
-    return <div className="p-3.5 text-11 text-muted-foreground" data-testid="project-results-audit-empty">本项目还没有审计事件，不生成示例条目</div>;
+    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-empty">本项目还没有审计事件，不生成示例条目</div>;
   }
   return (
     <>
@@ -205,10 +180,10 @@ function AuditPanel({
       <ul className="divide-y divide-border" data-testid="project-results-audit-list">
         {audit.events.map((e) => (
           <li key={e.id} className="flex items-start gap-3 px-3.5 py-2.5">
-            <span className="shrink-0 font-mono text-10 text-muted-foreground">{new Date(e.at).toLocaleString()}</span>
+            <span className="shrink-0 font-mono text-11 text-muted-foreground">{new Date(e.at).toLocaleString()}</span>
             <StatChip>{AUDIT_TYPE_LABEL[e.type] ?? e.type}</StatChip>
             <div className="min-w-0 flex-1">
-              <div className="text-11">actor {e.actorId} → {e.target.kind}:{e.target.id}</div>
+              <div className="text-12">actor {e.actorId} → {e.target.kind}:{e.target.id}</div>
             </div>
           </li>
         ))}

@@ -84,8 +84,11 @@ export interface AnnSetup {
   readonly iterativeScan: boolean;
 }
 
-/** The pgvector version that introduced `hnsw.iterative_scan`. */
-const ITERATIVE_SCAN_SINCE = [0, 8, 0] as const;
+/**
+ * The pgvector version that introduced `hnsw.iterative_scan`. Also the deployment minimum for `vector`
+ * (#4366): `infrastructure/db/kg-extension-preflight.ts` derives its required version from this constant.
+ */
+export const ITERATIVE_SCAN_SINCE = [0, 8, 0] as const;
 /** pgvector's own bounds for `hnsw.ef_search`. */
 const EF_SEARCH_MIN = 40;
 const EF_SEARCH_MAX = 1000;

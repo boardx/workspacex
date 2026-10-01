@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 import { findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
+import { ExpertAvatarEditor } from "./expert-avatar";
 
 export function DigitalExpertDetail({ expertId }: { expertId: string }) {
   const expert = findMockDigitalExpert(expertId);
@@ -28,9 +29,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
         <article className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-base font-semibold text-primary">
-                {expert.initials}
-              </div>
+              <ExpertAvatarEditor expertId={expert.expertId} displayName={expert.displayName} compact />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{expert.displayName}</h1>

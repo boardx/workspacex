@@ -78,7 +78,7 @@ export function evaluateSurveyForPublish(
         subjectId: question.id,
         missingFields: ["options"],
       });
-    if (!mappedQuestionIds.has(question.id))
+    if (input.template.sections.length > 0 && !mappedQuestionIds.has(question.id))
       blockers.push({
         code: "MAPPING_INCOMPLETE",
         side: "question",

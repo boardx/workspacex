@@ -28,8 +28,8 @@ export interface ProjectContext {
  *
  * 判定规则（按此顺序）：
  *  1. `/projects/<id>/...` —— 明确的项目子路由，`<id>` 即项目标识；
- *  2. 下表列出的「隐式项目路由」—— 它们的内容天然挂在某个项目下
- *     （对话线程属于某项目、问卷工作台属于某问卷、项目工作台就是某个项目）。
+ *  2. `/chat?projectId=…` —— 调用方传入显式项目标识。
+ * 问卷列表和独立问卷不推断项目归属；不能用演示项目污染真实工作区。
  *
  * **不在项目上下文里**的：`/`（首页）、`/projects`（列表本身）、`/kitchen-sink`、
  * `/tasks`（跨项目的我的今天）、`/brain`（三层记忆，跨项目）、`/admin/*`（组织治理）、
@@ -72,15 +72,6 @@ export interface ProjectContext {
  * 详见 `top-bar.tsx` 的 `useChatProjectName`。裸 id 占位期间界面仍是诚实的——
  * 「知道在哪个项目、还不知道它叫什么」比「不知道在不在项目里」更接近事实。
  */
-const IMPLICIT_PROJECT_ROUTES: Record<string, ProjectContext> = {
-  "/studio/survey": { id: "demo", name: "欧洲市场进入" },
-};
-
-/** mock 项目名查表；真实实现从服务端取 */
-const PROJECT_NAMES: Record<string, string> = {
-  demo: "欧洲市场进入",
-};
-
 /**
  * 从路径解析项目上下文；不在项目里返回 null。
  * `chatProjectId`：`/chat?projectId=…` 的查询串取值，只有 pathname 是 `/chat`
@@ -94,12 +85,8 @@ export function resolveProjectContext(
   const m = /^\/projects\/([^/]+)(?:\/|$)/.exec(pathname);
   if (m) {
     const id = m[1]!;
-    return { id, name: PROJECT_NAMES[id] ?? id };
+    return { id, name: id };
   }
   if (chatProjectId) return { id: chatProjectId, name: chatProjectId };
-  const implicit = IMPLICIT_PROJECT_ROUTES[pathname];
-  if (implicit) return implicit;
-  // 隐式路由的子路径也算（如 /studio/survey/xxx）
-  const hit = Object.keys(IMPLICIT_PROJECT_ROUTES).find((p) => pathname.startsWith(p + "/"));
-  return hit ? IMPLICIT_PROJECT_ROUTES[hit]! : null;
+  return null;
 }

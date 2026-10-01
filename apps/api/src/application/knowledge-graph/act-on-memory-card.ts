@@ -48,3 +48,28 @@ export async function actOnMemoryCard(
     ...(input.editedStatement !== undefined ? { editedStatement: input.editedStatement.trim() } : {}),
   });
 }
+
+/**
+ * Issue #4361 —— 撤销一张已生效的「忘掉」卡（契约 undoMemoryCard，UC-KG-12b）。
+ *
+ * 前置与 actOnMemoryCard 同一个顺序：执行身份是人（Agent ⇒ KG_ACTOR_NOT_HUMAN，什么都不读）→ 卡在哪个会话 →
+ * 会话可见（看不见 = 卡不存在：别人的卡一律 KG_CARD_NOT_FOUND / 404，不泄露存在性）→ 会话所有者（E1 → KG_NOT_OWNER）
+ * → 交数据库（`kg_undo_memory_card`：只恢复这张卡忘掉的、现在仍是「因忘掉而失效」的，连同 F07 级联收掉的 L1 副本与边）。
+ */
+export async function undoMemoryCard(
+  deps: MemoryCardDeps,
+  input: { readonly userId: string; readonly orgId: OrgId; readonly actorKind: "human" | "agent"; readonly cardId: string },
+): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }> {
+  if (input.actorKind !== "human") throw new KgHumanActionError("KG_ACTOR_NOT_HUMAN");
+  const threadId = await deps.cards.cardThread(input.orgId, input.userId, input.cardId);
+  if (threadId === null) throw new KgHumanActionError("KG_CARD_NOT_FOUND");
+  let owner: string;
+  try {
+    owner = (await visibleThread(deps, input, threadId)).facts.createdBy;
+  } catch (e) {
+    if (e instanceof KgReadError) throw new KgHumanActionError("KG_CARD_NOT_FOUND");
+    throw e;
+  }
+  if (owner !== input.userId) throw new KgHumanActionError("KG_NOT_OWNER");
+  return deps.cards.undo(input.orgId, input.userId, { actionId: deps.newId("act"), cardId: input.cardId, actorKind: input.actorKind });
+}

@@ -1,0 +1,70 @@
+// Fail-without-fix proofs: revert one fix at a time, run the test that guards it, expect failure, restore.
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+
+const API = "/home/user/workspacex/.claude/worktrees/agent-a1c38f775f37370ff/apps/api";
+const RUN = "/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s8vitest.sh";
+const M = [
+  {
+    name: "M1 gate not wired into extractJob",
+    file: "src/application/knowledge-graph/extract-message-knowledge.ts",
+    from: 'if ((await gateExtraction(deps, job, loaded)).gate === "skip") return "gated";',
+    to: "void gateExtraction;",
+    test: "tests/knowledge-graph/worth-remembering-gate.test.ts",
+  },
+  {
+    name: "M2 protection removed (goal/preference/decision no longer protected)",
+    file: "src/domain/knowledge-graph/worth-remembering.ts",
+    from: "export function protectionOf(text: string): WorthProtection | null {",
+    to: "export function protectionOf(text: string): WorthProtection | null {\n  if (text.length >= 0) return null;",
+    test: "tests/knowledge-graph/worth-remembering-gate.test.ts",
+  },
+  {
+    name: "M3 negation / number guard removed from duplicate detection",
+    file: "src/domain/knowledge-graph/consolidation.ts",
+    from: "  if (negationCount(a.statement) !== negationCount(b.statement)) return null;\n",
+    to: "",
+    test: "tests/knowledge-graph/consolidation-plan.test.ts",
+  },
+  {
+    name: "M4 stuck-lease metric not evaluated",
+    file: "src/domain/knowledge-graph/extraction-slo.ts",
+    from: "  if (m.stuckLeases > t.stuckLeases) alerts.push",
+    to: "  if (false as boolean) alerts.push",
+    test: "tests/knowledge-graph/extraction-slo.test.ts",
+  },
+  {
+    name: "M5 conflicts never opened by consolidation (only merges)",
+    file: "src/application/knowledge-graph/consolidate-memory.ts",
+    from: "    for (const pair of plan.conflicts) {",
+    to: "    for (const pair of plan.conflicts.slice(0, 0)) {",
+    test: "tests/knowledge-graph/consolidation-db.test.ts",
+  },
+  {
+    name: "M6 undo does not restore the merged claim (DB side bypassed: undo port no-op)",
+    file: "src/infrastructure/knowledge-graph/pg-kg-consolidation.ts",
+    from: '        return s.query<{ r: { undone?: number; skipped?: number } }>("SELECT kg_consolidation_undo($1, $2) AS r", [runId, actionId]);',
+    to: '        return s.query<{ r: { undone?: number; skipped?: number } }>("SELECT jsonb_build_object(\'undone\', 0, \'skipped\', 0, \'x\', $1::text, \'y\', $2::text) AS r", [runId, actionId]);',
+    test: "tests/knowledge-graph/consolidation-db.test.ts",
+  },
+];
+const out = [];
+for (const m of M) {
+  const p = `${API}/${m.file}`;
+  const orig = readFileSync(p, "utf8");
+  if (!orig.includes(m.from)) { out.push(`${m.name}: MUTATION ANCHOR NOT FOUND`); continue; }
+  writeFileSync(p, orig.replace(m.from, m.to));
+  let res;
+  try {
+    const o = execFileSync(RUN, [m.test], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 << 20 });
+    res = `PASSED (mutation NOT caught)\n${o.split("\n").filter((l) => /Tests |Test Files/.test(l)).join("\n")}`;
+  } catch (e) {
+    const o = `${e.stdout ?? ""}`;
+    res = `FAILED as expected\n${o.split("\n").filter((l) => /Tests |Test Files| × /.test(l)).slice(0, 12).join("\n")}`;
+  } finally {
+    writeFileSync(p, orig);
+  }
+  out.push(`### ${m.name}\nfile: apps/api/${m.file}\ntest: apps/api/${m.test}\n${res}\n`);
+  console.log(out.at(-1));
+}
+writeFileSync("/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/mutations.txt", out.join("\n"));

@@ -5,7 +5,8 @@
  * 只搬家、不改行为：props 与详情页里的变量**同名**，搬过来的 JSX 一个字没改；状态全都留在详情页。
  */
 import * as React from "react";
-import { Code2, Columns3, Copy, Crosshair, History, Layers, LayoutGrid, Loader2, MessageSquarePlus, Pencil, Play, Plus, Presentation, Redo2, Smartphone, Trash2, Undo2 } from "lucide-react";
+import { Code2, Columns3, Copy, Crosshair, Download, FileText, History, Layers, LayoutGrid, Loader2, MessageSquarePlus, MoreHorizontal, Palette, Pencil, Play, Plus, Presentation, Redo2, Smartphone, Trash2, Undo2, Upload, Users } from "lucide-react";
+import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import type { DesignProject, PrototypeVersion } from "@/lib/live-design-workbench";
 import type { useDesignComments } from "@/lib/design-comments";
@@ -18,6 +19,7 @@ export function CanvasToolbar({
   project, preview, frame, setFrame, canvasMode, setCanvasMode, viewMode, setViewMode, setBackStack, setSelectedId,
   sideOpen, setSideOpen, renamePage, addPage, duplicatePage, removePage, pageCount, comments, undoLast, undoing, redo,
   redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance, codeOpen, setCodeOpen, onPresent,
+  onOpenAppearance, onOpenSpec, onOpenExport, onPush, onImportThread,
 }: {
   readonly project: DesignProject;
   readonly preview: PrototypeVersion | null;
@@ -54,6 +56,15 @@ export function CanvasToolbar({
   readonly setCodeOpen: Setter<boolean>;
   /** 深度 S7：进演示模式（状态在详情页：演示时整个编辑器离屏）。 */
   readonly onPresent: () => void;
+  /*
+   * design-delta `novice-progressive-disclosure`（#4331 U2/U3）：下面五个动作从首屏收进「更多」。
+   * 状态都还在详情页，这里只负责把菜单项接到它们上面。
+   */
+  readonly onOpenAppearance: () => void;
+  readonly onOpenSpec: () => void;
+  readonly onOpenExport: () => void;
+  readonly onPush: () => void;
+  readonly onImportThread: () => void;
 }) {
   return (
     <>
@@ -67,6 +78,12 @@ export function CanvasToolbar({
           * 每字一行（「历」「史」「会」「话」竖着排），而整条工具条仍然溢出——
           * 两个毛病同一个根：一行里塞了太多东西，却既不许滚也不许换行。
           */}
+        {/*
+          * design-delta `novice-progressive-disclosure`：页签条只在**单页**视图出现。画板视图里每一页上方
+          * 本来就有「1 · 首页」这样的标题，点它就聚焦——页签条在那里是同一组信息的第二份，
+          * 普通用户评测集量出它占了首屏 4 个控件。
+          */}
+        {viewMode === "single" && (
         <div
           className="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto"
           data-allow-x-scroll="页签多时自己横向滚动，不撑宽工具条"
@@ -100,50 +117,9 @@ export function CanvasToolbar({
           * 迭代 16：页管理。契约的 addScreen/removeScreen 从迭代 12 起就在，
           * 但从来没有 UI 够得着——模型能加删页，用户不能。
           */}
-        {canvasMode === "edit" && preview === null && (
-          <>
-            {/*
-              * 迭代 26：页签与「改名/加页/复制/删页」之间加一道分隔线。
-              * 它们此前只隔着 4px，而最后一颗是**删这一页**——在手机上手指宽度
-              * 远大于那个间距，点最后一个页签与删掉它只差几个像素。
-              */}
-            <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
-            <span className="flex shrink-0 items-center gap-0.5" data-testid="design-detail-pages">
-            {/*
-              * 迭代 25：改名此前**只有双击页签**一条路（还用 `window.prompt`）。
-              * 手机上没有双击这回事，而这排按钮在哪都点得到——改名与加/复制/删同级，
-              * 本来就该并排。
-              */}
-            <button
-              type="button"
-              onClick={() => {
-                const current = (preview ?? project).frames[frame] ?? "";
-                const name = window.prompt("页面名字", current);
-                if (name !== null) renamePage(name);
-              }}
-              title="给这一页改名"
-              data-testid="design-detail-page-rename"
-              className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground"
-            >
-              <Pencil aria-hidden className="h-3 w-3" />
-            </button>
-            <button type="button" onClick={addPage} title="加一页" data-testid="design-detail-page-add"
-              className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
-              <Plus aria-hidden className="h-3 w-3" />
-            </button>
-            <button type="button" onClick={duplicatePage} title="复制这一页" data-testid="design-detail-page-duplicate"
-              className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
-              <Copy aria-hidden className="h-3 w-3" />
-            </button>
-            <button type="button" onClick={removePage} disabled={pageCount <= 1} title={pageCount <= 1 ? "只剩一页了，删不得" : "删掉这一页"}
-              data-testid="design-detail-page-remove"
-              className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-destructive disabled:bg-disabled disabled:text-disabled-foreground">
-              <Trash2 aria-hidden className="h-3 w-3" />
-            </button>
-          </span>
-          </>
-        )}
+        {/* 页管理（改名 / 加页 / 复制 / 删页）：design-delta `novice-progressive-disclosure` 起在「更多」→「这一页」。 */}
         </div>
+        )}
         <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
           <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
             className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
@@ -155,31 +131,22 @@ export function CanvasToolbar({
           </button>
         </div>
         {/* 迭代 11：编辑 / 预览。预览点有跳转的节点 = 换页；进预览时清掉选中，退出再选。 */}
-        <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布模式">
-          <button type="button" onClick={() => { setCanvasMode("edit"); setBackStack([]); }} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
-            className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "edit" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
-            <Crosshair aria-hidden className="h-3 w-3" /> 编辑
-          </button>
-          <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); setBackStack([]); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
-            className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "preview" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+        {/*
+          * design-delta `novice-progressive-disclosure`：原来是「编辑 / 预览 / 批注」三连。普通用户只需要知道
+          * 「点一下看看点起来什么样」和「回来接着改」——一个开关就够；批注收进「更多」。
+          * testid 跟着状态走：编辑态它是「预览」（design-detail-mode-preview），否则是「回到编辑」（design-detail-mode-edit）。
+          */}
+        {canvasMode === "edit" ? (
+          <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); setBackStack([]); }} aria-pressed={false} data-testid="design-detail-mode-preview" title="预览：像真的 App 一样点，点按钮会跳到对应的页"
+            className="inline-flex items-center gap-1 rounded-control border border-border px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Play aria-hidden className="h-3 w-3" /> 预览
           </button>
-          {/* 对标 R8：批注——先把意见钉在元素上，攒几条再一次交给 AI。 */}
-          <button type="button" onClick={() => { setCanvasMode("comment"); setSelectedId(null); setBackStack([]); setSideOpen(true); }} aria-pressed={canvasMode === "comment"} data-testid="design-detail-mode-comment" title="批注：点任何一块写一句意见，攒几条一次交给 AI"
-            className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "comment" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
-            <MessageSquarePlus aria-hidden className="h-3 w-3" /> 批注{comments.comments.some((c) => !c.resolved) ? `（${comments.comments.filter((c) => !c.resolved).length}）` : ""}
+        ) : (
+          <button type="button" onClick={() => { setCanvasMode("edit"); setBackStack([]); }} aria-pressed data-testid="design-detail-mode-edit" title="回到编辑：点画布上的元素就能改"
+            className="inline-flex items-center gap-1 rounded-control border border-border bg-card px-2 py-1 text-11 text-card-foreground transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Crosshair aria-hidden className="h-3 w-3" /> {canvasMode === "comment" ? "结束批注" : "回到编辑"}
           </button>
-        </div>
-        {/*
-          * 迭代 24：明暗 / 强调色 / 设备三组收进一个「外观」面板。
-          *
-          * 它们的共同点是**设一次就不再动**，而此前它们在工具条上平铺了十几个控件，
-          * 其中八个是没有名字的彩色圆点——第一次来做原型的人最显眼看到的就是它们，
-          * 既不知道那是什么，也不知道该不该动。收起来之后，常态工具条只剩每天真用得上的
-          * 那几个；点开之后每一节有中文小标题，圆点第一次有了名字。
-          *
-          * 顺带把 375 档那 460px 的横向滚动消掉（见 `canvas-appearance.tsx` 头注）。
-          */}
+        )}
         {appearance}
         {/* 迭代 24：窄屏才有的「图层」开关——md 及以上那一栏一直在，不需要这个按钮。 */}
         <button
@@ -207,23 +174,7 @@ export function CanvasToolbar({
           {undoing ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Undo2 aria-hidden className="h-3 w-3" />} 撤销
         </button>
         {/* 对标 R7：重做——只有刚撤销过、且之后没有别的改动时才可用。 */}
-        <button
-          type="button" onClick={() => void redo()} disabled={undoing || preview !== null || redoStack.length === 0}
-          data-testid="design-detail-redo" title={redoStack.length === 0 ? "没有可以重做的撤销" : "重做（⌘⇧Z）"}
-          className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
-        >
-          <Redo2 aria-hidden className="h-3 w-3" /> 重做
-        </button>
         {/* 对标 R9：同一页出几个方案并排比。 */}
-        <button
-          type="button" onClick={() => void askVariants()}
-          disabled={preview !== null || sending || variants?.kind === "loading" || (project.prototype[variantScreen] ?? null) === null}
-          aria-pressed={variants !== null}
-          data-testid="design-detail-variants" title="让 AI 给这一页出几个不同的方案，并排比较、挑一个"
-          className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
-        >
-          <Columns3 aria-hidden className="h-3 w-3" /> 方案
-        </button>
         <button
           type="button"
           // 迭代 24：点「历史」就是要看历史——窄屏下顺手把收起的那一栏打开，
@@ -242,32 +193,88 @@ export function CanvasToolbar({
           <History aria-hidden className="h-3 w-3" /> 历史
         </button>
         {/* 深度 S6：看这份原型的 React 代码——同「历史」，窄屏下顺手打开右栏。 */}
-        <button
-          type="button"
-          onClick={() => { setCodeOpen((o) => !o); if (!codeOpen) setSideOpen(true); }}
-          aria-pressed={codeOpen}
-          title="看这份原型导出的 React 代码，可以一键复制；改了设计，代码跟着变"
-          data-testid="design-detail-code"
-          className={cn(
-            "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            codeOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
-          )}
-        >
-          <Code2 aria-hidden className="h-3 w-3" /> 代码
-        </button>
         {/*
           * 深度 S7：演示——从当前这一页开始整屏放。放在工具条而不是页头：页头在 375 宽下已经满了
           * （响应式车道实测溢出），工具条会换行。
           */}
-        <button
-          type="button" onClick={onPresent}
-          disabled={project.prototype.every((r) => r === null)}
-          title="整屏一页一页放给别人看：方向键翻页，Esc 退出"
-          data-testid="design-detail-present"
-          className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
-        >
-          <Presentation aria-hidden className="h-3 w-3" /> 演示
-        </button>
+        {/*
+          * design-delta `novice-progressive-disclosure`（#4331 U2/U3）——**「更多」**。
+          *
+          * 普通用户评测集量出详情页首屏 57 个可操作控件（预算 15），外加「代码 / 批注 / 方案 / 推送到收件箱」
+          * 这类第一次来的人看不懂的词。这些动作都还在、一个没删，只是不再全部摊在首屏：
+          * 首屏留「说一句话改 / 预览 / 撤销 / 历史 / 画板·单页 / 分享」，其余收进这里，按「画布 / 这一页 / 项目」分组。
+          * 菜单项沿用原来按钮的 testid——测试与读屏找的仍是同一个东西，只是要先打开「更多」。
+          */}
+        <Menu>
+          <MenuTrigger asChild>
+            <button type="button" data-testid="design-detail-more" title="更多：外观、演示、导出、交给开发，以及这一页的改名、复制、删除"
+              className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <MoreHorizontal aria-hidden className="h-3.5 w-3.5" /> 更多
+            </button>
+          </MenuTrigger>
+          <MenuContent align="end" className="w-60" data-testid="design-detail-more-menu">
+            <MenuLabel>画布</MenuLabel>
+            <MenuItem data-testid="design-detail-mode-comment" onSelect={() => { setCanvasMode("comment"); setSelectedId(null); setBackStack([]); setSideOpen(true); }}>
+              <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> 批注：在画面上钉一句话{comments.comments.some((c) => !c.resolved) ? `（${comments.comments.filter((c) => !c.resolved).length}）` : ""}
+            </MenuItem>
+            <MenuItem data-testid="design-detail-appearance" onSelect={onOpenAppearance}>
+              <Palette aria-hidden className="h-3.5 w-3.5" /> 外观：明暗、颜色、字体、设备
+            </MenuItem>
+            <MenuItem data-testid="design-detail-variants" aria-pressed={variants !== null}
+              disabled={preview !== null || sending || variants?.kind === "loading" || (project.prototype[variantScreen] ?? null) === null}
+              onSelect={() => void askVariants()}>
+              <Columns3 aria-hidden className="h-3.5 w-3.5" /> 这一页多出几版对比
+            </MenuItem>
+            <MenuItem data-testid="design-detail-present" disabled={project.prototype.every((r) => r === null)} onSelect={onPresent}>
+              <Presentation aria-hidden className="h-3.5 w-3.5" /> 演示：整屏一页页放给别人看
+            </MenuItem>
+            <MenuItem data-testid="design-detail-redo" disabled={undoing || preview !== null || redoStack.length === 0} onSelect={() => void redo()}>
+              <Redo2 aria-hidden className="h-3.5 w-3.5" /> 重做（⌘⇧Z）
+            </MenuItem>
+            <MenuItem data-testid="design-detail-more-structure" onSelect={() => setSideOpen((v) => !v)}>
+              <Layers aria-hidden className="h-3.5 w-3.5" /> {sideOpen ? "收起页面结构" : "显示页面结构"}
+            </MenuItem>
+            {canvasMode === "edit" && preview === null && (
+              <>
+                <MenuSeparator />
+                <MenuLabel>这一页（{(preview ?? project).frames[frame] ?? ""}）</MenuLabel>
+                <MenuItem data-testid="design-detail-page-rename" onSelect={() => {
+                  const current = (preview ?? project).frames[frame] ?? "";
+                  const name = window.prompt("页面名字", current);
+                  if (name !== null) renamePage(name);
+                }}>
+                  <Pencil aria-hidden className="h-3.5 w-3.5" /> 给这一页改名
+                </MenuItem>
+                <MenuItem data-testid="design-detail-page-add" onSelect={addPage}>
+                  <Plus aria-hidden className="h-3.5 w-3.5" /> 加一页
+                </MenuItem>
+                <MenuItem data-testid="design-detail-page-duplicate" onSelect={duplicatePage}>
+                  <Copy aria-hidden className="h-3.5 w-3.5" /> 复制这一页
+                </MenuItem>
+                <MenuItem data-testid="design-detail-page-remove" disabled={pageCount <= 1} title={pageCount <= 1 ? "只剩一页了，删不得" : undefined} onSelect={removePage}>
+                  <Trash2 aria-hidden className="h-3.5 w-3.5" /> 删掉这一页
+                </MenuItem>
+              </>
+            )}
+            <MenuSeparator />
+            <MenuLabel>项目</MenuLabel>
+            <MenuItem data-testid="design-detail-tab-spec" onSelect={onOpenSpec}>
+              <FileText aria-hidden className="h-3.5 w-3.5" /> 需求说明与验收标准
+            </MenuItem>
+            <MenuItem data-testid="design-detail-export" onSelect={onOpenExport}>
+              <Download aria-hidden className="h-3.5 w-3.5" /> 导出：文档、截图、可点击原型……
+            </MenuItem>
+            <MenuItem data-testid="design-detail-push" onSelect={onPush}>
+              <Upload aria-hidden className="h-3.5 w-3.5" /> {project.pushed ? "已交给开发排期" : "交给开发排期"}
+            </MenuItem>
+            <MenuItem data-testid="design-detail-import-thread" onSelect={onImportThread}>
+              <Users aria-hidden className="h-3.5 w-3.5" /> 从一段已有对话导入背景
+            </MenuItem>
+            <MenuItem data-testid="design-detail-code" aria-pressed={codeOpen} onSelect={() => { setCodeOpen((o) => !o); if (!codeOpen) setSideOpen(true); }}>
+              <Code2 aria-hidden className="h-3.5 w-3.5" /> {codeOpen ? "收起给开发看的代码" : "给开发看的代码"}
+            </MenuItem>
+          </MenuContent>
+        </Menu>
       </div>
     </>
   );

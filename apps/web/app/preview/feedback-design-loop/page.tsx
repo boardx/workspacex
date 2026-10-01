@@ -64,6 +64,10 @@ function PreviewBody() {
 
 function Scene({ scene, state, evalCase }: { scene: string; state: ReturnType<typeof resolvePreviewState>; evalCase: string | null }) {
   const [detailId, setDetailId] = React.useState<string | null>(null);
+  // 同真实页面（`studio-workbench-screen.tsx` 的 `?new=1`）：刚建好的项目打开时带 `autoStart`，
+  // 详情页用那句描述自动开始生成。预览页原来丢了这个标记，新建后画布一直空着——
+  // 那是预览与产品的偏差，普通用户评测集（`e2e/novice-eval/`）要走的正是这条路。
+  const [justCreated, setJustCreated] = React.useState(false);
 
   if (scene === "dialog") {
     return (
@@ -109,9 +113,9 @@ function Scene({ scene, state, evalCase }: { scene: string; state: ReturnType<ty
     return (
       <div className="h-dvh">
         {detailId ? (
-          <DesignDetailScreen projectId={detailId} onBack={() => setDetailId(null)} onOpenInbox={() => undefined} onNextDesign={() => setDetailId(null)} />
+          <DesignDetailScreen projectId={detailId} autoStart={justCreated} onBack={() => setDetailId(null)} onOpenInbox={() => undefined} onNextDesign={() => setDetailId(null)} />
         ) : (
-          <DesignWorkbenchHome state={state} onOpenProject={(id) => setDetailId(id)} />
+          <DesignWorkbenchHome state={state} onOpenProject={(id, fresh) => { setJustCreated(fresh === true); setDetailId(id); }} />
         )}
       </div>
     );

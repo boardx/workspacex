@@ -2,7 +2,8 @@
  * F02 -- 看板列表查询用例：项目内四列视图 / 全局五列视图，三处计数（列计数 / 标签徽标 /
  * 底注逾期计数）来自同一次查询产出（uc-11-1 R3.1/R4/R7/R12 V2-V4）。
  */
-import { assertNoCardLoss, type ProjectableCard } from "../../domain/board/card-projection";
+import type { ProjectableCard } from "../../domain/board/card-projection";
+import { projectBoardWithRunCards, type BoardWorkflowRunCard } from "../../domain/board/workflow-run-card";
 import { renderCard, type RawTaskRow, type RenderedCard } from "../../domain/board/card-render";
 import type { ProjectRole } from "../../domain/identity/roles";
 import type { TaskRepository } from "./ports";
@@ -12,6 +13,12 @@ import type { OrgId } from "../../domain/org-id";
 export interface ListTasksDeps {
   readonly db: DatabasePort;
   readonly tasks: TaskRepository;
+  /**
+   * CT10 / UC-WC-7（R8「读模型 list-tasks 合并运行卡时仍先权限过滤」）：本项目内**已按实例读权限过滤**的
+   * Workflow 运行卡（生产装配 = `listBoardRunCards`，WF03 canView 在投影前丢弃无权实例）。缺省 = 不合并。
+   * 两个 scope 用同一个 projectId 取同一批运行卡，所以项目视图与全局视图的运行卡 ID 集合相同。
+   */
+  readonly runCards?: (q: { readonly orgId: OrgId; readonly viewerUserId: string; readonly projectId: string | null }) => Promise<readonly BoardWorkflowRunCard[]>;
 }
 
 export interface ListTasksInput {
@@ -35,6 +42,8 @@ export interface FooterCounts {
 
 export interface ListTasksOutput {
   readonly cards: readonly RenderedCard[];
+  /** CT10：只读 Workflow 运行卡；其 ID 与任务卡 ID 一起出现在 `columns` 里（列恒为 in_progress/review/done）。 */
+  readonly runCards: readonly BoardWorkflowRunCard[];
   readonly scope: "project" | "global";
   /** Column key -> card ids, in the view's own column order. Project view has 4 (inbox
    *  collapsed into `collapsedInboxCount`); global view has 5. */
@@ -65,12 +74,17 @@ export async function listTasks(deps: ListTasksDeps, input: ListTasksInput): Pro
 
   const cards = rows.map(renderCard);
 
+  const runCards = deps.runCards
+    ? await deps.runCards({ orgId: input.orgId, viewerUserId: input.userId, projectId: input.projectId ?? null })
+    : [];
+
   const projectable: ProjectableCard[] = cards.map((c) => ({ id: c.id, status: c.status }));
-  const { projectView, globalView, noCardLoss } = assertNoCardLoss(projectable);
+  // 任务卡 + 运行卡合并进同一次两视图投影（card-projection 不变量：两视图可达 ID 集合相同）。
+  const { projectView, globalView, noCardLoss } = projectBoardWithRunCards(projectable, runCards);
   const view = input.scope === "project" ? projectView : globalView;
   const collapsedInboxCount = input.scope === "project" ? projectView.collapsedInbox.count : 0;
 
-  // 同一份 cards 产出全部三处计数——不是三次独立统计。
+  // 同一份 cards 产出全部三处计数——不是三次独立统计。运行卡是只读派生视图（R7），不计入待办徽标/逾期。
   const badgeCount = cards.filter((c) => c.status !== "done" && c.status !== "inbox").length;
   let overdue = 0;
   let dueToday = 0;
@@ -84,6 +98,7 @@ export async function listTasks(deps: ListTasksDeps, input: ListTasksInput): Pro
 
   return {
     cards,
+    runCards,
     scope: input.scope,
     columns: view.columns.map((col) => ({ status: col.status, cardIds: col.cardIds })),
     collapsedInboxCount,

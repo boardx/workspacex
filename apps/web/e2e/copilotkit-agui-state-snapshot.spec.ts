@@ -59,7 +59,7 @@ test("STATE_SNAPSHOT 事件真实驱动 AgentPlanPanel 渲染（不是 toolArgsS
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   /* ── AG-UI 预览面板：真实 HttpAgent 打真实 /copilotkit/agui ────────── */
   await page.goto("/chat/copilotkit-preview");

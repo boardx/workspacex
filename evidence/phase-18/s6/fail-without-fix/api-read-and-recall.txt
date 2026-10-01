@@ -1,0 +1,180 @@
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a7b4431b9f8b22ac7/apps/api
+
+[db-isolation] db=wsx_s6_b capacity=100 current=15 required=32
+ ❯ tests/knowledge-graph/claim-time.test.ts (35 tests | 3 failed) 78ms
+   × 召回：过期不召回、「不做了」不召回、同一主题新的优先（S9 融合不变） > 过期的不进打分，也不进决定 / 目标的强制召回；没过期的照常 25ms
+     → expected [ 'expired', 'live', 'goal-old' ] to not include 'expired'
+   × 召回：过期不召回、「不做了」不召回、同一主题新的优先（S9 融合不变） > 待办：「不做了」不召回；「做完了」照常召回，给模型的材料里标明已完成 5ms
+     → expected [ 'done', 'dropped', 'open' ] to deeply equal [ 'done', 'open' ]
+   × 召回：过期不召回、「不做了」不召回、同一主题新的优先（S9 融合不变） > 同一主题（字面分与融合名次都相同）⇒ 新说的排前面，哪怕旧的已确认 9ms
+     → expected [ 'old', 'new' ] to deeply equal [ 'new', 'old' ]
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ❯ tests/knowledge-graph/brain-supersede-chain.test.ts (3 tests | 2 failed) 30946ms
+   × issue #4363：大脑页完整展示链式取代历史 > 211 → 985 → 清华（最后一环是卡上点 [取代]）：清华下面从新到旧 985、211 936ms
+     → expected [ [ '改成关注 985 高校', 1, false ] ] to deeply equal [ [ '改成关注 985 高校', 1, false ], …(1) ]
+   × issue #4363：大脑页完整展示链式取代历史 > 全自动的链 211 → 985 → C9：只有最近一环能撤销；撤销后 211 回到 985 下面、可撤销 523ms
+     → expected [ [ '改成关注 985 高校', 1, true ] ] to deeply equal [ [ '改成关注 985 高校', 1, true ], …(1) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/brain-supersede-chain.test.ts > issue #4363：大脑页完整展示链式取代历史 > 211 → 985 → 清华（最后一环是卡上点 [取代]）：清华下面从新到旧 985、211
+AssertionError: expected [ [ '改成关注 985 高校', 1, false ] ] to deeply equal [ [ '改成关注 985 高校', 1, false ], …(1) ]
+
+- Expected
++ Received
+
+  Array [
+    Array [
+      "改成关注 985 高校",
+      1,
+      false,
+    ],
+-   Array [
+-     "我决定关注 211 高校",
+-     2,
+-     false,
+-   ],
+  ]
+
+ ❯ tests/knowledge-graph/brain-supersede-chain.test.ts:107:28
+    105|     expect(p.claims.map((c) => c.statement)).toEqual([SQH]);
+    106|     // 修之前：[[S985, 1, false]]——211 从大脑页上消失
+    107|     expect(history(p, qh)).toEqual([[S985, 1, false], [S211, 2, false]…
+       |                            ^
+    108|     const deeper = p.replaced.find((r) => r.replaces.statement === S21…
+    109|     expect(deeper.replacedBy).toEqual({ claimId: p.replaced.find((r) =…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/knowledge-graph/brain-supersede-chain.test.ts > issue #4363：大脑页完整展示链式取代历史 > 全自动的链 211 → 985 → C9：只有最近一环能撤销；撤销后 211 回到 985 下面、可撤销
+AssertionError: expected [ [ '改成关注 985 高校', 1, true ] ] to deeply equal [ [ '改成关注 985 高校', 1, true ], …(1) ]
+
+- Expected
++ Received
+
+  Array [
+    Array [
+      "改成关注 985 高校",
+      1,
+      true,
+    ],
+-   Array [
+-     "我决定关注 211 高校",
+-     2,
+-     false,
+-   ],
+  ]
+
+ ❯ tests/knowledge-graph/brain-supersede-chain.test.ts:120:28
+    118|     const c9 = idOf(p, SC9);
+    119|     expect(p.claims.map((c) => c.statement)).toEqual([SC9]);
+    120|     expect(history(p, c9)).toEqual([[S985, 1, true], [S211, 2, false]]…
+       |                            ^
+    121| 
+    122|     const top = p.replaced.find((r) => r.replaces.statement === S985)!;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/knowledge-graph/claim-time.test.ts > 召回：过期不召回、「不做了」不召回、同一主题新的优先（S9 融合不变） > 过期的不进打分，也不进决定 / 目标的强制召回；没过期的照常
+AssertionError: expected [ 'expired', 'live', 'goal-old' ] to not include 'expired'
+ ❯ tests/knowledge-graph/claim-time.test.ts:125:21
+    123|     const ids = r.items.map((i) => i.claim.id);
+    124|     expect(ids).toContain("live");
+    125|     expect(ids).not.toContain("expired");
+       |                     ^
+    126|     expect(ids).not.toContain("dec-old");
+    127|     expect(ids).not.toContain("goal-old");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/knowledge-graph/claim-time.test.ts > 召回：过期不召回、「不做了」不召回、同一主题新的优先（S9 融合不变） > 待办：「不做了」不召回；「做完了」照常召回，给模型的材料里标明已完成
+AssertionError: expected [ 'done', 'dropped', 'open' ] to deeply equal [ 'done', 'open' ]
+
+- Expected
++ Received
+
+  Array [
+    "done",
++   "dropped",
+    "open",
+  ]
+
+ ❯ tests/knowledge-graph/claim-time.test.ts:140:51
+    138|       objects: [], graph: [], limit: 8, now: NOW,
+    139|     });
+    140|     expect(r.items.map((i) => i.claim.id).sort()).toEqual(["done", "op…
+       |                                                   ^
+    141|     const msg = buildKnowledgeContextMessage(r)!;
+    142|     expect(msg).toContain("周四交周报初稿（待办·已完成）");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/knowledge-graph/claim-time.test.ts > 召回：过期不召回、「不做了」不召回、同一主题新的优先（S9 融合不变） > 同一主题（字面分与融合名次都相同）⇒ 新说的排前面，哪怕旧的已确认
+AssertionError: expected [ 'old', 'new' ] to deeply equal [ 'new', 'old' ]
+
+- Expected
++ Received
+
+  Array [
+-   "new",
+    "old",
++   "new",
+  ]
+
+ ❯ tests/knowledge-graph/claim-time.test.ts:155:44
+    153|       objects: [], graph: [], limit: 8, now: NOW,
+    154|     });
+    155|     expect(r.items.map((i) => i.claim.id)).toEqual(["new", "old"]);
+       |                                            ^
+    156|   });
+    157| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 33 passed (38)
+   Start at  19:02:58
+   Duration  41.25s (transform 19.47s, setup 0ms, collect 7.16s, tests 31.02s, environment 0ms, prepare 267ms)
+
+[db-isolation] db=wsx_s6_b peak_connections=4
+exit=1
+ M apps/api/src/application/knowledge-graph/apply-human-action.ts
+ M apps/api/src/application/knowledge-graph/extract-message-knowledge.ts
+ M apps/api/src/application/knowledge-graph/ports.ts
+ M apps/api/src/application/knowledge-graph/recall-knowledge.ts
+ M apps/api/src/domain/knowledge-graph/extraction.ts
+ M apps/api/src/domain/knowledge-graph/ontology-batch.ts
+ M apps/api/src/domain/knowledge-graph/recall.ts
+ M apps/api/src/infrastructure/knowledge-graph/model-knowledge-extractor.ts
+ M apps/api/src/infrastructure/knowledge-graph/pg-human-action.ts
+ M apps/api/src/infrastructure/knowledge-graph/pg-kg-extraction.ts
+ M apps/api/src/infrastructure/knowledge-graph/pg-knowledge-read.ts
+ M apps/api/src/infrastructure/knowledge-graph/pg-knowledge-recall.ts
+ M apps/api/src/infrastructure/knowledge-graph/pg-ontology-store.ts
+ M apps/api/src/interface/controllers/knowledge-graph.controller.ts
+ M apps/api/tests/knowledge-graph/extraction-agent.test.ts
+ M apps/api/tests/knowledge-graph/get-thread-knowledge-api.test.ts
+ M apps/api/tests/knowledge-graph/recall-repo-guard.test.ts
+ M apps/web/components/brain/personal-memory.tsx
+ M apps/web/components/chat/knowledge/knowledge-list.tsx
+ M apps/web/lib/brain-view.ts
+ M apps/web/lib/knowledge-graph-api.ts
+ M apps/web/tsconfig.json
+ M evidence/phase-18/r10/README.md
+ M packages/contracts/src/chat-knowledge-graph.ts
+?? apps/api/migrations/20260927400000_kg_s6_time_dimension.sql
+?? apps/api/src/domain/knowledge-graph/claim-time.ts
+?? apps/api/src/domain/knowledge-graph/supersede-chain.ts
+?? apps/api/tests/knowledge-graph/brain-supersede-chain.test.ts
+?? apps/api/tests/knowledge-graph/claim-time.test.ts
+?? apps/api/tests/knowledge-graph/supersede-active-derived-from.test.ts
+?? apps/api/tests/knowledge-graph/time-dimension.test.ts
+?? apps/web/components/chat/knowledge/claim-time-badges.tsx
+?? apps/web/e2e/s6/
+?? apps/web/playwright.s6.config.ts
+?? apps/web/tests/brain/brain-time-dimension.test.tsx
+?? evidence/phase-18/s6/
+RESTORED

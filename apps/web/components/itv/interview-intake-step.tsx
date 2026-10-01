@@ -1,0 +1,73 @@
+"use client";
+
+import * as React from "react";
+import { ArrowRight, FileText, Lightbulb, Mic, Target, UsersRound, Workflow } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { InterviewVoiceInput } from "./interview-voice-input";
+
+const guidance = [
+  { title: "研究目标", detail: "希望解决的问题、预期的研究成果", icon: Target },
+  { title: "目标用户", detail: "用户特征、人群范围、典型样本", icon: UsersRound },
+  { title: "使用场景", detail: "产品或服务的使用场景、使用时机", icon: Workflow },
+  { title: "关键问题", detail: "最想了解的核心问题或假设", icon: Lightbulb },
+] as const;
+
+/** Controlled Markdown editor. Content changes are not implicit confirmation. */
+export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, onImportFile, onUploadFile, onVoice, readOnly = false, voiceSessionToken, onVoiceBusyChange }: {
+  readonly markdown: string;
+  readonly onChange: (markdown: string) => void;
+  readonly onConfirm: () => Promise<void>;
+  readonly pending: boolean;
+  readonly onImportFile?: (file: File) => Promise<string>;
+  readonly onUploadFile?: (file: File) => Promise<void>;
+  readonly onVoice?: () => Promise<string>;
+  readonly readOnly?: boolean;
+  readonly voiceSessionToken?: string;
+  readonly onVoiceBusyChange?: (busy: boolean) => void;
+}) {
+  const [error, setError] = React.useState("");
+  const [working, setWorking] = React.useState(false);
+  const [voiceBusy, setVoiceBusy] = React.useState(false);
+  const [voicePreview, setVoicePreview] = React.useState("");
+  const fileInput = React.useRef<HTMLInputElement>(null);
+  const busy = pending || working || voiceBusy;
+  async function perform(action: () => Promise<void>) {
+    if (busy) return;
+    setWorking(true); setError("");
+    try { await action(); }
+    catch (cause) { setError(`${cause instanceof Error ? cause.message : "操作未完成"}。已有草稿保留，可以继续输入文字或重试。`); }
+    finally { setWorking(false); }
+  }
+  function append(text: string) {
+    if (!text.trim()) throw new Error("没有提取到可用文字");
+    onChange(markdown ? `${markdown}\n\n${text}` : text);
+  }
+  return <div data-testid="itv-markdown-intake" className="grid items-start gap-4 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
+    <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
+      <h2 className="text-2xl font-semibold tracking-tight">告诉 AI 你想研究什么</h2>
+      <label htmlFor="interview-demand-markdown" className="sr-only">研究需求 Markdown</label>
+      <div className="mt-3 rounded-xl border border-input bg-background p-4">
+        <textarea id="interview-demand-markdown" value={voicePreview ? (markdown ? `${markdown}\n\n${voicePreview}` : voicePreview) : markdown} onChange={(event) => onChange(event.target.value)} disabled={busy} readOnly={readOnly}
+          placeholder={"请描述你的研究需求，例如：\n\n## 研究目标\n你希望解决什么问题？\n\n## 目标用户\n你希望了解谁的实际行为？\n\n## 关键问题\n最近一次具体场景发生了什么？"}
+          className="min-h-64 w-full resize-y bg-transparent text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+          <div className="flex flex-wrap gap-3">
+            {voiceSessionToken ? <InterviewVoiceInput sessionToken={voiceSessionToken} disabled={pending || working} readOnly={readOnly} onAppend={append} onPreview={setVoicePreview} onBusyChange={(active) => { setVoiceBusy(active); onVoiceBusyChange?.(active); }} /> : <Button variant="outline" disabled={busy || readOnly || !onVoice} onClick={() => void perform(async () => append(await onVoice!()))}><Mic className="size-4" aria-hidden />语音输入</Button>}
+            <Button variant="outline" disabled={busy || readOnly || !(onImportFile || onUploadFile)} onClick={() => fileInput.current?.click()}><FileText className="size-4" aria-hidden />{onUploadFile ? "上传研究文件" : "导入文本文档"}</Button>
+            <input ref={fileInput} type="file" accept={onUploadFile ? ".txt,.md,.markdown,.pdf,.docx,.pptx,.xlsx,.csv" : ".txt,.md,.markdown,text/plain,text/markdown"} aria-label="导入研究文件" className="sr-only" disabled={busy || readOnly || !(onImportFile || onUploadFile)}
+              onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file && !readOnly) void perform(async () => { if (onUploadFile) await onUploadFile(file); else if (onImportFile) append(await onImportFile(file)); }); }} />
+          </div>
+          <span className="text-xs text-muted-foreground">{markdown.length} 字符</span>
+        </div>
+      </div>
+      {error && <p role="alert" className="mt-4 text-sm leading-6 text-destructive">{error}</p>}
+      <div className="mt-3 flex flex-wrap justify-end gap-3">
+        <Button variant="primary" disabled={busy || !markdown.trim()} onClick={() => void perform(onConfirm)}>{busy ? "正在处理…" : "下一步：确认分析"}<ArrowRight className="size-4" aria-hidden /></Button>
+      </div>
+    </section>
+    <aside className="rounded-2xl border border-border bg-card p-4 lg:p-5">
+      <h2 className="flex items-center gap-2 text-xl font-semibold"><Lightbulb className="size-5" aria-hidden />小提示</h2>
+      <div className="mt-4 space-y-4 border-t border-border pt-4">{guidance.map(({ title, detail, icon: Icon }) => <div key={title} className="flex gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted"><Icon className="size-5" aria-hidden /></span><div><h3 className="text-sm font-semibold">{title}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p></div></div>)}</div>
+    </aside>
+  </div>;
+}

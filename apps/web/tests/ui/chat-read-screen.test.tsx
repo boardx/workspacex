@@ -420,6 +420,9 @@ describe("formal Chat read path", () => {
       render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
       const button = await screen.findByTestId("chat-thread-sidebar-toggle");
       expect(button).not.toBeDisabled();
+      // 右栏 lg 以下不存在，手机宽度不渲染这枚开关
+      expect(button.className).toContain("hidden");
+      expect(button.className).toContain("lg:inline-flex");
       fireEvent.click(button);
       expect(onToggle).toHaveBeenCalledTimes(1);
     } finally {
@@ -487,7 +490,7 @@ describe("formal Chat read path", () => {
     listThreadArtifacts.mockResolvedValue({ items: [] });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
-    expect(await screen.findByTestId("chat-artifacts-empty")).toHaveTextContent("还没有落地的产物");
+    expect(await screen.findByTestId("chat-artifacts-empty")).toHaveTextContent("这条对话还没有产物");
   });
 
   /**

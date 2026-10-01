@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { validateGeneratedResearchDesign, preserveResearchDesign } from "../../src/application/research/guided-research-design";
+import { validateGeneratedResearchDesign, preserveResearchDesign, researchDesignInstruction } from "../../src/application/research/guided-research-design";
 
 describe("newly generated research design quality", () => {
+  it("requires plan and subsection headings to use the research brief language", () => {
+    expect(researchDesignInstruction("outline")).toContain("same language as the user's brief");
+    expect(researchDesignInstruction("outline")).toContain("generic English labels");
+  });
   it("rejects shallow new directions while allowing legacy schemas outside generation", () => {
     const item = { id: "d", title: "Cost", description: "Costs", enabled: true, order: 0 };
     expect(() => validateGeneratedResearchDesign("directions", [item])).toThrow();

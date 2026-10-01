@@ -2,7 +2,8 @@
  * Phase 18 F11 —— `PromotionPort` 的 Postgres 实现。
  *
  * 读方法把结果包进 `guard()`（与知识读接口同一个 ref），调用方交出会话可见性判定才拿得到；
- * 写只经 `kg_promote_claim`。读的时候设 app.current_user_id：个人空间的行只放给本人（I-14）。
+ * 写只经 `kg_promote_claim` / `kg_promote_claim_to_project` / `kg_promote_claim_to_org`。读的时候设 app.current_user_id：
+ * 个人空间的行只放给本人（I-14）。
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import {
@@ -10,12 +11,17 @@ import {
 } from "../../application/knowledge-graph/ports";
 import { guard } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import type { knowledgeGraph as KG } from "@repo/contracts";
 
 const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.projectId ?? `personal:${t.threadId}` });
+/** B2-S4：组织空间的 guard ref —— 与 `pg-knowledge-read.ts` 的 `orgSpaceRef` 同一个合成 id（`org:<orgId>`）。 */
+const orgSpaceRef = (orgId: OrgId) => ({ kind: "project" as const, id: `org:${orgId}` });
 const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
 const CODES: readonly KgHumanActionErrorCode[] = [
   "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_SCOPE_NOT_PERSONAL", "KG_CLAIM_NOT_FOUND",
-  "KG_CONTESTED_NEEDS_RESOLUTION", "KG_EVIDENCE_REVOKED",
+  "KG_CONTESTED_NEEDS_RESOLUTION", "KG_EVIDENCE_REVOKED", "KG_SCOPE_NOT_PROJECT",
+  // B3-T4 kg_adopt_project_decision
+  "KG_NOT_VISIBLE", "KG_INVALID_REQUEST",
 ];
 
 export class PgPromotion implements PromotionPort {
@@ -62,6 +68,105 @@ export class PgPromotion implements PromotionPort {
       [orgId, thread.threadId, userId],
     ));
     return guard(threadRef(thread), rows.rows);
+  }
+
+  /** 项目中枢 R7：项目记忆里的活结论。guard 的 ref 是项目本身——只有能看这条线程（⇒ 项目成员）的人拿得到。 */
+  async projectClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef) {
+    const rows = thread.projectId === null ? { rows: [] as { id: string; statement: string }[] } : await this.asUser(orgId, userId, (s) => s.query<{ id: string; statement: string }>(
+      `SELECT c.id, c.statement FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND ${LIVE} ORDER BY c.created_at, c.id`,
+      [orgId, thread.projectId],
+    ));
+    return guard(threadRef(thread), rows.rows);
+  }
+
+  async promoteToProject(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly threadId: string; readonly claimId: string; readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string> {
+    try {
+      return await this.asUser(orgId, userId, async (s) => {
+        const r = await s.query<{ id: string }>("SELECT kg_promote_claim_to_project($1::jsonb) AS id", [JSON.stringify({
+          action_id: input.actionId, thread_id: input.threadId, claim_id: input.claimId, mode: input.mode,
+          target_claim_id: input.targetClaimId ?? null,
+        })]);
+        return r.rows[0]!.id;
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      const code = CODES.find((c) => message.startsWith(c));
+      if (code !== undefined) throw new KgHumanActionError(code, message);
+      throw e;
+    }
+  }
+
+  /** B2-S4：项目记忆里这些 id 的活结论（晋升到组织记忆的来源）。guard 的 ref 是项目本身。 */
+  async projectSourceClaims(orgId: OrgId, userId: string, projectId: string, claimIds: readonly string[]) {
+    const rows = await this.asUser(orgId, userId, (s) => s.query<{ id: string; statement: string }>(
+      `SELECT c.id, c.statement FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND c.id = ANY($3::text[]) AND ${LIVE}`,
+      [orgId, projectId, claimIds],
+    ));
+    return guard({ kind: "project", id: projectId }, rows.rows);
+  }
+
+  /** B2-S4：组织记忆里的活结论（去重用）。guard 的 ref 是组织空间的合成 id——调用方交出「是组织成员」的判定才拿得到。 */
+  async orgClaims(orgId: OrgId, userId: string) {
+    const rows = await this.asUser(orgId, userId, (s) => s.query<{ id: string; statement: string }>(
+      `SELECT c.id, c.statement FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'org' AND c.scope_id = $1 AND ${LIVE} ORDER BY c.created_at, c.id`,
+      [orgId],
+    ));
+    return guard(orgSpaceRef(orgId), rows.rows);
+  }
+
+  async promoteToOrg(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string; readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string> {
+    try {
+      return await this.asUser(orgId, userId, async (s) => {
+        const r = await s.query<{ id: string }>("SELECT kg_promote_claim_to_org($1::jsonb) AS id", [JSON.stringify({
+          action_id: input.actionId, project_id: input.projectId, claim_id: input.claimId, mode: input.mode,
+          target_claim_id: input.targetClaimId ?? null,
+        })]);
+        return r.rows[0]!.id;
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      const code = CODES.find((c) => message.startsWith(c));
+      if (code !== undefined) throw new KgHumanActionError(code, message);
+      throw e;
+    }
+  }
+
+  /** B3-T4：项目记忆里这一条活结论的类型 / 状态（采纳为项目决策的来源核对）。guard 的 ref 是项目本身。 */
+  async adoptionSource(orgId: OrgId, userId: string, projectId: string, claimId: string) {
+    const rows = await this.asUser(orgId, userId, (s) => s.query<{ id: string; kind: KG.KgClaimKind; status: string }>(
+      `SELECT c.id, coalesce(c.claim_kind, 'fact') AS kind, c.status FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND c.id = $3 AND ${LIVE}`,
+      [orgId, projectId, claimId],
+    ));
+    return guard({ kind: "project", id: projectId }, rows.rows[0] ?? null);
+  }
+
+  /** B3-T4：采纳为项目决策（`kg_adopt_project_decision`，迁移 20260928110000）。 */
+  async adoptProjectDecision(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string; readonly rationale: string;
+  }): Promise<{ readonly decisionClaimId: string; readonly actionId: string }> {
+    try {
+      return await this.asUser(orgId, userId, async (s) => {
+        const r = await s.query<{ out: { decision_claim_id: string; action_id: string } }>(
+          "SELECT kg_adopt_project_decision($1::jsonb) AS out",
+          [JSON.stringify({ action_id: input.actionId, project_id: input.projectId, claim_id: input.claimId, rationale: input.rationale })],
+        );
+        const out = r.rows[0]!.out;
+        return { decisionClaimId: out.decision_claim_id, actionId: out.action_id };
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      const code = CODES.find((c) => message.startsWith(c));
+      if (code !== undefined) throw new KgHumanActionError(code, message);
+      throw e;
+    }
   }
 
   async promote(orgId: OrgId, userId: string, input: {

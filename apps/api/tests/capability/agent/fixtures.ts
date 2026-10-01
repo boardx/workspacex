@@ -5,6 +5,7 @@
  * `toolWhitelist: []` would make "the clone's whitelist is empty" true before the clone
  * happens. Callers pass the whitelist explicitly.
  */
+import { agentRole } from "@repo/contracts";
 import type { AgentDefinition } from "../../../src/domain/agent/definition";
 
 export function agent(over: Partial<AgentDefinition> = {}): AgentDefinition {
@@ -29,6 +30,7 @@ export function agent(over: Partial<AgentDefinition> = {}): AgentDefinition {
     ],
     concurrencyLimit: 2,
     degradePolicy: "跟随组织级",
+    ...agentRole.AGENT_ROLE_FIELD_DEFAULTS,
     ...over,
   };
 }

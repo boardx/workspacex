@@ -91,7 +91,55 @@ function postgresReady(): boolean {
   }
 }
 
+/**
+ * 本沙箱专用旁路（2026-09-28，phase-20 iter4）：容器里有 `docker` 二进制但没有 daemon
+ * （`/var/run/docker.sock` 不存在，且策略禁止本会话起 dockerd），同时预置了一个**原生**
+ * PostgreSQL 16，凭据/角色刻意配成与 `pg-config.ts` 的 fallback 完全一致
+ * （`postgres`/`postgres_dev`、`app_rw`/`app_rw_dev`），已装好 `vector`/`age` 扩展，唯独端口是
+ * 标准 5432 不是 compose 的 55432。
+ * `WORKSPACEX_NATIVE_POSTGRES=1` 时完全跳过 docker 编排，只用 `pg_isready` 探活 + `psql`
+ * 直连建库；不设置该变量的调用方（CI / 有 Docker 的本地开发）行为一字不变。
+ */
+const NATIVE_POSTGRES = process.env.WORKSPACEX_NATIVE_POSTGRES === "1";
+
+function nativePostgresReady(): boolean {
+  try {
+    execFileSync(
+      "pg_isready",
+      ["-h", process.env.PGHOST ?? "127.0.0.1", "-p", String(process.env.PGPORT ?? "55432")],
+      { stdio: "pipe" },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createDatabaseNative(): void {
+  if (DB === "workspacex") return; // 共享默认库假定已存在
+  const cfg = migrationConfig();
+  try {
+    execFileSync(
+      "psql",
+      ["-h", cfg.host, "-p", String(cfg.port), "-U", cfg.user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", `CREATE DATABASE ${DB}`],
+      { stdio: "pipe", env: { ...process.env, PGPASSWORD: cfg.password } },
+    );
+  } catch (e) {
+    const out = `${(e as { stdout?: Buffer | string }).stdout ?? ""}${(e as { stderr?: Buffer | string }).stderr ?? ""}`;
+    if (!/already exists|42P04/i.test(String(out))) throw e;
+  }
+}
+
 export function ensureDatabase(): void {
+  if (NATIVE_POSTGRES) {
+    if (!nativePostgresReady()) {
+      throw new Error(
+        "WORKSPACEX_NATIVE_POSTGRES=1 but PostgreSQL at PGHOST:PGPORT is not reachable (pg_isready failed)",
+      );
+    }
+    createDatabaseNative();
+    return;
+  }
   // `docker compose up` is NOT safe to call concurrently.
   //
   // vitest runs test files in parallel processes and every one of them calls this. When the
@@ -245,10 +293,10 @@ export async function seedOrg(opts: {
   ownerUserId?: string;
   teamNames?: string[];
   projectId: string;
-  /** F116: which of the three container kinds. Defaults to `workshop` -- the only kind
+  /** F116 / #4615: which container kind. Defaults to `workshop` -- the only kind
    *  that has groups and the four project roles, which is what every existing fixture
-   *  relies on. A test about the other two kinds says so at the call site. */
-  projectKind?: "workshop" | "research_project" | "user_insight";
+   *  relies on. A test about `general` says so at the call site. */
+  projectKind?: "workshop" | "general";
   groupNames?: string[];
   /**
    * F11: `organizations.seat_quota` (migration 20260731085758) defaulted to 0 in
@@ -285,6 +333,14 @@ export async function seedOrg(opts: {
         seatQuota,
       ],
     );
+    // 组织级记忆抽取开关默认开（迁移 20260926100000，默认值的唯一说明在
+    // `KgOrgExtractionSettingsPort.getEnabled`）。部署级开关自 20260925120000 起也默认开，
+    // 于是任何测试组织里的每条聊天消息都会排进 `kg_extraction_queue`，而任何配置了
+    // `KERNEL_MODEL_PROVIDER` 的测试 app 都会起 `KgExtractionWorker` 轮询、对回环模型多打
+    // 抽取调用——很多套件在数模型调用次数。所以测试组织在这里**显式关掉**（与管理员关掉
+    // 同一形状），保持非 KG 套件的行为不变；KG 测试用 `kg-extraction-fixtures.ts` 的
+    // `enableExtraction(orgId)` upsert 成 true，要测「没有行 = 默认开」的用例自己删掉这一行。
+    await c.query("INSERT INTO kg_org_extraction_settings (org_id, enabled, updated_by) VALUES ($1, false, 'test-fixture')", [orgId]);
     for (const t of teamNames) {
       const id = `${orgId}-team-${t}`;
       await c.query("INSERT INTO teams (id, org_id, name) VALUES ($1, $2, $3)", [id, orgId, t]);
@@ -304,12 +360,7 @@ export async function seedOrg(opts: {
     // without this row, seeding a segment for a `seedOrg`-created container fails with
     // `agenda_segments_workshop_org_fkey`, not because agenda_segments is wrong, but
     // because the container it points at was never actually a real workshop.
-    const subtypeTable =
-      projectKind === "workshop"
-        ? "workshops"
-        : projectKind === "research_project"
-          ? "research_projects"
-          : "user_insights";
+    const subtypeTable = projectKind === "workshop" ? "workshops" : "general_projects";
     await c.query(`INSERT INTO ${subtypeTable} (id, org_id) VALUES ($1, $2)`, [projectId, orgId]);
     for (const g of groupNames) {
       const id = `${projectId}-${g}`;

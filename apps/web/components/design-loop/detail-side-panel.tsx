@@ -79,7 +79,22 @@ export function DetailSidePanel({
             * 想选中"外面那个容器"只能反复试点——摊平成可点的一列是最直接的解法。
             * 预览态不显示：那时候没有"选中"这回事。
             */}
-          {preview === null && canvasMode === "edit" && (
+          {/*
+            * #4331 U2（design-delta `novice-progressive-disclosure`）：图层树**要用才出现**。
+            *
+            * 此前编辑态一打开就是一整棵「页面结构 / 纵向布局 / 横向布局 / 卡片」——普通用户评测集量出
+            * 详情页首屏 57 个可操作控件，约 30 个来自这里，「页面结构」「纵向布局」「节点」也全来自这里。
+            *
+            * ⚠ 这一栏本身的位置**不动**（桌面端仍并排常驻），只换里面的内容。第一版把整栏藏起来、
+            *   选中时才出现，结果选中那一下画布变窄重排，双击改字的第二下落到了别处——
+            *   design-parity R7 就是这么红的，真实用户同样会碰到。
+            */}
+          {preview === null && canvasMode === "edit" && focus === null && !sideOpen && !historyOpen && !codeOpen && (
+            <p className="px-3 py-4 text-12 leading-relaxed text-muted-foreground" data-testid="design-detail-side-hint">
+              点画布上的任意一处，这里会出现能改的地方。也可以直接在左边说你想怎么改。
+            </p>
+          )}
+          {preview === null && canvasMode === "edit" && (focus !== null || sideOpen) && (
             <PrototypeLayers
               root={project.prototype[Math.min(frame, project.frames.length - 1)] ?? null}
               selectedId={selectedId}

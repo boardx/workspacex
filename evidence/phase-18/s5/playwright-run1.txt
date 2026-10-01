@@ -1,0 +1,48 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 e2e/s5/journey.spec.ts:52:5 › 1: before any memory, a new personal thread shows no briefing (templates as before) (17.8s)
+  ✓  2 e2e/s5/journey.spec.ts:62:5 › 2: G001/G002 first thread — goal, decision (auto-linked to the goal, high confidence), todo (18.3s)
+  ✓  3 e2e/s5/journey.spec.ts:77:5 › 3: /brain 「关于我」 — goal with the decision nested under it; every item editable / forgettable / links to its source (1.5s)
+  ✘  4 e2e/s5/journey.spec.ts:92:5 › 4: new personal thread — briefing: recent goal + decision (为了：goal) and the open todo; server-generated, personal only (2.4m)
+  -  5 e2e/s5/journey.spec.ts:106:5 › 5: 续上 the todo — prefilled first message with a citation; the answer uses the memory and cites the same claim
+  -  6 e2e/s5/journey.spec.ts:127:5 › 6: G001 — a new thread 「帮我规划」 answer uses the goal without re-stating it
+  -  7 e2e/s5/journey.spec.ts:137:5 › 7: dismiss persists (server-side) and never blocks the composer; /brain can turn it back on
+  -  8 e2e/s5/journey.spec.ts:156:5 › privacy: another member of the same org — no briefing, 关于我 empty, nothing of the owner's
+
+
+  1) e2e/s5/journey.spec.ts:92:5 › 4: new personal thread — briefing: recent goal + decision (为了：goal) and the open todo; server-generated, personal only 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('session-briefing')
+    Expected: visible
+    Timeout: 30000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 30000ms
+      - waiting for getByTestId('session-briefing')
+
+
+      93 |   ids.threadB = await newThread(owner);
+      94 |   const b = owner.getByTestId("session-briefing");
+    > 95 |   await expect(b).toBeVisible({ timeout: 30_000 });
+         |                   ^
+      96 |   await expect(owner.getByTestId("session-briefing-section-recent")).toContainText(GOAL);
+      97 |   await expect(owner.getByTestId("session-briefing-section-recent")).toContainText(DECISION);
+      98 |   await expect(owner.getByTestId("session-briefing-goal").first()).toHaveText(`为了：${GOAL}`);
+        at /home/user/workspacex/.claude/worktrees/agent-a985e9132f87011f6/apps/web/e2e/s5/journey.spec.ts:95:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/s5/artifacts/journey-4-new-personal-thr-24121-ver-generated-personal-only/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/s5/artifacts/journey-4-new-personal-thr-24121-ver-generated-personal-only/error-context.md
+
+    Error Context: test-results/s5/artifacts/journey-4-new-personal-thr-24121-ver-generated-personal-only/error-context.md
+
+  1 failed
+    e2e/s5/journey.spec.ts:92:5 › 4: new personal thread — briefing: recent goal + decision (为了：goal) and the open todo; server-generated, personal only 
+  4 did not run
+  3 passed (3.1m)

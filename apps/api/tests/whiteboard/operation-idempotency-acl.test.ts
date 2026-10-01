@@ -1,0 +1,2 @@
+import{describe,expect,it}from'vitest';import{boardId,fixture,principal,request}from'./operation-service.test';
+describe('operation idempotency and ACL',()=>{it('checks current access before replay and never mutates twice',async()=>{const{service,session}=fixture();await service.execute(principal,boardId,request);const before=session.events.length;const replay=await service.execute(principal,boardId,request);expect(replay.replayed).toBe(true);expect(session.events).toHaveLength(before);expect(session.queries.slice(-2)).toEqual(['audit.lockHead','audit.replay']);});});

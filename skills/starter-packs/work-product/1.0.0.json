@@ -1,0 +1,1875 @@
+{
+  "schemaVersion": 1,
+  "packId": "work-product",
+  "packVersion": "1.0.0",
+  "skills": [
+    {
+      "stableName": "business-review",
+      "name": "S155",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S155",
+        "work": {
+          "stableId": "S155",
+          "domain": "Operations & Project",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": [
+              "project.read",
+              "metric.read",
+              "finance.ledger.read",
+              "principal.visibility.check",
+              "org.config.read",
+              "citation.record"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "finance/skills/variance-analysis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/gtm-board-and-investor-communication/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S155",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S155-business-review.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S155-business-review.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "1409fea4710c48098d206a6caaacbab6c6c9886980116b04298e90cb6855d284",
+          "contentBase64": "LS0tCm5hbWU6IGJ1c2luZXNzLXJldmlldwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMxNTUKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMTU1CiAgICBkb21haW46ICJPcGVyYXRpb25zICYgUHJvamVjdCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBwcm9qZWN0LnJlYWQKICAgICAgICAtIG1ldHJpYy5yZWFkCiAgICAgICAgLSBmaW5hbmNlLmxlZGdlci5yZWFkCiAgICAgICAgLSBwcmluY2lwYWwudmlzaWJpbGl0eS5jaGVjawogICAgICAgIC0gb3JnLmNvbmZpZy5yZWFkCiAgICAgICAgLSBjaXRhdGlvbi5yZWNvcmQKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZmluYW5jZS9za2lsbHMvdmFyaWFuY2UtYW5hbHlzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiZ2l0aHViL2F3ZXNvbWUtY29waWxvdCIKICAgICAgICBwYXRoOiAic2tpbGxzL2d0bS1ib2FyZC1hbmQtaW52ZXN0b3ItY29tbXVuaWNhdGlvbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNTUKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNTUtYnVzaW5lc3MtcmV2aWV3Lm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1NS1idXNpbmVzcy1yZXZpZXcubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg5Lia5Yqh5aSN55uY77yIUzE1Ne+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTU1IMK3IOmihuWfnyBPcGVyYXRpb25zICYgUHJvamVjdAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNTUtYnVzaW5lc3MtcmV2aWV3Lm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCumHkeminSvnmb7liIbmr5Tlj4zpmIjlgLzku7vkuIDotorov4fljbPop6blj5HmmL7okZfmgKfvvIzlnY/mtojmga/liY3nva7vvIzkuIrmnJ/lpI3nm5jooYzliqjmmK/lkKbpl63njq/opoHmnInotKbmnKzvvIzop6Pph4rlv4XpobvlvJXnlKjkuIrmuLjliIbmnpDkuqfnianjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1NS1idXNpbmVzcy1yZXZpZXcubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1NS1idXNpbmVzcy1yZXZpZXcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmtub3dsZWRnZS5yZWFkCi0gb3B0aW9uYWzvvJpwcm9qZWN0LnJlYWQsIG1ldHJpYy5yZWFkLCBmaW5hbmNlLmxlZGdlci5yZWFkLCBwcmluY2lwYWwudmlzaWJpbGl0eS5jaGVjaywgb3JnLmNvbmZpZy5yZWFkLCBjaXRhdGlvbi5yZWNvcmQKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "competitive-analysis",
+      "name": "S008",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S008",
+        "work": {
+          "stableId": "S008",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.search",
+              "knowledge.read",
+              "web.fetch",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/competitive-brief/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "sales/skills/competitive-intelligence/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/market-research-reports/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/competitive-strategy/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S008",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S008-competitive-analysis.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S008-competitive-analysis.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "3884a617e6b80c2ba32c9bad33e4aa9208ce073d0f1217ad3434d514e2c2d2b6",
+          "contentBase64": "LS0tCm5hbWU6IGNvbXBldGl0aXZlLWFuYWx5c2lzCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzAwOAptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwMDgKICAgIGRvbWFpbjogIlNoYXJlZCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOiBbXQogICAgICBvcHRpb25hbDoKICAgICAgICAtIGtub3dsZWRnZS5zZWFyY2gKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSB3ZWIuZmV0Y2gKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0LW1hbmFnZW1lbnQvc2tpbGxzL2NvbXBldGl0aXZlLWJyaWVmL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAic2FsZXMvc2tpbGxzL2NvbXBldGl0aXZlLWludGVsbGlnZW5jZS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL21hcmtldC1yZXNlYXJjaC1yZXBvcnRzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjQ5YzZlOTc3NzVlYWExOGJhNzkxYmViZTIzMTYyYTcwYWU2MDFjMTgiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiUmVmb3VuZEFJL2xlbm55LXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL2NvbXBldGl0aXZlLXN0cmF0ZWd5L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzAwOAogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwOC1jb21wZXRpdGl2ZS1hbmFseXNpcy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDgtY29tcGV0aXRpdmUtYW5hbHlzaXMubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg56ue5ZOB5YiG5p6Q77yIUzAwOO+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDA4IMK3IOmihuWfnyBTaGFyZWQKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDA4LWNvbXBldGl0aXZlLWFuYWx5c2lzLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuernuS6iembhuWIhuWxguWQqyBub24tY29uc3VtcHRpb27vvIzmjInnnJ/lrp7kvZPpqozogIzpnZ7okKXplIDor53mnK/or4TnuqfvvIznn6npmLXljZXlhYPmoLznirbmgIHpl63pm4bkuJTpnZ4gdW5rbm93bi9OQSDlv4XpobvmnInor4Hmja7vvJvovpPlh7rmgZLkuLogaW50ZXJuYWwtb25seeOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDA4LWNvbXBldGl0aXZlLWFuYWx5c2lzLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDgtY29tcGV0aXRpdmUtYW5hbHlzaXMubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8muaXoAotIG9wdGlvbmFs77yaa25vd2xlZGdlLnNlYXJjaCwga25vd2xlZGdlLnJlYWQsIHdlYi5mZXRjaCwgc2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "customer-research",
+      "name": "S009",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S009",
+        "work": {
+          "stableId": "S009",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": [
+              "transcript.read",
+              "ticket.read",
+              "survey.read",
+              "mail.search",
+              "crm.read",
+              "analytics.read",
+              "web.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "customer-support/skills/customer-research/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "sales/skills/customer-voice/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/analyzing-user-feedback/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S009",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S009-customer-research.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S009-customer-research.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "0cb1c2b2d0e544023aadc873a10eb8d69d6a2e449336ca8526301878a466dfe5",
+          "contentBase64": "LS0tCm5hbWU6IGN1c3RvbWVyLXJlc2VhcmNoCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzAwOQptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwMDkKICAgIGRvbWFpbjogIlNoYXJlZCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSB0cmFuc2NyaXB0LnJlYWQKICAgICAgICAtIHRpY2tldC5yZWFkCiAgICAgICAgLSBzdXJ2ZXkucmVhZAogICAgICAgIC0gbWFpbC5zZWFyY2gKICAgICAgICAtIGNybS5yZWFkCiAgICAgICAgLSBhbmFseXRpY3MucmVhZAogICAgICAgIC0gd2ViLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJjdXN0b21lci1zdXBwb3J0L3NraWxscy9jdXN0b21lci1yZXNlYXJjaC9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInNhbGVzL3NraWxscy9jdXN0b21lci12b2ljZS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvYW5hbHl6aW5nLXVzZXItZmVlZGJhY2svU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMTM1OThjYzU0ZTA5Mzk5YmMxYmMxMzk4YjBmY2EyODQxMTBlZmIyZiIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDA5CiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDA5LWN1c3RvbWVyLXJlc2VhcmNoLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwOS1jdXN0b21lci1yZXNlYXJjaC5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDlrqLmiLfnoJTnqbbvvIhTMDA577yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwMDkgwrcg6aKG5Z+fIFNoYXJlZAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDktY3VzdG9tZXItcmVzZWFyY2gubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5YWI5Yik5a6a6K+35rGC57G75Z6L5LiO5p2l5rqQ5YiG5bGC77yM5Y+q5pS25a6i5oi35pys5Lq66K+055qE6YCQ5a2X6K+d77yM5p+l5LiN5Yiw55qE6LSm5oi35oql5Li657y65Y+j6ICM5LiN5piv44CM5rKh5o+Q5Yiw44CN77yb5LiN5Lqn5Ye657uT6K6644CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDktY3VzdG9tZXItcmVzZWFyY2gubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwOS1jdXN0b21lci1yZXNlYXJjaC5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77yaa25vd2xlZGdlLnJlYWQKLSBvcHRpb25hbO+8mnRyYW5zY3JpcHQucmVhZCwgdGlja2V0LnJlYWQsIHN1cnZleS5yZWFkLCBtYWlsLnNlYXJjaCwgY3JtLnJlYWQsIGFuYWx5dGljcy5yZWFkLCB3ZWIucmVhZCwgc2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "data-exploration",
+      "name": "S157",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S157",
+        "work": {
+          "stableId": "S157",
+          "domain": "Data",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec",
+              "warehouse.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/explore-data/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills（本地 clone 目录 `upstream/kdense`）",
+              "path": "skills/exploratory-data-analysis/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S157",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S157-data-exploration.md#输入契约",
+            "summary": "输入不变式：`mode=\"question-scan\"` ⇒ `question` 非空；`mode=\"experiment-precheck\"` ⇒ `experiment` 存在且 `armColumn` 不在 `blindedMetrics` 中；`datasets` 中 `datasetRef` 不重复。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S157-data-exploration.md#输出契约",
+            "summary": "输出不变式："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "c6b4601fa0f9fbf188aa132d0d5b1d3c589cbcfbce14dbce44e97054b9b85a1a",
+          "contentBase64": "LS0tCm5hbWU6IGRhdGEtZXhwbG9yYXRpb24KdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMTU3Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzE1NwogICAgZG9tYWluOiAiRGF0YSIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICAgIC0gd2FyZWhvdXNlLnJlYWQKICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogImRhdGEvc2tpbGxzL2V4cGxvcmUtZGF0YS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxsc++8iOacrOWcsCBjbG9uZSDnm67lvZUgYHVwc3RyZWFtL2tkZW5zZWDvvIkiCiAgICAgICAgcGF0aDogInNraWxscy9leHBsb3JhdG9yeS1kYXRhLWFuYWx5c2lzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjQ5YzZlOTc3NzVlYWExOGJhNzkxYmViZTIzMTYyYTcwYWU2MDFjMTgiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzE1NwogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1Ny1kYXRhLWV4cGxvcmF0aW9uLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WFpeS4jeWPmOW8j++8mmBtb2RlPVwicXVlc3Rpb24tc2NhblwiYCDih5IgYHF1ZXN0aW9uYCDpnZ7nqbrvvJtgbW9kZT1cImV4cGVyaW1lbnQtcHJlY2hlY2tcImAg4oeSIGBleHBlcmltZW50YCDlrZjlnKjkuJQgYGFybUNvbHVtbmAg5LiN5ZyoIGBibGluZGVkTWV0cmljc2Ag5Lit77ybYGRhdGFzZXRzYCDkuK0gYGRhdGFzZXRSZWZgIOS4jemHjeWkjeOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU3LWRhdGEtZXhwbG9yYXRpb24ubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi6L6T5Ye65LiN5Y+Y5byP77yaIgotLS0KCiMg5pWw5o2u5o6i57Si77yIUzE1N++8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTU3IMK3IOmihuWfnyBEYXRhCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1Ny1kYXRhLWV4cGxvcmF0aW9uLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuWbnuetlOS4gOS4quWFt+S9k+mXrumimO+8muOAjOWcqOato+W8j+afpeivouWSjOajgOmqjOS5i+WJje+8jOi/meS7veaVsOaNruWIsOW6lemVv+S7gOS5iOagt+OAgeiDveS4jeiDveWbnuetlOi/meS4qumXrumimOOAgeWAvOW+l+W+gOWTquWHoOS4quaWueWQkeafpe+8n+OAjQoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU3LWRhdGEtZXhwbG9yYXRpb24ubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE1Ny1kYXRhLWV4cGxvcmF0aW9uLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZOOAgXNhbmRib3guZXhlY+OAgXdhcmVob3VzZS5yZWFkCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCgojIyDmuq/mupDvvIhHMe+8iQoKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBkYXRhL3NraWxscy9leHBsb3JlLWRhdGEvU0tJTEwubWRg77yMY29tbWl0IGBkYTM4ZWMxZWU4OWTigKZg77yMQXBhY2hlLTIuMO+8jOetlueVpSBhZGFwdO+8iQotIGBLLURlbnNlLUFJL2NsYXVkZS1zY2llbnRpZmljLXNraWxsc++8iOacrOWcsCBjbG9uZSDnm67lvZUgYHVwc3RyZWFtL2tkZW5zZWDvvIlg77yIYHNraWxscy9leHBsb3JhdG9yeS1kYXRhLWFuYWx5c2lzL1NLSUxMLm1kYO+8jGNvbW1pdCBgNDljNmU5Nzc3NWVh4oCmYO+8jE1JVO+8jOetlueVpSBhZGFwdO+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMxNTcg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "57b549e5a28dfb1dbc696e2af46aed652d04ab65f6bbfaac58a199d18842293c",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDmlbDmja7mjqLntKLvvIhTMTU377yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTU3LWRhdGEtZXhwbG9yYXRpb24ubWRg77yJ44CCCgojIyDkuJPkuJrmlrnms5XmkZjopoEKCjEuIE1hbmlmZXN0IOWFiOihjO+8jOWGheWuueWQjueci+OAguWFiOWIl+aVsOaNrua6kOa4heWNle+8mmBkYXRhc2V0UmVmYCDop6PmnpDkuLrmlofku7bvvIjlkI3jgIFTSEEtMjU244CB5a2X6IqC5pWw44CB5qC85byP44CB5bel5L2c6KGoL0pTT04g5pWw57uE6Lev5b6E77yJ5oiW5p+l6K+i57uT5p6c5b+r54Wn77yI5p+l6K+i5paH5pys5ZOI5biM44CB5omn6KGM5pe25Yi744CB6KGM5pWw77yJ44CC5qC85byP5LiN5Zyo5pSv5oyB6ZuG77yIQ1NWL1RTVi9KU09OL1hMU1gvUGFycXVldCrvvInihpIgYFVOU1VQUE9SVEVEX0ZPUk1BVGDvvIzkuI3lsJ3or5XnjJzop6PmnpDjgIIqUGFycXVldCDmmK/lkKblnKjmspnnrrHplIHlrprkvp3otZbkuK3mnKrmoLjlrp7vvIhVTlZFUklGSUVE77yJ77yM57y65aSx5pe25oyJ5LiN5pSv5oyB5aSE55CG44CCCgojIyDlpLHotKXmqKHlvI/mkZjopoEKCuingeWunuS9k+aWh+aho+OAjOWksei0peaooeW8j+OAjeS4gOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "design-critique",
+      "name": "S075",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S075",
+        "work": {
+          "stableId": "S075",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "design.read",
+              "knowledge.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "design/skills/design-critique/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/web-design-reviewer/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S075",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S075-design-critique.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S075-design-critique.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "fbc28f542c82c8675a9053ba5e145728bf01d35bfc05cca9395b4290acf5b5c3",
+          "contentBase64": "LS0tCm5hbWU6IGRlc2lnbi1jcml0aXF1ZQp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNzUKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDc1CiAgICBkb21haW46ICJQcm9kdWN0ICYgRGVzaWduIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6IFtdCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0gZGVzaWduLnJlYWQKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGVzaWduL3NraWxscy9kZXNpZ24tY3JpdGlxdWUvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiZ2l0aHViL2F3ZXNvbWUtY29waWxvdCIKICAgICAgICBwYXRoOiAic2tpbGxzL3dlYi1kZXNpZ24tcmV2aWV3ZXIvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiNmM0ZDMzYjljZmNhOTY3YTI4YmIyOTYyZWY0ZDU1ZTRhMzg0Yzg4YyIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDc1CiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDc1LWRlc2lnbi1jcml0aXF1ZS5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzUtZGVzaWduLWNyaXRpcXVlLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIOiuvuiuoeivhOWuoe+8iFMwNzXvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzA3NSDCtyDpoobln58gUHJvZHVjdCAmIERlc2lnbgo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzUtZGVzaWduLWNyaXRpcXVlLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuesrOS4gOWNsOixoS/lj6/nlKjmgKcv6KeG6KeJ5bGC57qnL+S4gOiHtOaApy/ml6Dpmpznoo3kupTnu7TluqbvvIww4oCTNCDmoaPkuKXph43luqbvvIzpl67popjpnIDlrprkvY3liLDlhbfkvZPkvY3nva7vvJvkuI3lgZrmtY/op4jlmajmiKrlm77vvIjmnI3liqHnq6/msqHmnInmtY/op4jlmajvvInjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3NS1kZXNpZ24tY3JpdGlxdWUubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3NS1kZXNpZ24tY3JpdGlxdWUubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8muaXoAotIG9wdGlvbmFs77yaZGVzaWduLnJlYWQsIGtub3dsZWRnZS5yZWFkLCBzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "design-handoff",
+      "name": "S076",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S076",
+        "work": {
+          "stableId": "S076",
+          "domain": "Product / Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "design.read",
+              "knowledge.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "design/skills/design-handoff/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "openai/skills",
+              "path": "skills/.curated/figma-implement-design/SKILL.md",
+              "commit": "49f948faa9258a0c61caceaf225e179651397431",
+              "license": "Figma Developer Terms",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S076",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S076-design-handoff.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S076-design-handoff.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "972275c1ef2de4b5b16c2492fb4ac699a28b7c5b28fed1ec76366be9eb3ab127",
+          "contentBase64": "LS0tCm5hbWU6IGRlc2lnbi1oYW5kb2ZmCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA3NgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNzYKICAgIGRvbWFpbjogIlByb2R1Y3QgLyBEZXNpZ24iCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGRlc2lnbi5yZWFkCiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGVzaWduL3NraWxscy9kZXNpZ24taGFuZG9mZi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJvcGVuYWkvc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvLmN1cmF0ZWQvZmlnbWEtaW1wbGVtZW50LWRlc2lnbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI0OWY5NDhmYWE5MjU4YTBjNjFjYWNlYWYyMjVlMTc5NjUxMzk3NDMxIgogICAgICAgIGxpY2Vuc2U6ICJGaWdtYSBEZXZlbG9wZXIgVGVybXMiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNzYKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzYtZGVzaWduLWhhbmRvZmYubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDc2LWRlc2lnbi1oYW5kb2ZmLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIOiuvuiuoeS6pOaOpe+8iFMwNzbvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzA3NiDCtyDpoobln58gUHJvZHVjdCAvIERlc2lnbgo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzYtZGVzaWduLWhhbmRvZmYubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK6KeG6KeJL+S6pOS6ki/lhoXlrrkv6L6555WML+aXoOmanOeijeS6lOexu+imhueblumdoueahOeKtuaAgeept+S4vu+8jOeUqCB0b2tlbiDkuI3nlKjmlbDlgLzvvJvlj6rkuqflh7rpqozmlLbliKTmja7vvIzkuI3lgZrlg4/ntKDmr5Tlr7njgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3Ni1kZXNpZ24taGFuZG9mZi5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDc2LWRlc2lnbi1oYW5kb2ZmLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJpkZXNpZ24ucmVhZCwga25vd2xlZGdlLnJlYWQKLSBvcHRpb25hbO+8muaXoAotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "experiment-design",
+      "name": "S071",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S071",
+        "work": {
+          "stableId": "S071",
+          "domain": "Product",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/experimental-design/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/statistical-power/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/product-experiments/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S071",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S071-experiment-design.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S071-experiment-design.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "8385ce92cafe8481f5f79a5522cf786aab3e5caecb25730b6d564b385a00ccd4",
+          "contentBase64": "LS0tCm5hbWU6IGV4cGVyaW1lbnQtZGVzaWduCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA3MQptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNzEKICAgIGRvbWFpbjogIlByb2R1Y3QiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogIkstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvZXhwZXJpbWVudGFsLWRlc2lnbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI0OWM2ZTk3Nzc1ZWFhMThiYTc5MWJlYmUyMzE2MmE3MGFlNjAxYzE4IgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogIkstRGVuc2UtQUkvY2xhdWRlLXNjaWVudGlmaWMtc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvc3RhdGlzdGljYWwtcG93ZXIvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiNDljNmU5Nzc3NWVhYTE4YmE3OTFiZWJlMjMxNjJhNzBhZTYwMWMxOCIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvcHJvZHVjdC1leHBlcmltZW50cy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNzEKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzEtZXhwZXJpbWVudC1kZXNpZ24ubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDcxLWV4cGVyaW1lbnQtZGVzaWduLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIOWunumqjOiuvuiuoe+8iFMwNzHvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzA3MSDCtyDpoobln58gUHJvZHVjdAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzEtZXhwZXJpbWVudC1kZXNpZ24ubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5Y2V5YWD5LiO55yf6YeN5aSN5bGC57qn44CB5bmy5omw5Zug57Sg44CB6K6+6K6h6YCJ5oup44CB6Zet5byP5qC35pys6YeP77yM5Y+g5Yqg5Lia5Yqh6Ze46Zeo77yI5YC85LiN5YC85b6X5YGa5a6e6aqM44CB56iA6YeK44CB5oqk5qCP44CBaG9sZG91dO+8ieOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDcxLWV4cGVyaW1lbnQtZGVzaWduLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzEtZXhwZXJpbWVudC1kZXNpZ24ubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8muaXoAotIG9wdGlvbmFs77yac2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "kpi-design",
+      "name": "S162",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S162",
+        "work": {
+          "stableId": "S162",
+          "domain": "Data & Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/metrics-review/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/north-star-metrics/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S162",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S162-kpi-design.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S162-kpi-design.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "914dfaed142dcecf628c0ed13d7f88cb62c19c9e7dbad6deead2788105a254ad",
+          "contentBase64": "LS0tCm5hbWU6IGtwaS1kZXNpZ24KdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMTYyCm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzE2MgogICAgZG9tYWluOiAiRGF0YSAmIFJlc2VhcmNoIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6IFtdCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9tZXRyaWNzLXJldmlldy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvbm9ydGgtc3Rhci1tZXRyaWNzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzE2MgogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2Mi1rcGktZGVzaWduLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2Mi1rcGktZGVzaWduLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIEtQSSDorr7orqHvvIhTMTYy77yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMxNjIgwrcg6aKG5Z+fIERhdGEgJiBSZXNlYXJjaAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjIta3BpLWRlc2lnbi5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgpOb3J0aCBTdGFyL0wxL0wyIOS4ieWxgue7k+aehOaYoOWwhOWIsCBsZXZlbCDlrZfmrrXvvIzmi4bop6PkuLrlj6/mjqfovpPlhaXmjIfmoIfkuI7otKjph4/miqTmoI/vvJvliIbop6PmoKHpqozkuqTnu5kgUzE1OCDmiafooYzvvIzmnKwgU2tpbGwg5LiN6LeRIHNhbmRib3guZXhlY+OAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYyLWtwaS1kZXNpZ24ubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2Mi1rcGktZGVzaWduLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrml6AKLSBvcHRpb25hbO+8mmtub3dsZWRnZS5yZWFkCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "meeting-summary",
+      "name": "S006",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S006",
+        "work": {
+          "stableId": "S006",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "recording.read",
+              "knowledge.read",
+              "audio.transcribe",
+              "calendar.read"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "WorkspaceX",
+              "path": "skills/standard-audio/meeting-minutes/SKILL.md",
+              "commit": "30c1c4332025151610502988b0379b95ff7298c7",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/meeting-minutes/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "sales/skills/call-summary/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S006",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S006-meeting-summary.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S006-meeting-summary.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "d4e044e8418a06fccf86707abc32f82bf408189ba7cfda3876e58074c43f1841",
+          "contentBase64": "LS0tCm5hbWU6IG1lZXRpbmctc3VtbWFyeQp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwMDYKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDA2CiAgICBkb21haW46ICJTaGFyZWQiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSByZWNvcmRpbmcucmVhZAogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIGF1ZGlvLnRyYW5zY3JpYmUKICAgICAgICAtIGNhbGVuZGFyLnJlYWQKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogIldvcmtzcGFjZVgiCiAgICAgICAgcGF0aDogInNraWxscy9zdGFuZGFyZC1hdWRpby9tZWV0aW5nLW1pbnV0ZXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMzBjMWM0MzMyMDI1MTUxNjEwNTAyOTg4YjAzNzliOTVmZjcyOThjNyIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJnaXRodWIvYXdlc29tZS1jb3BpbG90IgogICAgICAgIHBhdGg6ICJza2lsbHMvbWVldGluZy1taW51dGVzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjZjNGQzM2I5Y2ZjYTk2N2EyOGJiMjk2MmVmNGQ1NWU0YTM4NGM4OGMiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJzYWxlcy9za2lsbHMvY2FsbC1zdW1tYXJ5L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMDYKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDYtbWVldGluZy1zdW1tYXJ5Lm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwNi1tZWV0aW5nLXN1bW1hcnkubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg5Lya6K6u57qq6KaB77yIUzAwNu+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDA2IMK3IOmihuWfnyBTaGFyZWQKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDA2LW1lZXRpbmctc3VtbWFyeS5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrlu7rorq7iiaDlt7Lmibnlh4blhrPorq7jgIHmjqjov5/iiaDlkKblhrPjgIHmj5DliLDiiaBvd25lcuOAgeaRmOimgeS4juaYjue7huWIhuWIq+WvueeFp+WOn+aWh+OAgeS4jee8lumAoOivjee6p+aXtumXtOaIs++8jOS6lOadoee6quW+i+WNh+e6p+S4uuacuuajgOS4jeWPmOmHj+OAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDA2LW1lZXRpbmctc3VtbWFyeS5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDA2LW1lZXRpbmctc3VtbWFyeS5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77ya5pegCi0gb3B0aW9uYWzvvJpyZWNvcmRpbmcucmVhZCwga25vd2xlZGdlLnJlYWQsIGF1ZGlvLnRyYW5zY3JpYmUsIGNhbGVuZGFyLnJlYWQKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "metrics-review",
+      "name": "S072",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S072",
+        "work": {
+          "stableId": "S072",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "sandbox.exec"
+            ],
+            "optional": [
+              "data.read",
+              "knowledge.read"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/metrics-review/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/north-star-metrics/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S072",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S072-metrics-review.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S072-metrics-review.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "52d06e40dee87736070d295cc16b6bc95ff457e301e2ae5a7d09b1e1ece98461",
+          "contentBase64": "LS0tCm5hbWU6IG1ldHJpY3MtcmV2aWV3CnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA3MgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNzIKICAgIGRvbWFpbjogIlByb2R1Y3QgJiBEZXNpZ24iCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICBvcHRpb25hbDoKICAgICAgICAtIGRhdGEucmVhZAogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9tZXRyaWNzLXJldmlldy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvbm9ydGgtc3Rhci1tZXRyaWNzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzA3MgogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3Mi1tZXRyaWNzLXJldmlldy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzItbWV0cmljcy1yZXZpZXcubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg5oyH5qCH5aSN55uY77yIUzA3Mu+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDcyIMK3IOmihuWfnyBQcm9kdWN0ICYgRGVzaWduCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3Mi1tZXRyaWNzLXJldmlldy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrlvZPliY3lgLwv5a+55q+U5pyfL+Wvueebruaghy/lj5jljJbpgJ/njocv5byC5bi45LqU6aG5ICsg5YiG576k5ouG6Kej77yM5Yik5pat5Y+Y5YyW5piv5ZCm6LaF5Ye65Zmq5aOw5bim77yb6LCD55So5pa557KY6LS055qE5pWw5a2X5LiA5b6L5qCHIGNhbGxlci1kZWNsYXJlZOOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDcyLW1ldHJpY3MtcmV2aWV3Lm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzItbWV0cmljcy1yZXZpZXcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mnNhbmRib3guZXhlYwotIG9wdGlvbmFs77yaZGF0YS5yZWFkLCBrbm93bGVkZ2UucmVhZAotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "opportunity-mapping",
+      "name": "S065",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S065",
+        "work": {
+          "stableId": "S065",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/product-brainstorming/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/roadmap-update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/continuous-discovery/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S065",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S065-opportunity-mapping.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S065-opportunity-mapping.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "cf45727038f4f89e229986063878e6b015246a66a0eec7cf8f88d41e0db964d0",
+          "contentBase64": "LS0tCm5hbWU6IG9wcG9ydHVuaXR5LW1hcHBpbmcKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMDY1Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzA2NQogICAgZG9tYWluOiAiUHJvZHVjdCAmIERlc2lnbiIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOiBbXQogICAgICBvcHRpb25hbDoKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9wcm9kdWN0LWJyYWluc3Rvcm1pbmcvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0LW1hbmFnZW1lbnQvc2tpbGxzL3JvYWRtYXAtdXBkYXRlL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogIlJlZm91bmRBSS9sZW5ueS1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9jb250aW51b3VzLWRpc2NvdmVyeS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNjUKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjUtb3Bwb3J0dW5pdHktbWFwcGluZy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjUtb3Bwb3J0dW5pdHktbWFwcGluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDmnLrkvJrlnLDlm77vvIhTMDY177yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwNjUgwrcg6aKG5Z+fIFByb2R1Y3QgJiBEZXNpZ24KPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY1LW9wcG9ydHVuaXR5LW1hcHBpbmcubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5oqK6Zeu6aKY5ouG5oiQ57uT5p6c4oaS5py65Lya4oaS6Kej5rOV4oaS5a6e6aqM55qE5Zub5bGC5py65Lya5qCR77yM5py65Lya5b+F6aG76IO96L+95rqv5Yiw6K+B5o2u77yM5LiN55SoIFJJQ0UvSUNFIOaJk+WIhu+8iOmCo+aYryBTMDY4IOeahOS6i++8ieOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY1LW9wcG9ydHVuaXR5LW1hcHBpbmcubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2NS1vcHBvcnR1bml0eS1tYXBwaW5nLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrml6AKLSBvcHRpb25hbO+8mmtub3dsZWRnZS5yZWFkLCBzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "prd-spec-writing",
+      "name": "S067",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S067",
+        "work": {
+          "stableId": "S067",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": [
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/write-spec/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/writing-prds/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S067",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S067-prd-spec-writing.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S067-prd-spec-writing.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "9f07bf66196cd60e63636f298ca6e8a9f3dd71dd6f46eaa3fa4677e9f076523b",
+          "contentBase64": "LS0tCm5hbWU6IHByZC1zcGVjLXdyaXRpbmcKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMDY3Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzA2NwogICAgZG9tYWluOiAiUHJvZHVjdCAmIERlc2lnbiIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy93cml0ZS1zcGVjL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogIlJlZm91bmRBSS9sZW5ueS1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy93cml0aW5nLXByZHMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMTM1OThjYzU0ZTA5Mzk5YmMxYmMxMzk4YjBmY2EyODQxMTBlZmIyZiIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDY3CiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY3LXByZC1zcGVjLXdyaXRpbmcubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY3LXByZC1zcGVjLXdyaXRpbmcubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMgUFJEIOaSsOWGme+8iFMwNjfvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzA2NyDCtyDpoobln58gUHJvZHVjdCAmIERlc2lnbgo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjctcHJkLXNwZWMtd3JpdGluZy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrmjInlvJXnlKjor7vlj5bpl67popjmoYblrpov56CU56m257u85ZCIL+acuuS8muWcsOWbvi/kvJjlhYjnuqcv5oyH5qCH57uT5p6c77yM5Lqn5Ye66aqM5pS25p2h5Lu255SoIEdpdmVuL1doZW4vVGhlbiDnmoQgUFJE77yM6IyD5Zu06JST5bu26ZyA5Ly06ZqP5Yig5YeP5oiW5bu25pyf44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjctcHJkLXNwZWMtd3JpdGluZy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY3LXByZC1zcGVjLXdyaXRpbmcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmtub3dsZWRnZS5yZWFkCi0gb3B0aW9uYWzvvJpzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "prioritization",
+      "name": "S068",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S068",
+        "work": {
+          "stableId": "S068",
+          "domain": "Product",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "metrics.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/roadmap-update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/roadmap-prioritization/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S068",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S068-prioritization.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S068-prioritization.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "a0e8c0604fce6fdac5827d8584fa03f80c6f34a62ebbeefc4b01de456321d43b",
+          "contentBase64": "LS0tCm5hbWU6IHByaW9yaXRpemF0aW9uCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA2OAptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNjgKICAgIGRvbWFpbjogIlByb2R1Y3QiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICAgIC0gbWV0cmljcy5yZWFkCiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9yb2FkbWFwLXVwZGF0ZS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvcm9hZG1hcC1wcmlvcml0aXphdGlvbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNjgKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjgtcHJpb3JpdGl6YXRpb24ubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY4LXByaW9yaXRpemF0aW9uLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIOS8mOWFiOe6p+aOkuW6j++8iFMwNjjvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzA2OCDCtyDpoobln58gUHJvZHVjdAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjgtcHJpb3JpdGl6YXRpb24ubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoKUklDRS9Nb1NDb1cvSUNFIOaJk+WIhuS4juijheeuse+8jOaUueW6j+W/hemhu+WbnuetlOOAjOS7gOS5iOWPmOS6huOAgeS4uuiFvuS9jeaMpOaOieS6huS7gOS5iOOAje+8jOS4jeWBmiBiYWNrbG9nIOeahOWGmeWIoOmZpO+8iOmCo+aYryBTMTQyIOeahOWGmeWKqOS9nO+8ieOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY4LXByaW9yaXRpemF0aW9uLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjgtcHJpb3JpdGl6YXRpb24ubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8muaXoAotIG9wdGlvbmFs77yaa25vd2xlZGdlLnJlYWQsIG1ldHJpY3MucmVhZCwgc2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "problem-framing",
+      "name": "S064",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S064",
+        "work": {
+          "stableId": "S064",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/write-spec/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/writing-prds/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S064",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S064-problem-framing.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S064-problem-framing.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "e3f361fe384acbdc650168eb34f1a20b95f0849b5dd336d8f1cdcaeb7f7b3084",
+          "contentBase64": "LS0tCm5hbWU6IHByb2JsZW0tZnJhbWluZwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNjQKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDY0CiAgICBkb21haW46ICJQcm9kdWN0ICYgRGVzaWduIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6IFtdCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0LW1hbmFnZW1lbnQvc2tpbGxzL3dyaXRlLXNwZWMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiUmVmb3VuZEFJL2xlbm55LXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL3dyaXRpbmctcHJkcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNjQKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjQtcHJvYmxlbS1mcmFtaW5nLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2NC1wcm9ibGVtLWZyYW1pbmcubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg6Zeu6aKY5qGG5a6a77yIUzA2NO+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDY0IMK3IOmihuWfnyBQcm9kdWN0ICYgRGVzaWduCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2NC1wcm9ibGVtLWZyYW1pbmcubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5oqK5LiA5Liq5YWl5Y+j77yI5Yqf6IO95ZCNL+mXrumimOmZiOi/sC/nlKjmiLfor7fmsYIv5qih57OK5oOz5rOV77yJ5YaZ5oiQ5LiO6Kej5rOV5peg5YWz55qE6Zeu6aKY6ZmI6L+w77yM5ZCr5Y+X5b2x5ZON5Li75L2T44CB6aKR546H44CB5LiN6Kej5Yaz55qE5Luj5Lu35LiO6K+B5o2u5byV55So44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjQtcHJvYmxlbS1mcmFtaW5nLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjQtcHJvYmxlbS1mcmFtaW5nLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrml6AKLSBvcHRpb25hbO+8mmtub3dsZWRnZS5yZWFkLCBzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "process-mapping",
+      "name": "S018",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S018",
+        "work": {
+          "stableId": "S018",
+          "domain": "Operations",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read"
+            ],
+            "optional": [
+              "project.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "operations/skills/process-doc/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "operations/skills/process-optimization/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/draw-io-diagram-generator/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S018",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S018-process-mapping.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S018-process-mapping.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "84c377e6cc85905378ed89769dd6b21c62cbb6ece53c7da6af9ef8dddaf95e0d",
+          "contentBase64": "LS0tCm5hbWU6IHByb2Nlc3MtbWFwcGluZwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwMTgKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDE4CiAgICBkb21haW46ICJPcGVyYXRpb25zIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICBvcHRpb25hbDoKICAgICAgICAtIHByb2plY3QucmVhZAogICAgICAgIC0gc2FuZGJveC5leGVjCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogIm9wZXJhdGlvbnMvc2tpbGxzL3Byb2Nlc3MtZG9jL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAib3BlcmF0aW9ucy9za2lsbHMvcHJvY2Vzcy1vcHRpbWl6YXRpb24vU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiZ2l0aHViL2F3ZXNvbWUtY29waWxvdCIKICAgICAgICBwYXRoOiAic2tpbGxzL2RyYXctaW8tZGlhZ3JhbS1nZW5lcmF0b3IvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiNmM0ZDMzYjljZmNhOTY3YTI4YmIyOTYyZWY0ZDU1ZTRhMzg0Yzg4YyIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDE4CiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE4LXByb2Nlc3MtbWFwcGluZy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTgtcHJvY2Vzcy1tYXBwaW5nLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIOa1geeoi+W7uuaooe+8iFMwMTjvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzAxOCDCtyDpoobln58gT3BlcmF0aW9ucwo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTgtcHJvY2Vzcy1tYXBwaW5nLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCkJQTU4g5a2Q6ZuG5L2c5Li65YWD57Sg6K+N6KGo77yM5byC5bi46Lev5b6E44CB562J5b6F5pe26Ze044CB5a6h5om544CB5Lqk5o6l5Li65b+F5rWL5a2X5q6177yM5q+P5Liq5YWD57Sg5bim6K+B5o2u5LiOIGJhc2lz77yb5LiN5Lqn5Ye65LyY5YyW5bu66K6u77yI5b2SIFMxNTbvvInjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxOC1wcm9jZXNzLW1hcHBpbmcubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAxOC1wcm9jZXNzLW1hcHBpbmcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmtub3dsZWRnZS5yZWFkCi0gb3B0aW9uYWzvvJpwcm9qZWN0LnJlYWQsIHNhbmRib3guZXhlYwotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "product-brainstorming",
+      "name": "S066",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S066",
+        "work": {
+          "stableId": "S066",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/product-brainstorming/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/idea-validation/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S066",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S066-product-brainstorming.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S066-product-brainstorming.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "204837685f2e19c8b039fe09ff6125c88dedaf70cf9a2795dc4a2255fd711a3d",
+          "contentBase64": "LS0tCm5hbWU6IHByb2R1Y3QtYnJhaW5zdG9ybWluZwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNjYKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDY2CiAgICBkb21haW46ICJQcm9kdWN0ICYgRGVzaWduIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6IFtdCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0LW1hbmFnZW1lbnQvc2tpbGxzL3Byb2R1Y3QtYnJhaW5zdG9ybWluZy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvaWRlYS12YWxpZGF0aW9uL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzA2NgogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2Ni1wcm9kdWN0LWJyYWluc3Rvcm1pbmcubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY2LXByb2R1Y3QtYnJhaW5zdG9ybWluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDkuqflk4HlpLTohJHpo47mmrTvvIhTMDY277yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwNjYgwrcg6aKG5Z+fIFByb2R1Y3QgJiBEZXNpZ24KPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY2LXByb2R1Y3QtYnJhaW5zdG9ybWluZy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgpGcmFtZeKGkkRpdmVyZ2XihpJQcm92b2tl4oaSQ29udmVyZ2XihpJDYXB0dXJlIOS6lOauteiKguWlj+WPkeaVo+eUn+aIkOino+azle+8jOW8uuWItuWQq+S4gOS4quOAjOWPjeedgOWBmuOAjeS4juS4gOS4quOAjOWBmuWHj+azleOAjeaWueWQke+8jOS6p+WHuuWPr+WuoeiuoeeVmeaho+OAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY2LXByb2R1Y3QtYnJhaW5zdG9ybWluZy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY2LXByb2R1Y3QtYnJhaW5zdG9ybWluZy5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77ya5pegCi0gb3B0aW9uYWzvvJprbm93bGVkZ2UucmVhZCwgc2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "product-discovery",
+      "name": "S061",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S061",
+        "work": {
+          "stableId": "S061",
+          "domain": "Product & Design",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "skill-artifact.read"
+            ],
+            "optional": [
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/continuous-discovery/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/idea-validation/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/product-brainstorming/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/write-spec/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S061",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S061-product-discovery.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S061-product-discovery.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "b16b2a9e390050c11e7944a26eefcf03823c1bba28c141aba29df4b5f8a99fb9",
+          "contentBase64": "LS0tCm5hbWU6IHByb2R1Y3QtZGlzY292ZXJ5CnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA2MQptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNjEKICAgIGRvbWFpbjogIlByb2R1Y3QgJiBEZXNpZ24iCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSBza2lsbC1hcnRpZmFjdC5yZWFkCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0gc2FuZGJveC5leGVjCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvY29udGludW91cy1kaXNjb3ZlcnkvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMTM1OThjYzU0ZTA5Mzk5YmMxYmMxMzk4YjBmY2EyODQxMTBlZmIyZiIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvaWRlYS12YWxpZGF0aW9uL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0LW1hbmFnZW1lbnQvc2tpbGxzL3Byb2R1Y3QtYnJhaW5zdG9ybWluZy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3QtbWFuYWdlbWVudC9za2lsbHMvd3JpdGUtc3BlYy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDYxCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYxLXByb2R1Y3QtZGlzY292ZXJ5Lm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2MS1wcm9kdWN0LWRpc2NvdmVyeS5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDkuqflk4HmjqLntKLvvIhTMDYx77yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwNjEgwrcg6aKG5Z+fIFByb2R1Y3QgJiBEZXNpZ24KPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYxLXByb2R1Y3QtZGlzY292ZXJ5Lm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuaKiuS4gOS4quaooeeziueahOS6p+WTgeaEj+WbvuWPmOaIkOWBh+iuvui0puacrCArIOaOoue0ouiuoeWIku+8jOS6i+WFiOeZu+iusOajgOmqjOWIpOaNru+8jOivgeaNruWbnuadpeWQjuacuuaisOaUueWIpCBzdXBwb3J0ZWQvcmVmdXRlZC9pbmNvbmNsdXNpdmXjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2MS1wcm9kdWN0LWRpc2NvdmVyeS5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYxLXByb2R1Y3QtZGlzY292ZXJ5Lm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZCwgc2tpbGwtYXJ0aWZhY3QucmVhZAotIG9wdGlvbmFs77yac2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "product-launch",
+      "name": "S073",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S073",
+        "work": {
+          "stableId": "S073",
+          "domain": "Product",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/launch-planning/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/gtm-0-to-1-launch/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "marketing/skills/campaign-plan/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S073",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S073-product-launch.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S073-product-launch.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "0ea51b1a477bf78cb5122527c8dc22c8451d6b11a707db47301710db65c799c2",
+          "contentBase64": "LS0tCm5hbWU6IHByb2R1Y3QtbGF1bmNoCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA3MwptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNzMKICAgIGRvbWFpbjogIlByb2R1Y3QiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiUmVmb3VuZEFJL2xlbm55LXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL2xhdW5jaC1wbGFubmluZy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImdpdGh1Yi9hd2Vzb21lLWNvcGlsb3QiCiAgICAgICAgcGF0aDogInNraWxscy9ndG0tMC10by0xLWxhdW5jaC9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAibWFya2V0aW5nL3NraWxscy9jYW1wYWlnbi1wbGFuL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNzMKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzMtcHJvZHVjdC1sYXVuY2gubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDczLXByb2R1Y3QtbGF1bmNoLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WHuuWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAgiIKLS0tCgojIOS6p+WTgeWPkeW4g++8iFMwNzPvvIkKCj4gV29yayBTa2lsbCDCtyB2MiDlrp7kvZPnvJblj7cgUzA3MyDCtyDpoobln58gUHJvZHVjdAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzMtcHJvZHVjdC1sYXVuY2gubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5bCx57uq6Zeo5qC45a+55Yip55uK55u45YWz5pa5562+5a2X44CB5aSW6YOo5pel5pyf5L2c5Li6IGZvcmNpbmcgZnVuY3Rpb27vvJvlj5HluIPmiJDlip/lj6rorqTmv4DmtLsv55WZ5a2Y6K+75pWw77yM5LiN6K6k5pud5YWJ77yb5LiN5ZCr5YaF5a655pel5Y6GL+a4oOmBk+efqemYte+8iOW9kiBTMDQx77yJ44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzMtcHJvZHVjdC1sYXVuY2gubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3My1wcm9kdWN0LWxhdW5jaC5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77ya5pegCi0gb3B0aW9uYWzvvJprbm93bGVkZ2UucmVhZAotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "research-synthesis",
+      "name": "S063",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S063",
+        "work": {
+          "stableId": "S063",
+          "domain": "Research",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "knowledge.read",
+              "sandbox.exec"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/synthesize-research/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "design/skills/research-synthesis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "enterprise-search/skills/knowledge-synthesis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S063",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S063-research-synthesis.md#输入契约",
+            "summary": "S063 不定义自己的证据类型，直接消费上游 Skill 的输出类型，不设适配层："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S063-research-synthesis.md#输出契约",
+            "summary": "见实体文档输出契约。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "414b9c0be8495d0f085756fec633162b5806a1afad7d68bfd6788ca198d2672e",
+          "contentBase64": "LS0tCm5hbWU6IHJlc2VhcmNoLXN5bnRoZXNpcwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNjMKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDYzCiAgICBkb21haW46ICJSZXNlYXJjaCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOgogICAgICAgIC0ga25vd2xlZGdlLnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9zeW50aGVzaXplLXJlc2VhcmNoL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGVzaWduL3NraWxscy9yZXNlYXJjaC1zeW50aGVzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJlbnRlcnByaXNlLXNlYXJjaC9za2lsbHMva25vd2xlZGdlLXN5bnRoZXNpcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDYzCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYzLXJlc2VhcmNoLXN5bnRoZXNpcy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICJTMDYzIOS4jeWumuS5ieiHquW3seeahOivgeaNruexu+Wei++8jOebtOaOpea2iOi0ueS4iua4uCBTa2lsbCDnmoTovpPlh7rnsbvlnovvvIzkuI3orr7pgILphY3lsYLvvJoiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2My1yZXNlYXJjaC1zeW50aGVzaXMubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi6KeB5a6e5L2T5paH5qGj6L6T5Ye65aWR57qm44CCIgotLS0KCiMg56CU56m257u85ZCI77yIUzA2M++8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDYzIMK3IOmihuWfnyBSZXNlYXJjaAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjMtcmVzZWFyY2gtc3ludGhlc2lzLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuaKiuW3sue7j+aUtumbhuWlveeahOS4gOaJueadkOaWmeWPmOaIkOWwkemHj+WPr+mAkOadoei/vea6r+eahCBGaW5kaW5n44CC5q+P5LiqIEZpbmRpbmcg5piv5LiA5Y+l5Y+v6K+B5Lyq55qE6ZmI6L+w77yM5oyC552A5pSv5oyB5LiO5Y+N6amz5a6D55qE6K+B5o2uIGlk77yM5bim5LiA5Liq5oyJ56Gu5a6a5oCn566X5rOV5b6X5Ye655qE572u5L+h5bqm5ZKM5o6q6L6e5LiK6ZmQ77yM5bm25LiU5oqK44CM6KeC5a+f44CN5LiO44CM6Kej6YeK44CN5YiG5byA5YaZ44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjMtcmVzZWFyY2gtc3ludGhlc2lzLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjMtcmVzZWFyY2gtc3ludGhlc2lzLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJprbm93bGVkZ2UucmVhZOOAgXNhbmRib3guZXhlYwotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggoKIyMg5rqv5rqQ77yIRzHvvIkKCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIhgcHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9zeW50aGVzaXplLXJlc2VhcmNoL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBkZXNpZ24vc2tpbGxzL3Jlc2VhcmNoLXN5bnRoZXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIHJlZmVyZW5jZS1vbmx577yJCi0gYGFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2luc2DvvIhgZW50ZXJwcmlzZS1zZWFyY2gvc2tpbGxzL2tub3dsZWRnZS1zeW50aGVzaXMvU0tJTEwubWRg77yMY29tbWl0IGBkYTM4ZWMxZWU4OWTigKZg77yMQXBhY2hlLTIuMO+8jOetlueVpSByZWZlcmVuY2Utb25see+8iQoKIyMg5L2/55So5pysIFNraWxsIOeahCBXb3JrZmxvdwoK6KeBIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9XT1JLRkxPVy1TS0lMTC1NQVRSSVgubWRgIOS4jiBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvRElHSVRBTEhVTUFOLUNPTVBPU0lUSU9OLU1BVFJJWC5tZGAg5Lit5ZCrIFMwNjMg55qE6KGM77yb5pys5paH5Lu25LiN5aSN6L+w55+p6Zi144CCCg=="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "d85b5d84d6a8c56dcf6b3e1463befb7a7fc8530b462450ed9069a781192ca265",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnoJTnqbbnu7zlkIjvvIhTMDYz77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYzLXJlc2VhcmNoLXN5bnRoZXNpcy5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoKYHZlcmlmeS1jaXRhdGlvbi50c2Ag5ZKMIEU3IGdyYWRlciDpg73mjInov5nkuKrlkb3lkI3nqbrpl7TlgZrmoKHpqozjgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "roadmap-planning",
+      "name": "S069",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S069",
+        "work": {
+          "stableId": "S069",
+          "domain": "Product",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/roadmap-update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/roadmap-prioritization/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S069",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S069-roadmap-planning.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S069-roadmap-planning.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "fb666bdaecfbd79e8874e284fda5bdfb28bb29c3f4e8c9b8f63f25fe0cf10e45",
+          "contentBase64": "LS0tCm5hbWU6IHJvYWRtYXAtcGxhbm5pbmcKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMDY5Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzA2OQogICAgZG9tYWluOiAiUHJvZHVjdCIKICAgIHJpc2tDbGFzczogbG93CiAgICBkZXBlbmRlbmNpZXM6CiAgICAgIHJlcXVpcmVkOiBbXQogICAgICBvcHRpb25hbDoKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgICAgLSBzYW5kYm94LmV4ZWMKICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdC1tYW5hZ2VtZW50L3NraWxscy9yb2FkbWFwLXVwZGF0ZS9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJSZWZvdW5kQUkvbGVubnktc2tpbGxzIgogICAgICAgIHBhdGg6ICJza2lsbHMvcm9hZG1hcC1wcmlvcml0aXphdGlvbi9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIxMzU5OGNjNTRlMDkzOTliYzFiYzEzOThiMGZjYTI4NDExMGVmYjJmIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNjkKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjktcm9hZG1hcC1wbGFubmluZy5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjktcm9hZG1hcC1wbGFubmluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDot6/nur/lm77op4TliJLvvIhTMDY577yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwNjkgwrcg6aKG5Z+fIFByb2R1Y3QKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDY5LXJvYWRtYXAtcGxhbm5pbmcubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoKTm93L05leHQvTGF0ZXIg5LiJ5q61572u5L+h5bqm44CB5LqU57G75L6d6LWW5YiG57G75LiO5a656YeP5omj5YeP77yb6LaF5a656YeP5bCx56CN6IyD5Zu077yM5LiN5YGH6K6+5Lq66IO95aSa5bmy77yb5LiN5YGa5omT5YiG77yI5b2SIFMwNjjvvInjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2OS1yb2FkbWFwLXBsYW5uaW5nLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjktcm9hZG1hcC1wbGFubmluZy5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77ya5pegCi0gb3B0aW9uYWzvvJprbm93bGVkZ2UucmVhZCwgc2FuZGJveC5leGVjCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "sprint-planning",
+      "name": "S070",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S070",
+        "work": {
+          "stableId": "S070",
+          "domain": "Product & Delivery",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "team.roster.read",
+              "sprint.history.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/sprint-planning/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/planning-cadence/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S070",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S070-sprint-planning.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S070-sprint-planning.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "394de1bd73a29671225ee3a4f7f1f84cd56e180a9230a2cb074de9920fe16adf",
+          "contentBase64": "LS0tCm5hbWU6IHNwcmludC1wbGFubmluZwp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNzAKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDcwCiAgICBkb21haW46ICJQcm9kdWN0ICYgRGVsaXZlcnkiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICAgIC0gdGVhbS5yb3N0ZXIucmVhZAogICAgICAgIC0gc3ByaW50Lmhpc3RvcnkucmVhZAogICAgICAgIC0gc2FuZGJveC5leGVjCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3QtbWFuYWdlbWVudC9za2lsbHMvc3ByaW50LXBsYW5uaW5nL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogIlJlZm91bmRBSS9sZW5ueS1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9wbGFubmluZy1jYWRlbmNlL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzA3MAogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3MC1zcHJpbnQtcGxhbm5pbmcubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5YWl5aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yb5pysIGZyb250bWF0dGVyIOS4jeWkjei/sO+8iOWQjOS4gOS6i+WunuS4jeW+l+WjsOaYjuWcqOS4pOWkhO+8ieOAgiIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDcwLXNwcmludC1wbGFubmluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDlhrLliLrop4TliJLvvIhTMDcw77yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwNzAgwrcg6aKG5Z+fIFByb2R1Y3QgJiBEZWxpdmVyeQo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzAtc3ByaW50LXBsYW5uaW5nLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuaMiSA3MOKAkzgwJSDlrrnph4/lgZrmib/or7ovc3RyZXRjaCDliIblsYLvvIxTcHJpbnQgQmFja2xvZyDmmK/pooTmtYvkuI3mmK/lkIjlkIzvvJvkvJjlhYjnuqfpgI/kvKDoh6ogUzA2OO+8jOi0n+i0o+S6uuW9kuWxnumAj+S8oOiHqiBTMTQy77yM5LiN6YeN566X44CCCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzAtc3ByaW50LXBsYW5uaW5nLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzAtc3ByaW50LXBsYW5uaW5nLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrml6AKLSBvcHRpb25hbO+8mmtub3dsZWRnZS5yZWFkLCB0ZWFtLnJvc3Rlci5yZWFkLCBzcHJpbnQuaGlzdG9yeS5yZWFkLCBzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "statistical-analysis",
+      "name": "S161",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S161",
+        "work": {
+          "stableId": "S161",
+          "domain": "Data",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "data.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "data/skills/statistical-analysis/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "K-Dense-AI/claude-scientific-skills",
+              "path": "skills/statistical-analysis/SKILL.md",
+              "commit": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S161",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S161-statistical-analysis.md#输入契约",
+            "summary": "输入不变式（违反 → `InvalidInput`）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S161-statistical-analysis.md#输出契约",
+            "summary": "输出不变式（`superRefine`，违反 → `OutputInvariantViolation`，报告不交给下游）："
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "8f3231cdb670241c471ecafee6dbbd271860cb1e752be49edfe60a9b2beb2aaf",
+          "contentBase64": "LS0tCm5hbWU6IHN0YXRpc3RpY2FsLWFuYWx5c2lzCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzE2MQptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMxNjEKICAgIGRvbWFpbjogIkRhdGEiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDoKICAgICAgICAtIGRhdGEucmVhZAogICAgICBvcHRpb25hbDogW10KICAgIHByb3ZlbmFuY2U6CiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAiZGF0YS9za2lsbHMvc3RhdGlzdGljYWwtYW5hbHlzaXMvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9zdGF0aXN0aWNhbC1hbmFseXNpcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI0OWM2ZTk3Nzc1ZWFhMThiYTc5MWJlYmUyMzE2MmE3MGFlNjAxYzE4IgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMxNjEKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNjEtc3RhdGlzdGljYWwtYW5hbHlzaXMubWQj6L6T5YWl5aWR57qmIgogICAgICBzdW1tYXJ5OiAi6L6T5YWl5LiN5Y+Y5byP77yI6L+d5Y+NIOKGkiBgSW52YWxpZElucHV0YO+8ie+8miIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYxLXN0YXRpc3RpY2FsLWFuYWx5c2lzLm1kI+i+k+WHuuWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WHuuS4jeWPmOW8j++8iGBzdXBlclJlZmluZWDvvIzov53lj40g4oaSIGBPdXRwdXRJbnZhcmlhbnRWaW9sYXRpb25g77yM5oql5ZGK5LiN5Lqk57uZ5LiL5ri477yJ77yaIgotLS0KCiMg57uf6K6h5YiG5p6Q77yIUzE2Me+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTYxIMK3IOmihuWfnyBEYXRhCj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MS1zdGF0aXN0aWNhbC1hbmFseXNpcy5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrlm57nrZTkuIDkuKrlhbfkvZPpl67popjvvJrjgIzov5nnu4Tlt7Lnu4/ov4fmoKHpqoznmoTmlbDmja7vvIzlr7nkuIDkuKrkuovlhYjlhpnkuIvnmoTnu5/orqHlgYforr7vvIzog73nu5nlh7rlpJrlpKfjgIHlpJrnoa7lrprnmoTlrprph4/nu5PorrrvvJ/jgI0KCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE2MS1zdGF0aXN0aWNhbC1hbmFseXNpcy5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYxLXN0YXRpc3RpY2FsLWFuYWx5c2lzLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrvvIjop4Hlrp7kvZPmlofmoaPvvIkKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYGRhdGEvc2tpbGxzL3N0YXRpc3RpY2FsLWFuYWx5c2lzL1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgSy1EZW5zZS1BSS9jbGF1ZGUtc2NpZW50aWZpYy1za2lsbHNg77yIYHNraWxscy9zdGF0aXN0aWNhbC1hbmFseXNpcy9TS0lMTC5tZGDvvIxjb21taXQgYDQ5YzZlOTc3NzVlYeKApmDvvIxNSVTvvIznrZbnlaUgYWRhcHTvvIkKCiMjIOS9v+eUqOacrCBTa2lsbCDnmoQgV29ya2Zsb3cKCuingSBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvV09SS0ZMT1ctU0tJTEwtTUFUUklYLm1kYCDkuI4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL0RJR0lUQUxIVU1BTi1DT01QT1NJVElPTi1NQVRSSVgubWRgIOS4reWQqyBTMTYxIOeahOihjO+8m+acrOaWh+S7tuS4jeWkjei/sOefqemYteOAggo="
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "071b6382ef7f61b051ea1e13af2a66c151ac945e83ef32155776fdf32350ffc8",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDnu5/orqHliIbmnpDvvIhTMTYx77yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTYxLXN0YXRpc3RpY2FsLWFuYWx5c2lzLm1kYO+8ieOAggoKIyMg5LiT5Lia5pa55rOV5pGY6KaBCgoxLiDor7vpl7jpl6jjgILopoHmsYIgYHZhbGlkYXRpb25SZWZgIOaMh+WQkSBTMTU4IOaKpeWRiu+8mmBnYXRlPSJibG9jayJgIOKGkiDnm7TmjqUgYFVwc3RyZWFtR2F0ZUJsb2NrZWRg77ybYGdhdGU9InBhc3Mtd2l0aC1jYXZlYXRzImAg4oaSIOaKiiBgcmVxdWlyZWRDYXZlYXRzYCDljp/moLfmjILliLDmr4/mnaHnu5PmnpznmoQgYGNhdmVhdHNg44CC5rKh5pyJIGB2YWxpZGF0aW9uUmVmYCDlj6rlhYHorrggYG1vZGU9ImFkLWhvYyJg77yI6IGK5aSp55u06LCD77yJ77yM5LiU5omA5pyJ57uT6K66IGBhbGxvd2VkQXNzZXJ0aW9uYCDkuIrpmZDpmY3kuIDmoaPjgIIKCiMjIOWksei0peaooeW8j+aRmOimgQoK6KeB5a6e5L2T5paH5qGj44CM5aSx6LSl5qih5byP44CN5LiA6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "status-update",
+      "name": "S007",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S007",
+        "work": {
+          "stableId": "S007",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "project.read",
+              "knowledge.read"
+            ],
+            "optional": [
+              "knowledge.search",
+              "citation.record",
+              "board.read",
+              "approval.read",
+              "workflow.receipt.read",
+              "principal.visibility.check"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "WorkspaceX",
+              "path": "skills/standard-context/project-status-report/SKILL.md",
+              "commit": "30c1c4332025151610502988b0379b95ff7298c7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/skills",
+              "path": "skills/internal-comms/SKILL.md",
+              "commit": "33375500bcea98d610eb30ce10ac4e59b89c390d",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/stakeholder-update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S007",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S007-status-update.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S007-status-update.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "f1621c4f8858bba36b8dcd4974735dfed2da53f721a5f33b68ba603e256cfa6e",
+          "contentBase64": "LS0tCm5hbWU6IHN0YXR1cy11cGRhdGUKdmVyc2lvbjogMS4wLjAKY2FwYWJpbGl0eV9pZDogV1gtV09SSy1TMDA3Cm1ldGFkYXRhOgogIHdvcms6CiAgICBzdGFibGVJZDogUzAwNwogICAgZG9tYWluOiAiU2hhcmVkIgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBwcm9qZWN0LnJlYWQKICAgICAgICAtIGtub3dsZWRnZS5yZWFkCiAgICAgIG9wdGlvbmFsOgogICAgICAgIC0ga25vd2xlZGdlLnNlYXJjaAogICAgICAgIC0gY2l0YXRpb24ucmVjb3JkCiAgICAgICAgLSBib2FyZC5yZWFkCiAgICAgICAgLSBhcHByb3ZhbC5yZWFkCiAgICAgICAgLSB3b3JrZmxvdy5yZWNlaXB0LnJlYWQKICAgICAgICAtIHByaW5jaXBhbC52aXNpYmlsaXR5LmNoZWNrCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJXb3Jrc3BhY2VYIgogICAgICAgIHBhdGg6ICJza2lsbHMvc3RhbmRhcmQtY29udGV4dC9wcm9qZWN0LXN0YXR1cy1yZXBvcnQvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMzBjMWM0MzMyMDI1MTUxNjEwNTAyOTg4YjAzNzliOTVmZjcyOThjNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogImFkYXB0IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9za2lsbHMiCiAgICAgICAgcGF0aDogInNraWxscy9pbnRlcm5hbC1jb21tcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICIzMzM3NTUwMGJjZWE5OGQ2MTBlYjMwY2UxMGFjNGU1OWI4OWMzOTBkIgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3QtbWFuYWdlbWVudC9za2lsbHMvc3Rha2Vob2xkZXItdXBkYXRlL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMDcKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDctc3RhdHVzLXVwZGF0ZS5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDctc3RhdHVzLXVwZGF0ZS5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDnirbmgIHmm7TmlrDvvIhTMDA377yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwMDcgwrcg6aKG5Z+fIFNoYXJlZAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDctc3RhdHVzLXVwZGF0ZS5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgpQcm9ncmVzcy9QbGFucy9Qcm9ibGVtcyDkuInmrrXml7bpl7TnqpfvvIxHL1kvUiDnlLHop4TliJnlrproibLogIzpnZ7kuLvop4LliKTmlq3vvIzmr4/mnaHmlq3oqIDmjILor4Hmja7vvIzlj5fkvJfmuIXnrpfnlLHmnI3liqHnq6/moLjlrp7ogIzpnZ7osIPnlKjmlrnlo7DmmI7jgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzAwNy1zdGF0dXMtdXBkYXRlLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMDctc3RhdHVzLXVwZGF0ZS5tZGAg44CM6L6T5Ye65aWR57qm44CN5LiA6IqCCgojIyDkvp3otZbvvIjog73lipvliIbnsbvvvIxBRFItMTIw77yJCgotIHJlcXVpcmVk77yacHJvamVjdC5yZWFkLCBrbm93bGVkZ2UucmVhZAotIG9wdGlvbmFs77yaa25vd2xlZGdlLnNlYXJjaCwgY2l0YXRpb24ucmVjb3JkLCBib2FyZC5yZWFkLCBhcHByb3ZhbC5yZWFkLCB3b3JrZmxvdy5yZWNlaXB0LnJlYWQsIHByaW5jaXBhbC52aXNpYmlsaXR5LmNoZWNrCi0g5a6M5pW05L6d6LWW5LiO5o6I5p2D6L6555WM6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCCg=="
+        }
+      ]
+    },
+    {
+      "stableName": "task-extraction",
+      "name": "S017",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S017",
+        "work": {
+          "stableId": "S017",
+          "domain": "Shared",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "productivity/skills/task-management/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "productivity/skills/update/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/meeting-minutes/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S017",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S017-task-extraction.md#输入契约",
+            "summary": "输入不变量（进门校验）："
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S017-task-extraction.md#输出契约",
+            "summary": "刻意不设 `ownerUserId`、`dueAt`、`priority`、`riskLevel`、`executor` 字段：前两者由 S142 解析（S142 M2、M4），风险等级在基线上只搬运不推导（`board.ts` 注释，VERIFIED@30c1…），S017 没有原话来源可以搬运。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "3671ebb13c2ec4ad689e35627929dce4ac1d430a30933baa0176332f63e14070",
+          "contentBase64": "LS0tCm5hbWU6IHRhc2stZXh0cmFjdGlvbgp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwMTcKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDE3CiAgICBkb21haW46ICJTaGFyZWQiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6IFtdCiAgICBwcm92ZW5hbmNlOgogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3Rpdml0eS9za2lsbHMvdGFzay1tYW5hZ2VtZW50L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImFudGhyb3BpY3Mva25vd2xlZGdlLXdvcmstcGx1Z2lucyIKICAgICAgICBwYXRoOiAicHJvZHVjdGl2aXR5L3NraWxscy91cGRhdGUvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiZ2l0aHViL2F3ZXNvbWUtY29waWxvdCIKICAgICAgICBwYXRoOiAic2tpbGxzL21lZXRpbmctbWludXRlcy9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICI2YzRkMzNiOWNmY2E5NjdhMjhiYjI5NjJlZjRkNTVlNGEzODRjODhjIgogICAgICAgIGxpY2Vuc2U6ICJNSVQiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwMTcKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTctdGFzay1leHRyYWN0aW9uLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIui+k+WFpeS4jeWPmOmHj++8iOi/m+mXqOagoemqjO+8ie+8miIKICAgIG91dHB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE3LXRhc2stZXh0cmFjdGlvbi5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLliLvmhI/kuI3orr4gYG93bmVyVXNlcklkYOOAgWBkdWVBdGDjgIFgcHJpb3JpdHlg44CBYHJpc2tMZXZlbGDjgIFgZXhlY3V0b3JgIOWtl+aute+8muWJjeS4pOiAheeUsSBTMTQyIOino+aekO+8iFMxNDIgTTLjgIFNNO+8ie+8jOmjjumZqeetiee6p+WcqOWfuue6v+S4iuWPquaQrOi/kOS4jeaOqOWvvO+8iGBib2FyZC50c2Ag5rOo6YeK77yMVkVSSUZJRURAMzBjMeKApu+8ie+8jFMwMTcg5rKh5pyJ5Y6f6K+d5p2l5rqQ5Y+v5Lul5pCs6L+Q44CCIgotLS0KCiMg5Lu75Yqh5oq95Y+W77yIUzAxN++8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDE3IMK3IOmihuWfnyBTaGFyZWQKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE3LXRhc2stZXh0cmFjdGlvbi5tZGDvvIjljZXkuIDkuovlrp7mupDvvJvmnKwgU0tJTEwubWQg5LiN5aSN6L+w5YW25q2j5paH77yM5LuF5pGY6KaBICsg5oyH5Zue5Y6f5paH77yJ44CCCgojIyDov5nkuKogU2tpbGwg6Kej5Yaz5LuA5LmI6Zeu6aKYCgrkuIrmuLjlt7Lnu4/miorjgIzosIHor7TkuobopoHlgZrku4DkuYjjgI3plJrlrprliLDljp/or53vvJpXMDAyIOmHjOaYryBTMDA2IOeahCBgY29tbWl0bWVudENhbmRpZGF0ZXNbXWDvvIxXMDA2IOmHjOaYryBTMDYzIGBjYXB0dXJlLWJhdGNoYCDnmoQgYGtub3dsZWRnZS1jYW5kaWRhdGVg44CCUzAxNyDmiorov5nkupvmib/or7rmiJblvoXlip7nmoTljp/lp4vlvaLmgIHvvIzop4TojIPmiJDkuIDku73ku7vliqHlgJnpgInpm4YgYFRhc2tDYW5kaWRhdGVTZXRg44CC5q+P5p2h5Lu75Yqh5YCZ6YCJ6KaB6K+05riF5LqU5Lu25LqL77yaCgojIyDovpPlhaUgLyDovpPlh7rlpZHnuqYKCuWujOaVtCBgaW5wdXRTY2hlbWFgIC8gYG91dHB1dFNjaGVtYWAg5a6a5LmJ6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC77yI5pys5paH5Lu2IGZyb250bWF0dGVyIGBtZXRhZGF0YS53b3JrYCDlj6rmlL7mkZjopoEgKyDmjIflm57lvJXnlKjvvIzpgb/lhY3lkIzkuIDkuovlrp7kuKTlpITlo7DmmI7vvInvvJoKLSDovpPlhaXlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTctdGFzay1leHRyYWN0aW9uLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwMTctdGFzay1leHRyYWN0aW9uLm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJrvvIjop4Hlrp7kvZPmlofmoaPvvIkKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIKCiMjIOa6r+a6kO+8iEcx77yJCgotIGBhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnNg77yIYHByb2R1Y3Rpdml0eS9za2lsbHMvdGFzay1tYW5hZ2VtZW50L1NLSUxMLm1kYO+8jGNvbW1pdCBgZGEzOGVjMWVlODlk4oCmYO+8jEFwYWNoZS0yLjDvvIznrZbnlaUgYWRhcHTvvIkKLSBgYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zYO+8iGBwcm9kdWN0aXZpdHkvc2tpbGxzL3VwZGF0ZS9TS0lMTC5tZGDvvIxjb21taXQgYGRhMzhlYzFlZTg5ZOKApmDvvIxBcGFjaGUtMi4w77yM562W55WlIHJlZmVyZW5jZS1vbmx577yJCi0gYGdpdGh1Yi9hd2Vzb21lLWNvcGlsb3Rg77yIYHNraWxscy9tZWV0aW5nLW1pbnV0ZXMvU0tJTEwubWRg77yMY29tbWl0IGA2YzRkMzNiOWNmY2HigKZg77yMTUlU77yM562W55WlIGFkYXB077yJCgojIyDkvb/nlKjmnKwgU2tpbGwg55qEIFdvcmtmbG93Cgrop4EgYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL1dPUktGTE9XLVNLSUxMLU1BVFJJWC5tZGAg5LiOIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9ESUdJVEFMSFVNQU4tQ09NUE9TSVRJT04tTUFUUklYLm1kYCDkuK3lkKsgUzAxNyDnmoTooYzvvJvmnKzmlofku7bkuI3lpI3ov7Dnn6npmLXjgIIK"
+        },
+        {
+          "path": "references/notes.md",
+          "mediaType": "text/markdown",
+          "digest": "e4ea8dc30e31099a504f787ff9da2ff65700848fb46ad96d82701b4100eeb1b4",
+          "contentBase64": "IyByZWZlcmVuY2VzIOKAlOKAlCDku7vliqHmir3lj5bvvIhTMDE377yJCgrmnKznm67lvZXkuI3lpI3liLblrp7kvZPmlofmoaPmraPmlofvvIjljZXkuIDkuovlrp7mupDlnKggYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDE3LXRhc2stZXh0cmFjdGlvbi5tZGDvvInjgIIKCiMjIOS4k+S4muaWueazleaRmOimgQoK5a+55q+P5LiqIGBjb21taXRtZW50Q2FuZGlkYXRlc1tpXWAg5oyJIGB1dHRlcmFuY2VgIOWIpOWumiBgY29tbWl0bWVudFN0cmVuZ3RoYO+8jOWIpOaNruWGmeaIkOivjeihqCArIOWPpeazleinhOWIme+8iGBjb21taXRtZW50LWxleGljb24uanNvbmDvvIzmjIkgbG9jYWxlIOWIhuihqO+8ie+8mgoKIyMg5aSx6LSl5qih5byP5pGY6KaBCgrop4Hlrp7kvZPmlofmoaPjgIzlpLHotKXmqKHlvI/jgI3kuIDoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "user-activation",
+      "name": "S074",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S074",
+        "work": {
+          "stableId": "S074",
+          "domain": "Product",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "analytics.read",
+              "sandbox.exec"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/user-onboarding-activation/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/metrics-review/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S074",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S074-user-activation.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S074-user-activation.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "6d5120269b539e1584e783cb0815b777486926dfd4b21314fda039f0c0df7f3d",
+          "contentBase64": "LS0tCm5hbWU6IHVzZXItYWN0aXZhdGlvbgp2ZXJzaW9uOiAxLjAuMApjYXBhYmlsaXR5X2lkOiBXWC1XT1JLLVMwNzQKbWV0YWRhdGE6CiAgd29yazoKICAgIHN0YWJsZUlkOiBTMDc0CiAgICBkb21haW46ICJQcm9kdWN0IgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBhbmFseXRpY3MucmVhZAogICAgICAgIC0gc2FuZGJveC5leGVjCiAgICAgIG9wdGlvbmFsOiBbXQogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiUmVmb3VuZEFJL2xlbm55LXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL3VzZXItb25ib2FyZGluZy1hY3RpdmF0aW9uL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjEzNTk4Y2M1NGUwOTM5OWJjMWJjMTM5OGIwZmNhMjg0MTEwZWZiMmYiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0LW1hbmFnZW1lbnQvc2tpbGxzL21ldHJpY3MtcmV2aWV3L1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJhZGFwdCIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICBsb2NhbGVzOiBbInpoLUNOIiwgImVuLVVTIl0KICAgIGp1cmlzZGljdGlvbnM6IFsiQ04iLCAiVVMiXQogICAgZXZhbFN1aXRlSWQ6IFMwNzQKICAgIGlucHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNzQtdXNlci1hY3RpdmF0aW9uLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3NC11c2VyLWFjdGl2YXRpb24ubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg55So5oi35r+A5rS75YiG5p6Q77yIUzA3NO+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMDc0IMK3IOmihuWfnyBQcm9kdWN0Cj4g5L6d5o2uIGByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3NC11c2VyLWFjdGl2YXRpb24ubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5r+A5rS76YeM56iL56KR5b+F6aG75LiO6ZW/5pyf55WZ5a2Y55u45YWz77yM6Zeo5qeb6L+H5L2O77yI5aSn6YeP5Yiw6L6+5L2G55WZ5a2Y5LuN5L2O77yJ6KaB6IO95qOA5Ye677yb5a+55pWw5o2u6ZuG6K6/6Zeu5YGa5YGH5ZCN5YyW5qC45a6e77yMayDpmIjlgLzkuI3kvY7kuo4gMjDjgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3NC11c2VyLWFjdGl2YXRpb24ubWRgIOOAjOi+k+WFpeWlkee6puOAjeS4gOiKggotIOi+k+WHuuWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA3NC11c2VyLWFjdGl2YXRpb24ubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8mmFuYWx5dGljcy5yZWFkLCBzYW5kYm94LmV4ZWMKLSBvcHRpb25hbO+8muaXoAotIOWujOaVtOS+nei1luS4juaOiOadg+i+ueeVjOingeWunuS9k+aWh+aho+WvueW6lOeroOiKguOAggo="
+        }
+      ]
+    },
+    {
+      "stableName": "user-interview-planning",
+      "name": "S062",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S062",
+        "work": {
+          "stableId": "S062",
+          "domain": "Product",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [],
+            "optional": [
+              "knowledge.read",
+              "interview.read",
+              "sandbox.exec"
+            ]
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "design/skills/user-research/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "RefoundAI/lenny-skills",
+              "path": "skills/customer-interviews/SKILL.md",
+              "commit": "13598cc54e09399bc1bc1398b0fca284110efb2f",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S062",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S062-user-interview-planning.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S062-user-interview-planning.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "6f7301e9c2aac63ae10081c1ca80ba4d6d39e0e826108102c0e6d4891daf51f2",
+          "contentBase64": "LS0tCm5hbWU6IHVzZXItaW50ZXJ2aWV3LXBsYW5uaW5nCnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzA2MgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMwNjIKICAgIGRvbWFpbjogIlByb2R1Y3QiCiAgICByaXNrQ2xhc3M6IGxvdwogICAgZGVwZW5kZW5jaWVzOgogICAgICByZXF1aXJlZDogW10KICAgICAgb3B0aW9uYWw6CiAgICAgICAgLSBrbm93bGVkZ2UucmVhZAogICAgICAgIC0gaW50ZXJ2aWV3LnJlYWQKICAgICAgICAtIHNhbmRib3guZXhlYwogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJkZXNpZ24vc2tpbGxzL3VzZXItcmVzZWFyY2gvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiZGEzOGVjMWVlODlkNDFlNTM4MGU2NTJhOTczODI2OTUwMDMzOTZlNyIKICAgICAgICBsaWNlbnNlOiAiQXBhY2hlLTIuMCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgICAgLSByZXBvOiAiUmVmb3VuZEFJL2xlbm55LXNraWxscyIKICAgICAgICBwYXRoOiAic2tpbGxzL2N1c3RvbWVyLWludGVydmlld3MvU0tJTEwubWQiCiAgICAgICAgY29tbWl0OiAiMTM1OThjYzU0ZTA5Mzk5YmMxYmMxMzk4YjBmY2EyODQxMTBlZmIyZiIKICAgICAgICBsaWNlbnNlOiAiTUlUIgogICAgICAgIHN0cmF0ZWd5OiAicmVmZXJlbmNlLW9ubHkiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgbG9jYWxlczogWyJ6aC1DTiIsICJlbi1VUyJdCiAgICBqdXJpc2RpY3Rpb25zOiBbIkNOIiwgIlVTIl0KICAgIGV2YWxTdWl0ZUlkOiBTMDYyCiAgICBpbnB1dFNjaGVtYToKICAgICAgJHJlZjogInJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYyLXVzZXItaW50ZXJ2aWV3LXBsYW5uaW5nLm1kI+i+k+WFpeWlkee6piIKICAgICAgc3VtbWFyeTogIuWujOaVtOi+k+WFpeWlkee6puingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8m+acrCBmcm9udG1hdHRlciDkuI3lpI3ov7DvvIjlkIzkuIDkuovlrp7kuI3lvpflo7DmmI7lnKjkuKTlpITvvInjgIIiCiAgICBvdXRwdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzA2Mi11c2VyLWludGVydmlldy1wbGFubmluZy5tZCPovpPlh7rlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlh7rlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIiCi0tLQoKIyDnlKjmiLforr/osIjop4TliJLvvIhTMDYy77yJCgo+IFdvcmsgU2tpbGwgwrcgdjIg5a6e5L2T57yW5Y+3IFMwNjIgwrcg6aKG5Z+fIFByb2R1Y3QKPiDkvp3mja4gYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYyLXVzZXItaW50ZXJ2aWV3LXBsYW5uaW5nLm1kYO+8iOWNleS4gOS6i+Wunua6kO+8m+acrCBTS0lMTC5tZCDkuI3lpI3ov7DlhbbmraPmlofvvIzku4XmkZjopoEgKyDmjIflm57ljp/mlofvvInjgIIKCiMjIOi/meS4qiBTa2lsbCDop6PlhrPku4DkuYjpl67popgKCuS7juWGs+etlumXrumimOaOqOWHuueglOeptumXrumimOOAgeivgeaNrue8uuWPo+S4juaWueazleaYoOWwhO+8jOS6p+WHuuW4puWIhuWxguS4i+mZkOS4juWBnOatouinhOWImeeahOaLm+WLn+iuoeWIkuS4juaPkOe6suOAggoKIyMg6L6T5YWlIC8g6L6T5Ye65aWR57qmCgrlrozmlbQgYGlucHV0U2NoZW1hYCAvIGBvdXRwdXRTY2hlbWFgIOWumuS5ieingeWunuS9k+aWh+aho+WvueW6lOeroOiKgu+8iOacrOaWh+S7tiBmcm9udG1hdHRlciBgbWV0YWRhdGEud29ya2Ag5Y+q5pS+5pGY6KaBICsg5oyH5Zue5byV55So77yM6YG/5YWN5ZCM5LiA5LqL5a6e5Lik5aSE5aOw5piO77yJ77yaCi0g6L6T5YWl5aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMDYyLXVzZXItaW50ZXJ2aWV3LXBsYW5uaW5nLm1kYCDjgIzovpPlhaXlpZHnuqbjgI3kuIDoioIKLSDovpPlh7rlpZHnuqbvvJpgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MwNjItdXNlci1pbnRlcnZpZXctcGxhbm5pbmcubWRgIOOAjOi+k+WHuuWlkee6puOAjeS4gOiKggoKIyMg5L6d6LWW77yI6IO95Yqb5YiG57G777yMQURSLTEyMO+8iQoKLSByZXF1aXJlZO+8muaXoAotIG9wdGlvbmFs77yaa25vd2xlZGdlLnJlYWQsIGludGVydmlldy5yZWFkLCBzYW5kYm94LmV4ZWMKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    },
+    {
+      "stableName": "work-item-management",
+      "name": "S142",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "capabilityId": "WX-WORK-S142",
+        "work": {
+          "stableId": "S142",
+          "domain": "Operations & Project",
+          "riskClass": "low",
+          "dependencies": {
+            "required": [
+              "board.read"
+            ],
+            "optional": []
+          },
+          "provenance": [
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "productivity/skills/task-management/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "adapt",
+              "copied": false
+            },
+            {
+              "repo": "anthropics/knowledge-work-plugins",
+              "path": "product-management/skills/sprint-planning/SKILL.md",
+              "commit": "da38ec1ee89d41e5380e652a97382695003396e7",
+              "license": "Apache-2.0",
+              "strategy": "reference-only",
+              "copied": false
+            },
+            {
+              "repo": "github/awesome-copilot",
+              "path": "skills/github-issues/SKILL.md",
+              "commit": "6c4d33b9cfca967a28bb2962ef4d55e4a384c88c",
+              "license": "MIT",
+              "strategy": "reference-only",
+              "copied": false
+            }
+          ],
+          "locales": [
+            "zh-CN",
+            "en-US"
+          ],
+          "jurisdictions": [
+            "CN",
+            "US"
+          ],
+          "evalSuiteId": "S142",
+          "inputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S142-work-item-management.md#输入契约",
+            "summary": "完整输入契约见实体文档对应章节；本 frontmatter 不复述（同一事实不得声明在两处）。"
+          },
+          "outputSchema": {
+            "$ref": "requirements/work-stack-v2/skills/S142-work-item-management.md#输出契约",
+            "summary": "完整输出契约见实体文档对应章节。"
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "b0cfb0ca793b3ab450b56b1e059c5396af89eccd61ecd4f635d2b3c30916d8c3",
+          "contentBase64": "LS0tCm5hbWU6IHdvcmstaXRlbS1tYW5hZ2VtZW50CnZlcnNpb246IDEuMC4wCmNhcGFiaWxpdHlfaWQ6IFdYLVdPUkstUzE0MgptZXRhZGF0YToKICB3b3JrOgogICAgc3RhYmxlSWQ6IFMxNDIKICAgIGRvbWFpbjogIk9wZXJhdGlvbnMgJiBQcm9qZWN0IgogICAgcmlza0NsYXNzOiBsb3cKICAgIGRlcGVuZGVuY2llczoKICAgICAgcmVxdWlyZWQ6CiAgICAgICAgLSBib2FyZC5yZWFkCiAgICAgIG9wdGlvbmFsOiBbXQogICAgcHJvdmVuYW5jZToKICAgICAgLSByZXBvOiAiYW50aHJvcGljcy9rbm93bGVkZ2Utd29yay1wbHVnaW5zIgogICAgICAgIHBhdGg6ICJwcm9kdWN0aXZpdHkvc2tpbGxzL3Rhc2stbWFuYWdlbWVudC9TS0lMTC5tZCIKICAgICAgICBjb21taXQ6ICJkYTM4ZWMxZWU4OWQ0MWU1MzgwZTY1MmE5NzM4MjY5NTAwMzM5NmU3IgogICAgICAgIGxpY2Vuc2U6ICJBcGFjaGUtMi4wIgogICAgICAgIHN0cmF0ZWd5OiAiYWRhcHQiCiAgICAgICAgY29waWVkOiBmYWxzZQogICAgICAtIHJlcG86ICJhbnRocm9waWNzL2tub3dsZWRnZS13b3JrLXBsdWdpbnMiCiAgICAgICAgcGF0aDogInByb2R1Y3QtbWFuYWdlbWVudC9za2lsbHMvc3ByaW50LXBsYW5uaW5nL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogImRhMzhlYzFlZTg5ZDQxZTUzODBlNjUyYTk3MzgyNjk1MDAzMzk2ZTciCiAgICAgICAgbGljZW5zZTogIkFwYWNoZS0yLjAiCiAgICAgICAgc3RyYXRlZ3k6ICJyZWZlcmVuY2Utb25seSIKICAgICAgICBjb3BpZWQ6IGZhbHNlCiAgICAgIC0gcmVwbzogImdpdGh1Yi9hd2Vzb21lLWNvcGlsb3QiCiAgICAgICAgcGF0aDogInNraWxscy9naXRodWItaXNzdWVzL1NLSUxMLm1kIgogICAgICAgIGNvbW1pdDogIjZjNGQzM2I5Y2ZjYTk2N2EyOGJiMjk2MmVmNGQ1NWU0YTM4NGM4OGMiCiAgICAgICAgbGljZW5zZTogIk1JVCIKICAgICAgICBzdHJhdGVneTogInJlZmVyZW5jZS1vbmx5IgogICAgICAgIGNvcGllZDogZmFsc2UKICAgIGxvY2FsZXM6IFsiemgtQ04iLCAiZW4tVVMiXQogICAganVyaXNkaWN0aW9uczogWyJDTiIsICJVUyJdCiAgICBldmFsU3VpdGVJZDogUzE0MgogICAgaW5wdXRTY2hlbWE6CiAgICAgICRyZWY6ICJyZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE0Mi13b3JrLWl0ZW0tbWFuYWdlbWVudC5tZCPovpPlhaXlpZHnuqYiCiAgICAgIHN1bW1hcnk6ICLlrozmlbTovpPlhaXlpZHnuqbop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvJvmnKwgZnJvbnRtYXR0ZXIg5LiN5aSN6L+w77yI5ZCM5LiA5LqL5a6e5LiN5b6X5aOw5piO5Zyo5Lik5aSE77yJ44CCIgogICAgb3V0cHV0U2NoZW1hOgogICAgICAkcmVmOiAicmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNDItd29yay1pdGVtLW1hbmFnZW1lbnQubWQj6L6T5Ye65aWR57qmIgogICAgICBzdW1tYXJ5OiAi5a6M5pW06L6T5Ye65aWR57qm6KeB5a6e5L2T5paH5qGj5a+55bqU56ug6IqC44CCIgotLS0KCiMg5bel5L2c6aG5566h55CG77yIUzE0Mu+8iQoKPiBXb3JrIFNraWxsIMK3IHYyIOWunuS9k+e8luWPtyBTMTQyIMK3IOmihuWfnyBPcGVyYXRpb25zICYgUHJvamVjdAo+IOS+neaNriBgcmVxdWlyZW1lbnRzL3dvcmstc3RhY2stdjIvc2tpbGxzL1MxNDItd29yay1pdGVtLW1hbmFnZW1lbnQubWRg77yI5Y2V5LiA5LqL5a6e5rqQ77yb5pysIFNLSUxMLm1kIOS4jeWkjei/sOWFtuato+aWh++8jOS7heaRmOimgSArIOaMh+WbnuWOn+aWh++8ieOAggoKIyMg6L+Z5LiqIFNraWxsIOino+WGs+S7gOS5iOmXrumimAoK5Y+q5Ye65bu65Y2hL+a1gei9rC/mm7TmlrAv5L6d6LWW5o+Q6K6u77yM5LiN6Ieq6KGM5YaZ5YWl77yb5bu65Y2h5YmN5b+F6aG76YeN6LeR5LiA5qyh6K+75Y+W5Yik6YeN77ybY2hhbmdlU2V0SWQvcHJvcG9zYWxJZCDnlLHovpPlhaXlk4jluIzmtL7nlJ/kv53or4HluYLnrYnph43mlL7jgIIKCiMjIOi+k+WFpSAvIOi+k+WHuuWlkee6pgoK5a6M5pW0IGBpbnB1dFNjaGVtYWAgLyBgb3V0cHV0U2NoZW1hYCDlrprkuYnop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLvvIjmnKzmlofku7YgZnJvbnRtYXR0ZXIgYG1ldGFkYXRhLndvcmtgIOWPquaUvuaRmOimgSArIOaMh+WbnuW8leeUqO+8jOmBv+WFjeWQjOS4gOS6i+WunuS4pOWkhOWjsOaYju+8ie+8mgotIOi+k+WFpeWlkee6pu+8mmByZXF1aXJlbWVudHMvd29yay1zdGFjay12Mi9za2lsbHMvUzE0Mi13b3JrLWl0ZW0tbWFuYWdlbWVudC5tZGAg44CM6L6T5YWl5aWR57qm44CN5LiA6IqCCi0g6L6T5Ye65aWR57qm77yaYHJlcXVpcmVtZW50cy93b3JrLXN0YWNrLXYyL3NraWxscy9TMTQyLXdvcmstaXRlbS1tYW5hZ2VtZW50Lm1kYCDjgIzovpPlh7rlpZHnuqbjgI3kuIDoioIKCiMjIOS+nei1lu+8iOiDveWKm+WIhuexu++8jEFEUi0xMjDvvIkKCi0gcmVxdWlyZWTvvJpib2FyZC5yZWFkCi0gb3B0aW9uYWzvvJrml6AKLSDlrozmlbTkvp3otZbkuI7mjojmnYPovrnnlYzop4Hlrp7kvZPmlofmoaPlr7nlupTnq6DoioLjgIIK"
+        }
+      ]
+    }
+  ],
+  "packDigest": "9b32089b5d1bad6d7e31f9f04c8e88e6ef1fb8ae658c7f98288c294a570c5cad"
+}

@@ -1,0 +1,25 @@
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { BoardEditorHeader } from '@/components/whiteboard/board-editor-header';
+vi.mock('@/components/whiteboard/board-share-dialog',()=>({BoardShareDialog:()=> <button>分享白板</button>}));
+afterEach(()=>vi.unstubAllGlobals());
+it('moves presence and presentation into the narrow-desktop menu without duplicating or losing actions',()=>{
+ let compact=true;const listeners=new Set<()=>void>(),queries:string[]=[];
+ vi.stubGlobal('matchMedia',(query:string)=>{queries.push(query);return {get matches(){return compact;},addEventListener:(_type:string,listener:()=>void)=>listeners.add(listener),removeEventListener:(_type:string,listener:()=>void)=>listeners.delete(listener)};});
+ const follow=vi.fn(),present=vi.fn();
+ render(<BoardEditorHeader boardId="board" title="很长的团队白板名称" status="已同步" readOnly={false} history={<><button>撤销</button><button>重做</button></>} peers={<button onClick={follow}>跟随 Grace</button>} presentation={<button onClick={present}>开始演示</button>} more={<button>导出</button>} userAvatar={<span role="img" aria-label="Grace 的头像">G</span>}/>);
+ const header=screen.getByTestId('board-editor-header');expect(within(header).queryByRole('button',{name:'跟随 Grace'})).toBeNull();
+ expect(queries).toContain('(max-width: 1279px)');
+ expect(header).toHaveClass('bg-background');expect(header).toHaveStyle({height:'64px'});
+ expect(screen.getByAltText('WorkspaceX')).toHaveClass('xl:block');
+ expect(within(screen.getByTestId('board-sync-status')).getByText('已同步')).toHaveClass('xl:inline');
+ expect(screen.getByTestId('board-help-open')).toHaveAccessibleName('白板帮助');
+ expect(within(screen.getByTestId('board-user-avatar')).getByRole('img')).toHaveAccessibleName('Grace 的头像');
+ fireEvent.click(screen.getByRole('button',{name:'更多白板操作'}));
+ fireEvent.click(screen.getByRole('button',{name:'跟随 Grace'}));fireEvent.click(screen.getByRole('button',{name:'开始演示'}));
+ expect(follow).toHaveBeenCalledOnce();expect(present).toHaveBeenCalledOnce();
+ expect(screen.getAllByRole('button',{name:'跟随 Grace'})).toHaveLength(1);
+ act(()=>{compact=false;listeners.forEach(listener=>listener());});
+ expect(within(header).getByRole('button',{name:'跟随 Grace'})).toBeVisible();expect(within(header).getByRole('button',{name:'开始演示'})).toBeVisible();
+ expect(screen.getAllByRole('button',{name:'跟随 Grace'})).toHaveLength(1);
+});

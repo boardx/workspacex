@@ -5,6 +5,7 @@ import { resolveRsScreen, resolveRsView } from "@/lib/mock/research-studio";
 import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
 import { GuidedResearchEffortBudgetPreview } from "@/components/research-studio/guided-research-effort-budget-preview";
 import { GuidedResearchTrustConsolePreview } from "@/components/research-studio/guided-research-trust-console-preview";
+import { GuidedResearchPrototypePreview } from "@/components/research-studio/guided-research-prototype-preview";
 
 /**
  * 研究 Studio（phase-01 契约束 `research` / M24）—— UI 先行原型。
@@ -21,13 +22,14 @@ import { GuidedResearchTrustConsolePreview } from "@/components/research-studio/
 export default function ResearchPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string; preview?: string };
+  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string; preview?: string; stage?: string; projectId?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveRsView(searchParams.as);
   const screen = resolveRsScreen(searchParams.screen);
   // 新的研究首页是 /research 默认落点；既有已签 Research Studio 屏仍可由 ?screen=… 显式进入。
-  const flow = searchParams.screen ? undefined : resolveGuidedResearchStep(searchParams.flow);
+  // `?session=` 直达某条会话（项目页资源列表就是这么链过来的）：没有 flow 也按引导流程恢复。
+  const flow = searchParams.screen ? undefined : resolveGuidedResearchStep(searchParams.flow ?? (searchParams.session ? "brief" : undefined));
   // 研究成员模型是 owner/collaborator（U-1 B），与项目四角色无关；身份用组织层即可。
   const identity = mockIdentity(searchParams.org ?? "org-yuanyang", null);
 
@@ -36,6 +38,9 @@ export default function ResearchPage({
   }
   if ((process.env.NODE_ENV !== "production" || process.env.FULLSTACK_E2E_PREVIEWS === "1") && searchParams.preview === "trust-console") {
     return <GuidedResearchTrustConsolePreview />;
+  }
+  if ((process.env.NODE_ENV !== "production" || process.env.FULLSTACK_E2E_PREVIEWS === "1") && searchParams.preview === "prototype-fidelity") {
+    return <GuidedResearchPrototypePreview stage={searchParams.stage} />;
   }
 
   return (
@@ -47,6 +52,7 @@ export default function ResearchPage({
       sub={searchParams.sub}
       flow={flow}
       guidedSessionId={searchParams.session}
+      projectId={searchParams.projectId ?? null}
       qs={{ as: searchParams.as, flow: searchParams.flow }}
     />
   );

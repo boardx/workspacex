@@ -1,0 +1,11 @@
+import type { Tool } from './canvas';
+/** Object-like tools give touch users a recognizable material, not just a glyph. */
+export function ToolArt({ tool }: { tool: Tool }) {
+  return <svg viewBox="0 0 48 48" className="h-9 w-9 overflow-visible" aria-hidden="true" data-testid={`workspace-art-${tool}`}>
+    {tool === 'select' && <path d="M12 7 37 24 25 27 19 39Z" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />}
+    {tool === 'sticky' && <><rect x="8" y="7" width="30" height="31" rx="3" transform="rotate(-12 24 24)" fill="hsl(var(--accent))" stroke="hsl(var(--accent-foreground))" /><path d="M13 10H41V32L32 41H13Z" fill="hsl(var(--warning-tint))" stroke="hsl(var(--warning))" strokeWidth="1.5" /><path d="M32 41V32H41" fill="hsl(var(--warning))" /><path d="M19 19H33M19 25H29" stroke="hsl(var(--warning))" strokeWidth="2" strokeLinecap="round" /></>}
+    {tool === 'shape' && <><rect x="4" y="7" width="24" height="25" rx="4" fill="hsl(var(--accent))" stroke="hsl(var(--success))" strokeWidth="1.5" /><circle cx="32" cy="30" r="13" fill="hsl(var(--warning-tint))" stroke="hsl(var(--warning))" strokeWidth="1.5" /><path d="M19 21 29 39H9Z" fill="hsl(var(--accent-foreground))" stroke="hsl(var(--background))" strokeWidth="1.5" /></>}
+    {tool === 'draw' && <><path d="M7 41Q14 33 23 39T42 34" fill="none" stroke="hsl(var(--success))" strokeWidth="3" strokeLinecap="round" /><g transform="rotate(28 25 22)"><rect x="19" y="3" width="13" height="25" rx="3" fill="hsl(var(--accent))" stroke="hsl(var(--success))" strokeWidth="1.5" /><path d="M19 26 25.5 38 32 26Z" fill="hsl(var(--warning-tint))" stroke="hsl(var(--warning))" /><path d="M22 33 25.5 39 29 33Z" fill="hsl(var(--success))" /><path d="M23 7V22" stroke="hsl(var(--background))" strokeWidth="2" /></g></>}
+    {tool === 'connector' && <><path d="M9 35H22V14H39" fill="none" stroke="hsl(var(--accent-foreground))" strokeWidth="3" strokeLinejoin="round" /><circle cx="9" cy="35" r="5" fill="hsl(var(--accent))" stroke="hsl(var(--success))" strokeWidth="2" /><path d="m32 7 8 7-8 7" fill="none" stroke="hsl(var(--accent-foreground))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>}
+  </svg>;
+}

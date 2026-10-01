@@ -13,7 +13,7 @@ def test_official_tool_schemas_hide_runtime_identity():
   assert 'runtime' not in tool.args
   assert 'orgId' not in tool.args
   assert 'token' not in tool.args
- assert [tool.name for tool in web.standard_context_tools()]==['wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read']
+ assert [tool.name for tool in web.standard_context_tools()]==['wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read','wx_cite']
 
 @pytest.mark.parametrize('failure',['unauthorized','forbidden','status','redirect','oversize','invalid'])
 def test_gateway_failures_are_bounded_and_secret_free(monkeypatch,failure):

@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
+import { MESSAGE_FOCUS_EVENT } from "@/lib/chat-message-focus";
 export function useTimelineScroll(messages: unknown) {
   /**
    * issue #2071 —— 消息区没有"跳到最新"手段：新消息到达时不自动贴底，长线程往上翻阅
@@ -151,6 +152,21 @@ export function useTimelineScroll(messages: unknown) {
     if (el === null) return;
     el.addEventListener("scrollend", clearProgrammaticScroll);
     return () => el.removeEventListener("scrollend", clearProgrammaticScroll);
+  }, [clearProgrammaticScroll]);
+
+  // 「跳到原消息」（`chat-message-focus.ts` 的 `highlightChatMessage`）把某条消息滚到眼前：那是用户要看的
+  // 位置，等同于用户往上翻——放开贴底跟随。否则之后内容长高（引用、「已记下」异步加载）会被 ResizeObserver
+  // 当成「贴底态下长高」拽回底部，高亮的那条滚出视野（#4279，F15 E4.c2 / c3）。
+  React.useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (el === null) return;
+    const release = (): void => {
+      clearProgrammaticScroll();
+      isAtBottomRef.current = false;
+      setIsAtBottom(false);
+    };
+    el.addEventListener(MESSAGE_FOCUS_EVENT, release);
+    return () => el.removeEventListener(MESSAGE_FOCUS_EVENT, release);
   }, [clearProgrammaticScroll]);
 
   // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），

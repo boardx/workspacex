@@ -3,44 +3,63 @@
  *
  * 候选集 = 这一轮所在会话（L0）的活结论与实体 ∪ 发起人本人个人空间（L1，F12）的活结论与实体
  * ∪（F15，只在本人个人对话里）本人其他个人对话里记下的活结论与实体。
+ * L1 在本人的个人对话与**项目会话**里都取（issue #4284 人类决定 2026-09-26：个人记忆也用于项目会话里提问者本人的回答）；
+ * 别人的个人对话里不取（执行器也不会以别人身份跑在那里）。
  * 执行器已经是以发起人身份在这个会话里跑；L1 用 scope_id = 发起人本人限定，读的时候再设
  * app.current_user_id，RLS 也只把个人空间的行放给本人（I-14）——会话里其他成员提问，只得 L0 和他自己的 L1。
+ * 项目会话是多人可见的：这一轮用到的个人条目只给这一轮的提问者本人看，读侧按查看者过滤（pg-knowledge-read.ts readTurnRecall）。
  * 图路只拿 id（kg_graph_neighbors），回到候选集求交，图里别的会话 / 别人的 id 不会漏出来。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { KnowledgeRecallPort, TurnRecallRecord } from "../../application/knowledge-graph/ports";
-import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
+import type { EmbeddingPort } from "../../application/retrieval/ports";
+import type { GraphHit, GraphHop, RecallClaim, RecallObject, VectorHit } from "../../domain/knowledge-graph/recall";
 import type { OrgId } from "../../domain/org-id";
+import { annOrder, annThenExact, exactOrder, prepareAnn } from "../retrieval/hnsw-ann";
 
 const stripKind = (key: string) => key.slice(key.indexOf(":") + 1);
 const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
-/** 「这条是哪天说的」：最早一条支持证据消息的时间（L1 的证据消息在原会话里）。 */
-const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind,
+/**
+ * 「这条是哪天说的」：最早一条支持证据消息的时间（L1 的证据消息在原会话里）。
+ * `shared_by`（S10，#4367）：项目记忆里由成员从个人记忆分享来的 ⇒ 分享人显示名（数据库函数只回名字，
+ * 不回原件；项目成员按 RLS 本来读不到别人的个人空间）；别的结论 ⇒ NULL。
+ */
+const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind, c.valid_to, c.todo_state,
   (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
-    WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at`;
+    WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at, kg_share_author_name(c.id) AS shared_by`;
 
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
-  constructor(private readonly db: DatabasePort) {}
+  /** `embeddings`：部署的嵌入模型（F10 同一个 EMBEDDING_PORT）；null ⇒ 向量通道未配置（S9，#4366）。 */
+  constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null) {}
 
   async candidates(orgId: OrgId, userId: string, threadId: string) {
     return this.db.withTenant(orgId, async (s) => {
       await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
-      type Row = { id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null };
+      type Row = {
+        id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null;
+        valid_to: Date | null; todo_state: RecallClaim["todoStatus"]; shared_by: string | null;
+      };
       const session = await s.query<Row>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE}`,
         [orgId, threadId],
       );
-      // L1 只进发起人**自己的个人线程**（无项目、本人创建；uc-18-4 R5）：在项目会话里用了，
-      // 回答贴在会话里，别的成员就读到了、还会被抽取进本会话的 L0。
-      const own = await s.query(
-        `SELECT 1 FROM chat_threads t WHERE t.org_id = $1 AND t.id = $2 AND t.project_id IS NULL AND t.created_by = $3`,
+      // 这一轮在哪种会话里：本人的个人对话 ⇒ L1 + F15；项目会话 ⇒ 只有 L1（issue #4284，同 F12 的所有权条件）；
+      // 别的（别人的个人对话）⇒ 都没有。
+      // 只取两个布尔，不取会话的任何内容列；判定在下面的 JS 里做（这个文件的 SQL 不许带 OR，见 recall-repo-guard）。
+      const where = await s.query<{ personal: boolean; mine: boolean; project_id: string | null }>(
+        `SELECT t.project_id IS NULL AS personal, t.created_by = $3 AS mine, t.project_id FROM chat_threads t WHERE t.org_id = $1 AND t.id = $2`,
         [orgId, threadId, userId],
       );
-      const inPersonalThread = own.rows.length === 1;
+      const here = where.rows[0];
+      // 项目中枢 R7（L2）：项目会话 ⇒ 本项目的项目记忆也进候选。可见性由 RLS + 「你能进这个项目线程」共同兜住：
+      // 只有项目成员的线程会走到这里（resolveVisibility 在上游），而项目记忆本来就是给全体成员的。
+      const projectId = here?.personal === false ? here.project_id : null;
+      const inPersonalThread = here?.personal === true && here.mine === true;
+      const withL1 = here?.personal === false || inPersonalThread;
       // L1：已从本会话晋升出去、而本会话的原结论还在的，不再重复一份（原结论已经在上面了）。
-      const personal = !inPersonalThread ? { rows: [] as Row[] } : await s.query<Row>(
+      const personal = !withL1 ? { rows: [] as Row[] } : await s.query<Row>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
           WHERE c.org_id = $1 AND c.scope_kind = 'personal' AND c.scope_id = $3 AND ${LIVE}
             AND NOT EXISTS (
@@ -82,12 +101,28 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           ORDER BY c.id`,
         [orgId, threadId, userId],
       );
+      // L2：已从本会话晋升到项目记忆、而本会话的原结论还在的，不再重复一份（同上面 L1 的处理）。
+      const project = projectId === null ? { rows: [] as Row[] } : await s.query<Row>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $3 AND ${LIVE}
+            AND NOT EXISTS (
+              SELECT 1 FROM ontology_edges d JOIN claims src ON src.id = d.dst_id AND src.org_id = d.org_id
+               WHERE d.org_id = c.org_id AND d.src_kind = 'claim' AND d.src_id = c.id AND d.relation = 'derived_from'
+                 AND d.status = 'active' AND src.scope_kind = 'chat_session' AND src.scope_id = $2
+                 AND src.revoked_at IS NULL AND src.status <> 'superseded')`,
+        [orgId, threadId, projectId],
+      );
       const objects = await s.query<{ id: string; name: string; aliases: string[] }>(
         `SELECT id, name, aliases FROM ontology_objects
           WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, threadId],
       );
-      const personalObjects = !inPersonalThread ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
+      const projectObjects = projectId === null ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
+        `SELECT id, name, aliases FROM ontology_objects
+          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND merged_into IS NULL`,
+        [orgId, projectId],
+      );
+      const personalObjects = !withL1 ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
         `SELECT id, name, aliases FROM ontology_objects
           WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, userId],
@@ -103,15 +138,22 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
         const tri = KG.claimTriState(c.status as Parameters<typeof KG.claimTriState>[0]);
         return tri === null ? [] : [{
           id: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, saidAt: c.said_at?.toISOString() ?? null, scope,
+          // issue #4363（S6）：过期 / 「不做了」由 fuseRecall 的 recallable 统一排除（判定只有一处，SQL 里不另写一份）
+          validUntil: c.valid_to?.toISOString() ?? null, todoStatus: c.todo_state ?? null,
           ...(c.thread_id === undefined ? {} : { originThreadId: c.thread_id }),
+          ...(scope === "project" && c.shared_by !== null ? { sharedByName: c.shared_by } : {}),
         }];
       };
+      // S10（#4367）：本人分享到这个项目的那条，在本人自己提问时会同时以 L1 原件和 L2 副本出现——同一句话只留项目那份
+      // （全体成员看到的是同一条、同一个出处标签）。只按「分享来的项目副本」的说法去重，从项目对话记进来的不牵动 L1。
+      const sharedStatements = new Set(project.rows.filter((c) => c.shared_by !== null).map((c) => c.statement));
       const out: { claims: RecallClaim[]; objects: RecallObject[] } = {
         claims: [
-          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal")),
+          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.filter((c) => !sharedStatements.has(c.statement)).flatMap(toClaim("personal")),
+          ...project.rows.flatMap(toClaim("project")),
           ...ownOther.rows.filter((c, i, all) => all.findIndex((o) => o.basis === c.basis) === i).flatMap(toClaim("personal")),
         ],
-        objects: [...objects.rows, ...personalObjects.rows, ...ownOtherObjects.rows].map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
+        objects: [...objects.rows, ...personalObjects.rows, ...projectObjects.rows, ...ownOtherObjects.rows].map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
       };
       return out;
     });
@@ -130,6 +172,45 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
       const rels = [row.rel1, row.rel2, row.rel3].filter((x): x is string => x !== null);
       const path: GraphHop[] = rels.map((relation, i) => ({ src: nodes[i]!, relation, dst: nodes[i + 1]! }));
       return { claimId: stripKind(row.claim_key), path };
+    });
+  }
+
+  /**
+   * S9（#4366）向量通道：问题嵌入 ↔ 候选结论的嵌入，余弦最近的前 `limit` 条。
+   *
+   * - 只在 `claimIds`（本轮候选集，candidates 的结果；可以是还在读的 Promise）里找，返回的也只有 id 与相似度——与图路同一形状，
+   *   作用域不会被向量放宽；读之前设 app.current_user_id = 发起人，object_embeddings 的 target_visible 策略
+   *   只放本人看得见的目标的向量（I-14）。
+   * - 查询形状对得上每个登记模型的 HNSW 部分表达式索引（F05，`hnsw-ann.ts`）：pgvector ≥ 0.8 开迭代扫描，
+   *   取不满 k 条按精确扫描补全；候选集过滤很严时由规划器选 btree 预过滤 + 精确排序，两者结果都正确。
+   * - 没配置嵌入模型 ⇒ null（未启用）。配置了但模型没登记 ⇒ 抛 `embedding_model_not_registered`（部署配错了，
+   *   按故障报、降级，不当成「没有相似的」静默略过）。嵌入服务 / 库出错照原样抛，调用方降级。
+   */
+  async vectorNeighbors(
+    orgId: OrgId, userId: string, query: string, candidateIds: readonly string[] | Promise<readonly string[]>, limit: number,
+  ): Promise<readonly VectorHit[] | null> {
+    if (this.embeddings === null) return null;
+    if (limit < 1 || (Array.isArray(candidateIds) && candidateIds.length === 0)) return [];
+    const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
+    // 嵌入问题与读候选集并行（候选集还在读时就开始嵌入）。
+    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query)]);
+    if (claimIds.length === 0) return [];
+    // pgvector 的文本输入格式就是 JSON 数组的写法。
+    const vec = JSON.stringify(q);
+    return this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+      await s.query("SELECT set_config('statement_timeout', '1000', true)");
+      const ann = await prepareAnn(s, model, q, limit);
+      if (ann === null) throw new Error("embedding_model_not_registered");
+      const run = async (order: string) => (await s.query<{ id: string; similarity: number }>(
+        `SELECT oe.target_id AS id, 1 - (${order}) AS similarity FROM object_embeddings oe
+          WHERE oe.org_id = $1 AND oe.target_kind = 'claim' AND oe.model = $2 AND oe.model_version = $3
+            AND oe.target_id = ANY($5::text[])
+          ORDER BY ${order} LIMIT $6`,
+        [orgId, model.model, model.modelVersion, vec, claimIds, limit],
+      )).rows;
+      const r = await annThenExact(limit, () => run(annOrder("oe.embedding", "$4", ann.dims)), () => run(exactOrder("oe.embedding", "$4")));
+      return r.rows.map((x) => ({ claimId: x.id, similarity: Number(x.similarity) }));
     });
   }
 

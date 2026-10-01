@@ -1,6 +1,8 @@
 import type { survey } from "@repo/contracts";
+import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import { reportChartSvg } from "./report-chart";
 import { reportNumber } from "./report-document";
+import { surveyInsightAction, surveySampleNotice } from "./report-sample-qualification";
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -54,6 +56,8 @@ async function rasterImage(url: string) {
 export async function buildSurveyReportWord(
   report: survey.CompiledSurveyReport,
 ): Promise<Blob> {
+  const shareBlockedReason = surveyReportShareBlockedReason(report);
+  if (shareBlockedReason) throw new Error(shareBlockedReason);
   const {
     Document,
     Packer,
@@ -92,12 +96,18 @@ export async function buildSurveyReportWord(
     const { total, pendingReview, excluded, included } = report.sampleSummary;
     paragraph(`样本口径：总答卷 ${total} · 待复核 ${pendingReview} · 已排除 ${excluded} · 纳入分析 ${included}`);
   }
+  const notice = surveySampleNotice(report.sampleSummary?.included);
+  if (notice) {
+    paragraph(notice.label, HeadingLevel.HEADING_2);
+    paragraph(notice.text);
+  }
   for (const section of report.sections) {
     paragraph(section.title, HeadingLevel.HEADING_1);
     for (const insight of section.analysis ?? []) {
+      const action = surveyInsightAction(report, section, insight);
       paragraph(insight.title, HeadingLevel.HEADING_2);
       paragraph(insight.evidence);
-      paragraph(`建议行动：${insight.action}`);
+      if (action) paragraph(`${action.label}${action.text}`);
     }
     if (!section.blocks.length) paragraph("本章尚无内容");
     for (const block of section.blocks) {
@@ -228,7 +238,10 @@ export async function exportSurveyReportWord(
 /** Isolated native print uses the whole report, not a screenshot of the scroll viewport. */
 export async function printSurveyReport(
   reportRoot: HTMLElement,
+  report?: survey.CompiledSurveyReport,
 ): Promise<void> {
+  const shareBlockedReason = report && surveyReportShareBlockedReason(report);
+  if (shareBlockedReason) throw new Error(shareBlockedReason);
   if (reportRoot.querySelector("[data-report-image-error]"))
     throw new Error("图片加载失败，无法完整打印报告");
   const frame = document.createElement("iframe");

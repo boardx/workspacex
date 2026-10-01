@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/tasks",
@@ -67,7 +67,7 @@ describe("我的今天：一个项目都没有时", () => {
   });
 
   it("有项目时不画这一段——那时候该看到的是分区", async () => {
-    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", tags: [] }]);
+    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", kind: "workshop", tags: [] }]);
     getMyToday.mockResolvedValue(EMPTY_TODAY);
     render(<TodayBoardLive />);
     await waitFor(() => expect(getMyToday).toHaveBeenCalled());
@@ -75,7 +75,7 @@ describe("我的今天：一个项目都没有时", () => {
   });
 
   it("**「没有项目」与「有项目但没任务」要分开说**", async () => {
-    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", tags: [] }]);
+    listProjects.mockResolvedValue([{ id: "p-1", name: "项目一", kind: "workshop", tags: [] }]);
     getMyToday.mockResolvedValue(EMPTY_TODAY);
     render(<TodayBoardLive />);
     // 有项目没任务时走的是分区自己的「没有等你的事」——两种空态说的不是一件事，
@@ -84,4 +84,13 @@ describe("我的今天：一个项目都没有时", () => {
     await screen.findByTestId("tasks-live-section-empty-awaiting_my_judgment");
     expect(screen.queryByTestId("tasks-live-no-project")).toBeNull();
   });
+  it("新建任务每个字段都有可访问标签", async () => {
+    listProjects.mockResolvedValue([]);
+    render(<TodayBoardLive />);
+    fireEvent.click(screen.getByTestId("tasks-new-task-live"));
+    expect(screen.getByRole("textbox", { name: "任务标题" })).toHaveFocus();
+    expect(screen.getByLabelText("截止日期（可选）")).toHaveAttribute("type", "date");
+    expect(screen.getByRole("combobox", { name: "风险等级（可选）" })).toBeVisible();
+  });
+
 });

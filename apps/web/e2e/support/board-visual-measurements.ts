@@ -1,0 +1,50 @@
+import {createHash} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
+import {expect, type Page, type TestInfo} from '@playwright/test';
+export {visualViewports,validateVisualMeasurement} from './board-visual-policy';
+import {validateVisualMeasurement} from './board-visual-policy';
+export const sha256 = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
+export async function visualMeasurement(page:Page) {
+  return page.evaluate(()=>{
+    const surface=document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"]');
+    if(!surface)throw new Error('FABRIC_SURFACE_REQUIRED');
+    const box=surface.getBoundingClientRect();let available=0,total=0;
+    for(let y=box.top+8;y<box.bottom;y+=16)for(let x=box.left+8;x<box.right;x+=16){total++;const hit=document.elementFromPoint(x,y);if(hit instanceof HTMLCanvasElement&&hit.dataset.fabric==='top')available++;}
+    const bars=[...document.querySelectorAll<HTMLElement>('[data-testid="board-context-toolbar"]')].filter(e=>e.getBoundingClientRect().height);
+    const controls=['board-add-sticky','board-add-shape','board-add-draw','board-add-connector'].map(name=>{
+      const element=document.querySelector<HTMLElement>(`[data-testid="${name}"]`);if(!element)return{name,width:0,height:0,reachable:false};
+      const rect=element.getBoundingClientRect(),hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
+      return{name,width:rect.width,height:rect.height,reachable:Boolean(hit&&element.contains(hit))};
+    });
+    const editor=document.querySelector<HTMLTextAreaElement>('textarea[aria-label="对象文字"]');
+    const editorRect=editor?.getBoundingClientRect();
+    const editorHit=editorRect?document.elementFromPoint(editorRect.x+editorRect.width/2,editorRect.y+editorRect.height/2):null;
+    const editorReachable=editorRect?Boolean(editorHit&&editor!.contains(editorHit)):null;
+    const focused=document.activeElement as HTMLElement|null;
+    return{editorReachable,canvasAvailable:available/total,toolbarCount:bars.length,toolbarHeight:Math.max(0,...bars.map(e=>e.getBoundingClientRect().height)),controls,
+      focus:{tag:focused?.tagName,name:focused?.getAttribute('aria-label'),testId:focused?.dataset.testid},
+      viewport:{width:innerWidth,height:innerHeight},scroll:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},
+      editorFontSize:document.querySelector('textarea')?getComputedStyle(document.querySelector('textarea')!).fontSize:null};
+  });
+}
+export async function captureVisual(page:Page,info:TestInfo,label:string,strict=true) {
+  // Fabric sizes its generated upper canvas from a ResizeObserver. The first
+  // capture can otherwise sample the host after layout but the canvas before
+  // that observer has committed (the 1440x900 CI capture reported 63% while
+  // the immediately resized 1280/1024 captures were both above 80%). Keep the
+  // real hit-test threshold; wait for the renderer and host to describe the
+  // same viewport before measuring it.
+  await expect.poll(()=>page.evaluate(()=>{
+    const surface=document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"]');
+    const canvas=surface?.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]');
+    if(!surface||!canvas)return false;
+    const host=surface.getBoundingClientRect(),rendered=canvas.getBoundingClientRect();
+    return Math.abs(host.width-rendered.width)<=1&&Math.abs(host.height-rendered.height)<=1;
+  })).toBe(true);
+  const measurement=await visualMeasurement(page),bytes=await page.screenshot({fullPage:false}),path=info.outputPath(`${label}.png`);
+  await writeFile(path,bytes);await info.attach(label,{path,contentType:'image/png'});
+  const failures=strict?validateVisualMeasurement(measurement):[];
+  if(measurement.editorReachable===false)failures.push('EDITOR_TEXT_OCCLUDED');
+  expect.soft(failures,`${label}: real hit-test/space measurements`).toEqual([]);
+  return{label,strict,screenshot:{path,sha256:sha256(bytes)},measurement,failures,at:new Date().toISOString()};
+}

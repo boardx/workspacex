@@ -1,0 +1,44 @@
+"use client";
+import { useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/shell/app-shell";
+import { mockIdentity } from "@/lib/identity";
+import { ResearchIntake } from "./research-intake";
+import { ResearchHistoryCard } from "./research-history-card";
+import { ResearchTopicInformation } from "./research-topic-information";
+import { ResearchChaptersWorkspace } from "./research-chapters-workspace";
+import { ResearchPrototypeReport } from "./research-prototype-report";
+import { GuidedResearchPlanPanel } from "./guided-research-plan-panel";
+import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-workspace";
+import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
+import { GuidedResearchReportWorkspace } from "./guided-research-report-workspace";
+import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
+import { GuidedResearchSourceWorkspace } from "./guided-research-source-workspace";
+import { GuidedResearchTopicPanel } from "./guided-research-topic-panel";
+import { prototypeRuntime } from "./research-prototype-fixture";
+import { researchReportDocument } from "@/lib/research-report-document";
+import type { GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
+const stages = ["import", "topic", "plan", "research", "chapters", "report"] as const;
+const noop = () => undefined;
+const route = (stage: string) => `/research?preview=prototype-fidelity&stage=${stage}`;
+/** Development-only visual samples. No backend/model verification is implied. */
+export function GuidedResearchPrototypePreview({ stage }: { stage?: string }) {
+  const current = stages.includes(stage as GuidedResearchVisualStage) ? stage as GuidedResearchVisualStage : null;
+  const [runtime, setRuntime] = useState(prototypeRuntime);
+  const document = researchReportDocument(runtime.report!, runtime.sources, runtime.outline);
+  const actions = (previous: string, next: string, label: string) => <div className="flex justify-between gap-4"><Button asChild variant="primary" className="h-9 px-4 text-sm"><a href={route(previous)}>上一步</a></Button><Button asChild variant="primary" className="h-9 px-4 text-sm"><a href={route(next)}>{label}<ArrowRight className="size-4" /></a></Button></div>;
+  const note = <p role="note" className="px-10 py-2 text-sm text-muted-foreground">视觉对照样本：固定示例数据，不代表真实检索、模型生成或后端验证。</p>;
+  if (!current) return <AppShell identity={mockIdentity("org-yuanyang", null)} previewRole={null} hideRoleSwitcher><div data-testid="guided-research-prototype-preview"><section data-testid="guided-research-prototype-home" className="mx-auto max-w-screen-2xl space-y-6 px-10 py-8"><header className="flex items-center justify-between"><div><h1 className="text-5xl font-bold">研究列表</h1><p className="mt-3 text-2xl text-muted-foreground">从问题出发，深入研究，获得可执行的洞察。</p></div><Button asChild className="h-14 px-6 text-xl"><a href={route("import")}>新建研究</a></Button></header><div className="grid gap-6 md:grid-cols-2">{["中国新能源汽车市场的发展趋势", "全球储能产业发展与竞争格局", "东南亚电商市场的增长潜力", "AI 大模型在金融行业的应用前景"].map((title, index) => <ResearchHistoryCard key={title} testId={`prototype-card-${index}`} title={title} status={null} description="分析市场规模、竞争格局、政策环境及未来发展趋势，识别关键机遇与挑战。" tags={index === 0 ? ["行业", "市场", "政策", "新能源"] : index === 1 ? ["储能", "行业", "出海"] : index === 2 ? ["市场", "出海", "电商"] : ["AI", "金融", "行业"]} metadata={<time>更新于 2024-03-{15 - index}</time>} management={null} primaryAction={<Button asChild className="h-11 px-5 text-base"><a href={route("plan")}>继续研究 <ArrowRight className="size-5" /></a></Button>}><p className="text-base">研究进度 {3 - index % 3} / 6 步</p><progress aria-label={`${title}进度`} className="h-2 w-full appearance-none overflow-hidden rounded-full bg-muted [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:bg-primary [&::-moz-progress-bar]:bg-primary" value={3 - index % 3} max={6} /></ResearchHistoryCard>)}</div></section>{note}</div></AppShell>;
+  let main;
+  if (current === "import") main = <ResearchIntake session={null} workflow={null} onSession={noop} onWorkflow={noop} onPending={noop} onNavigate={noop} renderAssistant={() => null} onConfirmBrief={(brief) => { setRuntime({ ...runtime, brief }); window.location.assign(route("topic")); }} />;
+  else if (current === "topic") main = <GuidedResearchTopicPanel workspace={<><h2 className="text-3xl font-bold">完善研究信息</h2><ResearchTopicInformation brief={runtime.brief} disabled={false} onSave={(brief) => setRuntime({ ...runtime, brief })} /></>} actions={actions("import", "plan", "下一步：研究计划")} />;
+  else if (current === "plan") {
+    const planDocument = serializeGuidedResearchMarkdown({ node: "outline", outline: runtime.outline });
+    main = <GuidedResearchPlanPanel plan={<><div className="rounded-lg border bg-muted/20 p-3 text-sm"><p className="text-muted-foreground">研究主题（示例）</p><h3 className="font-bold">{runtime.brief.topic}</h3><p className="text-muted-foreground">{runtime.brief.goal}</p></div><GuidedResearchMarkdownWorkspace initiallyEditing document={planDocument} onSave={async (markdown) => { const parsed = parseGuidedResearchMarkdown({ document: planDocument, markdown }); if (!parsed.ok) return { ok: false, message: parsed.errors.map((error) => error.message).join("；") }; if (parsed.draft.node === "outline") setRuntime({ ...runtime, outline: parsed.draft.value }); return { ok: true }; }} /></>} disabled={false} onBack={() => window.location.assign(route("topic"))} onConfirm={() => window.location.assign(route("research"))} />;
+  }
+  else if (current === "research") main = <GuidedResearchSourceWorkspace state={runtime} actions={<><Button className="h-10 px-5 text-sm">继续搜索</Button><Button variant="outline" className="h-10 px-5 text-sm">重试失败任务</Button></>} />;
+  else if (current === "chapters") main = <ResearchChaptersWorkspace runtime={runtime} disabled={false} onSave={(outline) => setRuntime({ ...runtime, outline })} onOptimize={noop} onBack={() => window.location.assign(route("research"))} onNext={() => window.location.assign(route("report"))} />;
+  else main = <GuidedResearchReportWorkspace actions={null} metrics={null} limitation={null} contents={<ol className="space-y-4">{["执行摘要", ...document.sections.map((item) => item.title), "参考文献"].map((title, index) => <li key={title}><a className="block rounded px-3 py-2 transition-colors hover:bg-muted" href={index === 0 ? "#research-report-summary" : index === document.sections.length + 1 ? "#research-report-references" : `#research-report-section-${index - 1}`}>{index + 1}. {title}</a></li>)}</ol>} document={<ResearchPrototypeReport document={document} sources={runtime.sources.length} disabled={false} onRegenerate={noop} />} />;
+  return <div data-testid="guided-research-prototype-preview"><div data-testid={`guided-research-prototype-${current}`}><GuidedResearchSixStepShell current={current} available={[...stages]} onBack={() => window.location.assign(route("home"))} onNavigate={(next) => window.location.assign(route(next))} main={<>{main}{note}</>} /></div></div>;
+}

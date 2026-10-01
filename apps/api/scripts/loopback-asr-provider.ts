@@ -42,6 +42,7 @@
  */
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
+import { handleOmniRealtimeConnection } from "./loopback-omni-realtime";
 
 const port = Number(process.env.LOOPBACK_ASR_PROVIDER_PORT ?? "");
 if (!Number.isInteger(port) || port <= 0) {
@@ -64,6 +65,12 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws, req) => {
+  // 同一进程/端口再挂一条确定性 OMNI 实时上游（`KERNEL_OMNI_REALTIME_BASE_URL=ws://…/omni-realtime`）：
+  // 数字人语音网关走它，用户会看到可读的中文转写 + 助手回复，而不是下面 ASR 的调试串。
+  if ((req.url ?? "").startsWith("/omni-realtime")) {
+    handleOmniRealtimeConnection(ws);
+    return;
+  }
   // #802 hotfix -- this loopback used to accept `transcription_session.update` and never
   // checked `?model=`, matching the SAME wrong assumptions `ConfiguredRealtimeAsrProvider`
   // had at the time -- so this smoke test stayed green while the real dashscope endpoint

@@ -37,11 +37,20 @@ export interface SampleProjectLookup {
   findProjectIdByTag(orgId: OrgId, tag: string): Promise<string | null>;
 }
 
+/**
+ * #4245 —— 示例项目的持久标记（`sample_projects`）。与「内置示例」标签不同，它没有用户可达的
+ * 写/删路径，E1 漏斗据此区分「引用示例材料」与「引用自己的材料」。幂等（重复标记不报错）。
+ */
+export interface SampleProjectMarker {
+  markSampleProject(orgId: OrgId, projectId: string): Promise<void>;
+}
+
 export interface EnsureSampleProjectDeps {
   readonly project: CreateProjectDeps;
   readonly upload: UploadArtifactDeps;
   readonly tags: ProjectTagsRepository;
   readonly lookup: SampleProjectLookup;
+  readonly marker: SampleProjectMarker;
   /** 测试注入用；缺省即 `SAMPLE_DOCUMENTS`。 */
   readonly documents?: readonly SampleDocument[];
 }
@@ -62,7 +71,11 @@ export async function ensureSampleProject(
   input: { readonly orgId: OrgId; readonly actorId: string },
 ): Promise<EnsureSampleProjectResult> {
   const existing = await deps.lookup.findProjectIdByTag(input.orgId, SAMPLE_PROJECT_TAG);
-  if (existing !== null) return { projectId: existing, created: false };
+  if (existing !== null) {
+    // 存量组织（标记表出现之前种下的）在这里补写标记；已标记则是空操作。
+    await deps.marker.markSampleProject(input.orgId, existing);
+    return { projectId: existing, created: false };
+  }
 
   const project = await createProject(deps.project, {
     orgId: input.orgId,
@@ -71,6 +84,9 @@ export async function ensureSampleProject(
     kind: SAMPLE_PROJECT_KIND,
     blueprintVersionId: null,
   });
+
+  // 标记先于上传：中途失败时容器已被认作示例，续跑时上传的材料不会有「未标记」的窗口。
+  await deps.marker.markSampleProject(input.orgId, project.id);
 
   const encoder = new TextEncoder();
   const uploaded = await uploadArtifact(deps.upload, {

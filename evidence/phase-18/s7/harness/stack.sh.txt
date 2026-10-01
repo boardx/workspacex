@@ -1,0 +1,25 @@
+#!/bin/bash
+# usage: stack.sh createdb|migrate|redis|model|seed|api|web|pw|dropdb
+# Same shape as evidence/phase-18/r11a/harness/stack.sh.txt; ports 59142/59143/59145 + web 29144, db s7e2e.
+H=/home/user/workspacex/.claude/worktrees/agent-a29e93edc7b87f773/evidence/phase-18/s7/harness
+S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s7-own
+source $S/accounts.sh
+source $H/env.sh.txt
+case "$1" in
+  createdb) exec psql -U postgres -d postgres -c "CREATE DATABASE s7e2e" ;;
+  dropdb) exec psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS s7e2e WITH (FORCE)" ;;
+  migrate) cd $WT/apps/api && exec pnpm -s run migrate ;;
+  redis) exec redis-server --port $REDIS_PORT --save "" --appendonly no --dir $S ;;
+  model) cd $WT/apps/api && LOOPBACK_KG_EVAL_PROVIDER_PORT=$WORKSPACEX_MODEL_PROVIDER_PORT LOOPBACK_KG_EVAL_CASES=$H/cases-s7.json exec npx tsx scripts/loopback-kg-eval-model-provider.ts ;;
+  seed) cd $WT/apps/api && npx tsx scripts/seed-kg-experience-eval.ts && cp $WT/evidence/phase-18/r11a/harness/r11a-post-seed.ts.txt scripts/s7-post-seed.ts && npx tsx scripts/s7-post-seed.ts; rm -f $WT/apps/api/scripts/s7-post-seed.ts ;;
+  api) cd $WT/apps/api && PORT=$WORKSPACEX_API_PORT KERNEL_MODEL_PROVIDER=$KG_EVAL_MODEL_PROVIDER \
+      KERNEL_MODEL_BASE_URL=http://127.0.0.1:$WORKSPACEX_MODEL_PROVIDER_PORT KERNEL_MODEL_API_KEY=kg-eval-loopback-key-not-a-real-key \
+      KERNEL_KG_EXTRACTION_MODEL_ID=$KG_EVAL_MODEL_ID KERNEL_FOLLOWUP_SUGGESTIONS_MODEL_ID=$KG_EVAL_MODEL_ID \
+      KERNEL_MODEL_STREAM_ENABLED=1 KG_EXTRACTION_ENABLED=1 MODEL_CREDENTIAL_KEY=kg-eval-credential-key-not-a-real-key \
+      exec npx tsx src/main.ts ;;
+  web) cd $WT/apps/web && NEXT_PUBLIC_API_URL=http://127.0.0.1:$WORKSPACEX_WEB_PORT NEXT_PUBLIC_API_PATH_PREFIX=/__fullstack_api \
+      NEXT_PUBLIC_API_WS_URL=http://127.0.0.1:$WORKSPACEX_API_PORT FULLSTACK_E2E_API_ORIGIN=http://127.0.0.1:$WORKSPACEX_API_PORT \
+      NEXT_DIST_DIR=.next-kg-eval NEXT_FONT_GOOGLE_MOCKED_RESPONSES=$WT/apps/web/e2e/support/google-fonts-mock.cjs \
+      exec node node_modules/next/dist/bin/next dev -p $WORKSPACEX_WEB_PORT ;;
+  pw) cd $WT/apps/web && PW_EXECUTABLE=$PW_CHROME exec npx playwright test -c playwright.s7.config.ts ;;
+esac

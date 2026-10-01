@@ -1,0 +1,37 @@
+{
+  "fixture": "E4",
+  "profile": "incident",
+  "symptom": {
+    "what": "日志服务宕机",
+    "expected": "可用率 99.9%",
+    "actual": "宕机 47 分钟"
+  },
+  "evidence": [
+    {
+      "id": "ev1",
+      "kind": "metric",
+      "quote": "disk_usage 达 100% @02:10"
+    },
+    {
+      "id": "ev2",
+      "kind": "change-record",
+      "quote": "02:00 磁盘阈值告警静默至 06:00（维护窗口）"
+    },
+    {
+      "id": "ev3",
+      "kind": "log",
+      "quote": "logrotate exit code 1 since 3 days"
+    },
+    {
+      "id": "ev4",
+      "kind": "document",
+      "quote": "同集群 logrotate 正常的节点磁盘 41%"
+    }
+  ],
+  "isNot": [
+    {
+      "dimension": "where",
+      "text": "同集群其它节点"
+    }
+  ]
+}

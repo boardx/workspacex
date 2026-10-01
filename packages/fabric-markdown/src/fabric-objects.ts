@@ -26,6 +26,7 @@ import {
 } from 'fabric';
 import type { DiagramNode, DiagramEdge, NodeShape, EdgeKind } from './model';
 import {
+  SEQ_SELF_MESSAGE_WIDTH,
   INK,
   INK_SOFT,
   PAPER,
@@ -865,7 +866,7 @@ export class FlowEdge extends FabricObject {
     // small vertical span — draw the classic right-hand loop instead of a
     // (zero-length) horizontal line.
     if (this.seqY !== undefined && Math.abs(bx - ax) < 0.5 && Math.abs(by - ay) > 0.5) {
-      const W = 56;
+      const W = SEQ_SELF_MESSAGE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(ax, ay);
       ctx.lineTo(ax + W, ay);

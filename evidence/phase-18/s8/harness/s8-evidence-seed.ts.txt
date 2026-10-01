@@ -1,0 +1,97 @@
+/**
+ * S8（#4365）浏览器证据的种子：给开发模式的 consultant 账号在自己的个人对话里说四句话，走**真实**的 F06 抽取流水线
+ * （回环模型按消息内容回固定 JSON；与 tests/knowledge-graph/consolidation-db.test.ts 同一组句子），
+ * 由 #4283/#4343 自动记进个人空间；两条偏好的个人副本各写一条向量（S9 的 object_embeddings）；
+ * 再造一行租约过期未完成的抽取任务（让 SLO 面板出「卡住的租约」告警）。整合本身不在这里跑——由管理员在后台点「现在整合一次」。
+ *
+ * 用法（在 apps/api 下）：WORKSPACEX_DEV_MODE=1 npx tsx scripts/s8-evidence-seed.ts
+ */
+import pg from "pg";
+import { DEV_MODE_ORG_NAME, getDevModeAccount } from "@repo/dev-mode-accounts";
+import { runExtractionTick } from "../src/application/knowledge-graph/extract-message-knowledge";
+import { newKgId } from "../src/application/knowledge-graph/ids";
+import type { ModelCallPort } from "../src/application/agent-run/ports";
+import { toOrgId } from "../src/domain/org-id";
+import { appConfig, migrationConfig } from "../src/infrastructure/db/pg-config";
+import { PgDatabase } from "../src/infrastructure/db/pg-database";
+import { ModelKnowledgeExtractor } from "../src/infrastructure/knowledge-graph/model-knowledge-extractor";
+import { PgKgAutoCopy } from "../src/infrastructure/knowledge-graph/pg-kg-auto-copy";
+import { PgKgConflict } from "../src/infrastructure/knowledge-graph/pg-kg-conflict";
+import { PgKgExtraction } from "../src/infrastructure/knowledge-graph/pg-kg-extraction";
+import { PgOntologyStore } from "../src/infrastructure/knowledge-graph/pg-ontology-store";
+
+const decision = (entity: string, statement: string) => JSON.stringify({
+  entities: [{ name: entity, kind: "project", aliases: [] }],
+  claims: [{ statement, kind: "decision", confidence: 0.9, about: [entity], decidedBy: null, quote: statement }],
+});
+const preference = (statement: string) => JSON.stringify({
+  entities: [], claims: [{ statement, kind: "preference", confidence: 0.9, about: [], decidedBy: null, quote: statement }],
+});
+const PREF_OLD = "我更喜欢简洁的回答";
+const PREF_NEW = "我更喜欢简洁一点的回答";
+const SAYS: [string, string, string][] = [
+  ["s8-thr-budget-50", "项目A 预算", "项目A 预算定为 50 万"],
+  ["s8-thr-pref-1", "回答风格", PREF_OLD],
+  ["s8-thr-budget-60", "项目A 预算（新）", "项目 A 预算定为 60 万"],
+  ["s8-thr-pref-2", "回答风格（又说了一次）", PREF_NEW],
+];
+const REPLIES: [string, string][] = [
+  ["项目 A 预算定为 60 万", decision("项目 A", "项目 A 预算定为 60 万")],
+  ["项目A 预算定为 50 万", decision("项目A", "项目A 预算定为 50 万")],
+  [PREF_NEW, preference(PREF_NEW)],
+  [PREF_OLD, preference(PREF_OLD)],
+];
+const model: ModelCallPort = {
+  complete: async (input) => ({ text: REPLIES.find(([k]) => input.user.includes(k))?.[1] ?? '{"entities":[],"claims":[]}' }),
+} as ModelCallPort;
+
+const owner = new pg.Client(migrationConfig());
+await owner.connect();
+const q = async <R>(sql: string, params: unknown[] = []) => (await owner.query(sql, params)).rows as R[];
+
+const [org] = await q<{ id: string }>("SELECT id FROM organizations WHERE name = $1 AND kind = 'organization' LIMIT 1", [DEV_MODE_ORG_NAME]);
+const [me] = await q<{ user_id: string }>("SELECT user_id FROM credentials WHERE email = $1", [getDevModeAccount("consultant").email]);
+if (!org || !me) throw new Error("run seed-dev-mode-accounts.ts first");
+const ORG = org.id;
+const ME = me.user_id;
+await q("SELECT kg_extraction_enable()");
+await q(`INSERT INTO kg_org_extraction_settings (org_id, enabled, updated_by) VALUES ($1, true, 's8-evidence')
+         ON CONFLICT (org_id) DO UPDATE SET enabled = true`, [ORG]);
+
+const db = new PgDatabase(appConfig());
+const pgx = new PgKgExtraction(db);
+const deps = {
+  queue: { enable: () => pgx.enable(), pendingOrgs: async () => (await pgx.pendingOrgs()).filter((o) => o === ORG), claim: (o: never, n: number) => pgx.claim(o, n), complete: pgx.complete.bind(pgx), fail: pgx.fail.bind(pgx) },
+  source: pgx, store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db),
+  logger: { info: () => undefined, error: (m: string, d: unknown) => console.error(m, d) }, newId: newKgId,
+  extractor: new ModelKnowledgeExtractor(model, { enabled: true, provider: "loopback", modelId: "m" }, { info: () => undefined, error: () => undefined }),
+};
+let n = 0;
+for (const [thread, title, body] of SAYS) {
+  await q(`INSERT INTO chat_threads (id, org_id, project_id, visibility_scope, created_by, title)
+           VALUES ($1, $2, NULL, 'private', $3, $4) ON CONFLICT DO NOTHING`, [thread, ORG, ME, title]);
+  for (const [author, kind, text] of [[ME, "human", body], ["agent-s8", "agent", "好的，我记下了。"]] as const) {
+    n += 1;
+    await q(`INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, body, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, now() + make_interval(secs => $7)) ON CONFLICT DO NOTHING`,
+      [`s8-msg-${thread}-${kind}`, ORG, thread, kind, author, text, n]);
+    await runExtractionTick(deps as never);
+  }
+}
+await q("INSERT INTO embedding_models (model, model_version, dims) VALUES ('kg-s8-evidence', 'v1', 3) ON CONFLICT DO NOTHING");
+for (const [statement, v] of [[PREF_OLD, "[1,0,0]"], [PREF_NEW, "[0.96,0.28,0]"]]) {
+  const [c] = await q<{ id: string }>(
+    "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND statement = $3 AND revoked_at IS NULL", [ORG, ME, statement]);
+  if (!c) throw new Error(`no personal copy of ${statement}`);
+  await q(`INSERT INTO object_embeddings (org_id, target_kind, target_id, model, model_version, embedding)
+           VALUES ($1, 'claim', $2, 'kg-s8-evidence', 'v1', $3::vector) ON CONFLICT DO NOTHING`, [ORG, c.id, v]);
+}
+// 卡住的租约：认领后 worker 崩了（租约早已过期），下一次重试排在一天后
+await q(`INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, body) VALUES ('s8-msg-stuck', $1, 's8-thr-pref-1', 'human', $2, '项目C 周五交付')
+         ON CONFLICT DO NOTHING`, [ORG, ME]);
+await q("UPDATE kg_extraction_queue SET locked_at = now() - interval '1 hour', attempts = 1, next_attempt_at = now() + interval '1 day' WHERE message_id = 's8-msg-stuck'");
+const personal = await q<{ statement: string; claim_kind: string; status: string }>(
+  "SELECT statement, claim_kind, status FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND revoked_at IS NULL ORDER BY created_at", [ORG, ME]);
+console.log(JSON.stringify({ org: ORG, user: ME, personal, orgId: toOrgId(ORG) }, null, 2));
+await db.close();
+await owner.end();

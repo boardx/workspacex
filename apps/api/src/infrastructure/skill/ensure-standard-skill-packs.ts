@@ -1,16 +1,15 @@
-import { fileURLToPath } from 'node:url';
 import type { DatabasePort } from '../../application/ports/database.port';
 import { importSkillStarterPack } from '../../application/skill-import/import-skill-starter-pack';
 import { PLATFORM_ORG_ID, toOrgId } from '../../domain/org-id';
 import { PgIdentityRepository } from '../identity/pg-identity-repository';
-import { FileSkillStarterPackSource } from './file-skill-starter-pack-source';
+import { FileSkillStarterPackSource, REPO_SKILL_STARTER_PACK_ROOT, resolveSkillStarterPackRoot } from './file-skill-starter-pack-source';
 import { PgSkillStarterImportRepository } from './pg-skill-starter-import-repository';
 
 /** Shipped release manifests, not model-selected paths or mutable remote candidates. */
 export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-web',packVersion:'1.1.2'},
   {packId:'data-workflows',packVersion:'1.0.0'},
-  {packId:'standard-methods',packVersion:'1.3.0'},
+  {packId:'standard-methods',packVersion:'1.5.2'},
   {packId:'standard-context',packVersion:'1.1.1'},
   {packId:'standard-canvas',packVersion:'1.0.1'},
   {packId:'standard-document',packVersion:'1.2.0'},
@@ -57,9 +56,8 @@ export interface StandardPackSeedOutcome {
  *   没配时才退回相对路径，既有部署逐字不变。
  */
 function standardPackRoot(): string {
-  const configured = process.env.SKILL_STARTER_PACK_ROOT?.trim();
-  if (configured !== undefined && configured !== '') return configured;
-  return fileURLToPath(new URL('../../../../../skills/starter-packs/', import.meta.url));
+  // 标准包自愈 seed 一直带仓库相对路径兜底（生产亦然），保持不变；配置解析走同一个入口。
+  return resolveSkillStarterPackRoot() ?? REPO_SKILL_STARTER_PACK_ROOT;
 }
 
 export async function ensureStandardSkillPacksSeeded(

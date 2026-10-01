@@ -15,13 +15,28 @@
  * 记住的内容以商量语气结尾（「…吧」「…好不好」「…行不行」）；忘掉的对象带着下一句（逗号 / 句号），或者说的是对话本身
  * （对话 / 上下文 / 指令 / 规则 / 一切 / 过去 / 烦恼…），或者没有一个能拿去比对的词。记住的内容只取第一句。
  * ——spec 里的「把这个记下来」「这个很重要」「刚才那个说错了」因此都不出卡，照常回答。
+ *
+ * Issue #4361（phase-18 S4「在对话里管理记忆」）另加两类，同一条纪律（整句规则、宁可漏不可误）：
+ *   改口：可选的「我改主意了 / 改主意了 / 想法变了 / 重新想了想…」开头，后面**紧跟**一个改口分句（改成 / 改为 / 换成 / 换为 /
+ *         改用 / 换用 / 转为 / 不再 / 把…换成…），只有一句话，不是问句；改口分句本身要过 R8 的 `hasChangeSignal`
+ *         （并列补充、否定的改口、假设、说着玩、自我更正都不算）。改的是**哪一条**、自动还是弹卡、还是什么都不做，
+ *         全由 R8 的 `planSupersedes` 对本人个人空间里的活决定判（decision-supersede.ts，白名单不在这里复写）。
+ *   查看：整句就是在问「你记得我什么」——「你（都）记得我什么 / 哪些事」「你记住了我哪些东西」「关于我你都知道什么」
+ *         「你对我了解多少」「列出你记住的关于我的所有内容」「你的记忆里有我的什么」。只认整句：「你记得我昨天说的方案吗」
+ *         是一个普通的召回问题（F08 照常回答），「你记得关于客户A的什么」不是在问「我」。
+ *   「我忘了密码」「忘记密码怎么办」「遗忘曲线是什么」这类都不是任何一类（没有前缀 / 前缀后没有分隔）。
  */
+import { hasChangeSignal } from "./decision-supersede";
 import { INTERROGATIVE, QUESTION_END } from "./question-detection";
 import { lexicalScore, lexicalTokens, type RecallClaim } from "./recall";
 
 export type MemoryIntent =
   | { readonly kind: "remember"; readonly statement: string }
-  | { readonly kind: "forget"; readonly target: string };
+  | { readonly kind: "forget"; readonly target: string }
+  /** #4361：「我改主意了，改成 Y」——statement 是去掉开头之后的那句改口（原话的一段，数据库核对它出自这条消息）。 */
+  | { readonly kind: "change"; readonly statement: string }
+  /** #4361：「你记得我什么」。 */
+  | { readonly kind: "overview" };
 
 /** 契约 KgMemoryCard.items[].statement 的上限。 */
 export const MEMORY_CARD_STATEMENT_MAX = 2000;
@@ -75,12 +90,40 @@ const SUGGESTION_TAIL = /(?:吧|好不好|行不行|可以不|成不成)$/;
 const TRAILING_PUNCT = /[\s。.!！~～]+$/;
 /** 忘掉的目标里的修饰：「关于王经理的那条」→「王经理」。 */
 const FORGET_FILLER_HEAD = /^(?:关于|有关|跟|和)\s*/;
-const FORGET_FILLER_TAIL = /\s*(?:的)?(?:那条|这条|那个|这个|那些|这些|那件事|这件事|的事|的事情|的记忆|的内容|吧|了)+$/;
+const FORGET_FILLER_TAIL = /\s*(?:(?:的)?(?:那条|这条|那个|这个|那些|这些|那件事|这件事|的事|的事情|的记忆|的内容|吧|了)+|的)$/;
+
+/** #4361 改口的开头（可选）：说的是「我改主意了」，后面必须紧跟一个改口分句。 */
+const CHANGE_LEAD = /^(?:我们?|咱们?)?(?:又|还是)?(?:改主意了?|改变主意了?|变主意了?|想法变了|主意变了|重新考虑了一下|重新想了想)[\s，,。.!！~～]*/;
+/**
+ * 改口分句的开头：与 R8（decision-supersede.ts）五种改口句式同一批标记词。这里只管「这句话是不是在改口」，
+ * 改口本身成不成立、改的是哪条由 `hasChangeSignal` / `planSupersedes` 判（不复写那边的规则）。
+ */
+const CHANGE_START = /^(?:我们?|咱们?|那就|那么|那|就|干脆|索性|现在|以后|今后)*(?:决定)?(?:改成|改为|换成|换为|改用|换用|转为|不再|把)/;
+/** 改口句最长多少字：比这长的多半是一段话，里面的改口交给抽取之后的 R8。 */
+const CHANGE_MAX = 200;
+/**
+ * #4361「你记得我什么」：只认整句（去掉句末问号 / 语气词、开头的「请 / 那」之后）。
+ * 结尾的名词只收一小撮泛指词：「你记得我什么时候开会」不是在问画像。
+ */
+const OVERVIEW_NOUN = "(?:事情?|事儿|东西|内容|信息|记忆|偏好|目标|决定|习惯)?";
+const OVERVIEW = [
+  new RegExp(`^(?:你|您)(?:都|还|现在|目前)*(?:记得|记住了?|记着|记下了?|知道)(?:关于)?我(?:的)?(?:些什么|哪些|什么|多少|些)${OVERVIEW_NOUN}$`),
+  new RegExp(`^(?:关于我|对我)(?:你|您)(?:都|还)*(?:记得|记住了?|记着|知道|了解)(?:些什么|哪些|什么|多少|些)${OVERVIEW_NOUN}$`),
+  /^(?:你|您)对我(?:都|还)*(?:有)?(?:多少|哪些)?了解(?:多少)?$/,
+  new RegExp(`^(?:列出|列一下|看看|说说|告诉我)(?:你|您)(?:都)?(?:记得|记住|记下)(?:了)?的(?:关于我的|我的)(?:所有|全部)?${OVERVIEW_NOUN.slice(0, -1)}$`),
+  new RegExp(`^(?:你的|您的)(?:长期)?记忆里(?:都)?有(?:我的|关于我的)(?:哪些|什么)${OVERVIEW_NOUN}$`),
+];
+const OVERVIEW_TRIM_HEAD = /^(?:请问|请|那|那么|所以|好吧|好)[，,\s]*/;
+const OVERVIEW_TRIM_TAIL = /[\s?？。.!！~～]*(?:呢|吗|呀|啊)?[\s?？。.!！~～]*$/;
 
 /** 用户这句话是不是明确要「记住 / 忘掉」；不确定 ⇒ null（不出卡）。 */
 export function detectMemoryIntent(message: string): MemoryIntent | null {
   const text = message.normalize("NFKC").trim();
-  if (text.length === 0 || QUESTION_END.test(text) || QUESTION_TAIL.test(text.replace(TRAILING_PUNCT, ""))) return null;
+  if (text.length === 0) return null;
+  // #4361「你记得我什么」本身就是问句：整句规则，先于下面的「问句不出卡」判
+  const overview = detectOverview(text);
+  if (overview !== null) return overview;
+  if (QUESTION_END.test(text) || QUESTION_TAIL.test(text.replace(TRAILING_PUNCT, ""))) return null;
 
   const remember = REMEMBER_WITH_SEP.exec(text) ?? REMEMBER_POLITE.exec(text);
   if (remember !== null) {
@@ -106,7 +149,27 @@ export function detectMemoryIntent(message: string): MemoryIntent | null {
     if (lexicalTokens(target).size === 0) return null;
     return { kind: "forget", target };
   }
-  return null;
+  return detectChange(text);
+}
+
+/** #4361：「（我改主意了，）改成 Y」。一句话、不是问句、改口分句过 R8 的 `hasChangeSignal`。 */
+function detectChange(text: string): MemoryIntent | null {
+  const lead = CHANGE_LEAD.exec(text);
+  const rest = (lead === null ? text : text.slice(lead[0].length)).trim();
+  if (!CHANGE_START.test(rest)) return null;
+  const end = SENTENCE_END.exec(rest);
+  // 句末之后还有下一句 ⇒ 不是「一句改口」（多半还有别的请求），交给抽取之后的 R8
+  if (end !== null && rest.slice(end.index + 1).replace(TRAILING_PUNCT, "").trim().length > 0) return null;
+  const statement = rest.replace(TRAILING_PUNCT, "").replace(/[。！!；;]+$/, "").trim();
+  if (statement.length < 3 || statement.length > CHANGE_MAX || INTERROGATIVE.test(statement)) return null;
+  if (!hasChangeSignal(statement)) return null;
+  return { kind: "change", statement };
+}
+
+/** #4361：整句就是「你记得我什么」。 */
+function detectOverview(text: string): MemoryIntent | null {
+  const t = text.replace(OVERVIEW_TRIM_HEAD, "").replace(OVERVIEW_TRIM_TAIL, "").replace(/\s+/g, "");
+  return OVERVIEW.some((re) => re.test(t)) ? { kind: "overview" } : null;
 }
 
 /**

@@ -191,8 +191,8 @@ describe("迭代 6 原语扩充", () => {
       ],
     };
     expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
-    // 对标 R3：+ table / chart；R4：+ select / radio / overlay；R5：+ section / footer。
-    expect(dp.PrototypeNodeType.options).toHaveLength(28);
+    // 对标 R3：+ table / chart；R4：+ select / radio / overlay；R5：+ section / footer；design-delta `prototype-board`：+ board。
+    expect(dp.PrototypeNodeType.options).toHaveLength(29);
     expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
     expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
     expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });

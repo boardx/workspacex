@@ -1,0 +1,140 @@
+/**
+ * Round 9 (#4302) on a real local stack: /brain accurately shows cross-session personal memory.
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`, unmodified) fed
+ * `cases-r09.json`: 「我决定关注 211 高校」 and 「改成关注 985 高校吧」 each extract one `decision`. Everything else —
+ * extraction worker, #4290 supersede (same_kind ⇒ automatic), #4283 auto personal copy, read paths, /brain UI and its
+ * two write actions (which reuse undoSupersede / undoAutoPersonalCopy) — is the product path.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/r09");
+mkdirSync(OUT, { recursive: true });
+const SAY_211 = "我决定关注 211 高校";
+const SAY_985 = "改成关注 985 高校吧";
+const D211 = "我决定关注 211 高校";
+const D985 = "改成关注 985 高校";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Personal {
+  claims: Array<{ id: string; statement: string; status: string; triState: string }>;
+  replaced: Array<{ byClaimId: string; replaces: { claimId: string; statement: string }; undo: { threadId: string; noticeId: string } | null }>;
+}
+interface Overview { personalOrigins: Array<{ personalClaimId: string; sourceClaimId: string; threadId: string; saidAt: string | null; autoCopied: boolean }> }
+const personal = async (page: Page) => (await apiGet(page, "/knowledge-graph/personal")).body as Personal;
+const overview = async (page: Page) => (await apiGet(page, "/knowledge-graph/me/overview")).body as Overview;
+const items = (page: Page) => page.getByTestId("brain-personal-item");
+const item = (page: Page, statement: string) => items(page).filter({ has: page.locator("p", { hasText: statement }) });
+const itemTexts = async (page: Page) => (await items(page).locator("p.text-13").allInnerTexts()).map((t) => t.trim());
+/** 「来自你 M/D 的对话」 as the browser (local time zone) would render this ISO time. */
+const expectedLabel = (page: Page, iso: string) =>
+  page.evaluate((s) => { const d = new Date(s); return `来自你 ${d.getMonth() + 1}/${d.getDate()} 的对话`; }, iso);
+
+test.describe.configure({ mode: "serial" });
+let owner: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  owner = await (await browser.newContext()).newPage();
+  await login(owner, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("setup: thread A 「我决定关注 211 高校」, thread B 「改成关注 985 高校吧」 (same_kind ⇒ auto supersede)", async () => {
+  ids.threadA = await newThread(owner);
+  record.a = { answer: (await say(owner, SAY_211)).text };
+  await expect.poll(async () => (await personal(owner)).claims.map((c) => c.statement), { timeout: 60_000 }).toEqual([D211]);
+  ids.p211 = (await personal(owner)).claims[0]!.id;
+
+  ids.threadB = await newThread(owner);
+  record.b = { answer: (await say(owner, SAY_985)).text };
+  await expect.poll(async () => {
+    const p = await personal(owner);
+    return { live: p.claims.map((c) => c.statement), replaced: p.replaced.map((r) => r.replaces.statement) };
+  }, { timeout: 60_000, intervals: [500] }).toEqual({ live: [D985], replaced: [D211] });
+  const p = await personal(owner);
+  ids.p985 = p.claims[0]!.id;
+  record.afterChange = { personal: p, overview: await overview(owner) };
+  expect(p.replaced[0]).toMatchObject({ byClaimId: ids.p985, replaces: { claimId: ids.p211 }, undo: { threadId: ids.threadB } });
+});
+
+test("1: /brain shows 985 with 「来自你 M/D 的对话」 and a folded 「取代了：我决定关注 211 高校」", async () => {
+  await owner.goto("/brain");
+  await expect(owner.getByTestId("brain-personal")).toBeVisible({ timeout: 60_000 });
+  await expect(items(owner)).toHaveCount(1);
+  expect(await itemTexts(owner)).toEqual([D985]);
+  const row = item(owner, D985);
+  const origin = (await overview(owner)).personalOrigins.find((o) => o.personalClaimId === ids.p985)!;
+  const label = await expectedLabel(owner, origin.saidAt!);
+  await expect(row.getByTestId("brain-origin-time")).toHaveText(label);
+  await expect(row.getByTestId("kg-tri-state-pending")).toHaveText("AI 记下的");
+  await expect(row.getByTestId("brain-replaced-text")).toHaveText(`取代了：${D211}`);
+  await expect(row.getByTestId("brain-undo-supersede")).toBeVisible();
+  await expect(row.getByTestId("brain-forget")).toBeVisible();
+  record.s1 = { items: await itemTexts(owner), originTime: label, folded: await row.getByTestId("brain-replaced-text").innerText(), rowText: await row.innerText() };
+  await shot(owner, "1-brain-985-folded-211");
+});
+
+test("2: 撤销取代 → 211 is live again and both show", async () => {
+  const actions = owner.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`/knowledge-graph/threads/${ids.threadB}/actions`));
+  await item(owner, D985).getByTestId("brain-undo-supersede").click();
+  const res = await actions;
+  expect(res.status()).toBe(200);
+  record.s2_request = res.request().postDataJSON();
+  await expect(items(owner)).toHaveCount(2);
+  expect((await itemTexts(owner)).sort()).toEqual([D211, D985].sort());
+  await expect(owner.getByTestId("brain-replaced")).toHaveCount(0);
+  await expect(owner.getByTestId("brain-action-error")).toHaveCount(0);
+  await expect(item(owner, D211).getByTestId("brain-origin-time")).toContainText("来自你 ");
+  const p = await personal(owner);
+  record.s2 = { items: await itemTexts(owner), personal: p };
+  expect(p.claims.map((c) => c.id).sort()).toEqual([ids.p211!, ids.p985!].sort());
+  expect(p.replaced).toEqual([]);
+  await shot(owner, "2-after-undo-supersede-both");
+});
+
+test("3: 忘掉 985 → 985 disappears (and stays gone after a reload)", async () => {
+  const undo = owner.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/personal-copy/undo"));
+  await item(owner, D985).getByTestId("brain-forget").click();
+  const res = await undo;
+  expect(res.status()).toBe(200);
+  record.s3_request = { url: new URL(res.url()).pathname, response: await res.json() };
+  await expect(items(owner)).toHaveCount(1);
+  expect(await itemTexts(owner)).toEqual([D211]);
+  await expect(owner.getByTestId("brain-action-error")).toHaveCount(0);
+  await shot(owner, "3a-after-forget-985");
+  await owner.reload();
+  await expect(owner.getByTestId("brain-personal")).toBeVisible({ timeout: 60_000 });
+  await expect(items(owner)).toHaveCount(1);
+  expect(await itemTexts(owner)).toEqual([D211]);
+  await expect(owner.getByText(D985)).toHaveCount(0);
+  const p = await personal(owner);
+  record.s3 = { itemsAfterReload: await itemTexts(owner), personal: p };
+  expect(p.claims.map((c) => c.statement)).toEqual([D211]);
+  expect(p.replaced).toEqual([]);
+  // 只拿掉了长期记忆里那份：对话 B 里的那条还在
+  const b = (await apiGet(owner, `/knowledge-graph/threads/${ids.threadB}`)).body as { claims: Array<{ statement: string }> };
+  record.s3_threadB = b.claims.map((c) => c.statement);
+  expect(b.claims.map((c) => c.statement)).toContain(D985);
+  await shot(owner, "3b-after-reload");
+});
+
+test("privacy: another member of the same org reads an empty personal space", async ({ browser }) => {
+  const other = await (await browser.newContext()).newPage();
+  await login(other, KG_EVAL.other);
+  const p = await personal(other);
+  record.privacy = { other: p, overview: await overview(other) };
+  expect(p.claims).toEqual([]);
+  expect(p.replaced).toEqual([]);
+  expect(JSON.stringify(p)).not.toContain("211");
+  await other.goto("/brain");
+  await expect(other.getByTestId("brain-personal-empty")).toBeVisible({ timeout: 60_000 });
+  await shot(other, "4-other-member-empty");
+});

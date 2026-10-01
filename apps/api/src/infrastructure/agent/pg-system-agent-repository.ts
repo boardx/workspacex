@@ -1,7 +1,9 @@
+import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { toOrgId } from "../../domain/org-id";
+import { insertAgentVersionFromDraft } from "./agent-version-insert";
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -71,20 +73,20 @@ export async function ensureSystemAgent(
     const { provider, modelId } = template.resolveModel();
 
     await s.query(
-      "INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,role_label,role_label_needs_confirmation) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)",
+      `INSERT INTO agents (${BOOTSTRAP_WRITE_COLUMNS.agentInsertColumns.join(",")}) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)`,
       [agentId, input.orgId, template.stableName, template.name, input.actorId, nowIso, template.roleLabel],
     );
-    await s.query(
-      `INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
-       VALUES ($1,$2,$3,'v1',$4,$5,'{}'::text[],$6,$7,'[]'::jsonb,$8,$9,$9)`,
-      [versionId, input.orgId, agentId, instructionDigest, template.instructions, provider, modelId, input.actorId, nowIso],
-    );
+    await insertAgentVersionFromDraft(s, {
+      versionId, orgId: input.orgId, agentId, semanticLabel: "v1", instructionDigest,
+      instructions: template.instructions, skillVersionIds: [], modelProvider: provider, modelId,
+      toolPolicy: [], creatorId: input.actorId, at: nowIso,
+    });
     await s.query(
       "UPDATE agents SET published_version_id=$3, updated_at=$4 WHERE id=$1 AND org_id=$2",
       [agentId, input.orgId, versionId, nowIso],
     );
     await s.query(
-      "INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint,role_label,role_label_needs_confirmation) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,false)",
+      `INSERT INTO capability_listings (${BOOTSTRAP_WRITE_COLUMNS.listing.join(",")}) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,false)`,
       [agentId, input.orgId, template.name, template.abbr, template.duty, template.roleLabel],
     );
     return { agentId, created: true };
@@ -115,11 +117,11 @@ export async function republishSystemAgentVersion(
   const nowIso = input.now.toISOString();
   const instructionDigest = sha256(template.instructions);
   await db.withTenant(toOrgId(input.orgId), async (s) => {
-    await s.query(
-      `INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'{}'::text[],$7,$8,'[]'::jsonb,$9,$10,$10)`,
-      [versionId, input.orgId, input.agentId, input.semanticLabel, instructionDigest, template.instructions, input.provider, input.modelId, input.creatorId, nowIso],
-    );
+    await insertAgentVersionFromDraft(s, {
+      versionId, orgId: input.orgId, agentId: input.agentId, semanticLabel: input.semanticLabel,
+      instructionDigest, instructions: template.instructions, skillVersionIds: [],
+      modelProvider: input.provider, modelId: input.modelId, toolPolicy: [], creatorId: input.creatorId, at: nowIso,
+    });
     await s.query(
       "UPDATE agents SET published_version_id=$3, updated_at=$4 WHERE id=$1 AND org_id=$2",
       [input.agentId, input.orgId, versionId, nowIso],

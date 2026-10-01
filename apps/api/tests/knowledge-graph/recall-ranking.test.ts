@@ -91,7 +91,7 @@ describe("F08: 结论原文不能伪造材料结构", () => {
   });
 });
 
-describe("ad-hoc issue #4181: 本会话决定类结论不管打分，都额外强制带上", () => {
+describe("ad-hoc issue #4181 / #4278: 本会话与本人个人空间的决定类结论不管打分，都额外强制带上", () => {
   it("字面/图路完全不相关的决定类结论仍然出现（issue 原始报告：写报告吧 不会命中 211 高校）", () => {
     const r = fuseRecall({
       query: "开始写报告吧",
@@ -115,22 +115,56 @@ describe("ad-hoc issue #4181: 本会话决定类结论不管打分，都额外�
     expect(r.items[0]!.channels).toEqual(["fts"]); // 走正常打分进来的，不是强制通道
   });
 
-  it("跨会话（originThreadId 有值）的决定类结论不强制带上，只留给正常打分（本轮范围只认本会话）", () => {
+  it("跨会话（originThreadId 有值，F15 未晋升的）决定类结论不强制带上，只留给正常打分（#4278 只扩到个人空间）", () => {
     const r = fuseRecall({
       query: "毫不相关的问题",
-      claims: [claim("cross", "我决定关注在 211 高校", { kind: "decision", scope: "personal", originThreadId: "thr-other" })],
+      claims: [
+        // F15 候选集里的形状：本人其他个人对话的结论按个人空间报，但带 originThreadId
+        claim("cross", "我决定关注在 211 高校", { kind: "decision", scope: "personal", originThreadId: "thr-other" }),
+        // 防御：即使某个来源把跨会话结论标成 chat_session，也不强制
+        claim("cross-cs", "我决定关注在 985 高校", { kind: "decision", scope: "chat_session", originThreadId: "thr-other" }),
+      ],
       objects: [], graph: [], limit: 8,
     });
     expect(r.items).toEqual([]);
+    expect(r.plan.find((p) => p.channel === "claim")?.hitCount).toBe(0);
   });
 
-  it("长期记忆（scope=personal，无 originThreadId）里的决定类结论也不强制带上——本轮只认本会话字面意义上的当前会话", () => {
+  it("issue #4278：本人个人空间（scope=personal，无 originThreadId）里的决定类结论，新会话无关提问也强制带上，保留个人空间标签", () => {
     const r = fuseRecall({
-      query: "毫不相关的问题",
-      claims: [claim("l1", "我决定关注在 211 高校", { kind: "decision", scope: "personal" })],
+      query: "开始写报告吧",
+      claims: [claim("l1", "我决定关注在 211 高校", { kind: "decision", scope: "personal", saidAt: "2026-09-20T00:00:00.000Z" })],
       objects: [], graph: [], limit: 8,
     });
-    expect(r.items).toEqual([]);
+    expect(r.items.map((i) => i.claim.id)).toEqual(["l1"]);
+    expect(r.items[0]!.channels).toEqual(["claim"]);
+    expect(r.items[0]!.claim.scope).toBe("personal");
+    expect(r.items[0]!.score).toBe(0);
+    expect(Number.isFinite(r.items[0]!.score)).toBe(true);
+    // 给模型的材料照样标「来自个人空间知识」（F12 / F13 同一个标签）
+    const msg = buildKnowledgeContextMessage(r)!;
+    expect(msg).toContain("我决定关注在 211 高校（来自个人空间知识，最早见于你 09/20 的对话）");
+  });
+
+  it("issue #4278：本会话与个人空间共用 3 个名额，按最新证据时间取；已被打分选中的不重复、不占名额", () => {
+    const dec = (id: string, day: string, over: Partial<RecallClaim> = {}) =>
+      claim(id, `我决定关注在 ${id} 高校`, { kind: "decision", saidAt: `2026-09-${day}T00:00:00.000Z`, ...over });
+    const r = fuseRecall({
+      query: "scored 高校",
+      claims: [
+        dec("s1", "10"), dec("s2", "22"),
+        dec("p1", "21", { scope: "personal" }), dec("p2", "05", { scope: "personal" }),
+        dec("scored", "30", { scope: "personal" }),
+        dec("x", "29", { scope: "personal", originThreadId: "thr-other" }),
+      ],
+      objects: [], graph: [], limit: 1,
+    });
+    const scored = r.items.filter((i) => !i.channels.includes("claim")).map((i) => i.claim.id);
+    const forced = r.items.filter((i) => i.channels.includes("claim")).map((i) => i.claim.id);
+    expect(scored).toEqual(["scored"]);
+    expect(forced).toEqual(["s2", "p1", "s1"]); // 22 > 21 > 10；p2（05）被挤掉；x 是跨会话，不认
+    expect(r.items.every((i) => Number.isFinite(i.score))).toBe(true);
+    expect(r.plan.find((p) => p.channel === "claim")?.hitCount).toBe(3);
   });
 
   it("超过上限（3 条）按最早证据时间取最新的几条", () => {

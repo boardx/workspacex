@@ -17,6 +17,7 @@ vi.mock("@/lib/interview-report-export", () => ({
 
 const completed: DigitalInterviewWorkflowView = {
   researchBrief: null, moderatorPolicy: null, reportReview: null,
+  artifacts: [],
   quality: { previewStatus: "unavailable", briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] },
   interviewId: "itv-f06", name: "江西足球", tags: ["足球"], topic: "江西足球的崛起", status: "running",
   sourceQuickInterviewId: null, selectedExpertIds: ["expert-f06"], reportId: null, report: null, version: 12,
@@ -55,7 +56,7 @@ describe("F06 interview answers to report", () => {
     render(<PersistentDigitalInterviewWorkflow initialView={reportView} />);
 
     expect(await screen.findByTestId("itv-report-decision-brief")).toHaveTextContent("决策摘要");
-    expect(screen.getByTestId("itv-evidence-review-empty")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
+    expect(screen.getByTestId("itv-evidence-review-blocked")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
     expect(screen.queryByRole("table")).toBeNull();
   });
 
@@ -187,8 +188,11 @@ describe("F06 interview answers to report", () => {
 
     fireEvent.click(screen.getByTestId("itv-report-export-word"));
     fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
-    expect(exportWord).toHaveBeenCalledWith(final.report, { evidenceMode: completed.studyEvidenceMode, review: completed.reportEvidenceEligibility });
-    expect(exportPdf).toHaveBeenCalledWith("itv-report-print-root");
+    expect(screen.getByTestId("itv-live-report-quality")).toHaveTextContent("需要补齐分析链");
+    expect(screen.getByTestId("itv-report-export-word")).toBeDisabled();
+    expect(screen.getByTestId("itv-report-export-pdf")).toBeDisabled();
+    expect(exportWord).not.toHaveBeenCalled();
+    expect(exportPdf).not.toHaveBeenCalled();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 

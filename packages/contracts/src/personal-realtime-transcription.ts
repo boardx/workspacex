@@ -154,7 +154,7 @@ export const operations = {
   stopPersonalTranscription: {
     method: "POST",
     path: "/recording/realtime-asr/sessions/:sessionId/stop",
-    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    in: z.object({ sessionId: z.string().min(1), captureId: z.string().min(1).optional() }).strict(),
     out: PersonalTranscriptionSummary,
     err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND"] as const,
   },

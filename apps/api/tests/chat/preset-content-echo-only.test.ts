@@ -64,6 +64,7 @@ function fakeIdentityRepo(role: ProjectMembershipRow["projectRole"] | null): Ide
     findOrgMembership: async () => notUsed("findOrgMembership") as unknown as OrgMembershipRow | null,
     findProjectMembership: async () =>
       role === null ? null : ({ projectRole: role, groupId: null, isHost: false } satisfies ProjectMembershipRow),
+    findNonWorkshopStanding: async () => null,
     findBindings: async (_orgId: OrgId, _objects: readonly AclObjectRef[]) =>
       new Map<string, BindingRow>(),
     listMemberships: async () => [],

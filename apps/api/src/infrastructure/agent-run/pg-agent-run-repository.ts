@@ -2,6 +2,8 @@ import { SkillActivityFact } from "@repo/contracts/skill-activity";
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
 import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import { ESCALATE_TOOL_NAME, EscalateDecision } from "@repo/contracts/agent-role";
+import type { z } from "zod";
 import { applyEditedInterruptArgs } from "../../application/agent-run/decided-interrupt";
 import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
 import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -34,6 +36,7 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID } from "../../domain/org-id";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
+import { numberRunCitations, type RunCitation } from "../../application/agent-run/standard-cite";
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
   PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunFailureReason, RunLifecycleStatus, RunOutputFile,
@@ -373,6 +376,46 @@ export class PgAgentRunRepository implements AgentRunStore {
    * `output_full_content_enc`（不需要解密，也不该在这条安全判定路径上依赖 cipher 是否
    * 配置——归因失败要 fail closed 到"每次都问"，不该因为 cipher 缺失而连带失败）。
    */
+  /** AG06 —— 见 `AgentRunStore.readPinnedEscalationPolicy`。只读 policy 一列。 */
+  async readPinnedEscalationPolicy(orgId: OrgId, runId: string): Promise<unknown> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ escalation_policy: unknown }>(
+        `SELECT v.escalation_policy
+           FROM agent_runs r
+           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      return rows[0]?.escalation_policy ?? null;
+    });
+  }
+
+  /** AG05 —— 见 `AgentRunStore.readRunWorkflowContext`。钉住版本的白名单 + 请求人（同 findRequesterUserId 的 join）。 */
+  async readRunWorkflowContext(orgId: OrgId, runId: string): Promise<{
+    agentId: string; agentVersionId: string; workflowAllowlist: string[]; requesterUserId: string | null;
+    agentPinnedSkillCount: number;
+  } | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ agent_id: string; agent_version_id: string; workflow_allowlist: string[] | null; author_id: string | null; pinned_skill_count: number }>(
+        `SELECT r.agent_id, r.agent_version_id, v.workflow_allowlist, m.author_id,
+                jsonb_array_length(coalesce(to_jsonb(v.skill_version_ids),'[]'::jsonb))::int AS pinned_skill_count
+           FROM agent_runs r
+           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id AND v.agent_id=r.agent_id
+           LEFT JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
+                AND m.author_kind='human' AND m.thread_id=r.thread_id
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        agentId: row.agent_id, agentVersionId: row.agent_version_id,
+        workflowAllowlist: [...(row.workflow_allowlist ?? [])], requesterUserId: row.author_id ?? null,
+        agentPinnedSkillCount: Number(row.pinned_skill_count ?? 0),
+      };
+    });
+  }
+
   async readToolCallAttributionSteps(
     orgId: OrgId, runId: string,
   ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]> {
@@ -631,6 +674,29 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /** AG05 —— 见 `AgentRunStore.requeueToolCallWithResult`（迁移 `20260929140000_ag05_tool_result_requeue.sql`
+   *  为这条 running → queued(edit) 边补上的状态机许可）。与 `requeueAuthorizedToolCall` 同一组 pending_* 列。 */
+  async requeueToolCallWithResult(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+    editedArgsJson: string,
+  ): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='edit', pending_edited_args=$8, pending_tool_name=$3, pending_args_summary=$4,
+                pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb,
+                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL
+          WHERE org_id=$1 AND id=$2 AND status='running'
+          RETURNING id`,
+        [orgId, runId, pending.toolName, pending.argsSummary,
+          pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null,
+          pending.toolCallId ?? null, pending.toolArgsDigest ?? null, editedArgsJson],
+      );
+      return updated.rows.length > 0;
+    });
+  }
+
   async decidePermissionRequest(orgId: OrgId, runId: string, permissionRequestId: string,
     decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
@@ -669,7 +735,11 @@ export class PgAgentRunRepository implements AgentRunStore {
              'toolName', pending_tool_name,
              'interrupt', pending_interrupt,
              'editedArgs', $5::text,
-             'decision', $6::text
+             'decision', $6::text,
+             -- uiux-r3 #4.5：升级裁决要在线程里留「谁、何时、对哪件事」的记录（AG06 已裁决卡）。
+             'argsSummary', pending_args_summary,
+             'decidedBy', $7::text,
+             'decidedAt', now()
            ),
            error_code=CASE WHEN $4='reject' THEN NULL ELSE error_code END,
            ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END,
@@ -685,7 +755,7 @@ export class PgAgentRunRepository implements AgentRunStore {
            pending_grant_scope=CASE WHEN $4='reject' THEN NULL ELSE pending_grant_scope END
          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
            AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name, pending_grant_scope`,
-        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null, decision],
+        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null, decision, userId],
       );
       const row = updated.rows[0];
       if (!row) return false;
@@ -766,9 +836,10 @@ export class PgAgentRunRepository implements AgentRunStore {
         id: string; thread_id: string; input_message_id: string;
         agent_id: string; model_output: string; writeback_attempts: number;
         model_output_files: readonly RunOutputFile[] | null;
+        cited_sources: readonly RunCitation[] | null;
       }>(
         `SELECT id, thread_id, input_message_id, agent_id, model_output, writeback_attempts,
-                model_output_files
+                model_output_files, cited_sources
            FROM agent_runs
           WHERE org_id=$1 AND status='writeback_pending' AND model_output IS NOT NULL
           ORDER BY created_at, id
@@ -785,7 +856,30 @@ export class PgAgentRunRepository implements AgentRunStore {
         // #1624：列有 `DEFAULT '[]'`，但历史行与任何读不到的情况一律折成空数组——
         // "没有产物"是安全的默认，猜一个文件名会让写回去挂一个不存在的附件。
         files: row.model_output_files ?? [],
+        // #4227：`wx_cite` 在本 run 上记下的引用，折叠重复后按首次出现编号 1..n。
+        citations: numberRunCitations(row.cited_sources),
       }));
+    });
+  }
+
+  /**
+   * #4227 —— `wx_cite` 的 run 引用账本。一条 UPDATE：只在 `running` 态追加，已有 key 不重复
+   * 追加（重复引用在记录时就折叠），返回追加后全部 key 的顺序，供工具回报角标编号。
+   */
+  appendRunCitations(orgId: OrgId, runId: string, items: readonly RunCitation[]): Promise<readonly string[] | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ keys: string[] | null }>(
+        `UPDATE agent_runs
+            SET cited_sources = cited_sources || COALESCE((
+              SELECT jsonb_agg(x ORDER BY o) FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS t(x, o)
+               WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(agent_runs.cited_sources) e WHERE e->>'key' = x->>'key')
+            ), '[]'::jsonb)
+          WHERE org_id=$1 AND id=$2 AND status='running'
+          RETURNING ARRAY(SELECT e->>'key' FROM jsonb_array_elements(cited_sources) WITH ORDINALITY AS t(e, o) ORDER BY o) AS keys`,
+        [orgId, runId, JSON.stringify(items)],
+      );
+      const row = r.rows[0];
+      return row ? (row.keys ?? []) : null;
     });
   }
 
@@ -981,6 +1075,47 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /**
+   * uiux-r3 #4.5 —— AG06 升级裁决的留痕（`resolved_approvals` 里 toolName = escalate_matter 的那几条），
+   * 投影成「谁、同意/驳回、说明、何时」；决定人显示名取自 credentials。解析不出的条目诚实地跳过。
+   */
+  private async readResolvedEscalations(orgId: OrgId, raw: unknown): Promise<NonNullable<RunProjection["resolvedEscalations"]>> {
+    const entries = (Array.isArray(raw) ? raw : []).flatMap((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const record = entry as Record<string, unknown>;
+      if (record.toolName !== ESCALATE_TOOL_NAME || typeof record.editedArgs !== "string") return [];
+      let decided: z.infer<typeof EscalateDecision>;
+      try {
+        const parsed = EscalateDecision.safeParse(JSON.parse(record.editedArgs));
+        if (!parsed.success) return [];
+        decided = parsed.data;
+      } catch { return []; }
+      return [{
+        permissionRequestId: typeof record.permissionRequestId === "string" ? record.permissionRequestId : null,
+        argsSummary: typeof record.argsSummary === "string" ? record.argsSummary : null,
+        decision: decided.decision,
+        text: decided.decision === "resolve" ? decided.decisionText : decided.reason,
+        decidedByUserId: typeof record.decidedBy === "string" ? record.decidedBy : null,
+        decidedAt: typeof record.decidedAt === "string" ? new Date(record.decidedAt).toISOString() : null,
+      }];
+    });
+    if (entries.length === 0) return [];
+    const ids = [...new Set(entries.flatMap((e) => (e.decidedByUserId ? [e.decidedByUserId] : [])))];
+    const names = new Map<string, string>();
+    if (ids.length > 0) {
+      await this.db.withTenant(orgId, async (s) => {
+        const r = await s.query<{ user_id: string; display_name: string | null }>(
+          `SELECT user_id, display_name FROM credentials WHERE user_id = ANY($1::text[])`, [ids],
+        );
+        for (const row of r.rows) if (row.display_name) names.set(row.user_id, row.display_name);
+      });
+    }
+    return entries.map(({ decidedByUserId, ...rest }) => ({
+      ...rest,
+      decidedBy: decidedByUserId ? { userId: decidedByUserId, displayName: names.get(decidedByUserId) ?? null } : null,
+    }));
+  }
+
   async readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null> {
     const found = await this.db.withTenant(orgId, async (s) => {
       const run = await s.query<RunRow>(
@@ -1145,6 +1280,8 @@ export class PgAgentRunRepository implements AgentRunStore {
           }];
         }),
     };
+    const escalations = await this.readResolvedEscalations(orgId, found.row.resolved_approvals);
+    if (escalations.length > 0) (projection as { resolvedEscalations?: RunProjection["resolvedEscalations"] }).resolvedEscalations = escalations;
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.
     return guard({ kind: "project", id: found.row.project_id }, projection);

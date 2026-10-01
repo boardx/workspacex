@@ -10,6 +10,7 @@
 ## 会话记录
 ### {{CREATED_AT}}
 - 本轮目标:
+- 执行计划摘要(`node .harness/scripts/execution-plan.mjs summary <计划>`):
 - 已完成:
 - 运行过的验证:
 - 已记录证据:

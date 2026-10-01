@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 e2e/s5/journey.spec.ts:89:5 › 3: /brain 「关于我」 — goal with the decision nested under it; every item editable / forgettable / links to its source (1.3s)
+  ✓  2 e2e/s5/journey.spec.ts:105:5 › 4: new personal thread — briefing: recent goal + decision (为了：goal) and the open todo; server-generated, personal only (31.1s)
+  ✓  3 e2e/s5/journey.spec.ts:119:5 › 5: 续上 the todo — prefilled first message with a citation; the answer uses the memory and cites the same claim (2.9s)
+  ✓  4 e2e/s5/journey.spec.ts:140:5 › 6: G001 — a new thread 「帮我规划」 answer uses the goal without re-stating it (9.9s)
+  ✓  5 e2e/s5/journey.spec.ts:150:5 › 7: dismiss persists (server-side) and never blocks the composer; /brain can turn it back on (20.6s)
+  ✓  6 e2e/s5/journey.spec.ts:169:5 › privacy: another member of the same org — no briefing, 关于我 empty, nothing of the owner's (17.7s)
+
+  6 passed (1.4m)

@@ -90,7 +90,11 @@ export function PlanRunProgress(
             {currentStepLabel === null ? <b>{view.stateLabel}</b> : <>当前步骤：<b>{currentStepLabel}</b></>}
           </span>
           <span className="text-11 text-muted-foreground">
-            {view.progressValue}/{view.progressTotal} 步已完成 · 已用 {formatElapsed(elapsedMs)}
+            {/* 2026-09-27 人类：「0/5 步已完成」紧挨着「当前步骤：X」容易看错成「这一步完成了 0/5」。
+                有当前步骤时说它是第几步；没有时（收尾/结束）才说完成了几步。 */}
+            {view.currentStepIndex !== null
+              ? `第 ${String(view.currentStepIndex)} 步 · 共 ${String(view.progressTotal)} 步`
+              : `已完成 ${String(view.progressValue)}/${String(view.progressTotal)} 步`} · 已用 {formatElapsed(elapsedMs)}
           </span>
           {isPaused ? (
             <Button

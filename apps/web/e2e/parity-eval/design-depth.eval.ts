@@ -19,6 +19,7 @@ import { routeDrafts, routeInbox, routeDesignWorkbench } from "../../scripts/lib
 import { EVAL_PROJECTS } from "./cases.mjs";
 import { routeEvalEditing } from "./eval-api";
 import { newCommentStore, routeEvalComments, type CommentStore } from "./depth-api";
+import { clickMore, openMore } from "../support/design-more";
 
 test.use({
   launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {},
@@ -61,7 +62,7 @@ async function downloadOf(page: Page, trigger: () => Promise<void>): Promise<{ n
 }
 
 async function exportMenu(page: Page): Promise<void> {
-  await page.getByTestId("design-detail-export").click();
+  await clickMore(page, "design-detail-export");
   await page.getByTestId("design-detail-export-menu").waitFor();
 }
 
@@ -86,7 +87,7 @@ async function pin(page: Page, phone: Locator, nodeId: string, text: string): Pr
 
 async function commentMode(page: Page): Promise<Locator> {
   const phone = await single(page);
-  await page.getByTestId("design-detail-mode-comment").click();
+  await clickMore(page, "design-detail-mode-comment");
   return phone;
 }
 
@@ -268,7 +269,7 @@ test.describe("V5 查看代码", () => {
   test("[V5.c1] 点「代码」：面板里是这个原型的 React 代码，含当前页的文案", async ({ page }) => {
     await openCase(page, "E02");
     await single(page);
-    await page.getByTestId("design-detail-code").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-code", { timeout: 3000 });
     const panel = page.getByTestId("design-code-panel");
     await expect(panel).toContainText("export default function");
     await expect(panel).toContainText("年度会员 · 专业版");
@@ -278,7 +279,7 @@ test.describe("V5 查看代码", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openCase(page, "E02");
     await single(page);
-    await page.getByTestId("design-detail-code").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-code", { timeout: 3000 });
     await page.getByTestId("design-code-copy").click();
     const clip = await page.evaluate(() => navigator.clipboard.readText());
     expect(clip).toContain("export default function");
@@ -288,7 +289,7 @@ test.describe("V5 查看代码", () => {
   test("[V5.c3] 在画布上改了字，面板里的代码跟着变", async ({ page }) => {
     await openCase(page, "E02");
     const phone = await single(page);
-    await page.getByTestId("design-detail-code").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-code", { timeout: 3000 });
     await phone.getByText("年度会员 · 专业版").dblclick();
     await phone.getByTestId("design-canvas-inline-edit").waitFor();
     await page.keyboard.press("ControlOrMeta+A");
@@ -362,7 +363,7 @@ test.describe("V6 真实图片", () => {
 test.describe("V7 演示模式", () => {
   test("[V7.c1] 点「演示」：全屏只放第一页，不带编辑器的界面", async ({ page }) => {
     await openCase(page, "E07");
-    await page.getByTestId("design-detail-present").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-present", { timeout: 3000 });
     const stage = page.getByTestId("design-present");
     await expect(stage).toContainText("轻账：小微企业的自动财务");
     const box = await stage.boundingBox();
@@ -372,7 +373,7 @@ test.describe("V7 演示模式", () => {
 
   test("[V7.c2] 方向键翻页，页码跟着走", async ({ page }) => {
     await openCase(page, "E07");
-    await page.getByTestId("design-detail-present").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-present", { timeout: 3000 });
     await page.keyboard.press("ArrowRight");
     await expect(page.getByTestId("design-present")).toContainText("¥3,200 亿");
     await expect(page.getByTestId("design-present-counter")).toContainText(/2\s*\/\s*3/);
@@ -382,7 +383,7 @@ test.describe("V7 演示模式", () => {
 
   test("[V7.c3] Esc 退出，回到编辑器", async ({ page }) => {
     await openCase(page, "E07");
-    await page.getByTestId("design-detail-present").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-present", { timeout: 3000 });
     await page.getByTestId("design-present").waitFor();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("design-present")).toHaveCount(0);
@@ -411,7 +412,7 @@ test.describe("V8 变体：提要求、对照、数量", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     await single(page);
-    await page.getByTestId("design-detail-variants").click();
+    await clickMore(page, "design-detail-variants");
     await expect(page.getByTestId("design-variant-current")).toContainText("年度会员 · 专业版", { timeout: 3000 });
   });
 
@@ -419,7 +420,7 @@ test.describe("V8 变体：提要求、对照、数量", () => {
     await openCase(page, "E02");
     const seen = await routeVariants(page);
     await single(page);
-    await page.getByTestId("design-detail-variants").click();
+    await clickMore(page, "design-detail-variants");
     await page.getByTestId("design-variants-instruction").fill("更简洁，少一点文字", { timeout: 3000 });
     await page.getByTestId("design-variants-regenerate").click();
     await expect.poll(() => seen.at(-1)).toMatchObject({ screen: 0, instruction: "更简洁，少一点文字" });
@@ -429,7 +430,7 @@ test.describe("V8 变体：提要求、对照、数量", () => {
     await openCase(page, "E02");
     const seen = await routeVariants(page);
     await single(page);
-    await page.getByTestId("design-detail-variants").click();
+    await clickMore(page, "design-detail-variants");
     await page.getByTestId("design-variants-count").selectOption("2", { timeout: 3000 });
     await page.getByTestId("design-variants-regenerate").click();
     await expect.poll(() => seen.at(-1)).toMatchObject({ count: 2 });

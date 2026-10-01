@@ -78,10 +78,13 @@ export REAL_MODEL_E2E_START_WEB=1
 export REAL_MODEL_E2E_EVIDENCE_DIR="$EVIDENCE_DIR"
 SPEC_EXIT=0
 # 与 devapp lane 调的是**同一条** npm script —— playwright 的调用只声明一次。
-# 第一个参数选跑哪条 project：默认单条 pdf 体检；`office` 跑十任务矩阵。
-# 两者共用同一次起栈——起栈是最大固定成本，为十个任务各起一次会把 40 分钟拖成 3 小时。
+# 第一个参数选跑哪条 project：默认单条 pdf 体检；`office` 跑十任务矩阵；
+# `web-artifact-reliability` 跑同一个 web-artifact 任务十连跑（2026-09-27）。
+# 三者共用同一次起栈——起栈是最大固定成本，各起一次会把几十分钟拖成几小时。
 if [ "${1:-}" = "office" ]; then
   pnpm run e2e:real-model-office:raw || SPEC_EXIT=$?
+elif [ "${1:-}" = "web-artifact-reliability" ]; then
+  pnpm run e2e:real-model-web-artifact-reliability:raw || SPEC_EXIT=$?
 else
   pnpm run e2e:real-model-smoke:raw || SPEC_EXIT=$?
 fi

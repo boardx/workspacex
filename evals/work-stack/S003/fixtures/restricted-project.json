@@ -1,0 +1,16 @@
+{
+  "org": "synthetic-org-acme",
+  "caller": "user-synthetic-a",
+  "denyProjects": [
+    "P2"
+  ],
+  "documents": [
+    {
+      "sourceId": "doc-p2-only",
+      "versionId": "v1",
+      "projectId": "P2",
+      "title": "P2 唯一支持文档",
+      "body": "P2 机密结论：预算上调 20%。"
+    }
+  ]
+}

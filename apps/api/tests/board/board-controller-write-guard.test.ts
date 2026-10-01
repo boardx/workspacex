@@ -74,7 +74,9 @@ function controllerFor(
 ): BoardController {
   const tasks = fakeTaskRepository(task);
   tasks.visibleRows = visibleRows;
-  return new BoardController(tasks, fakeAudit(), fakeDb(), identity);
+  // CT10：运行卡依赖——无角色即无运行卡（本测试只关心任务写路径守卫）。
+  const noRunCards = { runs: { listRuns: async () => [] }, access: { orgRoleOf: async () => null } };
+  return new BoardController(tasks, fakeAudit(), fakeDb(), identity, noRunCards);
 }
 
 const BASE_TASK: TaskRow = {

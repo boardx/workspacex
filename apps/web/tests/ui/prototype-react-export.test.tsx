@@ -39,6 +39,7 @@ const kitchenSink: N = {
     { type: "table", props: { columns: ["月份", "销售额"], rows: [["一月", "100"], ["二月", "120"]], striped: true } },
     { type: "chart", props: { kind: "bar", title: "柱状", labels: ["一", "二"], values: [3, 5] } },
     { type: "chart", props: { kind: "line", title: "折线", labels: ["一", "二", "三"], values: [1, 4, 2] } },
+    { type: "board", props: { items: [{ kind: "sticky", text: "入口难找", x: 25, y: 30, author: "王明" }, { kind: "shape", text: "新手引导", x: 70, y: 60, shape: "round", color: "blue" }], links: [{ from: 0, to: 1, label: "导致" }], cursors: [{ name: "李婷", x: 50, y: 50 }] } },
     { type: "select", props: { label: "城市", options: ["北京", "上海"], value: "上海" } },
     { type: "radio", props: { label: "档位", options: ["月付", "年付"], selected: 1 } },
     { type: "section", props: { tone: "primary", align: "center" }, children: [{ type: "text", props: { content: "分区" } }] },

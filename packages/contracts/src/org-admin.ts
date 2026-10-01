@@ -13,7 +13,8 @@
  *   × 项目角色（`identity.ProjectRole`：引导师 / 组长 / 组员 / 观察者）。
  *   **后者只属工作坊**（人类 2026-07-30 裁决，与 `project` 束 U-1 同源）——
  *   本束凡出现项目角色的操作，其对象都是工作坊；研究项目 / 用户洞察走 `project` 束的
- *   `NonWorkshopMemberRole`（**那边今天还没有操作**，见 `project.KNOWN_CONTRACT_GAPS.P2`）。
+ *   `NonWorkshopMemberRole`（操作 `listNonWorkshopMembers` / `addNonWorkshopMember` /
+ *   `removeNonWorkshopMember`，#4499 起；此前的缺口档案见 `project.KNOWN_CONTRACT_GAPS.P2`）。
  *
  * ⚠ **管理员不是超级用户，但 `purpose:"audit"` 是「放行 + 留痕」不是 403**。
  *   这条断言方向被 **O-04 反转过一次**：照旧稿写 `expect(403)` 会写出**方向错误的绿灯**——
@@ -1095,6 +1096,45 @@ export const operations = {
       })
       .strict(),
     err: ["NO_PROJECT_ROLE", "PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `AcceptProjectInvite` —— **已登录的组织成员**用一条项目邀请链接把自己加进项目
+   * （项目中枢 R2，用户直接交办 2026-09-27）。
+   *
+   * 与 `joinByGroupLink`（免注册 · 手机号名单 · 建访客身份）是两条不同的进场路径：
+   * 这里的调用者已经有账号、已经是本组织成员，要的只是「项目是受邀才能进的容器」这一步——
+   * 核销令牌（F15 `consume`，一次性 / 撤销 / 过期判定全在那一条 WHERE 里）→ 以链接记录的
+   * `projectRole` 落一行 `project_memberships`。两步在同一个用例里，调用方不需要再打
+   * `addProjectMember(subject: inviteToken)` 第二枪。
+   *
+   * ⚠ `orgId` 取自 principal；令牌所属组织与 principal 所在组织不一致 ⇒ `INVITE_NOT_FOUND`
+   *   （不泄露别的组织有没有这条链接）。
+   * ⚠ 已经是成员 ⇒ **不是错误**：`alreadyMember: true` 幂等返回（重复点同一条链接不弹红条）。
+   * ⚠ 项目已归档 ⇒ `FORBIDDEN`（归档冻结在 PG RESTRICTIVE 策略，见 `archiveProject`）。
+   */
+  acceptProjectInvite: {
+    method: "POST",
+    path: "/project-invites/accept",
+    in: z.object({ token: z.string().min(1) }).strict(),
+    out: z
+      .object({
+        projectId: z.string(),
+        projectRole: ProjectRole,
+        groupId: z.string().nullable(),
+        alreadyMember: z.boolean(),
+      })
+      .strict(),
+    err: [
+      "LINK_TOKEN_REQUIRED",
+      "INVITE_NOT_FOUND",
+      "LINK_REVOKED",
+      "LINK_EXPIRED",
+      "LINK_ALREADY_USED",
+      "NO_ORG_MEMBERSHIP",
+      "FORBIDDEN",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
   },
 
   /**

@@ -1,0 +1,24 @@
+import { defineConfig, devices } from "@playwright/test";
+
+/** S8 (#4365) evidence journey against an already-running local stack (stack.sh). Not a CI lane. */
+const base = process.env.S8_BASE;
+if (!base) throw new Error("S8_BASE is required");
+
+export default defineConfig({
+  testDir: "./e2e",
+  testMatch: /s8-evidence\.spec\.ts$/,
+  outputDir: "test-results/s8/artifacts",
+  workers: 1,
+  retries: 0,
+  timeout: 900_000,
+  expect: { timeout: 60_000 },
+  reporter: [["list"]],
+  use: {
+    baseURL: base,
+    ...devices["Desktop Chrome"],
+    viewport: { width: 1440, height: 900 },
+    screenshot: "only-on-failure",
+    navigationTimeout: 300_000,
+    ...(process.env.PW_EXECUTABLE ? { launchOptions: { executablePath: process.env.PW_EXECUTABLE } } : {}),
+  },
+});

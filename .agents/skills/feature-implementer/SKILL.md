@@ -118,6 +118,10 @@ cat phases/<phase>/sprints/sprint-<MM>/active-features.json \
    没有就先停下，回到 [verification-writer] 把契约定下来——**绝不先写实现再补验证**
    （那是自我背书，文章明确反对生成者给自己定标准）。
 
+2.5 **契约确认后、动手前，画着色执行计划**：每条 `verification` 至少对应一个验证节点，
+   实现过程中逐步改色，只有 verification 退出码 0 的节点才能变紫——见 [execution-plan] skill
+   与 `.harness/instructions/execution-plan-visualization.md`。
+
 3. **只写满足契约的最小实现**。范围纪律见下表，别顺手重构无关区域。
 
 4. **自测留证据**：本地逐条跑 `verification`，把输出留到 `evidence/`。

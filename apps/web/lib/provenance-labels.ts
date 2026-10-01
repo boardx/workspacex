@@ -50,6 +50,7 @@ export const PROVENANCE_EVENT_LABEL: Record<ProvenanceEventType, string> = {
   "thread-created": "新建了对话",
   "thread-renamed": "重命名了对话",
   "thread-deleted": "删除了对话",
+  "thread-visibility-changed": "改了对话的可见范围",
   "thread-pinned": "置顶了对话",
   "thread-unpinned": "取消置顶了对话",
   "integrity-check-failed": "完整性校验未通过",

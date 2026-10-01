@@ -1,0 +1,41 @@
+===== F1/F2: kg_correct_citation as reviewed at 46aa93289 (only the clicked claim; no derived_from family) — fresh db
+   × S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆副本） > 在原对话里纠正会话那条（带新说法）⇒ 长期记忆副本也不再生效；新说法只一份、在长期记忆里；两个对话下一轮都只用新说法 155ms
+   × S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆副本） > 在新对话里纠正长期记忆那份（带新说法）⇒ 原对话里的会话那条也不再生效，原对话下一轮只用新说法（不重复） 128ms
+   × S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆副本） > 「这条不对」不带新说法 / 「已过时」纠正长期记忆那份 ⇒ 原对话里那条一起失效（反过来同样） 129ms
+   × S7：纠正率 = 纠正 / 被引用 > 按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 22 passed (26)
+===== F3: reconcileCitations as reviewed at 46aa93289 (no sibling / number / negation rules, single-Han units)
+   × reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元 > 日期：两条都召回，回答只用了其中一条 ⇒ 只出那一条 7ms
+   × reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元 > 金额：两条都召回，回答只用了其中一条 ⇒ 只出那一条 1ms
+   × reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元 > 名字：两条都召回，回答只用了其中一条 ⇒ 只出那一条 1ms
+   × reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元 > 否定：两条都召回，回答只用了其中一条 ⇒ 只出那一条 1ms
+   × reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元 > 否定（反过来）：两条都召回，回答只用了其中一条 ⇒ 只出那一条 1ms
+   × reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元 > 没有兄弟时同样挡住：数字对不上 / 被说反 ⇒ 不算用到 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 20 passed (26)
+===== F6 (api): pg-knowledge-read.ts without the canCorrect computation
+   × S7：引用 chip 由服务端对账 > chip = 召回集合 ∩ 回答真的用到的；回答里提到没被召回的说法（库里真有的 / 编的）不出 chip 68ms
+   × S7：越权防护 > 别人的会话 ⇒ 看不见（KG_THREAD_NOT_FOUND）；项目会话里不是所有者的成员 ⇒ KG_NOT_OWNER 139ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 24 passed (26)
+===== F4/F6 (web): citation-detail.tsx as reviewed at 46aa93289
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 「已过时」要先确认（review F4）：点「已过时」不执行，「取消」收起；「确认」才执行；失败时把人话显示出来、可以再来 15ms
+   × TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation > 只画 cited 那一条；所有者点「已过时」⇒ POST correction {kind: expired} 45ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+===== F4/F6 (web): turn-memory-line.tsx as reviewed at 46aa93289
+   × TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation > 所有者、但不是这一轮的提问人（服务端 canCorrect=false，review F6）：展开里没有纠正入口 23ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+===== all restored
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+DONE

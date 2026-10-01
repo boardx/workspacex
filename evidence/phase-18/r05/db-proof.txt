@@ -1,0 +1,28 @@
+== org extraction gate (row re-enabled by enableExtraction, updated_by=test-fixture) ==
+         org_id         | enabled |  updated_by  
+------------------------+---------+--------------
+ org-kg-experience-eval | t       | test-fixture
+(1 row)
+
+== threads (project_id null = personal) ==
+                    id                    |         project_id         |     created_by     |        title        
+------------------------------------------+----------------------------+--------------------+---------------------
+ thr-9aa78bdb-fb60-4e35-8f13-dc43c4a949ab |                            | user-kg-eval-owner | 新对话
+ thr-6b1ac569-91fb-4f7a-8281-ccae832b07e1 |                            | user-kg-eval-owner | 我决定关注 211 高校
+ thr-6056a0fc-070e-442a-b572-372a462396cf |                            | user-kg-eval-owner | 开始写报告吧
+ thr-867057e4-e420-4380-9666-3fbf5fac0dcd | project-kg-experience-eval | user-kg-eval-owner | 新对话
+(4 rows)
+
+== claims ==
+                   id                   |      statement      | claim_kind |  status  |  scope_kind  |                 scope_id                 | revoked 
+----------------------------------------+---------------------+------------+----------+--------------+------------------------------------------+---------
+ clm_b3ad2fac415845c9b4c4f08c79d2c2f7   | 我决定关注 211 高校 | decision   | accepted | chat_session | thr-6b1ac569-91fb-4f7a-8281-ccae832b07e1 | f
+ act_91653bd349b34fc590d9029dc4ecfc20-p | 我决定关注 211 高校 | decision   | accepted | personal     | user-kg-eval-owner                       | f
+(2 rows)
+
+== kg_turn_recalls per thread ==
+                thread_id                 | project_id |                                                                     items                                                                     
+------------------------------------------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------
+ thr-6056a0fc-070e-442a-b572-372a462396cf |            | [{"score": 0, "claimId": "act_91653bd349b34fc590d9029dc4ecfc20-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+(1 row)
+

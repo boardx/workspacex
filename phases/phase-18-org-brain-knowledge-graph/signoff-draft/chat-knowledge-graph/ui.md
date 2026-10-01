@@ -57,9 +57,13 @@
 
 | 页签 | 内容 | 数据 | 稳定 testid |
 |---|---|---|---|
-| 我的长期记忆 | L1 结论按类型分组、搜索 / 类型筛选、「涉及的人和事」；每条「来自对话 X」直达该会话的「记忆」页签并打开原结论的来源抽屉；只读 | `getPersonalKnowledge` + `getBrainOverview.personalOrigins` | `brain-personal-item`、`brain-origin-link`、`brain-origin-gone`、`brain-personal-search`、`brain-kind-<kind>` |
+| 我的长期记忆 | L1 结论按类型分组、搜索 / 类型筛选、「涉及的人和事」；每条「来自你 {M/D} 的对话」+ 对话链接，直达该会话的「记忆」页签并打开原结论的来源抽屉；被改口取代的旧条折叠在新条下「取代了：〈旧〉」；每条「忘掉这条」、折叠行「撤销取代」（2026-09-26 起，不再只读） | `getPersonalKnowledge`（含 `replaced`）+ `getBrainOverview.personalOrigins` | `brain-personal-item`、`brain-origin-time`、`brain-origin-link`、`brain-origin-gone`、`brain-replaced`、`brain-replaced-text`、`brain-undo-supersede`、`brain-forget`、`brain-action-error`、`brain-personal-search`、`brain-kind-<kind>` |
 | 对话里的记忆 | 本人创建的、记下了东西的会话，每个一行：共 N 条 / AI 记下的 / 你确认过 / 有矛盾 / 人和事数；点进 `/chat/<id>?memory=1` | `getBrainOverview.threads` | `brain-session-row`、`brain-sessions-summary` |
 | 项目与组织 | 两张卡如实写「尚未开放」，无数字（依据契约 `KG_SCOPES_ENABLED_PHASE_18`） | 无 | `brain-layer-project-status`、`brain-layer-org-status` |
+
+**人类决定（2026-09-26，issue #4302）**：① 原「只读——修改在对话的记忆页签里做」改为**可忘掉 / 撤销取代**（两个按钮复用对话里的既有动作，
+映射见 usecases.md UC-KG-13）；② 被取代的记忆**折叠显示**在取代它的那条下面，**撤销（忘掉）的不显示**。动作一点先在界面生效（乐观），
+成功后静默重读；失败放回原样，在那一条下面说原因（不出现内部码）。
 
 七态：加载 `loading`、空 `empty`（长期记忆空时给「看看对话里记下了什么」）、依赖失败 `dep-failed`（人话 + 重试）、无权限 `denied`（`KG_NOT_VISIBLE`：已不在当前组织，组织层）。深链 `?memory=<claimId>` 由 `apps/web/lib/chat-memory-link.ts` 单点拼读。用词守 06 R5（不出现「实体 / 结论 / 晋升」等）。
 

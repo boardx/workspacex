@@ -46,6 +46,7 @@
  * 是同一种取证纪律：制造的是「一定会经过的中间态」，不是伪造内容本身。
  */
 import { guidedResearchReply } from "./loopback-guided-research";
+import { contentSkillReply, isContentSkillRequest } from "./loopback-content-skill";
 import { createServer } from "node:http";
 import {
   FILE_CONTEXT_MESSAGE_HEADER_PREFIX,
@@ -55,6 +56,7 @@ import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/t
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../src/application/skill/run-script-with-retries";
 import { FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT } from "../src/application/chat/generate-followup-suggestions";
 import { CANVAS_GUIDANCE_HEADER } from "../src/application/agent-run/canvas-template-guidance";
+import { KG_EXTRACTION_SYSTEM_PROMPT } from "../src/infrastructure/knowledge-graph/model-knowledge-extractor";
 
 /**
  * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
@@ -329,6 +331,18 @@ function trialRunScriptReply(sampleInput: string): string {
 }
 
 /**
+ * issue #4350 —— 记忆抽取请求（system prompt 逐字是 `KG_EXTRACTION_SYSTEM_PROMPT`）回一个**合法的空抽取**。
+ * 抽取器现在把解析不了的回复当失败重试；回显正文会让每个 loopback 栈都堆出「失败」行和重试调用。
+ * 需要真实抽取内容的评测走 `loopback-kg-eval-model-provider.ts`，不走这里。
+ */
+function isKgExtractionRequest(messages: CompletionRequest["messages"]): boolean {
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string" && system.includes(KG_EXTRACTION_SYSTEM_PROMPT);
+}
+
+const EMPTY_KG_EXTRACTION_REPLY = JSON.stringify({ entities: [], claims: [] });
+
+/**
  * UIUX 对标 CopilotKit gap #2（issue #712）—— 同 `isTrialRunRequest` 一个纪律：
  * 靠 system prompt 里那段唯一事实源文字识别「这是一次追问建议请求」，与其它请求互斥。
  */
@@ -585,6 +599,12 @@ const server = createServer((req, res) => {
     // 围栏，前面多一行回显不影响它。
     const researchSystem = parsed.messages?.find((message) => message.role === "system")?.content;
     const researchReply = guidedResearchReply(typeof researchSystem === "string" ? researchSystem : "", echoed);
+    // Explicit deterministic browser lane, never used as a production model fallback.
+    let surveyReply:string|null=null;
+    try{const input=JSON.parse(echoed) as {operation?:string};
+      if(input.operation==='survey_markdown_proposal'&&typeof researchSystem==='string'&&researchSystem.includes('专业问卷设计师'))
+        surveyReply='# 客户体验调查\n\n## experience [open]\n请描述最近一次使用体验\n';
+    }catch{ /* Other model requests retain their existing reply path. */ }
     /*
      * ## 分支顺序按「判定条件有多specific」排，不是按写下来的先后
      *
@@ -610,7 +630,11 @@ const server = createServer((req, res) => {
      *
      * 影响面：正文里不带那个哨兵的请求，走到的分支与改动前逐字节相同。
      */
-    const fullText = researchReply ?? (isFollowUpSuggestionsRequest(parsed.messages)
+    // 内容线 Skill 阶段（W029 等）：runner 只收单个 JSON 对象，回显前缀会让阶段必然失败。
+    const contentReply = isContentSkillRequest(researchSystem) ? contentSkillReply(echoed) : null;
+    const fullText = contentReply ?? surveyReply ?? researchReply ?? (isKgExtractionRequest(parsed.messages)
+      ? EMPTY_KG_EXTRACTION_REPLY
+      : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
       : canvasGuidanceReachedModel(parsed.messages, echoed)
       ? canvasGuidanceReply(echoed)

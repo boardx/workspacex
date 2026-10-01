@@ -20,7 +20,8 @@ import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/applicati
 import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import { AGENT_RUN_STORE, type AgentRunStore, type ModelCallInput, type ModelCallPort } from "../../src/application/agent-run/ports";
 import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
-import type { KnowledgeRecallPort } from "../../src/application/knowledge-graph/ports";
+import type { ChangeMindPorts } from "../../src/application/knowledge-graph/change-mind";
+import type { KnowledgeRecallPort, MemoryCardPort } from "../../src/application/knowledge-graph/ports";
 import { projectPendingGraph } from "../../src/application/knowledge-graph/project-pending-graph";
 import { DATABASE_PORT, type DatabasePort } from "../../src/application/ports/database.port";
 import { toOrgId } from "../../src/domain/org-id";
@@ -199,13 +200,18 @@ export async function post(api: Client, threadId: string, text: string, agentId:
  */
 export async function turn(
   e: E2eApp, api: Client, org: string, threadId: string, text: string, agentId: string,
-  opts: { knowledge?: KnowledgeRecallPort } = {},
+  opts: {
+    knowledge?: KnowledgeRecallPort;
+    /** F17 / #4361：生产合成（kernel.module.ts）同样注入执行器的卡片端口与改口端口；省略 ⇒ 这一轮不开卡、不改口。 */
+    memoryCards?: MemoryCardPort; memoryChange?: ChangeMindPorts;
+  } = {},
 ): Promise<Turn> {
   const accepted = await post(api, threadId, text, agentId);
   const { model, calls } = groundedModel();
   let tick = 0;
   const deps: ExecuteAgentRunDeps = {
     runs: e.runs, model, knowledge: opts.knowledge ?? e.recall,
+    ...(opts.memoryCards ? { memoryCards: opts.memoryCards } : {}), ...(opts.memoryChange ? { memoryChange: opts.memoryChange } : {}),
     clock: { now: () => new Date(Date.now() + tick++).toISOString(), newStepId: () => `step-${accepted.agentRunId}-${tick}` },
     log: () => undefined,
   };

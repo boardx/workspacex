@@ -653,7 +653,13 @@ export const operations = {
   mutateThread: {
     method: "POST", path: "/chat/threads/mutate",
     in: z.object({
-      op: z.enum(["create", "rename", "delete", "pin", "unpin"]),
+      /**
+       * `setVisibility`（项目中枢 R5，用户直接交办 2026-09-27）：改一条**项目线程**的可见范围
+       * （`visibilityScope` 必填，取 `member-private` / `group-shared` / `plenary` 之一）——「chat 可以在
+       * 用户之间分享」落在这一步。只有创建者或本项目引导师能改；个人线程不适用（`private` 是它的定义）。
+       * 同样过 `expectedVersion` 乐观并发、同样写审计（`thread-visibility-changed`）。
+       */
+      op: z.enum(["create", "rename", "delete", "pin", "unpin", "setVisibility"]),
       projectId: z.string().nullable(),
       threadId: z.string().nullable(),
       groupId: z.string().nullable(),
@@ -1343,6 +1349,8 @@ export const operations = {
       markdown: z.string(),
       /** 与 `listThreadArtifacts` 同义：draft 无冻结版本 ⇒ null。 */
       version: z.number().int().positive().nullable(),
+      /** Immutable artifact-version identity used by Board handoff authorization. */
+      immutableRevision: z.string().regex(/^artifact-v1:[1-9][0-9]*$/),
       /** ISO 时间戳，读回提示条「X 时间前」的数据源（landing 行的 created_at）。 */
       savedAt: z.string(),
       /** `chat_artifact_landings.created_by`。 */
@@ -1550,6 +1558,20 @@ export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
   z.object({ type: z.literal("asr.finished") }).strict(),
 ]);
 
+/**
+ * 实时数字人会话的失败原因（界面据此给友好文案，不展示原始错误）。
+ * NOT_CONFIGURED：部署未配置实时模型；AGENT_UNAVAILABLE：所选数字人不存在/未发布/不可见；
+ * THREAD_UNAVAILABLE：线程不存在、无权写或已归档；UPSTREAM_FAILED：实时模型连接或返回错误；
+ * INVALID_FRAME：客户端帧不合契约。
+ */
+export const RealtimeDigitalHumanErrorReason = z.enum([
+  "NOT_CONFIGURED",
+  "AGENT_UNAVAILABLE",
+  "THREAD_UNAVAILABLE",
+  "UPSTREAM_FAILED",
+  "INVALID_FRAME",
+]);
+
 export const streamOperations = {
   streamAsrDraft: {
     path: "/chat/asr-draft",
@@ -1559,6 +1581,46 @@ export const streamOperations = {
     client: ChatAsrDraftClientFrame,
     server: ChatAsrDraftServerFrame,
     err: ChatAsrDraftErrorReason,
+  },
+  realtimeDigitalHuman: {
+    path: "/chat/realtime-digital-human",
+    bearerSubprotocolPrefix: "bearer.",
+    audio: {
+      inputSampleRate: 16_000,
+      outputSampleRate: 24_000,
+      channels: 1,
+      encoding: "pcm16le",
+    },
+    client: z.discriminatedUnion("type", [
+      /**
+       * 两种宿主：白板 POC 传 `boardId`；Chat 语音模式传 `threadId`（+ 可选 `agentId`，缺省 = 通用助手）。
+       * 二者恰好其一由网关判定（discriminatedUnion 成员不能带 refine）。模型/音色**不在**这里——
+       * 服务端按角色解析，客户端无权指定。
+       */
+      z.object({
+        type: z.literal("session.start"),
+        boardId: z.string().min(1).optional(),
+        threadId: z.string().min(1).optional(),
+        agentId: z.string().min(1).nullable().optional(),
+      }).strict(),
+      z.object({ type: z.literal("session.stop") }).strict(),
+      z.object({ type: z.literal("response.cancel") }).strict(),
+      z.object({ type: z.literal("conversation.text"), text: z.string().min(1).max(2_000) }).strict(),
+    ]),
+    server: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("session.ready"), model: z.string() }).strict(),
+      z.object({ type: z.literal("user.speech_started") }).strict(),
+      z.object({ type: z.literal("user.speech_stopped") }).strict(),
+      z.object({ type: z.literal("user.transcript"), text: z.string(), final: z.boolean() }).strict(),
+      z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean() }).strict(),
+      z.object({ type: z.literal("assistant.audio"), audio: z.string() }).strict(),
+      z.object({ type: z.literal("assistant.audio_done") }).strict(),
+      z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string() }).strict(),
+      /** Chat 宿主：一轮转写已作为普通消息落进线程（挂断后线程里能看到整段对话）。 */
+      z.object({ type: z.literal("turn.persisted"), role: z.enum(["user", "assistant"]), messageId: z.string() }).strict(),
+      z.object({ type: z.literal("session.closed") }).strict(),
+    ]),
+    err: RealtimeDigitalHumanErrorReason,
   },
 } as const;
 
@@ -1800,3 +1862,22 @@ export const KNOWN_CONTRACT_GAPS = {
    */
   C_CHAT_12: "recommendCanvasTemplates (issue #2825) is a design delta pending human signoff (materials: phases/phase-01-run-a-project/design-deltas/canvas-template-recommendations/, whose design-signoff.md is the only signoff gate): read-only, no model call; recommends canvas templates in three fallback tiers (configured recommendAfter of what the thread drew, then entry templates, then any undrawn published template) so every turn offers a next step; open questions are that tier cascade with its entry out-degree ordering, and the 3-chip display cap",
 } as const;
+
+/**
+ * 用户可见标题里的**控制标记**（UIUX r1 屏 4 P0-2：侧栏出现「… [request_handoff:D003]」
+ * 「UIUX [start_workflow:W0…]」）。形如 `[小写蛇形标识:参数]`——回环替身/工具触发标记
+ * （`request_handoff` / `start_workflow` / `evidence` …）都是这个形状，对人没有意义。
+ *
+ * 唯一一份规则：服务端起名（`domain/chat/thread-title.ts`）与前端展示兜底（存量标题）共用。
+ * 也剥掉被截断后残留在末尾、未闭合的 `[start_workflow:W0…`。
+ */
+const CONTROL_MARKER = /\[[a-z][a-z0-9_]*:[^\]\n]*\]/gu;
+const TRAILING_OPEN_CONTROL_MARKER = /\[[a-z][a-z0-9_]*:[^\]\n]*$/u;
+
+export function stripControlMarkers(text: string): string {
+  return text
+    .replace(CONTROL_MARKER, " ")
+    .replace(TRAILING_OPEN_CONTROL_MARKER, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}

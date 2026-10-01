@@ -1,0 +1,26 @@
+== claims (kind / scope / status)
+ claim_kind |  scope_kind  | personal |  status  | created_by |       statement        
+------------+--------------+----------+----------+------------+------------------------
+ goal       | chat_session | f        | proposed | model      | 我的目标是探索未来教育
+ goal       | personal     | t        | proposed | model      | 我的目标是探索未来教育
+(2 rows)
+
+== derived_from (personal copy -> session claim)
+   relation   | created_by | status | src_scope |  dst_scope   | claim_kind 
+--------------+------------+--------+-----------+--------------+------------
+ derived_from | model      | active | personal  | chat_session | goal
+(1 row)
+
+== audit
+ actor_kind |       actor_id        |   action_type    |  scope_kind  | pipeline_version | outcome  
+------------+-----------------------+------------------+--------------+------------------+----------
+ model      | kg-extractor          | extract          | chat_session | kg-extract@2     | accepted
+ system     | kg-decision-auto-copy | autoCopyDecision | personal     |                  | accepted
+(2 rows)
+
+== turn recall rows (items: statement-free ids + channels)
+  channels   | graph_degraded 
+-------------+----------------
+ [["claim"]] | f
+(1 row)
+

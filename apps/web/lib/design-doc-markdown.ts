@@ -84,6 +84,14 @@ export function describeNode(n: PrototypeNode): string {
     // 对标 R3：表格与图表把**数据**写进文档，工程拿到的是样例数据而不是「这里有张表」。
     case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
     case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
+    // design-delta `prototype-board`：把画布上写了什么、谁连着谁说全——工程据此判断要做的是白板 / 流程图。
+    case "board": {
+      const items = n.props.items.map((it) => `${it.kind === "sticky" ? "便签" : it.kind === "shape" ? "形状" : "文字"}「${it.text}」${it.author !== undefined ? `（${it.author}）` : ""}`);
+      const links = (n.props.links ?? []).filter((l) => l.from < n.props.items.length && l.to < n.props.items.length)
+        .map((l) => `「${n.props.items[l.from]!.text}」→「${n.props.items[l.to]!.text}」${l.label !== undefined ? `（${l.label}）` : ""}`);
+      const cursors = (n.props.cursors ?? []).map((c) => c.name);
+      return `自由画布：${items.join("、") || "（空）"}${links.length > 0 ? `；连线：${links.join("，")}` : ""}${cursors.length > 0 ? `；正在协作：${cursors.join("、")}` : ""}`;
+    }
     // 对标 R4：表单项把选项写全，叠层说清是哪种（工程据此决定是 Dialog 还是 Sheet）。
     // 对标 R5
     case "section": return `分区（${n.props?.tone === "muted" ? "浅灰底" : n.props?.tone === "primary" ? "主色底" : n.props?.tone === "inverse" ? "反色底" : "无底色"}）`;

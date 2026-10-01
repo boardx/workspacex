@@ -39,8 +39,17 @@ export function frameElementFor(index: number): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-testid="design-detail-phone"][data-frame-index="${index}"]`);
 }
 
-export function PrototypeExportMenu({ project, frame }: { project: DesignProject; frame: number }) {
-  const [open, setOpen] = React.useState(false);
+export function PrototypeExportMenu({ project, frame, open: openProp, onOpenChange, hideTrigger = false }: {
+  project: DesignProject; frame: number;
+  /** design-delta `novice-progressive-disclosure`：由详情页「更多」菜单打开时受控、且不显示自带按钮；不传 ⇒ 行为不变。 */
+  open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean;
+}) {
+  const [innerOpen, setInnerOpen] = React.useState(false);
+  const open = openProp ?? innerOpen;
+  const setOpen = React.useCallback((v: boolean | ((o: boolean) => boolean)): void => {
+    const next = typeof v === "function" ? v(open) : v;
+    if (onOpenChange !== undefined) onOpenChange(next); else setInnerOpen(next);
+  }, [open, onOpenChange]);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [done, setDone] = React.useState<string | null>(null);
   /**
@@ -80,7 +89,7 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
-  }, [open]);
+  }, [open, setOpen]);
 
   /** 「已复制」那一下的定时器：卸载时要清掉，否则菜单先关、1.5 秒后还往一个没了的组件里写。 */
   const flashTimer = React.useRef<number | null>(null);
@@ -255,9 +264,9 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
   const item = "flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground";
   return (
     <div ref={rootRef} className="relative">
-      <Button variant="ghost" size="sm" onClick={() => { setFailed(null); setOpen((o) => !o); }} aria-haspopup="menu" aria-expanded={open} data-testid="design-detail-export">
+      {!hideTrigger && <Button variant="ghost" size="sm" onClick={() => { setFailed(null); setOpen((o) => !o); }} aria-haspopup="menu" aria-expanded={open} data-testid="design-detail-export">
         <Download aria-hidden className="h-3.5 w-3.5" /> 导出
-      </Button>
+      </Button>}
       {open && (
         <div role="menu" aria-label="导出" className="absolute right-0 top-full z-20 mt-1 w-56 rounded-card border border-border bg-card p-1 shadow-lg" data-testid="design-detail-export-menu">
           {failed !== null && (

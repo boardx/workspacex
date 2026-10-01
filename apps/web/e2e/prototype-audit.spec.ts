@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
 import { machineScore, assertNoClipping, type AuditSample } from "../scripts/lib/prototype-audit-metrics.mjs";
 import { AA_LARGE, AA_NORMAL, auditTextContrast, examinedFloor } from "./support/text-contrast";
+import { clickMore } from "./support/design-more";
 
 /**
  * 原型截图审计——**机器硬判**那一半，`< 80` 判红（2026-09-09 人类指令：
@@ -116,7 +117,8 @@ async function openDetail(page: Page, c: AuditCase): Promise<void> {
      * 见 `components/design-loop/canvas-appearance.tsx` 的头注）。审计仍然点**真控件**——
      * 所以这里多一步"把面板打开"，而不是绕过 UI 去设内部状态。
      */
-    await page.click("[data-testid='design-detail-appearance']");
+    // design-delta `novice-progressive-disclosure`：「外观」在「更多」菜单里。
+    await clickMore(page, "design-detail-appearance");
     await page.waitForSelector("[data-testid='design-detail-appearance-panel']");
     await page.selectOption("[data-testid='design-detail-device']", c.device);
     await page.waitForTimeout(500);

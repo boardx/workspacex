@@ -1,0 +1,10 @@
+{
+  "facts": [
+    {
+      "factId": "F-1",
+      "statement": "确认为缓存服务故障，已于 10:40 恢复（内部工单 INC-7781）",
+      "source": "resolution-record",
+      "sourceRecordRef": "rec-INC-7781"
+    }
+  ]
+}

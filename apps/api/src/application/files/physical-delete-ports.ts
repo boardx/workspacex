@@ -55,6 +55,8 @@ export interface PhysicalPurgePort {
    * un-eligible for a receipt (N-19), but partial progress is not silently discarded either.
    */
   purgeAll(keys: readonly string[]): Promise<readonly { readonly objectKey: string; readonly deleted: boolean }[]>;
+  /** Deletes only when the current immutable object generation still matches versionTag. */
+  purgeExact?(key:string,versionTag:string):Promise<{readonly objectKey:string;readonly deleted:boolean;readonly versionMatched:boolean}>;
 }
 
 export const PHYSICAL_PURGE_PORT = Symbol("PhysicalPurgePort");

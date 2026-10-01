@@ -1,0 +1,45 @@
+# #4494 review fail-without-fix (after merging S6 #4492 / S8 into S5 at main 845097825).
+# Each block: one fix undone, the listed test run on a fresh DB (apps/api, vitest, own WORKSPACEX_DB),
+# failing tests listed, file restored. With every fix in place all of them pass.
+
+===== B1 undone: pg-session-briefing.ts without STILL_OPEN (LIVE + both claims of a card) and the migration without the
+      valid_to / todo_state filters in kg_goal_link_candidates and the kg_set_goal_link goal check
+# (the M1 test fails here only on its last line: the done, revised todo still shows in the briefing)
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > M1：改写一条已做完的待办 ⇒ 新的一条仍是 done（复制来源边不把状态改回来源的 open） 187ms
+     → expected [ '我决定语文课每周加一节阅读课', '我决定每周写两千字', …(3) ] to not include '月底前读完苏霍姆林斯基的给教师的建议'
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：会话里的待办——做完（done）、不做了（dropped）、过期的都不在「未了事项」里 53ms
+     → expected [ '我决定语文课每周加一节阅读课', '我决定每周写两千字', …(3) ] to include '明天给家长发通知'
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：长期记忆里过期的决定不在「最近」里（让位给下一条还算数的） 61ms
+     → expected [ '我决定语文课每周加一节阅读课', '我决定每周写两千字', …(3) ] to not include '我决定每周写两千字'
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：矛盾 / 可能改口卡——任何一边做完了或过期了，卡就不在「还没定下来的」里 58ms
+     → expected true to be false // Object.is equality
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：过期的目标不再是挂接候选，也不能再挂 57ms
+     → expected [ Array(1) ] to not include 'act_da606b7cd93c4bd38b2b600ef48d10c9-p'
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > M1：改写一条已做完的待办 ⇒ 新的一条仍是 done（复制来源边不把状态改回来源的 open）
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：会话里的待办——做完（done）、不做了（dropped）、过期的都不在「未了事项」里
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：长期记忆里过期的决定不在「最近」里（让位给下一条还算数的）
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：矛盾 / 可能改口卡——任何一边做完了或过期了，卡就不在「还没定下来的」里
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：过期的目标不再是挂接候选，也不能再挂
+ Test Files  1 failed (1)
+      Tests  5 failed | 1 passed | 11 skipped (17)
+
+===== B2 undone: recall-knowledge.ts passes the unfiltered candidate claims to withProfileSummary
+   × #4494 review B2：画像摘要只带「这一轮还算数」的（S6 recallable） > 已过期的身份 / 不做了的待办不进画像摘要；还算数的照带，done 的待办照带（S6：done 仍召回） 8ms
+     → expected [ 'i1', 'x1', 't1', 't2' ] to not include 'x1'
+ FAIL  tests/knowledge-graph/s5-profile-briefing-unit.test.ts > #4494 review B2：画像摘要只带「这一轮还算数」的（S6 recallable） > 已过期的身份 / 不做了的待办不进画像摘要；还算数的照带，done 的待办照带（S6：done 仍召回）
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 passed (16)
+
+===== M1 undone: kg_revise_personal_claim without re-asserting todo_state after copying derived_from
+# (the two B1 failures are knock-on: the revised todo stays open and keeps an open-todo / card slot)
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > M1：改写一条已做完的待办 ⇒ 新的一条仍是 done（复制来源边不把状态改回来源的 open） 133ms
+     → expected [ { todo_state: 'open', …(1) } ] to deeply equal [ { todo_state: 'done', …(1) } ]
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：会话里的待办——做完（done）、不做了（dropped）、过期的都不在「未了事项」里 43ms
+     → expected [ '我决定语文课每周加一节阅读课', '我决定每周写两千字', …(3) ] to include '明天给家长发通知'
+   × #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：矛盾 / 可能改口卡——任何一边做完了或过期了，卡就不在「还没定下来的」里 57ms
+     → expected true to be false // Object.is equality
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > M1：改写一条已做完的待办 ⇒ 新的一条仍是 done（复制来源边不把状态改回来源的 open）
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：会话里的待办——做完（done）、不做了（dropped）、过期的都不在「未了事项」里
+ FAIL  tests/knowledge-graph/s5-profile-briefing.test.ts > #4494 review: S6 时间维度 × 开场简报 / 挂目标 / 改写 > B1：矛盾 / 可能改口卡——任何一边做完了或过期了，卡就不在「还没定下来的」里
+ Test Files  1 failed (1)
+      Tests  3 failed | 3 passed | 11 skipped (17)

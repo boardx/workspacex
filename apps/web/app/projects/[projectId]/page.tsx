@@ -1,7 +1,7 @@
 import { ProjectWorkbench } from "@/components/project/project-workbench";
 import { resolvePreviewRole } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
-import { resolveProjectTab } from "@/lib/mock/project";
+import { resolveProjectTab } from "@/lib/project-workbench";
 
 /**
  * 项目主页 `/projects/[projectId]` —— project 束现行落点（2026-08-02，issue #317 收敛）。
@@ -19,9 +19,9 @@ import { resolveProjectTab } from "@/lib/mock/project";
  *     `现场大屏尚未建` 的显式禁用状态原样保留，不静默丢弃；
  *   · 静态 `/project` 退役为 `redirect("/projects")` 桩。
  *
- * ⚠ 与 `canvas`/`files` 子路由同型的已知 mock 债：六个 tab 里除「概览」的项目基本
- *   信息块外，内部的具体内容仍是单一 mock 场景（`lib/mock/project.ts` 的
- *   `PROJECT_HEADER` 等），不因不同项目 id 而不同——这次（F353）只接「概览」。
+ * ⚠ 工作台的虚构 mock 场景（原 `lib/mock/project.ts` 的 `PROJECT_HEADER` / 洞察库 / 待办卡片 /
+ *   设置……）已整体删除：各 tab 只显示真实数据，没有真实来源的块显示如实空态。
+ *   `canvas`/`files` 子路由仍是各自的 mock 债，不在本页范围。
  *
  * ⚠ F353：项目名称/kind/status/只读原因改由 `ProjectWorkbench` 内部真实拉取
  *   （`GET /projects?orgId=`，按 id 在 member/managed 两段里找），不再用

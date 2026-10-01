@@ -1,11 +1,18 @@
+import { WHITEBOARD_COLLABORATION_STORE } from './application/whiteboard/collaboration-ports';
+import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { attachWhiteboardGateway } from './interface/ws/whiteboard.gateway';
+import { PgWhiteboardPresenceIdentity } from './infrastructure/whiteboard/pg-whiteboard-presence-identity';
 /**
  * Process entry point (the other half of the composition root). See the note at the top of
  * `kernel.module.ts` about why the composition root belongs to no layer.
  */
 import "reflect-metadata";
-import { json, type Request, type Response, type NextFunction } from "express";
+import { json, raw, type Request, type Response, type NextFunction } from "express";
 import { PayloadTooLargeException } from "@nestjs/common";
 import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
+import { WHITEBOARD_IMPORT_LIMITS } from "@repo/contracts/whiteboard-import";
+import { workflowRuntime as workflowRuntimeOps } from "@repo/contracts/workflow-runtime";
+import { SURVEY_PROPOSAL_BODY_MAX_BYTES } from '@repo/contracts/survey-markdown-proposal';
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { NestFactory } from "@nestjs/core";
@@ -18,6 +25,9 @@ import type { DebugRecorder } from "./application/diagnostics/debug-recorder";
 import { sweepDebugEvents } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
+import { attachRealtimeDigitalHumanGateway, readRealtimeModelConfig } from "./interface/ws/realtime-digital-human.gateway";
+import { AGENT_DIRECTORY_REPOSITORY } from "./application/agent/list-agent-directory";
+import { realtimeVoiceSessionService } from "./application/chat/realtime-voice-session";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
 import { attachAgentRunEventsGateway, checkRunVisibleViaReadAgentRun } from "./interface/ws/agent-run-events.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
@@ -90,6 +100,33 @@ export async function createApp(): Promise<NestExpressApplication> {
       }
       next(error);
     }));
+  const whiteboardImportParser=json({limit:Math.ceil(WHITEBOARD_IMPORT_LIMITS.uploadBytes*4/3)+16*1024});
+  app.getHttpAdapter().getInstance().post(['/whiteboards/:boardId/imports','/whiteboards/:boardId/portable/import'],
+    (req:Request,res:Response,next:NextFunction)=>whiteboardImportParser(req,res,(error?:unknown)=>{
+      if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){next(new PayloadTooLargeException({reasonCode:'PAYLOAD_TOO_LARGE'}));return;}
+      next(error);
+    }));
+
+  // Only this authenticated upload envelope needs room for bounded base64 bytes.
+  const surveyProposalParser=json({limit:SURVEY_PROPOSAL_BODY_MAX_BYTES});
+  app.getHttpAdapter().getInstance().post('/surveys/markdown-proposals',
+    (req:Request,res:Response,next:NextFunction)=>surveyProposalParser(req,res,(error?:unknown)=>{
+      if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){
+        next(new PayloadTooLargeException());return;
+      }
+      next(error);
+    }));
+
+  // WF06 UC-WR-13: the webhook HMAC covers the raw request bytes (trigger-webhook.ts header), so this
+  // one route gets the unparsed Buffer; Nest's default JSON parser then sees req._body and skips it.
+  const webhookRawParser = raw({ type: () => true, limit: "1mb" });
+  app.getHttpAdapter().getInstance().post(workflowRuntimeOps.triggerWebhook.path,
+    (req: Request, res: Response, next: NextFunction) => webhookRawParser(req, res, (error?: unknown) => {
+      if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
+        next(new PayloadTooLargeException()); return;
+      }
+      next(error);
+    }));
 
   app.get<DebugRecorder>(DEBUG_TRACE_PORT).start();
   return app;
@@ -157,6 +194,12 @@ function loadLocalEnvFileForDev(): void {
  *   a listener nobody closes.
  */
 export function attachStreamingSurfaces(app: NestExpressApplication): void {
+  attachWhiteboardGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    boards: app.get(WHITEBOARD_REPOSITORY),
+    store: app.get(WHITEBOARD_COLLABORATION_STORE),
+    identities:new PgWhiteboardPresenceIdentity(app.get(DATABASE_PORT)),
+  });
   attachAsrGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     identities: app.get(IDENTITY_REPOSITORY),
@@ -170,6 +213,18 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   attachAsrDraftGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     asr: app.get(ASR_PROVIDER),
+  });
+  attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    // Chat 语音模式：线程判权 + 已发布角色解析 + 转写落库（见 `realtime-voice-session.ts`）。
+    voice: realtimeVoiceSessionService({
+      repo: app.get(IDENTITY_REPOSITORY),
+      ids: app.get(DECISION_ID_FACTORY),
+      chat: app.get(CHAT_REPOSITORY),
+      directory: app.get(AGENT_DIRECTORY_REPOSITORY),
+      voiceMap: readRealtimeModelConfig().voiceMap,
+      defaultVoice: readRealtimeModelConfig().defaultVoice,
+    }),
   });
   attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
     tickets: app.get(REALTIME_ASR_TICKET_STORE),

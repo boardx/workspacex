@@ -101,7 +101,7 @@ const SOURCES: ClaimSources = knowledgeGraph.getClaimSources.out.parse({
 
 function turn(overrides: Partial<TurnMemory> = {}): TurnMemory {
   return knowledgeGraph.getTurnMemory.out.parse({
-    messageId: "msg-9", captured: [], pending: false, prompt: null, recalled: [], recallDegraded: false, ...overrides,
+    messageId: "msg-9", captured: [], pending: false, prompt: null, supersede: null, recalled: [], recallDegraded: false, ...overrides,
   });
 }
 
@@ -177,6 +177,26 @@ describe("lib/knowledge-graph-api", () => {
 });
 
 /* ── 面板 ─────────────────────────────────────────────────────────── */
+
+describe("记忆面板：issue #4343 目标 / 偏好", () => {
+  it("本人的目标、偏好各成一组，标题是「目标」「偏好」，排在决定之后、事实之前", async () => {
+    const claims = [
+      ...CLAIMS,
+      claim("c-goal", "goal", "我的目标是探索未来教育", "proposed"),
+      claim("c-pref", "preference", "我更喜欢简洁的回答", "proposed"),
+    ];
+    stubNetwork((p) => (p.startsWith("/knowledge-graph/threads/") ? json(knowledge({ claims })) : undefined));
+    render(<Harness threadId={THREAD} />);
+    await screen.findByTestId("kg-list");
+    const goal = screen.getByTestId("kg-group-goal");
+    expect(goal).toHaveTextContent("目标");
+    expect(within(goal).getByText("我的目标是探索未来教育")).toBeInTheDocument();
+    expect(within(screen.getByTestId("kg-group-preference")).getByText("我更喜欢简洁的回答")).toBeInTheDocument();
+    expect(screen.getByTestId("kg-group-preference")).toHaveTextContent("偏好");
+    const order = [...screen.getByTestId("kg-list").querySelectorAll("[data-testid^='kg-group-']")].map((s) => s.getAttribute("data-testid"));
+    expect(order.slice(0, 4)).toEqual(["kg-group-decision", "kg-group-goal", "kg-group-preference", "kg-group-fact"]);
+  });
+});
 
 describe("记忆面板（真实数据）", () => {
   it("加载态 → 按类型分组，带三态徽标与来源计数；头部常驻可见范围「仅你可见」", async () => {
@@ -304,14 +324,15 @@ describe("记忆面板（真实数据）", () => {
     expect(screen.getByTestId("kg-claim-edit-trigger-c-fact")).toBeInTheDocument();
   });
 
-  it("真实 /chat：所有者有编辑入口（F10）与「记到长期记忆」（F11），「整理」还没有通路就不画", async () => {
+  // issue #4352：「整理本会话」接上了 requestReindex，所有者且抽取开着时「失败 · 重试」画出来（以前没有通路就不画）。
+  it("真实 /chat：所有者有编辑入口（F10）、「记到长期记忆」（F11）与「失败 · 重试」（UC-KG-4）", async () => {
     stubNetwork(() => json(knowledge({ canPromote: true, ingestion: { queued: 0, running: 0, failed: 1, failures: [] } })));
     render(<Harness threadId={THREAD} />);
     await screen.findByTestId("kg-list");
     expect(screen.queryByTestId("kg-readonly-badge")).not.toBeInTheDocument();
     expect(screen.getByTestId("kg-row-yes-c-fact")).toBeInTheDocument();
     expect(screen.getByTestId("kg-promote-enter")).toBeInTheDocument();
-    expect(screen.queryByTestId("kg-ingestion-retry")).not.toBeInTheDocument();
+    expect(screen.getByTestId("kg-ingestion-retry")).toBeInTheDocument();
   });
 
   it("空态：本会话还没记下任何东西", async () => {

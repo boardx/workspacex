@@ -5,6 +5,8 @@ import { CheckCircle2, CircleAlert, LoaderCircle } from "lucide-react";
 import { auth as C } from "@repo/contracts";
 import { useSession } from "@/components/session/session-provider";
 import { apiRequest, ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { AuthShell } from "@/components/entry/auth-shell";
 
 type VerificationState = "verifying" | "completed" | "invalid" | "unavailable" | "session-failed";
 
@@ -60,12 +62,13 @@ export function EmailVerification() {
   }[state];
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg items-center p-6">
-      <section className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-6 shadow-sm" data-testid={content.testId}>
-        <div className="flex items-center gap-2">{content.icon}<h1 className="text-20 font-semibold">{content.title}</h1></div>
-        <p className="text-13 text-muted-foreground" data-testid="email-verification-status">{content.body}</p>
-        {(state === "completed" || state === "unavailable" || state === "session-failed") && <a className="text-primary underline" href="/login">前往登录</a>}
-      </section>
-    </main>
+    <AuthShell testId={content.testId} icon={content.icon} title={content.title}>
+      <p className="text-13 text-muted-foreground" data-testid="email-verification-status">{content.body}</p>
+      {(state === "completed" || state === "unavailable" || state === "session-failed") && (
+        <Button asChild variant="primary" size="lg">
+          <a href="/login">前往登录</a>
+        </Button>
+      )}
+    </AuthShell>
   );
 }

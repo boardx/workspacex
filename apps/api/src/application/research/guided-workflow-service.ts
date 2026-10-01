@@ -97,13 +97,14 @@ export class GuidedResearchWorkflowService {
     private readonly checkpointer: BaseCheckpointSaver,
     private readonly directions?: GuidedResearchDirectionGenerator,
     private readonly outlines?: GuidedResearchOutlineGenerator,
+    /** WF07：checkpointer 来自通用运行时的工厂（共享 saver，不归本服务所有）；由合成方给出释放钩子。 */
+    private readonly release?: () => Promise<void>,
   ) {
     this.graph = createGuidedResearchWorkflowGraph({ checkpointer });
   }
 
   async onModuleDestroy(): Promise<void> {
-    const checkpointer = this.checkpointer as BaseCheckpointSaver & { end?: () => Promise<void> };
-    await checkpointer.end?.();
+    await this.release?.();
   }
 
   private async readGraph(sessionId: string): Promise<WorkflowProjection> {
@@ -163,7 +164,7 @@ export class GuidedResearchWorkflowService {
     const generatedDirections = await this.generateDirectionsAfterBrief(input.command);
     const generatedOutline = await this.generateOutlineAfterDirections(input.command);
 
-    await this.receipts.begin({
+    const racedReplay = await this.receipts.begin({
       orgId: input.orgId,
       sessionId: input.session.sessionId,
       requestId: input.command.requestId,
@@ -171,6 +172,7 @@ export class GuidedResearchWorkflowService {
       action: input.command.action,
       payloadFingerprint,
     });
+    if (racedReplay) return C.GuidedResearchWorkflowProjection.parse(racedReplay);
 
     await this.runCommand(input.session.sessionId, input.command);
     if (generatedDirections && input.command.node === "brief") {

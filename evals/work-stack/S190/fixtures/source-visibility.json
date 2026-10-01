@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "ref": "rec-confirm-1",
+      "visibility": "internal"
+    },
+    {
+      "ref": "KB-302",
+      "visibility": "internal"
+    }
+  ]
+}

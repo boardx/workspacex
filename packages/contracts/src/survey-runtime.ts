@@ -12,9 +12,30 @@ import {
   SurveyReportTemplateSchema,
   CompiledSurveyReportSchema,
 } from "./survey-report";
+import { SurveyCompiledDraftSchema, SurveySourceDocumentSchema, SurveyTagsSchema } from "./survey-source";
+
+export const SurveySourceStateSchema = z.object({
+  documents: z.object({
+    design: SurveySourceDocumentSchema,
+    publication: SurveySourceDocumentSchema,
+    reportTemplate: SurveySourceDocumentSchema,
+  }).strict(),
+  compiledVersion: z.number().int().positive(),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+export const SurveySourceDocumentsInputSchema = z.object({
+  design: z.string().min(1).max(500_000),
+  publication: z.string().min(1).max(500_000),
+  reportTemplate: z.string().min(1).max(500_000),
+}).strict();
+export const SurveySourceSaveCommandSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  documents: SurveySourceDocumentsInputSchema,
+}).strict();
 
 export const SurveyDraftInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
+  tags: SurveyTagsSchema.optional(),
   questions: z
     .array(
       SurveyWorkflowQuestionSchema.extend({
@@ -93,6 +114,23 @@ export const SurveySubmissionInputSchema = z.object({
   role: z.string().trim().min(1).max(200).default("未填写"),
   companySize: z.string().trim().min(1).max(200).default("未填写"),
 });
+export const SurveyPublicationSchema = z.object({
+  token: z.string(),
+  status: z.enum(["collecting", "closed"]),
+  questions: z.array(SurveyWorkflowQuestionSchema),
+  version: z.number().int().positive(),
+  expiresAt: z.string().datetime(),
+  sourceSnapshot: z.object({
+    documents: SurveySourceStateSchema.shape.documents,
+    compiled: SurveyCompiledDraftSchema,
+    contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict().optional(),
+}).strict();
+export const SurveyCollectionBatchSchema = SurveyPublicationSchema.extend({
+  id: z.string().min(1),
+  createdAt: z.string().datetime(),
+  closedAt: z.string().datetime().nullable(),
+}).strict();
 const SurveyRuntimeBaseSchema = SurveyDraftInputSchema.extend({
   id: z.string(),
   version: z.number().int().positive(),
@@ -101,15 +139,10 @@ const SurveyRuntimeBaseSchema = SurveyDraftInputSchema.extend({
   answerRevision: z.number().int().nonnegative().default(0),
   updatedAt: z.string().datetime(),
   responses: z.array(SurveyResponseSchema),
-  publication: z
-    .object({
-      token: z.string(),
-      status: z.enum(["collecting", "closed"]),
-      questions: z.array(SurveyWorkflowQuestionSchema),
-      version: z.number().int().positive(),
-      expiresAt: z.string().datetime(),
-    })
-    .nullable(),
+  publication: SurveyPublicationSchema.nullable(),
+  collectionBatches: z.array(SurveyCollectionBatchSchema).optional(),
+  activeCollectionBatchId: z.string().min(1).nullable().optional(),
+  source: SurveySourceStateSchema.optional(),
   report: CompiledSurveyReportSchema.nullable(),
   reportBasisVersion: z.number().int().positive().nullable(),
   reportBasisAnswerRevision: z
@@ -142,8 +175,10 @@ export const SurveyCommandResultSchema = z
   })
   .strict();
 export type SurveyRuntime = z.infer<typeof SurveyRuntimeSchema>;
+export type SurveySourceState = z.infer<typeof SurveySourceStateSchema>;
 export type SurveyDraftInput = z.infer<typeof SurveyDraftInputSchema>;
 export type SurveySubmissionInput = z.infer<typeof SurveySubmissionInputSchema>;
+export type SurveySourceSaveCommand = z.infer<typeof SurveySourceSaveCommandSchema>;
 export type SurveyCreateCommand = z.infer<typeof SurveyCreateCommandSchema>;
 export type SurveySaveCommand = z.infer<typeof SurveySaveCommandSchema>;
 export type SurveyCommandResult = z.infer<typeof SurveyCommandResultSchema>;

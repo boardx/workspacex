@@ -12,6 +12,7 @@ import { join } from "node:path";
 import pg from "pg";
 import { databaseEnv, apiEnv, paths, provisionAdminEnv, DB_APP_ROLE, DB_NAME, type LocalConfig } from "./config";
 import { runToCompletion } from "./processes";
+import { tsxLaunch } from "./node-launch";
 
 const PLATFORM_ORG_ID = "org-platform"; // apps/api/src/domain/org-id.ts
 
@@ -30,16 +31,18 @@ function writeSeedState(c: LocalConfig, s: SeedState): void {
   writeFileSync(paths.seedState(c), JSON.stringify(s, null, 2));
 }
 
+
 type Log = (line: string) => void;
 
 async function apiScript(c: LocalConfig, rel: string, args: string[], env: Record<string, string>, log: Log): Promise<string> {
   const apiDir = join(c.repoRoot, "apps", "api");
+  const launch = tsxLaunch(c.repoRoot, [rel, ...args]);
   const r = await runToCompletion({
     name: rel,
-    command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-    args: [rel, ...args],
+    command: launch.command,
+    args: launch.args,
     cwd: apiDir,
-    env,
+    env: { ...env, ...launch.env },
   });
   for (const line of `${r.stdout}${r.stderr}`.split("\n")) if (line.trim()) log(`[${rel}] ${line}`);
   if (r.code !== 0) throw new Error(`${rel} exited ${String(r.code)}`);

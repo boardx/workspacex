@@ -62,7 +62,7 @@ test("DA-19g 错误处理透明度——真实失败场景下 UI 出现人类可
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");

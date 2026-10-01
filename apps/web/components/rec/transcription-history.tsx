@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Clock3, MoreVertical, Pencil, Plus, Square, Trash2 } from "lucide-react";
+import { Clock3, MoreHorizontal, Pencil, Plus, Square, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
@@ -22,6 +22,7 @@ import {
 import type { UiState } from "@/lib/ui-state";
 import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
+import { RealtimeReconnect, isRetryableTranscriptionError, transcriptionFailureReason } from "@/lib/realtime-reconnect";
 import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
@@ -30,10 +31,22 @@ import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-
 import { DeleteTranscriptionDialog } from "./delete-transcription-dialog";
 import { EditTranscriptionDialog } from "./edit-transcription-dialog";
 import { RealtimeTranscriptionWorkspace } from "./realtime-transcription-workspace";
+import { ProjectBreadcrumb } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
 
 type ActiveTag = string | undefined;
 
-export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
+/**
+ * 项目中枢 B2-S2 的三个可选入参：
+ * - `projectId`：从项目「研究洞察 › 录音转写」带 `?projectId=` 进来；新建成功后 `linkProjectResource`
+ *   挂回项目，顶部挂「返回项目」面包屑。
+ * - `initialCreateOpen`：`?create=1` 直接打开新建弹窗（项目页「在本项目中新建」）。
+ * - `initialSessionId`：`?session=<id>` 直达某条转写（项目页资源列表链过来）——转写没有独立详情路由，
+ *   这里在挂载后按 id 读取并进入工作区。
+ */
+export function TranscriptionHistory({ uiState, projectId = null, initialCreateOpen = false, initialSessionId = null }: {
+  uiState: UiState; projectId?: string | null; initialCreateOpen?: boolean; initialSessionId?: string | null;
+}) {
   const sessionContext = useOptionalSession();
   /**
    * #1057 —— bearer 只有一条来源：真实 SessionProvider 的会话。
@@ -58,7 +71,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [query, setQuery] = React.useState("");
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
   const [editItem, setEditItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [deleteItem, setDeleteItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -68,11 +81,23 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
   const [reconnectableError, setReconnectableError] = React.useState(false);
+  const [reconnecting, setReconnecting] = React.useState(false);
+  const [connectionNotice, setConnectionNotice] = React.useState<string | null>(null);
   const [inputLevel, setInputLevel] = React.useState(0);
   const micDevices = useAudioInputDevices();
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
   const stoppingRef = React.useRef(false);
   const receivedFinalIdsRef = React.useRef(new Set<string>());
+  const generationRef = React.useRef(0);
+  const openingRef = React.useRef(false);
+  const mountedRef = React.useRef(true);
+  const abortRef = React.useRef<AbortController | null>(null);
+  const restartRef = React.useRef<() => void>(() => undefined);
+  const retryRef = React.useRef<RealtimeReconnect | null>(null);
+  if (!retryRef.current) retryRef.current = new RealtimeReconnect(
+    () => restartRef.current(),
+    () => { setReconnecting(false); setReconnectableError(true); },
+  );
 
   React.useEffect(() => {
     let active = true;
@@ -115,6 +140,13 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }, sessionToken);
     const created = toHistoryItem(summary);
     setItems((current) => [created, ...current]);
+    if (projectId) {
+      try {
+        await linkProjectResource({ projectId, kind: "personal_transcription", resourceId: summary.sessionId });
+      } catch {
+        setOperationError("PROJECT_LINK_FAILED");
+      }
+    }
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
     setActiveSession({ ...summary, content: "" });
     await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
@@ -154,8 +186,30 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }
   }
 
-  async function startRealtimeTranscription() {
-    if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
+  async function startRealtimeTranscription(automatic = false) {
+    if (!activeSession || streamRef.current || stoppingRef.current || openingRef.current) return;
+    const recovering = automatic || reconnectableError;
+    if (!automatic) { retryRef.current!.begin(); if (!recovering) setConnectionNotice(null); }
+    const generation = ++generationRef.current;
+    const current = () => generation === generationRef.current;
+    const abort = new AbortController();
+    abortRef.current = abort;
+    openingRef.current = true;
+    let failed = false;
+    let retryableFailure = false;
+    const reportFailure = (reason: string, message = streamErrorText(reason)) => {
+      if (!current() || failed || stoppingRef.current) return;
+      failed = true;
+      setInputLevel(0);
+      setStreamState("error");
+      streamRef.current = null;
+      const retryable = isRetryableTranscriptionError(reason);
+      retryableFailure = retryable;
+      setStreamError(message);
+      setReconnecting(retryable);
+      if (retryable) setConnectionNotice("连接中断，断线期间的音频未转录；请在恢复后补充。");
+      if (!openingRef.current) retryRef.current!.failed(retryable);
+    };
     setStreamError(null);
     setReconnectableError(false);
     setInterimSegment("");
@@ -164,37 +218,62 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
-      streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
+      if (recovering) {
+        const saved = await readPersonalTranscription(activeSession.sessionId, sessionToken, abort.signal);
+        if (!current()) return;
+        setActiveSession(saved);
+      }
+      const handle = await openBoardxRealtimeAsr(activeSession.sessionId, {
         sessionToken,
+        signal: abort.signal,
         deviceId: micDevices.selectedDeviceId ?? undefined,
         handlers: {
-          onState: (state) => setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state),
-          onInterim: setInterimSegment,
+          onState: (state) => {
+            if (!current() || failed) return;
+            setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state);
+            if (state === "recording") { setReconnecting(false); setStreamError(null); retryRef.current!.connected(); }
+          },
+          onInterim: (text) => { if (current() && !failed) setInterimSegment(text); },
           onFinal: (event) => {
+            if (!current() || failed) return;
             if (receivedFinalIdsRef.current.has(event.segmentId)) return;
             receivedFinalIdsRef.current.add(event.segmentId);
             setInterimSegment("");
             setActiveSession((current) => appendFinalEvent(current, event));
           },
-          onLevel: setInputLevel,
-          onFlow: (event) => setFlowState(event.state),
-          onError: (reason) => {
-            setInputLevel(0);
-            setReconnectableError(true);
-            setStreamError(streamErrorText(reason));
-            streamRef.current = null;
-          },
+          onLevel: (level) => { if (current() && !failed) setInputLevel(level); },
+          onFlow: (event) => { if (current() && !failed) setFlowState(event.state); },
+          onError: reportFailure,
         },
       });
+      if (!current() || failed) { void handle.stop().catch(() => undefined); return; }
+      streamRef.current = handle;
     } catch (error) {
-      streamRef.current = null;
-      setStreamState("error");
-      setReconnectableError(true);
-      setStreamError(error instanceof LiveRecordingError ? error.message : streamErrorText(error instanceof Error ? error.message : "CONNECTION_FAILED"));
+      const reason = transcriptionFailureReason(error);
+      reportFailure(reason, error instanceof LiveRecordingError ? error.message : streamErrorText(reason));
+    } finally {
+      openingRef.current = false;
+      if (current()) {
+        if (failed) retryRef.current!.failed(retryableFailure);
+      } else if (mountedRef.current && stoppingRef.current) {
+        stoppingRef.current = false;
+        setStreamState("idle");
+      }
     }
   }
+  restartRef.current = () => void startRealtimeTranscription(true);
 
   async function stopRealtimeTranscription() {
+    retryRef.current!.cancel();
+    setReconnecting(false);
+    if (openingRef.current) {
+      ++generationRef.current;
+      abortRef.current?.abort();
+      stoppingRef.current = true;
+      setStreamState("stopping");
+      setStreamError(null);
+      return;
+    }
     const handle = streamRef.current;
     const sessionId = activeSession?.sessionId;
     if (!handle && activeSession?.status === "recording") {
@@ -212,7 +291,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       }
       return;
     }
-    if (!handle || !sessionId || stoppingRef.current) return;
+    if (!handle || !sessionId || stoppingRef.current) {
+      setStreamState("idle");
+      setStreamError(null);
+      return;
+    }
     stoppingRef.current = true;
     setStreamError(null);
     setReconnectableError(false);
@@ -268,22 +351,58 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }
   }
 
-  React.useEffect(() => () => { void streamRef.current?.stop().catch(() => undefined); }, []);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    const generationCounter = generationRef;
+    const online = () => retryRef.current!.online();
+    window.addEventListener("online", online);
+    return () => {
+      window.removeEventListener("online", online);
+      retryRef.current!.cancel();
+      mountedRef.current = false;
+      ++generationCounter.current;
+      abortRef.current?.abort();
+      void streamRef.current?.stop().catch(() => undefined);
+    };
+  }, []);
+
+  // `?session=<id>` 直达：只在挂载时读一次；读不到就留在列表并如实报错。
+  React.useEffect(() => {
+    if (!initialSessionId) return;
+    let active = true;
+    readPersonalTranscription(initialSessionId, sessionToken)
+      .then((detail) => { if (active) setActiveSession(detail); })
+      .catch(() => { if (active) setOperationError("TRANSCRIPTION_READ_FAILED"); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只按 URL 进入时的 id 读一次
+  }, [initialSessionId]);
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} flowState={flowState} errorMessage={streamError} reconnectableError={reconnectableError}
+      reconnecting={reconnecting} connectionNotice={connectionNotice}
       inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
       onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
       onReconnect={() => void startRealtimeTranscription()}
       onSaveContent={saveContent}
-      onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;
+      onBack={() => {
+        if (streamRef.current || stoppingRef.current) return;
+        retryRef.current!.cancel();
+        ++generationRef.current;
+        abortRef.current?.abort();
+        setReconnecting(false);
+        setStreamState("idle");
+        setStreamError(null);
+        setConnectionNotice(null);
+        setActiveSession(null);
+      }} />;
   }
 
   return (
     <section data-testid="rec-history-page" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6">
+        <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={() => setCreateOpen(true)} />
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTag={activeTag} onTagChange={setActiveTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
@@ -347,7 +466,7 @@ function HistoryState({
 }) {
   if (uiState === "loading") {
     return (
-      <div data-testid="loading" className="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div data-testid="loading" className="grid animate-pulse grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-64 rounded-lg bg-muted" />)}
       </div>
     );
@@ -369,7 +488,7 @@ function HistoryState({
     );
   }
   return (
-    <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onStop={onStop} onDelete={onDelete} />)}
       <StudioHistoryCreateCard business="转录" testId="rec-create-card" onCreate={onCreate} />
     </div>
@@ -389,12 +508,12 @@ function HistoryCard({
   return (
     <StudioHistoryCard testId={`rec-history-card-${item.id}`} title={item.title}
       status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}</Badge>}
-      description={<>{item.project} · {item.owner}<br />{item.summary}</>} tags={item.tags}
+      description={item.project} tags={item.tags}
       metadata={<><span>{item.duration}</span><time>{item.updatedAt}</time></>}
       primaryAction={<Button data-testid={`rec-history-open-${item.id}`} size="sm" variant="primary" onClick={() => onOpen(item)}>进入转录</Button>}
       management={
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
+          <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-card p-1 shadow-md">
             {item.status === "recording" && <DropdownMenu.Item data-testid={`rec-history-stop-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onStop(item)}><Square className="h-4 w-4" aria-hidden />结束转录</DropdownMenu.Item>}
             <DropdownMenu.Item data-testid={`rec-history-edit-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onEdit(item)}><Pencil className="h-4 w-4" aria-hidden />修改</DropdownMenu.Item>

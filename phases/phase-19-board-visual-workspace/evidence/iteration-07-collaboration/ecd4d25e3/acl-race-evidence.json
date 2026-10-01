@@ -1,0 +1,35 @@
+{
+  "boardId": "14d501b2-2054-4f18-9d0b-4ce1dd11c33b",
+  "evidence": [
+    {
+      "name": "comments-list-removed",
+      "lockWaitObserved": true,
+      "denied": true
+    },
+    {
+      "name": "comments-new-removed",
+      "lockWaitObserved": true,
+      "denied": true
+    },
+    {
+      "name": "comments-replay-removed",
+      "lockWaitObserved": true,
+      "denied": true
+    },
+    {
+      "name": "recovery-head-removed",
+      "lockWaitObserved": true,
+      "denied": true
+    },
+    {
+      "name": "checkpoint-publish-downgrade",
+      "lockWaitObserved": true,
+      "denied": true
+    },
+    {
+      "name": "checkpoint-publish-archive",
+      "lockWaitObserved": true,
+      "denied": true
+    }
+  ]
+}

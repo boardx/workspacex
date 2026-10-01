@@ -1,0 +1,41 @@
+'use client';
+import { useEffect, useRef, useReducer } from 'react';
+import type * as Y from 'yjs';
+import { BoardCommandPort, readObjects, WhiteboardUndo, type BoardCommandEnvelope } from '@repo/whiteboard-core';
+/** Only local commands enter this origin's undo history; the host owns doc and transport. */
+export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
+  const [, render] = useReducer(n => n + 1, 0);
+  // A selection, viewport or toolbar state change re-renders the editor without
+  // changing Yjs. Preserve object identity across those renders so the Fabric
+  // projection does not rescan and remeasure every object on the board.
+  const snapshot = useRef<{ doc: Y.Doc; objects: ReturnType<typeof readObjects> } | null>(null);
+  if (snapshot.current?.doc !== doc) snapshot.current = { doc, objects: readObjects(doc) };
+  const undo = useRef<WhiteboardUndo | null>(null);
+  const port = useRef<BoardCommandPort | null>(null);
+  useEffect(() => {
+    const update = () => {
+      if (snapshot.current?.doc !== doc) return;
+      snapshot.current = { doc, objects: readObjects(doc) };
+      render();
+    };
+    doc.on('update', update);
+    return () => { doc.off('update', update); };
+  }, [doc]);
+  useEffect(() => {
+    const local = new WhiteboardUndo(doc);
+    const commandPort = new BoardCommandPort(doc, (commands, origin) => local.execute(commands, origin));
+    undo.current = local; port.current = commandPort;
+    return () => {
+      local.destroy();
+      if (undo.current === local) undo.current = null;
+      if (port.current === commandPort) port.current = null;
+    };
+  }, [doc]);
+  return { objects: snapshot.current.objects, execute(envelope: BoardCommandEnvelope) { return readOnly ? null : port.current?.dispatch(envelope) ?? null; },
+    undo: (gestureId?:string) => readOnly ? 'empty' : undo.current?.undo(gestureId) ?? 'empty', redo: (gestureId?:string) => !readOnly && (undo.current?.redo(gestureId) ?? false) };
+}
+export function textSplice(before: string, after: string) {
+  let start = 0; while (start < before.length && start < after.length && before[start] === after[start]) start++;
+  let end = 0; while (end < before.length - start && end < after.length - start && before[before.length - 1 - end] === after[after.length - 1 - end]) end++;
+  return { index: start, deleteCount: before.length - start - end, insert: after.slice(start, after.length - end) };
+}

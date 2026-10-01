@@ -1,0 +1,27 @@
+{
+  "org": "org-kg-experience-eval",
+  "since": "1970-01-01T00:00:00Z",
+  "sessions": 2,
+  "restated": 1,
+  "rate": 0.5,
+  "perSession": [
+    {
+      "threadId": "thr-68c4962d-f9fb-4006-b4da-b77b960f06af",
+      "userId": "user-kg-eval-owner",
+      "restatedClaimIds": [
+        "clm_e7849e7769aa4e6cbe3c1b044f7b28dc"
+      ]
+    },
+    {
+      "threadId": "thr-1e6c9885-79f0-4d99-b9af-09b57631a0d1",
+      "userId": "user-kg-eval-owner",
+      "restatedClaimIds": []
+    }
+  ],
+  "briefing": {
+    "shown": 5,
+    "accepted": 1,
+    "dismissed": 1,
+    "acceptRate": 0.2
+  }
+}

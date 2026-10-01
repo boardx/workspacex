@@ -1,0 +1,31 @@
+Pager usage is off.
+== claims (owner personal space + the two personal threads) ==
+                   id                   |  scope_kind  |                  scope                   |      statement      |   status   | revoked | revocation_reason | created_by 
+----------------------------------------+--------------+------------------------------------------+---------------------+------------+---------+-------------------+------------
+ clm_b114209af7fb446181b43636e02c7484   | chat_session | thr-4fd9710c-0bb5-45a3-a232-2584ef5dcf55 | 我决定关注 211 高校 | proposed   | f       |                   | model
+ act_0e8df6603cb149d39f1ccffa17f11c7a-p | personal     | owner                                    | 我决定关注 211 高校 | proposed   | f       |                   | model
+ clm_9b47b767185f4e4a815f0b0790eb50cb   | chat_session | thr-d49586c9-8d3b-4056-b69b-c472fe064abc | 改成关注 985 高校   | proposed   | f       |                   | model
+ act_118ff4c8863942c59418c603dfb423c3-p | personal     | owner                                    | 改成关注 985 高校   | superseded | t       | user_revoked      | model
+(4 rows)
+
+== kg_supersede_notices ==
+                   id                   |                thread_id                 |       newer       |        older        | older_scope | status |     undone_by      
+----------------------------------------+------------------------------------------+-------------------+---------------------+-------------+--------+--------------------
+ act_598379d7c55f4ebb9e54bac0d0ba38e5-0 | thr-d49586c9-8d3b-4056-b69b-c472fe064abc | 改成关注 985 高校 | 我决定关注 211 高校 | personal    | undone | user-kg-eval-owner
+(1 row)
+
+== derived_from edges (personal -> session) ==
+                personal                |                source                | created_by |   status    
+----------------------------------------+--------------------------------------+------------+-------------
+ act_0e8df6603cb149d39f1ccffa17f11c7a-p | clm_b114209af7fb446181b43636e02c7484 | model      | active
+ act_118ff4c8863942c59418c603dfb423c3-p | clm_9b47b767185f4e4a815f0b0790eb50cb | model      | invalidated
+(2 rows)
+
+== human actions (audit) ==
+  scope_kind  |  action_type  | actor_kind | outcome  |          created_at           
+--------------+---------------+------------+----------+-------------------------------
+ chat_session | undoSupersede | human      | accepted | 2026-09-27 00:20:28.123127+00
+ personal     | undoSupersede | human      | accepted | 2026-09-27 00:20:28.123127+00
+ personal     | undoAutoCopy  | human      | accepted | 2026-09-27 00:20:28.395389+00
+(3 rows)
+

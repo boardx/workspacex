@@ -28,7 +28,7 @@ test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  await page.waitForURL(/\/home$/);
 
   // 同 `copilotkit-v2-hitl.spec.ts` 记录的编译预热坑：Next dev 首次编译窗口撞上
   // `/info` 探测会让整个 agent 被标记 `runtime_info_fetch_failed`，永久失败。

@@ -102,7 +102,7 @@ docker build --platform "$WSX_PLATFORM" -f apps/deep-agent-service/Dockerfile.re
 docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg PYTHON_IMAGE="$WSX_PYTHON_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -t "$WSX_REGISTRY_PREFIX/sandbox:$WSX_SOURCE_REVISION" apps/skill-sandbox
 ```
 
-After authorized registry publication, create `$WSX_EVIDENCE/build-input.json` using the release schema's `schemaVersion`, `release`, `sourceRevision`, `platform` and six `images.<service>.image` fields. Input image references may be explicit repository tags or digests. PostgreSQL must reference the reviewed pgvector image; Redis references its reviewed upstream image. Then run:
+After authorized registry publication, create `$WSX_EVIDENCE/build-input.json` using the release schema's `schemaVersion`, `release`, `sourceRevision`, `platform` and six `images.<service>.image` fields. Input image references may be explicit repository tags or digests. PostgreSQL must reference an image built from `apps/api/docker/postgres-age` (reviewed pgvector base + Apache AGE, ADR-114 / #4081; `publish-cn-release.sh` builds and pushes it as `postgres-age`), never the bare pgvector image; Redis references its reviewed upstream image. Then run:
 
 ```sh
 node --import tsx packages/cloud-deploy/src/release-manifest-cli.ts "$WSX_EVIDENCE/build-input.json" "$WSX_EVIDENCE/release.json"

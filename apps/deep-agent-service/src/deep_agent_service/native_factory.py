@@ -23,7 +23,7 @@ from .native_graph import create_native_graph
 from .native_session_binding_guard import NativeSessionBindingGuard
 from .native_artifact_publish import artifact_publish_tool
 from .standard_web_tools import standard_web_tools
-from .standard_memory import standard_memory_tools
+from .standard_remember import remember_tool
 from .standard_context_tools import standard_context_tools
 from .standard_canvas_tools import standard_canvas_tools
 from .standard_document_tools import document_parse_tool
@@ -121,8 +121,10 @@ def native_candidate_tools(model, interactions, mcp_snapshot=None):
     断言"构造了但没被准入的集合为空"；否则测试只能再手抄一份清单，而手抄的副本正是
     这一类漂移的成因本身。
     """
+    # issue #4344：记忆只有一种——`wx_remember` 开 F17 的「记住」确认卡（用户确认后进知识图谱）。
+    # 旧的 `wx_memory_*`（standard_memory.py，LangMem + workspacex_memory）不再构造；代码与数据保留。
     return [*interactions, spawn_async_task_tool(), artifact_download_tool(), run_status_tool(), run_cancel_tool(),
-            artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(),
+            artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), remember_tool(),
             *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model),
             *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(),
             *(mcp_snapshot_tools(mcp_snapshot) if mcp_snapshot else [])]

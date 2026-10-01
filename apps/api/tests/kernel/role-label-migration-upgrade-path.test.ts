@@ -60,6 +60,8 @@ beforeAll(() => {
   legacyDir = mkdtempSync(join(tmpdir(), "i1705-legacy-"));
   cpSync(MIGRATIONS_DIR, legacyDir, { recursive: true });
   unlinkSync(join(legacyDir, "20260821180000_i1705_agent_role_label.sql"));
+  // 依赖 i1705 所加列的后续迁移一并摘掉（同 i619-migration-upgrade-path 的说明）。
+  unlinkSync(join(legacyDir, "20260930123000_dh_official_names_zh.sql"));
 }, 120_000);
 
 afterAll(() => {

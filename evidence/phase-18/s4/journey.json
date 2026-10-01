@@ -1,0 +1,266 @@
+{
+  "ids": {
+    "P1": "thr-63d2b729-258a-4488-a33c-117186d893b6",
+    "P2": "thr-70f8ffe0-893c-4644-b41f-74893f8ca3fa",
+    "overviewAnswer": "b804d681-318d-4354-ba25-4a6ad3e39e9e",
+    "P2b": "thr-6b6f1be4-01ab-44a9-a3aa-401c7ec893a8",
+    "P3": "thr-159097b4-d08c-481b-ba05-779135a66b57",
+    "changeAnswer": "ef70564f-4746-47c5-82d3-ebd158caaf29",
+    "P4": "thr-1857799a-282f-4aca-ba66-b284225029eb",
+    "P5": "thr-6c8e91d8-a353-4708-a753-5387f6713185",
+    "forgetAnswer": "eafdc185-a776-414d-be17-cdb23401598f",
+    "forgetCard": "card_adf09e2aa4704efca3a3808694f1ee26",
+    "T1": "thr-f2071a00-ebe9-4c42-8ebb-37016767a189",
+    "B1": "thr-e85bd38b-5276-45ec-9336-41f009526333"
+  },
+  "setup": {
+    "p1": [
+      "客户A的对接人是王经理",
+      "我决定关注 211 高校",
+      "周五之前把报价单发给客户A"
+    ],
+    "personal": [
+      "我决定关注 211 高校"
+    ]
+  },
+  "overview": {
+    "answer": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "headings": [
+      "决定",
+      "事实",
+      "待办"
+    ],
+    "turnMemory": {
+      "messageId": "b804d681-318d-4354-ba25-4a6ad3e39e9e",
+      "captured": [],
+      "pending": true,
+      "prompt": {
+        "type": "memory_card",
+        "card": {
+          "cardId": "card_9c00a023e9c940cdb460fc326ad3f79f",
+          "kind": "overview",
+          "state": "open",
+          "items": [
+            {
+              "claimId": "act_f911b9ba2ec846aeb35922054a671706-p",
+              "statement": "我决定关注 211 高校",
+              "claimKind": "decision",
+              "source": {
+                "threadId": "thr-63d2b729-258a-4488-a33c-117186d893b6",
+                "title": "客户A的对接人是王经理"
+              }
+            },
+            {
+              "claimId": "clm_f1e4b42bb6934acc958eea1ede74350c",
+              "statement": "客户A的对接人是王经理",
+              "claimKind": "fact",
+              "source": {
+                "threadId": "thr-63d2b729-258a-4488-a33c-117186d893b6",
+                "title": "客户A的对接人是王经理"
+              }
+            },
+            {
+              "claimId": "clm_f7c24f9adf60417d8b1c8f05f185b4ab",
+              "statement": "周五之前把报价单发给客户A",
+              "claimKind": "todo",
+              "source": {
+                "threadId": "thr-63d2b729-258a-4488-a33c-117186d893b6",
+                "title": "客户A的对接人是王经理"
+              }
+            }
+          ]
+        }
+      },
+      "supersede": null,
+      "recalled": [
+        {
+          "claimId": "act_f911b9ba2ec846aeb35922054a671706-p",
+          "statement": "我决定关注 211 高校",
+          "triState": "pending",
+          "scope": "personal",
+          "saidAt": "2026-09-27T15:17:38.206Z",
+          "channels": [
+            "claim"
+          ],
+          "retrievalReasons": [
+            "recall"
+          ],
+          "score": 0,
+          "graphPath": null
+        }
+      ],
+      "recallDegraded": false
+    }
+  },
+  "overviewNegative": {
+    "answer": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "prompt": null
+  },
+  "changeAuto": {
+    "answer": "根据之前的对话：改成关注 985 高校（本会话 09/27 的对话）。",
+    "notice": "已用〈改成关注 985 高校〉取代〈我决定关注 211 高校〉\n·\n撤销",
+    "personal": [
+      "改成关注 985 高校"
+    ],
+    "turnMemory": {
+      "messageId": "ef70564f-4746-47c5-82d3-ebd158caaf29",
+      "captured": [
+        {
+          "claimId": "clm_a8af4dad3ce54e318f965103630ef84a",
+          "statement": "改成关注 985 高校"
+        }
+      ],
+      "pending": true,
+      "prompt": null,
+      "supersede": {
+        "noticeId": "act_581356c4358140c7997e1aa704fec4ea-0",
+        "newerClaim": {
+          "id": "clm_a8af4dad3ce54e318f965103630ef84a",
+          "statement": "改成关注 985 高校"
+        },
+        "olderClaim": {
+          "id": "act_f911b9ba2ec846aeb35922054a671706-p",
+          "statement": "我决定关注 211 高校"
+        },
+        "state": "applied"
+      },
+      "recalled": [
+        {
+          "claimId": "clm_a8af4dad3ce54e318f965103630ef84a",
+          "statement": "改成关注 985 高校",
+          "triState": "pending",
+          "scope": "chat_session",
+          "saidAt": "2026-09-27T15:17:50.540Z",
+          "channels": [
+            "fts"
+          ],
+          "retrievalReasons": [
+            "recall"
+          ],
+          "score": 0.01639344262295082,
+          "graphPath": null
+        }
+      ],
+      "recallDegraded": false
+    }
+  },
+  "changeCard": {
+    "answer": "根据之前的对话：改成关注 C9（本会话 09/27 的对话）；改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "card": "用〈改成关注 C9〉取代〈改成关注 985 高校〉？\n\n取代\n两条都保留",
+    "personal": [
+      "改成关注 985 高校",
+      "改成关注 C9"
+    ]
+  },
+  "changeNone": {
+    "answer": "根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 C9（本会话 09/27 的对话）。",
+    "turnMemory": {
+      "messageId": "95cf748b-72a6-44f0-b7b6-d1dcd343f8d3",
+      "captured": [],
+      "pending": false,
+      "prompt": null,
+      "supersede": null,
+      "recalled": [
+        {
+          "claimId": "act_c7126d08d2b247958c87ffcfbe713b56-p",
+          "statement": "改成关注 985 高校",
+          "triState": "pending",
+          "scope": "personal",
+          "saidAt": "2026-09-27T15:17:50.540Z",
+          "channels": [
+            "fts"
+          ],
+          "retrievalReasons": [
+            "recall"
+          ],
+          "score": 0.01639344262295082,
+          "graphPath": null
+        },
+        {
+          "claimId": "clm_37a6b6936cb745b79708c2adb9bf1ac7",
+          "statement": "改成关注 C9",
+          "triState": "pending",
+          "scope": "chat_session",
+          "saidAt": "2026-09-27T15:17:52.481Z",
+          "channels": [
+            "fts"
+          ],
+          "retrievalReasons": [
+            "recall"
+          ],
+          "score": 0.01639344262295082,
+          "graphPath": null
+        }
+      ],
+      "recallDegraded": false
+    }
+  },
+  "changeUndo": {
+    "personal": [
+      "我决定关注 211 高校",
+      "改成关注 985 高校",
+      "改成关注 C9"
+    ]
+  },
+  "forgetDone": {
+    "p1": [
+      "我决定关注 211 高校",
+      "周五之前把报价单发给客户A"
+    ],
+    "card": "已忘掉 1 条，之后的对话不再用到\n·\n撤销"
+  },
+  "forgetUndone": {
+    "p1": [
+      "客户A的对接人是王经理",
+      "我决定关注 211 高校",
+      "周五之前把报价单发给客户A"
+    ],
+    "card": "已撤销，这 1 条都恢复了，之后的对话照常会用到"
+  },
+  "forgetNegative": [
+    {
+      "text": "我们来聊聊遗忘曲线",
+      "answer": "根据之前的对话：改成关注 C9（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）；我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+      "prompt": null
+    },
+    {
+      "text": "我忘了密码",
+      "answer": "根据之前的对话：改成关注 C9（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）；我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+      "prompt": null
+    }
+  ],
+  "projectForget": {
+    "answer": "根据之前的对话：改成关注 C9（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）；我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "prompt": null
+  },
+  "privacy": {
+    "undoForeign": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "079fed33-20ce-4869-a6c6-14dc70b8f1af",
+        "reasonCode": "KG_CARD_NOT_FOUND"
+      }
+    },
+    "undoMissing": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "808c9018-28d8-4af3-b6a9-0056aaa3de3d",
+        "reasonCode": "KG_CARD_NOT_FOUND"
+      }
+    },
+    "readAOverview": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "d888f052-e537-4801-b62f-c36a9ddce1c3",
+        "reasonCode": "KG_THREAD_NOT_FOUND"
+      }
+    },
+    "bOverview": {
+      "answer": "好的，收到。",
+      "prompt": null
+    }
+  }
+}

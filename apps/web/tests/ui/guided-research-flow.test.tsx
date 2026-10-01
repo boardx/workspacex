@@ -11,6 +11,66 @@ vi.mock("@/lib/guided-research-api", async (original) => ({
 beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(listGuidedResearchSessions).mockResolvedValue({ items: [] }); });
 // Replaces the retired browser-demo journey: session URLs now use server runtime commands.
 describe("guided research session routing and lifecycle", () => {
+  it("shows the research plan without the removed scope cards", async () => {
+    const runtime = runtimeFixture("outline");
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...runtime, intent: undefined });
+    render(<GuidedResearchFlow step="outline" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(screen.queryByRole("heading", { name: "确认研究边界" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled();
+    expect(screen.getByRole("list", { name: "研究计划" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
+  });
+  it("preserves an unsent assistant message when leaving is cancelled", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-report-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "尚未发送的研究问题" } });
+    fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
+  });
+  it("guards browser history navigation while an assistant message is unsent", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+    window.history.replaceState({}, "", "/research/grs-live/report");
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-report-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "尚未发送的研究问题" } });
+    window.history.replaceState({}, "", "/research/grs-live/plan");
+    fireEvent.popState(window);
+    expect(screen.getByRole("dialog", { name: "研究内容尚未保存" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/research/grs-live/report");
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
+    expect(screen.getByTestId("guided-research-report-workspace")).toBeInTheDocument();
+    window.history.replaceState({}, "", "/research/grs-live/plan");
+    fireEvent.popState(window);
+    fireEvent.click(screen.getByRole("button", { name: "放弃修改并离开" }));
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(window.location.pathname).toBe("/research/grs-live/plan");
+  });
+  it("opens the report rather than retaining chapters after returning to the list", async () => {
+    const runtime = runtimeFixture("report");
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtime);
+    vi.mocked(listGuidedResearchSessions).mockResolvedValue({ items: [{
+      sessionId: "grs-live", title: "储能研究", tags: [], brief: runtime.brief,
+      briefVersion: 1, briefConfirmedAt: null,
+      directions: { candidateVersion: null, confirmedVersion: null, versions: [] },
+      outline: { candidateVersion: null, confirmedVersion: null, versions: [] },
+      stage: "report", resumeStage: "report", status: "completed", progress: 100,
+      sourceCount: 1, reportId: null, createdAt: "2026-09-27", updatedAt: "2026-09-27",
+    }] });
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" visualStage="chapters" />);
+    await screen.findByTestId("research-chapters-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
+    fireEvent.click(await screen.findByTestId("research-view-grs-live"));
+    await screen.findByTestId("guided-research-report-workspace");
+    expect(screen.queryByTestId("research-chapters-workspace")).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe("/research/grs-live/report");
+  });
   it.each(["directions", "outline", "search", "report"] as const)("keeps sessionless %s requests on the home screen", async (step) => {
     render(<GuidedResearchFlow step={step} />);
     expect(screen.getByTestId("research-flow-home")).toBeInTheDocument();
@@ -23,8 +83,9 @@ describe("guided research session routing and lifecycle", () => {
     expect(screen.getByRole("status")).toHaveTextContent("正在恢复");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     resolve(runtimeFixture("directions"));
-    expect(await screen.findByDisplayValue("政策方向")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "5. 研究报告" })).toBeDisabled();
+    expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true");
   });
   it("hides a previous session immediately when the replacement is loading or unavailable", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(runtimeFixture("brief"));
@@ -40,26 +101,34 @@ describe("guided research session routing and lifecycle", () => {
     const navigate = vi.fn();
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" onStepChange={navigate} />);
     await screen.findByDisplayValue("储能研究");
-    expect(screen.getByText(/后续研究结果失效/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /2\. 研究方向/ }));
-    expect(screen.getByDisplayValue("政策方向")).toBeInTheDocument();
+    expect(screen.queryByText(/后续研究结果失效/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /确认研究主题/ }));
+    expect(screen.getByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe("/research/grs-live/topic");
     expect(navigate).not.toHaveBeenCalled();
   });
-  it("saves human edits with the correct version and retracts downstream progress", async () => {
+  it("confirms human edits with the correct version and retracts downstream progress", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("brief"), version: 5, revision: 2 });
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" />);
-    fireEvent.change(await screen.findByDisplayValue("储能研究"), { target: { value: "新的政策研究" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "save", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ topic: "新的政策研究" }) } })));
-    await waitFor(() => expect(screen.getByRole("button", { name: "5. 研究报告" })).toBeDisabled());
+    fireEvent.change(await screen.findByRole("textbox", { name: "研究需求" }), { target: { value: "新的政策研究" } });
+    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "confirm", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ goal: "新的政策研究" }) } })));
+    await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
-  it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
+  it.each(["directions", "outline"] as const)("keeps generated %s aligned to the current-step presentation", async (node) => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
     render(<GuidedResearchFlow step={node} sessionId="grs-live" />);
-    const field = await screen.findByDisplayValue(node === "directions" ? "政策方向" : "政策章节");
-    fireEvent.change(field, { target: { value: "人工修订" } });
-    expect(screen.getByDisplayValue("人工修订")).toBeInTheDocument();
+    if (node === "outline") {
+      fireEvent.click(await screen.findByRole("button", { name: /编辑计划 1/ }));
+      const field = screen.getByRole("textbox", { name: "计划 1" });
+      fireEvent.change(field, { target: { value: "人工修订" } });
+      expect(field).toHaveValue("人工修订");
+    } else {
+      expect(await screen.findByRole("textbox", { name: "研究主题" })).toBeInTheDocument();
+      expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
+    }
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("retains the current node on a failed confirmation and displays the saved error", async () => {
@@ -71,21 +140,44 @@ describe("guided research session routing and lifecycle", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("完成检索任务");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
   });
-  it("shows persisted search failures and retries failed work through the server", async () => {
-    const state = runtimeFixture("research"); state.tasks[0]!.status = "failed";
+  it("shows one primary continue action for a persisted search failure and disables duplicate retries", async () => {
+    const state = runtimeFixture("research");
+    state.tasks[0]!.status = "failed";
+    state.errorCode = "RESEARCH_SEARCH_UNAVAILABLE";
+    let resolveRetry!: (value: ReturnType<typeof runtimeFixture>) => void;
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    vi.mocked(executeResearchRuntime).mockReturnValue(new Promise((resolve) => { resolveRetry = resolve; }));
+    render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("检索服务暂时不可用");
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
+    const retry = screen.getByRole("button", { name: "继续重试" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    resolveRetry({ ...runtimeFixture("research"), version: 5 });
+    expect(await screen.findByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "继续重试" })).not.toBeInTheDocument());
+  });
+  it("offers the same continue action when a running search lease expired", async () => {
+    const state = runtimeFixture("research");
+    state.tasks[0]!.status = "running";
+    state.leaseUntil = "2020-01-01T00:00:00.000Z";
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("research"), version: 5 });
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
-    fireEvent.click(await screen.findByRole("button", { name: "重试失败任务" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("上次执行已中断");
+    fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
-    expect(await screen.findByText("已完成 · 尝试 1 次")).toBeInTheDocument();
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: 5, completed: true });
     render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
-    expect(await screen.findByText("有来源支持的结论")).toBeInTheDocument();
+    expect((await screen.findAllByText("有来源支持的结论")).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Official policy" })).toHaveAttribute("href", "https://example.org/policy");
     fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
     expect(await screen.findByText("研究报告 · 质量待评估")).toBeInTheDocument();
@@ -112,7 +204,7 @@ describe("guided research session routing and lifecycle", () => {
     const navigate = vi.fn();
     render(<GuidedResearchFlow step="report" sessionId="grs-live" onStepChange={navigate} />);
     await screen.findByTestId("research-report");
-    fireEvent.click(screen.getByRole("button", { name: "返回" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
     expect(navigate).toHaveBeenCalledWith("home", undefined);
   });
 });

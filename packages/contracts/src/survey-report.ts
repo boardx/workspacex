@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { analyzeSurveySection } from "./survey-report-analysis";
+import { THRESHOLDS } from "./thresholds";
 import type { SurveyResponse, SurveyWorkflowQuestion } from "./survey";
 import {
   surveyChoices,
@@ -101,6 +102,19 @@ export const SurveyReportTemplateSchema = z
     }
   });
 export type SurveyReportTemplate = z.infer<typeof SurveyReportTemplateSchema>;
+/** Default report projection used only when the author skipped optional template design. */
+export function createDefaultSurveyReportTemplate(title: string, questions: SurveyWorkflowQuestion[], responses?: SurveyResponse[]): SurveyReportTemplate {
+  return SurveyReportTemplateSchema.parse({id:'default-report',title:`${title}分析报告`,sections:[{
+    id:'default-answers',title:'答卷概览',blocks:questions.filter(question => !['description','page_break'].includes(question.type)).filter(question => !responses || responses.some(response => {
+      if (response.analysis === 'excluded' || response.quality !== 'normal') return false;
+      const matching = response.answers.filter(answer => answer.questionId === question.id);
+      const answers = Object.fromEntries(response.answers.map(answer => [answer.questionId, answer.value]));
+      return matching.length === 1 && acceptedAnswer(question, matching[0]!.value) !== undefined && visibleSurveyQuestions(questions, answers).some(visible => visible.id === question.id);
+    })).map(question => ({
+      id:`default-block-${question.id}`,title:question.title,type:'table',questionIds:[question.id],statistic:surveyQuestionStatistics(question)[0]!,samplePolicy:'valid',minGroupSize:8,
+    })),
+  }]});
+}
 export type SurveyReportBlock = z.infer<typeof SurveyReportBlockSchema>;
 export const SurveyReportRowSchema = z.object({
   label: z.string(),
@@ -142,6 +156,37 @@ export const CompiledSurveyReportSchema = z.object({
 export type SurveyReportRow = z.infer<typeof SurveyReportRowSchema>;
 export type CompiledSurveyBlock = z.infer<typeof CompiledSurveyBlockSchema>;
 export type CompiledSurveyReport = z.infer<typeof CompiledSurveyReportSchema>;
+
+/** The O-16 aggregate-output privacy threshold; never create a second survey value. */
+export const SURVEY_REPORT_SHARE_MIN_SAMPLE =
+  THRESHOLDS.crossOrgAggregationMinSample.value;
+
+/**
+ * Returns an actionable privacy reason when a report must remain internal.
+ * Missing provenance is intentionally treated as unsafe rather than shareable.
+ */
+export function surveyReportShareBlockedReason(
+  report: Pick<CompiledSurveyReport, "sampleSummary" | "sections">,
+): string | undefined {
+  const included = report.sampleSummary?.included;
+  if (included === undefined)
+    return "报告缺少纳入分析样本口径，请重新生成后再导出或共享";
+  if (included < SURVEY_REPORT_SHARE_MIN_SAMPLE)
+    return `纳入分析的样本不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE} 份，无法导出或共享报告`;
+  for (const section of report.sections) {
+    for (const block of section.blocks) {
+      const resultSampleCounts = [
+        ...block.rows.map((row) => row.count),
+        ...(block.answerTexts ? [block.answerTexts.length] : []),
+      ];
+      if (!resultSampleCounts.length) continue;
+      const resultSampleSize = Math.min(...resultSampleCounts);
+      if (resultSampleSize < SURVEY_REPORT_SHARE_MIN_SAMPLE)
+        return `“${block.title}”的输出样本不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE} 份，无法导出或共享报告`;
+    }
+  }
+  return undefined;
+}
 
 type Projection = {
   key: string;
@@ -578,7 +623,7 @@ export function compileSurveyReport(
       total: responses.length,
       pendingReview: responses.filter((response) => response.quality === "review").length,
       excluded: responses.filter((response) => response.analysis === "excluded").length,
-      included: responses.filter((response) => response.analysis !== "excluded").length,
+      included: responses.filter((response) => response.analysis !== "excluded" && response.quality === "normal").length,
     },
     warnings: sections.flatMap((section) =>
       section.blocks.flatMap((block) =>

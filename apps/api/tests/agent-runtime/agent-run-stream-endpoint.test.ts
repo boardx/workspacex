@@ -125,6 +125,7 @@ function parseSse(raw: string): ParsedEvent[] {
     .map((chunk) => JSON.parse(chunk.slice("data: ".length)) as ParsedEvent);
 }
 
+const startedRuns: { id: string; user: string; org: string }[] = [];
 async function postMessage(text: string, agentId = AGENT, org = ORG, user = ACTOR): Promise<{
   status: number; agentRunId: string; messageId: string;
 }> {
@@ -135,6 +136,7 @@ async function postMessage(text: string, agentId = AGENT, org = ORG, user = ACTO
   });
   if (response.status !== 202) return { status: response.status, agentRunId: "", messageId: "" };
   const body = await response.json() as { agentRunId: string; message: { id: string } };
+  startedRuns.push({ id: body.agentRunId, user, org });
   return { status: 202, agentRunId: body.agentRunId, messageId: body.message.id };
 }
 
@@ -168,7 +170,15 @@ afterAll(async () => {
   delete process.env.KERNEL_MODEL_STREAM_ENABLED;
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // The cross-tenant 404 assertion does not wait for the originating run.
+  // Drain owned runs before the next reset cascades through agent_runs; otherwise
+  // background writes and fixture deletion can deadlock (CI PostgreSQL 40P01).
+  for (const run of startedRuns.splice(0)) {
+    const completed = await getStream(run.id, run.user, run.org);
+    expect(completed.status).toBe(200);
+    expect(completed.events.at(-1)).toMatchObject({ type: "final", status: "succeeded" });
+  }
   sseFragments = ["Streamed ", "over ", "the ", "existing ", "thread."];
 });
 

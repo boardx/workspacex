@@ -19,7 +19,10 @@ it("binds the trusted attempt once and releases after terminal completion withou
   // （枚举日程）、`wx_audio_transcribe`（转写既有附件）、`wx_artifact_publish`（追加新版本）
   // 从来没被登记进分级表，所以全是 true。剩余 22 件工具显式定级后，这里跟着改成真实的分级结果；
   // 只读面转 false，执行/删除/日程写面照旧 true。
-  expect.objectContaining({ read_file: false, delete: true, execute: true, wx_artifact_publish: false, wx_memory_search: false, wx_memory_write: true, wx_memory_delete: true, wx_schedule_create: true, wx_schedule_list: false, wx_schedule_cancel: true, wx_image_generate: false, wx_audio_transcribe: false }));
+  expect.objectContaining({ read_file: false, delete: true, execute: true, wx_artifact_publish: false, wx_remember: false, wx_schedule_create: true, wx_schedule_list: false, wx_schedule_cancel: true, wx_image_generate: false, wx_audio_transcribe: false }));
+  // #4344：旧的 wx_memory_* 退出准入表——provision 出去的 interrupt_on 里不再有这三个名字（Python 侧据此不构造它们）。
+  const interruptOn = f.owner.provision.mock.calls[0]![2] as Record<string, boolean>;
+  expect(Object.keys(interruptOn).filter((name) => name.startsWith("wx_memory_"))).toEqual([]);
   expect(f.model.complete).toHaveBeenCalledWith(expect.objectContaining({ nativeSession: binding }));
   expect(f.model.complete).toHaveBeenCalledTimes(1);
   expect(f.owner.release).toHaveBeenCalledWith(binding.bindingId, "org", "run");

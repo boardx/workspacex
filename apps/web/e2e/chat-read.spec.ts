@@ -67,7 +67,7 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
@@ -333,7 +333,7 @@ test.fixme("旧屏游标分页与消息气泡身份行：v2 尚无对等实现�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
 
   // ① 分页边界可观测：首屏只有第一页，点「加载更早」之后更早的才出现。
@@ -376,7 +376,7 @@ test("#467/#513 roster mount survives a reload, and the post-reload edit now suc
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
@@ -469,7 +469,7 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   const personalThreadsRequest = page.waitForResponse((response) => (
     response.request().method() === "GET" && /\/chat\/threads(\?|$)/.test(response.url())
@@ -488,7 +488,7 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   //
   // 断言的行为语义**逐字未变**：仍然锚在「不挂靠任何项目，仅自己可见」这句个人对话
   // 独有的说明文字上——v2 在 `copilotkit-v2-shell.tsx:1017` 渲染的正是同一句
-  // （`projectId ? "项目上下文，按对话权限可见" : "不挂靠任何项目，仅自己可见"`），
+  // （`projectId ? "本项目的对话，按对话权限可见" : "不挂靠任何项目，仅自己可见"`），
   // 证明的仍是「这是个人模式，不是项目模式」这件事本身，不是「左栏画出来了」。
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).toContainText("不挂靠任何项目，仅自己可见");
@@ -556,7 +556,7 @@ test("默认入口：裸 /chat 与带参数深链都渲染 copilotkit v2 工作�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   // 给足首次编译窗口（copilotkit-v2-runtime-adapter.spec.ts 同一先例）：v2 的
   // runtime 路由没预热时，dev 首编译会让 goto("/chat") 以 ERR_ABORTED 收场
@@ -584,7 +584,7 @@ test("默认入口：裸 /chat 与带参数深链都渲染 copilotkit v2 工作�
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await expect(page).toHaveURL(new RegExp(`projectId=${CHAT_READ_E2E.projectId}`));
   await expectWorkbenchAndNotLegacy(page);
-  await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).toContainText("项目上下文，按对话权限可见");
+  await expect(page.getByTestId("copilotkit-v2-thread-sidebar")).toContainText("本项目的对话，按对话权限可见");
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
 
   // ③ 旧回退入口 `/chat/legacy` 已被 307 到 `/chat`（#2890 的 `redirects()`）。
@@ -610,7 +610,7 @@ test("#2044 响应式：375px 下 /chat（AppShell 内）不横向溢出", async
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
@@ -630,7 +630,7 @@ test("#925 ③ Enter 发送、Shift+Enter 换行（覆盖 V2 的 ⌘↵）", asy
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
@@ -685,7 +685,7 @@ test("#925 ② 发送后不闪烁：软重读不清空消息、不弹加载骨�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });
@@ -711,7 +711,7 @@ test("V4（PROP-CHAT-10ITER-001）loading skeleton shows while messages load, th
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   // 把消息 GET 拖住 ~2s，让首载骨架屏必然在场（否则真实上游太快、骨架一闪而过、
   // 断言会 racy）。延迟结束后放行，验证骨架被真实消息接管、不再残留。
@@ -742,7 +742,7 @@ test("V5（PROP-CHAT-10ITER-001）jump-to-latest button appears on scroll-up and
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   // 带 `&thread=`：v2 要有一条选中的线程才会把这条线程的历史读回来（见 V4 那条
   // 用例里同一段说明），没有消息就没有可滚的内容，"跳到最新"这条能力也就无从谈起。
@@ -802,7 +802,7 @@ test("V7（PROP-CHAT-10ITER-001）composer auto-grows with multi-line input, cap
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   const input = page.getByTestId("copilotkit-v2-input");
@@ -825,7 +825,7 @@ test("发送后 thinking 等待动画（非流式/deep-agent 情形）—— 提
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });
@@ -892,7 +892,7 @@ test.fixme("#925 ③ 发送后强制滚到底：即使之前上滚看历史，�
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });

@@ -16,7 +16,7 @@ const code = strip(readFileSync(join(API, REPO), "utf8"));
 /** 源码里的全部字符串字面量（反引号 / 双引号 / 单引号）。 */
 const strings = [...code.matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "");
 const sqls = strings.filter((q) => /\b(?:SELECT|FROM|JOIN)\b/i.test(q));
-const TENANT = ["claims", "claim_message_evidence", "chat_messages", "chat_threads", "ontology_objects", "ontology_edges"];
+const TENANT = ["claims", "claim_message_evidence", "chat_messages", "chat_threads", "ontology_objects", "ontology_edges", "object_embeddings"];
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -29,7 +29,7 @@ const callersOf = (re: RegExp) => walk(join(API, "src"))
   .map((f) => relative(API, f)).sort();
 
 describe("F08 会话记忆召回读取的豁免前提", () => {
-  it("(a) 只出现六张租户表（外加只回 id 的 kg_graph_neighbors）；不用逗号连接、不从子查询取行", () => {
+  it("(a) 只出现六张租户表 + S9 的 object_embeddings（外加只回 id 的 kg_graph_neighbors）；不用逗号连接、不从子查询取行", () => {
     const tables = new Set([...code.matchAll(/(?<!FOR\s)(?<!DO\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
     for (const t of [...TENANT, "kg_graph_neighbors", "kg_turn_recalls"]) tables.delete(t);
     expect([...tables]).toEqual([]);
@@ -41,7 +41,7 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).not.toMatch(/withoutTenant/);
   });
 
-  it("(c) 结论与实体只有三种来源：本会话（scope_id = threadId）、发起人本人的个人空间（scope_id = userId）、发起人本人的其他个人对话（F15）；读之前设 app.current_user_id = 发起人", () => {
+  it("(c) 结论与实体只有四种来源：本会话（scope_id = threadId）、发起人本人的个人空间（scope_id = userId）、发起人本人的其他个人对话（F15）、本项目的项目记忆（项目中枢 R7，只在项目会话里）；读之前设 app.current_user_id = 发起人", () => {
     expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id = \$2 AND \$\{LIVE\}`,\s*\[orgId, threadId\]/);
     expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'personal' AND c\.scope_id = \$3 AND \$\{LIVE\}[^`]*`,\s*\[orgId, threadId, userId\]/);
     expect(code).toMatch(/FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'chat_session' AND scope_id = \$2 AND merged_into IS NULL`,\s*\[orgId, threadId\]/);
@@ -51,34 +51,42 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     // 所以召回它们不会把任何别人看不到的东西交给这一轮的模型。条件逐字钉住：
     expect(code).toMatch(/SELECT \$\{CLAIM_COLUMNS\}, c\.scope_id AS thread_id, kg_claim_basis\(c\.statement\) AS basis FROM claims c\s+JOIN chat_threads t ON t\.org_id = c\.org_id AND t\.id = c\.scope_id\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id <> \$2 AND \$\{LIVE\}\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived/);
     expect(code).toMatch(/FROM ontology_objects o\s+JOIN chat_threads t ON t\.org_id = o\.org_id AND t\.id = o\.scope_id\s+WHERE o\.org_id = \$1 AND o\.scope_kind = 'chat_session' AND o\.scope_id <> \$2 AND o\.merged_into IS NULL\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived`,\s*\[orgId, threadId, userId\]/);
-    expect(code.match(/FROM claims c\b/g)).toHaveLength(3);
-    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(3);
-    // 另外只允许三个去重子查询里的 `JOIN claims src` / `JOIN claims l1` / `FROM claims p`（判断「长期记忆里有没有它」，不取任何列）
-    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src", "claims l1", "claims p", "claims x", "claims x"]);
+    // 项目中枢 R7（L2）：第四种来源只能是**当前项目会话所属项目**的项目记忆（`scope_id` = 该线程的 project_id），
+    // 且只在项目会话里读（`projectId === null` ⇒ 一行不读）；能走到这里的人已经过了「你能进这个项目线程」的判定。
+    expect(code).toMatch(/const projectId = here\?\.personal === false \? here\.project_id : null;/);
+    expect(code).toMatch(/const project = projectId === null \? \{ rows: \[\] as Row\[\] \} : await s\.query<Row>\(\s*`SELECT \$\{CLAIM_COLUMNS\} FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'project' AND c\.scope_id = \$3 AND \$\{LIVE\}[^`]*`,\s*\[orgId, threadId, projectId\]/);
+    expect(code).toMatch(/const projectObjects = projectId === null \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query[^`]*`SELECT id, name, aliases FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'project' AND scope_id = \$2 AND merged_into IS NULL`,\s*\[orgId, projectId\]/);
+    expect(code.match(/FROM claims c\b/g)).toHaveLength(4);
+    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(4);
+    // 另外只允许去重子查询里的 `JOIN claims src`（L1 / L2 各一次）/ `JOIN claims l1` / `FROM claims p`（判断「长期记忆里有没有它」，不取任何列）
+    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src", "claims l1", "claims p", "claims x", "claims x", "claims src"]);
     // 改过的说了算：本会话里有同一件事、或本人哪个个人对话里把它忘掉 / 取代了 ⇒ 不从别的对话再拿（只判存在，不取列）
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims x\s+WHERE x\.org_id = c\.org_id AND x\.scope_kind = 'chat_session' AND x\.scope_id = \$2\s+AND kg_claim_basis\(x\.statement\) = kg_claim_basis\(c\.statement\)\)/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims x JOIN chat_threads tx ON tx\.org_id = x\.org_id AND tx\.id = x\.scope_id\s+WHERE x\.org_id = c\.org_id AND x\.scope_kind = 'chat_session' AND kg_claim_basis\(x\.statement\) = kg_claim_basis\(c\.statement\)\s+AND tx\.project_id IS NULL AND tx\.created_by = \$3 AND NOT \(x\.revoked_at IS NULL AND x\.status <> 'superseded'\)\)/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims p\s+WHERE p\.org_id = c\.org_id AND p\.scope_kind = 'personal' AND p\.scope_id = \$3\s+AND kg_claim_basis\(p\.statement\) = kg_claim_basis\(c\.statement\)\)/);
-    expect(code.match(/\bontology_edges\b/g)).toHaveLength(2);
+    expect(code.match(/\bontology_edges\b/g)).toHaveLength(3);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims src/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims l1 ON l1\.id = d\.src_id AND l1\.org_id = d\.org_id\s+WHERE d\.org_id = c\.org_id AND d\.dst_kind = 'claim' AND d\.dst_id = c\.id AND d\.relation = 'derived_from'\s+AND l1\.scope_kind = 'personal' AND l1\.scope_id = \$3\)/);
     expect(code).toMatch(/async candidates\(orgId: OrgId, userId: string, threadId: string\) \{\s*return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
   });
 
-  it("(c4) L1 与本人其他个人对话只进发起人自己的个人线程：先判这一次（只取 1、无项目且本人创建），四路个人查询都挂在它后面", () => {
+  it("(c4) 本人其他个人对话（F15）只进发起人自己的个人线程；L1 进本人的个人线程与项目会话（issue #4284），别人的个人线程两样都不进", () => {
     // 判定 1 次 + 其他个人对话的结论 / 实体各 JOIN 一次 + 「改过的说了算」子查询 JOIN 一次
     expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
-    expect(code).toMatch(/`SELECT 1 FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2 AND t\.project_id IS NULL AND t\.created_by = \$3`,\s*\[orgId, threadId, userId\]/);
-    expect(code).toMatch(/const inPersonalThread = own\.rows\.length === 1;/);
-    expect(code).toMatch(/const personal = !inPersonalThread \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
-    expect(code).toMatch(/const personalObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
+    // 判定只取两个布尔（无项目？本人创建？），不取会话的内容列
+    // 项目中枢 R7 起多取 `t.project_id`（第四种来源要知道是哪个项目）——仍不取会话的任何内容列
+    expect(code).toMatch(/`SELECT t\.project_id IS NULL AS personal, t\.created_by = \$3 AS mine, t\.project_id FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2`,\s*\[orgId, threadId, userId\]/);
+    expect(code).toMatch(/const inPersonalThread = here\?\.personal === true && here\.mine === true;/);
+    expect(code).toMatch(/const withL1 = here\?\.personal === false \|\| inPersonalThread;/);
+    expect(code).toMatch(/const personal = !withL1 \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
+    expect(code).toMatch(/const personalObjects = !withL1 \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
     expect(code).toMatch(/const ownOther = !inPersonalThread \? \{ rows: \[\] as \(Row & \{ thread_id: string; basis: string \}\)\[\] \} : await s\.query/);
     expect(code).toMatch(/const ownOtherObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
   });
 
   it("(c3) 活结论的口径钉死（F07 失效级联靠它）；chat_messages 只在「这条是哪天说的」那个证据子查询里", () => {
     expect(code).toMatch(/^const LIVE = "c\.revoked_at IS NULL AND c\.status <> 'superseded'";$/m);
-    expect(code.match(/AND \$\{LIVE\}/g)).toHaveLength(3);
+    expect(code.match(/AND \$\{LIVE\}/g)).toHaveLength(4);
     expect(code.match(/\bchat_messages\b/g)).toHaveLength(1);
     expect(code).toMatch(/\(SELECT min\(m\.created_at\) FROM claim_message_evidence e JOIN chat_messages m ON m\.id = e\.message_id AND m\.org_id = e\.org_id\s+WHERE e\.claim_id = c\.id AND e\.stance = 'supporting'\) AS said_at/);
   });
@@ -100,43 +108,51 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     //（方法名 candidates 太常见，按名字找调用方挡不住 `port.candidates.call(...)` 这类写法，所以钉「谁拿得到端口」）。
     expect(callersOf(/\bPgKnowledgeRecall\b/)).toEqual(["src/kernel.module.ts"]);
     expect(callersOf(/\bKnowledgeRecallPort\b/)).toEqual([
-      "src/application/agent-run/execute-run.ts", "src/application/knowledge-graph/ports.ts",
+      "src/application/knowledge-graph/ports.ts",
       "src/application/knowledge-graph/recall-knowledge.ts", "src/infrastructure/agent-run/agent-run-executor.ts",
+    ]);
+    // #4361：执行器经 recall-knowledge.ts 的 TurnKnowledgeDeps 拿到端口（execute-run.ts 保持薄网关）——这个依赖包同样只许这两处出现
+    expect(callersOf(/\bTurnKnowledgeDeps\b/)).toEqual([
+      "src/application/agent-run/execute-run.ts", "src/application/knowledge-graph/recall-knowledge.ts",
     ]);
     expect(callersOf(/\bKNOWLEDGE_RECALL_PORT\b/)).toEqual(["src/application/knowledge-graph/ports.ts"]);
     expect(callersOf(/\.graphNeighbors\b/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
+    // S9（#4366）：向量通道同一条链——只有 recall-knowledge.ts 调它，传入的候选 id 就是 candidates 的结果
+    expect(callersOf(/\.vectorNeighbors\b/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
     expect(callersOf(/(?<!function )recallThreadKnowledge\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
     // F17：执行器只调 turnKnowledgeContext（把 run 整个交进去），召回与开卡都在 recall-knowledge.ts 里按 run 的发起人 / 会话取参
     expect(callersOf(/(?<!function )knowledgeMemoryFor\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
     expect(callersOf(/(?<!function )memoryCardFor\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
     expect(callersOf(/(?<!function )turnKnowledgeContext\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
-    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log\)/);
+    // #4361：第五个参数是「改主意」的端口（执行器 / 取代 / 自动记入），读身份与会话仍只取自 run
+    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log, deps\.memoryChange\)/);
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
-    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}, log\)/);
-    expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log\)/);
+    // issue #4360：画像摘要只进个人对话——「是不是个人对话」同样只取自 run（run.projectId）。
+    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId, personalThread: run\.projectId === null \|\| run\.projectId === "" \}, log\)/);
+    expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log, change\)/);
     // memoryCardFor 读候选集只拿 id 去开卡：卡上的内容由 kg_open_memory_card 在数据库里按会话 / 本人个人空间复核后才写
     expect(rk).toMatch(/const \{ claims \} = await knowledge\.candidates\(input\.orgId, input\.userId, input\.threadId\);/);
     expect(rk).toMatch(/claimIds: matches\.map\(\(c\) => c\.id\)/);
   });
 
-  it("(g) 豁免条目的前提文字与这里钉住的一致（三种来源、chat_threads 四次、取行各三条），改代码不许只改一边", () => {
+  it("(g) 豁免条目的前提文字与这里钉住的一致（四种来源、chat_threads 四次、取行各四条），改代码不许只改一边", () => {
     const lint = readFileSync(join(API, "scripts/lint-permission-paths.mjs"), "utf8");
     const entry = lint.slice(lint.indexOf('"src/infrastructure/knowledge-graph/pg-knowledge-recall.ts"'));
     const text = entry.slice(0, entry.indexOf("\n  ],"));
-    expect(text).toContain("召回只读三种来源");
+    expect(text).toContain("召回只读四种来源");
     expect(text).toContain("`chat_threads` 恰好出现四次");
-    expect(text).toContain("`claims` 与 `ontology_objects` 的取行各恰好三条");
+    expect(text).toContain("`claims` 与 `ontology_objects` 的取行各恰好四条");
     expect(text).toContain("tests/retrieval/kg-own-personal-threads-recall.test.ts");
     expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
-    expect(code.match(/FROM claims c\b/g)).toHaveLength(3);
-    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(3);
+    expect(code.match(/FROM claims c\b/g)).toHaveLength(4);
+    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(4);
   });
 
   it("(e) 类成员只有端口要求的三个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
     const members = [...code.matchAll(/^\s{2}(?:(?:public|private|protected|readonly|static)\s+)*(?:async\s+)?(\w+)\s*[(=:<]/gm)]
       .map((m) => m[1]).filter((n) => n !== "constructor").sort();
-    expect(members).toEqual(["candidates", "graphNeighbors", "recordTurn"]);
+    expect(members).toEqual(["candidates", "graphNeighbors", "recordTurn", "vectorNeighbors"]);
     expect(code).not.toMatch(/^[ \t]+(?:get|set|static)[ \t]+\w+\s*\(/m);
     expect(code).not.toMatch(/^[ \t]{3,}(?:public|private|protected|async)[ \t]+\w+\s*\(/m);
   });
@@ -144,6 +160,18 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
   it("(e2) 模块顶层只有 stripKind、两个 SQL 片段常量和这个类——不能在类外另挂一个读正文的函数", () => {
     const topLevel = code.split("\n").filter((l) => /^\S/.test(l) && !/^(?:import\b|\}|\)|export\s+type\b|type\b)/.test(l));
     expect(topLevel.map((l) => /^(?:export\s+)?(?:const|class)\s+(\w+)/.exec(l)?.[1] ?? l)).toEqual(["stripKind", "LIVE", "CLAIM_COLUMNS", "PgKnowledgeRecall"]);
+  });
+
+  it("(h) S9 向量通道：object_embeddings 只读一处——本 org、结论向量、限定在调用方给的候选 id 里，读之前设 app.current_user_id = 发起人；只回 id 与相似度", () => {
+    expect(code.match(/\bobject_embeddings\b/g)).toHaveLength(1);
+    expect(code).toMatch(/async vectorNeighbors\([\s\S]*?return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
+    expect(code).toMatch(/`SELECT oe\.target_id AS id, 1 - \(\$\{order\}\) AS similarity FROM object_embeddings oe\s+WHERE oe\.org_id = \$1 AND oe\.target_kind = 'claim' AND oe\.model = \$2 AND oe\.model_version = \$3\s+AND oe\.target_id = ANY\(\$5::text\[\]\)\s+ORDER BY \$\{order\} LIMIT \$6`,\s*\[orgId, model\.model, model\.modelVersion, vec, claimIds, limit\],/);
+    // 候选 id 只能来自调用方给的那一份（数组或还在读的候选集）；为空 ⇒ 一条都不查
+    expect(code).toMatch(/const \[claimIds, q\] = await Promise\.all\(\[candidateIds, this\.embeddings\.embed\(query\)\]\);\s*if \(claimIds\.length === 0\) return \[\];/);
+    // recall-knowledge.ts 交进来的候选 id 就是同一轮 candidates 的结果
+    const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
+    // issue #4363（S6）：只可能再**收窄**（过期 / 不做了的不交给向量通道），不能换成别的来源
+    expect(rk).toMatch(/const candidates = port\.candidates\(input\.orgId, input\.userId, input\.threadId\);\s*const now = new Date\(\);\s*const ids = candidates\.then\(\(c\) => c\.claims\.filter\(\(x\) => recallable\(x, now\)\)\.map\(\(x\) => x\.id\)\);/);
   });
 
   it("(f) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {

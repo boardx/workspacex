@@ -14,6 +14,16 @@ describe("toolLabel", () => {
     expect(toolLabel("read_file")).toBe("读取文件");
   });
 
+  it("#4344：记忆工具的名字说清楚它只是提议、要用户确认；折叠行带上要记的那句话", () => {
+    expect(toolLabel("wx_remember")).toBe("提议记住（待你确认）");
+    expect(toolObject("wx_remember", { statement: "用户的目标是今年跑完半马" })).toBe("用户的目标是今年跑完半马");
+  });
+
+  it("AG05：Agent 发起流程有中文名，折叠行带上流程编号", () => {
+    expect(toolLabel("start_workflow")).toBe("发起流程");
+    expect(toolObject("start_workflow", { workflowId: "W029", input: { problem: "x" } })).toBe("W029");
+  });
+
   it("未知工具回退到真名——不编一个好听的假名字", () => {
     expect(toolLabel("some_tool_nobody_named")).toBe("some_tool_nobody_named");
   });

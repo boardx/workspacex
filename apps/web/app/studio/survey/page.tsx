@@ -1,24 +1,10 @@
 import { SurveyTemplateLibrary } from "@/components/survey/library/template-library";
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
-import { SurveyResourceLibrary } from "@/components/survey/resource-library/survey-resource-library";
-import type { SurveyResourceState, SurveyResourceTab } from "@/lib/survey/resource-library";
 
 export default function SurveyPage({ searchParams }: {
-  searchParams: { tab?: string; state?: string; intent?: string; preview?: string };
+  searchParams: { tab?: string; state?: string; intent?: string; preview?: string; projectId?: string };
 }) {
-  if (searchParams.preview !== "1") {
-    if (["modules", "question-templates"].includes(searchParams.tab ?? "")) return <SurveyTemplateLibrary kind="question" />;
-    if (["reports", "templates"].includes(searchParams.tab ?? "")) return <SurveyTemplateLibrary kind="report" />;
-    return <LiveSurveyLibrary />;
-  }
-  const tab: SurveyResourceTab = searchParams.tab === "templates"
-    ? "reports"
-    : searchParams.tab === "modules" || searchParams.tab === "reports"
-      ? searchParams.tab
-      : "surveys";
-  const uiState: SurveyResourceState = (["loading", "empty", "error"] as const).includes(searchParams.state as "loading" | "empty" | "error")
-    ? searchParams.state as SurveyResourceState
-    : "default";
-  const intent = searchParams.intent === "create-survey" ? "create-survey" : null;
-  return <SurveyResourceLibrary initialTab={tab} initialIntent={intent} uiState={uiState} />;
+  if (["modules", "question-templates"].includes(searchParams.tab ?? "")) return <SurveyTemplateLibrary kind="question" />;
+  if (["reports", "templates"].includes(searchParams.tab ?? "")) return <SurveyTemplateLibrary kind="report" />;
+  return <LiveSurveyLibrary projectId={searchParams.projectId ?? null} />;
 }

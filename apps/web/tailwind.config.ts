@@ -42,6 +42,8 @@ const config: Config = {
         panel: { DEFAULT: "hsl(var(--panel))", foreground: "hsl(var(--panel-foreground))" },
         "panel-alt": { DEFAULT: "hsl(var(--panel-alt))", foreground: "hsl(var(--panel-alt-foreground))" },
         inverse: { DEFAULT: "hsl(var(--inverse))", foreground: "hsl(var(--inverse-foreground))" },
+        // 品牌色（取自官方 logo；取值与依据见 app/globals.css）
+        brand: { DEFAULT: "hsl(var(--brand))", foreground: "hsl(var(--brand-foreground))", warm: "hsl(var(--brand-warm))", "warm-foreground": "hsl(var(--brand-warm-foreground))" },
       },
       borderRadius: {
         // 历史单值档位（F19 之前的唯一 --radius，7px）——仍有大量存量消费点未迁移，
@@ -107,12 +109,74 @@ const config: Config = {
           "50%": { transform: "translateY(-0.3rem) rotate(0deg) scaleX(1)", opacity: "1" },
           "75%": { transform: "translateY(-0.1875rem) rotate(4deg) scaleX(0.45)", opacity: "0.85" },
         },
+        /**
+         * 登录页品牌栏「蜕变」动画（`components/entry/metamorphosis.tsx`，2026-09-30 重做）——
+         * 同一个 9s 周期：粒子浮现（0–30%）→ 汇聚到轮廓节点并描线（30–55%）→ 填充成蝴蝶、
+         * 柔光亮起、慢速扇翅（55–92%）→ 淡出循环。各层一段 keyframes、共用同一时长，
+         * 靠百分比而不是 JS 计时对齐；粒子起点来自元素上的 CSS 变量 `--dx/--dy`（局部坐标单位）。
+         * 三段文案用 `meta-step` 配 0s / 3s / 6s 的 animation-delay 轮流点亮。
+         */
+        "meta-particle": {
+          "0%": { transform: "translate(var(--dx), var(--dy)) scale(0.3)", opacity: "0" },
+          "10%": { transform: "translate(var(--dx), var(--dy)) scale(1)", opacity: "0.85" },
+          "30%": { transform: "translate(calc(var(--dx) * 0.9), calc(var(--dy) * 0.9)) scale(1.1)", opacity: "0.9" },
+          "54%": { transform: "translate(0, 0) scale(1.3)", opacity: "1" },
+          "64%, 100%": { transform: "translate(0, 0) scale(0.4)", opacity: "0" },
+        },
+        "meta-draw": {
+          "0%, 28%": { strokeDashoffset: "1", opacity: "0" },
+          "32%": { strokeDashoffset: "1", opacity: "1" },
+          "56%": { strokeDashoffset: "0", opacity: "1" },
+          "72%": { strokeDashoffset: "0", opacity: "0.45" },
+          "90%, 100%": { strokeDashoffset: "0", opacity: "0" },
+        },
+        "meta-fill": {
+          "0%, 52%": { transform: "scale(0.9)", opacity: "0" },
+          "64%": { transform: "scale(1)", opacity: "1" },
+          "90%": { transform: "scale(1.03) translateY(-0.25px)", opacity: "1" },
+          "98%, 100%": { transform: "scale(1.05) translateY(-0.5px)", opacity: "0" },
+        },
+        "meta-wing": {
+          "0%, 62%": { transform: "scaleX(1)" },
+          "68%": { transform: "scaleX(0.72)" },
+          "74%": { transform: "scaleX(1)" },
+          "80%": { transform: "scaleX(0.72)" },
+          "86%, 100%": { transform: "scaleX(1)" },
+        },
+        "meta-glow": {
+          "0%, 46%": { transform: "scale(0.6)", opacity: "0" },
+          "64%": { transform: "scale(1)", opacity: "0.9" },
+          "90%": { transform: "scale(1.08)", opacity: "0.55" },
+          "100%": { transform: "scale(1.1)", opacity: "0" },
+        },
+        "meta-orbit": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        "meta-step": {
+          "0%": { opacity: "0.45" },
+          "3%, 31%": { opacity: "1" },
+          "36%, 100%": { opacity: "0.45" },
+        },
+        "meta-step-bar": {
+          "0%": { transform: "scaleX(0)" },
+          "33%": { transform: "scaleX(1)", opacity: "1" },
+          "36%, 100%": { transform: "scaleX(1)", opacity: "0" },
+        },
       },
       animation: {
         "fade-in": "fade-in 160ms ease-out",
         "butterfly-flap": "butterfly-flap 1.1s ease-in-out infinite",
         "butterfly-drift": "butterfly-drift 1.8s ease-in-out infinite",
         "butterfly-fly": "butterfly-fly 1.6s ease-in-out infinite",
+        "meta-particle": "meta-particle 9s ease-in-out infinite",
+        "meta-draw": "meta-draw 9s ease-in-out infinite",
+        "meta-fill": "meta-fill 9s ease-in-out infinite",
+        "meta-wing": "meta-wing 9s ease-in-out infinite",
+        "meta-glow": "meta-glow 9s ease-in-out infinite",
+        "meta-orbit": "meta-orbit 40s linear infinite",
+        "meta-step": "meta-step 9s ease-in-out infinite",
+        "meta-step-bar": "meta-step-bar 9s linear infinite",
       },
       /**
        * ⚠ 语义化动效 token（F03；契约束 motion-microinteraction I-1，ADR 见

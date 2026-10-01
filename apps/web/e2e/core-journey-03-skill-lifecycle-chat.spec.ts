@@ -66,7 +66,7 @@ async function loginAs(page: Page, email: string, password: string): Promise<voi
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 chat 线程 → agent 真的执行它并产出唯一一条回复", async ({ page }) => {

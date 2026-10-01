@@ -65,20 +65,16 @@ beforeEach(() => {
 });
 
 describe("F168 guided research home live data", () => {
-  it("asks for a name and optional tags before entering the research brief", () => {
+  it("enters intake directly without a metadata dialog or stale creation draft", () => {
     const onStepChange = vi.fn();
     render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
 
+    sessionStorage.setItem("wsx.guidedResearch.createDraft", JSON.stringify({ title: "旧草稿", tags: ["旧标签"] }));
     fireEvent.click(screen.getByTestId("research-create"));
-    expect(screen.getByTestId("research-create-dialog")).toBeInTheDocument();
-    expect(screen.getByTestId("research-create-submit")).not.toBeDisabled();
-
-    fireEvent.change(screen.getByTestId("research-create-name"), { target: { value: "欧洲储能进入研究" } });
-    fireEvent.change(screen.getByTestId("research-create-tags"), { target: { value: "欧洲" } });
-    fireEvent.keyDown(screen.getByTestId("research-create-tags"), { key: "Enter" });
-    fireEvent.click(screen.getByTestId("research-create-submit"));
-
-    expect(onStepChange).toHaveBeenCalledWith("brief", undefined);
+    expect(screen.getByTestId("research-create")).toHaveAttribute("href", "/research/new");
+    expect(screen.queryByTestId("research-create-dialog")).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("wsx.guidedResearch.createDraft")).toBeNull();
+    expect(onStepChange).not.toHaveBeenCalled();
   });
 
   it("renders server history and resumes from the server-authored stage", async () => {
@@ -122,7 +118,7 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-outline");
     expect(card).toHaveTextContent("研究大纲");
-    expect(card).toHaveTextContent("第 3 / 5 步");
+    expect(card).toHaveTextContent("第 3 / 6 步");
     fireEvent.click(screen.getByRole("button", { name: "审阅研究大纲" }));
     expect(onStepChange).toHaveBeenCalledWith("outline", "grs-outline");
   });
@@ -160,7 +156,8 @@ describe("F168 guided research home live data", () => {
 
     const card = await screen.findByTestId("research-history-grs-collecting");
     expect(card).not.toHaveTextContent("证据缺口");
-    expect(card).toHaveTextContent("正在收集证据，尚无来源");
+    expect(card).toHaveTextContent("0 个来源");
+    expect(card).not.toHaveTextContent("正在收集证据，尚无来源");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理0");
   });
 
@@ -175,6 +172,7 @@ describe("F168 guided research home live data", () => {
     expect(await screen.findByTestId("research-home-summary")).toHaveTextContent("进行中2");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理1");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
+    expect(screen.getByTestId("research-stage-grs-complete")).toHaveTextContent("第 6 / 6 步");
   });
 
   it("uses the status summary to filter the library and composes it with search", async () => {
@@ -215,8 +213,9 @@ describe("F168 guided research home live data", () => {
     expect(cards()).toEqual(["research-history-grs-old"]);
     fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "采购" } });
     expect(screen.getByTestId("research-history-empty")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("research-history-tag-all"));
-    expect(cards()).toEqual(["research-history-grs-new"]);
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByTestId("research-history-search")).toHaveValue("");
+    expect(cards()).toEqual(["research-history-grs-old", "research-history-grs-new"]);
   });
 
   it("uses the shared Studio list-page width and card density", async () => {
@@ -232,7 +231,7 @@ describe("F168 guided research home live data", () => {
 
     const page = screen.getByTestId("research-home-page");
     expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
-    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:shadow-md");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
   });
 
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {
@@ -283,7 +282,8 @@ describe("F168 guided research home live data", () => {
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在生成研究方向");
-    expect(screen.getByRole("button", { name: "2. 研究方向" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
@@ -418,7 +418,7 @@ it("returns a URL-opened report to history without reopening the stale session p
   getResearchRuntime.mockImplementation(async (sessionId: string) => runtimeFixture("report", sessionId));
   const view = render(<GuidedResearchFlow step="home" sessionId="grs-opened" />);
   await screen.findByTestId("research-report-document");
-  fireEvent.click(screen.getByRole("button", { name: "返回" }));
+  fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
   expect(await screen.findByTestId("research-home-page")).toBeInTheDocument();
   expect(window.location.pathname + window.location.search).toBe("/research");
   view.rerender(<GuidedResearchFlow step="home" sessionId="grs-opened" />);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SurveyReportChart } from "./report-chart";
 export { SurveyReportChart } from "./report-chart";
 import type { survey } from "@repo/contracts";
+import { surveyInsightAction, surveySampleNotice } from "./report-sample-qualification";
 
 import { reportNumber, REPORT_COLORS } from "./report-format";
 export { reportNumber } from "./report-format";
@@ -94,15 +95,21 @@ export function SurveyReportDocument({
 }: {
   report: survey.CompiledSurveyReport;
 }) {
+  const sampleNotice = surveySampleNotice(report.sampleSummary?.included);
   return (
     <article
       data-testid="survey-report-document"
-      className="mx-auto max-w-5xl bg-background p-6 font-sans text-background-foreground sm:p-10"
+      className="mx-auto max-w-5xl border border-border bg-card p-6 font-sans text-card-foreground shadow-sm sm:p-10"
     >
       <h1 className="mb-10 border-b border-border pb-6 text-24 font-bold leading-relaxed">{report.title}</h1>
       {report.sampleSummary && <p className="mb-6 text-12 text-muted-foreground" data-testid="survey-report-sample-summary">
         样本口径：总答卷 {report.sampleSummary.total} · 待复核 {report.sampleSummary.pendingReview} · 已排除 {report.sampleSummary.excluded} · 纳入分析 {report.sampleSummary.included}
       </p>}
+      {sampleNotice && (
+        <p role="status" aria-label={sampleNotice.label} className="mb-6 rounded-lg border border-warning/40 bg-warning/5 p-4 text-13 leading-6">
+          {sampleNotice.text}
+        </p>
+      )}
       {!report.sections.length && (
         <p className="text-muted-foreground">尚无报告章节</p>
       )}
@@ -116,13 +123,14 @@ export function SurveyReportDocument({
           <h2 style={{ color: REPORT_COLORS[sectionIndex % REPORT_COLORS.length], borderLeftColor: REPORT_COLORS[sectionIndex % REPORT_COLORS.length] }} className="mb-6 border-l-2 border-primary pl-4 text-20 font-semibold">{section.title}</h2>
           {!!section.analysis?.length && (
             <div className="mb-6 space-y-4" data-testid="survey-section-analysis">
-              {section.analysis.map((insight, index) => (
-                <div key={index} className="rounded-lg border border-border bg-muted/30 p-5">
+              {section.analysis.map((insight, index) => {
+                const action = surveyInsightAction(report, section, insight);
+                return <div key={index} className="rounded-lg border border-border bg-muted/30 p-5">
                   <h3 className="mb-2 text-16 font-semibold text-primary">{insight.title}</h3>
                   <p className="text-14 leading-7">{insight.evidence}</p>
-                  <p className="mt-3 text-14 leading-7"><strong>建议行动：</strong>{insight.action}</p>
-                </div>
-              ))}
+                  {action && <p className="mt-3 text-14 leading-7"><strong>{action.label}</strong>{action.text}</p>}
+                </div>;
+              })}
             </div>
           )}
           {!section.blocks.length && (

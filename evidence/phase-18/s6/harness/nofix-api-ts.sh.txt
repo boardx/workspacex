@@ -1,0 +1,10 @@
+# B
+for f in apps/api/src/infrastructure/knowledge-graph/pg-knowledge-read.ts apps/api/src/domain/knowledge-graph/recall.ts; do
+  cp $f $S/$(basename $f).fixed
+  git show origin/main:$f > $f
+done
+sh $T wsx_s6_b $S/B.out tests/knowledge-graph/brain-supersede-chain.test.ts tests/knowledge-graph/claim-time.test.ts --testTimeout=600000 --hookTimeout=900000
+cp $S/pg-knowledge-read.ts.fixed apps/api/src/infrastructure/knowledge-graph/pg-knowledge-read.ts
+cp $S/recall.ts.fixed apps/api/src/domain/knowledge-graph/recall.ts
+git status --short >> $S/B.out
+echo RESTORED >> $S/B.out

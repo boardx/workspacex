@@ -522,4 +522,25 @@ export const CHAT_READ_E2E = {
    * 才谈得上证伪它。见替身侧 `EMPTY_REPLY_TRIGGER` 头注。
    */
   deepAgentEmptyReplyTrigger: "取证：请让这次执行空手而归",
+
+  /**
+   * issue #4260 —— 第一个价值时刻的引用闭环（`first-value-citation-loop.spec.ts`）。
+   *
+   * · `firstValueProjectId`：一个**非示例**项目（没有 `sample_projects` 标记），种子用
+   *   `uploadArtifact`（示例项目同一条上传用例）往里传一份自己的材料并建索引。
+   *   ⚠ 目前没有 HTTP 路由能把文件传进项目（契约 `uploadArtifact` 的
+   *   `/projects/:projectId/artifacts/upload` 无控制器，文件页上传弹窗是 mock），所以「上传」
+   *   只能在种子里经同一个用例完成——这是现状，不是本 spec 的取舍。
+   * · `firstValueCiteQuery`：只出现在那份材料里的检索词（纯字母，FTS 按 token 求交）。
+   * · `firstValueCiteTrigger`：确定性 deep-agent 替身据此真的调 `wx_knowledge_search` →
+   *   `wx_cite`（见替身 `CITE_TRIGGER` 头注）。
+   * · `seedAdminEmail`：种子里那位专属 org admin（画布模板也用它）的登录邮箱——漏斗端点
+   *   `GET /org/first-value-funnel` 只对 org admin 开放。密码与 `password` 相同。
+   */
+  firstValueProjectId: "project-chat-read-e2e-first-value",
+  firstValueDocFilename: "first-value-own-notes.md",
+  firstValueCiteQuery: "zephyrquill",
+  firstValueDocBody: "# 自有调研笔记\n\n本组织自己的访谈结论：zephyrquill 方案的客户续约意愿最高，主要原因是交付周期短。\n",
+  firstValueCiteTrigger: "取证：根据我上传的材料回答并给出引用",
+  seedAdminEmail: "canvas-admin+org-chat-read-e2e@example.invalid",
 } as const;

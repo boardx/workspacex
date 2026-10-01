@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { KgMemoryCard } from "@repo/contracts/chat-knowledge-graph";
+import { MemoryOverviewCard } from "./memory-overview-card";
 
 /** 卡上的决定（契约 `actOnMemoryCard.in.decision`）。 */
 export type MemoryCardDecision = "accept" | "dismiss";
@@ -39,18 +40,34 @@ const STATEMENT_MAX = 2000;
  *   长期记忆里那条后来不在了（撤销过 / 被忘掉）⇒ 服务端读作 dismissed：「这条没有记在长期记忆里」。
  * - 忘掉卡：逐条列出、默认全选、可取消勾选，按「忘掉」执行选中的。危险动作用 destructive 按钮（硬规则 ⑦）。
  * - `canAct = false`（不是对话创建者，R5）：只显示卡上的内容，不给任何按钮。
- * - 状态：open / done（已生效）/ dismissed（不用了）/ stale（期间内容已变，E2：只提示，不再给按钮）。
+ * - 状态：open / done（已生效）/ dismissed（不用了）/ stale（期间内容已变，E2：只提示，不再给按钮）/
+ *   undone（#4361：忘掉之后点了撤销，都恢复了）。
+ * - #4361：忘掉卡生效后「已忘掉 N 条 · 撤销」（`onUndoForget`，服务端 undoMemoryCard，返回撤销后的卡）；
+ *   `kind = overview`（「你记得我什么」）交给 `MemoryOverviewCard`（只是清单，没有按钮）。
  */
-export function MemoryCard({
+export function MemoryCard(props: {
+  card: KgMemoryCard;
+  canAct: boolean;
+  onAct: (decision: MemoryCardDecision, opts: MemoryCardActOptions) => Promise<KgMemoryCard>;
+  onUndo?: (claimId: string) => Promise<UndoOutcome>;
+  onUndoForget?: () => Promise<KgMemoryCard>;
+}) {
+  if (props.card.kind === "overview") return <MemoryOverviewCard card={props.card} />;
+  return <ConfirmMemoryCard {...props} />;
+}
+
+function ConfirmMemoryCard({
   card,
   canAct,
   onAct,
   onUndo,
+  onUndoForget,
 }: {
   card: KgMemoryCard;
   canAct: boolean;
   onAct: (decision: MemoryCardDecision, opts: MemoryCardActOptions) => Promise<KgMemoryCard>;
   onUndo?: (claimId: string) => Promise<UndoOutcome>;
+  onUndoForget?: () => Promise<KgMemoryCard>;
 }) {
   const isRemember = card.kind === "remember";
   const [current, setCurrent] = React.useState<KgMemoryCard>(card);
@@ -98,9 +115,20 @@ export function MemoryCard({
     );
   }
 
+  if (current.state === "undone") {
+    return (
+      <p className="mt-2 flex items-center gap-1.5 text-10 text-muted-foreground" data-testid="kg-card-undone">
+        <Check aria-hidden className="h-3 w-3 text-success" />
+        已撤销，这 {String(current.items.length)} 条都恢复了，之后的对话照常会用到
+      </p>
+    );
+  }
+
   if (current.state === "done") {
     const rememberedId = isRemember ? current.items[0]?.claimId ?? null : null;
-    const canUndo = canAct && onUndo !== undefined && rememberedId !== null && undone === null;
+    const canUndo = canAct && (isRemember
+      ? onUndo !== undefined && rememberedId !== null && undone === null
+      : onUndoForget !== undefined);
     return (
       <div className="mt-2 flex flex-col gap-1" data-testid="kg-card-done">
         <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
@@ -117,7 +145,11 @@ export function MemoryCard({
                 className="underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"
                 data-testid="kg-card-undo"
                 onClick={() => void run(async () => {
-                  setUndone(await onUndo(rememberedId));
+                  if (isRemember) {
+                    if (onUndo !== undefined && rememberedId !== null) setUndone(await onUndo(rememberedId));
+                  } else if (onUndoForget !== undefined) {
+                    setCurrent(await onUndoForget());
+                  }
                 })}
               >
                 撤销

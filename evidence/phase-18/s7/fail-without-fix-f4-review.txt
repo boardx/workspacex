@@ -1,0 +1,12 @@
+===== 20260928220000 as at d1c18454e (future window → valid_from + 1µs; no S10 project-copy expiry; audit lists whole family) — fresh db
+   × F4 review（PR #4507）：窗口未开始的也能到期（M1）、S10 项目副本一起到期（M2）、审计只列真到期的（L1）、长期记忆 anchor 继承时间（L2） > M1：有效期窗口还没开始的一条，点一次「已过时」就不再被召回；再点被拒、不多记一条纠正 90ms
+     → expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '客户 A 要求下季度起合同走电子签'
+   × F4 review（PR #4507）：窗口未开始的也能到期（M1）、S10 项目副本一起到期（M2）、审计只列真到期的（L1）、长期记忆 anchor 继承时间（L2） > M2：长期记忆那条「已过时」⇒ S10 分享到项目的副本一起到期，项目成员下一轮不再召回；审计只列这一次真到期的（L1） 126ms
+     → expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '客户 A 要求验收报告用模板 B'
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 16 passed (18)
+===== restored — fresh db
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+DONE

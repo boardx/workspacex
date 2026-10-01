@@ -5,6 +5,7 @@ import { DIGITAL_REPORT_REQUIRED_HEADINGS } from "../../src/application/intervie
 import { listDigitalInterviews } from "../../src/application/interview/list-digital-interviews";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "../../src/infrastructure/interview/workflow/pg-digital-interview-effects";
+import { migrateInterviewMarkdown } from "../../src/infrastructure/interview/interview-markdown-migration";
 import {
   createDigitalInterviewCheckpointer,
   LangGraphDigitalInterviewRuntime,
@@ -501,12 +502,24 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
       questions: editedQuestions, expectedVersion: 3, requestId: "questions-revision-1",
     });
+    await db.withTenant(ORG, (session) => migrateInterviewMarkdown(session, ORG, created.interviewId));
+    const source = await asOwner(async (client) => {
+      const result = await client.query<{ artifact_id: string; version_number: number; content_hash: string; content_source: string }>(
+        `SELECT artifact_id,version_number,content_hash,content_source FROM digital_interview_artifact_versions WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND step='intake' AND content_source IS NOT NULL`, [ORG, created.interviewId, questions.revisionId]);
+      const document = result.rows[0]!;
+      const references = [{ anchor: "original-intake", documentId: document.artifact_id, version: document.version_number }];
+      await client.query(`UPDATE digital_interview_artifact_versions SET controlled_references=$3::jsonb WHERE org_id=$1 AND artifact_id=$2`, [ORG, document.artifact_id, JSON.stringify(references)]);
+      return { ...document, references };
+    });
     const revisedExperts = await setup.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
       expertIds: [generatedExpertId], addedExperts: [], expectedVersion: 4, requestId: "experts-revision-2",
     });
     expect(revisedExperts.revisionId).not.toBe(questions.revisionId);
     expect(revisedExperts.questionCandidates).toEqual(editedQuestions);
+    const inherited = await asOwner((client) => client.query<{ content_hash: string; content_source: string; controlled_references: unknown }>(
+      `SELECT content_hash,content_source,controlled_references FROM digital_interview_artifact_versions WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND step='intake' AND version_number=$4`, [ORG, created.interviewId, revisedExperts.revisionId, source.version_number]));
+    expect(inherited.rows[0]).toEqual({ content_hash: source.content_hash, content_source: source.content_source, controlled_references: source.references });
 
     const revised = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
       topic: "新主题", expectedVersion: 5, requestId: "topic-revision-2" });
@@ -656,7 +669,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
         const meta = '{"type":"meta","title":"江西足球报告","executiveSummary":"基层体系需要长期投入"}\n';
         const sections = [
           "## 研究范围与方法\n说明模拟访谈的样本与证据边界。",
-          "## 核心洞察\n先培养教练，再连接稳定赛事。",
+          "## 核心洞察\n跨回答综合显示教练培养和稳定赛事构成共同模式。\n决策影响：应优先验证教练培养与赛事衔接方案。\n边界与反例：当前只有数字专家模拟样本，仍待真人访谈验证。",
           "## 分角色深度分析\n该专家重视长期教练梯队。",
           "## 跨角色主题分析\n培养、赛事与跟踪需要形成闭环。",
           "## 分歧与共识\n当前样本只有一位专家，尚不能判断跨角色共识。",
@@ -713,6 +726,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
   });
 
   it("completes a formal report when the model returns usable prose without the strict template", async () => {
+    let reportAttempts = 0;
     const proseOnlyModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
@@ -726,9 +740,12 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       completeStream: async (input, onDelta) => {
         const context = JSON.parse(input.user) as { operation?: string };
         if (context.operation !== "generate_interview_report") return proseOnlyModel.complete(input);
+        reportAttempts += 1;
         const events = [
           { type: "meta", title: "江西足球协同发展决策研究", executiveSummary: "已有回答显示青训、赛事和资金机制需要一体化验证。" },
-          { type: "section", markdown: "专家认为基层训练、赛事衔接和长期资金是同一条链路上的约束，必须用试点继续验证。" },
+          { type: "section", markdown: reportAttempts === 1
+            ? "专家依次介绍了基层训练、赛事衔接和长期资金的现状。"
+            : "跨回答综合显示基层训练、赛事衔接和长期资金构成共同模式。决策影响：应优先验证赛事与青训的衔接方案。边界与反例：当前只有数字专家模拟样本，仍待真人访谈验证。" },
         ];
         const text = events.map((event) => JSON.stringify(event)).join("\n");
         await onDelta(text);
@@ -751,14 +768,20 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
     }
 
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: ready.version, requestId: "reject-report-notes" }))
+      .rejects.toMatchObject({ code: "AI_GENERATION_UNAVAILABLE" });
+    const failed = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(failed.reportGeneration).toMatchObject({ status: "failed", errorCode: "AI_GENERATION_UNAVAILABLE" });
+
     const completed = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expectedVersion: ready.version, requestId: "generate-report-prose" });
+      expectedVersion: failed.version, requestId: "generate-report-prose" });
 
     expect(completed).toMatchObject({ status: "completed", reportGeneration: null,
       report: { title: "江西足球协同发展决策研究", findings: expect.arrayContaining([
         expect.objectContaining({ exploratory: true, sourceAnswerId: expect.stringContaining(":") }),
       ]) } });
-    expect(completed.report!.markdown).toMatch(/^专家认为基层训练、赛事衔接和长期资金是同一条链路上的约束/);
+    expect(completed.report!.markdown).toMatch(/^跨回答综合显示基层训练、赛事衔接和长期资金构成共同模式/);
     expect(completed.report!.markdown).toContain("当前只有一位专家的有效回答，不能判断跨角色共识或分歧");
     for (const heading of DIGITAL_REPORT_REQUIRED_HEADINGS) expect(completed.report!.markdown).toContain(heading);
     expect(completed.report!.findings).toHaveLength(3);
@@ -809,7 +832,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
             type: "finding", title: `可追溯发现 ${index + 1}`, summary: "回答揭示供需约束及验证边界。",
             expertId: expert.expertId, questionId: answer.questionId,
           })),
-          { type: "section", markdown: DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading) => `${heading}\n证据与分析。`).join("\n\n") },
+          { type: "section", markdown: DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading) => `${heading}\n证据：已确认回答。\n分析：跨回答综合显示供需约束是共同模式。\n决策影响：应优先验证持续指标。\n边界与反例：当前样本有限，仍待验证。`).join("\n\n") },
         ];
         const text = events.map((event) => JSON.stringify(event)).join("\n");
         await onDelta(text);

@@ -64,6 +64,7 @@ import {
   NoWriteRoleError,
   ThreadArchivedReadonlyError,
   TitleInvalidError,
+  VisibilityScopeInvalidError,
   VersionChangedError,
 } from "../../application/chat/mutate-thread";
 import {
@@ -200,7 +201,7 @@ export const CHECK_DOWNSTREAM_ELIGIBILITY_SCHEMA = C.operations.checkDownstreamE
 type ResolveBody = { actorId: string; projectId: string | null; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
 type MutateThreadBody = {
-  op: "create" | "rename" | "delete";
+  op: "create" | "rename" | "delete" | "pin" | "unpin" | "setVisibility";
   projectId: string | null;
   threadId: string | null;
   groupId: string | null;
@@ -632,6 +633,9 @@ export class ChatController {
       if (e instanceof TitleInvalidError) {
         throw new UnprocessableEntityException({ reasonCode: "TITLE_INVALID" });
       }
+      // 项目中枢 R5：入参不成立（非项目线程 / 目标范围越界）——落不带码的 400，
+      // 同本 controller 与 `project.controller.ts` 里 `project_id_mismatch` 的先例。
+      if (e instanceof VisibilityScopeInvalidError) throw new BadRequestException("visibility_scope_invalid");
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }

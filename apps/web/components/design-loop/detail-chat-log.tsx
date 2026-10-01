@@ -68,6 +68,7 @@ export const DetailChatLog = React.forwardRef<HTMLDivElement, {
 }>(function DetailChatLog({ project, suggestions, sending, fallbackReason, lastUserText, lastApplied, onSend }, ref) {
   return (
     <div ref={ref} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
+      <BriefCard problem={project.problem} />
       {project.chat.length === 0 && (
         <div className="flex max-w-[90%] flex-col gap-2 self-start">
           <div className="rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">{DESIGN_WORKBENCH_CHAT_INTRO}</div>
@@ -224,3 +225,43 @@ export const DetailChatLog = React.forwardRef<HTMLDivElement, {
     </div>
   );
 });
+
+/**
+ * 「你的需求」卡片（2026-09-27 用户实测：「我在创建设计的时候，输入了一系列的问题，应该要带入到 chat 的界面」）。
+ *
+ * 新建时的问答由服务端汇总进 `problem`（`foldIntakeIntoProblem`：一句话 + 空行 + `- 问题：回答`），
+ * 模型每一轮都读得到，但对话里只看得见一句「按我写的背景和验收标准，画第一版原型」——他答过的
+ * 那些题像是被吞掉了。这里把它摆在对话最上面：一句话单独一段，问答一问一答。
+ * 解析不出问答（手写的背景）就整段原样显示，不猜。
+ */
+export function parseBrief(problem: string): { readonly brief: string; readonly qa: readonly { readonly q: string; readonly a: string }[] } {
+  const lines = problem.split("\n");
+  const qa: { q: string; a: string }[] = [];
+  const rest: string[] = [];
+  for (const line of lines) {
+    const m = /^- (.+?)：(.*)$/.exec(line.trim());
+    if (m !== null) qa.push({ q: m[1]!.trim(), a: m[2]!.trim() }); else rest.push(line);
+  }
+  return { brief: rest.join("\n").trim(), qa };
+}
+
+function BriefCard({ problem }: { problem: string }): React.ReactElement | null {
+  if (problem.trim() === "") return null;
+  const { brief, qa } = parseBrief(problem);
+  return (
+    <section className="flex flex-col gap-1.5 rounded-card border border-border bg-card px-2.5 py-2 text-12 text-card-foreground" data-testid="design-detail-brief" aria-label="你的需求">
+      <p className="text-10 font-medium text-muted-foreground">你的需求（新建时说的，AI 每一轮都照着它画）</p>
+      {brief !== "" && <p className="whitespace-pre-wrap break-words">{brief}</p>}
+      {qa.length > 0 && (
+        <dl className="flex flex-col gap-1" data-testid="design-detail-brief-qa">
+          {qa.map((x, i) => (
+            <div key={i} className="flex flex-col">
+              <dt className="text-11 text-muted-foreground">{x.q}</dt>
+              <dd className="whitespace-pre-wrap break-words">{x.a}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}

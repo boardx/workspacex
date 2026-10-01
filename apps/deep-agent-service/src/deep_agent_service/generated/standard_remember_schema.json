@@ -1,0 +1,177 @@
+{
+  "toolName": "wx_remember",
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "wx_remember"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "statement": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 2000,
+        "pattern": "\\S"
+      }
+    },
+    "required": [
+      "statement"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "toolOutput": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "const": "card_opened"
+          },
+          "cardId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "statement": {
+            "type": "string"
+          },
+          "saved": {
+            "type": "boolean",
+            "const": false
+          },
+          "instruction": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "cardId",
+          "statement",
+          "saved",
+          "instruction"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "const": "card_already_open"
+          },
+          "cardId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "saved": {
+            "type": "boolean",
+            "const": false
+          },
+          "instruction": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "cardId",
+          "saved",
+          "instruction"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "const": "refused"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "not_personal_thread",
+              "not_thread_owner",
+              "statement_rejected"
+            ]
+          },
+          "saved": {
+            "type": "boolean",
+            "const": false
+          },
+          "instruction": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "code",
+          "saved",
+          "instruction"
+        ],
+        "additionalProperties": false
+      }
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "failureCodes": [
+    "remember_invalid_request",
+    "remember_not_authorized",
+    "remember_unavailable"
+  ],
+  "limits": {
+    "deadlineMs": 10000,
+    "maxResponseBytes": 65536
+  }
+}

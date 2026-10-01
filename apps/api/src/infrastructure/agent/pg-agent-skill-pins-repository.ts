@@ -19,10 +19,12 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
+import { insertAgentVersionFromDraft } from "./agent-version-insert";
 import type { AgentSkillPinsRepository } from "../../application/agent-skill-pins/set-agent-skill-pins";
 
 interface AgentRow {
   readonly published_version_id: string | null;
+  readonly catalog_source: string;
 }
 
 interface VersionRow {
@@ -74,7 +76,7 @@ export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
       );
 
       const agentFound = await session.query<AgentRow>(
-        `SELECT published_version_id FROM agents WHERE id = $1 AND org_id = $2 FOR UPDATE`,
+        `SELECT published_version_id, catalog_source FROM agents WHERE id = $1 AND org_id = $2 FOR UPDATE`,
         [input.agentId, input.orgId],
       );
       const agentRow = agentFound.rows[0];
@@ -105,8 +107,16 @@ export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
        * 会让这次 pin 在写入时看似成功、却在下一次 chat 调用时才因
        * `SKILL_VERSION_UNAVAILABLE` 现出原形——那是本该在 pin 这一步就能截住的错误。
        */
+      // EV05 / ADR-119 #4（work-eval I-8）：官方 Agent（catalog_source='official'）只能绑定目录通道为
+      // verified 的 Skill——与官方角色包导入（pg-official-agent-role-pack-import-repository.ts）同一 JOIN；
+      // candidate / deprecated / 无目录行一律按"找不到可挂载的版本"拒绝，堵住导入后再 pin 的旁路。
+      const officialOnlyVerified = agentRow.catalog_source === "official";
       const skillVersionsFound = await session.query<{ id: string }>(
-        `SELECT id FROM skill_versions WHERE org_id = $1 AND id = ANY($2::text[]) AND published = true`,
+        officialOnlyVerified
+          ? `SELECT sv.id FROM skill_versions sv
+               JOIN skill_catalog_entries e ON e.org_id = sv.org_id AND e.skill_id = sv.skill_id AND e.channel = 'verified'
+              WHERE sv.org_id = $1 AND sv.id = ANY($2::text[]) AND sv.published = true`
+          : `SELECT id FROM skill_versions WHERE org_id = $1 AND id = ANY($2::text[]) AND published = true`,
         [input.orgId, [...input.skillVersionIds]],
       );
       const found = new Set(skillVersionsFound.rows.map((r) => r.id));
@@ -120,27 +130,21 @@ export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
       // 用当前时间戳而不是重放 `base.semantic_label`，避免与它撞唯一约束。
       const semanticLabel = `pin-${Date.now()}-${versionId.slice(-8)}`;
 
-      await session.query(
-        `INSERT INTO agent_versions
-           (id, org_id, agent_id, semantic_label, instruction_digest, instructions,
-            skill_version_ids, model_provider, model_id, tool_policy, creator_id,
-            created_at, published_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10::jsonb,$11,$12,$12)`,
-        [
-          versionId,
-          input.orgId,
-          input.agentId,
-          semanticLabel,
-          base.instruction_digest,
-          base.instructions,
-          [...input.skillVersionIds],
-          base.model_provider,
-          base.model_id,
-          JSON.stringify(base.tool_policy),
-          input.actorId,
-          now,
-        ],
-      );
+      await insertAgentVersionFromDraft(session, {
+        versionId,
+        orgId: input.orgId,
+        agentId: input.agentId,
+        semanticLabel,
+        instructionDigest: base.instruction_digest,
+        instructions: base.instructions,
+        skillVersionIds: [...input.skillVersionIds],
+        modelProvider: base.model_provider,
+        modelId: base.model_id,
+        toolPolicy: base.tool_policy,
+        creatorId: input.actorId,
+        at: now,
+        roleFromVersionId: base.id,
+      });
       // `agents` 本身没有不可变触发器——只有 `agent_versions` 行是不可变的。
       // 与 `pg-agent-starter-import-repository.ts` 建 agent 时用的是同一条语句形状。
       await session.query(

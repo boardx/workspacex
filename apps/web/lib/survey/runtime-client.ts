@@ -1,5 +1,6 @@
 import { apiRequest, apiUrl, getStoredSessionToken, ApiError, type ApiRequestOptions } from "@/lib/api-client";
 import { SurveyPublishBlockerSchema, type SurveyPublishBlocker } from "@repo/contracts/survey";
+import { SurveySourceStateSchema, type SurveySourceState } from "@repo/contracts/survey-runtime";
 import type { z } from "zod";
 
 export class SurveyPublishBlockedError extends Error {
@@ -14,6 +15,8 @@ export class SurveyConflictError extends Error {
     super(
       reasonCode === "ANONYMITY_IMMUTABLE"
         ? "问卷开始回收后不能修改匿名方式。"
+        : reasonCode === 'SURVEY_ALREADY_SUBMITTED'
+          ? '此浏览器已经提交过答卷，感谢您的参与。'
         : reasonCode === "INVALID_TRANSITION"
           ? "问卷状态已变化，请刷新后重试。"
           : "数据已更新，请刷新后重试。当前未保存的修改仍保留。",
@@ -59,6 +62,14 @@ export async function surveyRequest<T>(
     }
     throw new SurveySystemError("请求未完成，请检查网络后重试。");
   }
+}
+
+/** Read Markdown source exactly as validated by the API; this helper never generates local source. */
+export function surveySourceRequest(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<SurveySourceState> {
+  return surveyRequest(path, options, SurveySourceStateSchema);
 }
 
 /** Fetch protected bytes before creating a local download; never expose a public object URL. */

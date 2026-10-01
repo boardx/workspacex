@@ -1,0 +1,20 @@
+### S4 mutation: undoMemoryCard route removed
+   × 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4：「忘掉关于 X 的」⇒ 确认卡（HTTP）→ 下一轮不再提 X；撤销（HTTP）⇒ X 回来 251ms
+     → {"error":"not_found","traceId":"fcaae1d4-e00c-40c7-9e8e-c3fab31ef5b9"}: expected 404 to be 200 // Object.is equality
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/batch2-north-star-acceptance.test.ts > 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4：「忘掉关于 X 的」⇒ 确认卡（HTTP）→ 下一轮不再提 X；撤销（HTTP）⇒ X 回来
+      Tests  1 failed | 8 passed (9)
+### S6 mutation: recallable() keeps dropped todos
+   ✓ 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4：「忘掉关于 X 的」⇒ 确认卡（HTTP）→ 下一轮不再提 X；撤销（HTTP）⇒ X 回来 355ms
+   × 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S6：待办标「不做了」⇒ 新会话不再提；标「已完成」⇒ 照常给模型但标明已完成 354ms
+     → 不做了的待办不再给模型: expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '我要把试点方案发给王老师'
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+### S8 mutation: extractJob ignores the worth-remembering gate (extract-message-knowledge.ts `return "gated"` disabled)
+   ✓ 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4：「忘掉关于 X 的」⇒ 确认卡（HTTP）→ 下一轮不再提 X；撤销（HTTP）⇒ X 回来 335ms
+   × 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S8：寒暄在抽取模型之前就被「值得记」门控跳过 ⇒ 逐条抽取状态是 skipped，不是 empty 111ms
+     → expected { claims: [], status: 'empty' } to match object { status: 'skipped', claims: [] }
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 8 passed (9)
+### restored
+      Tests  9 passed (9)

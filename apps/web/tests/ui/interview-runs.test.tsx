@@ -12,6 +12,7 @@ type View = z.infer<typeof interview.DigitalInterviewWorkflowView>;
 
 const view: View = {
   researchBrief: null, moderatorPolicy: null, reportReview: null,
+  artifacts: [],
   quality: { previewStatus: "unavailable", briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] },
   interviewId: "itv-f05", name: "江西足球", tags: ["足球"], topic: "江西足球的崛起",
   status: "running", sourceQuickInterviewId: null, selectedExpertIds: ["expert-a", "expert-b"],

@@ -1,0 +1,12 @@
+{
+  "org": "synthetic-org-acme",
+  "documents": [
+    {
+      "sourceId": "doc-galaxy",
+      "versionId": "v1",
+      "title": "Galaxy migration owner",
+      "body": "Galaxy (XH) 数据迁移由 synthetic-user-lin 负责。",
+      "owner": "synthetic-user-lin"
+    }
+  ]
+}

@@ -1,0 +1,313 @@
+name: promote-cn-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact 40-character main commit already built and sealed"
+        required: true
+        type: string
+      expected_main_cn_sha:
+        description: "Current 40-character main-cn SHA used as the compare-and-swap baseline"
+        required: true
+        type: string
+      release_attempt_id:
+        description: "Exact candidate preparation attempt id"
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+
+# Admission, activation, and promotion are one serialized transaction. GitHub's
+# main-cn ref is the final commit record, after production and browser acceptance.
+concurrency:
+  group: workspacex-cn-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  # This is the only human approval. release_sha must equal GITHUB_SHA, so the
+  # successful Environment deployment is bound to the exact promoted commit.
+  admit:
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 30
+    outputs:
+      revision: ${{ steps.release.outputs.revision }}
+      expected_main_cn: ${{ steps.release.outputs.expected_main_cn }}
+      attempt_id: ${{ steps.release.outputs.attempt_id }}
+    steps:
+      - name: Check out the exact candidate from GitHub
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify one-approval GitHub production governance
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          promotion_json=$(mktemp)
+          promotion_policies_json=$(mktemp)
+          activation_json=$(mktemp)
+          policies_json=$(mktemp)
+          rulesets_json=$(mktemp)
+          ruleset_details=$(mktemp)
+          trap 'rm -f "${promotion_json}" "${promotion_policies_json}" "${activation_json}" "${policies_json}" "${rulesets_json}" "${ruleset_details}"' EXIT
+
+          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn-promotion" > "${promotion_json}"
+          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn-promotion/deployment-branch-policies?per_page=100" > "${promotion_policies_json}"
+          node - "${promotion_json}" "${promotion_policies_json}" <<'NODE'
+          const fs=require("node:fs"),v=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const policies=JSON.parse(fs.readFileSync(process.argv[3],"utf8")).branch_policies??[];
+          const rule=v.protection_rules?.find(rule=>rule.type==="required_reviewers");
+          const branchPolicy=v.deployment_branch_policy;
+          const exact=policies.filter(policy=>policy.type==="branch"&&policy.name==="main");
+          if(!rule||!Array.isArray(rule.reviewers)||rule.reviewers.length<1||branchPolicy?.custom_branch_policies!==true||branchPolicy?.protected_branches!==false||exact.length!==1||policies.length!==1){
+            console.error("::error::production-cn-promotion must require reviewers and allow only main");
+            process.exit(1);
+          }
+          NODE
+
+          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn" > "${activation_json}"
+          gh api "repos/${GITHUB_REPOSITORY}/environments/production-cn/deployment-branch-policies?per_page=100" > "${policies_json}"
+          node - "${activation_json}" "${policies_json}" <<'NODE'
+          const fs=require("node:fs"),v=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const policies=JSON.parse(fs.readFileSync(process.argv[3],"utf8")).branch_policies??[];
+          const reviewerRule=v.protection_rules?.find(rule=>rule.type==="required_reviewers");
+          const branchPolicy=v.deployment_branch_policy;
+          const names=policies.filter(policy=>policy.type==="branch").map(policy=>policy.name).sort();
+          if(reviewerRule||branchPolicy?.custom_branch_policies!==true||branchPolicy?.protected_branches!==false||JSON.stringify(names)!==JSON.stringify(["main","main-cn"])){
+            console.error("::error::production-cn must allow exactly main and main-cn and must not require a second reviewer");
+            process.exit(1);
+          }
+          NODE
+
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&per_page=100" > "${rulesets_json}"
+          while read -r id; do
+            gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" >> "${ruleset_details}"
+            printf '\n' >> "${ruleset_details}"
+          done < <(node -e 'for(const v of require(process.argv[1]))if(v.target==="branch"&&v.enforcement==="active")console.log(v.id)' "${rulesets_json}")
+          node - "${ruleset_details}" <<'NODE'
+          const fs=require("node:fs");
+          const values=fs.readFileSync(process.argv[2],"utf8").trim().split(/\n+/).filter(Boolean).map(JSON.parse);
+          const applies=value=>{
+            const refs=value.conditions?.ref_name;
+            return Array.isArray(refs?.include)&&refs.include.includes("refs/heads/main-cn")&&!(refs.exclude??[]).includes("refs/heads/main-cn");
+          };
+          const rules=values.filter(applies).flatMap(value=>value.rules??[]);
+          const deployments=rules.find(rule=>rule.type==="required_deployments")?.parameters?.required_deployment_environments??[];
+          const types=new Set(rules.map(rule=>rule.type));
+          if(!deployments.includes("production-cn-promotion")||!types.has("deletion")){
+            console.error("::error::main-cn ruleset must require production-cn-promotion and block deletion");
+            process.exit(1);
+          }
+          NODE
+
+      - name: Validate immutable GitHub inputs
+        id: release
+        shell: bash
+        env:
+          REVISION: ${{ inputs.release_sha }}
+          EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
+          ATTEMPT_ID: ${{ inputs.release_attempt_id }}
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == refs/heads/main ]] || { echo "::error::promotion workflow must be dispatched from main"; exit 1; }
+          [[ "${REVISION}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release_sha must be a full lowercase commit SHA"; exit 1; }
+          [[ "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::expected_main_cn_sha must be a full lowercase commit SHA"; exit 1; }
+          [[ "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::release_attempt_id is invalid"; exit 1; }
+          [[ "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::release_sha must equal the exact main tip captured by this approved run"; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "${REVISION}" ]] || { echo "::error::GitHub checkout does not match release_sha"; exit 1; }
+          git rev-parse --verify origin/main >/dev/null
+          git rev-parse --verify origin/main-cn >/dev/null
+          git merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::release_sha is not contained in main"; exit 1; }
+          if [[ "${EXPECTED_MAIN_CN}" != "${REVISION}" ]]; then
+            git merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::release is not a fast-forward from expected_main_cn_sha"; exit 1; }
+          fi
+          echo "revision=${REVISION}" >> "${GITHUB_OUTPUT}"
+          echo "expected_main_cn=${EXPECTED_MAIN_CN}" >> "${GITHUB_OUTPUT}"
+          echo "attempt_id=${ATTEMPT_ID}" >> "${GITHUB_OUTPUT}"
+
+      - name: Fail closed if privileged entrypoints drifted
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A trusted=(
+            [.harness/scripts/vm/build-cn-release-candidate.sh]=/usr/local/bin/workspacex-cn-build-candidate
+            [.harness/scripts/vm/deploy-cn-production.sh]=/usr/local/bin/workspacex-cn-deploy
+            [.harness/scripts/vm/publish-cn-release.sh]=/usr/local/lib/workspacex-cn/publish-cn-release.sh
+            [.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+            [.harness/scripts/vm/collect-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
+            [.harness/scripts/vm/cn-release-preflight-evidence.mjs]=/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs
+            [.harness/scripts/vm/cn-release-orphans.py]=/usr/local/lib/workspacex-cn/cn-release-orphans.py
+            [.harness/scripts/vm/cn-bootstrap-source-probe.mjs]=/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs
+            [.harness/scripts/vm/verify-cn-release-promotion.sh]=/usr/local/bin/workspacex-cn-verify-promotion
+          )
+          for source in "${!trusted[@]}"; do
+            target=${trusted[$source]}
+            [[ -f "${target}" && ! -L "${target}" && -x "${target}" ]] || {
+              echo "::error::CN_TRUSTED_ENTRYPOINT_MISSING: ${target}; run the controlled CN bootstrap/update procedure"
+              exit 1
+            }
+            cmp --silent "${source}" "${target}" || {
+              echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT: ${target}; run the controlled CN bootstrap/update procedure"
+              exit 1
+            }
+          done
+
+      - name: Seed the China source mirror from the exact GitHub checkout
+        shell: bash
+        env:
+          REVISION: ${{ steps.release.outputs.revision }}
+        run: |
+          set -euo pipefail
+          cache=/opt/workspacex-cn/release-origin-cache.git
+          repository=/opt/workspacex-cn/repository
+          [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || {
+            echo "::error::CN_SOURCE_CACHE_UNTRUSTED"
+            exit 1
+          }
+          [[ -d "${repository}/.git" && ! -L "${repository}" ]] || { echo "::error::CN_RELEASE_REPOSITORY_UNTRUSTED"; exit 1; }
+          [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
+          git -C "${cache}" fetch --no-tags "${GITHUB_WORKSPACE}" "+${REVISION}:refs/heads/main"
+          [[ "$(git -C "${cache}" rev-parse refs/heads/main)" == "${REVISION}" ]] || { echo "::error::CN_SOURCE_CACHE_REVISION_MISMATCH"; exit 1; }
+          GIT_NO_LAZY_FETCH=1 git -C "${cache}" fsck --full --no-reflogs
+          git -C "${repository}" fetch --no-tags origin main main-cn
+          [[ "$(git -C "${repository}" rev-parse origin/main)" == "${REVISION}" ]] || { echo "::error::CN_RELEASE_REPOSITORY_REVISION_MISMATCH"; exit 1; }
+
+      - name: Verify or create the immutable preparation receipt
+        shell: bash
+        env:
+          REVISION: ${{ steps.release.outputs.revision }}
+          EXPECTED_MAIN_CN: ${{ steps.release.outputs.expected_main_cn }}
+          ATTEMPT_ID: ${{ steps.release.outputs.attempt_id }}
+        run: |
+          set -euo pipefail
+          set +e
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
+          verify_status=$?
+          set -e
+          if [[ ${verify_status} -eq 3 ]]; then
+            sudo -n /usr/local/bin/workspacex-cn-deploy --prepare "${REVISION}" "${ATTEMPT_ID}"
+            sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
+          elif [[ ${verify_status} -ne 0 ]]; then
+            echo "::error::CN_PROMOTION_PREPARED_RECEIPT_REJECTED"
+            exit "${verify_status}"
+          fi
+
+  # The admission job must finish successfully first. GitHub then records a
+  # successful production-cn-promotion deployment for this exact GITHUB_SHA.
+  # This job activates and browser-verifies production before main-cn becomes
+  # the durable public record. production-cn has no reviewer, so there is still
+  # exactly one human approval.
+  promote:
+    needs: admit
+    environment: production-cn
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 10
+    steps:
+      - name: Activate, browser-verify, then compare-and-swap main-cn
+        id: promotion
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ needs.admit.outputs.revision }}
+          EXPECTED_MAIN_CN: ${{ needs.admit.outputs.expected_main_cn }}
+          ATTEMPT_ID: ${{ needs.admit.outputs.attempt_id }}
+        run: |
+          set -euo pipefail
+          [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::admission outputs are invalid"; exit 1; }
+          cache=/opt/workspacex-cn/release-origin-cache.git
+          repository=/opt/workspacex-cn/repository
+          [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || { echo "::error::CN_SOURCE_CACHE_UNTRUSTED"; exit 1; }
+          [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
+          current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
+          if [[ "${current}" == "${REVISION}" ]]; then
+            local_main_cn=$(git -C "${cache}" rev-parse refs/heads/main-cn)
+            [[ "${local_main_cn}" == "${REVISION}" ]] || { echo "::error::already-promoted GitHub ref disagrees with the China source mirror"; exit 1; }
+            git -C "${repository}" fetch --no-tags origin main main-cn
+            sudo -n /usr/local/bin/workspacex-cn-deploy --verify-active "${REVISION}" "${ATTEMPT_ID}"
+            echo "result=already-promoted" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after approval; start a new promotion with the new baseline"; exit 1; }
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
+          git -C "${repository}" merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::main-cn update is not a fast-forward"; exit 1; }
+          activated=0
+          graphql_input=""
+          remote_commit_attempted=0
+          rollback() {
+            status=$?
+            trap - EXIT
+            [[ -z "${graphql_input}" ]] || rm -f "${graphql_input}" "${graphql_input}.response"
+            if [[ "${remote_commit_attempted}" == 1 ]]; then
+              # A transport error may mean the server committed. Restoring the
+              # old runtime here would contradict a successfully advanced ref.
+              # Retain accepted production+local mirror and require reconciliation.
+              echo "::error::CN_REMOTE_CAS_OUTCOME_REQUIRES_RECONCILIATION; rerun the same exact promotion"
+              exit "${status}"
+            fi
+            if [[ "${activated}" == 1 ]]; then
+              sudo -n /usr/local/bin/workspacex-cn-deploy --rollback "${REVISION}" "${ATTEMPT_ID}" || {
+                echo "::error::CN_POST_ACTIVATION_CAS_ROLLBACK_UNPROVEN"
+                exit 1
+              }
+            fi
+            git -C "${cache}" update-ref refs/heads/main-cn "${EXPECTED_MAIN_CN}" "${REVISION}" || true
+            git -C "${repository}" fetch --no-tags origin main main-cn || true
+            exit "${status}"
+          }
+          trap rollback EXIT
+          local_main_cn=$(git -C "${cache}" rev-parse refs/heads/main-cn)
+          if [[ "${local_main_cn}" == "${EXPECTED_MAIN_CN}" ]]; then
+            git -C "${cache}" update-ref refs/heads/main-cn "${REVISION}" "${EXPECTED_MAIN_CN}"
+          elif [[ "${local_main_cn}" != "${REVISION}" ]]; then
+            echo "::error::China source mirror main-cn has an unexpected baseline"
+            exit 1
+          fi
+          git -C "${repository}" fetch --no-tags origin main main-cn
+          [[ "$(git -C "${repository}" rev-parse origin/main-cn)" == "${REVISION}" ]] || {
+            echo "::error::China source mirror did not converge to the promoted SHA"
+            exit 1
+          }
+
+          sudo -n /usr/local/bin/workspacex-cn-deploy "${REVISION}" "${ATTEMPT_ID}"
+          activated=1
+
+          repository_id=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .node_id)
+          graphql_input=$(mktemp)
+          node - "${graphql_input}" "${repository_id}" "${EXPECTED_MAIN_CN}" "${REVISION}" <<'NODE'
+          const fs=require("node:fs");
+          const [path,repositoryId,beforeOid,afterOid]=process.argv.slice(2);
+          const query="mutation($repositoryId:ID!,$refUpdates:[RefUpdate!]!){updateRefs(input:{repositoryId:$repositoryId,refUpdates:$refUpdates}){clientMutationId}}";
+          const variables={repositoryId,refUpdates:[{name:"refs/heads/main-cn",beforeOid,afterOid,force:false}]};
+          fs.writeFileSync(path,JSON.stringify({query,variables}),{mode:0o600});
+          NODE
+          remote_commit_attempted=1
+          gh api graphql --input "${graphql_input}" > "${graphql_input}.response"
+          node - "${graphql_input}.response" <<'NODE'
+          const fs=require("node:fs"),value=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          if(value.errors?.length||!value.data?.updateRefs)process.exit(1);
+          NODE
+          rm -f "${graphql_input}.response"
+          rm -f "${graphql_input}"
+          graphql_input=""
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)" == "${REVISION}" ]] || {
+            echo "::error::main-cn strict CAS did not converge to the exact release SHA"
+            exit 1
+          }
+          activated=0
+          trap - EXIT
+          echo "result=activated-and-promoted" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### CN production release accepted"
+            echo "- Exact SHA: \`${REVISION}\`"
+            echo "- Production: trusted activation and browser gate passed"
+            echo "- main-cn: strict GraphQL CAS completed after production acceptance"
+          } >> "${GITHUB_STEP_SUMMARY}"

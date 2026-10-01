@@ -1,0 +1,5 @@
+{"level":"info","msg":"kg extraction empty","traceId":"kg-extraction","orgId":"org-kg-experience-eval","messageId":"36bab08f-05c0-4237-a87f-3405fa475f7a","threadId":"thr-848b225e-b08c-46ee-8ad0-e6fc58b606c8","reason":"no_candidates","authorKind":"agent","pipelineVersion":"kg-extract@2"}
+{"level":"info","msg":"kg extraction tick","traceId":"kg-extraction","processed":2,"written":1,"empty":1,"skipped":0,"failed":0}
+{"level":"info","msg":"kg extraction empty","traceId":"kg-extraction","orgId":"org-kg-experience-eval","messageId":"4db27d74-3d9a-47ff-8340-c68be03717e3","threadId":"thr-4ef465d1-61bf-4113-93e5-f8f0ed9059bf","reason":"no_candidates","authorKind":"human","pipelineVersion":"kg-extract@2"}
+{"level":"info","msg":"kg extraction empty","traceId":"kg-extraction","orgId":"org-kg-experience-eval","messageId":"09e28ea3-0890-4bc4-b756-709b69e9cb65","threadId":"thr-4ef465d1-61bf-4113-93e5-f8f0ed9059bf","reason":"no_candidates","authorKind":"agent","pipelineVersion":"kg-extract@2"}
+{"level":"info","msg":"kg extraction tick","traceId":"kg-extraction","processed":2,"written":0,"empty":2,"skipped":0,"failed":0}

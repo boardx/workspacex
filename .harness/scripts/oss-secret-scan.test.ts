@@ -8,7 +8,7 @@
  * 假凭据在运行时拼出来：源码里不出现完整的形状，免得本测试文件自己被扫描器命中。
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -54,5 +54,51 @@ describe("oss-secret-scan --head-only", () => {
     const dir = repo({ "x.ts": `t = "${fakeGh}"\n` });
     const r = spawnSync("node", [SCRIPT, "--head-only", "--strict"], { cwd: dir, encoding: "utf8" });
     expect(r.status).toBe(1);
+  });
+});
+
+describe("oss-secret-scan 基线增量门控（#4262）", () => {
+  const run = (cwd: string, ...args: string[]) => spawnSync("node", [SCRIPT, "--head-only", ...args], { cwd, encoding: "utf8" });
+  const fakeOld = "AKIA" + "Z".repeat(16);
+  const fakeNew = "ghp_" + "b".repeat(36);
+  const stage = (dir: string) => execFileSync("git", ["add", "-A"], { cwd: dir });
+
+  it("基线里的命中放行；基线文件只含 path/rule/sha256，不含值", () => {
+    const dir = repo({ "old.ts": `k = "${fakeOld}"\n` });
+    const bl = join(dir, "baseline.json");
+    expect(run(dir, "--write-baseline", bl).status).toBe(0);
+    const text = readFileSync(bl, "utf8");
+    expect(text).not.toContain(fakeOld);
+    expect(text).not.toContain(fakeOld.slice(0, 8));
+    const entries = JSON.parse(text).entries;
+    expect(entries).toHaveLength(1);
+    expect(Object.keys(entries[0]).sort()).toEqual(["path", "rule", "sha256"]);
+    const r = run(dir, "--baseline", bl);
+    expect(r.status).toBe(0);
+    expect(r.stdout + r.stderr).not.toContain(fakeOld);
+  });
+
+  it("基线外的新假凭据让门控失败，只报 path + rule，不回显值", () => {
+    const dir = repo({ "old.ts": `k = "${fakeOld}"\n` });
+    const bl = join(dir, "baseline.json");
+    run(dir, "--write-baseline", bl);
+    writeFileSync(join(dir, "new.ts"), `t = "${fakeNew}"\n`);
+    stage(dir);
+    const r = run(dir, "--baseline", bl);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("[github-token] new.ts");
+    expect(r.stderr).not.toContain("old.ts");
+    const out = r.stdout + r.stderr;
+    expect(out).not.toContain(fakeNew);
+    expect(out).not.toContain(fakeOld);
+  });
+
+  it("同一路径换了一个值也算新命中（按 sha256 比，不只按路径）", () => {
+    const dir = repo({ "old.ts": `k = "${fakeOld}"\n` });
+    const bl = join(dir, "baseline.json");
+    run(dir, "--write-baseline", bl);
+    writeFileSync(join(dir, "old.ts"), `k = "${"AKIA" + "Y".repeat(16)}"\n`);
+    stage(dir);
+    expect(run(dir, "--baseline", bl).status).toBe(1);
   });
 });

@@ -3,6 +3,7 @@ import type {OrgId} from '../../domain/org-id';
 import {STANDARD_CONTEXT_TOOLS as C,ProjectListOutput,ProjectReadOutput} from '@repo/contracts/standard-context-tools';
 import {listProjects,type ListProjectsDeps} from '../project/list-projects';
 import {getProjectOverview,type GetProjectOverviewDeps} from '../project/get-project-overview';
+import {citeSources,type RunCitationLedger} from './standard-cite';
 export interface TrustedContextActor {readonly orgId:OrgId;readonly userId:string;readonly threadId:string;readonly projectId:string|null;}
 export interface StandardKnowledgeSource {
  search(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_search.input>):Promise<z.infer<typeof C.wx_knowledge_search.output>>;
@@ -20,4 +21,6 @@ export class StandardContextService {
  }
  search(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_search.input>){return this.knowledge.search(actor,input);}
  read(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_read.input>){return this.knowledge.read(actor,input);}
+ /** #4227：`wx_cite` —— 逐条经 `knowledge.read` 重读校验，通过的记到 run 账本（见 standard-cite.ts）。 */
+ cite(actor:TrustedContextActor,runId:string,input:z.infer<typeof C.wx_cite.input>,ledger:RunCitationLedger){return citeSources({knowledge:this.knowledge,ledger},actor,runId,input);}
 }

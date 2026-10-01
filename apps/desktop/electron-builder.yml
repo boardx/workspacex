@@ -32,6 +32,14 @@ extraResources:
       - "packages/**"
       - "skills/starter-packs/**"
       - "!**/node_modules/.cache/**"
+      # ⚠ 桌面包自己不进 bundle（#4315）。pnpm 把工作区包链进 node_modules/.pnpm/node_modules/@repo/*；
+      #   @repo/desktop 指回 apps/desktop，而 release/ 正是正在写的产物。mac 上那是符号链接、按链接拷；
+      #   Windows 上是 junction、会被跟进去——产物拷进产物自己，一圈一圈往下，82 分钟后 7-Zip
+      #   「Can't allocate required memory」（windows-latest 实测）。
+      - "!**/node_modules/@repo/desktop/**"
+      - "!**/node_modules/.pnpm/node_modules/@repo/desktop/**"
+      - "!**/release/win-unpacked/**"
+      - "!**/release/mac-arm64/**"
       - "!**/*.test.ts"
       - "!**/tests/**"
       - "!**/e2e/**"
@@ -62,10 +70,15 @@ extraResources:
       #   静默失效。所以这一组每加一条都要重新打包并**真的把应用跑起来**验证，
       #   而不是「看着不像运行时依赖」就删。验证方式见 evidence 里 R16 那一节。
       - "!node_modules/.pnpm/electron@*/**"
+      - "!**/node_modules/electron/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/app-builder-bin@*/**"
+      - "!**/node_modules/app-builder-bin/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/workerd@*/**"
+      - "!**/node_modules/workerd/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/@cloudflare+workerd-*/**"
+      - "!**/node_modules/@cloudflare/workerd-*/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/typescript@*/**"
+      - "!**/node_modules/typescript/**"   # hoisted 布局（Windows 打包用，#4315）
 
       # ── 文件**个数**（不是字节）：那 38 秒首启税的嫌疑变量（#3872 R17）────────
       #
@@ -98,10 +111,15 @@ extraResources:
       #                         客户端库，生产构建已打进 .next/static；
       #                         `.next/server` 里对这四个包**零引用**（grep 实测）。
       - "!node_modules/.pnpm/monaco-editor@*/**"
+      - "!**/node_modules/monaco-editor/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/@next+swc-*/**"
+      - "!**/node_modules/@next/swc-*/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/mermaid@*/**"
+      - "!**/node_modules/mermaid/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/echarts@*/**"
+      - "!**/node_modules/echarts/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/lucide-react@*/**"
+      - "!**/node_modules/lucide-react/**"   # hoisted 布局（Windows 打包用，#4315）
   - from: build/logo.png
     to: logo.png
   # commit short SHA + build time, shown on the startup page next to the version (#3749)
@@ -128,6 +146,14 @@ mac:
   category: public.app-category.productivity
   identity: null
 win:
+  # 先出**便携包**（zip：解压即用），不出 NSIS 安装程序（#4315）。
+  # NSIS 有 2 GB 硬上限（electron-builder#2086/#8399），而本包带着模型约 7 GB。
+  # 绕开它的现成办法是换一个第三方编的 NSISBI 二进制、在构建机上下载执行——
+  # 没审计过的东西不进发布链。真要安装程序时二选一：审计后用 NSISBI，
+  # 或「小安装程序 + 模型包首启导入」（model-import.ts 已经会从目录导入）。
+  # 不压缩：包里大头是 GGUF 权重与 onnx，本身几乎压不动；默认压缩在 windows-latest 上把
+  # dist:win 拖到一小时以上（实测），换来的体积差可以忽略。
+  compression: store
   target:
-    - target: nsis
+    - target: zip
       arch: [x64]

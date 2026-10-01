@@ -1,0 +1,24 @@
+===== reverted to origin/main: apps/web/components/chat/knowledge/answer-knowledge-footer.tsx
+   × chip 只画服务端对账后的引用 > cited 是 recalled 的子集：只画 cited 里的；「为什么用到它」仍列全部召回 474ms
+   × chip 只画服务端对账后的引用 > cited 为空：不画 chip 区（回答没用到记忆），但「为什么用到它」还在 68ms
+   × chip 只画服务端对账后的引用 > chip 写「依据你 {M/D} 的决定」；长期记忆的写「依据你的目标」（日期在「来自你…的对话」上） 25ms
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 点 chip：照旧请求打开来源抽屉，并在下面展开原话；「跳到原消息」调 onJump 33ms
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 原话找不到（onJump ⇒ false）：如实说，不假装跳了 23ms
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 「这条不对」不填新说法 ⇒ 出忘掉卡（只列这一条）；点「忘掉」才执行 13ms
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 「这条不对」填了新说法 ⇒ 出改口卡「用〈新〉取代〈旧〉？」；「取代」才执行，「两条都保留」什么都不改 13ms
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 「已过时」一点就执行；失败时把人话显示出来、按钮恢复 41ms
+   × TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation > 只画 cited 那一条；所有者点「已过时」⇒ POST correction {kind: expired} 44ms
+   × TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation > 不是所有者（快照 canEdit=false）：展开里没有纠正入口 78ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  10 failed | 2 passed (12)
+===== reverted to origin/main: apps/web/components/chat/knowledge/turn-memory-line.tsx
+   × TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation > 只画 cited 那一条；所有者点「已过时」⇒ POST correction {kind: expired} 24ms
+   × TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation > 不是所有者（快照 canEdit=false）：展开里没有纠正入口 12ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 passed (12)
+===== all restored
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+DONE

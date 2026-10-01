@@ -1,0 +1,53 @@
+===== reverted to origin/main: apps/api/src/application/knowledge-graph/auto-copy-decisions.ts
+   × issue #4343: 本人的目标 / 偏好 > 「我的目标是探索未来教育」⇒ 会话里一条 goal ⇒ 自动记进 A 的个人空间（AI 记下的）；反馈条数据带 kind 与副本 id 34ms
+   × issue #4343: 本人的目标 / 偏好 > 偏好（「我更喜欢简洁的回答」）同样记下并自动记进个人空间 19ms
+   × issue #4343: 本人的目标 / 偏好 > A 新开个人会话问一句无关的「帮我规划一下」⇒ 这一轮带上目标与偏好（个人空间，claim 通道，引用带 kind） 180ms
+   × issue #4343: 本人的目标 / 偏好 > 撤销自动记下的目标 ⇒ 副本失效；下一轮不再带上，没撤的照样带 17ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 「我的目标是探索未来教育」⇒ 会话里一条 goal ⇒ 自动记进 A 的个人空间（AI 记下的）；反馈条数据带 kind 与副本 id
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 偏好（「我更喜欢简洁的回答」）同样记下并自动记进个人空间
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > A 新开个人会话问一句无关的「帮我规划一下」⇒ 这一轮带上目标与偏好（个人空间，claim 通道，引用带 kind）
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 撤销自动记下的目标 ⇒ 副本失效；下一轮不再带上，没撤的照样带
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 25 passed (29)
+===== reverted to origin/main: apps/api/src/domain/knowledge-graph/recall.ts
+   × issue #4343: 本人的目标 / 偏好 > A 新开个人会话问一句无关的「帮我规划一下」⇒ 这一轮带上目标与偏好（个人空间，claim 通道，引用带 kind） 180ms
+   × issue #4343: 本人的目标 / 偏好 > 撤销自动记下的目标 ⇒ 副本失效；下一轮不再带上，没撤的照样带 236ms
+   × #4343 召回：目标 / 偏好每轮强制带上，名额另计 > 无关问题（「帮我规划一下」）也带上个人空间里的目标，走 claim 通道 10ms
+   × #4343 召回：目标 / 偏好每轮强制带上，名额另计 > 目标超过上限按最新取；不挤掉决定类的名额（两类各自有界） 9ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > A 新开个人会话问一句无关的「帮我规划一下」⇒ 这一轮带上目标与偏好（个人空间，claim 通道，引用带 kind）
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 撤销自动记下的目标 ⇒ 副本失效；下一轮不再带上，没撤的照样带
+ FAIL  tests/knowledge-graph/self-intent-claim.test.ts > #4343 召回：目标 / 偏好每轮强制带上，名额另计 > 无关问题（「帮我规划一下」）也带上个人空间里的目标，走 claim 通道
+ FAIL  tests/knowledge-graph/self-intent-claim.test.ts > #4343 召回：目标 / 偏好每轮强制带上，名额另计 > 目标超过上限按最新取；不挤掉决定类的名额（两类各自有界）
+ Test Files  2 failed (2)
+      Tests  4 failed | 25 passed (29)
+===== reverted to origin/main: apps/api/src/application/knowledge-graph/extract-message-knowledge.ts
+   × issue #4343: 本人的目标 / 偏好 > 抽取跑了但没东西可记 ⇒ 「kg extraction empty」日志带 messageId，并计入 tick.empty（不是静默） 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 抽取跑了但没东西可记 ⇒ 「kg extraction empty」日志带 messageId，并计入 tick.empty（不是静默）
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 28 passed (29)
+===== reverted to origin/main: apps/api/src/infrastructure/knowledge-graph/model-knowledge-extractor.ts
+   × #4343 契约 / 抽取 schema > prompt 问本人目标 / 偏好，写明排除项；流水线版本已升（同一消息按新版本重跑） 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/self-intent-claim.test.ts > #4343 契约 / 抽取 schema > prompt 问本人目标 / 偏好，写明排除项；流水线版本已升（同一消息按新版本重跑）
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 28 passed (29)
+===== all restored (HEAD)
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+===== migration 20260927110000 removed (fresh db r11afw)
+   × issue #4343: 本人的目标 / 偏好 > 「我的目标是探索未来教育」⇒ 会话里一条 goal ⇒ 自动记进 A 的个人空间（AI 记下的）；反馈条数据带 kind 与副本 id 19ms
+   × issue #4343: 本人的目标 / 偏好 > 偏好（「我更喜欢简洁的回答」）同样记下并自动记进个人空间 9ms
+   × issue #4343: 本人的目标 / 偏好 > 项目会话里说的目标：会话里照常记下，但不自动进任何人的个人空间 10ms
+   × issue #4343: 本人的目标 / 偏好 > A 新开个人会话问一句无关的「帮我规划一下」⇒ 这一轮带上目标与偏好（个人空间，claim 通道，引用带 kind） 152ms
+   × issue #4343: 本人的目标 / 偏好 > 撤销自动记下的目标 ⇒ 副本失效；下一轮不再带上，没撤的照样带 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 「我的目标是探索未来教育」⇒ 会话里一条 goal ⇒ 自动记进 A 的个人空间（AI 记下的）；反馈条数据带 kind 与副本 id
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 偏好（「我更喜欢简洁的回答」）同样记下并自动记进个人空间
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 项目会话里说的目标：会话里照常记下，但不自动进任何人的个人空间
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > A 新开个人会话问一句无关的「帮我规划一下」⇒ 这一轮带上目标与偏好（个人空间，claim 通道，引用带 kind）
+ FAIL  tests/knowledge-graph/goal-preference-personal-memory.test.ts > issue #4343: 本人的目标 / 偏好 > 撤销自动记下的目标 ⇒ 副本失效；下一轮不再带上，没撤的照样带
+ Test Files  1 failed (1)
+===== migration restored

@@ -252,6 +252,30 @@ describe("I-12 文件下载与线程读**同源**判权", () => {
   });
 });
 
+describe("FF-103 共享文件的内容与「谁先取」无关", () => {
+  it("成员先取、观察者后取 ⇒ 观察者拿到的那一份里仍然没有原始转写行", async () => {
+    await addChatThread({
+      orgId: ORG, id: "f109f-t-order", projectId: PROJECT, groupId: null,
+      visibilityScope: "plenary", createdBy: "u-fac", title: "取用顺序",
+    });
+    await addChatMessage({
+      orgId: ORG, id: "f109f-m-order-raw", threadId: "f109f-t-order", authorId: "u-fac",
+      body: "先取者看得到的原始转写", rawTranscript: true,
+    });
+    await addChatMessage({
+      orgId: ORG, id: "f109f-m-order-pub", threadId: "f109f-t-order", authorId: "u-fac", body: "人人可读的一句",
+    });
+
+    // 成员（主持人）先取：旧实现按他的角色物化出完整文件并登记为这条线程唯一的那一份。
+    const first = await fileJson("u-fac", "f109f-t-order");
+    const obs = await fileJson("u-obs", "f109f-t-order");
+    expect(obs.objectKey).toBe(first.objectKey); // 仍然是同一份（I-16 不变）
+    const text = await readObject(obs.objectKey);
+    expect(text).not.toContain("先取者看得到的原始转写");
+    expect(text).toContain("人人可读的一句");
+  });
+});
+
 describe("messagesToJsonl 是纯函数", () => {
   it("一行一条，末尾有换行（wc -l 与消息数相等）", () => {
     const bytes = messagesToJsonl([

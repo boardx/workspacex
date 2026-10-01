@@ -3,16 +3,19 @@
 import * as React from "react";
 import { Sparkles } from "lucide-react";
 import {
-  applyHumanAction, fetchMessageExtraction, fetchThreadKnowledge, knowledgeGraphErrorCode,
+  applyHumanAction, fetchMessageExtraction, fetchThreadKnowledge, knowledgeGraphErrorCode, undoAutoPersonalCopy,
+  type MessageExtraction,
 } from "@/lib/knowledge-graph-api";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
-import { requestKnowledgeReload, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
+import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import { requestKnowledgeReload, requestRememberStatement, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
+import { isHandoffControlStatement } from "@/lib/agent-handoff";
 import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
 
 /**
  * issue #4180 —— 发送这条消息的用户下方，一句「刚被抽取出新知识」的轻量反馈：
- * 「已记下：{claim 摘要} · 撤销」。
+ * 「已记下{类型}：{claim 摘要} · 撤销」（issue #4343 起带类型：「已记下目标：…」「已记下决定：…」）。
  *
  * ## 这不是 F09 的 `TurnMemoryLine`
  *
@@ -41,15 +44,46 @@ import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
  * 会话里对同一条消息反复闪现，已经处理过的 claimId 在这个组件实例的本地状态里排除，
  * 不持久化到别处（同 `ConflictPromptCard`/`AnswerMemoryLine` 对「已处理」只在本地状态里
  * 记一次的既有做法，见两者头注）。
+ *
+ * ## issue #4283：「已记入个人记忆」
+ *
+ * 本人说出的决定会被系统自动记进**本人**的个人空间（仍是「AI 记下的」，未确认）。`personalCopyClaimId`
+ * 非空时这一行多一句「已记入个人记忆」，撤销按钮也对作者本人出现（哪怕他不是会话所有者）。点「撤销」：
+ *   1. 先撤个人空间那份（`undoAutoPersonalCopy`）——这是人类决定里点名必须能撤的那一半；
+ *   2. 再在调用者是会话所有者时撤会话里的原结论（F10 `revokeClaim`，与改动前同一条路）。
+ * 所有者点一下两份都撤——「撤销」的意思就是「别记这句话」；不是所有者的作者只撤自己空间里那份（会话的知识
+ * 归会话所有者，F10 R5）。顺序上先撤个人副本：第二步撞上版本冲突时，最要紧的那份已经撤掉，再点一次
+ * 第一步读到 `KG_CLAIM_NOT_FOUND` 视为已撤、直接走第二步。
+ *
+ * ## issue #4352：「这句没有需要记的 · 记一条」
+ *
+ * 契约 `status`（契约字段先行实现、签核后补）说这条消息抽完了、但没有可记的（`empty`）且没有活结论时，
+ * 一行淡提示「这句没有需要记的 · 记一条」。点「记一条」把这条消息的原文交给 F17 已有的「记住」确认卡路径
+ * （`requestRememberStatement`，同面板「+ 记一条」、消息菜单「记住这句」）——只是请求，是否真的记住仍由随后
+ * 出现的确认卡上的人工点击决定。抽出了东西（`written`）、失败（`failed`）、有意跳过（`skipped`）、从没排进抽取
+ * （`none`）都不显示这一行。「记一条」只给会话所有者（同面板「+ 记一条」）；别人只看到那半句说明。
+ * 补读：还在 `pending` 就按同一张有限次补读表继续读，读到终态为止（不再以「claims 为空」为继续的条件——
+ * 那样 `empty` 的消息会白白读满整张表）。
  */
 export function ExtractionFeedbackChip({
   threadId,
   messageId,
+  statement,
+  showEmptyNotice = true,
 }: {
   readonly threadId: string;
   readonly messageId: string;
+  /**
+   * uiux-r3 #5.4 / 人类决策：数字人对话里不出「这句没有需要记的 · 记一条」这行——三轮评审都读成
+   * 没人解释的记忆术语。`false` ⇒ 没抽到东西时什么都不画（抽到了仍照常显示「已记下…」）。
+   */
+  readonly showEmptyNotice?: boolean;
+  /** 这条消息的原文：「记一条」把它预填进「记住」确认卡。不给 ⇒ 只显示说明，不给「记一条」。 */
+  readonly statement?: string;
 }) {
-  const [claims, setClaims] = React.useState<readonly { readonly claimId: string; readonly statement: string }[]>([]);
+  const [claims, setClaims] = React.useState<MessageExtraction["claims"]>([]);
+  const [status, setStatus] = React.useState<MessageExtraction["status"] | null>(null);
+  const [rememberRequested, setRememberRequested] = React.useState(false);
   const [handled, setHandled] = React.useState<ReadonlySet<string>>(() => new Set());
   const [undoingId, setUndoingId] = React.useState<string | null>(null);
   const [errorFor, setErrorFor] = React.useState<Readonly<Record<string, string>>>({});
@@ -61,20 +95,24 @@ export function ExtractionFeedbackChip({
     let timer: ReturnType<typeof setTimeout> | null = null;
     const controller = new AbortController();
     setClaims([]);
+    setStatus(null);
+    setRememberRequested(false);
 
     const attempt = (index: number): void => {
       fetchMessageExtraction(threadId, messageId, controller.signal).then(
         (value) => {
           if (cancelled) return;
           const delay = TURN_MEMORY_REPOLL_DELAYS_MS[index];
-          if (value.claims.length === 0 && delay !== undefined) {
+          // 还没抽完（排队 / 进行中）⇒ 按补读表继续；刚发出去那一刻消息可能还没落库、也还没排进来（none），同样再等等。
+          if (value.claims.length === 0 && (value.status === "pending" || value.status === "none") && delay !== undefined) {
             timer = setTimeout(() => attempt(index + 1), delay);
             return;
           }
           setClaims(value.claims);
+          setStatus(value.status);
         },
         () => {
-          if (!cancelled) setClaims([]);
+          if (!cancelled) { setClaims([]); setStatus(null); }
         },
       );
     };
@@ -87,7 +125,7 @@ export function ExtractionFeedbackChip({
     };
   }, [threadId, messageId]);
 
-  const undo = React.useCallback(async (claimId: string): Promise<void> => {
+  const undo = React.useCallback(async (claimId: string, personalCopyClaimId: string | null): Promise<void> => {
     setUndoingId(claimId);
     setErrorFor((cur) => {
       if (!(claimId in cur)) return cur;
@@ -96,10 +134,20 @@ export function ExtractionFeedbackChip({
       return next;
     });
     try {
-      // 版本号点击时现取：同 `AnswerMemoryLine.undo` 的既有纪律，拿快照里的旧版本号
-      // 去撤销第一次必撞 KG_REVISION_CHANGED。
-      const revision = (await fetchThreadKnowledge(threadId)).revision;
-      await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId });
+      if (personalCopyClaimId !== null) {
+        try {
+          await undoAutoPersonalCopy(threadId, claimId);
+        } catch (e) {
+          // 已经不在（别处撤过 / 已确认过）：视为这一步已完成，不报错。
+          if (knowledgeGraphErrorCode(e) !== "KG_CLAIM_NOT_FOUND") throw e;
+        }
+      }
+      if (canUndo) {
+        // 版本号点击时现取：同 `AnswerMemoryLine.undo` 的既有纪律，拿快照里的旧版本号
+        // 去撤销第一次必撞 KG_REVISION_CHANGED。
+        const revision = (await fetchThreadKnowledge(threadId)).revision;
+        await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId });
+      }
       setHandled((cur) => (cur.has(claimId) ? cur : new Set(cur).add(claimId)));
     } catch (e) {
       if (knowledgeGraphErrorCode(e) === "KG_CLAIM_NOT_FOUND") {
@@ -111,9 +159,38 @@ export function ExtractionFeedbackChip({
       setUndoingId(null);
       requestKnowledgeReload(threadId);
     }
-  }, [threadId]);
+  }, [threadId, canUndo]);
 
   const visible = claims.filter((c) => !handled.has(c.claimId));
+  const rememberText = statement?.trim() ?? "";
+  // UIUX r2 屏 4 #5：转交的控制消息（请求转交 / 转交草稿）不是陈述，不挂「没有记入记忆」这类说明。
+  if (visible.length === 0 && claims.length === 0 && status === "empty" && isHandoffControlStatement(statement)) return null;
+  if (visible.length === 0 && claims.length === 0 && status === "empty") {
+    if (!showEmptyNotice) return null;
+    return (
+      <p
+        className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70"
+        data-testid="kg-extraction-empty"
+        title="助手没有从这句话里提取出需要长期记住的信息；如果它很重要，可以手动记住。"
+      >
+        这句话没有自动记入记忆
+        {canUndo && rememberText !== "" ? (
+          <>
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"
+              data-testid="kg-extraction-empty-remember"
+              disabled={rememberRequested}
+              onClick={() => { setRememberRequested(true); requestRememberStatement(rememberText); }}
+            >
+              手动记住
+            </button>
+          </>
+        ) : null}
+      </p>
+    );
+  }
   if (visible.length === 0) return null;
 
   return (
@@ -122,8 +199,17 @@ export function ExtractionFeedbackChip({
         <div key={c.claimId} className="flex flex-col gap-0.5">
           <p className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`kg-extraction-line-${c.claimId}`}>
             <Sparkles aria-hidden className="h-3 w-3" />
-            已记下：{truncateStatement(c.statement)}
-            {canUndo ? (
+            {/* 一整段放进同一个 span：这一行是 flex + gap，分开的文字节点之间会被拉出空隙（「已记下 目标 ：」）。 */}
+            <span>
+              已记下<span data-testid={`kg-extraction-kind-${c.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[c.kind]}</span>：{truncateStatement(c.statement)}
+            </span>
+            {c.personalCopyClaimId !== null ? (
+              <>
+                <span aria-hidden>·</span>
+                <span data-testid={`kg-extraction-personal-${c.claimId}`}>已记入个人记忆</span>
+              </>
+            ) : null}
+            {canUndo || c.personalCopyClaimId !== null ? (
               <>
                 <span aria-hidden>·</span>
                 <button
@@ -131,7 +217,7 @@ export function ExtractionFeedbackChip({
                   className="text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"
                   data-testid={`kg-extraction-undo-${c.claimId}`}
                   disabled={undoingId === c.claimId}
-                  onClick={() => void undo(c.claimId)}
+                  onClick={() => void undo(c.claimId, c.personalCopyClaimId)}
                 >
                   {undoingId === c.claimId ? "撤销中…" : "撤销"}
                 </button>

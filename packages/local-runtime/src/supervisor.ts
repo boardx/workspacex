@@ -34,6 +34,8 @@ export interface SupervisedOptions {
    * 启动失败的诊断路径一字未改。
    */
   readonly initial?: Managed;
+  /** 重启时怎么起；默认 `startManaged`。`up` 传入会顺手记台账的那个（child-ledger.ts）。 */
+  readonly start?: (spec: SpawnSpec) => Managed;
 }
 
 export interface Supervised {
@@ -54,7 +56,8 @@ export function superviseManaged(o: SupervisedOptions): Supervised {
   let health: ServiceHealth = { name: o.spec.name, state: "running", message: null, exits: 0 };
   const setHealth = (h: ServiceHealth): void => { health = h; o.onHealth?.(h); };
 
-  let managed = o.initial ?? startManaged(o.spec, o.log);
+  const start = o.start ?? ((spec: SpawnSpec) => startManaged(spec, o.log));
+  let managed = o.initial ?? start(o.spec);
   const watch = (m: Managed): void => {
     void m.exited.then((code) => {
       if (stopping) return;
@@ -70,7 +73,7 @@ export function superviseManaged(o: SupervisedOptions): Supervised {
       setHealth({ name: o.spec.name, state: "restarting", message: { title: msg.title, body: msg.body }, exits: exits.length });
       schedule(() => {
         if (stopping) return;
-        managed = startManaged(o.spec, o.log);
+        managed = start(o.spec);
         setHealth({ name: o.spec.name, state: "running", message: null, exits: exits.length });
         watch(managed);
       }, d.delayMs);

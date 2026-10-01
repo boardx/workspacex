@@ -1,7 +1,7 @@
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
-import { FULLSTACK_E2E } from "./e2e/fullstack-smoke-fixture";
+import { FULLSTACK_E2E, MAIL_LOOPBACK } from "./e2e/fullstack-smoke-fixture";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -34,6 +34,7 @@ const modelProviderPort = required("WORKSPACEX_MODEL_PROVIDER_PORT");
 const deepAgentProviderPort = required("WORKSPACEX_DEEP_AGENT_PROVIDER_PORT");
 const skillSandboxPort = required("WORKSPACEX_LOOPBACK_SANDBOX_PORT");
 const asrProviderPort = required("WORKSPACEX_ASR_PROVIDER_PORT");
+const mailProviderPort = required(MAIL_LOOPBACK.portEnv);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -70,10 +71,17 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  * 就显式覆盖 `FULLSTACK_E2E_SERVER_TIMEOUT_MS`。这次改的是默认值本身对应的真实
  * 依赖重量，不是绕过信号。
  *
+ * 2026-09-29（PR #4524）冷构建在 CI 的 240s 窗口内已完成编译与类型检查，
+ * 但仍在 collecting build traces 时被 Playwright 终止；这说明当前生产构建本身
+ * 已稳定贴近旧上限。后续 PR #4567 的 CI 生产构建在 3m54s 完成编译、页面
+ * 生成和 trace 收集，但在 `next start` 绑定端口前命中 240s 上限，导致
+ * 真实浏览器用例一条都未执行。这次仍是可观测的冷构建基线增长，
+ * 因此把默认启动窗口调整为 600s；用例本身的超时、断言和失败信号不变。
+ *
  * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
  *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 240_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -83,6 +91,7 @@ const fixtureEnv = {
   FULLSTACK_E2E_PROJECT_ID: FULLSTACK_E2E.projectId,
   FULLSTACK_E2E_PROJECT_NAME: FULLSTACK_E2E.projectName,
   FULLSTACK_E2E_ARTIFACT_ID: FULLSTACK_E2E.artifactId,
+  FULLSTACK_E2E_BOARD_ARTIFACT_ID: FULLSTACK_E2E.boardArtifactId,
   FULLSTACK_E2E_SENTINEL_FILE: FULLSTACK_E2E.sentinelFile,
   FULLSTACK_E2E_ADMIN_EMAIL: FULLSTACK_E2E.adminEmail,
   FULLSTACK_E2E_ADMIN_PASSWORD: FULLSTACK_E2E.adminPassword,
@@ -131,16 +140,40 @@ const fixtureEnv = {
  * `ConfiguredRealtimeAsrProvider` 只认这一组变量，没有 list、没有 map、没有 default。
  *
  * 不配它会怎样：WS 面以 `ASR_NOT_CONFIGURED` **诚实地失败**，界面上
- * `chat-live-recording-error` 显示「本组织尚未配置转写服务」，
+ * 转写页 `rec-live-error` 显示「尚未配置…转录」（#4744 前是 `chat-live-recording-error`），
  * 绝不会冒出一段编造的转录。
  *
  * ⚠ `KERNEL_ASR_MODEL` 是一个**配置值**，不是源码里的字面量 ——
  *   contract.md §3 与 `no-hardcoded-model-list.test.ts` 都要求模型名不进源码。
  */
+/**
+ * #4789 —— 显式选中的出站邮件上游（`scripts/loopback-mail-provider.ts`）。**不是 mock fallback**：
+ * 两个 Cloudflare transport 只认 `CLOUDFLARE_API_BASE_URL`，它在生产被禁止覆盖
+ * （`infrastructure/cloudflare-email-api-base.ts`）；不起替身进程则发信以 `network` 诚实失败。
+ *
+ * ⚠ `MAIL_OUTBOX_WORKER_ENABLED=1`：验证邮件走 outbox，worker 默认只在生产开；不开它，
+ *   注册之后**永远没有**邮件发出，替身里自然什么都没有。令牌由 HMAC 从 challengeId 推出、
+ *   与「是否已投递」无关，所以开 worker 不影响既有 spec 读令牌（`readVerificationToken`）。
+ * ⚠ `APP_PUBLIC_URL` 指向本 config 的 web 服务：邮件里的链接必须是浏览器真的打得开的那个源。
+ * 常量唯一事实源：`e2e/fullstack-smoke-fixture.ts` 的 `MAIL_LOOPBACK`。
+ */
+const mailProviderEnv = {
+  CLOUDFLARE_API_BASE_URL: `http://127.0.0.1:${mailProviderPort}/client/v4`,
+  CLOUDFLARE_ACCOUNT_ID: MAIL_LOOPBACK.accountId,
+  CLOUDFLARE_EMAIL_API_TOKEN: MAIL_LOOPBACK.verificationToken,
+  CLOUDFLARE_TXN_EMAIL_API_TOKEN: MAIL_LOOPBACK.transactionalToken,
+  MAIL_FROM: MAIL_LOOPBACK.mailFrom,
+  APP_PUBLIC_URL: `http://127.0.0.1:${webPort}`,
+  MAIL_OUTBOX_WORKER_ENABLED: "1",
+};
+
 const asrProviderEnv = {
   KERNEL_ASR_PROVIDER: "fullstack-loopback-asr",
   KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${asrProviderPort}`,
   KERNEL_ASR_API_KEY: "fullstack-smoke-loopback-asr-key-not-a-secret",
+  // 数字人实时语音（Chat「实时对话」）走同一个回环进程的 /omni-realtime 路径（确定性中文样例
+  // 转写 + 助手回复）。不配它会退回 KERNEL_ASR_BASE_URL，只有 ASR 调试串、没有助手回复。
+  KERNEL_OMNI_REALTIME_BASE_URL: `ws://127.0.0.1:${asrProviderPort}/omni-realtime`,
   KERNEL_ASR_MODEL: "loopback-transcribe",
   // 收尾等待：本地回环是毫秒级的，15 秒的生产默认值只会让失败等满 15 秒。
   KERNEL_ASR_FINISH_GRACE_MS: "5000",
@@ -194,6 +227,7 @@ const modelProviderEnv = {
    * 那条用例会诚实地红在"没配置"而不是"接线错了"，两种红不该混在一起排查。
    */
   KERNEL_SKILL_TRIALRUN_MODEL_ID: FULLSTACK_E2E.agentModelId,
+  KERNEL_SURVEY_MODEL_ID: FULLSTACK_E2E.agentModelId,
 };
 
 export default defineConfig({
@@ -267,8 +301,15 @@ export default defineConfig({
         // prevents the browser acceptance contract from silently becoming local-only.
         "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
+        "digital-interview-report-export-live.spec.ts",
+        "digital-interview-intake-failure-live.spec.ts",
+        "digital-interview-density-live.spec.ts",
         "survey-complete-flow.spec.ts",
         "survey-trusted-publishing.spec.ts",
+        // AG04：/agent 目录从左栏导航可达（种子 lead 登录后点入口，不是 goto 直连）。
+        "agent-directory-entry-point.spec.ts",
+        // #4582：项目中枢第三批真栈走查（问卷答卷入证据 / 大脑空态 / AI 权限关来源 / 观察者脱敏）。
+        "project-hub-b3-walkthrough.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
@@ -349,8 +390,14 @@ export default defineConfig({
         //   `seeded-github-import` project 头注，它们跟着 `skill-agent-import-
         //   usecase-audit.spec.ts` 一起排在那个"跑在 seeded 之后"的 project 里。
         "core-journey-01-registration.spec.ts",
+        // #4789：出站邮件回环自证（注册验证邮件进替身 + fault=reject 反证）。只注册自己的新用户，不碰种子。
+        "mail-loopback-smoke.spec.ts",
         "core-journey-02-org-management.spec.ts",
         "core-journey-05-voice-skill-multichannel-context.spec.ts",
+        // #3967: real Board HTTP + authenticated WS with three independently logged-in
+        // users. Reuses the seeded admin/lead/consultant identities through the fixture
+        // fallback in the spec; it creates and archives its own private Board.
+        "whiteboard-live.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
@@ -391,9 +438,42 @@ export default defineConfig({
         "skill-agent-import-usecase-audit.spec.ts",
         "core-journey-03-skill-lifecycle-chat.spec.ts",
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+        // 项目中枢 R10：邀请 → 加入 → 建 chat → 分享 → 项目大脑。有状态（把种子 member 真的加进
+        // sentinel 项目、留下一条全场 chat），同旅程 ③ ④ 排在这条链。
+        "core-journey-06-project-invite-chat-share.spec.ts",
+        // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
+        "board-fabric-surface.spec.ts",
+        // BV12–BV14 exercise canonical layout commands against the real Board stack.
+        "board-selection-layout.spec.ts",
+        // Board library mutations create their own resources and remove them in a strict hook.
+        // Keep them after the seeded catalog-empty assertions, alongside the Fabric lifecycle.
+        "board-library-management.spec.ts",
+        // Iteration 03 owns continuous Sticky/Text input and batch operation boundaries.
+        "board-thinking-input.spec.ts",
+        // Iteration 04 owns rich visual objects and verifies their canonical state across
+        // two clients, undo/redo, and a persisted reload boundary.
+        "board-visual-content.spec.ts",
+        // Iteration 05 owns Panels, Groups, semantic Connectors, layer operations,
+        // rotated transforms, and cross-client spatial persistence.
+        "board-spatial-relationships.spec.ts",
+        // Draw preview/cancellation remains in smoke. The 30-minute meeting-room
+        // acceptance runs in its dedicated Board CI lane with a private ledger key.
+        "board-drawing-live-preview.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
+      dependencies: ["seeded", "board-collaboration-regressions"],
+    },
+    {
+      // In the CI seeded-github-import dependency closure, after empty-catalog checks.
+      // The lock-wait producer needs privileged fixture setup on the SAME isolated PG;
+      // keep both collaboration regressions serial, ahead of other Board mutations.
+      name: "board-collaboration-regressions",
+      testMatch: ["board-acl-race.spec.ts", "board-shared-outbox.spec.ts"],
       dependencies: ["seeded"],
+      workers: 1,
+      fullyParallel: false,
+      timeout: 180_000, // ACL subprocess already has its own bounded 150s deadline.
+      retries: 0,
     },
     {
       /**
@@ -576,6 +656,20 @@ export default defineConfig({
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
       },
     },
+    // #4789：出站邮件观察口。同样只要在 API 之前 ready（API 发信时才连它）。
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-mail-provider.ts",
+      url: `http://127.0.0.1:${mailProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_MAIL_PROVIDER_PORT: mailProviderPort,
+        LOOPBACK_MAIL_ACCOUNT_ID: MAIL_LOOPBACK.accountId,
+        LOOPBACK_MAIL_ACCEPTED_TOKENS: [MAIL_LOOPBACK.verificationToken, MAIL_LOOPBACK.transactionalToken].join(","),
+        LOOPBACK_MAIL_TIMEOUT_DELAY_MS: String(MAIL_LOOPBACK.timeoutDelayMs),
+      },
+    },
     {
       command: "pnpm --filter @repo/api exec tsx scripts/loopback-model-provider.ts",
       url: `http://127.0.0.1:${modelProviderPort}/healthz`,
@@ -624,12 +718,13 @@ export default defineConfig({
         `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
+      stdout: "pipe",
       // ⚠ `database-unavailable` 反证要的就是**快速失败**，给它长窗口只会让反证等满。
       timeout:
         process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {
-        ...process.env, ...fixtureEnv, ...modelProviderEnv,
+        ...process.env, ...fixtureEnv, ...modelProviderEnv, ...mailProviderEnv,
         // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
         // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。
         ...(process.env.CORE_LOOP_COUNTERPROOF_7 === "no-asr-provider" ? {} : asrProviderEnv),
@@ -654,6 +749,10 @@ export default defineConfig({
         // `SANDBOX_UNAVAILABLE`，试跑执行链在「生成脚本」之后的沙箱这一步打不通。
         // 逐字同一条纪律见上面 `KERNEL_DEEP_AGENT_BASE_URL` 那条注释。
         KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
+        // 仓库自带的 starter pack（work-product / work-research / work-sales …）。API 在非生产下
+        // 也会默认到这里（`resolveSkillStarterPackRoot`），显式下发是为了让本地栈的配置可读、
+        // 不依赖 NODE_ENV——漏配时 `/admin/skills/starter-pack-imports` 恒 404。
+        SKILL_STARTER_PACK_ROOT: path.resolve(__dirname, "../../skills/starter-packs"),
         PORT: apiPort,
       },
     },
@@ -678,7 +777,8 @@ export default defineConfig({
        */
       command: `rm -rf .next-fullstack-e2e && next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
-      // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
+      stdout: "pipe",
+      // 默认 360s；显式设置 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 时使用车道覆盖值。见上方定义。
       timeout: serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {

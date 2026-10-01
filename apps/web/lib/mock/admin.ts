@@ -59,6 +59,13 @@ export type AdminModuleKey =
   // 驱动的真实数据页，不经过 `app/admin/[module]/page.tsx` 那套 `SCREENS`/`REDIRECTS`
   // 分发，见该文件头注对已合并模块的既有处置（`blueprint`/`skill`/`canvasadmin` 同理）。
   | "org-members" | "org-invites" | "org-profile"
+  // 组织首页配置（ad-hoc，Refs #4634）：登录后第一落点（`/home`）的横幅/快捷入口/组织推荐，
+  // 由本组织 admin 在这里配置。归在「组织」组、紧跟 `org-profile`——同样是「本组织自己的东西」，
+  // 与 `org-profile` 同一个授权面（组织 admin），不是新开一面。
+  | "home-config"
+  // 工作流权限授予：内置工作流写步骤（保存文档/发通知…）的组织级授权（workflow_capability_grants）。
+  // 与 `org-profile` 同一个授权面（组织 admin），归「组织」组。
+  | "workflow-grants"
   // member-role-management delta：成员管理的**平台级**（全平台账号名册 + 任一组织里的角色）。
   // 单独一组「平台」而不是塞进「组织」组：它的授权面是平台超管（部署白名单），不是组织角色，
   // 与「组织」组里每一项「本组织 admin 可见」的语义不同——同一组里混两种授权面会让人以为
@@ -162,6 +169,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { key: "org-members", label: "成员", href: "/org-admin/members", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
       { key: "org-invites", label: "邀请", href: "/org-admin/invites", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
       { key: "org-profile", label: "组织资料", href: "/org-admin/profile", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      { key: "home-config", label: "首页配置", href: "/org-admin/home-config", ucRefs: ["01-auth/uc-1-4"] },
+      { key: "workflow-grants", label: "工作流权限", href: "/org-admin/workflow-grants", ucRefs: ["01-auth/uc-1-4"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
       { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
@@ -759,6 +768,12 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   },
   "org-invites": () => {
     throw new Error("org-invites is a screen entry, not a countable list source in this mock table");
+  },
+  "home-config": () => {
+    throw new Error("home-config is a screen entry, not a countable list source in this mock table");
+  },
+  "workflow-grants": () => {
+    throw new Error("workflow-grants is a screen entry, not a countable list source in this mock table");
   },
   "org-profile": () => {
     throw new Error("org-profile is a screen entry, not a countable list source in this mock table");

@@ -1,0 +1,23 @@
+### W1 brain page does not render the consolidation record
+file: apps/web/components/brain/brain-screen.tsx
+test: apps/web/tests/brain/brain-screen.test.tsx
+FAILED as expected
+   × 大脑页：真实数据 > 取的是两个真实接口；长期记忆按类型分组，计数来自数据，没有任何示例数字 1819ms
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 passed (22)
+
+### W2 ops-status screen without the SLO / consolidation panels
+file: apps/web/components/admin/ops-status-screen.tsx
+test: apps/web/tests/ui/memory-ops-panels.test.tsx
+FAILED as expected
+   × #4365 记忆抽取 SLO 面板 > 三个指标有值、门控省下的调用，都在阈值内 ⇒ 没有横幅；挂在运营状态屏上、紧挨着抽取开关 1429ms
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+
+### W3 SLO banner not rendered
+file: apps/web/components/admin/memory-ops-panels.tsx
+test: apps/web/tests/ui/memory-ops-panels.test.tsx
+FAILED as expected
+   × #4365 记忆抽取 SLO 面板 > 超阈值 ⇒ 顶部横幅逐项列出（值 + 阈值），对应的卡片标红 1070ms
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)

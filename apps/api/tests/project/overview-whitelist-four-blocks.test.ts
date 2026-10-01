@@ -77,12 +77,12 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: WORKSHOP });
   await asApp(ORG, (c) =>
-    c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,$3,'research_project')", [
+    c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,$3,'general')", [
       RESEARCH, ORG, "a research project",
     ]),
   );
   await asApp(ORG, (c) =>
-    c.query("INSERT INTO research_projects (id, org_id) VALUES ($1,$2)", [RESEARCH, ORG]),
+    c.query("INSERT INTO general_projects (id, org_id) VALUES ($1,$2)", [RESEARCH, ORG]),
   );
 
   await addOrgMember(ORG, LEAD, "lead", null);
@@ -138,9 +138,9 @@ describe("白名单四件是封闭集合，不多不少", () => {
     // 该绕过的意外故障。
     //
     // 本条断言真正要验证的是**响应形状**（非工作坊两字段恒为 null），不是「项目层鉴权
-    // 如何对非工作坊容器生效」——后者目前没有任何操作可达（`KNOWN_CONTRACT_GAPS.P2`：
-    // 两类容器的成员操作尚未签核，`authorize()` 还没有接上 `research_project_members`/
-    // `user_insight_members` 的 owner/collaborator，这是另一个未来 feature 的范围）。
+    // 如何对非工作坊容器生效」——后者自 #4584 起由 `authorize()` 的项目层读
+    // `general_project_members`（`application/identity/project-layer.ts`），
+    // 真库断言在 `non-workshop-project-access-pg.test.ts`，不在本文件。
     // 用一个只作用于本次调用的 fake `IdentityRepository` 顶替 `deps.auth`（连带
     // `deps.binding.auth`，两者是同一个 `AuthorizeDeps` 形状，`listBackflow` 内部也
     // 用它再判一次同一个动作），在内存里让 LEAD 对 RESEARCH 持有一个项目角色——
@@ -158,7 +158,7 @@ describe("白名单四件是封闭集合，不多不少", () => {
     );
     expect(out.currentAgendaSegment).toBeNull();
     expect(out.roleCounts).toBeNull();
-    expect(out.kind).toBe("research_project");
+    expect(out.kind).toBe("general");
     // 键集合与工作坊一致——「不适用」不是「省略字段」。
     expect(Object.keys(out).sort()).toEqual(
       [

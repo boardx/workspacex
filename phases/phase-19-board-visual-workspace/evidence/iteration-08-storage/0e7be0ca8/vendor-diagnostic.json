@@ -1,0 +1,15 @@
+{
+  "testedCommit": "0e7be0ca8",
+  "executor": "main session",
+  "date": "2026-09-27",
+  "result": "3 passed",
+  "fixtures": [
+    "miro-workshop",
+    "mural-diagram",
+    "miro-media"
+  ],
+  "provenance": "schema-derived synthetic diagnostics, not real account exports",
+  "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config e2e/support/board-vendor-migration-fullstack.config.ts",
+  "logSha256": "9180bc83c4d4098d3b56b300806917819b9ab5dd165c2bdf7ac77d9c83dce898",
+  "realAccountAcceptance": "incomplete"
+}

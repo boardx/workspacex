@@ -7,8 +7,9 @@ import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
-import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
+import type { GraphHit, GraphHop, RecallClaim, RecallObject, VectorHit } from "../../domain/knowledge-graph/recall";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
+import type { LiveDecision, SupersedeFresh } from "../../domain/knowledge-graph/decision-supersede";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -91,6 +92,9 @@ export interface KgExtractionJob {
   readonly attempts: number;
 }
 
+/** issue #4352：一条消息抽取完成时的结果（`failed` 由 `fail` 在次数用完时记，不经 complete）。 */
+export type KgExtractionOutcome = "written" | "empty" | "skipped" | "failed";
+
 /** 抽取队列（消息落库时由触发器排队，见迁移 20260924210000）。 */
 export interface KgExtractionQueuePort {
   /** 抽取在这个库上开着：从此新消息才排队（关着时不排，免得永远没人消费的行无限增长）。 */
@@ -98,8 +102,14 @@ export interface KgExtractionQueuePort {
   pendingOrgs(): Promise<readonly OrgId[]>;
   /** 认领本 org 的一批任务（带租约：worker 崩了，租约过期后别的 worker 可以重新认领）。 */
   claim(orgId: OrgId, limit: number): Promise<readonly KgExtractionJob[]>;
-  complete(orgId: OrgId, messageId: string): Promise<void>;
-  fail(orgId: OrgId, messageId: string, error: string): Promise<void>;
+  /**
+   * issue #4350：`attempts` 是认领时拿到的次数（`KgExtractionJob.attempts`），当作租约的**围栏令牌**：给了它，
+   * 只有这一行仍停在这次认领上时才生效——被 watchdog 放弃、租约过期后又被重新认领的旧任务，迟到的
+   * complete / fail 不会删掉 / 解锁新认领正在处理的那一行。不给 ⇒ 不围栏。
+   */
+  /** issue #4352：`outcome` ⇒ 同一事务里记下这条消息的抽取结果（`getMessageExtraction.status` 的信号源）。 */
+  complete(orgId: OrgId, messageId: string, attempts?: number, outcome?: KgExtractionOutcome): Promise<void>;
+  fail(orgId: OrgId, messageId: string, error: string, attempts?: number): Promise<void>;
 }
 
 export interface KgMessage {
@@ -107,6 +117,8 @@ export interface KgMessage {
   readonly threadId: string;
   readonly body: string;
   readonly authorKind: "human" | "agent";
+  /** issue #4363（S6）：消息时间（ISO）。抽取时换算「这周」「到年底」用；上文消息可省略。 */
+  readonly createdAt?: string;
 }
 
 export interface KgExtractionSourcePort {
@@ -114,10 +126,20 @@ export interface KgExtractionSourcePort {
   loadMessage(orgId: OrgId, messageId: string, contextTurns: number): Promise<{ readonly message: KgMessage; readonly context: readonly KgMessage[] } | null>;
   /** 本会话已有的实体（实体解析用）。 */
   knownObjects(orgId: OrgId, threadId: string): Promise<readonly KnownObject[]>;
+  /**
+   * round 7（#4284 收口）：这条消息若是**项目会话里 agent 的回答**，产出它的那个 run 在这一轮召回（`kg_turn_recalls`）里
+   * 用到了多少条**不能证明属于本会话**的记忆（本会话 = `chat_session` 作用域、`scope_id` = 该消息的 thread）。
+   * 个人空间条目在这里一律算「不能证明」（worker 不以任何用户身份读，RLS 本来就不放 personal 行）——fail closed。
+   * 不是 agent 回答 / 不在项目会话 / 这一轮没有召回记录 ⇒ 0。只回一个数，不回任何内容。
+   */
+  projectAnswerOutsideRecallCount(orgId: OrgId, messageId: string): Promise<number>;
 }
 
 export interface KnowledgeExtractorPort {
-  /** 模型调用失败 ⇒ 抛错（任务稍后重试）；模型回了东西但解析不出 ⇒ 返回空结果（不重试）。 */
+  /**
+   * 模型调用失败 ⇒ 抛错（任务稍后重试）；模型回了东西但解析不出 ⇒ **也抛错**（issue #4350：同样重试，三次后
+   * 面板显示「失败」，不再当成「没有可记的」悄悄出队）；合法的空结果 ⇒ 返回空结果（出队，不重试）。
+   */
   extract(input: { readonly message: KgMessage; readonly context: readonly KgMessage[] }): Promise<ExtractionResult>;
 }
 
@@ -171,6 +193,21 @@ export interface KnowledgeReadPort {
    */
   personalKnowledge(orgId: OrgId, userId: string): Promise<Guarded<PersonalKnowledgeData>>;
   /**
+   * 项目中枢 R8：项目记忆（L2）的活结论 / 实体 / 边。guard ref 是项目本身（`project:<projectId>`）；
+   * 调用方交出「查看者是项目成员」的判定（`authorize read.published`）才拿得到。
+   */
+  projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>>;
+  /**
+   * B2-S4（issue #4428）：组织记忆（L3）的活结论 / 实体 / 边。guard ref 是组织空间的合成 id（`project:org:<orgId>`，
+   * 同 `personalSpaceRef` 的做法——组织记忆没有 acl_bindings 行）；调用方交出「查看者是组织成员」的判定才拿得到。
+   */
+  orgKnowledge(orgId: OrgId, userId: string): Promise<Guarded<OrgKnowledgeData>>;
+  /**
+   * B3-T3（issue #4497）：项目记忆里每条活结论的证据锚点（claimId → 锚点，含 stance 与 revoked，供推理纯函数过滤）。
+   * guard ref 与 `projectKnowledge` 同为项目本身；调用方交出同一个判定才拿得到。没有证据的结论不出现在键里。
+   */
+  projectClaimEvidence(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectClaimEvidenceData>>;
+  /**
    * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，从第 `offset` 个起最多 `limit` 个）。
    * 分页是为了让调用方在可见性过滤**之后**凑够上限。
    * `threadId` 是路由事实（同 `claimRoute`）；计数按该会话的 guard ref 包好——调用方逐个判会话可见性后才拿得到。
@@ -185,6 +222,10 @@ export interface KnowledgeReadPort {
 }
 
 export type PersonalKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>, "scope">;
+export type ProjectKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>, "scope" | "canPromoteToOrg">;
+export type OrgKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getOrgKnowledge.out>, "scope">;
+/** B3-T3：claimId → 证据锚点（契约 `KgEvidenceAnchor`，与 `getClaimSources.out.evidence` 同形）。 */
+export type ProjectClaimEvidenceData = Readonly<Record<string, readonly KG.KgEvidenceAnchor[]>>;
 
 /** 一个会话的知识计数（标题等展示字段在判定通过后另取）。 */
 export interface ThreadKnowledgeCounts {
@@ -201,6 +242,10 @@ export interface PersonalClaimOriginRow {
   readonly sourceClaimId: string;
   readonly threadId: string;
   readonly projectId: string | null;
+  /** issue #4302：原结论最早一条支撑消息的时间（ISO）；没有消息证据为 null */
+  readonly saidAt: string | null;
+  /** issue #4302：这个来源是系统自动记下的（#4283 derived_from 边 created_by = model） */
+  readonly autoCopied: boolean;
 }
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
@@ -215,6 +260,16 @@ export interface KnowledgeRecallPort {
   }>;
   /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
   graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
+  /**
+   * S9（#4366）向量通道：问题的嵌入与候选结论（claimIds，来自 candidates）的嵌入按余弦取前 limit 条。
+   * `claimIds` 可以是还在读的候选集（Promise）：问题的嵌入与读候选集同时进行，这一轮只多等较慢的那一个。
+   * 读身份 = 发起人（个人空间的向量 RLS 只放本人）。返回 null ⇒ 这个部署没配置嵌入模型（通道未启用，不是故障）；
+   * 嵌入服务 / 库出错 ⇒ 抛错，调用方记为向量通道故障、降级为字面 + 图。
+   * 可选：没有实现它的端口 ⇒ 等同未配置。
+   */
+  vectorNeighbors?(
+    orgId: OrgId, userId: string, query: string, claimIds: readonly string[] | Promise<readonly string[]>, limit: number,
+  ): Promise<readonly VectorHit[] | null>;
   /** F13：记下这一轮用到了哪些记忆（只存 id 与召回理由），回答下方的引用从这里读。 */
   recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void>;
 }
@@ -235,6 +290,35 @@ export interface TurnRecallRecord {
 
 export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
 
+// ─────────────────────────────── S9 结论 / 实体的嵌入流水线（#4366） ───────────────────────────────
+
+/** 一个待嵌入的目标（kg_embedding_pending 的一行）。`content` 只交给嵌入模型，不回任何请求方。 */
+export interface KgEmbeddingTarget {
+  readonly targetKind: "claim" | "object";
+  readonly targetId: string;
+  readonly content: string;
+  /** 取出时文本的 md5：写回时数据库核对，文本在这之间变了 ⇒ 不写旧文本的向量。 */
+  readonly contentMd5: string;
+  /** 本轮看到的最大 outbox id（bigint 的十进制串）：写回 / 失败只处理到它为止。 */
+  readonly maxId: string;
+}
+
+export interface KgEmbeddingQueuePort {
+  /** 有待嵌入目标的 org（只有 id）。 */
+  pendingOrgs(): Promise<readonly OrgId[]>;
+  pending(orgId: OrgId, limit: number): Promise<readonly KgEmbeddingTarget[]>;
+  /** 写回一个向量；`stale` ⇒ 文本已变 / 目标已不活，没写（已出队）。模型未登记 / 维度不符 ⇒ 抛错。 */
+  write(
+    orgId: OrgId, target: KgEmbeddingTarget, model: { readonly model: string; readonly modelVersion: string }, embedding: readonly number[],
+  ): Promise<"written" | "stale">;
+  /** 单个目标失败记一次（`code` 是固定错误码，不含正文）。 */
+  fail(orgId: OrgId, target: KgEmbeddingTarget, code: string): Promise<void>;
+  /** 超过重试上限、不再自动重试的目标数（全局，只有数字）。 */
+  deadCount(): Promise<number>;
+}
+
+export const KG_EMBEDDING_QUEUE_PORT = Symbol("KgEmbeddingQueuePort");
+
 // ─────────────────────────────── F10 人工编辑动作 ───────────────────────────────
 
 export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
@@ -243,9 +327,16 @@ export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
 export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
-  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
+  | "KG_SCOPE_NOT_PERSONAL" | "KG_SCOPE_NOT_PROJECT" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
+  // B3-T4 adoptProjectDecision.err：非成员（数据库函数也复核，同一个码）
+  | "KG_NOT_VISIBLE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
-  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
+  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST"
+  // UC-KG-4 requestReindex（issue #4352）
+  | "KG_REINDEX_ALREADY_RUNNING"
+  // #4494 review L1：数据库函数的两道闸（「关于我」挂目标 / 改写）。KG_SCOPE_NOT_ENABLED 是契约码；KG_ORG_FROZEN 不是契约码——
+  // 组织已冻结（只读）时 HTTP 层通常先拦下，这里是数据库那道兜底被触发时的结构化出口（403），不再当成 500 往外抛。
+  | "KG_SCOPE_NOT_ENABLED" | "KG_ORG_FROZEN";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -255,6 +346,15 @@ export interface HumanActionPort {
     readonly basedOnRevision: number;
     readonly action: KgHumanAction;
   }): Promise<{ readonly revision: number; readonly actionId: string }>;
+  /**
+   * issue #4363（S6）：改一条待办的状态（`kg_set_todo_state`）。只有所有者；同一件待办的会话 / 个人空间两份一起改。
+   * 被拒（不存在 / 不是待办 / 不是所有者）一律 `KG_CLAIM_NOT_FOUND`。
+   */
+  setTodoStatus(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly claimId: string;
+    readonly status: KG.KgTodoStatus;
+  }): Promise<{ readonly claimId: string; readonly status: KG.KgTodoStatus; readonly claimIds: readonly string[] }>;
 }
 
 export class KgHumanActionError extends Error {
@@ -285,9 +385,80 @@ export interface PromotionPort {
     readonly actionId: string; readonly threadId: string; readonly claimId: string;
     readonly mode: "new" | "merge"; readonly targetClaimId?: string;
   }): Promise<string>;
+  /** 项目中枢 R7：项目记忆里的活结论（去重用），按项目成员可见性 guard。 */
+  projectClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** 项目中枢 R7：晋升到项目记忆（`kg_promote_claim_to_project`）。返回 L2 结论 id。 */
+  promoteToProject(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly threadId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /** B2-S4：一个项目的项目记忆里这些 id 对应的活结论（晋升到组织记忆的来源），guard ref 是项目本身。 */
+  projectSourceClaims(orgId: OrgId, userId: string, projectId: string, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** B2-S4：组织记忆里的活结论（去重用），guard ref 是组织空间的合成 id（`project:org:<orgId>`，同 `KnowledgeReadPort.orgKnowledge`）。 */
+  orgClaims(orgId: OrgId, userId: string): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** B2-S4：晋升到组织记忆（`kg_promote_claim_to_org`）。返回 L3 结论 id。 */
+  promoteToOrg(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /**
+   * B3-T4（#4498）：项目记忆里这一条活结论的类型与状态（采纳为项目决策的来源核对用）；不在项目记忆里 / 已失效 ⇒ null。
+   * guard ref 是项目本身。
+   */
+  adoptionSource(orgId: OrgId, userId: string, projectId: string, claimId: string): Promise<Guarded<{
+    readonly id: string; readonly kind: KG.KgClaimKind; readonly status: string;
+  } | null>>;
+  /** B3-T4：采纳为项目决策（`kg_adopt_project_decision`）；被拒时抛 KgHumanActionError。返回新 decision 条目 id。 */
+  adoptProjectDecision(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string; readonly rationale: string;
+  }): Promise<{ readonly decisionClaimId: string; readonly actionId: string }>;
 }
 
 export const PROMOTION_PORT = Symbol("PromotionPort");
+
+// ─────────────────────────────── issue #4283 本人的决定自动记进本人个人空间 ───────────────────────────────
+
+/** 数据库拒绝一次自动复制的码（迁移 20260926131000 `kg_auto_copy_decision`）。逐条记日志、跳过，不让整条抽取任务失败。 */
+export type KgAutoCopyRejectCode =
+  | "KG_NOT_AUTHOR" | "KG_NOT_OWNER" | "KG_CLAIM_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION"
+  | "KG_EVIDENCE_REVOKED" | "KG_SCOPE_NOT_ENABLED";
+
+export class KgAutoCopyRejected extends Error {
+  constructor(readonly code: KgAutoCopyRejectCode, message?: string) {
+    super(message ?? code);
+  }
+}
+
+/**
+ * 系统把「作者本人说的决定」复制到作者本人个人空间，以及本人撤销那份副本。实现只调数据库函数：
+ * 目标空间由数据库从证据消息的作者推出（调用方给不出、也改不了），见迁移头注。
+ */
+export interface KgAutoCopyPort {
+  /**
+   * 这条消息刚抽出的、可以复制的结论（模型提出、全部证据都是作者本人的话、还没复制过），以及作者本人
+   * 个人空间的活结论（去重用）。消息不是成员本人说的 ⇒ `author = null`、两边都空。
+   */
+  candidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly author: string | null;
+    /** issue #4343：`kind` 是这条结论的类型（库里为空按 fact），应用层据此认目标 / 偏好。 */
+    readonly fresh: readonly { readonly id: string; readonly statement: string; readonly kind: KG.KgClaimKind }[];
+    readonly personal: readonly { readonly id: string; readonly statement: string }[];
+  }>;
+  /** 执行一次复制；被数据库拒绝时抛 `KgAutoCopyRejected`。返回个人空间那条的 id（merge 时 = 目标）。 */
+  copy(orgId: OrgId, input: {
+    readonly actionId: string; readonly threadId: string; readonly messageId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /**
+   * 人的动作：撤销本人个人空间里由 `claimId`（会话原结论）自动记下、仍是「AI 记下的」那一份。
+   * 找不到（别人的 / 不存在 / 已确认过 / 已撤销）⇒ `KgHumanActionError("KG_CLAIM_NOT_FOUND")`。
+   */
+  undo(orgId: OrgId, userId: string, input: { readonly actionId: string; readonly threadId: string; readonly claimId: string }): Promise<{
+    readonly personalClaimId: string; readonly outcome: "revoked" | "detached";
+  }>;
+}
+
+export const KG_AUTO_COPY_PORT = Symbol("KgAutoCopyPort");
 
 // ─────────────────────────────── F16 矛盾提醒 ───────────────────────────────
 
@@ -314,6 +485,26 @@ export interface KgConflictPort {
    */
   pendingCloseOrgs(): Promise<readonly OrgId[]>;
   drainCloseOne(orgId: OrgId): Promise<boolean>;
+  /**
+   * Issue #4290：明确改口的取代（迁移 20260926140000）。候选 = 这条消息刚抽出的决定（带消息作者）+ 还活着的旧决定
+   * （本会话的；个人线程里再加所有者本人个人空间的，各带作者）。判定在 domain/knowledge-graph/decision-supersede.ts。
+   */
+  supersedeCandidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly fresh: readonly SupersedeFresh[];
+    readonly live: readonly LiveDecision[];
+  }>;
+  /**
+   * 复核后落表，返回开了几张（取代提示 + 卡）；复核不过的跳过。
+   * `supersedes`（高把握）：旧决定 superseded、开一张可撤销的取代提示；
+   * `prompts`（低把握 frame_only）：只开一张 F16 卡（kind = possible_change），两条都不改状态。
+   */
+  applySupersedes(orgId: OrgId, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly messageId: string;
+    readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+    readonly prompts: readonly { readonly newer: string; readonly older: string }[];
+  }): Promise<number>;
 }
 
 export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
@@ -339,12 +530,23 @@ export interface MemoryCardPort {
     readonly runId: string;
     readonly messageId: string;
     readonly requesterUserId: string;
-    readonly kind: "remember" | "forget";
+    /** #4361：overview =「你记得我什么」的清单卡（claimIds 按显示顺序；没有动作）。 */
+    readonly kind: "remember" | "forget" | "overview";
+    /**
+     * 谁提的卡上的字（issue #4344，缺省 user_message）：user_message = 用户消息以「记住：…」开头，数据库核对字出自这条消息；
+     * agent_tool = agent 的 `wx_remember` 工具，只开记住卡，字由用户在卡上确认 / 改字（迁移 20260927300000）。
+     */
+    readonly origin?: "user_message" | "agent_tool";
     readonly statement?: string;
     /** 忘掉卡：用户说要忘掉的那段话（数据库核对它出自这条消息） */
     readonly target?: string;
     readonly claimIds?: readonly string[];
-  }): Promise<{ readonly outcome: MemoryCardOpenOutcome; readonly cardId: string | null }>;
+  }): Promise<{
+    readonly outcome: MemoryCardOpenOutcome;
+    readonly cardId: string | null;
+    /** opened 时：这一轮本来就有卡（前缀入口先开了 / 同一 run 重试），这次没有新开。 */
+    readonly reused: boolean;
+  }>;
   /** 路由事实：卡属于哪个会话（不回内容）；查不到 ⇒ null。 */
   cardThread(orgId: OrgId, userId: string, cardId: string): Promise<string | null>;
   /** 人的决定；被拒时抛 `KgHumanActionError`。 */
@@ -356,6 +558,20 @@ export interface MemoryCardPort {
     readonly claimIds?: readonly string[];
     readonly editedStatement?: string;
   }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+  /**
+   * #4361：撤销一张已生效的忘掉卡（人的动作；`kg_undo_memory_card`）。被拒时抛 `KgHumanActionError`
+   * （已撤销 / 没生效 / 不是忘掉卡 ⇒ KG_CARD_STALE）。
+   */
+  undo(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly cardId: string;
+    readonly actorKind: "human" | "agent";
+  }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+  /**
+   * #4361「改主意」的范围闸门（`kg_memory_manage_ok`）：这条消息是不是个人线程的所有者本人在这个线程里说的。
+   * 不是 ⇒ 改口这条路什么都不做（不碰项目层 / 别人的记忆）。
+   */
+  personalTurn(orgId: OrgId, input: { readonly threadId: string; readonly messageId: string; readonly requesterUserId: string }): Promise<boolean>;
 }
 
 export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");
@@ -373,7 +589,11 @@ export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");
  * 与 `tool-permission-grant.controller.ts` 同名方法同一实现思路）。
  */
 export interface KgOrgExtractionSettingsPort {
-  /** 没有行 = 从未设置过 = 默认关（新组织不默认抽取对话内容）。 */
+  /**
+   * 没有行 = 从未设置过 = **默认开**（人类指令「默认是打开的」，迁移 20260926100000；
+   * 触发器 `kg_enqueue_extraction` 同一条件：只有显式 `enabled = false` 的行才拦）。
+   * 这是「组织级默认值」的唯一说明处，其余注释只引用这里。
+   */
   getEnabled(orgId: OrgId): Promise<boolean>;
   /** upsert；返回写入后的现值（防御性——不假设调用方传的就是落库的）。 */
   setEnabled(orgId: OrgId, enabled: boolean, updatedByUserId: string): Promise<boolean>;
@@ -419,3 +639,37 @@ export interface KgDeploymentExtractionSettingsPort {
 }
 
 export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtractionSettingsPort");
+
+// ─────────────────────────────── B3-T2 项目证据入图（issue #4496） ───────────────────────────────
+
+/**
+ * 项目证据入图任务（`ingest-project-evidence.ts`）自己的三个读口。证据本身经 `ProjectEvidencePort.listForIngestion`
+ * 取，这里只补它不回答的三件事：
+ *   · `pendingProjects`：哪些项目该跑一轮——只回 id（同 `KgExtractionQueuePort.pendingOrgs`），不带任何内容；
+ *   · `alreadyIngested`：这批证据里哪些**已经留过痕**（`ontology_actions` 里同 `(source_ref = 证据 id,
+ *     pipeline_version)` 的 accepted 行）——含「模型合法地回了空」那种留痕（空批次也记一条），否则空结果的证据
+ *     会每轮都被重新送进模型；`listForIngestion` 只按「尚未被任何结论引用」过滤，不知道空结果这回事；
+ *   · `knownObjects`：项目作用域已有的实体（实体解析用），与 `KgExtractionSourcePort.knownObjects` 同作用、不同作用域。
+ *     实体名是租户内容 ⇒ 回 `Guarded`（guard ref 是项目本身），由入图用例以项目主体的决策披露（同 `listForIngestion`）。
+ * 前两个只回 id（`alreadyIngested` 回的还是调用方自己传进来的那些 id），不披露任何内容。
+ */
+export interface KgProjectIngestionPort {
+  pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string }[]>;
+  alreadyIngested(orgId: OrgId, projectId: string, evidenceIds: readonly string[]): Promise<ReadonlySet<string>>;
+  knownObjects(orgId: OrgId, projectId: string): Promise<Guarded<readonly KnownObject[]>>;
+}
+
+export const KG_PROJECT_INGESTION_PORT = Symbol("KgProjectIngestionPort");
+
+// ─────────────────────────────── UC-KG-4 整理本会话（issue #4352） ───────────────────────────────
+
+/**
+ * 把一个会话的消息重新排进抽取队列（`kg_extraction_requeue_thread`，迁移 20260928160000）。调用方已判过
+ * 会话可见性与所有者。返回排进去的条数；本会话还有在整理中的行 ⇒ `"already_running"`。部署开关或组织开关
+ * 关着 ⇒ 0（关闭期间不整理，打开之后再补）。`sourceRefs` 给了 ⇒ 只重排这些消息（仍限定在本会话里）。
+ */
+export interface KgReindexPort {
+  requeueThread(orgId: OrgId, threadId: string, sourceRefs: readonly string[] | null): Promise<number | "already_running">;
+}
+
+export const KG_REINDEX_PORT = Symbol("KgReindexPort");

@@ -9,6 +9,7 @@ import { FeedbackButton } from "@/components/feedback/feedback-button";
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 // issue #2050 —— 落地为产物的状态机与展示件，与 CopilotKit v2 轨道共用同一份。
 // 2026-08-27 起展示件拆成 Trigger（图标，进消息动作条）+ Panel（表单/完成态，仍是块级），
 // 见 `message-landing.tsx` 文件头。
@@ -45,6 +46,7 @@ import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { AgentApprovalPanel } from "@/components/chat/agent-approval-panel";
 import { ApiError } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
+import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -147,8 +149,8 @@ export function ChatLiveMessagePanel({
    * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
    *
    * ⚠ 这是纯粹的**位置**改动，不是把 `ChatRecordingPanel` 重写成条件渲染：
-   *   `core-loop.spec.ts:533`（发布门）直接点 `chat-live-recording-start`，
-   *   说明录音面板必须**始终挂载、始终可点**——把它做成「只在录音中才出现」
+   *   （历史）`core-loop.spec.ts` 发布门曾直接点 `chat-live-recording-start`，
+   *   说明旧轨道录音面板必须**始终挂载、始终可点**（#4744 后该发布门已改走转写页 `/rec`）——把它做成「只在录音中才出现」
    *   会让这个发布门的用例在页面刚加载时就点不到那个按钮。组件本身、
    *   它的全部 testid、它的可见性规则一个都没有变，只是换了个挂载位置。
    */
@@ -307,9 +309,8 @@ export function ChatLiveMessagePanel({
   const [streamingText, setStreamingText] = React.useState("");
   /**
    * 十项 UX 缺口第 5 项（issue #708）—— 「落地为产物（草稿）」的按消息状态。
-   * ⚠ 只允许 `mode: "draft"`：`live`/`pinned` 要求消息挂有非空 citations（I-33），
-   *   而 citations 的写入路径目前不存在（见 `land-as-artifact.ts` 与本组件顶部
-   *   `landAsArtifact` 的引入注释），提供那两个选项会摆一个必炸的按钮。
+   * ⚠ 只提供 `mode: "draft"`：`live`/`pinned` 要求消息挂有非空 citations（I-33），
+   *   而并非每条消息都有引用；按消息判定可用模式不在本面板的范围内（见 `message-landing.tsx`）。
    */
   const landing = useMessageLanding({ threadId, bearer, onArtifactLanded });
   const generation = React.useRef(0);
@@ -497,6 +498,7 @@ export function ChatLiveMessagePanel({
   // 「线程历史里最近实际用过的 agent」（`lastUsedAgentId`，见其文档注释），而不是
   // 直接落到「通用助手」；用户在这条线程手动选过时仍原样尊重那次选择。
   const selectedAgentId = pickDefaultAgentId(agents, agentId || lastUsedAgentId(messages));
+  const agentDirectory = useAgentDirectoryMap(Boolean(agents?.length));
 
   // V1 —— 新消息列表变化或流式 token 追加时，若用户还贴着底部就跟到底。
   // 原来是一次性 `requestAnimationFrame`，只对 `messages.length`/`streamingText`
@@ -1155,6 +1157,16 @@ export function ChatLiveMessagePanel({
                   data-testid="chat-message-row"
                   data-message-id={message.id}
                 >
+                  {isAgent && message.agentId && agentDirectory.get(message.agentId)?.avatar ? (
+                    <Avatar
+                      aria-hidden
+                      data-testid="chat-message-agent-portrait"
+                      initials={agentDirectory.get(message.agentId)?.initials ?? ""}
+                      avatarKey={agentDirectory.get(message.agentId)?.avatar?.key ?? null}
+                      tone="ai"
+                      size="md"
+                    />
+                  ) : (
                   <div
                     aria-hidden
                     className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
@@ -1163,6 +1175,7 @@ export function ChatLiveMessagePanel({
                   >
                     {isAgent ? <Bot className="h-3.5 w-3.5" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
                   </div>
+                  )}
                   <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
                     {/*
                       #728 D5 —— 身份行照原型：名字 + 角色 chip + 时间。
@@ -1198,11 +1211,12 @@ export function ChatLiveMessagePanel({
                     {isAgent ? <MessageThinkingChain agentRunId={message.agentRunId} bearer={bearer} /> : null}
                     {/*
                       context-engine 可用性补口——L1/L2/L3/F190 四层组装出的上下文此前对
-                      用户完全不可见（本文件其它地方的既有注释："citations 的写入路径目前
-                      不存在"）。与上面 `MessageThinkingChain` 同一套挂法：跟着消息本身走，
+                      用户完全不可见。与上面 `MessageThinkingChain` 同一套挂法：跟着消息本身走，
                       不是跟着"当前是否有一个 run 在跑"这个瞬时状态走。
                     */}
                     {isAgent ? <MessageContextSnapshot agentRunId={message.agentRunId} bearer={bearer} /> : null}
+                    {/* issue #4244：`getThread` 下发的引用——正文 `[n]` 可点 + 气泡下方紧凑列表；无引用时不建作用域、渲染不变。 */}
+                    <PersistedMessageCitationScope messageId={isAgent ? message.id : null}>
                     <div
                       className={`rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
@@ -1241,6 +1255,8 @@ export function ChatLiveMessagePanel({
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
                     </div>
+                    <CitationList />
+                    </PersistedMessageCitationScope>
                     {/*
                       2026-08-16 人类实测反馈：动作条从身份行（气泡上方）挪到气泡下方，
                       对标 Claude Code——回复读完才看到"复制/反馈/评分"，不与身份行的
@@ -1605,7 +1621,7 @@ export function ChatLiveMessagePanel({
             {agents && agents.length > 0 ? (
               <span className="flex items-center -space-x-1" aria-hidden data-testid="chat-composer-context-agents">
                 {agents.slice(0, 4).map((agent) => (
-                  <Avatar key={agent.id} initials={agent.abbr} tone="ai" size="sm" className="ring-1 ring-background" />
+                  <Avatar key={agent.id} initials={agent.abbr} avatarKey={agentDirectory.get(agent.id)?.avatar?.key ?? null} tone="ai" size="sm" className="ring-1 ring-background" />
                 ))}
               </span>
             ) : null}

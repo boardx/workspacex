@@ -17,11 +17,15 @@ platform=${WSX_PLATFORM:-linux/amd64}
 prefix=${WSX_REGISTRY_PREFIX:?set WSX_REGISTRY_PREFIX to the new ACR registry/namespace}
 node_image=${WSX_NODE_IMAGE:?set WSX_NODE_IMAGE to a reviewed digest}
 python_image=${WSX_PYTHON_IMAGE:?set WSX_PYTHON_IMAGE to a reviewed digest}
-postgres_image=${WSX_POSTGRES_IMAGE:?set WSX_POSTGRES_IMAGE to a reviewed pgvector digest}
+# #4081: WSX_POSTGRES_IMAGE is only the reviewed pgvector BASE digest. The published postgres
+# image is always built below from apps/api/docker/postgres-age (pgvector + Apache AGE,
+# ADR-114); publishing the bare base would ship a database without AGE.
+pgvector_base_image=${WSX_POSTGRES_IMAGE:?set WSX_POSTGRES_IMAGE to a reviewed pgvector/pgvector base digest (AGE is built on top)}
 redis_image=${WSX_REDIS_IMAGE:?set WSX_REDIS_IMAGE to a reviewed Redis digest}
 npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}
 pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}
 apt_mirror=${WSX_APT_MIRROR:-https://deb.debian.org}
+age_repository=${WSX_AGE_REPOSITORY:-https://github.com/apache/age.git}
 
 fail(){ echo "CN_RELEASE_PUBLISH_REJECTED: $1" >&2; exit 1; }
 validate_package_index(){
@@ -37,7 +41,7 @@ NODE
 [[ "$platform" == linux/amd64 || "$platform" == linux/arm64 ]] || fail "unsupported platform"
 [[ "$prefix" =~ ^[a-z0-9][a-z0-9.-]*(:[0-9]+)?/[a-z0-9]+([._-][a-z0-9]+)*$ ]] || fail "invalid ACR prefix"
 digest_reference='^[a-z0-9][a-z0-9.-]*(:[0-9]+)?/[a-z0-9]+([._/-][a-z0-9]+)*@sha256:[a-f0-9]{64}$'
-for image in "$node_image" "$python_image" "$postgres_image" "$redis_image"; do
+for image in "$node_image" "$python_image" "$pgvector_base_image" "$redis_image"; do
   [[ "$image" =~ $digest_reference ]] || fail "base and data images must use registry digests"
 done
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "release repository missing"
@@ -53,6 +57,7 @@ for command in docker node pnpm git tar cmp; do command -v "$command" >/dev/null
 validate_package_index "$npm_registry" npm
 validate_package_index "$pypi_index_url" PyPI
 validate_package_index "$apt_mirror" APT
+validate_package_index "$age_repository" "AGE source"
 docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
 docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
 
@@ -60,6 +65,37 @@ work=$(mktemp -d /tmp/workspacex-cn-release.XXXXXX)
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/agent"
 git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work/agent" --strip-components=2
+
+push_immutable_with_retry(){
+  local service=$1 tag=$2
+  local max_attempts=4 attempt=1 delay_seconds=2
+  local push_log="$work/$service.push.log" committed_revision
+  while (( attempt <= max_attempts )); do
+    : >"$push_log"
+    if docker push "$tag" >"$push_log" 2>&1; then
+      return 0
+    fi
+    tail -n 80 "$push_log" >&2
+
+    # A registry can commit the manifest and still lose the response. Pull first so a
+    # retry never collides with an immutable tag that already contains this revision.
+    if docker pull --platform "$platform" "$tag" >/dev/null 2>&1; then
+      committed_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
+      [[ "$committed_revision" == "$revision" ]] || fail "existing immutable $service tag has a different revision"
+      printf 'CN_RELEASE_REGISTRY_PUSH_RECOVERED service=%s attempt=%s\n' "$service" "$attempt" >&2
+      return 0
+    fi
+
+    if ! grep -Eqi '(^|[^0-9])(429|500|502|503|504)([^0-9]|$)|unexpected[[:space:]]+EOF|connection reset|connection refused|i/o timeout|TLS handshake timeout|temporary failure in name resolution|no such host|network is unreachable' "$push_log"; then
+      fail "non-retryable registry push failure for $service"
+    fi
+    (( attempt < max_attempts )) || fail "registry push retry budget exhausted for $service"
+    printf 'CN_RELEASE_REGISTRY_PUSH_RETRY service=%s attempt=%s delay_seconds=%s\n' "$service" "$attempt" "$delay_seconds" >&2
+    sleep "$delay_seconds"
+    delay_seconds=$(( delay_seconds * 2 ))
+    attempt=$(( attempt + 1 ))
+  done
+}
 
 build_and_push(){
   local service=$1 repository=$2 dockerfile=$3 context=$4; shift 4
@@ -70,7 +106,7 @@ build_and_push(){
     [[ "$existing_revision" == "$revision" ]] || fail "existing immutable $service tag has a different revision"
   else
     docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"
-    docker push "$tag" >/dev/null
+    push_immutable_with_retry "$service" "$tag"
   fi
   docker pull --platform "$platform" "$tag" >/dev/null
   published_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
@@ -97,9 +133,11 @@ build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-a
 pids+=("$!"); names+=(agent)
 build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "APT_MIRROR=$apt_mirror" --build-arg "SOURCE_REVISION=$revision" >"$work/sandbox.build.log" 2>&1 &
 pids+=("$!"); names+=(sandbox)
+build_and_push postgres postgres-age apps/api/docker/postgres-age/Dockerfile apps/api/docker/postgres-age --build-arg "PGVECTOR_IMAGE=$pgvector_base_image" --build-arg "APT_MIRROR=$apt_mirror" --build-arg "AGE_REPOSITORY=$age_repository" --build-arg "SOURCE_REVISION=$revision" >"$work/postgres.build.log" 2>&1 &
+pids+=("$!"); names+=(postgres)
 wait_for_builds
+postgres_image="$prefix/postgres-age:$revision"
 
-docker pull --platform "$platform" "$postgres_image" >/dev/null
 docker pull --platform "$platform" "$redis_image" >/dev/null
 node - "$work/build-input.json" "$release" "$revision" "$platform" "$prefix" "$postgres_image" "$redis_image" <<'NODE'
 const fs=require("node:fs");

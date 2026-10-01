@@ -5,6 +5,7 @@ import { FileText, Check, X, Pencil, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ClaimTriStateBadge } from "./claim-tri-state-badge";
+import { ClaimTimeBadges } from "./claim-time-badges";
 import { ClaimEditMenu } from "./claim-edit-menu";
 import { ClaimActionDialog, type ClaimDialogKind } from "./claim-action-dialog";
 import { groupClaimsByKind } from "@/lib/knowledge-graph-view";
@@ -93,6 +94,7 @@ export function KnowledgeList({
                       <span className="text-12 leading-relaxed text-background-foreground">{c.statement}</span>
                       <span className="flex items-center gap-1.5">
                         <ClaimTriStateBadge status={c.status} />
+                        <ClaimTimeBadges claim={c} />
                         <span className="flex items-center gap-1 text-10 text-muted-foreground">
                           <FileText aria-hidden className="h-3 w-3" />
                           证据 {c.supportingCount}

@@ -33,6 +33,12 @@ const RESOLVED_NOTE: Record<ConflictResolution, string> = {
   ignore: "好的，这处不再提醒",
 };
 
+/** issue #4290 低把握改口卡（`kind = possible_change`）的两个出口的结果。 */
+const CHANGE_RESOLVED_NOTE: Record<"keep_new" | "keep_both", string> = {
+  keep_new: "已取代，之后只按新的这条记",
+  keep_both: "两条都保留了",
+};
+
 /** ISO 时间 → 「9/20」（本地时区）。纯展示格式化，不引入日期库。 */
 function shortDate(iso: string): string {
   const d = new Date(iso);
@@ -49,6 +55,8 @@ function shortDate(iso: string): string {
  *   （`describeHumanActionFailure`），卡片原样显示、按钮恢复，可以再试。成功后卡片收成一行结果。
  *   抛 `ConflictPromptGoneError`（卡已经不在了）⇒ 收成一行说明，不再给按钮。
  * - `canResolve = false`（不是对话创建者，R5）：只显示提醒文字，不给按钮。
+ * - `prompt.kind = possible_change`（issue #4290，人类决定 2026-09-26「高把握自动、低把握弹卡」）：同一张卡换一种问法——
+ *   「用〈新〉取代〈旧〉？」，两个出口 [取代]（= keep_new）/ [两条都保留]（= keep_both，不问适用条件、直接交出去）。
  */
 export function ConflictPromptCard({
   prompt,
@@ -85,11 +93,13 @@ export function ConflictPromptCard({
     }
   };
 
+  const possibleChange = prompt.kind === "possible_change";
+
   if (resolved !== null) {
     return (
       <p className="mt-2 flex items-center gap-1.5 text-10 text-muted-foreground" data-testid="kg-conflict-resolved">
         <Check aria-hidden className="h-3 w-3 text-success" />
-        {RESOLVED_NOTE[resolved]}
+        {possibleChange && resolved !== "ignore" ? CHANGE_RESOLVED_NOTE[resolved] : RESOLVED_NOTE[resolved]}
       </p>
     );
   }
@@ -103,6 +113,32 @@ export function ConflictPromptCard({
   }
 
   const bothReady = newerCond.trim() !== "" && olderCond.trim() !== "";
+
+  if (possibleChange) {
+    return (
+      <div className="mt-2 flex flex-col gap-2 rounded-lg border border-warning bg-warning-tint p-3" data-testid="kg-conflict-card" data-kind="possible_change">
+        <p className="flex items-start gap-1.5 text-11 text-warning-tint-foreground" data-testid="kg-conflict-text">
+          <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>用〈{prompt.newerClaim.statement}〉取代〈{prompt.olderClaim.statement}〉？</span>
+        </p>
+        {canResolve ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button size="xs" variant="secondary" data-testid="kg-conflict-keep-new" disabled={busy} onClick={() => void run("keep_new")}>
+              取代
+            </Button>
+            <Button size="xs" variant="outline" data-testid="kg-conflict-keep-both" disabled={busy} onClick={() => void run("keep_both")}>
+              两条都保留
+            </Button>
+          </div>
+        ) : null}
+        {error !== null ? (
+          <p role="alert" className="text-10 text-destructive" data-testid="kg-conflict-error">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-2 flex flex-col gap-2 rounded-lg border border-warning bg-warning-tint p-3" data-testid="kg-conflict-card">

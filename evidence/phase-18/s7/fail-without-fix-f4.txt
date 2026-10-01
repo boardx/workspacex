@@ -1,0 +1,12 @@
+===== without apps/api/migrations/20260928220000_kg_s7_f4_expire_valid_to.sql (fresh db s7f4nomig: kg_correct_citation as merged at a17ab585d)
+   ✓ S7：越权防护 > 别人的会话 ⇒ 看不见（KG_THREAD_NOT_FOUND）；项目会话里不是所有者的成员 ⇒ KG_NOT_OWNER 363ms
+   × S7：纠正之后下一轮不再用它 > 「已过时」⇒ expireClaim = valid_to 到此刻（F4，S6 #4363）：不撤；下一轮不再用它；/brain 标「已过期」；再点一次不重复记 116ms
+   × S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆副本） > 「这条不对」不带新说法纠正长期记忆那份 ⇒ 原对话里那条一起失效；「已过时」纠正会话那条 ⇒ 整家到期（不撤） 231ms
+   ✓ S7 delta review：一家只走本人能改的节点（L1）；函数里没有临时表（D1） > 项目记忆（L2）的副本、别人的副本不动；只能经 L2 才连得上的本人长期记忆也不动 330ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+===== restored (db s7f4)
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+DONE

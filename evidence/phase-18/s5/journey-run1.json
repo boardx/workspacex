@@ -1,0 +1,82 @@
+{
+  "golden": [
+    "G001",
+    "G002"
+  ],
+  "ids": {
+    "thread0": "thr-7a5e9d08-069d-44e8-b6a2-74cfd5dfc1e4",
+    "threadA": "thr-468b0e27-85ed-4650-ae10-5e8b927779f8",
+    "threadB": "thr-654bec98-174e-4d4c-8f3d-03fc60a0a1d7"
+  },
+  "s1_briefing": {
+    "dismissed": false,
+    "items": []
+  },
+  "s2_personal": {
+    "scope": {
+      "kind": "personal",
+      "id": "user-kg-eval-owner"
+    },
+    "revision": 3,
+    "objects": [],
+    "claims": [
+      {
+        "id": "act_69f4aeb79eef44ccbe4788d868ee0e5a-p",
+        "scope": {
+          "kind": "personal",
+          "id": "user-kg-eval-owner"
+        },
+        "kind": "goal",
+        "statement": "我的目标是探索未来教育",
+        "status": "proposed",
+        "triState": "pending",
+        "confidence": 0.9,
+        "createdBy": "model",
+        "reviewedBy": null,
+        "supersedesClaimId": null,
+        "derivedFromClaimId": "clm_856ac171dd1d4208a7c388314c9c8cb5",
+        "aboutObjectIds": [],
+        "supportingCount": 1,
+        "contradictingCount": 0,
+        "createdAt": "2026-09-27T14:32:44.864Z"
+      },
+      {
+        "id": "act_00460dc1e8ba47b396874f00c64f31e1-p",
+        "scope": {
+          "kind": "personal",
+          "id": "user-kg-eval-owner"
+        },
+        "kind": "decision",
+        "statement": "我决定先调研三所实验学校",
+        "status": "proposed",
+        "triState": "pending",
+        "confidence": 0.9,
+        "createdBy": "model",
+        "reviewedBy": null,
+        "supersedesClaimId": null,
+        "derivedFromClaimId": "clm_dfda10436ad74df682a4cb6e2c278462",
+        "aboutObjectIds": [],
+        "supportingCount": 1,
+        "contradictingCount": 0,
+        "createdAt": "2026-09-27T14:32:46.739Z"
+      }
+    ],
+    "edges": [
+      {
+        "id": "act_f01cc530cf19475ba26d22aa51a45f9b-g",
+        "src": {
+          "kind": "claim",
+          "id": "act_00460dc1e8ba47b396874f00c64f31e1-p"
+        },
+        "dst": {
+          "kind": "claim",
+          "id": "act_69f4aeb79eef44ccbe4788d868ee0e5a-p"
+        },
+        "relation": "serves_goal",
+        "createdBy": "model"
+      }
+    ],
+    "replaced": []
+  },
+  "s3_aboutMe": "关于我\n2\n\n开新对话时我会先想起这些，不用你再交代一遍。\n\n目标 · 1\n\n我的目标是探索未来教育\n\nAI 记下的\n来自你 9/27 的对话\n我的目标是探索未来教育\n点开看原话\n改写\n忘掉这条\n\n为这个目标在做的事 · 1\n\n决定\n\n我决定先调研三所实验学校\n\nAI 记下的\n来自你 9/27 的对话\n我的目标是探索未来教育\n点开看原话\n为了\n我的目标是探索未来教育\n改写\n忘掉这条\n偏好 · 0\n\n暂无\n\n约束与身份 · 0\n\n暂无\n\n在做的事 · 0\n\n暂无"
+}

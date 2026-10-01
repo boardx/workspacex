@@ -1,0 +1,14 @@
+import { planSupersedes, supersedeMatch } from "/home/user/workspacex/.claude/worktrees/agent-a96579f0a2954af9a/apps/api/src/domain/knowledge-graph/decision-supersede.ts";
+const L = (id: string, s: string, scope: "personal" | "chat_session" = "personal") => ({ id, kind: "decision" as const, statement: s, authorId: "u", scope });
+const F = (s: string) => ({ id: "n", kind: "decision" as const, statement: s, authorId: "u" });
+const cases: Array<[string, ReturnType<typeof L>[]]> = [
+  ["改成关注 985 高校", [L("a", "我决定关注 211 高校")]],
+  ["改成关注 C9", [L("b", "改成关注 985 高校")]],
+  ["改成关注 C9 吧", [L("b", "改成关注 985 高校")]],
+  ["改成关注985高校，我反对", [L("b", "改成关注 985 高校"), L("c", "改成关注 C9")]],
+  ["改成关注985高校，我反对", [L("c", "改成关注 C9")]],
+  ["改成关注985高校", [L("c", "改成关注 C9")]],
+  ["改成关注985高校，我反对", [L("a", "我决定关注 211 高校")]],
+  ["改成关注985高校", [L("a", "我决定关注 211 高校")]],
+];
+for (const [s, live] of cases) console.log(JSON.stringify(s), live.map((l) => l.statement), live.map((l) => supersedeMatch(F(s), l)), JSON.stringify(planSupersedes([F(s)], live)));

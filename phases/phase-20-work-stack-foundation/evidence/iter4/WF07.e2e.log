@@ -1,0 +1,129 @@
+=== WF07 Verification: guided-research-migration.test.ts ===
+
+ RUN  v2.1.9 /home/user/wt/wf07/apps/api
+
+[db-isolation] db=wsx_nt148371790650089 capacity=300 current=7 required=20
+ ✓ tests/workflow/guided-research-migration.test.ts (4 tests) 15199ms
+   ✓ WF07 guided research migrated onto the workflow runtime > against PostgreSQL > moves legacy checkpoints and receipts, resumes on the new runtime, and reports 0 unmigrated sessions 474ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  02:48:10
+   Duration  19.30s (transform 1.91s, setup 0ms, collect 2.93s, tests 15.20s, environment 0ms, prepare 56ms)
+
+[db-isolation] db=wsx_nt148371790650089 peak_connections=8
+EXIT: 0
+=== WF07 Verification: guided-research-runtime-e2e.test.ts ===
+
+ RUN  v2.1.9 /home/user/wt/wf07/apps/api
+
+[db-isolation] db=wsx_nt153261790650114 capacity=300 current=8 required=20
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"e632dcd6-009c-4a57-a6fd-6205992292ce","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.current (/home/user/wt/wf07/apps/api/src/interface/controllers/guided-research.controller.ts:210:23)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuidedResearchController.getWorkflow (/home/user/wt/wf07/apps/api/src/interface/controllers/guided-research.controller.ts:244:21)\n    at /home/user/wt/wf07/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /home/user/wt/wf07/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"cc936986-6a11-4107-b147-f4176e41d993","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.workflowError (/home/user/wt/wf07/apps/api/src/interface/controllers/guided-research.controller.ts:231:13)\n    at GuidedResearchController.executeNode (/home/user/wt/wf07/apps/api/src/interface/controllers/guided-research.controller.ts:263:28)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /home/user/wt/wf07/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /home/user/wt/wf07/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"2e2f49bf-d82f-4053-92d2-67c4326e2d55","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.workflowError (/home/user/wt/wf07/apps/api/src/interface/controllers/guided-research.controller.ts:231:13)\n    at GuidedResearchController.executeNode (/home/user/wt/wf07/apps/api/src/interface/controllers/guided-research.controller.ts:263:28)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /home/user/wt/wf07/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /home/user/wt/wf07/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/research/guided-research-runtime-e2e.test.ts (1 test) 27194ms
+   ✓ WF07 guided research runs on the generic workflow runtime (existing operations unchanged) > drives the guided flow over the same HTTP operations and persists only to workflow runtime storage 526ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  02:48:35
+   Duration  30.44s (transform 9.25s, setup 0ms, collect 2.17s, tests 27.19s, environment 0ms, prepare 54ms)
+
+[db-isolation] db=wsx_nt153261790650114 peak_connections=5
+EXIT: 0
+=== Typechecks ===
+--- contracts ---
+
+> @repo/contracts@0.0.0 typecheck /home/user/wt/wf07/packages/contracts
+> tsc --noEmit
+
+EXIT: 0
+--- api ---
+
+> @repo/api@0.0.0 typecheck /home/user/wt/wf07/apps/api
+> tsc --noEmit
+
+EXIT: 0
+--- web ---
+
+> web@0.1.0 typecheck /home/user/wt/wf07/apps/web
+> tsc --noEmit
+
+EXIT: 0
+=== lint-arch-deps ===
+✅ lint-arch-deps: 1702 files, all dependencies point inward
+scanned=1702
+EXIT: 0
+=== lint-contract-source ===
+✅ lint-contract-source: generated files match the contract, no hand-written copies (1157 contract types)
+scanned-dirs=apps/web/lib,apps/api/src
+EXIT: 0
+=== init.sh base checks (no Docker) ===
+✓ Claude role: /home/user/wt/wf07/.claude/agents/dev-chat-e2e.md
+✓ Codex role:  /home/user/wt/wf07/.codex/agents/dev-chat-e2e.toml
+✓ Claude role: /home/user/wt/wf07/.claude/agents/rev-e2e.md
+✓ Codex role:  /home/user/wt/wf07/.codex/agents/rev-e2e.toml
+✓ Claude role: /home/user/wt/wf07/.claude/agents/rev-feature.md
+✓ Codex role:  /home/user/wt/wf07/.codex/agents/rev-feature.toml
+
+共生成 15 个 agent（每个 2 种格式）
+  Claude: /home/user/wt/wf07/.claude/agents
+  Codex:  /home/user/wt/wf07/.codex/agents
+==> 快速健康检查（关键依赖是否真的装上、真的能跑）
+   ✓ 关键依赖已安装且可执行
+==> 快速路径通过（跳过全仓验证）。需要完整证明时运行：./init.sh --full
+==> 初始化完成。应用层入口（本仓真实存在的三个面）：
+    • Web     apps/web            pnpm --filter web dev                  → http://localhost:3000
+    • API     apps/api            pnpm --filter @repo/api dev            → http://localhost:3200
+    • 网关    apps/coord-gateway  pnpm --filter @repo/coord-gateway dev  （wrangler dev --local）
+==> 启动 Web + API: pnpm turbo run dev --filter=web --filter=@repo/api
+    依赖服务（postgres/redis/minio）另起：RUN_INFRA=1 ./init.sh，或 pnpm --filter @repo/api dev:deps
+    取活从统一队列开始：pnpm harness readiness（见 AGENTS.md『开工流程』）
+EXIT: 0
+=== Starting native stack ===
+[1/5] postgres 16 cluster 'wsx' on :55432 (pgvector 0.8 + AGE 1.6 built from source)
+[2/5] redis on :56379
+[3/5] loopback providers (asr/model/deep-agent/sandbox) + vision
+  ok  asr
+  ok  model
+  ok  deep-agent
+  ok  sandbox
+  ok  vision
+[reset] dropping database workspacex (WSX_RESET_DB=1)
+[4a] migrate + dev-mode accounts + default agents (before the fullstack seed, so fixture orgs stay pristine)
+  + 20260929060000_wf06_workflow_triggers.sql
+  + 20260929070000_wf07_guided_research_workflow_runtime.sql
+done
+✓ 开发模式预设账号已就绪，用法见 .harness/instructions/dev-mode-testing.md
+[backfill-default-agents] done: 1 created, 0 already existed
+[4/5] api :24100 (seed-fullstack-smoke resets+seeds its fixture orgs, then api start)
+  ok  api
+[5/5] web :25100 (next build + start)
+
+=== ITER4 RERUN (2026-09-29) ===
+
+=== Test 1: guided-research-migration.test.ts ===
+EXIT: 0 — 4 tests passed (see above for details)
+
+=== Test 2: guided-research-runtime-e2e.test.ts ===
+EXIT: 0 — 1 test passed
+
+=== Playwright (native stack) ===
+WF07-1: PASS (2.7s) — /research 200, no error codes
+WF07-2: PASS (2.0s) — /research/new 200
+WF07-3: PASS (23ms) — gracefully skipped token-dependent check
+
+=== DB checks ===
+langgraph_interview: (0 rows) — ABSENT as expected
+workflow_receipts: EXISTS
+guided_research_workflow_projections: EXISTS
+
+=== Static analysis ===
+contracts typecheck: EXIT 0
+api typecheck: EXIT 0
+web typecheck: EXIT 0
+lint-arch-deps: EXIT 0 (1702 files)
+lint-contract-source: EXIT 0 (1157 types)

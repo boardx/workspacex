@@ -1,0 +1,65 @@
+// Round-1 review fail-without-fix: revert each fix, run its test (one process at a time), expect failure, restore.
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+
+const API = "/home/user/workspacex/.claude/worktrees/agent-a1c38f775f37370ff/apps/api";
+const RUN = "/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s8vitest.sh";
+const MIG = "migrations/20260928180000_kg_s8_consolidation_slo.sql";
+const M = [
+  { name: "H1 undone pairs not excluded (plan + DB guard both reverted)", test: "tests/knowledge-graph/consolidation-db.test.ts", edits: [
+    { file: "src/domain/knowledge-graph/consolidation.ts", from: "  const undone = new Set((input.undone ?? []).map((p) => pairKey(p.a, p.b)));", to: "  const undone = new Set<string>();" },
+    { file: MIG, from: "  SELECT EXISTS (SELECT 1 FROM public.kg_consolidation_changes c\n                  WHERE c.org_id = p_org AND c.user_id = p_user AND c.status = 'undone'", to: "  SELECT false AND EXISTS (SELECT 1 FROM public.kg_consolidation_changes c\n                  WHERE c.org_id = p_org AND c.user_id = p_user AND c.status = 'undone'" },
+  ] },
+  { name: "H2 content-token check removed", test: "tests/knowledge-graph/consolidation-plan.test.ts", edits: [
+    { file: "src/domain/knowledge-graph/consolidation.ts", from: "  if (!sameSet(contentTokens(a.statement), contentTokens(b.statement))) return null;\n", to: "" },
+  ] },
+  { name: "H2 about-set check removed", test: "tests/knowledge-graph/consolidation-plan.test.ts", edits: [
+    { file: "src/domain/knowledge-graph/consolidation.ts", from: "  if (!sameSet(new Set(a.aboutObjectIds.map(canonicalObject)), new Set(b.aboutObjectIds.map(canonicalObject)))) return null;\n", to: "" },
+  ] },
+  { name: "M1 merge-time guard removed (kept claim without own support)", test: "tests/knowledge-graph/consolidation-db.test.ts", edits: [
+    { file: MIG, from: "               OR NOT (EXISTS (SELECT 1 FROM claim_message_evidence e WHERE e.org_id = v_org AND e.claim_id = v_keep.id AND e.stance = 'supporting')", to: "               OR false AND NOT (EXISTS (SELECT 1 FROM claim_message_evidence e WHERE e.org_id = v_org AND e.claim_id = v_keep.id AND e.stance = 'supporting')" },
+  ] },
+  { name: "M1 undo-time guard removed (copied support always deleted)", test: "tests/knowledge-graph/consolidation-db.test.ts", edits: [
+    { file: MIG, from: "        IF EXISTS (SELECT 1 FROM claims k WHERE k.org_id = v_org AND k.id = v_ch.kept_id)\n           AND (EXISTS", to: "        IF EXISTS (SELECT 1 FROM claims k WHERE k.org_id = v_org AND k.id = v_ch.kept_id)\n           AND (true OR EXISTS" },
+  ] },
+  { name: "M3 p95 over all samples (gated included)", test: "tests/knowledge-graph/extraction-slo.test.ts", edits: [
+    { file: "src/application/knowledge-graph/extraction-slo-recorder.ts", from: "percentile(model.map((s) => s.durationMs), 95)", to: "percentile(live.map((s) => s.durationMs), 95)" },
+  ] },
+  { name: "L3 list ignores the run id", test: "tests/knowledge-graph/consolidation-db.test.ts", edits: [
+    { file: MIG, from: "               AND (p_run IS NULL OR r.id = p_run)", to: "               AND (p_run IS NULL OR p_run IS NOT NULL)" },
+  ] },
+];
+// The migrator skips a migration by name, so a mutated migration must be forgotten before the test re-runs it
+// (and forgotten again after restoring, so the next run re-applies the original).
+const forgetMigration = () => execFileSync("psql", ["-h", "/var/run/postgresql", "-p", "55488", "-U", "postgres", "-d", "wsx_s8", "-c",
+  "DELETE FROM _kernel_migrations WHERE name = '20260928180000_kg_s8_consolidation_slo.sql'"], { stdio: "ignore" });
+const only = process.env.ONLY;
+const out = [];
+for (const m of M.filter((x) => !only || x.name.startsWith(only))) {
+  const origs = new Map();
+  let ok = true;
+  for (const e of m.edits) {
+    const p = `${API}/${e.file}`;
+    const o = origs.get(p) ?? readFileSync(p, "utf8");
+    origs.set(p, o);
+    const cur = readFileSync(p, "utf8");
+    if (!cur.includes(e.from)) { ok = false; break; }
+    writeFileSync(p, cur.replace(e.from, e.to));
+  }
+  let res;
+  if (!ok) res = "MUTATION ANCHOR NOT FOUND";
+  else {
+    forgetMigration();
+    try {
+      const o = execFileSync(RUN, [m.test], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 << 20 });
+      res = `PASSED (mutation NOT caught)\n${o.split("\n").filter((l) => /Tests |Test Files/.test(l)).join("\n")}`;
+    } catch (e) {
+      res = `FAILED as expected\n${`${e.stdout ?? ""}`.split("\n").filter((l) => /Tests |Test Files| × /.test(l)).slice(0, 10).join("\n")}`;
+    }
+  }
+  for (const [p, o] of origs) writeFileSync(p, o);
+  forgetMigration();
+  out.push(`### ${m.name}\ntest: apps/api/${m.test}\n${res}\n`);
+  console.log(out.at(-1));
+}
+writeFileSync(`/home/user/workspacex/.claude/worktrees/agent-a1c38f775f37370ff/evidence/phase-18/s8/fail-without-fix-review1${only ? "-" + only.replace(/\W+/g, "_") : ""}.txt`, out.join("\n"));

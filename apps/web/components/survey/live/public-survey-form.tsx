@@ -11,12 +11,15 @@ import { apiUrl } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { SurveyQuestionRenderer } from "./question-renderer";
 import type { SurveyUpload, SurveyRemoveUpload } from "./question-material";
+import { SurveySuccessMarkdown } from './success-markdown';
 type Published = {
   id: string;
   title: string;
   questions: survey.SurveyWorkflowQuestion[];
   version: number;
   expiresAt: string;
+  alreadySubmitted?: boolean;
+  successMessageMarkdown?: string;
 };
 export function PublicSurveyForm({ token }: { token: string }) {
   const [data, setData] = React.useState<Published | null>(null);
@@ -41,7 +44,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
       { sessionToken: null },
     )
       .then((value) => {
-        if (active) setData(value);
+        if (active) { setData(value); setDone(!!value.alreadySubmitted); }
       })
       .catch((e) => {
         if (active) setError((e as Error).message);
@@ -181,9 +184,9 @@ export function PublicSurveyForm({ token }: { token: string }) {
           </p>
         )}
         {done ? (
-          <p role="status" className="py-12 text-center text-16">
-            提交成功，感谢您的参与。
-          </p>
+          <section role="status" className="py-12 text-center text-16">
+            <SurveySuccessMarkdown markdown={data?.successMessageMarkdown ?? '提交成功，感谢您的参与。'}/>
+          </section>
         ) : data ? (
           <form noValidate onSubmit={(event) => void submit(event)}>
             <p className="mb-8 mt-3 text-12 text-muted-foreground">

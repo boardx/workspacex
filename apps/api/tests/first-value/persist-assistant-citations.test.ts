@@ -17,12 +17,14 @@ const B = "org-b" as OrgId;
 
 function memoryWriter(): ChatCitationWriter & { rows: Map<string, NewAssistantCitation> } {
   const messages = new Map<string, OrgId>([["m-a", A], ["m-b", B]]);
-  const artifacts = new Map<string, OrgId>([["art-a", A], ["art-b", B]]);
+  const artifacts = new Map<string, OrgId>([["art-a", A], ["art-b", B], ["art-a-sample", A], ["art-a-sample-2", A]]);
+  const sample = new Set(["art-a-sample", "art-a-sample-2"]);
   const rows = new Map<string, NewAssistantCitation>();
   return {
     rows,
     messageExists: async (org, id) => messages.get(id) === org,
     artifactExists: async (org, id) => artifacts.get(id) === org,
+    sampleArtifactIds: async (org, ids) => new Set(ids.filter((id) => sample.has(id) && artifacts.get(id) === org)),
     insertCitations: async (org, messageId, cs) => {
       let n = 0;
       for (const c of cs) {
@@ -60,6 +62,50 @@ describe("persistAssistantCitations", () => {
     await flush();
     expect(r.inserted).toBe(2);
     expect([...facts.rows.keys()]).toEqual(["org-a|cited_answer_own_material"]);
+  });
+
+  it("#4245 反例：只引示例项目材料 ⇒ 只记 cited_answer_sample，绝不记 own_material", async () => {
+    const facts = memoryFacts();
+    const firstValue = new FirstValueRecorder(facts, logger());
+    await persistAssistantCitations({ citations: memoryWriter(), firstValue }, {
+      orgId: A, messageId: "m-a",
+      citations: [cite({ sourceArtifactId: "art-a-sample" }), cite({ index: 2, sourceArtifactId: "art-a-sample-2" })],
+    });
+    await flush();
+    expect([...facts.rows.keys()]).toEqual(["org-a|cited_answer_sample"]);
+  });
+
+  it("#4245 混合回答（示例 + 自己的材料）⇒ 两步都记", async () => {
+    const facts = memoryFacts();
+    const firstValue = new FirstValueRecorder(facts, logger());
+    await persistAssistantCitations({ citations: memoryWriter(), firstValue }, {
+      orgId: A, messageId: "m-a",
+      citations: [cite({ sourceArtifactId: "art-a-sample" }), cite({ index: 2 })],
+    });
+    await flush();
+    expect([...facts.rows.keys()].sort()).toEqual(["org-a|cited_answer_own_material", "org-a|cited_answer_sample"]);
+  });
+
+  it("#4245 只引自己的材料 ⇒ 只记 own_material，不记 sample", async () => {
+    const facts = memoryFacts();
+    const firstValue = new FirstValueRecorder(facts, logger());
+    await persistAssistantCitations({ citations: memoryWriter(), firstValue }, {
+      orgId: A, messageId: "m-a", citations: [cite()],
+    });
+    await flush();
+    expect([...facts.rows.keys()]).toEqual(["org-a|cited_answer_own_material"]);
+  });
+
+  it("#4245 反例：示例材料 + 别组织的 artifact ⇒ 整批拒绝，两步都不记", async () => {
+    const citations = memoryWriter();
+    const facts = memoryFacts();
+    const firstValue = new FirstValueRecorder(facts, logger());
+    await expect(persistAssistantCitations({ citations, firstValue }, {
+      orgId: A, messageId: "m-a", citations: [cite({ sourceArtifactId: "art-a-sample" }), cite({ index: 2, sourceArtifactId: "art-b" })],
+    })).rejects.toBeInstanceOf(CrossOrgCitationError);
+    await flush();
+    expect(citations.rows.size).toBe(0);
+    expect(facts.rows.size).toBe(0);
   });
 
   it("反例：引用指向别的组织的 artifact ⇒ 整批拒绝，一行不写，不记价值时刻", async () => {

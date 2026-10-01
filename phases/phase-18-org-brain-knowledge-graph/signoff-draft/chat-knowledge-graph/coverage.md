@@ -80,6 +80,7 @@
 | `applyHumanAction{resolveConflict}` | uc-18-6 V3、V4 |
 | `getPersonalKnowledge` | uc-18-4 R6 后置条件（L1 可查）；R12 未单列。`/brain`「我的长期记忆」在用（UC-KG-13 来由），⚠ 删不删待签核裁决（design-signoff §二.3） |
 | `getBrainOverview` | 无 R12 判据——2026-09-24 人类指令「取消所有的 mockup 的数据」：`/brain` 的会话记忆计数与长期记忆的来源会话（UC-KG-13）；前端消费点 `brain-session-row`、`brain-origin-link` |
+| `undoAutoPersonalCopy` | 无 R12 判据——2026-09-26 人类决定（issue #4283，usecases.md「已决」一节）：反馈条「已记入个人记忆 · 撤销」；前端消费点 `kg-extraction-personal-<id>`、`kg-extraction-undo-<id>`；`decision-auto-personal-copy.test.ts` 门控 |
 | 内部 UC-KG-8 / 9 / 10 | 见上表 |
 
 ## 三、feature ↔ 判据

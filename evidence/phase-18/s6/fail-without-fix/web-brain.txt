@@ -1,0 +1,190 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a7b4431b9f8b22ac7/apps/web
+
+ ❯ tests/brain/brain-time-dimension.test.tsx (5 tests | 3 failed) 1107ms
+   × 大脑页：时间维度（issue #4363） > 链式取代历史：清华下面从新到旧——「取代了：985」（可撤销）、「更早是：211」（不可撤销） 722ms
+     → expected [ '取代了：我决定关注 211 高校', …(1) ] to deeply equal [ '取代了：改成关注 985 高校', …(1) ]
+   × 大脑页：时间维度（issue #4363） > 过期的仍列出，标「已过期」（带文字，不只靠颜色）；没过期的不标 130ms
+     → Unable to find an element by: [data-testid="kg-claim-expired"]
+
+Ignored nodes: comments, script, style
+[36m<li[39m
+  [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"[39m
+  [33mdata-testid[39m=[32m"brain-personal-item"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+  [36m>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"min-w-0 flex-1 text-13"[39m
+    [36m>[39m
+      [0m这周我在上海出差[0m
+    [36m</p>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning text-warning-foreground"[39m
+      [33mdata-testid[39m=[32m"kg-tri-state-pending"[39m
+    [36m>[39m
+      [0mAI 记下的[0m
+    [36m</span>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"brain-origin-gone"[39m
+  [36m>[39m
+    [0m出自的那句话已经不在了（对话或原话被删除，或那一条在对话里被忘掉了）。[0m
+  [36m</p>[39m
+[36m</li>[39m
+   × 大脑页：时间维度（issue #4363） > 待办显示状态与截止；点「做完了」⇒ POST todo-status，重读后按钮与标签都是「做完了」，截止不再显示 116ms
+     → Unable to find an element by: [data-testid="kg-todo-status-open"]
+
+Ignored nodes: comments, script, style
+[36m<li[39m
+  [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"[39m
+  [33mdata-testid[39m=[32m"brain-personal-item"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+  [36m>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"min-w-0 flex-1 text-13"[39m
+    [36m>[39m
+      [0m下个月之前交报告[0m
+    [36m</p>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning text-warning-foreground"[39m
+      [33mdata-testid[39m=[32m"kg-tri-state-pending"[39m
+    [36m>[39m
+      [0mAI 记下的[0m
+    [36m</span>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"brain-origin-gone"[39m
+  [36m>[39m
+    [0m出自的那句话已经不在了（对话或原话被删除，或那一条在对话里被忘掉了）。[0m
+  [36m</p>[39m
+[36m</li>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/brain/brain-time-dimension.test.tsx > 大脑页：时间维度（issue #4363） > 链式取代历史：清华下面从新到旧——「取代了：985」（可撤销）、「更早是：211」（不可撤销）
+AssertionError: expected [ '取代了：我决定关注 211 高校', …(1) ] to deeply equal [ '取代了：改成关注 985 高校', …(1) ]
+
+- Expected
++ Received
+
+  Array [
++   "取代了：我决定关注 211 高校",
+    "取代了：改成关注 985 高校",
+-   "更早是：我决定关注 211 高校",
+  ]
+
+ ❯ tests/brain/brain-time-dimension.test.tsx:78:87
+     76|     await screen.findByTestId("brain-personal");
+     77|     const rows = within(item("改成关注清华高校")).getAllByTestId("brai…
+     78|     expect(rows.map((r) => within(r).getByTestId("brain-replaced-text"…
+       |                                                                                       ^
+     79|       "取代了：改成关注 985 高校", "更早是：我决定关注 211 高校",
+     80|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/brain/brain-time-dimension.test.tsx > 大脑页：时间维度（issue #4363） > 过期的仍列出，标「已过期」（带文字，不只靠颜色）；没过期的不标
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-claim-expired"]
+
+Ignored nodes: comments, script, style
+[36m<li[39m
+  [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"[39m
+  [33mdata-testid[39m=[32m"brain-personal-item"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+  [36m>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"min-w-0 flex-1 text-13"[39m
+    [36m>[39m
+      [0m这周我在上海出差[0m
+    [36m</p>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning text-warning-foreground"[39m
+      [33mdata-testid[39m=[32m"kg-tri-state-pending"[39m
+    [36m>[39m
+      [0mAI 记下的[0m
+    [36m</span>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"brain-origin-gone"[39m
+  [36m>[39m
+    [0m出自的那句话已经不在了（对话或原话被删除，或那一条在对话里被忘掉了）。[0m
+  [36m</p>[39m
+[36m</li>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/brain/brain-time-dimension.test.tsx:90:37
+     88|     render(<BrainScreen />);
+     89|     await screen.findByTestId("brain-personal");
+     90|     expect(within(item("这周我在上海出差")).getByTestId("kg-claim-expi…
+       |                                     ^
+     91|     expect(within(item("改成关注清华高校")).queryByTestId("kg-claim-ex…
+     92|     expect(within(item("下个月之前交报告")).queryByTestId("kg-claim-ex…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/brain/brain-time-dimension.test.tsx > 大脑页：时间维度（issue #4363） > 待办显示状态与截止；点「做完了」⇒ POST todo-status，重读后按钮与标签都是「做完了」，截止不再显示
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-todo-status-open"]
+
+Ignored nodes: comments, script, style
+[36m<li[39m
+  [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"[39m
+  [33mdata-testid[39m=[32m"brain-personal-item"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+  [36m>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"min-w-0 flex-1 text-13"[39m
+    [36m>[39m
+      [0m下个月之前交报告[0m
+    [36m</p>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning text-warning-foreground"[39m
+      [33mdata-testid[39m=[32m"kg-tri-state-pending"[39m
+    [36m>[39m
+      [0mAI 记下的[0m
+    [36m</span>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"brain-origin-gone"[39m
+  [36m>[39m
+    [0m出自的那句话已经不在了（对话或原话被删除，或那一条在对话里被忘掉了）。[0m
+  [36m</p>[39m
+[36m</li>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/brain/brain-time-dimension.test.tsx:99:25
+     97|     await screen.findByTestId("brain-personal");
+     98|     const todo = item("下个月之前交报告");
+     99|     expect(within(todo).getByTestId("kg-todo-status-open").textContent…
+       |                         ^
+    100|     expect(within(todo).getByTestId("kg-todo-due").textContent).toMatc…
+    101|     expect(within(todo).getByTestId("brain-todo-set-open").getAttribut…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+   Start at  16:25:48
+   Duration  7.86s (transform 819ms, setup 377ms, collect 1.64s, tests 1.11s, environment 2.23s, prepare 1.08s)
+
+exit=1
+ apps/web/components/brain/personal-memory.tsx | 52 ++++++++++++++++++++++++---
+ apps/web/lib/brain-view.ts                    |  2 ++
+ 2 files changed, 50 insertions(+), 4 deletions(-)
+RESTORED

@@ -1,0 +1,16 @@
+/**
+ * S10 post-seed (run right after `seed-kg-experience-eval.ts`; copied to apps/api/scripts/ for the run and removed after):
+ *   - re-enable extraction for the eval org (`seedOrg` writes `enabled=false` for test orgs);
+ *   - owner (A) joins the seeded project as a plain member, other (B) as facilitator; newbie (C) stays outside the project.
+ */
+import { addProjectMember } from "../tests/support/db";
+import { enableExtraction } from "../tests/knowledge-graph/kg-extraction-fixtures";
+
+const orgId = process.env.KG_EVAL_ORG_ID!;
+const projectId = process.env.KG_EVAL_PROJECT_ID!;
+if (!orgId || !projectId) throw new Error("KG_EVAL_ORG_ID / KG_EVAL_PROJECT_ID required");
+await enableExtraction(orgId);
+await addProjectMember(orgId, projectId, "user-kg-eval-owner", "member", null);
+await addProjectMember(orgId, projectId, "user-kg-eval-other", "facilitator", null);
+process.stdout.write(`[s10-post-seed] extraction re-enabled for ${orgId}; owner(member)/other(facilitator) joined ${projectId}\n`);
+process.exit(0);

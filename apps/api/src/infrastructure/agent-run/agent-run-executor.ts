@@ -1,4 +1,7 @@
+import type { AgentHandoffStore } from "../../application/agent/agent-handoff";
 import { structuredErrorLog } from "../../application/ports/logger.port";
+import type { AgentWorkflowStartPort } from "../../application/agent/request-agent-workflow-start";
+import type { ChangeMindPorts } from "../../application/knowledge-graph/change-mind";
 import type { KnowledgeRecallPort, MemoryCardPort } from "../../application/knowledge-graph/ports";
 import type { PersistAssistantCitationsDeps } from "../../application/chat/persist-assistant-citations";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
@@ -35,6 +38,7 @@ import type { ArtifactContinuationReader } from "../../application/artifacts-ste
  * executor itself -- is already durable in the run row before anyone reads it.
  */
 import { randomUUID } from "node:crypto";
+import { withoutRunLease } from "../../application/agent-run/run-lease";
 import type { OrgId } from "../../domain/org-id";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import {
@@ -182,6 +186,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly memoryCards?: MemoryCardPort,
     /** E3 —— 回答引用写入 + 价值时刻。可选，同上面每一个既有理由。 */
     private readonly citations?: PersistAssistantCitationsDeps,
+    /** #4361 ——「我改主意了」确定地走 R8 的改口取代。可选，同上面每一个既有理由；不注入 ⇒ 与 #4361 之前相同。 */
+    private readonly memoryChange?: ChangeMindPorts,
+    /** AG05 —— `start_workflow` 中断走的 WF03 start。可选，同上面每一个既有理由；生产合成注入 `WorkflowRuntimeService`。 */
+    private readonly workflowStarts?: AgentWorkflowStartPort,
+    /** AG07 —— `request_handoff` 中断登记 handoff 行的存储。可选，同上面每一个既有理由；生产合成注入 `PgAgentHandoffStore`。 */
+    private readonly handoffs?: AgentHandoffStore,
   ) {}
 
   /**
@@ -215,7 +225,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     }
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-      files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+      files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
@@ -226,6 +236,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       // issue #3445 —— 见 `execute-run.ts` `ExecuteAgentRunDeps.kick` 的完整取证：
       // 已授权工具续跑写回 `queued` 后，同一进程内立即重入一次 `kick`，不再只靠
       // `sweepOrphanedRuns` 的周期性发现。
+      workflowStarts: this.workflowStarts,
+      handoffs: this.handoffs,
       kick: (o) => this.kick(o),
     }, { orgId });
     await writeBackPendingRuns(
@@ -253,13 +265,15 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       if (carried > 0) {
         await executeQueuedRuns({
           runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-          files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+          files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,
           events: this.events, toolPermissionGrants: this.toolPermissionGrants,
           interjections: this.interjections, artifactContinuations: this.artifactContinuations,
           nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
           nativeRuntimeEnabled: this.nativeRuntimeEnabled,
+          workflowStarts: this.workflowStarts,
+          handoffs: this.handoffs,
           kick: (o) => this.kick(o),
         }, { orgId });
         await writeBackPendingRuns(
@@ -279,11 +293,25 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
 
   kick(orgId: OrgId): void {
     if (!this.autostart) return;
-    void this.tick(orgId).catch(() => {
-      // `tick` already records every run-level outcome durably. Reaching here means the
-      // claim query itself failed; the runs stay `queued` and the next kick retries them.
+    /*
+     * `withoutRunLease`：kick 常在**某条 run 的执行栈里**被调用（#3445 已授权工具续跑、
+     * AG05 `start_workflow` 结果交回——两处都是 requeue 之后立刻 kick）。那个栈处在
+     * `withRunLease` 的 AsyncLocalStorage 里，而 `PgDatabase.inTx` 对**每个**事务都按
+     * 当前租约做围栏（`lease_epoch=$3 ... FOR UPDATE`）。不脱离的话，这次后台 tick 会
+     * 继承调用方那条 run 的旧 epoch：`claimQueued` 把 run 领回 running（epoch+1）并在
+     * 自己的新租约里跑完续跑 → `writeback_pending`；随后本 tick 的 `writeBackPendingRuns`
+     * 又回到继承来的旧 epoch 围栏下 ⇒ `RunLeaseLostError` ⇒ 整个 tick 被下面的 catch
+     * 吞掉，run 停在 `writeback_pending` 直到下一条用户消息触发 tick（实测：聊天在
+     * start_workflow 之后挂住，下一条消息 409）。kick 触发的是独立的后台批次，
+     * 与调用方那条 run 的租约无关——同 `WorkflowRuntimeService` 派生实例推进的既有做法。
+     */
+    void withoutRunLease(() => this.tick(orgId)).catch((e: unknown) => {
+      // `tick` already records every run-level outcome durably. Reaching here means a
+      // batch-level query (claim / writeback pass) failed; rows stay where they are and
+      // the next kick retries them.
       this.logger.error("agent run tick failed before claiming", {
         traceId: randomUUID(), err: "claim_failed", orgId,
+        detail: e instanceof Error ? e.name : "unknown",
       });
     });
   }

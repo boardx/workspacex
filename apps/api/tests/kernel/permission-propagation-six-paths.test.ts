@@ -392,7 +392,9 @@ describe("lint-permission-paths: counter-proof", () => {
     const token = model.publication!.token;
     const projection = await service.publicGet(token);
     expect(projection.questions).toEqual(draft.questions);
-    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "title", "version"]);
+    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "responseLimitScope", "successMessageMarkdown", "title", "version"]);
+    expect(projection.responseLimitScope).toBe('none');
+    expect(projection.successMessageMarkdown).toBe('提交成功，感谢您的参与。');
     expect(JSON.stringify(projection)).not.toContain(SECRET);
     // A correct tenant/id locator without the publication secret is not authorization.
     const forged = `${token.split(".")[0]}.${"A".repeat(43)}`;
@@ -1241,21 +1243,26 @@ describe("lint-permission-paths: counter-proof", () => {
     // by the production gate. Keep the existing bare-entry ceiling unchanged.
     const boundaryAudit = JSON.parse(execFileSync("node", ["--input-type=module", "-e", `
       import { workbenchBoundaries, verifyWorkbenchBoundaries } from './scripts/workbench-permission-boundaries.mjs';
+      import { whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries } from './scripts/whiteboard-permission-boundaries.mjs';
       import { readFileSync } from 'node:fs';
       const read = path => readFileSync(path, 'utf8');
-      const tables = new Set([...workbenchBoundaries.values()].flatMap(rule => rule.tables));
-      const failures = verifyWorkbenchBoundaries(read, tables);
-      const rules = [...workbenchBoundaries].map(([path, rule]) => ({
+      const boundarySets = [
+        [workbenchBoundaries, verifyWorkbenchBoundaries],
+        [whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries],
+      ];
+      const tables = new Set(boundarySets.flatMap(([rules]) => [...rules.values()].flatMap(rule => rule.tables)));
+      const failures = boundarySets.flatMap(([, verify]) => verify(read, tables));
+      const rules = boundarySets.flatMap(([entries, verify]) => [...entries].map(([path, rule]) => ({
         path, reason: rule.reason, checks: rule.checks.length,
-        // Removing the admitted implementation must invalidate its exemption.
-        rejectsMissingImplementation: verifyWorkbenchBoundaries(file => file === path ? '' : read(file), tables).some(f => f.startsWith(path + ':')),
-      }));
+        // Removing the admitted implementation must invalidate its exception.
+        rejectsMissingImplementation: verify(file => file === path ? '' : read(file), tables).some(f => f.startsWith(path + ':')),
+      })));
       console.log(JSON.stringify({ failures, rules }));
     `], { cwd: API, encoding: "utf8" })) as {
       failures: string[]; rules: Array<{path: string; reason: string; checks: number; rejectsMissingImplementation: boolean}>;
     };
     expect(boundaryAudit.failures).toEqual([]);
-    expect(boundaryAudit.rules).toHaveLength(8);
+    expect(boundaryAudit.rules).toHaveLength(25);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);
@@ -1299,7 +1306,115 @@ describe("lint-permission-paths: counter-proof", () => {
     // ever called -- same shape as the #3068 and E3 entries above. Pinned by
     // tests/knowledge-graph/org-extraction-settings-repo-guard.test.ts. Remove this
     // increment with the exception if that guard test disappears.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(98);
+    // #3967 adds exactly one collaborative Yjs repository (98 -> 99). Its
+    // tenant/actor predicates and mutation counterexamples are pinned by
+    // whiteboard/collaboration-repository-guard.test.ts; the real PostgreSQL
+    // and WebSocket tests cover nonmembers, cross-tenant writes, revocation,
+    // restart recovery and authentication. Remove this increment with them.
+    // #4242's tag catalog repository is mechanically
+    // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
+    // this bare-exception ceiling.
+    // AG01 (Phase 20 agent-role bundle) adds exactly two (99 -> 101):
+    // agent-version-insert.ts (the single INSERT ... SELECT into agent_versions shared by
+    // every already-allowlisted publish path, no authorization of its own) and
+    // pg-agent-role-draft-repository.ts (PATCH /admin/agents/:agentId/role, org-admin gate
+    // one layer up in update-agent-role-draft.ts as the first action). Both are pinned by
+    // tests/agent/role-draft-repo-guard.test.ts: only `agents`/`agent_versions`, no
+    // withoutTenant, single statement, admin check precedes both repository calls.
+    // Remove this increment with those entries if that guard test disappears.
+    // Phase 20 WF01/WF02/WF03 (workflow-runtime) add exactly six repository files
+    // (99 -> 105), none of which have an ObjectRef kind, so routing them through
+    // `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER:
+    //   pg-workflow-definition-repository.ts, pg-workflow-instance-repository.ts
+    //     (WF01: publish/visibility decided in publish-definition-version.ts from
+    //     cmd.actor.orgRole, before the repository is reached)
+    //   pg-workflow-receipt-store.ts, pg-workflow-lease-store.ts
+    //     (WF02: runtime bookkeeping -- idempotency receipts and epoch-CAS leases
+    //     -- carry no payload beyond the caller's own stable response)
+    //   pg-workflow-event-store.ts, pg-workflow-access.ts
+    //     (WF03: instance visibility -- initiator or org admin only, per R5 -- is
+    //     decided in application/workflow/instance-projection.ts before any event
+    //     or output reaches an HTTP response; pg-workflow-access.ts reads only
+    //     identifiers, never agent content)
+    // All six are bounded to their named tenant tables, never call `withoutTenant`,
+    // and are unreachable from src/interface/ -- pinned by
+    // tests/workflow/pg-workflow-repo-guard.test.ts. Remove this increment and the
+    // six allowlist entries together if that guard test disappears.
+    // Phase 20 WS04 adds pg-tool-grant-reader.ts (105 -> 106): `org_tool_capability_grants`
+    // authorization metadata has no ObjectRef shape; getWorkSkillReadiness checks org
+    // membership (non-member 404) before ever calling grants.listForOrg, and the response
+    // folds grants into per-capability satisfied/missing/denied without echoing tool_ref.
+    // Pinned by tests/work-skill/readiness-compute.test.ts. Remove this increment with
+    // that test.
+    // Phase 20 WS03 adds pg-work-skill-catalog-repository.ts (106 -> 107): the work skill
+    // catalog (`skill_catalog_entries`/`skills`/`skill_versions`/`skill_catalog_channel_events`)
+    // is a per-org shared catalog readable by every org member, not a per-object ACL that
+    // `authorize`/`ObjectRef` could express; every method uses withTenant (RLS by org_id)
+    // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
+    // (another org sees none of these rows) and unauthenticated 401 are proven in
+    // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
+    // #4615 adds pg-whiteboard-project-access.ts (+1 on top of main's 111 -> 112): the PROJECT source of whiteboard
+    // access reads only container identity (`project_resource_links` kind='whiteboard' +
+    // `projects.status`) on the whiteboard store's own locked session, and returns a role, never
+    // content; the role itself comes from resolveProjectLayer. Pinned by
+    // tests/whiteboard/project-access-guard.test.ts. Remove this increment with that test.
+    // 2026-09-29 merge of main (WS/WF/EV/CT01) with the AG01/AG03/AG04 branch: the ceiling is
+    // recomputed as the combined total. AG01's two entries (above), AG04's
+    // pg-agent-directory-repository.ts (pinned by tests/agent/agent-directory-repo-guard.test.ts)
+    // and AG03's pg-official-agent-role-pack-import-repository.ts (org-admin check in
+    // import-official-agent-role-pack.ts before the repository is reached; pinned by
+    // tests/agent/official-role-pack-import.test.ts) land on top of main's 107 -> 111.
+    // Remove the matching increments with those tests.
+    // 2026-09-29 merge of main (AG01-04/WS/CT) into the WF04-WF08 branch: WF04 adds
+    // pg-effect-capability-authority.ts (workflow_capability_grants admin toggle, read only by
+    // effect-permission-recheck.ts) and WF06 adds pg-workflow-trigger-store.ts (triggerId ->
+    // org_id resolution via the non-tenant workflow_trigger_lookup, then withTenant only).
+    // WF05/WF08 add no allowlist entries. Both pinned by tests/workflow/pg-workflow-repo-guard.test.ts.
+    // Remove this increment with those entries if that guard test disappears.
+    // 2026-09-29 second merge of main (#4615 pg-whiteboard-project-access.ts, main at 112) into
+    // the WF04-WF08 branch (at 113): union of both allowlists = 114 entries (total 124 - 10
+    // boundary rules). Ceiling recomputed as the combined total.
+    // 2026-09-29 CT06 adds pg-skill-catalog-version-resolver.ts (+1 -> 115): the Workflow Runtime's
+    // production SkillVersionResolverPort; it reads only a version label (skill_catalog_entries +
+    // published skill_versions.semantic_label) for start-time pinning, never Skill content, and
+    // nothing under src/interface/ imports it. Pinned by tests/work-content/problem-to-prd-e2e.test.ts.
+    // Remove this increment with that entry.
+    // 2026-09-29 merge of main (iter4 + CT03 + WF07 + CT09, at 114) into CT06: measured 115 =
+    // main's 114 + CT06's one entry.
+    // 2026-09-29 CT10 adds pg-board-run-source.ts (+1 -> 116): candidate Workflow runs for the
+    // Board run-card read model; visibility is filtered one layer up by the WF03 canView predicate.
+    // Pinned by tests/work-content/board-run-source-guard.test.ts. Remove this increment with that entry.
+    // 2026-09-29 merge of main (CT03 + WF07 + CT09, at 114) into EV04: EV04 adds
+    // pg-work-gate-status-repository.ts (pinned by tests/work-eval/gate-status-writeback.test.ts),
+    // so the ceiling moves 114 -> 115. Remove the EV04 increment with that test.
+    // 2026-09-29 merge of main (EV04 at 891d15539, ceiling 115) into CT06 (ceiling 115): union =
+    // main's 114 + CT06 pg-skill-catalog-version-resolver.ts + EV04 pg-work-gate-status-repository.ts = 116.
+    // 2026-09-29 AG06 adds pg-escalation-store.ts (+1 -> 115): read-only identity data for the
+    // escalationPolicy-target decider check in decide-escalation.ts (E6). Pinned by
+    // tests/agent/escalate-decision-guard.test.ts. Remove this increment with that test.
+    // 2026-09-29 merge of main (EV04 at 115) into AG06 (at 115): union = 116 entries.
+    // 2026-09-29 merge of main (AG06 at 580776f3a, ceiling 116) into CT06 (ceiling 116): union =
+    // main's 116 + CT06 pg-skill-catalog-version-resolver.ts = 117.
+    // 2026-09-29 ad-hoc home-config (#4660/#4661) adds pg-home-config-repository.ts (117 -> 118):
+    // `org_home_configs` is one row per org (banner text / quick-action toggles / recommended
+    // Agent·Skill name snapshots), no ObjectRef shape; both routes' admin gate runs in
+    // home-config.controller.ts before the repository is reached. Pinned by
+    // tests/home/home-config-authorization.test.ts. Remove this increment with that test.
+    // 2026-09-29 merge of main (CT06 squash 20317fc7d, ceiling 117) into CT10: union =
+    // main's 117 + CT10 pg-board-run-source.ts = 118 (measured).
+    // 2026-09-29 merge of main (CT10 squash #4662, ceiling 118) into home-config (#4660/#4661,
+    // ceiling 118): union = main's 118 (includes CT10's pg-board-run-source.ts) + home-config's
+    // own pg-home-config-repository.ts (already counted above, this branch's ceiling was 118
+    // pre-merge) = 119 (measured: allowlisted=129, boundary rules=10, 129-10=119).
+    // 2026-09-30 AG07 adds pg-agent-handoff-store.ts (120 -> 121): handoff rows are scoped by the
+    // frozen `requester_user_id` column (the question is "did you trigger the run that asked for
+    // this handoff", not an ObjectRef ACL), evidence is re-read through the filtered file doorway.
+    // Pinned by tests/agent/handoff-delegation.test.ts. Remove this increment with that test.
+    // #4728 adds the root-only deployment compatibility audit (+1 -> 120).
+    // Its companion bootstrap-compatibility.test.ts proves the read-only SQL guard,
+    // unconditional rollback, redacted identity result, and absence of HTTP imports.
+    // Remove this increment and the audit exemption if those protections disappear.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(121);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -23,8 +23,9 @@ arbitrary PDF body editing. Form handling is separate from the page-copy script.
 Run scripts/render-office.py INPUT NEW_OUTPUT_DIRECTORY using python3 inside native execute.
 It uses preinstalled LibreOffice/Poppler to create PDF and 96-DPI page PNGs offline.
 Do not install tools at runtime. If a renderer is missing, stop and report unverified.
-The manifest reports visualInspection=required: examine
-each page/slide for clipping and CJK glyphs. If unavailable, state rendering unverified;
+The manifest reports visualInspection=required and an inspect list of at most 3 PNGs
+(first, middle, last): spot-check only those for clipping and CJK glyphs. Open other pages
+only if a sampled page shows a defect. If unavailable, state rendering unverified;
 ZIP/XML checks are not visual QA. Never claim ready/rendered merely because bytes exist.
 `;
 const nativeGuide=(name:string)=>`## Execution protocol — choose the available runtime
@@ -52,8 +53,9 @@ reuse/delete a previous preview directory; when rendering again, choose a new un
 directory such as /workspace/preview-final. Do not add &&, ;, pipes or shell cleanup.
 This helper supplies the offline LibreOffice path, font setup and restart handling.
 Do not call an unconfigured soffice wrapper. Do not redraw a separate PDF and claim
-it is a preview of the DOCX/XLSX/PPTX. Inspect every actual page PNG. Exit 0 still
-requires visual inspection; a font warning alone is not a rendering failure.
+it is a preview of the DOCX/XLSX/PPTX. Spot-check only the PNGs in the manifest's inspect
+list (at most 3); do not open every page. Exit 0 still requires that visual spot-check; a
+font warning alone is not a rendering failure.
 Do not run npm/pip installs. Publish the verified actual source and previews with
 wx_artifact_publish. Adapt legacy environment-variable examples to these native paths.
 

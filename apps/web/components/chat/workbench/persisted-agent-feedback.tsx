@@ -2,7 +2,7 @@
 import * as React from "react";
 import { getAgentPanel } from "@/lib/live-chat";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
-import { getAgentRun } from "@/lib/agent-run";
+import { loadAgentRunView } from "@/lib/use-agent-run-view";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 
@@ -16,8 +16,9 @@ export function PersistedAgentFeedback({ messageId, projectId = null }: { messag
     if (!messageId || !runId || !bearer) return;
     const controller = new AbortController();
     void (async () => {
-      const run = await getAgentRun(runId, bearer, controller.signal);
-      if (run.resultMessageId !== messageId || !run.agentId || controller.signal.aborted) return;
+      // 与身份行 / 升级留痕共享同一次 run 读（`use-agent-run-view.ts`），不各打一次。
+      const run = await loadAgentRunView(runId, bearer);
+      if (!run || run.resultMessageId !== messageId || !run.agentId || controller.signal.aborted) return;
       // Thread participants can read this roster without Agent-library admin access.
       const roster = await getAgentPanel(run.threadId, projectId, bearer);
       const agent = roster.agents.find((item) => item.id === run.agentId);

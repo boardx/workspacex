@@ -179,7 +179,10 @@ describe("会话记忆概况", () => {
       const origin = o.personalOrigins.find((x) => x.personalClaimId === c.id);
       expect(origin).toEqual({
         personalClaimId: c.id, sourceClaimId: c.derivedFromClaimId, threadId: MINE, projectId: null, threadTitle: "v2 上线安排",
+        // issue #4302：说出它的时间与来源是否自动记下（精确值见 brain-personal-history.test.ts）
+        saidAt: expect.any(String), autoCopied: expect.any(Boolean),
       });
+      expect(Number.isNaN(Date.parse(origin!.saidAt!))).toBe(false);
     }
   });
 

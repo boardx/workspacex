@@ -392,6 +392,22 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
   `chat_threads.pinned` 列与 CHECK 追加 + `apps/web` 侧改回 `lib/chat-pinned-threads.ts`
   的 `localStorage` 方案（那份实现原样保留在 git 历史里，回退不需要重新发明）。
 
+### 追加（2026-09-27，项目中枢 R5 · chat 在项目成员间分享，人类直接指令 ad-hoc 落地）——**Proposed，需人类追认**
+
+同 2026-09-03 那次：没有 `design-signoff.md`，出处是人类在本次对话里的直接指令（「chat 可以在
+用户之间分享」），如实记录。
+
+| 枚举 | 成员 | 代谁补 | 出处 |
+|---|---|---|---|
+| `ProvenanceEventType` | `thread-visibility-changed` | chat · `mutateThread`（`op: "setVisibility"`） | 本次对话，`packages/contracts/src/chat.ts` `mutateThread.in.op` 注释 |
+
+- `target` 同 `thread-renamed`：`{kind: "thread", id: threadId}`，`detail` 记 from / to 的
+  `visibilityScope`（改可见范围就是改线程的一个属性，不发明新 target kind）。
+- 迁移 `20260927130000_r5_thread_visibility_provenance.sql` 把它追进 `provenance_events_type_check`。
+  R5 第一版漏了这条迁移，CI 的 `provenance-enum-single-source.test.ts` 双向对账当场抓到——
+  这正是那条测试存在的理由。
+- 否决时的回退：撤销契约这一行 + `mutate-thread.ts` 的 `setVisibility` 分支 + 本迁移的 CHECK 追加。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |

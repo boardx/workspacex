@@ -83,7 +83,9 @@ export function humanEta(seconds: number | null): string {
 
 /** blob 文件名里的摘要：`sha256-abc…` → `abc…`；不是这个形状就返回 null。 */
 export function digestFromBlobPath(path: string): string | null {
-  const m = /(?:^|\/)sha256-([0-9a-f]{64})$/.exec(path);
+  // ⚠ 两种分隔符都认。只认 `/` 时，Windows 路径在这里返回 null——调用方把 null 当「不是
+  //   blob，不用核对」，于是**摘要校验被整个跳过、坏掉的 blob 照单全收**（windows-latest 实测）。
+  const m = /(?:^|[\\/])sha256-([0-9a-f]{64})$/.exec(path);
   return m === null ? null : (m[1] ?? null);
 }
 

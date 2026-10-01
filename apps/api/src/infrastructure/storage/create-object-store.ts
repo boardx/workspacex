@@ -19,7 +19,7 @@ export async function createStorageBackends(env: NodeJS.ProcessEnv = process.env
   return { objects: store, purge: new OssPhysicalPurge(client, config.oss.bucket, config.oss.prefix) };
 }
 
-export interface StorageBackends { objects: ObjectStore; purge: PhysicalPurgePort; }
+export interface StorageBackends { objects: ObjectStore; purge: PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>; }
 
 export async function createObjectStore(env: NodeJS.ProcessEnv = process.env): Promise<ObjectStore> {
   return (await createStorageBackends(env)).objects;

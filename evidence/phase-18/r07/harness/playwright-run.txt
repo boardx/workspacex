@@ -1,0 +1,10 @@
+Running 8 tests using 1 worker
+  ✓  1 e2e/r07/journey.spec.ts:94:5 › 4283-1: thread A 「我决定关注 211 高校」 → chip shows 「已记入个人记忆」 (7.1s)
+  ✓  2 e2e/r07/journey.spec.ts:111:5 › 4283-2: NO manual promote; new thread B 「开始写报告吧」 recalls it (scope personal) (5.6s)
+  ✓  3 e2e/r07/journey.spec.ts:126:5 › 4283-3: undo from the chip in thread A (first tab, still open on thread A) (541ms)
+  ✓  4 e2e/r07/journey.spec.ts:139:5 › 4283-4: new thread C 「开始写报告吧」 no longer recalls it (2.0s)
+  ✓  5 e2e/r07/journey.spec.ts:153:5 › 4284-1: A (newbie) says 「我决定关注 985 高校」 in a personal thread → auto personal copy (11.8s)
+  ✓  6 e2e/r07/journey.spec.ts:165:5 › 4284-2 (control, non-vacuity): the same answer text in A's own personal thread IS extracted (3.3s)
+  ✓  7 e2e/r07/journey.spec.ts:175:5 › 4284-3: A in a project thread 「开始写报告吧」 → A's answer uses A's personal decision (A sees the citation) (4.3s)
+  ✓  8 e2e/r07/journey.spec.ts:188:5 › 4284-4: B (other) sees nothing from A's personal space; the project gains no claim from A's answer (26.0s)
+  8 passed (1.1m)

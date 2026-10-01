@@ -1,0 +1,16 @@
+{
+  "org": "synthetic-org-acme",
+  "workflow": "W060",
+  "researchPlan": {
+    "skill": "S170",
+    "items": [
+      {
+        "id": "RQ2",
+        "question": "竞品定价策略变化"
+      }
+    ]
+  },
+  "channelStubs": {
+    "organization-hybrid": "not-configured"
+  }
+}

@@ -426,6 +426,25 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  /** 项目中枢 R5：改可见范围。同 `setThreadPinned`：同一条语句里比对版本并自增，不写 `last_activity_at`。 */
+  async setThreadVisibility(
+    orgId: OrgId,
+    threadId: string,
+    visibilityScope: ThreadFacts["visibilityScope"],
+    expectedVersion: number,
+  ): Promise<number | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ version: number }>(
+        `UPDATE chat_threads
+            SET visibility_scope = $1, version = version + 1
+          WHERE id = $2 AND org_id = $3 AND version = $4
+      RETURNING version`,
+        [visibilityScope, threadId, orgId, expectedVersion],
+      );
+      return r.rows[0]?.version ?? null;
+    });
+  }
+
   /**
    * 🔴 #2094 / 2026-09-16 会话级标题：自动命名写入。见 `ports.ts` 同名方法头注
    * （为什么两条前提都必须在 SQL 里，而不是调用方先 SELECT 再 UPDATE）。
@@ -753,6 +772,27 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  /** 见 `ports.ts` 上的注释：语音模式转写落库。 */
+  async insertVoiceTranscriptMessage(
+    orgId: OrgId,
+    input: {
+      readonly id: string;
+      readonly threadId: string;
+      readonly authorKind: "human" | "agent";
+      readonly authorId: string;
+      readonly agentId: string | null;
+      readonly body: string;
+    },
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, agent_id, body)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [input.id, orgId, input.threadId, input.authorKind, input.authorId, input.agentId, input.body],
+      );
+    });
+  }
+
   /** 见 `ports.ts` 上的注释：判权与查询的起点都是它。 */
   async findMessageLocation(orgId: OrgId, messageId: string): Promise<MessageLocation | null> {
     return this.db.withTenant(orgId, async (s) => {
@@ -845,6 +885,41 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  /** #4227：`getThread` 的批量引用读取，同 `findCitationsForMessage` 的租户内读，一次取齐。 */
+  async findCitationsForMessages(orgId: OrgId, messageIds: readonly string[]): Promise<readonly ChatCitationRow[]> {
+    if (messageIds.length === 0) return [];
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        citation_id: string;
+        message_id: string;
+        idx: number;
+        source_full_name: string;
+        anchor_kind: string;
+        anchor_page: number | null;
+        anchor_range: string | null;
+        anchor_message_id: string | null;
+        source_artifact_id: string | null;
+      }>(
+        `SELECT citation_id, message_id, idx, source_full_name, anchor_kind,
+                anchor_page, anchor_range, anchor_message_id, source_artifact_id
+           FROM chat_citations WHERE org_id = $1 AND message_id = ANY($2::text[])
+          ORDER BY message_id, idx ASC`,
+        [orgId, [...messageIds]],
+      );
+      return r.rows.map((row) => ({
+        citationId: row.citation_id,
+        messageId: row.message_id,
+        index: row.idx,
+        sourceFullName: row.source_full_name,
+        anchorKind: row.anchor_kind as ChatCitationRow["anchorKind"],
+        anchorPage: row.anchor_page,
+        anchorRange: row.anchor_range,
+        anchorMessageId: row.anchor_message_id,
+        sourceArtifactId: row.source_artifact_id,
+      }));
+    });
+  }
+
   /**
    * E3：assistant 回答的引用写入（`persist-assistant-citations.ts` 已做组织内校验）。
    * 幂等：`(org_id, message_id, idx)` 唯一索引 + DO NOTHING；`citation_id` 由消息与编号
@@ -881,6 +956,19 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
         artifactId, orgId,
       ]);
       return r.rows.length > 0;
+    });
+  }
+
+  async sampleArtifactIds(orgId: OrgId, artifactIds: readonly string[]): Promise<ReadonlySet<string>> {
+    if (artifactIds.length === 0) return new Set();
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ id: string }>(
+        `SELECT a.id FROM artifacts a
+           JOIN sample_projects sp ON sp.project_id = a.project_id AND sp.org_id = a.org_id
+          WHERE a.org_id = $1 AND a.id = ANY($2::text[])`,
+        [orgId, [...artifactIds]],
+      );
+      return new Set(r.rows.map((row) => row.id));
     });
   }
 

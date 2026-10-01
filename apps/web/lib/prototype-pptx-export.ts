@@ -102,6 +102,18 @@ const TEXT_PT: Record<string, number> = { title: 30, subtitle: 20, body: 16, cap
 const SPACER: Record<string, number> = { xs: 0.08, sm: 0.15, md: 0.3, lg: 0.5, xl: 0.7 };
 const IMAGE_RATIO: Record<string, number> = { square: 1, video: 9 / 16, wide: 9 / 21, portrait: 4 / 3 };
 
+/** `"48 96% 80%"`（契约里的 HSL 三元组）→ `"FDE68A"`：pptxgenjs 只收十六进制。 */
+function hslToHex(hsl: string): string {
+  const [h, s, l] = hsl.split(/\s+/).map((v) => Number.parseFloat(v)) as [number, number, number];
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const c = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, "0").toUpperCase();
+  };
+  return `${f(0)}${f(8)}${f(4)}`;
+}
+
 function lay(n: Node, x: number, y: number, w: number, c: Ctx): Laid {
   const k = c.k;
   switch (n.type) {
@@ -190,6 +202,24 @@ function lay(n: Node, x: number, y: number, w: number, c: Ctx): Laid {
       const h = 2.4 * k;
       const len = Math.min(n.props.labels.length, n.props.values.length);
       return { h, shapes: [{ kind: "chart", x, y, w, h, chart: n.props.kind ?? "bar", title: n.props.title ?? null, labels: n.props.labels.slice(0, len), values: n.props.values.slice(0, len) }] };
+    }
+    // design-delta `prototype-board`：底板一块浅灰框，便签 / 形状按中心坐标画成色块。
+    // 连线暂不画——PPT 这一层的形状里没有线段，加线要再开一种形状（范围外，见 PR 说明）。
+    case "board": {
+      const h = ({ sm: 1.6, md: 2.6, lg: 3.8, fill: 3.8 } as const)[n.props.height ?? "md"] * k;
+      const W = { sticky: 24, shape: 20, text: 30 } as const;
+      const shapes: SlideShape[] = [{ kind: "box", x, y, w, h, text: "", pt: 10 * k, fill: PANEL, color: MUTED }];
+      for (const it of n.props.items) {
+        const iw = (w * (it.w ?? W[it.kind])) / 100;
+        const ih = Math.min(0.9 * k, h / 3);
+        const c = designPrototype.PROTOTYPE_BOARD_COLORS[it.color ?? (it.kind === "sticky" ? "yellow" : "gray")];
+        shapes.push({
+          kind: "box", x: x + (w * it.x) / 100 - iw / 2, y: y + (h * it.y) / 100 - ih / 2, w: iw, h: ih,
+          text: it.author !== undefined ? `${it.text}\n— ${it.author}` : it.text, pt: 9 * k,
+          fill: it.kind === "text" ? PANEL : hslToHex(c.bg), color: it.kind === "text" ? INK : hslToHex(c.fg),
+        });
+      }
+      return { h, shapes };
     }
     case "image": {
       const h = Math.min(w * (IMAGE_RATIO[n.props.ratio ?? "video"] ?? 9 / 16), 2.4 * k);

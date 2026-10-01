@@ -5,25 +5,35 @@
  * 数据来自 `getMessageExtraction`（契约 `out` 校验）；「撤销」发出的是 F10 既有的
  * `applyHumanAction{revokeClaim}`（同 `AnswerMemoryLine` 的撤销用的那一个操作，不是新端点）。
  * 网络在 `fetch` 层打桩成一个有状态的小服务端，同 `kg-conflict-card.test.tsx` 的接线方式。
+ *
+ * issue #4283：本人的决定已自动记进个人空间（`personalCopyClaimId` 非空）⇒「已记入个人记忆」，
+ * 撤销先撤个人副本（`undoAutoPersonalCopy`），调用者是会话所有者时再撤会话原结论。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { knowledgeGraph, type KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
+import { knowledgeGraph, type KgClaimKind, type KgHumanAction, type KgMessageExtractionStatus } from "@repo/contracts/chat-knowledge-graph";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { ExtractionFeedbackChip } from "@/components/chat/knowledge/extraction-feedback-chip";
-import { publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
+import { onRememberStatement, publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
 
 const THREAD = "thr-kg-extraction";
 const MESSAGE = "msg-user-1";
 const CLAIM_ID = "clm-extracted-1";
 const STATEMENT = "客户 A 要求下周一上线";
+const PERSONAL_ID = "clm-personal-copy-1";
+const UNDO_PATH = `/knowledge-graph/threads/${THREAD}/claims/${CLAIM_ID}/personal-copy/undo`;
 
 interface Server {
   revision: number;
-  claims: readonly { claimId: string; statement: string }[];
+  claims: readonly { claimId: string; statement: string; kind: KgClaimKind; personalCopyClaimId: string | null }[];
+  /** issue #4352：契约 `status`。按顺序逐次返回，最后一个值之后一直返回它。 */
+  statuses: KgMessageExtractionStatus[];
   actions: { basedOnRevision: number; action: KgHumanAction }[];
   onAction: (body: Server["actions"][number]) => Response | undefined;
+  /** 按到达顺序记下两种撤销请求，用来钉住「先撤个人副本、再撤会话原结论」。 */
+  calls: string[];
+  onUndoCopy: () => Response | undefined;
 }
 let server: Server;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -36,11 +46,15 @@ const failure = (status: number, reasonCode: string) => json({ error: "rejected"
 beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-kg-extraction");
-  server = { revision: 7, claims: [{ claimId: CLAIM_ID, statement: STATEMENT }], actions: [], onAction: () => undefined };
+  server = {
+    revision: 7, statuses: ["written"], claims: [{ claimId: CLAIM_ID, statement: STATEMENT, kind: "decision", personalCopyClaimId: null }], actions: [],
+    onAction: () => undefined, calls: [], onUndoCopy: () => undefined,
+  };
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(typeof input === "string" ? input : input.toString()).pathname;
     if (path === `/knowledge-graph/threads/${THREAD}/messages/${MESSAGE}/extraction`) {
-      return json(knowledgeGraph.getMessageExtraction.out.parse({ claims: server.claims }));
+      const status = server.statuses.length > 1 ? server.statuses.shift()! : server.statuses[0]!;
+      return json(knowledgeGraph.getMessageExtraction.out.parse({ claims: server.claims, status }));
     }
     if (path === `/knowledge-graph/threads/${THREAD}` && (init?.method ?? "GET") === "GET") {
       return json(knowledgeGraph.getThreadKnowledge.out.parse({
@@ -49,7 +63,14 @@ beforeEach(() => {
         extractionActive: true,
       }));
     }
+    if (path === UNDO_PATH && init?.method === "POST") {
+      server.calls.push("undoCopy");
+      const override = server.onUndoCopy();
+      if (override) return override;
+      return json(knowledgeGraph.undoAutoPersonalCopy.out.parse({ personalClaimId: PERSONAL_ID, outcome: "revoked" }));
+    }
     if (path === `/knowledge-graph/threads/${THREAD}/actions` && init?.method === "POST") {
+      server.calls.push("revokeClaim");
       const body = JSON.parse(String(init.body)) as Server["actions"][number];
       server.actions.push(body);
       const override = server.onAction(body);
@@ -68,13 +89,14 @@ afterEach(() => {
 });
 
 describe("ExtractionFeedbackChip", () => {
-  it("有新 claim ⇒ 出现「已记下：{摘要}·撤销」", async () => {
+  it("有新 claim ⇒ 出现「已记下{类型}：{摘要}·撤销」", async () => {
     render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
     const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
-    expect(line).toHaveTextContent(`已记下：${STATEMENT}`);
+    expect(line).toHaveTextContent(`已记下决定：${STATEMENT}`);
     expect(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`)).toHaveTextContent("撤销");
   });
 
+  // issue #4352：抽出过、但那一条已被撤销（written，claims 为空）⇒ 什么都不出现（不是「这句没有需要记的」）。
   it("没有新 claim ⇒ 不出现", async () => {
     server.claims = [];
     const { container } = render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
@@ -121,5 +143,164 @@ describe("ExtractionFeedbackChip", () => {
     expect(await screen.findByTestId(`kg-extraction-undo-error-${CLAIM_ID}`)).toHaveTextContent("内容已变化");
     expect(document.body.textContent).not.toContain("KG_");
     expect(screen.getByTestId(`kg-extraction-line-${CLAIM_ID}`)).toBeInTheDocument();
+  });
+
+  it("不是自动记进个人空间的（personalCopyClaimId = null）⇒ 不说「已记入个人记忆」，撤销不碰个人副本", async () => {
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(screen.queryByTestId(`kg-extraction-personal-${CLAIM_ID}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["revokeClaim"]);
+  });
+});
+
+describe("ExtractionFeedbackChip · issue #4283 本人的决定已记入个人记忆", () => {
+  beforeEach(() => {
+    server.claims = [{ claimId: CLAIM_ID, statement: STATEMENT, kind: "decision", personalCopyClaimId: PERSONAL_ID }];
+  });
+
+  it("显示「已记下{类型}：{摘要} · 已记入个人记忆 · 撤销」", async () => {
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(line).toHaveTextContent(`已记下决定：${STATEMENT}`);
+    expect(screen.getByTestId(`kg-extraction-personal-${CLAIM_ID}`)).toHaveTextContent("已记入个人记忆");
+    expect(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`)).toHaveTextContent("撤销");
+  });
+
+  it("会话所有者点撤销 ⇒ 先撤个人副本，再撤会话原结论；反馈消失", async () => {
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["undoCopy", "revokeClaim"]);
+    expect(server.actions).toEqual([{ basedOnRevision: 7, action: { type: "revokeClaim", claimId: CLAIM_ID } }]);
+  });
+
+  it("作者不是会话所有者（项目会话里别人开的）⇒ 仍有撤销，只撤自己个人空间那份，不动会话的知识", async () => {
+    publishKnowledgeSnapshot({ threadId: THREAD, canEdit: false, revision: server.revision });
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["undoCopy"]);
+    expect(server.actions).toEqual([]);
+  });
+
+  it("个人副本已经不在（KG_CLAIM_NOT_FOUND）⇒ 视为已撤，接着撤会话原结论，不报错", async () => {
+    server.onUndoCopy = () => failure(404, "KG_CLAIM_NOT_FOUND");
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["undoCopy", "revokeClaim"]);
+    expect(screen.queryByTestId(`kg-extraction-undo-error-${CLAIM_ID}`)).not.toBeInTheDocument();
+  });
+
+  it("个人副本撤销失败（其余错误）⇒ 人话错误提示，不去撤会话原结论，反馈仍在", async () => {
+    server.onUndoCopy = () => failure(403, "KG_ACTOR_NOT_HUMAN");
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    expect(await screen.findByTestId(`kg-extraction-undo-error-${CLAIM_ID}`)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("KG_");
+    expect(server.calls).toEqual(["undoCopy"]);
+    expect(screen.getByTestId(`kg-extraction-line-${CLAIM_ID}`)).toBeInTheDocument();
+  });
+});
+
+describe("ExtractionFeedbackChip · issue #4343 目标 / 偏好带类型", () => {
+  it.each([
+    ["goal", "目标", "我的目标是探索未来教育"],
+    ["preference", "偏好", "我更喜欢简洁的回答"],
+  ] as const)("%s ⇒「已记下%s：…· 已记入个人记忆 · 撤销」", async (kind, label, statement) => {
+    server.claims = [{ claimId: CLAIM_ID, statement, kind, personalCopyClaimId: PERSONAL_ID }];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(line).toHaveTextContent(`已记下${label}：${statement}`);
+    expect(screen.getByTestId(`kg-extraction-kind-${CLAIM_ID}`)).toHaveTextContent(label);
+    expect(screen.getByTestId(`kg-extraction-personal-${CLAIM_ID}`)).toHaveTextContent("已记入个人记忆");
+  });
+});
+
+describe("ExtractionFeedbackChip · issue #4352「这句没有需要记的 · 记一条」", () => {
+  const MESSAGE_TEXT = "今天天气不错，我们下午再聊。";
+
+  it("抽完了、没有可记的（empty）⇒ 一行淡提示；点「记一条」把这条消息交给 F17「记住」确认卡路径", async () => {
+    server.claims = [];
+    server.statuses = ["empty"];
+    const remembered: string[] = [];
+    const off = onRememberStatement((s) => { remembered.push(s); });
+    try {
+      render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
+      const line = await screen.findByTestId("kg-extraction-empty");
+      expect(line).toHaveTextContent("这句话没有自动记入记忆");
+      const button = screen.getByTestId("kg-extraction-empty-remember");
+      expect(button).toHaveTextContent("手动记住");
+      fireEvent.click(button);
+      expect(remembered).toEqual([MESSAGE_TEXT]);
+      // 只是请求一次确认卡，不重复发
+      expect(button).toBeDisabled();
+    } finally {
+      off();
+    }
+  });
+
+  it("uiux-r3 #5.4：数字人对话（showEmptyNotice=false）⇒ empty 时这一行整个不画", async () => {
+    server.claims = [];
+    server.statuses = ["empty"];
+    const { container } = render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} showEmptyNotice={false} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("记");
+  });
+
+  it.each(["written", "failed", "skipped", "none"] as const)("结果是 %s ⇒ 不显示这一行", async (status) => {
+    server.claims = [];
+    server.statuses = [status];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "UIUX 这个需求请产品经理接手 [request_handoff:D003]",
+    "我从上一个对话转交过来，请你接手：UIUX 这个需求",
+  ])("转交控制消息「%s」⇒ 不挂记忆说明（UIUX r2 屏 4 #5）", async (text) => {
+    server.claims = [];
+    server.statuses = ["empty"];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={text} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+  });
+
+  it("抽出了东西 ⇒ 显示「已记下」，不显示这一行", async () => {
+    server.statuses = ["written"];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
+    await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+  });
+
+  it("还在整理（pending）⇒ 先不显示，补读到 empty 后出现", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      server.claims = [];
+      server.statuses = ["pending", "empty"];
+      render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(await screen.findByTestId("kg-extraction-empty")).toHaveTextContent("这句话没有自动记入记忆");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("不是会话所有者 ⇒ 只有说明，没有「记一条」（同面板「+ 记一条」只给所有者）", async () => {
+    publishKnowledgeSnapshot({ threadId: THREAD, canEdit: false, revision: server.revision });
+    server.claims = [];
+    server.statuses = ["empty"];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} statement={MESSAGE_TEXT} />);
+    expect(await screen.findByTestId("kg-extraction-empty")).toHaveTextContent("这句话没有自动记入记忆");
+    expect(screen.queryByTestId("kg-extraction-empty-remember")).not.toBeInTheDocument();
   });
 });

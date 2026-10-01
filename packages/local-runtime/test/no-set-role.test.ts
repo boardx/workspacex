@@ -30,11 +30,40 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * 判据：Postgres 的 `SET ROLE` / `SET SESSION ROLE` / `SET LOCAL ROLE` / `RESET ROLE` 语句。
+ *
+ * ⚠ 2026-09-27 误报：`pg-whiteboard-repository.ts` 的
+ *   `ON CONFLICT(org_id,board_id,user_id) DO UPDATE SET role = …`
+ *   是给一个**叫 `role` 的列**赋值，不是切换数据库角色。原正则带 `i` 标志，
+ *   `SET role` 就被当成违规，本包测试在 main 上变红（#4242 合入之后）。
+ *   区别在于：`SET ROLE` 语句后面跟角色名，**永远不跟 `=`**；列赋值一定跟 `=`。
+ */
+const statement = /^[^*/]*\b(?:SET(?:\s+(?:SESSION|LOCAL))?|RESET)\s+ROLE\b(?!\s*=)/im;
+
 describe("the premise that keeps local RLS honest", () => {
   it("never issues SET ROLE / RESET ROLE from the API", () => {
     // 注释里提到它是可以的（本文件自己就提了一路）；语句才是问题。
-    const statement = /^[^*/]*\b(SET|RESET)\s+ROLE\b/im;
     const offenders = walk(API_SRC).filter((file) => statement.test(readFileSync(file, "utf8")));
     expect(offenders.map((f) => f.slice(API_SRC.length + 1))).toEqual([]);
+  });
+
+  it("判据仍然看得见真的 SET ROLE——否定断言要配正面用例", () => {
+    // 收紧正则最常见的失败是收过头：什么都不匹配了，门就恒绿。
+    for (const real of [
+      "await db.query('SET ROLE postgres')",
+      "await db.query(`set role app_rw`)",
+      "client.query('SET SESSION ROLE postgres')",
+      "client.query('SET LOCAL ROLE postgres')",
+      "await db.query('RESET ROLE')",
+    ]) expect(statement.test(real), real).toBe(true);
+  });
+
+  it("列名叫 role 的赋值不是违规", () => {
+    for (const benign of [
+      "ON CONFLICT(org_id,board_id,user_id) DO UPDATE SET role = EXCLUDED.role",
+      "UPDATE board_members SET role=$1 WHERE id=$2",
+      "DO UPDATE SET role =$3, updated_at = now()",
+    ]) expect(statement.test(benign), benign).toBe(false);
   });
 });

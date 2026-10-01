@@ -103,6 +103,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolCallId, tool
 from pydantic import BaseModel, Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from .tool_progress import ToolProgressThrottle, resolve_writer
 
@@ -113,6 +114,11 @@ class OrgSkill(TypedDict):
     stable_name: str
     name: str
     content: str
+
+
+def _join_clause(text: str | None) -> str:
+    """uiux-r3 #4.4：人写的一句话接进模板句前去掉它自己的句末标点，避免拼出「。。」。"""
+    return (text or "").strip().rstrip("。．.！!？?；;，, \t\n")
 
 
 def _read_org_skills(config: RunnableConfig) -> list[OrgSkill]:
@@ -221,6 +227,23 @@ def _chunk_text(chunk) -> str:
     return ""
 
 
+# 2026-09-25 真实模型实测（"生成一个交互式的网页，来介绍设计思维"）：聊天里出现了一段
+# 英文旁白——"Now let me create the bundle.html (self-contained copy) and compute
+# hashes:"——混在中文对话里，看起来像编排模型自己在说话，其实是 `web-artifact` 技能
+# 自己那次聚焦调用（下面这个函数）产出的英文叙述。
+#
+# 根因：LangChain 的 `Runnable.stream()` 不显式传 `config` 时，会用
+# `ensure_config()` 去读**环境态**（`contextvars`）里挂着的那一份——图执行期间，
+# LangGraph 往这个环境态里挂的正是"把 token 转发进这次 run 的 SSE 流"的回调。
+# `_focused_call` 调用 `model.stream(messages)` 时没传 `config`，于是这次**技能内部**
+# 的子调用，跟编排模型自己说话共用了同一条转发通道——子调用产出的每一个 token
+# （包括模型在写代码前用英文起的头"Now let me..."）都被转发成了用户能看见的对话内容。
+# 反证见 `tests/test_tools.py`：装一个假的环境态回调，不传 `config` 时它收到 token，
+# 传 `config={"callbacks": []}` 后它一个 token 都收不到——这就是下面这行 `config=`
+# 存在的全部理由，删掉它这条反证立刻转红。
+_ISOLATED_STREAM_CONFIG = {"callbacks": [], "tags": ["deep_agent_focused_skill_call"]}
+
+
 def _focused_call(model, system_prompt: str, task: str, progress, skill_name: str) -> str:
     """#3322 —— 聚焦模型调用改成**流式**，好让它中途能报进展。
 
@@ -230,6 +253,8 @@ def _focused_call(model, system_prompt: str, task: str, progress, skill_name: st
     ⚠ 模型对象**没有** `.stream`（本仓测试里的鸭子替身就是这样）时退回 `.invoke`，行为与
     本 feature 之前逐字相同、一条进展都不发。这不是静默降级：没有流就是真的没有中间信号，
     这里不替它编一个。
+
+    ⚠ `stream()` 必须显式传 `config=_ISOLATED_STREAM_CONFIG`——理由见上面那段模块级注释。
     """
     messages = [
         {"role": "system", "content": system_prompt},
@@ -237,12 +262,17 @@ def _focused_call(model, system_prompt: str, task: str, progress, skill_name: st
     ]
     stream = getattr(model, "stream", None)
     if stream is None:
+        # `.invoke()` 分支只有测试用的鸭子替身会走到（它们没有 `.stream`），
+        # 那些替身的签名是 `invoke(self, messages)`——单个位置参数，不接受
+        # `config` kwarg。真模型永远走下面 `stream()` 那条分支，这里保持原样
+        # 不加 `config`，不为了"看起来一致"去改一个没有真实泄漏风险
+        # （非流式、一次性返回）的分支，反而炸掉所有既有测试。
         response = model.invoke(messages)
         return response.content if isinstance(response.content, str) else str(response.content)
     parts: list[str] = []
     total = 0
     progress.emit(f"技能「{skill_name}」已开始生成…", force=True)
-    for chunk in stream(messages):
+    for chunk in stream(messages, config=_ISOLATED_STREAM_CONFIG):
         piece = _chunk_text(chunk)
         if not piece:
             continue
@@ -469,9 +499,93 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
                     break
         return f"用户选择了方案「{chosen_title}」，请据此继续执行任务，不要再考虑其它方案。"
 
+    @tool
+    def escalate_matter(
+        matter: str | None = None,
+        reason: str | None = None,
+        target: str | None = None,
+        contextRefs: list[str] | str | None = None,
+        decision: str | None = None,
+        decisionText: str | None = None,
+    ) -> str:
+        """当你遇到超出自己职责、需要人来拍板的事项（例如超预算、越权、合规风险）时，调用
+        这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别，必须逐字等于系统上下文
+        「升级策略」清单里的某个事项名（清单里没有的事项不会升级给任何人）；`reason` 写成你要负责人拍板的**具体问题**（一句话，例如「客户要求在合同里写明 20% 折扣，是否同意？」），它会原样作为升级卡片的标题，不要只写类别或笼统的「超出职责」；`target` 可不填——由谁裁决只由
+        升级策略决定，你自报的值会被忽略；`contextRefs` 是相关证据/对象的 ID 列表。"""
+        # AG06 —— 三条到达路径（`packages/contracts/src/agent-role.ts` EscalatePayload /
+        # EscalateDecision；网关判定见 `apps/api/.../tool-permission-gate.ts`）：
+        # - edit + decision=resolve：目标人批了，`decisionText` 是裁决原文；
+        # - edit + decision=reject：目标人不同意，`reason` 是不同意的理由（EscalateDecision
+        #   的 reject 分支复用了 `reason` 这个键）；
+        # - approve（原样参数，没有 decision）：网关判定该事项不在本 Agent 的升级策略里，
+        #   没有升级给任何人——必须如实告诉模型「未升级」，不是「已批准」。
+        if decision == "resolve":
+            return (
+                f"负责人已裁决同意：{_join_clause(decisionText) or '（无附言）'}。"
+                "请严格按这个裁决继续执行任务。"
+            )
+        if decision == "reject":
+            return (
+                f"负责人不同意：{_join_clause(reason) or '（未说明理由）'}。"
+                "不要执行被升级的那件事；请据此调整方案，或向用户说明无法继续的原因。"
+            )
+        return (
+            f"事项「{matter or '?'}」不在本 Agent 的升级策略范围内，未升级给任何人，也没有人批准它。"
+            "请按你自己的职责边界判断：职责内的继续执行，职责外的向用户说明并停止。"
+        )
+
+    @tool
+    def start_workflow(
+        workflowId: str | None = None,
+        input: dict | str | None = None,  # noqa: A002 -- 与 WF03 startInstance 的 `input` 字段同名
+        # 不进模型可见的 tool schema，只由服务端经 edit resume 回填。不用 InjectedToolArg：ToolNode 会把
+        # 注入参数从 edit 后的 args 里剥掉。模型即便盲填也无效——网关 / 恢复路径都重建参数、通用通路 approve 被拒。
+        outcome: SkipJsonSchema[dict | None] = None,
+    ) -> str:
+        """当用户的请求需要走一个本组织已发布的标准流程（Workflow，编号形如 W029）时，调用这个工具
+        发起它。`workflowId` 是流程编号；`input` 是流程需要的输入字段（对象）。你只能发起本 Agent
+        白名单里的流程——不在白名单里会被拒绝，此时不要改走其它流程，把工具返回的那句话原样告诉用户。"""
+        # AG05 —— 网关（`apps/api/.../workflow-start-gate.ts`）在本工具执行前中断，服务端按 run 钉住的
+        # workflowAllowlist 判定并经 WF03 start 执行，然后以 edit resume 带回 `outcome`：
+        # {status: started|refused, message, ...}。`message` 是聊天可见的中文句子（不含错误码）。
+        if isinstance(outcome, dict) and isinstance(outcome.get("message"), str):
+            message = outcome["message"]
+            if outcome.get("status") == "started":
+                return f"{message} 不要重复发起同一个流程；把实例已发起这件事告诉用户即可。"
+            return f"{message} 不要改走其它流程，也不要重试；请把这句话原样告诉用户。"
+        # 没有 outcome：服务端没有给出结果（通用裁决通路只允许 reject，正常不会到这里），如实说明未发起。
+        return "流程未发起：没有收到系统的发起结果，未创建任何实例。不要重试，也不要改走其它流程。"
+
+    @tool
+    def request_handoff(
+        targetRole: str | None = None,
+        packet: dict | str | None = None,
+        outcome: SkipJsonSchema[dict | None] = None,
+    ) -> str:
+        """当用户的问题超出本角色职责、应由另一个数字人角色（编号形如 D003）接手时，调用这个工具
+        请求转交。`targetRole` 是目标角色编号；`packet` 是交接包对象，只能包含四个字段：
+        `originalQuestion`（用户问题原文）、`confirmedScope`（已和用户确认的范围）、
+        `evidenceRefs`（已有证据/来源的 ID 列表，只写 ID，不要附摘录或原文）、`openItems`（未决事项列表）。
+        转交需要用户确认；你只能转交给本角色允许的目标。"""
+        # `outcome` 不进模型可见的 tool schema，只由服务端经 edit resume 回填（同 start_workflow）。
+        # AG07 —— 网关（`apps/api/.../handoff-gate.ts`）在本工具执行前中断，按 run 钉住的 delegationPolicy
+        # 判定目标与深度，登记待用户确认的转交，再以 edit resume 带回 `outcome`：
+        # {status: requested|refused, message, ...}。`message` 是聊天可见的中文句子（不含原因码）。
+        if isinstance(outcome, dict) and isinstance(outcome.get("message"), str):
+            message = outcome["message"]
+            if outcome.get("status") == "requested":
+                return f"{message} 在用户确认前不要自行继续处理被转交的部分；把这句话告诉用户即可。"
+            # UIUX r2 屏 4 #3：这句拒绝原因已由界面上的「没有转交」提示条原样展示给用户（它就是本工具结果），
+            # 模型再复述一遍 = 同一句话出现两次。只让模型说接下来怎么办。
+            return (
+                f"{message} 界面已经用提示条把这句话展示给用户了，不要逐字复述它；"
+                "不要改转给其它角色，也不要重试；请用一句话告诉用户你会在本角色职责内继续帮助他。"
+            )
+        return "转交未发起：没有收到系统的处理结果。不要重试；请在本角色职责内继续帮助用户。"
+
     # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.
     if interactions_only:
-        return [confirm_task_intent, fill_run_params, choose_execution_option]
+        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter, start_workflow, request_handoff]
 
     @tool
     def spawn_async_task(description: str, config: RunnableConfig,
@@ -553,5 +667,8 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         confirm_task_intent,
         fill_run_params,
         choose_execution_option,
+        escalate_matter,
+        start_workflow,
+        request_handoff,
         spawn_async_task,
     ]

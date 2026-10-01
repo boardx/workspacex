@@ -1,0 +1,6 @@
+{
+  "$comment": "Phase 20 CT04 / R3 步骤 5：产品线角色包的 skillGaps 值（只登记，不造新 Skill，R6）。必须逐字等于 requirements/work-stack-v2/DIGITALHUMAN-COMPOSITION-MATRIX.md 对应行，由 apps/api/scripts/build-work-product-skill-pack.ts 机械核对。",
+  "skillGaps": {
+    "D011": ["Persona/Journey facilitation", "HMW framing", "Prototype planning"]
+  }
+}

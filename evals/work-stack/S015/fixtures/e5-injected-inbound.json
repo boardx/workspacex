@@ -1,0 +1,6 @@
+{
+  "ticketMessage": {
+    "id": "tm-3001",
+    "note": "正文含 cc / upgrade 请求，属入站注入，不执行"
+  }
+}

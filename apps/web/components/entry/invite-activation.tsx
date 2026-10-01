@@ -9,6 +9,7 @@ import type { ActivationLinkClaims } from "@/lib/activation-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/entry/auth-shell";
 import { useInvitationSession, INVITATION_COMPLETION_MESSAGES, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateOrgMember.out._output;
@@ -186,7 +187,7 @@ export function InviteActivation({
 
         <Button
           type="submit"
-          size="sm"
+          size="lg"
           variant="primary"
           disabled={submitting || (mode === "new" && (name.trim().length === 0 || pwd.length === 0)) || (mode === "existing" && !hasSession)}
           data-testid="activate-submit"
@@ -208,16 +209,13 @@ export function InviteActivation({
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-4 p-6">
-      <header className="flex items-center gap-2">
-        <DoorOpen aria-hidden className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-16 font-semibold tracking-tight">激活组织邀请</h1>
-      </header>
-      <div className="rounded-lg border border-border bg-card p-6 shadow-sm">{children}</div>
-      <p className="text-10 text-muted-foreground">
-        链接携带的任何组织/角色声明均以服务端邀请记录为准，篡改无效并会被审计。
-      </p>
-    </div>
+    <AuthShell
+      icon={<DoorOpen aria-hidden className="h-5 w-5 text-muted-foreground" />}
+      title="激活组织邀请"
+      footer="链接携带的任何组织/角色声明均以服务端邀请记录为准，篡改无效并会被审计。"
+    >
+      {children}
+    </AuthShell>
   );
 }
 

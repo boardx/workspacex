@@ -1,0 +1,860 @@
+{
+  "phase": "20",
+  "features": [
+    {
+      "id": "WS01",
+      "priority": 1,
+      "area": "work-skill-meta",
+      "capability": "CAP-CONTRACT",
+      "title": "WorkSkillManifest 契约与 frontmatter 校验",
+      "spec_ref": "01-skill-catalog.md#R3",
+      "user_visible_behavior": "作者在 SKILL.md frontmatter 写 metadata.work（stableId/domain/riskClass/dependencies/provenance/locales/jurisdictions/evalSuiteId/inputSchema/outputSchema）后，运行校验命令能解析所有含 metadata.work 的 SKILL.md；缺字段/类型错/依赖写供应商名时命令退出非 0 并打印文件路径与字段路径。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 5,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/work-skill/manifest-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/work-skill/manifest-frontmatter-lint.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 F-a。依据 ADR-117（元数据落包模型，权威）。契约束 skill-catalog；design-signoff 由人类补签。"
+    },
+    {
+      "id": "WS02",
+      "priority": 2,
+      "area": "work-skill-meta",
+      "capability": "CAP-DATA",
+      "title": "导入接入 manifest 校验与 skill_catalog_entries 迁移仓储",
+      "spec_ref": "01-skill-catalog.md#R3",
+      "user_visible_behavior": "管理员经 POST /admin/skills/starter-pack-imports 导入含 metadata.work 的 S003 包后，解析结果写入不可变 skill_versions.manifest.work，同事务建立一行 skill_catalog_entries（默认 channel=candidate）；非法 frontmatter/未登记分类/缺 license 时整体 422 且 skill_versions 行数不变（原子性）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS01"
+      ],
+      "points": 6,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-skill/starter-import-catalog.test.ts",
+        "pnpm --filter api exec vitest run tests/work-skill/catalog-entries-migration.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 F-b。新增迁移不改 skill_versions 结构。E1/E8 原子性断言。"
+    },
+    {
+      "id": "WS03",
+      "priority": 3,
+      "area": "work-skill-meta",
+      "capability": "CAP-DATA",
+      "title": "目录/搜索/详情 API 与通道写接口",
+      "spec_ref": "01-skill-catalog.md#R3",
+      "user_visible_behavior": "成员调用 GET /skills/catalog（domain/channel/q/cursor）得到分页列表，GET /skills/catalog/:skillId 得到 manifest 明细；平台运营/管理员 PATCH 通道 candidate→verified/deprecated 并写审计；deprecated 默认隐藏；非管理员写接口 403，跨组织读 404。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS02"
+      ],
+      "points": 6,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-skill/catalog-api.test.ts",
+        "pnpm --filter api exec vitest run tests/work-skill/catalog-channel-transition.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 F-c。通道转移合法性 E2/E3/E4；RLS 与权限 E9。可与 WS04 并行。"
+    },
+    {
+      "id": "WS04",
+      "priority": 4,
+      "area": "work-skill-meta",
+      "capability": "CAP-DATA",
+      "title": "Skill 依赖就绪性计算与 API",
+      "spec_ref": "01-skill-catalog.md#R3",
+      "user_visible_behavior": "GET /skills/catalog/:skillId/readiness 按 required 能力分类 × 本组织已授权且启用工具的分类集合逐项返回 satisfied/missing/denied；全部 required 满足即 ready，optional 缺失仍 ready；工具授权查询失败返回 unknown（不显示 ready）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS02"
+      ],
+      "points": 5,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-skill/readiness-compute.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 F-d。就绪性不缓存为事实（R7）。A4/E5/E6 断言。可与 WS03 并行。"
+    },
+    {
+      "id": "WS05",
+      "priority": 5,
+      "area": "work-skill-meta",
+      "capability": "CAP-WEB",
+      "title": "Work Skill 目录屏 UI",
+      "spec_ref": "01-skill-catalog.md#R8",
+      "user_visible_behavior": "用户打开 /skill?screen=work-catalog 看到 S003 行（名称/stableId/domain/通道徽章/riskClass/就绪性徽章），左侧领域筛选与通道切换，详情抽屉展示依赖分组/溯源/地区/评测门状态占位/版本/后继；空态与清除筛选、就绪性 unknown 局部提示、无权限不展示通道按钮。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS03",
+        "WS04"
+      ],
+      "points": 7,
+      "wave": 2,
+      "design_ref": "ui-preview/skill-catalog/work-catalog-screen.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/work-skill-catalog.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11 F-e。has_ui=true。开工前 UI 须随契约束 skill-catalog 的 design-signoff.md 第①节由人类签核（ADR-023），本阶段先开发后补签。"
+    },
+    {
+      "id": "WF01",
+      "priority": 6,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "Workflow domain 模型、ports 与版本固定",
+      "spec_ref": "02-workflow-runtime.md#R3",
+      "user_visible_behavior": "发布 WorkflowDefinition 版本时系统校验图工厂 key:version 已注册、阶段 id 与图节点一一对应、Skill 引用可解析后置 published 且不可变；启动实例时冻结 definition 版本与每个 Skill 版本进 workflow_instances，v2 发布后在跑 v1 实例仍按 v1 与其冻结 Skill 版本跑完。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/workflow/definition-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/workflow/version-pinning.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代3-1。ADR-118 第1/5条。契约束 workflow-runtime。"
+    },
+    {
+      "id": "WF02",
+      "priority": 7,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "checkpointer 工厂与统一 receipt/lease",
+      "spec_ref": "02-workflow-runtime.md#R3",
+      "user_visible_behavior": "运行时经唯一 checkpointer 工厂取 saver（schema langgraph_workflow、checkpoint_ns=key:version、thread_id=instanceId、共享连接池）；receipt begin/finalize 幂等；lease 以 epoch CAS 获取，两个 worker 并发 resume 仅一个拿到 lease，epoch 过期后任何副作用前 assertLease 抛 workflow_lease_lost。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF01"
+      ],
+      "points": 6,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/workflow/checkpointer-factory.test.ts",
+        "pnpm --filter api exec vitest run tests/workflow/lease-epoch-cas.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代3-2。ADR-118「后果」：new PostgresSaver 只允许出现在工厂一处。E2 并发断言。"
+    },
+    {
+      "id": "WF03",
+      "priority": 8,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "start/resume/cancel API、事件日志、SSE 信封与演示 Workflow",
+      "spec_ref": "02-workflow-runtime.md#R3",
+      "user_visible_behavior": "发起人 POST /workflows/{key}/instances 带 requestId 得 201 与固定版本集；逐阶段业务产出写 workflow_stage_outputs 后推进 checkpoint；每次状态变化先写 workflow_events（单调 seq）再经 SSE 推送 {instanceId,seq,type,stateVersion,payload}；同 requestId 重复 start 只 1 个实例；断线带 Last-Event-ID 重连无缺号无重复，超窗先发 snapshot；cancel 带过期 expectedStateVersion 得 409 且含最新 projection。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF02"
+      ],
+      "points": 7,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/workflow/instance-lifecycle-api.test.ts",
+        "pnpm --filter api exec vitest run tests/workflow/sse-envelope-resume.test.ts",
+        "pnpm --filter api exec vitest run tests/workflow/demo-workflow-crash-recovery.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代3-3。演示 Workflow 作崩溃恢复测试载体。projection 不读 channel_values（R7）。A1/E3/E10 断言。已知延期（iter3 review）：①E6 仅部分——pg-workflow-access 尚未校验 Agent 版本快照的 workflowAllowlist，「Agent 不在白名单→403」归 AG05（Workflow 白名单执行校验）落地；当前 403 断言只覆盖未发布/未启用 Agent。iter3 第二轮已补：②R3 过期 lease 接管——wf_expired_lease_instances（SECURITY DEFINER，只返回标识）+ WorkflowRuntimeService.takeOverExpired，生产入口按 leaseTtl/2 定时扫描，epoch CAS 保证并发只一个接管（demo-workflow-crash-recovery 断言）；③A1 回放被拒的 cancel/resume：409 code 稳定，latestProjection 在回放时刻重新读取（instance-lifecycle-api 断言）。"
+    },
+    {
+      "id": "WF04",
+      "priority": 9,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "effect-gateway：副作用执行前权限重查与不重放对账",
+      "spec_ref": "02-workflow-runtime.md#R3",
+      "user_visible_behavior": "阶段的外部副作用必经 effect-gateway：assertLease → 重查发起人∩Agent 权限∩ToolExecutionAuthority∩MCP sideEffect 封顶 → 以 (instanceId,stageId,effectKey) 写 effect receipt begin → 调用工具 → finalize 带 provenance；副作用 begin 后崩溃恢复时不重放（对账或 needs_attention）；执行前授权被撤则阶段 blocked_permission 带 reasonCode。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF03"
+      ],
+      "points": 4,
+      "wave": 4,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/workflow/effect-gateway-recheck.test.ts",
+        "pnpm --filter api exec vitest run tests/workflow/effect-no-replay.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代4-4。ADR-118 第6条。E1/E4 断言：桩调用计数=1。"
+    },
+    {
+      "id": "WF05",
+      "priority": 10,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "人工门 approve/deny",
+      "spec_ref": "02-workflow-runtime.md#R3",
+      "user_visible_behavior": "阶段定义 humanGate 时实例置 awaiting_gate_decision，写 gate_opened 事件（含副作用预览）并释放 lease 挂起；审批人 approve（带 expectedStateVersion）后恢复执行并按第5步重查权限；deny 必填理由、不产生 effect receipt、走 onDeny 分支；两人同时审批第二人得 409 gate_already_decided；未被指定成员审批 403；默认发起人不能自批。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF04"
+      ],
+      "points": 3,
+      "wave": 4,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/workflow/human-gate-approve-deny.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代4-5。A4/A5/E13 断言。"
+    },
+    {
+      "id": "WF06",
+      "priority": 11,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "pg-boss 泛化与 webhook 触发",
+      "spec_ref": "02-workflow-runtime.md#R2",
+      "user_visible_behavior": "pg-boss 作业到期以 {kind:'workflow',triggerId} 唤醒（原 agent-run 唤醒兼容），作业 id 作 requestId 重复投递只建 1 个实例；POST /workflow-triggers/{triggerId}/webhook 校验 HMAC-SHA256 签名与 5 分钟时间戳窗，以 Idempotency-Key 作 requestId；签名错 401 不建实例，同 key 不同 payload 409 idempotency_key_reused。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF03"
+      ],
+      "points": 3,
+      "wave": 4,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/workflow/trigger-pgboss-webhook.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代4-6。E7/E8 断言。密钥不写入事件日志与 provenance（R9）。"
+    },
+    {
+      "id": "WF07",
+      "priority": 12,
+      "area": "workflow-runtime",
+      "capability": "CAP-WORKFLOW",
+      "title": "引导式研究迁移到通用 Runtime",
+      "spec_ref": "02-workflow-runtime.md#R3",
+      "user_visible_behavior": "guided-research-workflow-graph 注册为 guided-research@1，现有 guided-research controller operations 路径与响应形状不变、内部改走 workflow 用例；receipt 迁到 workflow_receipts、checkpoint 从 langgraph_interview 迁至 langgraph_workflow；删除对 interview/workflow runtime 的反向 import；引导式研究既有 e2e 在新运行时全绿，未迁会话报告清单（期望 0）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF04"
+      ],
+      "points": 4,
+      "wave": 4,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/workflow/guided-research-migration.test.ts",
+        "pnpm --filter api exec vitest run tests/research/guided-research-runtime-e2e.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代4-7。ADR-118 第8条 Stage 1；数字访谈不迁。E12 迁移清单断言。"
+    },
+    {
+      "id": "WF08",
+      "priority": 13,
+      "area": "workflow-runtime",
+      "capability": "CAP-WEB",
+      "title": "Workflow 运行面板与审批 UI",
+      "spec_ref": "02-workflow-runtime.md#R8",
+      "user_visible_behavior": "发起人在运行面板看到阶段时间线（状态/attempt/固定 Skill 版本）、SSE 实时日志、产出链接、取消/从该阶段重试按钮、needs_attention 与 blocked_permission 提示条；审批人在待我审批列表与审批抽屉看到副作用预览并批准/拒绝；面板覆盖运行中/等待审批/被拒/权限阻断/断线重连/失败可重试/空列表七种态；无运行权限用户看不到入口。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF03",
+        "WF05"
+      ],
+      "points": 2,
+      "wave": 4,
+      "design_ref": "ui-preview/workflow-runtime/run-panel.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/workflow-run-panel.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11 迭代4-8。has_ui=true。UI 须随契约束 workflow-runtime 的 design-signoff.md 第①节签核（ADR-023），先开发后补签。"
+    },
+    {
+      "id": "AG01",
+      "priority": 14,
+      "area": "agent-role",
+      "capability": "CAP-DATA",
+      "title": "Agent 角色冻结字段契约、迁移与快照接入",
+      "spec_ref": "03-agent-role.md#R3",
+      "user_visible_behavior": "AgentDefinition 新增 avatar/roleCategory/catalogSource/workflowAllowlist/delegationPolicy/escalationPolicy/kpi 并全部加入 SNAPSHOT_FROZEN_FIELDS；迁移给 agent_versions 加列并回填默认值（avatar 空→首字母、catalogSource='org'、workflowAllowlist=[]）；发布后版本快照 JSON 含全部新字段，修改草稿不影响已发布快照。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 6,
+      "wave": 5,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/agent/role-fields-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/agent/version-snapshot-frozen-fields.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 ①。ADR-116 第3条（Agent 即 DigitalHuman，不建 DigitalHuman 表）。契约束 agent-role。可与 AG02 并行。"
+    },
+    {
+      "id": "AG02",
+      "priority": 15,
+      "area": "agent-role",
+      "capability": "CAP-DATA",
+      "title": "starter-pack toolPolicy 放宽为能力分类与 DB CHECK 迁移",
+      "spec_ref": "03-agent-role.md#R3",
+      "user_visible_behavior": "AgentStarterPackEntry.toolPolicy 改为能力分类字符串数组（仅 knowledge.search/crm.read 之类，不允许凭证/token/供应商 ID）；新迁移删除旧「必须为空数组」CHECK，替换为「数组且每项符合分类格式」CHECK；写入 [\"knowledge.search\"] 通过，写入 [{\"token\":\"x\"}] 被 CHECK 拒绝。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 5,
+      "wave": 5,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/agent/starter-pack-toolpolicy-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/agent/toolpolicy-check-migration.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 ②。ADR-120 第2条：写权限不从包继承。可与 AG01 并行。"
+    },
+    {
+      "id": "AG03",
+      "priority": 16,
+      "area": "agent-role",
+      "capability": "CAP-DATA",
+      "title": "官方角色包（D002/D003/D005/D011）内容与按组织导入",
+      "spec_ref": "03-agent-role.md#R3",
+      "user_visible_behavior": "平台运营产出 4 个官方角色包（workflowAllowlist 与 skillVersions 逐字取自 DIGITALHUMAN-COMPOSITION-MATRIX.md）；管理员导入后每组织出现 4 个 catalogSource='official' Agent 草稿，toolPolicy 分类不产生任何授权；白名单引用未注册 Workflow 或不存在 Skill 版本时导入失败 UNRESOLVED_WORKFLOW_REF/UNRESOLVED_SKILL_REF 且 DB 无新增行。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "AG01",
+        "AG02"
+      ],
+      "points": 5,
+      "wave": 5,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent/official-role-pack-import.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 ③。依赖第2轮 Skill 目录与第3轮 Workflow 注册表。白名单/skillVersions 单一事实源=组合矩阵（lint:work-stack-graph）。E1/E2 断言。"
+    },
+    {
+      "id": "AG04",
+      "priority": 17,
+      "area": "agent-role",
+      "capability": "CAP-WEB",
+      "title": "头像组件、Agent 目录页与管理详情角色区块",
+      "spec_ref": "03-agent-role.md#R8",
+      "user_visible_behavior": "成员访问 Agent 目录页按 roleCategory 分组看到 4 张官方角色卡片（插画头像/名称/roleLabel/官方徽标/可发起 Workflow 列表/能力就绪状态），可筛选分类、搜索、开始对话；无 avatar 回退首字母；管理详情页新增角色区块；无权成员看不到卡片且直链 404。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "AG03"
+      ],
+      "points": 7,
+      "wave": 5,
+      "design_ref": "ui-preview/agent-role/agent-directory.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/agent-directory.test.tsx tests/ui/avatar-illustration.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11 ④。has_ui=true。UI 须随契约束 agent-role 的 design-signoff.md 第①节签核（ADR-023），先开发后补签。"
+    },
+    {
+      "id": "AG05",
+      "priority": 18,
+      "area": "agent-role",
+      "capability": "CAP-WORKFLOW",
+      "title": "Workflow 白名单执行校验",
+      "spec_ref": "03-agent-role.md#R3",
+      "user_visible_behavior": "Agent 请求发起 Workflow 时 Runtime 读当前 run 绑定的 Agent 版本快照 workflowAllowlist：命中则创建实例（Skill 版本由 Workflow 固定，Agent 无需挂载）；未命中返回 WORKFLOW_NOT_ALLOWED、不创建实例、不静默改走其它 Workflow，聊天可见失败文案且审计留痕。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "AG03",
+        "WF03"
+      ],
+      "points": 4,
+      "wave": 5,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent/workflow-allowlist-enforce.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 ⑤。依赖第3轮 Runtime。ADR-118 第9条。E3 断言：D002 请求 W027 被拒、W001 成功。"
+    },
+    {
+      "id": "AG06",
+      "priority": 19,
+      "area": "agent-role",
+      "capability": "CAP-WORKFLOW",
+      "title": "escalate 中断 kind",
+      "spec_ref": "03-agent-role.md#R3",
+      "user_visible_behavior": "AgentInterruptKind 增加 escalate（载荷 {matter,reason,target,contextRefs}），AGENT_INTERRUPT_KIND_TO_TOOL_NAME 同步增加映射；Agent 命中 escalationPolicy 时线程进入 pending，目标人 resolve/reject 经 decision-guard 校验 kind 与决策人身份后恢复；非目标人决策被拒、错形载荷得 INTERRUPT_KIND_MISMATCH、超时保持 pending 不自动批准。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WF05"
+      ],
+      "points": 3,
+      "wave": 5,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/agent/escalate-interrupt-kind.test.ts",
+        "pnpm --filter api exec vitest run tests/agent/escalate-decision-guard.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 ⑥。依赖第4轮 HITL。E6/E7 断言。映射不两处手写（R10）。"
+    },
+    {
+      "id": "AG07",
+      "priority": 20,
+      "area": "agent-role",
+      "capability": "CAP-WORKFLOW",
+      "title": "委派/转交（handoff）",
+      "spec_ref": "03-agent-role.md#R3",
+      "user_visible_behavior": "Agent 发出 request-handoff{targetRole,packet}，系统校验 targetRole∈delegationPolicy.allowedTargets 且深度≤maxDepth；交接包只含问题原文/已确认范围/证据包 ID/未决项（不含摘录全文）；发起人确认后在接收方新开线程并以发起人身份重读引用；目标不在允许集或深度超限 HANDOFF_NOT_ALLOWED；接收方对发起人无权读的引用显示「无法展示此来源」。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "AG05"
+      ],
+      "points": 4,
+      "wave": 10,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent/handoff-delegation.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 ⑦，第10轮收口。E5/E8 断言（fail closed）。"
+    },
+    {
+      "id": "EV01",
+      "priority": 21,
+      "area": "work-eval",
+      "capability": "CAP-EVAL",
+      "title": "评测套件格式契约与 S003 首个套件",
+      "spec_ref": "04-eval-gates.md#R3",
+      "user_visible_behavior": "packages/contracts 的 WorkEvalSuite/WorkEvalCase 校验 evals/work-stack/S003/{suite.json,cases.jsonl,fixtures,grader.ts}；suite.json.stableId 等于目录名且等于 manifest.evalSuiteId；S003 套件含 E1–E10 case 及至少一条权限拒绝与一条提示注入 case；suite.json 缺字段时校验退出非 0 并打印字段路径。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 6,
+      "wave": 6,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/work-eval/suite-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/work-eval/s003-suite-shape.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 EV01a。ADR-119（权威）。路径口径以 ADR-119 evals/work-stack/<ID>/ 为准。契约束 work-eval。"
+    },
+    {
+      "id": "EV02",
+      "priority": 22,
+      "area": "work-eval",
+      "capability": "CAP-EVAL",
+      "title": "harness eval 回环运行器与报告",
+      "spec_ref": "04-eval-gates.md#R3",
+      "user_visible_behavior": "pnpm harness eval --entity S003 解析套件、用回环模型 + 夹具工具桩逐 case 跑被测固定版本、grader 给 pass/fail/error，写 evals/work-stack/S003/reports/<runId>.json（含版本 digest/夹具 digest/grader 版本/逐 case 结果）并打印汇总，任一 fail/error 退出非 0；--baseline 并列无该 Skill 通用 Agent 结果；夹具含疑似真实个人数据时拒绝运行。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "EV01"
+      ],
+      "points": 7,
+      "wave": 6,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-eval/eval-runner.test.ts",
+        "pnpm --filter api exec vitest run tests/work-eval/eval-report-baseline.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 EV01b。确定性 case 走回环；真实模型只走 real-model-e2e lane。E2/E3/E11 断言。运行器逻辑测试以 vitest 覆盖（CLI 子命令挂 .harness cli 分发）。"
+    },
+    {
+      "id": "EV03",
+      "priority": 23,
+      "area": "work-eval",
+      "capability": "CAP-EVAL",
+      "title": "lint-work-stack-gates G0–G4 门脚本与反证测试",
+      "spec_ref": "04-eval-gates.md#R3",
+      "user_visible_behavior": "门脚本对每个含 metadata.work 实体判 G0 身份/G1 溯源许可/G2 schema/G3 权限注入/G4 功能，输出逐门 pass/fail/not_applicable + 原因，任一官方实体 G0–G4 fail 退出非 0，产出 WorkGateStatus；反证测试用坏 fixture（缺 license、未登记分类、缺注入 case、过期报告、无套件）各自被判 fail，判 pass 则测试红。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "EV01"
+      ],
+      "points": 7,
+      "wave": 6,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-eval/gates-g0-g4.test.ts",
+        "pnpm --filter api exec vitest run tests/work-eval/gates-counterproof.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 EV02a。参照 lint-work-stack-graph 写法。G0–G3 静态部分可与 EV02 并行。E1/E4/E7/E10 断言。门脚本本体行为以 vitest 反证测试覆盖。"
+    },
+    {
+      "id": "EV04",
+      "priority": 24,
+      "area": "work-eval",
+      "capability": "CAP-WEB",
+      "title": "门状态回写与目录门状态展示",
+      "spec_ref": "04-eval-gates.md#R8",
+      "user_visible_behavior": "平台运营 POST /admin/skills/catalog/:skillId/gate-status 以 WorkGateStatus 写入当前版本门状态（旧版本记录保留），非平台运营回写 403 且目录门状态不变；成员在 /skill?screen=work-catalog 详情抽屉看到 G0–G5 六枚徽章（含原因/判定时间/版本/subject vs baseline 通过数），列表行显示门状态缩略；新版本导入后门状态为「未评测」。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "EV03",
+        "WS03"
+      ],
+      "points": 4,
+      "wave": 6,
+      "design_ref": "ui-preview/work-eval/gate-status-panel.png",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-eval/gate-status-writeback.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/work-eval-gate-status.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11 EV02b。has_ui=true。任何角色不能手工改门状态字段，只接受门脚本产出的 WorkGateStatus（R5）。UI 须随契约束 work-eval 签核，先开发后补签。E9/A4 断言。"
+    },
+    {
+      "id": "EV05",
+      "priority": 25,
+      "area": "work-eval",
+      "capability": "CAP-EVAL",
+      "title": "G5 对比基线批量评测与 verified 通道联动",
+      "spec_ref": "04-eval-gates.md#R3",
+      "user_visible_behavior": "G5 判定 subject 确定性 case 通过数严格大于基线且实体文档必过 case 全过（S003 为 E2/E3/E6）；G5 pass 后 PATCH /admin/skills/catalog/:skillId 的 candidate→verified 以门状态记录为准，G5 未过则 409；pnpm harness eval --all-skills --baseline --write-back 对 58 个 Skill 批量跑并产出汇总，目录 verified 数=报告中 G5 pass 数；非 verified Skill 被官方 Agent 绑定时被拒。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "EV03",
+        "EV04"
+      ],
+      "points": 6,
+      "wave": 10,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-eval/g5-baseline-verified.test.ts",
+        "pnpm --filter api exec vitest run tests/work-eval/eval-all-skills-batch.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11 EV03，第10轮。依赖 58 个 Skill 套件由第7–9轮补齐。E5/E6 断言：持平即失败。"
+    },
+    {
+      "id": "CT01",
+      "priority": 26,
+      "area": "work-content-research",
+      "capability": "CAP-CONTENT",
+      "title": "研究线 Skill 包作者化与导入",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "把 D002 矩阵行的研究类 Skill（S003/S063/S171/S169/S172/S170/S016/S020/S168/S167 及 Workflow 依赖 S010/S012/S017/S157/S158/S160/S161/S164）按实体文档 §7 产出 schema 写成 SKILL.md + references/ 并带 v2 ID，构建脚本产出 starter-pack JSON（每文件 digest=sha256，重复构建 digest 不变），篡改任一 SKILL.md 后校验退出非 0 并指名文件。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS02"
+      ],
+      "points": 6,
+      "wave": 7,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/research-skill-pack-build.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第7轮。依赖第2轮 WorkSkillManifest。仅评审 PASS 实体进入实现（修订 R1）。契约束 work-content。"
+    },
+    {
+      "id": "CT02",
+      "priority": 27,
+      "area": "work-content-research",
+      "capability": "CAP-WORKFLOW",
+      "title": "研究线 Workflow 定义（W001/W006/W009/W057/W060）",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "按各 Workflow 文档 §5 阶段表写代码定义图，每个 Workflow 版本固定其 Skill 的 semanticVersion（ADR-118 #9）；Runtime 注册时校验矩阵行每个 Skill ID 都已 PASS 且入目录，否则 WORKFLOW_SKILL_PIN_UNRESOLVED 且该 Workflow 目录显示「不可用」，其它不受影响；每个 Workflow 定义的 skillPins 集合等于 WORKFLOW-SKILL-MATRIX.md 对应行。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT01",
+        "WF03"
+      ],
+      "points": 6,
+      "wave": 7,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/research-workflow-definitions.test.ts",
+        "pnpm --filter api exec vitest run tests/work-content/skillpins-matrix-closure.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第7轮。E2 断言。矩阵引用闭合 lint（V8）。"
+    },
+    {
+      "id": "CT03",
+      "priority": 28,
+      "area": "work-content-research",
+      "capability": "CAP-WORKFLOW",
+      "title": "研究线端到端：调研到简报",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "D002 发起 W001 依次 S003 检索→S063 综合→S171 证据评审→S020 简报→S010 风险→到 G2 审阅门→G3 分发（外部收件人类别双签）→effect-gateway 重查发布权限后发布，实例 completed，简报每条结论带 evidenceRefs、effect 日志恰好 1 次发布；无可检索材料时产出「数据需求说明」并以 completed_with_holds 结束（不编造结论）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT02",
+        "WF04"
+      ],
+      "points": 4,
+      "wave": 7,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/research-to-brief-e2e.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第7轮。回环模型 + 桩工具确定性（≤5min）。V3/A4 断言。"
+    },
+    {
+      "id": "CT04",
+      "priority": 29,
+      "area": "work-content-product",
+      "capability": "CAP-CONTENT",
+      "title": "产品线 Skill 包作者化与导入",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "覆盖 D003 矩阵行 14 个 Skill 与 D011 矩阵行 9 个 Skill（并集去重）及 W030/W031/W032/W002 额外依赖（S070/S142/S076/S157/S161/S074/S155/S006/S017/S007/S162）写成包并导入；D011 的 3 条 skillGap 以 skillGaps 显式登记在角色包、不造新 Skill；构建可重复 digest 一致，manifest 缺 v2 ID/digest 不符/引用未 PASS 实体时构建退出非 0。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS02"
+      ],
+      "points": 6,
+      "wave": 8,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/product-skill-pack-build.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第8轮。E1 断言。skillGap 只登记不实现（R6）。"
+    },
+    {
+      "id": "CT05",
+      "priority": 30,
+      "area": "work-content-product",
+      "capability": "CAP-WORKFLOW",
+      "title": "产品线 Workflow 定义（W027–W032/W002）",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "按文档 §5 写 W027–W032 与 W002 的代码定义图并固定 Skill 版本；D011 白名单可发起 W027/W028/W029/W031/W002、不能发起 W030/W032；每个 Workflow 的 skillPins 等于矩阵对应行，注册时未解析引用报错且不影响其它 Workflow。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT04",
+        "WF03"
+      ],
+      "points": 8,
+      "wave": 8,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/product-workflow-definitions.test.ts",
+        "pnpm --filter api exec vitest run tests/work-content/product-skillpins-matrix.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第8轮。8 点较大，认领时可按 Workflow 再拆。E2 断言。"
+    },
+    {
+      "id": "CT06",
+      "priority": 31,
+      "area": "work-content-product",
+      "capability": "CAP-WORKFLOW",
+      "title": "产品线端到端：问题到 PRD",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "D003 发起 W029 依次 S064 问题定义→S065 机会地图→S067 PRD→S068 优先级→S162 指标→人工门批准→PRD 工件发布；D011 发起 W030 得 WORKFLOW_NOT_ALLOWLISTED 并提示可转交 D003（不静默降级）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT05",
+        "WF05"
+      ],
+      "points": 4,
+      "wave": 8,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/problem-to-prd-e2e.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第8轮。V4/E3 断言。"
+    },
+    {
+      "id": "CT07",
+      "priority": 32,
+      "area": "work-content-sales",
+      "capability": "CAP-CONTENT",
+      "title": "销售线 Skill 包作者化与导入",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "覆盖 D005 矩阵行 14 个 Skill 与 W015/W016/W018 额外依赖（S035/S033/S010/S009）写成包并导入；构建可重复 digest 一致，引用未 PASS 实体或 digest 不符时退出非 0 指名文件。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "WS02"
+      ],
+      "points": 6,
+      "wave": 9,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/sales-skill-pack-build.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第9轮。E1 断言。"
+    },
+    {
+      "id": "CT08",
+      "priority": 33,
+      "area": "work-content-sales",
+      "capability": "CAP-WORKFLOW",
+      "title": "销售线 Workflow 定义（W011–W016/W018）",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "按文档 §5 写 W011–W016 与 W018 代码定义图并固定 Skill 版本，含 W011 admit/intake/扩充(并发5)/分层/分诊/卫生阶段与 W013 会后三联决策；每个 skillPins 等于矩阵对应行（W013 引用 S009、W018 引用 S035/S036 等跨线 Skill）；注册未解析引用报错不影响其它。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT07",
+        "WF03"
+      ],
+      "points": 9,
+      "wave": 9,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/sales-workflow-definitions.test.ts",
+        "pnpm --filter api exec vitest run tests/work-content/sales-skillpins-matrix.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第9轮。9 点较大，认领时可按 Workflow 再拆。W017 不实现（不在第一阶段清单）。"
+    },
+    {
+      "id": "CT09",
+      "priority": 34,
+      "area": "work-content-sales",
+      "capability": "CAP-WORKFLOW",
+      "title": "销售线端到端：线索到合格（CRM 写入审批/拒绝/幂等重放）",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "W011 批准路径经 effect-gateway 每条 crm.write 前重查写权限 + 乐观并发写入租户 CRM 桩恰好 N 条并 notify.inapp，实例 completed 或 completed_with_holds；驳回路径 CRM 写入 0 次；写入第 1 条后杀进程恢复总写入仍为 N（幂等重放）；版本冲突该条 conflict 未覆盖；G1 后撤销审批人资格该条 forbidden；未授权 crm.write 时走 written_manual 产出人工核对清单。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT08",
+        "WF04"
+      ],
+      "points": 4,
+      "wave": 9,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/lead-to-qualified-e2e.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第9轮。依赖 ADR-120 分类落地；未落地则只走 written_manual（R11/A5）。V5/E4/E5/E6 断言。"
+    },
+    {
+      "id": "CT10",
+      "priority": 35,
+      "area": "work-content-board",
+      "capability": "CAP-WEB",
+      "title": "Board 只读投影（Agent 参与者与 Workflow 运行卡）",
+      "spec_ref": "05-content-lines.md#R8",
+      "user_visible_behavior": "Board 投影读模型把 Workflow 运行投成只读卡（board.SOURCE_KINDS 单源新增 workflow_run）：标题=Workflow 名+发起对象，状态映射 requested/running→in_progress、awaiting_*→review、completed*→done、失败终态→done 带失败徽标，卡显示参与 Agent 头像并可点击跳实例详情；投影仍纯函数、调用方先按权限过滤，无读权限成员的投影中该卡 ID 不存在，运行卡不可拖动，项目视图与全局视图卡 ID 集合相同。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT03",
+        "CT06",
+        "CT09"
+      ],
+      "points": 5,
+      "wave": 10,
+      "design_ref": "ui-preview/work-content/board-run-card.png",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/board-run-projection.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/board-run-card.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "第10轮。has_ui=true。投影是派生只读视图非第二事实源（R7）。UI 须随契约束 work-content 签核，先开发后补签。V7/E10 断言。"
+    },
+    {
+      "id": "CT11",
+      "priority": 36,
+      "area": "work-content-board",
+      "capability": "CAP-CONTENT",
+      "title": "81 实体目录全量可见对账与全量回归",
+      "spec_ref": "05-content-lines.md#R3",
+      "user_visible_behavior": "目录 API 返回第一阶段 58 个 Skill + 19 个 Workflow + 4 个角色 = 81 条，ID 集合与 WORK-STACK-320-LIST.md 第一阶段节逐一相等（缺一即红），W017 不出现；每实体 G 门状态非空；三条旅程 e2e 与 ./init.sh 全绿（含引导式研究既有 e2e）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "CT10",
+        "EV05"
+      ],
+      "points": 4,
+      "wave": 10,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/work-content/phase1-entity-reconciliation.test.ts",
+        "pnpm --filter api exec vitest run tests/work-content/full-regression-suite.test.ts"
+      ],
+      "evidence": "",
+      "notes": "第10轮。V2/V9 断言。全量回归收口。"
+    }
+  ]
+}

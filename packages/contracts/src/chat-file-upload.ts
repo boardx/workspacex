@@ -45,6 +45,17 @@ export const ATTACHMENT_LIMITS = {
   maxAttachmentsPerMessage: 10,
 } as const;
 
+/** Synchronous Markdown extraction budget; larger chat attachments use the async lane. */
+export const ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES = 3 * 1024 * 1024;
+
+/** Browser-only empty-type fallback. This declaration never replaces server byte verification. */
+export function normalizeAttachmentMime(filename: string, declaredMime: string): string {
+  if (declaredMime !== "") return declaredMime;
+  if (/\.md$/i.test(filename)) return "text/markdown";
+  if (/\.txt$/i.test(filename)) return "text/plain";
+  return declaredMime;
+}
+
 /**
  * 允许上传的 MIME 白名单（**唯一事实源**）。签核值：PDF / 纯文本·markdown / 常见图片 /
  * 常见 Office / csv / WAV / MP3（标准音频工具原件入口）。服务端**必须**按它拒绝白名单外的类型（`FILE_TYPE_REJECTED`），

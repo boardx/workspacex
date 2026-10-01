@@ -28,6 +28,8 @@ import {
 
 import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
 import { interview } from "@repo/contracts";
+import { readInterviewMarkdownDocuments } from "./interview-markdown-store";
+import { projectMarkdownHistory } from "./interview-markdown-history";
 
 /** Shared by history, status filtering and detail reads (session table alias: s). */
 const DIGITAL_INTERVIEW_READ_STATUS_SQL = `CASE
@@ -236,19 +238,17 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
            FROM interview_sessions s
            LEFT JOIN digital_quick_interviews q ON q.org_id=s.org_id AND q.interview_id=s.id
           WHERE s.org_id = $1 AND s.digital_status IS NOT NULL AND s.archived=false
-            AND ($3::text IS NULL OR (${DIGITAL_INTERVIEW_READ_STATUS_SQL}) = $3)
             AND ${VISIBILITY_PREDICATE}
           ORDER BY s.updated_at DESC, s.id DESC`,
-        [input.orgId, input.viewerUserId, input.status ?? null],
+        [input.orgId, input.viewerUserId],
       );
-      return result.rows.map((row) => ({
-        item: guard({ kind: "interview", id: row.id }, toListItem(row)),
-        facts: {
-          projectId: row.project_id,
-          createdBy: row.created_by,
-          isExplicitCollaborator: row.is_collaborator,
-        },
-      }));
+      const projected=[];
+      for(const row of result.rows) {
+        const projection=await projectMarkdownHistory(session,input.orgId,toListItem(row));
+        if(input.status && projection.status!==input.status) continue;
+        projected.push({item:projection.item,facts:{projectId:row.project_id,createdBy:row.created_by,isExplicitCollaborator:row.is_collaborator}});
+      }
+      return projected;
     });
   }
 
@@ -436,7 +436,7 @@ export async function readDigitalInterviewWorkflow(
   const row = base.rows[0];
   if (!row) return null;
 
-  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports, briefs, policies, readinessDecisions, reportReviews] = await Promise.all([
+  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports, briefs, policies, readinessDecisions, reportReviews, artifacts] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
       section: DigitalInterviewWorkflowView["questions"][number]["section"]; goal_ids: string[];
@@ -551,9 +551,25 @@ export async function readDigitalInterviewWorkflow(
         WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND report_id=$4`,
       [orgId, interviewId, row.revision_id, row.report_id],
     ),
+    session.query<{
+      artifact_id: string; step: "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
+      version_number: number; title: string; markdown: string;
+      status: "draft" | "confirmed" | "generating" | "failed" | "completed";
+      generated_at: Date | string | null; failure: { code: string; retryable: boolean } | null;
+      evidence_mode: "simulated" | "participant" | "mixed";
+    }>(
+      `SELECT DISTINCT ON (step) artifact_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode
+         FROM digital_interview_artifact_versions
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3
+        ORDER BY step, version_number DESC`,
+      [orgId, interviewId, row.revision_id],
+    ),
   ]);
 
   const reportRow = reports.rows[0];
+  // Marked sources are verified before any consumer sees their body. Legacy rows
+  // remain readable during the additive rollout without mutation in this GET.
+  await readInterviewMarkdownDocuments(session, orgId, interviewId, row.revision_id);
   const stale = reportRow?.stale ?? false;
   const status = row.digital_status as DigitalInterviewStatusName;
   const scope = row.project_id !== null
@@ -687,6 +703,12 @@ export async function readDigitalInterviewWorkflow(
     questions: mappedQuestions,
     questionCandidates: mappedQuestionCandidates,
     expertRuns: mappedRuns,
+    artifacts: artifacts.rows.map((artifact) => ({
+      artifactId: artifact.artifact_id, step: artifact.step, title: artifact.title, markdown: artifact.markdown,
+      version: artifact.version_number, status: artifact.status,
+      generatedAt: artifact.generated_at === null ? null : new Date(artifact.generated_at).toISOString(),
+      failure: artifact.failure, evidenceMode: artifact.evidence_mode,
+    })),
     skillThreadId: row.skill_thread_id,
     skillMessages: messages.rows.map((message) => ({
       messageId: message.id,

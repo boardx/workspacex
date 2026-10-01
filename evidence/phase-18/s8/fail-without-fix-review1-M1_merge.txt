@@ -1,0 +1,7 @@
+### M1 merge-time guard removed (kept claim without own support)
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+FAILED as expected
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 保留方（较早那条）的支撑证据不在了 ⇒ 这一对不合（否则撤销时 F07 会把保留方收掉） 29ms
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 有支撑时照常合并；之后保留方自己的原话证据没了，再撤销 ⇒ 复制来的支撑留着，保留方不被 F07 收掉 11ms
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)

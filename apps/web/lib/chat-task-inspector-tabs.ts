@@ -25,10 +25,9 @@
  * 契约里的五标签由服务端 `rightTabs()` 计算，本组页签从来就不是它的投影（#2068 起由本文件定）。
  * 与 `roster` 一样是可选能力：调用方不开就不占页签栏一个位置。
  */
-export type InspectorTab = "progress" | "materials" | "artifacts" | "roster" | "memory" | "run-details";
+export type InspectorTab = "materials" | "artifacts" | "roster" | "memory" | "run-details";
 
 export const INSPECTOR_TABS: readonly InspectorTab[] = [
-  "progress",
   "materials",
   "artifacts",
   "roster",
@@ -58,7 +57,7 @@ export function nextInspectorTab(
   if (prev === null) return current;
   if (next.artifactsCount > prev.artifactsCount) return "artifacts";
   if (next.materialsCount > prev.materialsCount) return "materials";
-  if (next.isRunning && !prev.isRunning) return "progress";
+  // 2026-09-30：「进度」页签已撤——计划只在消息流里显示一处。run 开始不再把右栏切走。
   return current;
 }
 

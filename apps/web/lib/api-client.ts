@@ -160,6 +160,8 @@ export interface ApiRequestOptions {
   readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly query?: Record<string, string | undefined>;
   readonly body?: unknown;
+  /** Multipart bytes use the same authorization and error-envelope handling. */
+  readonly multipartBody?: FormData;
   /** 缺省读 `localStorage`；测试或需要显式传 token 的调用方可以覆盖。 */
   readonly sessionToken?: string | null;
   /**
@@ -214,6 +216,7 @@ function buildUrl(path: string, query?: Record<string, string | undefined>): str
 
 /** 统一的 JSON 请求 + 错误信封解析。所有真实 API 调用都应该经过这里，而不是各自 `fetch`。 */
 export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}): Promise<T> {
+  if (opts.body !== undefined && opts.multipartBody !== undefined) throw new Error("Choose JSON or multipart body");
   const token = opts.sessionToken !== undefined ? opts.sessionToken : getStoredSessionToken();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -223,7 +226,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     method: opts.method ?? "GET",
     headers,
     credentials: "include",
-    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    body: opts.multipartBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
     signal: opts.signal,
   });
 

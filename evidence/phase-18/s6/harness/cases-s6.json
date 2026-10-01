@@ -1,0 +1,24 @@
+{
+  "says": {
+    "S6-211": {
+      "say": "我决定关注 211 高校",
+      "extract": { "entities": [], "claims": [ { "statement": "我决定关注 211 高校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定关注 211 高校", "timeExpr": null } ] }
+    },
+    "S6-985": {
+      "say": "改成关注 985 高校吧",
+      "extract": { "entities": [], "claims": [ { "statement": "改成关注 985 高校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "改成关注 985 高校吧", "timeExpr": null } ] }
+    },
+    "S6-QH": {
+      "say": "改成关注清华高校吧",
+      "extract": { "entities": [], "claims": [ { "statement": "改成关注清华高校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "改成关注清华高校吧", "timeExpr": null } ] }
+    },
+    "S6-FIGMA": {
+      "say": "我决定这周先用 Figma 做原型",
+      "extract": { "entities": [], "claims": [ { "statement": "我决定这周先用 Figma 做原型", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定这周先用 Figma 做原型", "timeExpr": "这周" } ] }
+    },
+    "S6-TODO": {
+      "say": "下个月之前交周报",
+      "extract": { "entities": [], "claims": [ { "statement": "下个月之前交周报", "kind": "todo", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "下个月之前交周报", "timeExpr": "下个月之前" } ] }
+    }
+  }
+}

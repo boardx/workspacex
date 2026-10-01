@@ -21,6 +21,7 @@ import type {
   IdentityRepository,
   OrgMembershipRow,
   OrganizationRow,
+  NonWorkshopStandingRow,
   ProjectMembershipRow,
 } from "../../src/application/identity/ports";
 import type { OrgId } from "../../src/domain/org-id";
@@ -54,6 +55,10 @@ class ProjectingIdentityRepository implements IdentityRepository {
     const row = this.members.read(projectId, userId);
     if (row === null) return null;
     return { projectRole: row.projectRole, groupId: row.groupId, isHost: row.isHost };
+  }
+  /** #4584：本 fake 只装工作坊身份——非工作坊容器的两档身份一律「不是这类容器」。 */
+  async findNonWorkshopStanding(): Promise<NonWorkshopStandingRow | null> {
+    return null;
   }
   async findBindings(_o: OrgId, _objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>> {
     return new Map();

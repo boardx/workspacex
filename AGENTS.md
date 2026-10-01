@@ -55,6 +55,8 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
    `active-features.json`(派生视图)并读出唯一 `in_progress` 的 feature——该文件是**不入库**
    的投影(H3A-009),干净 clone 上不存在,直接去 `cat` 会读到空(#401)。
 3. 只做那一个 feature。做完用验证命令证明,再收尾。
+4. **任何目标(feature / 直接交办 / 对话)动手前先复述理解 + 画着色 Mermaid 执行计划**(灰未开始/黄已开始/绿已完成/
+   紫已测试/红被堵塞),全程改色 → `.harness/instructions/execution-plan-visualization.md`(`execution-plan` skill)。
 
 ## 不可违反的硬约束
 - **仓库即唯一事实来源**:你看不到的东西就不存在。所有上下文进仓库。

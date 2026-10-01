@@ -6,13 +6,22 @@
  * - 失败隔离：一条消息失败只让它自己稍后重试；一个 org 失败不影响别的 org。
  * - 消息发送从不等这里（06-UX R3-8「不拖慢对话」）：抽取在后台 worker 里跑。
  * - F16：交给执行器之后，同一个任务里接着判矛盾（detect-conflicts.ts）——任务完成之前卡已经开好。
+ * - #4290：判完矛盾再判明确改口的取代（同一文件 detectSupersedes）——任务完成之前取代提示已经开好。
+ * - issue #4283：判完取代，作者本人说的「决定」复制进作者本人的个人空间（auto-copy-decisions.ts）。
+ * - round 7（#4284 收口）：项目会话里用过个人记忆的那一轮的 agent 回答不抽（见 extractJob）。
+ * - S8（#4365）：调抽取模型之前过「值得记」门控（extraction-gate.ts）；每个任务的耗时与结果记进 SLO 记录器。
  */
 import type { LoggerPort } from "../ports/logger.port";
-import { buildExtractionBatch } from "../../domain/knowledge-graph/extraction";
+import { attachChatMessageEvidence, type ChatEvidenceDeps } from "../project/collect-evidence/chat";
+import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
-import { detectConflicts } from "./detect-conflicts";
+import { copyAuthorDecisions } from "./auto-copy-decisions";
+import { proposeGoalLinks, type GoalLinkDeps } from "./profile";
+import { detectConflicts, detectSupersedes } from "./detect-conflicts";
+import { gateExtraction, type WorthinessModelPort } from "./extraction-gate";
+import type { ExtractionSloRecorder } from "./extraction-slo-recorder";
 import type {
-  KgConflictPort, KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KnowledgeExtractorPort, OntologyStorePort,
+  KgAutoCopyPort, KgConflictPort, KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KnowledgeExtractorPort, OntologyStorePort,
 } from "./ports";
 
 /** 每个 org 每轮最多处理的消息数：模型调用是慢的，一个活跃的 org 不该让别的 org 等太久。 */
@@ -26,27 +35,80 @@ export interface ExtractionDeps {
   readonly extractor: KnowledgeExtractorPort;
   readonly store: OntologyStorePort;
   readonly conflicts: KgConflictPort;
+  /** issue #4283：必填——没有它就不该跑抽取（否则「本人的决定会自动记下」这件事会悄悄不发生）。 */
+  readonly autoCopy: KgAutoCopyPort;
+  /**
+   * issue #4360：自动记入之后，模型提议把新记下的决定 / 待办挂到作者本人的哪个目标下（只有高把握才挂，见 profile.ts）。
+   * 可选：没接（只测别的环节的构造点）⇒ 不挂，不影响抽取。
+   */
+  readonly goalLinks?: Pick<GoalLinkDeps, "goalLinks" | "proposer">;
   readonly logger: LoggerPort;
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+  /**
+   * B3-T1（#4495）：项目作用域线程的消息锚点在落表前回填成证据单元（`project_evidence`）并带上 `evidenceId`。
+   * 可选——不给就照旧只写锚点（旧测试装配、以及不想让证据仓储进抽取链的场合）。
+   */
+  readonly chatEvidence?: ChatEvidenceDeps;
+  /** S8：SLO 记录器（生产合成必注入；只测抽取本身的夹具可以不给——那时只是不计数，门控规则照常生效）。 */
+  readonly slo?: ExtractionSloRecorder;
+  /** S8：可选的便宜模型门控（`KG_EXTRACTION_GATE_MODEL=1` 才注入，默认没有）。 */
+  readonly gateModel?: WorthinessModelPort;
 }
 
 export interface ExtractionTickResult {
   readonly processed: number;
   readonly written: number;
+  /** issue #4343：跑完了但没有可记的（含消息已删、执行器拒收）。processed = written + empty + skipped + failed。 */
+  readonly empty: number;
+  /** 按规则不抽的（round 7：项目会话里用了个人记忆的那一轮回答；S8：「值得记」门控跳过的，原因见日志）。 */
+  readonly skipped: number;
   readonly failed: number;
 }
 
-export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty"> {
+export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty" | "skipped" | "gated"> {
   const loaded = await deps.source.loadMessage(job.orgId, job.messageId, KG_EXTRACTION_CONTEXT_TURNS);
-  if (loaded === null) return "empty";  // 消息已被删：没有东西可抽
+  if (loaded === null) {  // 消息已被删：没有东西可抽
+    deps.logger.info("kg extraction empty", {
+      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "message_gone",
+    });
+    return "empty";
+  }
+  // round 7（#4284 收口）：项目会话里，agent 的回答若是在用了**提问者个人记忆**的那一轮写出来的，正文可能复述
+  // 个人记忆；抽出来就成了全体成员可见、可召回的 chat_session 结论。这种回答不抽（任务照常完成、不重试），
+  // 记一条日志说明原因。判定 fail closed：这一轮召回里只要有一条不能证明属于本会话的条目就跳过。个人会话不受影响。
+  if (loaded.message.authorKind === "agent") {
+    const outside = await deps.source.projectAnswerOutsideRecallCount(job.orgId, job.messageId);
+    if (outside > 0) {
+      deps.logger.info("kg extraction skipped: project-thread answer used personal memory", {
+        traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, outsideRecallItems: outside,
+      });
+      return "skipped";
+    }
+  }
+  // S8：寒暄 / 应答 / 纯提问不调抽取模型；目标 / 偏好 / 决定永远放行（extraction-gate.ts）。
+  if ((await gateExtraction(deps, job, loaded)).gate === "skip") return "gated";
+  deps.slo?.recordModelCall();
   const result = await deps.extractor.extract(loaded);
   const known = await deps.source.knownObjects(job.orgId, job.threadId);
   const batch = buildExtractionBatch({
     threadId: job.threadId, messageId: job.messageId, messageBody: loaded.message.body,
+    // issue #4363（S6）：「这周」「到年底」按说这句话的时间换算（不是按抽取任务跑的时间）
+    ...(loaded.message.createdAt === undefined ? {} : { messageAt: loaded.message.createdAt }),
     result, known, newId: deps.newId,
   });
-  if (batch === null) return "empty";
-  const out = await applyOntologyBatch(deps.store, job.orgId, null, batch);
+  if (batch === null) {
+    // issue #4343 / #4350：「空」必须看得见——模型合法地回了「没有可记的」（或回的全被丢弃）；解析不出已经在
+    // extractor 里抛错走重试。之前这里静默返回：「我的目标是探索未来教育」一条没记下，界面照样显示「已整理到最新」。
+    deps.logger.info("kg extraction empty", {
+      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "no_candidates",
+      authorKind: loaded.message.authorKind, pipelineVersion: KG_EXTRACTION_PIPELINE_VERSION,
+      entities: result.entities.length, claims: result.claims.length,
+    });
+    return "empty";
+  }
+  // B3-T1：先回填证据单元再交执行器——执行器落 `claim_message_evidence.evidence_id` 需要单元先存在。
+  const withEvidence = deps.chatEvidence === undefined ? batch : await attachChatMessageEvidence(deps.chatEvidence, job.orgId, batch);
+  const out = await applyOntologyBatch(deps.store, job.orgId, null, withEvidence);
   if (out.outcome === "rejected") {
     // 执行器拒了（已留痕）：这是抽取产物的问题，重试同一份产物没有意义。
     deps.logger.info("kg extraction batch rejected", {
@@ -56,14 +118,37 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   }
   // 去重命中（任务重试）也照样判：上一次可能在交执行器之后、判矛盾之前失败了。
   await detectConflicts({ conflicts: deps.conflicts, newId: deps.newId }, job);
+  // #4290：明确改口的取代，接在判矛盾之后（见 detect-conflicts.ts detectSupersedes）
+  await detectSupersedes({ conflicts: deps.conflicts, newId: deps.newId }, job);
+  // 同理：重试时再跑一遍无害（已复制过的不再是候选）。判矛盾、取代之后跑：被标成冲突的新条不会被带进个人空间，
+  // 被取代的旧条在复制之前已经定下来。
+  await copyAuthorDecisions({ autoCopy: deps.autoCopy, logger: deps.logger, newId: deps.newId }, job);
+  // issue #4360：挂目标只是锦上添花——出任何错都只记日志，这条消息照常算写成（不重试整条抽取）。
+  if (deps.goalLinks !== undefined) {
+    try {
+      await proposeGoalLinks({ ...deps.goalLinks, logger: deps.logger, newId: deps.newId }, job);
+    } catch (e) {
+      deps.logger.info("kg goal link step failed", {
+        traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, detail: e instanceof Error ? e.message : "unexpected goal link failure",
+      });
+    }
+  }
   return "written";
 }
 
-export async function runExtractionTick(deps: ExtractionDeps): Promise<ExtractionTickResult> {
+/**
+ * issue #4350：`abandoned()` 为真 ⇒ 这一轮已被 worker 的 watchdog 放弃（下一轮已经可以开始）——不再认领新的
+ * org 批次。已经认领到手的任务照常做完：它们还在自己的租约里，complete / fail 带着围栏令牌，迟到也不会动到
+ * 别人重新认领的行。
+ */
+export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => boolean = () => false): Promise<ExtractionTickResult> {
   let processed = 0;
   let written = 0;
+  let empty = 0;
+  let skipped = 0;
   let failed = 0;
   for (const orgId of await deps.queue.pendingOrgs()) {
+    if (abandoned()) break;
     let jobs: readonly KgExtractionJob[];
     try {
       jobs = await deps.queue.claim(orgId, KG_EXTRACTION_BATCH);
@@ -73,16 +158,24 @@ export async function runExtractionTick(deps: ExtractionDeps): Promise<Extractio
     }
     for (const job of jobs) {
       processed += 1;
+      const startedAt = Date.now();
       try {
-        if ((await extractJob(deps, job)) === "written") written += 1;
-        await deps.queue.complete(orgId, job.messageId);
+        const outcome = await extractJob(deps, job);
+        if (outcome === "written") written += 1;
+        else if (outcome === "empty") empty += 1;
+        else skipped += 1;
+        // S8 的「值得记」门控跳过的（gated）在 #4352 的逐条结果里记成 skipped（没调抽取模型，与 round 7 不抽同一类）
+        await deps.queue.complete(orgId, job.messageId, job.attempts, outcome === "gated" ? "skipped" : outcome);
+        // 没调抽取模型的（门控跳过 / round 7 不抽）不进失败率的分母
+        deps.slo?.recordJob(Date.now() - startedAt, outcome === "gated" ? "skipped" : outcome, outcome === "gated" || outcome === "skipped");
       } catch (err) {
         failed += 1;
+        deps.slo?.recordJob(Date.now() - startedAt, "failed");
         const message = err instanceof Error ? err.message : String(err);
         deps.logger.error("kg extraction failed", { traceId: "kg-extraction", orgId, messageId: job.messageId, attempts: job.attempts, err });
-        await deps.queue.fail(orgId, job.messageId, message).catch(() => undefined);
+        await deps.queue.fail(orgId, job.messageId, message, job.attempts).catch(() => undefined);
       }
     }
   }
-  return { processed, written, failed };
+  return { processed, written, empty, skipped, failed };
 }

@@ -25,6 +25,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
+import { clickMore, openMore } from "./support/design-more";
 
 const API = "/__fullstack_api";
 const STAMP = Date.now();
@@ -34,7 +35,7 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 function findInboxCard(page: Page, title: string): Locator {
@@ -56,7 +57,7 @@ async function seedFeedback(page: Page, kind: "缺陷" | "需求", title: string
 
 /** 推送确认弹层：填一句工程注意事项、点确认，返回真实 `POST .../push` 响应。 */
 async function pushToInbox(page: Page): Promise<{ status: number; inboxCode: string }> {
-  await page.getByTestId("design-detail-push").click();
+  await clickMore(page, "design-detail-push");
   const confirmDialog = page.getByTestId("design-push-confirm");
   await expect(confirmDialog).toBeVisible();
   await page.getByTestId("design-push-note").fill("推送前确认过一遍验收标准，工程排期时留意移动端安全区。");
@@ -112,9 +113,9 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page).toHaveURL(/\/platform-admin\/design-workbench\/.+/);
     await expect(page.getByTestId("design-detail")).toBeVisible();
     await expect(page.getByTestId("design-detail-chat")).toBeVisible();
-    await expect(page.getByTestId("design-detail-tab-canvas")).toBeVisible();
+    // design-delta `novice-progressive-disclosure`：常驻的「原型画布 / 说明」页签去掉了，默认就是画布。
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
-    await page.getByTestId("design-detail-tab-spec").click();
+    await clickMore(page, "design-detail-tab-spec");
     await expect(page.getByTestId("design-detail-spec")).toContainText("每次导出都要重新选一遍时间范围");
     await page.getByTestId("design-detail-tab-canvas").click();
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
@@ -160,7 +161,7 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-detail")).toBeVisible();
     await expect(page.getByTestId("design-detail-linked")).toBeVisible();
     await expect(page.getByTestId("design-detail-chat")).toBeVisible();
-    await expect(page.getByTestId("design-detail-tab-canvas")).toBeVisible();
+    // design-delta `novice-progressive-disclosure`：常驻页签去掉了，默认就是画布——见上面新建那条的同一处。
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
 
     // 深化产生的项目 id 就在详情页 URL 里——下面按 id 找卡片，不按位置。
@@ -177,6 +178,8 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-workbench")).toBeVisible();
     const projectCard = page.getByTestId(`project-card-${projectId}`);
     await expect(projectCard).toBeVisible();
+    // design-delta `novice-workbench-list`：编辑收进了卡片的「⋯」菜单。
+    await page.getByTestId(`project-more-${projectId}`).click();
     await page.getByTestId(`project-edit-${projectId}`).click();
     const editDialog = page.getByTestId("project-dialog");
     await expect(editDialog).toBeVisible();

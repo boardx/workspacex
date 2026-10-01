@@ -1,0 +1,11 @@
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:29144
+  - Experiments (use with caution):
+    · proxyTimeout
+
+ ✓ Starting...
+ ✓ Ready in 4.1s
+ ○ Compiling /login ...
+ ✓ Compiled /login in 45.8s (1480 modules)
+ GET /login 200 in 47450ms
+ ○ Compiling /chat ...

@@ -12,7 +12,7 @@
  *   - 三态用契约的 `KG_TRI_STATE_LABEL_ZH`。
  */
 import type { z } from "zod";
-import type { KgRecalledMemory, KgRelation } from "@repo/contracts/chat-knowledge-graph";
+import { sharedFromPersonalLabelZh, type KgRecalledMemory, type KgRelation } from "@repo/contracts/chat-knowledge-graph";
 import type { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
 import { filterActionLabel, type FilterActionKey } from "@/lib/filter-action";
 
@@ -47,6 +47,7 @@ export const KG_RELATION_LABEL_ZH: Record<KgRelation, string> = {
   blocks: "阻碍",
   hard_constraint: "硬约束",
   candidate_for: "候选",
+  serves_goal: "为了",
 };
 
 /** 引用 chip 上的文字上限（超出截断加省略号；完整内容在「为什么用到它」与来源抽屉里）。 */
@@ -67,6 +68,15 @@ export function personalOriginLabel(memory: Pick<KgRecalledMemory, "scope" | "sa
   const d = new Date(memory.saidAt);
   if (Number.isNaN(d.getTime())) return "来自你的长期记忆";
   return `来自你 ${String(d.getMonth() + 1)}/${String(d.getDate())} 的对话`;
+}
+
+/**
+ * S10（#4367）：项目记忆条目的出处标签。由成员从个人记忆分享来的 ⇒「由 X 分享自个人记忆」（契约单源文案）；
+ * 其余项目记忆 ⇒「来自项目记忆」；不是项目记忆 ⇒ null。
+ */
+export function projectOriginLabel(memory: Pick<KgRecalledMemory, "scope" | "sharedByName">): string | null {
+  if (memory.scope !== "project") return null;
+  return memory.sharedByName === undefined || memory.sharedByName === null ? "来自项目记忆" : sharedFromPersonalLabelZh(memory.sharedByName);
 }
 
 /** 召回理由（FilterAction）→ 展示名，取自 filter-action 单源。 */

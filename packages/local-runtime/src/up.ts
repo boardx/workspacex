@@ -23,6 +23,9 @@ import { humanBytes, humanEta } from "./model-import";
 import { PortsInUseError } from "./startup-failure";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
+import { clearLedger, reapLedger, recordChild, startedAt } from "./child-ledger";
+import { relocateInternalPorts } from "./internal-ports";
+import { nextLaunch, nodeEnv, tsxLaunch } from "./node-launch";
 import {
   assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse, type SpawnSpec,
   waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
@@ -76,6 +79,14 @@ export interface RunningStack {
   /** 本地各服务此刻的健康状态——外壳据此决定要不要把「有东西坏了」说出来。 */
   health(): readonly ServiceHealth[];
   /**
+   * 还在跑（或等人裁决）的 AI 任务有几个；读不到返回 null。
+   *
+   * 桌面壳在**离线更新/回滚之前**问这个——评分卡维度 8 的九分判据里有一条
+   * 「更新不打断生成」，而更新要换掉 `bundle/` 并重启进程。返回 null 时
+   * 调用方必须当成「不知道」而不是「空闲」，否则「不打断」就成了一句空话。
+   */
+  countActiveRuns(): Promise<number | null>;
+  /**
    * 等那几个「不挡首屏」的服务也就绪。界面不需要它，**但测量与自动化需要**：
    * 否则一条 e2e 会在沙箱还没起来的时候就去跑技能。
    */
@@ -90,6 +101,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   const managed: Managed[] = [];
   /** 每个子进程的启动规格——重启时要用同一份，不能现编。 */
   const specs: SpawnSpec[] = [];
+  const ledgerFile = join(c.dataDir, "run", "children.json");
   const supervised: Supervised[] = [];
   /**
    * 不挡首屏的就绪等待（#3872 R7）。
@@ -103,11 +115,31 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
    *   失败会让整个 `up()` 抛错；现在失败变成一条具名的健康事件。
    */
   const deferredReady: Array<{ name: string; wait: Promise<void> }> = [];
+  /*
+    ⚠ 登记的那一刻就挂上处理器（#3872 R23）。真正的处理器在 up() 快结束时才挂，
+      中间还隔着好几个 await——延后的等待在这之前失败（实测：--no-pull、库里没有模型，
+      模型探测几十毫秒就 404），就是一个没人接的 rejection，Node 直接把**整个 up() 进程**
+      打死：界面、api、数据库一起没了，只因为一个本来「不挡界面」的探测失败。
+      这里只是让它「有人接」；失败照样由后面那段报到健康通道，原 promise 不变。
+  */
+  const pushDeferred = deferredReady.push.bind(deferredReady);
+  deferredReady.push = (...items) => {
+    for (const it of items) it.wait.catch(() => undefined);
+    return pushDeferred(...items);
+  };
   const healthById = new Map<string, ServiceHealth>();
   /** 起一个被记录在案的子进程；规格留着，重启时要用同一份。 */
+  /** 起子进程并记进台账：主进程被硬杀时它会变成孤儿，下一次启动凭这一笔替它收尸（child-ledger.ts）。 */
+  const startRecorded = (spec: SpawnSpec): Managed => {
+    const m = startManaged(spec, log);
+    const pid = m.child.pid;
+    const started = pid === undefined ? null : startedAt(pid);
+    if (pid !== undefined && started !== null) recordChild(ledgerFile, { name: spec.name, pid, started });
+    return m;
+  };
   const spawn = (spec: SpawnSpec): Managed => {
     specs.push(spec);
-    const m = startManaged(spec, log);
+    const m = startRecorded(spec);
     managed.push(m);
     return m;
   };
@@ -121,6 +153,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     for (const s of [...supervised].reverse()) await s.stop();
     for (const m of [...managed].reverse()) if (m.child.exitCode === null) await m.stop();
     await pg?.stop();
+    clearLedger(ledgerFile);
   };
   // If the supervisor itself dies (uncaught error, SIGKILL is the one thing we cannot catch),
   // the children must not outlive it: an orphaned sandbox/API keeps its port and the next
@@ -138,6 +171,14 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   //   180000ms" three minutes into the boot, which reads exactly like a slow machine --
   //   and the second start after a hard kill is the common case, not the exotic one.
   //   Ollama is excluded on purpose: a user's own `ollama serve` is reused, not a conflict.
+  // 上一轮被硬杀留下的孤儿先收掉（只收台账里、启动时刻对得上的——不碰别人的进程），
+  // 否则下面的端口检查会把「我们自己的尸体」报成「另一个 WorkspaceX 在跑」。
+  const reaped = await reapLedger(ledgerFile);
+  if (reaped.length > 0) log(`[up] 上一次没有正常退出，收掉了残留的：${reaped.join("、")}`);
+  // 收完自己的尸体之后仍被占的内部端口，是别的程序的——换个号，别让用户卡在一个他不认识的端口上。
+  const relocated = await relocateInternalPorts(c.ports, (p) => portInUse(p));
+  for (const m of relocated.moved) log(`[up] 端口 ${m.from}（${m.name}）被别的程序占用，改用 ${m.to}`);
+  if (relocated.moved.length > 0) c = { ...c, ports: relocated.ports };
   await assertPortsFree(c, opts.webMode ?? "dev");
 
   try {
@@ -253,38 +294,6 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     //   在 up() 结束时统一产出——否则同一件事会在 doctor 与这里各写一遍，
     //   且两份的措辞迟早不一样。
 
-    /*
-      「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
-      却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
-
-      ⚠ **但这次验证不能挡住界面**（#3872 R15）。它发的是一次真实的 chat completion，
-        于是把 4 GB 权重整个加载进内存——实测在这台机器上要 **18 秒**，而整个
-        正常启动才 26 秒。R7 把语音（27%）和技能沙箱（17%）挪出了关键路径，
-        独独漏了这一项，而它比那两个加起来还贵。
-
-        延后之后它同时变成**后台预热**：界面几秒就出来，用户读完首屏、打字、
-        发出第一条消息，这段时间正好用来把权重装进内存。失败走和崩溃同一条
-        健康通道（说人话、带影响），不是在日志里躺着。
-
-      跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
-    */
-    const chatModelAnswers = ollamaBin !== null;
-    if (ollamaUrl !== null && opts.probeModels !== false) {
-      const modelBase = `${ollamaUrl}/v1`;
-      log(`[model] 正在后台装载 ${c.chatModel}（不挡界面；首次加载权重可能要一分钟）`);
-      deferredReady.push({
-        name: "model",
-        wait: (async () => {
-          const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
-          if (!chat.ok) throw new Error(chat.detail ?? `${c.chatModel} 没有回话`);
-          log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
-          const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
-          // 检索/记忆退化不该让整条「模型」判失败——聊天仍然可用，如实记一笔。
-          if (!embed.ok) log(`[model] ⚠ ${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
-        })(),
-      });
-    }
-
     // Every service we spawn must own its port: a stale process there would answer our
     // readiness probe while our child dies on EADDRINUSE.
     for (const [port, what] of [[c.ports.sandbox, "skill-sandbox"], [c.ports.asr, "asr-gateway"], [c.ports.api, "api"], [c.ports.deepAgent, "deep-agent"], [c.ports.web, "web"]] as const) {
@@ -350,16 +359,53 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       if (c.metaModel !== c.chatModel) void warmModel(url, c.metaModel);
     }
 
+    /*
+      「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
+      却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
+
+      ⚠ **但这次验证不能挡住界面**（#3872 R15）。它发的是一次真实的 chat completion，
+        于是把 4 GB 权重整个加载进内存——实测在这台机器上要 **18 秒**，而整个
+        正常启动才 26 秒。R7 把语音（27%）和技能沙箱（17%）挪出了关键路径，
+        独独漏了这一项，而它比那两个加起来还贵。
+
+        延后之后它同时变成**后台预热**：界面几秒就出来，用户读完首屏、打字、
+        发出第一条消息，这段时间正好用来把权重装进内存。失败走和崩溃同一条
+        健康通道（说人话、带影响），不是在日志里躺着。
+
+      跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
+
+      ⚠ **它必须放在选模型之后**（#3872 R21）。原先它在 `preferredChatModel` 前面，
+        于是探的是配置里的 `qwen3.5:4b`，而 mac-arm64 包里只有 `qwen3.5:4b-mlx`——
+        模型明明已经加载好在回话，每次启动十秒后都报一条「模型起不来」（实机日志
+        00:19:02.919 探测起、.925 才换成 MLX）。
+    */
+    const chatModelAnswers = ollamaBin !== null;
+    if (ollamaUrl !== null && opts.probeModels !== false) {
+      const modelBase = `${ollamaUrl}/v1`;
+      log(`[model] 正在后台装载 ${c.chatModel}（不挡界面；首次加载权重可能要一分钟）`);
+      deferredReady.push({
+        name: "model",
+        wait: (async () => {
+          const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
+          if (!chat.ok) throw new Error(chat.detail ?? `${c.chatModel} 没有回话`);
+          log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
+          const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
+          // 检索/记忆退化不该让整条「模型」判失败——聊天仍然可用，如实记一笔。
+          if (!embed.ok) log(`[model] ⚠ ${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
+        })(),
+      });
+    }
+
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
     if (!sandboxModulesDir(c)) {
       warnings.push("skill 沙箱没有预装模块目录：pptx / docx / xlsx / pdf 生成类 skill 会以 MODULE_NOT_FOUND 失败（运行 scripts/local-bundle/prepare-sandbox-modules.sh 后重启）");
     }
     spawn({
       name: "skill-sandbox",
-      command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-      args: ["src/main.ts"],
+      command: process.execPath,
+      args: tsxLaunch(c.repoRoot, ["src/main.ts"]).args,
       cwd: join(c.repoRoot, "apps", "skill-sandbox"),
-      env: sandboxEnv(c),
+      env: { ...sandboxEnv(c), ...nodeEnv() },
       logDir: paths.logs(c),
     });
     deferredReady.push({
@@ -374,10 +420,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       asrUrl = `ws://127.0.0.1:${c.ports.asr}`;
       spawn({
         name: "asr-gateway",
-        command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-        args: ["src/main.ts"],
+        command: process.execPath,
+        args: tsxLaunch(c.repoRoot, ["src/main.ts"]).args,
         cwd: join(c.repoRoot, "apps", "local-asr-gateway"),
-        env: asrGatewayEnv(c, asrModelDir),
+        env: { ...asrGatewayEnv(c, asrModelDir), ...nodeEnv() },
         logDir: paths.logs(c),
       });
       deferredReady.push({
@@ -389,10 +435,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     // ── API ───────────────────────────────────────────────────────────────────
     spawn({
       name: "api",
-      command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-      args: ["src/main.ts"],
+      command: process.execPath,
+      args: tsxLaunch(c.repoRoot, ["src/main.ts"]).args,
       cwd: join(c.repoRoot, "apps", "api"),
-      env: { ...apiEnv(c), ...(asrUrl ? asrEnv(c) : {}) },
+      env: { ...apiEnv(c), ...(asrUrl ? asrEnv(c) : {}), ...nodeEnv() },
       logDir: paths.logs(c),
     });
     const apiUrl = `http://127.0.0.1:${c.ports.api}`;
@@ -428,10 +474,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
       spawn({
         name: "web",
-        command: join(c.repoRoot, "apps", "web", "node_modules", ".bin", "next"),
-        args: [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"],
+        command: process.execPath,
+        args: nextLaunch(c.repoRoot, [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"]).args,
         cwd: join(c.repoRoot, "apps", "web"),
-        env: webEnv(c),
+        env: { ...webEnv(c), ...nodeEnv() },
         logDir: paths.logs(c),
       });
       await waitForHttpOrExit(webUrl, { timeoutMs: 300_000 }, managed[managed.length - 1]!);
@@ -475,7 +521,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       const spec = specs[i]!;
       if (m.child.exitCode !== null) continue;   // 启动阶段就已经死了的，不进监督
       supervised.push(superviseManaged({
-        spec, log, initial: m,
+        spec, log, initial: m, start: startRecorded,
         onHealth: (h) => {
           healthById.set(h.name, h);
           if (h.state !== "running" && h.message !== null) {
@@ -582,6 +628,9 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         });
       },
       health: () => supervised.map((s) => s.health()),
+      // pg 在这一点上一定非空（栈已经起来了），但类型上它是可空的——
+      // 读不到就如实返回 null，调用方必须把 null 当「不知道」而不是「空闲」。
+      countActiveRuns: async () => (pg === null ? null : pg.countActiveRuns()),
       whenFullyReady: async () => { await Promise.allSettled(deferredReady.map((d) => d.wait)); },
       stop: stopAll,
     };
