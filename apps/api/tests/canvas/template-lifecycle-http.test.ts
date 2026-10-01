@@ -34,6 +34,7 @@ import { canvas as C } from "@repo/contracts";
 import {
   addOrgMember,
   asApp,
+  asOwner,
   ensureDatabase,
   migrateOnce,
   resetOrgs,
@@ -539,5 +540,42 @@ describe("#463 · restoreTemplate：回到当初被归档时的那个状态", ()
     expect(res.status).toBe(409);
     expect(await readTemplate("swot", 1)).toMatchObject({ status: "archived" });
     expect(await readTemplate("swot", 2)).toMatchObject({ status: "published" });
+  });
+});
+
+describe('#3010 immutable principal template audit', () => {
+  it('records the complete authenticated lifecycle and rejects forgery, mutation and cross-tenant reads', async () => {
+    const key='audit-lifecycle', body={key,displayName:'Audit',underlyingType:'canvas',sections:SECTIONS,visibility:'org-wide'};
+    const history=()=>asApp(ORG,async c=>(await c.query<{version:number;action:string;from_status:string|null;to_status:string;actor_id:string;actor_source:string;occurred_at:Date}>(
+      'SELECT version,action,from_status,to_status,actor_id,actor_source,occurred_at FROM canvas_template_audit WHERE org_id=$1 AND key=$2 ORDER BY id',[ORG,key])).rows);
+    expect((await post('/templates',body)).status).toBe(201);
+    expect((await post(`/templates/${key}/draft`,{key,version:1,displayName:'Edited',sections:SECTIONS,visibility:'org-wide'})).status).toBe(200);
+    expect((await post(`/templates/${key}/trial`,{key,version:1,projectId:PROJECT})).status).toBe(200);
+    expect((await post(`/templates/${key}/publish`,{key,version:1,visibility:'org-wide'})).status).toBe(200);
+    const beforePreview=await history();
+    expect((await post(`/templates/${key}/archive`,{key,version:1,confirmed:false})).status).toBe(200);
+    expect(await history()).toEqual(beforePreview);
+    expect((await post(`/templates/${key}/archive`,{key,version:1,confirmed:true})).status).toBe(200);
+    expect((await post(`/templates/${key}/restore`,{key,version:1})).status).toBe(200);
+    expect((await post(`/templates/${key}/versions`,body)).status).toBe(201);
+    expect((await post(`/templates/${key}/publish`,{key,version:2,visibility:'org-wide'})).status).toBe(200);
+    const rows=await history();
+    expect(rows.map(r=>[r.version,r.action,r.from_status,r.to_status])).toEqual([
+      [1,'create',null,'draft'],[1,'edit','draft','draft'],[1,'trial','draft','trial'],[1,'publish','trial','published'],
+      [1,'archive','published','archived'],[1,'restore','archived','published'],
+      [2,'mint',null,'draft'],[1,'supersede','published','archived'],[2,'publish','draft','published'],
+    ]);
+    expect(rows.every(r=>r.actor_id===ADMIN&&r.actor_source==='principal')).toBe(true);
+    expect(rows.every((r,i)=>i===0||new Date(r.occurred_at).getTime()>=new Date(rows[i-1]!.occurred_at).getTime())).toBe(true);
+    expect((await post(`/templates/${key}/restore`,{key,version:1})).status).toBe(409);
+    expect((await post(`/templates/${key}/publish`,{key,version:2,visibility:'org-wide'},MEMBER)).status).toBe(403);
+    expect((await post(`/templates/${key}/archive`,{key,version:2,confirmed:true,actorId:MEMBER})).status).toBe(400);
+    expect(await history()).toEqual(rows);
+    expect(await asApp(OTHER_ORG,async c=>(await c.query('SELECT id FROM canvas_template_audit WHERE org_id=$1',[ORG])).rows)).toEqual([]);
+    await expect(asApp(ORG,c=>c.query("INSERT INTO canvas_template_audit(org_id,key,version,action,to_status,actor_id,actor_source,changed_fields) VALUES($1,$2,2,'archive','archived',$3,'principal','{}')",[ORG,key,MEMBER]))).rejects.toThrow(/permission denied/i);
+    await expect(asApp(ORG,c=>c.query('UPDATE canvas_template_audit SET actor_id=$2 WHERE org_id=$1',[ORG,MEMBER]))).rejects.toThrow(/permission denied/i);
+    await expect(asOwner(c=>c.query('UPDATE canvas_template_audit SET actor_id=$2 WHERE org_id=$1',[ORG,MEMBER]))).rejects.toThrow(/append-only/i);
+    await expect(asOwner(c=>c.query('DELETE FROM canvas_template_audit WHERE org_id=$1',[ORG]))).rejects.toThrow(/append-only/i);
+    expect(await history()).toEqual(rows);
   });
 });

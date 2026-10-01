@@ -1,0 +1,37 @@
+{
+  "project": {
+    "id": "006d9395-5649-4471-91ab-fc9554534a0f",
+    "name": "情绪日记·真实模型验收",
+    "template": "mobile",
+    "problem": "情绪日记移动应用：首页与写日记两页",
+    "criteria": [
+      "明确问题与目标范围",
+      "给出交互方案与边界情况处理",
+      "列出验收标准供工程对齐"
+    ],
+    "frames": [],
+    "prototype": [],
+    "frameNotes": [],
+    "theme": "dark",
+    "accent": "neutral",
+    "tokens": {
+      "brand": null,
+      "font": "sans",
+      "radius": "default",
+      "density": "default"
+    },
+    "tags": [],
+    "refImages": [],
+    "pushed": false,
+    "pushedAt": null,
+    "linkedFeedbackId": null,
+    "githubIssueUrl": null,
+    "githubIssueNumber": null,
+    "chat": [],
+    "share": null,
+    "ownerId": "u-47aed5d5159ffdaeeac3378287bf4366",
+    "ownerName": "本地用户",
+    "createdAt": "2026-10-01T11:16:30.771Z",
+    "updatedAt": "2026-10-01T11:16:30.771Z"
+  }
+}

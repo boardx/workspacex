@@ -15,9 +15,10 @@ export function generationUnavailableMessage(step: "experts" | "outline" | null)
     : "AI 服务暂时不可用，未能生成访谈问题。专家选择与当前编辑均已保留，你可以重新生成问题或稍后继续。";
 }
 
-export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue }: {
+export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue, onRunningStepChange }: {
   interviewId: string; step: "experts" | "outline"; onVersionChange: (version: number) => void;
   onDirtyChange: (dirty: boolean) => void; onContinue: (step: "experts" | "outline" | "runs") => void;
+  onRunningStepChange?: (step: string | null) => void;
 }) {
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [markdown, setMarkdown] = React.useState("");
@@ -28,6 +29,8 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const [generating, setGenerating] = React.useState(false);
   const [error, setError] = React.useState("");
   const [retryGenerationStep, setRetryGenerationStep] = React.useState<"experts" | "outline" | null>(null);
+  React.useEffect(() => { onRunningStepChange?.(pending ? step : null); }, [pending, step, onRunningStepChange]);
+  React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
   const dirty = React.useRef(false);
   const callbacks = React.useRef({ onVersionChange, onDirtyChange, onContinue });
   callbacks.current = { onVersionChange, onDirtyChange, onContinue };
@@ -121,7 +124,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       }, step).finally(() => setGenerating(false));
     },
   };
-  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" disabled={pending} onClick={retryGenerationStep ? () => {
+  return <div>{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" disabled={pending} onClick={retryGenerationStep ? () => {
     setGenerating(true);
     void action(async () => {
       await generateStep(retryGenerationStep);

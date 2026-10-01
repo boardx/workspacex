@@ -254,6 +254,8 @@ export class DesignWorkbenchController {
       model: this.modelCall,
       chatModel: this.chatModel,
       log: (message, detail) => this.logger.info(message, { ...detail, traceId: "design-workbench-chat" }),
+      // 方向 C：首次生成默认走整页 HTML；运维可设 DESIGN_HTML_PAGES=0 回到组件树模式。
+      htmlPages: process.env.DESIGN_HTML_PAGES !== "0",
     });
   }
 
@@ -382,6 +384,7 @@ export class DesignWorkbenchController {
         {
           projectId, ownerId: principal.userId, text: body.text,
           ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
+          ...(body.focusRef !== undefined ? { focusRef: body.focusRef } : {}),
           // 迭代 20：这一轮的页数上限（服务端截断执行，不是提示）。
           ...(body.maxScreens !== undefined ? { maxScreens: body.maxScreens } : {}),
           ...(refImages.length > 0 ? { refImages } : {}),
