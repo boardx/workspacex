@@ -7,6 +7,25 @@ import { ResponsiveDesignerPanel } from "@/components/survey/live/responsive-des
 
 afterEach(() => vi.unstubAllGlobals());
 
+it.each(["image_single", "image_multi"] as const)("preserves %s image previews before opening content settings", (type) => {
+  const question = { ...createSurveyQuestion(type, "images", 1), options: ["猫", "狗"], config: { optionIds: ["cat", "dog"], images: { cat: { url: "https://example.com/cat.png", alt: "猫图片" }, dog: { url: "https://example.com/dog.png", alt: "狗图片" } } } };
+  render(<SurveyQuestionEditor studioLayout questions={[question]} onChange={() => {}} />);
+  const canvas = screen.getByRole("region", { name: "问卷设计画布" });
+  expect(within(canvas).getByRole("img", { name: "猫图片" })).toHaveAttribute("src", "https://example.com/cat.png");
+  expect(within(canvas).getByRole("img", { name: "狗图片" })).toHaveAttribute("src", "https://example.com/dog.png");
+  const settings = within(canvas).getByRole("textbox", { name: "图片地址 cat" }).closest("details");
+  expect(settings).not.toHaveAttribute("open");
+  fireEvent.click(within(canvas).getByText("编辑题目内容"));
+  expect(settings).toHaveAttribute("open");
+});
+
+it("renders only one description editor when non-choice content settings are expanded", () => {
+  render(<SurveyQuestionEditor studioLayout questions={[createSurveyQuestion("short", "text", 1)]} onChange={() => {}} />);
+  const canvas = screen.getByRole("region", { name: "问卷设计画布" });
+  fireEvent.click(within(canvas).getByText("编辑题目内容"));
+  expect(canvas.querySelectorAll('[aria-label="题目说明"]')).toHaveLength(1);
+});
+
 it("keeps the selected question in reading mode until its title is clicked and exits editing on blur", () => {
   const first = { ...createSurveyQuestion("single", "q1", 1), title: "所属行业", options: ["制造业", "服务业"] };
   function Designer() {

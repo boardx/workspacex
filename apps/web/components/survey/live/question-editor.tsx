@@ -734,7 +734,7 @@ export function SurveyQuestionEditor({
                       <InlineQuestionText key={`${q.id}-title`} label="问题内容" editLabel={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`} multiline disabled={locked || disabled}
                         className="text-16 font-medium" value={q.title} onSelect={() => { setId(q.id); setPendingType(undefined); }} onChange={(title) => update({ ...q, title })} />
                     </div>}
-                    {studioLayout && ["single", "multi", "dropdown", "image_single", "image_multi"].includes(q.type) ? (
+                    {studioLayout && ["single", "multi", "dropdown"].includes(q.type) ? (
                       <fieldset disabled={locked || disabled} className="pl-10 text-13" aria-label={`编辑第 ${questionIndex + 1} 题`}>
                         <SurveyQuestionSettings
                           key={`${q.id}-inline-content`}
@@ -757,7 +757,7 @@ export function SurveyQuestionEditor({
                         onChange={(value) => setAnswers((current) => ({ ...current, [q.id]: value }))}
                       />
                       {studioLayout && q.id === question?.id && !locked && <details className="text-12 text-muted-foreground"><summary className="cursor-pointer py-2">编辑题目内容</summary>
-                        <SurveyQuestionSettings question={q} questions={questions} onChange={update} mode="content" inline />
+                        <SurveyQuestionSettings question={q} questions={questions} onChange={update} mode="content" inline showDescription={false} />
                       </details>}
                       </div>
                     )}

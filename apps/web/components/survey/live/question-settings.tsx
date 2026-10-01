@@ -16,12 +16,14 @@ export function SurveyQuestionSettings({
   onChange,
   mode = "all",
   inline = false,
+  showDescription = true,
 }: {
   question: SurveyWorkflowQuestion;
   questions: SurveyWorkflowQuestion[];
   onChange: (q: SurveyWorkflowQuestion) => void;
   mode?: "all" | "content" | "advanced";
   inline?: boolean;
+  showDescription?: boolean;
 }) {
   const config = q.config ?? {};
   const [bulk, setBulk] = React.useState("");
@@ -165,7 +167,7 @@ export function SurveyQuestionSettings({
   return (
     <div className="space-y-5">
       {showContent && <>
-      <label className="block text-12">
+      {showDescription && <label className="block text-12">
         {!inline && "题目说明"}
         {inline ? <InlineQuestionText label="题目说明" placeholder="添加题目说明" multiline value={config.description ?? ""} onChange={(description) => patch({ description })} /> : <Textarea
           aria-label="题目说明"
@@ -174,7 +176,7 @@ export function SurveyQuestionSettings({
           value={config.description ?? ""}
           onChange={(event) => patch({ description: event.target.value })}
         />}
-      </label>
+      </label>}
       {hasChoices && (
         <div className="space-y-2">
           <h3 className={inline ? "sr-only" : "text-13 font-medium"}>
