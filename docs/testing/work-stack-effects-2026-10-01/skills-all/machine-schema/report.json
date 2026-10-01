@@ -1,0 +1,2643 @@
+{
+  "uniqueSuiteSamples": {
+    "cases": 267,
+    "inputsValid": 267,
+    "outputsPresent": 248,
+    "outputsValid": 248,
+    "missingOutputSamples": 19
+  },
+  "denominator": 200,
+  "runtimeUnique": 83,
+  "runtimeFiles": 89,
+  "suitePresent": 27,
+  "schemaCompiles": 27,
+  "quality": "BLOCKED: compilation is not subject execution or model quality evidence",
+  "rows": [
+    {
+      "stableId": "S001",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S002",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S003",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-research/enterprise-search/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 10,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S004",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S005",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/meeting-prep/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S006",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/meeting-summary/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S007",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/status-update/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S008",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/competitive-analysis/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S009",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/customer-research/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        },
+        {
+          "source": "skills/work-sales/customer-research/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S010",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/risk-assessment/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        },
+        {
+          "source": "skills/work-sales/risk-assessment/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S011",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-resolution/root-cause-analysis/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 14,
+            "inputsValid": 14,
+            "outputsPresent": 14,
+            "outputsValid": 14,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S012",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/decision-brief/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S013",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-executive/scenario-analysis/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 17,
+            "inputsValid": 17,
+            "outputsPresent": 17,
+            "outputsValid": 17,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S014",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S015",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-resolution/response-drafting/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 14,
+            "inputsValid": 14,
+            "outputsPresent": 14,
+            "outputsValid": 14,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S016",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/knowledge-capture/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S017",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/task-extraction/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        },
+        {
+          "source": "skills/work-research/task-extraction/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S018",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/process-mapping/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S019",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S020",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/executive-briefing/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S021",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/customer-intelligence/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S022",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/account-tiering/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S023",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/account-planning/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S024",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/prospecting/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S025",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/lead-triage/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S026",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/outreach/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S027",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S028",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/sales-call-summary/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S029",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/opportunity-update/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S030",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/pipeline-review/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S031",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/forecasting/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S032",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/close-plan/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S033",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/renewal-radar/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S034",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/crm-hygiene/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S035",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/customer-health/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S036",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-sales/proposal-builder/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S037",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S038",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S039",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S040",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S041",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S042",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S043",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S044",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S045",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S046",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S047",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S048",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S049",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S050",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S051",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S052",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S053",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S054",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S055",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S056",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S057",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S058",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S059",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S060",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S061",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/product-discovery/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S062",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/user-interview-planning/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S063",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/research-synthesis/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        },
+        {
+          "source": "skills/work-research/research-synthesis/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S064",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/problem-framing/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S065",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/opportunity-mapping/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S066",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/product-brainstorming/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S067",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/prd-spec-writing/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S068",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/prioritization/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S069",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/roadmap-planning/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S070",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/sprint-planning/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S071",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/experiment-design/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S072",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/metrics-review/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S073",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/product-launch/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S074",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/user-activation/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S075",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/design-critique/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S076",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/design-handoff/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S077",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S078",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S079",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S080",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S081",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S082",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S083",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S084",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S085",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S086",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S087",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S088",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S089",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S090",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S091",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S092",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S093",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S094",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S095",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S096",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S097",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S098",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S099",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S100",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S101",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S102",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S103",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S104",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S105",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S106",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S107",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S108",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S109",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S110",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S111",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S112",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S113",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S114",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S115",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S116",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S117",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S118",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S119",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S120",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S121",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S122",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S123",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S124",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S125",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S126",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S127",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S128",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S129",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S130",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S131",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S132",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S133",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S134",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S135",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S136",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S137",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S138",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S139",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S140",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S141",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/project-planning/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 8,
+            "inputsValid": 8,
+            "outputsPresent": 8,
+            "outputsValid": 8,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S142",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/work-item-management/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S143",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/status-reporting/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 7,
+            "outputsValid": 7,
+            "missingOutputSamples": 2,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S144",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/capacity-planning/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 10,
+            "outputsValid": 10,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S145",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/change-request/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 7,
+            "outputsValid": 7,
+            "missingOutputSamples": 2,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S146",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S147",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S148",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/process-documentation/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 8,
+            "inputsValid": 8,
+            "outputsPresent": 7,
+            "outputsValid": 7,
+            "missingOutputSamples": 1,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S149",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S150",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S151",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S152",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S153",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/meeting-facilitation/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 8,
+            "inputsValid": 8,
+            "outputsPresent": 8,
+            "outputsValid": 8,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S154",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/execution-plan/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 8,
+            "inputsValid": 8,
+            "outputsPresent": 6,
+            "outputsValid": 6,
+            "missingOutputSamples": 2,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S155",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/business-review/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S156",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/continuous-improvement/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 11,
+            "inputsValid": 11,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 2,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S157",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/data-exploration/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        },
+        {
+          "source": "skills/work-research/data-exploration/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S158",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/data-validation/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S159",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S160",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/sql-query/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S161",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/statistical-analysis/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        },
+        {
+          "source": "skills/work-research/statistical-analysis/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S162",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-product/kpi-design/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S163",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S164",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/data-visualization-report/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S165",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S166",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S167",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/market-sizing/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S168",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/trend-analysis/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S169",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/knowledge-synthesis-review/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S170",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/scientific-research-planning/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S171",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/evidence-review/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S172",
+      "state": "INVALID_MACHINE_SCHEMA",
+      "suitePresent": false,
+      "sources": [
+        {
+          "source": "skills/work-research/data-storytelling/SKILL.md",
+          "state": "INVALID_MACHINE_SCHEMA",
+          "issues": [
+            "inputSchema: strict mode: unknown keyword: \"summary\"",
+            "outputSchema: strict mode: unknown keyword: \"summary\""
+          ],
+          "samples": {
+            "cases": 0,
+            "inputsValid": 0,
+            "outputsPresent": 0,
+            "outputsValid": 0,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S173",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S174",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S175",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S176",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S177",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-operations/incident-response/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 8,
+            "inputsValid": 8,
+            "outputsPresent": 8,
+            "outputsValid": 8,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S178",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S179",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-engineering/technical-documentation/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 11,
+            "inputsValid": 11,
+            "outputsPresent": 11,
+            "outputsValid": 11,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S180",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S181",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S182",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S183",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S184",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S185",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S186",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    },
+    {
+      "stableId": "S187",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/support-triage/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 10,
+            "outputsValid": 10,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S188",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/draft-support-response/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 10,
+            "outputsValid": 10,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S189",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/customer-escalation/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S190",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/kb-article/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S191",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/qbr-preparation/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 10,
+            "outputsValid": 10,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S192",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/renewal-risk/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S193",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/voice-of-customer/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S194",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-customer-success/support-operations/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 10,
+            "outputsValid": 10,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S195",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-executive/strategy-review/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S196",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-executive/board-meeting-preparation/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S197",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-executive/decision-logging/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S198",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-executive/okr-alignment/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 9,
+            "inputsValid": 9,
+            "outputsPresent": 9,
+            "outputsValid": 9,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S199",
+      "state": "COMPILES",
+      "suitePresent": true,
+      "sources": [
+        {
+          "source": "skills/work-executive/business-model-analysis/SKILL.md",
+          "state": "COMPILES",
+          "issues": [],
+          "samples": {
+            "cases": 10,
+            "inputsValid": 10,
+            "outputsPresent": 10,
+            "outputsValid": 10,
+            "missingOutputSamples": 0,
+            "issues": []
+          }
+        }
+      ]
+    },
+    {
+      "stableId": "S200",
+      "state": "MISSING_RUNTIME_PACKAGE",
+      "suitePresent": false,
+      "sources": []
+    }
+  ]
+}
