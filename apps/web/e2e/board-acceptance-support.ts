@@ -156,8 +156,16 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(token).toBeTruthy();
   const before = await canonicalBoardSnapshot(page.request, token!, boardId);
+  const sourceOutline = page.getByTestId(`board-a11y-object-${from}`);
+  await sourceOutline.focus(); await sourceOutline.press('Enter');
+  const editor = page.getByTestId('board-thinking-editor');
+  if (await editor.count()) await editor.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(sourceOutline).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 1 个对象');
+  await expect(page.getByTestId('board-a11y-mirror').locator('button[aria-pressed="true"]')).toHaveCount(1);
   const source = await objectPoint(page, from);
-  await page.mouse.click(source.x, source.y); await page.mouse.move(source.x, source.y);
+  await page.mouse.move(source.x, source.y);
   const sourceHandle = page.getByTestId(`connector-handle-${from}-right`);
   await expect(sourceHandle).toBeVisible();
   const sourceBounds = await sourceHandle.boundingBox(); expect(sourceBounds).not.toBeNull();
