@@ -1,7 +1,15 @@
 import { deflateSync } from "node:zlib";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GoogleGuidedSearch } from "../../src/infrastructure/research/google-guided-search";
 
+// This is a unit test with fake HTTP responses, not live document acceptance.
+// Control DNS too, while exercising the real public-address validation.
+const { lookup } = vi.hoisted(() => ({ lookup: vi.fn<(...args: unknown[]) => Promise<Array<{ address: string; family: number }>>>() }));
+vi.mock("node:dns/promises", () => ({ lookup }));
+beforeEach(() => {
+  lookup.mockReset();
+  lookup.mockResolvedValue([{ address: "93.184.215.14", family: 4 }]);
+});
 const hit = { title: "Policy", url: "https://example.org/policy", snippet: "Retrieved policy excerpt" };
 function provider(body: unknown = { results: [hit] }) {
   return vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(body)));
@@ -65,12 +73,33 @@ describe("BoardX Google guided research search", () => {
   it("reads the linked document separately from the search excerpt", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html><body>Full policy text</body></html>", { headers: { "content-type": "text/html" } }));
     await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).resolves.toMatchObject({ text: "Full policy text", contentKind: "html", truncated: false });
+    expect(lookup).toHaveBeenCalledWith("example.org", { all: true, verbatim: true });
     expect(fetcher.mock.calls[0]![1]).toMatchObject({ redirect: "error" });
   });
   it("blocks private and metadata destinations before fetching documents", async () => {
     const fetcher = vi.fn<typeof fetch>();
     await expect(new GoogleGuidedSearch(fetcher).read!("http://169.254.169.254/latest/meta-data"))
       .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it.each([
+    { label: "private IPv4", records: [{ address: "10.0.0.1", family: 4 }] },
+    { label: "metadata IPv4", records: [{ address: "169.254.169.254", family: 4 }] },
+    { label: "private IPv6", records: [{ address: "fd00::1", family: 6 }] },
+    { label: "mixed public/private records", records: [{ address: "93.184.215.14", family: 4 }, { address: "127.0.0.1", family: 4 }] },
+    { label: "empty DNS records", records: [] },
+  ])("blocks $label resolved for a public-looking hostname before fetching", async ({ records }) => {
+    lookup.mockResolvedValue(records);
+    const fetcher = vi.fn<typeof fetch>();
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url))
+      .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("propagates DNS failure without fetching or inventing document content", async () => {
+    lookup.mockRejectedValue(new Error("dns_unavailable"));
+    const fetcher = vi.fn<typeof fetch>();
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url))
+      .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_DNS_UNAVAILABLE" });
     expect(fetcher).not.toHaveBeenCalled();
   });
   it("allows the isolated loopback search fixture to read its own evidence document", async () => {
