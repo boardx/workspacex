@@ -15,12 +15,10 @@ describe("continuous report history", () => {
   it("restores a historical draft on a blank restarted generation without replaying a command", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, report: null, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportPrevious: previous, sources: [] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    const history = await screen.findByTestId("research-report-history");
-    expect(history).toHaveAttribute("open");
-    expect(within(history).getByText(/旧结论/)).toBeVisible();
-    expect(history).toHaveTextContent("历史内容，仅供查看");
-    expect(within(history).getByTestId("research-inline-citation")).toHaveAttribute("href", initial.sources[0]!.url);
-    expect(within(history).queryByRole("button", { name: /生成|应用|导出|完成/ })).not.toBeInTheDocument();
+    await screen.findByTestId("research-flow-report");
+    expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
+    expect(screen.queryByText(/旧结论/)).not.toBeInTheDocument();
+    expect(previous.text).toContain("旧结论");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });

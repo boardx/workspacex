@@ -18,7 +18,8 @@ function progressOf(state: Runtime) {
     stream: state.reportStream ? { ...state.reportStream, offset: 0, delta: state.reportStream.text } : null };
 }
 const streaming = (requestId = "request"): Runtime => ({ ...initial, version: 8, currentNode: "report", availableNodes: [...initial.availableNodes, "report"], busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", reportStream: { requestId, sequence: 0, text: "", status: "streaming" } });
-beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(initial); });
+const idleReport: Runtime = { ...initial, currentNode: "report", availableNodes: [...initial.availableNodes, "report"] };
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(idleReport); });
 afterEach(() => vi.useRealTimers());
 describe("research report stream UI", () => {
   it("renders the live report area above the generation timeline before text arrives", async () => {
@@ -47,16 +48,16 @@ describe("research report stream UI", () => {
       return new Promise(() => undefined);
     });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
+    fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
     expect(await screen.findByText("已到达正文")).toBeInTheDocument();
     expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("BAD");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
   });
   it("recovers a disconnected POST by GET without replaying generation", async () => {
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue({ ...streaming(), reportStream: { requestId: "request", sequence: 2, text: '{"summary":"恢复的正文', status: "streaming" } });
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(idleReport).mockResolvedValue({ ...streaming(), reportStream: { requestId: "request", sequence: 2, text: '{"summary":"恢复的正文', status: "streaming" } });
     vi.mocked(executeResearchRuntime).mockRejectedValue(new Error("disconnect"));
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
+    fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
     await waitFor(() => expect(screen.getByText("恢复的正文")).toBeInTheDocument());
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -66,10 +67,10 @@ describe("research report stream UI", () => {
     let signal!: AbortSignal;
     vi.mocked(executeResearchRuntime).mockImplementation(async (_input, callback, observerSignal) => { emit = callback!; signal = observerSignal!; return new Promise(() => undefined); });
     const view = render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
-    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, sessionId: "other" });
+    fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...idleReport, sessionId: "other" });
     view.rerender(<GuidedResearchLive sessionId="other" onBack={vi.fn()} />);
-    await screen.findByRole("button", { name: "确认并继续" });
+    await screen.findByRole("button", { name: "生成报告" });
     expect(signal.aborted).toBe(true);
     await act(async () => emit({ type: "snapshot", state: { ...streaming(), reportStream: { requestId: "request", sequence: 1, text: '{"summary":"错误会话正文', status: "streaming" } } }));
     expect(screen.queryByText("错误会话正文")).not.toBeInTheDocument();
@@ -119,9 +120,10 @@ describe("research report stream UI", () => {
   });
   it("offers explicit partial evidence generation only when failed tasks are terminal", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, tasks: [{ ...initial.tasks[0]!, status: "failed" }] });
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: 8 });
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: 8, tasks: [{ ...initial.tasks[0]!, status: "failed" }] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "基于已有来源生成报告" }));
+    fireEvent.click(await screen.findByRole("button", { name: "基于已有来源继续" }));
+    fireEvent.click(await screen.findByRole("button", { name: "下一步：生成报告" }));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "complete", allowPartialResearch: true }), expect.any(Function), expect.any(AbortSignal));
   });
   it("blocks report generation while searches are pending", async () => {
@@ -163,7 +165,7 @@ it("unlocks when progress is terminal even if the POST never closes", async () =
   let signal!: AbortSignal;
   vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback, observerSignal) => { signal = observerSignal!; callback!({ type: "snapshot", state: streaming(input.requestId) }); return new Promise(() => undefined); });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
+  fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
   const terminal = { ...streaming(), busy: false, leaseUntil: null, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED" };
   vi.mocked(getResearchRuntimeProgress).mockResolvedValue(progressOf(terminal));
   vi.mocked(getResearchRuntime).mockResolvedValue(terminal);

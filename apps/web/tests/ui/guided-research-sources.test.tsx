@@ -56,6 +56,6 @@ describe("compact research sources", () => {
     expect(await screen.findByTestId(`research-source-description-${source.id}`)).toHaveAttribute("href", source.url);
     expect(screen.queryByRole("button", { name: "添加来源" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
-    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "complete", expectedVersion: state.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }] } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "save", expectedVersion: state.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }] } })));
   });
 });

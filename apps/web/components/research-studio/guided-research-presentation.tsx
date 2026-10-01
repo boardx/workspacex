@@ -72,8 +72,8 @@ export function ResearchProgress({ node, availableNodes, busy, completed, onNavi
 
 const loadingCopy: Record<ResearchNode, { title: string; description: string }> = {
   brief: { title: "正在梳理研究主题", description: "模型正在整理研究目标与范围，完成后可继续调整。" },
-  directions: { title: "正在生成研究方向", description: "模型正在根据已确认的主题，拆解值得研究的问题。" },
-  outline: { title: "正在生成计划", description: "模型正在整理简洁、可执行的研究计划。" },
+  directions: { title: "正在解析研究主题", description: "正在整理导入的需求，完成后可确认研究主题。" },
+  outline: { title: "正在生成研究计划", description: "模型正在整理简洁、可执行的研究计划。" },
   research: { title: "正在获取资料", description: "正在搜索并读取相关资料，获取到的内容会逐步显示。" },
   report: { title: "正在生成研究报告", description: "模型正在整理来源证据、撰写章节并检查报告质量。正文就绪后会逐步显示。" },
 };
