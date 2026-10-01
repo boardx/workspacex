@@ -135,7 +135,7 @@ test("@path:C1 一轮分步产出多个画布：收尾不消失、落库有全�
   // reads or the live AGUI stream. The real persisted message, ids and journal
   // remain intact; only the reloaded browser receives assistant text without
   // canvas fences. Criterion ④ must fail, while ①②③ already passed.
-  let strippedFences = 0;
+  const strippedByMessage = new Map<string, number>();
   const hydrationCounterexample = process.env.CHAT_C1_HYDRATE_COUNTEREXAMPLE === "1";
   if (hydrationCounterexample) {
     await testInfo.attach("C1-before-reload-counterexample", {
@@ -146,13 +146,15 @@ test("@path:C1 一轮分步产出多个画布：收尾不消失、落库有全�
       if (route.request().method() !== "GET") return route.continue();
       const response = await route.fetch();
       expect(response.ok(), "hydrate counterexample requires the real successful history response").toBe(true);
-      const payload = await response.json() as { messages: Array<{ authorKind: string; text: string }> };
+      const payload = await response.json() as { messages: Array<{ id: string; authorKind: string; text: string }> };
       for (const message of payload.messages) {
         if (message.authorKind !== "agent") continue;
+        let stripped = 0;
         message.text = message.text.replace(/```canvas[^\n]*\r?\n[\s\S]*?```/g, () => {
-          strippedFences += 1;
+          stripped += 1;
           return "[reload-only canvas omission]";
         });
+        if (stripped > 0) strippedByMessage.set(message.id, stripped);
       }
       await route.fulfill({ response, json: payload });
     });
@@ -168,6 +170,8 @@ test("@path:C1 一轮分步产出多个画布：收尾不消失、落库有全�
   } finally {
     if (hydrationCounterexample) {
       const persistedAfterFault = await storedMessages(page, threadId);
+      // StrictMode/repeated history reads must not count the same stored fence twice.
+      const strippedFences = [...strippedByMessage.values()].reduce((sum, count) => sum + count, 0);
       await testInfo.attach("C1-reload-only-counterexample", {
         body: JSON.stringify({ strippedFences, reloadedCanvases: await fabrics(page).count(),
           persistedFences: persistedFenceCount(persistedAfterFault.filter((message) => message.authorKind === "agent").map((message) => message.text)) }),
