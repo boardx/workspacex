@@ -7,6 +7,7 @@ const root = process.cwd();
 const workflow = readFileSync(resolve(root, ".github/workflows/promote-cn-production.yml"), "utf8");
 const candidateWorkflow = readFileSync(resolve(root, ".github/workflows/prepare-cn-release.yml"), "utf8");
 const verifier = readFileSync(resolve(root, ".harness/scripts/vm/verify-cn-release-promotion.sh"), "utf8");
+const identity = readFileSync(resolve(root, ".harness/scripts/vm/cn-frozen-release-identity.mjs"), "utf8");
 const bootstrap = readFileSync(resolve(root, ".harness/scripts/vm/bootstrap-cn-production.sh"), "utf8");
 const deploy = readFileSync(resolve(root, ".harness/scripts/vm/deploy-cn-production.sh"), "utf8");
 
@@ -32,24 +33,26 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("actions: write");
     expect(workflow).toContain("GH_TOKEN: ${{ github.token }}");
     expect(workflow).not.toContain("CN_RELEASE_GITHUB_TOKEN");
-    expect(workflow).toContain('rule.type==="required_reviewers"');
-    expect(workflow).toContain('JSON.stringify(names)!==JSON.stringify(["main","main-cn"])');
-    expect(workflow).toContain("production-cn must allow exactly main and main-cn and must not require a second reviewer");
+    expect(identity).toContain("r.type==='required_reviewers'");
+    expect(identity).toContain("['main','main-cn']");
+    expect(identity).toContain("FROZEN_RELEASE_ENVIRONMENT_POLICY");
     expect(workflow).toContain('deployments.includes("production-cn-promotion")');
     expect(workflow).toContain('types.has("deletion")');
-    expect(workflow).toContain('"${GITHUB_REF}" == refs/heads/main');
+    expect(workflow).toContain('"${GITHUB_REF}" == refs/tags/cn-prepared-*');
     expect(workflow.match(/environment: production-cn-promotion/g)).toHaveLength(1);
     expect(workflow.match(/environment: production-cn$/gm)).toHaveLength(1);
   });
 
-  it("fails closed on privileged script drift and seeds the domestic mirror from GitHub", () => {
+  it("fails closed on privileged script drift and requires source staging before approval", () => {
     expect(workflow).toContain("actions/checkout@v5");
     expect(workflow).toContain("persist-credentials: false");
     expect(workflow).toContain("git rev-parse --verify origin/main");
     expect(workflow).toContain("CN_TRUSTED_ENTRYPOINT_DRIFT");
     expect(workflow).toContain("workspacex-cn-verify-promotion");
     expect(workflow).toContain("/opt/workspacex-cn/release-origin-cache.git");
-    expect(workflow).toContain('fetch --no-tags "${GITHUB_WORKSPACE}" "+${REVISION}:refs/heads/main"');
+    expect(workflow).not.toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
+    expect(workflow).toContain("CN_FROZEN_RELEASE_OFFLINE_SOURCE_NOT_READY");
+    expect(candidateWorkflow).toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
     expect(workflow).toContain("GIT_NO_LAZY_FETCH=1");
     expect(candidateWorkflow).toContain("actions/checkout@v5");
     expect(candidateWorkflow).toContain("persist-credentials: false");

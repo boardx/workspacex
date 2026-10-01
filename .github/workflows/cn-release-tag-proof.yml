@@ -1,0 +1,114 @@
+name: cn-release-tag-proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  deployments: read
+
+concurrency:
+  group: cn-release-tag-proof
+  cancel-in-progress: false
+
+jobs:
+  prove-tag-immutability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove actual token write and zero-bypass rule rejection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -m 700 proof-evidence
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          repo=os.environ['GH_REPO']; source=os.environ['SOURCE_SHA']
+          if repo!='boardx/workspacex' or not re.fullmatch('[a-f0-9]{40}',source): raise RuntimeError('PROOF_IDENTITY')
+          run=os.environ['RUN_ID']; attempt=os.environ['RUN_ATTEMPT']
+          if not run.isdigit() or not attempt.isdigit(): raise RuntimeError('PROOF_RUN')
+          protected='cn-release-proof-'+run+'-'+attempt
+          control='cn-release-control-'+run+'-'+attempt
+          prefix='repos/'+repo; evidence=Path('proof-evidence'); journal=[]
+          def call(method,path,fields=None,allow_rejection=False):
+            args=['gh','api','--include','--method',method,path]
+            for key,value in (fields or {}).items():
+              args+=['-F' if isinstance(value,bool) else '-f',key+'='+('true' if value is True else 'false' if value is False else value)]
+            r=subprocess.run(args,capture_output=True,text=True,timeout=35)
+            m=re.search(r'HTTP/\S+ (\d+)',r.stdout)
+            if not m: raise RuntimeError('PROOF_NO_HTTP_STATUS')
+            status=int(m.group(1)); parts=re.split(r'\r?\n\r?\n',r.stdout,maxsplit=1)
+            raw=parts[1] if len(parts)>1 else ''; body=json.loads(raw) if raw.strip() else None
+            journal.append({'method':method,'path':path,'status':status,'body':body})
+            (evidence/'journal.json').write_text(json.dumps(journal,indent=2))
+            if (r.returncode or not 200<=status<300) and not allow_rejection: raise RuntimeError('PROOF_HTTP_FAILURE')
+            return status,body
+          def get(path): return call('GET',path)[1]
+          def pages(path):
+            rows=[]
+            for page in range(1,101):
+              v=get(path+('&' if '?' in path else '?')+'per_page=100&page='+str(page))
+              if not isinstance(v,list): raise RuntimeError('PROOF_PAGINATION_SHAPE')
+              rows+=v
+              if len(v)<100: return rows
+            raise RuntimeError('PROOF_PAGINATION_INCOMPLETE')
+          rules=[]
+          for summary in pages(prefix+'/rulesets?includes_parents=true'):
+            if summary.get('target')=='tag' and summary.get('enforcement')=='active':
+              rules.append(get(prefix+'/rulesets/'+str(summary['id'])))
+          matches=[r for r in rules if r.get('conditions',{}).get('ref_name')=={'include':['refs/tags/cn-release-proof-*'],'exclude':[]}]
+          kinds=[]
+          for rule in matches:
+            if not isinstance(rule.get('bypass_actors'),list): raise RuntimeError('PROOF_RULE_BYPASS_NOT_VISIBLE')
+            relevant=[r['type'] for r in rule.get('rules',[]) if r['type'] in ['update','deletion']]
+            if relevant and rule.get('bypass_actors'): raise RuntimeError('PROOF_RULE_BYPASS')
+            if any(r['type']=='creation' for r in rule.get('rules',[])): raise RuntimeError('PROOF_CREATION_RESTRICTION')
+            kinds+=relevant
+          if not {'update','deletion'}.issubset(kinds): raise RuntimeError('PROOF_RULES_MISSING')
+          (evidence/'rules-before.json').write_text(json.dumps(matches,indent=2))
+          other=get(prefix+'/git/commits/'+source)['parents'][0]['sha']
+          if not re.fullmatch('[a-f0-9]{40}',other) or other==source: raise RuntimeError('PROOF_OTHER_SHA')
+          for name in [control,protected]:
+            status,_=call('GET',prefix+'/git/ref/tags/'+name,allow_rejection=True)
+            if status!=404: raise RuntimeError('PROOF_REF_ALREADY_EXISTS')
+          # An unprotected control proves the same actual token can create/update/delete.
+          call('POST',prefix+'/git/refs',{'ref':'refs/tags/'+control,'sha':source})
+          try:
+            call('PATCH',prefix+'/git/refs/tags/'+control,{'sha':other,'force':True})
+            if get(prefix+'/git/ref/tags/'+control)['object']['sha']!=other: raise RuntimeError('PROOF_CONTROL_UPDATE')
+          finally:
+            call('DELETE',prefix+'/git/refs/tags/'+control)
+          status,_=call('GET',prefix+'/git/ref/tags/'+control,allow_rejection=True)
+          if status!=404: raise RuntimeError('PROOF_CONTROL_DELETE')
+          payload={'schemaVersion':1,'purpose':'nonproduction-tag-rule-proof','sourceSha':source,'runId':run,'runAttempt':attempt}
+          obj=call('POST',prefix+'/git/tags',{'tag':protected,'message':json.dumps(payload,separators=(',',':')),'object':source,'type':'commit'})[1]
+          call('POST',prefix+'/git/refs',{'ref':'refs/tags/'+protected,'sha':obj['sha']})
+          expected=obj['sha']
+          for method,fields,kind in [('PATCH',{'sha':other,'force':True},'update'),('DELETE',None,'deletion')]:
+            status,body=call(method,prefix+'/git/refs/tags/'+protected,fields,True)
+            text=json.dumps(body)
+            if status not in [403,422] or not re.search(r'GH013|rule violation|protected ref|restrict|cannot (update|delete)',text,re.I):
+              raise RuntimeError('PROOF_REJECTION_NOT_RULE_SPECIFIC_'+kind)
+            actual=get(prefix+'/git/ref/tags/'+protected)
+            if actual['object']['type']!='tag' or actual['object']['sha']!=expected: raise RuntimeError('PROOF_IMMUTABILITY_FAILED')
+          final=get(prefix+'/git/tags/'+expected)
+          if final['object']!={'type':'commit','sha':source,'url':final['object']['url']} or final['message']!=json.dumps(payload,separators=(',',':')): raise RuntimeError('PROOF_TAG_READBACK')
+          (evidence/'receipt.json').write_text(json.dumps({'status':'passed','repository':repo,'sourceSha':source,'runId':run,'runAttempt':attempt,'immutableTag':protected,'tagObjectSha':expected,'ruleIds':[r['id'] for r in matches],'controlDeleted':True},indent=2))
+          print('CN_RELEASE_TAG_PROOF_PASS '+protected)
+          PY
+      - name: Preserve actual rule and HTTP proof
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-release-tag-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: proof-evidence/
+          if-no-files-found: error
+          retention-days: 30
