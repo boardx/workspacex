@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels } from './board-navigation-acceptance-classifier.mjs';
 
 const sticky = { id: 'sticky', kind: 'sticky', geometry: { x: 10 } };
 const drawings = ['d1', 'd2'].map(id => ({ id, kind: 'drawing', geometry: { x: 0 }, extensionData: { contentObject: { type: 'drawing', version: 1, strokes: [{ id: `${id}-ink`, tool: 'pen', points: [{ x: 0, y: 0 }, { x: 10, y: 10 }], width: 2 }] } } }));
@@ -34,4 +34,10 @@ test('multi-drawing vector erase rejects deletion, missing masks, wrong stroke t
   assert.throws(() => assertEraseTransaction(state(5), state(6, [sticky, ...wrongMask]), state(7), ['d1', 'd2']), /actual ink/);
   assert.throws(() => assertEraseTransaction(state(5), state(6, [...masked]), state(7), ['d1', 'd2']), /non-target/);
   assert.throws(() => assertEraseTransaction(state(5), state(6, [sticky, ...masked]), state(7, [sticky, drawings[0]]), ['d1', 'd2']), /single undo/);
+});
+
+test('drawing pixels reject missing/clipped caps, shifted centres, inflated width and accumulated alpha', () => {
+  const valid = { thickness: 8, expectedThickness: 8, centerOffset: 0, endcapAlpha: 89, endcapColorMatches: true, outsideInk: false, alpha: 89, expectedAlpha: 89 };
+  assertDrawingPixels(valid);
+  for (const patch of [{ thickness: 0 }, { thickness: 40 }, { centerOffset: 5 }, { endcapAlpha: 0 }, { endcapColorMatches: false }, { outsideInk: true }, { alpha: 147 }]) assert.throws(() => assertDrawingPixels({ ...valid, ...patch }));
 });

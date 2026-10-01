@@ -36,3 +36,13 @@ export function assertEraseTransaction(before, after, undone, expectedIds) {
   assert.deepEqual(after.objects.filter(object => !expectedIds.includes(object.id)), before.objects.filter(object => !expectedIds.includes(object.id)), 'eraser changes non-target or locked objects');
   assert.deepEqual(undone.objects, before.objects, 'single undo must restore the entire erase transaction');
 }
+
+export function assertDrawingPixels({ thickness, expectedThickness, centerOffset, endcapAlpha, endcapColorMatches, outsideInk, alpha, expectedAlpha }) {
+  assert(Number.isFinite(thickness) && thickness > 0, 'drawing has actual measurable ink');
+  assert(Math.abs(thickness - expectedThickness) <= 3, 'actual thickness matches vector width and world transform');
+  assert(Number.isFinite(centerOffset) && Math.abs(centerOffset) <= 1.5, 'ink centreline matches canonical world coordinates');
+  assert(endcapAlpha >= expectedAlpha * .7, 'round endcap ink extends beyond the endpoint');
+  assert(endcapColorMatches, 'endcap must contain the target stroke RGB, not unrelated opaque pixels');
+  assert.equal(outsideInk, false, 'outside the cap radius must not contain target ink');
+  assert(Math.abs(alpha - expectedAlpha) <= 12, 'stroke alpha is applied once, including at joins');
+}

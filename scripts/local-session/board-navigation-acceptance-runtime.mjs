@@ -15,6 +15,7 @@ export const sourceFiles = [
   'apps/web/components/whiteboard/fabric/drawing-cache-bounds.ts',
   'apps/web/components/whiteboard/fabric/drawing-hit-test.ts',
   'apps/web/components/whiteboard/drawing-coordinate-space.ts',
+  'apps/web/components/whiteboard/drawing-tool-style.ts',
   'apps/web/components/whiteboard/whiteboard-fabric-projection.ts',
   'apps/web/components/whiteboard/object-context-toolbar.tsx',
   'apps/web/components/whiteboard/use-board-toolbar-position.ts',

@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 import { verifyNavigationRuntime } from './board-navigation-acceptance-runtime.mjs';
 import { savedSequence } from './board-acceptance-runtime.mjs';
-import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels } from './board-navigation-acceptance-classifier.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const arg = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback;
@@ -25,6 +25,7 @@ const {register} = createRequire(join(root, 'package.json'))('tsx/esm/api');
 register();
 const {WhiteboardOperationRequest} = await import('../../packages/contracts/src/whiteboard-operation.ts');
 const {createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, createContentObjectEnvelope} = await import('../../packages/whiteboard-core/src/index.ts');
+const { BOARD_DRAWING_TOOL_STYLES } = await import('../../apps/web/components/whiteboard/drawing-tool-style.ts');
 mkdirSync(out, {recursive: true});
 const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
 const results = [];
@@ -87,6 +88,40 @@ const inkAt = point => surface().locator('canvas.lower-canvas').evaluate((canvas
   for (let index = 0; index < data.length; index += 4) if (data[index + 3] > 200 && Math.max(data[index], data[index + 1], data[index + 2]) < 80) count++;
   return count;
 }, point);
+const drawingMeasurements = async object => {
+  const stroke = object.extensionData.contentObject.strokes.find(item => item.tool !== 'eraser');
+  const points = object.extensionData.contentObject.strokes.flatMap(item => item.points);
+  const minX = Math.min(...points.map(item => item.x)), minY = Math.min(...points.map(item => item.y));
+  const intrinsicWidth = Math.max(1, Math.max(...points.map(item => item.x)) - minX), intrinsicHeight = Math.max(1, Math.max(...points.map(item => item.y)) - minY);
+  const geometry = object.geometry, scaleX = geometry.width / intrinsicWidth, scaleY = geometry.height / intrinsicHeight;
+  const radians = geometry.rotation * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
+  const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
+  const screen = point => { const x = (point.x - minX) * scaleX, y = (point.y - minY) * scaleY; return { x: box.x + px + (geometry.x + x * c - y * s) * zoom, y: box.y + py + (geometry.y + x * s + y * c) * zoom }; };
+  const first = stroke.points[0], horizontal = stroke.points.filter(item => Math.abs(item.y - first.y) < .001);
+  assert(horizontal.length >= 2, 'visual fixture has a natural horizontal section and nonzero intrinsic height');
+  const joint = horizontal.reduce((best, item) => item.x > best.x ? item : best, first);
+  const pressure = Math.max(.1, (first.pressure + horizontal[1].pressure) / 2), effectiveWidth = stroke.width * (.35 + pressure * .65);
+  const expectedThickness = effectiveWidth * scaleY * zoom, expectedAlpha = stroke.opacity * 255;
+  const center = screen({ x: (first.x + joint.x) / 2, y: first.y });
+  const endcap = screen({ x: first.x - effectiveWidth * .25, y: first.y });
+  const outside = screen({ x: first.x - effectiveWidth * 1.5, y: first.y });
+  const rgb = stroke.color.slice(1).match(/../g).map(hex => parseInt(hex, 16));
+  const measured = await surface().locator('canvas.lower-canvas').evaluate((canvas, input) => {
+    const bounds = canvas.getBoundingClientRect(), sx = canvas.width / bounds.width, sy = canvas.height / bounds.height;
+    const pixel = point => [...canvas.getContext('2d').getImageData(Math.round((point.x - bounds.x) * sx), Math.round((point.y - bounds.y) * sy), 1, 1).data];
+    const offsets = [];
+    for (let offset = -input.expectedThickness * 1.2 - 4; offset <= input.expectedThickness * 1.2 + 4; offset += .5) {
+      const color = pixel({ x: input.center.x - input.s * offset, y: input.center.y + input.c * offset });
+      if (color[3] > input.expectedAlpha * .3 && input.rgb.every((value, index) => Math.abs(color[index] - value) <= 20)) offsets.push(offset);
+    }
+    const targetInk = color => color[3] > input.expectedAlpha * .3 && input.rgb.every((value, index) => Math.abs(color[index] - value) <= 20);
+    const endcapRGBA = pixel(input.endcap), outsideRGBA = pixel(input.outside);
+    return { thickness: offsets.length ? offsets.at(-1) - offsets[0] + .5 : 0, centerOffset: offsets.length ? (offsets[0] + offsets.at(-1)) / 2 : null,
+      endcapAlpha: endcapRGBA[3], endcapColorMatches: targetInk(endcapRGBA), outsideInk: targetInk(outsideRGBA), endcapRGBA, outsideRGBA,
+      alpha: pixel(input.joint)[3], centerRGBA: pixel(input.center), jointRGBA: pixel(input.joint) };
+  }, { center, endcap, outside, joint: screen(joint), c, s, expectedThickness, expectedAlpha, rgb });
+  return { ...measured, expectedThickness, expectedAlpha, geometry, strokeWidth: stroke.width, screenCenter: center };
+};
 const viewport = async () => Promise.all(['zoom', 'pan-x', 'pan-y'].map(key => surface().getAttribute(`data-viewport-${key}`)));
 const point = async id => {
   const box = await surface().boundingBox(); assert(box);
@@ -332,7 +367,7 @@ try {
     const edgeId = randomUUID(), doc = createWhiteboardDocument();
     executeCommands(doc, (await snapshot()).objects.map(object => ({ type: 'create', object })));
     new SpatialRelationshipCommandPort(doc).dispatch({ boardId, clientId: 'overlay-fixture', gestureId: randomUUID(), command: { type: 'create-connector', id: edgeId,
-      relationship: { fromPoint: { x: 280, y: 140 }, toPoint: { x: 460, y: 200 }, type: 'straight', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: '', semanticRelation: '' } } });
+      relationship: { fromPoint: { x: 280, y: 140 }, toPoint: { x: 460, y: 200 }, fromAnchor: 'right', toAnchor: 'left', type: 'straight', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: '', semanticRelation: '' } } });
     const edge = readObjects(doc).find(object => object.id === edgeId); doc.destroy();
     await submit([{ type: 'create', object: edge }]); await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
     const center = await point(edgeId); await page.mouse.click(center.x, center.y);
@@ -351,7 +386,102 @@ try {
   });
   await page.screenshot({ path: join(out, `navigation-${width}.png`) });
   }
-  await check('multi-object eraser is one transaction and one undo', async () => {
+  await check('multi-selection move resize rotation held follow is one transaction each', async () => {
+    await page.setViewportSize({ width: 1440, height: 900 }); await page.getByTestId('board-zoom-fit-board').click(); await page.getByTestId('board-tool-select').click();
+    const nodes = (await rows()).filter(item => ['sticky', 'rectangle'].includes(item.kind)); assert.equal(nodes.length, 2);
+    const a = await point(nodes[0].id), b = await point(nodes[1].id);
+    await page.mouse.click(a.x, a.y); await page.keyboard.down('Shift'); try { await page.mouse.click(b.x, b.y); } finally { await page.keyboard.up('Shift'); }
+    const gestures = [];
+    for (const mode of ['move', 'resize', 'rotate']) {
+      const selected = await poll(() => surface().getAttribute('data-selection-scene'), value => value !== null, 'real Fabric ActiveSelection');
+      const scene = JSON.parse(selected), box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
+      const screen = p => ({ x: box.x + px + p.x * zoom, y: box.y + py + p.y * zoom });
+      const start = mode === 'move' ? screen(scene.hitPoints[0]) : mode === 'resize' ? screen({ x: scene.bounds.left + scene.bounds.width, y: scene.bounds.top + scene.bounds.height }) : { ...screen({ x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top }), y: box.y + py + scene.bounds.top * zoom - 40 };
+      const before = await canonicalState(), beforePixels = await connectorPixels();
+      const handles = nodes.map(node => page.getByTestId(`connector-handle-${node.id}-right`));
+      const beforeHandles = await Promise.all(handles.map(handle => handle.boundingBox())); assert(beforeHandles.every(Boolean));
+      const toolbar = page.getByTestId('board-selection-layout-toolbar'); const beforeToolbar = await toolbar.boundingBox(); assert(beforeToolbar);
+      await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 40, start.y + (mode === 'rotate' ? 12 : 25), { steps: 12 });
+      const liveHandles = await Promise.all(handles.map((handle, index) => poll(() => handle.boundingBox(), value => value && Math.hypot(value.x - beforeHandles[index].x, value.y - beforeHandles[index].y) > 3, `multi ${mode} live handle ${index}`)));
+      const liveToolbar = await toolbar.boundingBox(); assert(liveToolbar);
+      assert(Math.hypot(liveToolbar.x - beforeToolbar.x, liveToolbar.y - beforeToolbar.y) > 1, `multi ${mode} menu follows before release`);
+      assert(liveToolbar.x >= 0 && liveToolbar.x + liveToolbar.width <= 1441, 'held multi-selection toolbar stays inside viewport');
+      const livePixels = await poll(connectorPixels, value => value.count > 20 && Math.hypot(value.x - beforePixels.x, value.y - beforePixels.y) > 1, `multi ${mode} attached connector ink follows`);
+      assertHeldUncommitted(before, await canonicalState());
+      await page.screenshot({ path: join(out, `multi-${mode}-held.png`) }); await page.mouse.up(); await synced();
+      const after = await poll(canonicalState, value => value.head.seq > before.head.seq, `multi ${mode} release`); assertReleasedOnce(before, after);
+      const changed = nodes.map(node => ({ before: before.objects.find(item => item.id === node.id).geometry, after: after.objects.find(item => item.id === node.id).geometry }));
+      assert(changed.every(item => JSON.stringify(item.before) !== JSON.stringify(item.after)), 'both selected objects change in one transaction');
+      if (mode === 'rotate') assert(changed.every(item => item.before.rotation !== item.after.rotation), 'multi rotation changes both canonical angles');
+      if (mode === 'resize') assert(changed.every(item => item.before.width !== item.after.width || item.before.height !== item.after.height), 'multi resize changes both canonical dimensions');
+      gestures.push({ mode, beforeHead: before.head, afterHead: after.head, beforeHandles, liveHandles, beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
+    }
+    return gestures;
+  });
+  let naturalPenId, naturalHighlighterId;
+  await check('real pen/highlighter gestures preserve centre thickness round caps and single alpha', async () => {
+    await submit((await snapshot()).objects.map(object => ({ type: 'delete', id: object.id })));
+    await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
+    const measurements = [];
+    for (const [index, choice] of ['pen', 'highlighter'].entries()) {
+      await page.getByTestId('board-tool-select').click(); await surface().click({ position: { x: 1100, y: 120 } });
+      await page.getByTestId('board-add-draw').click(); await page.getByTestId(`board-draw-${choice}`).click();
+      await page.getByTestId('board-draw-stroke-8').click(); await page.getByTestId('board-draw-color-ef4444').click();
+      const box = await surface().boundingBox(), y = box.y + 160 + index * 170;
+      const before = await canonicalState(), beforeIds = new Set(before.objects.map(object => object.id));
+      await page.mouse.move(box.x + 300, y); await page.mouse.down();
+      await page.mouse.move(box.x + 580, y, { steps: 16 }); await page.mouse.move(box.x + 580, y + 80, { steps: 8 });
+      assertHeldUncommitted(before, await canonicalState()); await page.screenshot({ path: join(out, `${choice}-natural-held.png`) });
+      await page.mouse.up(); await synced();
+      const after = await poll(canonicalState, value => value.head.seq > before.head.seq, `${choice} release`); assertReleasedOnce(before, after);
+      const created = after.objects.filter(object => !beforeIds.has(object.id)); assert.equal(created.length, 1); assert.equal(created[0].kind, 'drawing');
+      const strokes = created[0].extensionData.contentObject.strokes; assert.equal(strokes.length, 1, 'one real gesture creates exactly one stroke');
+      assert.equal(strokes[0].tool, choice, 'persisted instrument matches the selected tool');
+      assert.equal(strokes[0].width, 8, 'persisted width matches explicitly selected 8px control');
+      assert.equal(strokes[0].color.toUpperCase(), '#EF4444', 'persisted color matches explicitly selected red swatch');
+      assert.equal(strokes[0].opacity, BOARD_DRAWING_TOOL_STYLES[choice].opacity, 'persisted opacity matches the canonical selected instrument style');
+      if (choice === 'pen') naturalPenId = created[0].id;
+      else naturalHighlighterId = created[0].id;
+      const measured = await poll(() => drawingMeasurements(created[0]), value => value.thickness > 0, `${choice} actual committed ink`); assertDrawingPixels(measured);
+      await page.getByTestId('board-draw-select').click(); await page.screenshot({ path: join(out, `${choice}-natural.png`) }); measurements.push({ choice, id: created[0].id, ...measured });
+    }
+    assert(measurements[1].expectedAlpha < measurements[0].expectedAlpha, 'actual highlighter is translucent relative to pen');
+    const highlighter = (await snapshot()).objects.find(object => object.id === naturalHighlighterId), overlap = structuredClone(highlighter);
+    overlap.id = randomUUID(); overlap.geometry.x += 380;
+    overlap.extensionData.contentObject.strokes = [0, 1].map(() => ({ ...structuredClone(highlighter.extensionData.contentObject.strokes[0]), id: randomUUID() }));
+    await submit([{ type: 'create', object: overlap }]); await page.reload(); await synced();
+    const expectedOverlapAlpha = (1 - (1 - highlighter.extensionData.contentObject.strokes[0].opacity) ** 2) * 255;
+    const composite = { ...await drawingMeasurements(overlap), expectedAlpha: expectedOverlapAlpha }; assertDrawingPixels(composite);
+    await page.screenshot({ path: join(out, 'highlighter-independent-strokes-overlap.png') });
+    measurements.push({ choice: 'two independent highlighter strokes', id: overlap.id, ...composite });
+    return measurements;
+  });
+  await check('real drawing resize rotation undo redo reload preserve ink geometry and opacity', async () => {
+    assert(naturalPenId, 'real pen creation must precede transform matrix');
+    const gestures = [];
+    for (const naturalId of [naturalPenId, naturalHighlighterId]) for (const mode of ['resize', 'rotate']) {
+      await page.getByTestId('board-tool-select').click();
+      const before = await canonicalState(), object = before.objects.find(item => item.id === naturalId); assert(object);
+      const measuredBefore = await drawingMeasurements(object); await page.mouse.click(measuredBefore.screenCenter.x, measuredBefore.screenCenter.y);
+      const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number), g = object.geometry, angle = g.rotation * Math.PI / 180;
+      const local = mode === 'resize' ? { x: g.width, y: g.height } : { x: g.width / 2, y: g.height };
+      const offset = mode === 'rotate' ? 40 : 0;
+      const start = { x: box.x + px + (g.x + local.x * Math.cos(angle) - local.y * Math.sin(angle)) * zoom - offset * Math.sin(angle), y: box.y + py + (g.y + local.x * Math.sin(angle) + local.y * Math.cos(angle)) * zoom + offset * Math.cos(angle) };
+      await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 45, start.y + (mode === 'resize' ? 20 : -20), { steps: 12 });
+      assertHeldUncommitted(before, await canonicalState()); await page.screenshot({ path: join(out, `drawing-${naturalId}-${mode}-held.png`) });
+      await page.mouse.up(); await synced(); const after = await poll(canonicalState, value => value.head.seq > before.head.seq, `drawing ${mode} release`); assertReleasedOnce(before, after);
+      const next = after.objects.find(item => item.id === naturalId);
+      if (mode === 'resize') assert(next.geometry.width !== g.width || next.geometry.height !== g.height, 'drawing really resizes');
+      else assert(next.geometry.rotation !== g.rotation, 'drawing really rotates');
+      const measured = await drawingMeasurements(next); assertDrawingPixels(measured);
+      await page.keyboard.press('Control+z'); await synced(); const undone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(before.objects), 'drawing single undo'); assertDrawingPixels(await drawingMeasurements(undone.objects.find(item => item.id === naturalId)));
+      await page.keyboard.press('Control+Shift+z'); await synced(); const redone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(after.objects), 'drawing single redo'); assertDrawingPixels(await drawingMeasurements(redone.objects.find(item => item.id === naturalId)));
+      await page.reload(); await synced(); assert.deepEqual((await canonicalState()).objects, after.objects); const reloaded = await drawingMeasurements(next); assertDrawingPixels(reloaded);
+      await page.screenshot({ path: join(out, `drawing-${naturalId}-${mode}-redo-reload.png`) }); gestures.push({ id: naturalId, mode, beforeHead: before.head, afterHead: after.head, before: measuredBefore, committed: measured, reloaded });
+    }
+    return gestures;
+  });
+  await check('strong anisotropic drawing multi-eraser is one transaction and one undo', async () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const ids = [randomUUID(), randomUUID()], lockedId = randomUUID();
     const commands = [...ids, lockedId].map((id, index) => createContentObjectEnvelope({
@@ -380,7 +510,7 @@ try {
     assertEraseTransaction(before, after, undone, ids);
     const undoneInk = await Promise.all(inkPoints.map((location, index) => poll(() => inkAt(location), count => count >= beforeInk[index] * .9, 'single undo restores original ink pixels')));
     await page.screenshot({ path: join(out, 'eraser-undone.png') });
-    return { ids, lockedId, beforeInk, erasedInk, undoneInk, beforeHead: before.head, afterHead: after.head, undoneHead: undone.head };
+    return { ids, lockedId, fixtureInterpretation: 'Deliberate scaleY=40 stress fixture from a one-pixel intrinsic horizontal frame; giant ink is not a normal 5px pen example. Natural pen visual checks are separate.', beforeInk, erasedInk, undoneInk, beforeHead: before.head, afterHead: after.head, undoneHead: undone.head };
   });
   verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
   completed = true;
