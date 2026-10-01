@@ -58,11 +58,14 @@ export function InterviewWorkbenchHeader({
     window.addEventListener("resize", measure);
     return () => { observer?.disconnect(); window.removeEventListener("resize", measure); container.style.removeProperty("--itv-header-height"); };
   }, []);
-  return <header ref={headerRef} data-testid="itv-workbench-header" className="sticky top-0 z-20 border-b border-border bg-card/95 px-4 py-3 backdrop-blur lg:px-8">
-    <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className={`${activeStep === "intake" ? "" : "mt-1 "}truncate text-xl font-semibold tracking-tight lg:text-2xl`}>{name}</h1>
-      </div>
+  return <header ref={headerRef} data-testid="itv-workbench-header" className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur lg:px-8">
+    <div className="mx-auto max-w-[1440px]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="text-sm font-semibold tracking-tight text-foreground">AI 模拟访谈工作台</span>
+          <span aria-hidden="true" data-testid="itv-workflow-status-badge" className="hidden rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground sm:inline-flex">状态：{status}</span>
+          <span aria-hidden="true" data-testid="itv-workflow-version-badge" className="hidden rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground sm:inline-flex">版本 {version}</span>
+        </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <span data-testid="itv-workflow-status" className="sr-only">状态：{status}</span>
         <span data-testid="itv-workflow-version" className="sr-only">版本 {version}</span>
@@ -71,6 +74,8 @@ export function InterviewWorkbenchHeader({
         {onOpenSkill && <Button data-testid="itv-skill-drawer-trigger" type="button" variant="outline" onClick={onOpenSkill}><MessageSquareText className="size-4" aria-hidden />访谈助手</Button>}
         <Button data-testid="itv-return-history" type="button" variant="outline" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</Button>
       </div>
+    </div>
+      <h1 className="mt-3 truncate text-2xl font-bold tracking-tight lg:text-3xl">{name}</h1>
     </div>
     <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mx-auto mt-3 max-w-[1440px] overflow-x-auto pb-1">
       <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-center lg:min-w-0">{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; return <li key={step.id} className="relative flex min-w-32 flex-1 items-center lg:min-w-0">

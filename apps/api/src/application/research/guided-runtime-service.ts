@@ -445,7 +445,7 @@ export class GuidedRuntimeService {
       }
     }
     if (this.search.read) await collectSourceDocuments(state.sources, (url) => this.search.read!(url), persist);
-    // Best-effort chapter coverage: search up to two additional variants for chapters
+    // Best-effort chapter coverage: search bounded, topic-scoped variants for chapters
     // with fewer than three unique accepted URLs. This never turns an honest gap into
     // an unrelated citation or makes a failed supplement block the report.
     for (const section of this.search.read ? state.outline.filter((item) => item.enabled) : []) {
@@ -454,7 +454,14 @@ export class GuidedRuntimeService {
       if (!task || count() >= 3) continue;
       task.searchAttempts ??= [];
       const seenSupplement = new Set(task.searchAttempts.map((attempt) => attempt.query.trim().toLowerCase()));
-      for (const query of [`${task.query} primary source`, `${section.title} evidence report`]) {
+      const scope = [state.brief.topic, state.brief.region].filter(Boolean).join(" ");
+      const queries = [...new Set([
+        `${scope} ${task.query} primary source`,
+        ...section.questions.map((question) => `${scope} ${question}`),
+        `${scope} ${section.title} official report`,
+        `${scope} ${section.title} data study`,
+      ])].slice(0, 6);
+      for (const query of queries) {
         if (count() >= 3) break;
         const normalizedQuery = query.trim().toLowerCase();
         if (seenSupplement.has(normalizedQuery) || task.searchAttempts.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;

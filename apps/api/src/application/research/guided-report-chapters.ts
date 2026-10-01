@@ -71,7 +71,10 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     const chapters: Chapter[] = structuredClone(approved);
     let live = Boolean(emit);
     let resetSynthesis: (() => void) | undefined;
-    const persistTimeline = () => persist();
+    const persistTimeline = async () => {
+      await persist();
+      persist.observe({ type: "snapshot", state: structuredClone(state) });
+    };
     const audited = async (input: ModelCallInput, validate: (text: string) => unknown, publish?: (delta: string) => Promise<void>) => {
       const context = JSON.parse(input.user) as { reportStage: string; section?: { id: string }; batchIndex?: number; batchTotal?: number };
       const stage = context.reportStage.startsWith("evidence") ? "organizing" : context.reportStage === "quality" ? "reviewing" : context.reportStage.startsWith("synthesis") ? "synthesizing" : "writing";

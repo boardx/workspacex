@@ -34,11 +34,13 @@ afterEach(() => {
 
 // 每条用例都起 tsx 子进程，默认 5 秒超时在慢机器上会假红
 describe("lint-maau-manifest", { timeout: 30_000 }, () => {
-  it("package.json 里有这条脚本、经 tsx 跑（要 import 唯一解析器）、以 strict 接进验证链", () => {
+  it("package.json 里有这条脚本、经 tsx 跑（要 import 唯一解析器）、存量期以非 strict 接进验证链", () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
     expect(pkg.scripts["lint:maau-manifest"]).toMatch(/tsx .*lint-maau-manifest\.mjs/);
-    // C2（2026-09-24）：8 个技能包补齐许可后存量清零，门控转阻断并接进验证链
-    expect(pkg.scripts["lint:maau-manifest"]).toContain("--strict");
+    // C2（2026-09-24）：8 个技能包补齐许可后存量清零，门控转阻断并接进验证链。
+    // 2026-10-01（#4893）：语料涨到 108 包、89 包缺清单（license 属 D1 人类决策）——
+    // 按本脚本文档规定的默认回「只报告不阻断」；恢复 --strict 的条件＝清单一处不差。
+    expect(pkg.scripts["lint:maau-manifest"]).not.toContain("--strict");
     expect(pkg.scripts["verify:harness:raw"]).toContain("lint:maau-manifest");
   });
 

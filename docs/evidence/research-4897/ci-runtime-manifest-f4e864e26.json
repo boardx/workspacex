@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "kind": "runtime",
+  "command": "pnpm run verify:fullstack-smoke",
+  "exit_code": 0,
+  "executed": 134,
+  "commit": "f4e864e26d1ae60bd22293a94639db49edb4d229",
+  "recorded_at": "2026-10-01T11:25:53.928Z",
+  "artifacts": [
+    "phases/phase-01-run-a-project/evidence/ci/runtime.log"
+  ]
+}
