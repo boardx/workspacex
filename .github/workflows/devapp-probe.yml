@@ -131,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence
-          git -C /opt/workspacex/app rev-parse HEAD > evidence/deployment-sha.txt
+          git -c safe.directory=/opt/workspacex/app -C /opt/workspacex/app rev-parse HEAD > evidence/deployment-sha.txt
           docker ps --format '{{.Names}} {{.Image}} {{.Status}}' > evidence/services.txt
           docker exec -i workspacex-postgres-1 psql -U postgres -d workspacex -v ON_ERROR_STOP=1 > evidence/runs.txt <<'SQL'
           BEGIN READ ONLY;
