@@ -39,15 +39,15 @@ function mount() {
   return doc;
 }
 
-function createPanelAndSticky() {
-  fireEvent.click(screen.getByTestId("board-add-frame"));
-  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+function createPanelAndSticky(doc:Y.Doc) {
+  // Frames remain editable; the creation dock intentionally no longer exposes them.
+  act(()=>new SpatialRelationshipCommandPort(doc).dispatch({boardId:"spatial-board",clientId:"fixture",gestureId:crypto.randomUUID(),command:{type:"create-panel",id:crypto.randomUUID(),geometry:{x:0,y:0,width:400,height:300,rotation:0},panel:{version:1,mode:"freeform",autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:"horizontal"}}}));
   fireEvent.keyDown(window,{key:"n"});
 }
 
 it("creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port", () => {
   const doc = mount();
-  createPanelAndSticky();
+  createPanelAndSticky(doc);
   const panel = readObjects(doc).find((object) => object.kind === "frame")!;
   const sticky = readObjects(doc).find((object) => object.kind === "sticky")!;
   expect(panel.extensionData?.spatial).toMatchObject({ mode: "freeform", autoExpand: true, clipContent: false });
@@ -66,7 +66,7 @@ it("creates and edits a semantic Panel, highlights a drop target, and reparents 
 
 it("locks objects against transform and exposes both explicit Panel deletion outcomes", () => {
   const doc = mount();
-  createPanelAndSticky();
+  createPanelAndSticky(doc);
   const panel = readObjects(doc).find((object) => object.kind === "frame")!, sticky = readObjects(doc).find((object) => object.kind === "sticky")!;
   fireEvent.click(screen.getByTestId("mock-reparent"));
   fireEvent.click(screen.getByTestId(`mock-select-${sticky.id}`));
