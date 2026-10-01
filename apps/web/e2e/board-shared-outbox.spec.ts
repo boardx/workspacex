@@ -1,3 +1,4 @@
+import { seedExistingFrame } from "./board-acceptance-support";
 import {randomUUID} from 'node:crypto';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
@@ -34,19 +35,19 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
-  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
+  const existingFrame=await seedExistingFrame(page,100,100,320,240);
+  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(1);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.mouse.wheel(0,100_000);await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
-  await page.getByTestId('board-add-frame').click();
-  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
+  await page.getByTestId(`board-a11y-object-${existingFrame}`).evaluate((element:HTMLElement)=>element.click());
   const createdIds:string[]=[];
-  for(let index=0;index<8;index++){
-   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
-   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
+  // Duplicate an existing Frame through real keyboard commands; each copy enters the shared outbox.
+  for(let index=1;index<8;index++){
+   await page.keyboard.press('ControlOrMeta+d');
+   await expect(objectRows(page),`Frame copy ${index} must create exactly one object`).toHaveCount(index+1);
    const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
    const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
   }
-  await page.getByRole('button',{name:'Close frame tools'}).click();
   await expect(objectRows(page)).toHaveCount(8);
   mark('panels-created');
   await page.getByTestId('board-inspector-expand').click();

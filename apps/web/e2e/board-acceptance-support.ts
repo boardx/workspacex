@@ -150,8 +150,6 @@ export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
 }
 export async function connectByHandles(page: Page, from: string, to: string) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
-  await page.keyboard.press('c');
-  await expect(page.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('board-zoom-fit-board').click();
   const source = await objectPoint(page, from); await page.mouse.move(source.x, source.y);
   // Connector mode exposes handles even when the previous action left a multi-selection active.
@@ -177,4 +175,17 @@ export function connectorsBound(rows: CanonicalRow[]) {
 export async function assertReload(page: Page, boardId: string, expected: CanonicalRow[]) {
   await openBoard(page, boardId, expected.length);
   await expect.poll(() => canonicalRows(page)).toEqual(expected);
+}
+
+/** Existing Frame fixture uses the real authenticated command API; creation is absent from the dock. */
+export async function seedExistingFrame(page: Page, x: number, y: number, width = 480, height = 320) {
+  const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token).toBeTruthy();
+  const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
+  const id = `existing-frame-${randomUUID()}`;
+  await boardApi(page.request, token!, 'POST', `/whiteboards/${boardId}/commands`, {
+    requestId: randomUUID(), epoch: 1, commands: createCommands([object(id, 'frame', x, y, 'Existing Frame', width, height)]),
+  });
+  await expect(page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${id}"]`)).toBeVisible();
+  return id;
 }
