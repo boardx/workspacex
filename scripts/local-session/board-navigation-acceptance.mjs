@@ -29,7 +29,9 @@ mkdirSync(out, {recursive: true});
 const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
 const results = [];
 const browserErrors = [];
+const browserHTTPFailures = [];
 let browser, page, token, boardId, principal, completed = false;
+const fixtureTitle = `Navigation acceptance ${randomUUID()}`;
 const redact = value => String(value).replaceAll(token ?? '\0', '[token]').replaceAll(password ?? '\0', '[password]');
 let password;
 const check = async (name, run) => {
@@ -119,7 +121,8 @@ try {
     const context = await browser.newContext({viewport: {width: 1440, height: 900}, locale: 'zh-CN', ...(storage ? {storageState: storage} : {})});
     page = await context.newPage();
     page.on('pageerror', error => browserErrors.push(redact(error.message)));
-    page.on('console', message => { if (message.type() === 'error') browserErrors.push(redact(message.text())); });
+    page.on('console', message => { if (message.type() === 'error') browserErrors.push(redact(`${message.text()} [${message.location().url}]`)); });
+    page.on('response', response => { if (response.status() >= 400) browserHTTPFailures.push({ status: response.status(), method: response.request().method(), path: new URL(response.url()).pathname }); });
     page.setDefaultTimeout(30000);
     if (!storage) {
       password = JSON.parse(readFileSync(join(data, 'secrets.json'), 'utf8')).adminPassword; assert.equal(typeof password, 'string');
@@ -135,7 +138,7 @@ try {
       const identity = await (await api('GET', `/identity/me?orgId=${encodeURIComponent(session.currentOrgId)}`)).json();
       assert.equal(identity.org.id, session.currentOrgId, 'server validates active organization membership before creating board'); assert(identity.orgRole);
     }
-    boardId = (await (await api('POST', '/whiteboards', {requestId: randomUUID(), name: `Input UX acceptance ${randomUUID()}`})).json()).id;
+    boardId = (await (await api('POST', '/whiteboards', {requestId: randomUUID(), name: fixtureTitle})).json()).id;
     assert(boardId); await page.goto(`${base}/studio/board/${boardId}`); await synced(); assert.equal((await rows()).length, 0);
     if (storageStateOut) {
       const statePath = resolve(storageStateOut);
@@ -163,7 +166,7 @@ try {
   };
   await check('canonical owner seeds navigation fixtures', async () => {
     const objects = ['sticky', 'rectangle'].map((kind, index) => ({ id: randomUUID(), schemaVersion: 1, kind,
-      geometry: { x: 150 + index * 300, y: 240, width: 120, height: 100, rotation: 0 }, text: kind, style: { fill: '#CAE0FF' }, parentId: null, orderKey: String(index) }));
+      geometry: { x: 150 + index * 300, y: 240, width: 120, height: 100, rotation: 0 }, text: kind, style: { fill: '#CAE0FF' }, parentId: null, orderKey: String(index), hidden: false, locked: false, zIndex: 0 }));
     await submit(objects.map(object => ({ type: 'create', object })));
     await page.reload(); await synced();
     assert.deepEqual((await canonicalState()).objects, objects);
@@ -385,8 +388,14 @@ try {
 } finally {
   if (boardId && page && token) {
     try {
-      const owned = await (await api('GET', `/whiteboards/${boardId}`)).json();
+      let owned = await (await api('GET', `/whiteboards/${boardId}`)).json();
       assert.equal(owned.ownerId, principal.userId, 'cleanup may only delete our owned fixture');
+      assert.equal(owned.name, fixtureTitle, 'cleanup title must match this exact run fixture');
+      if (!owned.archived) {
+        await api('PATCH', `/whiteboards/${boardId}`, { archived: true, expectedLifecycleRevision: owned.lifecycleRevision });
+        owned = await (await api('GET', `/whiteboards/${boardId}`)).json();
+        assert(owned.archived, 'cleanup archives only the owned fixture before deletion');
+      }
       await api('DELETE', `/whiteboards/${boardId}`, { requestId: randomUUID(), confirmation: 'PERMANENTLY_DELETE', expectedLifecycleRevision: owned.lifecycleRevision });
       const gone = await page.request.get(`${apiOrigin}/whiteboards/${boardId}`, { headers: { authorization: `Bearer ${token}` } });
       assert.equal(gone.status(), 404, 'owned fixture deletion verified');
@@ -394,8 +403,8 @@ try {
     } catch (error) { results.push({ name: 'owned fixture cleanup', ok: false, detail: redact(error.stack ?? error) }); }
   }
   await browser?.close().catch(error => browserErrors.push(redact(error.message)));
-  const ok = completed && results.length > 0 && results.every(value => value.ok) && browserErrors.length === 0;
-  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, results, browserErrors, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware']}, null, 2));
+  const ok = completed && results.length > 0 && results.every(value => value.ok) && browserErrors.length === 0 && browserHTTPFailures.length === 0;
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware']}, null, 2));
   writeFileSync(join(out, 'browser-errors.json'), JSON.stringify(browserErrors, null, 2));
   writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
   process.exitCode = ok ? 0 : 1;
