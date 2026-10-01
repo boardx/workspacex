@@ -1,0 +1,1449 @@
+{
+  "verification-boundary": [
+    {
+      "upstream": "existing fullstack loopback",
+      "browserApiAndDatabase": "real",
+      "realModelQuality": "BLOCKED: no model credentials",
+      "salesWorkflowAndCrm": "excluded by user authorization",
+      "roles": [
+        "D001",
+        "D002",
+        "D003",
+        "D005",
+        "D006",
+        "D007",
+        "D011"
+      ]
+    },
+    {
+      "browserApiDatabase": "real",
+      "upstream": "existing fullstack loopback",
+      "realModelQuality": "BLOCKED: model credentials absent",
+      "triggerSchema": "v2 required rawInput",
+      "inputEvidence": "Real UI and observed POST; frozen database/stage input is covered separately by API integration tests",
+      "scope": "business input submission, workflow/grant/approval/output persistence; sales/CRM excluded"
+    }
+  ],
+  "published-role-direct-skill-references": [
+    [
+      {
+        "roleRef": "D001",
+        "stableIds": [
+          "S195",
+          "S008",
+          "S063",
+          "S012",
+          "S013",
+          "S020",
+          "S199",
+          "S198",
+          "S010",
+          "S196",
+          "S197",
+          "S007"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S195",
+              "stableName": "strategy-review",
+              "contentDigest": "ad12ceb564016f0518d5a1bdca02a1b7aff3411605baaa3113e6db5ba6a6869d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-1c8510c0-7b73-4e7d-bf4e-54234d7bd74a",
+              "versionId": "skill-version-0dd490a0-3adf-411c-9c4b-4b75ad881d41",
+              "displayName": "S195"
+            },
+            {
+              "stableId": "S008",
+              "stableName": "competitive-analysis",
+              "contentDigest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-22a5a1e3-8d3f-4024-a40f-cf42f22167ff",
+              "versionId": "skill-version-f7c51413-a4aa-415f-89fb-c6fac00d93e4",
+              "displayName": "S008"
+            },
+            {
+              "stableId": "S063",
+              "stableName": "research-synthesis",
+              "contentDigest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ceb26d7f-c293-4dfd-8309-2652fec5547d",
+              "versionId": "skill-version-7f1a77de-31a0-4708-8e8b-d2cdbf397e52",
+              "displayName": "S063"
+            },
+            {
+              "stableId": "S012",
+              "stableName": "decision-brief",
+              "contentDigest": "05f06cc280d748c586c9e768d3fed8029648c7c16df806db22e4814d4ce85fbf",
+              "reason": "awaiting_verification",
+              "skillId": "skill-929723a8-410a-4f6f-8d65-2592861a99d3",
+              "versionId": "skill-version-0e641e18-a835-4a89-9958-8c4a61ae7138",
+              "displayName": "S012"
+            },
+            {
+              "stableId": "S013",
+              "stableName": "scenario-analysis",
+              "contentDigest": "08ea63b63601e82a1405b4dbde0f4604b0d66b364bb58eff0f4c1ee6a36505b2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-53134c90-bcac-45b2-85a0-fcd003d83de8",
+              "versionId": "skill-version-4ece3332-e716-465a-86f5-13b459d2d337",
+              "displayName": "S013"
+            },
+            {
+              "stableId": "S020",
+              "stableName": "executive-briefing",
+              "contentDigest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-a63cae84-63e4-47d7-b433-1866607cf60e",
+              "versionId": "skill-version-b1e9fec2-2a32-4681-9e31-ff381e7699f0",
+              "displayName": "S020"
+            },
+            {
+              "stableId": "S199",
+              "stableName": "business-model-analysis",
+              "contentDigest": "b3f82503b3d2c233f131f1b32f30cd8aaea7e4317225ff7e5aad9a6b64f6ce97",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d7d39f20-a8b6-468f-94ed-1624be3e3324",
+              "versionId": "skill-version-98a7730c-b7e9-4dfa-8a16-2c62fb86d26a",
+              "displayName": "S199"
+            },
+            {
+              "stableId": "S198",
+              "stableName": "okr-alignment",
+              "contentDigest": "d2d25b73b08d39f89a725d9f5d3dd4e5a09ecf68bbabc2e34e6028a8e2b3878f",
+              "reason": "awaiting_verification",
+              "skillId": "skill-471e1c2c-34a2-4a8c-8704-2b0be7bd54db",
+              "versionId": "skill-version-6ab0fbed-58b6-4fb4-9ae2-0c4bef5d740e",
+              "displayName": "S198"
+            },
+            {
+              "stableId": "S010",
+              "stableName": "risk-assessment",
+              "contentDigest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946",
+              "reason": "awaiting_verification",
+              "skillId": "skill-0ada9fc8-ca97-4922-a07e-05158cbab9db",
+              "versionId": "skill-version-aa40f855-68d1-4f69-9d7f-8cfff844b7b8",
+              "displayName": "S010"
+            },
+            {
+              "stableId": "S196",
+              "stableName": "board-meeting-preparation",
+              "contentDigest": "c0b599dce75f7cadff2aaa54d72e6d99f6d98bcae98c161aca12c5de16be1863",
+              "reason": "awaiting_verification",
+              "skillId": "skill-cd3d0c92-8cbc-4a61-beb3-2be2a7770a86",
+              "versionId": "skill-version-4ef32115-0f95-4815-8259-3dca9819c622",
+              "displayName": "S196"
+            },
+            {
+              "stableId": "S197",
+              "stableName": "decision-logging",
+              "contentDigest": "1098bed511a612d2fa7fabd0540818b7685bc642a7f184073da7c96cbcfc4fa5",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d0453adc-0852-4a62-b1b8-9294c31762c9",
+              "versionId": "skill-version-3580ece4-b6de-4902-a0b3-5443a80f85b1",
+              "displayName": "S197"
+            },
+            {
+              "stableId": "S007",
+              "stableName": "status-update",
+              "contentDigest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e54df44e-8b68-47ea-9bda-df26cd54a99a",
+              "versionId": "skill-version-6722b738-2b2f-4963-8759-73b5f62febab",
+              "displayName": "S007"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D002",
+        "stableIds": [
+          "S003",
+          "S063",
+          "S171",
+          "S169",
+          "S172",
+          "S170",
+          "S016",
+          "S020",
+          "S168",
+          "S167"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S003",
+              "stableName": "enterprise-search",
+              "contentDigest": "180e71f8e550429926ae8aacd543de0404efdd6c76c2f3b54ff7ce34a36a0cf5",
+              "reason": "awaiting_verification",
+              "skillId": "skill-a9464c85-0f28-432a-8864-b113bdede204",
+              "versionId": "skill-version-00bba008-92cc-44aa-b45e-8051008573b0",
+              "displayName": "S003"
+            },
+            {
+              "stableId": "S063",
+              "stableName": "research-synthesis",
+              "contentDigest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ceb26d7f-c293-4dfd-8309-2652fec5547d",
+              "versionId": "skill-version-7f1a77de-31a0-4708-8e8b-d2cdbf397e52",
+              "displayName": "S063"
+            },
+            {
+              "stableId": "S171",
+              "stableName": "evidence-review",
+              "contentDigest": "0a6364f0a8939fa83be1291685d1d79b9972135aec7baa0a299347de94a56ff0",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e1442071-2189-4e51-8e46-84d5914d347d",
+              "versionId": "skill-version-fd0e1a4e-f647-453d-a5bf-f58d6c0344cd",
+              "displayName": "S171"
+            },
+            {
+              "stableId": "S169",
+              "stableName": "knowledge-synthesis-review",
+              "contentDigest": "4c2802003b71663d045964899e3e0c62f003758ba8cf60cf79925e6e6d00c3c7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5b52e3da-6aa2-4593-a367-5e2f8e150a89",
+              "versionId": "skill-version-1c67afb1-8620-43cb-a1e6-db663c441f20",
+              "displayName": "S169"
+            },
+            {
+              "stableId": "S172",
+              "stableName": "data-storytelling",
+              "contentDigest": "da9711447256ad318c6474be4003c53410099cc292a3d7b5697e193f629387a0",
+              "reason": "awaiting_verification",
+              "skillId": "skill-30a2de65-2128-48da-a518-1164a25e2c98",
+              "versionId": "skill-version-41952eb3-899c-46e8-ace6-f0b63c8c40e8",
+              "displayName": "S172"
+            },
+            {
+              "stableId": "S170",
+              "stableName": "scientific-research-planning",
+              "contentDigest": "61e8e694dfebf787648cbe72adf628d0085d80bd6484253497330418735b43c1",
+              "reason": "awaiting_verification",
+              "skillId": "skill-18ce7166-8a85-4f9d-a79d-f98712113872",
+              "versionId": "skill-version-17ca6001-0bbf-4a03-9fef-9f1e1b7aeb52",
+              "displayName": "S170"
+            },
+            {
+              "stableId": "S016",
+              "stableName": "knowledge-capture",
+              "contentDigest": "b778a7c4edf65ebe6045a5af1e741b45278b6516dc5763c0a4aa838dfefc1833",
+              "reason": "awaiting_verification",
+              "skillId": "skill-4991219e-197a-4079-8d75-2e6471caf5ff",
+              "versionId": "skill-version-e5264886-a40d-4287-9906-d7a3c8bb317c",
+              "displayName": "S016"
+            },
+            {
+              "stableId": "S020",
+              "stableName": "executive-briefing",
+              "contentDigest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-a63cae84-63e4-47d7-b433-1866607cf60e",
+              "versionId": "skill-version-b1e9fec2-2a32-4681-9e31-ff381e7699f0",
+              "displayName": "S020"
+            },
+            {
+              "stableId": "S168",
+              "stableName": "trend-analysis",
+              "contentDigest": "5a868e9cf6094066580db66357b87379841ade2332701ddbff01055476f41bb0",
+              "reason": "awaiting_verification",
+              "skillId": "skill-73189a5a-bbd5-4619-964d-46c44af22d23",
+              "versionId": "skill-version-9875a48d-6613-4de7-82a8-2689c85b92c8",
+              "displayName": "S168"
+            },
+            {
+              "stableId": "S167",
+              "stableName": "market-sizing",
+              "contentDigest": "7a1ce55aa468b484f5b53358e58e98225804e6df9003e9d1014e09b6436629ce",
+              "reason": "awaiting_verification",
+              "skillId": "skill-9e7d94ad-7d57-4467-aae0-37279d42b4b8",
+              "versionId": "skill-version-e953e8ab-37b5-4d71-a4ed-961e46005b2f",
+              "displayName": "S167"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D003",
+        "stableIds": [
+          "S061",
+          "S009",
+          "S064",
+          "S065",
+          "S067",
+          "S068",
+          "S069",
+          "S070",
+          "S071",
+          "S072",
+          "S073",
+          "S074",
+          "S008",
+          "S075"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S061",
+              "stableName": "product-discovery",
+              "contentDigest": "216b22fa7cfe08cfaa912dadc810dc88918f96c2c394cc02c7d9b26dc2dfbe4f",
+              "reason": "awaiting_verification",
+              "skillId": "skill-4734acd5-cad5-4e95-80a1-7c97c5a8b7f7",
+              "versionId": "skill-version-02df5f25-a72a-4afb-ae3c-e5f5fa6b901a",
+              "displayName": "S061"
+            },
+            {
+              "stableId": "S009",
+              "stableName": "customer-research",
+              "contentDigest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c187e6f0-ff59-428e-b585-74f54b01ff3d",
+              "versionId": "skill-version-bfbd3f6a-b8cf-45b8-948f-f3628628e756",
+              "displayName": "S009"
+            },
+            {
+              "stableId": "S064",
+              "stableName": "problem-framing",
+              "contentDigest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5b897450-26bd-4c1b-88e6-2fdcecdf3735",
+              "versionId": "skill-version-06964333-7138-400e-99c7-1986f02a6eb7",
+              "displayName": "S064"
+            },
+            {
+              "stableId": "S065",
+              "stableName": "opportunity-mapping",
+              "contentDigest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-9d8daab5-40bc-4a71-9052-b3493cbf1123",
+              "versionId": "skill-version-e797adf3-642f-4733-8791-be3e29264e03",
+              "displayName": "S065"
+            },
+            {
+              "stableId": "S067",
+              "stableName": "prd-spec-writing",
+              "contentDigest": "585192c7c41ce9e21a5d00ba37469093749fee43512f28c5ac84aeda84ff0059",
+              "reason": "awaiting_verification",
+              "skillId": "skill-cc808924-af9d-4be5-b633-8159d7acdff3",
+              "versionId": "skill-version-6e83062a-ca8d-4f7a-a6b7-6c66cbe920d7",
+              "displayName": "S067"
+            },
+            {
+              "stableId": "S068",
+              "stableName": "prioritization",
+              "contentDigest": "909f5d5d2c64e58aac5f6e825eabf278e8599dd2fa46a99f14e55a2b92092512",
+              "reason": "awaiting_verification",
+              "skillId": "skill-60ea8ccd-7652-4e38-b3d2-6ff3f6ade5ee",
+              "versionId": "skill-version-3edcf429-9d41-431e-9bd8-5d4461876acd",
+              "displayName": "S068"
+            },
+            {
+              "stableId": "S069",
+              "stableName": "roadmap-planning",
+              "contentDigest": "a380a8953b1831316fbf603e4d3d646d6dd1ab3c88022346439235501d449d8c",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c5254366-b1e0-4c05-9bf5-76040b0a1093",
+              "versionId": "skill-version-bd922fd0-e8a6-4c8e-9f7b-ca6bda60f94b",
+              "displayName": "S069"
+            },
+            {
+              "stableId": "S070",
+              "stableName": "sprint-planning",
+              "contentDigest": "632e67ca8acd667882939556996556c453dd1ae9885d84ec6852ba0fbe324bd8",
+              "reason": "awaiting_verification",
+              "skillId": "skill-f8b17414-f5a9-418f-8555-471abeb8ae8a",
+              "versionId": "skill-version-a091fd0f-5467-4adb-b792-f7538ae0a937",
+              "displayName": "S070"
+            },
+            {
+              "stableId": "S071",
+              "stableName": "experiment-design",
+              "contentDigest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-bac061be-b5f4-4fdd-b863-0f0daf4d3542",
+              "versionId": "skill-version-6c9418f0-99d7-47e3-befe-cb3a7ad73431",
+              "displayName": "S071"
+            },
+            {
+              "stableId": "S072",
+              "stableName": "metrics-review",
+              "contentDigest": "f850ffe15397672868545d86b71181a7ac619080cda8045e2de566db95d94273",
+              "reason": "awaiting_verification",
+              "skillId": "skill-38a3dcba-03df-41f4-981a-8720f3102fe8",
+              "versionId": "skill-version-c6daa02e-8176-4039-8f89-bf4299d95cc8",
+              "displayName": "S072"
+            },
+            {
+              "stableId": "S073",
+              "stableName": "product-launch",
+              "contentDigest": "8718a7f18432378f852d59689530403e5cc762dbe4630db810fa170cd10b3b62",
+              "reason": "awaiting_verification",
+              "skillId": "skill-dc654efb-8f14-4672-ad6e-ad35161a132a",
+              "versionId": "skill-version-0e447e88-1b27-424f-bd1f-7936f6be7eb9",
+              "displayName": "S073"
+            },
+            {
+              "stableId": "S074",
+              "stableName": "user-activation",
+              "contentDigest": "e6938ceb5fbe4ca4ce52ec665e3afb6218b281d1c707cf359c986f628dc3e51c",
+              "reason": "awaiting_verification",
+              "skillId": "skill-07b8bd9e-cf6b-4a06-9b5e-9da342f351ad",
+              "versionId": "skill-version-bb16bf92-7253-41e3-a95a-4b33733400e8",
+              "displayName": "S074"
+            },
+            {
+              "stableId": "S008",
+              "stableName": "competitive-analysis",
+              "contentDigest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-22a5a1e3-8d3f-4024-a40f-cf42f22167ff",
+              "versionId": "skill-version-f7c51413-a4aa-415f-89fb-c6fac00d93e4",
+              "displayName": "S008"
+            },
+            {
+              "stableId": "S075",
+              "stableName": "design-critique",
+              "contentDigest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5a1eb66a-37ff-4db1-824b-6185a6a18ae1",
+              "versionId": "skill-version-e27c5b80-a70d-4588-98dc-af069f58d03b",
+              "displayName": "S075"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D005",
+        "stableIds": [
+          "S021",
+          "S022",
+          "S023",
+          "S024",
+          "S025",
+          "S026",
+          "S005",
+          "S028",
+          "S029",
+          "S030",
+          "S031",
+          "S032",
+          "S034",
+          "S036"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S021",
+              "stableName": "customer-intelligence",
+              "contentDigest": "4be1b63753441394a11aa73f8913e1c65c10f2d9fc92a6458167dfd99494b73c",
+              "reason": "awaiting_verification",
+              "skillId": "skill-6f6182cc-86e9-4542-b246-fb062d57da30",
+              "versionId": "skill-version-e79f3486-d752-49b4-8cb1-9c807ed4553a",
+              "displayName": "S021"
+            },
+            {
+              "stableId": "S022",
+              "stableName": "account-tiering",
+              "contentDigest": "a0b4ec418875f21487fd610d1b6549a929585ff5cd47834ff79de89ebe05f2da",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d543c247-dde8-4d44-8a6e-2fb02d16dedc",
+              "versionId": "skill-version-efc1a615-050c-407e-a7b9-27764b99e0d6",
+              "displayName": "S022"
+            },
+            {
+              "stableId": "S023",
+              "stableName": "account-planning",
+              "contentDigest": "d84d112ea073779746627e0044a3b04e89f6b1f4df856fe5600a98c83d6cafe5",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c1f068fa-50bf-484b-8261-55255791380b",
+              "versionId": "skill-version-03942362-ef3c-407b-86f6-36692dcc91fe",
+              "displayName": "S023"
+            },
+            {
+              "stableId": "S024",
+              "stableName": "prospecting",
+              "contentDigest": "39e0042c534b3f67dc97ff6a7d0ca1aed0280621174b42366dc50b654dc6389e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-be7f434a-a588-4957-b18f-c46b071f6d0f",
+              "versionId": "skill-version-c40dadc0-1fb6-4858-890e-7a330e9498c7",
+              "displayName": "S024"
+            },
+            {
+              "stableId": "S025",
+              "stableName": "lead-triage",
+              "contentDigest": "c92bf1065cf41c6c3abb5f4dea0399f527de1526659327ed998a4b4eb706c87b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ca5cc5f5-a153-4b4c-9fc3-1c5d405d64f7",
+              "versionId": "skill-version-de488590-058a-42ca-a6b0-08624a2e0d10",
+              "displayName": "S025"
+            },
+            {
+              "stableId": "S026",
+              "stableName": "outreach",
+              "contentDigest": "e6dba3139d9c2ad201f3728d2291ec051a186141141b53b47d410ed03d97c722",
+              "reason": "awaiting_verification",
+              "skillId": "skill-08eb3f61-9a74-4704-a1d2-b05f688132cb",
+              "versionId": "skill-version-25717f8c-53b0-4859-a79d-899af55a7307",
+              "displayName": "S026"
+            },
+            {
+              "stableId": "S005",
+              "stableName": "meeting-prep",
+              "contentDigest": "5ba2364bee638ac162cc49f246141cc7d021d6154d71c0cb37bbb8f35e506c68",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e2f1d0ae-347e-4c8a-82b0-da299814d278",
+              "versionId": "skill-version-75b767b1-64fc-481a-89b2-d0ed8f6a5817",
+              "displayName": "S005"
+            },
+            {
+              "stableId": "S028",
+              "stableName": "sales-call-summary",
+              "contentDigest": "d13240cbcd93d0ee56e7d5c039ec9e80f40e5c6974fb3a77b0ec7a02e7a9667d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-a78741b2-5b8b-494a-8be9-037945191fc1",
+              "versionId": "skill-version-f6292aee-94a4-4c86-af1a-54794ef3b59d",
+              "displayName": "S028"
+            },
+            {
+              "stableId": "S029",
+              "stableName": "opportunity-update",
+              "contentDigest": "a5335577bc9c3ad6958b8723821b814f2ed548d65e3c0a983d968927ae9c405e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-b84322c6-5657-41d3-bb4d-c1bbf4289cf2",
+              "versionId": "skill-version-afa2b448-b8a4-4132-bc81-ca9b1537cebc",
+              "displayName": "S029"
+            },
+            {
+              "stableId": "S030",
+              "stableName": "pipeline-review",
+              "contentDigest": "e3b97fa6e103aa3d4818f97f37492c4956b16561486942cd760b23f50f9326b8",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e1677851-ff47-4220-9e93-72e021c4c3a5",
+              "versionId": "skill-version-2428418f-3766-4225-b73a-bd09dff58098",
+              "displayName": "S030"
+            },
+            {
+              "stableId": "S031",
+              "stableName": "forecasting",
+              "contentDigest": "cbe9cedf5deaec7ad224dbbb5ae0a35a80616d7e00423646900a78301f499c50",
+              "reason": "awaiting_verification",
+              "skillId": "skill-f7050df0-e120-4921-a00f-2ac790154026",
+              "versionId": "skill-version-940f3516-a7c2-4796-a58a-f98bb7e1c53a",
+              "displayName": "S031"
+            },
+            {
+              "stableId": "S032",
+              "stableName": "close-plan",
+              "contentDigest": "e9b8dd35a1d8d92fdf1b3e1ddb3898b5f7d9656e8d2479bf0256ad4592fe2b12",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ee552019-742c-4f7a-8a73-b90bc4a9c261",
+              "versionId": "skill-version-8244da18-20a8-4f17-9bde-f09bd8443fe0",
+              "displayName": "S032"
+            },
+            {
+              "stableId": "S034",
+              "stableName": "crm-hygiene",
+              "contentDigest": "575a56d201dfa4a7a635b5c43487c2bedc4117727e6e270ea2851e6d97568e95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-f0951a45-1e61-4468-be3b-aa346d38fba2",
+              "versionId": "skill-version-59e829be-055b-4948-9825-86bf17ef2b80",
+              "displayName": "S034"
+            },
+            {
+              "stableId": "S036",
+              "stableName": "proposal-builder",
+              "contentDigest": "8246ce8c7a70a59b210c24fc7c78dfd5bb35c69874ddbb9162a41d1d88ce179d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-6f95eea5-f888-4b0a-ba61-44d9ae6c660d",
+              "versionId": "skill-version-4e306bc6-d7d8-45de-9f9b-4ca4f024a982",
+              "displayName": "S036"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D006",
+        "stableIds": [
+          "S187",
+          "S188",
+          "S189",
+          "S190",
+          "S191",
+          "S192",
+          "S193",
+          "S194",
+          "S035",
+          "S007"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S187",
+              "stableName": "support-triage",
+              "contentDigest": "0d4a08985f23fd1bf94424a5effc9c4ec7e45940fc8e60171a617782e2fcd579",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e1084783-838d-439b-a36d-0d42b7afe5ce",
+              "versionId": "skill-version-438a1384-503f-449d-b490-4da52f4a24e0",
+              "displayName": "S187"
+            },
+            {
+              "stableId": "S188",
+              "stableName": "draft-support-response",
+              "contentDigest": "c8ea8706927de69d4cc64d4f015765ca8b5948703c2c573eb8a5c958fa112b31",
+              "reason": "awaiting_verification",
+              "skillId": "skill-54ec3fe1-d264-46fa-afa5-34fdd1294c21",
+              "versionId": "skill-version-c5b15acf-65ae-417d-8bff-90f76ccc588e",
+              "displayName": "S188"
+            },
+            {
+              "stableId": "S189",
+              "stableName": "customer-escalation",
+              "contentDigest": "b64d5926da64bd8c91a142530299dbe4fa5aeab665a27991c94d384030131a0b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-071142b9-90ff-4fd4-bf7e-0bd3dc1276d9",
+              "versionId": "skill-version-c4bca9f1-8d41-420d-911c-e61ba81ddcdc",
+              "displayName": "S189"
+            },
+            {
+              "stableId": "S190",
+              "stableName": "kb-article",
+              "contentDigest": "3e3b497e92f9742dfe94900d93d9b1f9361e97a65f0739c68fe062fb118f6449",
+              "reason": "awaiting_verification",
+              "skillId": "skill-6abf84b9-cd8b-4bbe-ae45-13c4017f6748",
+              "versionId": "skill-version-b3014f33-8ba0-41c8-a6ad-7676b7d95317",
+              "displayName": "S190"
+            },
+            {
+              "stableId": "S191",
+              "stableName": "qbr-preparation",
+              "contentDigest": "89f6aae387178e22f9e968ff87b2acc3b1abb7a89cc277a657c7997b67e819b7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-980b6e4a-5435-4aa2-baf9-0abaac07a392",
+              "versionId": "skill-version-87f4819e-33ae-4d75-8fad-a2be0d2dd8e9",
+              "displayName": "S191"
+            },
+            {
+              "stableId": "S192",
+              "stableName": "renewal-risk",
+              "contentDigest": "19962b9b97d1817a865d11fb3e602542e515ee139dd2c6b537702cd053a4e40e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-98d88271-be7f-4fa8-8388-7bf5bfbac3e8",
+              "versionId": "skill-version-d7d5597a-1508-4169-b465-b3a189b7ceb3",
+              "displayName": "S192"
+            },
+            {
+              "stableId": "S193",
+              "stableName": "voice-of-customer",
+              "contentDigest": "35423581d5e9db6d2a04271a2d0520151f7fa4c3f476d913e5883761cb7d4132",
+              "reason": "awaiting_verification",
+              "skillId": "skill-59b7916e-526f-481c-a1a0-6efd23160d5a",
+              "versionId": "skill-version-2df2b8c8-ced1-4945-860d-81a9b3ba41a8",
+              "displayName": "S193"
+            },
+            {
+              "stableId": "S194",
+              "stableName": "support-operations",
+              "contentDigest": "b49002f631808f228a50f89ffbe32db3750ce7318c19b34a314fdb9a54e2bbb3",
+              "reason": "awaiting_verification",
+              "skillId": "skill-a51c2034-8353-4d15-a81b-6ec35a25baa3",
+              "versionId": "skill-version-3806aecb-6556-4c90-b5d2-79b767c24f1a",
+              "displayName": "S194"
+            },
+            {
+              "stableId": "S035",
+              "stableName": "customer-health",
+              "contentDigest": "d05222f972fec25dc18e3efa3f866683caf2549faf787fd0513272534b84e9c2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-76f0bf99-1cbd-4fef-993f-aff99b5b9a4d",
+              "versionId": "skill-version-edbfe67a-df08-45e8-a08e-f6d3d6c62094",
+              "displayName": "S035"
+            },
+            {
+              "stableId": "S007",
+              "stableName": "status-update",
+              "contentDigest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e54df44e-8b68-47ea-9bda-df26cd54a99a",
+              "versionId": "skill-version-6722b738-2b2f-4963-8759-73b5f62febab",
+              "displayName": "S007"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D007",
+        "stableIds": [
+          "S141",
+          "S142",
+          "S143",
+          "S144",
+          "S145",
+          "S148",
+          "S153",
+          "S154",
+          "S155",
+          "S010"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S141",
+              "stableName": "project-planning",
+              "contentDigest": "769e48d30443807bcaefc75bf56bf003308a7ce77cd1aaabe970f82826d5e03b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-290cc14f-a934-419d-bcda-4994c2938ef8",
+              "versionId": "skill-version-528d84e5-f37a-40a2-af8d-bcf664738d20",
+              "displayName": "S141"
+            },
+            {
+              "stableId": "S142",
+              "stableName": "work-item-management",
+              "contentDigest": "174d3883c59fffc49c1445eac45b4dc4ac1de1448f49d51c7f2e4f97268ebce6",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5e86781b-849b-40c5-a709-4688237b7694",
+              "versionId": "skill-version-edec4a47-7dce-4416-9397-c199bbf94ff7",
+              "displayName": "S142"
+            },
+            {
+              "stableId": "S143",
+              "stableName": "status-reporting",
+              "contentDigest": "8302f978eb2a702935aafd416ec9ec439e8c78148ee89177da608df8d04e6544",
+              "reason": "awaiting_verification",
+              "skillId": "skill-bc03ae14-1ebe-405c-80ea-a92b8d953e64",
+              "versionId": "skill-version-63999ece-69d1-4406-8505-06656a80d2a6",
+              "displayName": "S143"
+            },
+            {
+              "stableId": "S144",
+              "stableName": "capacity-planning",
+              "contentDigest": "2689f7aa391becfa5734112c6da099478f43f14cca1a9f1368d7be82c94db83b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-18450ba7-f704-4cbe-a5e0-2f6432cc913c",
+              "versionId": "skill-version-69fa8988-5a83-489b-ba9c-0ed78df3a998",
+              "displayName": "S144"
+            },
+            {
+              "stableId": "S145",
+              "stableName": "change-request",
+              "contentDigest": "5b9113a8d791c2df1929cb9d5428a2af265e7b37649ff7de32cd844c6fc2e239",
+              "reason": "awaiting_verification",
+              "skillId": "skill-01009565-edba-4fd5-a2f9-cd7a484a19ad",
+              "versionId": "skill-version-af4d4ed3-13ed-4019-95a5-3506edef1d78",
+              "displayName": "S145"
+            },
+            {
+              "stableId": "S148",
+              "stableName": "process-documentation",
+              "contentDigest": "8139453335ef2f7f8279867f11c501f2cd25df55135b850a9ac70b12e77d25bf",
+              "reason": "awaiting_verification",
+              "skillId": "skill-82c41c2d-bb24-4cdd-a4cd-b92d1ea054aa",
+              "versionId": "skill-version-3d74f6c0-d72f-4d34-8f62-0cc6dc753da0",
+              "displayName": "S148"
+            },
+            {
+              "stableId": "S153",
+              "stableName": "meeting-facilitation",
+              "contentDigest": "9e53ead0152b1dfb7eeae68481dd2b7bc1afa882535f8389cb8483a74cd2e5a8",
+              "reason": "awaiting_verification",
+              "skillId": "skill-6a9f875a-e2dc-4c31-81c7-ae33607ac74b",
+              "versionId": "skill-version-8be58c81-886a-476b-96ea-9e791bda2651",
+              "displayName": "S153"
+            },
+            {
+              "stableId": "S154",
+              "stableName": "execution-plan",
+              "contentDigest": "8a41fdcc6d24eb125fb2ef4a203aff2d77ef0ff428acdb6dc6bdfd9f007fedfc",
+              "reason": "awaiting_verification",
+              "skillId": "skill-38ab51f8-fbf2-4c87-8c32-00c5ad6f0a5c",
+              "versionId": "skill-version-b681179a-56b6-4acf-8b55-3c4ec4fd78b1",
+              "displayName": "S154"
+            },
+            {
+              "stableId": "S155",
+              "stableName": "business-review",
+              "contentDigest": "874b1e7e9f6b4dc0c5b2b413b5ab848226bf0f9f04965af888ab3793ee095b22",
+              "reason": "awaiting_verification",
+              "skillId": "skill-97b1ac9f-cb8b-464c-82cd-390ab8b997a7",
+              "versionId": "skill-version-41e7ba0a-4571-4fd5-96dc-3c0f9109c065",
+              "displayName": "S155"
+            },
+            {
+              "stableId": "S010",
+              "stableName": "risk-assessment",
+              "contentDigest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946",
+              "reason": "awaiting_verification",
+              "skillId": "skill-0ada9fc8-ca97-4922-a07e-05158cbab9db",
+              "versionId": "skill-version-aa40f855-68d1-4f69-9d7f-8cfff844b7b8",
+              "displayName": "S010"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D011",
+        "stableIds": [
+          "S062",
+          "S009",
+          "S064",
+          "S065",
+          "S066",
+          "S071",
+          "S063",
+          "S075",
+          "S018"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S062",
+              "stableName": "user-interview-planning",
+              "contentDigest": "022b81bd1f7ce6e13171382a0e46fa4145340db2358beb8d4d6c881e30e5e971",
+              "reason": "awaiting_verification",
+              "skillId": "skill-252eb75d-951a-4095-ad23-74e71ec0e128",
+              "versionId": "skill-version-44ea4380-c064-4bad-a594-94376319f9ed",
+              "displayName": "S062"
+            },
+            {
+              "stableId": "S009",
+              "stableName": "customer-research",
+              "contentDigest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c187e6f0-ff59-428e-b585-74f54b01ff3d",
+              "versionId": "skill-version-bfbd3f6a-b8cf-45b8-948f-f3628628e756",
+              "displayName": "S009"
+            },
+            {
+              "stableId": "S064",
+              "stableName": "problem-framing",
+              "contentDigest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5b897450-26bd-4c1b-88e6-2fdcecdf3735",
+              "versionId": "skill-version-06964333-7138-400e-99c7-1986f02a6eb7",
+              "displayName": "S064"
+            },
+            {
+              "stableId": "S065",
+              "stableName": "opportunity-mapping",
+              "contentDigest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-9d8daab5-40bc-4a71-9052-b3493cbf1123",
+              "versionId": "skill-version-e797adf3-642f-4733-8791-be3e29264e03",
+              "displayName": "S065"
+            },
+            {
+              "stableId": "S066",
+              "stableName": "product-brainstorming",
+              "contentDigest": "4df53895bfb6a3ad38387fdb6962b5f7b9201b8610c4f49d2280f91b28c1a96d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-a30b010b-d73f-4a9a-8cba-16fb68b80257",
+              "versionId": "skill-version-040a86c0-2bf8-4689-960c-dd49f5f08db3",
+              "displayName": "S066"
+            },
+            {
+              "stableId": "S071",
+              "stableName": "experiment-design",
+              "contentDigest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-bac061be-b5f4-4fdd-b863-0f0daf4d3542",
+              "versionId": "skill-version-6c9418f0-99d7-47e3-befe-cb3a7ad73431",
+              "displayName": "S071"
+            },
+            {
+              "stableId": "S063",
+              "stableName": "research-synthesis",
+              "contentDigest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ceb26d7f-c293-4dfd-8309-2652fec5547d",
+              "versionId": "skill-version-7f1a77de-31a0-4708-8e8b-d2cdbf397e52",
+              "displayName": "S063"
+            },
+            {
+              "stableId": "S075",
+              "stableName": "design-critique",
+              "contentDigest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5a1eb66a-37ff-4db1-824b-6185a6a18ae1",
+              "versionId": "skill-version-e27c5b80-a70d-4588-98dc-af069f58d03b",
+              "displayName": "S075"
+            },
+            {
+              "stableId": "S018",
+              "stableName": "process-mapping",
+              "contentDigest": "c4450b0f829e0a61e1dc5a3740e950b09e95d7cfb1744c54b1665ea08d0e4c09",
+              "reason": "awaiting_verification",
+              "skillId": "skill-57f32ba2-a0d9-483c-a917-bec25c05c5c1",
+              "versionId": "skill-version-105356f4-a970-4f46-b8d5-49945227c780",
+              "displayName": "S018"
+            }
+          ]
+        }
+      }
+    ]
+  ],
+  "actual-import-receipts": [
+    [
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-research",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-product",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-operations",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-executive",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-customer-success",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-resolution",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-engineering",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-sales",
+        "packVersion": "1.1.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/agents/starter-pack-imports",
+        "packId": "official-digitalhuman-roles",
+        "packVersion": "1.6.0",
+        "status": 201
+      }
+    ]
+  ],
+  "persisted-role-runs": [
+    [
+      {
+        "roleRef": "D001",
+        "threadId": "thr-3ae39383-13a4-409b-b311-02ed33d040fb",
+        "runId": "3fe9bb95-4027-4a3d-b7c4-9d28580af6a2",
+        "resultMessageId": "f1262be7-a943-4942-81e7-aeb060527e3c"
+      },
+      {
+        "roleRef": "D002",
+        "threadId": "thr-0d792b0e-6401-47fb-9641-060e4a0ddd81",
+        "runId": "36f0baa9-3e5e-46e3-bd4b-3d02391885c1",
+        "resultMessageId": "20c4fbda-ae35-4b05-b21d-a9f3dd5390d5"
+      },
+      {
+        "roleRef": "D003",
+        "threadId": "thr-9540d48e-3e37-471b-8a9a-483235d2e185",
+        "runId": "c4ae58a5-982d-47b5-b9e8-220d18526ed7",
+        "resultMessageId": "bdd253b6-dad1-4ba7-a5e1-12e295f9a967"
+      },
+      {
+        "roleRef": "D005",
+        "threadId": "thr-866115d3-d890-453c-9a6b-d91110311a4e",
+        "runId": "c9b18621-82f8-41e4-95eb-acdf415366cb",
+        "resultMessageId": "b3783684-8ca1-486e-a3c4-677ac8982e60"
+      },
+      {
+        "roleRef": "D006",
+        "threadId": "thr-01baf702-e5f4-4b9a-ab65-7fca657573ae",
+        "runId": "a90465cc-aa0e-46ff-8993-03c5320f0f3b",
+        "resultMessageId": "87e2096d-7247-48ec-a43c-af3196a11499"
+      },
+      {
+        "roleRef": "D007",
+        "threadId": "thr-fb8cd055-ca23-4690-9eda-ffa6e1c774a3",
+        "runId": "b97d6990-8c26-4ad9-990a-ea30f80579c1",
+        "resultMessageId": "0c3786d9-a1c6-4ded-be91-9a9645977d05"
+      },
+      {
+        "roleRef": "D011",
+        "threadId": "thr-3bd75ce6-76a7-4213-bd65-dbbca3c311bb",
+        "runId": "63fa12a8-01f4-4bf0-b8ec-8d29f5909818",
+        "resultMessageId": "dfa105b6-278c-4288-8b7a-f17bde7a1193"
+      }
+    ]
+  ],
+  "business-input-submission": [
+    {
+      "definitionVersion": 2,
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "rawInput"
+        ],
+        "properties": {
+          "rawInput": {
+            "type": "string",
+            "title": "产品问题或需求",
+            "maxLength": 2000,
+            "minLength": 1
+          }
+        }
+      },
+      "actualSubmittedInput": {
+        "rawInput": "团队反馈白板首次导入流程太复杂，请定义问题与PRD"
+      },
+      "status": "PASS: actual browser POST accepted the exact authored input",
+      "stageInputEvidence": "Separate real PostgreSQL/API integration test; instance projection does not expose private trigger input"
+    }
+  ],
+  "workflow-business-input-evidence": [
+    {
+      "instanceId": "b7e6d446-89ab-4567-88ed-a57f9170c592",
+      "approved": [
+        {
+          "gateId": "frame_gate-gate-1",
+          "stageId": "frame_gate",
+          "decidedBy": "user-fullstack-admin-ie-1985e734-415668412d47"
+        },
+        {
+          "gateId": "target_gate-gate-1",
+          "stageId": "target_gate",
+          "decidedBy": "user-fullstack-admin-ie-1985e734-415668412d47"
+        },
+        {
+          "gateId": "solution_gate-gate-1",
+          "stageId": "solution_gate",
+          "decidedBy": "user-fullstack-admin-ie-1985e734-415668412d47"
+        },
+        {
+          "gateId": "prd_gate-gate-1",
+          "stageId": "prd_gate",
+          "decidedBy": "user-fullstack-admin-ie-1985e734-415668412d47"
+        }
+      ],
+      "finishedProjection": {
+        "instanceId": "b7e6d446-89ab-4567-88ed-a57f9170c592",
+        "orgId": "org-fullstack-ie-1985e734-415668412d47",
+        "workflowKey": "problem-to-prd",
+        "definitionVersion": 2,
+        "agentId": "agent-0794118e-8c4c-4c7a-925e-025eac67cc5e",
+        "agentVersionId": "agent-version-a86c98c8-a036-422e-8e89-f8cf347f9958",
+        "initiatorUserId": "user-fullstack-admin-ie-1985e734-415668412d47",
+        "triggerKind": "manual",
+        "status": "succeeded",
+        "stateVersion": 62,
+        "reasonCode": null,
+        "goal": "团队反馈白板首次导入流程太复杂，请定义问题与PRD",
+        "stages": [
+          {
+            "stageId": "intake",
+            "title": "intake",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "7c3ffeb9-ff4a-4896-a5eb-fb7614ffe699",
+                "label": "W029/intake",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=7c3ffeb9-ff4a-4896-a5eb-fb7614ffe699"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:31.524Z",
+            "finishedAt": "2026-10-01T11:48:31.598Z"
+          },
+          {
+            "stageId": "frame",
+            "title": "frame",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "frame",
+                "stableId": "S064",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "d5173e26-ca82-4f59-8118-5f8b085e449f",
+                "label": "W029/frame",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=d5173e26-ca82-4f59-8118-5f8b085e449f"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:31.703Z",
+            "finishedAt": "2026-10-01T11:48:31.912Z"
+          },
+          {
+            "stageId": "frame_gate",
+            "title": "frame_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "19cdc0cc-4b54-46f0-8835-f3d705bceade",
+                "label": "W029/frame_gate",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=19cdc0cc-4b54-46f0-8835-f3d705bceade"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:33.174Z",
+            "finishedAt": "2026-10-01T11:48:33.222Z"
+          },
+          {
+            "stageId": "map",
+            "title": "map",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "map",
+                "stableId": "S065",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "bdd0a60d-17e8-4acf-b37a-cb01447cd277",
+                "label": "W029/map",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=bdd0a60d-17e8-4acf-b37a-cb01447cd277"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:33.260Z",
+            "finishedAt": "2026-10-01T11:48:33.332Z"
+          },
+          {
+            "stageId": "target_gate",
+            "title": "target_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "53a99097-5727-4441-bd7b-93af581a2a99",
+                "label": "W029/target_gate",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=53a99097-5727-4441-bd7b-93af581a2a99"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:34.242Z",
+            "finishedAt": "2026-10-01T11:48:34.282Z"
+          },
+          {
+            "stageId": "solutions_fill",
+            "title": "solutions_fill",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "solutions_fill",
+                "stableId": "S065",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "d4fbf2b5-5c71-455a-bfc6-d415b1c5279c",
+                "label": "W029/solutions_fill",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=d4fbf2b5-5c71-455a-bfc6-d415b1c5279c"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:34.308Z",
+            "finishedAt": "2026-10-01T11:48:34.342Z"
+          },
+          {
+            "stageId": "estimate",
+            "title": "estimate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "1154b7c2-1906-4f1b-9b2f-f3eca8f14d9e",
+                "label": "W029/estimate",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=1154b7c2-1906-4f1b-9b2f-f3eca8f14d9e"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:34.361Z",
+            "finishedAt": "2026-10-01T11:48:34.394Z"
+          },
+          {
+            "stageId": "prioritize",
+            "title": "prioritize",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "prioritize",
+                "stableId": "S068",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "d719ae03-004a-4d1b-bd7d-0033b06ac569",
+                "label": "W029/prioritize",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=d719ae03-004a-4d1b-bd7d-0033b06ac569"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:34.440Z",
+            "finishedAt": "2026-10-01T11:48:34.497Z"
+          },
+          {
+            "stageId": "solution_gate",
+            "title": "solution_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "d7b2a39f-cdb9-4d3b-93a5-c4ad1d55e3a8",
+                "label": "W029/solution_gate",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=d7b2a39f-cdb9-4d3b-93a5-c4ad1d55e3a8"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:35.593Z",
+            "finishedAt": "2026-10-01T11:48:35.721Z"
+          },
+          {
+            "stageId": "draft",
+            "title": "draft",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "draft",
+                "stableId": "S067",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "ef055b98-6388-486d-ab2f-0b4863809d19",
+                "label": "W029/draft",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=ef055b98-6388-486d-ab2f-0b4863809d19"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:35.887Z",
+            "finishedAt": "2026-10-01T11:48:36.221Z"
+          },
+          {
+            "stageId": "kpi",
+            "title": "kpi",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "kpi",
+                "stableId": "S162",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "3710e6af-85fa-4db4-ac59-df02dfa444db",
+                "label": "W029/kpi",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=3710e6af-85fa-4db4-ac59-df02dfa444db"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:36.241Z",
+            "finishedAt": "2026-10-01T11:48:36.456Z"
+          },
+          {
+            "stageId": "kpi_bind",
+            "title": "kpi_bind",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "f688576c-0ce5-4471-aaec-19a568cbb6d3",
+                "label": "W029/kpi_bind",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=f688576c-0ce5-4471-aaec-19a568cbb6d3"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:36.491Z",
+            "finishedAt": "2026-10-01T11:48:36.565Z"
+          },
+          {
+            "stageId": "revise",
+            "title": "revise",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "revise",
+                "stableId": "S067",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "e09bd30f-ef28-40e8-b3d0-fee5194421ef",
+                "label": "W029/revise",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=e09bd30f-ef28-40e8-b3d0-fee5194421ef"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:36.694Z",
+            "finishedAt": "2026-10-01T11:48:36.840Z"
+          },
+          {
+            "stageId": "prd_gate",
+            "title": "prd_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "65db3446-2526-4bbf-ab73-828081a13863",
+                "label": "W029/prd_gate",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=65db3446-2526-4bbf-ab73-828081a13863"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:38.107Z",
+            "finishedAt": "2026-10-01T11:48:38.190Z"
+          },
+          {
+            "stageId": "persist",
+            "title": "persist",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "09d648bb-9bc3-44ad-8701-c460543a4df8",
+                "label": "W029/persist",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=09d648bb-9bc3-44ad-8701-c460543a4df8"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:38.234Z",
+            "finishedAt": "2026-10-01T11:48:38.498Z"
+          },
+          {
+            "stageId": "notify",
+            "title": "notify",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "cd396679-878a-48ec-9db4-f92d77a400ca",
+                "label": "W029/notify",
+                "href": "/workflows/runs/b7e6d446-89ab-4567-88ed-a57f9170c592/result?output=cd396679-878a-48ec-9db4-f92d77a400ca"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T11:48:38.595Z",
+            "finishedAt": "2026-10-01T11:48:39.679Z"
+          }
+        ],
+        "openGate": null,
+        "effects": [
+          {
+            "effectKey": "prd-50795e42c9b38a615cb0c7bf482b81c91a02f53b05bcadfc1d69f2e5a664656e",
+            "stageId": "persist",
+            "capabilityCategory": "artifact.write",
+            "status": "finalized",
+            "initiatorUserId": "user-fullstack-admin-ie-1985e734-415668412d47",
+            "agentId": "agent-0794118e-8c4c-4c7a-925e-025eac67cc5e",
+            "agentVersionId": "agent-version-a86c98c8-a036-422e-8e89-f8cf347f9958",
+            "skillVersion": null,
+            "gateId": null,
+            "finalizedAt": null
+          },
+          {
+            "effectKey": "notify-/workflow-instances/b7e6d446-89ab-4567-88ed-a57f9170c592/output",
+            "stageId": "notify",
+            "capabilityCategory": "notify.inapp",
+            "status": "finalized",
+            "initiatorUserId": "user-fullstack-admin-ie-1985e734-415668412d47",
+            "agentId": "agent-0794118e-8c4c-4c7a-925e-025eac67cc5e",
+            "agentVersionId": "agent-version-a86c98c8-a036-422e-8e89-f8cf347f9958",
+            "skillVersion": null,
+            "gateId": null,
+            "finalizedAt": null
+          }
+        ],
+        "lastSeq": 62,
+        "viewerCapabilities": {
+          "canCancel": false,
+          "canRetryStage": false,
+          "canResume": false
+        },
+        "createdAt": "2026-10-01T11:48:30.891Z",
+        "updatedAt": "2026-10-01T11:48:39.975Z"
+      },
+      "output": {
+        "instanceId": "b7e6d446-89ab-4567-88ed-a57f9170c592",
+        "outcome": "complete",
+        "output": {
+          "kind": "prd",
+          "title": "需求评审提效 PRD",
+          "problem": {
+            "claimId": "problem",
+            "text": "团队在需求评审中反复返工，需要一份统一的问题定义与验收口径。",
+            "evidenceRefs": [
+              "loopback:frame"
+            ],
+            "confidence": "medium"
+          },
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "支持在评审前自动汇总需求背景、影响范围与验收标准。",
+              "priority": "P0"
+            }
+          ],
+          "metrics": [
+            {
+              "name": "评审返工率",
+              "definition": "每个需求在评审中被退回修改的次数，目标下降 30%。"
+            }
+          ],
+          "digest": "50795e42c9b38a615cb0c7bf482b81c91a02f53b05bcadfc1d69f2e5a664656e"
+        },
+        "crmItems": [],
+        "manualChecklist": [],
+        "deferredProposals": []
+      },
+      "realModelQuality": "BLOCKED",
+      "submittedRawInput": "团队反馈白板首次导入流程太复杂，请定义问题与PRD",
+      "inputSubmission": "PASS: v2 real UI/POST",
+      "stageInputEvidence": "Separate PostgreSQL/API integration test",
+      "semanticQuality": "BLOCKED: loopback is not a real model quality evaluation"
+    }
+  ]
+}

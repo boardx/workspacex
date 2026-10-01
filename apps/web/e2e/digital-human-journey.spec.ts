@@ -38,7 +38,7 @@ const DIRECT_SKILLS: Record<string, readonly string[]> = {
   D011: ["S062", "S009", "S064", "S065", "S066", "S071", "S063", "S075", "S018"],
 };
 type RoleSkillPin = { skillId: string; versionId: string };
-type PendingRoleSkill = { stableId: string; stableName: string; contentDigest: string; reason: "awaiting_verification" | "missing_version"; skillId?: string; versionId?: string };
+type PendingRoleSkill = { stableId: string; stableName: string; contentDigest: string; reason: "awaiting_verification" | "missing_version"; skillId?: string; versionId?: string; displayName?: string };
 type RoleSkillScope = { pins: RoleSkillPin[]; pending: PendingRoleSkill[] };
 async function roleSkillScope(page: Page, agentId: string): Promise<RoleSkillScope> {
   const op = agentRole.operations.getAgentDirectoryProfile;
@@ -84,10 +84,13 @@ async function expectRoleSkillOptions(page: Page, scope: RoleSkillScope): Promis
   await expect.poll(() => pendingOptions.evaluateAll(options => options.map(option => option.getAttribute("data-skill-stable-id")).sort()))
     .toEqual(scope.pending.map(binding => binding.stableId).sort());
   for (const pending of scope.pending) {
+    expect(pending.displayName, "pending skills must retain the authored readable title").toBeTruthy();
+    expect(pending.displayName).not.toBe(pending.stableId);
     const option = page.getByTestId(`chat-skill-pending-${pending.stableName}`);
     await expect(option).toBeDisabled();
     await expect(option).toHaveAttribute("data-skill-stable-id", pending.stableId);
     await expect(option).toHaveAttribute("data-skill-stable-name", pending.stableName);
+    await expect(option).toContainText(pending.displayName!);
     await expect(option).toContainText(pending.reason === "awaiting_verification" ? "待验证" : "版本缺失");
   }
   await expect(page.getByTestId("chat-skill-role-counts")).toHaveAttribute("data-available-count", String(scope.pins.length));
@@ -232,6 +235,10 @@ test("official roles: administrator enables dependencies; member checks seven ro
         await directoryCard.getByTestId("agent-card-view-detail").click();
         await expect(member.getByTestId("agent-detail-name")).toContainText(role.name);
         const detailScope = scopesByRole.get(role.ref)!;
+        if (detailScope.pending.length > 0) {
+          await expect(member.getByText(`日常对话可以直接开始；待验证 ${detailScope.pending.length} 项技能暂不可用。`, { exact: true })).toBeVisible();
+          await expect(member.getByText("它需要的能力都已开通", { exact: false })).toHaveCount(0);
+        }
         const detailPins = member.getByTestId("agent-detail-skill");
         await expect.poll(() => detailPins.evaluateAll(items => items.map(item => ({
           skillId: item.getAttribute("data-skill-id"),

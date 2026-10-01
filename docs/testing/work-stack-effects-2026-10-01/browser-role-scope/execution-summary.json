@@ -1,0 +1,41 @@
+{
+  "sourceSha": "c13426a18eabc09f7ed8412181fc254bfab0aae4",
+  "environment": "real Chromium, production Next, Nest, isolated PostgreSQL/Redis",
+  "upstream": "explicit deterministic loopback; real model quality BLOCKED",
+  "salesCRM": "DEFERRED by user",
+  "stats": {
+    "startTime": "2026-10-01T11:39:43.061Z",
+    "duration": 547506.707,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "cases": [
+    {
+      "title": "official roles: administrator enables dependencies; member checks seven role skill scopes and runs independent persisted chats",
+      "file": "digital-human-journey.spec.ts",
+      "project": "work-stack-digital-human",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 91852
+        }
+      ]
+    },
+    {
+      "title": "W029 direct role launch: real grants, four real approval confirmations, persisted PRD and reload",
+      "file": "w029-browser-journey.spec.ts",
+      "project": "work-stack-workflow",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 30045
+        }
+      ]
+    }
+  ],
+  "rawTracePolicy": "ignored/local only; never published"
+}
