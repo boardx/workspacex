@@ -491,7 +491,7 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow"],
+      dependencies: ["official-role-workflow", "realtime-voice"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.

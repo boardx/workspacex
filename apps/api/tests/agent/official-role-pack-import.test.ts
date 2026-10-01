@@ -18,7 +18,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { FileAgentStarterPackSource } from "../../src/infrastructure/agent/file-agent-starter-pack-source";
 import { insertAgentVersionFromDraft } from "../../src/infrastructure/agent/agent-version-insert";
-import { buildOfficialAgentRolePack, officialRoleAvatarKeys, officialRoleNames, officialRoleSkillPacks, officialRoleTags, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
+import { buildOfficialAgentRolePack, officialRoleSkillDisplayName, officialRoleAvatarKeys, officialRoleNames, officialRoleSkillPacks, officialRoleTags, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -207,7 +207,7 @@ describe("official role pack import (AG03 / UC-3)", () => {
       const version = versions.find((entry) => entry.stable_name === role.stableName)!;
       expect(version.instructions).toBe(role.instructions);
       expect(version.skill_version_ids).toEqual([]);
-      expect(version.pending_skill_bindings).toEqual(role.authoredSkillBindings!.map((binding) => ({ ...binding, reason: "missing_version" })));
+      expect(version.pending_skill_bindings).toEqual(role.authoredSkillBindings!.map((binding) => ({ ...binding, displayName: officialRoleSkillDisplayName(binding), reason: "missing_version" })));
     }
 
     expect(rows.find((r) => r.stable_name === "d002-research-knowledge-analyst")).toMatchObject({

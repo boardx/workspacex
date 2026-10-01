@@ -259,10 +259,10 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
       if (!tables.rows[0]?.ready) return null;
       const result = await s.query<{
         agent_id: string; agent_version_id: string; skill_version_ids: unknown;
-        model_provider: string; model_id: string; instructions: string;
+        model_provider: string; model_id: string; instructions: string; stable_name: string | null;
       }>(
         `SELECT a.id AS agent_id, v.id AS agent_version_id, v.skill_version_ids,
-                v.model_provider, v.model_id, v.instructions
+                v.model_provider, v.model_id, v.instructions, a.stable_name
            FROM "${this.schema}".agents a JOIN "${this.schema}".agent_versions v
              ON ${PUBLISHED_AGENT_VERSION_MATCH}
           WHERE a.org_id=$1 AND a.id=$2 AND ${PUBLISHED_AGENT_ENABLED}`,
@@ -276,6 +276,7 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
         skillVersionIds: row.skill_version_ids as string[],
         modelProvider: row.model_provider, modelId: row.model_id,
         instructions: row.instructions,
+        skillScope: row.stable_name === agentDefaults.DEFAULT_AGENT_STABLE_NAME ? "general" : "agent_pins",
       };
     });
   }
