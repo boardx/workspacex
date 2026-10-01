@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
 import {expect, test, type Page} from '@playwright/test';
-import {apiOrigin, archiveAcceptanceBoard, boardApi, boardLogin, createAcceptanceBoard, canonicalRows, object} from './board-acceptance-support';
+import {apiOrigin, archiveAcceptanceBoard, boardApi, boardLogin, createAcceptanceBoard, canonicalRows, object, BOARD_SYNCED_STATUS} from './board-acceptance-support';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {observeRuntimeChunks, runtimeSourceIdentity, verifyRuntimeIdentity} from './board-runtime-evidence';
 import {ROOM_REQUIREMENTS, readRoomViewport, roomClock, roomHash, signRoomLedger, validateRoomArtifact, type RoomArtifact, type RoomReceipt, type RoomEvent, type RoomSample, type RoomState} from './support/board-meeting-room-evidence';
@@ -40,6 +40,43 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     for (const page of [owner!, display!, follower!]) await expect(page.getByTestId('board-a11y-object-meeting-anchor')).toHaveAccessibleName('图形：会议室持续内容验证');
     const canonicalContent = await canonicalRows(owner!);
     const contentHash = roomHash(canonicalContent);
+    const baselinePath = test.info().outputPath('meeting-room-content-baseline.json');
+    await writeFile(baselinePath, JSON.stringify({sha, phase: 'seed-baseline', clientLabel: 'owner', canonicalContent, contentHash}, null, 2), {mode: 0o600});
+    await test.info().attach('meeting-room-content-baseline', {path: baselinePath, contentType: 'application/json'});
+    const verifyReloadContent = async (phase: string) => {
+      const results = await Promise.allSettled([owner!, display!].map(async (page, index) => {
+        const clientLabel = index === 0 ? 'owner' : 'display';
+        let assertionError: unknown, failed = false;
+        try {
+          await page.reload();
+          await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
+          await expect(page.getByTestId('board-a11y-object-meeting-anchor')).toHaveAccessibleName('图形：会议室持续内容验证');
+          await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(canonicalContent.length);
+          await expect.poll(() => canonicalRows(page)).toEqual(canonicalContent);
+          expect(roomHash(await canonicalRows(page))).toBe(contentHash);
+        } catch (error) { failed = true; assertionError = error; }
+        const path = test.info().outputPath(`meeting-room-${phase}-${clientLabel}.json`);
+        try {
+          let actualRows: Awaited<ReturnType<typeof canonicalRows>> | null = null, diagnosticError: string | null = null;
+          try { actualRows = await canonicalRows(page); } catch (error) { diagnosticError = error instanceof Error ? error.message : String(error); }
+          const fields = ['kind', 'text', 'geometry', 'parentId', 'from', 'to', 'start', 'end'] as const;
+          const differences = actualRows ? [...new Set([...canonicalContent, ...actualRows].map(row => row.id))].flatMap<{id: string; field: string; expected: unknown; actual: unknown}>(id => {
+            const expected = canonicalContent.find(row => row.id === id), actual = actualRows!.find(row => row.id === id);
+            if (!expected || !actual) return [{id, field: 'presence', expected: Boolean(expected), actual: Boolean(actual)}];
+            return fields.filter(field => JSON.stringify(expected[field]) !== JSON.stringify(actual[field])).map(field => ({id, field, expected: expected[field], actual: actual[field]}));
+          }) : null;
+          await writeFile(path, JSON.stringify({sha, phase, clientLabel, canonicalContent, contentHash, actualRows, actualHash: actualRows ? roomHash(actualRows) : null, differences, diagnosticError}, null, 2), {mode: 0o600});
+          await test.info().attach(`meeting-room-${phase}-${clientLabel}`, {path, contentType: 'application/json'});
+        } catch (error) {
+          observationErrors.push(`content diagnostic ${phase}/${clientLabel}: ${error instanceof Error ? error.message : String(error)}`);
+          if (!failed) throw error;
+        }
+        if (failed) throw assertionError;
+      }));
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
+    };
+    await verifyReloadContent('seed-reload');
     const runtimeBefore = await verifyRuntimeIdentity(api, sha, await chunks());
     const roomToken = () => display!.evaluate(key => sessionStorage.getItem(key), `board-room:${boardId}:${roomId}:meeting-room-display`);
     await expect.poll(async () => Boolean(await roomToken())).toBe(true);
@@ -131,8 +168,8 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     await roomAction(display!, '结束演示'); await expect.poll(async () => (await state()).presenterId).toBeNull();
     const finalState = await state(); expect(finalState.followers).toEqual([]); record('release', current.revision, finalState.revision, finalState);
     const persistedState = await persistedRoomState(F.orgId, boardId, roomId); expect(persistedState).toEqual(finalState); record('persisted-read', finalState.revision, finalState.revision, persistedState);
-    await Promise.all([owner!.reload(), display!.reload()]); await expect((await roomControls(owner!)).getByRole('button', {name: '开始演示', exact: true})).toBeVisible(); expect(await state()).toEqual(finalState);
-    for (const page of [owner!, display!]) await expect.poll(async () => roomHash(await canonicalRows(page))).toBe(contentHash);
+    await verifyReloadContent('final-reload');
+    await expect((await roomControls(owner!)).getByRole('button', {name: '开始演示', exact: true})).toBeVisible(); expect(await state()).toEqual(finalState);
     record('reloaded', finalState.revision, finalState.revision, await state());
     await archiveAcceptanceBoard(api, ownerToken, boardId); archived = true; const resource = await (await boardApi(api, ownerToken, 'GET', `/whiteboards/${boardId}`)).json(); expect(resource.archived).toBe(true); record('archived', finalState.revision, finalState.revision, {archived: resource.archived});
     const runtimeAfter = await verifyRuntimeIdentity(api, sha, await chunks());
