@@ -126,10 +126,10 @@
  FAIL  tests/work-eval/eval-all-skills-real-pack-digest.test.ts > EV05 write-back digest = imported content_digest (real pack, no digest stub) > the gate-script digest of a real starter-pack skill is accepted by the EV04 write-back
 AssertionError: expected 'write-back failed: POST /admin/skills…' to be null
 
-- Expected: 
+- Expected:
 null
 
-+ Received: 
++ Received:
 "write-back failed: POST /admin/skills/catalog/skill-5e0a0239-e8ee-465c-87ce-9774f8649fbd/gate-status → 409 WORK_EVAL_DIGEST_MISMATCH"
 
  ❯ tests/work-eval/eval-all-skills-real-pack-digest.test.ts:79:23

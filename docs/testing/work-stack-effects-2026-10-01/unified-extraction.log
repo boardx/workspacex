@@ -23,4 +23,3 @@ stderr | tests/ui/extraction-thread-scope.test.tsx > does not query extraction f
       Tests  7 passed (7)
    Start at  07:09:40
    Duration  7.58s (transform 2.63s, setup 161ms, collect 5.65s, tests 490ms, environment 776ms, prepare 70ms)
-

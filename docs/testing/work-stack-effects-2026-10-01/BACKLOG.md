@@ -117,3 +117,5 @@ flowchart TD
 - [ ] 最新统一头 fullstack 真实 GitHub 导入：旧头因上游 rate limit remaining=0 失败，需新头 CI 证据。
 
 - [x] 整合后数据库回归：12 文件 134/134 通过，覆盖评测、完整权限反证、固定 Skill 真实回环；隔离环境已清理。
+
+- [x] 后续修复正常推送检查：统一头 8456b5a92 的 typecheck/lint 20/20 成功，无绕过检查。最新 CI 待完成。

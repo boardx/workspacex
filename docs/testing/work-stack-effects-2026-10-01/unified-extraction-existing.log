@@ -114,4 +114,3 @@ Failed to load runtime info (/api/copilotkit/info): Cannot convert undefined or 
       Tests  32 passed (32)
    Start at  07:09:58
    Duration  6.06s (transform 2.94s, setup 340ms, collect 7.12s, tests 1.03s, environment 1.53s, prepare 211ms)
-

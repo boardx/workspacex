@@ -43,3 +43,5 @@ S003 Zod definitions now live in contracts; the integrated single-source/schema 
 Old published head fullstack smoke failed because upstream GitHub API quota was exhausted (403, remaining=0). This is not counted passing; latest-head CI remains required.
 
 Integrated continued-fix verification: 12 files / 134 tests passed against isolated real PG, including all work-eval tests, permission counterproofs and pinned Skill loopback. Cleanup completed. See unified-final-eval-db.log. Extraction regression 7 + 32 passed (unified-extraction*.log).
+
+Normal continued-fix push at 8456b5a92 passed all 20 affected typecheck/lint tasks (5 cached) and reached GitHub. Evidence-log trailing whitespace was normalized only; raw /tmp captures are retained. Latest CI remains pending.
