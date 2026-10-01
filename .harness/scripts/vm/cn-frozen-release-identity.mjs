@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { classifyChecks, statusContextToCheck } from '../lib/pr-queue.ts';
+import { validateMainSourceAdmission, collectMainSourceAdmission } from './cn-main-source-admission.mjs';
 const sha = /^[a-f0-9]{40}$/, digest = /^[a-f0-9]{64}$/, attempt = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const services=['api','web','agent','sandbox'];
 const fail = code => { throw new Error(code); };
@@ -24,11 +24,8 @@ export function validateGitHubEvidence(identity,snapshot,facts) {
  if(d.workflowRunAttempt!==undefined&&r?.run_attempt!==d.workflowRunAttempt)fail('FROZEN_RELEASE_DEVAPP_GITHUB_ATTEMPT');
  if(r?.id!==d.workflowRunId||r.head_sha!==identity.releaseSourceSha||r.status!=='completed'||r.conclusion!=='success'||r.path!=='.github/workflows/real-model-chat-evidence.yml'||r.repository?.full_name!==identity.repository||r.head_repository?.full_name!==identity.repository)fail('FROZEN_RELEASE_DEVAPP_GITHUB_RUN');
  if(!Array.isArray(facts.checks)||!Array.isArray(facts.contexts)||facts.checks.some(c=>c.head_sha!==identity.releaseSourceSha||c.app?.slug!=='github-actions'))fail('FROZEN_RELEASE_CI_SOURCE');
- const checks=facts.checks.map(c=>({name:c.name,status:c.status,conclusion:c.conclusion}));
- checks.push(...facts.contexts.map(c=>statusContextToCheck(c.context,c.state)));
- const verdict=classifyChecks(checks);
- if(verdict.blocked.length||verdict.changes.length||verdict.waitingCi.length)fail('FROZEN_RELEASE_CI_NOT_READY');
- return { ...identity, receiptSha256:snapshot.receiptSha256,governanceReceiptSha256:snapshot.governanceReceiptSha256,manifestSha256:snapshot.manifestSha256,baselineSha256:snapshot.baselineSha256,images:snapshot.images,devappEvidenceSha256:d.evidenceSha256,devappWorkflowRunId:d.workflowRunId };
+ const mainSourceEvidenceSha256=hash(validateMainSourceAdmission(identity.releaseSourceSha,identity.repository,{...facts.mainAdmission,sourceChecks:facts.checks,sourceStatuses:facts.contexts}));
+ return { ...identity, mainSourceEvidenceSha256, receiptSha256:snapshot.receiptSha256,governanceReceiptSha256:snapshot.governanceReceiptSha256,manifestSha256:snapshot.manifestSha256,baselineSha256:snapshot.baselineSha256,images:snapshot.images,devappEvidenceSha256:d.evidenceSha256,devappWorkflowRunId:d.workflowRunId };
 }
 export function validateTagGovernance(v) {
  const env=(e,policies,branches,review)=>{
@@ -112,8 +109,8 @@ function governance(repo,snapshot,identity) {
  const v={promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};if(snapshot.governance)validateLiveGovernance(snapshot.governance.governance,v);else validateTagGovernance(v);return issuer.id;
 }
 export function frozenTagBinding(binding) {
- const {releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
- return {schemaVersion:1,releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId};
+ const {releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,mainSourceEvidenceSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
+ return {schemaVersion:1,releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,mainSourceEvidenceSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId};
 }
 export function validateFrozenTag(tagObject,tag,binding) {
  if(tagObject.tag!==tag||tagObject.object?.type!=='commit'||tagObject.object?.sha!==binding.releaseSourceSha||tagObject.message!==JSON.stringify(frozenTagBinding(binding)))fail('FROZEN_RELEASE_TAG_CHANGED');
@@ -134,7 +131,7 @@ export function latestStatusContexts(statuses,source,repository) {
 }
 function observations(identity,snapshot) {
  const prefix=`repos/${identity.repository}`;
- return {checks:pages(`${prefix}/commits/${identity.releaseSourceSha}/check-runs?filter=latest`,'check_runs'),contexts:latestStatusContexts(pages(`${prefix}/commits/${identity.releaseSourceSha}/statuses`),identity.releaseSourceSha,identity.repository),devappRun:gh(`${prefix}/actions/runs/${snapshot.devapp.workflowRunId}`)};
+ return {mainAdmission:collectMainSourceAdmission(identity.repository,identity.releaseSourceSha,{gh,pages,git:args=>execFileSync('git',args,{encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024,env:{...process.env,GIT_NO_LAZY_FETCH:'1',GIT_TERMINAL_PROMPT:'0'}})}),checks:pages(`${prefix}/commits/${identity.releaseSourceSha}/check-runs?filter=latest`,'check_runs'),contexts:latestStatusContexts(pages(`${prefix}/commits/${identity.releaseSourceSha}/statuses`),identity.releaseSourceSha,identity.repository),devappRun:gh(`${prefix}/actions/runs/${snapshot.devapp.workflowRunId}`)};
 }
 async function main() {
  const [mode,file]=process.argv.slice(2);if(!['freeze-tag','verify-dispatch','verify-admission'].includes(mode)||!file)fail('FROZEN_RELEASE_CLI_INPUT');

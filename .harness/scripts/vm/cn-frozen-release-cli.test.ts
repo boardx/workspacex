@@ -1,28 +1,41 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {parse as parseYaml} from 'yaml';
+import { chmodSync, mkdirSync, realpathSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
+import {validateMainSourceAdmission} from './cn-main-source-admission.mjs';
+import {createHash} from 'node:crypto';
 import { frozenTagBinding, releaseTag } from "./cn-frozen-release-identity.mjs";
 const owned:string[]=[];
 afterEach(()=>{for(const p of owned.splice(0))rmSync(p,{recursive:true,force:true})});
 const helper=join(process.cwd(),'.harness/scripts/vm/cn-frozen-release-identity.mjs');
-function fixture(compatible = true) {
+function fixture(compatible = true, cleanRuntime = false) {
  const dir=mkdtempSync(join(tmpdir(),'cn-frozen-identity-'));owned.push(dir);
  const git=(...args:string[])=>{const r=spawnSync('git',args,{cwd:dir,encoding:'utf8'});expect(r.status,r.stderr).toBe(0);return r.stdout.trim()};
  git('init','-q');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');
- writeFileSync(join(dir,'baseline'),'baseline');git('add','baseline');git('commit','-qm','baseline');const baseline=git('rev-parse','HEAD');
+ const policy=JSON.parse(readFileSync('.harness/config/ci-check-policy.json','utf8'));const workflowText=readFileSync('.github/workflows/backend-gates.yml','utf8');const deploymentWorkflow=parseYaml(workflowText);const sourceShardPolicy=JSON.parse(readFileSync('.harness/api-test-shards.json','utf8'));const shardHelper=readFileSync('.harness/scripts/ci-api-shards.mjs','utf8');const sourceShardHelperSha256=createHash('sha256').update(shardHelper).digest('hex');mkdirSync(join(dir,'.harness/config'),{recursive:true});writeFileSync(join(dir,'.harness/config/ci-check-policy.json'),JSON.stringify(policy));git('add','.');writeFileSync(join(dir,'baseline'),'baseline');git('add','baseline');git('commit','-qm','baseline');const baseline=git('rev-parse','HEAD');
  mkdirSync(join(dir,'.github/workflows'),{recursive:true});mkdirSync(join(dir,'.harness/scripts/vm'),{recursive:true});
- writeFileSync(join(dir,'.github/workflows/promote-cn-production.yml'),compatible?'# CN_FROZEN_RELEASE_DISPATCHER_V1\n':'# historical dispatcher\n');writeFileSync(join(dir,'.harness/scripts/vm/cn-frozen-release-identity.mjs'),readFileSync(helper));git('add','.');git('commit','-qm','frozen compatible candidate');const source=git('rev-parse','HEAD');
- writeFileSync(join(dir,'new-main'),'later');git('add','.');git('commit','-qm','main advances');const main=git('rev-parse','HEAD');git('update-ref','refs/remotes/origin/main',main);git('update-ref','refs/remotes/origin/main-cn',baseline);git('checkout','-q','--detach',source);
+ writeFileSync(join(dir,'.github/workflows/backend-gates.yml'),workflowText);writeFileSync(join(dir,'.harness/api-test-shards.json'),JSON.stringify(sourceShardPolicy));mkdirSync(join(dir,'.harness/scripts'),{recursive:true});writeFileSync(join(dir,'.harness/scripts/ci-api-shards.mjs'),shardHelper);writeFileSync(join(dir,'.github/workflows/promote-cn-production.yml'),compatible?'# CN_FROZEN_RELEASE_DISPATCHER_V1\n':'# historical dispatcher\n');writeFileSync(join(dir,'.harness/scripts/vm/cn-frozen-release-identity.mjs'),readFileSync(helper));git('add','.');git('commit','-qm','frozen compatible candidate');const source=git('rev-parse','HEAD');
+ writeFileSync(join(dir,'new-main'),'later');git('add','.');git('commit','-qm','main advances');const main=git('rev-parse','HEAD');git('remote','add','origin',dir);git('update-ref','refs/heads/main',main);git('update-ref','refs/remotes/origin/main',main);git('update-ref','refs/remotes/origin/main-cn',baseline);git('checkout','-q','--detach',source);
  const attempt='gha-fixture-1',tag=releaseTag(source,attempt),hex='c'.repeat(64),repo='boardx/workspacex';
  const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,'sha256:'+hex])),devapp:{status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,source])),browserAccepted:true,evidenceSha256:hex,workflowRunId:55}};
- const binding={releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
+ const checks=[...policy.requiredChecks,...policy.aggregates['backend-required'].filter((n:string)=>n!=='gates-test'),'e2e-core-loop','api-test-plan',...Array.from({length:sourceShardPolicy.count},(_,i)=>`gates-test (${i+1})`)].map((name,i)=>({id:i+1,name,head_sha:source,status:'completed',conclusion:'success',app:{slug:'github-actions'},started_at:'2026-10-01T00:00:00Z',completed_at:'2026-10-01T00:01:00Z'}));
+ const sourceCommit={sha:source,tree:{sha:git('rev-parse',source+'^{tree}')},parents:[{sha:baseline}]};
+ const pr={number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,base:{ref:'main',repo:{full_name:repo}},head:{sha:source,repo:{full_name:repo}}};
+ const mainAdmission={sourceCommit,associatedPrs:[pr],mainContainsSource:true,mergeTree:sourceCommit.tree.sha,mergeParentPolicy:policy,sourcePolicy:policy,prChecks:checks,prStatuses:[],sourceChecks:checks,sourceStatuses:[],deploymentWorkflow,sourceShardPolicy,sourceShardHelperSha256};
+ const mainSourceEvidenceSha256=createHash('sha256').update(JSON.stringify(validateMainSourceAdmission(source,repo,mainAdmission))).digest('hex');
+ const binding={releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
  git('tag','-a',tag,'-m',JSON.stringify(frozenTagBinding(binding)),source);const tagSha=git('rev-parse','refs/tags/'+tag);
- const checks=['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required'].map(name=>({name,head_sha:source,status:'completed',conclusion:'success',app:{slug:'github-actions'}}));
  const env=(review:boolean)=>({id:review?10:11,updated_at:'2026-10-01T00:00:00Z',protection_rules:review?[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
  const pattern={ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}};
  const maps:Record<string,unknown>={
+  [`repos/${repo}/git/commits/${source}`]:sourceCommit,
+  [`repos/${repo}/commits/${source}/pulls?per_page=100&page=1`]:[pr],
+  [`repos/${repo}/pulls/1`]:pr,
+  [`repos/${repo}/git/ref/heads/main`]:{object:{sha:main}},
+  [`repos/${repo}/compare/${source}...${main}`]:{status:'ahead'},
+  [`repos/${repo}/commits/${source}/check-runs?filter=all&per_page=100&page=1`]:{total_count:checks.length,check_runs:checks},
   ["apps/github-actions"]:{id:1,slug:"github-actions"},
   [`repos/${repo}/rulesets?includes_parents=true&per_page=100&page=1`]:[{id:1,target:'tag',enforcement:'active',source_type:'Repository',source:repo},{id:2,target:'tag',enforcement:'active',source_type:'Repository',source:repo}],
   [`repos/${repo}/rulesets/1`]:{id:1,source_type:'Repository',source:repo,updated_at:'2026-10-01T00:00:00Z',target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'}]},
@@ -40,7 +53,9 @@ function fixture(compatible = true) {
  };
  const bin=join(dir,'fakebin');mkdirSync(bin);writeFileSync(join(bin,'gh'),'#!/usr/bin/env python3\nimport os,sys,json\na=sys.argv[1:];assert a[0]=="api" and len(a)==2,"No API mutation authorized"\nv=json.load(open(os.environ["FIXTURE_MAP"]))\nassert a[1] in v,"Unexpected GitHub request"\nprint(json.dumps(v[a[1]]))\n');chmodSync(join(bin,'gh'),0o700);
  const mapfile=join(dir,'maps.json'),snapshotFile=join(dir,'snapshot.txt');
- const run=(patch:Record<string,string>={},mode="verify-dispatch")=>{writeFileSync(mapfile,JSON.stringify(maps));writeFileSync(snapshotFile,'CN_PROMOTION_IDENTITY_JSON='+JSON.stringify(snapshot)+'\n');return spawnSync(process.execPath,['--experimental-strip-types',helper,mode,snapshotFile],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,FIXTURE_MAP:mapfile,GITHUB_REPOSITORY:repo,GITHUB_SHA:source,GITHUB_REF:'refs/tags/'+tag,GITHUB_WORKFLOW_SHA:source,GITHUB_WORKFLOW_REF:`${repo}/.github/workflows/promote-cn-production.yml@refs/tags/${tag}`,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',REVISION:source,EXPECTED_MAIN_CN:baseline,ATTEMPT_ID:attempt,GITHUB_OUTPUT:'',...patch}})};
+ let cliHelper=helper;
+ if(cleanRuntime){const runtime=mkdtempSync(join(tmpdir(),'cn-clean-runtime-'));owned.push(runtime);for(const rel of ['.harness/scripts/vm/cn-frozen-release-identity.mjs','.harness/scripts/vm/cn-main-source-admission.mjs','.harness/scripts/ci-api-shards.mjs','.harness/scripts/lib/pr-queue.ts','.harness/scripts/lib/pr-green.ts','.harness/scripts/lib/merge-queue.ts','.harness/scripts/lib/ci-check-policy.mjs','.harness/config/ci-check-policy.json','.harness/scripts/vendor/yaml-2.9.0/parser.mjs']){mkdirSync(join(runtime,rel,'..'),{recursive:true});writeFileSync(join(runtime,rel),readFileSync(rel));}cliHelper=realpathSync(join(runtime,'.harness/scripts/vm/cn-frozen-release-identity.mjs'));}
+ const run=(patch:Record<string,string>={},mode="verify-dispatch")=>{writeFileSync(mapfile,JSON.stringify(maps));writeFileSync(snapshotFile,'CN_PROMOTION_IDENTITY_JSON='+JSON.stringify(snapshot)+'\n');return spawnSync(process.execPath,['--experimental-strip-types',cliHelper,mode,snapshotFile],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,FIXTURE_MAP:mapfile,GITHUB_REPOSITORY:repo,GITHUB_SHA:source,GITHUB_REF:'refs/tags/'+tag,GITHUB_WORKFLOW_SHA:source,GITHUB_WORKFLOW_REF:`${repo}/.github/workflows/promote-cn-production.yml@refs/tags/${tag}`,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',REVISION:source,EXPECTED_MAIN_CN:baseline,ATTEMPT_ID:attempt,GITHUB_OUTPUT:'',NODE_PATH:'',...patch}})};
  return {run,maps,snapshot,source,baseline,main,tagSha,tag,dir};
 }
 describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
@@ -61,6 +76,9 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
   (f.snapshot as any).governanceReceiptSha256='d'.repeat(64);expect(f.run({EXPECTED_REQUEST_SHA256:request}).status).toBe(3);(f.snapshot as any).governanceReceiptSha256='c'.repeat(64);
   (f.snapshot as any).governance.attemptId='other';expect(f.run().status).toBe(3);
  });
+ it('rejects missing or unrelated merged PR and source tree drift at actual CLI',()=>{for(const mode of ['missing','unrelated','tree']){const f=fixture();if(mode==='missing')f.maps[`repos/boardx/workspacex/commits/${f.source}/pulls?per_page=100&page=1`]=[];else if(mode==='unrelated')(f.maps['repos/boardx/workspacex/pulls/1'] as any).merge_commit_sha=f.baseline;else (f.maps[`repos/boardx/workspacex/git/commits/${f.source}`] as any).tree.sha=f.baseline;const r=f.run();expect(r.status,r.stderr).toBe(3);expect(r.stdout).not.toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')}});
+ it('actual source dynamic plan rejects missing final shard or plan job at CLI',()=>{for(const name of ['gates-test (8)','api-test-plan']){const f=fixture(),key=`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`;const v:any=f.maps[key];v.check_runs=v.check_runs.filter((c:any)=>c.name!==name);v.total_count=v.check_runs.length;const r=f.run();expect(r.status,r.stderr).toBe(3);expect(r.stdout).not.toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')}});
+ it('runs actual CLI in clean offline runtime without node_modules or NODE_PATH',()=>{const f=fixture(true,true);const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=');const key=`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`;const v:any=f.maps[key];v.check_runs=v.check_runs.filter((c:any)=>c.name!=='api-test-plan');v.total_count=v.check_runs.length;const red=f.run();expect(red.status,red.stderr).toBe(3);expect(red.stdout).not.toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
  it('rejects changed attestation and incomplete actual checks before approval',()=>{const f=fixture(),key=`repos/boardx/workspacex/git/tags/${f.tagSha}`;const old=f.maps[key];f.maps[key]={tag:f.tag,object:{type:'commit',sha:f.source},message:'present-only'};expect(f.run().status).toBe(3);expect(f.run({GITHUB_REF:'refs/heads/main'},'freeze-tag').status).toBe(3);f.maps[key]=old;f.maps[`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`]={total_count:101,check_runs:[]};expect(f.run().status).toBe(3)});
  it('rejects moving main dispatch, missing evidence and prior-run request digest',()=>{const f=fixture();for(const patch of [{GITHUB_REF:'refs/heads/main'},{GITHUB_SHA:f.main},{EXPECTED_REQUEST_SHA256:'0'.repeat(64)}])expect(f.run(patch).status).toBe(3);f.snapshot.devapp.browserAccepted=false;expect(f.run().status).toBe(3)});
  it('verifies real human-creator native admission via current-attempt job API',()=>{
