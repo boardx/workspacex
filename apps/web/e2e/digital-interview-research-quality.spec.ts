@@ -328,6 +328,10 @@ test("report summary cards count only saved Markdown items and simulated complet
   await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, status: "completed", currentStep: "report" }) }));
   await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reportSource) }));
   await page.goto("/itv/itv-quality-e2e/report", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("itv-source-report-evidence-boundary")).toBeVisible();
+  await expect(page.getByTestId("itv-source-report-evidence-boundary")).toContainText("不代表已批准结论");
+  await expect(page.getByTestId("itv-report-details")).not.toHaveAttribute("open", "");
+  await page.getByText("材料统计与质量检查", { exact: true }).click();
   await expect(page.getByTestId("itv-report-metric-experts")).toContainText("2");
   await expect(page.getByTestId("itv-report-metric-completed")).toContainText("1");
   await expect(page.getByTestId("itv-report-metric-findings")).toContainText("2");
@@ -464,6 +468,8 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
+      await expect(page.getByTestId("itv-source-report-evidence-boundary")).toBeVisible();
+      await page.getByText("材料统计与质量检查", { exact: true }).click();
       await expect(page.getByTestId("itv-report-metric-experts")).toContainText("5");
       await expect(page.getByTestId("itv-report-metric-completed")).toContainText("2");
       await expect(page.getByTestId("itv-report-metric-findings")).toContainText("3");
@@ -478,7 +484,7 @@ test("prototype journey keeps the list shell separate from all six full-screen s
         step === "experts" ? "itv-markdown-experts" : step === "outline" ? "itv-markdown-outline" :
           step === "runs" ? "itv-source-runs" : "itv-source-report").getByRole("heading", { level: 2 }).first()
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
-      expect(headingSize, `${step} heading should retain the prototype's page hierarchy`).toBeGreaterThanOrEqual(30);
+      expect(headingSize, `${step} heading should match the shared user-research step hierarchy`).toBe(24);
     }
     if (step === "intake") {
       const action = await page.getByTestId("itv-markdown-intake").getByRole("button", { name: /下一步：确认分析/u }).boundingBox();

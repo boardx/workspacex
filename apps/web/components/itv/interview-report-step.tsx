@@ -64,14 +64,13 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
     <div className="grid min-w-0 items-start gap-8 bg-card text-card-foreground xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10">
       <nav aria-label="报告目录" className="min-w-0 border-b border-border pb-5 print:hidden xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:overflow-y-auto xl:border-b-0 xl:border-r xl:pr-5"><div className="mb-4 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">目录</h3><Button variant="ghost" size="sm" className="xl:hidden" aria-expanded={tocExpanded} aria-controls="itv-report-toc" onClick={() => setTocExpanded((value) => !value)}>{tocExpanded ? "收起目录" : "展开目录"}</Button></div><ol id="itv-report-toc" className={`space-y-2 ${tocExpanded ? "block" : "hidden"} xl:block`}>{projection.headings.map((heading) => <li key={heading.id}><a className="block break-words text-xs leading-relaxed text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" href={`#${heading.id}`}>{heading.text}</a></li>)}</ol></nav>
       <article id="itv-source-report-print" className="min-w-0">
-        <div data-testid="itv-source-report-evidence-boundary" className="mb-6 hidden text-sm leading-6 print:block">
+        <div data-testid="itv-source-report-evidence-boundary" className="mb-6 text-sm leading-6 text-muted-foreground">
           <p>文档版本 {document.version} · {document.evidenceMode === "simulated" ? "本报告基于 AI 模拟访谈，不代表真实用户证据。" : "证据资格以服务端审核为准。"}</p>
           <p>当前 Markdown 文档尚未关联批准记录；导出仅供研究审阅，不代表已批准结论。</p>
         </div>
         <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" longForm />
         <details data-testid="itv-report-details" className="mt-8 border-t border-border pt-4 print:hidden">
         <summary className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">材料统计与质量检查</summary>
-        <p className="mt-4 text-sm leading-6 text-muted-foreground">文档版本 {document.version} · {document.evidenceMode === "simulated" ? "本报告基于 AI 模拟访谈，不代表真实用户证据。" : "证据资格以服务端审核为准。"}当前版本尚未关联批准记录，不代表已批准结论。</p>
         <section data-testid="itv-report-metrics" aria-label="已保存研究材料统计" className="mb-6">
           <div className="mb-3 text-xs leading-5 text-muted-foreground">{incomplete ? "报告未完成，以下仅为已保存部分的统计。" : "以下仅统计当前已保存版本。"}模拟任务，不代表真人样本；正文或表格未计入条目数；“—”表示缺少可核实的历史记录。页面统计不改写报告 Markdown。</div>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
