@@ -50,6 +50,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   }
   await expect(objectRows(page)).toHaveCount(8);
   mark('panels-created');
+  // Select a concrete persisted Frame after duplication before opening its inspector.
+  await page.getByTestId(`board-a11y-object-${existingFrame}`).evaluate((element:HTMLElement)=>element.click());
   await page.getByTestId('board-inspector-expand').click();
   const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.fill(`${await title.inputValue()}shared-tab-proof`);
   const pending=page.getByText(/^\d+ 项修改等待服务器确认$/);await expect(pending).toBeVisible();evidence.pendingBeforePeer=await pending.textContent();

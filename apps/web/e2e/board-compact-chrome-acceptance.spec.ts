@@ -41,7 +41,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    const drawPanel=page.getByTestId('board-draw-tool-panel');await expect(drawPanel).toBeVisible();const drawBounds=(await drawPanel.boundingBox())!;
    expect(drawBounds.width).toBeLessThanOrEqual(640);expect(drawBounds.height).toBeGreaterThanOrEqual(110);expect(drawBounds.height).toBeLessThanOrEqual(180);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
    for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
-   await expect(page.getByTestId('board-draw-opacity-55')).toHaveCount(0); // testid-gate: absent opacity control intentionally removed from compact panel
+   await expect(drawPanel.getByRole('button',{name:'Opacity 55%',exact:true})).toHaveCount(0);
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
 
    await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
