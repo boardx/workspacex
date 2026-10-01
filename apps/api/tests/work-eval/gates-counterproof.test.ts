@@ -79,6 +79,30 @@ describe("lint-work-stack-gates counterproof (EV03, E10)", () => {
     expect(gate(root, "G4")).toMatchObject({ exitCode: 1, outcome: "fail", reasonCode: "NO_SUITE" });
   });
 
+  it("a Markdown contract reference remains G2 fail even after a 10/10 loopback report", async () => {
+    const manifest = s003Manifest();
+    manifest.outputSchema = {
+      $ref: "requirements/work-stack-v2/skills/S003-enterprise-search.md#输出契约",
+    };
+    const root = goodRepo({ manifest });
+    await evaluate(root);
+    const result = gate(root, "G2");
+    expect(result).toMatchObject({ exitCode: 1, outcome: "fail", reasonCode: "SCHEMA_INVALID" });
+    expect(result.reason).toContain("outputSchema is not a valid JSON Schema");
+    expect(result.reason).toContain("S003-enterprise-search.md");
+    expect(gate(root, "G4").outcome).toBe("pass");
+  });
+
+  it("G2 validates ISO timestamps instead of silently ignoring date-time formats", async () => {
+    const manifest = s003Manifest();
+    manifest.inputSchema = {
+      type: "object", properties: { observedAt: { type: "string", format: "date-time" } },
+    };
+    const root = goodRepo({ manifest });
+    editCases(root, cases => cases.map(c => ({ ...c, input: { ...(c.input as object), observedAt: "yesterday" } })));
+    expect(gate(root, "G2")).toMatchObject({ outcome: "fail", reasonCode: "SCHEMA_INVALID" });
+  });
+
   it("case input violating inputSchema or a missing fixture → G2 fail SCHEMA_INVALID (E2)", async () => {
     const root = goodRepo();
     editCases(root, cases => cases.map(c => (c.id === "E1" ? { ...c, input: { question: "x", mode: "guess" } } : c)));

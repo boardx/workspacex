@@ -85,6 +85,10 @@ async function runCase(c: WorkEvalCase, input: EvalRunInput, agent: LoopbackAgen
     const graded = await withTimeout(
       (async () => {
         const output = await agent.run(c.input as LoopbackCaseInput, toolbox);
+        if (agent.outputSchema) {
+          const parsed = agent.outputSchema.safeParse(output);
+          if (!parsed.success) throw new Error(`output does not satisfy outputSchema: ${parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+        }
         return await input.grader.grade(c.expect.assertions, output as never, toolbox.trace);
       })(),
       input.suite.caseTimeoutMs,

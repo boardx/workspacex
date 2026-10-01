@@ -55,6 +55,10 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-01：Work Skill 的 input/output JSON Schema `$ref` 不能指向 Markdown 章节。S003 的 loopback
+  曾在缺少输出字段且使用非契约枚举时获得 10/10：只验证 grader 断言不能证明输出满足契约。
+  用 `work-eval/s003-contract.ts` 派生包 schema，实际 subject 输出先严格校验再评分；G2 显式登记
+  date-time format，避免 AJV 默认忽略时间格式。新包由 builder 发货为 1.0.1，保留旧版本与固定 pins。
 - 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
   **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
   run 一写回，后台实例的每个事务都抛 `agent_run_lease_lost`，实例永远停在 `running`。派生后台工作必须
