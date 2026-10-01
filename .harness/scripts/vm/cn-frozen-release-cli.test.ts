@@ -68,8 +68,12 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
   expect(f.run().status).toBe(0);
   const envkey=p+'/environments/production-cn-promotion',rulekey=p+'/rulesets/1';
   const oldenv=structuredClone(f.maps[envkey]),oldrule=structuredClone(f.maps[rulekey]);
-  for(const patch of [{updated_at:'2026-10-01T00:00:01Z'},{updated_at:undefined},{id:99},{protection_rules:[]}]){f.maps[envkey]={...(oldenv as object),...patch};expect(f.run().status).toBe(3);}f.maps[envkey]=oldenv;
-  for(const patch of [{updated_at:'2026-10-01T00:00:01Z'},{bypass_actors:[{actor_id:1}]},{rules:[]}]){f.maps[rulekey]={...(oldrule as object),...patch};expect(f.run().status).toBe(3);}f.maps[rulekey]=oldrule;
+  (f.maps[envkey] as any).updated_at='2026-10-01T08:00:00+08:00';
+  (f.maps[rulekey] as any).updated_at='2026-10-01T08:00:00.000+08:00';expect(f.run().status).toBe(0);
+  f.maps[envkey]=structuredClone(oldenv);f.maps[rulekey]=structuredClone(oldrule);
+
+  for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{id:99},{protection_rules:[]}]){f.maps[envkey]={...(oldenv as object),...patch};expect(f.run().status).toBe(3);}f.maps[envkey]=oldenv;
+  for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{bypass_actors:[{actor_id:1}]},{rules:[]}]){f.maps[rulekey]={...(oldrule as object),...patch};expect(f.run().status).toBe(3);}f.maps[rulekey]=oldrule;
   const policykey=p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1',oldpolicy=structuredClone(f.maps[policykey]);(f.maps[policykey] as any).branch_policies[0].name='other';expect(f.run().status).toBe(3);f.maps[policykey]=oldpolicy;
   const summary=p+'/rulesets?includes_parents=true&per_page=100&page=1',oldsummary=f.maps[summary];f.maps[summary]=[];expect(f.run().status).toBe(3);f.maps[summary]=oldsummary;
   const result=f.run(),request=JSON.parse(result.stdout.split('CN_FROZEN_RELEASE_IDENTITY_JSON=')[1]).requestSha256;
