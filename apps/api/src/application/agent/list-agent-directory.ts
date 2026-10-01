@@ -1,3 +1,4 @@
+import { officialRoleSkillDisplayName } from "../../domain/agent/official-role-packs";
 import type { PendingSkillBinding } from "@repo/contracts/agent-role";
 /**
  * AG04 / UC-4（契约束 `agent-role`，`listAgentDirectory` / `getAgentDirectoryCard`）——
@@ -234,7 +235,11 @@ export async function getAgentDirectoryProfile(
     duty: meaningfulDuty(row),
     mountedSkillIds: [...new Set(row.skillMountIds)],
     pinnedSkillVersionIds: [...new Set(row.skillVersionIds)],
-    pendingSkillBindings: row.pendingSkillBindings ?? [],
+    pendingSkillBindings: (row.pendingSkillBindings ?? []).map(binding => {
+      if (binding.displayName?.trim() !== binding.stableId) return binding;
+      const displayName = officialRoleSkillDisplayName(binding);
+      return displayName ? { ...binding, displayName } : binding;
+    }),
     pinnedSkills: (row.pinnedSkills ?? []).filter(pin => row.skillVersionIds.includes(pin.versionId)),
     delegationTargets,
     requireApprovalForHandoff: row.requireApprovalForHandoff,

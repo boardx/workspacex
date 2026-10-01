@@ -1,3 +1,4 @@
+import { buildOfficialAgentRolePack } from "../../src/domain/agent/official-role-packs";
 /**
  * AG04 —— `list-agent-directory.ts` 用例行为覆盖（review 指出：此前只有仓储白名单守卫测试，
  * 没有任何测试真正跑用例逻辑）。覆盖：`roleCategory`/`q` 过滤、`initialsOf`/`readinessOf`
@@ -198,4 +199,16 @@ it("pending declared capabilities remain informational and do not become executa
   expect(profile.pendingSkillBindings).toEqual([pending]);
   expect(profile.pinnedSkills).toEqual([]);
   expect(profile.pinnedSkillVersionIds).toEqual([]);
+});
+
+it("legacy frozen pending IDs receive exact authored titles in the read projection only", async () => {
+  const coordinate = buildOfficialAgentRolePack().agents.find(agent => agent.roleRef === "D003")!.authoredSkillBindings!.find(skill => skill.stableId === "S061")!;
+  const binding = { ...coordinate, reason: "awaiting_verification" as const, displayName: "S061" };
+  const drifted = { ...binding, contentDigest: "0".repeat(64) };
+  const named = { ...binding, displayName: "真实中文名称" };
+  const original = [binding, drifted, named];
+  const profile = await getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, deps({ found: row({ pendingSkillBindings: original }) }));
+  expect(profile.pendingSkillBindings).toEqual([{ ...binding, displayName: "产品探索（S061）" }, drifted, named]);
+  expect(original[0]!.displayName).toBe("S061");
+  expect(profile.pinnedSkills).toEqual([]);
 });
