@@ -1,4 +1,4 @@
-import {boardSoakDiagnostics} from './board-soak-diagnostics.mjs';
+import {boardSoakDiagnostics,discardUnclassifiedSoakFiles} from './board-soak-diagnostics.mjs';
 import {validateSecurityArtifact} from './board-security-policy.mjs';
 import {validateJourneyArtifact} from './board-journey-policy.mjs';
 import {validateBoardObservationArtifact, validateRuntimeBinding} from './board-observation-policy.mjs';
@@ -37,7 +37,7 @@ if (process.argv.includes('--list')) {
       env: {...process.env, BOARD_ACCEPTANCE_SHA: sha, BOARD_PERFORMANCE_LANE: entry.lane,
         BOARD_ACCEPTANCE_RUNTIME_MARKER: runtimeMarker, BOARD_ACCEPTANCE_RUNTIME_STARTED_AT: startedAt,
         BOARD_OBSERVATION_REPORT_PATH: artifactPath, BOARD_SOAK_REPORT_PATH: artifactPath, BOARD_PERFORMANCE_REPORT_PATH: artifactPath, BOARD_INTEGRATED_REPORT_PATH: artifactPath}});
-    if(entry.lane==='collaboration-50'){rmSync(resolve(output, `${entry.lane}.log`),{force:true});writeFileSync(resolve(output, `${entry.lane}-diagnostics.json`),JSON.stringify(boardSoakDiagnostics(result.stdout,result.stderr,result.status))+'\n',{mode:0o600});}
+    if(entry.lane==='collaboration-50'){discardUnclassifiedSoakFiles(resolve(root,'apps/web/test-results/board-soak'));rmSync(resolve(output, `${entry.lane}.log`),{force:true});writeFileSync(resolve(output, `${entry.lane}-diagnostics.json`),JSON.stringify(boardSoakDiagnostics(result.stdout,result.stderr,result.status))+'\n',{mode:0o600});}
     else writeFileSync(resolve(output, `${entry.lane}.log`), `${result.stdout ?? ''}${result.stderr ?? ''}`);
     const row = {lane: entry.lane, sha, buildSha: null, dirty: false, status: 'failed', command: entry.command.join(' '),
       runtimeMarker, startedAt, endedAt: new Date().toISOString(), exitCode: result.status ?? 1, environment: process.env.BOARD_ACCEPTANCE_ENVIRONMENT ?? 'local-isolated-fullstack',

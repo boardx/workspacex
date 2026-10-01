@@ -1,4 +1,4 @@
-import {boardSoakDiagnostics} from './board-soak-diagnostics.mjs';
+import {boardSoakDiagnostics,discardUnclassifiedSoakFiles} from './board-soak-diagnostics.mjs';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readFileSync,readdirSync,writeFileSync} from 'node:fs';
@@ -26,7 +26,7 @@ const context={runtimeMarker:process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER??random
 const reportPath=join(directory,'soak-report.json'),jsonPath=join(directory,'playwright.json');
 const prerequisites=lane==='import'&&!process.env.WHITEBOARD_CAPTURED_VENDOR_MANIFEST?['CAPTURED_VENDOR_MANIFEST_REQUIRED']:lane==='import'&&!existsSync(resolve(process.env.WHITEBOARD_CAPTURED_VENDOR_MANIFEST))?['CAPTURED_VENDOR_MANIFEST_NOT_FOUND']:[];
 const result=prerequisites.length?{status:1}:spawnSync(command[0],[...command.slice(1),'--output',output,'--reporter='+join(root,'apps/web/scripts/board-ci-reporter.mjs'),'--trace=off'],{cwd:root,stdio:lane==='collaboration-50'?'pipe':'inherit',encoding:'utf8',maxBuffer:64*1024*1024,env:{...process.env,BOARD_ACCEPTANCE_SHA:sha,BOARD_ACCEPTANCE_RUNTIME_MARKER:context.runtimeMarker,BOARD_ACCEPTANCE_RUNTIME_STARTED_AT:context.startedAt,BOARD_SOAK_REPORT_PATH:reportPath,PLAYWRIGHT_JSON_OUTPUT_FILE:jsonPath,...(lane==='import'?{BOARD_CAPTURED_VENDOR_ACCEPTANCE:'1'}:{}),...(key?{BOARD_ACCEPTANCE_LEDGER_KEY:key}:{})}});
-if(lane==='collaboration-50')writeFileSync(join(directory,'startup-diagnostics.json'),JSON.stringify(boardSoakDiagnostics(result.stdout,result.stderr,result.status))+'\n',{mode:0o600});
+if(lane==='collaboration-50'){discardUnclassifiedSoakFiles(output);writeFileSync(join(directory,'startup-diagnostics.json'),JSON.stringify(boardSoakDiagnostics(result.stdout,result.stderr,result.status))+'\n',{mode:0o600});}
 context.endedAt=new Date().toISOString();
 const summary={version:1,kind:'board-integrated-lane',lane,canonicalLanes:[...canonicalLanesForBoardCiLane(lane)],sha,...context,status:'failed',approved:false,score:null,counterproof:false,runtimeIdentity:null,failures:[],pending:[]};
 try{
