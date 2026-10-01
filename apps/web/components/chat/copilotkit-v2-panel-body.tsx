@@ -1538,6 +1538,8 @@ export function CopilotKitV2PanelBody({
   const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
     handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages);
 
+  const sendIsBlocked = !canWrite || archived || runIsRunning || attach.hasUploading;
+
   const send = React.useCallback(
     async (
       override?: string,
@@ -1552,11 +1554,11 @@ export function CopilotKitV2PanelBody({
       },
     ) => {
       const text = (override ?? inputDraft).trim();
-      if (!canWrite || archived || text === "" || runIsRunning) return false;
+      if (sendIsBlocked || text === "") return false;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
-      if (attach.hasUploading) return false;
+
       const acceptedBefore = acceptedRunEpoch.current;
       sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
@@ -1662,7 +1664,8 @@ export function CopilotKitV2PanelBody({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId, realtimeContext, scrollMessagesToBottom],
+    [agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom],
+
   );
 
   /**
@@ -2183,7 +2186,7 @@ export function CopilotKitV2PanelBody({
                 给第二个语义不同的重试（见 `planStepRecoveryOffered` 头注）。 */}
             {shouldOfferBannerRetry({
               hasResendableMessage: lastSentRef.current !== null,
-              agentIsRunning: agent.isRunning,
+              sendIsBlocked,
               planStepRecoveryOffered,
             }) ? (
               <button

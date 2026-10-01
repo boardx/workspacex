@@ -17,6 +17,8 @@ import { join, relative, sep } from "node:path";
 // Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
 // test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
 export const DB_FREE_TEST_PREFIXES = [
+  "tests/support/fixture-ownership.test.ts",
+  "tests/research/google-guided-search.test.ts",
   "tests/workflow/effect-projection.test.ts",
   "tests/contract-single-source.test.ts",
   "tests/agent-runtime/starter-import-org-scope.test.ts",

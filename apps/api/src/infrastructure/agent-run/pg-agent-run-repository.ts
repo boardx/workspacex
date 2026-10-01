@@ -300,7 +300,7 @@ export class PgAgentRunRepository implements AgentRunStore {
            JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
            JOIN skills sk ON sk.id=v.skill_id AND sk.org_id=v.org_id
           WHERE (f.org_id=$1 OR f.org_id=$3) AND f.version_id = ANY($2::text[])
-            AND v.published
+            AND v.published AND sk.status = 'enabled'
           ORDER BY f.version_id, f.path`,
         [orgId, versionIds, PLATFORM_ORG_ID],
       );

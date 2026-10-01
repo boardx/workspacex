@@ -48,6 +48,8 @@ export interface CreateTemplateDeps {
 }
 
 export interface CreateTemplateInput {
+  /** Internal adoption provenance; never read from the public request body. */
+  readonly auditAction?: "create" | "adopt";
   readonly userId: string;
   readonly orgId: OrgId;
   readonly key: string;
@@ -75,6 +77,8 @@ export async function createTemplate(
   const membership = await requireTemplateAdmin({ identity: deps.identity }, input);
 
   const outcome = await deps.templates.create({
+    actorId: input.userId,
+    auditAction: input.auditAction,
     orgId: input.orgId,
     key: input.key,
     displayName: input.displayName,

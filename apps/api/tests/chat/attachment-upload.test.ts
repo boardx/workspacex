@@ -6,7 +6,7 @@
  *   422 MIME 与字节不符 · 409 该线程 pending 达 10。
  * 断言查真库（`chat_message_attachments`，`message_id IS NULL`），不看进程内状态。
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -105,6 +105,26 @@ beforeEach(async () => {
 });
 
 describe("POST /chat/threads/:threadId/attachments", () => {
+  it("#963: concurrent uploads admit only one remaining slot and leave no losing object", async () => {
+    for (let i = 0; i < CFU.ATTACHMENT_LIMITS.maxAttachmentsPerMessage - 1; i++) {
+      expect((await upload({ filename: `seed-${i}.pdf`, mime: "application/pdf", bytes: PDF })).status).toBe(201);
+    }
+    const beforeDisk = new Set(readdirSync(join(OBJECT_ROOT, "chat-attachments", ORG)));
+    const responses = await Promise.all(Array.from({ length: 4 }, (_, i) =>
+      upload({ filename: `race-${i}.pdf`, mime: "application/pdf", bytes: PDF })));
+    expect(responses.map(r => r.status).sort()).toEqual([201, 409, 409, 409]);
+    for (const response of responses.filter(r => r.status === 409)) {
+      expect(await response.json()).toMatchObject({ reasonCode: "ATTACHMENT_LIMIT_EXCEEDED" });
+    }
+    expect(await pendingCount(THREAD)).toBe(CFU.ATTACHMENT_LIMITS.maxAttachmentsPerMessage);
+    const rows = await asApp(ORG, c => c.query<{ storage_ref: string }>(
+      "SELECT storage_ref FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2", [ORG, THREAD]));
+    const disk = readdirSync(join(OBJECT_ROOT, "chat-attachments", ORG)).filter(name => !name.endsWith(".mime"));
+    const added = disk.filter(name => !beforeDisk.has(name));
+    expect(added).toHaveLength(1);
+    expect(rows.rows.map(r => r.storage_ref.split("/").at(-1))).toContain(added[0]);
+  }, 60_000);
+
   it("201: 合法 PDF 落一行 pending 附件（message_id NULL），返回契约 Attachment 形状", async () => {
     const res = await upload({ filename: "brief.pdf", mime: "application/pdf", bytes: PDF });
     expect(res.status).toBe(201);
