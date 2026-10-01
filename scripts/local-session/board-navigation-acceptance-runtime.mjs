@@ -11,6 +11,7 @@ export const sourceFiles = [
   'apps/web/components/whiteboard/collaborative-thinking-editor.tsx',
   'apps/web/components/whiteboard/fabric/board-fabric-surface.tsx',
   'apps/web/components/whiteboard/fabric/fabric-input.ts',
+  'apps/web/components/whiteboard/fabric/board-fabric-visual.ts',
   'apps/web/components/whiteboard/fabric/drawing-stroke-path.ts',
   'apps/web/components/whiteboard/fabric/drawing-cache-bounds.ts',
   'apps/web/components/whiteboard/fabric/drawing-hit-test.ts',

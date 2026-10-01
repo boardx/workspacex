@@ -26,6 +26,7 @@ register();
 const {WhiteboardOperationRequest} = await import('../../packages/contracts/src/whiteboard-operation.ts');
 const {createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, createContentObjectEnvelope} = await import('../../packages/whiteboard-core/src/index.ts');
 const { BOARD_DRAWING_TOOL_STYLES } = await import('../../apps/web/components/whiteboard/drawing-tool-style.ts');
+const { BOARD_FABRIC_VISUAL } = await import('../../apps/web/components/whiteboard/fabric/board-fabric-visual.ts');
 mkdirSync(out, {recursive: true});
 const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
 const results = [];
@@ -396,7 +397,9 @@ try {
       const selected = await poll(() => surface().getAttribute('data-selection-scene'), value => value !== null, 'real Fabric ActiveSelection');
       const scene = JSON.parse(selected), box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
       const screen = p => ({ x: box.x + px + p.x * zoom, y: box.y + py + p.y * zoom });
-      const start = mode === 'move' ? screen(scene.hitPoints[0]) : mode === 'resize' ? screen({ x: scene.bounds.left + scene.bounds.width, y: scene.bounds.top + scene.bounds.height }) : { ...screen({ x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top }), y: box.y + py + scene.bounds.top * zoom - 40 };
+      const rotationControl = BOARD_FABRIC_VISUAL.rotationControl;
+      const rotationPoint = screen({ x: scene.bounds.left + scene.bounds.width * (.5 + rotationControl.x), y: scene.bounds.top + scene.bounds.height * (.5 + rotationControl.y) });
+      const start = mode === 'move' ? screen(scene.hitPoints[0]) : mode === 'resize' ? screen({ x: scene.bounds.left + scene.bounds.width, y: scene.bounds.top + scene.bounds.height }) : { x: rotationPoint.x + rotationControl.offsetX, y: rotationPoint.y + rotationControl.offsetY };
       const before = await canonicalState(), beforePixels = await connectorPixels();
       const handles = nodes.map(node => page.getByTestId(`connector-handle-${node.id}-right`));
       const beforeHandles = await Promise.all(handles.map(handle => handle.boundingBox())); assert(beforeHandles.every(Boolean));
