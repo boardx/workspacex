@@ -2,16 +2,16 @@ import {createHash} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {expect, type Page, type TestInfo} from '@playwright/test';
 export {visualViewports,validateVisualMeasurement} from './board-visual-policy';
-import {validateVisualMeasurement} from './board-visual-policy';
+import {productionCoreToolIds,validateVisualMeasurement} from './board-visual-policy';
 export const sha256 = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 export async function visualMeasurement(page:Page) {
-  return page.evaluate(()=>{
+  return page.evaluate((coreToolIds)=>{
     const surface=document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"]');
     if(!surface)throw new Error('FABRIC_SURFACE_REQUIRED');
     const box=surface.getBoundingClientRect();let available=0,total=0;
     for(let y=box.top+8;y<box.bottom;y+=16)for(let x=box.left+8;x<box.right;x+=16){total++;const hit=document.elementFromPoint(x,y);if(hit instanceof HTMLCanvasElement&&hit.dataset.fabric==='top')available++;}
     const bars=[...document.querySelectorAll<HTMLElement>('[data-testid="board-context-toolbar"]')].filter(e=>e.getBoundingClientRect().height);
-    const controls=['board-add-sticky','board-add-shape','board-add-draw','board-add-connector'].map(name=>{
+    const controls=coreToolIds.map(name=>{
       const element=document.querySelector<HTMLElement>(`[data-testid="${name}"]`);if(!element)return{name,width:0,height:0,reachable:false};
       const rect=element.getBoundingClientRect(),hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
       return{name,width:rect.width,height:rect.height,reachable:Boolean(hit&&element.contains(hit))};
@@ -25,7 +25,7 @@ export async function visualMeasurement(page:Page) {
       focus:{tag:focused?.tagName,name:focused?.getAttribute('aria-label'),testId:focused?.dataset.testid},
       viewport:{width:innerWidth,height:innerHeight},scroll:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},
       editorFontSize:document.querySelector('textarea')?getComputedStyle(document.querySelector('textarea')!).fontSize:null};
-  });
+  }, productionCoreToolIds);
 }
 export async function captureVisual(page:Page,info:TestInfo,label:string,strict=true) {
   // Fabric sizes its generated upper canvas from a ResizeObserver. The first
