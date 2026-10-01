@@ -1,7 +1,32 @@
 import assert from 'node:assert/strict';
-export function assertHeldRotationFrame({ pointerAngle, childDeltas, corners }) {
-  assert(childDeltas.length >= 2, 'rotation moves every selected child');
-  for (const delta of childDeltas) assert(Math.abs(delta - pointerAngle) <= 2, 'child rotation agrees with independently rotated pointer input');
+export function rotateScenePoint(point, center, degrees) {
+  const radians = degrees * Math.PI / 180, dx = point.x - center.x, dy = point.y - center.y;
+  return { x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians), y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians) };
+}
+
+export function rotationEntitySamplePoints(object, center, degrees, pointToScene) {
+  const { width: w, height: h } = object.geometry;
+  const inside = [[.18 * w, .18 * h], [.82 * w, .18 * h], [.82 * w, .82 * h], [.18 * w, .82 * h], [w / 2, 4], [w - 4, h / 2], [w / 2, h - 4], [4, h / 2]];
+  const outside = [[w / 2, -12], [w + 12, h / 2], [w / 2, h + 12], [-12, h / 2]];
+  const rotate = ([x, y]) => {
+    return rotateScenePoint(pointToScene(object.geometry, { x, y }), center, degrees);
+  };
+  return { inside: inside.map(rotate), outside: outside.map(rotate) };
+}
+
+export function assertRotationEntities(entities) {
+  assert.equal(entities.length, 2, 'both independently projected child entities must be measured');
+  assert.equal(new Set(entities.map(entity => entity.id)).size, 2);
+  for (const entity of entities) {
+    assert.equal(entity.insideCounts.length, 8); assert.equal(entity.outsideCounts.length, 4);
+    assert(entity.insideCounts.every(count => count >= 7), 'each child renders fill at independently rotated interior and edge samples');
+    assert(entity.outsideCounts.every(count => count === 0), 'outer normal background excludes unchanged or oversized child fill');
+  }
+}
+
+export function assertHeldRotationFrame({ pointerAngle, entities, corners }) {
+  assert([-30, -60].includes(pointerAngle), 'expected angle comes from the independent pointer trajectory');
+  assertRotationEntities(entities);
   assert.equal(corners.length, 4, 'all four expected rotated control corners are sampled');
   assert(corners.every(corner => corner.bluePixels >= 3), 'selection frame controls match the independently rotated baseline frame');
 }

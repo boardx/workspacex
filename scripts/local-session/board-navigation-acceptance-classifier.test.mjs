@@ -1,13 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertHeldRotationFrame } from './board-navigation-acceptance-classifier.mjs';
-test('held rotation rejects frame resets and wrong or missing expected corners', () => {
-  const valid = { pointerAngle: -30, childDeltas: [-30, -30], corners: Array.from({ length: 4 }, () => ({ bluePixels: 5 })) };
+import { register } from 'tsx/esm/api';
+import { assertHeldRotationFrame, rotationEntitySamplePoints } from './board-navigation-acceptance-classifier.mjs';
+register();
+const { scenePointFromLocal } = await import('../../packages/whiteboard-core/src/spatial-geometry.ts');
+test('held rotation rejects frame-only motion, missing entities, oversized fill and missing corners', () => {
+  const entities = ['a', 'b'].map(id => ({ id, insideCounts: Array(8).fill(9), outsideCounts: Array(4).fill(0) }));
+  const valid = { pointerAngle: -30, entities, corners: Array.from({ length: 4 }, () => ({ bluePixels: 5 })) };
   assertHeldRotationFrame(valid);
-  assert.throws(() => assertHeldRotationFrame({ ...valid, childDeltas: [0, 0] }));
-  assert.throws(() => assertHeldRotationFrame({ ...valid, childDeltas: [-30, -60] }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, entities: entities.slice(0, 1) }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, entities: entities.map(entity => ({ ...entity, insideCounts: Array(8).fill(0) })) }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, entities: entities.map(entity => ({ ...entity, outsideCounts: Array(4).fill(9) })) }));
   assert.throws(() => assertHeldRotationFrame({ ...valid, corners: [{ bluePixels: 5 }] }));
   assert.throws(() => assertHeldRotationFrame({ ...valid, corners: [...valid.corners.slice(0, 3), { bluePixels: 0 }] }));
+});
+test('entity samples reuse canonical top-left rotation for an already rotated nonuniform baseline', () => {
+  const object = { geometry: { x: 100, y: 200, width: 200, height: 80, rotation: 90 } };
+  const result = rotationEntitySamplePoints(object, { x: 0, y: 0 }, -90, scenePointFromLocal);
+  assert(Math.abs(result.inside[0].x - 236) < 1e-8 && Math.abs(result.inside[0].y + 85.6) < 1e-8);
+  const wrongCenter = rotationEntitySamplePoints(object, { x: 100, y: 200 }, -90, scenePointFromLocal);
+  assert(Math.hypot(wrongCenter.inside[0].x - 236, wrongCenter.inside[0].y + 85.6) > 100, 'using the child center as group pivot fails the independent golden coordinates');
 });
 import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels } from './board-navigation-acceptance-classifier.mjs';
 

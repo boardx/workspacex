@@ -10,7 +10,7 @@ import {fileURLToPath} from 'node:url';
 import { verifyNavigationRuntime } from './board-navigation-acceptance-runtime.mjs';
 import { savedSequence } from './board-acceptance-runtime.mjs';
 import { createAcceptanceRequestScheduler } from './board-navigation-acceptance-scheduler.mjs';
-import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame, rotationEntitySamplePoints, rotateScenePoint, assertRotationEntities } from './board-navigation-acceptance-classifier.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const arg = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback;
@@ -25,7 +25,7 @@ const {chromium} = createRequire(join(root, 'apps/web/package.json'))('playwrigh
 const {register} = createRequire(join(root, 'package.json'))('tsx/esm/api');
 register();
 const {WhiteboardOperationRequest} = await import('../../packages/contracts/src/whiteboard-operation.ts');
-const {createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, createContentObjectEnvelope} = await import('../../packages/whiteboard-core/src/index.ts');
+const {createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, createContentObjectEnvelope, scenePointFromLocal, localPointFromScene} = await import('../../packages/whiteboard-core/src/index.ts');
 const { BOARD_DRAWING_TOOL_STYLES } = await import('../../apps/web/components/whiteboard/drawing-tool-style.ts');
 const { BOARD_FABRIC_VISUAL } = await import('../../apps/web/components/whiteboard/fabric/board-fabric-visual.ts');
 mkdirSync(out, {recursive: true});
@@ -77,6 +77,17 @@ const snapshot = async () => {
 };
 const rows = () => page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(elements => elements.map(element => ({id: element.dataset.objectId, kind: element.dataset.objectKind, text: element.dataset.objectText, geometry: JSON.parse(element.dataset.geometry), from: element.dataset.connectorFrom, to: element.dataset.connectorTo})));
 const surface = () => page.getByTestId('board-fabric-surface');
+const entityFillMeasurements = (points, fill) => surface().locator('canvas.lower-canvas').evaluate((canvas, { points, fill }) => {
+  const rect = canvas.getBoundingClientRect(), sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+  const rgb = [1, 3, 5].map(index => Number.parseInt(fill.slice(index, index + 2), 16));
+  const sample = point => {
+    const x = Math.round((point.x - rect.x) * sx), y = Math.round((point.y - rect.y) * sy), pixels = canvas.getContext('2d').getImageData(x - 1, y - 1, 3, 3).data;
+    let count = 0; for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 3] >= 240 && rgb.every((color, channel) => Math.abs(pixels[i + channel] - color) <= 3)) count++;
+    return { point, count, rawRGBA: Array.from(pixels) };
+  };
+  const inside = points.inside.map(sample), outside = points.outside.map(sample);
+  return { insideCounts: inside.map(item => item.count), outsideCounts: outside.map(item => item.count), inside, outside, fill };
+}, { points, fill });
 const fitAndSettle = async () => {
   await page.getByTestId('board-zoom-fit-board').click();
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -506,20 +517,30 @@ try {
       if (mode === 'rotate') {
         const center = screen({ x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 });
         const baselineCorners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([x, y]) => screen({ x: scene.bounds.left + scene.bounds.width * x, y: scene.bounds.top + scene.bounds.height * y }));
-        const rotatePoint = (point, degrees) => { const radians = degrees * Math.PI / 180, dx = point.x - center.x, dy = point.y - center.y; return { x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians), y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians) }; };
+        const rotatePoint = (point, degrees) => rotateScenePoint(point, center, degrees);
         for (const pointerAngle of [-30, -60]) {
           const waypoint = rotatePoint(start, pointerAngle); await page.mouse.move(waypoint.x, waypoint.y, { steps: 16 });
-          const liveRows = await poll(rows, value => nodes.every(node => { const live = value.find(item => item.id === node.id); if (!live) return false; const delta = ((live.geometry.rotation - before.objects.find(item => item.id === node.id).geometry.rotation + 180) % 360 + 360) % 360 - 180; return Math.abs(delta - pointerAngle) <= 2; }), `held rotation children match pointer angle ${pointerAngle}`);
-          const childDeltas = nodes.map(node => ((liveRows.find(item => item.id === node.id).geometry.rotation - before.objects.find(item => item.id === node.id).geometry.rotation + 180) % 360 + 360) % 360 - 180);
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          const worldCenter = { x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 };
+          const entities = [];
+          for (const node of nodes) {
+            const object = before.objects.find(item => item.id === node.id), samples = rotationEntitySamplePoints(object, worldCenter, pointerAngle, scenePointFromLocal);
+            for (const point of rotationEntitySamplePoints(object, worldCenter, 0, scenePointFromLocal).inside) for (const other of nodes.filter(item => item.id !== node.id)) {
+              const geometry = before.objects.find(item => item.id === other.id).geometry, local = localPointFromScene(geometry, point);
+              assert(local.x < 0 || local.y < 0 || local.x > geometry.width || local.y > geometry.height, 'independent entity samples must not be occluded by another selected child');
+            }
+            const projected = { inside: samples.inside.map(screen), outside: samples.outside.map(screen) };
+            entities.push({ id: object.id, ...await entityFillMeasurements(projected, object.style.fill) });
+          }
           const expectedCorners = baselineCorners.map(point => rotatePoint(point, pointerAngle));
           const header = await page.getByTestId('board-editor-header').boundingBox(), dock = await page.getByTestId('board-creation-dock').boundingBox(); assert(header && dock);
           assert(expectedCorners.every(point => point.x > box.x + 16 && point.x < box.x + box.width - 16 && point.y > header.y + header.height + 16 && point.y < dock.y - 16), 'all independently predicted rotated corners are observable outside board chrome');
           const corners = await Promise.all(expectedCorners.map(controlInkAt));
-          await pixelLayerDiagnostics(`multi-rotate-${pointerAngle}-held`, expectedCorners[0], { pointerAngle, waypoint, childDeltas, expectedCorners, corners });
+          await pixelLayerDiagnostics(`multi-rotate-${pointerAngle}-held`, expectedCorners[0], { pointerAngle, waypoint, entities, expectedCorners, corners });
           await page.screenshot({ path: join(out, `multi-rotate-${pointerAngle}-held.png`) });
-          assertHeldRotationFrame({ pointerAngle, childDeltas, corners }); assertHeldUncommitted(before, await canonicalState());
+          assertHeldRotationFrame({ pointerAngle, entities, corners }); assertHeldUncommitted(before, await canonicalState());
           const stepToolbar = await toolbar.boundingBox(), stepPixels = await connectorPixels(); assert(stepToolbar && stepPixels.count > 20);
-          rotationSteps.push({ pointerAngle, waypoint, childDeltas, expectedCorners, corners, toolbar: stepToolbar, connectorPixels: stepPixels });
+          rotationSteps.push({ pointerAngle, waypoint, entities, expectedCorners, corners, toolbar: stepToolbar, connectorPixels: stepPixels });
         }
       } else await page.mouse.move(start.x + 40, start.y + 25, { steps: 12 });
       const liveScene = await poll(async () => JSON.parse(await surface().getAttribute('data-selection-scene')), value => value && ['left', 'top', 'width', 'height'].some(key => Math.abs(value.bounds[key] - scene.bounds[key]) > 1), `multi ${mode} actual ActiveSelection bounds move`);
@@ -542,8 +563,35 @@ try {
       const changed = nodes.map(node => ({ before: before.objects.find(item => item.id === node.id).geometry, after: after.objects.find(item => item.id === node.id).geometry }));
       assert(changed.every(item => JSON.stringify(item.before) !== JSON.stringify(item.after)), 'both selected objects change in one transaction');
       if (mode === 'rotate') assert(changed.every(item => item.before.rotation !== item.after.rotation), 'multi rotation changes both canonical angles');
+      if (mode === 'rotate') assert(changed.every(item => Math.abs(((item.after.rotation - item.before.rotation + 180) % 360 + 360) % 360 - 180 + 60) <= 2), 'both released canonical angles agree with independent final -60 degree input');
+      let persistence;
+      if (mode === 'rotate') {
+        const worldCenter = { x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 };
+        for (const item of changed) {
+          const expectedOrigin = rotateScenePoint(scenePointFromLocal(item.before, { x: 0, y: 0 }), worldCenter, -60);
+          assert(Math.hypot(item.after.x - expectedOrigin.x, item.after.y - expectedOrigin.y) <= 1, 'released child origin agrees with independent group rotation');
+          assert(Math.abs(item.after.width - item.before.width) < .01 && Math.abs(item.after.height - item.before.height) < .01, 'pure group rotation preserves each child dimensions');
+        }
+        await page.keyboard.press('Control+z'); await synced(); const undone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(before.objects), 'group rotation single undo exact baseline');
+        assert.equal(undone.head.seq, after.head.seq + 1);
+        assert.equal(undone.head.epoch, after.head.epoch);
+        await page.keyboard.press('Control+Shift+z'); await synced(); const redone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(after.objects), 'group rotation single redo exact released objects');
+        assert.equal(redone.head.seq, undone.head.seq + 1);
+        assert.equal(redone.head.epoch, after.head.epoch);
+        await page.reload(); await synced(); const reloaded = await canonicalState(); assert.deepEqual(reloaded.objects, after.objects); assert.equal(reloaded.head.seq, redone.head.seq);
+        assert.equal(reloaded.head.epoch, after.head.epoch);
+        const reloadedBox = await surface().boundingBox(), [rz, rx, ry] = (await viewport()).map(Number);
+        const project = point => ({ x: reloadedBox.x + rx + point.x * rz, y: reloadedBox.y + ry + point.y * rz });
+        const entities = [];
+        for (const node of nodes) {
+          const object = before.objects.find(item => item.id === node.id), points = rotationEntitySamplePoints(object, worldCenter, -60, scenePointFromLocal);
+          entities.push({ id: object.id, ...await entityFillMeasurements({ inside: points.inside.map(project), outside: points.outside.map(project) }, object.style.fill) });
+        }
+        assertRotationEntities(entities); await page.screenshot({ path: join(out, 'multi-rotate-redo-reload.png') });
+        persistence = { undoneHead: undone.head, redoneHead: redone.head, reloadedHead: reloaded.head, entities };
+      }
       if (mode === 'resize') assert(changed.every(item => item.before.width !== item.after.width || item.before.height !== item.after.height), 'multi resize changes both canonical dimensions');
-      gestures.push({ mode, rotationSteps, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Four rotated baseline control corners at two independent pointer angles; independent screenshot review also required.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
+      gestures.push({ mode, rotationSteps, persistence, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Four rotated baseline control corners at two independent pointer angles; independent screenshot review also required.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
     }
     return gestures;
   });
