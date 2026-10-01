@@ -197,10 +197,14 @@ it("pans the Fabric default touch path with finite screen delta and only primary
  fabricHarness.state.canvases.length=0;const events=callbacks();render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"hand",viewport,...events}));const canvas=mountedCanvas();
  canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(100,120)]}});
  canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(140,150)]}});
+ expect(events.onViewportChange).toHaveBeenCalledTimes(1);
+ expect(events.onViewportChange).toHaveBeenLastCalledWith({...viewport,panX:40,panY:30},"pan");
  canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(1,2,8)]}});
- expect(events.onViewportChange).not.toHaveBeenCalled();
+ expect(events.onViewportChange).toHaveBeenCalledTimes(1);
+ expect(events.onViewportChange).toHaveBeenLastCalledWith({...viewport,panX:40,panY:30},"pan");
  canvas.emit("mouse:up",{e:{type:"touchend",touches:[],changedTouches:[finger(140,150)]}});
- expect(events.onViewportChange).toHaveBeenCalledTimes(1);expect(events.onViewportChange).toHaveBeenCalledWith({...viewport,panX:40,panY:30},"pan");
+ expect(events.onViewportChange).toHaveBeenCalledTimes(2);
+ expect(events.onViewportChange).toHaveBeenLastCalledWith({...viewport,panX:40,panY:30},"pan");
 });
 it("cancel discards drawing and permits a subsequent touch gesture",()=>{
  fabricHarness.state.canvases.length=0;const events=callbacks(),onDrawingComplete=vi.fn();render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"draw-pen",viewport,...events,onDrawingComplete}));const canvas=mountedCanvas();
