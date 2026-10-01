@@ -23,10 +23,22 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
   token=await login(owner);const peerToken=await login(peer,true);source=(await(await call(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Durable images ${randomUUID()}`})).json()).id as string;
   await call(api,token,'PUT',`/whiteboards/${source}/members`,{userId:F.leadUserId,role:'editor'});await owner.goto(`/studio/board/${source}`);await expect(owner.getByTestId('collaborative-editor')).toBeVisible();await expect(owner.getByText(/^已同步/)).toBeVisible();
   const png=boardImagePngFixture(),digest=`sha256:${createHash('sha256').update(png).digest('hex')}`;
+  // Fail exactly the first transport attempt; retry then reaches the real authenticated API.
+  let rejectedUploads=0;
+  await owner.route(`**/whiteboards/${source}/assets`,async route=>{
+   if(route.request().method()==='POST'&&rejectedUploads++===0){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'temporary upload unavailable'})});return;}
+   await route.continue();
+  });
+  await owner.getByTestId('board-image-input').setInputFiles({name:'durable-evidence.png',mimeType:'image/png',buffer:png});
+  await expect(owner.getByTestId('board-image-retry')).toBeVisible();
+  expect((await canonical(api,token,source)).objects.filter(object=>object.kind==='image')).toHaveLength(0);
   const uploaded=owner.waitForResponse(r=>r.url().endsWith(`/whiteboards/${source}/assets`)&&r.request().method()==='POST'),readback=owner.waitForResponse(r=>r.url().includes(`/whiteboards/${source}/assets/`)&&r.url().endsWith('/content'));
-  await owner.getByTestId('board-image-input').setInputFiles({name:'durable-evidence.png',mimeType:'image/png',buffer:png});const upload=await uploaded;expect(upload.ok()).toBe(true);const metadata=await upload.json();expect(metadata).toMatchObject({contentDigest:digest,intrinsicWidth:64,intrinsicHeight:48,persistence:'durable',byteSize:png.length});
+  await owner.getByTestId('board-image-retry').click();const upload=await uploaded;expect(upload.ok()).toBe(true);const metadata=await upload.json();expect(metadata).toMatchObject({contentDigest:digest,intrinsicWidth:64,intrinsicHeight:48,persistence:'durable',byteSize:png.length});
   const read=await readback;expect(read.status()).toBe(200);expect(read.headers()['cache-control']).toBe('private, no-store');expect(read.request().headers()['authorization']).toBe(`Bearer ${token}`);const persisted=await api.get(`${origin()}/whiteboards/${source}/assets/${metadata.assetId}/content`,{headers:{Authorization:`Bearer ${token}`}});expect(persisted.status()).toBe(200);expect(await persisted.body()).toEqual(png);await painted(owner);
   let snapshot:Awaited<ReturnType<typeof canonical>>|undefined;await expect.poll(async()=>{snapshot=await canonical(api,token!,source!);return JSON.stringify(snapshot.objects);}).toContain(metadata.assetId);
+  expect(rejectedUploads).toBe(2);
+  expect(snapshot!.objects.filter(object=>object.kind==='image')).toHaveLength(1);
+  await expect(owner.getByTestId('board-image-retry')).toBeHidden();
   const canonicalImage=snapshot!.objects.find(object=>object.kind==='image')?.extensionData?.contentObject;expect(canonicalImage).toMatchObject({...metadata,type:'image',status:'ready',sourceUrl:null,failureCode:null});
   expect(JSON.stringify(snapshot!.objects)).toContain('durable');expect(JSON.stringify(snapshot!.objects)).not.toMatch(/blob:|data:image|local-session-/);await info.attach('canonical-upload',{body:JSON.stringify(snapshot),contentType:'application/json'});
   await owner.reload();await painted(owner);const peerRead=peer.waitForResponse(r=>r.url().includes(`/whiteboards/${source}/assets/`)&&r.url().endsWith('/content'));await peer.goto(`/studio/board/${source}`);expect((await peerRead).status()).toBe(200);await painted(peer);

@@ -201,7 +201,7 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
     const bounds = await region.boundingBox();
     const editor = await page.getByTestId("collaborative-editor").boundingBox();
     expect(shell).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
-    await expect(page.getByTestId("board-sync-banner")).toBeHidden();
+    await expect(page.getByTestId("board-editor-header").getByTestId("board-sync-status")).toHaveAttribute("data-sync-phase", "synced");
     expect(bounds).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
     expect(editor).toEqual(bounds);
   }).toPass({ timeout: 5000 });
