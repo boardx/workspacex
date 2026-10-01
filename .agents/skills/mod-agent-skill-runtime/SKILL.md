@@ -58,6 +58,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-10-01：Workflow Skill 阶段只传 stableId/version 给模型，不会执行已作者化的方法；必须在生产 DI 中读取本组织固定已发布版本的 SKILL.md，缺版本/正文前置失败。回环模型仅按阶段名给 JSON 的测试会掩盖正文缺失，补正文敏感反证、升级后旧版保留和跨租户读取测试（出处：#4862）。
 
 - 2026-10-01：聊天选人提供官方角色启用，并不意味着后台目录也能发现它们；后台需明确提供待启用要约入口，复用完整 Skill/Workflow/角色依赖导入流程，仅显式点击写入，并在组织切换时取消旧视图回调（出处：[issue #4865](https://github.com/boardx/workspacex/issues/4865)）。
+- 2026-10-01：选择角色的系统消息传到 Python 引擎后，共享 graph 的静态 system_prompt 仍可能另行声明“通用助手”，造成两套身份冲突。验收应捕获真实 LangChain graph/middleware 送入模型的消息，覆盖 native 与 legacy；端口 fake 捕获和提示字符串存在都不证明模型服从。共享执行规则只定义运行纪律，角色以固定版本指令为准（角色上下文审查 #4872）。
 - 2026-10-01：个人画像每轮召回时，必须区分“用户背景”和“当前角色职责”，尤其问候/能力介绍与附件分析；固定角色正文传到了模型不等于回答遵守，协议回归与真实模型专业效果应分开验收（出处：[issue #4868](https://github.com/boardx/workspacex/issues/4868)）。
 - 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
   **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
