@@ -16,9 +16,9 @@ The browser evidence proves UI-to-API submission and subsequent actual stages, a
 
 ## Upstream and orchestration boundaries
 
-Use the parent's derived local fullstack configuration and existing loopback-only `dashscope` alias. This checks real browser/API/PostgreSQL workflow orchestration with deterministic model responses. Actual model quality, generated business-content quality, and production devapp behavior remain **BLOCKED / unverified**. Sales and CRM execution are excluded by user authorization.
+Run `pnpm run verify:work-stack-browser` using the [dedicated isolated lane](../work-stack-browser/README.md), which reuses the fullstack configuration and its loopback-only `dashscope` alias. This checks real browser/API/PostgreSQL workflow orchestration with deterministic model responses. Actual model quality, generated business-content quality, and production devapp behavior remain **BLOCKED / unverified**. Sales and CRM execution are excluded by user authorization.
 
-The parent owns project registration: the workflow project should explicitly depend on the official digital-human journey project; do not rely on file sorting. No original CI configuration, root scripts, or stack startup was changed here.
+Both the normal fullstack configuration and dedicated lane explicitly place this workflow journey after official digital-human import. The dedicated root command uses standard isolation, production Next build/start, one worker and no retries; its raw entry requires an existing isolation environment.
 
 ## Round 7 execution state
 
