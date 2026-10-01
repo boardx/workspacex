@@ -47,7 +47,7 @@ describe("evals/work-stack/S003 suite (EV01)", () => {
     expect(frontmatter.metadata.work.inputSchema).toEqual(s003MachineSchemas.inputSchema);
     expect(frontmatter.metadata.work.outputSchema).toEqual(s003MachineSchemas.outputSchema);
     const ajv = new Ajv({ strict: false });
-    ajv.addFormat("date-time", { validate: value => !Number.isNaN(Date.parse(value)) });
+    ajv.addFormat("date-time", { validate: (value: string) => !Number.isNaN(Date.parse(value)) });
     const validateOutput = ajv.compile(s003MachineSchemas.outputSchema);
     const bundle = load();
     if (!bundle.ok) throw new Error("suite invalid");
