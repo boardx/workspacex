@@ -19,14 +19,21 @@ describe("frozen candidate and native GitHub deployment identity",()=>{
  validateFrozenTag(object,tag,binding);
  for(const patch of [{object:{type:"commit",sha:baseline}},{message:JSON.stringify({...frozenTagBinding(binding),receiptSha256:"d".repeat(64)})},{tag:"other"}])expect(()=>validateFrozenTag({...object,...patch},tag,binding)).toThrow();
  });
- it("native admission success must belong to same candidate and actual run",()=>{
- const d={id:1,sha:source,ref:releaseTag(source,attempt),environment:"production-cn-promotion",creator:{login:"github-actions[bot]"}};
- const statuses=()=>[{created_at:"2026-10-01T00:00:00Z",state:"success",log_url:`https://github.com/${repo}/actions/runs/123/job/4`}];
- expect(validateAdmissionDeployment({...identity,releaseTag:d.ref},[d],statuses,"123")).toBe(1);
- for(const patch of [{sha:baseline},{ref:"main"},{environment:"production-cn"},{creator:{login:"someone"}}])expect(()=>validateAdmissionDeployment({...identity,releaseTag:d.ref},[{...d,...patch}],statuses,"123")).toThrow();
- expect(()=>validateAdmissionDeployment({...identity,releaseTag:d.ref},[d],statuses,"12")).toThrow();
- expect(()=>validateAdmissionDeployment({...identity,releaseTag:d.ref},[d],()=>[...statuses(),{created_at:"2026-10-01T00:01:00Z",state:"failure",log_url:`https://github.com/${repo}/actions/runs/123/job/4`}],"123")).toThrow();
- expect(()=>validateAdmissionDeployment({...identity,releaseTag:d.ref},[d],()=>[{created_at:"2026-10-01T00:00:00Z",state:"pending",log_url:`https://github.com/${repo}/actions/runs/123/job/4`}],"123")).toThrow();
+ it("accepts actual Actions human creator shape and rejects forged native admission",()=>{
+ const actor={id:2325074,login:"usamshen"},other={id:2,login:"other"},tag=releaseTag(source,attempt),i={...identity,releaseTag:tag};
+ const run={id:123,run_attempt:1,head_sha:source,path:'.github/workflows/promote-cn-production.yml',event:'workflow_dispatch',repository:{full_name:repo},head_repository:{full_name:repo},actor,triggering_actor:actor};
+ const job={id:4,run_id:123,run_attempt:1,head_sha:source,name:'admit',status:'completed',conclusion:'success',html_url:`https://github.com/${repo}/actions/runs/123/job/4`};
+ const d={id:1,sha:source,ref:tag,environment:'production-cn-promotion',creator:actor,performed_via_github_app:{id:15368,slug:'github-actions'}};
+ const status={created_at:'2026-10-01T00:00:00Z',state:'success',log_url:job.html_url,creator:actor,performed_via_github_app:null};
+ const check=(deployment=d,r=run,j=[job],statuses=[status])=>validateAdmissionDeployment(i,[deployment],()=>statuses,r,j,15368);
+ expect(check()).toBe(1);
+ expect(check({...d,creator:other},{...run,triggering_actor:other},[job],[{...status,creator:other}])).toBe(1);
+ for(const patch of [{sha:baseline},{ref:'main'},{environment:'production-cn'},{creator:other},{performed_via_github_app:null},{performed_via_github_app:{id:2,slug:'github-actions'}}])expect(()=>check({...d,...patch} as typeof d)).toThrow();
+ for(const patch of [{id:124},{run_attempt:2},{head_sha:baseline},{path:'manual.yml'},{event:'push'},{actor:undefined}])expect(()=>check(d,{...run,...patch} as typeof run)).toThrow();
+ for(const patch of [{id:5},{run_attempt:2},{name:'other'},{head_sha:baseline},{conclusion:'failure'},{status:'in_progress'}])expect(()=>check(d,run,[{...job,...patch}])).toThrow();
+ for(const patch of [{creator:other},{state:'pending'},{log_url:`https://github.com/${repo}/actions/runs/123/job/999`}])expect(()=>check(d,run,[job],[{...status,...patch}])).toThrow();
+ expect(()=>check(d,run,[job],[status,{...status,created_at:'2026-10-01T00:01:00Z',state:'failure'}])).toThrow();
+ expect(()=>check(d,run,[job], [status,{...status,state:'failure'}])).toThrow();
  });
  it("selects true latest status across all pages without hiding current failure",()=>{
  const status=(id:number,state:string,created_at:string,context="custom")=>({id,state,context,created_at,url:`https://api.github.com/repos/${repo}/statuses/${source}`});

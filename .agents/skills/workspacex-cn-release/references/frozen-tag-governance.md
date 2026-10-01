@@ -29,3 +29,5 @@ GitHub 返回权限不足或治理读不到时失败，不能以“配置存在�
 在非生产 fixture 仓库/环境执行：真实 GitHub Actions token 创建候选 annotated tag成功；同 token 尝试 retarget/delete 均被GitHub拒绝；不允许 actor 创建 tag 被拒；审批只能允许该固定 tag；真实 native Deployment.sha 与 source 相等，successful admission 的 log_url 归属同 run；main 前进后仍派发原tag并使用原prepared镜像。完整记录原环境/规则快照与恢复方案，审核后才应用生产规则。任何规则异常保持生产不变。
 
 当前仅纯函数、真实本地Git和mocked GitHub observations 反证；未声称实际GitHub保护策略、root ownership、Devapp验收producer或生产发布通过。治理应用及任何实际发布仍由主协调者执行。
+
+原生 Deployment creator 的真实协议是触发者 User，而非固定 github-actions[bot]。必须同时核对 Deployment 的 GitHub Actions App id/slug、current run/attempt 的 actor 或 triggering_actor 的精确 id/login、真实同 attempt 已完成成功的唯一 admit job 与 source SHA、最新成功 status 的 creator 和精确 job html_url。真实 status 的 App 字段可为 null；不能凭一个可伪造 URL 前缀接受手工 successful status。
