@@ -25,7 +25,7 @@ async function runWrapper(options: {
   childExit?: number;
   dockerExit?: number;
   signal?: "SIGINT" | "SIGTERM";
-  vitestCase?: "positive" | "empty";
+  vitestCase?: "positive" | "logged-empty" | "empty";
 }) {
   try {
     return await runWrapperOnce(options);
@@ -39,7 +39,7 @@ async function runWrapperOnce(options: {
   childExit?: number;
   dockerExit?: number;
   signal?: "SIGINT" | "SIGTERM";
-  vitestCase?: "positive" | "empty";
+  vitestCase?: "positive" | "logged-empty" | "empty";
 }) {
   const temp = mkdtempSync(join(tmpdir(), "fullstack-cleanup-"));
   const log = join(temp, "docker.log");
@@ -57,7 +57,7 @@ async function runWrapperOnce(options: {
   if (options.vitestCase) {
     const config = join(temp, "vitest.config.mjs");
     writeFileSync(config, "export default {test:{globals:true,include:['**/*.test.js'],passWithNoTests:true}};");
-    writeFileSync(join(temp, "selected.test.js"), "test('real selected assertion',()=>expect(2+2).toBe(4));");
+    writeFileSync(join(temp, "selected.test.js"), `test('real selected assertion',()=>{${options.vitestCase === "logged-empty" ? "console.log('No test files found'); console.log('Test Files no tests');" : ""}expect(2+2).toBe(4)});`);
     childArgs.splice(1, childArgs.length - 1,
       resolve(ROOT, "node_modules/vitest/vitest.mjs"), "run", "--root", temp,
       "--config", config, "--maxWorkers=1", "--minWorkers=1",
@@ -140,6 +140,15 @@ describe("#387 trusted full-stack gate contract", () => {
   it("accepts an actual Vitest selected assertion and still cleans its scope", async () => {
     const result = await runWrapper({ vitestCase: "positive" });
     expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toMatch(/Tests\s+1 passed/);
+    expect(result.stderr).not.toContain("零测试执行");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  }, 60_000);
+
+  it("accepts a real passed test logging empty-run phrases and still cleans its scope", async () => {
+    const result = await runWrapper({ vitestCase: "logged-empty" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain("No test files found");
     expect(result.stdout).toMatch(/Tests\s+1 passed/);
     expect(result.stderr).not.toContain("零测试执行");
     expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
