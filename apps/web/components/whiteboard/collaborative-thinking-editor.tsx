@@ -23,6 +23,7 @@ import { BoardBottomDock, type BoardCreationTool } from "./board-bottom-dock";
 import { BoardDrawToolPanel, fabricToolForDrawChoice, type BoardDrawAppearance, type BoardDrawChoice } from "./board-draw-tool-panel";
 import { BoardFrameToolPanel, type BoardFrameChoice, type BoardFrameDimensions } from "./board-frame-tool-panel";
 import { BoardFabricSurface } from "./fabric/board-fabric-surface";
+import { useBoardOverlayNavigation } from "./use-board-overlay-navigation";
 import { clampBoardZoom, type BoardFabricTool, type BoardViewport, type BoardViewportSource } from "./fabric/board-fabric-object";
 import { ThinkingInputEditor } from "./thinking-input-editor";
 import { BoardConnectorHandles } from "./board-connector-handles";
@@ -91,6 +92,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const objects = useMemo(() => { void imageRevision; return toBoardFabricObjects(model.objects,id=>imageSession?.get(id)?.objectUrl); }, [model.objects,imageSession,imageRevision]);
   const visibleObjectIdKey = objects.map((object) => object.id).join("\u0000");
   const [selected, setSelected] = useState<string[]>([]), [tool, setTool] = useState<BoardFabricTool>("select"), [creationTool, setCreationTool] = useState<BoardCreationTool>(null);
+  const [transformPreview,setTransformPreview]=useState<ReadonlyMap<string,WhiteboardObject["geometry"]>>(new Map());
   const [drawChoice,setDrawChoice]=useState<BoardDrawChoice>("pen"), [drawAppearance,setDrawAppearance]=useState<BoardDrawAppearance>(drawingToolStyle("pen"));
   const [frameChoice,setFrameChoice]=useState<BoardFrameChoice>("rectangle"), [frameDimensions,setFrameDimensions]=useState<BoardFrameDimensions>({width:960,height:640,size:"m"});
   const [stickyColor,setStickyColor]=useState<string>(STICKY_COLOR_PRESETS.yellow);
@@ -102,6 +104,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const organizeFitHost=useRef<HTMLDivElement>(null);
   const cancelOrganizeFit=useBoardOrganizeFit(organizeFitRequest,model.objects,organizeFitHost,setViewport,chromeInsets);
   const handleViewportChange=(next:BoardViewport,source:BoardViewportSource)=>{if(source==='pan'||source==='wheel'){cancelOrganizeFit();setFollowingActorId(null);onManualViewportChange?.();}setViewport(next);};
+  const overlayNavigation = useBoardOverlayNavigation(viewport, handleViewportChange, chromeHost);
   const [presenting,setPresenting]=useState(false),[followingActorId,setFollowingActorId]=useState<string|null>(null);const viewportRevision=useRef(0),followRevision=useRef(-1);
   const [notice, setNotice] = useState(""), [editing, setEditing] = useState<EditSession | null>(null), [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const pendingCreatedEdits = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -515,11 +518,30 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0 text-destructive" aria-label="删除对象" title="删除对象" disabled={readOnly || selectedObject.locked === true} onClick={() => { prepareObjectAction(); deleteSelection(); }}><Trash2 className="h-4 w-4" /></Button>
   </div> : null;
   const contextObject = selected.length === 1 && !selectedContent && !selectedPanel && !selectedConnector ? model.objects.find((candidate) => candidate.id === selected[0] && !candidate.hidden && !candidate.locked) : undefined;
-  const commitDrawing = (drawingTool: DrawingTool, points: Array<{ x: number; y: number; pressure: number }>, completedAppearance?: BoardDrawAppearance) => {
+  const commitDrawing = (drawingTool: DrawingTool, points: Array<{ x: number; y: number; pressure: number }>, completedAppearance?: BoardDrawAppearance, targetObjectIds?: readonly string[]) => {
     const selectedDrawingTool = drawChoice === "pencil" ? "pen" : drawChoice;
     const style = drawingTool === "eraser" ? drawingToolStyle(drawingTool) : completedAppearance ?? (selectedDrawingTool !== drawingTool ? drawingToolStyle(drawingTool) : { ...drawingToolStyle(drawingTool), ...drawAppearance });
     const draft: DrawingStroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...style, ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
     try {
+      if (drawingTool === "eraser") {
+        if (mutationBlocked) return;
+        const commands: WhiteboardCommand[] = [];
+        for (const object of readObjects(doc)) {
+          if (!targetObjectIds?.includes(object.id) || object.kind !== "drawing" || object.hidden || object.locked) continue;
+          const content = readContentObject(object);
+          if (content?.type !== "drawing") continue;
+          const eraseDraft = {...draft, erases:content.strokes.filter(item=>item.tool !== "eraser").map(item=>item.id)};
+          const stroke = fitDrawingStrokeToExtensionBudget(content.strokes, worldStrokeToDrawingSpace(object.geometry,content.strokes,eraseDraft));
+          // An eraser may extend the intrinsic vector frame. Expand the object
+          // with the same transform compensation as a pen so existing ink does
+          // not shrink or shift when the mask begins outside its old bounds.
+          const geometry = geometryForAppendedDrawingStroke(object.geometry, content.strokes, stroke);
+          commands.push({ type: "geometry", id: object.id, geometry });
+          commands.push({type:"extension",id:object.id,key:"contentObject",value:{...content,strokes:[...content.strokes,stroke]}});
+        }
+        if (commands.length) execute(commands);
+        return;
+      }
       const existing = selectedContent?.type === "drawing" ? selectedContent.strokes : [];
       const intrinsicDraft = selectedObject && selectedContent?.type === "drawing"
         ? worldStrokeToDrawingSpace(selectedObject.geometry, existing, draft)
@@ -534,7 +556,6 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
         ]);
         return;
       }
-      if (drawingTool === "eraser") { setNotice("先选择一个绘图对象，再用橡皮擦添加可撤销的矢量擦除笔画。"); return; }
       createContentAt(stroke.points[0]!, { version: 1, type: "drawing", strokes: [stroke] });
     } catch { setNotice("这条笔迹超过协作数据预算，请缩短笔画或拆成多次绘制。"); }
   };
@@ -561,11 +582,11 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
       if (replaceContent(object!.id, next as CanonicalContentObject)) setStructuredDraft(null);
     } catch { setNotice("结构化字段不是有效 JSON，原内容未修改。"); }
   };
-  const selectionBounds = selected.length ? model.objects.filter(object=>selected.includes(object.id)).map(object=>object.geometry) : [];
+  const selectionBounds = selected.length ? model.objects.filter(object=>selected.includes(object.id)).map(object=>transformPreview.get(object.id)??object.geometry) : [];
   const selectionGeometry = selectionBounds.length ? {x:Math.min(...selectionBounds.map(g=>g.x)),y:Math.min(...selectionBounds.map(g=>g.y)),width:Math.max(...selectionBounds.map(g=>g.x+g.width))-Math.min(...selectionBounds.map(g=>g.x)),height:Math.max(...selectionBounds.map(g=>g.y+g.height))-Math.min(...selectionBounds.map(g=>g.y))} : undefined;
   const connectorControlLayoutKey = selectedConnector ? JSON.stringify([viewport.panX, viewport.panY, viewport.zoom, connectorGesture.path ?? selectedConnectorPath, connectorGesture.relationship ?? connectorRelationship]) : undefined;
   const selectionToolbarPosition = useBoardToolbarPosition(selectionGeometry,viewport,connectorControlLayoutKey);
-  const contentToolbarPosition = useBoardToolbarPosition(selectedObject?.geometry, viewport);
+  const contentToolbarPosition = useBoardToolbarPosition(selectedObject ? transformPreview.get(selectedObject.id)??selectedObject.geometry : undefined, viewport);
   const [inspectorTab, setInspectorTab] = useState<"actions" | "properties">("actions");
   const selectionActions = <BoardToolPopover key={selected.join(":")} label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4"/></Button>}><div className="mb-3 flex gap-2"><Button aria-pressed={inspectorTab === "actions"} onClick={() => setInspectorTab("actions")}>操作</Button><Button data-testid="board-properties-open" aria-pressed={inspectorTab === "properties"} onClick={() => setInspectorTab("properties")}>精确属性</Button></div><div hidden={inspectorTab !== "actions"}>
       {selected.length === 1 && !contextObject ? <Button onClick={() => setCommentObjectId(selected[0]!)}>评论</Button> : null}
@@ -595,7 +616,12 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const editingControls = <div className="flex gap-2"><Button aria-label="复制" title="复制" disabled={!selected.length} onClick={() => { clipboard.current = [...selected]; setNotice("已复制到当前白板剪贴板"); }}><Copy aria-hidden="true" className="h-4 w-4" /></Button><Button aria-label="粘贴" title="粘贴" disabled={mutationBlocked || !clipboard.current.length} onClick={() => { duplicateRoots(clipboard.current); }}><Clipboard aria-hidden="true" className="h-4 w-4" /></Button><Button aria-label="删除选中" title="删除选中" disabled={mutationBlocked || !selected.length || selectionLocked} onClick={() => { if (selectedPanel) setPanelDelete(selectedPanel.id); else deleteSelection(); }}><Trash2 aria-hidden="true" className="h-4 w-4" /></Button></div>;
   const creationOverlayActive=tool.startsWith("draw-")||tool==="erase"||(creationTool?.kind==="panel"||creationTool?.kind==="connector");
   return <section ref={chromeHost} tabIndex={-1} data-testid="collaborative-editor" className="relative h-full min-h-0 w-full overflow-hidden bg-background text-foreground" onPaste={handlePaste} onDragOver={(event) => { if ([...event.dataTransfer.items].some((item) => item.kind === "file")) event.preventDefault(); }} onDrop={handleFileDrop}
+    onPointerMoveCapture={overlayNavigation.events.onPointerMoveCapture}
+    onPointerUpCapture={overlayNavigation.events.onPointerUpCapture}
+    onPointerCancelCapture={overlayNavigation.events.onPointerCancelCapture}
+    onContextMenuCapture={overlayNavigation.events.onContextMenuCapture}
     onPointerDownCapture={(event) => {
+      if (overlayNavigation.events.onPointerDownCapture(event)) return;
       if (event.button !== 0 || mutationBlocked || tool !== "select") return;
       const handle = (event.target as Element).closest<HTMLElement>("[data-testid^='connector-handle-']");
       const match = handle?.dataset.testid?.match(/^connector-handle-(.+)-(top|right|bottom|left)$/);
@@ -609,16 +635,16 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     onPointerMove={connectorGesture.active ? connectorGesture.onPointerMove : undefined}
     onPointerUp={connectorGesture.active ? connectorGesture.onPointerUp : undefined}
     onPointerCancel={connectorGesture.active ? connectorGesture.onPointerCancel : undefined}
-    onLostPointerCapture={connectorGesture.active ? connectorGesture.onLostPointerCapture : undefined}
+    onLostPointerCapture={(event) => { overlayNavigation.events.onLostPointerCapture(event); if (connectorGesture.active) connectorGesture.onLostPointerCapture(); }}
     onClickCapture={(event) => { if ((event.target as Element).closest("[data-testid^='connector-handle-']")) { event.preventDefault(); event.stopPropagation(); } }}>
     {(connectorGesture.active || (!creationTool && selectedConnectorPath)) && <BoardConnectorHandles viewport={viewport} path={connectorGesture.path ?? selectedConnectorPath} relationship={connectorGesture.relationship ?? connectorRelationship} color={selectedConnector?.style.stroke ?? "#29261E"} canEdit={!mutationBlocked && !selectedConnector?.locked} active={connectorGesture.active && connectorGesture.creating} snapCandidate={connectorGesture.snapCandidate} onPointerDown={connectorGesture.onPointerDown} onPointerMove={connectorGesture.onPointerMove} onPointerUp={connectorGesture.onPointerUp} onPointerCancel={connectorGesture.onPointerCancel} onLostPointerCapture={connectorGesture.onLostPointerCapture} />}
     <div ref={organizeFitHost} data-testid="board-live-surface" className="absolute inset-0" onPointerMove={announceCursor} onPointerLeave={() => onAwareness?.(null, selected, editing?.id ?? null,{viewport:viewportPresence(),presenting,followingActorId})}>
-      <BoardFabricSurface fitInsets={chromeInsets} objects={connectorPreviewObjects} selectedObjectIds={selected} readOnly={mutationBlocked} tool={tool} drawingAppearance={drawAppearance} editingObjectId={editing?.id ?? null} viewport={viewport} onSelectionChange={(ids, source) => { setSelected([...ids]); if (source === "outline" && ids[0] && !readOnly) { const object = model.objects.find((candidate) => candidate.id === ids[0]); if (object && isTextEditableObject(object)) beginEditing(ids[0]); } }} onObjectTransform={handleTransform} onObjectsTransform={handleTransforms} onObjectReparent={(id, panelId) => executeSpatial({ type: "reparent", id, parentId: panelId })} onPanelHoverChange={setPanelDropTarget} onObjectHoverChange={setHoveredObjectId} onViewportChange={handleViewportChange} onCanvasClick={createFromTool} onCanvasDoubleClick={(point) => { if (!readOnly && !creationTool && tool === "select") createStickyAt(point); }} onObjectDoubleClick={(id) => { const object = model.objects.find((candidate) => candidate.id === id); if (object && isTextEditableObject(object)) beginEditing(id); }} onToolDrop={(point, payload) => { try { const requested = JSON.parse(payload) as BoardCreationTool; createFromTool(point, requested); } catch { setNotice("无法识别拖入的白板工具。"); } }} onDrawingComplete={({ tool: drawingTool, points, appearance }) => commitDrawing(drawingTool, points, appearance)} className="absolute inset-0 overflow-hidden bg-panel-alt" />
+      <BoardFabricSurface onTransformPreview={items=>setTransformPreview(new Map(items?.map(item=>[item.id,item.geometry])??[]))} fitInsets={chromeInsets} objects={connectorPreviewObjects} selectedObjectIds={selected} readOnly={mutationBlocked} tool={tool} drawingAppearance={drawAppearance} editingObjectId={editing?.id ?? null} viewport={viewport} onSelectionChange={(ids, source) => { setSelected([...ids]); if (source === "outline" && ids[0] && !readOnly) { const object = model.objects.find((candidate) => candidate.id === ids[0]); if (object && isTextEditableObject(object)) beginEditing(ids[0]); } }} onObjectTransform={handleTransform} onObjectsTransform={handleTransforms} onObjectReparent={(id, panelId) => executeSpatial({ type: "reparent", id, parentId: panelId })} onPanelHoverChange={setPanelDropTarget} onObjectHoverChange={setHoveredObjectId} onViewportChange={handleViewportChange} onCanvasClick={createFromTool} onCanvasDoubleClick={(point) => { if (!readOnly && !creationTool && tool === "select") createStickyAt(point); }} onObjectDoubleClick={(id) => { const object = model.objects.find((candidate) => candidate.id === id); if (object && isTextEditableObject(object)) beginEditing(id); }} onToolDrop={(point, payload) => { try { const requested = JSON.parse(payload) as BoardCreationTool; createFromTool(point, requested); } catch { setNotice("无法识别拖入的白板工具。"); } }} onDrawingComplete={({ tool: drawingTool, points, appearance, targetObjectIds }) => commitDrawing(drawingTool, points, appearance, targetObjectIds)} className="absolute inset-0 overflow-hidden bg-panel-alt" />
       <div className="pointer-events-none absolute inset-0 origin-top-left" style={{ transform: `translate(${viewport.panX}px,${viewport.panY}px) scale(${viewport.zoom})` }}>{peers.filter((peer) => peer.actorId !== currentUserId).map((peer) => <div key={peer.actorId}>{peer.selected.map((id) => { const item = model.objects.find((candidate) => candidate.id === id); if (!item) return null; const g = item.geometry; const editingHere = peer.editingObjectId === id; return <div key={id} role="status" aria-label={`${peer.displayName}${editingHere ? "正在编辑" : "已选择"}${item.text || "对象"}`} data-testid={`peer-selection-${peer.actorId}-${id}`} className="absolute rounded-control border-2 border-dashed" style={{ left: g.x, top: g.y, width: g.width, height: g.height, transform: `rotate(${g.rotation}deg)`, borderColor: peer.contributorColor, boxShadow: editingHere ? `0 0 0 3px ${peer.contributorColor}55` : undefined }} />; })}{peer.cursor ? <div role="status" aria-label={`${peer.displayName}的光标`} data-testid={`peer-cursor-${peer.actorId}`} className="absolute" style={{ left: peer.cursor.x, top: peer.cursor.y, color: peer.contributorColor }}><span aria-hidden="true">↖</span><span className="rounded-control px-1 text-11 text-white" style={{ backgroundColor: peer.contributorColor }}>{peer.displayName}</span></div> : null}</div>)}</div>
       <div className="pointer-events-none absolute inset-0 origin-top-left" style={{ transform: `translate(${viewport.panX}px,${viewport.panY}px) scale(${viewport.zoom})` }}>{model.objects.map((object) => { const threads = commentThreads.filter((thread) => thread.objectId === object.id), open = threads.filter((thread) => thread.status === "open").length; if (!threads.length) return null; return <button key={object.id} type="button" aria-label={`${object.text || "对象"}有 ${threads.length} 条评论`} data-testid={`board-comment-indicator-${object.id}`} className="pointer-events-auto absolute z-10 grid h-7 min-w-7 place-items-center rounded-full bg-inverse px-2 text-11 text-inverse-foreground shadow-md" style={{ left: object.geometry.x + object.geometry.width - 8, top: object.geometry.y - 8 }} onClick={() => setCommentObjectId(object.id)}>💬 {open || threads.length}</button>; })}</div>
       <div className="pointer-events-none absolute inset-0 origin-top-left" style={{ transform: `translate(${viewport.panX}px,${viewport.panY}px) scale(${viewport.zoom})` }}>
         {objects.filter((object) => object.kind === "panel").map((panel) => panel.id === panelDropTarget ? <div key={panel.id} data-testid={`panel-drop-highlight-${panel.id}`} className="absolute rounded-2xl border-4 border-primary bg-primary/10" style={{ left: panel.geometry.x, top: panel.geometry.y, width: panel.geometry.width, height: panel.geometry.height }} /> : null)}
-        {!readOnly && tool === "select" ? objects.filter((object) => showConnectionHandles({id:object.id,kind:object.kind,locked:object.locked,selected,hovered:hoveredObjectId,connecting:creationTool?.kind === "connector",sourceId:pendingConnector?.objectId ?? null,readOnly:mutationBlocked,selectTool:tool === "select"})).map((object) => {
+        {!readOnly && tool === "select" ? objects.map(object=>transformPreview.has(object.id)?{...object,geometry:transformPreview.get(object.id)!}:object).filter((object) => showConnectionHandles({id:object.id,kind:object.kind,locked:object.locked,selected,hovered:hoveredObjectId,connecting:creationTool?.kind === "connector",sourceId:pendingConnector?.objectId ?? null,readOnly:mutationBlocked,selectTool:tool === "select"})).map((object) => {
           const handles: Array<[ConnectorAnchor, number, number]> = (["top", "right", "bottom", "left"] as const).map((anchor) => { const point = rotatedAnchorPoint(object, anchor); return [anchor, point.x, point.y]; });
           return handles.map(([anchor, x, y]) => <button key={`${object.id}-${anchor}`} type="button" draggable data-testid={`connector-handle-${object.id}-${anchor}`} aria-label={`从${anchor}连接`} className="pointer-events-auto absolute grid h-11 w-11 origin-center place-items-center rounded-full bg-transparent transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring after:h-2 after:w-2 after:rounded-full after:border after:border-background after:bg-primary after:shadow-sm" style={{ left: x, top: y, transform: `translate(-50%, -50%) scale(${1 / viewport.zoom})` }} onClick={() => completeConnector(object.id, anchor)} onDragStart={(event) => { event.dataTransfer.setData("application/x-workspacex-connector", JSON.stringify({ objectId: object.id, anchor })); setPendingConnector({ objectId: object.id, anchor }); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); try { const source = JSON.parse(event.dataTransfer.getData("application/x-workspacex-connector")) as { objectId: string; anchor: ConnectorAnchor }; completeConnector(object.id, anchor, source); } catch { setNotice("连接起点已失效，请重新拖动。"); } }} />);
         }) : null}
