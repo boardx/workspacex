@@ -115,7 +115,7 @@ describe("AgentDetail", () => {
 describe("loadAgentDetailExtras（真实端点组合）", () => {
   it("挂载技能 + 钉住版本技能换成名字；都没有时退回组织共享技能；文件形式说明不当职责", async () => {
     vi.spyOn(dir, "getAgentDirectoryProfile").mockResolvedValue({
-      agentId: "a", duty: null, mountedSkillIds: ["s1"], pinnedSkillVersionIds: ["v2"], delegationTargets: [], requireApprovalForHandoff: true,
+      agentId: "a", duty: null, mountedSkillIds: ["s1"], pinnedSkillVersionIds: ["v2"], pinnedSkills: [{ skillId: "s1", versionId: "v2" }], pendingSkillBindings: [], delegationTargets: [], requireApprovalForHandoff: true,
     });
     const catalog = [
       { skillId: "s1", name: "报价单", duty: "出报价", currentVersionId: "v1", visibility: "org-wide" },
@@ -127,7 +127,7 @@ describe("loadAgentDetailExtras（真实端点组合）", () => {
     expect(out.skills).toEqual([{ skillId: "s1", name: "报价单", duty: "出报价" }, { skillId: "s2", name: "竞品分析", duty: null }]);
 
     vi.spyOn(dir, "getAgentDirectoryProfile").mockResolvedValue({
-      agentId: "a", duty: null, mountedSkillIds: [], pinnedSkillVersionIds: [], delegationTargets: [], requireApprovalForHandoff: true,
+      agentId: "a", duty: null, mountedSkillIds: [], pinnedSkillVersionIds: [], pinnedSkills: [], pendingSkillBindings: [], delegationTargets: [], requireApprovalForHandoff: true,
     });
     const fallback = await loadAgentDetailExtras("a", "org-1");
     expect(fallback.skillSource).toBe("org");
