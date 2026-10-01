@@ -757,8 +757,7 @@
         "apps/web/lib/mock/admin-limits.ts",
         "apps/web/lib/mock/admin.ts",
         "apps/web/lib/mock/asset-governance.ts",
-        "apps/web/lib/mock/canvas.ts",
-        "apps/web/lib/mock/org-admin.ts"
+        "apps/web/lib/mock/canvas.ts"
       ]
     },
     "/admin/agent/[id]": {
