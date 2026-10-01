@@ -9,7 +9,7 @@
    × a new role-scoped run cannot execute a tampered skill version beyond the frozen agent pins 10ms
      → expected "readPinnedSkills" to not be called at all, but actually been called 1 times
 
-Received: 
+Received:
 
   1st readPinnedSkills call:
 
@@ -34,7 +34,7 @@ Number of calls: 1
  FAIL  tests/agent/list-agent-directory.test.ts > profile exposes exact old-version pins without substituting catalog current versions
 AssertionError: expected undefined to deeply equal [ { skillId: 'catalog-skill', …(1) } ]
 
-- Expected: 
+- Expected:
 Array [
   Object {
     "skillId": "catalog-skill",
@@ -42,7 +42,7 @@ Array [
   },
 ]
 
-+ Received: 
++ Received:
 undefined
 
  ❯ tests/agent/list-agent-directory.test.ts:193:32
@@ -51,14 +51,14 @@ undefined
     193|   expect(profile.pinnedSkills).toEqual([{ skillId: "catalog-skill", ve…
        |                                ^
     194| });
-    195| 
+    195|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
 
  FAIL  tests/agent-run/runtime-profile-continuation.test.ts > a new role-scoped run cannot execute a tampered skill version beyond the frozen agent pins
 AssertionError: expected "readPinnedSkills" to not be called at all, but actually been called 1 times
 
-Received: 
+Received:
 
   1st readPinnedSkills call:
 
@@ -94,7 +94,7 @@ AssertionError: expected [ 'other' ] to deeply equal []
 + ]
 
  ❯ tests/chat/agent-default-skill-loading.test.ts:66:115
-     64| 
+     64|
      65| it("explicit agent with no pins has no skills and cannot inherit the o…
      66|   expect(resolveRunSkillVersionIds({ explicitAgent: true, agentPinned:…
        |                                                                                                                   ^
@@ -106,10 +106,10 @@ AssertionError: expected [ 'other' ] to deeply equal []
  FAIL  tests/chat/agent-default-skill-loading.test.ts > explicit agent rejects an unmounted skill and another version of its mounted skill
 AssertionError: expected [Function] to throw an error
 
-- Expected: 
+- Expected:
 null
 
-+ Received: 
++ Received:
 undefined
 
  ❯ tests/chat/agent-default-skill-loading.test.ts:70:142
