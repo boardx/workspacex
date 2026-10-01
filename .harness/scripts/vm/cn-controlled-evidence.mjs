@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { collectMixedRuntime } from './devapp-runtime-identity.mjs';
 const services=['api','web','agent','sandbox'];
 const sha=/^[a-f0-9]{40}$/;
 const fail=code=>{throw new Error(code)};
@@ -26,7 +27,12 @@ export function validateDevapp(raw,source) {
  if(r?.repository?.full_name!=='boardx/workspacex'||r.head_repository?.full_name!=='boardx/workspacex'||r.path!=='.github/workflows/real-model-chat-evidence.yml'||r.head_sha!==source||r.status!=='completed'||r.conclusion!=='success'||!Number.isSafeInteger(r.id)||r.id<=0||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<=0||!Number.isFinite(Date.parse(r.created_at))||!Number.isFinite(Date.parse(r.run_started_at)))fail('CONTROLLED_DEVAPP_RUN');
  if(b?.context?.lane!=='devapp'||b.context.baseUrl!=='https://devapp.boardx.us'||!b.context.threadId||String(b.context.threadId).startsWith('<')||!Number.isFinite(Date.parse(b.context.generatedAt))||Date.parse(b.context.generatedAt)<Date.parse(r.run_started_at)||b.context.runStartObserved!==true||!Array.isArray(b.assertions)||b.assertions.length<8||b.assertions.some(a=>a.ok!==true)||![1,2,3,4,5,6,7,8].every(n=>b.assertions.some(a=>a.name.startsWith('①②③④⑤⑥⑦⑧'[n-1])))||!Array.isArray(b.pageErrors)||b.pageErrors.length)fail('CONTROLLED_DEVAPP_BROWSER');
  if(!raw.artifact||raw.artifact.workflow_run?.id!==r.id||raw.artifact.workflow_run?.head_sha!==source||raw.artifact.name!=='real-model-chat-evidence'||raw.artifact.expired!==false||!Number.isFinite(Date.parse(raw.artifact.created_at))||Date.parse(raw.artifact.created_at)<Date.parse(b.context.generatedAt)||raw.artifact.digest!=='sha256:'+digest(Buffer.from(raw.archive,'base64')))fail('CONTROLLED_DEVAPP_ARTIFACT');
- for(const k of services){const v=raw.runtime?.[k];if(!v||v.running!==true||v.sourceSha!==source||!/^sha256:[a-f0-9]{64}$/.test(v.imageId??'')||!v.containerId||!Number.isFinite(Date.parse(v.startedAt))||Date.parse(v.startedAt)>Date.parse(r.run_started_at))fail('CONTROLLED_DEVAPP_RUNTIME');}
+ for(const k of services){const v=raw.runtime?.[k];const identity=v?.kind==='systemd'&&['api','web'].includes(k)?/^\d+$/.test(v.startTicks??'')&&Number.isSafeInteger(v.pid)&&v.pid>0&&/^[a-f0-9]{32}$/.test(v.invocationId??'')&&/^[a-f0-9]{64}$/.test(v.artifactSha256??'')&&/^[a-f0-9]{64}$/.test(v.executableSha256??'')&&!!v.bootId&&!!v.cwd&&!!v.unit&&Array.isArray(v.applicationProcesses)&&v.applicationProcesses.length>0&&v.applicationProcesses.every(p=>Number.isSafeInteger(p.pid)&&p.pid>0&&/^[a-f0-9]{64}$/.test(p.executableSha256??'')&&Number.isFinite(Date.parse(p.startedAtUpperBound))&&Date.parse(p.startedAtUpperBound)<=Date.parse(r.run_started_at)):/^sha256:[a-f0-9]{64}$/.test(v?.imageId??'')&&!!v?.containerId;
+  if(!v||v.running!==true||v.sourceSha!==source||!identity||!Number.isFinite(Date.parse(v.startedAt))||Date.parse(v.startedAt)>Date.parse(r.run_started_at))fail('CONTROLLED_DEVAPP_RUNTIME');}
+ if(services.some(k=>raw.runtime[k]?.kind==='systemd')) {
+  const v=raw.runtime.sandbox?.relatedContainers?.sessions;
+  if(!v||v.kind!=='docker'||v.running!==true||v.sourceSha!==source||!/^sha256:[a-f0-9]{64}$/.test(v.imageId??'')||!v.containerId||!Number.isFinite(Date.parse(v.startedAt))||Date.parse(v.startedAt)>Date.parse(r.run_started_at))fail('CONTROLLED_DEVAPP_RUNTIME');
+ }
  return {status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(services.map(k=>[k,raw.runtime[k].sourceSha])),browserAccepted:true,workflowRunId:r.id,workflowRunAttempt:r.run_attempt};
 }
 function api(endpoint){return JSON.parse(execFileSync('gh',['api',endpoint],{encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024}));}
@@ -57,8 +63,11 @@ export function collectDevapp(runId,source,ports={api,pages,exec:execFileSync,pr
   const json=name=>JSON.parse(execute('unzip',['-p',zip,name],{encoding:'utf8',maxBuffer:4*1024*1024,timeout:30000}));
   const browser={context:json('00-context.json'),assertions:json('10-assertions.json'),pageErrors:json('21-page-errors.json')};
   const config=JSON.parse(privateRead('/etc/workspacex-devapp/runtime-evidence.json'));
-  const runtime={};
-  for(const k of services){const name=config.containers?.[k];if(typeof name!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(name))fail('CONTROLLED_RUNTIME_CONFIG_REQUIRED');
+  let runtime={};
+  if(config.schemaVersion===2){
+   if(typeof config.receiptPath!=='string'||!/^\/etc\/workspacex-devapp\/runtime-[a-f0-9]{40}-[a-f0-9-]{36}\.json$/.test(config.receiptPath))fail('CONTROLLED_RUNTIME_RECEIPT_PATH');
+   runtime=collectMixedRuntime(JSON.parse(privateRead(config.receiptPath)),source,{run:(bin,args)=>execute(bin,args,{encoding:'utf8',timeout:30000}),fs:ports.fs??undefined,artifactDigest:ports.artifactDigest??undefined});
+  } else for(const k of services){const name=config.containers?.[k];if(typeof name!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(name))fail('CONTROLLED_RUNTIME_CONFIG_REQUIRED');
    const v=JSON.parse(execute('docker',['inspect',name],{encoding:'utf8',timeout:30000}))[0];
    const image=JSON.parse(execute('docker',['image','inspect',v.Image],{encoding:'utf8',timeout:30000}))[0];
    runtime[k]={containerId:v.Id,imageId:v.Image,running:v.State.Running,startedAt:v.State.StartedAt,sourceSha:image.Config.Labels?.['org.opencontainers.image.revision']};

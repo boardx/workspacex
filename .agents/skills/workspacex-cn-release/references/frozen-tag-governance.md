@@ -64,7 +64,17 @@ Devapp root operator 调用同一脚本 `devapp <source> <attempt> <output> <suc
 `/etc/workspacex-devapp/runtime-evidence.json` 只声明四服务 container 名：
 `{"containers":{"api":"...","web":"...","agent":"...","sandbox":"..."}}`。
 每个容器必须 running、启动早于该 run、image revision 等于 source。现有非容器化
-Devapp 或缺 OCI revision 无法通过，须先提供受审阅运行体身份渠道，不用 git checkout 代替。
+Devapp 使用 `devapp-runtime-identity.mjs` 的混合运行体渠道；不能将 git checkout 当运行体。
+Devapp trusted deploy 在构建成功后、重启之前创建 root:root0600 immutable build receipt，
+校验 API/Web/packages 运行源码字节与 exact Git blob；API TypeScript 与 packages 产物、
+Web `.next`（不含 mutable cache/trace）按实际文件 hash 绑定。冒烟成功后绑定 systemd
+MainPID、InvocationID、boot ID、启动 ticks、当前应用子进程/executable/cwd/argv hash，
+每个应用进程必须晚于 build；Agent/两个 Sandbox 的实际 Docker image ID、OCI revision
+与运行容器身份同时核对。Sandbox 名由唯一实际 Compose project/service 标签发现。
+`runtime-evidence.json` schemaVersion2 仅指向 root 保护的 immutable runtime receipt。
+采集时重新计算 artifact bytes、读取当前 systemd/proc/Docker，任何进程重启/PID复用、
+source变化、产物变化、容器变化或应用子进程晚于浏览器run 都失败。
+缺 receipt 的旧部署必须走 trusted Devapp deploy 生成，不能事后拿当前 checkout 回填。
 签名原始 bundle 包含 run/artifact/archive/browser/runtime 全链，禁止手填 passed。
 CN operator 将 bundle 以 root:root 0600 暂存后执行
 `stage-devapp <source> <attempt> <signed-bundle-path>`；验固定公钥签名与 TTL 后，机械生成

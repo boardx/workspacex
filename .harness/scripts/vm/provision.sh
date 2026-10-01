@@ -401,6 +401,7 @@ step "7. /usr/local/bin/workspacex-deploy（root 拥有的副本，仓库里那�
 install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deploy-readiness.sh" /usr/local/lib/workspacex-deploy-readiness.sh
 install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh" /usr/local/lib/workspacex-deep-agent-lib.sh
 install -o root -g root -m 0755 "${APP_DIR}/.harness/scripts/vm/deploy.sh" /usr/local/bin/workspacex-deploy
+install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/devapp-runtime-identity.mjs" /usr/local/lib/workspacex-devapp-runtime-identity.mjs
 echo "已装 $(sha256sum /usr/local/bin/workspacex-deploy | cut -d' ' -f1)"
 
 # 2026-09-06：上面这三份此前**只有人手动跑本脚本才会更新**——改了 deploy.sh 合入 main
