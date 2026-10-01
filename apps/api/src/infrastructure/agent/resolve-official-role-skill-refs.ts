@@ -1,7 +1,7 @@
 import type { PendingSkillBinding } from "@repo/contracts/agent-role";
 import type { TenantSession } from "../../application/ports/database.port";
 import type { OfficialAgentStarterPack } from "../../domain/agent/starter-pack";
-import { buildOfficialAgentRolePack, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../domain/agent/official-role-packs";
+import { officialRoleSkillDisplayName, buildOfficialAgentRolePack, OFFICIAL_AGENT_ROLE_PACK_ID, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../domain/agent/official-role-packs";
 
 export interface ResolvedOfficialRoleSkills {
   readonly pins: readonly string[];
@@ -36,11 +36,16 @@ export async function resolveOfficialRoleSkillRefs(
       );
       const row = found.rows[0];
       if (row?.published && row.channel === "verified") pins.push(row.version_id);
-      else pending.push({
-        stableId: coordinate.stableId, stableName: coordinate.stableName, contentDigest: coordinate.contentDigest,
-        reason: row?.published ? "awaiting_verification" : "missing_version",
-        ...(row ? { skillId: row.skill_id, versionId: row.version_id, displayName: row.name } : {}),
-      });
+      else {
+        const displayName = row?.name?.trim() && row.name.trim() !== coordinate.stableId
+          ? row.name.trim() : officialRoleSkillDisplayName(coordinate);
+        pending.push({
+          stableId: coordinate.stableId, stableName: coordinate.stableName, contentDigest: coordinate.contentDigest,
+          reason: row?.published ? "awaiting_verification" : "missing_version",
+          ...(row ? { skillId: row.skill_id, versionId: row.version_id } : {}),
+          ...(displayName ? { displayName } : {}),
+        });
+      }
     }
     result.set(agent.stableName, { pins, pending });
   }

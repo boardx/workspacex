@@ -12,7 +12,7 @@ const packIds = readdirSync(resolve(root, "skills/starter-packs")).sort((a, b) =
   const ai = preferred.indexOf(a); const bi = preferred.indexOf(b);
   return (ai < 0 ? preferred.length : ai) - (bi < 0 ? preferred.length : bi) || a.localeCompare(b);
 });
-const byStableId = new Map<string, { stableId: string; stableName: string; packId: string; packVersion: string; digest: string }>();
+const byStableId = new Map<string, { stableId: string; stableName: string; packId: string; packVersion: string; digest: string; displayName: string }>();
 for (const packId of packIds) {
   const packVersion = packId === "work-sales" ? "1.1.0" : "1.0.0";
   const filename = resolve(root, `skills/starter-packs/${packId}/${packVersion}.json`);
@@ -22,6 +22,7 @@ for (const packId of packIds) {
     const work = skill.manifest.work as { stableId?: string } | undefined;
     if (work?.stableId && !byStableId.has(work.stableId)) byStableId.set(work.stableId, {
       stableId: work.stableId, stableName: skill.stableName, packId, packVersion: pack.packVersion, digest: skillContentDigest(skill),
+      displayName: Buffer.from(skill.files.find(file => file.path === "SKILL.md")!.contentBase64, "base64").toString("utf8").match(/^# ([^\r\n]+)$/m)?.[1]?.trim() ?? skill.name,
     });
   }
 }

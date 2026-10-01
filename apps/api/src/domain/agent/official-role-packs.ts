@@ -405,3 +405,12 @@ export function historicalOfficialRoleInstructionDigests(packVersion: string): R
   if (!["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"].includes(packVersion)) return {};
   return Object.fromEntries(ROLE_SEEDS.filter((seed) => packVersion === "1.5.0" || !["D001", "D006", "D007"].includes(seed.roleRef)).map((seed) => [seed.stableName, sha256(HISTORICAL_OFFICIAL_INSTRUCTIONS[seed.roleRef]!)]));
 }
+
+/** Human title derived from the exact immutable authored Skill bytes, never a name-only match. */
+export function officialRoleSkillDisplayName(coordinate: { stableId: string; stableName: string; contentDigest: string }): string | null {
+  for (const rows of Object.values(OFFICIAL_ROLE_SKILL_COORDINATES)) {
+    const row = rows.find(item => item.stableId === coordinate.stableId && item.stableName === coordinate.stableName && item.digest === coordinate.contentDigest);
+    if (row) return row.displayName;
+  }
+  return null;
+}

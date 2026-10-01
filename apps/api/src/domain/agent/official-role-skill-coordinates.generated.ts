@@ -6,84 +6,96 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "strategy-review",
       "packId": "work-executive",
       "packVersion": "1.0.0",
-      "digest": "ad12ceb564016f0518d5a1bdca02a1b7aff3411605baaa3113e6db5ba6a6869d"
+      "digest": "ad12ceb564016f0518d5a1bdca02a1b7aff3411605baaa3113e6db5ba6a6869d",
+      "displayName": "战略复盘（S195）"
     },
     {
       "stableId": "S008",
       "stableName": "competitive-analysis",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2"
+      "digest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2",
+      "displayName": "竞品分析（S008）"
     },
     {
       "stableId": "S063",
       "stableName": "research-synthesis",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95"
+      "digest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+      "displayName": "研究综合（S063）"
     },
     {
       "stableId": "S012",
       "stableName": "decision-brief",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "05f06cc280d748c586c9e768d3fed8029648c7c16df806db22e4814d4ce85fbf"
+      "digest": "05f06cc280d748c586c9e768d3fed8029648c7c16df806db22e4814d4ce85fbf",
+      "displayName": "决策简报（S012）"
     },
     {
       "stableId": "S013",
       "stableName": "scenario-analysis",
       "packId": "work-executive",
       "packVersion": "1.0.0",
-      "digest": "08ea63b63601e82a1405b4dbde0f4604b0d66b364bb58eff0f4c1ee6a36505b2"
+      "digest": "08ea63b63601e82a1405b4dbde0f4604b0d66b364bb58eff0f4c1ee6a36505b2",
+      "displayName": "情景分析（S013）"
     },
     {
       "stableId": "S020",
       "stableName": "executive-briefing",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7"
+      "digest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7",
+      "displayName": "高管简报（S020）"
     },
     {
       "stableId": "S199",
       "stableName": "business-model-analysis",
       "packId": "work-executive",
       "packVersion": "1.0.0",
-      "digest": "b3f82503b3d2c233f131f1b32f30cd8aaea7e4317225ff7e5aad9a6b64f6ce97"
+      "digest": "b3f82503b3d2c233f131f1b32f30cd8aaea7e4317225ff7e5aad9a6b64f6ce97",
+      "displayName": "商业模式分析（S199）"
     },
     {
       "stableId": "S198",
       "stableName": "okr-alignment",
       "packId": "work-executive",
       "packVersion": "1.0.0",
-      "digest": "d2d25b73b08d39f89a725d9f5d3dd4e5a09ecf68bbabc2e34e6028a8e2b3878f"
+      "digest": "d2d25b73b08d39f89a725d9f5d3dd4e5a09ecf68bbabc2e34e6028a8e2b3878f",
+      "displayName": "OKR 对齐（S198）"
     },
     {
       "stableId": "S010",
       "stableName": "risk-assessment",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946"
+      "digest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946",
+      "displayName": "风险评估（S010）"
     },
     {
       "stableId": "S196",
       "stableName": "board-meeting-preparation",
       "packId": "work-executive",
       "packVersion": "1.0.0",
-      "digest": "c0b599dce75f7cadff2aaa54d72e6d99f6d98bcae98c161aca12c5de16be1863"
+      "digest": "c0b599dce75f7cadff2aaa54d72e6d99f6d98bcae98c161aca12c5de16be1863",
+      "displayName": "董事会会议准备（S196）"
     },
     {
       "stableId": "S197",
       "stableName": "decision-logging",
       "packId": "work-executive",
       "packVersion": "1.0.0",
-      "digest": "1098bed511a612d2fa7fabd0540818b7685bc642a7f184073da7c96cbcfc4fa5"
+      "digest": "1098bed511a612d2fa7fabd0540818b7685bc642a7f184073da7c96cbcfc4fa5",
+      "displayName": "决策记账（S197）"
     },
     {
       "stableId": "S007",
       "stableName": "status-update",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd"
+      "digest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd",
+      "displayName": "状态更新（S007）"
     }
   ],
   "D002": [
@@ -92,70 +104,80 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "enterprise-search",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "180e71f8e550429926ae8aacd543de0404efdd6c76c2f3b54ff7ce34a36a0cf5"
+      "digest": "180e71f8e550429926ae8aacd543de0404efdd6c76c2f3b54ff7ce34a36a0cf5",
+      "displayName": "企业内部检索（S003）"
     },
     {
       "stableId": "S063",
       "stableName": "research-synthesis",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95"
+      "digest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+      "displayName": "研究综合（S063）"
     },
     {
       "stableId": "S171",
       "stableName": "evidence-review",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "0a6364f0a8939fa83be1291685d1d79b9972135aec7baa0a299347de94a56ff0"
+      "digest": "0a6364f0a8939fa83be1291685d1d79b9972135aec7baa0a299347de94a56ff0",
+      "displayName": "证据评审（S171）"
     },
     {
       "stableId": "S169",
       "stableName": "knowledge-synthesis-review",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "4c2802003b71663d045964899e3e0c62f003758ba8cf60cf79925e6e6d00c3c7"
+      "digest": "4c2802003b71663d045964899e3e0c62f003758ba8cf60cf79925e6e6d00c3c7",
+      "displayName": "知识综合（S169）"
     },
     {
       "stableId": "S172",
       "stableName": "data-storytelling",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "da9711447256ad318c6474be4003c53410099cc292a3d7b5697e193f629387a0"
+      "digest": "da9711447256ad318c6474be4003c53410099cc292a3d7b5697e193f629387a0",
+      "displayName": "数据叙事（S172）"
     },
     {
       "stableId": "S170",
       "stableName": "scientific-research-planning",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "61e8e694dfebf787648cbe72adf628d0085d80bd6484253497330418735b43c1"
+      "digest": "61e8e694dfebf787648cbe72adf628d0085d80bd6484253497330418735b43c1",
+      "displayName": "科研规划（S170）"
     },
     {
       "stableId": "S016",
       "stableName": "knowledge-capture",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "b778a7c4edf65ebe6045a5af1e741b45278b6516dc5763c0a4aa838dfefc1833"
+      "digest": "b778a7c4edf65ebe6045a5af1e741b45278b6516dc5763c0a4aa838dfefc1833",
+      "displayName": "知识捕获（S016）"
     },
     {
       "stableId": "S020",
       "stableName": "executive-briefing",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7"
+      "digest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7",
+      "displayName": "高管简报（S020）"
     },
     {
       "stableId": "S168",
       "stableName": "trend-analysis",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "5a868e9cf6094066580db66357b87379841ade2332701ddbff01055476f41bb0"
+      "digest": "5a868e9cf6094066580db66357b87379841ade2332701ddbff01055476f41bb0",
+      "displayName": "趋势分析（S168）"
     },
     {
       "stableId": "S167",
       "stableName": "market-sizing",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "7a1ce55aa468b484f5b53358e58e98225804e6df9003e9d1014e09b6436629ce"
+      "digest": "7a1ce55aa468b484f5b53358e58e98225804e6df9003e9d1014e09b6436629ce",
+      "displayName": "市场规模测算（S167）"
     }
   ],
   "D003": [
@@ -164,98 +186,112 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "product-discovery",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "216b22fa7cfe08cfaa912dadc810dc88918f96c2c394cc02c7d9b26dc2dfbe4f"
+      "digest": "216b22fa7cfe08cfaa912dadc810dc88918f96c2c394cc02c7d9b26dc2dfbe4f",
+      "displayName": "产品探索（S061）"
     },
     {
       "stableId": "S009",
       "stableName": "customer-research",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d"
+      "digest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d",
+      "displayName": "客户研究（S009）"
     },
     {
       "stableId": "S064",
       "stableName": "problem-framing",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b"
+      "digest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b",
+      "displayName": "问题框定（S064）"
     },
     {
       "stableId": "S065",
       "stableName": "opportunity-mapping",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2"
+      "digest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2",
+      "displayName": "机会地图（S065）"
     },
     {
       "stableId": "S067",
       "stableName": "prd-spec-writing",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "585192c7c41ce9e21a5d00ba37469093749fee43512f28c5ac84aeda84ff0059"
+      "digest": "585192c7c41ce9e21a5d00ba37469093749fee43512f28c5ac84aeda84ff0059",
+      "displayName": "PRD 撰写（S067）"
     },
     {
       "stableId": "S068",
       "stableName": "prioritization",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "909f5d5d2c64e58aac5f6e825eabf278e8599dd2fa46a99f14e55a2b92092512"
+      "digest": "909f5d5d2c64e58aac5f6e825eabf278e8599dd2fa46a99f14e55a2b92092512",
+      "displayName": "优先级排序（S068）"
     },
     {
       "stableId": "S069",
       "stableName": "roadmap-planning",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "a380a8953b1831316fbf603e4d3d646d6dd1ab3c88022346439235501d449d8c"
+      "digest": "a380a8953b1831316fbf603e4d3d646d6dd1ab3c88022346439235501d449d8c",
+      "displayName": "路线图规划（S069）"
     },
     {
       "stableId": "S070",
       "stableName": "sprint-planning",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "632e67ca8acd667882939556996556c453dd1ae9885d84ec6852ba0fbe324bd8"
+      "digest": "632e67ca8acd667882939556996556c453dd1ae9885d84ec6852ba0fbe324bd8",
+      "displayName": "冲刺规划（S070）"
     },
     {
       "stableId": "S071",
       "stableName": "experiment-design",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e"
+      "digest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e",
+      "displayName": "实验设计（S071）"
     },
     {
       "stableId": "S072",
       "stableName": "metrics-review",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "f850ffe15397672868545d86b71181a7ac619080cda8045e2de566db95d94273"
+      "digest": "f850ffe15397672868545d86b71181a7ac619080cda8045e2de566db95d94273",
+      "displayName": "指标复盘（S072）"
     },
     {
       "stableId": "S073",
       "stableName": "product-launch",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "8718a7f18432378f852d59689530403e5cc762dbe4630db810fa170cd10b3b62"
+      "digest": "8718a7f18432378f852d59689530403e5cc762dbe4630db810fa170cd10b3b62",
+      "displayName": "产品发布（S073）"
     },
     {
       "stableId": "S074",
       "stableName": "user-activation",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "e6938ceb5fbe4ca4ce52ec665e3afb6218b281d1c707cf359c986f628dc3e51c"
+      "digest": "e6938ceb5fbe4ca4ce52ec665e3afb6218b281d1c707cf359c986f628dc3e51c",
+      "displayName": "用户激活分析（S074）"
     },
     {
       "stableId": "S008",
       "stableName": "competitive-analysis",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2"
+      "digest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2",
+      "displayName": "竞品分析（S008）"
     },
     {
       "stableId": "S075",
       "stableName": "design-critique",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6"
+      "digest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6",
+      "displayName": "设计评审（S075）"
     }
   ],
   "D005": [
@@ -264,98 +300,112 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "customer-intelligence",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "4be1b63753441394a11aa73f8913e1c65c10f2d9fc92a6458167dfd99494b73c"
+      "digest": "4be1b63753441394a11aa73f8913e1c65c10f2d9fc92a6458167dfd99494b73c",
+      "displayName": "客户情报（S021）"
     },
     {
       "stableId": "S022",
       "stableName": "account-tiering",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "a0b4ec418875f21487fd610d1b6549a929585ff5cd47834ff79de89ebe05f2da"
+      "digest": "a0b4ec418875f21487fd610d1b6549a929585ff5cd47834ff79de89ebe05f2da",
+      "displayName": "账户分层（S022）"
     },
     {
       "stableId": "S023",
       "stableName": "account-planning",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "d84d112ea073779746627e0044a3b04e89f6b1f4df856fe5600a98c83d6cafe5"
+      "digest": "d84d112ea073779746627e0044a3b04e89f6b1f4df856fe5600a98c83d6cafe5",
+      "displayName": "客户计划（S023）"
     },
     {
       "stableId": "S024",
       "stableName": "prospecting",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "39e0042c534b3f67dc97ff6a7d0ca1aed0280621174b42366dc50b654dc6389e"
+      "digest": "39e0042c534b3f67dc97ff6a7d0ca1aed0280621174b42366dc50b654dc6389e",
+      "displayName": "拓客名单构建（S024）"
     },
     {
       "stableId": "S025",
       "stableName": "lead-triage",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "c92bf1065cf41c6c3abb5f4dea0399f527de1526659327ed998a4b4eb706c87b"
+      "digest": "c92bf1065cf41c6c3abb5f4dea0399f527de1526659327ed998a4b4eb706c87b",
+      "displayName": "线索分诊（S025）"
     },
     {
       "stableId": "S026",
       "stableName": "outreach",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "e6dba3139d9c2ad201f3728d2291ec051a186141141b53b47d410ed03d97c722"
+      "digest": "e6dba3139d9c2ad201f3728d2291ec051a186141141b53b47d410ed03d97c722",
+      "displayName": "外联文案起草（S026）"
     },
     {
       "stableId": "S005",
       "stableName": "meeting-prep",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "5ba2364bee638ac162cc49f246141cc7d021d6154d71c0cb37bbb8f35e506c68"
+      "digest": "5ba2364bee638ac162cc49f246141cc7d021d6154d71c0cb37bbb8f35e506c68",
+      "displayName": "会前简报（S005）"
     },
     {
       "stableId": "S028",
       "stableName": "sales-call-summary",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "d13240cbcd93d0ee56e7d5c039ec9e80f40e5c6974fb3a77b0ec7a02e7a9667d"
+      "digest": "d13240cbcd93d0ee56e7d5c039ec9e80f40e5c6974fb3a77b0ec7a02e7a9667d",
+      "displayName": "销售通话纪要（S028）"
     },
     {
       "stableId": "S029",
       "stableName": "opportunity-update",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "a5335577bc9c3ad6958b8723821b814f2ed548d65e3c0a983d968927ae9c405e"
+      "digest": "a5335577bc9c3ad6958b8723821b814f2ed548d65e3c0a983d968927ae9c405e",
+      "displayName": "商机更新（S029）"
     },
     {
       "stableId": "S030",
       "stableName": "pipeline-review",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "e3b97fa6e103aa3d4818f97f37492c4956b16561486942cd760b23f50f9326b8"
+      "digest": "e3b97fa6e103aa3d4818f97f37492c4956b16561486942cd760b23f50f9326b8",
+      "displayName": "管道审阅（S030）"
     },
     {
       "stableId": "S031",
       "stableName": "forecasting",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "cbe9cedf5deaec7ad224dbbb5ae0a35a80616d7e00423646900a78301f499c50"
+      "digest": "cbe9cedf5deaec7ad224dbbb5ae0a35a80616d7e00423646900a78301f499c50",
+      "displayName": "预测汇总（S031）"
     },
     {
       "stableId": "S032",
       "stableName": "close-plan",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "e9b8dd35a1d8d92fdf1b3e1ddb3898b5f7d9656e8d2479bf0256ad4592fe2b12"
+      "digest": "e9b8dd35a1d8d92fdf1b3e1ddb3898b5f7d9656e8d2479bf0256ad4592fe2b12",
+      "displayName": "成交计划（S032）"
     },
     {
       "stableId": "S034",
       "stableName": "crm-hygiene",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "575a56d201dfa4a7a635b5c43487c2bedc4117727e6e270ea2851e6d97568e95"
+      "digest": "575a56d201dfa4a7a635b5c43487c2bedc4117727e6e270ea2851e6d97568e95",
+      "displayName": "CRM 卫生检查（S034）"
     },
     {
       "stableId": "S036",
       "stableName": "proposal-builder",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "8246ce8c7a70a59b210c24fc7c78dfd5bb35c69874ddbb9162a41d1d88ce179d"
+      "digest": "8246ce8c7a70a59b210c24fc7c78dfd5bb35c69874ddbb9162a41d1d88ce179d",
+      "displayName": "方案/报价构建（S036）"
     }
   ],
   "D006": [
@@ -364,70 +414,80 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "support-triage",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "0d4a08985f23fd1bf94424a5effc9c4ec7e45940fc8e60171a617782e2fcd579"
+      "digest": "0d4a08985f23fd1bf94424a5effc9c4ec7e45940fc8e60171a617782e2fcd579",
+      "displayName": "支持分诊（S187）"
     },
     {
       "stableId": "S188",
       "stableName": "draft-support-response",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "c8ea8706927de69d4cc64d4f015765ca8b5948703c2c573eb8a5c958fa112b31"
+      "digest": "c8ea8706927de69d4cc64d4f015765ca8b5948703c2c573eb8a5c958fa112b31",
+      "displayName": "支持回复起草（S188）"
     },
     {
       "stableId": "S189",
       "stableName": "customer-escalation",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "b64d5926da64bd8c91a142530299dbe4fa5aeab665a27991c94d384030131a0b"
+      "digest": "b64d5926da64bd8c91a142530299dbe4fa5aeab665a27991c94d384030131a0b",
+      "displayName": "客户升级（S189）"
     },
     {
       "stableId": "S190",
       "stableName": "kb-article",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "3e3b497e92f9742dfe94900d93d9b1f9361e97a65f0739c68fe062fb118f6449"
+      "digest": "3e3b497e92f9742dfe94900d93d9b1f9361e97a65f0739c68fe062fb118f6449",
+      "displayName": "知识库文章（S190）"
     },
     {
       "stableId": "S191",
       "stableName": "qbr-preparation",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "89f6aae387178e22f9e968ff87b2acc3b1abb7a89cc277a657c7997b67e819b7"
+      "digest": "89f6aae387178e22f9e968ff87b2acc3b1abb7a89cc277a657c7997b67e819b7",
+      "displayName": "QBR 准备（S191）"
     },
     {
       "stableId": "S192",
       "stableName": "renewal-risk",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "19962b9b97d1817a865d11fb3e602542e515ee139dd2c6b537702cd053a4e40e"
+      "digest": "19962b9b97d1817a865d11fb3e602542e515ee139dd2c6b537702cd053a4e40e",
+      "displayName": "续约风险挽留方案（S192）"
     },
     {
       "stableId": "S193",
       "stableName": "voice-of-customer",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "35423581d5e9db6d2a04271a2d0520151f7fa4c3f476d913e5883761cb7d4132"
+      "digest": "35423581d5e9db6d2a04271a2d0520151f7fa4c3f476d913e5883761cb7d4132",
+      "displayName": "客户声音（S193）"
     },
     {
       "stableId": "S194",
       "stableName": "support-operations",
       "packId": "work-customer-success",
       "packVersion": "1.0.0",
-      "digest": "b49002f631808f228a50f89ffbe32db3750ce7318c19b34a314fdb9a54e2bbb3"
+      "digest": "b49002f631808f228a50f89ffbe32db3750ce7318c19b34a314fdb9a54e2bbb3",
+      "displayName": "支持运营（S194）"
     },
     {
       "stableId": "S035",
       "stableName": "customer-health",
       "packId": "work-sales",
       "packVersion": "1.1.0",
-      "digest": "d05222f972fec25dc18e3efa3f866683caf2549faf787fd0513272534b84e9c2"
+      "digest": "d05222f972fec25dc18e3efa3f866683caf2549faf787fd0513272534b84e9c2",
+      "displayName": "客户健康度（S035）"
     },
     {
       "stableId": "S007",
       "stableName": "status-update",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd"
+      "digest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd",
+      "displayName": "状态更新（S007）"
     }
   ],
   "D007": [
@@ -436,70 +496,80 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "project-planning",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "769e48d30443807bcaefc75bf56bf003308a7ce77cd1aaabe970f82826d5e03b"
+      "digest": "769e48d30443807bcaefc75bf56bf003308a7ce77cd1aaabe970f82826d5e03b",
+      "displayName": "立项受理与项目章程（S141）"
     },
     {
       "stableId": "S142",
       "stableName": "work-item-management",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "174d3883c59fffc49c1445eac45b4dc4ac1de1448f49d51c7f2e4f97268ebce6"
+      "digest": "174d3883c59fffc49c1445eac45b4dc4ac1de1448f49d51c7f2e4f97268ebce6",
+      "displayName": "工作项管理（S142）"
     },
     {
       "stableId": "S143",
       "stableName": "status-reporting",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "8302f978eb2a702935aafd416ec9ec439e8c78148ee89177da608df8d04e6544"
+      "digest": "8302f978eb2a702935aafd416ec9ec439e8c78148ee89177da608df8d04e6544",
+      "displayName": "基线偏差状态汇报（S143）"
     },
     {
       "stableId": "S144",
       "stableName": "capacity-planning",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "2689f7aa391becfa5734112c6da099478f43f14cca1a9f1368d7be82c94db83b"
+      "digest": "2689f7aa391becfa5734112c6da099478f43f14cca1a9f1368d7be82c94db83b",
+      "displayName": "容量规划（S144）"
     },
     {
       "stableId": "S145",
       "stableName": "change-request",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "5b9113a8d791c2df1929cb9d5428a2af265e7b37649ff7de32cd844c6fc2e239"
+      "digest": "5b9113a8d791c2df1929cb9d5428a2af265e7b37649ff7de32cd844c6fc2e239",
+      "displayName": "变更请求（S145）"
     },
     {
       "stableId": "S148",
       "stableName": "process-documentation",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "8139453335ef2f7f8279867f11c501f2cd25df55135b850a9ac70b12e77d25bf"
+      "digest": "8139453335ef2f7f8279867f11c501f2cd25df55135b850a9ac70b12e77d25bf",
+      "displayName": "流程说明文档（S148）"
     },
     {
       "stableId": "S153",
       "stableName": "meeting-facilitation",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "9e53ead0152b1dfb7eeae68481dd2b7bc1afa882535f8389cb8483a74cd2e5a8"
+      "digest": "9e53ead0152b1dfb7eeae68481dd2b7bc1afa882535f8389cb8483a74cd2e5a8",
+      "displayName": "会议主持与引导（S153）"
     },
     {
       "stableId": "S154",
       "stableName": "execution-plan",
       "packId": "work-operations",
       "packVersion": "1.0.0",
-      "digest": "8a41fdcc6d24eb125fb2ef4a203aff2d77ef0ff428acdb6dc6bdfd9f007fedfc"
+      "digest": "8a41fdcc6d24eb125fb2ef4a203aff2d77ef0ff428acdb6dc6bdfd9f007fedfc",
+      "displayName": "执行计划（S154）"
     },
     {
       "stableId": "S155",
       "stableName": "business-review",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "874b1e7e9f6b4dc0c5b2b413b5ab848226bf0f9f04965af888ab3793ee095b22"
+      "digest": "874b1e7e9f6b4dc0c5b2b413b5ab848226bf0f9f04965af888ab3793ee095b22",
+      "displayName": "业务复盘（S155）"
     },
     {
       "stableId": "S010",
       "stableName": "risk-assessment",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946"
+      "digest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946",
+      "displayName": "风险评估（S010）"
     }
   ],
   "D011": [
@@ -508,63 +578,72 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableName": "user-interview-planning",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "022b81bd1f7ce6e13171382a0e46fa4145340db2358beb8d4d6c881e30e5e971"
+      "digest": "022b81bd1f7ce6e13171382a0e46fa4145340db2358beb8d4d6c881e30e5e971",
+      "displayName": "用户访谈规划（S062）"
     },
     {
       "stableId": "S009",
       "stableName": "customer-research",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d"
+      "digest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d",
+      "displayName": "客户研究（S009）"
     },
     {
       "stableId": "S064",
       "stableName": "problem-framing",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b"
+      "digest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b",
+      "displayName": "问题框定（S064）"
     },
     {
       "stableId": "S065",
       "stableName": "opportunity-mapping",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2"
+      "digest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2",
+      "displayName": "机会地图（S065）"
     },
     {
       "stableId": "S066",
       "stableName": "product-brainstorming",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "4df53895bfb6a3ad38387fdb6962b5f7b9201b8610c4f49d2280f91b28c1a96d"
+      "digest": "4df53895bfb6a3ad38387fdb6962b5f7b9201b8610c4f49d2280f91b28c1a96d",
+      "displayName": "产品头脑风暴（S066）"
     },
     {
       "stableId": "S071",
       "stableName": "experiment-design",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e"
+      "digest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e",
+      "displayName": "实验设计（S071）"
     },
     {
       "stableId": "S063",
       "stableName": "research-synthesis",
       "packId": "work-research",
       "packVersion": "1.0.0",
-      "digest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95"
+      "digest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+      "displayName": "研究综合（S063）"
     },
     {
       "stableId": "S075",
       "stableName": "design-critique",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6"
+      "digest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6",
+      "displayName": "设计评审（S075）"
     },
     {
       "stableId": "S018",
       "stableName": "process-mapping",
       "packId": "work-product",
       "packVersion": "1.0.0",
-      "digest": "c4450b0f829e0a61e1dc5a3740e950b09e95d7cfb1744c54b1665ea08d0e4c09"
+      "digest": "c4450b0f829e0a61e1dc5a3740e950b09e95d7cfb1744c54b1665ea08d0e4c09",
+      "displayName": "流程建模（S018）"
     }
   ]
 } as const;
