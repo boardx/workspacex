@@ -763,9 +763,7 @@ echo "  workspacex-api / workspacex-web active"
 # EnvironmentFile presence is only a static trace. Read the restarted process itself and
 # assert that socket, binding key, internal key and admission state are loaded. Values stay
 # inside the helper; the deployment log contains boolean state only.
-API_MAIN_PID=$(systemctl show --property MainPID --value workspacex-api)
-[[ "$API_MAIN_PID" =~ ^[1-9][0-9]*$ ]] || { echo "✗ workspacex-api MainPID 无效"; exit 1; }
-native_runtime_assert_api_env_file "/proc/${API_MAIN_PID}/environ" \
+native_runtime_wait_for_api_env workspacex-api \
   "$NATIVE_SESSION_SOCKET_PATH" "$KERNEL_NATIVE_RUNTIME"
 native_runtime_assert_deep_agent_api_callback workspacex-deep-agent
 echo "  Native API process：admission=${KERNEL_NATIVE_RUNTIME} socket=READY binding-key=PRESENT service-key=PRESENT"

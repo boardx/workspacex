@@ -290,6 +290,59 @@ native_runtime_assert_api_env_file() {
   fi
 }
 
+# Type=simple becomes active before ExecStart finishes exec. Re-read MainPID each sample;
+# a replaced PID or invalid environment breaks the consecutive-valid sequence (#4848).
+native_runtime_api_process_env_file() {
+  printf '/proc/%s/environ' "$1"
+}
+
+native_runtime_wait_for_api_env() {
+  local service=$1 expected_socket=$2 expected_admission=$3
+  local attempts=${DEPLOY_NATIVE_ENV_READINESS_ATTEMPTS:-30}
+  local timeout_seconds=${DEPLOY_NATIVE_ENV_READINESS_TIMEOUT_SECONDS:-30}
+  local required=${DEPLOY_NATIVE_ENV_STABLE_SAMPLES:-2}
+  local interval=${DEPLOY_READINESS_INTERVAL_SECONDS:-1}
+  local attempt deadline remaining query_timeout pid after_pid file stable=0 stable_pid=""
+  if [[ ! "$attempts" =~ ^[1-9][0-9]*$ || ! "$timeout_seconds" =~ ^[1-9][0-9]*$ ||
+        ! "$required" =~ ^[1-9][0-9]*$ || ! "$interval" =~ ^[0-9]+$ ]]; then
+    echo "✗ invalid native API process env readiness budget" >&2
+    return 1
+  fi
+  deadline=$((SECONDS + timeout_seconds))
+  for ((attempt = 1; attempt <= attempts && SECONDS < deadline; attempt++)); do
+    remaining=$((deadline - SECONDS))
+    query_timeout=$((remaining < 2 ? remaining : 2))
+    pid=$(timeout --signal=KILL "$query_timeout" systemctl show --property MainPID --value "$service" 2>/dev/null) || pid=""
+    if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
+      file=$(native_runtime_api_process_env_file "$pid")
+      if native_runtime_assert_api_env_file "$file" "$expected_socket" "$expected_admission" 2>/dev/null; then
+        remaining=$((deadline - SECONDS))
+        ((remaining > 0)) || break
+        query_timeout=$((remaining < 2 ? remaining : 2))
+        after_pid=$(timeout --signal=KILL "$query_timeout" systemctl show --property MainPID --value "$service" 2>/dev/null) || after_pid=""
+        if [[ "$after_pid" == "$pid" ]] && ((SECONDS < deadline)); then
+          if [[ "$stable_pid" == "$pid" ]]; then stable=$((stable + 1)); else stable=1; fi
+          stable_pid=$pid
+          echo "  Native API env sample=${attempt} stable=${stable}/${required}"
+          if ((stable >= required)); then return 0; fi
+        else
+          stable=0; stable_pid=""
+        fi
+      else
+        stable=0; stable_pid=""
+      fi
+    else
+      stable=0; stable_pid=""
+    fi
+    if ((attempt < attempts && SECONDS < deadline)); then
+      remaining=$((deadline - SECONDS))
+      sleep "$((interval < remaining ? interval : remaining))"
+    fi
+  done
+  echo "✗ native API process env readiness timed out; no stable process with expected runtime bindings" >&2
+  return 1
+}
+
 # 2026-09-08（#3033）：API 侧把 run_control_callback.base_url 交给 Deep Agent 时读的是
 # KERNEL_SUBTASK_CALLBACK_BASE_URL；它在 DI 层是可选的，所以 5c 的必需 env 校验会放行，
 # 到运行时 `runControlConfig` 才发现 `supportsLiveInterjections()` 为 false，于是
