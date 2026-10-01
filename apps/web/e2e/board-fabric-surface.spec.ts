@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { readBoardViewportSnapshot } from "./board-viewport-snapshot";
 
 /** Real services only: authenticated UI, HTTP Board lifecycle and the production collaboration route. */
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -52,6 +53,34 @@ test.afterEach(async () => {
   }
 });
 
+// Real Chromium DOM geometry, with the exact transient ACK-removal ordering
+// observed in CI #4984. This helper regression does not emulate Board services.
+test('viewport snapshot survives ACK banner removal between protocol reads', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-testid="board-sync-banner">Pending ACK</aside></main>`);
+  const banner = page.getByTestId('board-sync-banner');
+  expect(await readBoardViewportSnapshot(page)).toMatchObject({ bannerBounds: { x: 0, y: 64, width: 1280, height: 32 } });
+  expect(await banner.isVisible()).toBe(true);
+  // An ACK commits between the old isVisible and boundingBox protocol calls.
+  await banner.evaluate((element) => element.remove());
+  await expect(banner.boundingBox({ timeout: 100 })).rejects.toThrow(/Timeout/);
+  const snapshot = await readBoardViewportSnapshot(page);
+  expect(snapshot).toEqual({
+    bounds: { x: 0, y: 0, width: 1280, height: 800, top: 0, right: 1280, bottom: 800, left: 0 },
+    shellBounds: { x: 0, y: 0, width: 1280, height: 800, top: 0, right: 1280, bottom: 800, left: 0 },
+    regionBounds: { x: 0, y: 0, width: 1280, height: 800, top: 0, right: 1280, bottom: 800, left: 0 },
+    bannerBounds: null, viewport: { width: 1280, height: 800 },
+  });
+  await page.setViewportSize({ width: 1024, height: 768 });
+  expect(await readBoardViewportSnapshot(page)).toMatchObject({ bounds: { width: 1024, height: 768 }, regionBounds: { width: 1024, height: 768 }, bannerBounds: null });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  expect(await readBoardViewportSnapshot(page)).toMatchObject({ bounds: { width: 1280, height: 800 }, regionBounds: { width: 1280, height: 800 }, bannerBounds: null });
+  // Genuine geometry drift must remain observable rather than be normalized.
+  await page.getByTestId('board-fabric-surface').evaluate((element) => { (element as HTMLElement).style.width = '1275px'; });
+  expect((await readBoardViewportSnapshot(page)).bounds?.width).toBe(1275);
+});
+
+
 test("fabric surface viewport", async ({ page, request: api }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const token = await login(page);
@@ -86,16 +115,12 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(4);
   const assertViewportBounds = async () => {
-    const bounds = await surface.boundingBox();
+    // ACK may remove the optional banner at any time. Separate locator calls
+    // race that transition and can wait forever for an already removed banner.
+    const { bounds, shellBounds, regionBounds, bannerBounds, viewport } = await readBoardViewportSnapshot(page);
     expect(bounds).not.toBeNull();
     // Sync notices overlay the editor; pending/ACK transitions must never
     // resize the canvas or change its pointer coordinate origin.
-    const region = page.getByTestId("board-editor-region");
-    const shellBounds = await region.locator("..").boundingBox();
-    const regionBounds = await region.boundingBox();
-    const banner = page.getByTestId("board-sync-banner");
-    const bannerBounds = await banner.isVisible() ? await banner.boundingBox() : null;
-    const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
     for (const [actual, expected] of [
