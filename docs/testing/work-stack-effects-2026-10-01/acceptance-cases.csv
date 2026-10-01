@@ -5,8 +5,8 @@ ENV-03,P0,ENV,all,模型配置,后台选择真实provider/model，以最小请�
 ENV-04,P0,ENV,all,工具与存储依赖,验证文档解析、沙箱、检索、artifact存储和运行事件,每个任务依赖可用且可诊断；缺项不伪造,NOT_RUN,,,,
 ENV-05,P0,ENV,all,音频依赖（CRM暂缓）,验证音频真实供应方；CRM连接及销售流程由用户授权本轮暂缓,音频按实际服务验证；CRM单列DEFERRED，非PASS,NOT_RUN,,,,
 ENV-06,P0,ENV,all,基线数据,创建合成白皮书、冲突研究源、线索、访谈及组织B不可见资料,素材可重复且权限明确，报告不含私人附件,NOT_RUN,,,,
-ADM-01,P0,ADM,all,官方角色发现,后台从导航进入Agent目录，打开官方数字人,本轮4角色可发现，历史4角色与当前7角色包分别记录；真实PG启用后目录roleLabel:null导致500，待修复复验,BLOCKED,,,,
-ADM-02,P0,ADM,all,依赖透明,查看启用依赖并导入Skill包与官方角色包,正确依赖、实际导入版本与状态可查,NOT_RUN,,,,
+ADM-01,P0,ADM,all,官方角色发现,后台从导航进入Agent目录，打开官方数字人,本轮4角色可发现；实际当前7官方角色包加fixture角色；历史null标签导致500已修复并真实复验,PASS,5f9b521650b5ec51db618ade069c17fe3702a975,browser-e2e/REPORT.md;browser-e2e/persisted-evidence.json,,Codex actual browser
+ADM-02,P0,ADM,all,依赖透明,查看启用依赖并导入Skill包与官方角色包,正确依赖、实际导入版本与状态可查,PASS,5f9b521650b5ec51db618ade069c17fe3702a975,browser-e2e/REPORT.md;browser-e2e/persisted-evidence.json,,Codex actual browser
 ADM-03,P0,ADM,all,重复启用,重复点击启用，再刷新并重新启用,不重复创建角色/版本，不出现假成功,NOT_RUN,,,,
 ADM-04,P0,ADM,all,部分失败恢复,使一个依赖导入失败，恢复后重试,失败与已完成部分诚实显示；允许幂等重放导入请求，不重复角色/版本/副作用,NOT_RUN,,,,
 ADM-05,P0,ADM,all,角色配置与快照,核对角色指令、Skills、Workflow白名单、模型，保存刷新,配置落库、当前生效，历史快照保持,NOT_RUN,,,,

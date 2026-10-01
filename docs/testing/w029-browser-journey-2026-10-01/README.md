@@ -27,3 +27,7 @@ Parent-reported local execution at source baseline `5b698e315` uses actual produ
 The journey is **not fully PASS**: the authorized instance projection returned `effects=[]`, preventing the final required effect-receipt/output reconciliation. This is a product defect tracked as backlog B17 and is being fixed. B16 remains unchecked until final output, receipts and refresh readback are verified. Stage success cannot substitute for final effect evidence. The parent owns actual screenshots/traces and the final report; none are invented in this update.
 
 Real-model semantic PRD quality, deployed devapp, real voice and PDF analysis remain **BLOCKED**. Only sales Workflow/CRM tasks are deferred; this does not exclude D005 basic chat or shared Skills.
+
+## Round 8 verification
+
+Actual production Next/Nest/isolated PostgreSQL/Redis browser execution at `5f9b521650b5ec51db618ade069c17fe3702a975`: both registered journeys PASS, without route interception or automatic retries. W029 now proves two finalized effect views, PRD opening and identical output/effects after reload. Four roles prove persisted independent basic conversations. See [consolidated report](../work-stack-effects-2026-10-01/browser-e2e/REPORT.md). Earlier round 7 failure is retained as history; real-model semantic quality remains BLOCKED and sales Workflow/CRM remains DEFERRED.

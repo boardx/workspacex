@@ -25,3 +25,7 @@ pnpm --filter web exec playwright test --config <local-derived-fullstack-config>
 Round 7 execution is reported by the parent as **PASS** for D002/D003/D005/D011: actual production Next → Nest → isolated PostgreSQL/Redis, real portrait directory/detail pages, UI-created independent conversations, AGUI execution, server-persisted replies, and identical replies recovered after refresh. Source baseline: `5b698e315`. No API interception replaces these routes. The parent owns the screenshots, traces and final consolidated evidence report; this documentation update does not fabricate attachments or declare real-model acceptance.
 
 This passing run proves basic role use, orchestration and persistence with deterministic upstream responses. D005 basic discovery/detail/chat remains in scope; only complete sales workflows/CRM are **DEFERRED**. Real-model role fidelity, real PDF analysis, deployed devapp and real audio acceptance remain **BLOCKED**, not PASS.
+
+## Round 8 verification
+
+Actual production Next/Nest/isolated PostgreSQL/Redis browser execution at `5f9b521650b5ec51db618ade069c17fe3702a975`: both registered journeys PASS, without route interception or automatic retries. W029 now proves two finalized effect views, PRD opening and identical output/effects after reload. Four roles prove persisted independent basic conversations. See [consolidated report](../work-stack-effects-2026-10-01/browser-e2e/REPORT.md). Earlier round 7 failure is retained as history; real-model semantic quality remains BLOCKED and sales Workflow/CRM remains DEFERRED.
