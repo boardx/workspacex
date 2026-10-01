@@ -37,7 +37,8 @@ flowchart TD
   class S2 tested
   %% evidence S2: UI/检索回归已先失败后通过
   class S3 done
-  class S4 doing
+  class S4 blocked
+  %% blocked S4: 官方 seeded 冷构建启动超过600秒，用例未运行；开发服务复测因每核负载超过15停止排队。
   class S5 todo
 ```
 
@@ -54,8 +55,11 @@ flowchart TD
 - Web guided research 回归：27 文件 / 232 测试；旧质量文案断言调整后，对应测试及最终受影响 6 文件 / 54 测试全部通过。覆盖执行中步骤浏览、POST/轮询结束保持页面、助手失败恢复、旧计划隐藏、报告生成状态与历史提示隐藏。
 - 公开搜索端点只读实测：返回 `results` 10 条，空摘要 0 条；旧适配器只保留 5 条。
 - 独立代码 review：两项 P2 已复现修复，复审无新增问题。
-- 浏览器全链路：正在运行官方 seeded 配置的单条 guided-research-runtime；回环模型、真实 API 与隔离 PostgreSQL，不代表真实外部模型。
+- 浏览器全链路：官方 seeded 配置的单条 guided-research-runtime 未能启动；没有浏览器 passing 证据。
 
 ## 未验证边界
 
 本次未部署生产环境；没有生产报错会话的运行日志，因此资料错误修复对应已复现的空摘要整批失败，不声称排除了所有外部检索故障。
+
+- 官方 seeded 浏览器运行：Web 冷构建启动超时（600 秒）；测试未开始，不记 passing。隔离外壳退出并完成资源清理，已核对本次构建进程与容器均不存在。
+- 开发服务复测：临时配置仅替换 Web 的启动命令为 `next dev`，沿用官方真实 API / 隔离 PostgreSQL / 回环模型 fixture；排队约 6 分钟后每核负载超过 15（准入上限 2.5），已停止本次排队；未启动测试栈。
