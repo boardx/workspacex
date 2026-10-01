@@ -53,6 +53,7 @@ export type GateSuiteState =
       /** 相对 fixtures/ 的 posix 路径 */
       fixtureFiles: readonly string[];
       hasCalibrationDir: boolean;
+      evidenceDigests: { suiteDigest: string; fixturesDigest: string };
     };
 
 export interface GateSubject {
@@ -192,7 +193,11 @@ function latestEvidence(s: GateSubject) {
     .filter(r => !r.report.partial && r.report.lane === "loopback" && r.report.stableId === s.stableId)
     .sort((a, b) => b.report.finishedAt.localeCompare(a.report.finishedAt));
   const latest = eligible[0] ?? null;
-  const current = latest && s.versionDigest !== null && latest.report.subjectVersionDigest === s.versionDigest ? latest : null;
+  const current = latest && s.versionDigest !== null && s.suite.state === "ok"
+    && latest.report.subjectVersionDigest === s.versionDigest
+    && latest.report.suiteDigest === s.suite.evidenceDigests.suiteDigest
+    && latest.report.fixturesDigest === s.suite.evidenceDigests.fixturesDigest
+    && latest.report.graderVersion === s.suite.suite.graderVersion ? latest : null;
   return { latest, current };
 }
 
@@ -217,7 +222,7 @@ function judgeG4(s: GateSubject, ev: ReturnType<typeof latestEvidence>): GateRes
   if (s.suite.suite.llmJudge && !s.suite.hasCalibrationDir) return fail("G4", "LLM_JUDGE_UNCALIBRATED", "llmJudge declared without calibration samples (E8)");
   if (!ev.current) {
     const why = ev.latest
-      ? `latest report ${ev.latest.path} is for ${ev.latest.report.subjectVersionDigest}, current version is ${s.versionDigest ?? "unknown"} (report stale, E4)`
+      ? `latest report ${ev.latest.path} is for ${ev.latest.report.subjectVersionDigest}, current version is ${s.versionDigest ?? "unknown"}; suite, fixtures and grader identity must also match (report stale, E4)`
       : "no complete loopback report for the current version (no report = not passed)";
     return fail("G4", "REPORT_STALE", why);
   }

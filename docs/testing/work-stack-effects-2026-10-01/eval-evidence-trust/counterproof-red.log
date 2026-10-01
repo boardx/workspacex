@@ -1,0 +1,46 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/work-eval/gates-counterproof.test.ts (18 tests | 4 failed | 14 skipped) 416ms
+   × lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after grader-version changes 139ms
+     → expected +0 to be 1 // Object.is equality
+   × lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after case-assertion changes 94ms
+     → expected +0 to be 1 // Object.is equality
+   × lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after fixture-bytes changes 85ms
+     → expected +0 to be 1 // Object.is equality
+   × lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after legacy-report changes 96ms
+     → expected +0 to be 1 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/work-eval/gates-counterproof.test.ts > lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after grader-version changes
+ FAIL  tests/work-eval/gates-counterproof.test.ts > lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after case-assertion changes
+ FAIL  tests/work-eval/gates-counterproof.test.ts > lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after fixture-bytes changes
+ FAIL  tests/work-eval/gates-counterproof.test.ts > lint-work-stack-gates counterproof (EV03, E10) > rejects stale evaluation evidence after legacy-report changes
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/work-eval/gates-counterproof.test.ts:49:29
+     47|     }
+     48|     const result = runWorkStackGates({ repoRoot: root, ...quiet });
+     49|     expect(result.exitCode).toBe(1);
+       |                             ^
+     50|     const gates = result.judgements[0]!.gates;
+     51|     expect(gates.find(g => g.gate === "G4")).toMatchObject({ outcome: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 14 skipped (18)
+   Start at  07:04:37
+   Duration  3.64s (transform 1.97s, setup 0ms, collect 2.40s, tests 416ms, environment 0ms, prepare 61ms)
+
+undefined
+/workspace/eval-evidence-trust-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/work-eval/gates-counterproof.test.ts -t rejects stale evaluation evidence

@@ -45,6 +45,7 @@ export interface EvalRunInput {
   subjectVersionDigest: string;
   subjectVersionLabel: string;
   fixturesDigest: string;
+  suiteDigest: string;
   caseFilter?: readonly string[];
   runId: string;
   now?: () => Date;
@@ -128,6 +129,7 @@ export async function runLoopbackEval(input: EvalRunInput): Promise<WorkEvalRepo
     subjectVersionDigest: input.subjectVersionDigest,
     subjectVersionLabel: input.subjectVersionLabel,
     fixturesDigest: input.fixturesDigest,
+    suiteDigest: input.suiteDigest,
     graderVersion: input.grader.version,
     lane: "loopback",
     partial: filter !== null,

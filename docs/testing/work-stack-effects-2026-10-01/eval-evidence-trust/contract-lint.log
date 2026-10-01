@@ -1,0 +1,1 @@
+✗ the generator failed to run: Command failed: pnpm exec tsx scripts/gen-mock.ts

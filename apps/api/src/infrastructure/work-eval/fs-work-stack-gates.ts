@@ -23,7 +23,7 @@ import {
   type GateSubject,
   type GateSuiteState,
 } from "../../application/work-eval/work-stack-gates";
-import { readReferencedFixtures, skillPackageVersion, walk } from "./fs-eval-suite";
+import { evalEvidenceDigests, readReferencedFixtures, skillPackageVersion, walk } from "./fs-eval-suite";
 
 export interface WorkStackGatesOptions {
   repoRoot: string;
@@ -123,7 +123,7 @@ function loadSuite(suiteDir: string, stableId: string): GateSuiteState {
     hasCalibrationDir: existsSync(join(suiteDir, "calibration")),
   });
   if (!bundle.ok) return { state: "invalid", issues: bundle.issues.map(i => `${i.file} ${i.path}: ${i.message}`) };
-  return { state: "ok", suite: bundle.suite, cases: bundle.cases, fixtureFiles, hasCalibrationDir: existsSync(join(suiteDir, "calibration")) };
+  return { state: "ok", suite: bundle.suite, cases: bundle.cases, fixtureFiles, evidenceDigests: evalEvidenceDigests(suiteDir), hasCalibrationDir: existsSync(join(suiteDir, "calibration")) };
 }
 
 function loadReports(repoRoot: string, suiteDir: string, warn: (l: string) => void): GateSubject["reports"] {

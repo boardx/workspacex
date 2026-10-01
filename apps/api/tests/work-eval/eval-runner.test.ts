@@ -40,6 +40,7 @@ describe("harness eval runner (EV02)", () => {
     expect(report.graderVersion).toBe("s003-rules-1.0.1");
     expect(report.subjectVersionDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(report.fixturesDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(report.suiteDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(report.subject.results.map(c => c.caseId)).toEqual(Array.from({ length: 10 }, (_, i) => `E${i + 1}`));
     for (const c of report.subject.results) expect(c, c.caseId).toMatchObject({ outcome: "pass", reason: null });
     expect(report.subject).toMatchObject({ passed: 10, total: 10 });
@@ -148,6 +149,46 @@ export async function grade(...a: Parameters<typeof gradeNow>) { await new Promi
         expect(result.report!.subject.results.every(c => c.outcome === "error" && c.reason?.includes("outputSchema"))).toBe(true);
       } finally { spy.mockRestore(); }
     }
+  });
+
+  it("refuses changed grader bytes in the same process instead of reusing its cached module", async () => {
+    const root = copySuite();
+    const first = await S003(root);
+    expect(first.exitCode).toBe(EXIT.OK);
+    const path = join(root, "S003/grader.ts");
+    const suite = JSON.parse(readFileSync(join(root, "S003/suite.json"), "utf8"));
+    writeFileSync(path, `export const GRADER_VERSION = ${JSON.stringify(suite.graderVersion)};\nexport function grade() { return { outcome: "fail", reason: "grader implementation changed" }; }\n`);
+    const errors: string[] = [];
+    const second = await S003(root, { err: message => errors.push(message) });
+    expect(second.exitCode).toBe(EXIT.SUITE_INVALID);
+    expect(second.reportPath).toBeNull();
+    expect(errors.join("\n")).toContain("fresh process");
+    const fresh = spawnSync(join(repoRoot, "apps/api/node_modules/.bin/tsx"),
+      [join(repoRoot, ".harness/scripts/cli.ts"), "eval", "--entity", "S003", "--evals-root", root],
+      { cwd: repoRoot, encoding: "utf8" });
+    expect(fresh.status, fresh.stderr).toBe(EXIT.CASE_FAILED_OR_ERROR);
+    expect(fresh.stdout).toContain("grader implementation changed");
+  });
+
+  it("does not publish a report when fixture bytes change during execution", async () => {
+    const root = copySuite();
+    const original = s003EnterpriseSearchLoopback.run;
+    let changed = false;
+    const spy = vi.spyOn(s003EnterpriseSearchLoopback, "run").mockImplementation(async (input, tools) => {
+      if (!changed) {
+        const path = join(root, "S003/fixtures/api-migration-minutes.json");
+        writeFileSync(path, `${readFileSync(path, "utf8")}\n`);
+        changed = true;
+      }
+      return original(input, tools);
+    });
+    const errors: string[] = [];
+    try {
+      const result = await S003(root, { err: message => errors.push(message) });
+      expect(result.exitCode).toBe(EXIT.SUITE_INVALID);
+      expect(result.reportPath).toBeNull();
+      expect(errors.join("\n")).toContain("inputs changed while running");
+    } finally { spy.mockRestore(); }
   });
 
   it("E2: case input violating the subject inputSchema → that case is error", async () => {
