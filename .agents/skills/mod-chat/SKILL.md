@@ -53,6 +53,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-01：本地 API/Web 健康与 Caddy 路由声明不能证明 public 实时语音 Upgrade 已到达网关；部署后须用无凭据 RFC6455 请求确认匿名 401，200/404/502/101 和传输失败均阻断。有界 curl 禁用 curlrc、保留 TLS、不带 token、不跟随重定向；401 仅是路由/拒绝信号，不能证明供应商可用（issue #4874，`deploy-readiness.test.ts` 实际 gateway + curl 401/404 回归）。
 - 2026-09-18：composer 的 `@文件名` 只是往正文插纯文本，run 侧此前从不把它翻译回附件——
   `/inputs` 挂载与视觉输入都只看 `message_id = 触发消息`，用户 @ 上一轮的截图，模型在沙箱里
   什么都找不到（devapp 实测）。修法不动契约与前端：两条读路径（`pg-native-run-inputs.ts` /
