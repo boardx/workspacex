@@ -108,6 +108,10 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.setViewportSize({ width: 1280, height: 900 });
   const reportResponse = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.node === "research");
   await page.getByRole("button", { name: "确认并继续", exact: true }).click();
+  await expect(page).toHaveURL(/\/research\/[^/]+\/chapters$/);
+  await page.reload();
+  await expect(page.getByTestId("research-chapters-workspace")).toBeVisible();
+  await page.getByRole("button", { name: "下一步：生成报告", exact: true }).click();
   const streamResponse = await reportResponse;
   expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
   await expect(page.getByTestId("research-report-timeline")).toBeVisible();

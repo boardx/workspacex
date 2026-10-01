@@ -175,7 +175,7 @@ describe("guided research reference layout", () => {
 
   it("uses plan language while the plan is being generated", () => {
     render(<ResearchLoading node="outline" />);
-    expect(screen.getByRole("status")).toHaveTextContent("正在生成计划");
+    expect(screen.getByRole("status")).toHaveTextContent("正在生成研究计划");
     expect(screen.queryByText(/报告大纲|研究方向/)).not.toBeInTheDocument();
   });
 
