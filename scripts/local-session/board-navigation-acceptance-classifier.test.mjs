@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'tsx/esm/api';
-import { assertHeldRotationFrame, rotationEntitySamplePoints, assertToolbarAnchor } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldRotationFrame, rotationEntitySamplePoints, assertToolbarAnchor, assertCaseFixtureRemoved } from './board-navigation-acceptance-classifier.mjs';
 register();
 const { scenePointFromLocal } = await import('../../packages/whiteboard-core/src/spatial-geometry.ts');
 const { boardToolbarPosition } = await import('../../apps/web/components/whiteboard/use-board-toolbar-position.ts');
@@ -40,6 +40,13 @@ const sticky = { id: 'sticky', kind: 'sticky', geometry: { x: 10 } };
 const drawings = ['d1', 'd2'].map(id => ({ id, kind: 'drawing', geometry: { x: 0 }, extensionData: { contentObject: { type: 'drawing', version: 1, strokes: [{ id: `${id}-ink`, tool: 'pen', points: [{ x: 0, y: 0 }, { x: 10, y: 10 }], width: 2 }] } } }));
 const masked = drawings.map(drawing => ({ ...drawing, extensionData: { contentObject: { ...drawing.extensionData.contentObject, strokes: [...drawing.extensionData.contentObject.strokes, { id: 'erase-gesture', tool: 'eraser', points: [{ x: 0, y: 0 }, { x: 10, y: 10 }], width: 3, erases: [`${drawing.id}-ink`] }] } } }));
 const state = (seq, objects = [sticky, ...drawings], epoch = 1) => ({ head: { epoch, seq }, objects });
+test('case fixture cleanup rejects residual arrows, other-object changes and multiple writes', () => {
+  const arrow = { id: 'free-arrow', kind: 'connector' }, before = state(5, [sticky, arrow]);
+  assertCaseFixtureRemoved(before, state(6, [sticky]), arrow.id);
+  assert.throws(() => assertCaseFixtureRemoved(before, state(6, [sticky, arrow]), arrow.id));
+  assert.throws(() => assertCaseFixtureRemoved(before, state(6, [{ ...sticky, geometry: { x: 20 } }]), arrow.id));
+  assert.throws(() => assertCaseFixtureRemoved(before, state(7, [sticky]), arrow.id));
+});
 
 test('held rejects canonical mutation and even an empty server transaction', () => {
   assertHeldUncommitted(state(5), state(5));

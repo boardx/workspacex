@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+export function assertCaseFixtureRemoved(before, after, fixtureId) {
+  assert(before.objects.some(object => object.id === fixtureId), 'cleanup fixture must exist before deletion');
+  assertReleasedOnce(before, after);
+  assert.deepEqual(after.objects, before.objects.filter(object => object.id !== fixtureId), 'case cleanup removes only its fixture and preserves all other objects exactly');
+}
 export function assertToolbarAnchor(actual, expected) {
   assert(Math.abs(actual.x - expected.x) <= 1 && Math.abs(actual.y - expected.y) <= 1, 'held toolbar matches independently measured live-selection anchor and chrome constraints');
 }

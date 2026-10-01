@@ -10,7 +10,7 @@ import {fileURLToPath} from 'node:url';
 import { verifyNavigationRuntime } from './board-navigation-acceptance-runtime.mjs';
 import { savedSequence } from './board-acceptance-runtime.mjs';
 import { createAcceptanceRequestScheduler } from './board-navigation-acceptance-scheduler.mjs';
-import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame, rotationEntitySamplePoints, rotateScenePoint, assertRotationEntities, assertToolbarAnchor } from './board-navigation-acceptance-classifier.mjs';
+import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame, rotationEntitySamplePoints, rotateScenePoint, assertRotationEntities, assertToolbarAnchor, assertCaseFixtureRemoved } from './board-navigation-acceptance-classifier.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const arg = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback;
@@ -492,7 +492,11 @@ try {
       assert.equal(await page.getByRole('menu').count(), 0, 'overlay right-pan cannot open context menu');
       await page.screenshot({ path: join(out, `overlay-${target}-${button}-${width}.png`) });
     }
-    return { edgeId, targets: ['endpoint DOM button', 'body SVG hit path'], buttons: ['middle', 'right'] };
+    const beforeCleanup = await canonicalState();
+    await submit([{ type: 'delete', id: edgeId }]); await synced();
+    const afterCleanup = await poll(canonicalState, value => !value.objects.some(object => object.id === edgeId), 'free-overlay fixture is removed before later renderer cases');
+    assertCaseFixtureRemoved(beforeCleanup, afterCleanup, edgeId);
+    return { edgeId, targets: ['endpoint DOM button', 'body SVG hit path'], buttons: ['middle', 'right'], fixtureCleanup: { beforeHead: beforeCleanup.head, afterHead: afterCleanup.head, onlyOwnedFixtureRemoved: true } };
   });
   await page.screenshot({ path: join(out, `navigation-${width}.png`) });
   }
