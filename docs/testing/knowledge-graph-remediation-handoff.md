@@ -13,3 +13,5 @@
 ## 后续图谱迭代与发布（同日）
 
 用户已明确批准公开issue和PR；GitHub连接恢复，创建issue #4904。关系图改为三栏、独立方向端口、中文聚焦关系与拖动复位。专项3/3端到端和51项单元/组件回归通过，截图与边界见 `evidence/kg-user-acceptance/2026-10-01/graph-redesign/report.md`。PR发布以远端实际状态为准；原E3失败与真实模型质量未验收结论保持。
+
+草稿PR已创建：https://github.com/boardx/workspacex/pull/4906 。完整原始日志公开被自动审批拒绝，日志保留本地；代码、虚构数据截图和结构化结果已发布。

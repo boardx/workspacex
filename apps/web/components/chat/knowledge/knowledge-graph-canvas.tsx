@@ -74,7 +74,7 @@ function GraphView({ data, expanded, onOpenClaim }: { data: ThreadKnowledge; exp
       {selected && <Button size="xs" variant="ghost" className="max-w-full truncate" onClick={() => { setFocus(null); setHover(null); }}>取消聚焦：{selected.label}</Button>}
     </div>
     <div className="relative min-h-0 flex-1">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} nodesDraggable={expanded} nodesConnectable={false} edgesReconnectable={false} onNodesChange={changes => setPlaced(current => applyNodeChanges(changes, current))} fitView minZoom={0.1} maxZoom={1.6} fitViewOptions={{ padding: 0.16, maxZoom: 1 }} proOptions={{ hideAttribution: true }} onNodeMouseEnter={(_e, n) => setHover(n.id)} onNodeMouseLeave={() => setHover(null)} onPaneClick={() => { setFocus(null); setHover(null); }} onNodeClick={(_e, n) => { if (n.id.startsWith("claim:")) onOpenClaim?.(n.id.slice(6)); else setFocus(n.id); }}>
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} nodesDraggable={expanded} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null} onNodesChange={changes => setPlaced(current => applyNodeChanges(changes, current))} fitView minZoom={0.1} maxZoom={1.6} fitViewOptions={{ padding: 0.16, maxZoom: 1 }} proOptions={{ hideAttribution: true }} onNodeMouseEnter={(_e, n) => setHover(n.id)} onNodeMouseLeave={() => setHover(null)} onPaneClick={() => { setFocus(null); setHover(null); }} onNodeClick={(_e, n) => { if (n.id.startsWith("claim:")) onOpenClaim?.(n.id.slice(6)); else setFocus(n.id); }}>
         <Background gap={24} size={1} color="hsl(var(--border))" />
         <GraphTools reset={() => { setPlaced(initial); setFocus(null); setHover(null); }} />
       </ReactFlow>

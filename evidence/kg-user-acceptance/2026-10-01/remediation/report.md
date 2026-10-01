@@ -10,7 +10,7 @@
 
 真实模型服务仍被网络代理拒绝 CONNECT（403），自然语言抽取、真实语义嵌入、完整方案比较、推荐可靠性及真实任务跟踪尚未完成新验收。用户已批准继续，批准没有自动改变环境网络配置。
 
-[逐步截图画廊（图片已内嵌）](experience-gallery.html) · [72页截图PDF](知识图谱端到端截图.pdf) · [机器汇总](check-summary.json) · [69项原始结果](comprehensive-final/results.json) · [每项状态](comprehensive-final/checks.json) · [完整执行日志](comprehensive-final/run.log)
+[逐步截图画廊（图片已内嵌）](experience-gallery.html) · [72页截图PDF](知识图谱端到端截图.pdf) · [机器汇总](check-summary.json) · [69项原始结果](comprehensive-final/results.json) · [每项状态](comprehensive-final/checks.json)。完整命令日志保存在本地，未公开。
 
 ## 已实施及通过复验的修复
 
@@ -45,7 +45,7 @@ KG_EVAL_RUN_ID=kg-remediation-20261001-comprehensive-final \
   pnpm --filter web exec playwright test --config playwright.kg-comprehensive-acceptance.config.ts
 ```
 
-实际栈为生产构建Web、真实Chromium、真实API与抽取/投影worker、PostgreSQL16.6、AGE1.6.0、pgvector0.8.0、Redis6。端口与数据独占、只绑定loopback。聊天模型和256维哈希嵌入为确定性测试服务，**不是用户配置的真实模型**。构建、API/Web/contracts类型检查、API/Web lint通过；API纯函数与环境保护34项、Web组件41项通过。详细日志在 [verification](verification/)。
+实际栈为生产构建Web、真实Chromium、真实API与抽取/投影worker、PostgreSQL16.6、AGE1.6.0、pgvector0.8.0、Redis6。端口与数据独占、只绑定loopback。聊天模型和256维哈希嵌入为确定性测试服务，**不是用户配置的真实模型**。构建、API/Web/contracts类型检查、API/Web lint通过；API纯函数与环境保护34项、Web组件41项通过。公开的结果在 [机器汇总](check-summary.json)；完整命令日志保存在本地，未公开。
 
 所有97张归档PNG来自浏览器原始截图；画廊筛选72张关键步骤，涵盖云端与local通用/研讨型项目、共享权限、来源、预算引用、窄屏、图谱放大及故障/撤销恢复。未用设计图代替运行截图。
 
