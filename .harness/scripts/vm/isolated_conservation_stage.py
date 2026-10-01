@@ -45,15 +45,27 @@ def actual_engine(entry,payload,executor=None):
  if not isinstance(result,dict) or result.get('engineSha256')!=entry['sha256'] or result.get('ownedCleanupVerified') is not True or result.get('actualSqlPeerVerified') is not True:reject('ENGINE_EXECUTION_PROOF_REQUIRED')
  return result
 
+def stop_owned_process(p):
+ try:os.killpg(p.pid,signal.SIGTERM)
+ except ProcessLookupError:pass
+ # Existing owned inspect/rm/network cleanup has individually bounded calls;
+ # allow it to finish before the final fail-closed forced termination deadline.
+ try:p.communicate(timeout=180)
+ except subprocess.TimeoutExpired:
+  try:os.killpg(p.pid,signal.SIGKILL)
+  except ProcessLookupError:pass
+  p.communicate()
+
 def bounded(argv,payload,timeout):
  p=subprocess.Popen(argv,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,start_new_session=True,env={'PATH':'/usr/local/bin:/usr/bin:/bin','LANG':'C','LC_ALL':'C'})
  try:
   raw,_=p.communicate(json.dumps(payload).encode(),timeout=timeout)
  except subprocess.TimeoutExpired:
-  os.killpg(p.pid,signal.SIGTERM)
-  try:p.communicate(timeout=15)
-  except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.communicate()
+  stop_owned_process(p)
   reject('ENGINE_TIMEOUT')
+ except BaseException:
+  stop_owned_process(p)
+  raise
  if p.returncode!=0 or len(raw)>16*1024*1024:reject('ENGINE_FAILED')
  return json.loads(raw)
 
@@ -154,6 +166,12 @@ def run_stage(payload,reader=private_bytes,invoke=actual_engine):
  if stage in ['before','after']:out['databases']=list(DBS)
  return out
 if __name__=='__main__':
+ def terminate(signum,frame):
+  signal.signal(signal.SIGTERM,signal.SIG_IGN)
+  signal.signal(signal.SIGINT,signal.SIG_IGN)
+  raise KeyboardInterrupt()
+ signal.signal(signal.SIGTERM,terminate)
+ signal.signal(signal.SIGINT,terminate)
  try:
   if os.geteuid()!=0:reject('ROOT_REQUIRED')
   raw=sys.stdin.buffer.read(16*1024*1024+1)
