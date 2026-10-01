@@ -149,7 +149,7 @@ describe("#387 trusted full-stack gate contract", () => {
   it("keeps a real passing test green when it logs the empty-run phrase", async () => {
     const result = await runWrapper({ vitestCase: "logged-empty" });
     expect(result.code, result.stderr).toBe(0);
-    expect(result.stdout).toMatch(/Tests\s+1 passed/);
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
     expect(result.stderr).not.toContain("零测试执行");
   }, 60_000);
 
