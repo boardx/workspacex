@@ -144,4 +144,9 @@ export * as workEval from "./work-eval";
 /** #4787 通用项目邀请（邮箱 / 链接 → 组织成员 + 通用项目 collaborator）。 */
 export * as projectInvitation from "./project-invitation";
 
+/* ── phase-21 契约束（billing-payment，两束，2026-10-01 建，
+ *   design-signoff.md 待人类签核）────────────────────────────────────── */
+export * as billingCredits from "./billing-credits";
+export * as billingSubscription from "./billing-subscription";
+
 export { tagInputLimits, type TagInputLimits } from "./tag-input-limits";

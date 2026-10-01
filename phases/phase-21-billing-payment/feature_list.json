@@ -1,0 +1,357 @@
+{
+  "phase": "21",
+  "features": [
+    {
+      "id": "F-TBD-billing-schema",
+      "priority": 1,
+      "area": "billing-credits",
+      "title": "计费域数据表迁移与套餐种子数据",
+      "user_visible_behavior": "运行数据库迁移后出现 credit_packages / billing_orders / credit_wallets / credit_transactions / org_billing_settings / billing_webhook_events 六张表；credit_packages 含部署种子套餐（amount_fen 与 base_credits + bonus_credits = total_credits 一致）；credit_wallets 对 (owner_type, owner_id) 唯一、billing_webhook_events.provider_event_id 唯一、流水 (source_type, source_id, type) 去重键全部生效（迁移可重复执行、可回滚）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "02-payment-order-notify.md#R6",
+      "depends_on": [],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/schema-migration.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据契约束 billing-credits domain.md §二/§四（I-4/I-7/I-2）；语义对齐参考实现但按本仓 NestJS+Postgres 重做（00 R10）。跨束共享表 billing_webhook_events 由本 feature 单源创建（provider 列含 wechat/stripe，subscription 束只引用不重复建，design-coherence XC-01）。覆盖 V15 的数据侧。requirements 无 `估点 **n**` 头部，点数由 requirement-author 估定。束 design-signoff.md 尚未人类签核，开工前须补签（ADR-023）。"
+    },
+    {
+      "id": "F-TBD-billing-config",
+      "priority": 2,
+      "area": "billing-credits",
+      "title": "渠道配置读模型与支付骨架收敛（不阻塞启动）",
+      "user_visible_behavior": "GET /billing/config 返回 { enabledProviders }：渠道已配置时为 [\"wechat\"]（启用 Stripe 时含 stripe），未配置时为空数组而非报错，前端据此隐藏入口；微信/Stripe 密钥类环境变量全部缺失时 api 服务照常启动；旧的 region→provider 骨架（packages/contracts/src/payment.ts、apps/api/src/infrastructure/payment/、payment.controller.ts、tests/payment/payment-config.test.ts）被删除或并入新契约，全仓不存在第二份渠道判定事实源。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "00-overview.md#R2",
+      "depends_on": [],
+      "points": 4,
+      "wave": 1,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/billing-config.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/billing/billing-operations-export.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据 00 R2-3（未启用渠道配置缺失不得卡启动）与 R10（骨架并入或重写）；契约 domain.md 现状基线：GET /billing/config 返回 [] 不用 HTTP 错误表达未配置（覆盖 V2/V4 的 API 侧）。契约文件 billing-credits.ts / billing-subscription.ts 已存在并 export（packages/contracts/src/index.ts），本 feature 负责删除旧 payment.ts、校验单源与挂载路由。连带门：/billing/* 路径落地时同步 apps/web/lib/navigation.ts 与 nav-reachability 配置（contract-design「物化③连带门」）。"
+    },
+    {
+      "id": "F-TBD-credit-order-core",
+      "priority": 3,
+      "area": "billing-credits",
+      "title": "充值订单主链路：套餐列表、创建订单、订单查询",
+      "user_visible_behavior": "已登录用户 GET /billing/packages 只看到 enabled 且匹配主体类型（个人/组织）的套餐；POST /billing/orders 只传 packageId 与主体（前端不传任何金额字段）即创建 PENDING 订单，返回 15 分钟有效期的二维码链接与套餐快照；微信 Native 下单失败时订单不落库、返回 wechat_upstream_failed 可重试；GET /billing/orders/:orderNo 按归属校验，他人订单或不存在一律 order_not_found；组织普通成员下单 403、套餐下架 package_disabled、未配置渠道 payment_provider_not_configured。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "01-credits-topup.md#R3",
+      "depends_on": [
+        "F-TBD-billing-schema",
+        "F-TBD-billing-config"
+      ],
+      "points": 7,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/order-core.test.ts",
+        "pnpm --filter api exec vitest run tests/billing/order-ownership.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数），前端金额字段一律忽略并记录可疑请求（01 R7-1）。"
+    },
+    {
+      "id": "F-TBD-wallet-ledger-query",
+      "priority": 4,
+      "area": "billing-credits",
+      "title": "钱包余额与流水查询（归属校验 + 游标分页）",
+      "user_visible_behavior": "用户查自己的钱包得到余额/累计充值/累计发放；从未有过钱包记录时返回全零空钱包而非 404；流水列表可按类型筛选、游标分页（limit≤100），每笔含 credits 与 balance_after，空列表合法；查他人钱包/流水 403，无权限不泄露资源存在性；组织钱包按开放问题 Q5 暂定 owner/admin 可读。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "04-billing-admin.md#R3",
+      "depends_on": [
+        "F-TBD-billing-schema"
+      ],
+      "points": 4,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V1/V9/V17 的查询侧（UC-BC-5/6）；I-3 账实相符的查询侧断言（balance == Σ流水 credits×direction）。组织成员可见性为开放问题 Q5（契约暂按 owner/admin + 平台管理员）。被收银台/管理端/组织区块三处 UI 共用，查询能力只此一处实现（横切收敛，不重复计点）。"
+    },
+    {
+      "id": "F-TBD-wechat-notify",
+      "priority": 5,
+      "area": "billing-credits",
+      "title": "微信支付回调：验签解密、原子抢占与幂等入账",
+      "user_visible_behavior": "微信服务端回调到达 raw body 端点后：验签/解密失败直接应答 FAIL 且不入账并记安全审计；验签通过的 SUCCESS 回调经一致性校验（订单存在、金额与快照一致）后原子抢占 PENDING→PROCESSING，钱包增加基础额度+赠送额度两笔流水、订单置 SUCCESS 并写 paid_at/notify_at；重复回调按 provider_event_id 幂等、并发回调至多入账一次；已关闭订单收到成功回调按资金真实性优先入账并留痕告警；处理中回调应答 FAIL 促使微信重试（崩溃重启后重试按幂等继续，不丢单不双记）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "02-payment-order-notify.md#R3",
+      "depends_on": [
+        "F-TBD-billing-schema",
+        "F-TBD-billing-config"
+      ],
+      "points": 8,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/wechat-notify-verify.test.ts",
+        "pnpm --filter api exec vitest run tests/billing/wechat-notify-crediting.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V9–V14 与 I-1/I-2/I-5/I-6/I-7/I-14；UC-BC-7 + 内部端口 UC-BC-I5（验签/解密）、UC-BC-I1（条件更新抢占）、UC-BC-I2（入账内核，单事务不部分入账）。raw body 不进通用 JSON 解析（参考 main.ts 的 raw 先例）；密钥（API v3 密钥/商户私钥/平台公钥证书）只从部署配置读取；应答 <5s（先占单再入账、处理与应答分离，02 R7）。入账内核是本束唯一实现，F-TBD-mock-paid 复用而非重写（横切收敛）。验签跳过是参考实现的已知缺陷（00 R2-1），任何分支禁止进入生产。"
+    },
+    {
+      "id": "F-TBD-order-close-task",
+      "priority": 6,
+      "area": "billing-credits",
+      "title": "过期订单定时关闭任务",
+      "user_visible_behavior": "创建超过 15 分钟仍未支付的 PENDING 订单被服务端定时任务自动置为 CLOSED 并写入 closed_at（用户重新打开收银台看到「已过期，请重新生成」）；任务幂等且只动 PENDING 订单，未到期的 PENDING 订单与任何终态订单不受影响。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WORKFLOW",
+      "spec_ref": "02-payment-order-notify.md#R6",
+      "depends_on": [
+        "F-TBD-billing-schema"
+      ],
+      "points": 3,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V4/V15 的 PENDING→CLOSED 边（I-10：created_at+15min≤now 才可关、只动 PENDING；状态迁移必须写 closed_at，I-14）。参考实现没有这个任务（00 R2-2 禁止照搬缺失），本 feature 必须实现。运行通道（pg-boss 作业 vs 进程内定时器）与周期（建议 ≤5 分钟）为开放问题 Q3，落地时与仓库既有基础设施对齐。"
+    },
+    {
+      "id": "F-TBD-mock-paid",
+      "priority": 7,
+      "area": "billing-credits",
+      "title": "非生产环境 mock 支付通道",
+      "user_visible_behavior": "非生产环境（NODE_ENV!=production）测试人员 POST /billing/orders/:orderNo/mock-paid 后订单经与真实回调完全相同的抢占+入账内核推进到 SUCCESS、钱包与流水同步入账；生产环境调用恒返回 403（mock_forbidden）且订单状态不变。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "02-payment-order-notify.md#R4",
+      "depends_on": [
+        "F-TBD-wechat-notify"
+      ],
+      "points": 3,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/mock-paid.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V16（UC-BC-8）；复用 F-TBD-wechat-notify 的 UC-BC-I1/I2 内核（与参考实现的 mock-paid 语义对齐：生产禁用 00 R2/R4-E6），不重复实现入账逻辑。本地与 CI 验证依赖此通道（无真实商户号场景，00 R6）。"
+    },
+    {
+      "id": "F-TBD-admin-grant",
+      "priority": 8,
+      "area": "billing-credits",
+      "title": "平台管理端：查任意钱包与人工发放额度",
+      "user_visible_behavior": "平台管理员 GET /billing/admin/wallets/:ownerType/:ownerId 查任意用户/组织钱包（不存在返回 owner_not_found 而非空壳）；POST /billing/admin/credits/grant 填正整数额度与必填原因后，同一事务内钱包累加并新增一笔带操作者与原因的 grant 流水，发放后余额与流水一致可查；非平台角色 403；额度≤0 或非整数 invalid_amount、缺原因 reason_required；并发发放每笔独立流水不丢笔。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "04-billing-admin.md#R3",
+      "depends_on": [
+        "F-TBD-wallet-ledger-query"
+      ],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/admin-grant.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V17/V18 的 API 侧（UC-BC-9/10）；I-8 发放留痕（operator_id 与 reason 非空、source_type=admin_grant）、I-3 余额与流水同事务提交。发放限额/二次确认/审批流为本阶段不包含（04 R6，开放问题 Q4）。"
+    },
+    {
+      "id": "F-TBD-org-billing-setting",
+      "priority": 9,
+      "area": "billing-credits",
+      "title": "组织计费开关：读写设置并作用于新建订单",
+      "user_visible_behavior": "组织 owner/admin（或平台管理员）GET/PATCH /billing/org-settings/:orgId 读写本组织计费开关；关闭后该组织 POST /billing/orders 被拒（org_billing_disabled）且新购买入口不可用，而已有订单、钱包余额、流水与回调入账完全不受影响；普通成员操作 403、组织不存在 owner_not_found。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "04-billing-admin.md#R7",
+      "depends_on": [
+        "F-TBD-credit-order-core"
+      ],
+      "points": 4,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/org-billing-setting.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V19（UC-BC-11/12 + createPaymentOrder 的 I-12 校验分支接入）；I-12 开关只控新建、不触碰任何历史数据（04 R7-3）。依赖 F-TBD-credit-order-core 以接入下单校验分支。"
+    },
+    {
+      "id": "F-TBD-cashier-ui",
+      "priority": 10,
+      "area": "billing-credits",
+      "title": "收银台弹窗：套餐选择、二维码、轮询与全终态",
+      "user_visible_behavior": "用户从个人菜单「购买额度」打开收银台弹窗：看到套餐列表（加载骨架屏、空态不编造套餐）；选套餐后点「生成二维码」进入待支付态——二维码本地 canvas 渲染（billing-qr-code-area）、订单号/金额/15 分钟每秒倒计时（billing-order-countdown）；每 3 秒轮询订单状态、轮询失败保持当前提示不误报成功/失败（billing-refresh-hint）、可手动刷新（billing-refresh-status）；轮询到成功显示到账徽标与「本次到账」额度且余额/流水即时更新（billing-order-credited）；过期显示 warning 遮罩+重新生成（billing-regenerate）；失败显示 destructive 用户可读原因+重试；渠道未配置时入口不可达且绝不渲染永远扫不成功的二维码；组织普通成员打开显示整窗权限说明（billing-cashier-denied）不泄露余额。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "spec_ref": "01-credits-topup.md#R8",
+      "depends_on": [
+        "F-TBD-credit-order-core",
+        "F-TBD-wallet-ledger-query",
+        "F-TBD-billing-config"
+      ],
+      "points": 8,
+      "wave": 3,
+      "design_ref": "ui-preview/billing-credits/01-cashier-*.png（11 张，个人/组织双主体）；apps/web/components/billing/cashier-dialog.tsx + qr-panel.tsx",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/billing-cashier.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V1–V6 的 UI 侧；稳定 testid 见契约束 ui.md §二（billing-cashier-dialog / billing-generate-qr / billing-qr-code-area / billing-order-countdown / billing-refresh-status / billing-regenerate / billing-success-badge / billing-cashier-denied 等，已随原型交付）。原型 mock（apps/web/lib/mock/billing.ts）是界面投影，实现期按 ADR-020 收敛为从契约生成的客户端。生产挂载点 apps/web/components/shell/personal-menu.tsx（原型未改生产菜单，本 feature 落地接入「购买额度」MenuItem）。轮询间隔 3s 不得更密（00 R9）。支付宝置灰+「未开通」为 UI 先行决策（ui-preview README 待确认清单）。"
+    },
+    {
+      "id": "F-TBD-admin-ui",
+      "priority": 11,
+      "area": "billing-credits",
+      "title": "计费管理端：钱包卡、流水表与发放表单",
+      "user_visible_behavior": "平台管理员打开计费管理端看到指定主体的钱包卡（余额+累计）与流水分页表（空态不编造、查询失败显示依赖失败态）；发放表单对额度正整数与原因必填做行内校验（billing-err-grant-amount / billing-err-grant-reason）；提交前二次确认弹窗列出主体/额度/原因/发放后余额四项影响（billing-grant-confirm-dialog）；确认后余额与流水即时更新并显示成功回显（billing-grant-saved）；非平台角色不可达（billing-admin-denied）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "spec_ref": "04-billing-admin.md#R8",
+      "depends_on": [
+        "F-TBD-admin-grant",
+        "F-TBD-wallet-ledger-query"
+      ],
+      "points": 6,
+      "wave": 4,
+      "design_ref": "ui-preview/billing-credits/04-admin-*.png（8 张）；apps/web/components/billing/admin-console.tsx",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/billing-admin-console.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V17/V18 的 UI 侧；testid billing-admin-host / billing-admin-subject / billing-admin-denied / billing-grant-* / billing-ledger-table / billing-ledger-empty（ui.md §二）。管理端路由挂载点与 nav-reachability 配置落地时同步（contract-design「物化③连带门」）。流水分页 5 条/页为原型决策（ui-preview README 待确认清单）。"
+    },
+    {
+      "id": "F-TBD-org-billing-ui",
+      "priority": 12,
+      "area": "billing-credits",
+      "title": "组织管理页计费区块：组织钱包、购买入口与开关",
+      "user_visible_behavior": "组织 owner/admin 在组织管理页看到计费区块（billing-org-host）：组织钱包余额与流水、「为组织购买」入口、组织计费开关（billing-org-billing-toggle）；关闭开关后新购买入口禁用并出现 warning 说明条「已购余额不受影响」（billing-org-billing-off-note），已购余额与流水仍可见；开关保存有回显（billing-org-toggle-saved）；普通成员看不到该区块（billing-org-denied）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "spec_ref": "04-billing-admin.md#R5",
+      "depends_on": [
+        "F-TBD-org-billing-setting",
+        "F-TBD-wallet-ledger-query"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "ui-preview/billing-credits/04-org-billing-*.png（3 张）；apps/web/components/billing/org-billing-section.tsx",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/billing-org-section.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V19 的 UI 侧 + 01 R8 的组织购买入口（UI 先行已合并 01/04 两个入口为同一区块）；testid billing-org-*（ui.md §二）。生产挂载点（org-admin 哪个子页）为待确认项（ui-preview README 待确认清单，原型独立成屏）。「为组织购买」打开收银台走 F-TBD-cashier-ui 的组织主体形态。"
+    },
+    {
+      "id": "F-TBD-subscription-backend",
+      "priority": 13,
+      "area": "billing-subscription",
+      "title": "Stripe 订阅读模型：状态查询、升级与管理链接",
+      "user_visible_behavior": "已登录用户 GET /billing/subscription 得到订阅状态（无记录返回 none 而非错误；绝不在有记录时把已订阅报成 none）；免费用户 GET /billing/subscription/upgrade-link 得到带用户引用与语言预填的 Stripe 托管支付链接（已订阅返回 already_subscribed、Stripe 未配置返回 payment_provider_not_configured）；已订阅用户 GET /billing/subscription/management-link 得到 Billing 门户链接（未订阅返回 not_subscribed）；Stripe 密钥配置缺失时 api 服务照常启动。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "03-subscription-stripe.md#R3",
+      "depends_on": [
+        "F-TBD-billing-schema",
+        "F-TBD-billing-config"
+      ],
+      "points": 5,
+      "wave": 2,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/subscription-links.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V1/V2/V4/V7/V8 的 API 侧（UC-BS-1/2/3 + billing_subscriptions 表迁移）；I-1 单写者（用户侧接口只读）、I-4 回跳纯读、I-5 链接按状态单义、I-6 未配置不阻塞启动。enabledProviders 与 F-TBD-billing-config 同源（design-coherence XC-01），本 feature 只消费不另定义。管理门户形态（静态 URL vs 运行时 portal session）为开放问题 Q2→Q3，契约输出恒为 {url}。"
+    },
+    {
+      "id": "F-TBD-stripe-webhook-sync",
+      "priority": 14,
+      "area": "billing-subscription",
+      "title": "Stripe webhook：验签、幂等与订阅状态同步",
+      "user_visible_behavior": "Stripe 事件到达 raw body 端点后：验签失败返回 400 且不写任何表、不改变任何状态（仅拒绝审计）；验签通过的订阅创建/更新/取消事件按用户 upsert 唯一订阅行（status/周期/取消标记随之更新，webhook 是订阅状态唯一写者）；重放事件按 provider_event_id 幂等不产生第二次副作用；未覆盖的事件类型记 ignored 审计并返回 200（不因未知事件 5xx 引发重试风暴）；处理中异常返回 500 促使 Stripe 重试。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-DATA",
+      "spec_ref": "03-subscription-stripe.md#R7",
+      "depends_on": [
+        "F-TBD-subscription-backend"
+      ],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/billing/stripe-webhook.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V3/V5/V6（UC-BS-4 + 内部端口 UC-BS-I1 SubscriptionEventApplier.apply）；I-1/I-2/I-3/I-7。复用 F-TBD-billing-schema 的 billing_webhook_events 表（provider=stripe，order_no 为 null），不重复建表。事件最小集（建议 checkout.session.completed + customer.subscription.created/updated/deleted）为开放问题 Q2，实现 PR 内列明清单并留证据；取消生效时点按 Stripe 的 cancel_at_period_end 落库。"
+    },
+    {
+      "id": "F-TBD-subscription-ui",
+      "priority": 15,
+      "area": "billing-subscription",
+      "title": "订阅弹窗五变体与用户菜单订阅入口",
+      "user_visible_behavior": "免费用户在用户菜单看到「升级订阅」入口（billing-menu-subscription），打开订阅弹窗看到计划说明与升级按钮（billing-upgrade-btn），点击跳转 Stripe 托管支付页；已订阅用户在菜单显示 Pro 徽标（billing-menu-sub-badge）与「我的订阅」入口，弹窗显示状态与「管理订阅」按钮（billing-manage-btn，不再售卖升级）；从 Stripe 回跳后 webhook 未到达时显示「同步中，请勿重复购买」（billing-sub-syncing），绝不把已订阅显示为免费；已取消订阅弹窗两处讲清生效时点（billing-sub-cancel-note）；Stripe 未配置时入口不可达不跳无效地址；未登录不可用（billing-sub-denied）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "spec_ref": "03-subscription-stripe.md#R8",
+      "depends_on": [
+        "F-TBD-subscription-backend",
+        "F-TBD-billing-config"
+      ],
+      "points": 6,
+      "wave": 3,
+      "design_ref": "ui-preview/billing-subscription/03-subscription-*.png（7 张）+ menu-entries-*.png（2 张）；apps/web/components/billing/subscription-dialog.tsx",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/billing-subscription.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖 V1–V4/V7 的 UI 侧；testid billing-sub-dialog / billing-sub-status / billing-upgrade-btn / billing-manage-btn / billing-sub-syncing / billing-sub-cancel-note / billing-menu-subscription / billing-menu-sub-badge（ui.md §二）。生产挂载 personal-menu.tsx 与 F-TBD-cashier-ui 的菜单项同文件，注意合并顺序（两个 feature 都只加自己的 MenuItem）。trial 展示语义为开放问题 Q4（契约暂按已订阅）；mock 价格 ¥49/月 非契约；planRef→文案映射属 UI 层（Q1，不做计划目录）。"
+    }
+  ]
+}

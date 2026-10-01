@@ -108,5 +108,9 @@
     "work-eval": "ui-preview/work-eval",
     "work-skill-meta": "ui-preview/skill-catalog",
     "workflow-runtime": "ui-preview/workflow-runtime"
+  },
+  "phase-21-billing-payment": {
+    "billing-credits": "ui-preview/billing-credits",
+    "billing-subscription": "ui-preview/billing-subscription"
   }
 }

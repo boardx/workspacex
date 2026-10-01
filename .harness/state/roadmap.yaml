@@ -132,3 +132,10 @@ phases:
     status: not_started
     depends_on: []
     has_ui: true
+  - id: "21"
+    slug: billing-payment
+    name: billing-payment
+    goal: "参考 boardx-backend 与 boardx-web 的既有支付实现，交付 WorkSpaceX 的支付/计费能力：微信 Native 扫码与 Stripe 订阅的完整闭环（下单→扫码/跳转→回调→到账→查询），含前端收银台与必要的管理端"
+    status: not_started
+    depends_on: []
+    has_ui: true
