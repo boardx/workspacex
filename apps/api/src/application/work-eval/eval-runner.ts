@@ -45,6 +45,7 @@ export interface EvalRunInput {
   subjectVersionDigest: string;
   subjectVersionLabel: string;
   fixturesDigest: string;
+  suiteDigest: string;
   caseFilter?: readonly string[];
   runId: string;
   now?: () => Date;
@@ -85,6 +86,10 @@ async function runCase(c: WorkEvalCase, input: EvalRunInput, agent: LoopbackAgen
     const graded = await withTimeout(
       (async () => {
         const output = await agent.run(c.input as LoopbackCaseInput, toolbox);
+        if (agent.outputSchema) {
+          const parsed = agent.outputSchema.safeParse(output);
+          if (!parsed.success) throw new Error(`output does not satisfy outputSchema: ${parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+        }
         return await input.grader.grade(c.expect.assertions, output as never, toolbox.trace);
       })(),
       input.suite.caseTimeoutMs,
@@ -124,6 +129,7 @@ export async function runLoopbackEval(input: EvalRunInput): Promise<WorkEvalRepo
     subjectVersionDigest: input.subjectVersionDigest,
     subjectVersionLabel: input.subjectVersionLabel,
     fixturesDigest: input.fixturesDigest,
+    suiteDigest: input.suiteDigest,
     graderVersion: input.grader.version,
     lane: "loopback",
     partial: filter !== null,

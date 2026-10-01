@@ -22,6 +22,7 @@ import type {
   RunFailureCode, RunLocator, RunProjection, ThreadHistoryMessage,
 } from "../../src/application/agent-run/ports";
 import { ModelCallError } from "../../src/application/agent-run/ports";
+import { ROLE_CONTEXT_GUIDANCE } from "../../src/application/agent-run/role-context-guidance";
 import { classifyModelCallFailureReason } from "../../src/domain/agent-run/model-call-failure-reason";
 import type { Guarded } from "../../src/application/security/permission-filter";
 import type { ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -445,4 +446,19 @@ describe("#3403 ④ a run that dies with a tool call still open blames the tool,
 
     expect(store.failedReason).toBe("provider_timeout");
   });
+});
+
+it("selected role and memory boundary reach the real executor model port without deleting personal history", async () => {
+  const instructions = "Turn discovery signals into prioritized problem statements and PRDs.";
+  const run = baseRun({ instructions, inputText: "你可以做什么？", projectId: null, skillVersionIds: [] });
+  const store = fakeStore(run, []);
+  store.readThreadHistory = async () => [{ role: "user", content: "我的方向是佛学的冥想" }];
+  let received: ModelCallInput | undefined;
+  const model: ModelCallPort = { complete: async (input) => { received = input; return { text: "captured", inputTokens: 1, outputTokens: 1 }; } };
+  await executeQueuedRuns(deps(store, model), { orgId: ORG });
+  expect(received?.system).toContain(instructions);
+  expect(received?.system).toContain(ROLE_CONTEXT_GUIDANCE);
+  expect(received?.history).toContainEqual({ role: "user", content: "我的方向是佛学的冥想" });
+  expect(received?.user).toBe("你可以做什么？");
+  // This checks transport and boundaries, not real-model obedience.
 });

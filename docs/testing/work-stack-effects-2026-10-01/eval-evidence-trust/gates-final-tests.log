@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/gates-counterproof.test.ts (19 tests) 809ms
+ ✓ tests/work-eval/gates-g0-g4.test.ts (12 tests) 6856ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 6489ms
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  07:10:14
+   Duration  11.30s (transform 1.77s, setup 0ms, collect 2.64s, tests 7.67s, environment 0ms, prepare 129ms)

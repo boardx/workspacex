@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { suiteCoverageGaps, validateWorkEvalSuiteBundle, WorkEvalCase, WorkEvalSuite } from "../../src/work-eval";
+import { suiteCoverageGaps, validateWorkEvalSuiteBundle, WorkEvalCase, WorkEvalSuite, WorkEvalReport } from "../../src/work-eval";
 
 const suite = {
   schemaVersion: 1,
@@ -75,5 +75,21 @@ describe("WorkEvalSuite / WorkEvalCase (EV01)", () => {
     expect(WorkEvalCase.safeParse({ ...JSON.parse(caseLine("E1")), fixtureRefs: ["../x.json"] }).success).toBe(false);
     const cases = [WorkEvalCase.parse(JSON.parse(caseLine("E1")))];
     expect(suiteCoverageGaps(cases)).toEqual(["permission-denial", "prompt-injection"]);
+  });
+});
+
+
+describe("WorkEvalReport evidence identity", () => {
+  it("reads legacy reports but validates new suite digests when supplied", () => {
+    const report = {
+      schemaVersion: 1, runId: "legacy", stableId: "S003",
+      subjectVersionDigest: `sha256:${"a".repeat(64)}`, subjectVersionLabel: "legacy",
+      fixturesDigest: `sha256:${"b".repeat(64)}`, graderVersion: "1.0.0",
+      lane: "loopback", partial: false, subject: { results: [], passed: 0, total: 0 }, baseline: null,
+      startedAt: "2026-10-01T00:00:00.000Z", finishedAt: "2026-10-01T00:00:01.000Z",
+    };
+    expect(WorkEvalReport.safeParse(report).success).toBe(true);
+    expect(WorkEvalReport.safeParse({ ...report, suiteDigest: `sha256:${"c".repeat(64)}` }).success).toBe(true);
+    expect(WorkEvalReport.safeParse({ ...report, suiteDigest: "unverifiable" }).success).toBe(false);
   });
 });

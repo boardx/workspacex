@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/gates-counterproof.test.ts (18 tests) 807ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  07:07:04
+   Duration  3.64s (transform 1.70s, setup 0ms, collect 2.10s, tests 807ms, environment 0ms, prepare 71ms)

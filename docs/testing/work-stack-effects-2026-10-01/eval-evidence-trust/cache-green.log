@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/eval-runner.test.ts (19 tests | 18 skipped) 2475ms
+   ✓ harness eval runner (EV02) > refuses changed grader bytes in the same process instead of reusing its cached module 2474ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 18 skipped (19)
+   Start at  07:13:38
+   Duration  6.57s (transform 2.28s, setup 0ms, collect 3.11s, tests 2.48s, environment 0ms, prepare 159ms)

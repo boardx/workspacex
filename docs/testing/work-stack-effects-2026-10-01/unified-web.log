@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/web
+
+ ✓ tests/ui/agent-directory.test.tsx (21 tests) 1013ms
+ ✓ tests/ui/admin-agent-catalog.test.tsx (7 tests) 1396ms
+   ✓ Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板 > ① 两种来源的卡片在同一个网格里，靠标签区分；② 没有视图切换与分页 330ms
+   ✓ Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板 > ③ 点卡片打开侧边面板：字段、就地改名（真的打 mutate）、停用确认都在面板里 344ms
+   ✓ Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板 > 官方角色启用后同时重新读取目录条目和可执行定义 357ms
+ ✓ tests/ui/home-config-admin-v2.test.tsx (19 tests) 937ms
+   ✓ 横幅：自定义颜色 > 选「自定义」后出现输入区并给一个合法初值；改成非法值即时报错，改回合法值报错消失 340ms
+ ✓ tests/ui/admin-official-digital-human.test.tsx (5 tests) 490ms
+   ✓ 后台官方数字人发现与启用 > 显式打开才读取；启用传完整依赖要约并刷新后台目录 365ms
+ ✓ tests/lib/official-role-import-scope.test.ts (7 tests) 9ms
+ ✓ tests/lib/home-config-v2.test.ts (23 tests) 20ms
+
+ Test Files  6 passed (6)
+      Tests  82 passed (82)
+   Start at  06:54:31
+   Duration  12.08s (transform 6.41s, setup 1.82s, collect 17.19s, tests 3.86s, environment 7.75s, prepare 723ms)
+

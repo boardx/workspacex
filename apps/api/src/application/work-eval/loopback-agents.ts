@@ -10,6 +10,8 @@
  * 真实模型链路不在此处：只走 real-model-e2e lane（lane=real-model，不参与 G4/G5）。
  */
 import { z } from "zod";
+import { S003InputSchema, S003OutputSchema } from "./s003-contract";
+export { S003InputSchema } from "./s003-contract";
 import type { FixtureDocument, FixtureToolbox } from "./fixture-tools";
 
 export interface LoopbackCaseInput {
@@ -24,10 +26,11 @@ export interface LoopbackAgent {
   /** 回环策略版本；与被测内容 digest 一起决定报告可复现性。 */
   readonly policyVersion: string;
   /**
-   * 被测实体的 inputSchema（S003 实体文档 §5；WorkSkillManifest 尚为 proposed-unwired，故在此镜像）。
+   * 被测实体的 inputSchema（S003 实体文档 §5；WorkSkillManifest 由 S003 machine contract 单源提供）。
    * case.input 不满足 → 该 case 为 error（04-eval-gates R4 E2）。
    */
   readonly inputSchema?: z.ZodType<unknown>;
+  readonly outputSchema?: z.ZodType<unknown>;
   run(input: LoopbackCaseInput, tools: FixtureToolbox): Promise<Record<string, unknown>>;
 }
 
@@ -72,34 +75,22 @@ function aliasTerms(question: string, docs: readonly FixtureDocument[]): string[
 }
 
 /** S003 企业检索（回环）。 */
-/** S003 实体文档 §5 输入契约的镜像。 */
-export const S003InputSchema = z
-  .object({
-    question: z.string().min(1),
-    mode: z.enum(["evidence", "dedupe"]),
-    queryType: z.enum(["decision", "status", "locate", "who-knows", "policy", "timeline", "exists"]).optional(),
-    projectIds: z.array(z.string()).optional(),
-    scopes: z.array(z.enum(["current-files", "organization-index", "organization-hybrid"])).optional(),
-    timeWindow: z.object({ from: z.string().optional(), to: z.string().optional() }).strict().optional(),
-    researchPlanItemRef: z.string().optional(),
-    maxHitsPerItem: z.number().int().min(1).max(10).optional(),
-  })
-  .strict();
-
 export const s003EnterpriseSearchLoopback: LoopbackAgent = {
   inputSchema: S003InputSchema,
-  policyVersion: "s003-loopback-1.0.0",
+  outputSchema: S003OutputSchema,
+  policyVersion: "s003-loopback-1.0.1",
   async run(input, tools) {
     const question = input.question;
     const scopes = input.scopes && input.scopes.length > 0 ? input.scopes : [DEFAULT_SCOPE];
-    const queriesRun: QueryRun[] = [];
-    const coverageGaps: { itemId: string; reason: string }[] = [];
+    const declaredAt = new Date().toISOString();
+    const queriesRun: (QueryRun & { hitCount: number })[] = [];
+    const coverageGaps: { itemId: string; reason: string; suggestion: string }[] = [];
     const found = new Map<string, FixtureDocument>();
     let blocked = false;
 
     const searchOnce = (query: string, scope: string): FixtureDocument[] => {
       const r = tools.search(query, scope);
-      queriesRun.push({ scope, query, status: r.status });
+      queriesRun.push({ scope, query, status: r.status, hitCount: r.documents.length });
       return r.documents;
     };
 
@@ -108,16 +99,16 @@ export const s003EnterpriseSearchLoopback: LoopbackAgent = {
       const res = queriesRun[queriesRun.length - 1];
       if (res?.status === "unavailable") {
         blocked = true;
-        coverageGaps.push({ itemId: "I1", reason: "retrieval-unavailable" });
+        coverageGaps.push({ itemId: "I1", reason: "retrieval-unavailable", suggestion: "Retry when retrieval is available." });
         continue;
       }
       if (res?.status === "not-configured") {
-        coverageGaps.push({ itemId: "I1", reason: scope === "organization-hybrid" ? "hybrid-not-configured" : "scope-not-configured" });
+        coverageGaps.push({ itemId: "I1", reason: scope === "organization-hybrid" ? "hybrid-not-configured" : "scope-not-indexed", suggestion: "Configure or index the declared scope." });
         continue;
       }
       // 查询变体：从首轮命中里学到的英文代号/缩写再各查一次（中文/英文代号/拼音缩写）。
       const docs = [...first];
-      for (const alias of aliasTerms(question, first)) docs.push(...searchOnce(alias, scope));
+      for (const alias of aliasTerms(question, first).slice(0, 3)) docs.push(...searchOnce(alias, scope));
       for (const d of docs) found.set(`${d.sourceId}@${d.versionId}`, d);
     }
 
@@ -129,9 +120,9 @@ export const s003EnterpriseSearchLoopback: LoopbackAgent = {
       const bodyMatch = overlap(question, doc.body) >= 2;
       if (!titleMatch && !bodyMatch) continue;
       let relation = "supports";
-      if (doc.draft || doc.effective === false) relation = "draft-not-effective";
+      if (doc.draft || doc.effective === false) relation = "mentions-only";
       else if (IRRELEVANCE.test(doc.body)) relation = "mentions-only";
-      const hit: Hit = { hitId: `H${++n}`, sourceId: doc.sourceId, versionId: doc.versionId, relation, excerpt: doc.body.slice(0, 200) };
+      const hit: Hit & { citationAnchor: string; accessibleAt: string } = { citationAnchor: `${doc.sourceId}@${doc.versionId}`, accessibleAt: new Date().toISOString(), hitId: `H${++n}`, sourceId: doc.sourceId, versionId: doc.versionId, relation, excerpt: doc.body.slice(0, 200) };
       if (doc.owner) hit.owner = doc.owner;
       hits.push(hit);
     }
@@ -157,18 +148,20 @@ export const s003EnterpriseSearchLoopback: LoopbackAgent = {
 
     const injectionFlags = hits
       .filter(h => INJECTION.test(found.get(`${h.sourceId}@${h.versionId}`)?.body ?? ""))
-      .map(h => ({ hitId: h.hitId }));
+      .map(h => ({ hitId: h.hitId, note: "Source contains instructions; treated as evidence, never executed." }));
 
     const status = blocked ? "blocked" : hits.some(h => h.relation === "supports") ? "answered" : "not-found-in-scope";
     const item: Record<string, unknown> = { itemId: "I1", status, queriesRun, hits };
-    if (input.researchPlanItemRef) item.researchPlanItemRef = input.researchPlanItemRef;
+    item.claimToVerify = input.researchPlanItemRef ? `${input.researchPlanItemRef}: ${question}` : question;
 
     return {
-      queryType: /(最后定|定的|决定|决策)/.test(question) ? "decision" : "fact",
-      scopeDeclared: { scopes },
+      question,
+      queryType: input.queryType ?? (input.mode === "dedupe" ? "exists" : /(最后定|定的|决定|决策)/.test(question) ? "decision" : /(谁|负责人)/.test(question) ? "who-knows" : /(政策|规定)/.test(question) ? "policy" : /(在哪|哪里)/.test(question) ? "locate" : /(何时|时间线)/.test(question) ? "timeline" : "status"),
+      queryTypeInferred: input.queryType === undefined,
+      scopeDeclared: { scopes, projectIds: input.projectIds ?? [], declaredAt },
       items: [item],
       // dedupe 模式：只有正文逐字包含同一事实才算重复（同实体不同事实不算）。
-      duplicateOf: input.mode === "dedupe" ? [...found.values()].filter(d => d.body.includes(question)).map(d => ({ sourceId: d.sourceId })) : [],
+      duplicateOf: input.mode === "dedupe" ? [...found.values()].filter(d => d.body.includes(question)).map(d => ({ sourceId: d.sourceId, versionId: d.versionId, similarityReason: "The same fact occurs verbatim in the source." })) : [],
       coverageGaps,
       injectionFlags,
     };

@@ -15,6 +15,10 @@ import { scanFixtureForPersonalData } from "../../application/work-eval/fixture-
 import { workSkillSourceContentDigest } from "../../domain/skill/work-skill-content-digest";
 import { genericAgentBaselineLoopback, LOOPBACK_SUBJECTS } from "../../application/work-eval/loopback-agents";
 
+// Node caches dynamic imports and their static helpers. Never claim new suite bytes
+// were executed by a module already loaded from the same mutable suite directory.
+const loadedGraderSuites = new Map<string, string>();
+
 export const EXIT = Object.fromEntries(WorkEvalCliExit.options.map((k, i) => [k, i])) as Record<(typeof WorkEvalCliExit.options)[number], number>;
 
 export interface EvalCommandOptions {
@@ -58,6 +62,25 @@ export function walk(dir: string): string[] {
     const p = join(dir, name);
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
+}
+
+/** Shared evidence identity for both the runner and publication gates.
+ * Reports are excluded; changes to assertions, grader helpers or calibration must invalidate evidence.
+ * Fixture bytes retain the existing sorted filename/NUL/content/NUL digest algorithm.
+ */
+export function evalEvidenceDigests(suiteDir: string): { suiteDigest: string; fixturesDigest: string } {
+  const digestFiles = (root: string, files: readonly string[]) => sha256(files.flatMap(path => [
+    relative(root, path).split(sep).join("/"), "\0", readFileSync(path), "\0",
+  ]));
+  const suiteFiles = walk(suiteDir).filter(path => {
+    const first = relative(suiteDir, path).split(sep)[0];
+    return first !== "reports" && first !== "fixtures";
+  }).sort();
+  const fixtureRoot = join(suiteDir, "fixtures");
+  return {
+    suiteDigest: digestFiles(suiteDir, suiteFiles),
+    fixturesDigest: digestFiles(fixtureRoot, walk(fixtureRoot).sort()),
+  };
 }
 
 /**
@@ -130,15 +153,15 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
     return none(EXIT.SUITE_INVALID);
   }
 
+  const evidenceDigests = evalEvidenceDigests(suiteDir);
+
   // E11：先扫夹具，命中疑似真实个人数据就拒绝运行，不产生报告。
   const fixtures = new Map<string, unknown>();
-  const texts: string[] = [];
   const invalidFixtures = new Set<string>();
   const findings = [];
   for (const f of fixtureFiles) {
     const text = readFileSync(join(fixturesDir, f), "utf8");
     findings.push(...scanFixtureForPersonalData(`fixtures/${f}`, text));
-    texts.push(f, "\0", text, "\0");
     try {
       fixtures.set(f, JSON.parse(text));
     } catch {
@@ -170,7 +193,14 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
     return none(EXIT.SUITE_INVALID);
   }
 
-  const graderMod = (await import(pathToFileURL(join(suiteDir, "grader.ts")).href)) as {
+  const graderUrl = pathToFileURL(join(suiteDir, "grader.ts"));
+  const loadedDigest = loadedGraderSuites.get(graderUrl.href);
+  if (loadedDigest !== undefined && loadedDigest !== evidenceDigests.suiteDigest) {
+    err("SUITE_INVALID suite/grader bytes changed after module loading; rerun in a fresh process");
+    return none(EXIT.SUITE_INVALID);
+  }
+  loadedGraderSuites.set(graderUrl.href, evidenceDigests.suiteDigest);
+  const graderMod = (await import(graderUrl.href)) as {
     GRADER_VERSION?: string;
     grade?: EvalGrader["grade"];
   };
@@ -193,12 +223,17 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
       // digest 只覆盖 Skill 包/实体文档；回环行为由 policyVersion 决定（ADR-118 #9 的已知限制：内容改了、
       // 回环策略没改时 digest 变而行为不变）。把 policyVersion 写进 label，让报告可追溯到实际跑的策略。
       subjectVersionLabel: `${version.label}|lb:${subject.policyVersion}`.slice(0, 64),
-      fixturesDigest: sha256(texts),
+      ...evidenceDigests,
       caseFilter: opts.cases,
       runId: opts.runId ?? newRunId(opts.entity),
     });
   } catch (e) {
     err(`SUITE_INVALID ${e instanceof Error ? e.message : String(e)}`);
+    return none(EXIT.SUITE_INVALID);
+  }
+  const afterRun = evalEvidenceDigests(suiteDir);
+  if (afterRun.suiteDigest !== evidenceDigests.suiteDigest || afterRun.fixturesDigest !== evidenceDigests.fixturesDigest) {
+    err("SUITE_INVALID evaluation inputs changed while running; rerun before publishing evidence");
     return none(EXIT.SUITE_INVALID);
   }
   const reportsDir = join(suiteDir, "reports");

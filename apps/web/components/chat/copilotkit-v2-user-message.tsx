@@ -158,9 +158,10 @@ function V2UserMessageImpl(
   // 静态类型是 `string | 数组`，只有纯字符串这一支有对应的可发送正文）。
   const text = typeof props.message.content === "string" ? props.message.content : "";
   // issue #4180 —— 只有本会话真的发出去过的消息（`sentThisSession` 按视图 id 记，即
-  // `clientMessageId`）才挂反馈条；historical 回读的消息 ctx 里查不到，`extraction` 为 null。
+  // `clientMessageId`）且真实线程已就绪才挂反馈条。首次发送会先乐观插入用户消息，
+  // 后端随后才回显 threadId；此间不能请求空线程路由。historical 回读不发起查询。
   const extraction = React.useMemo(
-    () => (ctx !== null && ctx.sentThisSession.has(props.message.id)
+    () => (ctx !== null && ctx.threadId.trim() !== "" && ctx.sentThisSession.has(props.message.id)
       ? { threadId: ctx.threadId, messageId: persistedId, showEmptyNotice: !inDigitalHumanChat }
       : null),
     [ctx, props.message.id, persistedId, inDigitalHumanChat],

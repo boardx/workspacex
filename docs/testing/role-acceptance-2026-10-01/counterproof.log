@@ -1,0 +1,98 @@
+F.F.                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_selected_role_survives_to_actual_model_request[What can you do?-legacy] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbb0efabb60>
+lane = 'legacy', question = 'What can you do?'
+
+    @pytest.mark.parametrize("lane", ["legacy", "native"])
+    @pytest.mark.parametrize("question", ["What can you do?", "Analyze the attached product whitepaper."])
+    def test_selected_role_survives_to_actual_model_request(monkeypatch, lane, question):
+        capture = CapturingModel(messages=iter([AIMessage(content="unused")]))
+        if lane == "legacy":
+            import deep_agent_service.model as model_module
+            import deep_agent_service.tracing as tracing_module
+            monkeypatch.setattr(model_module, "build_chat_model", lambda: capture)
+            monkeypatch.setattr(tracing_module, "build_tracing_callbacks", lambda: [])
+            sys.modules.pop("deep_agent_service.graph", None)
+            graph_module = importlib.import_module("deep_agent_service.graph")
+            graph = graph_module.graph
+        else:
+            graph = create_native_graph(capture, sandbox=sandbox(), pinned_skills=[],
+                                        tool_authority=FakeAuthority(), interrupt_on={})
+        role = "You are the product manager. Frame problems, prioritize requirements, and prepare PRDs."
+        messages = [
+            SystemMessage(role, id="wsx-turn:acceptance:system"),
+            HumanMessage("My personal hobby is gardening.", id="wsx-turn:acceptance:h0"),
+            HumanMessage(question, id="wsx-turn:acceptance:user"),
+        ]
+        with pytest.raises(CaptureFinished):
+            graph.invoke({"messages": messages})
+        assert capture._requests
+        request = capture._requests[0]
+        system = "\n".join(str(m.content) for m in request if isinstance(m, SystemMessage))
+        assert role in system
+>       assert "你是本组织的通用助手" not in system
+E       assert '你是本组织的通用助手' not in "[{'type': '...repare PRDs."
+E         
+E         '你是本组织的通用助手' is contained here:
+E           [{'type': 'text', 'text': '你是本组织的通用助手（由 deepagents 驱动，系统预置）。收到任务后先想清楚要不要调用已挂载的技能、调用哪一个：如果本轮对话里已经有一条系统消息列出了这次运行可用的技能目录（技能名 + 一行摘要，`buildDeepAgentSkillCatalogBlock` 拼的那段），且目录里已经清楚包含你需要的这个技能、任务本身也没有在多个技能之间取舍的歧义，直接调用 call_skill执行即可，不需要再调用 list_org_skills 重新确认同一份名单——那只是多打一轮拿不到新信息的工具调用。只有在看不到这份目录（例如没有挂载任何技能，或目录信息不足以判断该用哪一个）时，才先调用 list_org_skills 看看有哪些技能可用。不论走哪条路，最终都要用call_skill 把具体任务交给对应技能真正执行——不要凭技能的名字或已有印象直接编答案。\n\n当用户的请求包含「请先给出计划，经确认后再执行」，或更宽泛地表达了「先说计划、确认后再做」「先规划再执行」这类语义时，你必须调用 write_todos 工具，把每一步计划写成一条独立的待办项（初始状态为 pending），而不是只在回复正文里用「第一步/第二步」这种纯文字描述步骤——纯...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/test_role_model_context.py:57: AssertionError
+_ test_selected_role_survives_to_actual_model_request[Analyze the attached product whitepaper.-legacy] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbb0d3e88f0>
+lane = 'legacy', question = 'Analyze the attached product whitepaper.'
+
+    @pytest.mark.parametrize("lane", ["legacy", "native"])
+    @pytest.mark.parametrize("question", ["What can you do?", "Analyze the attached product whitepaper."])
+    def test_selected_role_survives_to_actual_model_request(monkeypatch, lane, question):
+        capture = CapturingModel(messages=iter([AIMessage(content="unused")]))
+        if lane == "legacy":
+            import deep_agent_service.model as model_module
+            import deep_agent_service.tracing as tracing_module
+            monkeypatch.setattr(model_module, "build_chat_model", lambda: capture)
+            monkeypatch.setattr(tracing_module, "build_tracing_callbacks", lambda: [])
+            sys.modules.pop("deep_agent_service.graph", None)
+            graph_module = importlib.import_module("deep_agent_service.graph")
+            graph = graph_module.graph
+        else:
+            graph = create_native_graph(capture, sandbox=sandbox(), pinned_skills=[],
+                                        tool_authority=FakeAuthority(), interrupt_on={})
+        role = "You are the product manager. Frame problems, prioritize requirements, and prepare PRDs."
+        messages = [
+            SystemMessage(role, id="wsx-turn:acceptance:system"),
+            HumanMessage("My personal hobby is gardening.", id="wsx-turn:acceptance:h0"),
+            HumanMessage(question, id="wsx-turn:acceptance:user"),
+        ]
+        with pytest.raises(CaptureFinished):
+            graph.invoke({"messages": messages})
+        assert capture._requests
+        request = capture._requests[0]
+        system = "\n".join(str(m.content) for m in request if isinstance(m, SystemMessage))
+        assert role in system
+>       assert "你是本组织的通用助手" not in system
+E       assert '你是本组织的通用助手' not in "[{'type': '...repare PRDs."
+E         
+E         '你是本组织的通用助手' is contained here:
+E           [{'type': 'text', 'text': '你是本组织的通用助手（由 deepagents 驱动，系统预置）。收到任务后先想清楚要不要调用已挂载的技能、调用哪一个：如果本轮对话里已经有一条系统消息列出了这次运行可用的技能目录（技能名 + 一行摘要，`buildDeepAgentSkillCatalogBlock` 拼的那段），且目录里已经清楚包含你需要的这个技能、任务本身也没有在多个技能之间取舍的歧义，直接调用 call_skill执行即可，不需要再调用 list_org_skills 重新确认同一份名单——那只是多打一轮拿不到新信息的工具调用。只有在看不到这份目录（例如没有挂载任何技能，或目录信息不足以判断该用哪一个）时，才先调用 list_org_skills 看看有哪些技能可用。不论走哪条路，最终都要用call_skill 把具体任务交给对应技能真正执行——不要凭技能的名字或已有印象直接编答案。\n\n当用户的请求包含「请先给出计划，经确认后再执行」，或更宽泛地表达了「先说计划、确认后再做」「先规划再执行」这类语义时，你必须调用 write_todos 工具，把每一步计划写成一条独立的待办项（初始状态为 pending），而不是只在回复正文里用「第一步/第二步」这种纯文字描述步骤——纯...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/test_role_model_context.py:57: AssertionError
+=============================== warnings summary ===============================
+tests/test_role_model_context.py::test_selected_role_survives_to_actual_model_request[What can you do?-native]
+  /tmp/role-acceptance-venv/lib/python3.12/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+tests/test_role_model_context.py::test_selected_role_survives_to_actual_model_request[What can you do?-native]
+  /workspace/role-acceptance-fixes/apps/deep-agent-service/src/deep_agent_service/standard_sql_database.py:9: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_role_model_context.py::test_selected_role_survives_to_actual_model_request[What can you do?-legacy]
+FAILED tests/test_role_model_context.py::test_selected_role_survives_to_actual_model_request[Analyze the attached product whitepaper.-legacy]
+2 failed, 2 passed, 2 warnings in 7.03s

@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /workspace/s003-contract-single-source-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/s003-suite-shape.test.ts (7 tests) 2920ms
+   ✓ evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 2686ms
+ ✓ tests/contract-single-source.test.ts (4 tests) 59912ms
+   ✓ contract as single source, backend side > no backend file redefines a contract type 23600ms
+   ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 36190ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  07:20:04
+   Duration  69.47s (transform 3.57s, setup 0ms, collect 4.62s, tests 62.83s, environment 1ms, prepare 208ms)

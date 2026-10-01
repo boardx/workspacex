@@ -1,0 +1,28 @@
+
+ RUN  v2.1.9 /workspace/workspacex/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-content/batch2-workflow-definitions.test.ts (47 tests) 93ms
+ ✓ tests/work-content/product-skill-pack-build.test.ts (15 tests) 3670ms
+   ✓ CT04 · 产品线 Skill 包作者化与导入（work-product starter-pack） > CLI：缺一个 Skill 时进程退出码非 0 且不写出产物；完整源时退出 0 并写出可导入产物 2781ms
+ ✓ tests/work-content/sales-skill-pack-build.test.ts (12 tests) 418ms
+ ✓ tests/work-content/customer-success-skill-pack.test.ts (32 tests) 985ms
+ ✓ tests/work-content/operations-skill-pack-build.test.ts (38 tests) 1112ms
+ ✓ tests/work-content/executive-resolution-eval-suites.test.ts (26 tests) 549ms
+ ✓ tests/work-content/product-workflow-definitions.test.ts (7 tests) 26ms
+ ✓ tests/work-content/sales-workflow-definitions.test.ts (8 tests) 90ms
+ ✓ tests/work-content/research-skill-pack-build.test.ts (6 tests) 248ms
+ ✓ tests/work-content/executive-skill-pack-build.test.ts (10 tests) 879ms
+ ✓ tests/work-content/research-workflow-definitions.test.ts (12 tests) 19ms
+ ✓ tests/work-content/resolution-skill-pack-build.test.ts (8 tests) 299ms
+ ✓ tests/work-content/batch2-platform-scaffold.test.ts (5 tests) 9ms
+ ✓ tests/work-content/batch2-skillpins-matrix.test.ts (11 tests) 21ms
+ ✓ tests/work-content/skillpins-matrix-closure.test.ts (9 tests) 5ms
+ ✓ tests/work-content/sales-skillpins-matrix.test.ts (10 tests) 72ms
+ ✓ tests/work-content/product-skillpins-matrix.test.ts (14 tests) 6ms
+
+ Test Files  17 passed (17)
+      Tests  270 passed (270)
+   Start at  05:12:29
+   Duration  25.23s (transform 2.47s, setup 0ms, collect 12.35s, tests 8.50s, environment 4ms, prepare 1.09s)
+

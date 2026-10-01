@@ -68,30 +68,51 @@ export interface EnableProgress {
  * 幂等键都按包坐标固定——重复点击 / 中途失败后重试回放同一结果，不重复落库。
  * Skill 包 409（本组织已用别的幂等键导入过同一包）视为「已具备」继续；其余失败原样抛出。
  */
+export interface OfficialRoleImportScope {
+  readonly orgId: string;
+  readonly sessionToken: string;
+  readonly isCurrent: () => boolean;
+  readonly signal: AbortSignal;
+}
+
 export async function enableOfficialRolePack(
   offer: Pick<OfficialRolePackOffer, "packId" | "packVersion"> & { readonly requiredSkillPacks?: OfficialRolePackOffer["requiredSkillPacks"] },
   onProgress?: (p: EnableProgress) => void,
+  scope?: OfficialRoleImportScope,
 ): Promise<void> {
+  const checkScope = () => {
+    if (scope && (scope.signal.aborted || !scope.isCurrent())) throw new Error("official_role_import_scope_changed");
+  };
+  const scopedRequest = scope ? { sessionToken: scope.sessionToken, signal: scope.signal } : {};
+  const expectedOrg = scope ? { expectedOrgId: scope.orgId } : {};
+  checkScope();
   const packs = offer.requiredSkillPacks ?? [];
   const total = packs.length + 1;
   const skillOp = wave2Runtime.operations.importSkillStarterPack;
   for (const [i, pack] of packs.entries()) {
+    checkScope();
     onProgress?.({ step: i + 1, total, label: "准备数字人需要的技能与流程" });
     try {
+      checkScope();
       await apiRequest<unknown>(skillOp.path, {
-        method: "POST",
-        body: { packId: pack.packId, packVersion: pack.packVersion, idempotencyKey: `picker-enable-skill-${pack.packId}@${pack.packVersion}` },
+        method: "POST", ...scopedRequest,
+        body: { ...expectedOrg, packId: pack.packId, packVersion: pack.packVersion, idempotencyKey: `picker-enable-skill-${pack.packId}@${pack.packVersion}` },
       });
+      checkScope();
     } catch (error) {
+      checkScope();
       if (!(error instanceof ApiError && error.status === 409)) throw error;
     }
   }
+  checkScope();
   onProgress?.({ step: total, total, label: "启用官方数字人" });
   const op = wave2Runtime.operations.importAgentStarterPack;
+  checkScope();
   await apiRequest<unknown>(op.path, {
-    method: "POST",
-    body: { packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: `picker-enable-${offer.packId}@${offer.packVersion}` },
+    method: "POST", ...scopedRequest,
+    body: { ...expectedOrg, packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: `picker-enable-${offer.packId}@${offer.packVersion}` },
   });
+  checkScope();
 }
 
 export type AgentDirectoryProfile = z.infer<typeof agentRole.AgentDirectoryProfile>;

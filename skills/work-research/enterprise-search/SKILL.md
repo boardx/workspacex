@@ -1,11 +1,11 @@
 ---
 name: enterprise-search
-version: 1.0.0
+version: 1.0.1
 capability_id: WX-WORK-S003
 metadata:
   work:
     stableId: S003
-    domain: "Research"
+    domain: Research
     riskClass: low
     dependencies:
       required:
@@ -15,27 +15,293 @@ metadata:
         - project.read
       optional: []
     provenance:
-      - repo: "anthropics/knowledge-work-plugins"
-        path: "enterprise-search/skills/search-strategy/SKILL.md"
-        commit: "da38ec1ee89d41e5380e652a97382695003396e7"
-        license: "Apache-2.0"
-        strategy: "adapt"
+      - repo: anthropics/knowledge-work-plugins
+        path: enterprise-search/skills/search-strategy/SKILL.md
+        commit: da38ec1ee89d41e5380e652a97382695003396e7
+        license: Apache-2.0
+        strategy: adapt
         copied: false
-      - repo: "onyx-dot-app/onyx"
-        path: "backend/onyx/context/search/enums.py"
-        commit: "9ec4da4b0beb9946dd333d2b7390953d9aa89d6c"
-        license: "MIT"
-        strategy: "reference-only"
+      - repo: onyx-dot-app/onyx
+        path: backend/onyx/context/search/enums.py
+        commit: 9ec4da4b0beb9946dd333d2b7390953d9aa89d6c
+        license: MIT
+        strategy: reference-only
         copied: false
-    locales: ["zh-CN", "en-US"]
-    jurisdictions: ["CN", "US"]
+    locales:
+      - zh-CN
+      - en-US
+    jurisdictions:
+      - CN
+      - US
     evalSuiteId: S003
     inputSchema:
-      $ref: "requirements/work-stack-v2/skills/S003-enterprise-search.md#输入契约"
-      summary: "见实体文档输入契约。"
+      type: object
+      properties:
+        question:
+          type: string
+          minLength: 1
+        mode:
+          type: string
+          enum:
+            - evidence
+            - dedupe
+        queryType:
+          type: string
+          enum:
+            - decision
+            - status
+            - locate
+            - who-knows
+            - policy
+            - timeline
+            - exists
+        projectIds:
+          type: array
+          items:
+            type: string
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - current-files
+              - organization-index
+              - organization-hybrid
+        timeWindow:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+          additionalProperties: false
+        researchPlanItemRef:
+          type: string
+        maxHitsPerItem:
+          type: integer
+          minimum: 1
+          maximum: 10
+      required:
+        - question
+        - mode
+      additionalProperties: false
+      $schema: http://json-schema.org/draft-07/schema#
     outputSchema:
-      $ref: "requirements/work-stack-v2/skills/S003-enterprise-search.md#输出契约"
-      summary: "没有 `summary` / `recommendation` 字段——刻意为之（决策 2）。"
+      type: object
+      properties:
+        question:
+          type: string
+        queryType:
+          type: string
+          enum:
+            - decision
+            - status
+            - locate
+            - who-knows
+            - policy
+            - timeline
+            - exists
+        queryTypeInferred:
+          type: boolean
+        scopeDeclared:
+          type: object
+          properties:
+            scopes:
+              type: array
+              items:
+                type: string
+                enum:
+                  - current-files
+                  - organization-index
+                  - organization-hybrid
+            projectIds:
+              type: array
+              items:
+                type: string
+            declaredAt:
+              type: string
+              format: date-time
+          required:
+            - scopes
+            - projectIds
+            - declaredAt
+          additionalProperties: false
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              itemId:
+                type: string
+              claimToVerify:
+                type: string
+              queriesRun:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    scope:
+                      type: string
+                      enum:
+                        - current-files
+                        - organization-index
+                        - organization-hybrid
+                    query:
+                      type: string
+                    variantOf:
+                      type: string
+                    hitCount:
+                      type: integer
+                      minimum: 0
+                    status:
+                      type: string
+                      enum:
+                        - ok
+                        - denied
+                        - unavailable
+                        - not-configured
+                  required:
+                    - scope
+                    - query
+                    - hitCount
+                    - status
+                  additionalProperties: false
+              status:
+                type: string
+                enum:
+                  - answered
+                  - conflicting
+                  - not-found-in-scope
+                  - blocked
+              hits:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    hitId:
+                      type: string
+                    sourceId:
+                      type: string
+                    versionId:
+                      type: string
+                    citationAnchor:
+                      type: string
+                    accessibleAt:
+                      type: string
+                      format: date-time
+                    sourceTimestamp:
+                      type: string
+                      format: date-time
+                    relation:
+                      type: string
+                      enum:
+                        - supports
+                        - contradicts
+                        - mentions-only
+                        - superseded
+                    supersededBy:
+                      type: string
+                    excerpt:
+                      type: string
+                      maxLength: 400
+                    owner:
+                      type: string
+                  required:
+                    - hitId
+                    - sourceId
+                    - versionId
+                    - citationAnchor
+                    - accessibleAt
+                    - relation
+                    - excerpt
+                  additionalProperties: false
+            required:
+              - itemId
+              - claimToVerify
+              - queriesRun
+              - status
+              - hits
+            additionalProperties: false
+          maxItems: 6
+        duplicateOf:
+          type: array
+          items:
+            type: object
+            properties:
+              sourceId:
+                type: string
+              versionId:
+                type: string
+              similarityReason:
+                type: string
+            required:
+              - sourceId
+              - versionId
+              - similarityReason
+            additionalProperties: false
+        coverageGaps:
+          type: array
+          items:
+            type: object
+            properties:
+              itemId:
+                type: string
+              reason:
+                type: string
+                enum:
+                  - permission-denied
+                  - retrieval-unavailable
+                  - scope-not-indexed
+                  - hybrid-not-configured
+                  - none-in-scope
+              suggestion:
+                type: string
+            required:
+              - itemId
+              - reason
+              - suggestion
+            additionalProperties: false
+        injectionFlags:
+          type: array
+          items:
+            type: object
+            properties:
+              hitId:
+                type: string
+              note:
+                type: string
+            required:
+              - hitId
+              - note
+            additionalProperties: false
+      required:
+        - question
+        - queryType
+        - queryTypeInferred
+        - scopeDeclared
+        - items
+        - coverageGaps
+        - injectionFlags
+      additionalProperties: false
+      $schema: http://json-schema.org/draft-07/schema#
+      allOf:
+        - if:
+            properties:
+              queryType:
+                const: who-knows
+            required:
+              - queryType
+          then:
+            properties:
+              items:
+                items:
+                  properties:
+                    hits:
+                      items:
+                        required:
+                          - owner
 ---
 
 # 企业内部检索（S003）
@@ -49,7 +315,7 @@ metadata:
 
 ## 输入 / 输出契约
 
-完整 `inputSchema` / `outputSchema` 定义见实体文档对应章节（本文件 frontmatter `metadata.work` 只放摘要 + 指回引用，避免同一事实两处声明）：
+完整 `inputSchema` / `outputSchema` 定义见实体文档对应章节（frontmatter `metadata.work` 的机器 schema 由 `apps/api/src/application/work-eval/s003-contract.ts` 生成，运行 `apps/api/scripts/generate-s003-machine-contract.ts` 更新，禁止手工修改）：
 - 输入契约：`requirements/work-stack-v2/skills/S003-enterprise-search.md` 「输入契约」一节
 - 输出契约：`requirements/work-stack-v2/skills/S003-enterprise-search.md` 「输出契约」一节
 

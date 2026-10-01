@@ -1,0 +1,20 @@
+
+ RUN  v2.1.9 /workspace/workspacex/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/eval-runner.test.ts (16 tests) 7148ms
+   ✓ harness eval runner (EV02) > EV01 validate-work-eval-suite still fails on a missing fixture (eval's E2 downgrade does not hide it) 391ms
+   ✓ harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported 2237ms
+   ✓ harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2 4138ms
+ ✓ tests/work-eval/gates-g0-g4.test.ts (12 tests) 7534ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 7157ms
+ ✓ tests/work-eval/gates-counterproof.test.ts (12 tests) 542ms
+ ✓ tests/work-eval/eval-report-baseline.test.ts (4 tests) 78ms
+ ✓ tests/work-eval/s003-suite-shape.test.ts (5 tests) 821ms
+   ✓ evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 798ms
+
+ Test Files  5 passed (5)
+      Tests  49 passed (49)
+   Start at  05:11:50
+   Duration  21.68s (transform 1.90s, setup 0ms, collect 3.94s, tests 16.12s, environment 1ms, prepare 326ms)
+

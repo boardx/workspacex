@@ -1,0 +1,165 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/chat-import-scope-fixes/apps/web
+
+ ❯ tests/ui/chat-official-role-import-scope.test.tsx (6 tests | 6 failed) 1379ms
+   × chat hook sends frozen organization/token on the actual helper sequence and refreshes after verified completion 303ms
+     → expected { method: 'POST', body: { …(3) } } to match object { sessionToken: 'token-a', …(2) }
+(4 matching properties omitted from actual)
+   × stops actual helper after the first POST on org change; stale completion cannot refresh or show success 19ms
+     → expected undefined to be true // Object.is equality
+   × stops actual helper after the first POST on token change; stale completion cannot refresh or show success 19ms
+     → expected undefined to be true // Object.is equality
+   × stops actual helper after the first POST on close change; stale completion cannot refresh or show success 17ms
+     → expected undefined to be true // Object.is equality
+   × stops actual helper after the first POST on unmount change; stale completion cannot refresh or show success 13ms
+     → expected undefined to be true // Object.is equality
+   × discards the previous organization's delayed offer instead of making it importable 1006ms
+     → Unable to find an element with the text: New Org Role. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33mdisabled[39m=[32m""[39m
+    [36m>[39m
+      [0m启用[0m
+    [36m</button>[39m
+    [36m<p />[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"result"[39m
+    [36m/>[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"error"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33mdisabled[39m=[32m""[39m
+    [36m>[39m
+      [0m启用[0m
+    [36m</button>[39m
+    [36m<p />[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"result"[39m
+    [36m/>[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"error"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/chat-official-role-import-scope.test.tsx > chat hook sends frozen organization/token on the actual helper sequence and refreshes after verified completion
+AssertionError: expected { method: 'POST', body: { …(3) } } to match object { sessionToken: 'token-a', …(2) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "body": Object {
+-     "expectedOrgId": "org-a",
++     "idempotencyKey": "picker-enable-skill-work-product@1.0.0",
++     "packId": "work-product",
++     "packVersion": "1.0.0",
+    },
+-   "sessionToken": "token-a",
+-   "signal": Any<AbortSignal>,
+  }
+
+ ❯ tests/ui/chat-official-role-import-scope.test.tsx:22:65
+     20|   await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+     21|   expect(mocks.request).toHaveBeenCalledTimes(3);
+     22|   for (const [, opts] of mocks.request.mock.calls) expect(opts).toMatc…
+       |                                                                 ^
+     23| });
+     24|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/ui/chat-official-role-import-scope.test.tsx > stops actual helper after the first POST on org change; stale completion cannot refresh or show success
+ FAIL  tests/ui/chat-official-role-import-scope.test.tsx > stops actual helper after the first POST on token change; stale completion cannot refresh or show success
+ FAIL  tests/ui/chat-official-role-import-scope.test.tsx > stops actual helper after the first POST on close change; stale completion cannot refresh or show success
+ FAIL  tests/ui/chat-official-role-import-scope.test.tsx > stops actual helper after the first POST on unmount change; stale completion cannot refresh or show success
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ tests/ui/chat-official-role-import-scope.test.tsx:38:27
+     36|   else view.rerender(<Harness enabled={change !== "close"} />);
+     37|   await act(async () => { finish({}); });
+     38|   expect(signal?.aborted).toBe(true);
+       |                           ^
+     39|   expect(mocks.request).toHaveBeenCalledTimes(1);
+     40|   expect(mocks.directory).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/ui/chat-official-role-import-scope.test.tsx > discards the previous organization's delayed offer instead of making it importable
+TestingLibraryElementError: Unable to find an element with the text: New Org Role. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33mdisabled[39m=[32m""[39m
+    [36m>[39m
+      [0m启用[0m
+    [36m</button>[39m
+    [36m<p />[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"result"[39m
+    [36m/>[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"error"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33mdisabled[39m=[32m""[39m
+    [36m>[39m
+      [0m启用[0m
+    [36m</button>[39m
+    [36m<p />[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"result"[39m
+    [36m/>[39m
+    [36m<p[39m
+      [33mdata-testid[39m=[32m"error"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../../workspacex/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../../workspacex/node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/chat-official-role-import-scope.test.tsx:51:16
+     49|   mocks.org = "org-b";
+     50|   view.rerender(<Harness />);
+     51|   await screen.findByText("New Org Role");
+       |                ^
+     52|   await act(async () => { oldOffer(offer); });
+     53|   expect(screen.queryByText("Product Manager")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  06:52:06
+   Duration  6.81s (transform 2.04s, setup 261ms, collect 3.11s, tests 1.38s, environment 1.34s, prepare 156ms)
+
+undefined
+/workspace/chat-import-scope-fixes/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/chat-official-role-import-scope.test.tsx

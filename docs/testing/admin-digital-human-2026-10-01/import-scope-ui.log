@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/admin-import-scope-fixes/apps/web
+
+ ✓ tests/ui/admin-official-digital-human.test.tsx (5 tests) 764ms
+   ✓ 后台官方数字人发现与启用 > 显式打开才读取；启用传完整依赖要约并刷新后台目录 568ms
+ ✓ tests/ui/admin-agent-catalog.test.tsx (7 tests) 2245ms
+   ✓ Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板 > ① 两种来源的卡片在同一个网格里，靠标签区分；② 没有视图切换与分页 505ms
+   ✓ Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板 > ③ 点卡片打开侧边面板：字段、就地改名（真的打 mutate）、停用确认都在面板里 767ms
+ ✓ tests/ui/home-config-admin-v2.test.tsx (19 tests) 1229ms
+ ✓ tests/lib/official-role-import-scope.test.ts (7 tests) 73ms
+
+ Test Files  4 passed (4)
+      Tests  38 passed (38)
+   Start at  06:11:20
+   Duration  18.16s (transform 10.98s, setup 2.03s, collect 28.30s, tests 4.31s, environment 5.69s, prepare 758ms)

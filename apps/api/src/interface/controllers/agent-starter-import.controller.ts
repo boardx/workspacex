@@ -30,17 +30,19 @@ export class AgentStarterImportController {
   }
 
   @Post("/admin/agents/starter-pack-imports")
-  async import(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(C.operations.importAgentStarterPack.in)) body: { packId: string; packVersion: string; idempotencyKey: string }, @Res({ passthrough: true }) response: Response) {
+  async import(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(C.operations.importAgentStarterPack.in)) body: { packId: string; packVersion: string; idempotencyKey: string; expectedOrgId?: string }, @Res({ passthrough: true }) response: Response) {
     assertPrincipal(principal);
+    if (body.expectedOrgId !== undefined && body.expectedOrgId !== principal.orgId) throw new ForbiddenException();
+    const { expectedOrgId: _expectedOrgId, ...importBody } = body;
     // UC-3：同一端点按 pack 内容形状分流——entries 带 roleRef 即官方角色包，走独立的
     // 校验/落库路径（角色字段 + workflowAllowlist 引用解析）；否则沿用既有 org 包路径（AG02）。
     // 不存在的 packId/packVersion 在两条路径各自的用例里都会正确落到 NOT_FOUND，peek 失败不提前分流。
     const peeked = await this.packs.load(body.packId, body.packVersion);
     if (peeked !== null && isOfficialAgentStarterPackShape(peeked)) {
-      return this.importOfficial(principal, body, response);
+      return this.importOfficial(principal, importBody, response);
     }
     try {
-      const imported = await importAgentStarterPack({ identities: this.identities, packs: this.packs, imports: this.imports }, { actorId: principal.userId, orgId: principal.orgId, ...body });
+      const imported = await importAgentStarterPack({ identities: this.identities, packs: this.packs, imports: this.imports }, { actorId: principal.userId, orgId: principal.orgId, ...importBody });
       response.status(imported.created ? HttpStatus.CREATED : HttpStatus.OK);
       return C.operations.importAgentStarterPack.out.parse(imported.result);
     } catch (error) {

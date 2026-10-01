@@ -1,0 +1,60 @@
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/work-content/pinned-skill-instructions.test.ts (2 tests | 2 failed) 15ms
+   × workflow executes pinned Skill instructions > uses the authored procedure, rather than inferring a Skill from its ID 11ms
+     → expected { procedureUsed: 'generic-answer' } to deeply equal { procedureUsed: 'PINNED_S064_V1' }
+   × workflow executes pinned Skill instructions > fails before any model call when the pinned version has no instructions 3ms
+     → promise resolved "{}" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/work-content/pinned-skill-instructions.test.ts > workflow executes pinned Skill instructions > uses the authored procedure, rather than inferring a Skill from its ID
+AssertionError: expected { procedureUsed: 'generic-answer' } to deeply equal { procedureUsed: 'PINNED_S064_V1' }
+
+- Expected
++ Received
+
+  Object {
+-   "procedureUsed": "PINNED_S064_V1",
++   "procedureUsed": "generic-answer",
+  }
+
+ ❯ tests/work-content/pinned-skill-instructions.test.ts:21:36
+     19|     }) } as unknown as ModelCallPort;
+     20|     const runner = new ModelContentSkillRunner(model, agents, skills);
+     21|     expect(await runner.run(call)).toEqual({ procedureUsed: "PINNED_S0…
+       |                                    ^
+     22|     expect(reads).toEqual([[call.orgId, call.skillId, call.skillVersio…
+     23|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/work-content/pinned-skill-instructions.test.ts > workflow executes pinned Skill instructions > fails before any model call when the pinned version has no instructions
+AssertionError: promise resolved "{}" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {}
+
+ ❯ tests/work-content/pinned-skill-instructions.test.ts:30:36
+     28|     for (const body of [null, "", "   "]) {
+     29|       const runner = new ModelContentSkillRunner(model, agents, { skil…
+     30|       await expect(runner.run(call)).rejects.toMatchObject({
+       |                                    ^
+     31|         code: "CONTENT_SKILL_INSTRUCTIONS_MISSING", reason: "skill_ins…
+     32|       });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  05:15:56
+   Duration  807ms (transform 397ms, setup 0ms, collect 18ms, tests 15ms, environment 0ms, prepare 79ms)
+
+undefined
+/workspace/workstack-effect-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/work-content/pinned-skill-instructions.test.ts

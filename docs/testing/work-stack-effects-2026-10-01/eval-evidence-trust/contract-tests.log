@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/packages/contracts
+
+ ✓ tests/work-eval/suite-schema.test.ts (8 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  07:10:12
+   Duration  543ms (transform 114ms, setup 0ms, collect 156ms, tests 22ms, environment 0ms, prepare 90ms)

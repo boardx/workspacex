@@ -9,6 +9,7 @@ import { AgentUrlImportPanel } from "./agent-url-import-panel";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
 import type { UiState } from "@/lib/ui-state";
+import { OfficialDigitalHumanPanel } from "./official-digital-human-panel";
 
 /**
  * 后台「Agent 目录」（`/admin/agent`）。
@@ -64,9 +65,10 @@ function CreateModeTabs({
 
 export function AgentScreen({ state }: { state: UiState }) {
   void state;
-  const { identity } = useSession();
+  const { identity, session } = useSession();
   const canMutate = identity?.orgRole === "admin";
   const [creating, setCreating] = React.useState(false);
+  const [officialOrg, setOfficialOrg] = React.useState<string | null>(null);
   const [createMode, setCreateMode] = React.useState<CreateMode>("definition");
   /**
    * #1915 —— 建成/发布后递增，让目录重新拉取 `listAgents`（父级 state 变化驱动 refetch，
@@ -80,6 +82,8 @@ export function AgentScreen({ state }: { state: UiState }) {
         definitionsRefreshKey={agentListRefreshKey}
         headerActions={
           canMutate ? (
+            <>
+            <Button type="button" size="sm" variant="outline" onClick={() => setOfficialOrg(session?.currentOrgId ?? null)}>官方数字人</Button>
             <Button
               size="sm"
               variant="primary"
@@ -88,9 +92,15 @@ export function AgentScreen({ state }: { state: UiState }) {
             >
               <Plus aria-hidden className="h-3.5 w-3.5" /> 新建 / 导入 Agent
             </Button>
+            </>
           ) : null
         }
       />
+      {officialOrg && officialOrg === session?.currentOrgId && canMutate ? (
+        <Modal title="官方数字人" onClose={() => setOfficialOrg(null)} testid="official-digital-human-modal" width="lg">
+          <OfficialDigitalHumanPanel key={officialOrg} onEnabled={() => setAgentListRefreshKey((value) => value + 1)} />
+        </Modal>
+      ) : null}
       {creating ? (
         <Modal
           title="新建 / 导入 Agent"
