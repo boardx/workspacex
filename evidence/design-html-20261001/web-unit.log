@@ -1,0 +1,27 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-design-html-acceptance/apps/web
+
+ ✓ tests/ui/prototype-html-page.test.tsx (4 tests) 23ms
+stderr | tests/ui/prototype-html-page-interaction.test.tsx > HTML 页：iframe 消息 → 画布行为 > 预览态：goto 消息 ⇒ 跳到 links 里那一页
+Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+ ✓ tests/ui/prototype-export-html.test.tsx (20 tests) 52ms
+ ✓ tests/ui/prototype-html-page-interaction.test.tsx (5 tests) 70ms
+ ✓ tests/ui/prototype-react-export.test.tsx (8 tests) 345ms
+stderr | tests/ui/design-loop.test.tsx > UIUX 16：从对话导入的三步里，别把人弄丢 > 列表读失败 ⇒ 说的是「没读到」而不是「你没有对话」，重试真的再读一次
+import-thread failed { status: 500, reasonCode: 'boom' }
+
+stderr | tests/ui/design-loop.test.tsx > UIUX 16：从对话导入的三步里，别把人弄丢 > 翻页失败之后再翻成功 ⇒ 上一次那句报错不再压在结果上面
+import-thread failed { status: 500, reasonCode: 'boom' }
+
+ ✓ tests/ui/design-loop.test.tsx (260 tests) 6880ms
+   ✓ ⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / pushToInbox > B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲 1080ms
+   ✓ 工作台首屏不再指向已经不存在的东西 > 搜索筛空 ⇒ 说「被筛掉了」并给清除按钮，而不是说「还没有设计项目」 613ms
+   ✓ UIUX 18：工作台首页与新建弹窗 > 搜索时列表不整屏换成骨架——已有结果留在屏上，只说一句「正在筛」 310ms
+
+ Test Files  5 passed (5)
+      Tests  297 passed (297)
+   Start at  19:12:12
+   Duration  9.44s (transform 1.40s, setup 614ms, collect 6.26s, tests 7.37s, environment 2.91s, prepare 268ms)
+
