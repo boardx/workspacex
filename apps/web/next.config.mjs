@@ -599,6 +599,26 @@ export default {
       { source: `${prefix}/admin/nav`, destination: `${apiOrigin}/admin/nav` },
       { source: `${prefix}/admin/work-stack/:path*`, destination: `${apiOrigin}/admin/work-stack/:path*` },
       { source: `${prefix}/admin/skill-development/:path*`, destination: `${apiOrigin}/admin/skill-development/:path*` },
+      // ── Phase 21 billing-payment（契约束 billing-credits / billing-subscription）──
+      // 15 条契约路由**逐条**代理，不写 `/billing/:path*` 通配：afterFiles 在动态路由
+      // **之前**匹配，通配会先把将来任何 `/billing/*` 前端页面整页代理走（同
+      // `/chat/:path*`（#2021）与 `/workflows`（#3492）两次同型事故）。缺任一条 =
+      // 同源代理部署下被 Next 接住返回 404 HTML（`lint-rewrite-coverage --strict` 实测抓到）。
+      { source: `${prefix}/billing/config`, destination: `${apiOrigin}/billing/config` },
+      { source: `${prefix}/billing/packages`, destination: `${apiOrigin}/billing/packages` },
+      { source: `${prefix}/billing/orders`, destination: `${apiOrigin}/billing/orders` },
+      { source: `${prefix}/billing/orders/:orderNo`, destination: `${apiOrigin}/billing/orders/:orderNo` },
+      { source: `${prefix}/billing/orders/:orderNo/mock-paid`, destination: `${apiOrigin}/billing/orders/:orderNo/mock-paid` },
+      { source: `${prefix}/billing/wallet`, destination: `${apiOrigin}/billing/wallet` },
+      { source: `${prefix}/billing/transactions`, destination: `${apiOrigin}/billing/transactions` },
+      { source: `${prefix}/billing/admin/wallets/:ownerType/:ownerId`, destination: `${apiOrigin}/billing/admin/wallets/:ownerType/:ownerId` },
+      { source: `${prefix}/billing/admin/credits/grant`, destination: `${apiOrigin}/billing/admin/credits/grant` },
+      { source: `${prefix}/billing/org-settings/:orgId`, destination: `${apiOrigin}/billing/org-settings/:orgId` },
+      { source: `${prefix}/billing/subscription`, destination: `${apiOrigin}/billing/subscription` },
+      { source: `${prefix}/billing/subscription/upgrade-link`, destination: `${apiOrigin}/billing/subscription/upgrade-link` },
+      { source: `${prefix}/billing/subscription/management-link`, destination: `${apiOrigin}/billing/subscription/management-link` },
+      { source: `${prefix}/billing/webhooks/wechat`, destination: `${apiOrigin}/billing/webhooks/wechat` },
+      { source: `${prefix}/billing/webhooks/stripe`, destination: `${apiOrigin}/billing/webhooks/stripe` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },
