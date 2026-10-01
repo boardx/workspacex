@@ -1,4 +1,9 @@
 {
+  "scriptVersion": "lint-work-stack-gates-1.0.2",
+  "compilerImplementationSha256": "0fa3c916ea72fc3e9440920e2a95cff3c68b0c6a43b03360ec3ac435fe7cae3c",
+  "scannerImplementationSha256": "0690a7539d4d4dc9aed5ee64c1174d900643189ff722028ab492bce3f64b37a9",
+  "denominatorSourceSha256": "c9e028c37ace8f83a2afa21320fd944a2c3798ca72036275a0832cf582ce1244",
+  "schemaDigestEncoding": "sha256(JSON.stringify(parsed metadata.work schema)); externalSchemaDigests hash available local JSON bytes, without claiming reference resolution",
   "uniqueSuiteSamples": {
     "cases": 267,
     "inputsValid": 267,
@@ -32,6 +37,11 @@
       "sources": [
         {
           "source": "skills/work-research/enterprise-search/SKILL.md",
+          "sourceSha256": "99304744a3f4089fc4ca62dff90c0934addb7e2648fa9d8b0c8ddddbba7632de",
+          "inputSchemaSha256": "466a1c2714513f9f1db304cd91ed79cc88444a229e57412a78ec5749880b284f",
+          "outputSchemaSha256": "a9d62167d873c48c818967df48cf48d4987bbdd0c1314fa138ff6f938f05fd1f",
+          "externalSchemaDigests": [],
+          "casesSha256": "642a6297b99d8572a78debc9d2b7df869cd275181ad3e99182d60d9f7307cdbe",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -58,6 +68,11 @@
       "sources": [
         {
           "source": "skills/work-sales/meeting-prep/SKILL.md",
+          "sourceSha256": "f1e1d9bc6033f74dfd6e5faa5481ddda9bd56eb455541bc1371fd48914a0d497",
+          "inputSchemaSha256": "633948cc3845b75095080be21b2b917c4352e37368c10523e2fbd3bda8579524",
+          "outputSchemaSha256": "31e08410c244146374788651bb93ec5d52af25bc4fa73b8b8e341c5144c6cf74",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -81,6 +96,11 @@
       "sources": [
         {
           "source": "skills/work-product/meeting-summary/SKILL.md",
+          "sourceSha256": "d4e044e8418a06fccf86707abc32f82bf408189ba7cfda3876e58074c43f1841",
+          "inputSchemaSha256": "cdfe8bde09ca998d8e26757e6cd96dd90e30c6b091ed36ee2ee5f60e2c3e959a",
+          "outputSchemaSha256": "9d7a273f55602eb81c940b86be0487a2ec819ff03a9f0b472f2e9f7a9203663e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -104,6 +124,11 @@
       "sources": [
         {
           "source": "skills/work-product/status-update/SKILL.md",
+          "sourceSha256": "f1621c4f8858bba36b8dcd4974735dfed2da53f721a5f33b68ba603e256cfa6e",
+          "inputSchemaSha256": "b3c807728b45d18307bbee10c5e236f4debbc71424bc9473f386545d7dab6086",
+          "outputSchemaSha256": "18eed1cb371b2507208f26aa69b9064c8fac216543262d67d54caf47d7080cc4",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -127,6 +152,11 @@
       "sources": [
         {
           "source": "skills/work-product/competitive-analysis/SKILL.md",
+          "sourceSha256": "3884a617e6b80c2ba32c9bad33e4aa9208ce073d0f1217ad3434d514e2c2d2b6",
+          "inputSchemaSha256": "7f85ec173153b745ddb693e6d2229d808ec2db00e5549bfe6d1b8a0af14fefe0",
+          "outputSchemaSha256": "1a3c66b1d0c5621fa13a762b327c763f57e4da42b513e8688335051f690f9ae3",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -150,6 +180,11 @@
       "sources": [
         {
           "source": "skills/work-product/customer-research/SKILL.md",
+          "sourceSha256": "0cb1c2b2d0e544023aadc873a10eb8d69d6a2e449336ca8526301878a466dfe5",
+          "inputSchemaSha256": "59a62d0d19f5438ec2cc7d811c6ee03c9a298d109c1a90d36ddeec5e11a8059a",
+          "outputSchemaSha256": "b0c46fa9d41b5d0ad2846b652670caec35f364aa3cf8d3b80957bbf286f396d0",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -166,6 +201,11 @@
         },
         {
           "source": "skills/work-sales/customer-research/SKILL.md",
+          "sourceSha256": "0cb1c2b2d0e544023aadc873a10eb8d69d6a2e449336ca8526301878a466dfe5",
+          "inputSchemaSha256": "59a62d0d19f5438ec2cc7d811c6ee03c9a298d109c1a90d36ddeec5e11a8059a",
+          "outputSchemaSha256": "b0c46fa9d41b5d0ad2846b652670caec35f364aa3cf8d3b80957bbf286f396d0",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -189,6 +229,11 @@
       "sources": [
         {
           "source": "skills/work-research/risk-assessment/SKILL.md",
+          "sourceSha256": "42f48e5ccdcbad75b4b66847b855719e08a07e934145d941b9d7c4d1a8dcdea1",
+          "inputSchemaSha256": "056646bdaaf61578d0338e798c8e6541629e7376e11a4bbeb3f1ac38460900c5",
+          "outputSchemaSha256": "949c9add5e68a7c1fc1d6e8b43b995cae60be3b0623c744d9012e0b7e8d869db",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -205,6 +250,11 @@
         },
         {
           "source": "skills/work-sales/risk-assessment/SKILL.md",
+          "sourceSha256": "42f48e5ccdcbad75b4b66847b855719e08a07e934145d941b9d7c4d1a8dcdea1",
+          "inputSchemaSha256": "056646bdaaf61578d0338e798c8e6541629e7376e11a4bbeb3f1ac38460900c5",
+          "outputSchemaSha256": "949c9add5e68a7c1fc1d6e8b43b995cae60be3b0623c744d9012e0b7e8d869db",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -228,6 +278,11 @@
       "sources": [
         {
           "source": "skills/work-resolution/root-cause-analysis/SKILL.md",
+          "sourceSha256": "f8e8d696492a7cb65aec2e7a1521268c48cb0778927a0cae816e0ae8b76b1715",
+          "inputSchemaSha256": "e8876840f86ee82e3c8175c11f2a49092fe8903caec4a5589ff5dd4fa4dc6590",
+          "outputSchemaSha256": "c6d33624fb9088f8dd3dae49091d558c6dd539d5d0d6945121c4bc4e06346e12",
+          "externalSchemaDigests": [],
+          "casesSha256": "94b6eabad38789518c2c401aadfd62418f66da4d74904a596f64eb6d5f90659b",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -248,6 +303,11 @@
       "sources": [
         {
           "source": "skills/work-research/decision-brief/SKILL.md",
+          "sourceSha256": "f1465774dea6ea9a1d01d1e67da81882567c1c5d5b9d072ab1f165097582b57a",
+          "inputSchemaSha256": "775058a698b2e3f0d6db03a74c3d44a41f443d5322732d8dd7a6b696b59ec04b",
+          "outputSchemaSha256": "768ac4a53f9f3d529b89a1d217188a0325e7abf724790ef2df5b00e0121d570e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -271,6 +331,11 @@
       "sources": [
         {
           "source": "skills/work-executive/scenario-analysis/SKILL.md",
+          "sourceSha256": "6305bb7d7b413a4e9a15ed9f36ad44f02c31a14e8ac960f14d6b9f128c3d7b18",
+          "inputSchemaSha256": "ae142d4d142fcdbec72bb35f85edf45df07d7f24074fd1a29b231a79c2860bef",
+          "outputSchemaSha256": "7a7b8c3b02e02df2de3f35cc7b8c56dd06a99995134d46a90501ee467a747a74",
+          "externalSchemaDigests": [],
+          "casesSha256": "da82ada680e3b5792a30da2a65ecd36c114192475cdbf2d9366bbef0c5155fbb",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -297,6 +362,11 @@
       "sources": [
         {
           "source": "skills/work-resolution/response-drafting/SKILL.md",
+          "sourceSha256": "8a362943e32a8cc950d09f1fc1b18ac2b442fd4ab90508b80d1a094cbf9a457e",
+          "inputSchemaSha256": "7d89e04bb01de864b46350723cd1a63f6fb21b4519dbc4810e3c45cb0fb9482e",
+          "outputSchemaSha256": "5415095deb96996f1841ec7ea6facfdf057bf1ef99ecd4e1c93969fa2f835142",
+          "externalSchemaDigests": [],
+          "casesSha256": "15df04604f7b98bea2f93153bd31d47a3572a98fbe856940987c95456d4caca3",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -317,6 +387,11 @@
       "sources": [
         {
           "source": "skills/work-research/knowledge-capture/SKILL.md",
+          "sourceSha256": "94b981ce460c649f6aa5ef8df7229c1fdf2595a3d0c217350d31dfaa90066bc0",
+          "inputSchemaSha256": "7c0530d42de57f9a0a5ff3093a36ed00b512a4d8979b8932b11588544973ba1f",
+          "outputSchemaSha256": "e11f75f56e2f8fd21fbc84c321748e32c93d4a2f9c34f9412b77aff5eae1752f",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -340,6 +415,11 @@
       "sources": [
         {
           "source": "skills/work-product/task-extraction/SKILL.md",
+          "sourceSha256": "3671ebb13c2ec4ad689e35627929dce4ac1d430a30933baa0176332f63e14070",
+          "inputSchemaSha256": "b020113249e164e6e2a622fd820087b3d800dff8bb5b4fe2785462a8ad221800",
+          "outputSchemaSha256": "a363a7161d97c0b68d75b63f5b45355df56374cd9cdcb75181cc19d61764f0ca",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -356,6 +436,11 @@
         },
         {
           "source": "skills/work-research/task-extraction/SKILL.md",
+          "sourceSha256": "3671ebb13c2ec4ad689e35627929dce4ac1d430a30933baa0176332f63e14070",
+          "inputSchemaSha256": "b020113249e164e6e2a622fd820087b3d800dff8bb5b4fe2785462a8ad221800",
+          "outputSchemaSha256": "a363a7161d97c0b68d75b63f5b45355df56374cd9cdcb75181cc19d61764f0ca",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -379,6 +464,11 @@
       "sources": [
         {
           "source": "skills/work-product/process-mapping/SKILL.md",
+          "sourceSha256": "84c377e6cc85905378ed89769dd6b21c62cbb6ece53c7da6af9ef8dddaf95e0d",
+          "inputSchemaSha256": "ebac75029fe32785acb5d5db374410d68e9f724e7ab96da8948e8edde19f79eb",
+          "outputSchemaSha256": "75cc6122b69ec35b9ec944872b8f642c6fbd8cfa492c8cf7515bb70b07086dcc",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -408,6 +498,11 @@
       "sources": [
         {
           "source": "skills/work-research/executive-briefing/SKILL.md",
+          "sourceSha256": "40173344c9e95094b2d3d7f7dc5649b7d67762da4d55d773e047079f20b01fc8",
+          "inputSchemaSha256": "4952f210c604f8fd67ecaa8213813d218691a1fdc51c2202c860d76a0d5b7a91",
+          "outputSchemaSha256": "deb21a0807f884ef4a6228a13abbfab653088468f3962225e4de81f033b9f4fa",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -431,6 +526,11 @@
       "sources": [
         {
           "source": "skills/work-sales/customer-intelligence/SKILL.md",
+          "sourceSha256": "8224ee610b1a4c9bee458766b3a716cb6c609ba39117b0374a286a687c16cbba",
+          "inputSchemaSha256": "e4603f8738181e746a53f873a5ab93dbf6f1c1643cb5013ae0defd5eb3291dc3",
+          "outputSchemaSha256": "5d51d1e34ea543d9917caa83e247961fc860a4c3713e191c0fdabab346533b20",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -454,6 +554,11 @@
       "sources": [
         {
           "source": "skills/work-sales/account-tiering/SKILL.md",
+          "sourceSha256": "f296632ed8aba11ce513aaadf503a2881b3f128fb0eab105e8d10f0fd35c8d65",
+          "inputSchemaSha256": "b7cc8e8a74ce482125b4108638c867c85766a93a8747c61b0aa48261a043fce2",
+          "outputSchemaSha256": "f71259c9fcc10f95a6e6a9cd729c728eb4180c32f24d6a72e9fd03ed2062859e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -477,6 +582,11 @@
       "sources": [
         {
           "source": "skills/work-sales/account-planning/SKILL.md",
+          "sourceSha256": "de7f9277ba65b395082d7a8ad1cdbb21d266773135cf064bb23ca598d5a56fa6",
+          "inputSchemaSha256": "45658b73111fbcf9510391557332ebcd6fe21c3012a8c7ba3fde372ca8c27b05",
+          "outputSchemaSha256": "bbe3d11e6abd2bc96c3336ea729b7fd1669ff16cda3bd743dda58e231494cc1f",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -500,6 +610,11 @@
       "sources": [
         {
           "source": "skills/work-sales/prospecting/SKILL.md",
+          "sourceSha256": "db04f3d3a3f14e0a469ada56189e0bd9acb78957949e8079ec81c2ed8ebbb8ff",
+          "inputSchemaSha256": "e914035d3f55a6af0697a0216d2b339a21c7b279b25e2fab606468dffd6b6ca2",
+          "outputSchemaSha256": "9c373146b4eed7bd7362045460bab708bb5294408ed8d119da0969472833f8d8",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -523,6 +638,11 @@
       "sources": [
         {
           "source": "skills/work-sales/lead-triage/SKILL.md",
+          "sourceSha256": "fa9e5f379d9264004fb570a692fc04e1c383df539ab7f90a5a348cf99fc0ab32",
+          "inputSchemaSha256": "48e15bd1239970af7bef5dec12376088c3edae975ed2d3e1413e31883e4ebba8",
+          "outputSchemaSha256": "35bc54576a930b11e6786544eea9acf4ad71d1e125d40bd9510c62cf1a0c1ca7",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -546,6 +666,11 @@
       "sources": [
         {
           "source": "skills/work-sales/outreach/SKILL.md",
+          "sourceSha256": "df19885a2e2739d21b2c521ef4efa0fcc9d36c7c78928f65d5ae29e558e5a652",
+          "inputSchemaSha256": "8b4256b5a324a69e2ebe44e0e260820fcb36419f3487ad539deb5428689c28aa",
+          "outputSchemaSha256": "3b5533671dae45a0203339cdf8fb88a386ac23185d78a87cf5ac4ae27bb7f2a0",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -575,6 +700,11 @@
       "sources": [
         {
           "source": "skills/work-sales/sales-call-summary/SKILL.md",
+          "sourceSha256": "5a55f16fbe14c36c10fd3ccd55d719626199da4348d6460fa877fd2092908232",
+          "inputSchemaSha256": "5f099b6a69085ff637b17270962c2d79836adf3a142a18b8c97b07bd14ff5559",
+          "outputSchemaSha256": "b5821d5128d6b9861e594c30a7cfb1db9530633b47461549dcfc6c23273105b8",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -598,6 +728,11 @@
       "sources": [
         {
           "source": "skills/work-sales/opportunity-update/SKILL.md",
+          "sourceSha256": "96f4481217a1856e4bede4b9851ce1154da677615ba9886aefbabdda70a02f55",
+          "inputSchemaSha256": "f11d435904f5cf78de6b961b75969e6ed3c334fc4d9db927713ddddd23dae7f5",
+          "outputSchemaSha256": "392ce91f29149c3f103926529e0a25877d37862565b65dfbf397f8d2aef47a60",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -621,6 +756,11 @@
       "sources": [
         {
           "source": "skills/work-sales/pipeline-review/SKILL.md",
+          "sourceSha256": "0d836b7b894a8c9948a204ce5db6261319555bf90c1a2cf06d72c5ec5b470ac3",
+          "inputSchemaSha256": "a70a54d64faa914e39cbd80c4f82a1183f97610a34bd4e0197be55b7b1b25414",
+          "outputSchemaSha256": "8ba4994c74a787f6e971c88a533539f1ac618f12662e01f90eb7b566574733d5",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -644,6 +784,11 @@
       "sources": [
         {
           "source": "skills/work-sales/forecasting/SKILL.md",
+          "sourceSha256": "a1440f7d99f444ad0c44db309473b8caf209e212b14d9e005ab01e5beeaec038",
+          "inputSchemaSha256": "883f6792129ab7dfbe9a072aaebef25dec99649203c23aca5e57b6391f6b11ce",
+          "outputSchemaSha256": "508ee316feff751a931cc9401866560ea9a218830874d2a3f2f94790690bafc9",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -667,6 +812,11 @@
       "sources": [
         {
           "source": "skills/work-sales/close-plan/SKILL.md",
+          "sourceSha256": "f6753a0fd8d9279bfc27b2b788e388f637a5c6ec758c6e94f1c8c623319f8363",
+          "inputSchemaSha256": "4d387c8aa13a3d5b6d64a72ebda8bc0bbe5a6f6f3efe6e1690722ca99232cbae",
+          "outputSchemaSha256": "f599ec8fc4373d886b1009b7c9db7f3a825cc09fae7955d1e6149990c81397c0",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -690,6 +840,11 @@
       "sources": [
         {
           "source": "skills/work-sales/renewal-radar/SKILL.md",
+          "sourceSha256": "4d02c398d62c2abf167a0b5e1c811fc727587a464b38a4d86872c0650a1cb6fe",
+          "inputSchemaSha256": "c31102091429daf0204a94690d64da466bf39239663d0f2ca7b0a1cf1543367d",
+          "outputSchemaSha256": "f27b350d52ed29581bdb2904236d2afc0c060ad2606c857b74e154ca63925f5a",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -713,6 +868,11 @@
       "sources": [
         {
           "source": "skills/work-sales/crm-hygiene/SKILL.md",
+          "sourceSha256": "41b6608b00ca514ffa7cae40723885cf87560d15cecff61fa91f8000ad8d0891",
+          "inputSchemaSha256": "3c3d2153c86173f9c4c34d6bc3ae5b99604cb07f4fcc44671910a81c9839ecf6",
+          "outputSchemaSha256": "81ddaea8e72fd07d45af37cafd2825af028e247a283449c1a46061283c1fd98e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -736,6 +896,11 @@
       "sources": [
         {
           "source": "skills/work-sales/customer-health/SKILL.md",
+          "sourceSha256": "aa4e2a6d6abfffec77fe245d11d70711c118ff9288234ed53fed89561410debf",
+          "inputSchemaSha256": "7881a67c521f26fb4db13fe80d23725e70be1352648d234e658a2ae0bcd1da32",
+          "outputSchemaSha256": "0028f09d167db2d82f9cc98ce8d0e62d790c24c5aaaa06f9f544452fb227500a",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -759,6 +924,11 @@
       "sources": [
         {
           "source": "skills/work-sales/proposal-builder/SKILL.md",
+          "sourceSha256": "01cb86d18a229577ace74d80a9122b34936f0a7028e13e603b532438d13c0134",
+          "inputSchemaSha256": "19f8ac2abe530ed128f440f3002dd4a05790c10066874eba57951820c484d4ae",
+          "outputSchemaSha256": "fc334f3eac965269f2b8acbd1bfd18b66f4cf4bfc7a3913283d12f014d8679fd",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -926,6 +1096,11 @@
       "sources": [
         {
           "source": "skills/work-product/product-discovery/SKILL.md",
+          "sourceSha256": "b16b2a9e390050c11e7944a26eefcf03823c1bba28c141aba29df4b5f8a99fb9",
+          "inputSchemaSha256": "03ee5734cfab37c2cf1aa10aaa9f19fca37e59f602f396957f9a218113fd4c8e",
+          "outputSchemaSha256": "226e0175f10de1cb223f2b30b283992c857caf3772221678846530d09f98ff83",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -949,6 +1124,11 @@
       "sources": [
         {
           "source": "skills/work-product/user-interview-planning/SKILL.md",
+          "sourceSha256": "6f7301e9c2aac63ae10081c1ca80ba4d6d39e0e826108102c0e6d4891daf51f2",
+          "inputSchemaSha256": "76bde82e149f6decc16a1b000e27e9ee91ee286c38d511daeaecec88b39030b7",
+          "outputSchemaSha256": "75a65048a7b0782123a9b1a72d10bf126a15bf9d4b9a54d2616c9d502741c06c",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -972,6 +1152,11 @@
       "sources": [
         {
           "source": "skills/work-product/research-synthesis/SKILL.md",
+          "sourceSha256": "414b9c0be8495d0f085756fec633162b5806a1afad7d68bfd6788ca198d2672e",
+          "inputSchemaSha256": "ffe57a310fa57bca1d760697c49c37b71479c7e36d0f48abd10d5fc1073347a6",
+          "outputSchemaSha256": "ebfabc0d80c7652922dd1759e612c45c714017b557f6ebafd435d682d18db3ca",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -988,6 +1173,11 @@
         },
         {
           "source": "skills/work-research/research-synthesis/SKILL.md",
+          "sourceSha256": "414b9c0be8495d0f085756fec633162b5806a1afad7d68bfd6788ca198d2672e",
+          "inputSchemaSha256": "ffe57a310fa57bca1d760697c49c37b71479c7e36d0f48abd10d5fc1073347a6",
+          "outputSchemaSha256": "ebfabc0d80c7652922dd1759e612c45c714017b557f6ebafd435d682d18db3ca",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1011,6 +1201,11 @@
       "sources": [
         {
           "source": "skills/work-product/problem-framing/SKILL.md",
+          "sourceSha256": "e3f361fe384acbdc650168eb34f1a20b95f0849b5dd336d8f1cdcaeb7f7b3084",
+          "inputSchemaSha256": "bdd45c10c50f338cbd801c400b457a7dd30d00b46e336a394848a4102551ca6d",
+          "outputSchemaSha256": "c93319cc840a148360e1800b72013bafaf0a9fdd7f085030a77c68cc3e607e66",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1034,6 +1229,11 @@
       "sources": [
         {
           "source": "skills/work-product/opportunity-mapping/SKILL.md",
+          "sourceSha256": "cf45727038f4f89e229986063878e6b015246a66a0eec7cf8f88d41e0db964d0",
+          "inputSchemaSha256": "b0a58ab86eb9d10043bd528aa1c99e52ec32c7ee6bd8e2a5584430b414a08e9a",
+          "outputSchemaSha256": "6bcf7d67b484873f82804052d41f8c15ed314bc5b3d452863addc023dd098c37",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1057,6 +1257,11 @@
       "sources": [
         {
           "source": "skills/work-product/product-brainstorming/SKILL.md",
+          "sourceSha256": "204837685f2e19c8b039fe09ff6125c88dedaf70cf9a2795dc4a2255fd711a3d",
+          "inputSchemaSha256": "f4610d40fe1361f8c1d683cf3dc60942dffecb03ba0532c64998b05a950413e3",
+          "outputSchemaSha256": "249197cf6ad52bb8d4f6a4cf96a05a90fcf43492c16d3fa95674c54018c6f7a8",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1080,6 +1285,11 @@
       "sources": [
         {
           "source": "skills/work-product/prd-spec-writing/SKILL.md",
+          "sourceSha256": "9f07bf66196cd60e63636f298ca6e8a9f3dd71dd6f46eaa3fa4677e9f076523b",
+          "inputSchemaSha256": "7d29e9642878a48f17b43ff0fd9f4c5e37ab992b230f1e220c050cfb125558d9",
+          "outputSchemaSha256": "36b8c482c3534ccb2ba69270188660593b73b07a815d4cf2a2afb73269bf0251",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1103,6 +1313,11 @@
       "sources": [
         {
           "source": "skills/work-product/prioritization/SKILL.md",
+          "sourceSha256": "a0e8c0604fce6fdac5827d8584fa03f80c6f34a62ebbeefc4b01de456321d43b",
+          "inputSchemaSha256": "8cd27715652adbc286ad86a0841b98bec16a9c9996dc04e02970a834bde6f15c",
+          "outputSchemaSha256": "c6737791f1d80af40659c924b6241ba771d5c6a828eede94c45139daa50bac40",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1126,6 +1341,11 @@
       "sources": [
         {
           "source": "skills/work-product/roadmap-planning/SKILL.md",
+          "sourceSha256": "fb666bdaecfbd79e8874e284fda5bdfb28bb29c3f4e8c9b8f63f25fe0cf10e45",
+          "inputSchemaSha256": "ae88c4728ef30ac5a959fe11c7d78d5c696af4d7ea80e515bdc06112d4cfd9b1",
+          "outputSchemaSha256": "c539a6f2e0a1becc601f060cdb3f7dd6efa57d7ac4ccb4e9af117c2746f252cc",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1149,6 +1369,11 @@
       "sources": [
         {
           "source": "skills/work-product/sprint-planning/SKILL.md",
+          "sourceSha256": "394de1bd73a29671225ee3a4f7f1f84cd56e180a9230a2cb074de9920fe16adf",
+          "inputSchemaSha256": "c7725a3cee9ce6a307eef20762b9ade44ea9066825277385fb4e49b0b861c026",
+          "outputSchemaSha256": "af759f2ba33e5a29173b4878117818640638750512ac91ccd2656eb9428ef4e6",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1172,6 +1397,11 @@
       "sources": [
         {
           "source": "skills/work-product/experiment-design/SKILL.md",
+          "sourceSha256": "8385ce92cafe8481f5f79a5522cf786aab3e5caecb25730b6d564b385a00ccd4",
+          "inputSchemaSha256": "0bfbf58f607ddfe534972fe16f59cf1f6829f2b41fc6d6c77c7218462a035066",
+          "outputSchemaSha256": "76fbc104fb017147ce0d9d6d5ac683372d64f88a071c4bf5af5f93fe8ec9d55d",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1195,6 +1425,11 @@
       "sources": [
         {
           "source": "skills/work-product/metrics-review/SKILL.md",
+          "sourceSha256": "52d06e40dee87736070d295cc16b6bc95ff457e301e2ae5a7d09b1e1ece98461",
+          "inputSchemaSha256": "52075dc50297f83d325866dbe5d7d123695abab2fcaf2c7f9c4ac0fe0ff6302b",
+          "outputSchemaSha256": "f1aba12c5c1348810cf80752cf9c1e0de222352fc164424e00a853752cab9439",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1218,6 +1453,11 @@
       "sources": [
         {
           "source": "skills/work-product/product-launch/SKILL.md",
+          "sourceSha256": "0ea51b1a477bf78cb5122527c8dc22c8451d6b11a707db47301710db65c799c2",
+          "inputSchemaSha256": "cd8343bfb13d02d46b7ab4fb6fdca2c18b0ff94a53cc4ba87f05ffc545843d35",
+          "outputSchemaSha256": "0cf3e56d749fcdd66901c9ae4d3e64506ee5f4db4d9a2b6c442f3c81046e9f56",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1241,6 +1481,11 @@
       "sources": [
         {
           "source": "skills/work-product/user-activation/SKILL.md",
+          "sourceSha256": "6d5120269b539e1584e783cb0815b777486926dfd4b21314fda039f0c0df7f3d",
+          "inputSchemaSha256": "09481277e23cbc1b9f2b5b0af5ebc399565e151190c6335f777c7d9c25d08fee",
+          "outputSchemaSha256": "08f35c1d8dfcf01198143b3ec9340aa50da63b0fa11b250621a06270ec19fc67",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1264,6 +1509,11 @@
       "sources": [
         {
           "source": "skills/work-product/design-critique/SKILL.md",
+          "sourceSha256": "fbc28f542c82c8675a9053ba5e145728bf01d35bfc05cca9395b4290acf5b5c3",
+          "inputSchemaSha256": "9568bfc760d21a69c78d324551e39309b3e9bf5da13a7ea5c0207fbe418350b2",
+          "outputSchemaSha256": "ff94ca7ea03080154d06532d9a6adaa69299a4921daf4b859d591854badee4f8",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1287,6 +1537,11 @@
       "sources": [
         {
           "source": "skills/work-product/design-handoff/SKILL.md",
+          "sourceSha256": "972275c1ef2de4b5b16c2492fb4ac699a28b7c5b28fed1ec76366be9eb3ab127",
+          "inputSchemaSha256": "e86dead7fc9bd64470bf6368c2fc23c0f2b4ca3c766ac2fc540f3ce6d4cd02e5",
+          "outputSchemaSha256": "01302fb1c9f82d32bf6caee250f27d3cfc51381a1252403cfb58d81a7840f0d0",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1694,6 +1949,11 @@
       "sources": [
         {
           "source": "skills/work-operations/project-planning/SKILL.md",
+          "sourceSha256": "9eb8340ac40b7f3b59d09ea5d029df51549a4775076e94558106c8fb74a92a04",
+          "inputSchemaSha256": "7362fb1d3f06b719262a3e4889554c0db7fb4467279f49c9d45ff7c6a4927008",
+          "outputSchemaSha256": "180af14a98dee54422be07716d672806b0264d727ccb557624aeedf33a570684",
+          "externalSchemaDigests": [],
+          "casesSha256": "1cd45a51da040031c7eb29eb7e61473d0ccf444ee213fede35c1b8e7d73dac27",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1714,6 +1974,11 @@
       "sources": [
         {
           "source": "skills/work-product/work-item-management/SKILL.md",
+          "sourceSha256": "b0cfb0ca793b3ab450b56b1e059c5396af89eccd61ecd4f635d2b3c30916d8c3",
+          "inputSchemaSha256": "6bb2e8938b03be6cf16a026c2f38eaa8d0ac8b581c6d266ff3de0dc9a40993d2",
+          "outputSchemaSha256": "6ac6d095906f7e0762ac9d9d090b00e2440c762a853e6771a2477f6b68e19d07",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1737,6 +2002,11 @@
       "sources": [
         {
           "source": "skills/work-operations/status-reporting/SKILL.md",
+          "sourceSha256": "f1f25beb57255408c2ecdf2e82c2e1385ec1a10bc40e69dd7cde6f63fbb7afcf",
+          "inputSchemaSha256": "16c737eab705751b97e4c1199df80b6800c0052e789f6cf5acf39df946dccaca",
+          "outputSchemaSha256": "809f89b2169423251917a9f8136fe33ec787435d228c44c3805e8b11921f52c1",
+          "externalSchemaDigests": [],
+          "casesSha256": "53bdc360743e1bc87d9c776249c2e51e53c16deed88cf76a2187968e629a6fbd",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1757,6 +2027,11 @@
       "sources": [
         {
           "source": "skills/work-operations/capacity-planning/SKILL.md",
+          "sourceSha256": "8598fd94836fb34e2c6f25d452ad88c428ed828fa68dfb214622f9308bdedbfc",
+          "inputSchemaSha256": "013bdd6d94bd4ca3cf34edc58f6b19b6e01e8cc460488858c591c9cbc9a66deb",
+          "outputSchemaSha256": "238b64b8a5c90124ce84accc57b396e28119248fc2137d1003203ed85da818dd",
+          "externalSchemaDigests": [],
+          "casesSha256": "cb4c4a0f1ba4380f7f8b7564d3e2c8080533af9b7b36fbda04e47520742038e8",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1777,6 +2052,11 @@
       "sources": [
         {
           "source": "skills/work-operations/change-request/SKILL.md",
+          "sourceSha256": "8cff064956a320ed5b55d17ad9f56d4734d43237ce0043f1e9d3f234c60a4acd",
+          "inputSchemaSha256": "31c7392dbd8e5e65015ec87f556d1f233cc6def2b2e2d0bac74af886aeefc69c",
+          "outputSchemaSha256": "897c2d86ef442e39feb6ab0e55fd00734f12df0bbc725821ef07b5dff0018c70",
+          "externalSchemaDigests": [],
+          "casesSha256": "27031c7a7a67b1cfb2dd2fdb6ff86782878276e30e9b1b89e632ab2b3e7d531e",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1809,6 +2089,11 @@
       "sources": [
         {
           "source": "skills/work-operations/process-documentation/SKILL.md",
+          "sourceSha256": "3eabfa77c5ba37f9e196ff0087ffbfc9d5c03b2cf88ed08c99b0db0185d397c4",
+          "inputSchemaSha256": "32e2dfaa85bf506bbbcbc8dcf8d735b9e3b1d205ad24d17af2377b4771d95122",
+          "outputSchemaSha256": "8694c366a0e244389c7028b2293d26a322a39839374a0148f648707e46400bf9",
+          "externalSchemaDigests": [],
+          "casesSha256": "927e18e933651a73c1e0e11dd598c7cd8bc3a4a85179b43c2fbfc57295b3b125",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1853,6 +2138,11 @@
       "sources": [
         {
           "source": "skills/work-operations/meeting-facilitation/SKILL.md",
+          "sourceSha256": "61df4be4c29fb103499df606e4e8f564851edc1f653aa6025f220c546e4e5a52",
+          "inputSchemaSha256": "cde9144e9ad2112beeef086b5aa9beb737fb8981c84e200049aaaac0280af89b",
+          "outputSchemaSha256": "a15b6c4e5091bda2572f6ec1d5df749c5969cdaec344eb37e7b495521379ceb1",
+          "externalSchemaDigests": [],
+          "casesSha256": "5174cccfb02fa1223e9fd9de50b24b20662ae27f66fd9498b785a862b3815b10",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1873,6 +2163,11 @@
       "sources": [
         {
           "source": "skills/work-operations/execution-plan/SKILL.md",
+          "sourceSha256": "3e9b0c0b899de76f2f6b6c1e744a025eeb9451a62bc85007771117d82b764693",
+          "inputSchemaSha256": "4927e311c3248e281551a30e217a9963dab05dab367013e198e83cf4bb32a220",
+          "outputSchemaSha256": "a4a92ffa6cb0aeb6a96cc0a02c57ad5c402d9f0d1afb03c9b3f89d2fe810ef58",
+          "externalSchemaDigests": [],
+          "casesSha256": "02707e38d87010c51dd5c1f66320c65f952190df74e0a11bbe82ae541eafa714",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1893,6 +2188,11 @@
       "sources": [
         {
           "source": "skills/work-product/business-review/SKILL.md",
+          "sourceSha256": "1409fea4710c48098d206a6caaacbab6c6c9886980116b04298e90cb6855d284",
+          "inputSchemaSha256": "0c3366e529b0c1f90c19a83ec5a35686e66903e40321a9a6edd6a6a17ad94946",
+          "outputSchemaSha256": "8181e3e5eebec9164ffd78a56830af1b183773b5ea25516c7fba2a689967664d",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1916,6 +2216,11 @@
       "sources": [
         {
           "source": "skills/work-operations/continuous-improvement/SKILL.md",
+          "sourceSha256": "19dcb790354c5c61587038e07e8360eb3fee9548a4658f3b66664bd55e865bdf",
+          "inputSchemaSha256": "c22437dac230c5906831d93bdb4c4bf7d38785a1aa80eb38d57e22802b77c9b1",
+          "outputSchemaSha256": "d2616bafdf2854db256e8a2fe5d2a988d41df945829514cb6b30e5c01ad85dad",
+          "externalSchemaDigests": [],
+          "casesSha256": "3d7b2c56bb37c63d5d04522cfd5d884947227d5edc153769d9a3fbee325388e2",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -1936,6 +2241,11 @@
       "sources": [
         {
           "source": "skills/work-product/data-exploration/SKILL.md",
+          "sourceSha256": "c6b4601fa0f9fbf188aa132d0d5b1d3c589cbcfbce14dbce44e97054b9b85a1a",
+          "inputSchemaSha256": "95ef7ad7b8a36f5b92121343518e701cc174bf1eb49f4fbbff2275f1a2c6ac7e",
+          "outputSchemaSha256": "be7bc1f115698f3b24cd46b75c829c6a1b664ccc76005e47e1eab24b9189c404",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1952,6 +2262,11 @@
         },
         {
           "source": "skills/work-research/data-exploration/SKILL.md",
+          "sourceSha256": "c6b4601fa0f9fbf188aa132d0d5b1d3c589cbcfbce14dbce44e97054b9b85a1a",
+          "inputSchemaSha256": "95ef7ad7b8a36f5b92121343518e701cc174bf1eb49f4fbbff2275f1a2c6ac7e",
+          "outputSchemaSha256": "be7bc1f115698f3b24cd46b75c829c6a1b664ccc76005e47e1eab24b9189c404",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -1975,6 +2290,11 @@
       "sources": [
         {
           "source": "skills/work-research/data-validation/SKILL.md",
+          "sourceSha256": "e3d54ef9d70b13673f202bde9adc0735fdfdfa4d8639dca9381c9ee82fcd859e",
+          "inputSchemaSha256": "1f39cdc36ddf1f7bd1caf80dd002275e822abe878a8feedac756a9d0f277ae87",
+          "outputSchemaSha256": "cf847e98524070abb8608045b4c8f1dde7f2db3116eafc20cf89da4f83b3906a",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2004,6 +2324,11 @@
       "sources": [
         {
           "source": "skills/work-research/sql-query/SKILL.md",
+          "sourceSha256": "74802260702aa65a348e497956ecd136a64375104f5a10e0f342ebf4ce6cad6b",
+          "inputSchemaSha256": "444fbabddb4eb38a197c277a8735bc52377e922c49aaa2e5d797ce002639646e",
+          "outputSchemaSha256": "0cd735a6329b5c34567c2735c0ebd1a04e6617a5011195e6b374e44424bebb5e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2027,6 +2352,11 @@
       "sources": [
         {
           "source": "skills/work-product/statistical-analysis/SKILL.md",
+          "sourceSha256": "8f3231cdb670241c471ecafee6dbbd271860cb1e752be49edfe60a9b2beb2aaf",
+          "inputSchemaSha256": "f66968f2a901a8205bd3a9ed2441be1ef067bc9a33816ba14c77012b8c0ea58d",
+          "outputSchemaSha256": "9e3299f1a902d5701ab6b7b816c4dcbd1c6edd21f7a11fc5cb88804cf359bd6e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2043,6 +2373,11 @@
         },
         {
           "source": "skills/work-research/statistical-analysis/SKILL.md",
+          "sourceSha256": "8f3231cdb670241c471ecafee6dbbd271860cb1e752be49edfe60a9b2beb2aaf",
+          "inputSchemaSha256": "f66968f2a901a8205bd3a9ed2441be1ef067bc9a33816ba14c77012b8c0ea58d",
+          "outputSchemaSha256": "9e3299f1a902d5701ab6b7b816c4dcbd1c6edd21f7a11fc5cb88804cf359bd6e",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2066,6 +2401,11 @@
       "sources": [
         {
           "source": "skills/work-product/kpi-design/SKILL.md",
+          "sourceSha256": "914dfaed142dcecf628c0ed13d7f88cb62c19c9e7dbad6deead2788105a254ad",
+          "inputSchemaSha256": "c740fd6e78bbb60e146cd961dbd242304d945a95913112265bbf456d17d6bea3",
+          "outputSchemaSha256": "d907a5ac4e0464e8b249b1cf7bf09983c2c947efbf3437ac5867972d3b43f7bf",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2095,6 +2435,11 @@
       "sources": [
         {
           "source": "skills/work-research/data-visualization-report/SKILL.md",
+          "sourceSha256": "af084b6554288525aebddd08d2a1445809a2f2888c7c9f017c6b26e06f9e7cc7",
+          "inputSchemaSha256": "d078f86f71ccad21f0d711aa95e5c0ae029e566867dd1ada786288057a9c3eb5",
+          "outputSchemaSha256": "e2c8585411464ffc6e807aba1c96b497a8cd77642b60f5694e07f093839cd683",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2130,6 +2475,11 @@
       "sources": [
         {
           "source": "skills/work-research/market-sizing/SKILL.md",
+          "sourceSha256": "429a2045843e16920d62c5c8e0cf2fab4667e69efd6b71a196546e8fd8896b5b",
+          "inputSchemaSha256": "7f07155cefdc17e4bfac10c6b0926119700717368f3a064a15067651e03a3e60",
+          "outputSchemaSha256": "0608786ac0fc28847b2d2dd21fb7d65305373228662ab8a937a9b463d7164a02",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2153,6 +2503,11 @@
       "sources": [
         {
           "source": "skills/work-research/trend-analysis/SKILL.md",
+          "sourceSha256": "068b4d9d1fce7fcede768e489a855b9221848c9a6a542d6dbff81e0b1e5b02a6",
+          "inputSchemaSha256": "5d5fcf93b651d89cb28037bc87096afd3fbb98502183fb924074619d21f8da15",
+          "outputSchemaSha256": "1f29cd945943238def03f089c30d066c0d568f7ba1f5ac97934f104918581398",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2176,6 +2531,11 @@
       "sources": [
         {
           "source": "skills/work-research/knowledge-synthesis-review/SKILL.md",
+          "sourceSha256": "5a5af6ec428e6077e7306f36cf2f36c5e4fc14b82134f76aaf50b465f465c536",
+          "inputSchemaSha256": "744a33d2aad2132ad7e8b1a17ff45dcecc81e91674ee9cf40973c62888ac479e",
+          "outputSchemaSha256": "65a6d6cdb2966b2271fa4cba1780e2211620dfb4480f90c3ef13c25b0473bd4c",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2199,6 +2559,11 @@
       "sources": [
         {
           "source": "skills/work-research/scientific-research-planning/SKILL.md",
+          "sourceSha256": "97e76b5aadc103f5680d1eecb6e2a5d4a6eef5c247df706f1f494ea093522354",
+          "inputSchemaSha256": "81fa835a3a42e4ddf735b0c177facd7730f394be69b4a2909a36d05277273de4",
+          "outputSchemaSha256": "fc43514f76cb3a57969d8e7e5c2e20e35168b828bf08b565990a1c2c73cf65b2",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2222,6 +2587,11 @@
       "sources": [
         {
           "source": "skills/work-research/evidence-review/SKILL.md",
+          "sourceSha256": "716a6c7da8067029fea0c12c9143a4e9d919288d516bc3da08fdb2ddc67cb740",
+          "inputSchemaSha256": "52b2f4ca3d692fbd4d8bac97ccec52b1ea9bea96be53e7bf61bcb9a603a7524d",
+          "outputSchemaSha256": "65f0e330412d844b66d9c1bffe09d07b839feced0bcf01476e07c1d913eddbe5",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2245,6 +2615,11 @@
       "sources": [
         {
           "source": "skills/work-research/data-storytelling/SKILL.md",
+          "sourceSha256": "9d0191c99b26c3b31cd8fb4c2eb83ffc88ca223a2685c9cd57f6816517db8010",
+          "inputSchemaSha256": "fb50d5c2bf836b7c284b7e6c20444af1203e99b709d78a1e023fba3afcdbf070",
+          "outputSchemaSha256": "05ec503a57212b3901bf8a4891a49640c43e098ce99334f1d302bc415926e85a",
+          "externalSchemaDigests": [],
+          "casesSha256": null,
           "state": "INVALID_MACHINE_SCHEMA",
           "issues": [
             "inputSchema: strict mode: unknown keyword: \"summary\"",
@@ -2292,6 +2667,11 @@
       "sources": [
         {
           "source": "skills/work-operations/incident-response/SKILL.md",
+          "sourceSha256": "0193965ee2157983ee959d890bed451b5d79579f331dbb286d7d1f1dce1520eb",
+          "inputSchemaSha256": "6cb4754f60726a10555ad10dd07f1ccf1a2dba48efddf2e88bbdb2c10b50efaf",
+          "outputSchemaSha256": "62ad77bb1d44d4f29a27492a1488dce84c04602d818a5f37a72e6ac6c4e43837",
+          "externalSchemaDigests": [],
+          "casesSha256": "6108f7cb6de43dd8b00705a659281e296bc20f3b074106afd26d8fa1edd9460c",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2318,6 +2698,11 @@
       "sources": [
         {
           "source": "skills/work-engineering/technical-documentation/SKILL.md",
+          "sourceSha256": "f82d7a28dc7508a921c00d34c25320a9077c74aaa417208c93cff875724555cd",
+          "inputSchemaSha256": "5a01d49c4d02c72b58f4842dc1a2c47b07b8d498f808509f1972d41de46b8563",
+          "outputSchemaSha256": "0b1f0dbb6436907206fc6e35815caedfc8d5453a3edb27182b225e4dcf82fde2",
+          "externalSchemaDigests": [],
+          "casesSha256": "038f1e51d0797f8a37d3b6585dca9fc3eea7c8156798f49bc27ccf6d99c38b37",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2380,6 +2765,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/support-triage/SKILL.md",
+          "sourceSha256": "48d8873cf03ee2820be93f275f231b2bf67e4a35ba64a3f7e03232ef9d8ef4a6",
+          "inputSchemaSha256": "70d4602c2309869cf109a61188b4687873812d7ae31d16c052bc1226b146a827",
+          "outputSchemaSha256": "a0400aef101951f3e2a30027f9bf32ff44b46f35d8f52525a35e4811491d8d29",
+          "externalSchemaDigests": [],
+          "casesSha256": "b782d4963f887921e70582719977f2e7bf41705af694661636a637b629938010",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2400,6 +2790,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/draft-support-response/SKILL.md",
+          "sourceSha256": "2b278312d05ccfbf23e25a4385ed78b1437d5d2b9184211e678af7d37a3dfcff",
+          "inputSchemaSha256": "a923a118cbc28af17beca1ce738346cfc3366c532535c927736e1230b9cf696a",
+          "outputSchemaSha256": "78c896e6b75f6063b8fac305fd68af50331b9b8e77fbfcda55b811143b905c62",
+          "externalSchemaDigests": [],
+          "casesSha256": "66314ba784fb96a214056dbdd523bfbf84b1abdf3af1266f7504ca7c908855c2",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2420,6 +2815,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/customer-escalation/SKILL.md",
+          "sourceSha256": "664d6f17a734e2cbd79e2a0b927922c7a4a8a59d245af4ca2bafe08e28a58120",
+          "inputSchemaSha256": "7b62267187ac2d376dc6fe630e27fd111cce21648fd7c34ed9578bfb630b90f9",
+          "outputSchemaSha256": "e6f5c3d295cbe0b466b4ed303a8cb0772ddea15f89b4bf28d112322db0ab0f08",
+          "externalSchemaDigests": [],
+          "casesSha256": "b78be3cb0947c22074bb36c46d5d68b82515868cd1ae5ba53c771f7779afbb22",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2440,6 +2840,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/kb-article/SKILL.md",
+          "sourceSha256": "8aa42afe0709f839845527cb1cf60b1c216dc381d555913473bf6c10eece5c4a",
+          "inputSchemaSha256": "9e4a3477539e94cabdca97624cc94b990b34459cd3bf0d608e7642392850ac90",
+          "outputSchemaSha256": "0c654645e3c2f1fe42622e4c920ebf548fc1c19c92fb29f589a40b18e30e4a9d",
+          "externalSchemaDigests": [],
+          "casesSha256": "fcb69616e5757176ba8d35c64d4327b45a273bb002f7174de4abf21dd7a7326d",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2460,6 +2865,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/qbr-preparation/SKILL.md",
+          "sourceSha256": "992990f2e27ef63a04c475d21a037f7cc5cd7b31ead9a1462dad4434a7afa14c",
+          "inputSchemaSha256": "8fa3f1078af056bff2f191e986b2c9c206bb1de035a3cbd1235d5dfe64e66d3a",
+          "outputSchemaSha256": "564c9562258d3adbec49586f8050748a2444a6233ee0872252819e7c8c636773",
+          "externalSchemaDigests": [],
+          "casesSha256": "d35ce5204b0ad58a25e4d8a7d3be6895f2cf1a4839d13e6e9623a9caa194ac84",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2480,6 +2890,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/renewal-risk/SKILL.md",
+          "sourceSha256": "7b81160fe88dc18859972344a343c7f0dde8a142b964fc37aae44a23b1698622",
+          "inputSchemaSha256": "a78e24c1c2fe806bc181b1e9f82bf60a661022031bcdcd97953350fc327de39a",
+          "outputSchemaSha256": "4b8c28ec34f8bcc97dcb3570e2e9701e9e32cf0f0d658e549ece3cf4c7cf700f",
+          "externalSchemaDigests": [],
+          "casesSha256": "08f79798d6e21563351f063d00feadaf4df6f459fdec609204f94c7c61828089",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2500,6 +2915,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/voice-of-customer/SKILL.md",
+          "sourceSha256": "fb58d265963a6bd5361b809684f1f304f2282e2af118c6f8ffdaa7e6aed06690",
+          "inputSchemaSha256": "eb1cc7a330973d72f23b8432cd4d7e2cbb59e3e50c53cdaada9d6f68a8c03b16",
+          "outputSchemaSha256": "4fdc9d30a27849667ae4c9d564fa4af754dd2b705ae41c28d1e417a63a1bfeb3",
+          "externalSchemaDigests": [],
+          "casesSha256": "bf4aff4f64e997eb77515f263868edb2f4d43a87c6e6314cbc67406a26d38dec",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2520,6 +2940,11 @@
       "sources": [
         {
           "source": "skills/work-customer-success/support-operations/SKILL.md",
+          "sourceSha256": "7b98cc90a3cd5a959c6bbfba103d64a7e257d9453744eb010c18f994ef04351d",
+          "inputSchemaSha256": "cbdf11775f3881be992e3b4dcd9284fc7f82f9de4518da9bc52e0e108ece2631",
+          "outputSchemaSha256": "06906e75631b5930c4437a4df0bbefe4a3a18aadc3038fee5cc06356e60cdd3a",
+          "externalSchemaDigests": [],
+          "casesSha256": "84f97e47246c5c5d6129ee5cb01d3d78e4e6e4f52203083e0fb76be48b6d0fcf",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2540,6 +2965,11 @@
       "sources": [
         {
           "source": "skills/work-executive/strategy-review/SKILL.md",
+          "sourceSha256": "a5c17d016a7452a1608790710e7b6235feb73df70cd33ae1e7098d8713363521",
+          "inputSchemaSha256": "0092fd7ce3c7943019807992c912f5ec20eea59a7666109871b3c1aeef9f4208",
+          "outputSchemaSha256": "d7bf9f2b8ab224899c26b97bcb24e649be64584ccc1c7d4622d886ece8936bc5",
+          "externalSchemaDigests": [],
+          "casesSha256": "8a0ab272a5b3f646fc429b7d2b51a3dade4c3987280fa2255c250a5932b7bc8f",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2560,6 +2990,11 @@
       "sources": [
         {
           "source": "skills/work-executive/board-meeting-preparation/SKILL.md",
+          "sourceSha256": "2022104fe0401d2f9a9f03134bb99be9c91cb89a80cddc76c9756c99b44120da",
+          "inputSchemaSha256": "3d72ddb0a67eb8352213c3133535bb71d60a45cafa8e6c2d976220f08ea0e51f",
+          "outputSchemaSha256": "2755a503bdb37adc6947237c03f6118bd913fc25af81fe32a6243e432da66430",
+          "externalSchemaDigests": [],
+          "casesSha256": "a2d14140de18a26e9b60faded11e227b275fb90ebc291c36f67341a89ca0591b",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2580,6 +3015,11 @@
       "sources": [
         {
           "source": "skills/work-executive/decision-logging/SKILL.md",
+          "sourceSha256": "3fe8a1797bfdc6cb018b8631eb995087c77605ffb982a660f1e455b82f615b3f",
+          "inputSchemaSha256": "f0f36687a1033e550d777afacd19877dbe4996310bc6402db9f3c2eba5a5815a",
+          "outputSchemaSha256": "6ba77c7c688e6824167b92c125f4d6cd9b0f20a6c0395a21a286045b5896d630",
+          "externalSchemaDigests": [],
+          "casesSha256": "4842377390a73dee596f94f0c775c3f5944bf56e2d077482637eca2a97f291ac",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2600,6 +3040,11 @@
       "sources": [
         {
           "source": "skills/work-executive/okr-alignment/SKILL.md",
+          "sourceSha256": "309288a0fa6ea651a9e883cd1127a143b5dc087f527c108403e0d382037ae3fc",
+          "inputSchemaSha256": "e62eb5e9d0c5fabe5fcd85c214b4104dd48f3886994e0a621c4f3e37007ac1c8",
+          "outputSchemaSha256": "780370c7a28361c81fa37c6f29b0ed3d253f376603a735f9a06ef5ef257f426f",
+          "externalSchemaDigests": [],
+          "casesSha256": "27d24b1c535df34ada36c467f463b94b59fb4dfa5130031428ae11fe015cfa77",
           "state": "COMPILES",
           "issues": [],
           "samples": {
@@ -2620,6 +3065,11 @@
       "sources": [
         {
           "source": "skills/work-executive/business-model-analysis/SKILL.md",
+          "sourceSha256": "3cd1e01f7ca55f619a678db3d04f6f2f6afb616ae9bf6fd4ffb5e03e0bfdb6f9",
+          "inputSchemaSha256": "7774d010daa52ff377259b448ae7e2a4873d8a61ab69d24420a00cd2b1324fd9",
+          "outputSchemaSha256": "660b325870f498bcb17433f8dd09432b1656a72d335beca44ce8d7835a250c34",
+          "externalSchemaDigests": [],
+          "casesSha256": "9b08e0d4f53dd090c548c04c88f295e305ee4504422b51c45bd202d99b20ee7e",
           "state": "COMPILES",
           "issues": [],
           "samples": {
