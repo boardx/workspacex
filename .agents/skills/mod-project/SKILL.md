@@ -25,7 +25,8 @@ description: >
 - 前端 API 薄封装：`apps/web/lib/live-projects.ts`（**类型一律从 `@repo/contracts` 推导，不另声明**）
 - API：`apps/api/src/interface/controllers/project.controller.ts`、`apps/api/src/application/project/`、`apps/api/src/infrastructure/project/pg-*.ts`
 - 契约（唯一事实源）：`packages/contracts/src/project.ts`
-- mock（六 tab 共用的 33KB 热点）：`apps/web/lib/mock/project.ts`
+- mock：**已无**——#4358 删除了项目工作台全部 mock 数据（改真实数据或如实空态），
+  `apps/web/lib/mock/project.ts` 不复存在<!-- skill-doctor:ignore：这里正是在说明该路径已不存在，不是声称它存在 -->
 
 ## 关键契约与不变量（改代码前必读）
 
@@ -54,12 +55,17 @@ description: >
 ## 模块 SOP
 
 1. 动手前：读本文件 + 该 feature 的 `user_visible_behavior`/`verification`；确认所属契约束已签核。
-2. 开发中：独立 worktree；**mock→真栈的改动串行**（`lib/mock/project.ts` 是六 tab 共用热点，
-   两个分支同时动它必冲突）。
+2. 开发中：独立 worktree；原「mock→真栈的改动串行」约束的前提（`lib/mock/project.ts` 是
+   六 tab 共用热点）已随 #4358 删除该 mock 而消失——改动直接落在真实数据路径与组件上。
 3. 交付：真栈 e2e 证据 + 反证；`verify --sprint` 门控；PR 写清对上述不变量的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-10-01：本文件此前引用过已被 #4358 删除的 mock 路径 `apps/web/lib/mock/project.ts`<!-- skill-doctor:ignore：就是在说它已不存在 -->，
+  引用一直没跟着更新——被 `pnpm harness skills doctor` 的「失效路径引用」门控
+  抓到并修正。删文件 / 挪位置时，**同一个 PR 里更新 `.agents/skills/**` 的引用**（门控只查
+  存在性，语义是否过时仍要人读）。
+  （出处：[PR #4894](https://github.com/boardx/workspacex/pull/4894)）
 - 2026-09-13：`agenda_segments.duration` 自 F23 起允许 `NULL`，表示蓝本 `flow-agenda`
   没有填写真实时长；所有共享输出契约和生成的 runtime schema 都必须保留这个空值，不能继续按
   正整数解析，否则 `wx_project_read` 会在已有项目上失败。（出处：[issue #3571](https://github.com/boardx/workspacex/issues/3571)）

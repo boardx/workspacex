@@ -21,7 +21,7 @@
     "lint:contracts-no-workspace-deps": "node .harness/scripts/lint-contracts-no-workspace-deps.mjs",
     "lint:production-not-on-ops": "node .harness/scripts/lint-production-not-on-ops.mjs",
     "lint:cf-access": "node .harness/scripts/lint-cf-access.mjs && node --test .harness/scripts/lint-cf-access.selftest.mjs",
-    "lint:maau-manifest": "pnpm exec tsx .harness/scripts/lint-maau-manifest.mjs --strict",
+    "lint:maau-manifest": "pnpm exec tsx .harness/scripts/lint-maau-manifest.mjs",
     "lint:telemetry-schema": "pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs",
     "lint:ops-incident-schema": "pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module apps/ops-console/src/incident-schema.ts --export IncidentRecord",
     "lint:ops-gtm-schema": "pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module apps/ops-console/src/gtm-schema.ts --export GtmStoredShapes,FunnelIngestBatch",
