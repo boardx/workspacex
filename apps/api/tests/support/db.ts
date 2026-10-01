@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { migrate } from "../../src/infrastructure/db/migrator";
 import { appConfig, migrationConfig } from "../../src/infrastructure/db/pg-config";
+import { trackSeededOrganization } from "./fixture-ownership";
+export { cleanupSeededOrganizations } from "./fixture-ownership";
 
 const API_DIR = fileURLToPath(new URL("../..", import.meta.url));
 const COMPOSE = [
@@ -273,18 +275,6 @@ export interface OrgFixture {
   groups: Record<string, string>;
 }
 
-// Track only organizations this process successfully created through this
-// fixture. File teardown must not leave queued background work for the next
-// app's model provider, and must never truncate another file's tenant data.
-const seededOrganizations = new Set<string>();
-
-export async function cleanupSeededOrganizations(): Promise<void> {
-  const ids = [...seededOrganizations];
-  if (ids.length === 0) return;
-  await resetOrgs(ids[0]!, ...ids.slice(1));
-  for (const id of ids) seededOrganizations.delete(id);
-}
-
 /**
  * Build one organization's worth of fixture.
  *
@@ -381,7 +371,7 @@ export async function seedOrg(opts: {
     }
   });
 
-  seededOrganizations.add(orgId);
+  trackSeededOrganization(orgId, () => resetOrgs(orgId));
   return { orgId, teams, projectId, groups };
 }
 
