@@ -24,10 +24,22 @@ Counterexamples: the previous chat hook failed six real-helper/component scope c
 - Admin/directory/home/helper UI: 82 tests passed (`unified-web.log`). Chat scope/helper: 15 passed; existing capability/model tests: 31 passed (`unified-chat-scope.log`, `unified-chat-existing.log`). The seven helper cases overlap the admin batch; counts describe runs, not unique cases.
 - Public voice deployment gate/trusted-copy/route repair: 38 passed (`unified-voice.log`).
 - Python role/model-request/graph: 12 passed (`unified-python.log`).
-- Final normal pre-push typecheck/lint: pending at report creation; no bypass is permitted. Latest unified-head CI is authoritative after push.
+- Normal pre-push typecheck/lint passed for unified head 5cd5d96ab (all 20 affected tasks succeeded). Latest unified-head CI is authoritative; further fixes require a new normal check.
 
 Two earlier API attempts are retained honestly. The first loaded the main checkout's old contracts through shared node_modules and returned 400 instead of 403 in two tests. Local workspace links were corrected. The second overlapped a source update, mixing cached code and a new assertion. The stable final API run passed all 122 tests; neither failed attempt is counted as green.
 
 ## Remaining backlog
 
 Latest-head CI, deployment SHA, authenticated browser role/PDF/audio acceptance and tester report remain open. This cloud session cannot send to the testing session or access its local inbox, and has no live model credentials; no test was dispatched. C01/C02/C03 broader authored-entity/schema/real-model coverage remains open. Local passing tests do not establish that devapp is repaired.
+
+The five superseded PRs were closed after verifying GitHub PR #4867 contained unified head 5cd5d96abb012331a4e27f458ebb7906d913f4e1. The one remaining review entry is #4867. Continued eval-evidence and extraction timing fixes are tracked in BACKLOG.md.
+
+## Continued evidence and CI repairs
+
+Evaluation reports now bind suite, fixture and grader identity; historical or stale reports cannot pass current gates. The runner refuses changed cached graders and mid-run input mutation. Extraction feedback waits for a saved thread. See EVAL-EVIDENCE-TRUST.md and extraction regression evidence.
+
+S003 Zod definitions now live in contracts; the integrated single-source/schema checks passed 11/11. The permission whitelist budget admits precisely the guarded pinned reader. The real-pack regression imports the builder current version, retains old-pack mismatch counterproof, and passed 2/2 in isolated real PG/HTTP. An earlier combined run passed 131/132; its single old-pack fixture failure is retained.
+
+Old published head fullstack smoke failed because upstream GitHub API quota was exhausted (403, remaining=0). This is not counted passing; latest-head CI remains required.
+
+Integrated continued-fix verification: 12 files / 134 tests passed against isolated real PG, including all work-eval tests, permission counterproofs and pinned Skill loopback. Cleanup completed. See unified-final-eval-db.log. Extraction regression 7 + 32 passed (unified-extraction*.log).

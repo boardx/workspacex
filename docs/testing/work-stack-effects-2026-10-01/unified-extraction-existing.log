@@ -1,0 +1,117 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/web
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/kg-extraction-feedback-chip.test.tsx (26 tests) 401ms
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > CopilotKitV2PanelBody 的 userMessage slot —— 走 V2UserMessage，不是框架默认 MessageRenderer > user 消息经 CopilotChatMessageView 渲染：正文容器带 text-13（lib/font-scale.ts 唯一事实源）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): [TypeError: Failed to parse URL from /api/copilotkit/info] {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:12072:25)
+      at fetch (node:internal/deps/undici/undici:12997:25)
+      at fetch (node:internal/deps/undici/undici:17708:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:83:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:104:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入 > 用户消息上有「记住这句」；AI 消息（框架默认 assistantMessage）上没有
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): [TypeError: Failed to parse URL from /api/copilotkit/info] {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:12072:25)
+      at fetch (node:internal/deps/undici/undici:12997:25)
+      at fetch (node:internal/deps/undici/undici:17708:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:83:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:65:5)
+} { runtimeUrl: '/api/copilotkit' }
+[CopilotKit Inspector] Failed to load announcement [TypeError: fetch failed] {
+  [cause]: Error: getaddrinfo EAI_AGAIN cdn.copilotkit.ai
+      at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+    errno: -3001,
+    code: 'EAI_AGAIN',
+    syscall: 'getaddrinfo',
+    hostname: 'cdn.copilotkit.ai'
+  }
+}
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入 > 点击「记住这句」⇒ 只发出请求（`requestRememberStatement`），不直接写入任何东西
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): [TypeError: Failed to parse URL from /api/copilotkit/info] {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:12072:25)
+      at fetch (node:internal/deps/undici/undici:12997:25)
+      at fetch (node:internal/deps/undici/undici:17708:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:83:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:65:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入 > 消息正文为空白 ⇒ 不渲染「记住这句」（没有内容可记）
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): [TypeError: Failed to parse URL from /api/copilotkit/info] {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/workspace/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:12072:25)
+      at fetch (node:internal/deps/undici/undici:12997:25)
+      at fetch (node:internal/deps/undici/undici:17708:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:83:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at runNextTicks (node:internal/process/task_queues:65:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > uiux-r3 #5.4 —— 数字人对话不出「这句没有需要记的」 > 普通对话：empty 时有这一行（对照组）
+Agent default not found
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at listOnTimeout (node:internal/timers:597:9)
+    at processTimers (node:internal/timers:571:7)
+Failed to load runtime info (/api/copilotkit/info): Cannot convert undefined or null to object
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Cannot convert undefined or null to object
+    at Object.entries (<anonymous>)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:502:16)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at listOnTimeout (node:internal/timers:597:9)
+    at processTimers (node:internal/timers:571:7) { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-user-message.test.tsx > uiux-r3 #5.4 —— 数字人对话不出「这句没有需要记的」 > 选中数字人：这一行整个不画
+Agent default not found
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+Failed to load runtime info (/api/copilotkit/info): Cannot convert undefined or null to object
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Cannot convert undefined or null to object
+    at Object.entries (<anonymous>)
+    at AgentRegistry.performRuntimeConnection (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:502:16) { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-panel-user-message.test.tsx (6 tests) 629ms
+   ✓ CopilotKitV2PanelBody 的 userMessage slot —— 走 V2UserMessage，不是框架默认 MessageRenderer > user 消息经 CopilotChatMessageView 渲染：正文容器带 text-13（lib/font-scale.ts 唯一事实源） 333ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  07:09:58
+   Duration  6.06s (transform 2.94s, setup 340ms, collect 7.12s, tests 1.03s, environment 1.53s, prepare 211ms)
+

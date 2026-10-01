@@ -1,0 +1,26 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/web
+
+stderr | tests/ui/extraction-thread-scope.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/extraction-thread-scope.test.tsx > waits for a real thread ID before extraction (""), then queries the ready thread
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+
+stderr | tests/ui/extraction-thread-scope.test.tsx > waits for a real thread ID before extraction ("   "), then queries the ready thread
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+
+stderr | tests/ui/extraction-thread-scope.test.tsx > does not query extraction for a draft or hydrated message never sent this session
+[CopilotKit Inspector] Failed to load announcement Error: Malformed announcement payload
+    at WebInspectorElement.fetchAnnouncement (file:///workspace/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11601:15)
+
+ ✓ tests/ui/extraction-thread-scope.test.tsx (7 tests) 490ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  07:09:40
+   Duration  7.58s (transform 2.63s, setup 161ms, collect 5.65s, tests 490ms, environment 776ms, prepare 70ms)
+
