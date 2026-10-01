@@ -153,6 +153,11 @@ describe('published role skill detail boundary',()=>{
  });
  it('keeps a pending-only role at zero executable skills and preserves chat and workflow entry',async()=>{
   render(<AgentDetail agentId="a" onStartChat={vi.fn()} fetchCard={vi.fn().mockResolvedValue(card)} fetchExtras={vi.fn().mockResolvedValue(extras({skills:[],pendingSkills:[{stableId:'pending-stable',stableName:'S901',contentDigest:'a'.repeat(64),reason:'missing_version',displayName:'真实待验证技能'}]}))}/>);
-  const item=await screen.findByTestId('agent-detail-pending-skill');expect(item).toHaveAttribute('aria-disabled','true');expect(item).toHaveAttribute('data-state','missing_version');expect(item).toHaveAttribute('data-skill-stable-id','pending-stable');expect(item).toHaveTextContent('版本缺失');expect(screen.queryByTestId('agent-detail-skill')).not.toBeInTheDocument();expect(screen.getByTestId('agent-detail-skill-counts')).toHaveAttribute('data-available-count','0');expect(screen.getByTestId('agent-detail-skill-counts')).toHaveAttribute('data-pending-count','1');expect(screen.getByTestId('agent-detail-start-chat')).toBeInTheDocument();expect(screen.getByTestId('agent-detail-workflow-launch')).toBeInTheDocument();
+  const item=await screen.findByTestId('agent-detail-pending-skill');
+  expect(screen.getByTestId('agent-detail-readiness')).toHaveTextContent('日常对话可以直接开始');
+  expect(screen.getByTestId('agent-detail-readiness')).toHaveTextContent('待验证 1 项技能暂不可用');
+  expect(screen.getByTestId('agent-detail-readiness')).not.toHaveTextContent('能力都已开通');
+  expect(screen.getByTestId('agent-detail-start-chat')).toBeEnabled();
+  expect(screen.getByTestId('agent-detail-workflow-launch')).toBeEnabled();expect(item).toHaveAttribute('aria-disabled','true');expect(item).toHaveAttribute('data-state','missing_version');expect(item).toHaveAttribute('data-skill-stable-id','pending-stable');expect(item).toHaveTextContent('版本缺失');expect(screen.queryByTestId('agent-detail-skill')).not.toBeInTheDocument();expect(screen.getByTestId('agent-detail-skill-counts')).toHaveAttribute('data-available-count','0');expect(screen.getByTestId('agent-detail-skill-counts')).toHaveAttribute('data-pending-count','1');expect(screen.getByTestId('agent-detail-start-chat')).toBeInTheDocument();expect(screen.getByTestId('agent-detail-workflow-launch')).toBeInTheDocument();
  });
 });

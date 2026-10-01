@@ -296,8 +296,10 @@ function AgentDetailBody({ card, extras, onStartChat }: {
             </div>
           )}
           <p data-testid="agent-detail-readiness" className="mt-0.5 flex items-center gap-1.5 text-12 text-muted-foreground">
-            {ready
-              ? <><CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />随时可以开始对话，它需要的能力都已开通。</>
+            {extras.kind === "ready" && (extras.extras.pendingSkills?.length ?? 0) > 0
+              ? <><CircleDashed aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning-tint-foreground" />日常对话可以直接开始；待验证 {extras.extras.pendingSkills!.length} 项技能暂不可用。</>
+              : ready
+              ? <><CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />随时可以开始对话；具体技能是否可用，请查看下方技能清单。</>
               : <><CircleDashed aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning-tint-foreground" />日常对话可以直接开始；少数要连外部系统的动作，还在等组织管理员开通。</>}
           </p>
         </div>
