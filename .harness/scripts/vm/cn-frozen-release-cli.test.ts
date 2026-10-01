@@ -46,6 +46,13 @@ function fixture(compatible = true) {
 describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
  it('fails NOT_READY for a historical dispatcher instead of borrowing latest main',()=>{const f=fixture(false);expect(f.run().status).toBe(3)});
  it('accepts actual ancestor candidate/tag after main advances without build or mutation',()=>{const f=fixture();expect(f.source).not.toBe(f.main);const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
+ it('accepts root-verified governance adapter when workflow token cannot see bypass fields',()=>{
+  const f=fixture(),p='repos/boardx/workspacex';
+  (f.snapshot as any).governance={schemaVersion:1,kind:'governance',repository:'boardx/workspacex',sourceSha:f.source,attemptId:'gha-fixture-1',observedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+300000).toISOString(),governance:{promotion:f.maps[p+'/environments/production-cn-promotion'],promotionPolicies:(f.maps[p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies,activation:f.maps[p+'/environments/production-cn'],activationPolicies:(f.maps[p+'/environments/production-cn/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies,tagRules:[f.maps[p+'/rulesets/1'],f.maps[p+'/rulesets/2']]}};
+  delete f.maps[p+'/rulesets?includes_parents=true&per_page=100&page=1'];delete f.maps[p+'/rulesets/1'];delete f.maps[p+'/rulesets/2'];
+  expect(f.run().status).toBe(0);
+  (f.snapshot as any).governance.attemptId='other';expect(f.run().status).toBe(3);
+ });
  it('rejects changed attestation and incomplete actual checks before approval',()=>{const f=fixture(),key=`repos/boardx/workspacex/git/tags/${f.tagSha}`;const old=f.maps[key];f.maps[key]={tag:f.tag,object:{type:'commit',sha:f.source},message:'present-only'};expect(f.run().status).toBe(3);expect(f.run({GITHUB_REF:'refs/heads/main'},'freeze-tag').status).toBe(3);f.maps[key]=old;f.maps[`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`]={total_count:101,check_runs:[]};expect(f.run().status).toBe(3)});
  it('rejects moving main dispatch, missing evidence and prior-run request digest',()=>{const f=fixture();for(const patch of [{GITHUB_REF:'refs/heads/main'},{GITHUB_SHA:f.main},{EXPECTED_REQUEST_SHA256:'0'.repeat(64)}])expect(f.run(patch).status).toBe(3);f.snapshot.devapp.browserAccepted=false;expect(f.run().status).toBe(3)});
  it('verifies real human-creator native admission via current-attempt job API',()=>{

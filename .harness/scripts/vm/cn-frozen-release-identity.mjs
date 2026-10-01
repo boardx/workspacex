@@ -21,6 +21,7 @@ export function validateGitHubEvidence(identity,snapshot,facts) {
  if(snapshot.schemaVersion!==1||snapshot.releaseSourceSha!==identity.releaseSourceSha||snapshot.attemptId!==identity.attemptId||!digest.test(snapshot.receiptSha256??'')||!digest.test(snapshot.manifestSha256??'')||!digest.test(snapshot.baselineSha256??'')||services.some(k=>!/^sha256:[a-f0-9]{64}$/.test(snapshot.images?.[k]??'')))fail('FROZEN_RELEASE_PREPARED_BINDING');
  const d=snapshot.devapp,r=facts.devappRun;
  if(d?.status!=='passed'||d.sourceSha!==identity.releaseSourceSha||d.browserAccepted!==true||!digest.test(d.evidenceSha256??'')||!Number.isSafeInteger(d.workflowRunId)||d.workflowRunId<=0||services.some(k=>d.runtimeSourceShas?.[k]!==identity.releaseSourceSha))fail('FROZEN_RELEASE_DEVAPP_RECEIPT');
+ if(d.workflowRunAttempt!==undefined&&r?.run_attempt!==d.workflowRunAttempt)fail('FROZEN_RELEASE_DEVAPP_GITHUB_ATTEMPT');
  if(r?.id!==d.workflowRunId||r.head_sha!==identity.releaseSourceSha||r.status!=='completed'||r.conclusion!=='success'||r.path!=='.github/workflows/real-model-chat-evidence.yml'||r.repository?.full_name!==identity.repository||r.head_repository?.full_name!==identity.repository)fail('FROZEN_RELEASE_DEVAPP_GITHUB_RUN');
  if(!Array.isArray(facts.checks)||!Array.isArray(facts.contexts)||facts.checks.some(c=>c.head_sha!==identity.releaseSourceSha||c.app?.slug!=='github-actions'))fail('FROZEN_RELEASE_CI_SOURCE');
  const checks=facts.checks.map(c=>({name:c.name,status:c.status,conclusion:c.conclusion}));
@@ -67,11 +68,16 @@ function pages(endpoint,key) {
  const all=[];for(let page=1;page<=100;page++) { const v=gh(`${endpoint}${endpoint.includes('?')?'&':'?'}per_page=100&page=${page}`),rows=key?v[key]:v;if(!Array.isArray(rows))fail('FROZEN_RELEASE_GITHUB_SHAPE');all.push(...rows);if(rows.length<100){if(key&&typeof v.total_count==='number'&&v.total_count!==all.length)fail('FROZEN_RELEASE_GITHUB_PAGINATION');return all;} }
  fail('FROZEN_RELEASE_GITHUB_PAGINATION');
 }
-function governance(repo) {
+export function validateGovernanceReceipt(v,identity,now=Date.now()) {
+ if(v?.schemaVersion!==1||v.kind!=="governance"||v.repository!==identity.repository||v.sourceSha!==identity.releaseSourceSha||v.attemptId!==identity.attemptId||!Number.isFinite(Date.parse(v.observedAt))||!Number.isFinite(Date.parse(v.expiresAt))||Date.parse(v.observedAt)>now||Date.parse(v.expiresAt)<=now||Date.parse(v.expiresAt)-Date.parse(v.observedAt)>3600000)fail("FROZEN_RELEASE_GOVERNANCE_RECEIPT");
+ validateTagGovernance(v.governance);
+}
+function governance(repo,snapshot,identity) {
  const prefix=`repos/${repo}`;
  const issuer=gh('apps/github-actions');
  if(issuer.slug!=='github-actions'||!Number.isSafeInteger(issuer.id)||issuer.id<=0)fail('FROZEN_RELEASE_NATIVE_APP_IDENTITY');
- const rules=pages(`${prefix}/rulesets?includes_parents=true`).filter(v=>v.target==='tag'&&v.enforcement==='active').map(v=>gh(`${prefix}/rulesets/${v.id}`));
+ if(snapshot.governance){validateGovernanceReceipt(snapshot.governance,identity);return issuer.id;}
+ const rules=pages(`${prefix}/rulesets?includes_parents=true`).filter(v=>v.target==='tag'&&v.enforcement==='active').map(v=>{const path=v.source_type==='Organization'&&v.source==='boardx'?`orgs/boardx/rulesets/${v.id}`:`${prefix}/rulesets/${v.id}`;return gh(path);});
  const v={promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};validateTagGovernance(v);return issuer.id;
 }
 export function frozenTagBinding(binding) {
@@ -105,7 +111,7 @@ async function main() {
  const identity={repository:process.env.GITHUB_REPOSITORY,workflowSha:process.env.GITHUB_WORKFLOW_SHA,workflowRef:process.env.GITHUB_WORKFLOW_REF,githubSha:process.env.GITHUB_SHA,githubRef:process.env.GITHUB_REF,releaseSourceSha:process.env.REVISION,expectedMainCnSha:process.env.EXPECTED_MAIN_CN,attemptId:process.env.ATTEMPT_ID,runId:Number(process.env.GITHUB_RUN_ID),runAttempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
  if(mode!=='freeze-tag')validateDispatchIdentity(identity);
  else {if(identity.repository!=='boardx/workspacex'||identity.githubRef!=='refs/heads/main'||!sha.test(identity.expectedMainCnSha??''))fail('FROZEN_RELEASE_PREPARE_REF');identity.releaseTag=releaseTag(identity.releaseSourceSha,identity.attemptId);}
- const nativeActionsAppId=governance(identity.repository);
+ const nativeActionsAppId=governance(identity.repository,snapshot,identity);
  const git=(...args)=>execFileSync('git',args,{encoding:'utf8',timeout:30000}).trim();
  if(git('rev-parse','HEAD')!==identity.releaseSourceSha)fail('FROZEN_RELEASE_CHECKOUT');
  execFileSync('git',['merge-base','--is-ancestor',identity.releaseSourceSha,'origin/main'],{stdio:'ignore',timeout:30000});
