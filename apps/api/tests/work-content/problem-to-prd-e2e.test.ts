@@ -21,7 +21,7 @@ import { PrdArtifact, WorkflowNotAllowedErrorBody, operations as wc } from "@rep
 import { WorkflowInstanceProjection, workflowRuntime as C } from "@repo/contracts/workflow-runtime";
 import { publishDefinitionVersion } from "../../src/application/workflow/publish-definition-version";
 import { officialRoleWorkflowAllowlists } from "../../src/domain/agent/official-role-packs";
-import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition } from "../../src/domain/work-content/product-workflow-definitions";
+import { PRODUCT_LINE_WORKFLOWS, toRuntimeDefinition, problemToPrdTriggerV2Definition } from "../../src/domain/work-content/product-workflow-definitions";
 import { defaultWorkflowGraphs } from "../../src/infrastructure/workflow/create-workflow-runtime";
 import { PgSkillCatalogVersionResolver } from "../../src/infrastructure/workflow/pg-skill-catalog-version-resolver";
 import { PgWorkflowDefinitionRepository } from "../../src/infrastructure/workflow/pg-workflow-definition-repository";
@@ -52,7 +52,7 @@ const outputPath = (id: string) => wc.getInstanceOutput.path.replace(":instanceI
 interface LoopbackCall { stageId: string; skill: string; input: Record<string, any>; prior: Record<string, any> }
 const modelCalls: LoopbackCall[] = [];
 function loopbackOutput(call: LoopbackCall): Record<string, unknown> {
-  const problem = String(call.input.problem ?? "");
+  const problem = String(call.input.rawInput ?? call.input.problem ?? "");
   switch (call.skill.split("@")[0]) {
     case "S064":
       return { problemStatement: `新用户在首次导入时流失：${problem}`, evidenceRefs: ["kb:survey-2026-q3#12", "ticket:4411"], confidence: "medium" };
@@ -175,6 +175,7 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
       await asOwner((c) => c.query("INSERT INTO workflow_definitions (org_id, key) VALUES ($1, $2) ON CONFLICT DO NOTHING", [ORG, def.key]));
       await publishDefinitionVersion(deps, { orgId: ORG, actor: { userId: WF03_ADMIN, orgRole: "admin" }, pathKey: def.key, body: toRuntimeDefinition(def) });
     }
+    await publishDefinitionVersion(deps, { orgId: ORG, actor: { userId: WF03_ADMIN, orgRole: "admin" }, pathKey: W029.key, body: problemToPrdTriggerV2Definition() });
   }, 180_000);
 
   afterAll(async () => {
@@ -192,9 +193,14 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
 
   it("V4：D003 经 HTTP 发起 W029 → S064→S065→S068→S067→S162→S067 → G1–G4 批准 → PRD 工件恰好发布一次 + 通知发起人", async () => {
     modelCalls.length = 0;
-    const r = await pm().post(startPath(W029.key), { agentId: D003_AGENT, requestId: rid(), input: { problem: "客户反馈导入太难" } });
+    const r = await pm().post(startPath(W029.key), { agentId: D003_AGENT, requestId: rid(), version: 2, input: { rawInput: "客户反馈导入太难" } });
     expect(r.status).toBe(201);
     const started = C.startInstance.out.parse(r.body);
+    expect(started.definitionVersion).toBe(2);
+    const frozen = await asApp(ORG, (c) => c.query<{ data: { definitionVersion: number; input: Record<string, unknown> } }>(
+      "SELECT data FROM workflow_events WHERE instance_id=$1 AND type='instance_started' AND seq=1", [started.instanceId],
+    ));
+    expect(frozen.rows[0]!.data).toMatchObject({ definitionVersion: 2, input: { rawInput: "客户反馈导入太难" } });
     expect(started.pinnedSkills.map((p) => `${p.stableId}@${p.version}`)).toContain("S064@1.0.0");
 
     const approvedGates: string[] = [];
@@ -227,6 +233,7 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
       "kpi:S162@1.0.0",
       "revise:S067@1.0.0",
     ]);
+    expect(modelCalls.every((call) => call.input.rawInput === "客户反馈导入太难")).toBe(true);
     expect(Object.keys(modelCalls.at(-1)!.prior)).toEqual(["frame", "map", "solutions_fill", "prioritize", "draft", "kpi"]);
     // 回环 handler 自身出错（未知 Skill 等）必须为零；其余非阶段请求（KG 抽取等）只记录不计入 modelCalls。
     expect(strayRequests.filter((r) => r.reason.startsWith("handler error"))).toEqual([]);
@@ -278,7 +285,7 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
     expect(await count()).toBe(before);
 
     // 同一 D011 发起其白名单内的 W029 照常启动（判定来自已发布版本的冻结白名单，不是一刀切拒绝）。
-    const ok = await pm().post(startPath(W029.key), { agentId: D011_AGENT, requestId: rid(), input: { problem: "y" } });
+    const ok = await pm().post(startPath(W029.key), { agentId: D011_AGENT, requestId: rid(), version: 1, input: { problem: "y" } });
     expect(ok.status).toBe(201);
     const p = WorkflowInstanceProjection.parse((await settled(ok.body.instanceId)).body);
     expect(p.status).toBe("awaiting_gate_decision");

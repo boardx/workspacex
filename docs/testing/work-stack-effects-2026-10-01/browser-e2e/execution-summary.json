@@ -1,0 +1,53 @@
+{
+  "sourceSha": "5f9b521650b5ec51db618ade069c17fe3702a975",
+  "environment": "isolated production Next/Nest/PostgreSQL/Redis",
+  "browser": "/usr/bin/chromium",
+  "upstream": "explicit deterministic loopback",
+  "salesCRM": "DEFERRED by user",
+  "realModelQuality": "BLOCKED: no credentials",
+  "stats": {
+    "startTime": "2026-10-01T09:04:15.032Z",
+    "duration": 412141.33400000003,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "cases": [
+    {
+      "title": "official roles: administrator enables dependencies; member runs four independent persisted chats",
+      "file": "digital-human-journey.spec.ts",
+      "project": "work-stack-digital-human",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 36671
+        }
+      ]
+    },
+    {
+      "title": "W029 direct role launch: real grants, four real approval confirmations, persisted PRD and reload",
+      "file": "w029-browser-journey.spec.ts",
+      "project": "work-stack-workflow",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 14471
+        }
+      ]
+    }
+  ],
+  "rawTracePolicy": "local ignored files only; auth data not published",
+  "ports": {
+    "postgres": 20276,
+    "redis": 21276,
+    "api": 24276,
+    "web": 25276
+  },
+  "isolationDatabase": "wsx_bd197564edd771ba50bd",
+  "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash /tmp/workstack-browser-e2e.sh",
+  "localInfraPreparation": "docker compose up --no-build -d --wait postgres redis; WORKSPACEX_REUSE_INFRA=1",
+  "testCommand": "WORK_STACK_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium pnpm run verify:work-stack-browser:raw"
+}

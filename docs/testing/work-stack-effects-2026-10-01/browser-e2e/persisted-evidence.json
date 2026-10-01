@@ -1,0 +1,506 @@
+{
+  "actual-import-receipts": [
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-research",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-product",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-operations",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-executive",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-customer-success",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-resolution",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/skills/starter-pack-imports",
+      "packId": "work-engineering",
+      "packVersion": "1.0.0",
+      "status": 201
+    },
+    {
+      "path": "/admin/agents/starter-pack-imports",
+      "packId": "official-digitalhuman-roles",
+      "packVersion": "1.5.0",
+      "status": 201
+    }
+  ],
+  "persisted-role-runs": [
+    {
+      "roleRef": "D002",
+      "threadId": "thr-17c00b42-56d1-4b26-8ba6-2556741939f6",
+      "runId": "57caa61a-f6cb-4428-ae95-5874b79923f4",
+      "resultMessageId": "daaf3e48-88a8-48eb-b862-c1d7aca7de7d"
+    },
+    {
+      "roleRef": "D003",
+      "threadId": "thr-bdb1891f-df32-4ed8-a542-90bbeee5671e",
+      "runId": "a2ac0c1c-8c10-40d3-80bd-324b8d2738fb",
+      "resultMessageId": "16561d65-f2fe-4fd9-8093-77be70cc723a"
+    },
+    {
+      "roleRef": "D005",
+      "threadId": "thr-246b3a38-8934-425a-8e5e-9b26ea0bf83c",
+      "runId": "08e5ae15-73e0-46e6-a07f-cc947c669e25",
+      "resultMessageId": "2c82ae91-366f-4393-851a-1df59b9eb6ce"
+    },
+    {
+      "roleRef": "D011",
+      "threadId": "thr-7694d4bc-2b16-476e-8e04-8a307276f0bf",
+      "runId": "5f2c51a9-1b03-4dd6-bda4-42c2f3694651",
+      "resultMessageId": "bac8693a-0b93-4371-9657-c5e9ddeb78c9"
+    }
+  ],
+  "workflow-business-input-evidence": {
+    "instanceId": "76961339-edd1-457e-9192-bbfc0ed8625e",
+    "approved": [
+      {
+        "gateId": "frame_gate-gate-1",
+        "stageId": "frame_gate",
+        "decidedBy": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7"
+      },
+      {
+        "gateId": "target_gate-gate-1",
+        "stageId": "target_gate",
+        "decidedBy": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7"
+      },
+      {
+        "gateId": "solution_gate-gate-1",
+        "stageId": "solution_gate",
+        "decidedBy": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7"
+      },
+      {
+        "gateId": "prd_gate-gate-1",
+        "stageId": "prd_gate",
+        "decidedBy": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7"
+      }
+    ],
+    "finishedProjection": {
+      "instanceId": "76961339-edd1-457e-9192-bbfc0ed8625e",
+      "orgId": "org-fullstack-g5-9ac3d9c6-bd197564edd7",
+      "workflowKey": "problem-to-prd",
+      "definitionVersion": 2,
+      "agentId": "agent-c5cb24ab-fbd7-4177-bce7-46fc5f7cb7aa",
+      "agentVersionId": "agent-version-51f6b596-c6aa-443a-9d8e-869851179dd4",
+      "initiatorUserId": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7",
+      "triggerKind": "manual",
+      "status": "succeeded",
+      "stateVersion": 62,
+      "reasonCode": null,
+      "goal": "团队反馈白板首次导入流程太复杂，请定义问题与PRD",
+      "stages": [
+        {
+          "stageId": "intake",
+          "title": "intake",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "a108112f-895d-44c6-98ce-6f519cf18629",
+              "label": "W029/intake",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=a108112f-895d-44c6-98ce-6f519cf18629"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:10:59.597Z",
+          "finishedAt": "2026-10-01T09:10:59.615Z"
+        },
+        {
+          "stageId": "frame",
+          "title": "frame",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "frame",
+              "stableId": "S064",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "da47f70b-498a-4a90-a231-edfc3a4743bc",
+              "label": "W029/frame",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=da47f70b-498a-4a90-a231-edfc3a4743bc"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:10:59.627Z",
+          "finishedAt": "2026-10-01T09:10:59.682Z"
+        },
+        {
+          "stageId": "frame_gate",
+          "title": "frame_gate",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "b2b4d621-eeee-4b94-a307-9f36f1e42d74",
+              "label": "W029/frame_gate",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=b2b4d621-eeee-4b94-a307-9f36f1e42d74"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:00.709Z",
+          "finishedAt": "2026-10-01T09:11:00.736Z"
+        },
+        {
+          "stageId": "map",
+          "title": "map",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "map",
+              "stableId": "S065",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "e6ad5cae-7d79-4ec5-8a2d-2f773f2dd28f",
+              "label": "W029/map",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=e6ad5cae-7d79-4ec5-8a2d-2f773f2dd28f"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:00.754Z",
+          "finishedAt": "2026-10-01T09:11:00.810Z"
+        },
+        {
+          "stageId": "target_gate",
+          "title": "target_gate",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "f7593ce8-9d70-4900-8aed-9c0d30116dae",
+              "label": "W029/target_gate",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=f7593ce8-9d70-4900-8aed-9c0d30116dae"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:01.453Z",
+          "finishedAt": "2026-10-01T09:11:01.481Z"
+        },
+        {
+          "stageId": "solutions_fill",
+          "title": "solutions_fill",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "solutions_fill",
+              "stableId": "S065",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "c60a3f61-4d00-4cba-86c8-f37df1733570",
+              "label": "W029/solutions_fill",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=c60a3f61-4d00-4cba-86c8-f37df1733570"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:01.495Z",
+          "finishedAt": "2026-10-01T09:11:01.523Z"
+        },
+        {
+          "stageId": "estimate",
+          "title": "estimate",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "ec675db1-4017-47b1-8466-91af78d2c08b",
+              "label": "W029/estimate",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=ec675db1-4017-47b1-8466-91af78d2c08b"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:01.536Z",
+          "finishedAt": "2026-10-01T09:11:01.548Z"
+        },
+        {
+          "stageId": "prioritize",
+          "title": "prioritize",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "prioritize",
+              "stableId": "S068",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "2d21a062-b225-4aca-8bd7-4d0cdb7c9dec",
+              "label": "W029/prioritize",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=2d21a062-b225-4aca-8bd7-4d0cdb7c9dec"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:01.560Z",
+          "finishedAt": "2026-10-01T09:11:01.581Z"
+        },
+        {
+          "stageId": "solution_gate",
+          "title": "solution_gate",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "6ba356cc-c932-4d91-8249-b3e39a255f3c",
+              "label": "W029/solution_gate",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=6ba356cc-c932-4d91-8249-b3e39a255f3c"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:02.258Z",
+          "finishedAt": "2026-10-01T09:11:02.284Z"
+        },
+        {
+          "stageId": "draft",
+          "title": "draft",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "draft",
+              "stableId": "S067",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "959fd735-e22c-4e45-838c-265899528f53",
+              "label": "W029/draft",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=959fd735-e22c-4e45-838c-265899528f53"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:02.303Z",
+          "finishedAt": "2026-10-01T09:11:02.341Z"
+        },
+        {
+          "stageId": "kpi",
+          "title": "kpi",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "kpi",
+              "stableId": "S162",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "e638d4b0-8252-4070-8832-61e7843ef10e",
+              "label": "W029/kpi",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=e638d4b0-8252-4070-8832-61e7843ef10e"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:02.356Z",
+          "finishedAt": "2026-10-01T09:11:02.402Z"
+        },
+        {
+          "stageId": "kpi_bind",
+          "title": "kpi_bind",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "113159e1-69bd-4df9-a8f5-46ae7913288e",
+              "label": "W029/kpi_bind",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=113159e1-69bd-4df9-a8f5-46ae7913288e"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:02.429Z",
+          "finishedAt": "2026-10-01T09:11:02.458Z"
+        },
+        {
+          "stageId": "revise",
+          "title": "revise",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [
+            {
+              "stageId": "revise",
+              "stableId": "S067",
+              "version": "1.0.0"
+            }
+          ],
+          "outputs": [
+            {
+              "outputId": "54c17705-79aa-4404-b492-6bc98b829064",
+              "label": "W029/revise",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=54c17705-79aa-4404-b492-6bc98b829064"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:02.488Z",
+          "finishedAt": "2026-10-01T09:11:02.580Z"
+        },
+        {
+          "stageId": "prd_gate",
+          "title": "prd_gate",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "8d694656-7527-4f52-822d-1cd94dc96503",
+              "label": "W029/prd_gate",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=8d694656-7527-4f52-822d-1cd94dc96503"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:03.369Z",
+          "finishedAt": "2026-10-01T09:11:03.388Z"
+        },
+        {
+          "stageId": "persist",
+          "title": "persist",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "522687a5-08ba-4420-a950-d62cafbe7322",
+              "label": "W029/persist",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=522687a5-08ba-4420-a950-d62cafbe7322"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:03.405Z",
+          "finishedAt": "2026-10-01T09:11:03.483Z"
+        },
+        {
+          "stageId": "notify",
+          "title": "notify",
+          "status": "succeeded",
+          "attempt": 1,
+          "pinnedSkills": [],
+          "outputs": [
+            {
+              "outputId": "f421d504-ffb4-4dce-9db9-d4df37f81b69",
+              "label": "W029/notify",
+              "href": "/workflows/runs/76961339-edd1-457e-9192-bbfc0ed8625e/result?output=f421d504-ffb4-4dce-9db9-d4df37f81b69"
+            }
+          ],
+          "reasonCode": null,
+          "startedAt": "2026-10-01T09:11:03.502Z",
+          "finishedAt": "2026-10-01T09:11:03.583Z"
+        }
+      ],
+      "openGate": null,
+      "effects": [
+        {
+          "effectKey": "prd-50795e42c9b38a615cb0c7bf482b81c91a02f53b05bcadfc1d69f2e5a664656e",
+          "stageId": "persist",
+          "capabilityCategory": "artifact.write",
+          "status": "finalized",
+          "initiatorUserId": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7",
+          "agentId": "agent-c5cb24ab-fbd7-4177-bce7-46fc5f7cb7aa",
+          "agentVersionId": "agent-version-51f6b596-c6aa-443a-9d8e-869851179dd4",
+          "skillVersion": null,
+          "gateId": null,
+          "finalizedAt": null
+        },
+        {
+          "effectKey": "notify-/workflow-instances/76961339-edd1-457e-9192-bbfc0ed8625e/output",
+          "stageId": "notify",
+          "capabilityCategory": "notify.inapp",
+          "status": "finalized",
+          "initiatorUserId": "user-fullstack-admin-g5-9ac3d9c6-bd197564edd7",
+          "agentId": "agent-c5cb24ab-fbd7-4177-bce7-46fc5f7cb7aa",
+          "agentVersionId": "agent-version-51f6b596-c6aa-443a-9d8e-869851179dd4",
+          "skillVersion": null,
+          "gateId": null,
+          "finalizedAt": null
+        }
+      ],
+      "lastSeq": 62,
+      "viewerCapabilities": {
+        "canCancel": false,
+        "canRetryStage": false,
+        "canResume": false
+      },
+      "createdAt": "2026-10-01T09:10:59.496Z",
+      "updatedAt": "2026-10-01T09:11:03.605Z"
+    },
+    "output": {
+      "instanceId": "76961339-edd1-457e-9192-bbfc0ed8625e",
+      "outcome": "complete",
+      "output": {
+        "kind": "prd",
+        "title": "需求评审提效 PRD",
+        "problem": {
+          "claimId": "problem",
+          "text": "团队在需求评审中反复返工，需要一份统一的问题定义与验收口径。",
+          "evidenceRefs": [
+            "loopback:frame"
+          ],
+          "confidence": "medium"
+        },
+        "requirements": [
+          {
+            "id": "R1",
+            "text": "支持在评审前自动汇总需求背景、影响范围与验收标准。",
+            "priority": "P0"
+          }
+        ],
+        "metrics": [
+          {
+            "name": "评审返工率",
+            "definition": "每个需求在评审中被退回修改的次数，目标下降 30%。"
+          }
+        ],
+        "digest": "50795e42c9b38a615cb0c7bf482b81c91a02f53b05bcadfc1d69f2e5a664656e"
+      },
+      "crmItems": [],
+      "manualChecklist": [],
+      "deferredProposals": []
+    },
+    "realModelQuality": "BLOCKED",
+    "submittedRawInput": "团队反馈白板首次导入流程太复杂，请定义问题与PRD",
+    "inputSubmission": "PASS: v2 real UI/POST",
+    "stageInputEvidence": "Separate PostgreSQL/API integration test",
+    "semanticQuality": "BLOCKED: loopback is not a real model quality evaluation"
+  }
+}
