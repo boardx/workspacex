@@ -5,6 +5,16 @@
  * 真实 PostgreSQL：约束由 DB 执行、授权面以 app_rw 实测；库内门见
  * `apps/api/migrations/20261001090000_billing_credits_core.sql` 头注（I-2/I-4/I-5/I-7/I-8/I-11）。
  */
+
+// @global-scope-fixture table:billing_orders: 计费域表无 org_id 列（按 (owner_type, owner_id) 归属，理由见迁移头注）；
+//   本文件以 app 角色种订单正例与显式非法值；收敛者=本文件 cleanup()（owner_id / order_no 前缀）。
+// @global-scope-fixture table:billing_webhook_events: 同上无 org_id；种微信/Stripe 回调幂等键（含 order_no 为 NULL 的 Stripe 行）；
+//   收敛者=本文件 cleanup()（provider_event_id LIKE 'f01-evt-%' 兜住 order_no IS NULL 的行）。
+// @global-scope-fixture table:credit_packages: 同上无 org_id；只种一条预期被 CHECK 拒绝的反证行（test-f01- 前缀）；
+//   收敛者=本文件 cleanup()（package_id LIKE 'test-f01-%'，兜住「万一落行」）。
+// @global-scope-fixture table:credit_transactions: 同上无 org_id；种账本去重/发放留痕的正反例；
+//   收敛者=本文件 cleanup()（按 wallet 归属 test-f01-% 删除）。
+// @global-scope-fixture table:credit_wallets: 同上无 org_id；种钱包唯一性正反例；收敛者=本文件 cleanup()（owner_id LIKE 'test-f01-%'）。
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { asApp, asOwner, ensureDatabase, migrateOnce } from "../support/db";
 
@@ -42,9 +52,11 @@ const insertOrder = (orderNo: string, extra: {
 
 const cleanup = () => asOwner(async (c) => {
   await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'test-f01-%')");
-  await c.query("DELETE FROM billing_webhook_events WHERE order_no LIKE 'bg2026100109%'");
+  // Stripe 事件行 order_no 为 NULL，order_no LIKE 匹配不到 → 必须按 provider_event_id 前缀兜底
+  await c.query("DELETE FROM billing_webhook_events WHERE order_no LIKE 'bg2026100109%' OR provider_event_id LIKE 'f01-evt-%'");
   await c.query("DELETE FROM billing_orders WHERE owner_id LIKE 'test-f01-%'");
   await c.query("DELETE FROM credit_wallets WHERE owner_id LIKE 'test-f01-%'");
+  await c.query("DELETE FROM credit_packages WHERE package_id LIKE 'test-f01-%'");
   await c.query("DELETE FROM org_billing_settings WHERE org_id LIKE 'test-f01-%'");
 });
 
@@ -193,15 +205,15 @@ describe("约束与幂等键", () => {
   it("回调事件 (provider, provider_event_id) 唯一（I-7）；Stripe 行 order_no 可空", async () => {
     await asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, order_no, signature_verified, result)
-       VALUES ('wechat', 'evt-1', $1, true, 'ok')`, [ORDER_A]));
+       VALUES ('wechat', 'f01-evt-1', $1, true, 'ok')`, [ORDER_A]));
     await expect(asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
-       VALUES ('wechat', 'evt-1', true, 'ok')`))).rejects.toThrow(/duplicate key/);
+       VALUES ('wechat', 'f01-evt-1', true, 'ok')`))).rejects.toThrow(/duplicate key/);
     await asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
-       VALUES ('stripe', 'evt-1', true, 'ignored')`)); // 不同 provider 不互相撞
+       VALUES ('stripe', 'f01-evt-1', true, 'ignored')`)); // 不同 provider 不互相撞
     await expect(asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
-       VALUES ('wechat', 'evt-2', true, 'weird')`))).rejects.toThrow(/check constraint/);
+       VALUES ('wechat', 'f01-evt-2', true, 'weird')`))).rejects.toThrow(/check constraint/);
   });
 });
