@@ -1,0 +1,19 @@
+{
+  "runId": "kg-remediation-20261001-comprehensive-final",
+  "seen": {
+    "firstCard": {
+      "shown": true,
+      "text": "这和你 10/1 说的「北极星项目的正式上线定在 11 月 18 日」不一致。现在你说的是「北极星项目的正式上线改到 11 月 25 日」。\n\n以新的为准\n两条都留\n忽略"
+    },
+    "afterIgnore": {
+      "cardUnderSecond": 0,
+      "openCardsAfterReload": 0
+    }
+  },
+  "shots": {
+    "first": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E7-first.jpg",
+    "second": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E7-second.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

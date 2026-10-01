@@ -9,6 +9,8 @@
  * 编辑动作走列表视图的 `ClaimEditMenu`（本轮图视图只读）。
  */
 import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ReactFlow,
   Background,
@@ -69,6 +71,7 @@ export default function KnowledgeGraphCanvas({
   /** 点一条「记下的」节点 → 打开来源抽屉（与列表视图同一个入口）。 */
   onOpenClaim?: (claimId: string) => void;
 }) {
+  const [expanded, setExpanded] = React.useState(false);
   const { nodes, edges } = React.useMemo(() => {
     const built: Node[] = [];
     // 实体按左列纵向排布，结论按右列纵向排布——两列布局便于看清 about/decided_by 连边。
@@ -77,7 +80,7 @@ export default function KnowledgeGraphCanvas({
       built.push({
         id: `object:${o.id}`,
         type: "kg",
-        position: { x: 0, y: i * 90 },
+        position: { x: 0, y: i * 75 },
         data: {
           label: o.name,
           sublabel: KG_OBJECT_KIND_LABEL_ZH[o.kind],
@@ -95,7 +98,7 @@ export default function KnowledgeGraphCanvas({
       built.push({
         id: `claim:${c.id}`,
         type: "kg",
-        position: { x: 420, y: i * 90 },
+        position: { x: 200, y: i * 75 },
         data: {
           label: c.statement.length > 24 ? `${c.statement.slice(0, 24)}…` : c.statement,
           sublabel: `${KG_CLAIM_KIND_LABEL_ZH[c.kind]} · ${KG_TRI_STATE_LABEL_ZH[tri]}`,
@@ -121,7 +124,18 @@ export default function KnowledgeGraphCanvas({
   }, [data]);
 
   return (
-    <div className="h-[520px] w-full rounded-lg border border-border bg-background" data-testid="kg-graph-canvas">
+    <div className="relative h-[520px] w-full rounded-lg border border-border bg-background" data-testid="kg-graph-canvas">
+      <Button className="absolute right-2 top-2 z-10" size="xs" variant="outline" onClick={() => setExpanded(true)}>放大关系图</Button>
+      <Dialog open={expanded} onOpenChange={setExpanded}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader><DialogTitle>关系图</DialogTitle></DialogHeader>
+          <div className="h-[70vh] w-full">
+            <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} nodesDraggable={false} nodesConnectable={false} fitView minZoom={0.1} onNodeClick={(_event, node) => { if (node.id.startsWith("claim:")) { setExpanded(false); onOpenClaim?.(node.id.slice(6)); } }}>
+              <Background /><Controls showInteractive={false} />
+            </ReactFlow>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -131,6 +145,8 @@ export default function KnowledgeGraphCanvas({
         elementsSelectable
         panOnScroll
         fitView
+        minZoom={0.1}
+        fitViewOptions={{ padding: 0.15 }}
         proOptions={{ hideAttribution: true }}
         onNodeClick={(_event, node) => {
           if (node.id.startsWith("claim:")) onOpenClaim?.(node.id.slice("claim:".length));

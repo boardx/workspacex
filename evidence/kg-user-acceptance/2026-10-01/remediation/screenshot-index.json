@@ -1,0 +1,487 @@
+[
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/test-finished-1.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-01-session.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-org-memory.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-06-project-answer.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-07-project-revoked.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-03-cross-session.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-02-personal.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-04-share-preview.png"
+  },
+  {
+    "test": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-general",
+    "file": "screenshots/L-cloud-general/cloud-levels-05-project-brain.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/test-finished-1.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-01-session.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-06-project-answer.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-07-project-revoked.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-03-cross-session.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-02-personal.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-04-share-preview.png"
+  },
+  {
+    "test": "[L-cloud-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-cloud-workshop",
+    "file": "screenshots/L-cloud-workshop/cloud-levels-05-project-brain.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/test-finished-1.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-org-memory.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-01-session.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-07-project-revoked.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-05-project-brain.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-04-share-preview.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-03-cross-session.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-02-personal.png"
+  },
+  {
+    "test": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-general",
+    "file": "screenshots/L-local-general/local-levels-06-project-answer.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/test-finished-1.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-01-session.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-07-project-revoked.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-05-project-brain.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-04-share-preview.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-03-cross-session.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-02-personal.png"
+  },
+  {
+    "test": "[L-local-workshop] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+    "group": "L-local-workshop",
+    "file": "screenshots/L-local-workshop/local-levels-06-project-answer.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/test-finished-1.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/team-03-nonmember-denied.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/team-04-revoked-new-session.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/test-finished-2.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/team-02-member-recall.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/test-finished-3.png"
+  },
+  {
+    "test": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-workshop",
+    "file": "screenshots/L-team-workshop/team-01-audience.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/test-finished-1.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/team-03-nonmember-denied.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/team-04-revoked-new-session.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/test-finished-2.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/team-02-member-recall.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/test-finished-3.png"
+  },
+  {
+    "test": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+    "group": "L-team-general",
+    "file": "screenshots/L-team-general/team-01-audience.png"
+  },
+  {
+    "test": "[L-undo-cloud] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-cloud",
+    "file": "screenshots/L-undo-cloud/test-finished-1.png"
+  },
+  {
+    "test": "[L-undo-cloud] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-cloud",
+    "file": "screenshots/L-undo-cloud/cloud-undo-01-forgotten-project.png"
+  },
+  {
+    "test": "[L-undo-cloud] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-cloud",
+    "file": "screenshots/L-undo-cloud/cloud-undo-03-restored-recall.png"
+  },
+  {
+    "test": "[L-undo-cloud] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-cloud",
+    "file": "screenshots/L-undo-cloud/cloud-undo-02-restored-project.png"
+  },
+  {
+    "test": "[L-undo-local] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-local",
+    "file": "screenshots/L-undo-local/test-finished-1.png"
+  },
+  {
+    "test": "[L-undo-local] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-local",
+    "file": "screenshots/L-undo-local/local-undo-02-restored-project.png"
+  },
+  {
+    "test": "[L-undo-local] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-local",
+    "file": "screenshots/L-undo-local/local-undo-03-restored-recall.png"
+  },
+  {
+    "test": "[L-undo-local] 通用项目共享随个人记忆忘掉失效，撤销忘掉后恢复来源与项目引用",
+    "group": "L-undo-local",
+    "file": "screenshots/L-undo-local/local-undo-01-forgotten-project.png"
+  },
+  {
+    "test": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-cloud",
+    "file": "screenshots/M-cloud/test-finished-1.png"
+  },
+  {
+    "test": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-cloud",
+    "file": "screenshots/M-cloud/cloud-03-hybrid-answer.png"
+  },
+  {
+    "test": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-cloud",
+    "file": "screenshots/M-cloud/cloud-04-source.png"
+  },
+  {
+    "test": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-cloud",
+    "file": "screenshots/M-cloud/cloud-02-age-graph.png"
+  },
+  {
+    "test": "[M-cloud] cloud组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-cloud",
+    "file": "screenshots/M-cloud/cloud-01-memory-list.png"
+  },
+  {
+    "test": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-local",
+    "file": "screenshots/M-local/test-finished-1.png"
+  },
+  {
+    "test": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-local",
+    "file": "screenshots/M-local/local-04-source.png"
+  },
+  {
+    "test": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-local",
+    "file": "screenshots/M-local/local-03-hybrid-answer.png"
+  },
+  {
+    "test": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-local",
+    "file": "screenshots/M-local/local-01-memory-list.png"
+  },
+  {
+    "test": "[M-local] local组织：聊天入图 → AGE关联和pgvector相似召回 → 来源原文",
+    "group": "M-local",
+    "file": "screenshots/M-local/local-02-age-graph.png"
+  },
+  {
+    "test": "[M-isolation] 同一用户在云端与local组织间切换，记忆不自动互通",
+    "group": "M-isolation",
+    "file": "screenshots/M-isolation/test-finished-1.png"
+  },
+  {
+    "test": "[M-isolation] 同一用户在云端与local组织间切换，记忆不自动互通",
+    "group": "M-isolation",
+    "file": "screenshots/M-isolation/cloud-isolated-answer.png"
+  },
+  {
+    "test": "[M-isolation] 同一用户在云端与local组织间切换，记忆不自动互通",
+    "group": "M-isolation",
+    "file": "screenshots/M-isolation/local-isolated-answer.png"
+  },
+  {
+    "test": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+    "group": "M-graph-readability",
+    "file": "screenshots/M-graph-readability/test-finished-1.png"
+  },
+  {
+    "test": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+    "group": "M-graph-readability",
+    "file": "screenshots/M-graph-readability/cloud-graph-readability.png"
+  },
+  {
+    "test": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+    "group": "M-graph-readability",
+    "file": "screenshots/M-graph-readability/cloud-graph-expanded.png"
+  },
+  {
+    "test": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+    "group": "M-local-restart",
+    "file": "screenshots/M-local-restart/test-finished-1.png"
+  },
+  {
+    "test": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+    "group": "M-local-restart",
+    "file": "screenshots/M-local-restart/local-age-recovered.png"
+  },
+  {
+    "test": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+    "group": "M-local-restart",
+    "file": "screenshots/M-local-restart/local-age-unavailable.png"
+  },
+  {
+    "test": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+    "group": "M-vector-fault",
+    "file": "screenshots/M-vector-fault/test-finished-1.png"
+  },
+  {
+    "test": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+    "group": "M-vector-fault",
+    "file": "screenshots/M-vector-fault/cloud-pgvector-recovered.png"
+  },
+  {
+    "test": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+    "group": "M-vector-fault",
+    "file": "screenshots/M-vector-fault/cloud-pgvector-unavailable.png"
+  },
+  {
+    "test": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+    "group": "M-vector-fault",
+    "file": "screenshots/M-vector-fault/local-pgvector-unavailable.png"
+  },
+  {
+    "test": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+    "group": "M-vector-fault",
+    "file": "screenshots/M-vector-fault/local-pgvector-recovered.png"
+  },
+  {
+    "test": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+    "group": "M-both-fault",
+    "file": "screenshots/M-both-fault/test-finished-1.png"
+  },
+  {
+    "test": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+    "group": "M-both-fault",
+    "file": "screenshots/M-both-fault/cloud-both-unavailable.png"
+  },
+  {
+    "test": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+    "group": "M-both-fault",
+    "file": "screenshots/M-both-fault/cloud-both-recovered.png"
+  },
+  {
+    "test": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+    "group": "M-both-fault",
+    "file": "screenshots/M-both-fault/local-both-recovered.png"
+  },
+  {
+    "test": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+    "group": "M-both-fault",
+    "file": "screenshots/M-both-fault/local-both-unavailable.png"
+  },
+  {
+    "test": "[U01] 从个人菜单找到大脑、找到对话记忆并返回来源",
+    "group": "U01",
+    "file": "screenshots/U01/test-finished-1.png"
+  },
+  {
+    "test": "[U02] 用户输入的记忆在列表、关系图和刷新后均可用",
+    "group": "U02",
+    "file": "screenshots/U02/test-finished-1.png"
+  },
+  {
+    "test": "[U03] 只问预算时引用精准，不混入合同和团队人数",
+    "group": "U03",
+    "file": "screenshots/U03/test-finished-1.png"
+  },
+  {
+    "test": "[U04] 改写预算后开新会话，旧数值与旧引用不复活",
+    "group": "U04",
+    "file": "screenshots/U04/test-finished-1.png"
+  },
+  {
+    "test": "[U05] 忘掉合同金额后重新登录、新开会话，旧记忆不复活",
+    "group": "U05",
+    "file": "screenshots/U05/test-finished-1.png"
+  },
+  {
+    "test": "[U05] 忘掉合同金额后重新登录、新开会话，旧记忆不复活",
+    "group": "U05",
+    "file": "screenshots/U05/test-finished-2.png"
+  },
+  {
+    "test": "[U05] 忘掉合同金额后重新登录、新开会话，旧记忆不复活",
+    "group": "U05",
+    "file": "screenshots/U05/relogin-forgotten.png"
+  },
+  {
+    "test": "[U06] 已开放的项目与组织记忆有可继续操作的真实入口",
+    "group": "U06",
+    "file": "screenshots/U06/test-finished-1.png"
+  },
+  {
+    "test": "[U07] 他人私人会话不能通过 URL 或出处接口泄漏",
+    "group": "U07",
+    "file": "screenshots/U07/test-finished-1.png"
+  },
+  {
+    "test": "[U07] 他人私人会话不能通过 URL 或出处接口泄漏",
+    "group": "U07",
+    "file": "screenshots/U07/test-finished-2.png"
+  },
+  {
+    "test": "[U07] 他人私人会话不能通过 URL 或出处接口泄漏",
+    "group": "U07",
+    "file": "screenshots/U07/private-thread-denied.png"
+  },
+  {
+    "test": "[U08] 窄屏用户可打开记忆，正文与必需操作无横向溢出",
+    "group": "U08",
+    "file": "screenshots/U08/test-finished-1.png"
+  }
+]

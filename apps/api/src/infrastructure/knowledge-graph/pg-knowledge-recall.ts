@@ -11,6 +11,7 @@
  * 图路只拿 id（kg_graph_neighbors），回到候选集求交，图里别的会话 / 别人的 id 不会漏出来。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
+import { readKgRecallEvaluationMode } from "./kg-recall-evaluation-config";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { KnowledgeRecallPort, TurnRecallRecord } from "../../application/knowledge-graph/ports";
 import type { EmbeddingPort } from "../../application/retrieval/ports";
@@ -30,6 +31,7 @@ const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind, c.valid_to, c.
     WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at, kg_share_author_name(c.id) AS shared_by`;
 
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
+  readonly evaluationMode = readKgRecallEvaluationMode();
   /** `embeddings`：部署的嵌入模型（F10 同一个 EMBEDDING_PORT）；null ⇒ 向量通道未配置（S9，#4366）。 */
   constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null) {}
 
@@ -217,10 +219,10 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
   /** F13：一个 run 一行，重试覆盖。只写本 run 自己的 id（调用方是执行器，run 已受理）。 */
   async recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void> {
     await this.db.withTenant(orgId, (s) => s.query(
-      `INSERT INTO kg_turn_recalls (run_id, org_id, thread_id, requester_user_id, items, graph_degraded)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-       ON CONFLICT (run_id) DO UPDATE SET items = EXCLUDED.items, graph_degraded = EXCLUDED.graph_degraded, created_at = now()`,
-      [record.runId, orgId, record.threadId, record.userId, JSON.stringify(record.items), record.graphDegraded],
+      `INSERT INTO kg_turn_recalls (run_id, org_id, thread_id, requester_user_id, items, graph_degraded, degraded_channels)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::text[])
+       ON CONFLICT (run_id) DO UPDATE SET items = EXCLUDED.items, graph_degraded = EXCLUDED.graph_degraded, degraded_channels = EXCLUDED.degraded_channels, created_at = now()`,
+      [record.runId, orgId, record.threadId, record.userId, JSON.stringify(record.items), record.graphDegraded, record.degradedChannels ?? []],
     ));
   }
 }

@@ -932,9 +932,9 @@ interface StoredRecallItem {
  */
 async function readTurnRecall(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
-): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded" | "cited" | "canCorrect">> {
-  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string; body: string }>(
-    `SELECT r.items, r.graph_degraded, r.requester_user_id, m.body FROM kg_turn_recalls r
+): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded" | "degradedChannels" | "cited" | "canCorrect">> {
+  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; degraded_channels: string[]; requester_user_id: string; body: string }>(
+    `SELECT r.items, r.graph_degraded, r.degraded_channels, r.requester_user_id, m.body FROM kg_turn_recalls r
        JOIN chat_messages m ON m.org_id = r.org_id AND m.agent_run_id = r.run_id
       WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND r.thread_id = $2`,
     [orgId, threadId, messageId],
@@ -1016,5 +1016,5 @@ async function readTurnRecall(
   // S7 review F6：只有「对话所有者 + 这一轮的提问人」能纠正（同 kg_correct_citation 的判据）；界面据此给不给入口。
   const owner = await s.query<{ created_by: string }>("SELECT created_by FROM chat_threads WHERE org_id = $1 AND id = $2", [orgId, threadId]);
   const canCorrect = viewerIsRequester && owner.rows[0]?.created_by === viewer;
-  return { recalled, recallDegraded: row.graph_degraded, cited: reconcileCitations(row.body, recalled), canCorrect };
+  return { recalled, recallDegraded: row.graph_degraded, degradedChannels: row.degraded_channels.filter((c): c is "graph" | "vector" => c === "graph" || c === "vector"), cited: reconcileCitations(row.body, recalled), canCorrect };
 }

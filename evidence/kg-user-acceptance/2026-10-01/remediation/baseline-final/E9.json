@@ -1,0 +1,26 @@
+{
+  "runId": "kg-remediation-20261001-baseline-fresh",
+  "seen": {
+    "visibility": {
+      "list": "仅你可见",
+      "graph": "仅你可见",
+      "reloaded": "仅你可见"
+    },
+    "otherApi": {
+      "status": 404,
+      "leaked": false,
+      "missingStatus": 404,
+      "sameAsMissing": true
+    },
+    "otherUi": {
+      "saysNoAccess": true,
+      "leaked": false
+    }
+  },
+  "shots": {
+    "panel": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E9-panel.jpg",
+    "other": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E9-other.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

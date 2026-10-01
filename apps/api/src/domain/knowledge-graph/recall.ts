@@ -150,7 +150,11 @@ function intentBonus(query: string, kind: KG.KgClaimKind): number {
   return WHO_DECIDED.test(query) && kind === "decision" ? 3e-7 : 0;
 }
 
+export type RecallEvaluationMode = "hybrid" | "vector_only";
+
 export interface FuseInput {
+  /** Independent retrieval ablation: both modes omit forced/profile background. */
+  readonly evaluationMode?: RecallEvaluationMode;
   readonly query: string;
   readonly claims: readonly RecallClaim[];
   readonly objects: readonly RecallObject[];
@@ -204,23 +208,37 @@ export function forcedDecisionScope(c: RecallClaim): boolean {
 
 export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const minLexical = input.minLexical ?? 0.2;
-  const seeds = graphSeeds(input.query, input.objects);
+  const vectorOnly = input.evaluationMode === "vector_only";
+  const seeds = vectorOnly ? [] : graphSeeds(input.query, input.objects);
   const qTokens = lexicalTokens(input.query);
+  // Shared entity names describe the subject, not the requested attribute. If
+  // an attribute matches candidates, avoid feeding every fact about that subject.
+  let focusQuery = normalizeName(input.query);
+  const names = input.objects.flatMap((o) => [o.name, ...o.aliases])
+    .map(normalizeName).filter((n) => n.length >= MIN_SEED_LENGTH).sort((a, b) => b.length - a.length);
+  for (const name of names) focusQuery = focusQuery.split(name).join(" ");
+  const focusTokens = lexicalTokens(focusQuery.replace(/只回答|是多少|多少|是什么|什么|请问|告诉我|的总|项目|现在|目前|是谁|谁决定的/g, " "));
+  const focused = seeds.length > 0 && input.claims.some((c) => recallable(c, input.now ?? new Date()) && lexicalScore(focusTokens, c.statement) > 0);
+  // Keep strong semantic paraphrases even when they use a different attribute word.
+  // The ordinary vector threshold still applies below; focus only removes weak
+  // subject-only matches, not a high-confidence semantic match.
+  const semanticFocus = new Set((input.vector ?? []).filter((h) => Number.isFinite(h.similarity) && h.similarity >= 0.85).map((h) => h.claimId));
+  const focusRelevant = (c: RecallClaim) => !focused || lexicalScore(focusTokens, c.statement) > 0 || semanticFocus.has(c.id);
   // issue #4363（S6）：过期的、「不做了」的待办不进候选（三路打分与强制召回都从这里取）
   const now = input.now ?? new Date();
   const claims = input.claims.filter((c) => recallable(c, now));
   const byId = new Map(claims.map((c) => [c.id, c]));
 
-  const lexical = claims
+  const lexical = (vectorOnly ? [] : claims)
     .map((c) => ({ c, s: lexicalScore(qTokens, c.statement) }))
-    .filter((x) => x.s >= minLexical)
+    .filter((x) => x.s >= minLexical && focusRelevant(x.c))
     .sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id));
   const lexScore = new Map(lexical.map((x) => [x.c.id, x.s]));
 
   // 图路命中只保留候选集里的结论（作用域与可见性由候选集决定：图里是全 org 的 id）。
   const graphBest = new Map<string, GraphHit>();
-  for (const h of input.graph ?? []) {
-    if (!byId.has(h.claimId)) continue;
+  for (const h of vectorOnly ? [] : input.graph ?? []) {
+    if (!byId.has(h.claimId) || !focusRelevant(byId.get(h.claimId)!)) continue;
     const prev = graphBest.get(h.claimId);
     if (prev === undefined || h.path.length < prev.path.length) graphBest.set(h.claimId, h);
   }
@@ -243,7 +261,7 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const minSimilarity = input.minSimilarity ?? VECTOR_MIN_SIMILARITY;
   const vectorBest = new Map<string, number>();
   for (const h of input.vector ?? []) {
-    if (!byId.has(h.claimId) || !Number.isFinite(h.similarity) || h.similarity < minSimilarity) continue;
+    if (!byId.has(h.claimId) || !focusRelevant(byId.get(h.claimId)!) || !Number.isFinite(h.similarity) || h.similarity < minSimilarity) continue;
     vectorBest.set(h.claimId, Math.max(vectorBest.get(h.claimId) ?? -1, h.similarity));
   }
   const vectorRanked = [...vectorBest.entries()]
@@ -311,14 +329,14 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const newestFirst = (a: RecallClaim, b: RecallClaim) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id);
   // issue #4363（S6）：强制召回同样只在「还算数的」里挑——过期的决定（「这周先关注 211」）到了下周不再每轮带上。
   const decisionPicked = claims
-    .filter((c) => !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
+    .filter((c) => input.evaluationMode === undefined && !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
     .sort(newestFirst)
     .slice(0, DECISION_RECALL_LIMIT);
   // issue #4343：本人的目标 / 偏好同样每一轮带上（同一来源边界 `forcedDecisionScope`），名额 `SELF_INTENT_RECALL_LIMIT`
   // 另计、不与决定类抢（理由见 self-intent-claim.ts）；一条既像决定又是目标的，已经按决定带上就不再算一次。
   const decisionIds = new Set(decisionPicked.map((c) => c.id));
   const selfIntentPicked = claims
-    .filter((c) => !forcedIds.has(c.id) && !decisionIds.has(c.id) && forcedDecisionScope(c) && selfIntentLike(c.kind, c.statement))
+    .filter((c) => input.evaluationMode === undefined && !forcedIds.has(c.id) && !decisionIds.has(c.id) && forcedDecisionScope(c) && selfIntentLike(c.kind, c.statement))
     .sort(newestFirst)
     .slice(0, SELF_INTENT_RECALL_LIMIT);
   const decisionForced: RecallItem[] = [...decisionPicked, ...selfIntentPicked]
@@ -341,10 +359,10 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   return {
     items: allItems,
     graphSeeds: seeds,
-    degraded: [...(input.graph === null ? ["graph" as const] : []), ...(input.vector === null ? ["vector" as const] : [])],
+    degraded: [...(!vectorOnly && input.graph === null ? ["graph" as const] : []), ...(input.vector === null ? ["vector" as const] : [])],
     plan: [
-      { channel: "fts", weight: 1, hitCount: hits("fts"), available: true },
-      { channel: "graph", weight: 0.5, hitCount: input.graph === null ? 0 : hits("graph"), available: input.graph !== null },
+      { channel: "fts", weight: vectorOnly ? 0 : 1, hitCount: hits("fts"), available: !vectorOnly },
+      { channel: "graph", weight: vectorOnly ? 0 : 0.5, hitCount: input.graph === null ? 0 : hits("graph"), available: !vectorOnly && input.graph !== null },
       // S9（#4366）：配置了嵌入模型且这次执行成功 ⇒ available；没配置（省略）或失败（null）⇒ 不可用、hitCount = 0（D-I1）。
       { channel: "vector", weight: vectorOn ? 1 : 0, hitCount: vectorOn ? hits("vector") : 0, available: vectorOn },
       // 决定类强制召回不是一路真正的检索通道（不排序、不参与融合），但同样需要不静默：这里如实报告
@@ -361,7 +379,7 @@ export const VECTOR_RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（�
 
 /** S9（#4366）：这一轮有没有哪一路**故障**（不是「没配置」）——回答下方那一行说明与 F13 记录都看它。 */
 export function recallDegraded(recall: KnowledgeRecall): boolean {
-  return recall.plan.some((p) => p.channel === "graph" && !p.available) || (recall.degraded ?? []).includes("vector");
+  return recall.degraded !== undefined ? recall.degraded.length > 0 : recall.plan.some((p) => p.channel === "graph" && !p.available);
 }
 
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -374,7 +392,7 @@ const TRI_LABEL: Record<KG.KgTriState, string> = { pending: "AI 记下的", conf
  */
 export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | null {
   // 图路只在「问题里有已知实体」时才会执行；它执行失败 ⇒ plan 里 graph.available = false。
-  const graphDown = recall.plan.some((p) => p.channel === "graph" && !p.available);
+  const graphDown = recall.degraded !== undefined ? recall.degraded.includes("graph") : recall.plan.some((p) => p.channel === "graph" && !p.available);
   // S9（#4366）：向量通道配置了却失败 ⇒ 同样如实说（没配置不说：那不是故障）。
   const vectorDown = (recall.degraded ?? []).includes("vector");
   const notices = [...(graphDown ? [RECALL_DEGRADED_NOTICE] : []), ...(vectorDown ? [VECTOR_RECALL_DEGRADED_NOTICE] : [])];

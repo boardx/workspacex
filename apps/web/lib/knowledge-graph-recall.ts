@@ -100,3 +100,10 @@ export function graphPathText(path: KgRecalledMemory["graphPath"]): string | nul
   }
   return text;
 }
+
+/** Older records cannot identify the failed channel, so their notice stays generic. */
+export function recallDegradedNotice(channels?: readonly ("graph" | "vector")[]): string {
+  const names = [...new Set(channels ?? [])].map((c) => RETRIEVAL_CHANNEL_LABEL_ZH[c]);
+  const detail = names.length ? `（${names.join("、")}查询暂不可用）` : "";
+  return `这次没能查全你的记忆${detail}，回答可能不完整`;
+}

@@ -1,0 +1,22 @@
+{
+  "runId": "kg-remediation-20261001-baseline-fresh",
+  "seen": {
+    "cardsThatTurn": 1,
+    "cardsPerTurn": [
+      0,
+      0,
+      1
+    ],
+    "capturedLine": {
+      "height": 15,
+      "lineHeight": 15,
+      "overlapsAnswer": false
+    }
+  },
+  "shots": {
+    "that-turn": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E8-that-turn.jpg",
+    "captured": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E8-captured.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}
