@@ -8,6 +8,15 @@ export function runtimeSourceHashes(root, sourceFiles) {
   return Object.fromEntries(sourceFiles.map(path => [path,createHash('sha256').update(readFileSync(join(root,path))).digest('hex')]));
 }
 
+export function committedRuntimeSourceHashes(root, head, sourceFiles) {
+  return Object.fromEntries(sourceFiles.map(path => {
+    let bytes;
+    try { bytes = execFileSync('git', ['show', `${head}:${path}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 }); }
+    catch { assert.fail(`runtime source must exist in attested commit: ${path}`); }
+    return [path, createHash('sha256').update(bytes).digest('hex')];
+  }));
+}
+
 export function savedSequence(label) {
   const match=/^已同步(?: · 序列 (\d+))?$/.exec(label??'');
   return match ? Number(match[1]??0) : null;
@@ -32,6 +41,7 @@ export function verifyRuntimeManifest({manifestPath,root,base,origin,sourceFiles
   assert.equal(new URL(manifest.apiBase).origin,new URL(origin).origin);
   assert.equal(manifest.head,execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim());
   assert.deepEqual(manifest.sourceHashes,runtimeSourceHashes(root, sourceFiles),'runtime startup source must match current candidate');
+  assert.deepEqual(manifest.sourceHashes,committedRuntimeSourceHashes(root,manifest.head,sourceFiles),'runtime source must match exact attested commit, not matching dirty source');
   for(const kind of ['web','api']) {
     const process=manifest.processes.find(item=>item.kind===kind);
     assert(process&&Number.isInteger(process.pid)&&process.pid>0,'runtime child pid required');

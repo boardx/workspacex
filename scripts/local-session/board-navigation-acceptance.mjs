@@ -251,7 +251,7 @@ try {
       assert(validSession, 'hydrated active board session must be committed and valid before export');
       writeFileSync(statePath, JSON.stringify(await page.context().storageState()), {mode: 0o600}); chmodSync(statePath, 0o600);
     }
-    return {boardId, route: new URL(page.url()).pathname, authentication: storage ? 'authorized-storage-state' : 'real-password-login'};
+    return {boardId, fixtureTitle, route: new URL(page.url()).pathname, authentication: storage ? 'authorized-storage-state' : 'real-password-login'};
   });
 
   const canonicalState = async () => ({ head: await (await api('GET', `/v1/whiteboards/${boardId}/head`)).json(), objects: (await snapshot()).objects });
@@ -383,6 +383,7 @@ try {
     assertHeldUncommitted(beforeCanonical, await canonicalState());
     await page.screenshot({path: join(out, `live-drag-${width}.png`)}); await page.mouse.up(); await synced();
     const afterCanonical = await poll(canonicalState, value => value.head.seq > beforeCanonical.head.seq, 'release server transaction'); assertReleasedOnce(beforeCanonical, afterCanonical);
+    await poll(() => page.getByTestId('board-smart-guides').count(), value => value === 0, 'drag release clears smart guides');
     const moved = await poll(rows, value => value.find(row => row.id === first.id).geometry.x !== first.geometry.x, 'committed object movement');
     const edgeRow = page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${edgeId}"]`);
     const anchor = JSON.parse(await edgeRow.getAttribute('data-connector-start'));
@@ -419,6 +420,7 @@ try {
     await page.mouse.up(); await synced();
     const after = await poll(canonicalState, value => value.head.seq > before.head.seq, `${mode} release`);
     assertReleasedOnce(before, after);
+    await poll(() => page.getByTestId('board-smart-guides').count(), value => value === 0, `${mode} release clears smart guides`);
     const changed = after.objects.find(item => item.id === object.id).geometry;
     if (mode === 'resize') assert(changed.width !== geometry.width || changed.height !== geometry.height, 'resize changes dimensions, not merely translation');
     else assert(changed.rotation !== geometry.rotation, 'rotation control changes angle, not merely translation');

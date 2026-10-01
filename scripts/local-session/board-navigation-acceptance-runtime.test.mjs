@@ -6,7 +6,7 @@ import { dirname,join,resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { savedSequence, descendsFrom } from './board-acceptance-runtime.mjs';
+import { savedSequence, descendsFrom, verifyRuntimeManifest as verifySharedRuntime, runtimeSourceHashes as hashSource, committedRuntimeSourceHashes } from './board-acceptance-runtime.mjs';
 import { verifyNavigationRuntime as verifyRuntimeManifest, sourceFiles, navigationSourceHashes as runtimeSourceHashes } from './board-navigation-acceptance-runtime.mjs';
 
 test('ACK accepts canonical sync labels but not pending or offline', () => {
@@ -19,6 +19,24 @@ test('ACK accepts canonical sync labels but not pending or offline', () => {
 
 test('runtime attestation cannot be omitted', () => {
   assert.throws(()=>verifyRuntimeManifest({root:'.',base:'http://localhost:1',origin:'http://localhost:2'}),/runtime manifest required/);
+});
+
+test('matching HEAD and dirty startup hashes cannot attest uncommitted or untracked source', () => {
+  const root = mkdtempSync(join(tmpdir(), 'board-exact-sha-negative-'));
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    writeFileSync(join(root, 'source.txt'), 'committed baseline');
+    execFileSync('git', ['add', 'source.txt'], { cwd: root });
+    execFileSync('git', ['-c', 'user.name=Acceptance Fixture', '-c', 'user.email=acceptance@example.invalid', 'commit', '-qm', 'fixture baseline'], { cwd: root });
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    assert.deepEqual(hashSource(root, ['source.txt']), committedRuntimeSourceHashes(root, head, ['source.txt']));
+    writeFileSync(join(root, 'source.txt'), 'matching dirty runtime and manifest');
+    const manifestPath = join(root, 'manifest.json'), base = 'http://127.0.0.1:65534', origin = 'http://127.0.0.1:65533';
+    writeFileSync(manifestPath, JSON.stringify({ head, webRoot: root, apiRoot: root, webBase: base, apiBase: origin, sourceHashes: hashSource(root, ['source.txt']), processes: [] }));
+    assert.throws(() => verifySharedRuntime({ manifestPath, root, base, origin, sourceFiles: ['source.txt'] }), /exact attested commit/);
+    writeFileSync(join(root, 'untracked.txt'), 'not part of claimed SHA');
+    assert.throws(() => committedRuntimeSourceHashes(root, head, ['untracked.txt']), /must exist in attested commit/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('unrelated or cyclic listener ancestry cannot attest candidate runtime',()=>{
@@ -52,4 +70,3 @@ test('runtime rejects stale source, dead PID and unrelated port',async()=>{
     const exit=once(child,'exit');child.kill();await exit;rmSync(dir,{recursive:true,force:true});
   }
 });
-
