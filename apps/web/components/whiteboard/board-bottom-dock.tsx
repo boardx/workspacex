@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Brush, ChevronUp, Frame, Hand, ImagePlus, MousePointer2, MoveUpRight, Shapes, Type, MoreHorizontal } from "lucide-react";
+import { Brush, ChevronUp, Frame, Hand, ImagePlus, MousePointer2, Shapes, Type, MoreHorizontal } from "lucide-react";
 import {BoardStickyPicker} from "./board-sticky-picker";
 import {STICKY_COLOR_PRESETS} from "@repo/whiteboard-core";
+import { BoardConnectorPicker } from "./board-connector-picker";
+import { ConnectorToolPreview } from "./board-connector-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ConnectorType, PanelMode, StickyVariant, TextStylePreset } from "@repo/whiteboard-core";
@@ -20,6 +22,7 @@ export type BoardCreationTool =
   | null;
 
 interface BoardBottomDockProps {
+  connectorEnabled?: boolean;
   editing?: boolean;
   extension?: React.ReactNode;
   stickyColor?:string;
@@ -51,7 +54,7 @@ const SHAPES: Array<{ variant: BoardShapeVariant; label: string }> = [
 ];
 const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ contentType: "tile", label: "信息卡片" }, { contentType: "web-tile", label: "网页卡片" }, { contentType: "table", label: "表格" }, { contentType: "icon", label: "图标" }, { contentType: "template", label: "模板" }];
 
-export function BoardBottomDock({ editing=false,stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
+export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
   // React portals retain this component ancestry even though their DOM lives
   // outside nav. Do not unmount an extension before its portal receives a click
@@ -68,8 +71,8 @@ export function BoardBottomDock({ editing=false,stickyColor=STICKY_COLOR_PRESETS
   const shapeOpen = creationTool?.kind === "shape";
   const contentOpen = creationTool?.kind === "content";
   const drawOpen = activeTool.startsWith("draw-") || activeTool === "erase";
-  const panelOpen = creationTool?.kind === "panel";
   const connectorOpen = creationTool?.kind === "connector";
+  const panelOpen = creationTool?.kind === "panel";
   return (
     <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className={cn("absolute bottom-5 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
@@ -86,7 +89,7 @@ export function BoardBottomDock({ editing=false,stickyColor=STICKY_COLOR_PRESETS
             >{label}</button>
           )) : shapeOpen ? SHAPES.map(({ variant, label }) => <button key={variant} type="button" data-testid={`board-shape-${variant}`} aria-pressed={creationTool.variant === variant} disabled={readOnly} onClick={() => onCreationToolChange({ kind: "shape", variant })} className={cn("min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.variant === variant && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)
             : contentOpen ? <>{MORE.map(({ contentType, label }) => <button key={contentType} type="button" data-testid={`board-content-${contentType}`} aria-pressed={creationTool.contentType === contentType} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType } as const; onCreationToolChange(next); onQuickCreate(next); }} className={cn("min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.contentType === contentType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)}{extension}</>
-              : connectorOpen ? ([['straight', '直线'], ['elbow', '折线'], ['curve', '曲线']] as const).map(([connectorType, label]) => <button key={connectorType} type="button" data-testid={`board-connector-${connectorType}`} aria-pressed={creationTool.connectorType === connectorType} onClick={() => onCreationToolChange({ kind: "connector", connectorType })} className={cn("min-h-11 rounded-xl px-4 text-13 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.connectorType === connectorType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>) : null}
+              : connectorOpen ? <BoardConnectorPicker value={creationTool.connectorType} disabled={readOnly} onChange={connectorType=>onCreationToolChange({kind:"connector",connectorType})}/> : null}
 
         </div>
       )}
@@ -97,10 +100,11 @@ export function BoardBottomDock({ editing=false,stickyColor=STICKY_COLOR_PRESETS
         <DockButton testId="board-add-sticky" label="便利贴" shortcut="N" pressed={stickyOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "sticky", variant: stickyOpen ? creationTool.variant : "square" } as const; onToolChange("select"); onCreationToolChange(next); }}><span aria-hidden="true" className="block h-6 w-6 shrink-0 rounded-sm border border-border/30 shadow-sm" style={{backgroundColor:stickyColor}}/></DockButton>
         <DockButton testId="board-add-text" label="文字" shortcut="T" pressed={textOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "text", preset: textOpen ? creationTool.preset : "body" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><Type className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-shape" label="形状" shortcut="S" pressed={shapeOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "shape", variant: shapeOpen ? creationTool.variant : "rounded-rectangle" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><Shapes className="h-5 w-5" /></DockButton>
-        <DockButton testId="board-add-connector" label="箭头" shortcut="C" pressed={connectorOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "connector", connectorType: connectorOpen ? creationTool.connectorType : "straight" } as const; onToolChange("select"); onCreationToolChange(next); }}><MoveUpRight className="h-5 w-5" /></DockButton>
+        {connectorEnabled&&<DockButton testId="board-add-connector" label="连接线" shortcut="" pressed={connectorOpen} disabled={readOnly} onClick={()=>{setPickerOpen(true);onToolChange("select");onCreationToolChange({kind:"connector",connectorType:connectorOpen?creationTool.connectorType:"straight"});}}><span className="relative"><ConnectorToolPreview type={connectorOpen?creationTool.connectorType:"straight"}/><ChevronUp aria-hidden="true" className="absolute -right-2 -top-2" style={{width:12,height:12}}/></span></DockButton>}
         <DockButton testId="board-add-draw" label="绘制" shortcut="P" pressed={drawOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onCreationToolChange(null); onToolChange("draw-pen"); }}><Brush className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-image" label="图片" shortcut="I" pressed={false} disabled={readOnly} onClick={onImageRequest}><ImagePlus className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-frame" label="Frame" shortcut="F" pressed={panelOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onToolChange("select"); onCreationToolChange({kind:"panel",mode:panelOpen?creationTool.mode:"freeform"}); }}><Frame className="h-5 w-5" /></DockButton>
+
         <DockButton testId="board-add-more" label="更多" shortcut="" pressed={contentOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType: contentOpen ? creationTool.contentType : "tile" } as const; onToolChange("select"); onCreationToolChange(next); }}><span className="relative" style={{width:24,height:24}}><MoreHorizontal style={{width:24,height:24}} /><ChevronUp className="absolute -right-2 -top-2" style={{width:12,height:12}} /></span></DockButton>
 
       </div>

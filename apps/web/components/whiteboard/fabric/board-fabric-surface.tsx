@@ -5,7 +5,8 @@ import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
 import { ActiveSelection, Canvas, Circle, FabricImage, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
-import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, type SnapResult } from "@repo/whiteboard-core";
+import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, type SnapResult } from "@repo/whiteboard-core";
+import { WHITEBOARD_CONNECTOR_LIMITS } from "@repo/contracts/whiteboard-document";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
   clampBoardZoom,
@@ -24,7 +25,7 @@ import { drawingToolStyle, type BoardDrawingToolStyle } from "../drawing-tool-st
 import { drawingPointBounds } from "../drawing-coordinate-space";
 
 type TaggedFabricObject = FabricObject & {
-  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"]; drawingPreview?: boolean };
+  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; connectorRenderIdentity?: string; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"]; drawingPreview?: boolean };
 };
 
 type DrawingTool = "pen" | "marker" | "highlighter" | "eraser";
@@ -143,6 +144,8 @@ function panelGuides(object: BoardFabricObject): FabricObject[] {
   ];
 }
 
+const connectorRenderOrigins = new WeakMap<FabricObject, { x: number; y: number }>();
+
 export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
   const horizontalTextInset = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32;
@@ -155,15 +158,11 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   };
   let projected: FabricObject;
   if (object.kind === "connector" && object.connector) {
-    const { start, end, type, lineStyle, label, startStyle, endStyle } = object.connector;
-    const width = Math.max(1, Math.abs(end.x - start.x)), height = Math.max(1, Math.abs(end.y - start.y));
-    const x1 = start.x <= end.x ? -width / 2 : width / 2, y1 = start.y <= end.y ? -height / 2 : height / 2;
-    const x2 = -x1, y2 = -y1;
+    const { start, end, lineStyle, label, startStyle, endStyle } = object.connector;
+    const path = resolveConnectorPath(object.connector);
     const dash = lineStyle === "dashed" ? [10, 7] : lineStyle === "dotted" ? [2, 6] : undefined;
     const stroke = object.style.stroke ?? "#29261E";
-    const line = type === "straight"
-      ? new Line([x1, y1, x2, y2], { stroke, strokeWidth: 2, strokeDashArray: dash, selectable: false, evented: false })
-      : new Path(type === "elbow" ? `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}` : `M ${x1} ${y1} C 0 ${y1}, 0 ${y2}, ${x2} ${y2}`, { fill: "", stroke, strokeWidth: 2, strokeDashArray: dash, selectable: false, evented: false });
+    const line = new Path(connectorPathToSvg(path), { fill: "", stroke, strokeWidth: object.connector.strokeWidth ?? WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth, strokeDashArray: dash, selectable: false, evented: false });
     const tips: FabricObject[] = [];
     const tip = (style: typeof startStyle, x: number, y: number, angle: number) => {
       if (style === "circle") return new Circle({ left: x, top: y, radius: 5, fill: stroke, originX: "center", originY: "center" });
@@ -171,11 +170,22 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       if (style === "arrow") return new Triangle({ left: x, top: y, width: 10, height: 12, angle, fill: stroke, originX: "center", originY: "center" });
       return null;
     };
-    const angles = connectorTipAngles(type, x1, y1, x2, y2);
-    const startTip = tip(startStyle, x1, y1, angles.start), endTip = tip(endStyle, x2, y2, angles.end);
+    const startDirection = sampleConnectorPath(path, 0).tangent, endDirection = sampleConnectorPath(path, 1).tangent;
+    const startAngle = Math.atan2(startDirection.y, startDirection.x) * 180 / Math.PI - 90;
+    const endAngle = Math.atan2(endDirection.y, endDirection.x) * 180 / Math.PI + 90;
+    const startTip = tip(startStyle, start.x, start.y, startAngle), endTip = tip(endStyle, end.x, end.y, endAngle);
     if (startTip) tips.push(startTip); if (endTip) tips.push(endTip);
-    const labels = label.trim() ? [new Textbox(label, { ...textOptions, width: Math.max(80, width), fontSize: 13, backgroundColor: "#FFFFFF" })] : [];
+    const labelPoint = connectorLabelPlacement(path, object.connector.labelPosition).point;
+    const labels: Textbox[] = [];
+    if (label.trim()) {
+      const text = new Textbox(label, { ...textOptions, left: labelPoint.x, top: labelPoint.y, width: 240, splitByGrapheme: true, fontSize: 13, backgroundColor: "#FFFFFF" });
+      text.set({ width: Math.max(24, Math.min(240, text.calcTextWidth() + 4)) });
+      text.initDimensions();
+      labels.push(text);
+    }
     projected = new Group([line, ...tips, ...labels], connectorInteraction(object.kind));
+    const renderedBounds = projected.getBoundingRect();
+    connectorRenderOrigins.set(projected, { x: renderedBounds.left - object.geometry.x, y: renderedBounds.top - object.geometry.y });
   } else if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
     const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
     const intrinsic = drawingPointBounds(object.boardContent.strokes.flatMap((stroke) => stroke.points));
@@ -267,14 +277,16 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   }
   projected.set({
     ...BOARD_FABRIC_VISUAL.selection,
-    left: object.geometry.x,
-    top: object.geometry.y,
+    hasBorders: object.kind !== "connector",
+    left: object.geometry.x + (connectorRenderOrigins.get(projected)?.x ?? 0),
+    top: object.geometry.y + (connectorRenderOrigins.get(projected)?.y ?? 0),
     originX: "left",
     originY: "top",
     angle: object.geometry.rotation,
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision, stickyVariant: object.sticky?.variant, sizingMode: object.sticky?.sizingMode },
-    selectable: object.kind !== "placeholder",
-    evented: object.kind !== "placeholder",
+    visible: !object.hidden,
+    selectable: !object.hidden && object.kind !== "placeholder",
+    evented: !object.hidden && object.kind !== "placeholder",
     lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked),
     lockScalingX: Boolean(object.locked), lockScalingY: Boolean(object.locked), lockRotation: Boolean(object.locked),
   });
@@ -374,22 +386,24 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
   const naturalHeight = projected.height || object.geometry.height;
   projected.set({
     ...BOARD_FABRIC_VISUAL.selection,
-    left: object.geometry.x,
-    top: object.geometry.y,
+    left: object.geometry.x + (connectorRenderOrigins.get(projected)?.x ?? 0),
+    top: object.geometry.y + (connectorRenderOrigins.get(projected)?.y ?? 0),
     originX: "left",
     originY: "top",
     angle: object.geometry.rotation,
-    scaleX: object.kind === "text" ? 1 : object.geometry.width / naturalWidth,
-    scaleY: object.kind === "text" ? 1 : object.geometry.height / naturalHeight,
+    scaleX: object.kind === "text" || object.kind === "connector" ? 1 : object.geometry.width / naturalWidth,
+    scaleY: object.kind === "text" || object.kind === "connector" ? 1 : object.geometry.height / naturalHeight,
     skewX: 0,
     skewY: 0,
     flipX: false,
     flipY: false,
     // Locked objects remain selectable for inspection and mixed selections;
     // the lock flags below prevent every Fabric transform.
-    selectable: !readOnly && object.kind !== "placeholder",
-    evented: !readOnly && object.kind !== "placeholder",
+    visible: !object.hidden,
+    selectable: !readOnly && !object.hidden && object.kind !== "placeholder",
+    evented: !readOnly && !object.hidden && object.kind !== "placeholder",
     hasControls: object.kind !== "connector",
+    hasBorders: object.kind !== "connector",
     lockMovementX: object.kind === "connector",
     lockMovementY: object.kind === "connector",
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision, stickyVariant: object.sticky?.variant, sizingMode: object.sticky?.sizingMode },
@@ -944,11 +958,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const nextRendered: BoardFabricObject[] = [];
       for (const object of orderedObjects) {
         const current = registryRef.current.get(object.id);
-        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
+        // Render identity stays local; canonical and preview revision numbers can collide.
+        const connectorRenderIdentity = object.kind === "connector" ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
+        const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
+        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
         let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
         const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
         const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
-        const connectorProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && object.kind === "connector");
+        const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (current.data?.renderedRevision !== object.revision || connectorAppearanceChanged));
         if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged))) {
           if (current) canvas.remove(current);
           const entry = createProjectionEntry(object, readOnly);
@@ -969,6 +986,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
             stackingOrderDirty = true;
           }
         }
+        const projected = registryRef.current.get(object.id);
+        if (projected?.data) projected.data.connectorRenderIdentity = connectorRenderIdentity;
         renderedRef.current.set(object.id, rendered);
         nextRendered.push(rendered);
       }
@@ -1012,8 +1031,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
     for (const [id, projected] of registryRef.current) {
       const canonical = canonicalRef.current.get(id);
-      const selectable = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
-      const evented = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
+      const selectable = !readOnly && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
+      const evented = !readOnly && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
       const autoSize = canonical?.kind === "sticky" && canonical.sticky?.sizingMode === "auto-size";
       projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked), ...connectorInteraction(canonical?.kind ?? "") });
     }
@@ -1023,7 +1042,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const projected = selectedObjectIds.flatMap((id) => { const object = registryRef.current.get(id); return object ? [object] : []; });
+    const projected = selectedObjectIds.flatMap((id) => { const object = registryRef.current.get(id); return object && !canonicalRef.current.get(id)?.hidden ? [object] : []; });
     const transformable = projected.filter((object) => {
       const canonical = canonicalRef.current.get(object.data?.boardObjectId ?? "");
       return canonical && !canonical.locked && canonical.kind !== "placeholder" && canonical.kind !== "connector";

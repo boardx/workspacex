@@ -130,6 +130,9 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
         const end = to ? rotatedAnchorPoint(to, toAnchor, object.connector!.toOffset) : object.connector!.toPoint;
         if (!start || !end) return undefined;
         return {
+          ...(object.connector!.strokeWidth !== undefined ? { strokeWidth: object.connector!.strokeWidth } : {}),
+          ...(object.connector!.route ? { route: object.connector!.route } : {}),
+          ...(object.connector!.labelPosition ? { labelPosition: object.connector!.labelPosition } : {}),
           ...(from ? { from: from.id } : {}), ...(to ? { to: to.id } : {}), fromAnchor, toAnchor,
           type: object.connector!.type ?? "straight", startStyle: object.connector!.startStyle ?? "none",
           endStyle: object.connector!.endStyle ?? "arrow", lineStyle: object.connector!.lineStyle ?? "solid",
@@ -139,6 +142,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
       })() : undefined,
       parentId: object.parentId ?? undefined,
       locked: supported ? Boolean(object.locked) : true,
+      hidden: Boolean(object.hidden),
       zIndex: object.zIndex ?? 0,
       projectionIssue: supported ? undefined : {
         code: "BOARD_OBJECT_UNSUPPORTED" as const,

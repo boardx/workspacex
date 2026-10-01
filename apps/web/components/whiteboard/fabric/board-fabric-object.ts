@@ -1,5 +1,6 @@
 import type { BoardContentData } from "../board-content-adapter";
 import type { ConnectorAnchor, ConnectorLineStyle, ConnectorTip, ConnectorType, PanelMode } from "@repo/whiteboard-core";
+import type { WhiteboardConnectorRoute, WhiteboardConnectorLabelPosition } from "@repo/contracts/whiteboard-document";
 
 export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "shape" | "drawing" | "image" | "card" | "panel" | "group" | "connector" | "placeholder";
 export type BoardFabricTool = "select" | "hand" | "draw-pen" | "draw-marker" | "draw-highlighter" | "erase";
@@ -55,6 +56,9 @@ export interface BoardFabricPanelAppearance {
 }
 
 export interface BoardFabricConnectorAppearance {
+  strokeWidth?: number;
+  route?: WhiteboardConnectorRoute;
+  labelPosition?: WhiteboardConnectorLabelPosition;
   from?: string;
   to?: string;
   fromAnchor: ConnectorAnchor;
@@ -87,6 +91,7 @@ export interface BoardFabricObject {
   connector?: BoardFabricConnectorAppearance;
   parentId?: string;
   locked?: boolean;
+  hidden?: boolean;
   zIndex?: number;
   /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */
   projectionIssue?: BoardProjectionIssue;

@@ -34,14 +34,24 @@ try {
       if(new Set(changes.map(change=>change.id)).size!==changes.length||input.proof.some(proof=>!changes.some(change=>change.id===proof.id&&change.before===proof.digest&&change.after===null)))throw new Error('RESTORE_CHANGES');
       for(const change of changes){const current=beforeById.get(change.id);if((current?digest(current):null)!==change.after)throw new Error('RESTORE_AFTER_CONFLICT');}
       const storedBefore=new Map([...doc.getMap('objects').keys()].map(id=>[id,digest(readStoredObject(doc,id))]));
+      const restoredRoutes=new Map(input.proof.map(proof=>[proof.id,readStoredObject(doc,proof.id)] as const).filter(([,object])=>object?.kind==='connector'&&object.connector?.route));
       const vector=Y.encodeStateVector(doc);
       executeCommands(doc,input.proof.map(p=>({type:'restore',id:p.id})),'authorized-delete-undo');
+      const trustedRouteGeometry=new Map([...restoredRoutes.keys()].map(id=>[id,readStoredObject(doc,id)!.geometry]));
       // The authority clears only receipt-proven tombstones first. The ordinary
       // validator then checks identities, limits and every other tombstone.
       if(input.inverseUpdate){const inverse=prepareWhiteboardUpdate(doc,input.inverseUpdate);Y.applyUpdate(doc,inverse);}
       const afterById=new Map(readObjects(doc).map(object=>[object.id,object]));
       const changeById=new Map(changes.map(change=>[change.id,change]));
-      for(const change of changes){const final=afterById.get(change.id);if((final?digest(final):null)!==change.before)throw new Error('RESTORE_BEFORE_MISMATCH');}
+      for(const change of changes){
+        const final=afterById.get(change.id), original=restoredRoutes.get(change.id);
+        if(original&&final){
+          // Receipt content remains exact; only deterministic derived bounds may
+          // differ when a surviving endpoint moved while this edge was deleted.
+          if(digest(final.geometry)!==digest(original.geometry)&&digest(final.geometry)!==digest(trustedRouteGeometry.get(change.id)))throw new Error('RESTORE_GEOMETRY_MISMATCH');
+          if(digest({...final,geometry:original.geometry})!==change.before)throw new Error('RESTORE_BEFORE_MISMATCH');
+        }else if((final?digest(final):null)!==change.before)throw new Error('RESTORE_BEFORE_MISMATCH');
+      }
       for(const id of new Set([...storedBefore.keys(),...doc.getMap('objects').keys()])){
         const change=changeById.get(id);
         // A created object undone by tombstoning must retain its exact stored
@@ -49,6 +59,7 @@ try {
         if((!change||change.before===null)&&digest(readStoredObject(doc,id))!==storedBefore.get(id))throw new Error('RESTORE_EXTRA_WRITE');
         if(!change&&beforeById.has(id)!==afterById.has(id))throw new Error('RESTORE_EXTRA_VISIBILITY');
       }
+      if(restoredRoutes.size)executeCommands(doc,[...restoredRoutes.keys()].map(id=>({type:'connector',id,connector:afterById.get(id)!.connector!})),'authorized-delete-undo-bounds');
       validateDocument(doc);update=Y.encodeStateAsUpdate(doc,vector);
     }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }
     else {
