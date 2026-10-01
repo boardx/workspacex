@@ -23,7 +23,7 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
   const [error, setError] = React.useState<string | null>(null);
   const [enabling, setEnabling] = React.useState(false);
   const [progress, setProgress] = React.useState<EnableProgress | null>(null);
-  const [enabled, setEnabled] = React.useState(false);
+  const [completedAction, setCompletedAction] = React.useState<"enable" | "upgrade" | null>(null);
   const [selectedUpgrades, setSelectedUpgrades] = React.useState<string[]>([]);
   const [confirmUpgrade, setConfirmUpgrade] = React.useState(false);
   const upgradeAttempt = React.useRef<{ selection: string; key: string } | null>(null);
@@ -59,7 +59,7 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
         isCurrent: () => alive.current && currentSession.current?.currentOrgId === startingSession.currentOrgId && currentSession.current?.sessionToken === startingSession.sessionToken,
       });
       if (!alive.current) return;
-      setEnabled(true);
+      setCompletedAction("enable");
       onEnabled();
       setTick((value) => value + 1);
     } catch {
@@ -85,7 +85,7 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
         isCurrent: () => alive.current && currentSession.current?.currentOrgId === startingSession.currentOrgId && currentSession.current?.sessionToken === startingSession.sessionToken,
       });
       if (!alive.current) return;
-      setEnabled(true); onEnabled(); setTick((v)=>v+1);
+      setCompletedAction("upgrade"); onEnabled(); setTick((v)=>v+1);
     } catch {
       if (alive.current) setError("升级未完成。角色可能已被修改，或当前版本已变化，请重新加载后核对。原有对话和版本保留。");
     } finally { busy.current=false; if (alive.current) setEnabling(false); }
@@ -96,7 +96,7 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
       <p className="text-12 text-muted-foreground">启用官方数字人时，会同时准备所需的技能与工作流。启用后可在首页推荐中添加。</p>
       {loading ? <p role="status">加载官方数字人…</p> : null}
       {error ? <div role="alert"><p>{error}</p>{!offer ? <Button type="button" onClick={() => setTick((value) => value + 1)}>重新加载</Button> : null}</div> : null}
-      {enabled ? <p role="status">官方数字人操作已完成。</p> : null}
+      {completedAction ? <p role="status">{completedAction === "enable" ? "官方数字人已启用。" : "所选官方数字人已升级。"}</p> : null}
       {!loading && offer ? (
         <>
           {offer.pending.length === 0 ? <p>本组织已启用全部官方数字人。</p> : (

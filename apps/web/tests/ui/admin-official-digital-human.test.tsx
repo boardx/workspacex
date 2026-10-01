@@ -39,6 +39,8 @@ describe("后台官方数字人发现与启用", () => {
     mocks.get.mockResolvedValue({ ...offer, pending: [] });
     fireEvent.click(screen.getByRole("button", { name: "启用官方数字人" }));
     await screen.findByText("本组织已启用全部官方数字人。");
+    expect(screen.getByText("官方数字人已启用。")).toBeInTheDocument();
+    expect(screen.queryByText("所选官方数字人已升级。")).toBeNull();
     expect(mocks.enable).toHaveBeenCalledWith(offer, expect.any(Function), expect.objectContaining({ orgId: "org-a", sessionToken: "token-a", signal: expect.any(AbortSignal), isCurrent: expect.any(Function) }));
     expect(screen.getByTestId("refresh-key")).toHaveTextContent("1");
   });
@@ -101,6 +103,8 @@ describe("官方角色显式选中升级",()=>{
   fireEvent.click(screen.getByRole("checkbox",{name:/确认仅升级/}));
   mocks.get.mockResolvedValue({...upgradeOffer,upgrades:[]});fireEvent.click(button);
   await waitFor(()=>expect(mocks.refresh).toHaveBeenCalledTimes(1));
+  expect(screen.getByText("所选官方数字人已升级。")).toBeInTheDocument();
+  expect(screen.queryByText("官方数字人已启用。")).toBeNull();
   expect(mocks.upgrade).toHaveBeenCalledWith(upgradeOffer,[{agentId:"pm",expectedPublishedVersionId:"pm-old"}],expect.any(String),expect.objectContaining({orgId:"org-a",sessionToken:"token-a",isCurrent:expect.any(Function)}));
   expect(mocks.enable).not.toHaveBeenCalled();
  });
