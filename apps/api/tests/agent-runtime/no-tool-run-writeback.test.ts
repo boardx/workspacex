@@ -567,6 +567,28 @@ describe("the run executes its acceptance snapshot, not the current head", () =>
    * time; nothing revalidates afterwards). The run must refuse rather than proceed with
    * the subset it happened to find.
    */
+  it("#2529: disabling a pinned skill fails the queued run before the provider; re-enabling restores the next run", async () => {
+    const queued = await postMessage("Do not execute disabled skill content");
+    expect(queued.status).toBe(202);
+    await asApp(ORG, c => c.query(
+      "UPDATE skills SET status='disabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_A]));
+    await tick();
+    const blocked = await readRun(queued.agentRunId);
+    expect(blocked.status).toBe("failed");
+    expect(blocked.error).toBe("SKILL_VERSION_UNAVAILABLE");
+    expect(blocked.skillVersionIds).toEqual([SV_A, SV_B]);
+    expect(calls).toHaveLength(0);
+    await asApp(ORG, c => c.query(
+      "UPDATE skills SET status='enabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_A]));
+    const next = await postMessage("Execute restored skill content");
+    expect(next.status).toBe(202);
+    await tick();
+    expect((await readRun(next.agentRunId)).status).toBe("succeeded");
+    expect(calls).toHaveLength(1);
+    expect(JSON.stringify(calls[0]?.body)).toContain("ordered first");
+    expect((await readRun(queued.agentRunId)).status).toBe("failed");
+  });
+
   it("fails closed when a pinned Skill version is unreachable, rather than dropping it", async () => {
     await asApp(ORG, (c) => c.query(
       "UPDATE agents SET published_version_id=NULL WHERE id=$1", [AGENT],
