@@ -12,11 +12,13 @@ Verification: `PYTHONPATH=src:tests /tmp/role-acceptance-venv/bin/python -m pyte
 
 These are transport and conflicting-instruction checks, not real-model quality evidence. No model credentials were configured. Obedience to role instructions and neutral PDF analysis, UI/browser behavior, and deployed devapp behavior remain unverified.
 
-```mermaid
-flowchart LR
-  A[Review pinned context]:::tested --> B[Capture native and legacy model requests]:::tested
-  B --> C[Remove conflicting legacy identity]:::tested
-  C --> D[Real model and deployed acceptance]:::blocked
-  classDef tested fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
-  classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
-```
+## Delivery validation
+
+The redundant review diagram was removed; the parent backlog remains the execution-plan authority. Real-model and deployed acceptance remain blocked by missing model credentials and missing authenticated devapp/browser evidence.
+
+The Python service has no `package.json`, scoped `AGENTS.md`, configured lint command, or configured Python typecheck command. Its `pyproject.toml` defines Hatchling packaging and pytest; `.github/workflows/deep-agent-tests.yml` gates pytest. No unrelated TypeScript build/typecheck was represented as validation of this Python change.
+
+- `UV_CACHE_DIR=/tmp/role-acceptance-uv-cache uv build --out-dir /tmp/role-acceptance-dist` passed: source distribution and wheel built.
+- `/tmp/role-acceptance-venv/bin/python -m compileall apps/deep-agent-service/src apps/deep-agent-service/tests/test_role_model_context.py` passed. This verifies Python syntax, not static typing.
+- `node .harness/scripts/execution-plan.mjs check` passed the repository plan checks.
+- The previously passing 12 targeted tests were retained without repetition. The broader stalled native suite was not rerun. Full native-suite coverage and real-model response quality remain unknown; the evidence supports the conflicting-system-instruction fix and actual model-request transport only.
