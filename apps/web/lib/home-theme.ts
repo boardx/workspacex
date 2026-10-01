@@ -1,8 +1,9 @@
 import { homeConfig } from "@repo/contracts";
 import type { CSSProperties } from "react";
+import type { z } from "zod";
 import { readableTextOn } from "./home-config-catalog";
 
-export type ThemeColors = { -readonly [K in keyof typeof homeConfig.DEFAULT_HOME_THEME]: string };
+export type ThemeColors = z.infer<typeof homeConfig.ThemeColors>;
 export const THEME_LABELS: Record<keyof ThemeColors, string> = {
   primary: "主色", secondary: "辅助色", accent: "强调色", success: "成功", warning: "警告", error: "错误",
 };

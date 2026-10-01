@@ -18,3 +18,5 @@ Logo 使用既有组织头像上传与 PATCH 接口；更改立即同步组织�
 实现本地提交已完成。自动审批拒绝向 GitHub `boardx/workspacex` 推送分支（私有源码/历史上传需明确授权）；没有执行推送、没有创建 PR。等待用户批准此确切目标。
 
 2026-10-01 后续：用户明确授权提交 PR，分支推送成功。推送前 20 项受影响模块 typecheck/lint 门控全部通过。已创建草稿 PR https://github.com/boardx/workspacex/pull/4882。数据库与严格视觉对照阻塞仍在，未合并或部署。
+
+PR CI 修复：gates-fast 检出前端 ThemeColors 重复定义。改为 z.infer<typeof homeConfig.ThemeColors>，直接消费契约。相同 lint-contract-source 检查及 67 项首页回归测试通过。另一个 gates-test (4) 失败是 auth.docker.io 返回 502，发生在数据库启动前；等待新提交 CI 验证。
