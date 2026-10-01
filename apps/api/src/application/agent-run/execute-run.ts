@@ -9,7 +9,7 @@ import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { RunLeaseLostError, currentRunLease } from "./run-lease";
 import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
-import { publicExecutionPayload } from "./public-execution-payload";
+import { publicExecutionPayload, publicExecutionSummary } from "./public-execution-payload";
 /**
  * `executeAgentRun` -- the Wave 2 §5 slice, and nothing else.
  *
@@ -50,7 +50,7 @@ import { publicExecutionPayload } from "./public-execution-payload";
  * three old branches physically gone from this file's own source, not merely unreachable.
  */
 import { OpenToolCalls, type RunTerminationOutcome } from "./open-tool-calls";
-import { nativeToolProvenance } from "@repo/contracts/native-tool-identities";
+import { toolTraceMetadata, ToolTraceTimings } from "./tool-trace-metadata";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -1039,6 +1039,7 @@ async function executeClaimed(
   let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
   deltaSeq += 1;
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
+  const toolTraceTimings = new ToolTraceTimings();
   // issue #3403 ② —— 「每一次开始了的工具调用都要有终态」。为什么只能在产生端补、
   // 为什么 #3316 / #3369 都没覆盖到，见 `open-tool-calls.ts` 的头注。
   /*
@@ -1139,26 +1140,27 @@ async function executeClaimed(
           outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
           failureCode: event.ok === false ? "MODEL_CALL_FAILED" : null,
           toolName: event.toolName,
-          toolArgsSummary: event.toolArgsSummary,
-          toolResultSummary: event.toolResultSummary,
-          planningNote: event.planningNote,
+          toolArgsSummary: publicExecutionSummary(event.toolArgsSummary),
+          toolResultSummary: publicExecutionSummary(event.toolResultSummary),
+          planningNote: publicExecutionSummary(event.planningNote),
           toolCallId: event.toolCallId ?? null,
         });
         seqCursor.value += 1;
         await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
         const journalToolCallId = `${executionAttemptId}:${event.toolCallId ?? stepSeq}`;
+        const elapsed = toolTraceTimings.observe(journalToolCallId, stepStartedAt, event.phase);
         if (event.phase === "in_progress") {
           openToolCalls.open(journalToolCallId, {
             kind: "tool_end", attemptId: executionAttemptId, toolCallId: journalToolCallId,
             sourceToolCallId: event.toolCallId ?? undefined,
-            ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)),
+            ...toolTraceMetadata(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)),
             toolName: event.toolName, result: null, ok: false,
           });
         } else openToolCalls.close(journalToolCallId);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
-          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
-          : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
+          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...toolTraceMetadata(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
+          : { kind: "tool_end", ...elapsed, attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...toolTraceMetadata(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
         if (status === "succeeded" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },
       async (delta, metadata) => {

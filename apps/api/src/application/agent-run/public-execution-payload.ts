@@ -14,3 +14,10 @@ export function publicExecutionPayload(summary: string | null): unknown {
   };
   try { return clean(JSON.parse(summary)); } catch { return redactErrorMessage(summary); }
 }
+
+/** Persist the same redacted projection in legacy step summaries. */
+export function publicExecutionSummary(summary: string | null): string | null {
+  if (summary === null) return null;
+  const value = publicExecutionPayload(summary);
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
