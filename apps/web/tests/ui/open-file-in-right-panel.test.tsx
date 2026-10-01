@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ChatTaskInspector, type ChatTaskInspectorProps } from "@/components/chat/chat-task-inspector";
 import {
   OPEN_FILE_IN_RIGHT_PANEL_EVENT, requestOpenFileInRightPanel,
@@ -72,6 +72,9 @@ describe("文件在右栏打开", () => {
     expect(screen.queryByTestId("chat-attachment-preview-portal")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "放大查看" }));
     expect(screen.getByTestId("chat-attachment-preview-portal")).toBeVisible();
+    // Radix portals DialogContent separately from the outer wrapper. Browser
+    // preview locators must scope to this real content, not the empty wrapper.
+    expect(within(screen.getByTestId("chat-attachment-preview")).getByTestId("chat-attachment-preview-pdf")).toBeVisible();
     expect(screen.getByTestId("chat-attachment-preview-download")).toHaveAttribute("download", attachment.filename);
     expect(screen.getByTestId("chat-attachment-preview-download")).toHaveAttribute("href", "blob:fake");
     fireEvent.click(screen.getByTestId("chat-attachment-preview-dismiss"));

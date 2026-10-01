@@ -185,7 +185,7 @@ test.describe("#1584 附件预览/下载弹窗", () => {
     );
 
     await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
-    const preview = page.getByTestId("chat-attachment-preview-portal");
+    const preview = page.getByTestId("chat-attachment-preview");
     await expect(preview).toBeVisible();
 
     // 真的拉到字节，不是占位图：等 loading/failed 两种过渡态都消失，图片元素出现。
@@ -222,7 +222,7 @@ test.describe("#1584 附件预览/下载弹窗", () => {
     );
 
     await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
-    const preview = page.getByTestId("chat-attachment-preview-portal");
+    const preview = page.getByTestId("chat-attachment-preview");
     await expect(preview).toBeVisible();
     await expect(preview.getByTestId("chat-attachment-preview-loading")).toHaveCount(0);
     await expect(preview.getByTestId("chat-attachment-preview-failed")).toHaveCount(0);
@@ -253,7 +253,7 @@ test.describe("#1584 附件预览/下载弹窗", () => {
     );
 
     await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
-    const preview = page.getByTestId("chat-attachment-preview-portal");
+    const preview = page.getByTestId("chat-attachment-preview");
     await expect(preview).toBeVisible();
 
     // 加载态：pptx-preview 需要真的下载 chunk + 解析 zip，给足时间，不在骨架屏阶段断言失败。

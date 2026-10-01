@@ -176,9 +176,10 @@ test("CK-P4 有计划的失败重试——唯一恢复入口真的创建新 run 
   expect(afterResponse.ok()).toBe(true);
   const after = planControl.getPlanLedger.out.parse(await afterResponse.json());
   for (const step of completed) expect(after.steps.find(candidate => candidate.planStepId === step.planStepId)?.status).toBe("completed");
-  const userBubbles = page.getByTestId("copilotkit-v2-messages").getByText(
-    CHAT_READ_E2E.deepAgentFailureTrigger,
-    { exact: true },
-  );
+  // Restrict to real user message bodies: the task timeline also renders the
+  // same input as a run label, which is not a second human message.
+  const userBubbles = page.getByTestId("copilotkit-v2-messages")
+    .getByTestId("chat-user-message-text").filter({ hasText: CHAT_READ_E2E.deepAgentFailureTrigger });
   await expect(userBubbles).toHaveCount(1);
+  await expect(userBubbles).toHaveText(CHAT_READ_E2E.deepAgentFailureTrigger);
 });
