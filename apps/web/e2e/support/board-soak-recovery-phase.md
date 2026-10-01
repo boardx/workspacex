@@ -1,0 +1,7 @@
+# Explicit Board soak phases (#4176)
+
+The measurement phase still requires 50 connected clients and20writers for at least30minutes, uninterrupted samples, measured remote-update p95<=300ms, and the existing signed contiguous-ACK/zero-loss ledger. No recovery exclusion is added to that ledger.
+
+The same fresh stack then runs an additional recovery phase: five distinct viewer contexts disconnect for at least30seconds by both wall and monotonic clocks. All20writers continue to produce real UI changes during each gap. Each reconnect must converge all50Yjs documents and browser projections to the fresh observer's revision/hash. A separate HMAC proof binds every recovery ACK, all peer hashes, sourceSHA, and the measurement signature; the verifier rejects short gaps, missing/duplicate/noncontiguous ACKs, stale/forked peers, and any measurement disconnect. Runtime identity is checked again after recovery. The lane therefore lasts more than32.5minutes; recovery is additional evidence and is not used to dilute measurement latency.
+
+Unit fixtures verify structure only. Acceptance still requires a real isolated authenticated API/PostgreSQL/WS/object-store stack and a new signed run on the exact publishedSHA. The originally reviewed2e241510dea15b76da20411e5ad2ee157378b841 was unavailable locally, from git upload-pack, and from the GitHub commit API in this session; this implementation needs its own review.
