@@ -1414,7 +1414,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // Its companion bootstrap-compatibility.test.ts proves the read-only SQL guard,
     // unconditional rollback, redacted identity result, and absence of HTTP imports.
     // Remove this increment and the audit exemption if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(121);
+    // #4862 adds pg-content-skill-instructions.ts (121 -> 122): executable Workflow
+    // definitions have no Skill ObjectRef ACL. The admitted runtime reads only the exact
+    // tenant/published semantic version; pinned-skill-instructions.test.ts constrains the
+    // SQL/import boundary and problem-to-prd-real-loopback-e2e.test.ts proves tenant/version
+    // isolation. Remove this increment together with that adapter exemption if guards change.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(122);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
