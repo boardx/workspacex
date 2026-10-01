@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import type { agentRole } from "@repo/contracts";
+import type { z } from "zod";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, CheckCircle2, CircleDashed, MessageSquare, Sparkles, Target, Workflow, type LucideIcon } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -34,21 +36,22 @@ import { UNNAMED_WORKFLOW_LABEL, agentWorkflowLabel } from "@/lib/workflow-catal
  *     （404 = 不存在或你看不到，E9 不泄露存在性，一律说「找不到」）。
  *   · 职责 / 技能引用 / 可转交对象 —— `GET /agents/directory/:agentId/profile`。
  *   · 技能名字 —— 组织技能目录 `GET /skills?entry=library`（直接挂载的技能不在目录里时再逐个
- *     `GET /skills/:skillId`）。数字人没有自己的技能时，退回展示「组织共享技能」——对话时它
- *     就用这些，这句话是真的，不是占位。
+ *     `GET /skills/:skillId`）。技能按已发布版本的精确 pin 展示；待验证坐标单独列出，不会以组织共享技能替代。
  * 补充信息读失败只影响对应几节，不拖垮整页。就绪只露两档（R5：成员不见授权详情）。
  */
 export interface AgentSkillSummary {
   readonly skillId: string;
+  readonly versionId?: string;
   readonly name: string;
   readonly duty: string | null;
 }
 
 export interface AgentDetailExtras {
   readonly duty: string | null;
-  /** `agent` = 数字人自己的技能；`org` = 没有专属技能，列组织共享技能。 */
+  /** Skills are always scoped to the published agent; retained for existing consumers. */
   readonly skillSource: "agent" | "org";
   readonly skills: readonly AgentSkillSummary[];
+  readonly pendingSkills?: readonly z.infer<typeof agentRole.PendingSkillBinding>[];
   readonly delegationTargets: readonly {
     readonly agentId: string;
     readonly name: string;
@@ -66,7 +69,6 @@ function skillDuty(item: { readonly duty: string }): string | null {
   return d.length === 0 || d.includes(FILE_BACKED_DUTY_MARKER) ? null : d;
 }
 
-const ORG_FALLBACK_LIMIT = 6;
 const NO_SKILLS: readonly SkillListItem[] = [];
 
 export async function loadAgentDetailExtras(agentId: string, orgId: string | null): Promise<AgentDetailExtras> {
@@ -74,44 +76,32 @@ export async function loadAgentDetailExtras(agentId: string, orgId: string | nul
     getAgentDirectoryProfile(agentId),
     orgId ? listSkills(orgId).catch(() => NO_SKILLS) : Promise.resolve(NO_SKILLS),
   ]);
-  const byId = new Map(catalog.map((s) => [s.skillId, s]));
-  const byVersion = new Map(catalog.flatMap((s) => (s.currentVersionId ? [[s.currentVersionId, s] as const] : [])));
-  const seen = new Set<string>();
-  const skills: AgentSkillSummary[] = [];
-  const push = (s: AgentSkillSummary) => {
-    // 平台技能的 name 是稳定编号（S061）——换中文名；查不到就不上屏，绝不打印编号。
-    const name = workSkillDisplayName(s.name);
-    if (name && !seen.has(s.skillId)) { seen.add(s.skillId); skills.push({ ...s, name }); }
+  const published = profile as typeof profile & {
+    pinnedSkills?: readonly { skillId: string; versionId: string }[];
+    pendingSkillBindings?: readonly z.infer<typeof agentRole.PendingSkillBinding>[];
   };
-
-  const missing = profile.mountedSkillIds.filter((id) => !byId.has(id));
+  const pins = published.pinnedSkills ?? [];
+  const byId = new Map(catalog.map((item) => [item.skillId, item]));
+  const missing = [...new Set(pins.filter((pin) => !byId.has(pin.skillId)).map((pin) => pin.skillId))];
   const fetched = await Promise.allSettled(missing.map((id) => getSkillDetail(id)));
-  const fetchedById = new Map(missing.map((id, i) => [id, fetched[i]] as const));
-  for (const id of profile.mountedSkillIds) {
-    const hit = byId.get(id);
-    if (hit) { push({ skillId: id, name: hit.name, duty: skillDuty(hit) }); continue; }
-    const r = fetchedById.get(id);
-    if (r?.status === "fulfilled") push({ skillId: id, name: r.value.skill.name, duty: skillDuty(r.value.skill) });
+  for (let i = 0; i < missing.length; i++) {
+    const result = fetched[i];
+    // Only directory metadata is used; a detail response's latest contract is never substituted for a pin.
+    if (result?.status === "fulfilled") byId.set(missing[i]!, result.value.skill);
   }
-  for (const versionId of profile.pinnedSkillVersionIds) {
-    const hit = byVersion.get(versionId);
-    if (hit) push({ skillId: hit.skillId, name: hit.name, duty: skillDuty(hit) });
-  }
-
-  const base = {
-    duty: profile.duty,
+  const skills = pins.flatMap((pin): AgentSkillSummary[] => {
+    const item = byId.get(pin.skillId);
+    if (!item) return [];
+    const name = workSkillDisplayName(item.name);
+    return name ? [{ skillId: pin.skillId, versionId: pin.versionId, name,
+      duty: item.currentVersionId === pin.versionId ? skillDuty(item) : null }] : [];
+  });
+  return {
+    duty: profile.duty, skillSource: "agent", skills,
+    pendingSkills: published.pendingSkillBindings ?? [],
     delegationTargets: profile.delegationTargets,
     requireApprovalForHandoff: profile.requireApprovalForHandoff,
   };
-  if (skills.length > 0) return { ...base, skillSource: "agent", skills };
-  const org = catalog
-    .filter((s) => s.visibility === "org-wide")
-    .slice(0, ORG_FALLBACK_LIMIT)
-    .flatMap((s) => {
-      const name = workSkillDisplayName(s.name);
-      return name ? [{ skillId: s.skillId, name, duty: skillDuty(s) }] : [];
-    });
-  return { ...base, skillSource: "org", skills: org };
 }
 
 type CardState =
@@ -379,24 +369,19 @@ function AgentDetailBody({ card, extras, onStartChat }: {
             {extras.kind === "error" && (
               <SectionEmpty testid="agent-detail-skills-error" icon={Sparkles} title="技能清单暂时读不到" hint="不影响开始对话，稍后刷新再看。" />
             )}
-            {extras.kind === "ready" && extras.extras.skills.length === 0 && (
+            {extras.kind === "ready" && extras.extras.skills.length === 0 && (extras.extras.pendingSkills?.length ?? 0) === 0 && (
               <SectionEmpty
                 testid="agent-detail-skills-empty"
                 icon={Sparkles}
-                title="它靠通用能力工作"
-                hint="它没有单独配置技能，组织里也还没有共享技能；对话、检索和整理照常可用。"
+                title="还没有已发布的可用技能"
+                hint="这里只展示这个数字人已发布版本的技能；待验证技能通过验证后才能使用。"
               />
             )}
             {extras.kind === "ready" && extras.extras.skills.length > 0 && (
               <>
-                {extras.extras.skillSource === "org" && (
-                  <p data-testid="agent-detail-skills-org-note" className="mt-2 text-11 text-muted-foreground">
-                    它没有单独配置技能，对话时使用组织里共享的这些技能：
-                  </p>
-                )}
                 <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                   {extras.extras.skills.map((s) => (
-                    <li key={s.skillId} className="rounded-control border border-border px-3 py-2" data-testid="agent-detail-skill">
+                    <li key={`${s.skillId}/${s.versionId ?? ""}`} className="rounded-control border border-border px-3 py-2" data-testid="agent-detail-skill" data-skill-id={s.skillId} data-skill-version-id={s.versionId} data-state="available">
                       <p className="truncate text-12 font-medium text-card-foreground">{s.name}</p>
                       {s.duty ? <p className="mt-0.5 line-clamp-2 text-11 text-muted-foreground">{s.duty}</p> : null}
                     </li>
@@ -404,6 +389,23 @@ function AgentDetailBody({ card, extras, onStartChat }: {
                 </ul>
               </>
             )}
+            {extras.kind === "ready" ? (
+              <>
+                <p className="mt-2 text-11 text-muted-foreground" data-testid="agent-detail-skill-counts" data-available-count={extras.extras.skills.length} data-pending-count={extras.extras.pendingSkills?.length ?? 0}>
+                  可用 {extras.extras.skills.length} · 待验证 {extras.extras.pendingSkills?.length ?? 0}
+                </p>
+                {(extras.extras.pendingSkills?.length ?? 0) > 0 ? (
+                  <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {extras.extras.pendingSkills!.map((skill) => (
+                      <li key={`${skill.stableId}/${skill.contentDigest}`}><button type="button" disabled className="w-full rounded-control border border-border px-3 py-2 text-left text-muted-foreground" data-testid="agent-detail-pending-skill" data-state={skill.reason} data-skill-stable-id={skill.stableId} data-skill-stable-name={skill.stableName} aria-disabled="true">
+                        <p className="truncate text-12 font-medium">{skill.displayName ?? skill.stableName}</p>
+                        <p className="mt-0.5 text-11">{skill.reason === "missing_version" ? "版本缺失" : "待验证"} · 暂不可使用</p>
+                      </button></li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            ) : null}
           </Section>
         </div>
 
