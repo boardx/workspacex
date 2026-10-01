@@ -6,6 +6,8 @@ import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap, X, 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { searchPlaceholder } from "@/lib/tag-utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -379,8 +381,8 @@ export function DesignWorkbenchHome({
             <Input
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder="按名称搜索"
-              aria-label="按名称搜索设计项目"
+              placeholder={searchPlaceholder("设计")}
+              aria-label="搜索设计项目名称或标签"
               data-testid="workbench-search"
               className="h-8 w-48 pl-7 pr-7 text-12"
             />
@@ -404,32 +406,15 @@ export function DesignWorkbenchHome({
       </div>
 
       {vocabulary.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 px-6 pt-2" data-testid="workbench-tag-filter">
-          {vocabulary.map((t) => {
-            const on = selectedTags.includes(t);
-            return (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={on}
-                onClick={() => setSelectedTags((prev) => (on ? prev.filter((x) => x !== t) : [...prev, t]))}
-                data-testid={`workbench-tag-${t}`}
-                className={`rounded-control px-2 py-0.5 text-11 transition-colors duration-fast ${on ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-background-foreground"}`}
-              >
-                {t}
-              </button>
-            );
-          })}
-          {selectedTags.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setSelectedTags([])}
-              className="text-11 text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-background-foreground hover:underline"
-              data-testid="workbench-tag-clear"
-            >
-              清除筛选
-            </button>
-          )}
+        <div className="px-6 pt-2" data-testid="workbench-tag-filter">
+          <TagFilterBar
+            tags={vocabulary.map((tag) => ({ tag }))}
+            selected={selectedTags}
+            onChange={setSelectedTags}
+            prefix="workbench"
+            business="设计项目"
+            match="all"
+          />
         </div>
       )}
 

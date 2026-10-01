@@ -153,18 +153,18 @@ test("模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标�
   await expect(page.getByTestId(`tpladmin-card-tags-${keyB}-1`)).not.toContainText(TAG_ONLY_A);
 
   // ② 标签筛选条：标签来自真实数据并带计数（§3.2「不是写死的枚举，每个标签后跟使用数量」）。
-  const sharedFilter = page.getByTestId(`tpladmin-tag-filter-${TAG_SHARED}`);
+  const sharedFilter = page.getByTestId(`tpladmin-tag-${TAG_SHARED}`);
   await expect(sharedFilter).toBeVisible();
   // 两个模板都打了这个标签 ⇒ 计数必须是 2，不是一个写死的数。
   await expect(sharedFilter).toContainText("2");
-  await expect(page.getByTestId(`tpladmin-tag-filter-${TAG_ONLY_A}`)).toContainText("1");
+  await expect(page.getByTestId(`tpladmin-tag-${TAG_ONLY_A}`)).toContainText("1");
 
   // ③ 单选筛选：点「仅甲」⇒ 只剩甲；再点一次取消 ⇒ 两个都回来（§3.2「点一次筛选，
   //   再点同一个取消」）。
-  await page.getByTestId(`tpladmin-tag-filter-${TAG_ONLY_A}`).click();
+  await page.getByTestId(`tpladmin-tag-${TAG_ONLY_A}`).click();
   await expect(cardA).toBeVisible();
   await expect(cardB).toHaveCount(0);
-  await page.getByTestId(`tpladmin-tag-filter-${TAG_ONLY_A}`).click();
+  await page.getByTestId(`tpladmin-tag-${TAG_ONLY_A}`).click();
   await expect(cardB).toBeVisible();
 
   // ④ 改名 / 标签：与新建**同一个弹窗**，预填现有值（§3.1）。
@@ -192,9 +192,9 @@ test("模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标�
   await expect(page.getByTestId(`tpladmin-card-tags-${keyA}-1`)).toContainText(TAG_SHARED);
   await expect(page.getByTestId(`tpladmin-card-tags-${keyA}-1`)).not.toContainText(TAG_ONLY_A);
   // 「仅甲」这个标签现在没有任何模板在用 ⇒ 它必须从筛选条上消失（筛选条是实时汇总的）。
-  await expect(page.getByTestId(`tpladmin-tag-filter-${TAG_ONLY_A}`)).toHaveCount(0);
+  await expect(page.getByTestId(`tpladmin-tag-${TAG_ONLY_A}`)).toHaveCount(0);
   // 「共用」还剩两个在用，计数不变。
-  await expect(page.getByTestId(`tpladmin-tag-filter-${TAG_SHARED}`)).toContainText("2");
+  await expect(page.getByTestId(`tpladmin-tag-${TAG_SHARED}`)).toContainText("2");
 
   expect(failures).toEqual([]);
 });

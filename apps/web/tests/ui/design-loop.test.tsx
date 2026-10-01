@@ -1403,8 +1403,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       render(<DesignWorkbenchHome state="default" />);
       await screen.findByTestId("workbench-tag-后台");
       fireEvent.click(screen.getByTestId("workbench-tag-后台"));
-      await screen.findByTestId("workbench-tag-clear");
-      fireEvent.click(screen.getByTestId("workbench-tag-clear"));
+      await screen.findByTestId("workbench-tag-all");
+      fireEvent.click(screen.getByTestId("workbench-tag-all"));
       await waitFor(() => expect(screen.getByTestId("project-card-dp-3")).toBeTruthy());
       expect(queries[queries.length - 1]?.tags).toBeUndefined();
     });
@@ -3013,12 +3013,12 @@ describe("2026-09-08：看板五条改进（同异常折叠 / 归档箱 / 标签
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     await screen.findByTestId("inbox-tag-filter");
-    expect(screen.getByTestId("inbox-tag-filter-导出")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("inbox-tag-filter-登录"));
+    expect(screen.getByTestId("inbox-tag-导出")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-tag-登录"));
     await waitFor(() => expect(callsTo("/inbox").some(([, o]) => o?.query?.tag === "登录")).toBe(true));
-    expect(screen.getByTestId("inbox-tag-filter-登录").getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByTestId("inbox-tag-filter-clear"));
-    await waitFor(() => expect(screen.getByTestId("inbox-tag-filter-登录").getAttribute("aria-pressed")).toBe("false"));
+    expect(screen.getByTestId("inbox-tag-登录").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByTestId("inbox-tag-all"));
+    await waitFor(() => expect(screen.getByTestId("inbox-tag-登录").getAttribute("aria-pressed")).toBe("false"));
     // 卡片上的标签芯片也是筛选入口。
     const before = callsTo("/inbox").length;
     fireEvent.click(screen.getByTestId("inbox-card-B-1-tag-登录-filter"));

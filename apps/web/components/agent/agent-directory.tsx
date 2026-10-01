@@ -1,5 +1,6 @@
 "use client";
 
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import * as React from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -70,63 +71,60 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
   const displayTags = card.tags.length > 0 ? card.tags : [card.roleCategory ? ROLE_CATEGORY_LABEL[card.roleCategory] : "通用"];
   const workflowsLine = workflowLabels.length > 0 ? `可发起：${workflowLabels.join("、")}` : null;
   return (
-    <Card data-testid={`agent-card-${card.agentId}`} className="flex h-full flex-col transition-colors hover:border-ai-tint-foreground/40">
-      <CardContent className="flex flex-1 flex-col gap-3 pt-4">
-        <div className="flex items-start gap-3">
-          <Avatar
-            data-testid="agent-card-avatar"
-            initials={card.initials}
-            avatarKey={card.avatar?.key ?? null}
-            tone="ai"
-            className="h-12 w-12 text-16"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <Link
-                href={detailHref}
-                data-testid="agent-card-detail-link"
-                aria-label={`查看 ${name} 的详情`}
-                className="truncate rounded-sm text-14 font-bold text-background-foreground underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {name}
-              </Link>
-              {card.catalogSource === "official" && (
-                <Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge>
-              )}
-            </div>
-            {subtitle ? <p data-testid="agent-card-subtitle" title={subtitle} className="mt-0.5 text-12 text-muted-foreground">{firstClause(subtitle)}</p> : null}
-          </div>
-        </div>
-        <div data-testid="agent-card-tags" className="flex flex-wrap gap-1">
-          {displayTags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}
-        </div>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-          <span data-testid="agent-card-workflows" className="flex min-w-0 items-center gap-1 truncate text-11 text-muted-foreground">
+    <ResourceCard
+      testId={`agent-card-${card.agentId}`}
+      leading={
+        <Avatar
+          data-testid="agent-card-avatar"
+          initials={card.initials}
+          avatarKey={card.avatar?.key ?? null}
+          tone="ai"
+          className="h-12 w-12 text-16"
+        />
+      }
+      title={
+        <Link
+          href={detailHref}
+          data-testid="agent-card-detail-link"
+          aria-label={`查看 ${name} 的详情`}
+          className="rounded-sm underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {name}
+        </Link>
+      }
+      subtitle={subtitle ? <span data-testid="agent-card-subtitle" title={subtitle}>{firstClause(subtitle)}</span> : undefined}
+      badges={card.catalogSource === "official" ? <Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge> : undefined}
+      tags={<ResourceCardTags tags={displayTags} testId="agent-card-tags" />}
+      meta={
+        <>
+          <span data-testid="agent-card-workflows" className="flex min-w-0 items-center gap-1 truncate">
             <Workflow aria-hidden className="h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 truncate" title={workflowsLine ?? undefined}>{workflowsLine ?? "直接对话推进"}</span>
           </span>
           <ReadinessBadge readiness={card.readiness} />
-        </div>
-        {readinessReason !== null ? (
-          <p data-testid="agent-card-readiness-reason" title={readinessReason} className="-mt-1 line-clamp-2 min-h-[2rem] text-11 text-muted-foreground">{readinessReason}</p>
-        ) : null}
-        <div className="flex gap-2">
-          <Button asChild size="sm" variant="outline" className="flex-1">
+        </>
+      }
+      actions={
+        <>
+          <Button asChild size="sm" variant="outline">
             <Link href={detailHref} data-testid="agent-card-view-detail">查看详情</Link>
           </Button>
           <Button
             size="sm"
             variant="primary"
-            className="flex-1"
             data-testid="agent-card-start-chat"
             title={readinessReason ?? undefined}
             onClick={() => onStartChat(card.agentId)}
           >
             开始对话
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </>
+      }
+    >
+      {readinessReason !== null ? (
+        <p data-testid="agent-card-readiness-reason" title={readinessReason} className="line-clamp-2 min-h-[2rem] text-11 text-muted-foreground">{readinessReason}</p>
+      ) : null}
+    </ResourceCard>
   );
 }
 

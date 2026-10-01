@@ -1,4 +1,6 @@
 "use client";
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import * as React from "react";
 import Link from "next/link";
 import { Pencil, Copy, Trash2, Archive, Sparkles, LayoutGrid } from "lucide-react";
@@ -37,14 +39,6 @@ export function BlueprintListScreen({
   const [activeTags, setActiveTags] = React.useState<Set<string>>(new Set());
   const total = configTotal();
 
-  const toggleTag = (tag: string) => {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(tag)) next.delete(tag); else next.add(tag);
-      return next;
-    });
-  };
-
   const visible = BLUEPRINTS.filter((b) => activeTags.size === 0 || b.tags.some((t) => activeTags.has(t)));
 
   return (
@@ -61,25 +55,14 @@ export function BlueprintListScreen({
         </Button>
       </header>
 
-      {/* 标签过滤器 —— 多选，取交集为空集合时不过滤（全部可见） */}
-      <div className="flex flex-wrap items-center gap-1.5" data-testid="tpl-tag-filters">
-        <LayoutGrid aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-        {ALL_BLUEPRINT_TAGS.map((tag) => (
-          <Button
-            key={tag}
-            size="sm"
-            variant={activeTags.has(tag) ? "primary" : "ghost"}
-            onClick={() => toggleTag(tag)}
-            data-testid={`tpl-tag-filter-${tag}`}
-          >
-            {tag}
-          </Button>
-        ))}
-        {activeTags.size > 0 && (
-          <Button size="sm" variant="outline" onClick={() => setActiveTags(new Set())} data-testid="tpl-tag-filter-clear">
-            清除筛选
-          </Button>
-        )}
+      <div data-testid="tpl-tag-filters">
+        <TagFilterBar
+          prefix="tpl"
+          business="蓝本"
+          tags={ALL_BLUEPRINT_TAGS.map((tag) => ({ tag }))}
+          selected={[...activeTags]}
+          onChange={(next) => setActiveTags(new Set(next))}
+        />
       </div>
 
       <StateShell
@@ -147,26 +130,20 @@ function BlueprintCard({
 }: { row: BlueprintRow; total: number; onToast: (m: string) => void; onDanger: (a: "delete" | "archive") => void }) {
   const isDraft = row.state === "draft";
   return (
-    <Card
-      className="flex flex-col gap-2 transition-colors duration-200 hover:border-primary/30"
-      data-testid="tpl-blueprint-card"
-    >
-      <CardContent className="flex flex-1 flex-col gap-2 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-14 font-semibold">{row.name}</span>
+    <ResourceCard
+      testId="tpl-blueprint-card"
+      title={row.name}
+      badges={
+        <>
           {isDraft
             ? <Badge tone="neutral" data-testid="tpl-row-state">草稿</Badge>
             : <Badge tone="primary" data-testid="tpl-row-state">已发布 v{row.version}</Badge>}
           {row.visibility === "team-only" && <Badge tone="outline" data-testid="tpl-row-visibility">仅 {row.team}</Badge>}
-        </div>
-
-        <div className="flex flex-wrap gap-1" data-testid="tpl-row-tags">
-          {row.tags.map((tag) => (
-            <Badge key={tag} tone="outline" className="text-10">{tag}</Badge>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-1 text-11 text-muted-foreground">
+        </>
+      }
+      tags={<ResourceCardTags tags={row.tags} testId="tpl-row-tags" />}
+      meta={
+        <>
           {/* 议程环节数·时长 与 完成度 n/N 是两个独立字段，互不串位 */}
           <span data-testid="tpl-row-agenda">{row.agendaSegments} 环节 · {row.duration}</span>
           <span data-testid="tpl-row-used">用过 {row.usedCount} 次</span>
@@ -178,32 +155,33 @@ function BlueprintCard({
                 : `满意度 样本不足（${row.satisfaction.sampleSize} 场）`}
           </span>
           <span data-testid="tpl-row-completion">{row.doneCount}/{total} 已配</span>
-        </div>
-
-        {/*
-          2026-09-22 实测（`scripts/audit-text-contrast.mjs` 打在装好的 0.2.0 上）：下面这行原本是
-          `text-warning-foreground`，而该 token 在浅色主题里是 `0 0% 100%` 纯白，打在行的白底上
-          对比度只有 1.0——用户根本看不见「为什么还不能发布」这句话。改用成对的 tint 档
-          （浅底上 6.45:1，由 `scripts/check-token-contrast.mjs` 看住）。
-        */}
-        {isDraft && row.draftHint && (
-          <p className="text-11 text-warning-tint-foreground" data-testid="tpl-row-draft-hint">{row.draftHint}</p>
-        )}
-
-        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+        </>
+      }
+      actions={
+        <>
           {/* 真实挂载点 /tpl/designer（F18），不是本原型内的 ?screen=designer 屏（F318：全仓零引用曾是漂移根因）。
               F18 当前未按蓝本 id 参数化（design-facet-catalog 只接了一套目录），故先全量指向同一入口，
               忠实反映现状；等真实每蓝本路由落地再补 id。*/}
-          <Button size="xs" variant="outline" asChild data-testid="tpl-row-edit">
+          <Button size="sm" variant="outline" asChild data-testid="tpl-row-edit">
             <Link href="/tpl/designer"><Pencil aria-hidden className="h-3 w-3" /> 编辑设计</Link>
           </Button>
-          <Button size="xs" variant="outline" onClick={() => onToast(`已复制「${row.name}」为独立新蓝本草稿`)} data-testid="tpl-row-copy"><Copy aria-hidden className="h-3 w-3" /> 复制</Button>
+          <Button size="sm" variant="outline" onClick={() => onToast(`已复制「${row.name}」为独立新蓝本草稿`)} data-testid="tpl-row-copy"><Copy aria-hidden className="h-3 w-3" /> 复制</Button>
           {/* 引用计数门控：被套用过 → [归档]；从未套用 → [删除]（O-18①）*/}
           {row.appliedByProject
-            ? <Button size="xs" variant="outline" onClick={() => onDanger("archive")} data-testid="tpl-row-archive"><Archive aria-hidden className="h-3 w-3" /> 归档</Button>
-            : <Button size="xs" variant="ghost" className="text-destructive transition-colors duration-200 hover:bg-destructive/10" onClick={() => onDanger("delete")} data-testid="tpl-row-delete"><Trash2 aria-hidden className="h-3 w-3" /> 删除</Button>}
-        </div>
-      </CardContent>
-    </Card>
+            ? <Button size="sm" variant="outline" onClick={() => onDanger("archive")} data-testid="tpl-row-archive"><Archive aria-hidden className="h-3 w-3" /> 归档</Button>
+            : <Button size="sm" variant="ghost" className="text-destructive transition-colors duration-fast hover:bg-destructive/10" onClick={() => onDanger("delete")} data-testid="tpl-row-delete"><Trash2 aria-hidden className="h-3 w-3" /> 删除</Button>}
+        </>
+      }
+    >
+      {/*
+        2026-09-22 实测（`scripts/audit-text-contrast.mjs` 打在装好的 0.2.0 上）：下面这行原本是
+        `text-warning-foreground`，而该 token 在浅色主题里是 `0 0% 100%` 纯白，打在行的白底上
+        对比度只有 1.0——用户根本看不见「为什么还不能发布」这句话。改用成对的 tint 档
+        （浅底上 6.45:1，由 `scripts/check-token-contrast.mjs` 看住）。
+      */}
+      {isDraft && row.draftHint && (
+        <p className="text-11 text-warning-tint-foreground" data-testid="tpl-row-draft-hint">{row.draftHint}</p>
+      )}
+    </ResourceCard>
   );
 }

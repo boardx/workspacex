@@ -119,14 +119,14 @@ describe("Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板", (
     expect(screen.queryByTestId("admin-agent-definition-list-panel")).toBeNull();
 
     const filters = screen.getByTestId("admin-agent-tag-filters");
-    expect(within(filters).getByTestId("admin-agent-tag-filter-listing").textContent).toContain("目录条目 2");
-    expect(within(filters).getByTestId("admin-agent-tag-filter-executable").textContent).toContain("可执行 1");
+    expect(within(filters).getByTestId("admin-agent-tag-listing").textContent).toContain("目录条目 2");
+    expect(within(filters).getByTestId("admin-agent-tag-executable").textContent).toContain("可执行 1");
 
-    fireEvent.click(screen.getByTestId("admin-agent-tag-filter-executable"));
+    fireEvent.click(screen.getByTestId("admin-agent-tag-executable"));
     expect(screen.getByTestId("admin-agent-list").textContent).toContain("值班助理");
     expect(screen.getByTestId("admin-agent-list").textContent).not.toContain("客服 Agent");
 
-    fireEvent.click(screen.getByTestId("admin-agent-tag-filter-all"));
+    fireEvent.click(screen.getByTestId("admin-agent-tag-all"));
     fireEvent.change(screen.getByTestId("admin-agent-search"), { target: { value: "结算" } });
     expect(screen.getByTestId("admin-agent-list").textContent).toContain("结算 Agent");
     expect(screen.getByTestId("admin-agent-list").textContent).not.toContain("客服 Agent");

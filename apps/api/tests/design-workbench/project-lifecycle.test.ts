@@ -193,6 +193,15 @@ describe("listMyProjects", () => {
       expect(out.map((p) => p.id)).toEqual(["dp-1"]);
     });
 
+    it("搜索词也能命中标签（名称或任一标签，忽略大小写）", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "登录改版", tags: ["Mobile"] }));
+      repo.seed(designProjectRow({ id: "dp-2", ownerId: "u-1", name: "结算流程", tags: ["后台"] }));
+      expect((await listMyProjects(deps(repo), { ownerId: "u-1", q: "mobile" })).map((p) => p.id)).toEqual(["dp-1"]);
+      expect((await listMyProjects(deps(repo), { ownerId: "u-1", q: "后台" })).map((p) => p.id)).toEqual(["dp-2"]);
+      expect(await listMyProjects(deps(repo), { ownerId: "u-1", q: "不存在" })).toHaveLength(0);
+    });
+
     it("新建带标签：去空白、丢空串、去重", async () => {
       const repo = new FakeDesignProjectRepo();
       const out = await createProject(

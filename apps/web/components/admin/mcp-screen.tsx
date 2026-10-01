@@ -147,16 +147,12 @@ export function McpScreen({ state }: { state: UiState }) {
         onRefresh={() => void refresh()}
         emptyState="本组织还没有连接过任何 MCP 服务器——用「连接服务器」填端点并发现工具，成功后会出现在这里。"
         searchPlaceholder="按服务器标识、名称或描述搜索…"
-        renderCard={(r) => (
-          <CardContent className="flex h-full flex-col gap-2 pt-4">
-            <div className="flex items-start gap-2">
-              <Plug aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-13 font-medium">{r.name || r.serverId}</span>
-                <span className="font-mono text-10 text-muted-foreground">{r.serverId} · {r.endpointHint}</span>
-              </div>
-            </div>
-            {r.description && <p className="line-clamp-2 text-11 text-muted-foreground">{r.description}</p>}
+        renderCard={(r) => ({
+          leading: <Plug aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+          title: r.name || r.serverId,
+          subtitle: <span className="font-mono">{r.serverId} · {r.endpointHint}</span>,
+          description: r.description || undefined,
+          children: (
             <div className="flex flex-wrap items-center gap-1.5">
               {r.involvesCustomerData && <Badge tone="warning">涉客户数据</Badge>}
               <Badge tone="outline" data-testid={`admin-mcp-authscope-${r.serverId}`}>授权 · {r.authScope}</Badge>
@@ -166,7 +162,9 @@ export function McpScreen({ state }: { state: UiState }) {
               </Badge>
               <Badge tone={CONN_TONE[r.connectionStatus]} data-testid={`admin-mcp-conn-${r.serverId}`}>{r.connectionStatus}</Badge>
             </div>
-            <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-11 text-muted-foreground">
+          ),
+          meta: (
+            <>
               <span className="flex items-center gap-1">
                 <Wrench aria-hidden className="h-3 w-3" />
                 {r.toolCount} 工具
@@ -176,9 +174,9 @@ export function McpScreen({ state }: { state: UiState }) {
                   上次发现：{r.lastDiscoveredAt}
                 </span>
               )}
-            </div>
-          </CardContent>
-        )}
+            </>
+          ),
+        })}
         selectedKey={selectedKey}
         onSelect={setSelectedKey}
         detailWidth="lg"

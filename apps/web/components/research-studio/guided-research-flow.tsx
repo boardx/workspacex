@@ -1,4 +1,5 @@
 "use client";
+import { tagInputLimits, research as researchTagContract } from "@repo/contracts";
 
 import * as React from "react";
 import { ResearchIntake, CREATE_DRAFT_KEY } from "./research-intake";
@@ -66,6 +67,8 @@ import { linkProjectResource } from "@/lib/live-project-resources";
 import { clearResearchSkillState } from "@/lib/guided-research-skill-state";
 import { GuidedResearchSkillAssistant } from "./guided-research-skill-assistant";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import { GuidedResearchCardProgress, GuidedResearchHomeSummary, guidedResearchHomePresentation, guidedResearchMatchesHomeFilter, type GuidedResearchHomeFilter } from "./guided-research-home-status";
 
 const SESSION_REQUIRED_STEPS: readonly GuidedResearchStep[] = ["directions", "outline", "search", "report"];
@@ -358,7 +361,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     clearResearchSkillState("pending-brief");
     window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
   };
-  const [selectedTag, setSelectedTag] = React.useState<string>();
+  const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
   const [statusFilter, setStatusFilter] = React.useState<GuidedResearchHomeFilter>();
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<HistorySort>("recent");
@@ -372,9 +375,9 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     return () => { active = false; };
   }, [revision]);
   const tags = React.useMemo(() => Array.from(new Set((history ?? []).flatMap(item => item.tags))), [history]);
-  React.useEffect(() => { if (selectedTag && !tags.includes(selectedTag)) setSelectedTag(undefined); }, [tags, selectedTag]);
-  const visible = (history ?? []).filter(item => guidedResearchMatchesHomeFilter(item, statusFilter) && (!selectedTag || item.tags.includes(selectedTag)) &&
-    `${item.title} ${item.brief.goal} ${item.tags.join(" ")}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  React.useEffect(() => { if (selectedTags.some(t => !tags.includes(t))) setSelectedTags(selectedTags.filter(t => tags.includes(t))); }, [tags, selectedTags]);
+  const visible = (history ?? []).filter(item => guidedResearchMatchesHomeFilter(item, statusFilter) && matchesTags(item.tags, selectedTags) &&
+    matchesQuery(query, [item.title, item.brief.goal], item.tags))
     .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
   return <section data-testid="research-home-page" data-reference-layout="research-list" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
     <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -382,21 +385,21 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
         <div className="flex items-baseline gap-2"><h1 className="text-30 font-semibold tracking-tight">研究列表</h1>{history && <span className="text-sm text-muted-foreground">{history.length} 个研究项目</span>}</div>
 
       </div>
-<div className="flex gap-3"><label className="relative flex-1 md:w-96"><span className="sr-only">搜索研究</span><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索研究主题、关键词或内容…" className="h-10 pl-9 text-14" /></label><Button type="button" variant="primary" className="h-10 px-4 text-14" data-testid="research-create" asChild><a href="/research/new" onClick={startResearch}><Plus className="size-5" aria-hidden />新建研究</a></Button></div>
+<div className="flex gap-3"><label className="relative flex-1 md:w-96"><span className="sr-only">搜索研究</span><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={searchPlaceholder("研究")} className="h-10 pl-9 text-14" /></label><Button type="button" variant="primary" className="h-10 px-4 text-14" data-testid="research-create" asChild><a href="/research/new" onClick={startResearch}><Plus className="size-5" aria-hidden />新建研究</a></Button></div>
     </header>
-    <div className="flex flex-wrap items-center gap-3" aria-label="按标签筛选研究"><Button className="h-9 rounded-full px-4 text-13" variant={selectedTag === undefined ? "primary" : "outline"} aria-pressed={selectedTag === undefined} data-testid="research-history-tag-all" onClick={() => setSelectedTag(undefined)}>全部标签</Button>{tags.map(tag => <Button key={tag} className="h-9 rounded-full px-4 text-13" variant={selectedTag === tag ? "primary" : "outline"} aria-pressed={selectedTag === tag} data-testid={`research-history-tag-${tag}`} onClick={() => setSelectedTag(tag)}>{tag}</Button>)}<Button variant="ghost" className="ml-auto" data-testid="research-history-sort" aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`} onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}>{sort === "recent" ? "最近更新" : "最早更新"}</Button></div>
+    <div className="flex flex-wrap items-center gap-3"><TagFilterBar tags={tags.map(tag => ({ tag }))} selected={selectedTags} onChange={setSelectedTags} prefix="research-history" business="研究" /><Button variant="ghost" className="ml-auto" data-testid="research-history-sort" aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`} onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}>{sort === "recent" ? "最近更新" : "最早更新"}</Button></div>
     {history && history.length > 0 && <details><summary className="cursor-pointer text-sm text-muted-foreground">研究状态筛选</summary><div className="mt-3"><GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} /></div></details>}
     {notice && <p role="status" data-testid="research-history-saved" className="text-12 text-success">{notice}</p>}
     <section className="space-y-3" data-testid="research-history" aria-label="历史研究">
       {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-5 md:grid-cols-2 xl:grid-cols-3">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
       {loadFailed && <div role="alert" data-testid="research-history-error" className="rounded-lg border border-destructive p-6 text-12 text-destructive">历史研究加载失败。<Button variant="outline" className="ml-3" onClick={() => setRevision(value => value + 1)}>重试</Button></div>}
-      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{history.length ? statusFilter ? "当前状态筛选与搜索条件下没有研究，请调整筛选条件。" : "没有符合条件的研究，请调整标签或搜索条件。" : "还没有研究，先创建一项吧。"}</p>{statusFilter || selectedTag !== undefined || query.trim() ? <Button variant="outline" onClick={() => { setStatusFilter(undefined); setSelectedTag(undefined); setQuery(""); }}>{statusFilter ? "清除状态筛选" : "清除筛选"}</Button> : <Button variant="primary" asChild><a href="/research/new" onClick={startResearch}>新建研究</a></Button>}</div>}
+      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{history.length ? statusFilter ? "当前状态筛选与搜索条件下没有研究，请调整筛选条件。" : "没有符合条件的研究，请调整标签或搜索条件。" : "还没有研究，先创建一项吧。"}</p>{statusFilter || selectedTags.length > 0 || query.trim() ? <Button variant="outline" onClick={() => { setStatusFilter(undefined); setSelectedTags([]); setQuery(""); }}>{statusFilter ? "清除状态筛选" : "清除筛选"}</Button> : <Button variant="primary" asChild><a href="/research/new" onClick={startResearch}>新建研究</a></Button>}</div>}
       {!loadFailed && visible.length > 0 && <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{visible.map(item => { const presentation = guidedResearchHomePresentation(item); return <ResearchHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
         metadata={<><span>{item.sourceCount} 个来源</span><time>更新于 {new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
         primaryAction={<Button variant="primary" size="sm" onClick={() => onNavigate(item.status === "completed" ? "report" : stageToStep(item.resumeStage), item.sessionId)} data-testid={`${item.status === "completed" ? "research-view" : "research-continue"}-${item.sessionId}`}>{presentation.action}</Button>}
-        management={<StudioHistoryManagement business="研究" prefix="research" id={item.sessionId} name={item.title} tags={item.tags} deleteDescription="将从首页移除，已引用的研究证据将保留。"
+        management={<StudioHistoryManagement tagLimits={tagInputLimits(researchTagContract.GuidedResearchMetadata.shape.tags)} business="研究" prefix="research" id={item.sessionId} name={item.title} tags={item.tags} knownTags={new Map(tags.map(t => [t, 0] as const))} deleteDescription="将从首页移除，已引用的研究证据将保留。"
           onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("研究已修改"); setRevision(value => value + 1); }}
           onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("研究已从首页移除"); }} />}>
         <GuidedResearchCardProgress session={item} />

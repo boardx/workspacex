@@ -1,5 +1,8 @@
 "use client";
 
+import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,7 +21,7 @@ import { encodeSurveyCreationDraft, type SurveyCreationDraft } from "@/lib/surve
 import { SurveyCreateDialog, type SurveyCreationMode } from "./survey-create-dialog";
 
 const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; search: string }> = {
-  surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: "搜索问卷名称" },
+  surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: searchPlaceholder("问卷") },
   modules: { title: "问卷模块", description: "管理可复用的问题设计模块，快速组合问卷", search: "搜索问卷模块名称" },
   reports: { title: "报告模块", description: "管理报告结构、章节和输出方式", search: "搜索报告模块名称" },
 };
@@ -43,14 +46,12 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
 
   const availableTags = [...new Set(SURVEY_LIBRARY_CARDS.flatMap((item) => item.tags))];
   const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) => {
-    const matchesQuery = item.title.includes(query.trim());
-    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => item.tags.includes(tag));
-    return matchesQuery && matchesTags;
+    return matchesQuery(query, [item.title], item.tags) && matchesTags(item.tags, selectedTags, "any");
   });
   const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+    matchesQuery(query, [item.title]));
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+    matchesQuery(query, [item.title]));
   const copy = TAB_COPY[tab];
   const createSurvey = (draft: SurveyCreationDraft) => {
     const params = new URLSearchParams({ step: "design", draft: encodeSurveyCreationDraft(draft) });
@@ -83,14 +84,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" aria-hidden /></Button>
             </div>
 
-            {tab === "surveys" && <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="问卷标签筛选">
-              <span className="mr-1 text-11 text-muted-foreground">标签</span>
-              {availableTags.map((tag) => {
-                const selected = selectedTags.includes(tag);
-                return <button key={tag} type="button" aria-label={`筛选标签 ${tag}`} aria-pressed={selected} onClick={() => setSelectedTags((current) => selected ? current.filter((value) => value !== tag) : [...current, tag])} className={`rounded-full border px-3 py-1 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-accent text-primary" : "border-border bg-card text-muted-foreground hover:border-primary"}`}>{tag}</button>;
-              })}
-              {selectedTags.length > 0 && <button type="button" onClick={() => setSelectedTags([])} className="rounded-md px-2 py-1 text-11 text-primary underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">清除标签筛选</button>}
-            </div>}
+            {tab === "surveys" && <TagFilterBar className="mt-3" prefix="survey-lib" business="问卷" tags={availableTags.map((tag) => ({ tag }))} selected={selectedTags} onChange={(next) => setSelectedTags([...next])} />}
 
             <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
@@ -129,37 +123,54 @@ function CardGrid({ empty, emptyLabel, children }: { empty: boolean; emptyLabel:
 
 function SurveyCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[number]; onOpen: () => void }) {
   const tone = item.status === "collecting" ? "primary" : item.status === "closed" ? "primary" : "neutral";
-  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-survey-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" aria-hidden /></span><Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge></div>
-    <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
-    <div className="mt-2 flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>
-    <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
-    <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
-    {item.received !== undefined && <p className="mt-3 text-12 text-muted-foreground">已回收 <strong className="font-semibold text-primary">{item.received}</strong>{item.target ? ` / ${item.target}` : " 份"}</p>}
-    {item.target && item.received !== undefined && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, item.received / item.target * 100)}%` }} /></div>}
-    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
-  </button>;
+  return (
+    <ResourceCard
+      testId={`survey-resource-card-survey-${item.id}`}
+      onClick={onOpen}
+      ariaLabel={`打开问卷「${item.title}」`}
+      leading={<span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" aria-hidden /></span>}
+      title={item.title}
+      subtitle={`${item.questionCount} 题 · ${item.reportSectionCount} 个报告章节`}
+      badges={<Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge>}
+      tags={<ResourceCardTags tags={item.tags} />}
+      meta={<span>最近更新　{item.updatedAt}</span>}
+    >
+      {item.received !== undefined && <p className="text-12 text-muted-foreground">已回收 <strong className="font-semibold text-primary">{item.received}</strong>{item.target ? ` / ${item.target}` : " 份"}</p>}
+      {item.target && item.received !== undefined && <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, item.received / item.target * 100)}%` }} /></div>}
+    </ResourceCard>
+  );
 }
 
 function QuestionModuleCard({ item, onOpen }: { item: (typeof SURVEY_QUESTION_MODULE_CARDS)[number]; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-module-${item.id}`} className="group min-h-48 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" aria-hidden /></span><Badge tone="primary">问题模块</Badge></div>
-    <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
-    <p className="mt-2 text-11 text-muted-foreground">{item.description}</p>
-    <p className="mt-3 text-12 text-muted-foreground">{item.questionCount} 题 · 更新于 {item.updatedAt}</p>
-    <p className="mt-3 text-12 text-primary">用于新问卷</p>
-    <ChevronRight className="ml-auto mt-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
-  </button>;
+  return (
+    <ResourceCard
+      testId={`survey-resource-card-module-${item.id}`}
+      onClick={onOpen}
+      ariaLabel={`打开问题模块「${item.title}」`}
+      leading={<span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" aria-hidden /></span>}
+      title={item.title}
+      subtitle={`${item.questionCount} 题 · 更新于 ${item.updatedAt}`}
+      badges={<Badge tone="primary">问题模块</Badge>}
+      description={item.description}
+      actions={<span className="text-12 text-primary">用于新问卷 <ChevronRight className="inline h-3.5 w-3.5" aria-hidden /></span>}
+    />
+  );
 }
 
 function ReportTemplateCard({ item, onOpen }: { item: (typeof SURVEY_TEMPLATE_CARDS)[number]; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-report-template-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" aria-hidden /></span><Badge tone="primary">{TEMPLATE_CATEGORY_LABEL[item.category]}</Badge></div>
-    <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
-    <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
-    <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
-    <p className="mt-3 text-12 text-muted-foreground">已应用于 <strong className="font-semibold text-primary">{item.surveyCount}</strong> 份问卷</p>
-    <p className="mt-3 text-12 text-primary">编辑报告模块</p>
-    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
-  </button>;
+  return (
+    <ResourceCard
+      testId={`survey-resource-card-report-template-${item.id}`}
+      onClick={onOpen}
+      ariaLabel={`打开报告模板「${item.title}」`}
+      leading={<span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" aria-hidden /></span>}
+      title={item.title}
+      subtitle={`${item.questionCount} 题 · ${item.reportSectionCount} 个报告章节`}
+      badges={<Badge tone="primary">{TEMPLATE_CATEGORY_LABEL[item.category]}</Badge>}
+      meta={<span>最近更新　{item.updatedAt}</span>}
+      actions={<span className="text-12 text-primary">编辑报告模块 <ChevronRight className="inline h-3.5 w-3.5" aria-hidden /></span>}
+    >
+      <p className="text-12 text-muted-foreground">已应用于 <strong className="font-semibold text-primary">{item.surveyCount}</strong> 份问卷</p>
+    </ResourceCard>
+  );
 }

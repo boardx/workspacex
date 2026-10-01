@@ -148,13 +148,13 @@ describe("#520 Skill 库屏接真实 API", () => {
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
       // 标签由现有行汇总、后跟数量——不是写死的枚举。
-      expect(screen.getByTestId("skill-catalog-tag-filter-self-built").textContent).toContain("自建 1");
+      expect(screen.getByTestId("skill-catalog-tag-self-built").textContent).toContain("自建 1");
 
-      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-self-built"));
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-self-built"));
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).not.toContain("翻译器");
 
-      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-self-built"));
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-self-built"));
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
     });
@@ -164,14 +164,14 @@ describe("#520 Skill 库屏接真实 API", () => {
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
 
-      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-promoted")); // source=晋升生成 → 只剩「翻译器」
-      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-draft")); // status=草稿 → 「翻译器」是已启用，被排除
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-promoted")); // source=晋升生成 → 只剩「翻译器」
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-draft")); // status=草稿 → 「翻译器」是已启用，被排除
       expect(screen.queryByTestId("skill-catalog-list")).toBeNull();
       expect(screen.getByTestId("skill-catalog-no-match")).toBeTruthy();
       // 这不是真实空态——真实数据还在，只是被过滤条件收窄没了：两者必须分得开。
       expect(screen.queryByTestId("skill-catalog-empty")).toBeNull();
 
-      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-all"));
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-all"));
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
       expect(screen.queryByTestId("skill-catalog-no-match")).toBeNull();

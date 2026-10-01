@@ -7,15 +7,17 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { TagField, commitDraft } from "@/components/ui/tag-input";
+import { tagInputLimits, interview } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
 import { createDigitalInterviewDraft, type InterviewScope } from "@/lib/interview-api";
 import { withProjectId } from "@/components/project/project-breadcrumb";
+const TAG_LIMITS = tagInputLimits(interview.DigitalInterviewDraftInput.shape.tags);
 
 const INDEPENDENT_SCOPE: InterviewScope = { kind: "none", projectId: null, researchProjectId: null };
 const DEFAULT_INTERVIEW_NAME = "未命名访谈";
 
-export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = null }: {
+export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = null, knownTags }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /**
@@ -23,11 +25,13 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
    * `project_id`，不走链接表；创建后进入 setup 页也续上 `?projectId=` 让面包屑能回项目。
    */
   projectId?: string | null;
+  /** 已有标签词表，给输入框做建议；不给就没有建议。 */
+  knownTags?: ReadonlyMap<string, number>;
 }) {
   const { push } = useRouter();
   const scope: InterviewScope = projectId ? { kind: "project", projectId, researchProjectId: null } : INDEPENDENT_SCOPE;
   const [name, setName] = React.useState(DEFAULT_INTERVIEW_NAME);
-  const [tags, setTags] = React.useState<string[]>([]);
+  const [tags, setTags] = React.useState<readonly string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -43,19 +47,11 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
     requestAttempt.current = null;
   }
 
-  function addTag() {
-    const next = tagDraft.trim();
-    if (!next || tags.includes(next) || tags.length >= 5) return;
-    setTags((current) => [...current, next]);
-    setTagDraft("");
-  }
-
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || busy) return;
-    const pending = tagDraft.trim();
-    const nextTags = pending && !tags.includes(pending) && tags.length < 5 ? [...tags, pending] : tags;
-    const payload = { name: name.trim(), tags: nextTags, scope };
+    const nextTags = commitDraft(tags, tagDraft, TAG_LIMITS);
+    const payload = { name: name.trim(), tags: [...nextTags], scope };
     const fingerprint = JSON.stringify(payload);
     if (requestAttempt.current?.fingerprint !== fingerprint) {
       requestAttempt.current = { fingerprint, requestId: crypto.randomUUID() };
@@ -89,14 +85,16 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
               <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-name" className="text-13">访谈名称</Label><span className="text-11 text-muted-foreground">{name.length}/100</span></div>
               <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-10" />
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-tag-input" className="text-13">标签</Label><span className="text-11 text-muted-foreground">{tags.length}/5</span></div>
-              <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-md border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
-                {tags.map((tag) => <Badge data-testid="itv-create-tag" key={tag} tone="neutral" className="gap-1 py-1">{tag}<button type="button" aria-label={`删除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((value) => value !== tag))}><X className="h-3 w-3" aria-hidden /></button></Badge>)}
-                <Input id="itv-create-tag-input" data-testid="itv-create-tag-input" disabled={tags.length >= 5} value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === "," || event.key === "，") { event.preventDefault(); addTag(); } }} placeholder={tags.length >= 5 ? "最多 5 个标签" : "添加标签，按回车确认"} className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
-              </div>
-              <p className="text-11 text-muted-foreground">标签可选，最多 5 个</p>
-            </div>
+            <TagField
+              value={tags}
+              onChange={setTags}
+              draft={tagDraft}
+              onDraftChange={setTagDraft}
+              knownTags={knownTags}
+              label="标签（可选）"
+              {...TAG_LIMITS}
+              testIdPrefix="itv-create-tag"
+            />
             <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>
             {error && <p role="alert" className="text-12 text-destructive">创建失败：{error}。当前输入已保留，可重试。</p>}
             <div className="mt-2 flex justify-end gap-3">

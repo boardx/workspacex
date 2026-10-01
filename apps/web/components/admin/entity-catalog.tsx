@@ -37,6 +37,8 @@
  *   加载 `{prefix}-loading` · 失败 `{prefix}-error` + `{prefix}-retry` · 真实空态 `{prefix}-empty` ·
  *   筛空 `{prefix}-no-match` · 面板 `{prefix}-detail`（关闭按钮 `{prefix}-detail-close`）。
  */
+import { ResourceCard } from "@/components/ui/resource-card";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import * as React from "react";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,7 +78,8 @@ export interface EntityCatalogProps<T> {
   /** 被搜索的文本（名字、id、描述…拼成一串即可），大小写不敏感。 */
   searchTextOf: (row: T) => string;
   tagsOf: (row: T) => readonly CatalogTag[];
-  renderCard: (row: T) => React.ReactNode;
+  /** 每一行的卡片内容（结构化字段）。卡片外壳（选中态 / 键盘 / hover）由标准 `ResourceCard` 统一提供，调用方不再自画。 */
+  renderCard: (row: T) => EntityCardSpec;
   /** 卡片 testid，缺省 `${prefix}-row-${keyOf(row)}`。 */
   cardTestId?: (row: T) => string;
   onRefresh: () => void;
@@ -170,14 +173,6 @@ export function EntityCatalog<T>({
   const filterActive = trimmedQuery !== "" || effectiveTags.size > 0;
   const loading = status.kind === "loading";
 
-  function toggleTag(key: string) {
-    setActiveTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   return (
     <div className={cn("flex flex-col gap-4", className)} data-testid={rootTestId ?? `${prefix}-catalog`}>
@@ -226,32 +221,15 @@ export function EntityCatalog<T>({
           />
         </label>
         {tagIndex.size > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5" data-testid={`${prefix}-tag-filters`}>
-            <span className="text-9 font-semibold uppercase tracking-wider text-muted-foreground">标签</span>
-            <Button
-              size="xs"
-              variant={effectiveTags.size === 0 ? "primary" : "outline"}
-              aria-pressed={effectiveTags.size === 0}
-              onClick={() => setActiveTags(new Set())}
-              data-testid={`${prefix}-tag-filter-all`}
-            >
-              全部
-            </Button>
-            {[...tagIndex.entries()].map(([key, { label, count }]) => {
-              const on = effectiveTags.has(key);
-              return (
-                <Button
-                  key={key}
-                  size="xs"
-                  variant={on ? "primary" : "outline"}
-                  aria-pressed={on}
-                  onClick={() => toggleTag(key)}
-                  data-testid={`${prefix}-tag-filter-${key}`}
-                >
-                  {label} {count}
-                </Button>
-              );
-            })}
+          <div data-testid={`${prefix}-tag-filters`}>
+            <TagFilterBar
+              tags={[...tagIndex.entries()].map(([key, { label, count }]) => ({ tag: key, label, count }))}
+              selected={[...effectiveTags]}
+              onChange={(next) => setActiveTags(new Set(next))}
+              prefix={prefix}
+              business={title}
+              match="all"
+            />
           </div>
         )}
       </div>
@@ -308,27 +286,13 @@ export function EntityCatalog<T>({
             const key = keyOf(row);
             const selected = key === selectedKey;
             return (
-              <Card
+              <ResourceCard
                 key={key}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected}
+                testId={cardTestId ? cardTestId(row) : `${prefix}-row-${key}`}
                 onClick={() => onSelect(key)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onSelect(key);
-                  }
-                }}
-                className={cn(
-                  "cursor-pointer transition-shadow duration-base hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected && "ring-2 ring-ring",
-                )}
-                data-testid={cardTestId ? cardTestId(row) : `${prefix}-row-${key}`}
-                data-selected={selected ? "true" : undefined}
-              >
-                {renderCard(row)}
-              </Card>
+                selected={selected}
+                {...renderCard(row)}
+              />
             );
           })}
         </div>
@@ -388,9 +352,16 @@ export function tagOf(value: string, label: string = value): CatalogTag {
 }
 
 /** 卡片里的动作区：阻止冒泡，点按钮不顺带打开面板。 */
+/** 目录卡片的内容规格（`ResourceCard` 的一个子集）。 */
+export type EntityCardSpec = Pick<
+  React.ComponentProps<typeof ResourceCard>,
+  "title" | "titleTestId" | "subtitle" | "badges" | "description" | "tags" | "meta" | "children" | "actions" | "leading"
+>;
+
 export function CardActions({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
+      data-card-stop
       className={cn("flex flex-wrap items-center gap-1.5", className)}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}

@@ -118,14 +118,14 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     render(<ProjectsScreen />);
     await screen.findByTestId("projects-list");
 
-    const chip = screen.getByTestId("projects-tag-filter-客户");
+    const chip = screen.getByTestId("projects-tag-客户");
     expect(chip).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("projects-card-p-real-1")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("projects-tag-filters-clear"));
+    fireEvent.click(screen.getByTestId("projects-tag-all"));
     expect(chip).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -194,7 +194,7 @@ describe("F185 /projects：标签增删接真实 PATCH /projects/:id/tags", () =
     afterPatch = [
       { id: "p-tag-1", name: "待打标签的项目", kind: "workshop", status: "active", readOnlyReason: null, tags: ["高优先级"] },
     ];
-    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-confirm"));
+    fireEvent.keyDown(screen.getByTestId("projects-card-p-tag-1-tag-input"), { key: "Enter" }); // 共享内联编辑器：回车确认
 
     await waitFor(() => expect(patchCalls).toHaveLength(1));
     expect(patchCalls[0]).toMatchObject({ path: "/projects/p-tag-1/tags", body: { tags: ["高优先级"] } });
@@ -219,7 +219,7 @@ describe("F185 /projects：标签增删接真实 PATCH /projects/:id/tags", () =
     afterPatch = [
       { id: "p-tag-1", name: "已有两个标签", kind: "workshop", status: "active", readOnlyReason: null, tags: ["b"] },
     ];
-    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-a-remove"));
+    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-remove-a"));
 
     await waitFor(() => expect(patchCalls).toHaveLength(1));
     // ⚠ 反证整体替换：body 里的 tags 是「剩下的那个」，不是一个「删除了 a」的动作描述。

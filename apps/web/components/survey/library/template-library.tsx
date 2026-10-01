@@ -1,5 +1,6 @@
 "use client";
 
+import { ResourceCard } from "@/components/ui/resource-card";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -219,74 +220,59 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {visible.map((item) => (
-          <article
+          <ResourceCard
             key={item.id}
-            className="flex min-w-0 flex-col rounded-lg border border-border bg-card p-5"
+            title={item.title}
+            leading={<FileText className="mt-0.5 h-5 w-5 text-primary" aria-hidden />}
+            subtitle={`${item.questions.length} 道${kind === "report" ? "参考" : ""}题目 · ${item.template.sections.length} 个报告章节`}
+            description={<span className="whitespace-pre-wrap break-words">{item.description || "暂无说明"}</span>}
+            meta={<span>更新于 {new Date(item.updatedAt).toLocaleString("zh-CN")}</span>}
+            actions={
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`${base}/${encodeURIComponent(item.id)}`}>编辑模板</Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="复制模板"
+                  disabled={busy || loading}
+                  onClick={() => void duplicate(item)}
+                >
+                  <Copy className="mr-1 h-3.5 w-3.5" aria-hidden />
+                  复制
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="删除模板"
+                  disabled={busy || loading}
+                  onClick={() => remove(item)}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden />
+                  删除
+                </Button>
+              </>
+            }
           >
-            <div className="mb-3 flex items-start gap-3">
-              <FileText
-                className="mt-1 h-5 w-5 shrink-0 text-primary"
-                aria-hidden
-              />
-              <h2 className="break-words text-16 font-semibold">
-                {item.title}
-              </h2>
-            </div>
-            <p className="min-h-10 whitespace-pre-wrap break-words text-13 text-muted-foreground">
-              {item.description || "暂无说明"}
-            </p>
-            <p className="mt-4 text-12 text-muted-foreground">
-              {item.questions.length} 道{kind === "report" ? "参考" : ""}题目 ·{" "}
-              {item.template.sections.length} 个报告章节
-            </p>
-            <p className="mt-1 text-11 text-muted-foreground">
-              更新于 {new Date(item.updatedAt).toLocaleString("zh-CN")}
-            </p>
-            <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-              <Link
-                className="rounded-md border border-border px-3 py-2 text-12 font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                href={`${base}/${encodeURIComponent(item.id)}`}
-              >
-                编辑模板
-              </Link>
-              <Button
-                variant="ghost"
-                size="xs"
-                aria-label="复制模板"
-                disabled={busy || loading}
-                onClick={() => void duplicate(item)}
-              >
-                <Copy className="mr-1 h-3.5 w-3.5" aria-hidden />
-                复制
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                aria-label="删除模板"
-                disabled={busy || loading}
-                onClick={() => remove(item)}
-              >
-                <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden />
-                删除
-              </Button>
-            </div>
             {kind === "question" && (
               <>
                 <Button
-                  className="mt-3 w-full"
+                  className="w-full"
+                  size="sm"
                   disabled={busy || loading || item.questions.length === 0}
                   onClick={() => void createSurvey(item)}
                 >
                   用此模板创建问卷
                 </Button>
                 {!item.questions.length && (
-                  <p className="mt-2 text-11 text-muted-foreground">
+                  <p className="text-11 text-muted-foreground">
                     添加至少一道题目后即可创建问卷。
                   </p>
                 )}
               </>
             )}
-          </article>
+          </ResourceCard>
         ))}
       </div>
       {!loading && !error && !loadError && visible.length === 0 && (

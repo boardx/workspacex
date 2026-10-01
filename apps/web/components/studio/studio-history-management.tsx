@@ -2,20 +2,22 @@
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { TagField, commitDraft } from "@/components/ui/tag-input";
+import type { TagInputLimits } from "@repo/contracts";
 
 export type HistoryMetadata = { name: string; tags: readonly string[] };
 
-export function StudioMetadataDialog({ business, prefix, open, initialName, initialTags, onOpenChange, onSave }: {
-  business: string; prefix: string; open: boolean; initialName: string; initialTags: readonly string[];
+export function StudioMetadataDialog({ business, prefix, open, initialName, initialTags, knownTags, tagLimits, onOpenChange, onSave }: {
+  business: string; prefix: string; open: boolean; initialName: string; initialTags: readonly string[]; knownTags?: ReadonlyMap<string, number>; tagLimits: TagInputLimits;
   onOpenChange: (open: boolean) => void; onSave: (draft: HistoryMetadata) => void | Promise<void>;
 }) {
   const [name, setName] = React.useState(initialName);
-  const [tags, setTags] = React.useState([...initialTags]);
+  const [tags, setTags] = React.useState<readonly string[]>([...initialTags]);
   const [draft, setDraft] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -23,13 +25,11 @@ export function StudioMetadataDialog({ business, prefix, open, initialName, init
   React.useEffect(() => {
     if (open) { setName(initialName); setTags([...initialTags]); setDraft(""); setFailed(false); }
   }, [open, initialName, initialTags]);
-  const addTag = () => { const tag = draft.trim(); if (tag && tags.length < 5 && !tags.includes(tag)) setTags([...tags, tag]); setDraft(""); };
   async function save(event: React.FormEvent) {
     event.preventDefault();
     if (busy.current || !name.trim()) return;
     busy.current = true; setSaving(true); setFailed(false);
-    const tag = draft.trim();
-    try { await onSave({ name: name.trim(), tags: tag && tags.length < 5 && !tags.includes(tag) ? [...tags, tag] : tags }); onOpenChange(false); }
+    try { await onSave({ name: name.trim(), tags: commitDraft(tags, draft, tagLimits) }); onOpenChange(false); }
     catch { setFailed(true); }
     finally { busy.current = false; setSaving(false); }
   }
@@ -37,9 +37,7 @@ export function StudioMetadataDialog({ business, prefix, open, initialName, init
     <DialogTitle>修改{business}</DialogTitle><DialogDescription>修改名称和标签，方便查找和整理。</DialogDescription>
     <form onSubmit={save} className="mt-4 space-y-5">
       <div className="space-y-2"><Label htmlFor={`${prefix}-edit-name`}>{business}名称</Label><Input autoFocus id={`${prefix}-edit-name`} data-testid={`${prefix}-edit-name`} maxLength={100} disabled={saving} value={name} onChange={event => setName(event.target.value)} /></div>
-      <div className="space-y-2"><div className="flex justify-between"><Label htmlFor={`${prefix}-edit-tags`}>标签（可选）</Label><span className="text-11 text-muted-foreground">{tags.length}/5</span></div>
-        <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-md border border-input p-2">{tags.map(tag => <span key={tag} className="inline-flex max-w-full items-center gap-1 rounded bg-muted px-2 text-12"><span className="break-all">{tag}</span><Button type="button" variant="ghost" size="icon" className="size-6 shrink-0" disabled={saving} aria-label={`移除标签 ${tag}`} onClick={() => setTags(tags.filter(value => value !== tag))}><X className="size-3" aria-hidden /></Button></span>)}<Input id={`${prefix}-edit-tags`} data-testid={`${prefix}-edit-tags`} maxLength={20} disabled={saving || tags.length >= 5} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (!event.nativeEvent.isComposing && ["Enter", ",", "，"].includes(event.key)) { event.preventDefault(); addTag(); } }} placeholder="添加标签，按回车确认" className="h-8 min-w-0 flex-1 border-0" /></div>
-      </div>
+      <TagField value={tags} onChange={setTags} draft={draft} onDraftChange={setDraft} knownTags={knownTags} disabled={saving} {...tagLimits} testIdPrefix={`${prefix}-edit-tag`} />
       {failed && <p role="alert" data-testid={`${prefix}-edit-error`} className="text-12 text-destructive">保存失败，请确认有修改权限再重试。</p>}
       <div className="flex justify-end gap-3"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>取消</Button><Button type="submit" variant="primary" data-testid={`${prefix}-edit-submit`} disabled={saving || !name.trim()}>{saving ? "保存中…" : "保存修改"}</Button></div>
     </form>
@@ -67,8 +65,8 @@ export function StudioDeleteDialog({ business, prefix, name, description, open, 
   </DialogContent></Dialog>;
 }
 
-export function StudioHistoryManagement({ business, prefix, id, name, tags, deleteDescription, onSave, onDelete }: {
-  business: string; prefix: string; id: string; name: string; tags: readonly string[]; deleteDescription: string;
+export function StudioHistoryManagement({ business, prefix, id, name, tags, knownTags, tagLimits, deleteDescription, onSave, onDelete }: {
+  business: string; prefix: string; id: string; name: string; tags: readonly string[]; knownTags?: ReadonlyMap<string, number>; tagLimits: TagInputLimits; deleteDescription: string;
   onSave: (draft: HistoryMetadata) => void | Promise<void>; onDelete: () => void | Promise<void>;
 }) {
   const [mode, setMode] = React.useState<"edit" | "delete" | null>(null);
@@ -76,7 +74,7 @@ export function StudioHistoryManagement({ business, prefix, id, name, tags, dele
     <DropdownMenu.Item data-testid={`${prefix}-history-edit-${id}`} onSelect={() => setMode("edit")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="size-4" aria-hidden />修改</DropdownMenu.Item>
     <DropdownMenu.Item data-testid={`${prefix}-history-delete-${id}`} onSelect={() => setMode("delete")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="size-4" aria-hidden />删除</DropdownMenu.Item>
   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
-    <StudioMetadataDialog business={business} prefix={prefix} open={mode === "edit"} initialName={name} initialTags={tags} onOpenChange={open => { if (!open) setMode(null); }} onSave={onSave} />
+    <StudioMetadataDialog business={business} prefix={prefix} open={mode === "edit"} initialName={name} initialTags={tags} knownTags={knownTags} tagLimits={tagLimits} onOpenChange={open => { if (!open) setMode(null); }} onSave={onSave} />
     <StudioDeleteDialog business={business} prefix={prefix} name={name} description={deleteDescription} open={mode === "delete"} onOpenChange={open => { if (!open) setMode(null); }} onConfirm={onDelete} />
   </>;
 }

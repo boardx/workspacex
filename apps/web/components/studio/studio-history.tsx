@@ -4,6 +4,8 @@ import * as React from "react";
 import { Plus, Search, ArrowDownWideNarrow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
+import { searchPlaceholder } from "@/lib/tag-utils";
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 
 export type HistorySort = "recent" | "oldest";
@@ -19,18 +21,19 @@ export function StudioHistoryHeader({ business, title, count, createTestId, coun
   </header>;
 }
 
-export function StudioHistoryFilters({ business, prefix, tags, selectedTag, onTagChange, query, onQueryChange, sort, onSortChange, searchFirst = false }: {
-  business: string; prefix: string; tags: readonly string[]; selectedTag?: string; onTagChange: (tag: string | undefined) => void;
+/**
+ * 历史列表（研究 / 访谈 / 录音）的筛选条。标签筛选走共享 `TagFilterBar`（默认多选、命中任一）；
+ * 只有后端只认一个标签的页面（录音）传 `tagMode="single"`。搜索占位统一「搜索xx名称或标签」。
+ */
+export function StudioHistoryFilters({ business, prefix, tags, selectedTags, onTagsChange, tagMode = "multi", query, onQueryChange, sort, onSortChange, searchFirst = false }: {
+  business: string; prefix: string; tags: readonly string[]; selectedTags: readonly string[]; onTagsChange: (tags: readonly string[]) => void; tagMode?: "single" | "multi";
   query: string; onQueryChange: (value: string) => void; sort: HistorySort; onSortChange: (sort: HistorySort) => void;
   searchFirst?: boolean;
 }) {
   return <div className={searchFirst ? "flex flex-col gap-4" : "flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"}>
-    <div className={`flex min-w-0 flex-wrap gap-2 ${searchFirst ? "order-2" : ""}`} aria-label={`按标签筛选${business}`}>
-      <Button size="sm" variant={selectedTag === undefined ? "primary" : "outline"} aria-pressed={selectedTag === undefined} data-testid={`${prefix}-tag-all`} onClick={() => onTagChange(undefined)}>全部标签</Button>
-      {tags.map(tag => <Button key={tag} size="sm" className="max-w-full whitespace-normal break-all text-left" variant={selectedTag === tag ? "primary" : "outline"} aria-pressed={selectedTag === tag} data-testid={`${prefix}-tag-${tag}`} onClick={() => onTagChange(tag)}>{tag}</Button>)}
-    </div>
+    <div className={searchFirst ? "order-2" : "min-w-0"}><TagFilterBar tags={tags.map(tag => ({ tag }))} selected={selectedTags} onChange={onTagsChange} prefix={prefix} business={business} mode={tagMode} /></div>
     <div className={searchFirst ? "order-1 flex w-full flex-col gap-2 sm:flex-row" : "flex shrink-0 flex-col gap-2 sm:flex-row"}>
-      <label className={searchFirst ? "relative block min-w-0 flex-1" : "relative block min-w-0 sm:w-64"}><span className="sr-only">搜索{business}</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input data-testid={`${prefix}-search`} maxLength={100} value={query} onChange={event => onQueryChange(event.target.value)} placeholder={`搜索${business}名称或内容`} className={searchFirst ? "h-12 pl-10 text-base" : "h-9 pl-9"} /></label>
+      <label className={searchFirst ? "relative block min-w-0 flex-1" : "relative block min-w-0 sm:w-64"}><span className="sr-only">搜索{business}</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input data-testid={`${prefix}-search`} maxLength={100} value={query} onChange={event => onQueryChange(event.target.value)} placeholder={searchPlaceholder(business)} className={searchFirst ? "h-12 pl-10 text-base" : "h-9 pl-9"} /></label>
       <Button variant="outline" className={searchFirst ? "h-12" : "h-9"} data-testid={`${prefix}-sort`} onClick={() => onSortChange(sort === "recent" ? "oldest" : "recent")} aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`}><ArrowDownWideNarrow className="size-4" aria-hidden />{sort === "recent" ? "最近更新" : "最早更新"}</Button>
     </div>
   </div>;

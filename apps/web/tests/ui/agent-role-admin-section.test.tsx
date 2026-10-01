@@ -107,7 +107,7 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     }));
   });
 
-  it("标签编辑器：回车添加、× 移除，空白/超长/重复/已满给人话提示且不发请求", async () => {
+  it("标签编辑器（共享 TagInput）：回车添加、× 移除；空白忽略、超长截断并说明、重复提示且不发请求", async () => {
     getAgentRoleAdmin.mockResolvedValue(view());
     updateAgentRoleDraft.mockImplementation(async (input: { patch: { tags: string[] } }) => view({ draft: { ...view().draft, tags: input.patch.tags }, version: 1 }));
     render(<AgentRoleAdminSection agentId="agent-1" />);
@@ -116,13 +116,10 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
 
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("请输入标签内容");
-    fireEvent.change(input, { target: { value: "x".repeat(21) } });
-    fireEvent.click(screen.getByTestId("agent-tag-editor-add"));
-    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("标签最多 20 个字");
+    expect(updateAgentRoleDraft).not.toHaveBeenCalled(); // 空白：忽略
     fireEvent.change(input, { target: { value: " 调研 " } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("这个标签已经有了");
+    expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("已经有了");
     expect(updateAgentRoleDraft).not.toHaveBeenCalled();
 
     fireEvent.change(input, { target: { value: " 销售 " } });
@@ -142,8 +139,8 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     getAgentRoleAdmin.mockResolvedValue(view({ draft: { ...view().draft, tags: full } }));
     render(<AgentRoleAdminSection agentId="agent-1" />);
     await waitFor(() => expect(screen.getByTestId("agent-tag-editor-input")).not.toBeNull());
-    fireEvent.change(screen.getByTestId("agent-tag-editor-input"), { target: { value: "新标签" } });
-    fireEvent.click(screen.getByTestId("agent-tag-editor-add"));
+    // 满了：输入框禁用并说明（拒绝，不是静默截断）
+    expect(screen.getByTestId("agent-tag-editor-input")).toBeDisabled();
     expect(screen.getByTestId("agent-tag-editor-hint")).toHaveTextContent("最多 10 个标签");
     cleanup();
 
@@ -155,7 +152,7 @@ describe("AgentRoleAdminSection（AG04 管理详情角色区块）", () => {
     await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-调研")).not.toBeNull());
     expect(screen.getByTestId("agent-role-admin-category-select")).toHaveAttribute("disabled");
     fireEvent.change(screen.getByTestId("agent-tag-editor-input"), { target: { value: "竞品" } });
-    fireEvent.click(screen.getByTestId("agent-tag-editor-add"));
+    fireEvent.keyDown(screen.getByTestId("agent-tag-editor-input"), { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("agent-tag-editor-chip-竞品")).not.toBeNull());
     expect(updateAgentRoleDraft).toHaveBeenLastCalledWith({ agentId: "agent-1", expectedVersion: 0, patch: { tags: ["调研", "竞品"] } });
   });
