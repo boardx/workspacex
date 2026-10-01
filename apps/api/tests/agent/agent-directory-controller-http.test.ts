@@ -115,3 +115,25 @@ describe("AG04 follow-up getProfile HTTP mapping", () => {
     await expect(setup({ found: null }).getProfile(MEMBER, "nope")).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+it("profile resolves an old published pin to its exact catalog skill ID with tenant/platform bounds", async () => {
+  const roleColumns = Object.fromEntries(Object.entries(AGENT_ROLE_COLUMN_OF).map(([field, column]) =>
+    [column, R.AGENT_ROLE_FIELD_DEFAULTS[field as keyof typeof R.AGENT_ROLE_FIELD_DEFAULTS]]));
+  const sqlCalls: { sql: string; params?: readonly unknown[] }[] = [];
+  const database: DatabasePort = {
+    withTenant: async (_orgId, fn) => fn({ query: async <T>(sql: string, params?: readonly unknown[]) => {
+      sqlCalls.push({ sql, params });
+      return { rows: (sql.includes("FROM skill_versions")
+        ? [{ skill_id: "catalog-skill", version_id: "old-version" }]
+        : [{ ...roleColumns, agent_id: "agent-1", version_id: "agent-v1", name: "角色", role_label: "角色", tool_policy: [], duty: null, abbr: null, skill_mounts: [], skill_version_ids: ["old-version"] }]) as unknown as T[] };
+    } }),
+    withoutTenant: async () => { throw new Error("tenant context required"); }, close: async () => {},
+  };
+  const repository = new PgAgentDirectoryRepository(database);
+  const controller = new AgentDirectoryController({ findOrgMembership: async () => ({ orgRole: "member" }) } as unknown as IdentityRepository, repository, { resolveName: async () => null } as unknown as WorkflowDefinitionStore);
+  expect(await controller.getProfile(MEMBER, "agent-1")).toMatchObject({ pinnedSkills: [{ skillId: "catalog-skill", versionId: "old-version" }] });
+  const lookup = sqlCalls.find(call => call.sql.includes("FROM skill_versions"));
+  expect(lookup?.params).toEqual(["org-1", ["old-version"], "org-platform"]);
+  expect(lookup?.sql).toContain("sv.published");
+  expect(lookup?.sql).toContain("sk.org_id=sv.org_id");
+});

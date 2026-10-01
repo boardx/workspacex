@@ -1,3 +1,4 @@
+import type { PendingSkillBinding } from "@repo/contracts/agent-role";
 /**
  * AG04 / UC-4（契约束 `agent-role`，`listAgentDirectory` / `getAgentDirectoryCard`）——
  * 成员 Agent 目录：按 `roleCategory` 分组的官方角色卡片。
@@ -54,6 +55,8 @@ export interface AgentDirectoryRow {
   readonly roleRef: string | null;
   readonly skillMountIds: readonly string[];
   readonly skillVersionIds: readonly string[];
+  readonly pendingSkillBindings?: readonly PendingSkillBinding[];
+  readonly pinnedSkills?: readonly { readonly skillId: string; readonly versionId: string }[];
   readonly delegationTargetRefs: readonly string[];
   readonly requireApprovalForHandoff: boolean;
 }
@@ -180,6 +183,8 @@ export interface AgentDirectoryProfileOut {
   readonly duty: string | null;
   readonly mountedSkillIds: readonly string[];
   readonly pinnedSkillVersionIds: readonly string[];
+  readonly pendingSkillBindings: readonly PendingSkillBinding[];
+  readonly pinnedSkills: readonly { readonly skillId: string; readonly versionId: string }[];
   readonly delegationTargets: readonly {
     readonly agentId: string;
     readonly name: string;
@@ -227,6 +232,8 @@ export async function getAgentDirectoryProfile(
     duty: meaningfulDuty(row),
     mountedSkillIds: [...new Set(row.skillMountIds)],
     pinnedSkillVersionIds: [...new Set(row.skillVersionIds)],
+    pendingSkillBindings: row.pendingSkillBindings ?? [],
+    pinnedSkills: (row.pinnedSkills ?? []).filter(pin => row.skillVersionIds.includes(pin.versionId)),
     delegationTargets,
     requireApprovalForHandoff: row.requireApprovalForHandoff,
   };

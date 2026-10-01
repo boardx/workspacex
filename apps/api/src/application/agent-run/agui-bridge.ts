@@ -82,7 +82,7 @@ import type { ProvenanceWriter } from "../provenance/ports";
 import type { IdFactory } from "../artifact/ports";
 import {
   acceptHumanMessage, listMessagePage,
-  AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
+  AgentSkillScopeViolationError, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
 } from "../chat/message-roundtrip";
 import type {
@@ -104,7 +104,7 @@ import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
 // `acceptHumanMessage`，缺这三个字段编译期就会红——不是运行时才发现漏注入。
 import type { GenerateThreadTitleDeps } from "../chat/generate-thread-title";
 
-export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
+export { AgentSkillScopeViolationError, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
   AgentRunNotVisibleError,
   TitleInvalidError, AgentRunNotAwaitingToolPermissionError, type DecideAgentRunDeps };
@@ -129,6 +129,7 @@ export interface AguiBridgeDeps extends GenerateThreadTitleDeps {
 }
 
 export interface AguiBridgeInput {
+  readonly explicitAgent?: boolean;
   readonly userId: string;
   readonly orgId: OrgId;
   readonly agentId: string;
@@ -442,7 +443,7 @@ export async function runAguiBridgeTurn(
 
   const accepted = await acceptHumanMessage(deps, {
     userId: input.userId, orgId: input.orgId, threadId,
-    clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId,
+    clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId, explicitAgent: input.explicitAgent,
     attachmentIds: input.attachmentIds,
     onAccepted: () => deps.executor.kick(input.orgId),
   });

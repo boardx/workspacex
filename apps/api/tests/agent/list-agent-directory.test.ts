@@ -186,3 +186,16 @@ describe("AG04 follow-up getAgentDirectoryProfile", () => {
     expect(out.delegationTargets[0]!.initials).toBe("产");
   });
 });
+
+ it("profile exposes exact old-version pins without substituting catalog current versions", async () => {
+  const d = deps({ found: row({ skillVersionIds: ["old-version"], pinnedSkills: [{ skillId: "catalog-skill", versionId: "old-version" }, { skillId: "other", versionId: "not-pinned" }] }) });
+  const profile = await getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, d);
+  expect(profile.pinnedSkills).toEqual([{ skillId: "catalog-skill", versionId: "old-version" }]);
+});
+it("pending declared capabilities remain informational and do not become executable pins", async () => {
+  const pending = { stableId: "S061", stableName: "product-capability", contentDigest: "a".repeat(64), reason: "awaiting_verification" as const, skillId: "candidate", versionId: "candidate-v1" };
+  const profile = await getAgentDirectoryProfile({ orgId: ORG, actorId: "u1", agentId: "agent-1" }, deps({ found: row({ skillVersionIds: [], pendingSkillBindings: [pending] }) }));
+  expect(profile.pendingSkillBindings).toEqual([pending]);
+  expect(profile.pinnedSkills).toEqual([]);
+  expect(profile.pinnedSkillVersionIds).toEqual([]);
+});

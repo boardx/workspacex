@@ -94,6 +94,8 @@ interface ClaimDetailRow {
   // 驱动本来就会回 `null`，之前只是类型上没承认。见 `ClaimedAgentRun.projectId` 的注释。
   id: string; project_id: string | null; input_text: string; instructions: string;
   requester_user_id: string;
+  skill_scope: "agent_pins" | "general" | null;
+  agent_pinned_skill_version_ids: unknown;
   input_attachments: unknown;
   /** DA-07b resume 续号的唯一事实源——见 `ClaimedAgentRun.resumeStepSeqBase` 的文档。 */
   max_step_seq: number;
@@ -198,6 +200,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const ids = claimed.rows.map((row) => row.id);
       const detail = await s.query<ClaimDetailRow>(
         `SELECT r.id, t.project_id, m.body AS input_text, v.instructions,
+                r.skill_scope, v.skill_version_ids AS agent_pinned_skill_version_ids,
                 m.author_id AS requester_user_id,
                 ${attachmentsAggSql("r.input_message_id")} AS input_attachments,
                 COALESCE(
@@ -207,7 +210,7 @@ export class PgAgentRunRepository implements AgentRunStore {
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
-           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id
+           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id AND v.agent_id=r.agent_id
           WHERE r.org_id=$1 AND r.id = ANY($2::text[])`,
         [orgId, ids],
       );
@@ -238,6 +241,8 @@ export class PgAgentRunRepository implements AgentRunStore {
           agentId: row.agent_id,
           agentVersionId: row.agent_version_id,
           instructions: extra.instructions,
+          skillScope: extra.skill_scope,
+          agentPinnedSkillVersionIds: toStringArray(extra.agent_pinned_skill_version_ids),
           skillVersionIds: toStringArray(row.skill_version_ids),
           modelProvider: row.model_provider,
           modelId: row.model_id,

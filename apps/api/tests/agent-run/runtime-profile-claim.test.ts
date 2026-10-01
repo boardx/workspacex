@@ -8,6 +8,7 @@ import { seedOrg, addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs } 
 import { addChatThread, addChatMessage } from "../support/chat-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgChatMessageCommandRepository } from "../../src/infrastructure/chat/pg-chat-message-command-repository";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
 import { toOrgId } from "../../src/domain/org-id";
 const org=toOrgId("runtime-profile-"+randomUUID());let db:PgDatabase;
@@ -69,4 +70,44 @@ it("native approval continuation drains through its original engine while new na
     const row=await asApp(scope,c=>c.query("SELECT status,runtime_profile,remote_run_id FROM agent_runs WHERE org_id=$1 AND id=$2",[scope,run]));
     expect(row.rows[0]).toMatchObject({status:"writeback_pending",runtime_profile:"native-v1",remote_run_id:"continued-remote"});
   } finally {await restarted.close();await resetOrgs(scope);}
+});
+
+it.each(["agent_pins", "general", null] as const)("claim preserves server-written %s skill scope and frozen version pins", async skillScope => {
+  const scope = toOrgId("skill-scope-" + randomUUID()), run = "run-" + randomUUID();
+  await seed(scope, run);
+  try {
+    await asApp(scope, c => c.query("UPDATE agent_runs SET skill_scope=$2, skill_version_ids='[\"tampered-version\"]'::jsonb WHERE id=$1", [run, skillScope]));
+    const [outcome] = await new PgAgentRunRepository(db).claimQueued(scope, 1);
+    expect(outcome).toMatchObject({ kind: "executable", run: { skillScope, agentPinnedSkillVersionIds: [], skillVersionIds: ["tampered-version"] } });
+  } finally { await resetOrgs(scope); }
+});
+it("a role-scoped run with a forged skill snapshot fails before reading content or calling the model", async () => {
+  const scope = toOrgId("forged-skill-scope-" + randomUUID()), run = "run-" + randomUUID();
+  await seed(scope, run);
+  try {
+    await asApp(scope, c => c.query("UPDATE agent_runs SET skill_scope='agent_pins',skill_version_ids='[\"forged-version\"]'::jsonb WHERE id=$1", [run]));
+    const repository = new PgAgentRunRepository(db);
+    const read = vi.spyOn(repository, "readPinnedSkills");
+    const complete = vi.fn(async () => ({ text: "must not run" }));
+    await executeQueuedRuns({ runs: repository, model: { complete }, clock: { now: () => new Date().toISOString(), newStepId: () => randomUUID() }, log: () => {} }, { orgId: scope });
+    expect(read).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    const row = await asApp(scope, c => c.query("SELECT status,error_code FROM agent_runs WHERE org_id=$1 AND id=$2", [scope, run]));
+    expect(row.rows[0]).toMatchObject({ status: "failed", error_code: "SKILL_VERSION_UNAVAILABLE" });
+  } finally { await resetOrgs(scope); }
+});
+
+it.each(["agent_pins", "general"] as const)("message acceptance persists server snapshot %s scope", async skillScope => {
+  const scope = toOrgId("accepted-skill-scope-" + randomUUID()), seededRun = "seeded-" + randomUUID(), run = "accepted-" + randomUUID();
+  await seed(scope, seededRun);
+  try {
+    await asApp(scope, c => c.query("UPDATE agent_runs SET status='cancelled' WHERE id=$1", [seededRun]));
+    await new PgChatMessageCommandRepository(db).accept(scope, {
+      projectId: null, threadId: `thread-${scope}`, actorId: "actor", clientMessageId: randomUUID(), text: "scoped acceptance",
+      selectedAgentId: `agent-${scope}`, messageId: "accepted-message-" + randomUUID(), runId: run,
+      snapshot: { agentId: `agent-${scope}`, agentVersionId: `version-${scope}`, skillVersionIds: [], skillScope, modelProvider: "test-provider", modelId: "pinned-model", instructions: "pinned instructions" },
+    });
+    const [outcome] = await new PgAgentRunRepository(db).claimQueued(scope, 1);
+    expect(outcome).toMatchObject({ kind: "executable", run: { runId: run, skillScope, agentPinnedSkillVersionIds: [] } });
+  } finally { await resetOrgs(scope); }
 });

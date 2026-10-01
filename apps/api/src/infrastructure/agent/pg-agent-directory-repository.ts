@@ -1,3 +1,4 @@
+import { PendingSkillBinding } from "@repo/contracts/agent-role";
 /**
  * AG04 —— `listAgentDirectory` / `getAgentDirectoryCard` 落库读。
  *
@@ -8,7 +9,7 @@
  * 才进目录（AR13 同款 fail-closed，见用例文件头）。
  */
 import type { DatabasePort } from "../../application/ports/database.port";
-import { toOrgId, type OrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, toOrgId, type OrgId } from "../../domain/org-id";
 import type { AgentDirectoryRepository, AgentDirectoryRow } from "../../application/agent/list-agent-directory";
 import { AGENT_ROLE_COLUMN_OF, toRoleFieldsTolerant, type AgentRoleColumnsRow } from "./agent-version-insert";
 
@@ -29,13 +30,15 @@ interface Row extends AgentRoleColumnsRow {
   duty: string | null;
   abbr: string | null;
   skill_mounts: unknown;
+  pending_skill_bindings?: unknown;
+  pinned_skills?: { skillId: string; versionId: string }[];
   skill_version_ids: readonly string[] | null;
 }
 
 const SELECT = `
   SELECT a.id AS agent_id, v.id AS version_id, a.name, a.role_label, v.tool_policy,
          cl.duty, CASE WHEN a.catalog_source = 'official' THEN cl.abbr END AS abbr,
-         a.skill_mounts, v.skill_version_ids, ${roleCols}
+         a.skill_mounts, v.skill_version_ids, v.pending_skill_bindings, ${roleCols}
     FROM agents a
     JOIN agent_versions v
       ON v.id = a.published_version_id AND v.agent_id = a.id AND v.org_id = a.org_id
@@ -70,6 +73,11 @@ function toRow(row: Row): AgentDirectoryRow {
     duty: row.duty,
     roleRef: row.abbr,
     skillMountIds: skillIdsOf(row.skill_mounts),
+    pendingSkillBindings: Array.isArray(row.pending_skill_bindings) ? row.pending_skill_bindings.flatMap(binding => {
+      const parsed = PendingSkillBinding.safeParse(binding);
+      return parsed.success ? [parsed.data] : [];
+    }) : [],
+    pinnedSkills: row.pinned_skills ?? [],
     skillVersionIds: Array.isArray(row.skill_version_ids) ? row.skill_version_ids.filter((id) => typeof id === "string") : [],
     delegationTargetRefs: [...fields.delegationPolicy.allowedTargets],
     requireApprovalForHandoff: fields.delegationPolicy.requireApproval,
@@ -90,7 +98,19 @@ export class PgAgentDirectoryRepository implements AgentDirectoryRepository {
     return this.db.withTenant(toOrgId(orgId), async (session) => {
       const result = await session.query<Row>(`${SELECT} AND a.id = $2`, [orgId, agentId]);
       const row = result.rows[0];
-      return row === undefined ? null : toRow(row);
+      if (!row) return null;
+      const pins = await session.query<{ skill_id: string; version_id: string }>(
+        `SELECT sk.id AS skill_id, sv.id AS version_id
+           FROM skill_versions sv JOIN skills sk ON sk.id=sv.skill_id AND sk.org_id=sv.org_id
+          WHERE (sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published`,
+        [orgId, row.skill_version_ids ?? [], PLATFORM_ORG_ID],
+      );
+      const byVersion = new Map(pins.rows.map(pin => [pin.version_id, pin.skill_id]));
+      row.pinned_skills = (row.skill_version_ids ?? []).flatMap(versionId => {
+        const skillId = byVersion.get(versionId);
+        return skillId ? [{ skillId, versionId }] : [];
+      });
+      return toRow(row);
     });
   }
 }

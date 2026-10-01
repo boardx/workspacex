@@ -1,3 +1,4 @@
+import { sameRunSkillScope, requiresAgentSkillPins } from "../../src/application/chat/agent-skill-scope";
 /**
  * #2514（2026-09-02 人类裁决）—— 「agent 默认加载全部已启用 skill；具体 agent 的编排
  * 覆盖全局」这条解析规则的单元门。
@@ -60,4 +61,28 @@ describe("#2514 run 快照 = (agent 自带 ?? 组织全部已启用) ∪ 线程�
     });
     expect(resolved).toEqual(["curated-x", "mounted-c"]);
   });
+});
+
+it("explicit agent with no pins has no skills and cannot inherit the organization pool", () => {
+  expect(resolveRunSkillVersionIds({ explicitAgent: true, agentPinned: [], orgEnabled: ["other"], mounted: [] })).toEqual([]);
+});
+it("explicit agent rejects an unmounted skill and another version of its mounted skill", () => {
+  for (const version of ["other-skill-v1", "curated-v2"]) {
+    expect(() => resolveRunSkillVersionIds({ explicitAgent: true, agentPinned: ["curated-v1"], orgEnabled: [version], mounted: [version] })).toThrow("AGENT_SKILL_SCOPE_VIOLATION");
+  }
+  expect(resolveRunSkillVersionIds({ explicitAgent: true, agentPinned: ["curated-v1"], orgEnabled: ["curated-v2"], mounted: ["curated-v1"] })).toEqual(["curated-v1"]);
+});
+
+it("only the server-resolved default may retain general scope; selection flags cannot elevate another role", () => {
+  expect(requiresAgentSkillPins({ requestedExplicitAgent: false, resolvedAgentId: "default", serverDefaultAgentId: "default" })).toBe(false);
+  expect(requiresAgentSkillPins({ requestedExplicitAgent: false, resolvedAgentId: "role", serverDefaultAgentId: "default" })).toBe(true);
+  expect(requiresAgentSkillPins({ requestedExplicitAgent: true, resolvedAgentId: "default", serverDefaultAgentId: "default" })).toBe(true);
+  expect(requiresAgentSkillPins({ requestedExplicitAgent: false, resolvedAgentId: "role", serverDefaultAgentId: null })).toBe(true);
+});
+
+it("new acceptance idempotency rejects a changed scope but preserves historical unknown snapshots", () => {
+  expect(sameRunSkillScope("general", "agent_pins")).toBe(false);
+  expect(sameRunSkillScope("agent_pins", "general")).toBe(false);
+  expect(sameRunSkillScope("agent_pins", "agent_pins")).toBe(true);
+  expect(sameRunSkillScope(null, "agent_pins")).toBe(true);
 });
