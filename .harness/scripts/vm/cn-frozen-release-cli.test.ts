@@ -94,7 +94,11 @@ name=path.split('/tags/')[-1];protected=name.startswith('cn-release-proof-')
 if '/rulesets?' in path:body=[{'id':1,'target':'tag','enforcement':'active'}]
 elif path.endswith('/rulesets/1'):
  body={'id':1,'target':'tag','enforcement':'active','bypass_actors':[],'conditions':{'ref_name':{'include':['refs/tags/cn-release-proof-*'],'exclude':[]}},'rules':[{'type':'update'},{'type':'deletion'}]}
- if mode=='missing-bypass':body.pop('bypass_actors')
+ if mode in ['missing-bypass','hidden-never','hidden-always','hidden-exempt']:body.pop('bypass_actors')
+ if mode.startswith('hidden-'):body['current_user_can_bypass']=mode.removeprefix('hidden-')
+ if mode in ['bypass-null','bypass-string','bypass-object']:
+  body['bypass_actors']={'bypass-null':None,'bypass-string':'','bypass-object':{}}[mode];body['current_user_can_bypass']='never'
+ if mode=='visible-bypass':body['bypass_actors']=[{'actor_id':1,'bypass_mode':'always'}]
 elif '/git/commits/' in path:body={'parents':[{'sha':other}]}
 elif method=='POST' and path.endswith('/git/tags'):
  state['tag']={'tag':fields['tag'],'object':{'type':'commit','sha':source,'url':'fixture'},'message':fields['message'],'sha':obj};body=state['tag'];status=201
@@ -121,11 +125,11 @@ file.write_text(json.dumps(state))
 print('HTTP/2 '+str(status)+'\\ncontent-type: application/json\\n\\n'+(json.dumps(body) if body is not None else ''))
 sys.exit(0 if 200<=status<300 else 1)
 `;
- for(const mode of ['success','permission','patch-success','delete-success','mutated-ref','cleanup-failure','missing-bypass'])it('executes real proof code with '+mode,()=>{
+ for(const mode of ['success','permission','patch-success','delete-success','mutated-ref','cleanup-failure','missing-bypass','hidden-never','hidden-always','hidden-exempt','visible-bypass','bypass-null','bypass-string','bypass-object'])it('executes real proof code with '+mode,()=>{
   const dir=mkdtempSync(join(tmpdir(),'cn-tag-proof-'));owned.push(dir);mkdirSync(join(dir,'proof-evidence'));mkdirSync(join(dir,'bin'));
   writeFileSync(join(dir,'proof.py'),code);writeFileSync(join(dir,'bin/gh'),fakeGh);chmodSync(join(dir,'bin/gh'),0o700);
   const r=spawnSync('python3',['proof.py'],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:join(dir,'bin')+':'+process.env.PATH,GH_REPO:'boardx/workspacex',SOURCE_SHA:'a'.repeat(40),RUN_ID:'123',RUN_ATTEMPT:'1',FIXTURE_MODE:mode,FIXTURE_STATE:join(dir,'state.json')}});
-  if(mode==='success') {expect(r.status,r.stderr).toBe(0);expect(JSON.parse(readFileSync(join(dir,'proof-evidence/receipt.json'),'utf8')).status).toBe('passed')}
+  if(mode==='success'||mode==='hidden-never') {expect(r.status,r.stderr).toBe(0);const receipt=JSON.parse(readFileSync(join(dir,'proof-evidence/receipt.json'),'utf8'));expect(receipt.status).toBe('passed');expect(receipt.scope).toBe('actual-token-tag-behavior');expect(receipt.globalZeroBypassProven).toBe(false);expect(receipt.ruleVisibility[0].bypassActorsVisible).toBe(mode==='success');const journal=JSON.parse(readFileSync(join(dir,'proof-evidence/journal.json'),'utf8'));expect(journal.filter((j:any)=>j.method==='PATCH').length).toBe(2);expect(journal.filter((j:any)=>j.method==='DELETE').length).toBe(2)}
   else {expect(r.status).not.toBe(0);expect(()=>readFileSync(join(dir,'proof-evidence/receipt.json'))).toThrow();expect(r.stdout).not.toContain('CN_RELEASE_TAG_PROOF_PASS')}
  });
 });

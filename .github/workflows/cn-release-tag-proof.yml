@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Prove actual token write and zero-bypass rule rejection
+      - name: Prove actual token write and protected rule rejection
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -65,11 +65,14 @@ jobs:
             if summary.get('target')=='tag' and summary.get('enforcement')=='active':
               rules.append(get(prefix+'/rulesets/'+str(summary['id'])))
           matches=[r for r in rules if r.get('conditions',{}).get('ref_name')=={'include':['refs/tags/cn-release-proof-*'],'exclude':[]}]
-          kinds=[]
+          kinds=[]; visibility=[]
           for rule in matches:
-            if not isinstance(rule.get('bypass_actors'),list): raise RuntimeError('PROOF_RULE_BYPASS_NOT_VISIBLE')
+            visible=isinstance(rule.get('bypass_actors'),list)
+            if 'bypass_actors' in rule and not visible: raise RuntimeError('PROOF_RULE_BYPASS_SHAPE')
+            if not visible and rule.get('current_user_can_bypass')!='never': raise RuntimeError('PROOF_RULE_BYPASS_NOT_VISIBLE')
+            visibility.append({'ruleId':rule['id'],'bypassActorsVisible':visible,'currentUserCanBypass':rule.get('current_user_can_bypass')})
             relevant=[r['type'] for r in rule.get('rules',[]) if r['type'] in ['update','deletion']]
-            if relevant and rule.get('bypass_actors'): raise RuntimeError('PROOF_RULE_BYPASS')
+            if relevant and visible and rule['bypass_actors']: raise RuntimeError('PROOF_RULE_BYPASS')
             if any(r['type']=='creation' for r in rule.get('rules',[])): raise RuntimeError('PROOF_CREATION_RESTRICTION')
             kinds+=relevant
           if not {'update','deletion'}.issubset(kinds): raise RuntimeError('PROOF_RULES_MISSING')
@@ -101,7 +104,7 @@ jobs:
             if actual['object']['type']!='tag' or actual['object']['sha']!=expected: raise RuntimeError('PROOF_IMMUTABILITY_FAILED')
           final=get(prefix+'/git/tags/'+expected)
           if final['object']!={'type':'commit','sha':source,'url':final['object']['url']} or final['message']!=json.dumps(payload,separators=(',',':')): raise RuntimeError('PROOF_TAG_READBACK')
-          (evidence/'receipt.json').write_text(json.dumps({'status':'passed','repository':repo,'sourceSha':source,'runId':run,'runAttempt':attempt,'immutableTag':protected,'tagObjectSha':expected,'ruleIds':[r['id'] for r in matches],'controlDeleted':True},indent=2))
+          (evidence/'receipt.json').write_text(json.dumps({'schemaVersion':2,'status':'passed','scope':'actual-token-tag-behavior','globalZeroBypassProven':False,'globalGovernanceGate':'separate-controlled-admin-signed-and-live-gate-required','ruleVisibility':visibility,'repository':repo,'sourceSha':source,'runId':run,'runAttempt':attempt,'immutableTag':protected,'tagObjectSha':expected,'ruleIds':[r['id'] for r in matches],'controlDeleted':True},indent=2))
           print('CN_RELEASE_TAG_PROOF_PASS '+protected)
           PY
       - name: Preserve actual rule and HTTP proof
