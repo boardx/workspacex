@@ -210,10 +210,10 @@ function isMainModule(): boolean {
 
 if (isMainModule()) {
   void runWithTestIsolation(process.argv).then(
-    (code) => process.exit(code),
+    (code) => { process.exitCode = code; },
     (error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error));
-      process.exit(1);
+      process.exitCode = 1;
     },
   );
 }
