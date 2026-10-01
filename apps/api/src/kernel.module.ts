@@ -2074,12 +2074,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: ATTACHMENT_EXTRACTION_EXECUTOR,
       useFactory: (
         store: ObjectStore, extraction: AttachmentExtractionStore,
-        converter: AttachmentToMarkdownPort, vision: AttachmentVisionPort, logger: LoggerPort,
+        converter: AttachmentToMarkdownPort, vision: AttachmentVisionPort, logger: LoggerPort,purge:PhysicalPurgePort,
       ) => new AttachmentExtractionExecutor(
         store, extraction, converter, vision, logger,
-        process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
+        process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",2,purge,
       ),
-      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT],
+      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT,PHYSICAL_PURGE_PORT],
     },
     {
       // #1559：会话内临时挂载（F65）进入 run 快照的读口。没有它，挂载被记录、被展示，

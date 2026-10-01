@@ -25,6 +25,14 @@ export function panFabricViewport(transform:readonly number[],previous:FabricInp
  return value.every(Number.isFinite)?value:null;
 }
 
+/** Plain wheel input navigates; browser trackpad pinch uses Ctrl+wheel. */
+export function boardWheelDelta(event: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode" | "ctrlKey" | "metaKey">, pageHeight: number) {
+ const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pageHeight : 1;
+ const x = event.deltaX * unit, y = event.deltaY * unit;
+ if (![x, y].every(Number.isFinite)) return null;
+ return { x, y, zoom: event.ctrlKey || event.metaKey };
+}
+
 /** Keep Fabric 7's touch teardown paired with its own touchstart listener. */
 export function finishCancelledFabricTouch(canvas:Pick<Canvas,"_currentTransform"|"_onTouchEnd">,event:TouchEvent):void {
  canvas._currentTransform=null;

@@ -37,6 +37,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/collaboration-budget.test.ts',
     'tests/whiteboard/collaboration-forward-migration.test.ts',
     'tests/whiteboard/collaboration-gateway-gap.test.ts',
+    'tests/whiteboard/collaboration-admission.test.ts',
     'tests/whiteboard/collaboration-transaction.test.ts',
     'tests/whiteboard/offline-checkpoint-recovery.test.ts',
     'tests/whiteboard/recovery-service.test.ts',

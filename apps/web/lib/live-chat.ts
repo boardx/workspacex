@@ -454,6 +454,13 @@ export const ATTACHMENT_MIME_ALLOWLIST = chatFileUpload.ATTACHMENT_MIME_ALLOWLIS
  * 人类要求「上传要有进度显示」，故这里换 XHR。错误语义与原 fetch 版一致：非 2xx → `ApiError`
  * 带 `reasonCode`（供 composer 就地报错映射），网络层失败 → `ApiError(0, null)`（默认可重试）。
  */
+/** #962: uploader-authorized cancellation; API serializes it against message association. */
+export async function cancelPendingAttachment(threadId: string, attachmentId: string, sessionToken?: string): Promise<void> {
+  await apiRequest<void>(`/chat/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(attachmentId)}`, {
+    method: "DELETE", sessionToken,
+  });
+}
+
 export async function uploadAttachment(
   threadId: string,
   file: File,

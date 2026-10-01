@@ -36,6 +36,52 @@ it('read matches actual source and render projection at one immutable version',a
  expect(result.revision).toBe(1);expect(result.supportedOperations).toEqual(['replace-source']);
  expect((await invoke('wx_canvas_read',{canvasId},{leaseEpoch:2})).status).toBe(403);expect((await invoke('wx_canvas_read',{canvasId},{orgId:'foreign'})).status).toBe(403);
 });
+it('journals actual standard canvas input/output with identity, principal context and elapsed time',async()=>{
+ const {executeQueuedRuns}=await import('../../src/application/agent-run/execute-run');
+ const {AGENT_RUN_STORE}=await import('../../src/application/agent-run/ports');
+ const {PLAN_LEDGER_REPOSITORY}=await import('../../src/application/plan-control/ports');
+ const traceRun='trace-'+org,version='trace-version-'+org,toolCallId=randomUUID();
+ await addChatThread({orgId:org,id:'trace-parent-'+org,projectId:null,visibilityScope:'private',createdBy:'alice'});
+ await addChatMessage({orgId:org,id:'trace-message-'+org,threadId:'trace-parent-'+org,body:'trace canvas request',authorId:'alice'});
+ await asApp(org,async c=>{
+  await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at) VALUES($1,$2,$3,'trace',$4,'canvas','{}','deep-agent','test','[]','alice',now(),now())`,[version,org,'agent-'+org,createHash('sha256').update('canvas').digest('hex')]);
+  await c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,skill_version_ids,model_provider,model_id,status,runtime_profile) VALUES($1,$2,$3,$4,$5,$6,'[]','deep-agent','test','queued','native-v1')`,[traceRun,org,'trace-parent-'+org,'trace-message-'+org,'agent-'+org,version]);
+ });
+ let actual:unknown;const logs:unknown[]=[];
+ const runs=app.get<import('../../src/application/agent-run/ports').AgentRunStore>(AGENT_RUN_STORE);
+ await executeQueuedRuns({runs,planLedger:app.get(PLAN_LEDGER_REPOSITORY),clock:{now:()=>new Date().toISOString(),newStepId:()=>randomUUID()},log:(...args)=>{logs.push(args);},nativeRuntimeEnabled:true,
+  nativeSessions:{provision:async()=>({bindingId:randomUUID(),profile:'native-v1',policy:'native-v1'}),resolve:async()=>{throw new Error('not used');},releaseForRun:async()=>{},release:async()=>{}},
+  nativeOutputs:{stage:async()=>{throw new Error('not used');},listFiles:async()=>[]},
+  model:{complete:async()=>{throw new Error('progress required');},completeWithProgress:async(input,progress)=>{
+   const args={canvasId},summary=JSON.stringify({...args,apiKey:'trace-secret'});
+   await progress({toolName:'wx_canvas_read',toolCallId,phase:'in_progress',toolArgsSummary:summary,toolResultSummary:null,planningNote:null});
+   const response=await fetch(`${base}/internal/agent-runs/${traceRun}/standard-canvas/invoke`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':'canvas-test-key'},body:JSON.stringify({orgId:org,attemptId:input.executionAttemptId,leaseEpoch:input.executionLeaseEpoch,toolCallId,toolName:'wx_canvas_read',toolArgs:args})});
+   expect(response.status).toBe(200);actual=CanvasReadOutput.parse(await response.json());
+   await progress({toolName:'wx_canvas_read',toolCallId,phase:'complete',ok:true,toolArgsSummary:summary,toolResultSummary:JSON.stringify(actual),planningNote:null});
+   return {text:'Read canvas source.'};
+  }},
+ },{orgId:org,limit:1});
+ const evidence=await asApp(org,async c=>({
+  events:(await c.query(`SELECT e.*,m.author_id FROM agent_execution_events e JOIN agent_runs r ON r.org_id=e.org_id AND r.id=e.run_id JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id WHERE e.org_id=$1 AND e.run_id=$2 ORDER BY e.seq`,[org,traceRun])).rows,
+  steps:(await c.query(`SELECT * FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 AND kind='tool_call' ORDER BY seq`,[org,traceRun])).rows,
+  run:(await c.query('SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2',[org,traceRun])).rows[0],
+ }));
+ expect(evidence.run.status,JSON.stringify(logs)).toBe('writeback_pending');
+ const tools=evidence.events.filter(e=>e.payload.kind==='tool_start'||e.payload.kind==='tool_end');expect(tools).toHaveLength(2);
+ for(const event of tools){expect(event.org_id).toBe(org);expect(event.run_id).toBe(traceRun);expect(event.author_id).toBe('alice');expect(event.payload.capabilityId).toBe('WX-T029');expect(event.payload.implementationSource.locator).toBe('apps/deep-agent-service/src/deep_agent_service/standard_canvas_tools.py:standard_canvas_tools');}
+ expect(tools[0].payload.args).toMatchObject({canvasId});expect(tools[1].payload.result).toEqual(actual);expect(tools[1].payload.durationMs).toBeGreaterThanOrEqual(0);
+ expect(evidence.steps).toHaveLength(2);
+ for(const step of evidence.steps){
+  expect(step.org_id).toBe(org);expect(step.run_id).toBe(traceRun);expect(step.tool_name).toBe('wx_canvas_read');expect(step.tool_call_id).toBe(toolCallId);
+  expect(new Date(step.ended_at).getTime()).toBeGreaterThanOrEqual(new Date(step.started_at).getTime());
+  expect(JSON.parse(step.tool_args_summary)).toMatchObject({canvasId});
+ }
+ expect(evidence.steps.map(step=>step.status)).toEqual(['in_progress','succeeded']);
+ expect(JSON.parse(evidence.steps[1].tool_result_summary)).toEqual(actual);
+ expect(tools[0].payload.sourceToolCallId).toBe(toolCallId);expect(tools[1].payload.sourceToolCallId).toBe(toolCallId);
+ expect(tools[1].payload.attemptId).toBe(tools[0].payload.attemptId);
+ expect(JSON.stringify(evidence)).not.toContain('trace-secret');expect(JSON.stringify(evidence)).not.toContain('canvas-test-key');
+});
 it('writes require actual tool authorization; concurrent same-key executes once and conflicts do not overwrite',async()=>{
  const args={canvasId,expectedRevision:1,changes:{kind:'replace-source',markdown:'# Evidence\n\n```mermaid\ngraph TD\n A-->B\n```\n'},idempotencyKey:'operation-1'};
  expect((await invoke('wx_canvas_update',args)).status).toBe(403);

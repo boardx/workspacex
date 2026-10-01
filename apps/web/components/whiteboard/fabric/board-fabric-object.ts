@@ -61,6 +61,8 @@ export interface BoardFabricConnectorAppearance {
   labelPosition?: WhiteboardConnectorLabelPosition;
   from?: string;
   to?: string;
+  fromOffset?: { x: number; y: number };
+  toOffset?: { x: number; y: number };
   fromAnchor: ConnectorAnchor;
   toAnchor: ConnectorAnchor;
   type: ConnectorType;

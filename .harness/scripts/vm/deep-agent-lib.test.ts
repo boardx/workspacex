@@ -581,7 +581,9 @@ describe("#2929 native runtime deployment env — persistent owner with admissio
     const provision = readFileSync(PROVISION, "utf8");
     expect(deploy).toContain("native_runtime_ensure_deploy_env");
     expect(provision).toContain("native_runtime_ensure_deploy_env");
-    expect(deploy.indexOf("native_runtime_ensure_deploy_env")).toBeLessThan(deploy.indexOf("export $(grep"));
+    const loadEnv = deploy.indexOf('source "$ENV_FILE"');
+    expect(loadEnv).toBeGreaterThan(-1);
+    expect(deploy.indexOf("native_runtime_ensure_deploy_env")).toBeLessThan(loadEnv);
   });
 });
 

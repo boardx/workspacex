@@ -1,0 +1,10 @@
+{
+  "iframe": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "outer": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  }
+}

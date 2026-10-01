@@ -28,6 +28,7 @@
 #
 # 幂等：重复跑安全。失败即中止（set -e），不做「尽力而为」——
 # 半部署的状态比没部署更难查。
+set +x
 set -euo pipefail
 
 APP_DIR=${APP_DIR:-/opt/workspacex/app}
@@ -92,8 +93,27 @@ source "$DEEP_AGENT_LIB"
 native_runtime_ensure_deploy_env "$ENV_FILE" "/run/workspacex-native-sessions/skill-sandbox.sock" "1"
 chmod 600 "$ENV_FILE"
 chown "$RUN_AS":"$RUN_AS" "$ENV_FILE"
-# shellcheck disable=SC2046
-export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
+# The file is root-controlled shell-compatible configuration, already consumed by systemd.
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+# Share the readiness diagnostic scrubber for all deployment command output.
+exec > >(redact_deploy_diagnostics) 2>&1
+
+# sudo env_reset must not turn secret values into argv. Only the file path crosses sudo.
+run_deploy_env() {
+  (($# > 0)) || return 2
+  sudo -u "$RUN_AS" env -i PATH=/usr/local/bin:/usr/bin:/bin bash -c '
+    set +x
+    set -euo pipefail
+    set -a
+    source "$1"
+    set +a
+    shift
+    exec "$@"
+  ' workspacex-deploy-env "$ENV_FILE" "$@"
+}
 
 step "1. 取代码"
 cd "$APP_DIR"
@@ -149,10 +169,10 @@ install -d -o "$RUN_AS" -g "$RUN_AS" -m 0770 "$NATIVE_SESSION_SOCKET_DIR"
 # EnvironmentFile，父 shell 的 export 到不了它。
 #
 # 用 `printf '%q'` 而不是裸 `echo "KEY=${value}"`：$ENV_FILE 下游会被 `source <(...)`
-# （第 4b 步）和 `env $(grep ... | xargs)`（多处）当 shell 内容解析，SANDBOX_SOCKET_DIR
+# （第 4b 步）和 run_deploy_env 当 shell 内容解析，SANDBOX_SOCKET_DIR
 # 可被调用方通过环境变量覆盖为任意路径——一旦带空格，同 real-model-chat-evidence.sh
 # 修过的那个坑：`source` 把 `=` 之后的内容拆成第二条命令，exit 127 崩掉；
-# `env $(... | xargs)` 则是静默把变量表拆错，corrupt 而不报错，更难查。
+# run_deploy_env 直接读取受控文件，避免 xargs 拆分变量表。
 SANDBOX_SOCKET_PATH="$SANDBOX_SOCKET_DIR/skill-sandbox.sock"
 if ! grep -q '^KERNEL_SKILL_SANDBOX_SOCKET=' "$ENV_FILE"; then
   printf '%s=%q\n' KERNEL_SKILL_SANDBOX_SOCKET "$SANDBOX_SOCKET_PATH" >> "$ENV_FILE"
@@ -192,12 +212,12 @@ echo "  Native session AppArmor policy 已加载（hash=$(sha256sum "$NATIVE_APP
 #   门控：deploy-image-freshness.test.ts 的「续行中不许插注释」那条。
 #
 # WARN `sudo` 默认 `env_reset`（本机 /etc/sudoers:9 实测确认）——父 shell 里 `export` 的
-#   变量**到不了**这一行。SANDBOX_* 必须像 ENV_FILE 的变量一样**显式列在 `env` 后面**。
+#   变量**到不了**这一行。非敏感 SANDBOX_* 显式覆盖；部署凭据由 run_deploy_env 在子进程里读文件。
 #   2026-08-21 devapp 首次部署实测：只 export 不显式传 ⇒ compose 报
 #   `required variable SANDBOX_SOCKET_DIR is missing a value` 并 fail-closed 停下
 #   （那个 `:?` 形式正是为此设计——它没有静默起一个属主错误的沙箱）。
 compose_up_dependencies() {
-  sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
+  run_deploy_env env \
     SOURCE_REVISION="$SOURCE_REVISION" \
     SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
     NATIVE_SESSION_SOCKET_DIR="$NATIVE_SESSION_SOCKET_DIR" \
@@ -340,7 +360,7 @@ echo "  两个沙箱镜像自检通过：四个预装库 + CJK 字体都在跑�
 step "4. 迁移 —— 先于部署，且幂等"
 # 幂等在别处已被证明：migrate:check 会无视版本表强制重放每个文件再比对 schema 摘要。
 # 这里只是应用，不重复证明。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx src/infrastructure/db/migrate-cli.ts
 
 step "4b. app_rw 密码对齐 deploy.env"
@@ -353,8 +373,8 @@ step "4b. app_rw 密码对齐 deploy.env"
 # 额外的条件判断；只在 migrate-cli 之后跑是因为角色要先存在。
 # shellcheck disable=SC1090
 source <(grep -v '^#' "$ENV_FILE")
-docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
-  -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
+printf "ALTER ROLE app_rw PASSWORD '%s';\n" "${APP_DB_PASSWORD//\'/\'\'}" | \
+  docker exec -i workspacex-postgres-1 psql -v ON_ERROR_STOP=1 -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" >/dev/null
 echo "  app_rw 密码已对齐"
 
 # WARN 先点名检查，再用。`set -u` 下直接用一个缺失的键，报的是
@@ -402,8 +422,8 @@ step "4b-ii. app_diag_ro 密码对齐 deploy.env（system-error-logs 只读凭�
 # 生成的真实密码，两者从 CREATE ROLE 那一刻起不一致——不对齐的话
 # PgErrorLogWriter.list()（走 app_diag_ro 连接）线上会直接
 # password authentication failed，系统异常屏永远读不出数据。
-docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
-  -c "ALTER ROLE app_diag_ro PASSWORD '${DIAG_DB_PASSWORD}';" >/dev/null
+printf "ALTER ROLE app_diag_ro PASSWORD '%s';\n" "${DIAG_DB_PASSWORD//\'/\'\'}" | \
+  docker exec -i workspacex-postgres-1 psql -v ON_ERROR_STOP=1 -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" >/dev/null
 echo "  app_diag_ro 密码已对齐"
 
 step "4b-iii. 记忆向量召回的嵌入模型 —— 缺就补默认值，再登记（幂等）"
@@ -421,7 +441,7 @@ EMBEDDING_DEFAULT_MODEL_VERSION=dashscope-v4-1024
 EMBEDDING_DEFAULT_DIMENSIONS=1024
 embedding_backfill_defaults "$ENV_FILE" "$EMBEDDING_DEFAULT_MODEL_ID" "$EMBEDDING_DEFAULT_MODEL_VERSION" "$EMBEDDING_DEFAULT_DIMENSIONS"
 if [ -n "$(grep '^KERNEL_EMBEDDING_MODEL_ID=' "$ENV_FILE" | tail -1 | cut -d= -f2-)" ]; then
-  if ! sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  if ! run_deploy_env env \
     pnpm --filter api exec tsx scripts/register-retrieval-embedding-model.ts; then
     echo "✗ 嵌入模型登记失败（上一行是错误码）。维度与已登记的不一致时，换一个新的 KERNEL_EMBEDDING_MODEL_VERSION"
     exit 1
@@ -437,7 +457,7 @@ step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认
 # 没有"首次聊天时顺便种一个"这种懒加载。这一步幂等（按 `agents.stable_name` 去重，脚本
 # 内部还先查一遍存在性），每次部署都跑，成本是一次全表扫描 + 至多几行 INSERT，换来的是
 # "已有组织的默认 agent 缺口"不需要人手动 SSH 上服务器补一次就能自愈。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-default-agents.ts
 
 step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 agent，2026-08-07）"
@@ -446,14 +466,14 @@ step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 a
 # 缺配置（`KERNEL_DEEP_RESEARCH_BASE_URL` 没设）此时并不阻塞——落库本身不依赖那个服务
 # 是否可达，只在真的发一条消息时才会报错，且报错是诚实的 MODEL_PROVIDER_NOT_CONFIGURED，
 # 不是一个吞掉的静默失败。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
 
 step "4e. 内置脱敏示例项目补种（backlog E2 —— 已有组织不会自己长出示例项目）"
 # 同 4c 的理由：`ensureSampleProject` 只在组织创建那一刻触发。幂等（按 `project_tags`
 # 的「内置示例」标签去重，含已归档——用户归档即删除，不种回来）。示例项目是引导内容不是
 # 可用性前提，失败只告警不中断部署；脚本非零退出 = 有组织补种失败，看日志。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-sample-projects.ts \
   || echo "  ⚠ 示例项目补种有失败（不阻塞部署），见上方 [backfill-sample-projects] 日志"
 
@@ -469,21 +489,21 @@ step "4d3. 清除已下线的投后 agent 与内置 skill（#4012，2026-09-24 �
 # 失败只告警不中断部署（2026-09-26 人类决定，方案 2）：清除是一次性的数据收尾，不是可用性
 # 前提。实测它撞上 append-only 的运行日志与不可变的版本触发器，整个事务回滚、一行不删，
 # 却让每一次部署都中断。真正的删除改由一次性迁移完成，这一步在那之前失败只留日志。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/purge-postinvest-agents.ts --apply \
   || echo "  ⚠ 投后 agent 清除失败（不阻塞部署），见上方 [purge-postinvest-agents] 日志"
 
 step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
 # 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条
 # 消息时才会报错（诚实的 MODEL_CALL_FAILED/MODEL_PROVIDER_NOT_CONFIGURED）。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-image-gen-agent.ts
 
 step "4f. URL 导入 skill 的 capability_listings 补种（2026-08-07 —— 人类实测"看不到导入的 skills"）"
 # `pg-skill-url-import-repository.ts` 在这次改动之前从未写 capability_listings（后台
 # 「Skill 目录」页唯一真读的那张表）——每一个在这次修复落地之前通过 URL 导入的 skill
 # 都缺这一行，backfill 一次性补齐。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-skill-capability-listings.ts
 
 step "4g. 对象存储根目录（2026-08-11 —— 头像/文件对象曾落在 /tmp/workspacex-objects，重启或 tmp 清理即丢）"
@@ -689,14 +709,14 @@ step "4i. 平台组织补种（design-delta platform-owned-skills —— 四个�
 # 补上，之后每次部署自愈，不再依赖"有没有人记得手动跑"。
 # `backfillPlatformOrg` 幂等（`ON CONFLICT DO NOTHING`）；平台组织只有一个，
 # 唯一索引兜底。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-platform-org.ts
 
 step "4j. 平台级官方 skill 补种（design-delta platform-owned-skills —— pptx/docx/xlsx/pdf 四个 skill）"
 # 必须在 4i 之后：四个 skill 的 org_id 挂在 4i 建的平台组织下，外键会诚实拒绝
 # 顺序反过来的调用。幂等：四个 skill id 写死，`ON CONFLICT DO NOTHING`，
 # 见 `backfill-platform-skills.ts` 自己的 `OFFICIAL_SKILLS` 常量（唯一事实源）。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-platform-skills.ts
 
 step "5. 构建前端"
@@ -721,7 +741,7 @@ step "5. 构建前端"
 # 全程 active，日志一条错误都没有。前端 bundle 每合一个 feature 就更大，2 GB 不是
 # 常量。这里显式放宽 V8 堆上限（deploy.env 里可用 WEB_BUILD_HEAP_MB 覆盖），
 # 让构建用的是机器真实内存，而不是 Node 的默认值。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) NODE_ENV=production \
+run_deploy_env env NODE_ENV=production \
   NODE_OPTIONS="--max-old-space-size=${WEB_BUILD_HEAP_MB:-4096}" \
   pnpm --filter web run build >/dev/null
 echo "  built (heap limit ${WEB_BUILD_HEAP_MB:-4096} MB)"
@@ -746,13 +766,15 @@ step "5c. 校验必需 env var —— 一次性列全缺失项，重启服务之
 # 一次只发现一个。这一步在 systemctl restart 之前把 createApp() 实际会读的每一个
 # 必需 env var 都探测一遍（不是手写清单——见 verify-required-env.ts 文件头），
 # 缺什么、缺几个，一次性列全；非 0 就在这里止步，不产生新的崩溃循环。
-if ! sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+if ! run_deploy_env env \
   pnpm --filter api exec tsx scripts/verify-required-env.ts; then
   echo "✗ 缺失/无效的必需 env var（见上方清单）—— 不重启服务，避免崩溃循环"
   exit 1
 fi
 echo "  必需 env var 就绪"
 
+# Bind actual build bytes before the restart, then attest only after real smoke success.
+DEVAPP_BUILD_RECEIPT=$(node /usr/local/lib/workspacex-devapp-runtime-identity.mjs build "$SOURCE_REVISION" "$APP_DIR")
 step "6. 重启服务"
 systemctl restart workspacex-api workspacex-web
 for s in workspacex-api workspacex-web; do
@@ -775,5 +797,8 @@ step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 DEPLOY_STAGE=smoke
 write_deploy_status 0
 run_post_restart_smoke
+DEPLOY_STAGE=runtime-identity
+write_deploy_status 0
+node /usr/local/lib/workspacex-devapp-runtime-identity.mjs attest "$SOURCE_REVISION" "$APP_DIR" "$DEVAPP_BUILD_RECEIPT"
 
 printf '\n✅ 部署完成：%s\n' "$(sudo -u "$RUN_AS" git log --oneline -1)"
