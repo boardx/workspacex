@@ -64,6 +64,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
   await page.getByTestId("board-add-shape").click();
+  await page.getByTestId("board-fabric-surface").click({position:{x:500,y:280}});
   await page.getByTestId("board-add-more").click();
   await page.getByTestId("board-content-tile").click();
 
