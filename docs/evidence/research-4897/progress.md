@@ -71,3 +71,5 @@ flowchart TD
 - 截图复核发现首次正文 delta 时 timeline 尚未推送 running 元数据、须等轮询：新增反证失败，persistTimeline 在写入成功后发送 snapshot（后续由 SSE controller 压缩为 progress）；章节编排 56 测试现已通过。补充 E2E active 状态断言，准备复测新 SHA。
 
 - 最终正式构建：CI [36853704807](https://github.com/boardx/workspacex/actions/runs/36853704807)，候选 `f4e864e26d1ae60bd22293a94639db49edb4d229`，134 passed / 1 skipped；用户研究用例包含新增 active 状态断言，几何验证 7 passed。截图确认整理证据已勾选、当前章节旋转加载，旧报告与缺口横幅不存在。manifest 和截图已入本目录。
+
+- PR #4905 的自动 review 提出两项 P2：历史步骤普通命令的运行标记错位、纯图标缺少屏幕阅读器状态。已先新增反证（5 项失败）再修复：单独保存 pendingNode，不影响正文加载/编辑器；为每种 timeline 状态添加 sr-only 文字。最终对应 2 文件 / 24 测试通过，其余受影响文件回归通过。等待新 head 的 PR CI 正式构建复验后解决审查对话。

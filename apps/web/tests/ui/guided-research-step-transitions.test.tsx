@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
 import { getResearchRuntime, executeResearchRuntime } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
@@ -67,6 +67,21 @@ describe("step-aligned research transitions", () => {
     expect(screen.getByTestId("guided-research-plan-panel")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/research/grs-live/plan");
     expect(screen.getByTestId("research-recovery")).toHaveTextContent("待应用内容已保留");
+  });
+
+  it("marks the browsed command step busy when messaging an earlier step", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("research"));
+    vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
+    render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /研究计划/ }));
+    await screen.findByTestId("guided-research-plan-panel");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "检查计划" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
+    expect(screen.getByRole("button", { name: /研究计划/ })).toHaveAttribute("aria-busy", "true");
+    expect(within(screen.getByRole("navigation", { name: "研究步骤" })).getByRole("button", { name: /资料研究/ })).not.toHaveAttribute("aria-busy", "true");
+    expect(screen.getByLabelText("研究对话")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
   });
 
   it("marks a generated report complete without falsely completing failed research", async () => {

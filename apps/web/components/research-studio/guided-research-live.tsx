@@ -106,6 +106,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, initialNod
   const browsingRef = React.useRef(false);
   const viewedNode = browsing ? node : loadingNode ?? node;
   const [pending, setPending] = React.useState(false);
+  const [pendingNode, setPendingNode] = React.useState<Command["node"] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
   const [recovery, setRecovery] = React.useState<Recovery | null>(null);
@@ -143,7 +144,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, initialNod
     sessionGeneration.current += 1;
     responseEpoch.current += 1; snapshotRef.current = null; messageDraft.current = null;
     bootstrapStarted.current = false; browsingRef.current = false; setBrowsing(false);
-    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
+    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setPendingNode(null); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
     getResearchRuntime(sessionId).then((next) => {
       if (!active) return;
       const startingTopic = initialNode === "directions" && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
@@ -220,6 +221,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, initialNod
     const isCurrent = () => sessionRef.current === sessionId && sessionGeneration.current === generation;
     const approvedAction = action === "apply" ? state.proposal?.action : action;
     const requestNode = extra.node ?? node;
+    setPendingNode(requestNode);
     const following = (approvedAction === "confirm" || approvedAction === "complete") && requestNode !== "report" ? steps[steps.indexOf(requestNode) + 1] : undefined;
     const recoveryState = state;
     const recoveryDraft = extra.draft ?? draft;
@@ -321,7 +323,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, initialNod
   const partialResearch = node === "research" && researchFailed && !researchPending && usableSources;
   const researchBlocked = node === "research" && (researchPending || !state.tasks.length || !usableSources);
   const reportVisible = viewedNode === "report" && !chaptersOpen;
-  const executingNode = loadingNode ?? state.currentNode;
+  const executingNode = loadingNode ?? (pending ? pendingNode : null) ?? state.currentNode;
   const waiting = Boolean(loadingNode || (!pending && state.busy && !expired)) && !recovery && viewedNode === executingNode && !chaptersOpen;
   const readingReport = reportVisible && !waiting && Boolean(displayReport || state.reportDraft);
   const resumeReport = Boolean(state.errorCode || expired || state.reportDraft);

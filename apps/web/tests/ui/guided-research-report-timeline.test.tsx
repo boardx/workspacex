@@ -26,6 +26,12 @@ describe("continuous generation timeline", () => {
     ] }} />);
     expect(screen.getByTestId("research-report-timeline-step")).toHaveAttribute("aria-busy", "true");
   });
+  it.each([ ["pending", "等待生成"], ["completed", "生成完成"], ["running", "生成中"], ["retrying", "重试生成中"] ] as const)("exposes %s status to screen readers without visible status rows", (status, label) => {
+    render(<GuidedResearchReportTimeline state={{ ...base, busy: true, reportTimeline: [
+      { id: "c", stage: "chapter", sectionId: "o1", status, attempts: 1 },
+    ] }} />);
+    expect(screen.getByText(`${label}，`)).toHaveClass("sr-only");
+  });
   it("restores real retries and warnings without empty report cards or replaying commands", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...base, report: null, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportStream: { requestId: "r", sequence: 0, status: "streaming", text: "" }, reportTimeline: [{ id: "e", stage: "evidence", status: "warning", attempts: 2, completed: 2, total: 2 }, { id: "c", stage: "chapter", sectionId: "o1", status: "retrying", attempts: 2 }, { id: "v", stage: "validation", status: "pending", attempts: 0 }] });
     render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
