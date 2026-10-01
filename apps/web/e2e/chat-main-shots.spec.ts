@@ -26,7 +26,7 @@ test.setTimeout(300_000);
 test.beforeAll(() => mkdirSync(OUT, { recursive: true }));
 
 async function shoot(page: Page, file: string, testId: string): Promise<void> {
-  await expect(page.getByTestId(testId).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId(testId).last()).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: `${OUT}/${file}` });
 }
 
@@ -50,8 +50,13 @@ async function toolTurn(page: Page): Promise<void> {
   const toggle = page.getByTestId("run-trace-toggle").last();
   await expect(toggle).toBeVisible();
   if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-  await expect(page.getByTestId("run-trace-body").last()).toBeVisible();
-  await expect(page.getByTestId("run-trace-entry").filter({ has: page.getByTestId("copilotkit-v2-tool-generic") }).first()).toBeVisible();
+  const body = page.getByTestId("run-trace-body").last();
+  await expect(body).toBeVisible();
+  const row = body.getByTestId("run-trace-entry").filter({ has: page.getByTestId("copilotkit-v2-tool-generic") }).first();
+  await expect(row).toBeVisible();
+  const details = row.locator(":scope > details");
+  if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
+  await expect(row.getByTestId("copilotkit-v2-tool-generic")).toBeVisible();
 }
 
 test("capture chat main screen — project conversation", async ({ page }) => {
@@ -132,7 +137,7 @@ test("capture chat main screen — personal conversation", async ({ page }) => {
   await expect(page.getByTestId("chat-task-workbench-composer-live-transcript")).toContainText(CHAT_READ_E2E.asrTranscriptPrefix, { timeout: 15_000 });
   await shoot(page, "chat-main-personal-mic-partial.png", "chat-task-workbench-composer-live-transcript");
   await mic.click();
-  await expect(mic).toHaveAttribute("data-voice-phase", "idle", { timeout: 15_000 });
+  await expect(mic).toHaveAttribute("data-voice-phase", "done", { timeout: 15_000 });
   await expect(page.getByTestId("copilotkit-v2-input")).toHaveValue(new RegExp(CHAT_READ_E2E.asrTranscriptPrefix));
   await shoot(page, "chat-main-personal-mic-transcribed.png", "chat-task-workbench-composer");
 
