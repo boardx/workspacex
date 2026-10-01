@@ -50,7 +50,6 @@ jobs:
           EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
           ATTEMPT_ID: ${{ inputs.release_attempt_id }}
           GH_TOKEN: ${{ github.token }}
-          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* && "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_IDENTITY"; exit 1; }
@@ -194,7 +193,6 @@ jobs:
           ATTEMPT_ID: ${{ steps.release.outputs.attempt_id }}
           EXPECTED_REQUEST_SHA256: ${{ needs.readiness.outputs.request_sha256 }}
           GH_TOKEN: ${{ github.token }}
-          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           set +e
@@ -238,7 +236,6 @@ jobs:
           EXPECTED_MAIN_CN: ${{ needs.admit.outputs.expected_main_cn }}
           ATTEMPT_ID: ${{ needs.admit.outputs.attempt_id }}
           EXPECTED_REQUEST_SHA256: ${{ needs.admit.outputs.request_sha256 }}
-          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::admission outputs are invalid"; exit 1; }

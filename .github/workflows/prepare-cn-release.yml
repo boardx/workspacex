@@ -99,7 +99,6 @@ jobs:
           INPUT_SHA: ${{ inputs.release_sha }}
           INPUT_RELEASE: ${{ inputs.release }}
           GH_TOKEN: ${{ github.token }}
-          CN_RELEASE_TAG_APP_ID: ${{ vars.CN_RELEASE_TAG_APP_ID }}
         run: |
           set -euo pipefail
           revision="${RUN_SHA}"

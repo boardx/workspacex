@@ -247,6 +247,6 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须显式声明；contents write 仅用于候选 tag/main-cn CAS。不得给部署状态写权限来制造成功。激活前必须读到同 source/ref、同 workflow run 的真实 successful native `production-cn-promotion` Deployment status，不能拿其它 run 或 latest-main 的成功替代。
 
-环境/tag 治理与 runner 已安装可信入口必须先完成独立审阅及实际验证，见 [固定 tag 治理审阅清单](frozen-tag-governance.md)。本代码不修改这些规则。`CN_RELEASE_TAG_APP_ID` 只是预期 issuer 输入，必须与 GitHub 返回的 github-actions App ID 相等；真实 token/tag 创建能力仍需独立非生产演练，变量存在不代表授权路径已通过。完整发布收据未完成前不承诺五分钟 READY。
+环境/tag 治理与 runner 已安装可信入口必须先完成独立审阅及实际验证，见 [固定 tag 治理审阅清单](frozen-tag-governance.md)。本代码不修改这些规则。tag 创建只继承既有 contents:write，不依赖内建 App creation bypass；update/deletion 无 bypass。App metadata 只绑定 native Deployment，不是 token 能力证明。真实 token/tag 创建与不可变性仍需非生产演练；tag 本身不是 receipt/授权，名称被预占只能用新 attempt 重走完整流程。完整发布收据未完成前不承诺五分钟 READY。
 
 冻结候选的原生审批不能假定 creator 为 bot：Actions Environment Deployment 使用触发者身份。校验 GitHub Actions App、actual current run/attempt actor/triggering_actor、精确 source/ref/env、成功 admit job 与其 html_url；最新 status 必须同 actor 与 exact job。人工生成成功状态或借旧 attempt 的 URL 不能放行。

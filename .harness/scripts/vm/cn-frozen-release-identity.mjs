@@ -36,11 +36,9 @@ export function validateTagGovernance(v) {
   if(e.deployment_branch_policy?.custom_branch_policies!==true||e.deployment_branch_policy?.protected_branches!==false||JSON.stringify(names)!==JSON.stringify(expected)||!!reviewer!==review||(review&&!(reviewer.reviewers?.length>0)))fail('FROZEN_RELEASE_ENVIRONMENT_POLICY');
  };
  env(v.promotion,v.promotionPolicies,['main'],true);env(v.activation,v.activationPolicies,['main','main-cn'],false);
- if(!Number.isSafeInteger(v.expectedTagAppId)||v.expectedTagAppId<=0)fail('FROZEN_RELEASE_TAG_ISSUER');
  const rules=v.tagRules.filter(r=>r.target==='tag'&&r.enforcement==='active'&&JSON.stringify(r.conditions?.ref_name?.include)===JSON.stringify(['refs/tags/cn-prepared-*'])&&r.conditions?.ref_name?.exclude?.length===0);
  const immutable=rules.filter(r=>(r.bypass_actors??[]).length===0).flatMap(r=>r.rules??[]).map(r=>r.type);
- const creation=rules.find(r=>r.rules?.some(x=>x.type==='creation')&&r.bypass_actors?.length===1&&r.bypass_actors[0].actor_type==='Integration'&&r.bypass_actors[0].actor_id===v.expectedTagAppId&&r.bypass_actors[0].bypass_mode==='always');
- if(!creation||!immutable.includes('update')||!immutable.includes('deletion'))fail('FROZEN_RELEASE_TAG_RULES');
+ if(rules.some(r=>r.rules?.some(x=>['update','deletion'].includes(x.type))&&(r.bypass_actors??[]).length)||!immutable.includes('update')||!immutable.includes('deletion'))fail('FROZEN_RELEASE_TAG_RULES');
 }
 export function validateAdmissionDeployment(identity,deployments,readStatuses,run,jobs,appId) {
  const repo=identity.repository;
@@ -71,9 +69,9 @@ function pages(endpoint,key) {
 function governance(repo) {
  const prefix=`repos/${repo}`;
  const issuer=gh('apps/github-actions');
- if(issuer.slug!=='github-actions'||issuer.id!==Number(process.env.CN_RELEASE_TAG_APP_ID))fail('FROZEN_RELEASE_TAG_APP_IDENTITY');
+ if(issuer.slug!=='github-actions'||!Number.isSafeInteger(issuer.id)||issuer.id<=0)fail('FROZEN_RELEASE_NATIVE_APP_IDENTITY');
  const rules=pages(`${prefix}/rulesets?includes_parents=true`).filter(v=>v.target==='tag'&&v.enforcement==='active').map(v=>gh(`${prefix}/rulesets/${v.id}`));
- const v={expectedTagAppId:Number(process.env.CN_RELEASE_TAG_APP_ID),promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};validateTagGovernance(v);
+ const v={promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};validateTagGovernance(v);return issuer.id;
 }
 export function frozenTagBinding(binding) {
  const {releaseSourceSha,attemptId,receiptSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
@@ -106,7 +104,7 @@ async function main() {
  const identity={repository:process.env.GITHUB_REPOSITORY,workflowSha:process.env.GITHUB_WORKFLOW_SHA,workflowRef:process.env.GITHUB_WORKFLOW_REF,githubSha:process.env.GITHUB_SHA,githubRef:process.env.GITHUB_REF,releaseSourceSha:process.env.REVISION,expectedMainCnSha:process.env.EXPECTED_MAIN_CN,attemptId:process.env.ATTEMPT_ID,runId:Number(process.env.GITHUB_RUN_ID),runAttempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
  if(mode!=='freeze-tag')validateDispatchIdentity(identity);
  else {if(identity.repository!=='boardx/workspacex'||identity.githubRef!=='refs/heads/main'||!sha.test(identity.expectedMainCnSha??''))fail('FROZEN_RELEASE_PREPARE_REF');identity.releaseTag=releaseTag(identity.releaseSourceSha,identity.attemptId);}
- governance(identity.repository);
+ const nativeActionsAppId=governance(identity.repository);
  const git=(...args)=>execFileSync('git',args,{encoding:'utf8',timeout:30000}).trim();
  if(git('rev-parse','HEAD')!==identity.releaseSourceSha)fail('FROZEN_RELEASE_CHECKOUT');
  execFileSync('git',['merge-base','--is-ancestor',identity.releaseSourceSha,'origin/main'],{stdio:'ignore',timeout:30000});
@@ -133,7 +131,7 @@ async function main() {
    if(made.object?.type!=='tag'||made.object?.sha!==object.sha)fail('FROZEN_RELEASE_TAG_CREATED_WRONG_SHA');
   }
  } else validateFrozenTag(readTag(gh(`${prefix}/git/ref/tags/${tag}`)),tag,binding);
- if(mode==='verify-admission')validateAdmissionDeployment({...identity,releaseTag:tag},pages(`${prefix}/deployments?sha=${identity.releaseSourceSha}&environment=production-cn-promotion`),id=>pages(`${prefix}/deployments/${id}/statuses`),gh(`${prefix}/actions/runs/${identity.runId}/attempts/${identity.runAttempt}`),pages(`${prefix}/actions/runs/${identity.runId}/attempts/${identity.runAttempt}/jobs`,'jobs'),Number(process.env.CN_RELEASE_TAG_APP_ID));
+ if(mode==='verify-admission')validateAdmissionDeployment({...identity,releaseTag:tag},pages(`${prefix}/deployments?sha=${identity.releaseSourceSha}&environment=production-cn-promotion`),id=>pages(`${prefix}/deployments/${id}/statuses`),gh(`${prefix}/actions/runs/${identity.runId}/attempts/${identity.runAttempt}`),pages(`${prefix}/actions/runs/${identity.runId}/attempts/${identity.runAttempt}/jobs`,'jobs'),nativeActionsAppId);
  const result={...binding,releaseTag:tag,requestSha256:hash(binding)};
  if(process.env.EXPECTED_REQUEST_SHA256&&process.env.EXPECTED_REQUEST_SHA256!==result.requestSha256)fail('FROZEN_RELEASE_REQUEST_CHANGED_AFTER_READINESS');
  if(process.env.GITHUB_OUTPUT)writeFileSync(process.env.GITHUB_OUTPUT,`release_tag=${tag}\nrequest_sha256=${result.requestSha256}\n`,{flag:'a'});

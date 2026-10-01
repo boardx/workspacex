@@ -25,7 +25,7 @@ function fixture(compatible = true) {
  const maps:Record<string,unknown>={
   ["apps/github-actions"]:{id:1,slug:"github-actions"},
   [`repos/${repo}/rulesets?includes_parents=true&per_page=100&page=1`]:[{id:1,target:'tag',enforcement:'active'},{id:2,target:'tag',enforcement:'active'}],
-  [`repos/${repo}/rulesets/1`]:{target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[{actor_type:'Integration',actor_id:1,bypass_mode:'always'}],rules:[{type:'creation'}]},
+  [`repos/${repo}/rulesets/1`]:{target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'}]},
   [`repos/${repo}/rulesets/2`]:{target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'},{type:'deletion'}]},
   [`repos/${repo}/environments/production-cn-promotion`]:env(true),
   [`repos/${repo}/environments/production-cn`]:env(false),
@@ -40,13 +40,13 @@ function fixture(compatible = true) {
  };
  const bin=join(dir,'fakebin');mkdirSync(bin);writeFileSync(join(bin,'gh'),'#!/usr/bin/env python3\nimport os,sys,json\na=sys.argv[1:];assert a[0]=="api" and len(a)==2,"No API mutation authorized"\nv=json.load(open(os.environ["FIXTURE_MAP"]))\nassert a[1] in v,"Unexpected GitHub request"\nprint(json.dumps(v[a[1]]))\n');chmodSync(join(bin,'gh'),0o700);
  const mapfile=join(dir,'maps.json'),snapshotFile=join(dir,'snapshot.txt');
- const run=(patch:Record<string,string>={},mode="verify-dispatch")=>{writeFileSync(mapfile,JSON.stringify(maps));writeFileSync(snapshotFile,'CN_PROMOTION_IDENTITY_JSON='+JSON.stringify(snapshot)+'\n');return spawnSync(process.execPath,['--experimental-strip-types',helper,mode,snapshotFile],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,FIXTURE_MAP:mapfile,GITHUB_REPOSITORY:repo,GITHUB_SHA:source,GITHUB_REF:'refs/tags/'+tag,GITHUB_WORKFLOW_SHA:source,GITHUB_WORKFLOW_REF:`${repo}/.github/workflows/promote-cn-production.yml@refs/tags/${tag}`,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',REVISION:source,EXPECTED_MAIN_CN:baseline,ATTEMPT_ID:attempt,CN_RELEASE_TAG_APP_ID:'1',GITHUB_OUTPUT:'',...patch}})};
+ const run=(patch:Record<string,string>={},mode="verify-dispatch")=>{writeFileSync(mapfile,JSON.stringify(maps));writeFileSync(snapshotFile,'CN_PROMOTION_IDENTITY_JSON='+JSON.stringify(snapshot)+'\n');return spawnSync(process.execPath,['--experimental-strip-types',helper,mode,snapshotFile],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,FIXTURE_MAP:mapfile,GITHUB_REPOSITORY:repo,GITHUB_SHA:source,GITHUB_REF:'refs/tags/'+tag,GITHUB_WORKFLOW_SHA:source,GITHUB_WORKFLOW_REF:`${repo}/.github/workflows/promote-cn-production.yml@refs/tags/${tag}`,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',REVISION:source,EXPECTED_MAIN_CN:baseline,ATTEMPT_ID:attempt,GITHUB_OUTPUT:'',...patch}})};
  return {run,maps,snapshot,source,baseline,main,tagSha,tag,dir};
 }
 describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
  it('fails NOT_READY for a historical dispatcher instead of borrowing latest main',()=>{const f=fixture(false);expect(f.run().status).toBe(3)});
  it('accepts actual ancestor candidate/tag after main advances without build or mutation',()=>{const f=fixture();expect(f.source).not.toBe(f.main);const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
- it('rejects changed attestation and incomplete actual checks before approval',()=>{const f=fixture(),key=`repos/boardx/workspacex/git/tags/${f.tagSha}`;const old=f.maps[key];f.maps[key]={tag:f.tag,object:{type:'commit',sha:f.source},message:'present-only'};expect(f.run().status).toBe(3);f.maps[key]=old;f.maps[`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`]={total_count:101,check_runs:[]};expect(f.run().status).toBe(3)});
+ it('rejects changed attestation and incomplete actual checks before approval',()=>{const f=fixture(),key=`repos/boardx/workspacex/git/tags/${f.tagSha}`;const old=f.maps[key];f.maps[key]={tag:f.tag,object:{type:'commit',sha:f.source},message:'present-only'};expect(f.run().status).toBe(3);expect(f.run({GITHUB_REF:'refs/heads/main'},'freeze-tag').status).toBe(3);f.maps[key]=old;f.maps[`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`]={total_count:101,check_runs:[]};expect(f.run().status).toBe(3)});
  it('rejects moving main dispatch, missing evidence and prior-run request digest',()=>{const f=fixture();for(const patch of [{GITHUB_REF:'refs/heads/main'},{GITHUB_SHA:f.main},{EXPECTED_REQUEST_SHA256:'0'.repeat(64)}])expect(f.run(patch).status).toBe(3);f.snapshot.devapp.browserAccepted=false;expect(f.run().status).toBe(3)});
  it('verifies real human-creator native admission via current-attempt job API',()=>{
   const f=fixture(),prefix='repos/boardx/workspacex',actor={id:2325074,login:'usamshen'},url='https://github.com/boardx/workspacex/actions/runs/123/job/4';
