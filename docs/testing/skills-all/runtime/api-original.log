@@ -1,0 +1,30 @@
+
+ RUN  v2.1.9 /workspace/skills-all-runtime/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (15 tests) 39ms
+ ❯ tests/work-eval/eval-runner.test.ts (0 test)
+ ❯ tests/work-eval/gates-counterproof.test.ts (0 test)
+ ❯ tests/work-eval/gates-g0-g4.test.ts (0 test)
+ ❯ tests/work-eval/s003-suite-shape.test.ts (0 test)
+ ✓ tests/agent-run/runtime-profile-continuation.test.ts (6 tests) 15ms
+ ❯ tests/work-eval/eval-report-baseline.test.ts (0 test)
+ ✓ tests/chat/agent-default-skill-loading.test.ts (9 tests) 7ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/work-eval/eval-report-baseline.test.ts [ tests/work-eval/eval-report-baseline.test.ts ]
+ FAIL  tests/work-eval/eval-runner.test.ts [ tests/work-eval/eval-runner.test.ts ]
+ FAIL  tests/work-eval/gates-counterproof.test.ts [ tests/work-eval/gates-counterproof.test.ts ]
+ FAIL  tests/work-eval/gates-g0-g4.test.ts [ tests/work-eval/gates-g0-g4.test.ts ]
+ FAIL  tests/work-eval/s003-suite-shape.test.ts [ tests/work-eval/s003-suite-shape.test.ts ]
+Error: Failed to load url @repo/contracts/work-skill-evidence-ledger (resolved id: @repo/contracts/work-skill-evidence-ledger) in /workspace/skills-all-runtime/apps/api/src/application/work-eval/s003-contract.ts. Does the file exist?
+ ❯ loadAndTransform ../../../workspacex/node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ Test Files  5 failed | 3 passed (8)
+      Tests  30 passed (30)
+   Start at  11:54:55
+   Duration  12.20s (transform 3.92s, setup 0ms, collect 5.11s, tests 61ms, environment 2ms, prepare 643ms)
+

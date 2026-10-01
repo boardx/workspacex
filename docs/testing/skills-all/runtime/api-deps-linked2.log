@@ -1,0 +1,269 @@
+
+ RUN  v2.1.9 /workspace/skills-all-runtime/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (15 tests) 41ms
+ ❯ tests/work-eval/eval-runner.test.ts (19 tests | 4 failed) 1225ms
+   × harness eval runner (EV02) > refuses changed grader bytes in the same process instead of reusing its cached module 169ms
+     → expected '' to contain 'grader implementation changed'
+   × harness eval runner (EV02) > EV01 validate-work-eval-suite still fails on a missing fixture (eval's E2 downgrade does not hide it) 150ms
+     → expected 'node:net:2145\n      const error = ne…' to contain 'galaxy-aliases.json'
+   × harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported 169ms
+     → expected 1 to be 2 // Object.is equality
+   × harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2 108ms
+     → node:net:2145
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /tmp/tsx-1000/223607.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:2145:21)
+    at listenInCluster (node:net:2224:12)
+    at Server.listen (node:net:2361:5)
+    at file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/tmp/tsx-1000/223607.pipe',
+  port: -1
+}
+
+Node.js v24.19.0
+: expected 1 to be +0 // Object.is equality
+ ✓ tests/work-eval/gates-counterproof.test.ts (19 tests) 989ms
+ ❯ tests/work-eval/gates-g0-g4.test.ts (12 tests | 1 failed) 3005ms
+   × lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 2506ms
+     → expected 'node:net:2145\n      const error = ne…' to contain 'work-stack gates'
+ ❯ tests/work-eval/s003-suite-shape.test.ts (7 tests | 1 failed) 276ms
+   × evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 123ms
+     → node:net:2145
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /tmp/tsx-1000/223752.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:2145:21)
+    at listenInCluster (node:net:2224:12)
+    at Server.listen (node:net:2361:5)
+    at file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/tmp/tsx-1000/223752.pipe',
+  port: -1
+}
+
+Node.js v24.19.0
+: expected 1 to be +0 // Object.is equality
+ ✓ tests/agent-run/runtime-profile-continuation.test.ts (6 tests) 14ms
+ ✓ tests/work-eval/eval-report-baseline.test.ts (4 tests) 139ms
+ ✓ tests/chat/agent-default-skill-loading.test.ts (9 tests) 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/work-eval/eval-runner.test.ts > harness eval runner (EV02) > refuses changed grader bytes in the same process instead of reusing its cached module
+AssertionError: expected '' to contain 'grader implementation changed'
+
+- Expected
++ Received
+
+- grader implementation changed
+
+ ❯ tests/work-eval/eval-runner.test.ts:170:26
+    168|       { cwd: repoRoot, encoding: "utf8" });
+    169|     expect(fresh.status, fresh.stderr).toBe(EXIT.CASE_FAILED_OR_ERROR);
+    170|     expect(fresh.stdout).toContain("grader implementation changed");
+       |                          ^
+    171|   });
+    172| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/work-eval/eval-runner.test.ts > harness eval runner (EV02) > EV01 validate-work-eval-suite still fails on a missing fixture (eval's E2 downgrade does not hide it)
+AssertionError: expected 'node:net:2145\n      const error = ne…' to contain 'galaxy-aliases.json'
+
+- Expected
++ Received
+
+- galaxy-aliases.json
++ node:net:2145
++       const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
++                     ^
++
++ Error: listen EPERM: operation not permitted /tmp/tsx-1000/223574.pipe
++     at Server.setupListenHandle [as _listen2] (node:net:2145:21)
++     at listenInCluster (node:net:2224:12)
++     at Server.listen (node:net:2361:5)
++     at file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
++     at new Promise (<anonymous>)
++     at createIpcServer (file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
++     at async file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
++   code: 'EPERM',
++   errno: -1,
++   syscall: 'listen',
++   address: '/tmp/tsx-1000/223574.pipe',
++   port: -1
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ tests/work-eval/eval-runner.test.ts:238:33
+    236|     const r = spawnSync(tsx, [cli, join(root, "S003")], { cwd: repoRoo…
+    237|     expect(r.status, r.stdout + r.stderr).not.toBe(0);
+    238|     expect(r.stdout + r.stderr).toContain("galaxy-aliases.json");
+       |                                 ^
+    239|   });
+    240| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/work-eval/eval-runner.test.ts > harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/work-eval/eval-runner.test.ts:256:24
+    254|     const tsx = join(repoRoot, "apps/api/node_modules/.bin/tsx");
+    255|     const cli = spawnSync(tsx, [join(repoRoot, ".harness/scripts/cli.t…
+    256|     expect(cli.status).toBe(EXIT.SUITE_INVALID);
+       |                        ^
+    257|     expect(cli.stderr).toContain("unknown argument(s): --bogus");
+    258|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/work-eval/eval-runner.test.ts > harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2
+AssertionError: node:net:2145
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /tmp/tsx-1000/223607.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:2145:21)
+    at listenInCluster (node:net:2224:12)
+    at Server.listen (node:net:2361:5)
+    at file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/tmp/tsx-1000/223607.pipe',
+  port: -1
+}
+
+Node.js v24.19.0
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+ ❯ createIpcServer ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450
+ ❯ tests/work-eval/eval-runner.test.ts:282:34
+    280|     const cli = join(repoRoot, ".harness/scripts/cli.ts");
+    281|     const ok = spawnSync(tsx, [cli, "eval", "--entity", "S003", "--eva…
+    282|     expect(ok.status, ok.stderr).toBe(0);
+       |                                  ^
+    283|     expect(ok.stdout).toContain("subject 10/10 pass");
+    284|     expect(readdirSync(join(root, "S003/reports"))).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/work-eval/gates-g0-g4.test.ts > lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected
+AssertionError: expected 'node:net:2145\n      const error = ne…' to contain 'work-stack gates'
+
+- Expected
++ Received
+
+- work-stack gates
++ node:net:2145
++       const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
++                     ^
++
++ Error: listen EPERM: operation not permitted /tmp/tsx-1000/223722.pipe
++     at Server.setupListenHandle [as _listen2] (node:net:2145:21)
++     at listenInCluster (node:net:2224:12)
++     at Server.listen (node:net:2361:5)
++     at file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
++     at new Promise (<anonymous>)
++     at createIpcServer (file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
++     at async file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
++   code: 'EPERM',
++   errno: -1,
++   syscall: 'listen',
++   address: '/tmp/tsx-1000/223722.pipe',
++   port: -1
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ tests/work-eval/gates-g0-g4.test.ts:97:40
+     95|     const ok = spawnSync("node", [join(repoRoot, ".harness/scripts/lin…
+     96|     expect(ok.status, ok.stderr).toBe(repo.exitCode);
+     97|     expect(`${ok.stdout}${ok.stderr}`).toContain("work-stack gates");
+       |                                        ^
+     98|     if (repo.judgements.some(j => j.stableId === "S003" && j.gates[0]!…
+     99|     const bad = spawnSync("node", [join(repoRoot, ".harness/scripts/li…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/work-eval/s003-suite-shape.test.ts > evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field
+AssertionError: node:net:2145
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /tmp/tsx-1000/223752.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:2145:21)
+    at listenInCluster (node:net:2224:12)
+    at Server.listen (node:net:2361:5)
+    at file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///workspace/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/tmp/tsx-1000/223752.pipe',
+  port: -1
+}
+
+Node.js v24.19.0
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+ ❯ createIpcServer ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450
+ ❯ tests/work-eval/s003-suite-shape.test.ts:126:34
+    124|   it("CLI exits 0 on the real suite and non-zero with the field path w…
+    125|     const ok = runCli(suiteDir, ["--manifest-eval-suite-id", "S003"]);
+    126|     expect(ok.status, ok.stderr).toBe(0);
+       |                                  ^
+    127| 
+    128|     const tmp = mkdtempSync(join(tmpdir(), "ev01-"));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  3 failed | 5 passed (8)
+      Tests  6 failed | 85 passed (91)
+   Start at  11:56:32
+   Duration  17.83s (transform 3.53s, setup 0ms, collect 9.09s, tests 5.70s, environment 2ms, prepare 684ms)
+

@@ -1,0 +1,19 @@
+
+ RUN  v2.1.9 /workspace/skills-all-runtime/apps/api
+
+
+ Test Files  no tests
+      Tests  no tests
+   Start at  11:56:10
+   Duration  258ms (transform 123ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms)
+
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: Failed to load url zod (resolved id: /workspace/workspacex/node_modules/.pnpm/zod@3.25.76/node_modules/zod/index.js) in /workspace/skills-all-runtime/packages/cloud-deploy/src/config.ts. Does the file exist?
+ ❯ loadAndTransform ../../../workspacex/node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_LOAD_URL' }
+
+
+
