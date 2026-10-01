@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ChatTaskInspector, type ChatTaskInspectorProps } from "@/components/chat/chat-task-inspector";
 import {
   OPEN_FILE_IN_RIGHT_PANEL_EVENT, requestOpenFileInRightPanel,
@@ -63,6 +63,31 @@ describe("文件在右栏打开", () => {
     act(() => { requestOpenFileInRightPanel(file({ id: "material:i1", mime: "image/png", title: "图.png" })); });
     expect(screen.getByTestId("chat-attachment-preview-image")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-attachment-preview-unsupported")).toBeNull();
+  });
+
+  it("默认在右栏预览，明确放大后可下载同一个附件，关闭不丢右栏", () => {
+    const attachment = { id: "a1", messageId: "m-1", filename: "季度报告.pdf", mime: "application/pdf", bytes: 4096, createdAt: "2026-01-01T00:00:00.000Z" };
+    render(<ChatTaskInspector {...props()} materials={{ items: [attachment] }} />);
+    act(() => { requestOpenFileInRightPanel(file()); });
+    expect(screen.queryByTestId("chat-attachment-preview-portal")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "放大查看" }));
+    expect(screen.getByTestId("chat-attachment-preview-portal")).toBeVisible();
+    expect(screen.getByTestId("chat-attachment-preview-download")).toHaveAttribute("download", attachment.filename);
+    expect(screen.getByTestId("chat-attachment-preview-download")).toHaveAttribute("href", "blob:fake");
+    fireEvent.click(screen.getByTestId("chat-attachment-preview-dismiss"));
+    expect(screen.queryByTestId("chat-attachment-preview-portal")).toBeNull();
+    expect(screen.getByTestId("chat-inspector-file-view")).toBeVisible();
+  });
+
+  it("切换对话关闭放大预览，缺少附件元数据时不画死按钮", () => {
+    const attachment = { id: "a1", messageId: "m-1", filename: "季度报告.pdf", mime: "application/pdf", bytes: 4096, createdAt: "2026-01-01T00:00:00.000Z" };
+    const view = render(<ChatTaskInspector {...props()} materials={{ items: [attachment] }} />);
+    act(() => { requestOpenFileInRightPanel(file()); });
+    fireEvent.click(screen.getByRole("button", { name: "放大查看" }));
+    view.rerender(<ChatTaskInspector {...props()} threadId="t-2" />);
+    expect(screen.queryByTestId("chat-attachment-preview-portal")).toBeNull();
+    act(() => { requestOpenFileInRightPanel(file({ threadId: "t-2" })); });
+    expect(screen.queryByRole("button", { name: "放大查看" })).toBeNull();
   });
 
   it("浏览器打不开的类型：诚实说不支持，而不是画一个空白预览", () => {

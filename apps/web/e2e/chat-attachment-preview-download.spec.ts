@@ -143,6 +143,9 @@ async function openPreviewFromMaterials(page: Page, threadId: string, attachment
   await tab.click();
   await expect(page.getByTestId("chat-materials-panel")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId(`chat-material-${attachmentId}`).click();
+  // E4: material selection opens the inline inspector first; enlargement is explicit.
+  await expect(page.getByTestId("chat-inspector-file-view")).toBeVisible();
+  await page.getByTestId("chat-inspector-artifact-enlarge").click();
 }
 
 /**
