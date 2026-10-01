@@ -204,3 +204,7 @@ acceptance-entities.csv 从当前 320 清单第一阶段机械提取，包含 81
 按用户要求先固定 POC 模型 `qwen3.8-omni-flash-realtime`。必须实际核对上游请求 model 与 session.ready；角色输入应含当前授权发布版本 instructions/agentVersionId，而非只有名字与标签。文字模型、ASR 与实时模型分别核对。
 
 VOICE-01–05 保留真实供应方与浏览器退出门：七角色分别验证自身背景、收音、听音、字幕、打断、挂断后转写、断线重试；启动缓冲短句和上游远端关闭必须验证最后转写。远端断开、麦克风权限等待中断开、重复关闭后释放音频资源，重试不残留采集。PG 验证当前发布、草稿隔离和租户隔离；本地固定上游/组件只勾技术检查，不将 VOICE 正式场景改成 PASS。路由还需实际部署 SHA、Caddy Upgrade 与登录状态证据，源码和匿名401门不足以证明线上双向语音。
+
+## 14. 全量 Skills 前后台验收扩展
+
+用户要求所有 Skills 验收，新增 [skills-all/ui-admin-plan.md](skills-all/ui-admin-plan.md) 与矩阵 SKUI-01–16，覆盖管理员导入/验证发布/停启/固定版本/组织隔离及成员发现搜索/参数/挂载执行/重试/持久化/产物/禁用原因/中文名称/精确角色范围。各项必须按全量登记 Skill 展开并关联版本、真实输入与证据；抽样、组件通过、目录可见和回环运行均不能代替全量专业执行通过。本次新增标准全部 NOT_RUN；真实依赖缺失按项 BLOCKED，销售 Workflow/CRM 单列 DEFERRED，不排除共享 Skills。
