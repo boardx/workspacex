@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createWhiteboardDocument, executeCommands, readObjects, type WhiteboardCommand } from '@repo/whiteboard-core';
 import { PgDatabase } from '../../src/infrastructure/db/pg-database';
@@ -85,4 +85,33 @@ describe('whiteboard collaboration durable transactions', () => {
     await expect(limited.writeCommands(owner, board.id, { ...input, requestId: randomUUID(), commands: [command('b')] })).rejects.toMatchObject({ code: 'RATE_LIMITED' });
     expect((await store.load(owner, board.id)).seq).toBe(1);
   });
+});
+
+it('loads trusted full snapshots without a redundant worker and isolates state-vector reads', async () => {
+  const board = await createBoard();
+  const validator = new WorkerWhiteboardUpdateValidator();
+  const diff = vi.spyOn(validator, 'diff');
+  const checkedStore = new PgWhiteboardCollaborationStore(db, validator);
+  await checkedStore.writeCommands(owner, board.id, { epoch: 1, requestId: randomUUID(), commands: [command('snapshot-note')] });
+  const first = await checkedStore.load(owner, board.id);
+  expect(diff).not.toHaveBeenCalled();
+  const doc = createWhiteboardDocument();
+  try {
+    Y.applyUpdate(doc, first.update);
+    expect(readObjects(doc).map(object => object.id)).toEqual(['snapshot-note']);
+    const vector = Y.encodeStateVector(doc);
+    const delta = await checkedStore.load(owner, board.id, vector);
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(diff).toHaveBeenCalledWith(expect.any(Uint8Array), vector);
+    Y.applyUpdate(doc, delta.update);
+    expect(readObjects(doc).map(object => object.id)).toEqual(['snapshot-note']);
+    await expect(checkedStore.load(owner, board.id, new Uint8Array())).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    await expect(checkedStore.load(owner, board.id, new Uint8Array([255]))).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    const beforeDenied = diff.mock.calls.length;
+    await expect(checkedStore.load(outsider, board.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(diff).toHaveBeenCalledTimes(beforeDenied);
+    first.update.fill(255);
+    const fresh = await checkedStore.load(owner, board.id);
+    expect(fresh.update).not.toEqual(first.update);
+  } finally { doc.destroy(); diff.mockRestore(); }
 });

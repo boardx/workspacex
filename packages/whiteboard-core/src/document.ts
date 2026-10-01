@@ -3,7 +3,7 @@ import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type White
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
-  doc.getMap('objects'); doc.getMap('deletedObjects');
+  doc.getMap('objects'); doc.getMap('deletedObjects'); doc.getMap('deleteAttribution');
   return doc;
 }
 export function cloneDocument(source: Y.Doc): Y.Doc {
@@ -13,6 +13,16 @@ export function cloneDocument(source: Y.Doc): Y.Doc {
 }
 export function objectMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> { return doc.getMap('objects'); }
 export function tombstones(doc: Y.Doc): Y.Map<boolean> { return doc.getMap('deletedObjects'); }
+export interface DeleteAttributionRecord { actorId: string; deletedAt: number; tombstoneClient: number; tombstoneClock: number }
+/**
+ * Server-only record of who deleted which object and when. Never written by client
+ * updates directly (prepareWhiteboardUpdate rejects any client attempt to touch this
+ * root); populated exclusively by the validator so the self-undo exception can trust it.
+ * Persisted inside the same Yjs snapshot as the rest of the document, so it survives
+ * across API replicas without a separate side channel.
+ */
+export function attribution(doc: Y.Doc): Y.Map<DeleteAttributionRecord> { return doc.getMap('deleteAttribution'); }
+export const DELETE_ATTRIBUTION_LIMIT = 4000;
 function decode(id: string, value: Y.Map<unknown>): WhiteboardObject {
   if (!(value instanceof Y.Map) || !(value.get('text') instanceof Y.Text) || !(value.get('style') instanceof Y.Map) || value.has('id')) throw new Error('INVALID_SHARED_TYPE');
   for (const [key, field] of value) if (!['text', 'style'].includes(key) && field instanceof Y.AbstractType) throw new Error('NON_ATOMIC_FIELD');
@@ -29,8 +39,13 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
 }
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
-  for (const key of doc.share.keys()) if (!['objects', 'deletedObjects'].includes(key)) throw new Error('UNKNOWN_ROOT');
+  for (const key of doc.share.keys()) if (!['objects', 'deletedObjects', 'deleteAttribution'].includes(key)) throw new Error('UNKNOWN_ROOT');
   if (objectMap(doc).size > WHITEBOARD_LIMITS.objects || tombstones(doc).size > WHITEBOARD_LIMITS.tombstones) throw new Error('LIMIT_EXCEEDED');
+  if (attribution(doc).size > DELETE_ATTRIBUTION_LIMIT) throw new Error('LIMIT_EXCEEDED');
+  for (const [, record] of attribution(doc)) {
+    if (typeof record !== 'object' || record === null || typeof record.actorId !== 'string' || !Number.isFinite(record.deletedAt)
+      || !Number.isFinite(record.tombstoneClient) || !Number.isFinite(record.tombstoneClock)) throw new Error('INVALID_ATTRIBUTION');
+  }
   for (const [id, value] of tombstones(doc)) if (value !== true || !objectMap(doc).has(id)) throw new Error('INVALID_TOMBSTONE');
   const all = new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
   const visible = new Set([...all.values()].filter(value => !tombstones(doc).has(value.id) && value.containerState !== 'ungrouped').map(value => value.id));

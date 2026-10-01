@@ -64,16 +64,16 @@ export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidato
   async objectIds(snapshot: Uint8Array): Promise<string[]> {
     return this.run({ mode: 'object-ids', snapshot }) as Promise<string[]>;
   }
-  async validate(snapshot: Uint8Array, update: Uint8Array): Promise<ValidatedWhiteboardUpdate> {
+  async validate(snapshot: Uint8Array, update: Uint8Array, actorId?: string): Promise<ValidatedWhiteboardUpdate> {
     assertBytes(update, WHITEBOARD_UPDATE_LIMITS.bytes);
-    return this.run({ mode: 'update', snapshot, update }) as Promise<ValidatedWhiteboardUpdate>;
+    return this.run({ mode: 'update', snapshot, update, actorId }) as Promise<ValidatedWhiteboardUpdate>;
   }
-  async commands(snapshot: Uint8Array, commands: WhiteboardCommand[]): Promise<ValidatedWhiteboardUpdate> {
+  async commands(snapshot: Uint8Array, commands: WhiteboardCommand[], actorId?: string): Promise<ValidatedWhiteboardUpdate> {
     // Input transport must enforce byte limits before JSON parsing as well.
     if (Buffer.byteLength(JSON.stringify(commands)) > WHITEBOARD_VALIDATOR_LIMITS.commandBytes) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
     const parsed = WhiteboardCommandBatch.safeParse(commands);
     if (!parsed.success) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
-    return this.run({ mode: 'commands', snapshot, commands: parsed.data }) as Promise<ValidatedWhiteboardUpdate>;
+    return this.run({ mode: 'commands', snapshot, commands: parsed.data, actorId }) as Promise<ValidatedWhiteboardUpdate>;
   }
   async diff(snapshot: Uint8Array, vector?: Uint8Array): Promise<Uint8Array> {
     if (vector) assertBytes(vector, WHITEBOARD_VALIDATOR_LIMITS.vectorBytes);

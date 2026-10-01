@@ -67,14 +67,20 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const stateVector = vector ? new Uint8Array(vector) : undefined;
     return this.db.withTenant(p.orgId, async session => {
       const access = await this.access(session, p, boardId, false), doc = await this.document(session, p, boardId);
-      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update: await this.validator.diff(doc.snapshot, stateVector) };
+      // A full load has no untrusted vector to decode. Persisted snapshots already
+      // passed the isolated write validator (or are the canonical empty document).
+      // Copy them directly instead of spawning a worker while holding a pool client
+      // for every concurrent hello. Client state-vector reads retain worker isolation.
+      if (doc.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Fault('VALIDATION_FAILED');
+      const update = stateVector === undefined ? new Uint8Array(doc.snapshot) : await this.validator.diff(doc.snapshot, stateVector);
+      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update };
     });
   }
   async append(p: Principal, boardId: string, input: WhiteboardUpdateInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.updateId, input.epoch);
     if (!(input.update instanceof Uint8Array) || input.update.byteLength < 1 || input.update.byteLength > WHITEBOARD_UPDATE_LIMITS.bytes) throw new Fault('VALIDATION_FAILED');
     const update = new Uint8Array(input.update);
-    return this.commit(p, boardId, input.epoch, input.updateId, HASH(Buffer.concat([Buffer.from('update:'), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update));
+    return this.commit(p, boardId, input.epoch, input.updateId, HASH(Buffer.concat([Buffer.from('update:'), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update, p.userId));
   }
   async writeCommands(p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.requestId, input.epoch);

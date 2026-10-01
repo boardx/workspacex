@@ -3,7 +3,7 @@ import * as React from "react";
 
 /**
  * 挂在根 `Providers` 里的哨兵组件——不渲染任何东西，只在挂载时安装事件监听器，
- * 阻止用户意外缩放整个网页。
+ * 阻止普通页面意外缩放。真实 Board 文档页保留浏览器缩放，满足高倍缩放与 reflow。
  *
  * 两条独立的手势路径，缺一不可：
  *   1. Mac trackpad 双指捏合（pinch）在 Chrome/Edge/Firefox 上会派发成
@@ -15,18 +15,19 @@ import * as React from "react";
  *      `gestureend` 事件（不在标准 `wheel` 路径上），需要单独挡。
  *
  * 触屏设备的双指捏合缩放不走以上两条事件路径，由 `globals.css` 里 html/body 的
- * `touch-action` 一起处理（同一件"禁止整页缩放"的事，一份在 CSS 挡触屏手势，
- * 一份在这里挡桌面 trackpad/键盘手势，不是重复实现）。
+ * `touch-action` 一起处理。两条路径都以真实 Board 路由/页面标记为例外。
  */
 export function DisablePageZoom(): null {
   React.useEffect(() => {
+    const liveBoardMounted = () => document.documentElement.dataset.liveBoardMounted === 'true'
+      || document.querySelector('[data-live-board-page]') !== null;
     const preventCtrlWheelZoom = (event: WheelEvent) => {
-      if (event.ctrlKey) {
+      if (event.ctrlKey && !allowsPageZoom(window.location.pathname, liveBoardMounted())) {
         event.preventDefault();
       }
     };
     const preventSafariGesture = (event: Event) => {
-      event.preventDefault();
+      if (!allowsPageZoom(window.location.pathname, liveBoardMounted())) event.preventDefault();
     };
 
     window.addEventListener("wheel", preventCtrlWheelZoom, { passive: false });
@@ -43,4 +44,9 @@ export function DisablePageZoom(): null {
     };
   }, []);
   return null;
+}
+
+/** Live Board is an accessibility-critical zoom surface; other routes retain the product guard. */
+export function allowsPageZoom(pathname: string, liveBoardMounted: boolean): boolean {
+  return liveBoardMounted && /^\/studio\/board\/[^/]+\/?$/.test(pathname);
 }
