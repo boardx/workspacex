@@ -189,6 +189,7 @@ describe("test isolation contract (#74)", () => {
       "WORKSPACEX_NATIVE_REDIS",
       "PGDATABASE",
       "PGPORT",
+      "REDIS_HOST",
       "REDIS_PORT",
       "REDIS_PREFIX",
       "COMPOSE_PROJECT_NAME",
@@ -202,6 +203,7 @@ describe("test isolation contract (#74)", () => {
       // environments instead of inheriting the caller's backend choice.
       WORKSPACEX_NATIVE_POSTGRES: "0",
       WORKSPACEX_NATIVE_REDIS: "0",
+      REDIS_HOST: "127.0.0.1",
     };
     const baselineHash = turboApiTestHash(baseline);
     expect(turboApiTestHash(baseline)).toBe(baselineHash);
@@ -211,6 +213,7 @@ describe("test isolation contract (#74)", () => {
       "WORKSPACEX_DB",
       "PGDATABASE",
       "PGPORT",
+      "REDIS_HOST",
       "REDIS_PORT",
       "REDIS_PREFIX",
       "MINIO_PORT",

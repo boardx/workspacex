@@ -65,6 +65,7 @@
         "PGDATABASE",
         "PGHOST",
         "PGPORT",
+        "REDIS_HOST",
         "REDIS_PORT",
         "REDIS_PREFIX",
         "MINIO_PORT",
