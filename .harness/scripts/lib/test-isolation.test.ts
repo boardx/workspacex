@@ -186,6 +186,7 @@ describe("test isolation contract (#74)", () => {
       "WORKSPACEX_ISOLATION_ID",
       "WORKSPACEX_DB",
       "WORKSPACEX_NATIVE_POSTGRES",
+      "WORKSPACEX_NATIVE_REDIS",
       "PGDATABASE",
       "PGPORT",
       "REDIS_PORT",
@@ -200,10 +201,12 @@ describe("test isolation contract (#74)", () => {
       // The test runner may itself opt into native PostgreSQL. Pin both probe
       // environments instead of inheriting the caller's backend choice.
       WORKSPACEX_NATIVE_POSTGRES: "0",
+      WORKSPACEX_NATIVE_REDIS: "0",
     };
     const baselineHash = turboApiTestHash(baseline);
     expect(turboApiTestHash(baseline)).toBe(baselineHash);
     expect(turboApiTestHash({ ...baseline, WORKSPACEX_NATIVE_POSTGRES: "1" })).not.toBe(baselineHash);
+    expect(turboApiTestHash({ ...baseline, WORKSPACEX_NATIVE_REDIS: "1" })).not.toBe(baselineHash);
     for (const name of [
       "WORKSPACEX_DB",
       "PGDATABASE",
