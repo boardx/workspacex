@@ -29,10 +29,10 @@
 export function shouldOfferBannerRetry(input: {
   /** 这一轮真的有一条已发出的用户消息可以重发（`lastSentRef.current !== null`）。 */
   readonly hasResendableMessage: boolean;
-  /** 已经有一轮在跑——重试入口此刻无意义。 */
-  readonly agentIsRunning: boolean;
+  /** 与发送共用门控：在途、只读、归档或上传未完成时不能重发。 */
+  readonly sendIsBlocked: boolean;
   /** 计划面板此刻已经给出了步骤级恢复入口（保留进展的那一个）。 */
   readonly planStepRecoveryOffered: boolean;
 }): boolean {
-  return input.hasResendableMessage && !input.agentIsRunning && !input.planStepRecoveryOffered;
+  return input.hasResendableMessage && !input.sendIsBlocked && !input.planStepRecoveryOffered;
 }
