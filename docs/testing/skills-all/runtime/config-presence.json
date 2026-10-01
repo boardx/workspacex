@@ -1,0 +1,8 @@
+{
+  "KERNEL_MODEL_API_KEY": false,
+  "DASHSCOPE_API_KEY": false,
+  "KERNEL_MODEL_BASE_URL": false,
+  "KERNEL_MODEL_ID": false,
+  "REAL_MODEL_E2E_EMAIL": false,
+  "REAL_MODEL_E2E_PASSWORD": false
+}

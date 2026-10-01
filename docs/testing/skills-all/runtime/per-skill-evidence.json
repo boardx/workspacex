@@ -1,0 +1,586 @@
+{
+  "sourceSHA": "d03fb3b5dacc0d4ff4464dff3af830a9744d2b1c",
+  "rows": [
+    {
+      "stableId": "S003",
+      "suitePresent": true,
+      "executionEvidence": "DETERMINISTIC_PROTOCOL_PASS",
+      "batchError": null,
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S005",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S005: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S006",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S006: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S007",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S007: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S008",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S008: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S009",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S009: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S010",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S010: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S011",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S011: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S012",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S012: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S013",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S013: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S015",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S015: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S016",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S016: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S017",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S017: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S018",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S018: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S020",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S020: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S021",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S021: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S022",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S022: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S023",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S023: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S024",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S024: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S025",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S025: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S026",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S026: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S028",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S028: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S029",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S029: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S030",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S030: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S031",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S031: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S032",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S032: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S033",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S033: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S034",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S034: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S035",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S035: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S036",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S036: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S061",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S061: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S062",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S062: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S063",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S063: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S064",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S064: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S065",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S065: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S066",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S066: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S067",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S067: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S068",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S068: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S069",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S069: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S070",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S070: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S071",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S071: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S072",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S072: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S073",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S073: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S074",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S074: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S075",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S075: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S076",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S076: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S141",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S141: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S142",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S142: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S143",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S143: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S144",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S144: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S145",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S145: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S148",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S148: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S153",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S153: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S154",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S154: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S155",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S155: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S156",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S156: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S157",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S157: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S158",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S158: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S160",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S160: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S161",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S161: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S162",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S162: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S164",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S164: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S167",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S167: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S168",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S168: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S169",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S169: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S170",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S170: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S171",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S171: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S172",
+      "suitePresent": false,
+      "executionEvidence": "NO_SUITE",
+      "batchError": "S172: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S177",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S177: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S179",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S179: evaluation did not produce a report (exit 3)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S187",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S187: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S188",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S188: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S189",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S189: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S190",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S190: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S191",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S191: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S192",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S192: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S193",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S193: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S194",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S194: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S195",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S195: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S196",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S196: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S197",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S197: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S198",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S198: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    },
+    {
+      "stableId": "S199",
+      "suitePresent": true,
+      "executionEvidence": "UNREGISTERED_SUBJECT",
+      "batchError": "S199: evaluation did not produce a report (exit 2)",
+      "realModelQuality": "BLOCKED: missing DASHSCOPE_API_KEY"
+    }
+  ]
+}

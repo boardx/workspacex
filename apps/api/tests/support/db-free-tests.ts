@@ -18,6 +18,12 @@ import { join, relative, sep } from "node:path";
 // test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
 export const DB_FREE_TEST_PREFIXES = [
   "tests/agent/pending-skill-display-name.test.ts",
+  "tests/work-skill/manifest-frontmatter-lint.test.ts",
+  "tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts",
+  "tests/agent-runtime/workbench-skill-activity.test.ts",
+  "tests/agent-runtime/skill-script-idempotent-retry.test.ts",
+
+  "tests/work-eval/eval-all-skills-execution-error.test.ts",
   "tests/agent-runtime/execute-run-progress.test.ts",
   "tests/agent-runtime/workbench-message-queue.test.ts",
   "tests/chat/agent-default-skill-loading.test.ts",
