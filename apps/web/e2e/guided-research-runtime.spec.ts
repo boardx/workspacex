@@ -28,8 +28,14 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-confirm-brief").click();
   try {
     await expect(page.getByTestId("research-step-loading")).toBeVisible();
-    await expect(page.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
-    await expect(page.getByRole("button", { name: "1 导入需求", exact: true })).toHaveAttribute("aria-current", "step");
+    await expect(page.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
+    await page.getByRole("button", { name: /导入需求/ }).click();
+    await expect(page.getByRole("button", { name: /导入需求/ })).toHaveAttribute("aria-current", "step");
+    await expect(page.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByTestId("research-step-loading")).toHaveCount(0);
+    await page.getByRole("button", { name: /确认研究主题/ }).click();
+    await expect(page.getByTestId("research-step-loading")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
   await expect(page.getByRole("heading", { name: researchName, exact: true })).toBeVisible();
@@ -115,8 +121,14 @@ test("research persists all five model-backed steps through the real UI, API and
   const streamResponse = await reportResponse;
   expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
   await expect(page.getByTestId("research-report-timeline")).toBeVisible();
+  await expect(page.getByTestId("research-report-timeline")).not.toContainText("撰写章节");
+  await expect(page.getByTestId("research-report-timeline")).not.toContainText("核验章节");
+  await expect(page.getByTestId("research-report-history")).toHaveCount(0);
+  await expect(page.getByTestId("research-report-evidence-gap")).toHaveCount(0);
   await expect(page.getByTestId("research-report-preview-text")).toContainText("本章分析", { timeout: 30000 });
   await expect(page.getByTestId("research-report")).toHaveCount(0);
+  await expect(page.getByTestId("research-report-timeline-step").filter({ hasText: "生成 ·" }).locator("[aria-hidden]").first()).toBeVisible();
+  await expect(page.getByTestId("research-report-timeline").locator('[aria-busy="true"]')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("research-report-streaming.png"), fullPage: true });
   // Reload disconnects SSE. The server-owned generation must continue, not be replayed.
   await page.reload();

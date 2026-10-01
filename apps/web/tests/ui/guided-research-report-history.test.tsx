@@ -12,6 +12,16 @@ beforeEach(() => vi.resetAllMocks());
 const initial = runtimeFixture("report");
 const previous = { title: "上一轮研究", createdAt: "2026-09-08T01:00:00Z", report: null, text: '{"sections":[{"sectionId":"o1","body":"旧结论[[source:S1]]', chapters: [], sources: initial.sources, outline: initial.outline, aliases: [{ alias: "S1", sourceId: "source1" }] };
 describe("continuous report history", () => {
+  it("omits previous reports and coverage notices during generation", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, report: null, reportPartial: true, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportPrevious: previous,
+      reportEvidenceWarnings: [{ batchIndex: 0, sourceIds: ["source1"], questionIds: ["q1"], reason: "invalid_model_evidence" }],
+    });
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    await screen.findByTestId("research-flow-report");
+    expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-report-evidence-gap")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-report-evidence-warning")).not.toBeInTheDocument();
+  });
   it("restores a historical draft on a blank restarted generation without replaying a command", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, report: null, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportPrevious: previous, sources: [] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);

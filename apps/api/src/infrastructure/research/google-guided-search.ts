@@ -29,15 +29,19 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
       });
       if (!response.ok) throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
       const hits = C.GuidedResearchSearchProviderResponse.parse(await response.json()).results;
-      return hits.slice(0, 5).map((hit) => {
+      const usable = new Map<string, { title: string; url: string; content: string }>();
+      for (const hit of hits) {
         const sourceUrl = new URL(hit.url);
         if (!["http:", "https:"].includes(sourceUrl.protocol) || sourceUrl.username || sourceUrl.password) {
           throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
         }
         const content = hit.snippet.trim().slice(0, 30000);
-        if (!content) throw new ResearchRuntimeError("RESEARCH_SEARCH_CONTENT_EMPTY");
-        return { title: hit.title, url: sourceUrl.href, content };
-      });
+        if (!content) continue;
+        sourceUrl.hash = "";
+        if (!usable.has(sourceUrl.href)) usable.set(sourceUrl.href, { title: hit.title, url: sourceUrl.href, content });
+      }
+      if (hits.length && !usable.size) throw new ResearchRuntimeError("RESEARCH_SEARCH_CONTENT_EMPTY");
+      return [...usable.values()].slice(0, 10);
     } catch (error) {
       if (error instanceof ResearchRuntimeError) throw error;
       throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");

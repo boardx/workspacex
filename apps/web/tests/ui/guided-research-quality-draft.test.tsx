@@ -18,7 +18,7 @@ describe("report drafts with quality issues", () => {
     expect(screen.getAllByTestId("research-report-chapter")).toHaveLength(base.report!.sections.length);
     expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
     expect(screen.queryByText("报告已生成并保存。")).not.toBeInTheDocument();
-    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("已生成，待质量核验");
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("需要完善");
   });
   it("does not render stale review diagnostics without a saved draft", () => {
     const state = { ...runtimeFixture("report"), reportQualityWarnings: [{ sectionId: "o1", issues: ["internal review"] }] };
