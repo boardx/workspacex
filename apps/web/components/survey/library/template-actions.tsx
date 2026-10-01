@@ -32,6 +32,7 @@ type Props = {
   onApply: (draft: SurveyDraftInput) => void;
   locked?: boolean;
   disabled?: boolean;
+  saveOnly?: boolean;
 };
 const selectStyle =
   "w-full rounded-md border border-border bg-background p-2 text-12";
@@ -41,6 +42,7 @@ export function SurveyTemplateActions({
   onApply,
   locked = false,
   disabled = false,
+  saveOnly = false,
 }: Props) {
   const label = kind === "question" ? "问卷模板" : "报告模板";
   const [mode, setMode] = React.useState<"save" | "use" | null>(null);
@@ -170,31 +172,32 @@ export function SurveyTemplateActions({
   };
   return (
     <section
-      className="border-b border-border bg-card px-5 py-3"
+      className={saveOnly ? "" : "border-b border-border bg-card px-5 py-3"}
       aria-label={`${label}操作`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Button
+        {!saveOnly && <Button
           variant="outline"
           disabled={disabled || locked}
           onClick={() => open("use")}
         >
           使用{label}
-        </Button>
+        </Button>}
         <Button
-          variant="outline"
+          variant={saveOnly ? "primary" : "outline"}
+          className={saveOnly ? "w-full justify-start" : undefined}
           disabled={disabled}
           onClick={() => open("save")}
         >
           保存为{label}
         </Button>
-        <Link
+        {!saveOnly && <Link
           className="px-2 text-12 text-muted-foreground underline"
           href={`/studio/survey?tab=${kind === "question" ? "modules" : "reports"}`}
         >
           管理模板库
-        </Link>
-        {locked && (
+        </Link>}
+        {locked && !saveOnly && (
           <span className="text-12 text-muted-foreground">
             已发布题目不可替换，仍可保存为模板。
           </span>
@@ -211,7 +214,7 @@ export function SurveyTemplateActions({
           if (!value && !busy) setMode(null);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className={`max-h-[85vh] overflow-y-auto sm:max-w-xl ${saveOnly ? "[&_button:not(:disabled)]:bg-primary [&_button:not(:disabled)]:text-primary-foreground [&_button:not(:disabled):hover]:bg-primary-hover" : ""}`}>
           <DialogHeader>
             <DialogTitle>
               {mode === "save" ? "保存为" : "使用"}
@@ -246,6 +249,7 @@ export function SurveyTemplateActions({
                 />
               </label>
               <Button
+                variant="primary"
                 disabled={busy || disabled || !name.trim()}
                 onClick={() => void save()}
               >

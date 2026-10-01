@@ -733,7 +733,7 @@ export function SurveyQuestionEditor({
                       </span>
                     </div>}
                   <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group cursor-text border border-transparent px-6 py-6 transition-colors ${q.id === question?.id ? "border-ring" : "hover:border-border"}` : ""}>
-                    {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
+                    {studioLayout && <button type="button" data-survey-inline-edit aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
                       className={`mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}
                       onClick={() => { setId(q.id); setPendingType(undefined); }}>
                       {String(questionIndex + 1).padStart(2, "0")}
