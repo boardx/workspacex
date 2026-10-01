@@ -508,11 +508,20 @@ try {
       const start = mode === 'move' ? screen(scene.hitPoints[0]) : mode === 'resize' ? screen({ x: scene.bounds.left + scene.bounds.width, y: scene.bounds.top + scene.bounds.height }) : { x: rotationPoint.x + rotationControl.offsetX, y: rotationPoint.y + rotationControl.offsetY };
       const before = await canonicalState(), beforePixels = await connectorPixels();
       const beforeCorner = await selectionCornerInk(scene.bounds);
-      await pixelLayerDiagnostics(`multi-${mode}-before`, beforeCorner.point, { scene });
+      await pixelLayerDiagnostics(`multi-${mode}-before`, beforeCorner.point, { scene, canonicalBefore: before });
       assert(beforeCorner.bluePixels >= 3, 'actual Fabric selection corner is rendered');
       const beforeBlueChrome = await selectionBlueChrome();
       const toolbar = page.getByTestId('board-selection-layout-toolbar'); const beforeToolbar = await toolbar.boundingBox(); assert(beforeToolbar);
       const rotationSteps = [];
+      if (mode === 'rotate') {
+        const worldCenter = { x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 }, entities = [];
+        for (const node of nodes) {
+          const object = before.objects.find(item => item.id === node.id), points = rotationEntitySamplePoints(object, worldCenter, 0, scenePointFromLocal);
+          entities.push({ id: object.id, baselineGeometry: object.geometry, ...await entityFillMeasurements({ inside: points.inside.map(screen), outside: points.outside.map(screen) }, object.style.fill) });
+        }
+        writeFileSync(join(out, 'multi-rotate-baseline-entities.json'), JSON.stringify({ pointerAngle: 0, canonicalBefore: before, scene, viewport: await viewport(), entities }, null, 2));
+        assertRotationEntities(entities);
+      }
       await page.mouse.move(start.x, start.y); await page.mouse.down();
       if (mode === 'rotate') {
         const center = screen({ x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 });
@@ -530,13 +539,14 @@ try {
               assert(local.x < 0 || local.y < 0 || local.x > geometry.width || local.y > geometry.height, 'independent entity samples must not be occluded by another selected child');
             }
             const projected = { inside: samples.inside.map(screen), outside: samples.outside.map(screen) };
-            entities.push({ id: object.id, ...await entityFillMeasurements(projected, object.style.fill) });
+            entities.push({ id: object.id, baselineGeometry: object.geometry, ...await entityFillMeasurements(projected, object.style.fill) });
           }
           const expectedCorners = baselineCorners.map(point => rotatePoint(point, pointerAngle));
           const header = await page.getByTestId('board-editor-header').boundingBox(), dock = await page.getByTestId('board-creation-dock').boundingBox(); assert(header && dock);
           assert(expectedCorners.every(point => point.x > box.x + 16 && point.x < box.x + box.width - 16 && point.y > header.y + header.height + 16 && point.y < dock.y - 16), 'all independently predicted rotated corners are observable outside board chrome');
           const corners = await Promise.all(expectedCorners.map(controlInkAt));
-          await pixelLayerDiagnostics(`multi-rotate-${pointerAngle}-held`, expectedCorners[0], { pointerAngle, waypoint, entities, expectedCorners, corners });
+          const observedDomHandles = await page.locator('[data-testid^="connector-handle-"]').evaluateAll(elements => elements.map(element => { const rect = element.getBoundingClientRect(); return { testId: element.dataset.testid, x: rect.x, y: rect.y, width: rect.width, height: rect.height }; }));
+          await pixelLayerDiagnostics(`multi-rotate-${pointerAngle}-held`, expectedCorners[0], { pointerAngle, waypoint, canonicalBefore: before, scene, entities, expectedCorners, corners, observedDomHandles });
           await page.screenshot({ path: join(out, `multi-rotate-${pointerAngle}-held.png`) });
           assertHeldRotationFrame({ pointerAngle, entities, corners }); assertHeldUncommitted(before, await canonicalState());
           const stepToolbar = await toolbar.boundingBox(), stepPixels = await connectorPixels(); assert(stepToolbar && stepPixels.count > 20);

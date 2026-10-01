@@ -45,6 +45,8 @@ vi.mock("fabric", async () => {
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility(values: Record<string, boolean>) { this.controls = { ...values }; return this; }
     setCoords() {}
+    getPositionByOrigin() { return new actual.Point(this.left, this.top); }
+    setPositionByOrigin(point: { x: number; y: number }) { this.left = point.x; this.top = point.y; }
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
     getTotalAngle() { return this.angle; }
     calcTransformMatrix() {
@@ -697,6 +699,37 @@ describe("BoardFabricSurface", () => {
     zoomedOut.left = 136;
     act(() => probe.handlers.get("object:moving")?.({ target: zoomedOut }));
     expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+  });
+
+  it.each(["single", "group"])("keeps the real Fabric %s rotation pivot fixed instead of axis-snapping its position", async mode => {
+    const { Rect, ActiveSelection } = await vi.importActual<typeof import("fabric")>("fabric");
+    const child = new Rect({ left: 40, top: 60, width: 100, height: 80, strokeWidth: 0, originX: "left", originY: "top" });
+    Object.assign(child, { data: { boardObjectId: "s-1" } });
+    const other = new Rect({ left: 200, top: 60, width: 100, height: 80, strokeWidth: 0, originX: "left", originY: "top" });
+    Object.assign(other, { data: { boardObjectId: "r-1" } });
+    const target = mode === "single" ? child : new ActiveSelection([child, other]);
+    target.set({ angle: 14 }); target.setCoords();
+    const pivot = target.getCenterPoint(), bounds = target.getBoundingRect();
+    const axisTarget: BoardFabricObject = { ...OBJECTS[1]!, id: "axis", geometry: { x: bounds.left + 3, y: bounds.top + 3, width: bounds.width, height: bounds.height, rotation: 0 } };
+    renderSurface({ objects: [...OBJECTS, axisTarget], selectedObjectIds: [] });
+    act(() => probe.handlers.get("object:rotating")?.({ target: target as unknown as MockProjectedObject }));
+    expect(target.angle).toBe(15);
+    expect(target.getCenterPoint().x).toBeCloseTo(pivot.x, 8);
+    expect(target.getCenterPoint().y).toBeCloseTo(pivot.y, 8);
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    target.set({ angle: 29 });
+    const customPivot = target.getPositionByOrigin("right", "bottom");
+    act(() => probe.handlers.get("object:rotating")?.({ target, transform: { target, originX: "right", originY: "bottom" } } as never));
+    expect(target.angle).toBe(30);
+    expect(target.getPositionByOrigin("right", "bottom").x).toBeCloseTo(customPivot.x, 8);
+    expect(target.getPositionByOrigin("right", "bottom").y).toBeCloseTo(customPivot.y, 8);
+    target.set({ angle: 44 });
+    const altPivot = target.getCenterPoint();
+    act(() => probe.handlers.get("object:rotating")?.({ target, e: new MouseEvent("mousemove", { altKey: true }) } as never));
+    expect(target.angle).toBe(44);
+    expect(target.getCenterPoint()).toEqual(altPivot);
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    target.dispose();
   });
 
   it("commits an ActiveSelection as one batch and restores every member when rejected", () => {

@@ -106,6 +106,22 @@ function applyActiveSelectionChrome(selection: ActiveSelection): void {
   selection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
 }
 
+export function snapFabricRotation(
+  target: FabricObject,
+  targets: Parameters<typeof calculateRotationSnap>[1],
+  pivotOrigin?: Pick<FabricObject, "originX" | "originY">,
+): void {
+  const origin = pivotOrigin ?? (target.centeredRotation
+    ? { originX: "center" as const, originY: "center" as const }
+    : { originX: target.originX, originY: target.originY });
+  const pivot = target.getPositionByOrigin(origin.originX, origin.originY);
+  const bounds = target.getBoundingRect();
+  const rotation = calculateRotationSnap({ x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height, rotation: target.angle }, targets, 4);
+  target.set({ angle: rotation.geometry.rotation });
+  target.setPositionByOrigin(pivot, origin.originX, origin.originY);
+  target.setCoords();
+}
+
 function applyFixedContainerLayout(projected: Group, width: number, height: number): void {
   if (projected.layoutManager && !(projected.layoutManager.strategy instanceof FixedLayout)) {
     projected.layoutManager.strategy = new FixedLayout();
@@ -606,7 +622,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
       return undefined;
     };
-    const previewSnap = (event: { target?: FabricObject; e?: Event }, mode: "move" | "scale" | "rotate" = "move") => {
+    const previewSnap = (event: { target?: FabricObject; e?: Event; transform?: Pick<NonNullable<Canvas["_currentTransform"]>, "target" | "originX" | "originY"> }, mode: "move" | "scale" | "rotate" = "move") => {
       const target = event.target as TaggedFabricObject | undefined;
       if ((event.e as MouseEvent | undefined)?.altKey) { setSnapPreview(null); return; }
       const id = target?.data?.boardObjectId;
@@ -614,6 +630,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const nested = target && !id && "getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : [];
       const nestedIds = new Set(nested.flatMap(object => object.data?.boardObjectId ? [object.data.boardObjectId] : []));
       if (!target || (!canonical && nested.length === 0) || canonical?.locked || stateRef.current.readOnly) { setSnapPreview(null); return; }
+      if (mode === "rotate") {
+        const targets = [...canonicalRef.current.values()].filter(candidate => candidate.id !== id && !nestedIds.has(candidate.id));
+        const transform = event.transform ?? canvas._currentTransform;
+        snapFabricRotation(target, targets, transform?.target === target ? { originX: transform.originX, originY: transform.originY } : undefined);
+        setSnapPreview(null);
+        canvas.requestRenderAll();
+        return;
+      }
       if (mode === "scale" && nested.length) {
         const uniformScale = Math.abs(target.scaleX - 1) >= Math.abs(target.scaleY - 1) ? target.scaleX : target.scaleY;
         target.set({ scaleX: uniformScale, scaleY: uniformScale });
@@ -641,11 +665,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           scaleX: target.scaleX * width / moving.width,
           scaleY: target.scaleY * height / moving.height,
         });
-      } else if (mode === "move") target.set({ left: target.left + result.delta.x, top: target.top + result.delta.y });
-      else {
-        const rotation = calculateRotationSnap({ ...moving, rotation: target.angle ?? moving.rotation }, targets, 4);
-        target.set({ angle: rotation.geometry.rotation, left: target.left + result.delta.x, top: target.top + result.delta.y });
-      }
+      } else target.set({ left: target.left + result.delta.x, top: target.top + result.delta.y });
       target.setCoords();
       setSnapPreview(result.guides.length || result.measurements.length ? result : null);
       canvas.requestRenderAll();
