@@ -4,7 +4,7 @@
  * 以平台运营凭据走真实 HTTP 回写。门脚本产出的 `subjectVersionDigest` 必须等于导入落库的
  * `skill_versions.content_digest`，否则 EV04 回写一律 `WORK_EVAL_DIGEST_MISMATCH`（修复前本测试即红在这里）。
  */
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -12,7 +12,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { WORK_GATE_OFFICIAL_ORG, type WorkGateOfficialOrg } from "../../src/application/work-eval/work-gate-status";
 import type { OrgId } from "../../src/domain/org-id";
 import { FsBatchEntityEvaluator, HttpBatchCatalog, runAllSkillsCommand } from "../../src/infrastructure/work-eval/all-skills-eval";
-import { EXIT } from "../../src/infrastructure/work-eval/fs-eval-suite";
+import { EXIT, skillPackageVersion } from "../../src/infrastructure/work-eval/fs-eval-suite";
+import { PACK_ID, PACK_VERSION } from "../../scripts/build-work-research-skill-pack";
+import { skillContentDigest, verifySkillStarterPack } from "../../src/domain/skill/starter-pack";
 import { addCredential, addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { importWorkPack } from "../work-skill/support/catalog-fixture";
 import { quiet } from "./gates-fixture";
@@ -48,7 +50,9 @@ beforeAll(async () => {
   await resetOrgs(ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: `${ORG}-project` });
   await addOrgMember(ORG, OPS, "admin", fixture.teams.energy!);
-  await importWorkPack(base, `${OPS}:${ORG}`, "work-research", "1.0.0");
+  // The evaluator runs current source bytes, so import the corresponding generated
+  // release rather than an immutable historical pack with a different S003 version.
+  await importWorkPack(base, `${OPS}:${ORG}`, PACK_ID, PACK_VERSION);
 }, 180_000);
 
 afterAll(async () => {
@@ -62,12 +66,28 @@ afterAll(async () => {
 });
 
 describe("EV05 write-back digest = imported content_digest (real pack, no digest stub)", () => {
+  it("keeps the historical release digest distinct from current S003 source", () => {
+    const historical = verifySkillStarterPack(JSON.parse(readFileSync(
+      join(REPO, "skills/starter-packs/work-research/1.0.0.json"), "utf8")),
+    { packId: "work-research", packVersion: "1.0.0" });
+    const skill = historical.skills.find(entry => entry.stableName === "enterprise-search")!;
+    expect(skill.semanticVersion).toBe("1.0.0");
+    const current = skillPackageVersion(join(REPO, "skills/work-research/enterprise-search/SKILL.md"));
+    expect(`sha256:${skillContentDigest(skill)}`).not.toBe(current.digest);
+  });
+
   it("the gate-script digest of a real starter-pack skill is accepted by the EV04 write-back", async () => {
     // 导入本身会为每个带门判定的技能写一条 system:starter-pack-import 记录（#4677）；
     // 回写按 (org_id, skill_version_id) upsert，应覆盖 S003 那条而不是新增行。
     const countRecords = async () => asApp(ORG, async (c) =>
       Number((await c.query<{ n: string }>("SELECT count(*) AS n FROM skill_gate_records WHERE org_id = $1", [ORG])).rows[0]!.n));
     const before = await countRecords();
+    const sourceDigest = skillPackageVersion(join(REPO, "skills/work-research/enterprise-search/SKILL.md")).digest;
+    const importedDigest = await asApp(ORG, async (c) => (await c.query<{ digest: string }>(
+      `SELECT 'sha256:' || v.content_digest AS digest
+         FROM skill_versions v JOIN skill_catalog_entries e ON e.org_id = v.org_id AND e.skill_id = v.skill_id
+        WHERE e.org_id = $1 AND e.stable_id = 'S003' AND v.published`, [ORG])).rows);
+    expect(importedDigest).toEqual([{ digest: sourceDigest }]);
     const fs = new FsBatchEntityEvaluator({ repoRoot: REPO, evalsRoot });
     const r = await runAllSkillsCommand({
       repoRoot: REPO, evalsRoot, baseline: true, writeBack: true, runId: "real-digest", ...quiet,

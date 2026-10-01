@@ -1,0 +1,34 @@
+[stack-admission] load1=1.78 cores=5 perCore=0.36 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mup7fc56-e96002f8-1f313c10f9a4 db=wsx_1f313c10f9a4f775ecca compose=wsx-1f313c10f9a4f775ecca pg=20336 redis=21336 api=24336 web=25336 sandbox=26336 model=27336 deep-agent=28336 asr=29336 vision=30336 loopback-sandbox=31336 mail=19336
+ Network wsx-1f313c10f9a4f775ecca_default  Creating
+ Network wsx-1f313c10f9a4f775ecca_default  Created
+ Container wsx-1f313c10f9a4f775ecca-postgres-1  Creating
+ Container wsx-1f313c10f9a4f775ecca-postgres-1  Created
+ Container wsx-1f313c10f9a4f775ecca-postgres-1  Starting
+ Container wsx-1f313c10f9a4f775ecca-postgres-1  Started
+ Container wsx-1f313c10f9a4f775ecca-postgres-1  Waiting
+ Container wsx-1f313c10f9a4f775ecca-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/eval-pack-digest-fixes/apps/api
+
+[db-isolation] db=wsx_1f313c10f9a4f775ecca capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ✓ tests/work-eval/eval-all-skills-real-pack-digest.test.ts (2 tests) 44699ms
+   ✓ EV05 write-back digest = imported content_digest (real pack, no digest stub) > the gate-script digest of a real starter-pack skill is accepted by the EV04 write-back 1373ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  07:20:20
+   Duration  49.73s (transform 14.38s, setup 0ms, collect 3.33s, tests 44.70s, environment 0ms, prepare 75ms)
+
+[db-isolation] db=wsx_1f313c10f9a4f775ecca peak_connections=6
+[timing] bash /tmp/eval-pack-digest-db-test.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m2s
+  清理：2s
+  总计：1m4s
