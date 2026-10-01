@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/chat-import-scope-fixes/apps/web
+
+ ✓ tests/ui/capability-picker-model.test.ts (12 tests) 25ms
+ ✓ tests/ui/chat-official-role-import-scope.test.tsx (8 tests) 1243ms
+   ✓ chat hook sends frozen organization/token on the actual helper sequence and refreshes after verified completion 786ms
+ ✓ tests/lib/official-role-import-scope.test.ts (7 tests) 10ms
+ ✓ tests/ui/agent-capability-availability.test.tsx (19 tests) 2345ms
+   ✓ keeps configured unavailable Agents visible but unselectable alongside ready Agents 894ms
+
+ Test Files  4 passed (4)
+      Tests  46 passed (46)
+   Start at  06:54:26
+   Duration  8.64s (transform 5.42s, setup 1.09s, collect 14.92s, tests 3.62s, environment 2.29s, prepare 643ms)

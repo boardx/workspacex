@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { useSession } from "@/components/session/session-provider";
+import { useAuthenticatedSessionScope } from "@/lib/authenticated-session-scope";
 import { identity } from "@repo/contracts";
 import { ArrowLeft, Check, Loader2, SearchX, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -121,6 +123,12 @@ export function enableResultText(cards: readonly AgentDirectoryCard[]): string {
 
 /** 官方数字人待启用要约 + 管理员一键启用。读失败 → 不显示该分组（不打扰聊天）。 */
 export function useOfficialRoleOffer(enabled: boolean, onEnabled?: () => void): OfficialOfferState {
+  const { session } = useSession();
+  const scope = useAuthenticatedSessionScope();
+  const current = React.useRef({ scope, enabled });
+  current.current = { scope, enabled };
+  const operation = React.useRef<AbortController | null>(null);
+  const [stateScope, setStateScope] = React.useState(scope);
   const [offer, setOffer] = React.useState<OfficialRolePackOffer | null>(null);
   const [enabling, setEnabling] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -128,27 +136,50 @@ export function useOfficialRoleOffer(enabled: boolean, onEnabled?: () => void): 
   const [result, setResult] = React.useState<string | null>(null);
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => {
-    if (!enabled) return;
+    setStateScope(scope);
+    setOffer(null);
+    setEnabling(false);
+    setError(null);
+    setProgress(null);
+    setResult(null);
+    return () => { operation.current?.abort(); operation.current = null; };
+  }, [scope, enabled]);
+  React.useEffect(() => {
+    if (!enabled || scope === null) return;
     let alive = true;
-    getOfficialRolePackOffer().then((o) => { if (alive) setOffer(o); }, () => { if (alive) setOffer(null); });
+    getOfficialRolePackOffer().then(
+      (o) => { if (alive && current.current.scope === scope && current.current.enabled) setOffer(o); },
+      () => { if (alive && current.current.scope === scope && current.current.enabled) setOffer(null); },
+    );
     return () => { alive = false; };
-  }, [enabled, tick]);
+  }, [enabled, scope, tick]);
+  const visible = enabled && stateScope === scope && scope !== null;
   const enable = React.useCallback(() => {
-    if (!offer || enabling) return;
+    if (!visible || !offer?.canEnable || offer.pending.length === 0 || operation.current || !session) return;
+    const abort = new AbortController();
+    operation.current = abort;
+    const isCurrent = () => !abort.signal.aborted && operation.current === abort && current.current.scope === scope && current.current.enabled;
     setEnabling(true);
     setError(null);
     setResult(null);
-    enableOfficialRolePack(offer, setProgress)
+    enableOfficialRolePack(offer, (value) => { if (isCurrent()) setProgress(value); }, {
+      orgId: session.currentOrgId, sessionToken: session.sessionToken, signal: abort.signal, isCurrent,
+    })
       .then(async () => {
+        if (!isCurrent()) return;
         const cards = await listAgentDirectory().catch(() => [] as const);
+        if (!isCurrent()) return;
         setResult(enableResultText(cards));
         setTick((t) => t + 1);
         onEnabled?.();
       })
-      .catch(() => setError("启用没有完成，已完成的部分会保留。请稍后再点一次继续；仍不行请联系平台支持。"))
-      .finally(() => { setEnabling(false); setProgress(null); });
-  }, [offer, enabling, onEnabled]);
-  return { offer, enabling, error, enable, progress, result };
+      .catch(() => { if (isCurrent()) setError("启用没有完成，已完成的部分会保留。请稍后再点一次继续；仍不行请联系平台支持。"); })
+      .finally(() => {
+        if (isCurrent()) { setEnabling(false); setProgress(null); operation.current = null; }
+      });
+  }, [visible, offer, scope, session, onEnabled]);
+  return { offer: visible ? offer : null, enabling: visible && enabling, error: visible ? error : null, enable,
+    progress: visible ? progress : null, result: visible ? result : null };
 }
 
 type ActiveKey = { kind: "auto" } | { kind: "agent"; id: string } | { kind: "pending"; roleRef: string };
