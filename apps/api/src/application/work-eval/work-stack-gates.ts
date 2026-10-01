@@ -116,7 +116,12 @@ type GateManifest = Pick<z.infer<typeof IdentityManifest>, "stableId" | "evalSui
   Partial<Pick<z.infer<typeof IdentityManifest>, "provenance" | "dependencies">>;
 
 function newAjv() {
-  return new Ajv({ strict: false, allErrors: true });
+  const ajv = new Ajv({ strict: false, allErrors: true });
+  // AJV does not include standard formats by default; silently ignoring timestamps
+  // would let malformed contract samples pass G2.
+  const dateTime = z.string().datetime({ offset: true });
+  ajv.addFormat("date-time", { type: "string", validate: value => dateTime.safeParse(value).success });
+  return ajv;
 }
 
 function ajvErrors(errors: { instancePath: string; message?: string }[] | null | undefined): string {

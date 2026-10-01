@@ -61,6 +61,10 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-10-01：选择角色的系统消息传到 Python 引擎后，共享 graph 的静态 system_prompt 仍可能另行声明“通用助手”，造成两套身份冲突。验收应捕获真实 LangChain graph/middleware 送入模型的消息，覆盖 native 与 legacy；端口 fake 捕获和提示字符串存在都不证明模型服从。共享执行规则只定义运行纪律，角色以固定版本指令为准（角色上下文审查 #4872）。
 - 2026-10-01：个人画像每轮召回时，必须区分“用户背景”和“当前角色职责”，尤其问候/能力介绍与附件分析；固定角色正文传到了模型不等于回答遵守，协议回归与真实模型专业效果应分开验收（出处：[issue #4868](https://github.com/boardx/workspacex/issues/4868)）。
 - 2026-10-01：标准文档工具的不可重放执行失败需保留固定诊断分类；controller不能吞掉超时/取消/截断/执行标识不匹配之间的区别，日志仅输出有界枚举、不输出原始异常与文档数据（出处：[issue #4873](https://github.com/boardx/workspacex/issues/4873)）。
+- 2026-10-01：Work Skill 的 input/output JSON Schema `$ref` 不能指向 Markdown 章节。S003 的 loopback
+  曾在缺少输出字段且使用非契约枚举时获得 10/10：只验证 grader 断言不能证明输出满足契约。
+  用 `work-eval/s003-contract.ts` 派生包 schema，实际 subject 输出先严格校验再评分；G2 显式登记
+  date-time format，避免 AJV 默认忽略时间格式。新包由 builder 发货为 1.0.1，保留旧版本与固定 pins。
 - 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
   **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
   run 一写回，后台实例的每个事务都抛 `agent_run_lease_lost`，实例永远停在 `running`。派生后台工作必须
