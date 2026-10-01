@@ -36,9 +36,11 @@ flowchart TD
   %% evidence S1: fetch main 与 init.sh 已通过
   class S2 tested
   %% evidence S2: UI/检索回归已先失败后通过
-  class S3 done
-  class S4 doing
-  class S5 todo
+  class S3 tested
+  %% evidence S3: API 155、UI 最终54回归及新增章节56测试通过，独立复审无 P1/P2。
+  class S4 tested
+  %% evidence S4: 正式构建 CI 36853704807 全栈步骤退出0；新增报告 active 状态断言通过。
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
@@ -58,7 +60,7 @@ flowchart TD
 
 ## 未验证边界
 
-本次未部署生产环境；没有生产报错会话的运行日志，因此资料错误修复对应已复现的空摘要整批失败，不声称排除了所有外部检索故障。
+本次已按用户确认的正式构建方式完成浏览器验证，未部署生产环境；没有生产报错会话的运行日志，因此资料错误修复对应已复现的空摘要整批失败，不声称排除了所有外部检索故障。
 
 - 官方 seeded 浏览器运行：Web 冷构建启动超时（600 秒）；测试未开始，不记 passing。隔离外壳退出并完成资源清理，已核对本次构建进程与容器均不存在。
 - 开发服务复测：临时配置仅替换 Web 的启动命令为 `next dev`，沿用官方真实 API / 隔离 PostgreSQL / 回环模型 fixture；排队约 6 分钟后每核负载超过 15（准入上限 2.5），已停止本次排队；未启动测试栈。
@@ -67,3 +69,5 @@ flowchart TD
 
 - 正式构建 CI run 36850851389：next build + next start 全栈 134 passed / 1 skipped；用户研究五步链路通过，几何验证 7 passed。已保存 exact SHA manifest 与两张研究截图。
 - 截图复核发现首次正文 delta 时 timeline 尚未推送 running 元数据、须等轮询：新增反证失败，persistTimeline 在写入成功后发送 snapshot（后续由 SSE controller 压缩为 progress）；章节编排 56 测试现已通过。补充 E2E active 状态断言，准备复测新 SHA。
+
+- 最终正式构建：CI [36853704807](https://github.com/boardx/workspacex/actions/runs/36853704807)，候选 `f4e864e26d1ae60bd22293a94639db49edb4d229`，134 passed / 1 skipped；用户研究用例包含新增 active 状态断言，几何验证 7 passed。截图确认整理证据已勾选、当前章节旋转加载，旧报告与缺口横幅不存在。manifest 和截图已入本目录。
