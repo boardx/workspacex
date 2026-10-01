@@ -2,6 +2,47 @@ import { describe, expect, it } from "vitest";
 import { TestRunOutput } from "./test-run-output";
 
 describe("test-run output truthfulness", () => {
+  it.each(["RUN", "DEV"])("rejects a second empty %s invocation under the same Turbo task", banner => {
+    const transcript = "web:test: RUN v2.1.9 /tmp/first\n"
+      + "web:test: Test Files 1 passed (1)\nweb:test: Tests 1 passed (1)\n"
+      + `web:test: ${banner} v2.1.9 /tmp/second\nweb:test: Test Files no tests\n`;
+    for (const chunks of [[transcript], [...transcript]]) {
+      const output = new TestRunOutput();
+      for (const chunk of chunks) output.observe("stdout", chunk);
+      expect(output.classify(0).code).toBe(1);
+      expect(output.classify(7).code).toBe(7);
+      expect(output.classify(7).diagnostic).toContain("零测试执行");
+    }
+  });
+
+  it("preserves a finalized empty invocation even after a later same-task pass", () => {
+    const transcript = "web:test: RUN v2.1.9 /tmp/empty\nweb:test: No test files found\n"
+      + "web:test: RUN v2.1.9 /tmp/passing\n"
+      + "web:test: Test Files 1 passed (1)\nweb:test: Tests 1 passed (1)";
+    for (let cut = 0; cut <= transcript.length; cut++) {
+      const output = new TestRunOutput();
+      output.observe("stdout", transcript.slice(0, cut));
+      output.observe("stdout", transcript.slice(cut));
+      expect(output.classify(0).code).toBe(1);
+    }
+  });
+
+  it("allows positive final summaries to override logged empty phrases within each invocation", () => {
+    const output = new TestRunOutput();
+    const invocation = "web:test: \u001b[32mRUN v2.1.9 /tmp/web\u001b[0m\n"
+      + "web:test: No test files found in logged example\nweb:test: Test Files no tests\n"
+      + "web:test: Test Files 1 passed (1)\nweb:test: Tests 1 passed (1)\n";
+    for (const char of invocation.repeat(3)) output.observe("stdout", char);
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+  });
+
+  it("does not reset an invocation for prose mentioning a RUN banner", () => {
+    const output = new TestRunOutput();
+    output.observe("stdout", "web:test: RUN v2.1.9 /tmp/web\nweb:test: Tests 1 passed (1)\n"
+      + "web:test: logged example RUN v2.1.9 /tmp/example\nweb:test: Test Files no tests\n");
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+  });
+
   it("keeps ANSI and colon-script task identities at every chunk boundary", () => {
     const transcript = "\u001b[32m@repo/web:test:unit: \u001b[0m RUN v2.1.9 /tmp/web\n"
       + "@repo/web:test:unit: No test files found in logged example\n"

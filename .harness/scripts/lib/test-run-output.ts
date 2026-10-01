@@ -1,3 +1,5 @@
+const VITEST_BANNER = /^\s*(?:RUN|DEV)\s+v\d+\.\d+\.\d+(?:[-+][\w.-]+)?(?:\s+.*)?$/;
+
 /** Bounded streaming diagnostics; the child output itself is still forwarded. */
 class TestRunSummary {
   private zeroTests = false;
@@ -12,7 +14,7 @@ class TestRunSummary {
   }
 
   observe(text: string): void {
-    this.vitestSeen ||= /(?:^|\n)\s*(?:RUN|DEV)\s+v\d+\./.test(text);
+    this.vitestSeen ||= VITEST_BANNER.test(text);
     this.emptyAnnouncement ||= /(?:^|\n)\s*No test files found\b/.test(text);
     for (const summary of text.matchAll(/(?:^|\n)\s*Test Files\s+(no tests\b|\d+\s+(?:passed|failed|skipped|todo)\b)/g)) {
       this.zeroTests = summary[1] === "no tests";
@@ -39,15 +41,43 @@ class TestRunSummary {
   }
 }
 
+/** Only the current invocation and the first rejected completed one are retained. */
+class TestTaskSummary {
+  private current = new TestRunSummary();
+  private rejected: TestRunSummary | null = null;
+
+  clone(): TestTaskSummary {
+    const copy = new TestTaskSummary();
+    copy.current = this.current.clone();
+    // Finalized summaries are never observed again.
+    copy.rejected = this.rejected;
+    return copy;
+  }
+
+  observe(line: string): void {
+    if (VITEST_BANNER.test(line)) {
+      if (this.rejected === null && this.current.classify(0).diagnostic !== null) {
+        this.rejected = this.current;
+      }
+      this.current = new TestRunSummary();
+    }
+    this.current.observe(line);
+  }
+
+  classify(code: number): { code: number; diagnostic: string | null } {
+    return (this.rejected ?? this.current).classify(code);
+  }
+}
+
 /** Turbo prefixes identify independent runners; one passing task cannot hide another empty task. */
 export class TestRunOutput {
   private readonly tails = new Map<string, string>();
-  private readonly tasks = new Map<string, TestRunSummary>();
-  private observeLine(tasks: Map<string, TestRunSummary>, raw: string): void {
+  private readonly tasks = new Map<string, TestTaskSummary>();
+  private observeLine(tasks: Map<string, TestTaskSummary>, raw: string): void {
     const line = raw.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
     const prefixed = /^([@\w./-]+(?::[\w.-]+)+):\s+(.*)$/.exec(line);
     const task = prefixed?.[1] ?? "";
-    const summary = tasks.get(task) ?? new TestRunSummary();
+    const summary = tasks.get(task) ?? new TestTaskSummary();
     summary.observe(prefixed?.[2] ?? line);
     tasks.set(task, summary);
   }
