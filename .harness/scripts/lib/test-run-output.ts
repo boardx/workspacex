@@ -2,18 +2,26 @@
 export class TestRunOutput {
   private readonly tails = new Map<string, string>();
   private zeroTests = false;
+  private selectedFiles: number | null = null;
+  private vitestSeen = false;
+  private emptyAnnouncement = false;
   private webServerFailed = false;
 
   observe(stream: string, chunk: string): void {
     const text = ((this.tails.get(stream) ?? "") + chunk)
       .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
-    this.zeroTests ||= /Test Files\s+no tests\b|No test files found/.test(text);
+    this.vitestSeen ||= /(?:^|\n)\s*(?:RUN|DEV)\s+v\d+\./.test(text);
+    this.emptyAnnouncement ||= /(?:^|\n)\s*No test files found\b/.test(text);
+    for (const summary of text.matchAll(/(?:^|\n)\s*Test Files\s+(no tests\b|\d+\s+(?:passed|failed|skipped|todo)\b)/g)) {
+      this.zeroTests = summary[1] === "no tests";
+      this.selectedFiles = this.zeroTests ? 0 : Number.parseInt(summary[1]!, 10);
+    }
     this.webServerFailed ||= /Process from config\.webServer was not able to start|Timed out waiting[^\n]*config\.webServer/.test(text);
     this.tails.set(stream, text.slice(-4096));
   }
 
   classify(code: number): { code: number; diagnostic: string | null } {
-    if (this.zeroTests) {
+    if (this.zeroTests || (this.selectedFiles === null && this.vitestSeen && this.emptyAnnouncement)) {
       return {
         code: code === 0 ? 1 : code,
         diagnostic: code === 0

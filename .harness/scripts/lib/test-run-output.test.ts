@@ -32,4 +32,15 @@ describe("test-run output truthfulness", () => {
     output.observe("stderr", "Error: Process from config.webServer was not able to start. Exit code: 1\n");
     expect(output.classify(1).diagnostic).toContain("零测试执行");
   });
+  it("uses the final selected summary rather than a test's logged empty-run message", () => {
+    const output = new TestRunOutput();
+    output.observe("stdout", " RUN v2.1.9\nstdout | selected test\nNo test files found\n");
+    output.observe("stdout", "Test Files 1 passed (1)\nTests 1 passed (1)\n");
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+  });
+  it("does not classify arbitrary non-Vitest command prose as empty selection", () => {
+    const output = new TestRunOutput();
+    output.observe("stdout", "No test files found in the archived report\n");
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+  });
 });
