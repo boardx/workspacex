@@ -5,9 +5,9 @@ import { GuidedResearchLive } from "@/components/research-studio/guided-research
 import { GuidedResearchReportPreview } from "@/components/research-studio/guided-research-report-preview";
 import { ResearchChaptersWorkspace } from "@/components/research-studio/research-chapters-workspace";
 import { researchReportDocument } from "@/lib/research-report-document";
-import { executeResearchRuntime, getResearchRuntime } from "@/lib/guided-research-api";
+import { executeResearchRuntime, getResearchRuntime, getResearchRuntimeProgress } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
-vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
+vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(async () => ({ busy: false })) }));
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => vi.useRealTimers());
 describe("reference research workflow", () => {
@@ -124,19 +124,20 @@ describe("reference research workflow", () => {
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("does not let a poll issued before a progress snapshot roll its stage back", async () => {
-    const initial = runtimeFixture("research");
+    const initial = { ...runtimeFixture("report"), report: null };
+    vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ busy: false } as Awaited<ReturnType<typeof getResearchRuntimeProgress>>);
     let finishPoll!: (state: typeof initial) => void;
     let emit!: NonNullable<Parameters<typeof executeResearchRuntime>[1]>;
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockImplementationOnce(() => new Promise((resolve) => { finishPoll = resolve; }));
     vi.mocked(executeResearchRuntime).mockImplementation((_input, callback) => { emit = callback!; return new Promise(() => undefined); });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
-    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成报告" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    const snapshot = { ...initial, version: 5, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", currentNode: "report" as const, progress: { stage: "writing" as const, completed: 1, total: 2 } };
+    const snapshot = { ...initial, version: 5, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", currentNode: "report" as const, progress: { stage: "writing" as const, completed: 1, total: 2 }, reportTimeline: [{ id: "c", stage: "chapter" as const, status: "running" as const, attempts: 1, sectionId: "o1" }] };
     await act(async () => { emit({ type: "snapshot", state: snapshot }); });
-    await act(async () => { finishPoll({ ...snapshot, progress: { stage: "organizing", completed: 0, total: 2 } }); });
-    expect(screen.getByTestId("research-runtime-progress")).toHaveTextContent("撰写报告章节 · 1 / 2");
+    await act(async () => { finishPoll({ ...snapshot, progress: { stage: "organizing", completed: 0, total: 2 }, reportTimeline: [] }); });
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("撰写章节");
   });
   it("resolves refreshed preview aliases only to accepted sources and groups unknown citations as pending", () => {
     const initial = runtimeFixture("report");
@@ -158,7 +159,8 @@ describe("reference research workflow", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
     expect(await screen.findByText("已经保存的章节")).toBeInTheDocument();
-    expect(screen.getByTestId("research-runtime-progress")).toHaveTextContent("已暂停");
+    expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "生成完整报告" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal));

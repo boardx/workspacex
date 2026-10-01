@@ -275,13 +275,13 @@ describe("F168 guided research home live data", () => {
 
   it("confirms the initial brief once and keeps the next step loading until the model response", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-entry"));
+    getResearchRuntime.mockImplementation(async (sessionId: string) => ({ ...runtimeFixture("brief", sessionId), version: 0, brief: { ...runtimeFixture("brief").brief, goal: "核对具体政策" } }));
     let resolve!: (value: ReturnType<typeof runtimeFixture>) => void;
     executeResearchRuntime.mockReturnValue(new Promise((done) => { resolve = done; }));
-    const navigate = vi.fn();
-    render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
+    render(<GuidedResearchFlow step="brief" />);
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
-    expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在生成研究方向");
+    expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在解析研究主题");
     expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
     expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
@@ -289,9 +289,9 @@ describe("F168 guided research home live data", () => {
       sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
       draft: { node: "brief", value: expect.objectContaining({ goal: "核对具体政策" }) },
     }));
-    expect(navigate).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe("/research/grs-entry/topic");
     resolve(runtimeFixture("directions", "grs-entry"));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "grs-entry"));
+    await screen.findByRole("textbox", { name: "研究主题" });
   });
 
   it("opens the progressed session from an idempotent create replay without another confirmation", async () => {
@@ -307,15 +307,16 @@ describe("F168 guided research home live data", () => {
   it("recovers a lost model response by reading the created session without replay", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-lost"));
     getResearchRuntime.mockResolvedValueOnce({ ...runtimeFixture("brief", "grs-lost"), version: 0 })
+      .mockResolvedValueOnce({ ...runtimeFixture("brief", "grs-lost"), version: 0 })
       .mockResolvedValueOnce({ ...runtimeFixture("directions", "grs-lost"), errorCode: "RESEARCH_MODEL_UNAVAILABLE" });
     executeResearchRuntime.mockRejectedValueOnce(new Error("response lost"));
-    const navigate = vi.fn();
-    render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
+    render(<GuidedResearchFlow step="brief" />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "grs-lost"));
+    await screen.findByRole("alert");
+    expect(window.location.pathname).toBe("/research/grs-lost/topic");
     expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
-    expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+    expect(getResearchRuntime).toHaveBeenCalledTimes(3);
   });
 
   it("keeps the created session reachable if both runtime reads fail", async () => {
@@ -324,7 +325,7 @@ describe("F168 guided research home live data", () => {
     const navigate = vi.fn();
     render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("brief", "grs-offline"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "grs-offline"));
     expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
@@ -345,7 +346,7 @@ describe("F168 guided research home live data", () => {
     await act(async () => { resolve(phase === "create" ? createdSession("grs-abandoned") : runtimeFixture("directions", "grs-abandoned")); });
     await waitFor(() => expect(screen.getByTestId("research-flow-home")).toBeInTheDocument());
     expect(executeResearchRuntime).toHaveBeenCalledTimes(phase === "create" ? 0 : 1);
-    expect(Object.keys(window.localStorage).some((key) => key.startsWith("wsx.guidedResearch.createIdempotencyKey."))).toBe(true);
+    expect(Object.keys(window.localStorage).some((key) => key.startsWith("wsx.guidedResearch.createIdempotencyKey."))).toBe(phase === "create");
   });
 
   it("uses the session URL to restore the server-authored stage", async () => {

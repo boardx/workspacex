@@ -11,7 +11,7 @@ import { ResearchPrototypeTips } from "./research-prototype-tips";
 import { ResearchLoading } from "./guided-research-presentation";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog";
-import { createGuidedResearchSession, getResearchRuntime, executeResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
+import { createGuidedResearchSession, getResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
 type Brief = GuidedResearchSession["brief"];
 type Step = "home" | "brief" | "directions" | "outline" | "search" | "report";
 const EMPTY_BRIEF: Brief = { topic: "", goal: "", timeRange: "", region: "", focus: "" };
@@ -161,13 +161,6 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
       try {
         runtime = await getResearchRuntime(createdSession.sessionId);
         if (!active.current) return;
-        if (runtime.version === 0 && runtime.currentNode === "brief" && !runtime.busy && !runtime.legacyCheckpoint) {
-          runtime = await executeResearchRuntime({
-            sessionId: createdSession.sessionId, node: "brief", action: "confirm",
-            requestId: requestId("brief-confirm"), expectedVersion: runtime.version,
-            draft: { node: "brief", value: confirmedBrief },
-          });
-        }
       } catch {
         if (!active.current) return;
         try { runtime = await getResearchRuntime(createdSession.sessionId); } catch { /* Live offers read-only recovery. */ }
@@ -178,7 +171,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
       onClear?.();
       onSession(createdSession);
       const node = runtime?.currentNode;
-      onNavigate(node === "research" ? "search" : node ?? "brief", createdSession.sessionId);
+      onNavigate(runtime?.version === 0 || !runtime ? "directions" : node === "research" ? "search" : node ?? "directions", createdSession.sessionId);
     } catch {
       if (active.current) setSubmitFailed(true);
     } finally {
