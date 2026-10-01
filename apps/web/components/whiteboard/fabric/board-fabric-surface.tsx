@@ -1,6 +1,6 @@
 "use client";
 import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
-import { finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
+import { boardWheelDelta, finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
@@ -767,6 +767,43 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (event.touches.length === 0) {pinch = null;suppressTouch = false;}
     };
     const inputDocument = element.ownerDocument;
+    // Capture auxiliary mouse navigation before Fabric can start a selection or
+    // transform. Document listeners finish the drag even outside the canvas.
+    let auxiliaryPan: { last: FabricInput; start: typeof canvas.viewportTransform; button: number } | null = null;
+    const auxiliaryMouse = (event: MouseEvent) => {
+      if (event.type === "mousedown") {
+        if (auxiliaryPan || !host.contains(event.target as Node) || !(event.target instanceof HTMLCanvasElement) || ![1, 2].includes(event.button)) return;
+        const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
+        if (!input) return;
+        abortNativeInput(event);
+        auxiliaryPan = { last: input, start: [...canvas.viewportTransform], button: event.button };
+      } else if (!auxiliaryPan) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
+      if (!input || !auxiliaryPan) return;
+      const transform = panFabricViewport(canvas.viewportTransform, auxiliaryPan.last, input);
+      if (transform) canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
+      auxiliaryPan.last = input;
+      if (event.type === "mouseup" && event.button === auxiliaryPan.button) {
+        auxiliaryPan = null;
+        const transform = canvas.viewportTransform;
+        callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4], panY: transform[5] }, "pan");
+      }
+      canvas.requestRenderAll();
+    };
+    const cancelAuxiliaryPan = () => {
+      if (!auxiliaryPan) return;
+      canvas.setViewportTransform(auxiliaryPan.start);
+      auxiliaryPan = null;
+      canvas.requestRenderAll();
+    };
+    const cancelAuxiliaryKey = (event: KeyboardEvent) => { if (event.key === "Escape") cancelAuxiliaryPan(); };
+    const preventAuxiliaryMenu = (event: MouseEvent) => { if (event.target instanceof HTMLCanvasElement && host.contains(event.target)) event.preventDefault(); };
+    for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.addEventListener(type, auxiliaryMouse, true);
+    inputDocument.addEventListener("contextmenu", preventAuxiliaryMenu);
+    inputDocument.addEventListener("keydown", cancelAuxiliaryKey, true);
+    inputDocument.defaultView?.addEventListener("blur", cancelAuxiliaryPan);
     for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.addEventListener(type,nativePinch,{capture:true,passive:false});
     inputDocument.addEventListener("pointerdown", observePen, true);
     inputDocument.addEventListener("pointermove", observePen, true);
@@ -883,8 +920,17 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const wheel = (event: TPointerEventInfo<WheelEvent>) => {
       event.e.preventDefault();
       event.e.stopPropagation();
-      const nextZoom = clampBoardZoom(canvas.getZoom() * Math.pow(.998, event.e.deltaY));
-      canvas.zoomToPoint(new Point(event.e.offsetX, event.e.offsetY), nextZoom);
+      const delta = boardWheelDelta(event.e, canvas.getHeight());
+      if (!delta) return;
+      const nextZoom = delta.zoom ? clampBoardZoom(canvas.getZoom() * Math.pow(.998, delta.y)) : canvas.getZoom();
+      if (delta.zoom) {
+        const bounds = canvas.upperCanvasEl.getBoundingClientRect();
+        canvas.zoomToPoint(new Point(event.e.clientX - bounds.left, event.e.clientY - bounds.top), nextZoom);
+      } else {
+        const transform = [...canvas.viewportTransform];
+        transform[4]! -= delta.x; transform[5]! -= delta.y;
+        canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
+      }
       const transform = canvas.viewportTransform;
       callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: nextZoom, panX: transform[4], panY: transform[5] }, "wheel");
     };
@@ -904,6 +950,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:out", () => callbacksRef.current.onObjectHoverChange?.(null));
     return () => {
       disposed = true;
+      for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.removeEventListener(type, auxiliaryMouse, true);
+      inputDocument.removeEventListener("contextmenu", preventAuxiliaryMenu);
+      inputDocument.removeEventListener("keydown", cancelAuxiliaryKey, true);
+      inputDocument.defaultView?.removeEventListener("blur", cancelAuxiliaryPan);
       cancelDrawingRef.current = () => undefined;
       for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.removeEventListener(type,nativePinch,true);
       inputDocument.removeEventListener("pointerdown", observePen, true);

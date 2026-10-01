@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -133,6 +133,32 @@ const firstProjected = (canvas: ReturnType<typeof mountedCanvas>) => {
 
 describe("Board Fabric event-to-command boundary", () => {
   beforeEach(() => { fabricHarness.state.canvases.length = 0; });
+
+  it("pans unmodified wheel input without publishing an object command", () => {
+    const events = callbacks();
+    render(surface([base], events));
+    act(() => mountedCanvas().emit("mouse:wheel", { e: new WheelEvent("wheel", { deltaX: 12, deltaY: 30 }) }));
+    expect(events.onViewportChange).toHaveBeenCalledWith({ ...viewport, panX: -12, panY: -30 }, "wheel");
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])("pans button %i outside the canvas and cancels on Escape or blur", (button) => {
+    const events = callbacks();
+    render(surface([base], events));
+    const element = screen.getByTestId("board-fabric-canvas");
+    fireEvent.mouseDown(element, { button, clientX: 100, clientY: 120 });
+    fireEvent.mouseMove(document, { clientX: 140, clientY: 150 });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect((mountedCanvas() as unknown as { viewportTransform: number[] }).viewportTransform).toEqual([1, 0, 0, 1, 0, 0]);
+    fireEvent.mouseDown(element, { button, clientX: 100, clientY: 120 });
+    fireEvent.mouseMove(document, { clientX: 140, clientY: 150 });
+    fireEvent.blur(window);
+    expect(events.onViewportChange).not.toHaveBeenCalled();
+    fireEvent.mouseDown(element, { button, clientX: 100, clientY: 120 });
+    fireEvent.mouseUp(document, { button, clientX: 140, clientY: 150 });
+    expect(events.onViewportChange).toHaveBeenCalledWith({ ...viewport, panX: 40, panY: 30 }, "pan");
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+  });
 
   it("emits one transform command only when a completed local Fabric gesture fires", () => {
     const events = callbacks();
