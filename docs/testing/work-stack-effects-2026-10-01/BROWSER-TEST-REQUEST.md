@@ -1,4 +1,4 @@
-# 交给“明确测试工程师职责”session 的浏览器验收任务
+# 交给“测试工程师”session 的浏览器验收任务
 
 状态：待派发；本 session 未提供跨 chat 发送工具，未声称已发送。
 关联 Issue #4862；修复分支 worker/codex-workstack-effect-fixes。
@@ -21,9 +21,10 @@
 站点已确认 https://devapp.boardx.us。角色/记忆 #4868、语音/PDF #4869。先保存部署 SHA，不把未部署 PR 的本地通过当作线上通过。
 
 1. 同一有佛学画像账号选“产品经理”，分别问“你好”“你可以做什么”。预期介绍产品职责/具体帮助/授权边界；不得按佛学画像重定义角色。
-2. 上传 WorkspaceX_Whitepaper_v1.0.pdf，问“你帮我分析一次这个文件，给我你的看法”。默认围绕文档；另测明确要求联系佛学的输入，确认有用户指令时允许关联。
+2. 上传自建合成产品白皮书 PDF，问“你帮我分析一次这个文件，给我你的看法”。默认围绕文档；另测明确要求联系佛学的输入，确认有用户指令时允许关联。
 3. 重现 PDF 第1步未闭工具，收集真实 runId、tool_call_id、工具名、脱敏参数、事件时间线及 kernel terminal error / API failureReason，不根据兜底文案猜脚本失败。
 4. 测 wss://devapp.boardx.us/chat/realtime-digital-human：握手 HTTP 状态、匿名应拒绝、登录子协议鉴权、session.ready、麦克风双向声音/字幕、挂断后两端转写刷新仍在。查看实际 live Caddy 路由与已安装可信 helper 版本。
 5. extraction 404：核对 threadId/messageId 是否前端临时 ID、属于可见线程的真实用户消息；后端按隐藏/不可见返回404，不应凭空跳过权限。记录接口响应 reasonCode 与发起时序。
 
-已读取测试工程师 session 最新状态：本地收件箱 /Users/shenyanbin/Documents/workspacex/.harness/state/.cache/qa-local/inbox，session 01a0f5d5-5e28-7861-a17f-8fee64303fbe（host local）。本云环境无写入该路径/发送消息工具，因此本文件仍为待派发，不是假装已接单。
+
+统一交付 PR #4867，验收前核对部署包含本次统一分支全部修复；历史子 PR SHA 不代表统一部署。当前没有跨 session 发送工具或本地收件箱写入能力，状态仍为待派发。
