@@ -1,3 +1,4 @@
+import {DocumentParseExecutionError} from '../../application/agent-run/standard-document-tools';
 import {createHash,randomUUID} from 'node:crypto';
 import {DocumentParseInput,DocumentParseOutput,DOCUMENT_PARSE_LIMITS,DOCUMENT_OCR_LIMITS,DOCUMENT_STRUCTURE_LIMITS,DocumentStructure,DOCUMENT_PARSE_TOOL} from '@repo/contracts/standard-document-tools';
 import {schemas,limits} from '@repo/contracts/sandbox-session';
@@ -43,7 +44,11 @@ export class DefaultStandardDocumentService implements StandardDocumentService {
   if(!dispatch.allowed)throw new Error('document_parse_denied');
   const execution={executionId:randomUUID(),command,timeoutMs:DOCUMENT_PARSE_LIMITS.timeoutMs};
   const result=await session.execute(execution);
-  if(result.executionId!==execution.executionId||result.exitCode!==0||result.timedOut||result.cancelled||result.truncated)throw new Error('document_parse_failed_no_replay');
+  if(result.executionId!==execution.executionId)throw new DocumentParseExecutionError('execution_mismatch');
+  if(result.timedOut)throw new DocumentParseExecutionError('execution_timeout');
+  if(result.cancelled)throw new DocumentParseExecutionError('execution_cancelled');
+  if(result.truncated)throw new DocumentParseExecutionError('execution_truncated');
+  if(result.exitCode!==0)throw new DocumentParseExecutionError('execution_failed');
   const output=schemas.file.parse(await session.read(textPath)),content=Buffer.from(output.contentBase64,'base64');
   if(output.path!==textPath||content.length!==output.sizeBytes||content.length>limits.maxFileBytes||content.toString('base64')!==output.contentBase64)throw new Error('document_parse_output_invalid');
   const text=new TextDecoder('utf-8',{fatal:true}).decode(content);

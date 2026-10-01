@@ -82,3 +82,17 @@ it('OCR returns verified real structure and rejects invalid coordinates or overs
  structure.pages[0]!.words[0]!.bbox.width=30;structure.pages[0]!.pageNumber=2;
  await expect(f.service.parse(context,{workspacePath:path,ocr:true})).rejects.toThrow('structure_invalid');
 });
+
+it.each([
+ ['execution_mismatch',{executionId:'another-execution'}],
+ ['execution_timeout',{timedOut:true,exitCode:null}],
+ ['execution_cancelled',{cancelled:true,exitCode:null}],
+ ['execution_truncated',{truncated:true}],
+ ['execution_failed',{exitCode:1}],
+] as const)('distinguishes %s without reading output or repeating execution',async(reason,change)=>{
+ const f=setup();
+ f.session.execute.mockImplementationOnce(async input=>({executionId:input.executionId,exitCode:0,output:'private-output-never-logged',truncated:false,timedOut:false,cancelled:false,...change}));
+ await expect(f.service.parse(context,{workspacePath:path})).rejects.toMatchObject({reason,message:'document_parse_failed_no_replay'});
+ expect(f.session.execute).toHaveBeenCalledTimes(1);
+ expect(f.session.read).toHaveBeenCalledTimes(1);
+});
