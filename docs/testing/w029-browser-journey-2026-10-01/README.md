@@ -20,4 +20,10 @@ Use the parent's derived local fullstack configuration and existing loopback-onl
 
 The parent owns project registration: the workflow project should explicitly depend on the official digital-human journey project; do not rely on file sorting. No original CI configuration, root scripts, or stack startup was changed here.
 
-Preparation validation: TypeScript syntax transpilation passed for the two new files; `git diff --check` passed. No browser stack was started, no E2E run was performed, and no screenshots or traces have been produced at this commit. Integration typechecking and browser execution are the parent's next checks.
+## Round 7 execution state
+
+Parent-reported local execution at source baseline `5b698e315` uses actual production Next → Nest → isolated PostgreSQL/Redis and deterministic model upstreams. Published v2 `rawInput` was submitted through the business form; actual persisted grants, four human approvals and all sixteen stages reaching `succeeded` were observed.
+
+The journey is **not fully PASS**: the authorized instance projection returned `effects=[]`, preventing the final required effect-receipt/output reconciliation. This is a product defect tracked as backlog B17 and is being fixed. B16 remains unchecked until final output, receipts and refresh readback are verified. Stage success cannot substitute for final effect evidence. The parent owns actual screenshots/traces and the final report; none are invented in this update.
+
+Real-model semantic PRD quality, deployed devapp, real voice and PDF analysis remain **BLOCKED**. Only sales Workflow/CRM tasks are deferred; this does not exclude D005 basic chat or shared Skills.
