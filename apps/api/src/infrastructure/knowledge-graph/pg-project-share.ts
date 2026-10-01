@@ -3,7 +3,7 @@
  *
  * 读方法都包进 `guard(personalSpaceRef(userId))`：调用方（application/knowledge-graph/share-to-project.ts）
  * 交出个人空间判定（`decidePersonalSpace`：组织层 + 查看者就是空间主人）才拿得到内容。
- * 写只经两个数据库函数（迁移 20260928200000）：主人 / 成员 / 观察者 / 归档都在那里、与写入同一个事务里复核。
+ * 写只经两个数据库函数（迁移 20260928200000 与 20261001 修复）：主人 / 成员 / 观察者 / 归档都在那里、与写入同一个事务里复核。
  * 每次都设 app.current_user_id = 登录用户：个人空间的行由 RLS 只放给本人（I-14）。
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -58,7 +58,14 @@ export class PgProjectShare implements ProjectSharePort {
                     AND d.relation = 'derived_from' AND d.status = 'active'
                     AND pc.scope_kind = 'project' AND pc.scope_id = p.id AND pc.revoked_at IS NULL AND pc.status <> 'superseded'
                   LIMIT 1) AS shared_claim_id
-           FROM project_memberships m JOIN projects p ON p.id = m.project_id AND p.org_id = m.org_id
+           FROM (SELECT org_id, project_id, user_id, project_role FROM project_memberships
+                 UNION ALL
+                 SELECT gm.org_id, gm.project_id, gm.user_id,
+                        CASE gm.role WHEN 'owner' THEN 'facilitator' ELSE 'member' END
+                   FROM general_project_members gm JOIN projects gp ON gp.org_id = gm.org_id AND gp.id = gm.project_id
+                  WHERE gp.kind = 'general'
+                    AND NOT EXISTS (SELECT 1 FROM project_memberships pm WHERE pm.org_id = gm.org_id AND pm.project_id = gm.project_id AND pm.user_id = gm.user_id)
+                ) m JOIN projects p ON p.id = m.project_id AND p.org_id = m.org_id
           WHERE m.org_id = $1 AND m.user_id = $2 AND m.project_role <> 'observer' AND p.status <> 'archived'
           ORDER BY p.name, p.id`,
         [orgId, userId, claimId],
@@ -67,7 +74,10 @@ export class PgProjectShare implements ProjectSharePort {
       // 范围预览：每个项目的全体成员（含观察者——项目记忆给全体成员看），显示名取自 credentials。
       const members = await s.query<{ project_id: string; user_id: string; display_name: string | null }>(
         `SELECT m.project_id, m.user_id, cr.display_name
-           FROM project_memberships m LEFT JOIN credentials cr ON cr.user_id = m.user_id
+           FROM (SELECT org_id, project_id, user_id FROM project_memberships
+                 UNION SELECT gm.org_id, gm.project_id, gm.user_id
+                   FROM general_project_members gm JOIN projects gp ON gp.org_id = gm.org_id AND gp.id = gm.project_id
+                  WHERE gp.kind = 'general') m LEFT JOIN credentials cr ON cr.user_id = m.user_id
           WHERE m.org_id = $1 AND m.project_id = ANY($2::text[])
           ORDER BY m.project_id, coalesce(cr.display_name, m.user_id), m.user_id`,
         [orgId, projects.rows.map((p) => p.id)],

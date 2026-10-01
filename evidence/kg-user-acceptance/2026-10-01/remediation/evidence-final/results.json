@@ -1,0 +1,441 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-user-acceptance.config.ts",
+      "--grep",
+      "L-(cloud|local)-general|L-team|M-graph-readability|M-local-restart|M-vector-fault"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-user-acceptance.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-(?:user|mode|levels)-acceptance\\.acceptance\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-user-acceptance/results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "test-results/kg-user-acceptance/html",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-levels-acceptance.acceptance.ts",
+      "file": "kg-levels-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[L-cloud-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21190,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:44:32.235Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJwcm9qZWN0SWQiOiJwcmotM2I0NWZlZDgtMmY2ZS00MmMxLWFhNTktODBiZGI3NTU5ZmE1Iiwic291cmNlVGhyZWFkIjoidGhyLWEzMzBjYzQ5LWYxYTktNGZmYi1hNGIyLWJmNjNhNTVhYThiOCIsInNvdXJjZUNsYWltIjoiY2xtX2MzMmVhZjg0MDBhMjQ5Y2U4NWUzMDVkZjA4ZGYwNDc0IiwicGVyc29uYWxBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsInByb2plY3RBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-cf46c--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-34c322e88d159cd4f91e",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-local-general] 会话决定 → 个人长期记忆 → 新会话引用 → 分享项目 → 项目对话引用 → 撤回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18766,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:44:53.647Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJwcm9qZWN0SWQiOiJwcmotZjkwY2NkMzktODQ3ZC00ZDQxLTgwYTMtODA1Y2QzNDg3NmI1Iiwic291cmNlVGhyZWFkIjoidGhyLTY0Y2I2ZGE4LWIzMzMtNDc4NS1iZjg3LWExYzYxYzQzNTM4MiIsInNvdXJjZUNsYWltIjoiY2xtX2Q2ODg1NzEyOTMzYjRjZjQ5ZDg5ZGI0OWVhZDA1NjFiIiwicGVyc29uYWxBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5piv5Zug5Li65oGS6YCa54mp5rWB55qE5Y+45py65Li76KaB55So5a6J5Y2T5omL5py677yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsInByb2plY3RBbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiJ9"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-20265--新会话引用-→-分享项目-→-项目对话引用-→-撤回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-1e7aae96a1aaa831b585",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 9,
+          "column": 7
+        },
+        {
+          "title": "[L-team-workshop] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18769,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:45:12.424Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJiZWZvcmUiOiLmiJHmsqHmnInmib7liLDnm7jlhbPnmoTorrDlv4bjgIIiLCJzaGFyZWQiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiIsImFmdGVyIjoi5oiR5rKh5pyJ5om+5Yiw55u45YWz55qE6K6w5b+G44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-d86ad-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-d86ad-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-d86ad-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-fb9c259b94e1655f5012",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 100,
+          "column": 5
+        },
+        {
+          "title": "[L-team-general] 分享前项目成员不可用 → 分享后可用 → 非成员不可见 → 撤回后新会话不再使用",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18769,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:45:31.215Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJiZWZvcmUiOiLmiJHmsqHmnInmib7liLDnm7jlhbPnmoTorrDlv4bjgIIiLCJzaGFyZWQiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjvvIjmnaXoh6rpobnnm67orrDlv4bvvIznlLEg5Y+M5qih5byP6aqM5pS255So5oi3IOWIhuS6q+iHquS4quS6uuiusOW/hu+8ieOAgiIsImFmdGVyIjoi5oiR5rKh5pyJ5om+5Yiw55u45YWz55qE6K6w5b+G44CCIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-b3025-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-b3025-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-levels-acceptance.accep-b3025-分享后可用-→-非成员不可见-→-撤回后新会话不再使用/test-finished-3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "805aac0cdb90efd83bcd-f5785ad74df14b6868a8",
+          "file": "kg-levels-acceptance.acceptance.ts",
+          "line": 100,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "kg-mode-acceptance.acceptance.ts",
+      "file": "kg-mode-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[M-graph-readability] 默认窄侧栏关系图能完整显示记忆节点",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9034,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:45:50.006Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "measure",
+                      "contentType": "application/json",
+                      "body": "eyJjYW52YXNXaWR0aCI6MjYzLCJub2RlcyI6W3sidGV4dCI6IuWuieWNk+eJiOS6p+WTgSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjM3LjQxOTU1NTY2NDA2MjV9LHsidGV4dCI6IueOi+iKs+S6uueJqSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjMwLjQxNDQyODcxMDkzNzV9LHsidGV4dCI6IuaBkumAmueJqea1geWFrOWPuCIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjQ0LjQyNDU2MDU0Njg3NX0seyJ0ZXh0Ijoi5YyX5p6B5pif6aG555uu6aG555uuIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6NTEuNDI5Njg3NX0seyJ0ZXh0IjoiR3JhcGhRTOacr+ivrSIsInZpc2libGVSYXRpbyI6MSwieCI6MTE4Mywid2lkdGgiOjQ1LjQ3ODc1OTc2NTYyNX0seyJ0ZXh0Ijoi6LW156OK5Lq654mpIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMTgzLCJ3aWR0aCI6MzAuNDE0NDI4NzEwOTM3NX0seyJ0ZXh0Ijoi546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI5Yaz5a6aIMK3IEFJIOiusOS4i+eahCIsInZpc2libGVSYXRpbyI6MSwieCI6MTMwOS4xMTEwODM5ODQzNzUsIndpZHRoIjoxMDAuODg4OTE2MDE1NjI1fSx7InRleHQiOiLljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYjmmK/lm6DkuLrmgZLpgJrnianmtYHnmoTlj7jmnLrkuLvopoHigKbkuovlrp4gwrcgQUkg6K6w5LiL55qEIiwidmlzaWJsZVJhdGlvIjoxLCJ4IjoxMzA5LjExMTA4Mzk4NDM3NSwid2lkdGgiOjEwMC44ODg5MTYwMTU2MjV9LHsidGV4dCI6Iui1teejiuWGs+WumuWMl+aegeaYn+mhueebrueahOaOpeWPo+e7n+S4gOaUueaIkCBHcmFwaFFM5Yaz5a6aIMK3IEFJIOiusOS4i+eahCIsInZpc2libGVSYXRpbyI6MSwieCI6MTMwOS4xMTEwODM5ODQzNzUsIndpZHRoIjoxMDAuODg4OTE2MDE1NjI1fV0sIm1pblZpc2libGVSYXRpbyI6MX0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-f0473-adability-默认窄侧栏关系图能完整显示记忆节点/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-ac1ce0d4b26848968851",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 73,
+          "column": 5
+        },
+        {
+          "title": "[M-local-restart] local组织刷新、新会话仍可用；AGE故障如实提示并恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10257,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:45:59.055Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-73cd2-cal组织刷新、新会话仍可用；AGE故障如实提示并恢复/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-846ad43dcb4f2fd3fe3d",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 107,
+          "column": 5
+        },
+        {
+          "title": "[M-vector-fault] 两种组织pgvector故障可继续回答，说明正确通道，恢复后可相似召回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18284,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:46:09.324Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "cloud-measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoiY2xvdWQiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb6LW156OK5Yaz5a6a5YyX5p6B5pif6aG555uu55qE5o6l5Y+j57uf5LiA5pS55oiQIEdyYXBoUUzvvIjmnaXoh6rkuKrkurrnqbrpl7Tnn6Xor4bvvIzmnIDml6nop4Hkuo7kvaAgMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5vdGljZSI6Iui/measoeayoeiDveafpeWFqOS9oOeahOiusOW/hu+8iOebuOS8vOafpeivouaaguS4jeWPr+eUqO+8ie+8jOWbnuetlOWPr+iDveS4jeWujOaVtCIsImNoYW5uZWxzIjoiWzFdIOaBkumAmueJqea1geeahOWvueaOpeS6uuaYr+mZiOmdmVxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuaBkumAmueJqea1gSDigJTlhbPkuo7ihpIg5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZXG5cblsyXSDotbXno4rlhrPlrprljJfmnoHmmJ/pobnnm67nmoTmjqXlj6Pnu5/kuIDmlLnmiJAgR3JhcGhRTFxu6K6w5LiL55qEXG7CtyDlj6zlm55cblszXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuiusOS4i+eahFxuwrcg5Y+s5ZueIn0="
+                    },
+                    {
+                      "name": "local-measure",
+                      "contentType": "application/json",
+                      "body": "eyJtb2RlIjoibG9jYWwiLCJhbnN3ZXIiOiLmoLnmja7kuYvliY3nmoTlr7nor53vvJrmgZLpgJrnianmtYHnmoTlr7nmjqXkurrmmK/pmYjpnZnvvIjmnKzkvJror50gMTAvMDEg55qE5a+56K+d77yJ77yb546L6Iqz5Yaz5a6a5YyX5p6B5pif6aG555uu6aaW5Y+R5Y+q5YGa5a6J5Y2T54mI77yI5p2l6Ieq5Liq5Lq656m66Ze055+l6K+G77yM5pyA5pep6KeB5LqO5L2gIDEwLzAxIOeahOWvueivne+8ieOAgiIsIm5vdGljZSI6Iui/measoeayoeiDveafpeWFqOS9oOeahOiusOW/hu+8iOebuOS8vOafpeivouaaguS4jeWPr+eUqO+8ie+8jOWbnuetlOWPr+iDveS4jeWujOaVtCIsImNoYW5uZWxzIjoiWzFdIOaBkumAmueJqea1geeahOWvueaOpeS6uuaYr+mZiOmdmVxu5YWo5paHXG7lhbPogZRcbsK3IOWPrOWbnlxuwrcg57q/57SiXG5cbuaBkumAmueJqea1gSDigJTlhbPkuo7ihpIg5oGS6YCa54mp5rWB55qE5a+55o6l5Lq65piv6ZmI6Z2ZXG5cblsyXSDnjovoirPlhrPlrprljJfmnoHmmJ/pobnnm67pppblj5Hlj6rlgZrlronljZPniYhcbuiusOS4i+eahFxuwrcg5Y+s5ZueIn0="
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-3d1ef-ctor故障可继续回答，说明正确通道，恢复后可相似召回/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-53c30d6bd9286f6c3509",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 134,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T09:44:21.014Z",
+    "duration": 126808.34199999999,
+    "expected": 7,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

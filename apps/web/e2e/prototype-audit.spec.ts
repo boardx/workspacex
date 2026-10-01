@@ -208,6 +208,12 @@ test.describe("可见文本对比度（WCAG AA，浅色主题）", () => {
     test(`${route} 没有低于 AA 的可见文本`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: "light" });
       await page.goto(route, { waitUntil: "networkidle" });
+      if (route === "/preview/chat-viz") {
+        // networkidle does not prove hydration or the message entrance has
+        // finished. Audit visible final-state text, not SSR's opacity-zero shell.
+        await expect(page.getByTestId("chat-message-entrance-ai")).toHaveAttribute("data-motion-entered", "true");
+        await expect(page.getByTestId("chat-message-entrance-ai-fade")).toHaveCSS("opacity", "1");
+      }
       await page.waitForTimeout(600);
 
       const report = await page.evaluate(auditTextContrast, { aaNormal: AA_NORMAL, aaLarge: AA_LARGE });

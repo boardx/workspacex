@@ -253,6 +253,8 @@ export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
 // ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
 
 export interface KnowledgeRecallPort {
+  /** Optional isolated evaluation policy; absent in normal operation. */
+  readonly evaluationMode?: "hybrid" | "vector_only";
   /** 本会话的活结论与实体（候选集）。读身份 = 发起这轮对话的人。 */
   candidates(orgId: OrgId, userId: string, threadId: string): Promise<{
     readonly claims: readonly RecallClaim[];
@@ -286,6 +288,7 @@ export interface TurnRecallRecord {
     readonly graphPath: readonly GraphHop[] | null;
   }[];
   readonly graphDegraded: boolean;
+  readonly degradedChannels?: readonly string[];
 }
 
 export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");

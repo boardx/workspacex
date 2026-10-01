@@ -431,8 +431,10 @@ export const KgTurnMemory = z.object({
   supersede: KgSupersedeNotice.nullable(),
   /** 本轮回答用到的记忆（按召回名次）；没用到记忆时为空数组 */
   recalled: z.array(KgRecalledMemory),
-  /** 本轮计划走关联查询（图）但它没能执行：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */
+  /** 本轮至少一个已配置的召回通道执行失败：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */
   recallDegraded: z.boolean(),
+  /** 实际失败的通道；旧服务端省略时只能显示通用提示，不猜测。 */
+  degradedChannels: z.array(z.enum(["graph", "vector"])).optional(),
   /**
    * S7（#4364，待签核：按已批准处理、事后补签）：这条回答**真的用到了**的那几条（引用 chip），按召回名次。
    * 服务端对账：恒为 `recalled[].claimId` 的子集——模型在回答里提到的、却不在本轮召回集合里的说法不会出现在这里

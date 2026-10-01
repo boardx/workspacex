@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowLeft, Check, Search, Bot } from "lucide-react";
+import { ArrowLeft, Check, Search, Bot, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,9 @@ import { guidedResearchRoute } from "@/lib/guided-research-routes";
 
 export function GuidedResearchSixStepShell({
   current,
+  running,
+  completed: researchCompleted = false,
+  completedStages,
   researchName,
   available,
   onBack,
@@ -21,6 +24,9 @@ export function GuidedResearchSixStepShell({
   hasUnsavedChanges = false,
 }: {
   current: GuidedResearchVisualStage;
+  running?: GuidedResearchVisualStage;
+  completed?: boolean;
+  completedStages?: readonly GuidedResearchVisualStage[];
   researchName?: string;
   available: readonly GuidedResearchVisualStage[];
   onBack?: () => void;
@@ -33,7 +39,7 @@ export function GuidedResearchSixStepShell({
   sessionId?: string;
   hasUnsavedChanges?: boolean;
 }) {
-  const currentIndex = GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === current);
+  const furthestIndex = Math.max(...available.map((stage) => GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === stage)), 0);
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const assistantOpen = controlledAssistantOpen ?? internalAssistantOpen;
   const setAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
@@ -79,8 +85,9 @@ export function GuidedResearchSixStepShell({
             {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
               const unlocked = available.includes(step.id);
               const active = step.id === current;
-              const completed = index < currentIndex && unlocked;
-              const stepContent = <><span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full border text-base", (completed || active) && "border-primary bg-primary text-primary-foreground", active && "ring-2 ring-primary ring-offset-2", !completed && !active && "border-border bg-muted/30 text-muted-foreground")}>{completed ? <Check className="size-4" /> : index + 1}</span><span className="truncate">{step.label}</span></>;
+              const executing = step.id === running;
+              const completed = !executing && unlocked && (researchCompleted || (completedStages ? completedStages.includes(step.id) : index < furthestIndex));
+              const stepContent = <><span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full border text-base", (completed || active) && "border-primary bg-primary text-primary-foreground", active && "ring-2 ring-primary ring-offset-2", !completed && !active && "border-border bg-muted/30 text-muted-foreground")}>{executing ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : completed ? <Check className="size-4" /> : index + 1}</span><span className="truncate">{step.label}</span></>;
               return <li key={step.id} className="flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0">
                 {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-current={active ? "step" : undefined} aria-disabled="true" className="inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground">{stepContent}</span> :
                 <Button
@@ -88,6 +95,7 @@ export function GuidedResearchSixStepShell({
                   variant="ghost"
                   size="sm"
                   className={cn("h-auto justify-start gap-2 bg-transparent p-1 text-left text-sm text-background-foreground hover:bg-transparent", active && "font-bold")}
+                  aria-busy={executing || undefined}
                   aria-current={active ? "step" : undefined}
                   onClick={(event) => { event.preventDefault(); if (!active) requestLeave(() => onNavigate(step.id)); }}
                 >

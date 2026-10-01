@@ -9,7 +9,7 @@
  *  · 「AI 记下的」/「有矛盾」徽标（契约三态文案）
  *  · 长期记忆的「来自你 {M/D} 的对话」（本地时区）；没有时间时「来自你的长期记忆」
  *  · 「为什么用到它」：通道用词、召回理由（filter-action 单源）、关系路径 + 关系短标签；不显示分数
- *  · 「查不全」只看 `recallDegraded`，与向量无关
+ *  · 是否出现「查不全」看 `recallDegraded`，具体失败通道来自 `degradedChannels`
  *  · 点 chip 请求打开那一条的来源抽屉（面板已挂载 / 点击后才挂载 两种）
  *  · TurnMemoryLine：有 recalled 就画 footer（在「已记下」之前）；recalled 与 captured 都空时什么都不画
  */
@@ -175,7 +175,7 @@ describe("AnswerKnowledgeFooter：为什么用到它", () => {
 
 describe("AnswerKnowledgeFooter：查不全提示只看 recallDegraded", () => {
   it("recallDegraded=true 时显示固定说法", () => {
-    render(<AnswerKnowledgeFooter recalled={[TODO]} recallDegraded onOpenSource={() => {}} />);
+    render(<AnswerKnowledgeFooter recalled={[TODO]} recallDegraded degradedChannels={["graph"]} onOpenSource={() => {}} />);
     expect(screen.getByTestId("kg-channel-unavailable")).toHaveTextContent(KG_RELATED_QUERY_DEGRADED_ZH);
   });
 
@@ -316,7 +316,7 @@ describe("TurnMemoryLine：回答下的引用 + 已记下", () => {
   });
 
   it("recallDegraded=true 而 recalled 为空：照样画那一行提示", async () => {
-    stubTurn(json(turn({ recallDegraded: true })));
+    stubTurn(json(turn({ recallDegraded: true, degradedChannels: ["graph"] })));
     render(<TurnMemoryLine threadId={THREAD} messageId="msg-7" />);
     expect(await screen.findByTestId("kg-channel-unavailable")).toHaveTextContent(KG_RELATED_QUERY_DEGRADED_ZH);
   });
@@ -336,4 +336,15 @@ describe("TurnMemoryLine：回答下的引用 + 已记下", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(container).toBeEmptyDOMElement();
   });
+});
+
+it("向量故障提示相似查询，不误报关联查询", () => {
+  render(<AnswerKnowledgeFooter recalled={[]} recallDegraded degradedChannels={["vector"]} />);
+  expect(screen.getByTestId("kg-channel-unavailable")).toHaveTextContent("相似查询暂不可用");
+  expect(screen.getByTestId("kg-channel-unavailable")).not.toHaveTextContent("关联查询暂不可用");
+});
+
+it("旧记录未保存通道时只显示通用降级提示", () => {
+  render(<AnswerKnowledgeFooter recalled={[]} recallDegraded />);
+  expect(screen.getByTestId("kg-channel-unavailable")).toHaveTextContent("这次没能查全你的记忆，回答可能不完整");
 });

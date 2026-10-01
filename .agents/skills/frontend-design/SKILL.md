@@ -6,8 +6,9 @@ license: Complete terms in LICENSE.txt
 
 # Frontend Design
 
-> ⚠ **原型画布（PM 设计工作台）那条链路不读本文。** 它的输出受限于一套 21 个原语的闭集，
-> 本文关于字体选择、CSS、动效编排的建议在那里无法表达。那条链路的视觉约束是本文判据的
+> **PM 设计工作台需区分两条输出链路。** HTML + CSS 链路直接适用本文，视觉约束唯一落点是
+> `apps/api/src/application/design-workbench/html-page-design.ts`：简报 → 计划复核 → 逐页生成 → 浏览器截图自审。
+> 旧树形链路的输出受限于一套 21 个原语的闭集，本文关于字体选择、CSS、动效编排的建议在那里无法表达。旧链路的视觉约束是本文判据的
 > **翻译版**，唯一事实源在 `apps/api/src/application/design-workbench/design-chat-model.ts`
 > 的 `DESIGN_PRINCIPLES`——改视觉约束请改那里，**不要**在本文再写一份（issue #3125）。
 

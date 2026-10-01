@@ -28,7 +28,7 @@
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
 import type { z } from "zod";
-import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
+import { designAiCollab, designHtmlPage, designPrototype, designWorkbench } from "@repo/contracts";
 
 const designAiCollabFields = designAiCollab.DesignWritebackField.options;
 import type { DesignChatModel } from "./design-chat-model";
@@ -136,10 +136,24 @@ export function describeDroppedLinks(
 }
 
 /** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
-function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly (designPrototype.PrototypeNode | null)[] }, id: string | undefined) {
+function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly (designPrototype.PrototypeNode | null)[] }, id: string | undefined, ref?: string) {
   if (id === undefined) return {};
   const hit = designPrototype.findPrototypeNodePath(row.prototype, id);
   if (hit === null) return {};
+  const target = hit.path[hit.path.length - 1]!;
+  if (target.type === "html") {
+    // HTML 页：整页 HTML 不进树形 prompt（一页几万字），焦点只带摘要；真正的 HTML 交给 `ModelDesignChatReplier` 的局部修改那条路。
+    const elementLabel = ref === undefined ? null : designHtmlPage.describeHtmlPageElement(target.props.html, ref);
+    return {
+      focus: {
+        id, frame: row.frames[hit.frameIndex] ?? "",
+        path: [...hit.path.map(designPrototype.prototypeNodeLabel), ...(elementLabel === null ? [] : [elementLabel])],
+        node: { type: "html", summary: designHtmlPage.htmlPageVisibleText(target.props.html).slice(0, 200) },
+        // Preserve a stale requested ref so the replier fails closed instead of rewriting the whole page.
+        html: { page: target.props.html, ...(ref === undefined ? {} : { ref }) },
+      },
+    };
+  }
   // 深度 S10：给模型看的焦点节点同样摘掉上传的图（见 `withoutImageSources`）。
   const node = designPrototype.withoutImageSources(hit.path[hit.path.length - 1]!);
   return { focus: { id, frame: row.frames[hit.frameIndex] ?? "", path: hit.path.map(designPrototype.prototypeNodeLabel), node } };
@@ -152,6 +166,8 @@ export async function appendProjectChat(
     readonly ownerId: string;
     readonly text: string;
     readonly focusNodeId?: string;
+    /** HTML 页里选中的元素编号（`focusNodeId` 是 html 页时才有意义）。 */
+    readonly focusRef?: string;
     /** 迭代 20：这一轮最多画几页（服务端强制截断）。不给 ⇒ 不设限。 */
     readonly maxScreens?: number;
     /**
@@ -217,7 +233,7 @@ export async function appendProjectChat(
     frames: current.frames,
     // 深度 S10（#3988）：上传的图（data URL）不进模型——一张就能吃掉大半上下文，模型也不该改它。
     prototype: current.prototype.map((r) => designPrototype.withoutImageSources(r)),
-    ...focusFor(current, input.focusNodeId),
+    ...focusFor(current, input.focusNodeId, input.focusRef),
     ...(input.refImages !== undefined && input.refImages.length > 0 ? { refImages: input.refImages } : {}),
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });

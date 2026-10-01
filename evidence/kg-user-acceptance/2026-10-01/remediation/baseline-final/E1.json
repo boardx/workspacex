@@ -1,0 +1,27 @@
+{
+  "runId": "kg-remediation-20261001-baseline-fresh",
+  "seen": {
+    "capturedVisible": true,
+    "capturedText": "已记下 1 条\n·\n查看\n·\n撤销",
+    "clicksFirstSession": {
+      "all": 0,
+      "memory": 0
+    },
+    "secondThreadIsNew": true,
+    "answer": "根据之前的对话：晨光项目的预算是 120 万元（来自个人空间知识，最早见于你 10/01 的对话）。",
+    "footerText": "[1]\n依据你的事实\n晨光项目的预算是 120 万元\nAI 记下的\n来自你 10/1 的对话\n为什么用到它",
+    "personalBadges": [
+      "来自你 10/1 的对话"
+    ],
+    "clicksTotal": {
+      "all": 1,
+      "memory": 0
+    }
+  },
+  "shots": {
+    "first-session": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E1-first-session.jpg",
+    "second-session": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E1-second-session.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

@@ -1,0 +1,90 @@
+{
+  "runId": "kg-remediation-20261001-comprehensive-final",
+  "seen": {
+    "chips": [
+      {
+        "statement": "恒通物流的合同金额是 96 万元",
+        "opened": true,
+        "excerpt": "合同金额 96 万元"
+      },
+      {
+        "statement": "恒通物流的合同在 9 月 30 日签署",
+        "opened": true,
+        "excerpt": "9 月 30 日签的"
+      },
+      {
+        "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+        "opened": true,
+        "excerpt": "赵磊定了接口统一改成 GraphQL"
+      },
+      {
+        "statement": "北极星项目决定暂停海外市场推广",
+        "opened": true,
+        "excerpt": "海外市场推广先暂停"
+      },
+      {
+        "statement": "王芳决定北极星项目首发只做安卓版",
+        "opened": true,
+        "excerpt": "王芳拍板首发只做安卓版"
+      },
+      {
+        "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+        "opened": true,
+        "excerpt": "我们决定主数据库用 PostgreSQL"
+      }
+    ],
+    "jump": {
+      "url": "http://127.0.0.1:34101/chat/thr-804efc81-8fd8-4836-b0a2-2a52b626a8e1?focusMessage=8499ff9f-d54f-469d-bde2-6d081c82bb85",
+      "highlighted": true,
+      "inView": true,
+      "text": "客户恒通物流那边的对接人是陈静，合同金额 96 万元，9 月 30 日签的。",
+      "ring": "none 3px / rgb(251, 251, 250) 0px 0px 0px 4px, rgb(10, 97, 83) 0px 0px 0px 6px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    },
+    "chipsB": [
+      {
+        "statement": "恒通物流的对接人是陈静",
+        "opened": true,
+        "excerpt": "恒通物流那边的对接人是陈静"
+      },
+      {
+        "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+        "opened": true,
+        "excerpt": "赵磊定了接口统一改成 GraphQL"
+      },
+      {
+        "statement": "北极星项目决定暂停海外市场推广",
+        "opened": true,
+        "excerpt": "海外市场推广先暂停"
+      },
+      {
+        "statement": "王芳决定北极星项目首发只做安卓版",
+        "opened": true,
+        "excerpt": "王芳拍板首发只做安卓版"
+      },
+      {
+        "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+        "opened": true,
+        "excerpt": "我们决定主数据库用 PostgreSQL"
+      }
+    ],
+    "personalChip": true,
+    "jumpB": {
+      "url": "http://127.0.0.1:34101/chat/thr-804efc81-8fd8-4836-b0a2-2a52b626a8e1?focusMessage=8499ff9f-d54f-469d-bde2-6d081c82bb85",
+      "highlighted": true,
+      "inView": true,
+      "text": "客户恒通物流那边的对接人是陈静，合同金额 96 万元，9 月 30 日签的。",
+      "ring": "none 3px / rgb(251, 251, 250) 0px 0px 0px 4px, rgb(10, 97, 83) 0px 0px 0px 6px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "landedInA": true,
+      "fromB": "thr-ed9b86cc-5dd1-4dc6-8435-ea93bf6490df"
+    }
+  },
+  "shots": {
+    "chips": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E4-chips.jpg",
+    "drawer": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E4-drawer.jpg",
+    "jump": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E4-jump.jpg",
+    "drawerB": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E4-drawerB.jpg",
+    "jumpB": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E4-jumpB.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

@@ -18,8 +18,9 @@ function failure(args: string[], profile?: string) {
 it("refuses any cloud profile before reading input or contacting Docker", () => {
   expect(failure(["nonexistent-checkout", "a".repeat(40), "b".repeat(40), "nonexistent-ledger", "nonexistent-binding", "nonexistent-report"], "production")).toContain("synthetic rehearsal refuses cloud profile");
 });
-it("reserves an exclusive 0600 report and refuses files or symlinks without altering them", () => {
+it.each([0o022, 0o077])("reserves an exclusive 0600 report and preserves existing files under umask %i", (mask) => {
   const dir = mkdtempSync(join(tmpdir(), "rehearsal-report-"));
+  const previousMask = process.umask(mask);
   try {
     const path = join(dir, "report.json");
     const fd = openPrivateReport(path);
@@ -28,12 +29,19 @@ it("reserves an exclusive 0600 report and refuses files or symlinks without alte
     expect(() => openPrivateReport(path)).toThrow();
     const target = join(dir, "existing.json");
     writeFileSync(target, "unchanged", { mode: 0o644 });
+    // Requested creation mode is filtered by umask. Preserve the actual inode's
+    // mode, whether 0644 or 0600, rather than assuming the host uses umask 022.
+    const originalMode = statSync(target).mode & 0o777;
+    expect(originalMode).toBe(0o644 & ~mask);
     const link = join(dir, "link.json"); symlinkSync(target, link);
     expect(() => openPrivateReport(target)).toThrow();
     expect(() => openPrivateReport(link)).toThrow();
     expect(readFileSync(target, "utf8")).toBe("unchanged");
-    expect(statSync(target).mode & 0o777).toBe(0o644);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+    expect(statSync(target).mode & 0o777).toBe(originalMode);
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); }
+    finally { process.umask(previousMask); }
+  }
 });
 it("isolates concurrent runs and rejects duplicate ownership until its holder releases", async () => {
   const dir = mkdtempSync(join(tmpdir(), "rehearsal-locks-"));

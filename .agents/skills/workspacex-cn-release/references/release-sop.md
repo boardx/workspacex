@@ -136,6 +136,14 @@ prepare receipt 至少绑定：source SHA、release、manifest SHA-256、六镜�
 
 若有破坏性 migration，退出本通道，进入维护窗口。普通通道不得 waiver `product` 或 `unknown` 失败。
 
+### GitHub prepare-before-approval 通道（#4908）
+
+`prepare-cn-release` 在 successful main backend-gates 后冻结事件的 exact SHA。与 promotion 共用不取消运行的 concurrency group；排队时间计入日历 lead time。先只读核 root 保护的 preparation input 与离线 source cache，随后 build/seal、host `--prepare`，最后运行完整 `workspacex-cn-verify-promotion`。只有最后一个实际 verifier 成功，才能称 prepared。
+
+`promote-cn-production` 首先在无 environment 的 `readiness` job 检 exact workflow/source 身份、可信副本、完整 receipt 和实时 baseline；缺失、过期、漂移或门控失败立即 `CN_PROMOTION_NOT_READY`，不请求人工审批。`admit` 依赖 readiness，通过唯一 production-cn-promotion 审批后再次验证相同 receipt。审批期间证据失效即停止，绝不在审批后补 build、源码或 `--prepare`。
+
+`CN_RELEASE_PREPARE_INPUTS_PRESENT` 仅证明前置输入存在及基础身份/闭包，不是 READY。受控运维仍须提供真实 migration、backup、shadow/business evidence、两阶段 preflight 及 root 离线缓存；本改动没有自动制造这些证据，也不从 runner 可写镜像冒充 root cache。root cache 在输入检查与 canonical prepare 均拒绝 alternates、http-alternates 及 symlink，避免 Git fsck 借外部对象得到假闭包；runner 仅只读核保护仓库 baseline，不执行新增 fetch 或扩大写权限。缺输入时保持旧生产并返回 NOT_READY。新可信脚本必须按目标 SHA 安装和独立审阅；不能给旧版本静默替换脚本来绕过 drift gate。这条通道的代码测试不等于主机、GitHub governance 或生产浏览器验收。
+
 ## 7. Step 4：晋级与 300 秒 activate
 
 只有 prepared receipt 有效才以 compare-and-swap 推进 `main-cn`：old SHA 必须等于 attempt 冻结值，new SHA 必须等于 source SHA。冲突即停止，不 force 覆盖。
@@ -214,6 +222,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `CANDIDATE_CHECKOUT_DRIFT` | 构建入口在持有 release lock 后记录干净 baseline checkout，成功和失败都在同一个 EXIT trap 恢复；回执必须机械证明 HEAD、`main-cn` 和四个运行容器仍是 baseline |
 | 2026-09-21 | `CN_RELEASE_PREFLIGHT_REJECTED` | prebuild 在构建事件之前、preactivate 在 prepare 与 activation 之前由 exact-SHA 验证器强制复验；原始证据与验证结果 root-only、create-once 或 byte-identical reuse |
 | 2026-09-21 | `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` | workflow 使用 `sudo -n` 调用精确可信入口；sudoers 漂移立即失败并指向 bootstrap 修复，不再占用 runner 等密码 |
+| 2026-10-01 | `CN_PROMOTION_NOT_READY` | 完整 exact-SHA prepared receipt 在无 environment 的 readiness job 验证；审批后复验失败直接停止，不补 prepare/build；真实 Bash 对 0/1/3/42 退出码的反证覆盖两道门（#4908）。 |
 
 ## 12. 发布后清理
 

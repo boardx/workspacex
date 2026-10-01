@@ -1,0 +1,138 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-user-acceptance.config.ts",
+      "--grep",
+      "M-both-fault"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-user-acceptance.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-(?:user|mode|levels)-acceptance\\.acceptance\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-user-acceptance/results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "test-results/kg-user-acceptance/html",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-mode-acceptance.acceptance.ts",
+      "file": "kg-mode-acceptance.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[M-both-fault] 云端与local的AGE及pgvector同时失败时仍可回答，准确提示两通道并恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18303,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T09:47:39.979Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-user-acceptance/artifacts/kg-mode-acceptance.accepta-87fb1-gvector同时失败时仍可回答，准确提示两通道并恢复/test-finished-1.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "de9521352f8ff3d84d69-2d1bddd14125871065c1",
+          "file": "kg-mode-acceptance.acceptance.ts",
+          "line": 167,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T09:47:27.499Z",
+    "duration": 31198.571,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

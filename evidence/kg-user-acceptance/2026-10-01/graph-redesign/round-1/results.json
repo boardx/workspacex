@@ -1,0 +1,311 @@
+{
+  "config": {
+    "argv": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/workspace/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.kg-graph-layout.config.ts"
+    ],
+    "configFile": "/workspace/workspacex/apps/web/playwright.kg-graph-layout.config.ts",
+    "rootDir": "/workspace/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "acceptanceStandard": "/workspace/workspacex/docs/testing/knowledge-graph-user-acceptance.md",
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/kg-graph-layout\\.acceptance\\.ts$/"
+        ],
+        "timeout": 240000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/kg-graph-layout/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "kg-graph-layout.acceptance.ts",
+      "file": "kg-graph-layout.acceptance.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[graph-cloud] 聊天入图 → 三栏无重叠 → 中文关系聚焦 → 整理复位 → 原文来源",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 31564,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog')\u001b[22m\n\u001b[2m    43 × locator resolved to <aside role=\"dialog\" aria-label=\"记忆来源\" class=\"flex w-80 flex-col border-l border-border bg-card shadow-lg\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog')\u001b[22m\n\u001b[2m    43 × locator resolved to <aside role=\"dialog\" aria-label=\"记忆来源\" class=\"flex w-80 flex-col border-l border-border bg-card shadow-lg\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n\n    at /workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts:59:30",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                      "column": 30,
+                      "line": 59
+                    },
+                    "snippet": "  57 |     const claim = dialog.locator(\".react-flow__node[data-id^='claim:']\").first();\n  58 |     await claim.click();\n> 59 |     await expect(dialog).not.toBeVisible();\n     |                              ^\n  60 |     await expect(page.getByTestId(\"kg-source-drawer\")).toBeVisible();\n  61 |     await page.screenshot({ path: testInfo.outputPath(`${mode}-05-source.png`), fullPage: true });\n  62 |     await testInfo.attach(\"graph-geometry\",{body:JSON.stringify(geometry),contentType:\"application/json\"});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                        "column": 30,
+                        "line": 59
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog')\u001b[22m\n\u001b[2m    43 × locator resolved to <aside role=\"dialog\" aria-label=\"记忆来源\" class=\"flex w-80 flex-col border-l border-border bg-card shadow-lg\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n\n\n  57 |     const claim = dialog.locator(\".react-flow__node[data-id^='claim:']\").first();\n  58 |     await claim.click();\n> 59 |     await expect(dialog).not.toBeVisible();\n     |                              ^\n  60 |     await expect(page.getByTestId(\"kg-source-drawer\")).toBeVisible();\n  61 |     await page.screenshot({ path: testInfo.outputPath(`${mode}-05-source.png`), fullPage: true });\n  62 |     await testInfo.attach(\"graph-geometry\",{body:JSON.stringify(geometry),contentType:\"application/json\"});\n    at /workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts:59:30"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T11:25:20.131Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-44ea9-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-44ea9-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-44ea9-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                    "column": 30,
+                    "line": 59
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "8290c6c556b7afc355d9-84bbc44d655a52cb9668",
+          "file": "kg-graph-layout.acceptance.ts",
+          "line": 7,
+          "column": 7
+        },
+        {
+          "title": "[graph-local] 聊天入图 → 三栏无重叠 → 中文关系聚焦 → 整理复位 → 原文来源",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 30479,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog')\u001b[22m\n\u001b[2m    43 × locator resolved to <aside role=\"dialog\" aria-label=\"记忆来源\" class=\"flex w-80 flex-col border-l border-border bg-card shadow-lg\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog')\u001b[22m\n\u001b[2m    43 × locator resolved to <aside role=\"dialog\" aria-label=\"记忆来源\" class=\"flex w-80 flex-col border-l border-border bg-card shadow-lg\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n\n    at /workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts:59:30",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                      "column": 30,
+                      "line": 59
+                    },
+                    "snippet": "  57 |     await dialog.getByRole(\"button\", { name: \"重新编排\", exact:true }).click();\n  58 |     await expect(node).toHaveAttribute(\"style\",before!);\n> 59 |     await page.mouse.move(0,0);\n     |                              ^\n  60 |     await page.screenshot({ path: testInfo.outputPath(`${mode}-04-reset.png`), fullPage: true });\n  61 |     const claim = dialog.locator(\".react-flow__node[data-id^='claim:']\").first();\n  62 |     await claim.click();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                        "column": 30,
+                        "line": 59
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).not.\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog')\nExpected: not visible\nReceived: visible\nTimeout:  20000ms\n\nCall log:\n\u001b[2m  - Expect \"not toBeVisible\" with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog')\u001b[22m\n\u001b[2m    43 × locator resolved to <aside role=\"dialog\" aria-label=\"记忆来源\" class=\"flex w-80 flex-col border-l border-border bg-card shadow-lg\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"visible\"\u001b[22m\n\n\n  57 |     await dialog.getByRole(\"button\", { name: \"重新编排\", exact:true }).click();\n  58 |     await expect(node).toHaveAttribute(\"style\",before!);\n> 59 |     await page.mouse.move(0,0);\n     |                              ^\n  60 |     await page.screenshot({ path: testInfo.outputPath(`${mode}-04-reset.png`), fullPage: true });\n  61 |     const claim = dialog.locator(\".react-flow__node[data-id^='claim:']\").first();\n  62 |     await claim.click();\n    at /workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts:59:30"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T11:25:53.039Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-93f31-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-93f31-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-93f31-栏无重叠-→-中文关系聚焦-→-整理复位-→-原文来源/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                    "column": 30,
+                    "line": 59
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "8290c6c556b7afc355d9-d10cd18eac9776bc8375",
+          "file": "kg-graph-layout.acceptance.ts",
+          "line": 7,
+          "column": 7
+        },
+        {
+          "title": "[graph-responsive] 375/768/1440画布和放大视图无页面横向溢出",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 28541,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '放大关系图' })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '放大关系图' })\u001b[22m\n\n    at /workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts:70:51",
+                    "location": {
+                      "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                      "column": 51,
+                      "line": 70
+                    },
+                    "snippet": "  68 | }\n  69 | test(\"[graph-responsive] 375/768/1440画布和放大视图无页面横向溢出\", async ({ page },testInfo) => {\n> 70 |   await login(page,MODE_EVAL.account);\n     |                                       ^\n  71 |   const thread=await newThread(page); await tell(page,thread,[\"M5\",\"M7\"]); await openMemoryPanel(page); await page.getByTestId(\"kg-view-graph\").click();\n  72 |   for(const width of [375,768,1440]) {\n  73 |     await page.setViewportSize({width,height:900});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                        "column": 51,
+                        "line": 70
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '放大关系图' })\u001b[22m\n\n\n  68 | }\n  69 | test(\"[graph-responsive] 375/768/1440画布和放大视图无页面横向溢出\", async ({ page },testInfo) => {\n> 70 |   await login(page,MODE_EVAL.account);\n     |                                       ^\n  71 |   const thread=await newThread(page); await tell(page,thread,[\"M5\",\"M7\"]); await openMemoryPanel(page); await page.getByTestId(\"kg-view-graph\").click();\n  72 |   for(const width of [375,768,1440]) {\n  73 |     await page.setViewportSize({width,height:900});\n    at /workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts:70:51"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-01T11:26:24.666Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-76a28--375-768-1440画布和放大视图无页面横向溢出/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-76a28--375-768-1440画布和放大视图无页面横向溢出/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/workspace/workspacex/apps/web/test-results/kg-graph-layout/artifacts/kg-graph-layout.acceptance-76a28--375-768-1440画布和放大视图无页面横向溢出/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/workspace/workspacex/apps/web/e2e/kg-graph-layout.acceptance.ts",
+                    "column": 51,
+                    "line": 70
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "8290c6c556b7afc355d9-c4440cc7cfa58fde72ac",
+          "file": "kg-graph-layout.acceptance.ts",
+          "line": 65,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-01T11:21:31.175Z",
+    "duration": 322941.471,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 3,
+    "flaky": 0
+  }
+}

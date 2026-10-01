@@ -13,6 +13,8 @@ import * as React from "react";
  *
  * 用法：`vi.mock("@xyflow/react", () => import("@/tests/support/xyflow-stub"))`。
  */
+export const MarkerType = { Arrow: "arrow", ArrowClosed: "arrowclosed" } as const;
+
 export const Position = { Left: "left", Right: "right", Top: "top", Bottom: "bottom" } as const;
 
 export function Background() {

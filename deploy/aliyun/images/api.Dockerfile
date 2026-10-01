@@ -8,6 +8,7 @@ COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.
 COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node apps/api ./apps/api
+COPY --chown=node:node apps/local-asr-gateway ./apps/local-asr-gateway
 COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox
 COPY --chown=node:node apps/deep-agent-service/langgraph.json ./apps/api/config/agent-graphs.json
 COPY --chown=node:node deploy/aliyun/images/api.tsconfig.json ./apps/api/tsconfig.release.json

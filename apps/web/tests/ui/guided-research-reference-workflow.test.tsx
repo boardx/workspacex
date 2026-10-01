@@ -137,7 +137,7 @@ describe("reference research workflow", () => {
     const snapshot = { ...initial, version: 5, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", currentNode: "report" as const, progress: { stage: "writing" as const, completed: 1, total: 2 }, reportTimeline: [{ id: "c", stage: "chapter" as const, status: "running" as const, attempts: 1, sectionId: "o1" }] };
     await act(async () => { emit({ type: "snapshot", state: snapshot }); });
     await act(async () => { finishPoll({ ...snapshot, progress: { stage: "organizing", completed: 0, total: 2 }, reportTimeline: [] }); });
-    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("撰写章节");
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("生成 · 政策章节");
   });
   it("resolves refreshed preview aliases only to accepted sources and groups unknown citations as pending", () => {
     const initial = runtimeFixture("report");

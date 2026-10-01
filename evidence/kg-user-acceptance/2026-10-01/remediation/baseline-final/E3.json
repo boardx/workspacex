@@ -1,0 +1,244 @@
+{
+  "runId": "kg-remediation-20261001-baseline-fresh",
+  "seen": {
+    "whoDecided": {
+      "answer": "根据之前的对话：北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机（本会话 10/01 的对话）；王芳决定北极星项目首发只做安卓版（本会话 10/01 的对话）；赵磊决定北极星项目的接口统一改成 GraphQL（本会话 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "citations": [
+        {
+          "statement": "北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "王芳决定北极星项目首发只做安卓版",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定暂停海外市场推广",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+          "channels": [
+            "记下的"
+          ]
+        }
+      ]
+    },
+    "why": {
+      "answer": "根据之前的对话：王芳决定北极星项目首发只做安卓版（本会话 10/01 的对话）；北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机（本会话 10/01 的对话）；赵磊决定北极星项目的接口统一改成 GraphQL（本会话 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "citations": [
+        {
+          "statement": "王芳决定北极星项目首发只做安卓版",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定暂停海外市场推广",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+          "channels": [
+            "记下的"
+          ]
+        }
+      ]
+    },
+    "baseline-0": {
+      "answer": "根据之前的对话：北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机（本会话 10/01 的对话）；王芳决定北极星项目首发只做安卓版（本会话 10/01 的对话）；赵磊决定北极星项目的接口统一改成 GraphQL（本会话 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "citations": [
+        {
+          "statement": "北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "王芳决定北极星项目首发只做安卓版",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定暂停海外市场推广",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+          "channels": [
+            "记下的"
+          ]
+        }
+      ]
+    },
+    "baseline-1": {
+      "answer": "根据之前的对话：王芳决定北极星项目首发只做安卓版（本会话 10/01 的对话）；北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机（本会话 10/01 的对话）；赵磊决定北极星项目的接口统一改成 GraphQL（本会话 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "citations": [
+        {
+          "statement": "王芳决定北极星项目首发只做安卓版",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定暂停海外市场推广",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+          "channels": [
+            "记下的"
+          ]
+        }
+      ]
+    },
+    "baseline-2": {
+      "answer": "根据之前的对话：赵磊决定北极星项目的接口统一改成 GraphQL（本会话 10/01 的对话）；北极星项目的内测定在 10 月 20 日是因为支付接口还没通过审核（来自个人空间知识，最早见于你 10/01 的对话）；王芳决定北极星项目首发只做安卓版（本会话 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "citations": [
+        {
+          "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+          "channels": [
+            "全文",
+            "关联",
+            "相似"
+          ]
+        },
+        {
+          "statement": "北极星项目的内测定在 10 月 20 日是因为支付接口还没通过审核",
+          "channels": [
+            "关联"
+          ]
+        },
+        {
+          "statement": "王芳决定北极星项目首发只做安卓版",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定暂停海外市场推广",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+          "channels": [
+            "记下的"
+          ]
+        }
+      ]
+    },
+    "conflictCardSeen": true,
+    "supersede": {
+      "answer": "根据之前的对话：北极星项目的正式上线改到 11 月 25 日（本会话 10/01 的对话）；赵磊决定北极星项目的接口统一改成 GraphQL（本会话 10/01 的对话）；王芳决定北极星项目首发只做安卓版（本会话 10/01 的对话）；北极星项目决定暂停海外市场推广（来自个人空间知识，最早见于你 10/01 的对话）；北极星项目决定采用 PostgreSQL 作为主数据库（来自个人空间知识，最早见于你 10/01 的对话）。",
+      "citations": [
+        {
+          "statement": "北极星项目的正式上线改到 11 月 25 日",
+          "channels": [
+            "全文"
+          ]
+        },
+        {
+          "statement": "赵磊决定北极星项目的接口统一改成 GraphQL",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "王芳决定北极星项目首发只做安卓版",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定暂停海外市场推广",
+          "channels": [
+            "记下的"
+          ]
+        },
+        {
+          "statement": "北极星项目决定采用 PostgreSQL 作为主数据库",
+          "channels": [
+            "记下的"
+          ]
+        }
+      ]
+    }
+  },
+  "shots": {
+    "whoDecided": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E3-whoDecided.jpg",
+    "why": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E3-why.jpg",
+    "baseline-0": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E3-baseline-0.jpg",
+    "baseline-1": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E3-baseline-1.jpg",
+    "baseline-2": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E3-baseline-2.jpg",
+    "supersede": "/workspace/workspacex/apps/web/test-results/kg-experience-eval/obs/E3-supersede.jpg"
+  },
+  "abortedAt": null,
+  "error": null
+}

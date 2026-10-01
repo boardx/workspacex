@@ -10,8 +10,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error —— .mjs 无类型声明，这里只用它导出的两个纯函数。
-import { colorNames, scan } from "./lint-tailwind-color-tokens.mjs";
+// @ts-expect-error —— .mjs 无类型声明，这里只用它导出的三个纯函数。
+import { colorNames, legacyFindings, scan } from "./lint-tailwind-color-tokens.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dirs: string[] = [];
@@ -86,5 +86,33 @@ describe("lint-tailwind-color-tokens", () => {
     ].join("\n");
     // ⭐ 反证锚点：`balancedEnd` 不跳过字符串 ⇒ 区域在 `a)` 处提前结束，`text-danger` 漏掉 ⇒ 这条红。
     expect((scan(fakeRoot(tsx)) as { cls: string }[]).map((h) => h.cls)).toEqual(["text-danger"]);
+  });
+
+  /*
+   * #4894 评审：`cover` / `gradient-to-*` 是 bg 专属的内置工具类，
+   * 放进共享 BUILTIN 会让别的前缀白蹭豁免。
+   */
+  it("bg 专属豁免不跨前缀：`text-cover` / `border-contain` / `text-gradient-to-r` 仍判红", () => {
+    const bad = 'export const X = () => <p className="text-cover border-contain text-gradient-to-r">坏</p>;';
+    expect((scan(fakeRoot(bad)) as { cls: string }[]).map((h) => h.cls).sort())
+      .toEqual(["border-contain", "text-cover", "text-gradient-to-r"]);
+  });
+
+  it("bg 的内置工具类放行：`bg-cover` / `bg-contain` / `bg-gradient-to-r` 不误报", () => {
+    const good = 'export const X = () => <p className="bg-cover bg-contain bg-gradient-to-r bg-gradient-to-b">好</p>;';
+    expect(scan(fakeRoot(good))).toEqual([]);
+  });
+
+  /*
+   * #4894 评审：按类名总数记存量防不住「拆东墙补西墙」——改成按「文件 × 类名」盯位置。
+   */
+  it("存量基线按「文件 × 类名」盯位置：别处新增、本处修掉不改数字都判红", () => {
+    const legacy = [{ file: "components/a.tsx", cls: "text-foreground", count: 1 }];
+    // A 处修干净了（0 < 1）没改基线数字，同时 B 处新增同类名（不在基线里）——两头都要红。
+    const problems = legacyFindings([{ file: "components/b.tsx", line: 7, cls: "text-foreground" }], legacy);
+    expect(problems.some((p) => p.includes("components/b.tsx") && p.includes("text-foreground"))).toBe(true);
+    expect(problems.some((p) => p.includes("components/a.tsx") && p.includes("已降到 0 处"))).toBe(true);
+    // 原样（A 处一处、别处没有）⇒ 无问题。
+    expect(legacyFindings([{ file: "components/a.tsx", line: 3, cls: "text-foreground" }], legacy)).toEqual([]);
   });
 });

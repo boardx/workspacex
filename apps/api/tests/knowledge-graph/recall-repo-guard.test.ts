@@ -149,10 +149,11 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(4);
   });
 
-  it("(e) 类成员只有端口要求的三个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
+  it("(e) 类成员只有端口要求的方法和只读验收模式——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
     const members = [...code.matchAll(/^\s{2}(?:(?:public|private|protected|readonly|static)\s+)*(?:async\s+)?(\w+)\s*[(=:<]/gm)]
       .map((m) => m[1]).filter((n) => n !== "constructor").sort();
-    expect(members).toEqual(["candidates", "graphNeighbors", "recordTurn", "vectorNeighbors"]);
+    expect(members).toEqual(["candidates", "evaluationMode", "graphNeighbors", "recordTurn", "vectorNeighbors"]);
+    expect(code).toMatch(/^  readonly evaluationMode = readKgRecallEvaluationMode\(\);$/m);
     expect(code).not.toMatch(/^[ \t]+(?:get|set|static)[ \t]+\w+\s*\(/m);
     expect(code).not.toMatch(/^[ \t]{3,}(?:public|private|protected|async)[ \t]+\w+\s*\(/m);
   });
@@ -176,7 +177,7 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
 
   it("(f) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {
     expect(code.match(/kg_turn_recalls/g)).toHaveLength(1);
-    expect(code).toMatch(/INSERT INTO kg_turn_recalls \(run_id, org_id, thread_id, requester_user_id, items, graph_degraded\)/);
+    expect(code).toMatch(/INSERT INTO kg_turn_recalls \(run_id, org_id, thread_id, requester_user_id, items, graph_degraded, degraded_channels\)/);
     expect(code).not.toMatch(/FROM kg_turn_recalls|JOIN kg_turn_recalls|UPDATE kg_turn_recalls/);
   });
 });
