@@ -61,7 +61,13 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
   expect(replacementAttempts).toBe(2);
   await owner.reload();await painted(owner);const peerRead=peer.waitForResponse(r=>r.url().includes(`/whiteboards/${source}/assets/`)&&r.url().endsWith('/content'));await peer.goto(`/studio/board/${source}`);expect((await peerRead).status()).toBe(200);await painted(peer);
   const peerUrls=await peer.evaluate(()=>(window as unknown as {__images:Evidence}).__images.loaded.map(image=>image.url));expect(peerUrls.length).toBeGreaterThan(0);
-  const duplicate=await(await call(api,token,'POST',`/whiteboards/${source}/duplicates`,{requestId:randomUUID(),targetName:`Image copy ${randomUUID()}`,expectedSource:{epoch:snapshot!.board.epoch,seq:snapshot!.board.seq}})).json();target=duplicate.board.id;expect(duplicate.receipt.assetCount).toBe(1);
+  // Reload and peer hydration can publish new canonical image metadata.
+  // Capture the current acknowledged version, retaining the server's conflict guard.
+  await expect(owner.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  const copySnapshot=await canonical(api,token,source);
+  expect(copySnapshot.objects.find(object=>object.kind==='image')?.extensionData?.contentObject).toMatchObject({...metadata,type:'image',status:'ready',sourceUrl:null,failureCode:null});
+  const duplicate=await(await call(api,token,'POST',`/whiteboards/${source}/duplicates`,{requestId:randomUUID(),targetName:`Image copy ${randomUUID()}`,expectedSource:{epoch:copySnapshot.board.epoch,seq:copySnapshot.board.seq}})).json();target=duplicate.board.id;expect(duplicate.receipt.assetCount).toBe(1);
   await info.attach('pg-independent-pointers',{body:JSON.stringify(await produceImageStorageEvidence(F.orgId,[source,target!],metadata.assetId)),contentType:'application/json'});
   await call(api,token,'DELETE',`/whiteboards/${source}/members/${F.leadUserId}`);// Revoked board membership hides resource existence: read is precisely 404, not 403.
   const denied=await api.get(`${origin()}/whiteboards/${source}/assets/${metadata.assetId}/content`,{headers:{Authorization:`Bearer ${peerToken}`}});expect(denied.status()).toBe(404);expect(await denied.body()).not.toEqual(png);expect(denied.headers()['content-type']).not.toContain('image/');
