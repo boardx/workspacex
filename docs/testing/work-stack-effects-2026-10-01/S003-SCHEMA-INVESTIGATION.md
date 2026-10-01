@@ -17,7 +17,7 @@ S003's package previously pointed JSON Schema `$ref` at Markdown chapters. AJV c
 - Schema generator `--check` and pack builder `--check` passed.
 - Actual harness-generated report `S003-20261001T061439-de5997.json`: subject 10/10, generic same-tools baseline 2/10, both deterministic loopbacks.
 - S003 G0–G5 passed, `/tmp/eval-schema-gates-final.log`.
-- API lint: exit 0, `/tmp/eval-schema-lint-final.log`; API typecheck rerun after linking workspace dependencies: exit 0, `/tmp/eval-schema-typecheck-complete.log`.
+- API lint: exit 0, `/tmp/eval-schema-lint-final.log`; API typecheck before the final generated-schema test edit: exit 0, `/tmp/eval-schema-typecheck-complete.log`. Normal pre-push subsequently caught TS7006 in the new test callback; the callback now declares its string input explicitly. The earlier typecheck did not cover that final edit; final typecheck is pending the normal pre-push gate. The manual repeat was stopped to avoid overlapping memory-intensive typechecks. Targeted generated-schema tests after the callback fix passed 6/6 (`/tmp/eval-schema-callback-test.log`).
 
 ## Boundaries
 
