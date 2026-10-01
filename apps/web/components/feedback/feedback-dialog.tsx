@@ -672,7 +672,7 @@ export function FeedbackDialog({
               <>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-11 text-muted-foreground" data-testid="feedback-review-hint">
-                    AI 帮你整理好了下面这些，看看对不对，改完再提交。
+                    {structureError ? "自动整理暂不可用，原文已保留。请确认标题和正文后提交。" : "AI 帮你整理好了下面这些，看看对不对，改完再提交。"}
                   </p>
                   <Button
                     type="button"
@@ -805,7 +805,7 @@ export function FeedbackDialog({
                 <div className="overflow-hidden rounded-md">{voiceStatusBar}</div>
               )}
               {structureError !== null && (
-                <p className="text-11 text-destructive" data-testid="feedback-structure-error">
+                <p role="alert" className="text-11 text-destructive" data-testid="feedback-structure-error">
                   没能把这段话整理成表单（{structureError}）。你说的话已经在「详细说说」里——可以自己改标题和正文。
                 </p>
               )}
@@ -986,7 +986,7 @@ export function FeedbackDialog({
             </p>
 
             {error !== null && (
-              <p className="text-11 text-destructive" data-testid="feedback-submit-error">
+              <p role="alert" className="text-11 text-destructive" data-testid="feedback-submit-error">
                 没能提交（{error}）。这条反馈没有被保存，可以再试一次。
               </p>
             )}

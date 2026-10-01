@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { board } from "@repo/contracts";
 import Link from "next/link";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +12,8 @@ import { ApiError } from "@/lib/api-client";
 import { describeFailure } from "@/lib/design-failure";
 import { listProjects } from "@/lib/live-projects";
 import {
-  changeTaskStatus, createTask, getMyToday,
-  type GetMyTodayOut, type RenderedTaskCard, type RiskLevel,
+  changeTaskStatus, createTask, getMyToday, listTasks,
+  type GetMyTodayOut, type RenderedTaskCard, type RiskLevel, type TaskStatus,
 } from "@/lib/live-tasks";
 
 /**
@@ -34,11 +35,13 @@ import {
 const RISK_TONE: Record<RiskLevel, "danger" | "warning" | "primary"> = { R3: "danger", R2: "warning", R1: "primary" };
 
 const SECTION_META: { key: keyof GetMyTodayOut["sections"]; title: string; hint?: string }[] = [
-  { key: "awaiting_my_judgment", title: "等我判断", hint: "AI 停在这里，不会绕过你继续" },
+  { key: "awaiting_my_judgment", title: "等我判断", hint: "需要你接受或验收" },
   { key: "my_push_today", title: "今天该我推进" },
   { key: "ai_running_for_me", title: "AI 正在替我跑", hint: "只给一行摘要" },
   { key: "waiting_on_others", title: "下一步轮到别人" },
 ];
+
+const NEXT_ACTION_LABEL: Record<TaskStatus, string> = { inbox: "接受任务", todo: "开始执行", in_progress: "提交验收", review: "确认完成", done: "已完成" };
 
 function LiveCard({ card, onAdvance, onBlock }: {
   card: RenderedTaskCard;
@@ -60,8 +63,8 @@ function LiveCard({ card, onAdvance, onBlock }: {
 
       <div className="flex flex-wrap items-center gap-2 text-10 text-muted-foreground">
         <span className="inline-flex items-center gap-1" data-testid="tasks-owner-line">
-          {card.ownerUserId && <Avatar initials={card.ownerUserId.slice(0, 1).toUpperCase()} tone="human" size="xs" />}
-          负责人 {card.ownerUserId ?? "未指派"}
+          {card.ownerUserId && <Avatar initials="我" tone="human" size="xs" />}
+          负责人 {card.ownerUserId ? "我" : "未指派"}
         </span>
         {card.executor && (
           <Badge tone={card.executor.kind === "agent" ? "ai" : "neutral"} data-testid="tasks-executor-badge">
@@ -75,8 +78,8 @@ function LiveCard({ card, onAdvance, onBlock }: {
       </div>
 
       <div className="mt-0.5 flex items-center gap-2">
-        <Button size="sm" variant="primary" onClick={() => onAdvance(card.id)} data-testid={`tasks-live-advance-${card.id}`}>推进</Button>
-        <Button size="sm" variant="ghost" onClick={() => onBlock(card.id)} data-testid={`tasks-live-block-${card.id}`}>标记阻塞</Button>
+        <Button size="sm" variant="primary" onClick={() => onAdvance(card.id)} data-testid={`tasks-live-advance-${card.id}`}>{NEXT_ACTION_LABEL[card.status]}</Button>
+        <Button size="sm" variant="ghost" disabled={card.status === "todo" || card.status === "inbox"} title={card.status === "todo" || card.status === "inbox" ? "当前已是最初状态，无法再退回" : undefined} onClick={() => onBlock(card.id)} data-testid={`tasks-live-block-${card.id}`}>退回上一步</Button>
       </div>
     </article>
   );
@@ -209,6 +212,8 @@ export function TodayBoardLive() {
   const { status, session } = useSession();
   const [projectId, setProjectId] = React.useState<string | null>(null);
   const [data, setData] = React.useState<GetMyTodayOut | null>(null);
+  const [otherTasks, setOtherTasks] = React.useState<RenderedTaskCard[]>([]);
+  const [otherTasksError, setOtherTasksError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   /** 「这个组织还没有项目」与「有项目但没有任务」是两回事，界面上要分开说。 */
   const [noProject, setNoProject] = React.useState(false);
@@ -242,7 +247,17 @@ export function TodayBoardLive() {
         return;
       }
       setNoProject(false);
-      setData(out ?? (await getMyToday(pid)));
+      setOtherTasks([]);
+      const today = out ?? (await getMyToday(pid));
+      setData(today);
+      setOtherTasksError(null);
+      try {
+        const tasks = await listTasks(pid);
+        const todayIds = new Set(Object.values(today.sections).flat().map((card) => card.id));
+        setOtherTasks(tasks.cards.filter((card) => card.ownerUserId === session.userId && card.status !== "done" && !todayIds.has(card.id)));
+      } catch (e) {
+        setOtherTasksError(`未能读取其他任务：${describeFailure(e)}`);
+      }
     } catch (e) {
       setError(describeFailure(e));
     } finally {
@@ -256,7 +271,8 @@ export function TodayBoardLive() {
   }, [status, session?.currentOrgId]);
 
   const advance = async (id: string, card: RenderedTaskCard) => {
-    const next = card.status === "todo" ? "in_progress" : card.status === "in_progress" ? "review" : card.status === "review" ? "done" : "done";
+    const next = board.TASK_STATUSES[board.TASK_STATUSES.indexOf(card.status) + 1];
+    if (!next) return;
     try {
       await changeTaskStatus(id, next);
       await refresh();
@@ -271,10 +287,10 @@ export function TodayBoardLive() {
     const target = prevRank[card.status];
     if (!target) return;
     try {
-      await changeTaskStatus(id, target as never, "标记阻塞（前端演示按钮）");
+      await changeTaskStatus(id, target as never, "退回上一步");
       await refresh();
     } catch (e) {
-      setError(`标记阻塞失败：${describeFailure(e)}`);
+      setError(`退回失败：${describeFailure(e)}`);
     }
   };
 
@@ -290,6 +306,7 @@ export function TodayBoardLive() {
   }
 
   const cardsById = new Map<string, RenderedTaskCard>();
+  for (const card of otherTasks) cardsById.set(card.id, card);
   if (data) for (const s of SECTION_META) for (const c of data.sections[s.key]) cardsById.set(c.id, c);
 
   return (
@@ -299,26 +316,26 @@ export function TodayBoardLive() {
           <h1 className="text-20 font-semibold tracking-tight">我的今天</h1>
           <p className="text-12 text-muted-foreground">最重要的是什么 · 下一步轮到谁 · 什么在等我判断。</p>
         </div>
-        <NewTaskForm projectId={projectId} ownerUserId={session.userId} onCreated={refresh} />
+        {projectId && <NewTaskForm projectId={projectId} ownerUserId={session.userId} onCreated={refresh} />}
       </header>
 
-      {error && <p className="text-12 text-destructive" data-testid="tasks-live-error">{error}</p>}
+      {error && <p role="alert" className="text-12 text-destructive" data-testid="tasks-live-error">{error}</p>}
       {noProject && !loading && (
         <div
           data-testid="tasks-live-no-project"
           className="rounded-lg border border-dashed border-border px-6 py-10 text-center"
         >
           <p className="text-13 text-card-foreground" data-testid="tasks-live-no-project-title">
-            {hasProjects ? "这里还没有任务，因为你还没有加入任何项目的看板。" : "这里还没有任务，因为你还没有项目。"}
+            {hasProjects ? "你还没有可用的工作坊任务看板。" : "这里还没有任务，因为你还没有项目。"}
           </p>
           <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
-            「我的今天」汇总的是各个项目里轮到你的事。先建一个项目，它就有内容了。
+            「我的今天」显示你有权限的工作坊看板中的任务。普通项目暂不提供任务看板；加入工作坊后即可查看和创建任务。
             <br />
             也可以先不建项目，直接去「对话」里交一件事给 AI。
           </p>
           <div className="mt-3 flex items-center justify-center gap-2">
             <Button size="sm" variant="primary" asChild data-testid="tasks-live-no-project-projects">
-              <Link href="/projects">去建一个项目</Link>
+              <Link href="/projects">查看项目与工作坊</Link>
             </Button>
             <Button size="sm" variant="outline" asChild data-testid="tasks-live-no-project-chat">
               <Link href="/chat">先去对话</Link>
@@ -356,6 +373,12 @@ export function TodayBoardLive() {
               </section>
             );
           })}
+
+          <section className="flex flex-col gap-2" data-testid="tasks-live-other-tasks">
+            <h2 className="text-14 font-semibold">我的其他待办</h2>
+            <p className="text-11 text-muted-foreground">未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。</p>
+            {loading ? <p role="status" className="text-11 text-muted-foreground">正在读取其他待办…</p> : otherTasksError ? <div role="alert"><p className="text-12 text-destructive">{otherTasksError}</p><Button size="sm" variant="outline" onClick={() => void refresh()}>重试读取其他任务</Button></div> : otherTasks.length === 0 ? <p className="text-11 text-muted-foreground">没有其他待办</p> : otherTasks.map((card) => <LiveCard key={card.id} card={card} onAdvance={(id) => void advance(id, cardsById.get(id)!)} onBlock={(id) => void block(id, cardsById.get(id)!)} />)}
+          </section>
 
           <footer
             data-testid="tasks-today-summary"

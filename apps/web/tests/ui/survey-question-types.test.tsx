@@ -90,9 +90,9 @@ describe("question registry renders and configures every supported form", () => 
       provenance: { source: "question-library", sourceId: "library-q1", certifiedAt: "2026-09-25T00:00:00.000Z" },
     });
     render(<Editor initial={[question]} />);
-    expect(screen.getByTestId("question-provenance")).toHaveTextContent("题库来源 · 已认证");
+    expect(screen.getByTestId("question-provenance")).toHaveTextContent("题库来源 · 题库认证：已认证");
     fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "修改后" } });
-    expect(screen.getByTestId("question-provenance")).toHaveTextContent("题库来源 · 需重新认证");
+    expect(screen.getByTestId("question-provenance")).toHaveTextContent("题库来源 · 题库认证：待认证");
   });
   it.each(SURVEY_QUESTION_TYPES)(
     "adds $type with valid defaults and a shared preview",

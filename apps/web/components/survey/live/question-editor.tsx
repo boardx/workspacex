@@ -522,7 +522,7 @@ export function SurveyQuestionEditor({
               {question.provenance && (
                 <p data-testid="question-provenance" className="text-12 text-muted-foreground">
                   {question.provenance.source === "question-library" ? "题库来源" : question.provenance.source === "template" ? "模板来源" : "手动创建"}
-                  {" · "}{question.provenance.certifiedAt ? "已认证" : "需重新认证"}
+                  {" · 题库认证："}{question.provenance.certifiedAt ? "已认证" : "待认证"}
                 </p>
               )}
               {!studioLayout && <label className="block text-12">

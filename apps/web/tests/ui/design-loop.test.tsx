@@ -281,7 +281,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "x1" } });
-    await waitFor(() => expect(screen.getByTestId("inbox-drag-error")).toBeTruthy());
+    await screen.findByTestId("inbox-drag-error");
     // 回滚后卡片回到待处理列。
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
     expect(screen.getByTestId("inbox-card-B-1")).toBeTruthy();
@@ -558,6 +558,26 @@ describe("⑨ 转入开发 ⇔ 建 GitHub Issue（2026-09-05：不再有独立�
     expect(draft.title).toBe("改过的标题");
     expect(draft.labels).toEqual(["user-feedback", "bug"]);
     await waitFor(() => expect(screen.getByTestId("inbox-column-count-doing").textContent).toBe("1"));
+  });
+
+  it("建 issue 失败后错误在抽屉内可见，草稿保留且状态不迁移", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [feedbackItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path.endsWith("/events")) return { events: [] };
+      if (path.endsWith("/status") && opts?.method === "PUT") throw new Error("offline");
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-start"));
+    fireEvent.change(screen.getByTestId("inbox-issue-title"), { target: { value: "保留我修改的标题" } });
+    fireEvent.click(screen.getByTestId("inbox-issue-submit"));
+    const drawer = screen.getByTestId("inbox-drawer");
+    expect(await within(drawer).findByRole("alert")).toHaveTextContent("草稿已保留");
+    expect(screen.getByTestId("inbox-issue-title")).toHaveValue("保留我修改的标题");
+    expect(screen.getByTestId("inbox-issue-submit")).toBeEnabled();
+    expect(screen.getByTestId("inbox-column-count-doing")).toHaveTextContent("0");
   });
 
   it("服务端回 imageUploadWarnings ⇒ 展示持续的附件上传警告，不吞", async () => {
@@ -3119,7 +3139,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
     fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
     fireEvent.click(await screen.findByTestId("inbox-action-design-handoff"));
     fireEvent.click(await screen.findByTestId("inbox-issue-submit"));
-    await waitFor(() => expect(screen.getByTestId("inbox-drag-error")).toBeTruthy());
+    expect(await within(screen.getByTestId("inbox-drawer")).findByRole("alert")).toHaveTextContent("没能创建 GitHub Issue");
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
   });
 });
