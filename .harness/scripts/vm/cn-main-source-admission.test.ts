@@ -1,0 +1,26 @@
+import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {describe,it,expect} from 'vitest';
+import {validateMainSourceAdmission} from './cn-main-source-admission.mjs';
+const source='a'.repeat(40),head='b'.repeat(40),parent='c'.repeat(40),tree='d'.repeat(40),repo='boardx/workspacex';
+const policy={version:2,requiredChecks:['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required'],aggregates:{'backend-required':['gates-fast','gates-test','gates-runtime','native-document-chain','native-runtime-lane','prototype-audit','design-loop-e2e']},allowedMergeMethods:['merge','squash']};
+const names=[...policy.requiredChecks,...policy.aggregates['backend-required'],'e2e-core-loop',...Array.from({length:8},(_,i)=>`full-regression-core (${i+1})`)];
+const check=(name:string,sha:string,id:number)=>({name,head_sha:sha,id,app:{slug:'github-actions'},status:'completed',conclusion:'success',started_at:'2026-10-01T00:00:00Z',completed_at:'2026-10-01T00:01:00Z'});
+function facts(){return {sourceCommit:{sha:source,tree:{sha:tree},parents:[{sha:parent}]},mainContainsSource:true,associatedPrs:[{number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,merged_by:{login:'human'},base:{ref:'main',repo:{full_name:repo}},head:{sha:head,repo:{full_name:repo}}}],mergeTree:tree,mergeParentPolicy:policy,sourcePolicy:policy,prChecks:names.map((n,i)=>check(n,head,i+1)),prStatuses:[],sourceChecks:names.filter(n=>!['merge-gate','backend-required'].includes(n)).map((n,i)=>check(n,source,i+1)),sourceStatuses:[],deploymentWorkflow:{jobs:Object.fromEntries(['deploy',...policy.aggregates['backend-required'],'e2e-core-loop'].map(n=>[n,n==='deploy'?{needs:[...policy.aggregates['backend-required'],'e2e-core-loop']} : {}]))}}}
+describe('exact main CI admission',()=>{
+ it('admits squash exact tree with historically green PR and real main tests, without PR-only aggregates on push',()=>expect(validateMainSourceAdmission(source,repo,facts()).prNumber).toBe(1));
+ it('admits merge only when second parent is actual PR head',()=>{const f=facts();f.sourceCommit.parents.push({sha:head});expect(validateMainSourceAdmission(source,repo,f).prHeadSha).toBe(head)});
+ it.each(['mainContainsSource','mergeTree','associatedPrs','prChecks','mergeParentPolicy'])('fails absent %s',(key)=>{const f:any=facts();delete f[key];expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+ it('does not borrow unrelated PR green',()=>{const f=facts();f.associatedPrs[0].merge_commit_sha=parent;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+ it('rejects ambiguous merged PRs',()=>{const f=facts();f.associatedPrs.push({...f.associatedPrs[0],number:2});expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+ it('rejects pending at merge even when later success',()=>{const f=facts();f.prChecks[0].completed_at='2026-10-01T00:03:00Z';expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_MERGE_CI')});
+ it('rejects queue evidence without authoritative candidate group binding',()=>{const f=facts();f.associatedPrs[0].merged_by.login='github-merge-queue';expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+ it.each(['gates-test','e2e-core-loop','design-loop-e2e','prototype-audit','native-runtime-lane'])('requires real main %s success',(name)=>{for(const mode of ['missing','skipped','failure']){const f=facts();if(mode==='missing')f.sourceChecks=f.sourceChecks.filter(c=>c.name!==name);else f.sourceChecks.find(c=>c.name===name)!.conclusion=mode;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_RUNTIME_CI')}});
+ it('rejects missing matrix shard despite other shards success',()=>{const f:any=facts();f.deploymentWorkflow.jobs['gates-test']={strategy:{matrix:{shard:[1,2]}}};f.sourceChecks=f.sourceChecks.filter(c=>c.name!=='gates-test');f.sourceChecks.push(check('gates-test (1)',source,100));expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+ it('rejects main shard red despite green aggregate',()=>{const f=facts();f.sourceChecks.find(c=>c.name==='full-regression-core (1)')!.conclusion='failure';expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+ it('rejects altered second parent or squash result tree',()=>{const f=facts();f.sourceCommit.parents.push({sha:source});expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow();f.sourceCommit.parents.pop();f.mergeTree=parent;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+});
+
+it('actual CLI passes bound facts and rejects drift without a success receipt',()=>{const dir=mkdtempSync(join(tmpdir(),'cn-main-admission-'));try{const file=join(dir,'facts.json');for(const red of [false,true]){const f=facts();if(red)f.mergeTree=parent;writeFileSync(file,JSON.stringify(f),{mode:0o600});const result=spawnSync(process.execPath,['--import','tsx','.harness/scripts/vm/cn-main-source-admission.mjs',source,repo,file],{encoding:'utf8'});expect(result.status).toBe(red?1:0);expect(result.stdout.includes('CN_MAIN_SOURCE_ADMISSION_JSON=')).toBe(!red)}}finally{rmSync(dir,{recursive:true,force:true})}});
