@@ -32,7 +32,7 @@ const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifes
 const results = [];
 const browserErrors = [];
 const browserHTTPFailures = [];
-let browser, page, token, boardId, principal, completed = false;
+let browser, page, token, boardId, principal, endAttestation, completed = false;
 const fixtureTitle = `Navigation acceptance ${randomUUID()}`;
 const redact = value => String(value).replaceAll(token ?? '\0', '[token]').replaceAll(password ?? '\0', '[password]');
 let password;
@@ -617,7 +617,7 @@ try {
     await page.screenshot({ path: join(out, 'eraser-undone.png') });
     return { ids, lockedId, fixtureInterpretation: 'Deliberate scaleY=40 stress fixture from a one-pixel intrinsic horizontal frame; giant ink is not a normal 5px pen example. Natural pen visual checks are separate.', beforeInk, erasedInk, undoneInk, beforeHead: before.head, afterHead: after.head, undoneHead: undone.head };
   });
-  verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
+  endAttestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifest'), root, base, origin: apiOrigin });
   completed = true;
 } catch (error) {
   if (!results.some(value => !value.ok)) results.push({name: 'setup', ok: false, detail: redact(error.stack ?? error)});
@@ -640,7 +640,7 @@ try {
   }
   await browser?.close().catch(error => browserErrors.push(redact(error.message)));
   const ok = completed && results.length > 0 && results.every(value => value.ok) && browserErrors.length === 0 && browserHTTPFailures.length === 0;
-  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, endAttestation, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
   writeFileSync(join(out, 'browser-errors.json'), JSON.stringify(browserErrors, null, 2));
   writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nHighlighter defaults NOT ACCEPTED pending Round05 #4969. This matrix explicitly configures Pen 100% and Highlighter 25% through real UI; it does not accept the default instrument appearance.\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
   process.exitCode = ok ? 0 : 1;
