@@ -238,6 +238,16 @@ describe("#448 post-restart readiness", () => {
     expect(block).toContain("reverse_proxy 127.0.0.1:${APP_API_PORT}");
   });
 
+  it("routes realtime voice WebSockets to the API before the Web catch-all", () => {
+    const provision = readFileSync(PROVISION, "utf8");
+    const voiceIndex = provision.indexOf("handle /chat/realtime-digital-human {");
+    const catchAllIndex = provision.indexOf("handle {\n\t\treverse_proxy 127.0.0.1:${APP_WEB_PORT}");
+    expect(voiceIndex).toBeGreaterThan(-1);
+    expect(voiceIndex).toBeLessThan(catchAllIndex);
+    const block = provision.slice(voiceIndex, provision.indexOf("}", voiceIndex) + 1);
+    expect(block).toContain("reverse_proxy 127.0.0.1:${APP_API_PORT}");
+  });
+
   it("routes Board collaboration WebSockets to the API before the Web catch-all", () => {
     const provision = readFileSync(PROVISION, "utf8");
     const catchAllIndex = provision.indexOf("handle {\n\t\treverse_proxy 127.0.0.1:${APP_WEB_PORT}");
@@ -364,6 +374,13 @@ describe("#3073 live Caddyfile route drift", () => {
     expect(result.stderr).toContain("/agent-runs/*/events");
     // 其它路由都在，不许连坐误报。
     expect(result.stderr).not.toContain("/chat/asr-draft");
+  });
+
+  it("rejects a live proxy missing only the realtime voice route", () => {
+    const result = runDrift(liveFrom(templateRoutes().filter((route) => route !== "/chat/realtime-digital-human")));
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("/chat/realtime-digital-human");
+    expect(result.stderr).not.toContain("/whiteboards/*/sync");
   });
 
   it("缺任意其它 WS 面同样红（不是只硬编码了 agent-runs 一条）", () => {

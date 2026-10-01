@@ -121,7 +121,7 @@ step "1a. 反代路由预检与 Board 路由恢复"
 # Next.js. The old process served a new asset directory and Board failed with a
 # missing chunk. Repair only this known route from the root-owned helper; other
 # route drift remains fail-closed. Run before any frontend build.
-ensure_board_sync_caddy_route /etc/caddy/Caddyfile "${APP_API_PORT:-3200}"
+ensure_reviewed_websocket_caddy_routes /etc/caddy/Caddyfile "${APP_API_PORT:-3200}"
 assert_caddy_routes_current "$APP_DIR/.harness/scripts/vm/provision.sh" /etc/caddy/Caddyfile
 
 step "2. 依赖"
