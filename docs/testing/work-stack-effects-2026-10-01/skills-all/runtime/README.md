@@ -29,3 +29,7 @@ Run from the repository root unless noted:
 The initial worktree dependency resolver pointed at a different checkout and lacked its new contracts export; it was corrected locally without source changes. Those setup failures are preserved in `api-original.log`/`api-worktree-import.log`. `tsx` CLI IPC was bypassed for the batch using standard `node --import tsx`; the runner's semantic failures remain.
 
 The DB-backed batch catalog/write-back, frozen claim/acceptance, live import, and owned-container lane have not been rerun here. PostgreSQL tests require the parent-owned isolated database; no services were started. No whole-repository typecheck or build is claimed by this report. The 26 execution adapters, 56 missing suites and real-model scenarios are still open work, not completed acceptance.
+
+## 汇总边界补充
+
+当前整合口径为136项确定性边界回归，仅对应其源码/权限/编排保护；上面的130项是历史运行批次，不是Skill通过计数。全200库存实际 `--check` exit0，聚合0 PASS/56 FAIL/27 BLOCKED/117 NOT_IMPLEMENTED；83 packaged、27 suites、1 subject。不据测试数覆盖这200项，也不据S003回环宣布专业质量通过。26 subject入口、56 suite、56 schema和117实现缺口仍open。#16生产浏览器本轮结果尚未知，此处不预写PASS。

@@ -63,3 +63,9 @@ node docs/testing/work-stack-effects-2026-10-01/skills-all/generate-inventory.mj
 这些未完成项是实际缺口，必须继续按单项结果推进，不能据本报告声称全部 Skills 已验收。
 
 证据新鲜度：机器报告必须提供生产编译器与各 SKILL.md 内容指纹，生成器对当前文件逐项核对；运行报告 sourceSHA 对应的 manifest 和 suite 文件须与当前字节一致。固定旧报告不因新源更改继续被当作当前通过。证据文件由对应专项产出，本生成器只读聚合，缺报告不会凭库存推断执行结果。
+
+## 当前复验口径
+
+200清单生成器 `--check` 已在授权环境实际 exit 0；这仅证明库存与源报告同步。聚合状态为 **0 PASS / 56 FAIL / 27 BLOCKED / 117 NOT_IMPLEMENTED**，合计200。83打包、27 suite、1注册subject是不同覆盖维度，不能相加当作通过数量。136项确定性边界测试是技术回归，不是全Skills或136个Skill通过。
+
+正式计划当前121场景模板、656历史实体检查行；全Skill SKUI-01–16尚需对200项逐项实例化。#16生产三project浏览器复验 source `ec3e4ae73033afe98c755eb312a1711644ab0778` 当前RUNNING，最终未知，不预标通过。真实模型/vendor语音仍未完成，销售完整CRM延期保留。
