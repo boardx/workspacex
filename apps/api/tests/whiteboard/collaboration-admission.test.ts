@@ -86,3 +86,29 @@ it('syncs fifty distinct same-tenant WebSocket sessions and rechecks fresh revoc
     await new Promise<void>(resolve => server.close(() => resolve())); doc.destroy();
   }
 },10000);
+
+it('cancellation of one shared hello waiter leaves the other live and evicts the settled authorization', async () => {
+  const gate = new WhiteboardAdmission(), blocked = deferred(), first = signal(), work = vi.fn(() => blocked.promise);
+  const canceled = gate.runShared('org','credential',work,first.signal);
+  const survivor = gate.runShared('org','credential',work,signal().signal);
+  await Promise.resolve(); first.abort();
+  await expect(canceled).rejects.toMatchObject({code:'DEPENDENCY_UNAVAILABLE'});
+  expect(work).toHaveBeenCalledOnce(); blocked.resolve(); await survivor;
+  await gate.runShared('org','credential',work,signal().signal);
+  expect(work).toHaveBeenCalledTimes(2);
+});
+it('all disconnected shared waiters remove queued work before database entry', async () => {
+  const gate = new WhiteboardAdmission(), blocked = deferred(), first = signal(), second = signal(), work = vi.fn(async () => undefined);
+  const occupied = gate.run('org',() => blocked.promise,signal().signal);
+  const a = gate.runShared('org','credential',work,first.signal), b = gate.runShared('org','credential',work,second.signal);
+  first.abort(); second.abort();
+  await expect(a).rejects.toMatchObject({code:'DEPENDENCY_UNAVAILABLE'}); await expect(b).rejects.toMatchObject({code:'DEPENDENCY_UNAVAILABLE'});
+  blocked.resolve(); await occupied; await Promise.resolve(); expect(work).not.toHaveBeenCalled();
+});
+
+it('never shares a matching waiter key across distinct tenant scopes', async () => {
+  const gate = new WhiteboardAdmission();
+  const a = gate.runShared('tenant-a','same-key',async () => 'a',signal().signal);
+  const b = gate.runShared('tenant-b','same-key',async () => 'b',signal().signal);
+  expect(await Promise.all([a,b])).toEqual(['a','b']);
+});

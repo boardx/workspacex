@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { WhiteboardAdmission } from './whiteboard-admission';
 import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -48,7 +49,8 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
     socket.once('close', () => lifetime.abort());
     const token=credential.slice(WHITEBOARD_SYNC.bearerSubprotocolPrefix.length), boardId=match[1]!;
     void (async()=>{
-      const principal=await authentication.run(token, () => deps.principals.resolve({authorization:`Bearer ${token}`}), lifetime.signal); if (!principal) { refuse(401); return; }
+      const credentialKey=createHash('sha256').update(token).digest('hex');
+      const principal=await authentication.runShared(credentialKey, credentialKey, () => deps.principals.resolve({authorization:`Bearer ${token}`}), lifetime.signal); if (!principal) { refuse(401); return; }
       const [board,identity]=await admission.run(principal.orgId, async () => {
         const board = await deps.boards.get(principal,boardId);
         lifetime.signal.throwIfAborted();
