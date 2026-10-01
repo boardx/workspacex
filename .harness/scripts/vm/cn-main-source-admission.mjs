@@ -7,9 +7,13 @@ import { classifyChecks } from '../lib/pr-queue.ts';
 import { reconstructMergeTimeChecks, commitStatusToObservation } from '../lib/pr-green.ts';
 import { parse as parseYaml } from 'yaml';
 import { parsePolicy } from '../lib/ci-check-policy.mjs';
+import { shardPlan } from '../ci-api-shards.mjs';
+const shardHelperSha256=createHash('sha256').update(readFileSync(new URL('../ci-api-shards.mjs',import.meta.url))).digest('hex');
 const sha=/^[a-f0-9]{40}$/;
 const fail=code=>{throw new Error(code)};
 
+const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])):value;
+const rawEvidenceHash=facts=>createHash('sha256').update(JSON.stringify(canonical({...facts,prChecks:facts.prChecks.slice().sort((a,b)=>a.id-b.id),prStatuses:facts.prStatuses.slice().sort((a,b)=>a.id-b.id),sourceChecks:facts.sourceChecks.slice().sort((a,b)=>a.id-b.id),sourceStatuses:facts.sourceStatuses.slice().sort((a,b)=>a.id-b.id),associatedPrs:facts.associatedPrs.slice().sort((a,b)=>a.number-b.number)}))).digest('hex');
 const ready=(checks,policy)=>{const v=classifyChecks(checks,policy);return !v.blocked.length&&!v.changes.length&&!v.waitingCi.length};
 export function validateMainSourceAdmission(source,repository,facts) {
  if(!sha.test(source)||repository!=='boardx/workspacex'||facts?.sourceCommit?.sha!==source||facts.mainContainsSource!==true)fail('MAIN_SOURCE_IDENTITY');
@@ -34,9 +38,17 @@ export function validateMainSourceAdmission(source,repository,facts) {
  if(!Array.isArray(deployNeeds)||!deployNeeds.length||deployNeeds.some(n=>typeof n!=='string'||!facts.deploymentWorkflow.jobs[n]))fail('MAIN_SOURCE_DEPLOY_OBLIGATIONS');
  const runtimePolicy=parsePolicy(facts.sourcePolicy);
  const obligations=[...new Set([...runtimePolicy.requiredChecks.filter(n=>n!=='merge-gate'&&!runtimePolicy.aggregates[n]),...Object.values(runtimePolicy.aggregates).flat(),...deployNeeds])];
- const runtimeChecks=obligations.flatMap(name=>{const job=facts.deploymentWorkflow.jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||!Array.isArray(matrix.shard)||!matrix.shard.length||matrix.shard.some(n=>!Number.isSafeInteger(n)||n<1)||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');return matrix.shard.map(n=>`${name} (${n})`)});
+ let dynamicShardPlan=null;
+ const runtimeChecks=obligations.flatMap(name=>{const job=facts.deploymentWorkflow.jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');let shards=matrix.shard;
+  if(typeof shards==='string') {
+   const planJob=facts.deploymentWorkflow.jobs['api-test-plan'];
+   if(name!=='gates-test'||shards!=='${{ fromJSON(needs.api-test-plan.outputs.shards) }}'||job.needs!=='api-test-plan'||planJob?.outputs?.shards!=='${{ steps.plan.outputs.shards }}'||planJob?.outputs?.count!=='${{ steps.plan.outputs.count }}'||planJob.steps?.length!==2||planJob.steps[0].uses!=='actions/checkout@v5'||planJob.steps[0].with!==undefined||planJob.env!==undefined||planJob.steps.some(s=>s.env!==undefined)||planJob.steps?.filter(s=>s.id==='plan').length!==1||planJob.steps.find(s=>s.id==='plan').run!=='node .harness/scripts/ci-api-shards.mjs --plan'||facts.sourceShardHelperSha256!==shardHelperSha256)fail('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
+   dynamicShardPlan=shardPlan(facts.sourceShardPolicy);shards=dynamicShardPlan.shards;
+  }
+  if(!Array.isArray(shards)||!shards.length||new Set(shards).size!==shards.length||shards.some(n=>!Number.isSafeInteger(n)||n<1))fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');return shards.map(n=>`${name} (${n})`)});
+ if(dynamicShardPlan)runtimeChecks.push('api-test-plan');
  if(!ready(checks,{...runtimePolicy,requiredChecks:runtimeChecks}))fail('MAIN_SOURCE_RUNTIME_CI');
- return {historicalRuns:historical.filter(c=>Date.parse(c.started_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,name:c.name,headSha:c.head_sha,status:c.status,conclusion:c.conclusion,startedAt:c.started_at,completedAt:c.completed_at})),historicalStatuses:facts.prStatuses.filter(c=>Date.parse(c.created_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),runtimeStatuses:facts.sourceStatuses.slice().sort((a,b)=>String(a.context).localeCompare(String(b.context))).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),policySha256:createHash('sha256').update(JSON.stringify({historical:policy,runtime:runtimePolicy})).digest('hex'),mergeChecks:reconstructMergeTimeChecks(observations,pr.merged_at).sort((a,b)=>a.name.localeCompare(b.name)),runtimeChecks:facts.sourceChecks.filter(c=>runtimeChecks.includes(c.name)).map(c=>({id:c.id,name:c.name,conclusion:c.conclusion})).sort((a,b)=>a.name.localeCompare(b.name)),sourceSha:source,prNumber:pr.number,prHeadSha:head,mergeParentSha:parents[0],mergeTree:facts.mergeTree,mergedAt:pr.merged_at};
+ return {rawEvidenceSha256:rawEvidenceHash(facts),dynamicShardPlan,sourceShardPolicy:dynamicShardPlan?facts.sourceShardPolicy:null,sourceShardHelperSha256:dynamicShardPlan?facts.sourceShardHelperSha256:null,historicalRuns:historical.filter(c=>Date.parse(c.started_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,name:c.name,headSha:c.head_sha,status:c.status,conclusion:c.conclusion,startedAt:c.started_at,completedAt:c.completed_at})),historicalStatuses:facts.prStatuses.filter(c=>Date.parse(c.created_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),runtimeStatuses:facts.sourceStatuses.slice().sort((a,b)=>String(a.context).localeCompare(String(b.context))).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),policySha256:createHash('sha256').update(JSON.stringify({historical:policy,runtime:runtimePolicy})).digest('hex'),mergeChecks:reconstructMergeTimeChecks(observations,pr.merged_at).sort((a,b)=>a.name.localeCompare(b.name)),runtimeChecks:facts.sourceChecks.filter(c=>runtimeChecks.includes(c.name)).map(c=>({id:c.id,name:c.name,conclusion:c.conclusion})).sort((a,b)=>a.name.localeCompare(b.name)),sourceSha:source,prNumber:pr.number,prHeadSha:head,mergeParentSha:parents[0],mergeTree:facts.mergeTree,mergedAt:pr.merged_at};
 }
 export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  if(repository!=='boardx/workspacex'||!sha.test(source))fail('MAIN_SOURCE_INPUT');
@@ -52,7 +64,10 @@ export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  const currentMain=gh(`${prefix}/git/ref/heads/main`).object?.sha;
  if(!sha.test(currentMain))fail('MAIN_SOURCE_IDENTITY');
  const comparison=gh(`${prefix}/compare/${source}...${currentMain}`);
- return {sourcePolicy:JSON.parse(git(['show',`${source}:.harness/config/ci-check-policy.json`])),deploymentWorkflow:parseYaml(git(['show',`${source}:.github/workflows/backend-gates.yml`])),sourceCommit,associatedPrs:[pr],mergeTree,mainContainsSource:['ahead','identical'].includes(comparison.status),mergeParentPolicy:JSON.parse(git(['show',`${parent}:.harness/config/ci-check-policy.json`])),prChecks:pages(`${prefix}/commits/${head}/check-runs?filter=all`,'check_runs'),prStatuses:pages(`${prefix}/commits/${head}/statuses`),sourceChecks:pages(`${prefix}/commits/${source}/check-runs?filter=latest`,'check_runs'),sourceStatuses:pages(`${prefix}/commits/${source}/statuses`)};
+ const deploymentWorkflow=parseYaml(git(['show',`${source}:.github/workflows/backend-gates.yml`]));
+ const dynamic=Object.values(deploymentWorkflow.jobs??{}).some(j=>typeof j.strategy?.matrix?.shard==='string');
+ const shardClosure=dynamic?{sourceShardPolicy:JSON.parse(git(['show',`${source}:.harness/api-test-shards.json`])),sourceShardHelperSha256:createHash('sha256').update(git(['show',`${source}:.harness/scripts/ci-api-shards.mjs`])).digest('hex')}:{};
+ return {...shardClosure,sourcePolicy:JSON.parse(git(['show',`${source}:.harness/config/ci-check-policy.json`])),deploymentWorkflow,sourceCommit,associatedPrs:[pr],mergeTree,mainContainsSource:['ahead','identical'].includes(comparison.status),mergeParentPolicy:JSON.parse(git(['show',`${parent}:.harness/config/ci-check-policy.json`])),prChecks:pages(`${prefix}/commits/${head}/check-runs?filter=all`,'check_runs'),prStatuses:pages(`${prefix}/commits/${head}/statuses`),sourceChecks:pages(`${prefix}/commits/${source}/check-runs?filter=latest`,'check_runs'),sourceStatuses:pages(`${prefix}/commits/${source}/statuses`)};
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){

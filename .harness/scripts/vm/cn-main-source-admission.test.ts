@@ -1,4 +1,6 @@
-import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {parse as parseYaml} from 'yaml';
+import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -24,3 +26,10 @@ describe('exact main CI admission',()=>{
 });
 
 it('actual CLI passes bound facts and rejects drift without a success receipt',()=>{const dir=mkdtempSync(join(tmpdir(),'cn-main-admission-'));try{const file=join(dir,'facts.json');for(const red of [false,true]){const f=facts();if(red)f.mergeTree=parent;writeFileSync(file,JSON.stringify(f),{mode:0o600});const result=spawnSync(process.execPath,['--import','tsx','.harness/scripts/vm/cn-main-source-admission.mjs',source,repo,file],{encoding:'utf8'});expect(result.status).toBe(red?1:0);expect(result.stdout.includes('CN_MAIN_SOURCE_ADMISSION_JSON=')).toBe(!red)}}finally{rmSync(dir,{recursive:true,force:true})}});
+
+// The actual committed workflow uses a dynamic matrix, not the literal fixture above.
+function committedWorkflowFacts(){const f:any=facts();f.deploymentWorkflow=parseYaml(readFileSync('.github/workflows/backend-gates.yml','utf8'));f.sourceShardPolicy=JSON.parse(readFileSync('.harness/api-test-shards.json','utf8'));f.sourceShardHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-api-shards.mjs')).digest('hex');f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='gates-test');for(let n=1;n<=f.sourceShardPolicy.count;n++)f.sourceChecks.push(check(`gates-test (${n})`,source,100+n));f.sourceChecks.push(check('api-test-plan',source,200));return f;}
+it('admits all actual committed dynamic shards and binds the single source plan',()=>{const f=committedWorkflowFacts();const r=validateMainSourceAdmission(source,repo,f);expect(r.dynamicShardPlan.shards).toEqual(Array.from({length:f.sourceShardPolicy.count},(_,i)=>i+1));expect(r.runtimeChecks.some((c:any)=>c.name==='api-test-plan')).toBe(true)});
+it.each(['missing-plan','missing-last-shard','red-last-shard','helper-drift','expression-drift','output-drift','invalid-count'])('fails closed actual workflow closure %s',mode=>{const f=committedWorkflowFacts();if(mode==='missing-plan')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='api-test-plan');if(mode==='missing-last-shard')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!==`gates-test (${f.sourceShardPolicy.count})`);if(mode==='red-last-shard')f.sourceChecks.find((c:any)=>c.name===`gates-test (${f.sourceShardPolicy.count})`).conclusion='failure';if(mode==='helper-drift')f.sourceShardHelperSha256='0'.repeat(64);if(mode==='expression-drift')f.deploymentWorkflow.jobs['gates-test'].strategy.matrix.shard='${{ fromJSON(needs.other.outputs.shards) }}';if(mode==='output-drift')f.deploymentWorkflow.jobs['api-test-plan'].outputs.shards='${{ steps.other.outputs.shards }}';if(mode==='invalid-count')f.sourceShardPolicy.count=33;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+
+it('binds complete raw runtime observations including timestamps/head/app/status, with stable API ordering',()=>{const f:any=committedWorkflowFacts();const first=validateMainSourceAdmission(source,repo,f).rawEvidenceSha256;f.sourceChecks.reverse();expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).toBe(first);f.sourceChecks[0].started_at='2026-10-01T00:00:01Z';expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).not.toBe(first)});
