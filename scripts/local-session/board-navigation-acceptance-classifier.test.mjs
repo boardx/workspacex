@@ -1,5 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { assertHeldRotationFrame } from './board-navigation-acceptance-classifier.mjs';
+test('held rotation rejects frame resets and wrong or missing expected corners', () => {
+  const valid = { pointerAngle: -30, childDeltas: [-30, -30], corners: Array.from({ length: 4 }, () => ({ bluePixels: 5 })) };
+  assertHeldRotationFrame(valid);
+  assert.throws(() => assertHeldRotationFrame({ ...valid, childDeltas: [0, 0] }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, childDeltas: [-30, -60] }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, corners: [{ bluePixels: 5 }] }));
+  assert.throws(() => assertHeldRotationFrame({ ...valid, corners: [...valid.corners.slice(0, 3), { bluePixels: 0 }] }));
+});
 import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels } from './board-navigation-acceptance-classifier.mjs';
 
 const sticky = { id: 'sticky', kind: 'sticky', geometry: { x: 10 } };

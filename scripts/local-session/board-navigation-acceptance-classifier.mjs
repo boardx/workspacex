@@ -1,4 +1,10 @@
 import assert from 'node:assert/strict';
+export function assertHeldRotationFrame({ pointerAngle, childDeltas, corners }) {
+  assert(childDeltas.length >= 2, 'rotation moves every selected child');
+  for (const delta of childDeltas) assert(Math.abs(delta - pointerAngle) <= 2, 'child rotation agrees with independently rotated pointer input');
+  assert.equal(corners.length, 4, 'all four expected rotated control corners are sampled');
+  assert(corners.every(corner => corner.bluePixels >= 3), 'selection frame controls match the independently rotated baseline frame');
+}
 
 export function assertHeldUncommitted(before, held) {
   assert.equal(held.head.epoch, before.head.epoch, 'held gesture changes epoch');

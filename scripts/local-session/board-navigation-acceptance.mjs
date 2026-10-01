@@ -9,7 +9,8 @@ import {fileURLToPath} from 'node:url';
 
 import { verifyNavigationRuntime } from './board-navigation-acceptance-runtime.mjs';
 import { savedSequence } from './board-acceptance-runtime.mjs';
-import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels } from './board-navigation-acceptance-classifier.mjs';
+import { createAcceptanceRequestScheduler } from './board-navigation-acceptance-scheduler.mjs';
+import { assertHeldUncommitted, assertReleasedOnce, assertCancelled, assertEraseTransaction, assertDrawingPixels, assertHeldRotationFrame } from './board-navigation-acceptance-classifier.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const arg = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback;
@@ -32,6 +33,7 @@ const attestation = verifyNavigationRuntime({ manifestPath: arg('runtime-manifes
 const results = [];
 const browserErrors = [];
 const browserHTTPFailures = [];
+const requestScheduler = createAcceptanceRequestScheduler();
 let browser, page, token, boardId, principal, endAttestation, completed = false;
 const fixtureTitle = `Navigation acceptance ${randomUUID()}`;
 const redact = value => String(value).replaceAll(token ?? '\0', '[token]').replaceAll(password ?? '\0', '[password]');
@@ -58,7 +60,8 @@ const poll = async (read, predicate, label) => {
   throw new Error(`Timed out: ${label}`);
 };
 const api = async (method, path, body) => {
-  const response = await page.request.fetch(`${apiOrigin}${path}`, {method, headers: {authorization: `Bearer ${token}`}, data: body});
+  const fetch = () => page.request.fetch(`${apiOrigin}${path}`, {method, headers: {authorization: `Bearer ${token}`}, data: body});
+  const response = await (path.startsWith('/v1/') ? requestScheduler.run(fetch) : fetch());
   assert(response.ok(), `${method} ${path}: ${response.status()}`);
   return response;
 };
@@ -121,13 +124,14 @@ const inkAt = point => surface().locator('canvas.lower-canvas').evaluate((canvas
 const selectionCornerInk = async bounds => {
   const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
   const point = { x: box.x + px + (bounds.left + bounds.width) * zoom, y: box.y + py + (bounds.top + bounds.height) * zoom };
-  return surface().locator('canvas.lower-canvas').evaluate((canvas, point) => {
+  return controlInkAt(point);
+};
+const controlInkAt = point => surface().locator('canvas.lower-canvas').evaluate((canvas, point) => {
     const box = canvas.getBoundingClientRect(), sx = canvas.width / box.width, sy = canvas.height / box.height;
     const bytes = canvas.getContext('2d').getImageData(Math.round((point.x - box.x - 7) * sx), Math.round((point.y - box.y - 7) * sy), Math.round(14 * sx), Math.round(14 * sy)).data;
     let count = 0; for (let index = 0; index < bytes.length; index += 4) if (bytes[index + 3] > 50 && bytes[index] < 80 && bytes[index + 1] > 60 && bytes[index + 1] < 180 && bytes[index + 2] > 180) count++;
     return { point, bluePixels: count, canvasChannel: 'lower-canvas' };
   }, point);
-};
 const selectionBlueChrome = () => surface().locator('canvas.lower-canvas').evaluate(canvas => {
   const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
   let count = 0, sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0;
@@ -432,6 +436,7 @@ try {
     else await page.evaluate(() => window.dispatchEvent(new Event('blur')));
     await page.mouse.up(); await synced(); await page.waitForTimeout(300);
     assertCancelled(before, await canonicalState());
+    await poll(() => page.getByTestId('board-smart-guides').count(), value => value === 0, `${mode} cancellation clears smart guides`);
     const afterScene = JSON.parse(await surface().getAttribute('data-object-scenes')).find(item => item.id === object.id);
     for (const key of ['left', 'top', 'width', 'height']) assert(Math.abs(afterScene[key] - beforeScene[key]) < 1, `${mode} restores actual Fabric ${key}`);
     await page.screenshot({ path: join(out, `cancel-${mode}-${width}.png`) });
@@ -471,10 +476,15 @@ try {
     const gestures = [];
     for (const mode of ['move', 'resize', 'rotate']) {
       if (mode === 'rotate') {
-        const beforePan = await canonicalState(), box = await surface().boundingBox(), oldViewport = (await viewport()).map(Number);
+        const beforePan = await canonicalState(), box = await surface().boundingBox();
+        await page.getByTestId('board-zoom-menu').click(); await page.getByText('实际大小 100%', { exact: true }).click();
+        await poll(viewport, value => Number(value[0]) === 1, 'real zoom exposes observable rotated frame');
+        const oldViewport = (await viewport()).map(Number), selection = JSON.parse(await surface().getAttribute('data-selection-scene'));
+        const currentCenter = { x: box.x + oldViewport[1] + (selection.bounds.left + selection.bounds.width / 2) * oldViewport[0], y: box.y + oldViewport[2] + (selection.bounds.top + selection.bounds.height / 2) * oldViewport[0] };
+        const delta = { x: box.x + box.width / 2 - currentCenter.x, y: box.y + box.height / 2 - currentCenter.y };
         const start = { x: box.x + box.width * .9, y: box.y + box.height * .65 };
-        await drag(start, { x: start.x, y: start.y - 180 }, 'middle');
-        await poll(viewport, value => Math.abs(Number(value[0]) - oldViewport[0]) < 1e-6 && Math.abs(Number(value[2]) - oldViewport[2] + 180) < 1, 'real pan exposes rotation control without canonical mutation');
+        await drag(start, { x: start.x + delta.x, y: start.y + delta.y }, 'middle');
+        await poll(viewport, value => Math.abs(Number(value[0]) - oldViewport[0]) < 1e-6 && Math.abs(Number(value[1]) - oldViewport[1] - delta.x) < 1 && Math.abs(Number(value[2]) - oldViewport[2] - delta.y) < 1, 'real pan centers observable rotation frame without canonical mutation');
         assertHeldUncommitted(beforePan, await canonicalState());
       }
       const selected = await poll(() => surface().getAttribute('data-selection-scene'), value => value !== null, 'real Fabric ActiveSelection');
@@ -489,7 +499,27 @@ try {
       assert(beforeCorner.bluePixels >= 3, 'actual Fabric selection corner is rendered');
       const beforeBlueChrome = await selectionBlueChrome();
       const toolbar = page.getByTestId('board-selection-layout-toolbar'); const beforeToolbar = await toolbar.boundingBox(); assert(beforeToolbar);
-      await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 40, start.y + (mode === 'rotate' ? 12 : 25), { steps: 12 });
+      const rotationSteps = [];
+      await page.mouse.move(start.x, start.y); await page.mouse.down();
+      if (mode === 'rotate') {
+        const center = screen({ x: scene.bounds.left + scene.bounds.width / 2, y: scene.bounds.top + scene.bounds.height / 2 });
+        const baselineCorners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([x, y]) => screen({ x: scene.bounds.left + scene.bounds.width * x, y: scene.bounds.top + scene.bounds.height * y }));
+        const rotatePoint = (point, degrees) => { const radians = degrees * Math.PI / 180, dx = point.x - center.x, dy = point.y - center.y; return { x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians), y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians) }; };
+        for (const pointerAngle of [-30, -60]) {
+          const waypoint = rotatePoint(start, pointerAngle); await page.mouse.move(waypoint.x, waypoint.y, { steps: 16 });
+          const liveRows = await poll(rows, value => nodes.every(node => { const live = value.find(item => item.id === node.id); if (!live) return false; const delta = ((live.geometry.rotation - before.objects.find(item => item.id === node.id).geometry.rotation + 180) % 360 + 360) % 360 - 180; return Math.abs(delta - pointerAngle) <= 2; }), `held rotation children match pointer angle ${pointerAngle}`);
+          const childDeltas = nodes.map(node => ((liveRows.find(item => item.id === node.id).geometry.rotation - before.objects.find(item => item.id === node.id).geometry.rotation + 180) % 360 + 360) % 360 - 180);
+          const expectedCorners = baselineCorners.map(point => rotatePoint(point, pointerAngle));
+          const header = await page.getByTestId('board-editor-header').boundingBox(), dock = await page.getByTestId('board-creation-dock').boundingBox(); assert(header && dock);
+          assert(expectedCorners.every(point => point.x > box.x + 16 && point.x < box.x + box.width - 16 && point.y > header.y + header.height + 16 && point.y < dock.y - 16), 'all independently predicted rotated corners are observable outside board chrome');
+          const corners = await Promise.all(expectedCorners.map(controlInkAt));
+          await pixelLayerDiagnostics(`multi-rotate-${pointerAngle}-held`, expectedCorners[0], { pointerAngle, waypoint, childDeltas, expectedCorners, corners });
+          await page.screenshot({ path: join(out, `multi-rotate-${pointerAngle}-held.png`) });
+          assertHeldRotationFrame({ pointerAngle, childDeltas, corners }); assertHeldUncommitted(before, await canonicalState());
+          const stepToolbar = await toolbar.boundingBox(), stepPixels = await connectorPixels(); assert(stepToolbar && stepPixels.count > 20);
+          rotationSteps.push({ pointerAngle, waypoint, childDeltas, expectedCorners, corners, toolbar: stepToolbar, connectorPixels: stepPixels });
+        }
+      } else await page.mouse.move(start.x + 40, start.y + 25, { steps: 12 });
       const liveScene = await poll(async () => JSON.parse(await surface().getAttribute('data-selection-scene')), value => value && ['left', 'top', 'width', 'height'].some(key => Math.abs(value.bounds[key] - scene.bounds[key]) > 1), `multi ${mode} actual ActiveSelection bounds move`);
       let liveCorner;
       const liveBlueChrome = await selectionBlueChrome();
@@ -506,11 +536,12 @@ try {
       assertHeldUncommitted(before, await canonicalState());
       await page.screenshot({ path: join(out, `multi-${mode}-held.png`) }); await page.mouse.up(); await synced();
       const after = await poll(canonicalState, value => value.head.seq > before.head.seq, `multi ${mode} release`); assertReleasedOnce(before, after);
+      await poll(() => page.getByTestId('board-smart-guides').count(), value => value === 0, 'release clears smart guides');
       const changed = nodes.map(node => ({ before: before.objects.find(item => item.id === node.id).geometry, after: after.objects.find(item => item.id === node.id).geometry }));
       assert(changed.every(item => JSON.stringify(item.before) !== JSON.stringify(item.after)), 'both selected objects change in one transaction');
       if (mode === 'rotate') assert(changed.every(item => item.before.rotation !== item.after.rotation), 'multi rotation changes both canonical angles');
       if (mode === 'resize') assert(changed.every(item => item.before.width !== item.after.width || item.before.height !== item.after.height), 'multi resize changes both canonical dimensions');
-      gestures.push({ mode, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Observed raster chrome change; rotated control coordinates require independent screenshot review, not a claimed AABB corner oracle.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
+      gestures.push({ mode, rotationSteps, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Four rotated baseline control corners at two independent pointer angles; independent screenshot review also required.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
     }
     return gestures;
   });
@@ -640,8 +671,9 @@ try {
   }
   await browser?.close().catch(error => browserErrors.push(redact(error.message)));
   const ok = completed && results.length > 0 && results.every(value => value.ok) && browserErrors.length === 0 && browserHTTPFailures.length === 0;
-  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, endAttestation, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
+  writeFileSync(join(out, 'results.json'), JSON.stringify({ok, boardId, base, apiOrigin, attestation, endAttestation, requestScheduling: requestScheduler.statistics, results, browserErrors, browserHTTPFailures, exclusions: ['real Mac trackpad hardware', 'native touch gestures', 'native IME hardware', 'Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.']}, null, 2));
   writeFileSync(join(out, 'browser-errors.json'), JSON.stringify(browserErrors, null, 2));
-  writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nHighlighter defaults NOT ACCEPTED pending Round05 #4969. This matrix explicitly configures Pen 100% and Highlighter 25% through real UI; it does not accept the default instrument appearance.\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
+  writeFileSync(join(out, 'request-scheduling.json'), JSON.stringify(requestScheduler.statistics, null, 2));
+  writeFileSync(join(out, 'report.md'), `# Board Input UX Acceptance\n\nResult: ${ok ? 'PASS' : 'FAIL'}\n\n${results.map(value => `- ${value.ok ? 'PASS' : 'FAIL'} ${value.name}${value.ok ? '' : `: ${value.detail.split('\n')[0]}`}`).join('\n')}\n\nHighlighter defaults NOT ACCEPTED pending Round05 #4969. This matrix explicitly configures Pen 100% and Highlighter 25% through real UI; it does not accept the default instrument appearance.\n\nRunner-only v1 pacing: ${requestScheduler.statistics.requestCount} requests, ${requestScheduler.statistics.throttleWaitMs} ms wait, minimum ${requestScheduler.statistics.intervalMs} ms dispatch interval. Real API limits remain enabled; 429 is a hard failure without retry.\n\nBrowser errors: ${browserErrors.length} (browser-errors.json)\n`);
   process.exitCode = ok ? 0 : 1;
 }

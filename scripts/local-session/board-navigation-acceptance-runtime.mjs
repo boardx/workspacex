@@ -28,6 +28,7 @@ export const sourceFiles = [
   'packages/contracts/src/whiteboard-operation.ts',
   'scripts/local-session/board-navigation-acceptance.mjs',
   'scripts/local-session/board-navigation-acceptance-classifier.mjs',
+  'scripts/local-session/board-navigation-acceptance-scheduler.mjs',
   'scripts/local-session/board-navigation-acceptance-runtime.mjs',
   'scripts/local-session/board-acceptance-runtime.mjs',
 ];

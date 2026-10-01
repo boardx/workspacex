@@ -1002,6 +1002,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (event.e.type === "touchcancel" || event.e.type === "pointercancel") { cancelInput(); return; }
       const scene = canvas.getScenePoint(event.e);
       if (![scene.x, scene.y].every(Number.isFinite)) { cancelInput(); return; }
+      setSnapPreview(null);
       activeInput = null;
       last = null;
       panStart = null;
@@ -1099,8 +1100,28 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const wasReconcilingSelection = reconcilingSelectionRef.current;
     reconcilingSelectionRef.current = true;
     try {
-      withCanonicalProjectionBatch(registryRef.current.values(), () => {
       const incoming = new Map(objects.map((object) => [object.id, object]));
+      const plans = new Map(objects.map((object) => {
+        const current = registryRef.current.get(object.id);
+        const connectorRenderIdentity = object.kind === "connector" ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
+        const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
+        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
+        const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
+        const revisionChanged = current?.data?.renderedRevision !== object.revision;
+        const richProjectionChanged = Boolean(current && revisionChanged && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
+        const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (revisionChanged || connectorAppearanceChanged));
+        const replace = !current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged));
+        const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable === readOnly);
+        return [object.id, { connectorRenderIdentity, failedAtThisRevision, replace, patch }] as const;
+      }));
+      // Preview echoes may replace the array without changing selected objects.
+      // Detach only projections being patched, preserving a held group transform.
+      const patchedMembers = [...registryRef.current].flatMap(([id, projected]) => {
+        const plan = plans.get(id);
+        const changed = !plan || plan.replace || plan.patch;
+        return changed ? [projected] : [];
+      });
+      withCanonicalProjectionBatch(patchedMembers, () => {
       for (const [id, projected] of registryRef.current) {
         if (!incoming.has(id)) {
           canvas.remove(projected);
@@ -1117,21 +1138,16 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       for (const object of orderedObjects) {
         const current = registryRef.current.get(object.id);
         // Render identity stays local; canonical and preview revision numbers can collide.
-        const connectorRenderIdentity = object.kind === "connector" ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
-        const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
-        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
+        const { connectorRenderIdentity, failedAtThisRevision, replace, patch } = plans.get(object.id)!;
         let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
-        const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
-        const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
-        const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (current.data?.renderedRevision !== object.revision || connectorAppearanceChanged));
-        if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged))) {
+        if (replace) {
           if (current) canvas.remove(current);
           const entry = createProjectionEntry(object, readOnly);
           rendered = entry.rendered;
           registryRef.current.set(object.id, entry.projected);
           canvas.add(entry.projected);
           stackingOrderDirty = true;
-        } else if (!failedAtThisRevision && (current.data?.renderedRevision !== object.revision || current.selectable === readOnly)) {
+        } else if (patch && current) {
           try {
             applyCanonicalObject(current, object, readOnly);
           } catch {

@@ -104,7 +104,13 @@ vi.mock("fabric", async () => {
     getActiveObject() { return probe.active ?? probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  class ActiveSelection extends MockObject { constructor(public objects: MockProjectedObject[]) { super(); } getObjects() { return this.objects; } setControlsVisibility() { return this; } }
+  class ActiveSelection extends MockObject {
+    constructor(public objects: MockProjectedObject[]) { super(); }
+    getObjects() { return this.objects; }
+    removeAll() { const previous = this.objects; this.objects = []; return previous; }
+    add(...objects: MockProjectedObject[]) { this.objects.push(...objects); return this.objects.length; }
+    setControlsVisibility() { return this; }
+  }
   const util = { qrDecompose: (matrix: number[] & { angle?: number }) => ({ angle: matrix.angle ?? Math.atan2(matrix[1] ?? 0, matrix[0] ?? 1) * 180 / Math.PI, scaleX: Math.hypot(matrix[0] ?? 1, matrix[1] ?? 0), scaleY: Math.hypot(matrix[2] ?? 0, matrix[3] ?? 1), translateX: matrix[4] ?? 0, translateY: matrix[5] ?? 0, skewX: 0, skewY: 0 }) };
   return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject, util };
 
@@ -589,6 +595,23 @@ describe("BoardFabricSurface", () => {
     expect(automatic).toMatchObject(BOARD_FABRIC_VISUAL.selection);
   });
 
+  it("preserves held multi-object rotation, scale and local coordinates across preview array echoes", () => {
+    const { rerender } = renderSurface({ selectedObjectIds: ["s-1", "r-1"] });
+    const selection = probe.active!;
+    const members = [...probe.objects];
+    for (const member of members) Object.assign(member, { group: selection });
+    Object.assign(selection, { angle: 35, scaleX: 1.4, scaleY: .8 });
+    const local = members.map(member => ({ left: member.left, top: member.top, scaleX: member.scaleX, scaleY: member.scaleY }));
+    rerender(<BoardFabricSurface objects={OBJECTS.map(object => ({ ...object }))} selectedObjectIds={["s-1", "r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    expect(probe.active).toBe(selection);
+    expect(selection).toMatchObject({ angle: 35, scaleX: 1.4, scaleY: .8 });
+    expect(members.map(member => ({ left: member.left, top: member.top, scaleX: member.scaleX, scaleY: member.scaleY }))).toEqual(local);
+    const remote = OBJECTS.map(object => object.id === "s-1" ? { ...object, revision: object.revision + 1, geometry: { ...object.geometry, x: 500 } } : object);
+    rerender(<BoardFabricSurface objects={remote} selectedObjectIds={["s-1", "r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    expect(probe.objects.find(object => object.data?.boardObjectId === "s-1")?.left).toBe(500);
+    expect(selection).toMatchObject({ angle: 0, scaleX: 1, scaleY: 1 });
+  });
+
   it("renders alignment guides and equal 24 px spacing while an object moves", async () => {
     const spaced: BoardFabricObject[] = [
       { ...OBJECTS[0]!, id: "left", geometry: { x: 0, y: 60, width: 100, height: 80, rotation: 0 } },
@@ -597,9 +620,12 @@ describe("BoardFabricSurface", () => {
     ];
     renderSurface({ objects: spaced, selectedObjectIds: ["moving"] });
     const moving = probe.objects.find((object) => object.data?.boardObjectId === "moving")!;
+    act(() => probe.handlers.get("mouse:down")?.({ target: moving, e: new MouseEvent("mousedown", { button: 0 }) }));
     act(() => probe.handlers.get("object:moving")?.({ target: moving }));
     expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
     expect(screen.getAllByTestId("board-spacing-measurement").map((node) => node.textContent)).toContain("24 px");
+    act(() => probe.handlers.get("mouse:up")?.({ target: moving, e: new MouseEvent("mouseup", { button: 0 }) }));
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
   });
 
   it("commits one normalized geometry callback at gesture end and blocks viewer writes", () => {
