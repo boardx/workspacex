@@ -55,6 +55,16 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
     expect(new Set(completed.map(event => event.toolCallId)).size).toBe(10);
     for (const event of completed) toolIdentities.add(`${event.runId}:${event.toolCallId}`);
     await expect(panel.locator(TOOL_ACTIVITY)).toHaveCount(10);
+    // Grouping deliberately reduces height. Use the real disclosure controls
+    // so the next round has genuinely overflowing content to scroll through.
+    const groups = panel.locator('[data-kind="tool-group"] details');
+    for (let index = 0; index < await groups.count(); index += 1) {
+      const group = groups.nth(index);
+      if (!await group.evaluate(el => (el as HTMLDetailsElement).open)) {
+        await group.locator("summary").click();
+      }
+      await expect(group.getByTestId("run-trace-group-member").first()).toBeVisible();
+    }
     expect(journal.some(event => event.kind === "status" && event.status === "succeeded")).toBe(true);
     await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0);
   }

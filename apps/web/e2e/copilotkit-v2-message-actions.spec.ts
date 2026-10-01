@@ -164,7 +164,7 @@ test("CK-P4 有计划的失败重试——唯一恢复入口真的创建新 run 
     && new URL(response.url()).pathname.endsWith("/steps/retry"));
   await retry.click();
   const response = await retried;
-  expect(response.status()).toBe(200);
+  expect(response.status()).toBe(201);
   expect(response.request().postDataJSON()).toEqual({ planStepId: before.failedStepId });
   const created = planControl.retryPlanStep.out.parse(await response.json());
   expect(created.runId).toBeTruthy();

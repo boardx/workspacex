@@ -185,12 +185,13 @@ test.describe("#1584 附件预览/下载弹窗", () => {
     );
 
     await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
-    await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
+    const preview = page.getByTestId("chat-attachment-preview-portal");
+    await expect(preview).toBeVisible();
 
     // 真的拉到字节，不是占位图：等 loading/failed 两种过渡态都消失，图片元素出现。
-    await expect(page.getByTestId("chat-attachment-preview-loading")).toHaveCount(0);
-    await expect(page.getByTestId("chat-attachment-preview-failed")).toHaveCount(0);
-    const img = page.getByTestId("chat-attachment-preview-image");
+    await expect(preview.getByTestId("chat-attachment-preview-loading")).toHaveCount(0);
+    await expect(preview.getByTestId("chat-attachment-preview-failed")).toHaveCount(0);
+    const img = preview.getByTestId("chat-attachment-preview-image");
     await expect(img).toBeVisible();
     const src = await img.getAttribute("src");
     expect(src, "必须是真的 blob URL，不是占位符").toMatch(/^blob:/);
@@ -221,10 +222,11 @@ test.describe("#1584 附件预览/下载弹窗", () => {
     );
 
     await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
-    await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
-    await expect(page.getByTestId("chat-attachment-preview-loading")).toHaveCount(0);
-    await expect(page.getByTestId("chat-attachment-preview-failed")).toHaveCount(0);
-    const frame = page.getByTestId("chat-attachment-preview-pdf");
+    const preview = page.getByTestId("chat-attachment-preview-portal");
+    await expect(preview).toBeVisible();
+    await expect(preview.getByTestId("chat-attachment-preview-loading")).toHaveCount(0);
+    await expect(preview.getByTestId("chat-attachment-preview-failed")).toHaveCount(0);
+    const frame = preview.getByTestId("chat-attachment-preview-pdf");
     await expect(frame).toBeVisible();
     const src = await frame.getAttribute("src");
     expect(src).toMatch(/^blob:/);
@@ -251,15 +253,16 @@ test.describe("#1584 附件预览/下载弹窗", () => {
     );
 
     await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
-    await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
+    const preview = page.getByTestId("chat-attachment-preview-portal");
+    await expect(preview).toBeVisible();
 
     // 加载态：pptx-preview 需要真的下载 chunk + 解析 zip，给足时间，不在骨架屏阶段断言失败。
-    await expect(page.getByTestId("chat-attachment-preview-slides-failed")).toHaveCount(0);
-    const slides = page.getByTestId("chat-attachment-preview-slides");
+    await expect(preview.getByTestId("chat-attachment-preview-slides-failed")).toHaveCount(0);
+    const slides = preview.getByTestId("chat-attachment-preview-slides");
     await expect(slides).toBeVisible({ timeout: 30_000 });
 
     // 「共 N 页」指示条真的算出了这份真实文件的页数（不是恒定假文案）。
-    await expect(page.getByTestId("chat-attachment-preview-slides-count")).toContainText(/共 \d+ 页/);
+    await expect(preview.getByTestId("chat-attachment-preview-slides-count")).toContainText(/共 \d+ 页/);
 
     // 黑屏回归核心断言：真的渲染出了幻灯片骨架节点，且第一张幻灯片里有可见文字——
     // 不是一块空的/纯黑的 wrapper。
