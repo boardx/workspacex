@@ -14,6 +14,9 @@ import { createProject } from "@/lib/live-projects";
  * 住在哪都能用。只填**项目名称** → `createProject({ kind: "general", blueprintVersionId: null })` →
  * `router.push('/projects/<id>?org=<org>')`。提交期间按钮禁用，失败后恢复可点。
  */
+/** 项目名上限（仅前端输入约束：契约只要求非空，但过长的名字会撑坏卡片 / 页头 / 顶栏，留 60 字足够）。 */
+export const PROJECT_NAME_MAX_LENGTH = 60;
+
 export function CreateProjectForm({
   cancel,
   className,
@@ -35,6 +38,7 @@ export function CreateProjectForm({
   const lock = React.useRef(false);
 
   const trimmed = name.trim();
+  const nearLimit = name.length >= PROJECT_NAME_MAX_LENGTH - 15;
   const canSubmit = trimmed !== "" && !busy;
 
   const handleCreate = React.useCallback(async () => {
@@ -59,18 +63,24 @@ export function CreateProjectForm({
       onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}
     >
       <label className="flex flex-col gap-1.5">
-        <span className="text-11 text-muted-foreground">项目名称</span>
+        <span className="text-12 text-muted-foreground">项目名称</span>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="例如：新品上市调研"
           aria-label="项目名称"
+          maxLength={PROJECT_NAME_MAX_LENGTH}
           data-testid="project-new-name"
           className="h-9 text-12"
           disabled={busy}
           autoFocus={autoFocus}
         />
       </label>
+      {nearLimit ? (
+        <p className="-mt-1 text-right text-11 text-muted-foreground" data-testid="project-new-name-count" aria-live="polite">
+          {name.length} / {PROJECT_NAME_MAX_LENGTH}
+        </p>
+      ) : null}
       {error !== null ? (
         <p role="alert" data-testid="project-new-error" data-reason={error.code ?? undefined} className="text-12 text-destructive">
           创建失败：{error.text}

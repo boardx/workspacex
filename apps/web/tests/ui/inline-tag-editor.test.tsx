@@ -16,7 +16,9 @@ describe("InlineTagEditor（项目卡 / 收件箱共用的内联标签编辑器�
     fireEvent.change(input, { target: { value: "ab" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).not.toHaveBeenCalled(); // 与 Ab 同一个
+    expect(screen.getByTestId("x-tags-error")).toHaveTextContent("已经有这个标签了");
     fireEvent.change(input, { target: { value: "超长超长超长" } });
+    expect(screen.queryByTestId("x-tags-error")).not.toBeInTheDocument();
     fireEvent.keyDown(input, { key: "，" });
     expect(onChange).toHaveBeenLastCalledWith(["Ab", "超长超长"]);
   });

@@ -74,9 +74,11 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
               const on = draft.has(kind);
               return (
                 <li key={kind} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                  <span className="text-12 text-foreground">{C.PROJECT_AI_SOURCE_LABEL_ZH[kind]}</span>
+                  {/* 整行可点：label 指向开关按钮（此前只有右侧那个 28px 的小开关能点） */}
+                  <label htmlFor={`project-ai-source-toggle-${kind}`} className={canEdit ? "min-w-0 flex-1 cursor-pointer py-0.5 text-12 text-foreground" : "text-12 text-foreground"}>{C.PROJECT_AI_SOURCE_LABEL_ZH[kind]}</label>
                   {canEdit ? (
                     <Toggle
+                      id={`project-ai-source-toggle-${kind}`}
                       data-testid={`project-ai-source-${kind}`}
                       checked={on}
                       disabled={busy}
@@ -99,14 +101,16 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
         {settings !== undefined && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5">
             <span className="text-12 text-muted-foreground" data-testid="project-ai-settings-meta">
-              {settings.updatedAt === null
-                ? "尚未设置过（默认全部允许）"
-                : `最近由 ${settings.updatedBy ?? "—"} 于 ${new Date(settings.updatedAt).toLocaleString("zh-CN")} 更新`}
+              {canEdit && dirty
+                ? <span className="text-warning" data-testid="project-ai-settings-dirty">有未保存的修改</span>
+                : settings.updatedAt === null
+                  ? "尚未设置过（默认全部允许）"
+                  : `最近由 ${settings.updatedBy ?? "—"} 于 ${new Date(settings.updatedAt).toLocaleString("zh-CN")} 更新`}
             </span>
             {canEdit ? (
               <span className="flex items-center gap-2">
                 {saved && !dirty && <span className="text-12 text-success" data-testid="project-ai-settings-saved">已保存</span>}
-                <Button size="sm" data-testid="project-ai-settings-save" disabled={!dirty || busy} onClick={() => void save()}>
+                <Button size="sm" variant="primary" data-testid="project-ai-settings-save" disabled={!dirty || busy} onClick={() => void save()}>
                   {busy ? "保存中…" : "保存"}
                 </Button>
               </span>

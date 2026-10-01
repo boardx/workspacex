@@ -47,6 +47,7 @@ export function InlineTagEditor({
   const tags = React.useMemo<readonly string[]>(() => tagsIn ?? [], [tagsIn]);
   const [editing, setEditingState] = React.useState(false);
   const [draft, setDraft] = React.useState("");
+  const [notice, setNotice] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const composing = React.useRef(false);
   const listId = React.useId();
@@ -61,9 +62,10 @@ export function InlineTagEditor({
   const full = tags.length >= maxTags;
   const commit = () => {
     const t = normalizeTag(draft).slice(0, maxTagLength);
+    if (t === "" || full) return;
+    if (hasTag(tags, t)) { setNotice("已经有这个标签了"); return; }
+    setNotice(null);
     setDraft("");
-    // 重复（忽略大小写）直接忽略：标签是集合语义，两个同名标签没有任何额外含义。
-    if (t === "" || hasTag(tags, t) || full) return;
     onChange([...tags, t]);
   };
 
@@ -105,7 +107,7 @@ export function InlineTagEditor({
             aria-label="新标签"
             placeholder="标签，回车添加"
             list={suggestions.length > 0 ? listId : undefined}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => { setDraft(e.target.value); setNotice(null); }}
             onCompositionStart={() => { composing.current = true; }}
             onCompositionEnd={() => { composing.current = false; }}
             onKeyDown={(e) => {
@@ -141,7 +143,7 @@ export function InlineTagEditor({
           {!compact && "加标签"}
         </button>
       )}
-      {error ? <span className="text-10 text-destructive" data-testid={`${testidPrefix}-tags-error`}>{error}</span> : null}
+      {notice || error ? <span className="text-10 text-destructive" data-testid={`${testidPrefix}-tags-error`}>{notice ?? error}</span> : null}
     </div>
   );
 }
