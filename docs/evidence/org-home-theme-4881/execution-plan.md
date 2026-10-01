@@ -31,13 +31,15 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G blocked
+  %% blocked G: 实现与前端验证完成；数据库验证和 PR 推送受阻
   class S1 done
   class S2 done
   class S3 done
   class S4 blocked
   %% blocked S4: 前端测试和浏览器验证通过；真实数据库镜像依赖下载被代理拒绝，Docker Hub 拉取限额，完整后端测试未执行
-  class S5 doing
+  class S5 blocked
+  %% blocked S5: 自动审批拒绝 git push 到 boardx/workspacex：私有源码和历史上传缺少明确授权；等待用户批准，未创建 PR
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
