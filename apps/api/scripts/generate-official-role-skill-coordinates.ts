@@ -14,9 +14,10 @@ const packIds = readdirSync(resolve(root, "skills/starter-packs")).sort((a, b) =
 });
 const byStableId = new Map<string, { stableId: string; stableName: string; packId: string; packVersion: string; digest: string }>();
 for (const packId of packIds) {
-  const filename = resolve(root, `skills/starter-packs/${packId}/1.0.0.json`);
+  const packVersion = packId === "work-sales" ? "1.1.0" : "1.0.0";
+  const filename = resolve(root, `skills/starter-packs/${packId}/${packVersion}.json`);
   const raw = JSON.parse(readFileSync(filename, "utf8"));
-  const pack = verifySkillStarterPack(raw, { packId, packVersion: "1.0.0" });
+  const pack = verifySkillStarterPack(raw, { packId, packVersion });
   for (const skill of pack.skills) {
     const work = skill.manifest.work as { stableId?: string } | undefined;
     if (work?.stableId && !byStableId.has(work.stableId)) byStableId.set(work.stableId, {

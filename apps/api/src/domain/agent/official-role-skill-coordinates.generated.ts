@@ -263,98 +263,98 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableId": "S021",
       "stableName": "customer-intelligence",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "4be1b63753441394a11aa73f8913e1c65c10f2d9fc92a6458167dfd99494b73c"
     },
     {
       "stableId": "S022",
       "stableName": "account-tiering",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "a0b4ec418875f21487fd610d1b6549a929585ff5cd47834ff79de89ebe05f2da"
     },
     {
       "stableId": "S023",
       "stableName": "account-planning",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "d84d112ea073779746627e0044a3b04e89f6b1f4df856fe5600a98c83d6cafe5"
     },
     {
       "stableId": "S024",
       "stableName": "prospecting",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "39e0042c534b3f67dc97ff6a7d0ca1aed0280621174b42366dc50b654dc6389e"
     },
     {
       "stableId": "S025",
       "stableName": "lead-triage",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "c92bf1065cf41c6c3abb5f4dea0399f527de1526659327ed998a4b4eb706c87b"
     },
     {
       "stableId": "S026",
       "stableName": "outreach",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "e6dba3139d9c2ad201f3728d2291ec051a186141141b53b47d410ed03d97c722"
     },
     {
       "stableId": "S005",
       "stableName": "meeting-prep",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "5ba2364bee638ac162cc49f246141cc7d021d6154d71c0cb37bbb8f35e506c68"
     },
     {
       "stableId": "S028",
       "stableName": "sales-call-summary",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "d13240cbcd93d0ee56e7d5c039ec9e80f40e5c6974fb3a77b0ec7a02e7a9667d"
     },
     {
       "stableId": "S029",
       "stableName": "opportunity-update",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "a5335577bc9c3ad6958b8723821b814f2ed548d65e3c0a983d968927ae9c405e"
     },
     {
       "stableId": "S030",
       "stableName": "pipeline-review",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "e3b97fa6e103aa3d4818f97f37492c4956b16561486942cd760b23f50f9326b8"
     },
     {
       "stableId": "S031",
       "stableName": "forecasting",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "cbe9cedf5deaec7ad224dbbb5ae0a35a80616d7e00423646900a78301f499c50"
     },
     {
       "stableId": "S032",
       "stableName": "close-plan",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "e9b8dd35a1d8d92fdf1b3e1ddb3898b5f7d9656e8d2479bf0256ad4592fe2b12"
     },
     {
       "stableId": "S034",
       "stableName": "crm-hygiene",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "575a56d201dfa4a7a635b5c43487c2bedc4117727e6e270ea2851e6d97568e95"
     },
     {
       "stableId": "S036",
       "stableName": "proposal-builder",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "8246ce8c7a70a59b210c24fc7c78dfd5bb35c69874ddbb9162a41d1d88ce179d"
     }
   ],
@@ -419,7 +419,7 @@ export const OFFICIAL_ROLE_SKILL_COORDINATES = {
       "stableId": "S035",
       "stableName": "customer-health",
       "packId": "work-sales",
-      "packVersion": "1.0.0",
+      "packVersion": "1.1.0",
       "digest": "d05222f972fec25dc18e3efa3f866683caf2549faf787fd0513272534b84e9c2"
     },
     {

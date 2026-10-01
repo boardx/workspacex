@@ -12,12 +12,10 @@
  *   D007 Project / Operations Manager → W052, W053, W055, W056, W002, W003
  *   D011 Design Thinking Expert      → W027, W028, W029, W031, W002
  *
- * `skillVersions`（直接挂载）本轮留空：矩阵里的 Skill 列（S003/S063/… 等）属于 Work Skill 目录
- * （`work-skill-meta` 契约束，WS01–WS05），这条目录本身在本仓库尚未落地为可导入的 skill_versions
- * 行——挂载会在那条目录落地后随包版本升级一起补上，不在本轮编造一份对不上目录的假引用
- * （AGENTS.md「静态痕迹 ≠ 动态事实」）。`toolPolicy` 与 `workflowAllowlist` 不受这个限制：前者只是
- * 能力分类声明（ADR-120 #2，不产生授权），后者由 Workflow Runtime 的注册表校验，与 Skill 目录
- * 落地与否无关。
+ * `authoredSkillBindings` 是矩阵直接 Skill 的精确内容坐标（生成器从矩阵与已签名 starter 包派生并校验）。
+ * 静态包不知道组织内随机 versionId，因此不在 `skillVersions` 编造引用。官方导入/升级在组织事务内
+ * 解析 published + verified + 相同摘要的实际版本，其他坐标显式冻结为 pendingSkillBindings。
+ * `toolPolicy` 仅为能力分类声明，不产生授权；工作流白名单不替代直接 Skill 集。
  *
  * 本文件只产出**未签名**的角色包内容；`packDigest`/`instructionDigest` 由
  * `buildOfficialAgentRolePack()` 过一遍契约 schema 的 `.parse()` 之后再算——`.parse()` 把每层
@@ -199,7 +197,7 @@ const ROLE_SEEDS: readonly RoleEntrySeed[] = [
     tags: ["销售", "客户", "商机"],
     workflowAllowlist: ["W011", "W012", "W013", "W014", "W015", "W016", "W018"],
     // 销售线 Workflow（W011–W018）尚无运行时图（`create-workflow-runtime.ts` 只装配产品线 + 研究线），
-    // 导入 work-sales 也发布不出任何可发起流程——不假装「启用即可用」，销售线运行时落地后再挂。
+    // 直接 Skill 坐标仍按矩阵声明，requiredSkillPacks 从坐标加入 work-sales；不注册CRM或销售流程。
     skillPacks: [],
     escalationRules: [{ matter: M.pricing, target: "org_admin" }, { matter: M.contractTerms, target: "org_admin" }],
     toolPolicy: ["crm.read"],

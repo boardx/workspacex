@@ -4,10 +4,29 @@ import { skillContentDigest, verifySkillStarterPack } from "../../src/domain/ski
 import { OFFICIAL_ROLE_SKILL_COORDINATES } from "../../src/domain/agent/official-role-skill-coordinates.generated";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { buildOfficialAgentRolePack, historicalOfficialRoleInstructionDigests, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
+import { buildOfficialAgentRolePack, officialRoleSkillPacks, historicalOfficialRoleInstructionDigests, OFFICIAL_AGENT_ROLE_PACK_VERSION } from "../../src/domain/agent/official-role-packs";
 import { verifyOfficialAgentStarterPack } from "../../src/domain/agent/starter-pack";
 
 describe("authored official role identities", () => {
+  it("keeps the entire required package union conflict-free without rewriting historical sales content", () => {
+    const entries = new Map<string, { digest:string; name:string }>();
+    for (const coordinate of officialRoleSkillPacks()) {
+      const pack = verifySkillStarterPack(JSON.parse(readFileSync(resolve(`../../skills/starter-packs/${coordinate.packId}/${coordinate.packVersion}.json`), "utf8")), coordinate);
+      for (const skill of pack.skills) {
+        const identity = { digest: skillContentDigest(skill), name: skill.name };
+        if (entries.has(skill.stableName)) expect(identity).toEqual(entries.get(skill.stableName));
+        else entries.set(skill.stableName, identity);
+      }
+    }
+    const legacy = verifySkillStarterPack(JSON.parse(readFileSync(resolve("../../skills/starter-packs/work-sales/1.0.0.json"), "utf8")), {packId:"work-sales",packVersion:"1.0.0"});
+    const compatible = verifySkillStarterPack(JSON.parse(readFileSync(resolve("../../skills/starter-packs/work-sales/1.1.0.json"), "utf8")), {packId:"work-sales",packVersion:"1.1.0"});
+    expect(compatible.skills).toEqual(legacy.skills.filter((skill) => skill.stableName !== "customer-research"));
+    const sales = buildOfficialAgentRolePack().agents.find((role) => role.roleRef === "D005")!;
+    expect(sales.authoredSkillBindings).toHaveLength(14);
+    expect(sales.authoredSkillBindings!.some((binding) => binding.stableId === "S009")).toBe(false);
+    const product = buildOfficialAgentRolePack().agents.find((role) => role.roleRef === "D003")!;
+    expect(product.authoredSkillBindings!.find((binding) => binding.stableId === "S009")!.contentDigest).toBe(entries.get("customer-research")!.digest);
+  });
   it("signs exactly the matrix's direct Skill membership and real immutable starter content", () => {
     const matrix = readFileSync(resolve("../../requirements/work-stack-v2/DIGITALHUMAN-COMPOSITION-MATRIX.md"), "utf8");
     const rows = new Map(matrix.split("\n").map((line) => line.split("|").map((column) => column.trim())).filter((columns) => /^D\d{3}$/.test(columns[1] ?? "")).map((columns) => [columns[1], columns[4]!.match(/S\d{3}/g) ?? []]));

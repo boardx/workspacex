@@ -501,6 +501,6 @@ describe("AG07 official delegation backfill migration (20260930121000) + rp-b2 1
     const fromPack = Object.fromEntries(buildOfficialAgentRolePack().agents.map((a) => [a.stableName, a.role.delegationPolicy]));
     expect(news).toEqual(restrictTo(fromPack, Object.keys(news)));
     for (const p of Object.values(fromPack)) expect(p).toMatchObject({ maxDepth: 1, requireApproval: true });
-    expect(OFFICIAL_AGENT_ROLE_PACK_VERSION).toBe("1.5.0");
+    expect(buildOfficialAgentRolePack().agents.every((agent) => agent.semanticVersion === OFFICIAL_AGENT_ROLE_PACK_VERSION)).toBe(true);
   });
 });
