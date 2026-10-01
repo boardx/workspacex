@@ -328,6 +328,10 @@ test("report summary cards count only saved Markdown items and simulated complet
   await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, status: "completed", currentStep: "report" }) }));
   await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reportSource) }));
   await page.goto("/itv/itv-quality-e2e/report", { waitUntil: "domcontentloaded" });
+  const details = page.getByTestId("itv-report-details");
+  await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
+  await details.locator("summary").click();
+  await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
   await expect(page.getByTestId("itv-report-metric-experts")).toContainText("2");
   await expect(page.getByTestId("itv-report-metric-completed")).toContainText("1");
   await expect(page.getByTestId("itv-report-metric-findings")).toContainText("2");
@@ -335,6 +339,8 @@ test("report summary cards count only saved Markdown items and simulated complet
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+  await details.locator("summary").click();
+  await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
 });
 
 test("prototype journey keeps the list shell separate from all six full-screen stages", async ({ page }, testInfo) => {
@@ -464,6 +470,9 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
+      await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
+      await page.getByTestId("itv-report-details").locator("summary").click();
+      await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
       await expect(page.getByTestId("itv-report-metric-experts")).toContainText("5");
       await expect(page.getByTestId("itv-report-metric-completed")).toContainText("2");
       await expect(page.getByTestId("itv-report-metric-findings")).toContainText("3");
@@ -472,13 +481,30 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       const reportBodySize = await page.getByTestId("itv-source-report-markdown").getByText("本报告来自 AI 模拟访谈，不代表真实用户证据。")
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
       expect(reportBodySize, "long-form report body must use the prototype's readable document type size").toBeGreaterThanOrEqual(16);
+      await page.getByTestId("itv-report-details").locator("summary").click();
+      await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
     }
     if (step !== "intake") {
       const headingSize = await page.getByTestId(step === "analysis" ? "itv-analysis-workbench" :
         step === "experts" ? "itv-markdown-experts" : step === "outline" ? "itv-markdown-outline" :
           step === "runs" ? "itv-source-runs" : "itv-source-report").getByRole("heading", { level: 2 }).first()
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
-      expect(headingSize, `${step} heading should retain the prototype's page hierarchy`).toBeGreaterThanOrEqual(30);
+      expect(headingSize, `${step} heading must remain readable in the compact research layout`).toBeGreaterThanOrEqual(24);
+      const actions = page.getByTestId("itv-step-actions");
+      await expect(actions).toBeVisible();
+      // One browser snapshot avoids measuring different frames during expert-group smooth scrolling.
+      const layout = await actions.evaluate((node) => {
+        const header = node.closest("header")!;
+        const heading = header.querySelector("h2")!.getBoundingClientRect();
+        const commands = node.getBoundingClientRect();
+        const container = header.getBoundingClientRect();
+        return { headingTop: heading.top, headingBottom: heading.bottom,
+          actionTop: commands.top, actionBottom: commands.bottom,
+          actionRight: commands.right, headerRight: container.right };
+      });
+      expect(Math.min(layout.headingBottom, layout.actionBottom) - Math.max(layout.headingTop, layout.actionTop),
+        `${step} actions must overlap the heading row`).toBeGreaterThan(0);
+      expect(Math.abs(layout.actionRight - layout.headerRight), `${step} actions must align with the header's right edge`).toBeLessThanOrEqual(2);
     }
     if (step === "intake") {
       const action = await page.getByTestId("itv-markdown-intake").getByRole("button", { name: /下一步：确认分析/u }).boundingBox();
