@@ -169,7 +169,7 @@ flowchart TD
 ## 本轮技术子项与实时 POC 复查
 
 - [x] T18 修复用户记忆的消息归属与角色优先级：实际 native/legacy 请求捕获8项、原生工具快照7项通过；真实模型身份效果仍属于 B18 BLOCKED。
-- [x] T19 详情与聊天均按精确已发布角色 pins/pending 显示；详情全组织回退旧实现反证失败，整合组件29项通过。共享弹层 setter 稳定，旧实现打开即关闭反证失败。七角色真实浏览器本轮结果待补，不能据组件测试勾 B19。
+- [x] T19 详情与聊天均按精确已发布角色 pins/pending 显示；详情全组织回退旧实现反证失败，整合组件29项通过。共享弹层 setter 稳定，旧实现打开即关闭反证失败。第16轮真实七角色浏览器精确列表/中文标题/pending就绪已复验；B19整体仍依正式范围逐项验收，不据组件数勾全。
 - [x] T20 新角色1.6.0作者化背景与直接绑定，显式不可变升级/来源/组织/过期保护：13项升级、17项scope准入/队列验证通过。七角色专业质量与待验证Skill仍未完成，B20不勾。
 - [x] T21 按用户要求固定实时 POC 模型 qwen3.8-omni-flash-realtime，并加载当前已发布角色完整 instructions/版本；整合后端34项和客户端6项通过。修复启动缓冲短句commit、上游关闭落库顺序、远端断线音频释放；详见 voice-poc-review/REPORT.md。
 - [ ] A10 真实供应方实时通话：devapp登录Upgrade、七角色双向语音/背景、打断、挂断刷新、断线重试与截图，仍 BLOCKED。固定模型或本地测试上游成功不代表通话已恢复。
@@ -186,4 +186,6 @@ flowchart TD
 - [ ] C05 26个已有suite但未注册subject、56个打包Skill无suite：需真实可执行入口和业务质量用例，不增加通用固定回复假主体。
 - [ ] C06 全200 Skills逐项前后台/真实依赖/真实模型专业质量：缺凭据仍BLOCKED；真实vendor实时语音A10仍open，完整销售Workflow/CRM继续DEFERRED，共享Skills不整体排除。
 
-第16轮生产三project浏览器复验正在运行，source `ec3e4ae73033afe98c755eb312a1711644ab0778`；最终结果未知，不能预标PASS或修改已有浏览器产物。上述库存聚合状态与浏览器技术链路、模型质量分列记录。正式库存与审计见 skills-all/README.md、MACHINE-SCHEMA-STANDARD.md、runtime/README.md。
+第16轮生产三project浏览器已实际3/3 PASS、0skip/0flaky，source `ec3e4ae73033afe98c755eb312a1711644ab0778`；2026-10-01 12:28:37 UTC（北京时间20:28:37）开始，耗时10.6分钟。七角色中文标题/pendingaware就绪/精确skills/持久化、W029与本地语音技术通过；70PNG含4语音截图。第15轮打断过短失败保留。真实vendor VOICE整条仍BLOCKED，不能把本地测试上游当供应方。上述库存聚合状态与浏览器技术链路、模型质量分列记录。正式库存与审计见 skills-all/README.md、MACHINE-SCHEMA-STANDARD.md、runtime/README.md。
+
+- [x] T22 第16轮生产浏览器本地语音技术链路：61二进制帧/181292字节、12次原生播放/57408非零sample，3WS固定模型、cancel1，最终2tracksended/4contextsclosed/allconnectionsclosed。只勾本地技术项，A10真实vendor继续open，详见browser-role-scope/REPORT.md。

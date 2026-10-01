@@ -92,7 +92,7 @@ IDENT-01,P0,IDENT,D001;D002;D003;D005;D006;D007;D011,角色身份与专业背景
 IDENT-02,P0,IDENT,D001;D002;D003;D005;D006;D007;D011,七角色回答差异,七角色独立对话发送相同职责问题和工作例子请求,各自专业视角和具体帮助有区别，不只改名称套同文案；真实模型凭据缺失时BLOCKED，不能用loopback判质量,BLOCKED,,,B18;B20,
 IDENT-03,P0,IDENT,D001;D002;D003;D005;D006;D007;D011,佛学记忆干扰,合成佛学兴趣记忆后询问身份、分析附件，再明确要求关联兴趣,记忆是用户参考而非AI自述；不改身份/主题，明确要求时角色内关联；真实模型凭据缺失时BLOCKED，不能用loopback判质量,BLOCKED,,,B18;B20,
 IDENT-04,P0,IDENT,D001;D002;D003;D005;D006;D007;D011,角色切换身份一致,A对话后切B问身份，新建、刷新及重登比对run和版本,选择/指令/模型回复身份一致，历史不被改写；真实模型凭据缺失时BLOCKED，不能用loopback判质量,BLOCKED,,,B18;B20,
-SCOPE-01,P0,SCOPE,D001;D002;D003;D005;D006;D007;D011,角色精确技能列表,逐七角色打开picker，对照发布版真实pins与pending及矩阵,列表精确属于角色；可用/pending无重复与越界,PASS,c13426a18eabc09f7ed8412181fc254bfab0aae4,browser-role-scope/execution-summary.json;browser-role-scope/persisted-evidence.json;browser-role-scope/screenshots/,B19,
+SCOPE-01,P0,SCOPE,D001;D002;D003;D005;D006;D007;D011,角色精确技能列表,逐七角色打开picker，对照发布版真实pins与pending及矩阵,列表精确属于角色；可用/pending无重复与越界,PASS,ec3e4ae73033afe98c755eb312a1711644ab0778,browser-role-scope/execution-summary.json;browser-role-scope/persisted-evidence.json;browser-role-scope/screenshots/,B19,
 SCOPE-02,P0,SCOPE,D001;D002;D003;D005;D006;D007;D011,空态加载失败不回退,空pin、无权限、加载失败后恢复,不回全组织；状态原因诚实，恢复仍按角色,NOT_RUN,,,B19,
 SCOPE-03,P0,SCOPE,D001;D002;D003;D005;D006;D007;D011,待验证技能禁止执行,角色含candidate/缺版本，查看计数并尝试选择或请求执行,待验证/缺版本明确禁用，计数分离，无自动verified,NOT_RUN,,,B19,
 SCOPE-04,P0,SCOPE,D001;D002;D003;D005;D006;D007;D011,角色固定旧版本,发布新skill版本但角色pin旧版，查看与执行,旧pin不替换最新；错误版本/pending不能准入,NOT_RUN,,,B19,
