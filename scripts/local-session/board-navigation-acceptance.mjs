@@ -140,6 +140,7 @@ try {
     }
     boardId = (await (await api('POST', '/whiteboards', {requestId: randomUUID(), name: fixtureTitle})).json()).id;
     assert(boardId); await page.goto(`${base}/studio/board/${boardId}`); await synced(); assert.equal((await rows()).length, 0);
+    assert.equal(await page.locator('html').getAttribute('data-edition'), 'cloud', 'candidate runtime must use the configured cloud edition, without local-desktop egress requests');
     if (storageStateOut) {
       const statePath = resolve(storageStateOut);
       assert(statePath.startsWith('/private/tmp/') || statePath.startsWith('/tmp/'), 'storage state export requires explicit temporary path');

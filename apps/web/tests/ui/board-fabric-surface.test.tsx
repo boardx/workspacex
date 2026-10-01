@@ -190,6 +190,28 @@ describe("BoardFabricSurface", () => {
     expect(onTransformPreview).toHaveBeenLastCalledWith(null);
   });
 
+  it("preserves imported non-square Sticky dimensions during held movement and release", () => {
+    const canonical: BoardFabricObject = { ...OBJECTS[0]!, geometry: { x: 150, y: 240, width: 120, height: 100, rotation: 0 }, sticky: { variant: "square", sizingMode: "fixed" } };
+    const onTransformPreview = vi.fn(), onObjectTransform = vi.fn(() => true);
+    renderSurface({ objects: [canonical], onTransformPreview, onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left += 70; sticky.top += 40;
+    act(() => probe.handlers.get("object:moving")?.({ target: sticky }));
+    expect(onTransformPreview).toHaveBeenLastCalledWith([{ id: canonical.id, geometry: { x: 220, y: 280, width: 120, height: 100, rotation: 0 } }]);
+    expect(onObjectTransform).not.toHaveBeenCalled();
+    expect(canonical.geometry).toEqual({ x: 150, y: 240, width: 120, height: 100, rotation: 0 });
+    act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
+    expect(onObjectTransform).toHaveBeenCalledTimes(1);
+    expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 0 });
+    onObjectTransform.mockClear();
+    sticky.angle = 90;
+    act(() => probe.handlers.get("object:rotating")?.({ target: sticky }));
+    expect(onTransformPreview).toHaveBeenLastCalledWith([{ id: canonical.id, geometry: { x: 220, y: 280, width: 120, height: 100, rotation: 90 } }]);
+    act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
+    expect(onObjectTransform).toHaveBeenCalledTimes(1);
+    expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 90 });
+  });
+
   it("updates attached arrows in the local drag preview without committing per frame", () => {
     const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } };
     const onObjectTransform = vi.fn(() => true);

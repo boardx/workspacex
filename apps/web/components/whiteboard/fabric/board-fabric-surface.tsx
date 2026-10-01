@@ -483,6 +483,15 @@ export function geometryFromFabric(projected: TaggedFabricObject, canonical?: Bo
     rotation: canonicalTransformNumber(projected.angle ?? 0),
   };
   if (canonical?.kind === "sticky") {
+    // Translating or rotating a legacy/imported Sticky is not a resize command.
+    // Its stored variant must not silently change the currently rendered frame.
+    const dimensionsUnchanged = Math.abs(geometry.width - canonical.geometry.width) <= .000001
+      && Math.abs(geometry.height - canonical.geometry.height) <= .000001;
+    if (dimensionsUnchanged) {
+      geometry.width = canonical.geometry.width;
+      geometry.height = canonical.geometry.height;
+      return geometry;
+    }
     if (canonical.sticky?.sizingMode === "auto-size") {
       geometry.width = canonical.geometry.width;
       geometry.height = canonical.geometry.height;
