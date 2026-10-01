@@ -15,18 +15,26 @@ test.use({ trace: "on", screenshot: "on" });
 test.setTimeout(600_000);
 const API = "/__fullstack_api";
 const ROLES = [
+  { ref: "D001", name: "高管与战略伙伴", avatar: "dh-01-executive-strategy-partner" },
   { ref: "D002", name: "研究与知识分析师", avatar: "dh-02-research-knowledge-analyst" },
   { ref: "D003", name: "产品经理", avatar: "dh-03-product-manager" },
   { ref: "D005", name: "销售代表", avatar: "dh-05-sales-representative" },
+  { ref: "D006", name: "客户成功专员", avatar: "dh-06-customer-success-specialist" },
+  { ref: "D007", name: "项目与运营经理", avatar: "dh-07-project-operations-manager" },
   { ref: "D011", name: "设计思维专家", avatar: "dh-11-design-thinking-expert" },
 ] as const;
 
 // Acceptance expectation is the reviewed role matrix, not the implementation's
 // workflow union or organization catalog. Sales CRM execution remains excluded.
+// Independent source: requirements/work-stack-v2/DIGITALHUMAN-COMPOSITION-MATRIX.md,
+// reviewed rows D001/D002/D003/D005/D006/D007/D011. Do not derive from role-pack code.
 const DIRECT_SKILLS: Record<string, readonly string[]> = {
+  D001: ["S195", "S008", "S063", "S012", "S013", "S020", "S199", "S198", "S010", "S196", "S197", "S007"],
   D002: ["S003", "S063", "S171", "S169", "S172", "S170", "S016", "S020", "S168", "S167"],
   D003: ["S061", "S009", "S064", "S065", "S067", "S068", "S069", "S070", "S071", "S072", "S073", "S074", "S008", "S075"],
   D005: ["S021", "S022", "S023", "S024", "S025", "S026", "S005", "S028", "S029", "S030", "S031", "S032", "S034", "S036"],
+  D006: ["S187", "S188", "S189", "S190", "S191", "S192", "S193", "S194", "S035", "S007"],
+  D007: ["S141", "S142", "S143", "S144", "S145", "S148", "S153", "S154", "S155", "S010"],
   D011: ["S062", "S009", "S064", "S065", "S066", "S071", "S063", "S075", "S018"],
 };
 type RoleSkillPin = { skillId: string; versionId: string };
@@ -119,7 +127,7 @@ async function storedMessages(page: Page, threadId: string): Promise<StoredMessa
   return result.messages;
 }
 
-test("official roles: administrator enables dependencies; member runs four independent persisted chats", async ({ page, browser }, info) => {
+test("official roles: administrator enables dependencies; member checks seven role skill scopes and runs independent persisted chats", async ({ page, browser }, info) => {
   await info.attach("verification-boundary", { contentType: "application/json", body: Buffer.from(JSON.stringify({
     upstream: "existing fullstack loopback", browserApiAndDatabase: "real", realModelQuality: "BLOCKED: no model credentials",
     salesWorkflowAndCrm: "excluded by user authorization", roles: ROLES.map(r => r.ref),
@@ -223,7 +231,8 @@ test("official roles: administrator enables dependencies; member runs four indep
         await expect(directoryCard).toBeVisible();
         await directoryCard.getByTestId("agent-card-view-detail").click();
         await expect(member.getByTestId("agent-detail-name")).toContainText(role.name);
-        await screenshot(member, info, `${index + 6}a-${role.ref}-detail`);
+        await expect(member.getByTestId("agent-detail-duty")).not.toBeEmpty();
+        await screenshot(member, info, `${index + 6}a-${role.ref}-background-detail`);
         await member.getByTestId("agent-detail-start-chat").click();
         await expect(member.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
         await expect(member.getByTestId("chat-task-workbench-capability-picker-name")).toContainText(role.name);
@@ -244,7 +253,11 @@ test("official roles: administrator enables dependencies; member runs four indep
         // Seeded unrelated organization skills must remain excluded even though
         // the same member has access to them with the general assistant.
         await expect(member.getByTestId(`chat-skill-mount-option-${FULLSTACK_E2E.mountableSkillId}`)).toHaveCount(0);
+        await expect(member.getByTestId("chat-skill-mount-picker")).toBeVisible();
+        await expect(member.getByTestId("chat-skill-role-counts")).toBeVisible();
         await screenshot(member, info, `${index + 6}a-${role.ref}-skill-scope`);
+        await member.getByTestId("chat-skill-mount-picker").screenshot({ path: info.outputPath(`${role.ref}-skill-list-panel.png`) });
+        await info.attach(`${role.ref}-skill-list-panel`, { path: info.outputPath(`${role.ref}-skill-list-panel.png`), contentType: "image/png" });
         await member.getByTestId("chat-skill-mount-cancel").click();
         await screenshot(member, info, `${index + 6}a-${role.ref}-selected`);
         const prompt = `ROLE-JOURNEY-${role.ref}-${info.workerIndex}: 请说明你能提供哪些帮助。`;
@@ -272,7 +285,7 @@ test("official roles: administrator enables dependencies; member runs four indep
       });
     }
     await test.step("changing role clears an incompatible real temporary skill mount", async () => {
-      const product = cards.find(card => card.avatar?.key === ROLES[1].avatar)!;
+      const product = cards.find(card => card.avatar?.key === ROLES.find(role => role.ref === "D003")!.avatar)!;
       const productScope = scopesByRole.get("D003")!;
       const incompatible = FULLSTACK_E2E.mountableSkillId;
       expect(productScope.pins.some(pin => pin.skillId === incompatible)).toBe(false);
