@@ -640,25 +640,52 @@ describe("the run executes its acceptance snapshot, not the current head", () =>
    * time; nothing revalidates afterwards). The run must refuse rather than proceed with
    * the subset it happened to find.
    */
-  it("#2529: disabling a pinned skill fails the queued run before the provider; re-enabling restores the next run", async () => {
+  it.each([
+    ["pinned", "before acceptance"],
+    ["pinned", "after acceptance"],
+    ["mounted", "before acceptance"],
+    ["mounted", "after acceptance"],
+  ] as const)("#2529: disabled %s skill %s suppresses the whole prompt; re-enable restores the next run", async (source, timing) => {
+    if (source === "mounted") {
+      // A stays enabled and pinned; B enters ONLY through the persisted thread mount.
+      // This catches silently dropping the disabled mount and running with A alone.
+      await addAgentVersion({
+        versionId: V2, skillVersionIds: [SV_A], modelId: MODEL_V1,
+        instructions: "You are the mounted-skill agent.",
+      });
+      await asApp(ORG, c => c.query(
+        `INSERT INTO thread_skill_mounts
+           (mount_id,org_id,thread_id,skill_id,version_id,mounted_at,removed_at)
+         VALUES ($1,$2,$3,$4,$5,now(),NULL)`,
+        [randomUUID(), ORG, THREAD, SKILL_B, SV_B]));
+    }
+    const disable = () => asApp(ORG, c => c.query(
+      "UPDATE skills SET status='disabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_B]));
+    if (timing === "before acceptance") await disable();
     const queued = await postMessage("Do not execute disabled skill content");
     expect(queued.status).toBe(202);
-    await asApp(ORG, c => c.query(
-      "UPDATE skills SET status='disabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_A]));
+    expect((await readRun(queued.agentRunId)).skillVersionIds).toEqual([SV_A, SV_B]);
+    if (timing === "after acceptance") await disable();
     await tick();
     const blocked = await readRun(queued.agentRunId);
     expect(blocked.status).toBe("failed");
     expect(blocked.error).toBe("SKILL_VERSION_UNAVAILABLE");
     expect(blocked.skillVersionIds).toEqual([SV_A, SV_B]);
-    expect(calls).toHaveLength(0);
+    expect(calls, "no system prompt or partial skill set may reach the provider").toHaveLength(0);
+    const failedContext = blocked.steps.find(step => step.kind === "context_built");
+    expect(failedContext?.failureCode).toBe("SKILL_VERSION_UNAVAILABLE");
     await asApp(ORG, c => c.query(
-      "UPDATE skills SET status='enabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_A]));
+      "UPDATE skills SET status='enabled' WHERE org_id=$1 AND id=$2", [ORG, SKILL_B]));
     const next = await postMessage("Execute restored skill content");
     expect(next.status).toBe(202);
     await tick();
-    expect((await readRun(next.agentRunId)).status).toBe("succeeded");
+    const restored = await readRun(next.agentRunId);
+    expect(restored.status).toBe("succeeded");
+    expect(restored.skillVersionIds).toEqual([SV_A, SV_B]);
     expect(calls).toHaveLength(1);
-    expect(JSON.stringify(calls[0]?.body)).toContain("ordered first");
+    const system = calls[0]?.body.messages?.find(message => message.role === "system")?.content;
+    expect(system).toContain("# Skill A\nordered first");
+    expect(system).toContain("# Skill B\nordered second");
     expect((await readRun(queued.agentRunId)).status).toBe("failed");
   });
 
