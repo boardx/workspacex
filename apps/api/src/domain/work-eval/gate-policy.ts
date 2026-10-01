@@ -7,7 +7,7 @@
 import { REGISTERED_CAPABILITY_CATEGORY_SET } from "../skill/capability-category-registry";
 
 /** `WorkGateStatus.scriptVersion`：判定规则变化时 bump（回写记录据此追溯）。 */
-export const WORK_STACK_GATES_SCRIPT_VERSION = "lint-work-stack-gates-1.0.0";
+export const WORK_STACK_GATES_SCRIPT_VERSION = "lint-work-stack-gates-1.0.1";
 
 /**
  * ADR-120 能力分类登记表（G3）。**不在这里声明**：唯一一份在 `domain/skill/capability-category-registry.ts`

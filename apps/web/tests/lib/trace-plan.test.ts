@@ -4,7 +4,7 @@
  * 判据全在这里逐字钉住：取最后一次、认不出的形状返回 null（不编一个空计划占位）。
  */
 import { describe, expect, it } from "vitest";
-import { planFromTrace } from "@/lib/chat-workbench/trace-plan";
+import { planFromTrace, settlePlanTodos } from "@/lib/chat-workbench/trace-plan";
 import type { TraceEntry } from "@/lib/chat-workbench/run-trace";
 
 const todo = (args: unknown, id = "c1"): TraceEntry =>
@@ -47,5 +47,20 @@ describe("planFromTrace", () => {
     ["status 不在闭集里", { todos: [{ content: "A", status: "running" }] }],
   ])("认不出的形状返回 null：%s", (_name, args) => {
     expect(planFromTrace([todo(args)])).toBeNull();
+  });
+});
+
+describe("settlePlanTodos（UIUX r5：计划卡与脚注「已完成」一致）", () => {
+  const partial = [
+    { content: "a", status: "completed" as const },
+    { content: "b", status: "in_progress" as const },
+    { content: "c", status: "pending" as const },
+  ];
+  it("本轮正常结束：全部按已完成画", () => {
+    expect(settlePlanTodos(partial, true)!.every((t) => t.status === "completed")).toBe(true);
+  });
+  it("未正常结束（进行中 / 失败 / 取消）：原样不动", () => {
+    expect(settlePlanTodos(partial, false)).toBe(partial);
+    expect(settlePlanTodos(null, true)).toBeNull();
   });
 });

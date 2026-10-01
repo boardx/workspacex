@@ -83,7 +83,7 @@ export function ProjectEvidenceSection({ projectId }: { projectId: string }) {
   const total = page === null ? 0 : Object.values(page.countsBySource).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6" data-testid="project-evidence">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6" data-testid="project-evidence">
       <SectionTitle meta="五类材料归一后的证据单元：项目大脑的结论只引用这里的条目" className="mb-0">来源</SectionTitle>
 
       {page !== null && (
@@ -102,7 +102,7 @@ export function ProjectEvidenceSection({ projectId }: { projectId: string }) {
 
       {error !== null ? (
         <div className="flex items-center gap-2 rounded-md border border-border bg-panel px-3 py-2">
-          <p className="flex-1 text-11 text-destructive" data-testid="project-evidence-error">{error}</p>
+          <p className="flex-1 text-12 text-destructive" data-testid="project-evidence-error">{error}</p>
           <Button size="xs" variant="outline" onClick={() => void load()} data-testid="project-evidence-retry">重试</Button>
         </div>
       ) : null}
@@ -110,26 +110,26 @@ export function ProjectEvidenceSection({ projectId }: { projectId: string }) {
       {error !== null && page === null ? null : (
       <Card>
         {loading && page === null ? (
-          <p className="p-4 text-11 text-muted-foreground" data-testid="project-evidence-loading">读取证据库中…</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-evidence-loading">读取证据库中…</p>
         ) : total === 0 ? (
-          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-evidence-empty">
+          <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-evidence-empty">
             本项目还没有证据。把问卷 / 深度研究 / 录音转写挂到项目上，或在项目对话里聊起来，材料会被整理成证据出现在这里。
           </p>
         ) : items.length === 0 ? (
-          <p className="p-4 text-11 text-muted-foreground" data-testid="project-evidence-filtered-empty">这个来源下还没有证据。</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-evidence-filtered-empty">这个来源下还没有证据。</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border px-3.5" data-testid="project-evidence-list">
             {items.map((it) => (
-              <li key={it.id} className="flex flex-col gap-1 py-2.5 text-11" data-testid={`project-evidence-${it.id}`} data-source-kind={it.sourceKind}>
+              <li key={it.id} className="flex flex-col gap-1 py-2.5 text-12" data-testid={`project-evidence-${it.id}`} data-source-kind={it.sourceKind}>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge tone={isOff(it.sourceKind) ? "outline" : "primary"}>{PROJECT_EVIDENCE_SOURCE_LABEL_ZH[it.sourceKind]}</Badge>
                   {isOff(it.sourceKind) ? <Badge tone="outline" data-testid={`project-evidence-${it.id}-off`}>已关闭</Badge> : null}
                   {it.revoked ? <Badge tone="warning">源已撤回</Badge> : null}
-                  <span className="min-w-0 flex-1 truncate text-10 text-muted-foreground" title={it.resourceTitle}>{it.resourceTitle}</span>
-                  <span className="shrink-0 font-mono text-10 text-muted-foreground">{formatLocator(it)}</span>
+                  <span className="min-w-0 flex-1 truncate text-11 text-muted-foreground" title={it.resourceTitle}>{it.resourceTitle}</span>
+                  <span className="shrink-0 font-mono text-11 text-muted-foreground">{formatLocator(it)}</span>
                 </div>
                 <p className="leading-relaxed" data-testid={`project-evidence-${it.id}-excerpt`}>{it.excerpt}</p>
-                <p className="text-10 text-muted-foreground" data-testid={`project-evidence-${it.id}-speaker`}>
+                <p className="text-11 text-muted-foreground" data-testid={`project-evidence-${it.id}-speaker`}>
                   {it.speakerLabel !== null ? it.speakerLabel : it.sourceKind === "survey_response" ? "匿名答题人" : "说话人未识别"}
                 </p>
               </li>
@@ -182,7 +182,7 @@ function FilterChip({ active, onClick, testId, off = false, children }: {
       data-testid={testId}
       data-off={off ? "true" : undefined}
       className={cn(
-        "rounded-sm border px-1.5 py-0.5 text-10 font-medium transition-colors hover:bg-muted",
+        "rounded-sm border px-1.5 py-0.5 text-11 font-medium transition-colors hover:bg-muted",
         active ? "border-primary bg-primary text-primary-foreground hover:bg-primary-hover" : "border-border text-muted-foreground",
         off && !active ? "border-dashed" : undefined,
       )}

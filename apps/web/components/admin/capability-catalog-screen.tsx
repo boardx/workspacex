@@ -31,7 +31,7 @@ import {
 } from "./capability-mutate";
 import { SkillStarterImportPanel } from "./skill-starter-import-panel";
 import { SkillUrlImportPanel } from "./skill-url-import-panel";
-import { EntityCatalog, CardActions, tagOf, type CatalogTag } from "./entity-catalog";
+import { EntityCatalog, CardActions, tagOf, type CatalogTag, type EntityCardSpec } from "./entity-catalog";
 import { KV } from "./panel";
 
 type CatalogKind = Extract<CapabilityKind, "agent" | "skill">;
@@ -163,7 +163,7 @@ export function CapabilityCatalogScreen({
     return () => {
       generation.current += 1;
     };
-  }, [load]);
+  }, [load, definitionsRefreshKey]);
 
   React.useEffect(() => {
     void loadDefinitions();
@@ -339,17 +339,15 @@ export function CapabilityCatalogScreen({
       tagsOf={tagsOf}
       cardTestId={(item) => (item.kind === "listing" ? `${prefix}-row-${item.listing.id}` : `${prefix}-definition-${item.def.agentId}`)}
       renderCard={(item) =>
-        item.kind === "listing" ? (
-          <ListingCard
-            row={item.listing}
-            prefix={prefix}
-            editHref={editHrefFor(item.listing.id)}
-            canMutate={canMutate}
-            onDisable={() => openDisable(item.listing)}
-          />
-        ) : (
-          <DefinitionCard row={item.def} prefix={prefix} />
-        )
+        item.kind === "listing"
+          ? listingCardSpec({
+              row: item.listing,
+              prefix,
+              editHref: editHrefFor(item.listing.id),
+              canMutate,
+              onDisable: () => openDisable(item.listing),
+            })
+          : definitionCardSpec(item.def, prefix)
       }
       onRefresh={() => {
         void load();
@@ -399,7 +397,7 @@ export function CapabilityCatalogScreen({
 
 /* ───────────────────────── 卡片 ───────────────────────── */
 
-function ListingCard({
+function listingCardSpec({
   row, prefix, editHref, canMutate, onDisable,
 }: {
   row: CapabilityListing;
@@ -408,64 +406,65 @@ function ListingCard({
   editHref: string;
   canMutate: boolean;
   onDisable(): void;
-}) {
-  return (
-    <CardContent className="flex h-full flex-col gap-2 pt-4">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-13 font-medium">{row.name}</span>
-        <span className="truncate font-mono text-10 text-muted-foreground">{row.id}</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5">
+}): EntityCardSpec {
+  return {
+    title: row.name,
+    subtitle: <span className="font-mono">{row.id}</span>,
+    badges: (
+      <>
         <Badge tone="outline">{SCOPE_LABEL[row.scope]}</Badge>
         <Badge tone={row.enabled ? "primary" : "outline"}>{row.enabled ? "已启用" : "已停用"}</Badge>
-      </div>
-      {!row.enabled && row.disabledReason ? (
-        <span className="text-11 text-muted-foreground">{row.disabledReason}</span>
-      ) : null}
-      {row.endpoint ? <span className="truncate font-mono text-10 text-muted-foreground">{row.endpoint}</span> : null}
-      {canMutate ? (
-        <CardActions className="mt-auto pt-1">
-          <Button asChild size="xs" variant="outline" data-testid={`${prefix}-row-${row.id}-edit`}>
-            <Link href={editHref}>
-              <Pencil aria-hidden className="h-3 w-3" />
-              编辑
-            </Link>
+      </>
+    ),
+    children: (
+      <>
+        {!row.enabled && row.disabledReason ? (
+          <span className="text-11 text-muted-foreground">{row.disabledReason}</span>
+        ) : null}
+        {row.endpoint ? <span className="truncate font-mono text-10 text-muted-foreground">{row.endpoint}</span> : null}
+      </>
+    ),
+    actions: canMutate ? (
+      <CardActions>
+        <Button asChild size="sm" variant="outline" data-testid={`${prefix}-row-${row.id}-edit`}>
+          <Link href={editHref}>
+            <Pencil aria-hidden className="h-3 w-3" />
+            编辑
+          </Link>
+        </Button>
+        {/* 已停用的记录没有「再停用一次」——那会写出一条什么都没改变的 provenance 记录。 */}
+        {row.enabled ? (
+          <Button size="sm" variant="outline" onClick={onDisable} data-testid={`${prefix}-row-${row.id}-disable`}>
+            <Ban aria-hidden className="h-3 w-3" />
+            停用
           </Button>
-          {/* 已停用的记录没有「再停用一次」——那会写出一条什么都没改变的 provenance 记录。 */}
-          {row.enabled ? (
-            <Button size="xs" variant="outline" onClick={onDisable} data-testid={`${prefix}-row-${row.id}-disable`}>
-              <Ban aria-hidden className="h-3 w-3" />
-              停用
-            </Button>
-          ) : null}
-        </CardActions>
-      ) : null}
-    </CardContent>
-  );
+        ) : null}
+      </CardActions>
+    ) : undefined,
+  };
 }
 
-function DefinitionCard({ row, prefix }: { row: AgentListRow; prefix: string }) {
-  return (
-    <CardContent className="flex h-full flex-col gap-2 pt-4">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-10 font-semibold text-muted-foreground">
-          {row.initials}
-        </span>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-13 font-medium" data-testid={`${prefix}-definition-${row.agentId}-name`}>{row.name}</span>
-          <span className="truncate text-11 text-muted-foreground">{row.roleLabel || row.role}</span>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5">
+function definitionCardSpec(row: AgentListRow, prefix: string): EntityCardSpec {
+  return {
+    leading: (
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-10 font-semibold text-muted-foreground">
+        {row.initials}
+      </span>
+    ),
+    title: row.name,
+    titleTestId: `${prefix}-definition-${row.agentId}-name`,
+    subtitle: row.roleLabel || row.role,
+    badges: (
+      <>
         <Badge tone="ai">可执行</Badge>
         <Badge tone="outline">{row.visibility}</Badge>
         <Badge tone={row.publishState === "运行中" ? "primary" : "outline"} data-testid={`${prefix}-definition-${row.agentId}-state`}>
           {row.publishState}
         </Badge>
-      </div>
-      <span className="text-11 text-muted-foreground">{row.skillCount} 个 skill 挂载</span>
-    </CardContent>
-  );
+      </>
+    ),
+    meta: <span>{row.skillCount} 个 skill 挂载</span>,
+  };
 }
 
 /* ───────────────────────── 面板 ───────────────────────── */

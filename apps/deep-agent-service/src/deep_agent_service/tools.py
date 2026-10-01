@@ -116,6 +116,11 @@ class OrgSkill(TypedDict):
     content: str
 
 
+def _join_clause(text: str | None) -> str:
+    """uiux-r3 #4.4：人写的一句话接进模板句前去掉它自己的句末标点，避免拼出「。。」。"""
+    return (text or "").strip().rstrip("。．.！!？?；;，, \t\n")
+
+
 def _read_org_skills(config: RunnableConfig) -> list[OrgSkill]:
     configurable = (config or {}).get("configurable") or {}
     skills = configurable.get("org_skills") or []
@@ -504,8 +509,8 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         decisionText: str | None = None,
     ) -> str:
         """当你遇到超出自己职责、需要人来拍板的事项（例如超预算、越权、合规风险）时，调用
-        这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别（与本 Agent 的升级
-        策略里的事项名一致）；`reason` 说明为什么需要升级；`target` 可不填——由谁裁决只由
+        这个工具请求升级，等待负责人裁决后再继续。`matter` 是事项类别，必须逐字等于系统上下文
+        「升级策略」清单里的某个事项名（清单里没有的事项不会升级给任何人）；`reason` 写成你要负责人拍板的**具体问题**（一句话，例如「客户要求在合同里写明 20% 折扣，是否同意？」），它会原样作为升级卡片的标题，不要只写类别或笼统的「超出职责」；`target` 可不填——由谁裁决只由
         升级策略决定，你自报的值会被忽略；`contextRefs` 是相关证据/对象的 ID 列表。"""
         # AG06 —— 三条到达路径（`packages/contracts/src/agent-role.ts` EscalatePayload /
         # EscalateDecision；网关判定见 `apps/api/.../tool-permission-gate.ts`）：
@@ -516,12 +521,12 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         #   没有升级给任何人——必须如实告诉模型「未升级」，不是「已批准」。
         if decision == "resolve":
             return (
-                f"负责人已裁决同意：{decisionText or '（无附言）'}。"
+                f"负责人已裁决同意：{_join_clause(decisionText) or '（无附言）'}。"
                 "请严格按这个裁决继续执行任务。"
             )
         if decision == "reject":
             return (
-                f"负责人不同意：{reason or '（未说明理由）'}。"
+                f"负责人不同意：{_join_clause(reason) or '（未说明理由）'}。"
                 "不要执行被升级的那件事；请据此调整方案，或向用户说明无法继续的原因。"
             )
         return (
@@ -551,9 +556,36 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         # 没有 outcome：服务端没有给出结果（通用裁决通路只允许 reject，正常不会到这里），如实说明未发起。
         return "流程未发起：没有收到系统的发起结果，未创建任何实例。不要重试，也不要改走其它流程。"
 
+    @tool
+    def request_handoff(
+        targetRole: str | None = None,
+        packet: dict | str | None = None,
+        outcome: SkipJsonSchema[dict | None] = None,
+    ) -> str:
+        """当用户的问题超出本角色职责、应由另一个数字人角色（编号形如 D003）接手时，调用这个工具
+        请求转交。`targetRole` 是目标角色编号；`packet` 是交接包对象，只能包含四个字段：
+        `originalQuestion`（用户问题原文）、`confirmedScope`（已和用户确认的范围）、
+        `evidenceRefs`（已有证据/来源的 ID 列表，只写 ID，不要附摘录或原文）、`openItems`（未决事项列表）。
+        转交需要用户确认；你只能转交给本角色允许的目标。"""
+        # `outcome` 不进模型可见的 tool schema，只由服务端经 edit resume 回填（同 start_workflow）。
+        # AG07 —— 网关（`apps/api/.../handoff-gate.ts`）在本工具执行前中断，按 run 钉住的 delegationPolicy
+        # 判定目标与深度，登记待用户确认的转交，再以 edit resume 带回 `outcome`：
+        # {status: requested|refused, message, ...}。`message` 是聊天可见的中文句子（不含原因码）。
+        if isinstance(outcome, dict) and isinstance(outcome.get("message"), str):
+            message = outcome["message"]
+            if outcome.get("status") == "requested":
+                return f"{message} 在用户确认前不要自行继续处理被转交的部分；把这句话告诉用户即可。"
+            # UIUX r2 屏 4 #3：这句拒绝原因已由界面上的「没有转交」提示条原样展示给用户（它就是本工具结果），
+            # 模型再复述一遍 = 同一句话出现两次。只让模型说接下来怎么办。
+            return (
+                f"{message} 界面已经用提示条把这句话展示给用户了，不要逐字复述它；"
+                "不要改转给其它角色，也不要重试；请用一句话告诉用户你会在本角色职责内继续帮助他。"
+            )
+        return "转交未发起：没有收到系统的处理结果。不要重试；请在本角色职责内继续帮助用户。"
+
     # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.
     if interactions_only:
-        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter, start_workflow]
+        return [confirm_task_intent, fill_run_params, choose_execution_option, escalate_matter, start_workflow, request_handoff]
 
     @tool
     def spawn_async_task(description: str, config: RunnableConfig,
@@ -637,5 +669,6 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         choose_execution_option,
         escalate_matter,
         start_workflow,
+        request_handoff,
         spawn_async_task,
     ]

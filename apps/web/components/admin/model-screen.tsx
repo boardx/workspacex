@@ -1,4 +1,5 @@
 "use client";
+import { TagField, commitDraft } from "@/components/ui/tag-input";
 import * as React from "react";
 import { Plus, ShieldCheck, FlaskConical, Check, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
@@ -198,10 +199,11 @@ export function ModelScreen({ state }: { state: UiState }) {
         onRefresh={() => void refresh()}
         emptyState="模型池是空的——这是本组织在服务端的真实结果。用「接入模型」接一个。"
         searchPlaceholder="按模型名、供应商或能力标签搜索…"
-        renderCard={(m) => (
-          <CardContent className="flex h-full flex-col gap-2 pt-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-mono text-12 font-medium">{m.displayName}</span>
+        renderCard={(m) => ({
+          title: <span className="font-mono">{m.displayName}</span>,
+          subtitle: `${KIND_LABEL[m.kind]} · ${m.vendor} · ${tagsLabel(m)}`,
+          badges: (
+            <>
               {renderStatusBadge(m)}
               {m.kind === "self-hosted" && (
                 <Badge tone="ai" data-testid={`admin-model-confidential-${m.modelId}`}>
@@ -209,18 +211,19 @@ export function ModelScreen({ state }: { state: UiState }) {
                   可承接机密
                 </Badge>
               )}
-            </div>
-            <span className="text-11 text-muted-foreground">{KIND_LABEL[m.kind]} · {m.vendor} · {tagsLabel(m)}</span>
-            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
+            </>
+          ),
+          children: (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
               <span>上下文 {contextLabel(m)}</span>
               <span data-testid={`admin-model-price-${m.modelId}`}>{priceLabel(m)}</span>
               <span className="col-span-2" data-testid={`admin-model-key-status-${m.modelId}`}>
                 凭据 <span className="text-background-foreground">{hasApiKeyConfigured(m) ? "已配置" : "未配置"}</span>
               </span>
             </div>
-            <CardActions className="mt-auto justify-end pt-1">{renderSwitch(m)}</CardActions>
-          </CardContent>
-        )}
+          ),
+          actions: <CardActions className="justify-end">{renderSwitch(m)}</CardActions>,
+        })}
         selectedKey={selectedKey}
         onSelect={setSelectedKey}
         detailTitle={(m) => m.displayName}
@@ -369,7 +372,8 @@ function AddModelDrawer({
   const [name, setName] = React.useState("");
   const [endpoint, setEndpoint] = React.useState("");
   const [apiKey, setApiKey] = React.useState("");
-  const [tags, setTags] = React.useState("");
+  const [tags, setTags] = React.useState<readonly string[]>([]);
+  const [tagDraft, setTagDraft] = React.useState("");
   const [contextWindow, setContextWindow] = React.useState("128000");
   const [unitPrice, setUnitPrice] = React.useState("0");
   const [submitting, setSubmitting] = React.useState(false);
@@ -394,10 +398,7 @@ function AddModelDrawer({
       kind,
       vendor: vendor.trim(),
       displayName: name.trim(),
-      capabilityTags: tags
-        .split(/[,，]/)
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0),
+      capabilityTags: [...commitDraft(tags, tagDraft, { maxTags: 10, maxTagLength: 20 })],
       contextWindow: contextWindowNum,
       unitPrice: unitPriceNum,
       apiKey: apiKey.trim().length > 0 ? apiKey.trim() : null,
@@ -497,13 +498,17 @@ function AddModelDrawer({
           disabled={submitting}
           autoComplete="off"
         />
-        <Field
-          id="admin-model-field-tags"
-          label="能力标签（逗号分隔）"
-          placeholder="如 推理, 工具, 长文"
+        <TagField
+          label="能力标签"
           value={tags}
-          onChange={(e) => setTags(e.currentTarget.value)}
+          onChange={setTags}
+          draft={tagDraft}
+          onDraftChange={setTagDraft}
+          maxTags={10}
+          maxTagLength={20}
           disabled={submitting}
+          testIdPrefix="admin-model-tag"
+          emptyHint="如 推理、工具、长文；回车或逗号确认"
         />
         <div className="grid grid-cols-2 gap-3">
           <Field

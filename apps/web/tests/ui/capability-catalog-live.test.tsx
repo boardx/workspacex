@@ -98,7 +98,7 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
     fireEvent.change(screen.getByTestId("admin-agent-search"), { target: { value: "" } });
 
     // 标签同样是本地过滤：「已停用」只剩第 2 条。
-    fireEvent.click(screen.getByTestId("admin-agent-tag-filter-disabled"));
+    fireEvent.click(screen.getByTestId("admin-agent-tag-disabled"));
     expect(within(screen.getByTestId("admin-agent-list")).getByText("Agent 真实条目 2")).toBeInTheDocument();
     expect(within(screen.getByTestId("admin-agent-list")).queryByText("Agent 真实条目 1")).not.toBeInTheDocument();
 

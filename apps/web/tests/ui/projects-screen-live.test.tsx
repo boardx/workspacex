@@ -72,6 +72,39 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     expect(enterLink).toHaveAttribute("href", `/projects/p-real-1?org=${ORG}`);
   });
 
+  it("R4 列表读取失败：友好说明 + 重试，且不同时说「当前组织还没有项目」；重试成功后恢复列表", async () => {
+    let calls = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/projects" && (init?.method ?? "GET") === "GET") {
+        calls += 1;
+        if (calls === 1) return jsonResponse({ message: "boom" }, 500);
+        return jsonResponse([{ id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "active", readOnlyReason: null, tags: [] }]);
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    render(<ProjectsScreen />);
+    const err = await screen.findByTestId("projects-list-error");
+    expect(err).toHaveTextContent("项目列表暂时读不出来");
+    expect(screen.queryByTestId("projects-list-empty-state")).toBeNull();
+    fireEvent.click(screen.getByTestId("projects-list-error-retry"));
+    expect(await screen.findByTestId("projects-card-p-real-1-name")).toHaveTextContent("真实项目一号");
+    expect(screen.queryByTestId("projects-list-error")).toBeNull();
+  });
+
+  it("R8 标签：重复的标签就地提示「已经有这个标签了」（不再静默吞），输入框有 40 字上限", async () => {
+    render(<ProjectsScreen />);
+    await screen.findByTestId("projects-list");
+    fireEvent.click(screen.getByTestId("projects-card-p-real-1-tag-add"));
+    const input = screen.getByTestId("projects-card-p-real-1-tag-input");
+    expect(input).toHaveAttribute("maxlength", "40");
+    fireEvent.change(input, { target: { value: "客户" } });     // 该项目已有「客户」
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByTestId("projects-card-p-real-1-tags-error")).toHaveTextContent("已经有这个标签了");
+    fireEvent.change(input, { target: { value: "客户2" } });    // 继续输入 ⇒ 提示消失
+    expect(screen.queryByTestId("projects-card-p-real-1-tags-error")).toBeNull();
+  });
+
   it("搜索框按名称过滤真实列表", async () => {
     render(<ProjectsScreen />);
 
@@ -85,14 +118,14 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     render(<ProjectsScreen />);
     await screen.findByTestId("projects-list");
 
-    const chip = screen.getByTestId("projects-tag-filter-客户");
+    const chip = screen.getByTestId("projects-tag-客户");
     expect(chip).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("projects-card-p-real-1")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("projects-tag-filters-clear"));
+    fireEvent.click(screen.getByTestId("projects-tag-all"));
     expect(chip).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -161,7 +194,7 @@ describe("F185 /projects：标签增删接真实 PATCH /projects/:id/tags", () =
     afterPatch = [
       { id: "p-tag-1", name: "待打标签的项目", kind: "workshop", status: "active", readOnlyReason: null, tags: ["高优先级"] },
     ];
-    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-confirm"));
+    fireEvent.keyDown(screen.getByTestId("projects-card-p-tag-1-tag-input"), { key: "Enter" }); // 共享内联编辑器：回车确认
 
     await waitFor(() => expect(patchCalls).toHaveLength(1));
     expect(patchCalls[0]).toMatchObject({ path: "/projects/p-tag-1/tags", body: { tags: ["高优先级"] } });
@@ -186,7 +219,7 @@ describe("F185 /projects：标签增删接真实 PATCH /projects/:id/tags", () =
     afterPatch = [
       { id: "p-tag-1", name: "已有两个标签", kind: "workshop", status: "active", readOnlyReason: null, tags: ["b"] },
     ];
-    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-a-remove"));
+    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-remove-a"));
 
     await waitFor(() => expect(patchCalls).toHaveLength(1));
     // ⚠ 反证整体替换：body 里的 tags 是「剩下的那个」，不是一个「删除了 a」的动作描述。
@@ -262,24 +295,25 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
     return screen.getByTestId("projects-more-menu-p-real-1");
   }
 
-  it("菜单四项且无删除项；未实现的三项禁用并如实说明", async () => {
+  it("菜单只有真实可用的两项（复制项目链接 / 归档），没有删除项，也没有禁用占位和内部备注", async () => {
     const menu = await openMenu();
 
-    // Radix DropdownMenuItem 渲染成 `<div role="menuitem">`，禁用态走 `aria-disabled`/
-    // `data-disabled`（jest-dom 的 `toBeDisabled()` 只认原生表单控件的 `disabled` 属性，
-    // 这里不适用——断言改读 Radix 实际输出的禁用信号）。
-    expect(within(menu).getByTestId("projects-more-p-real-1-edit")).toHaveAttribute("data-disabled");
-    expect(within(menu).getByTestId("projects-more-p-real-1-bigscreen")).toHaveAttribute("data-disabled");
-    expect(within(menu).getByTestId("projects-more-p-real-1-copy-invite")).toHaveAttribute("data-disabled");
-    expect(within(menu).getByTestId("projects-more-p-real-1-unavailable-note")).toBeInTheDocument();
-
-    // 归档项可点；**没有删除这个菜单项**（Q-9 裁不提供删除项目）
+    expect(within(menu).getByTestId("projects-more-p-real-1-copy-link")).not.toHaveAttribute("data-disabled");
     expect(within(menu).getByTestId("projects-more-p-real-1-archive")).not.toHaveAttribute("data-disabled");
-    // 注意断的是「菜单项」而不是「页面上不出现『删除项目』四个字」——
-    // Q-9 的说明文案本身就要提到它，按文本断会把说明也判成违规。
     const items = within(menu).getAllByRole("menuitem");
-    expect(items).toHaveLength(4);                              // 编辑/看大屏/复制邀请/归档
+    expect(items).toHaveLength(2);
+    expect(items.some((el) => el.hasAttribute("data-disabled"))).toBe(false);
     expect(items.some((el) => /删除/.test(el.textContent ?? ""))).toBe(false);
+    expect(menu.textContent ?? "").not.toMatch(/Q-9|尚未实现/);
+  });
+
+  it("复制项目链接：写入剪贴板并就地反馈「已复制」", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const menu = await openMenu();
+    fireEvent.click(within(menu).getByTestId("projects-more-p-real-1-copy-link"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/projects/p-real-1`));
+    expect(await within(menu).findByText("已复制项目链接")).toBeInTheDocument();
   });
 
   it("归档要二次确认：确认前不发任何请求，取消也不发", async () => {

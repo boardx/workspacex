@@ -160,11 +160,12 @@ type GithubCheck =
 
 /** 贴边详情 drawer：top:54px 贴导航栏下方，right:0 到视口底部，左侧遮罩关闭。 */
 export function InboxDrawer({
-  item, busy, openDecline, openIssueForm, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
+  item, busy, actionError, openDecline, openIssueForm, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
   onSaveExceptionDev, onSaveTags, onFilterTag,
 }: {
   item: InboxItem;
   busy: boolean;
+  actionError?: string | null;
   /** B3.7——drawer 里的关联标点击后换成目标条目的 drawer。 */
   onNavigateLink: NavigateLink;
   /** 从看板拖到「不做」列打开：直接展开理由表单，不用再点一次「不做…」。 */
@@ -503,6 +504,7 @@ export function InboxDrawer({
 
         {/* 操作区：随状态显示可用动作 */}
         <footer className="flex flex-col gap-2 border-t border-border p-4">
+          {actionError && <p role="alert" className="text-13 text-destructive">{actionError}</p>}
           {issueDraft !== null ? (
             <div className="flex flex-col gap-1.5" data-testid="inbox-issue-form">
               <p className="text-11 font-medium text-muted-foreground">

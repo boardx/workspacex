@@ -1,7 +1,7 @@
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
-import { FULLSTACK_E2E } from "./e2e/fullstack-smoke-fixture";
+import { FULLSTACK_E2E, MAIL_LOOPBACK } from "./e2e/fullstack-smoke-fixture";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -34,6 +34,7 @@ const modelProviderPort = required("WORKSPACEX_MODEL_PROVIDER_PORT");
 const deepAgentProviderPort = required("WORKSPACEX_DEEP_AGENT_PROVIDER_PORT");
 const skillSandboxPort = required("WORKSPACEX_LOOPBACK_SANDBOX_PORT");
 const asrProviderPort = required("WORKSPACEX_ASR_PROVIDER_PORT");
+const mailProviderPort = required(MAIL_LOOPBACK.portEnv);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -139,16 +140,40 @@ const fixtureEnv = {
  * `ConfiguredRealtimeAsrProvider` 只认这一组变量，没有 list、没有 map、没有 default。
  *
  * 不配它会怎样：WS 面以 `ASR_NOT_CONFIGURED` **诚实地失败**，界面上
- * `chat-live-recording-error` 显示「本组织尚未配置转写服务」，
+ * 转写页 `rec-live-error` 显示「尚未配置…转录」（#4744 前是 `chat-live-recording-error`），
  * 绝不会冒出一段编造的转录。
  *
  * ⚠ `KERNEL_ASR_MODEL` 是一个**配置值**，不是源码里的字面量 ——
  *   contract.md §3 与 `no-hardcoded-model-list.test.ts` 都要求模型名不进源码。
  */
+/**
+ * #4789 —— 显式选中的出站邮件上游（`scripts/loopback-mail-provider.ts`）。**不是 mock fallback**：
+ * 两个 Cloudflare transport 只认 `CLOUDFLARE_API_BASE_URL`，它在生产被禁止覆盖
+ * （`infrastructure/cloudflare-email-api-base.ts`）；不起替身进程则发信以 `network` 诚实失败。
+ *
+ * ⚠ `MAIL_OUTBOX_WORKER_ENABLED=1`：验证邮件走 outbox，worker 默认只在生产开；不开它，
+ *   注册之后**永远没有**邮件发出，替身里自然什么都没有。令牌由 HMAC 从 challengeId 推出、
+ *   与「是否已投递」无关，所以开 worker 不影响既有 spec 读令牌（`readVerificationToken`）。
+ * ⚠ `APP_PUBLIC_URL` 指向本 config 的 web 服务：邮件里的链接必须是浏览器真的打得开的那个源。
+ * 常量唯一事实源：`e2e/fullstack-smoke-fixture.ts` 的 `MAIL_LOOPBACK`。
+ */
+const mailProviderEnv = {
+  CLOUDFLARE_API_BASE_URL: `http://127.0.0.1:${mailProviderPort}/client/v4`,
+  CLOUDFLARE_ACCOUNT_ID: MAIL_LOOPBACK.accountId,
+  CLOUDFLARE_EMAIL_API_TOKEN: MAIL_LOOPBACK.verificationToken,
+  CLOUDFLARE_TXN_EMAIL_API_TOKEN: MAIL_LOOPBACK.transactionalToken,
+  MAIL_FROM: MAIL_LOOPBACK.mailFrom,
+  APP_PUBLIC_URL: `http://127.0.0.1:${webPort}`,
+  MAIL_OUTBOX_WORKER_ENABLED: "1",
+};
+
 const asrProviderEnv = {
   KERNEL_ASR_PROVIDER: "fullstack-loopback-asr",
   KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${asrProviderPort}`,
   KERNEL_ASR_API_KEY: "fullstack-smoke-loopback-asr-key-not-a-secret",
+  // 数字人实时语音（Chat「实时对话」）走同一个回环进程的 /omni-realtime 路径（确定性中文样例
+  // 转写 + 助手回复）。不配它会退回 KERNEL_ASR_BASE_URL，只有 ASR 调试串、没有助手回复。
+  KERNEL_OMNI_REALTIME_BASE_URL: `ws://127.0.0.1:${asrProviderPort}/omni-realtime`,
   KERNEL_ASR_MODEL: "loopback-transcribe",
   // 收尾等待：本地回环是毫秒级的，15 秒的生产默认值只会让失败等满 15 秒。
   KERNEL_ASR_FINISH_GRACE_MS: "5000",
@@ -179,6 +204,9 @@ const asrProviderEnv = {
  * 界面上 `chat-live-agent-run-status` 显示 failed，绝不会冒出一条编造的回复。
  */
 const modelProviderEnv = {
+  // Official role snapshots pin dashscope. Alias it only in this explicit
+  // loopback fixture; this does not configure a real provider or prove quality.
+  KERNEL_LOOPBACK_PROVIDER_ALIASES: "dashscope",
   KERNEL_GUIDED_SEARCH_URL: `http://127.0.0.1:${modelProviderPort}/search`,
   KERNEL_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
   KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
@@ -365,6 +393,8 @@ export default defineConfig({
         //   `seeded-github-import` project 头注，它们跟着 `skill-agent-import-
         //   usecase-audit.spec.ts` 一起排在那个"跑在 seeded 之后"的 project 里。
         "core-journey-01-registration.spec.ts",
+        // #4789：出站邮件回环自证（注册验证邮件进替身 + fault=reject 反证）。只注册自己的新用户，不碰种子。
+        "mail-loopback-smoke.spec.ts",
         "core-journey-02-org-management.spec.ts",
         "core-journey-05-voice-skill-multichannel-context.spec.ts",
         // #3967: real Board HTTP + authenticated WS with three independently logged-in
@@ -373,6 +403,23 @@ export default defineConfig({
         "whiteboard-live.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
+    },
+    {
+      // Import official roles after empty-catalog checks, in explicit order.
+      name: "official-digital-human",
+      testMatch: ["digital-human-journey.spec.ts"],
+      dependencies: ["seeded", "board-collaboration-regressions"],
+      retries: 0, // Published imports persist; retry cannot restore pending state.
+      workers: 1,
+      fullyParallel: false,
+    },
+    {
+      name: "official-role-workflow",
+      testMatch: ["w029-browser-journey.spec.ts"],
+      dependencies: ["official-digital-human"],
+      retries: 0,
+      workers: 1,
+      fullyParallel: false,
     },
     {
       /**
@@ -434,7 +481,9 @@ export default defineConfig({
         "board-drawing-live-preview.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
-      dependencies: ["seeded", "board-collaboration-regressions"],
+      // Official imports must follow seeded empty-catalog checks and precede
+      // later mutation journeys; dependency ordering also survives parallel CI.
+      dependencies: ["official-role-workflow"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.
@@ -629,6 +678,20 @@ export default defineConfig({
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
       },
     },
+    // #4789：出站邮件观察口。同样只要在 API 之前 ready（API 发信时才连它）。
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-mail-provider.ts",
+      url: `http://127.0.0.1:${mailProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_MAIL_PROVIDER_PORT: mailProviderPort,
+        LOOPBACK_MAIL_ACCOUNT_ID: MAIL_LOOPBACK.accountId,
+        LOOPBACK_MAIL_ACCEPTED_TOKENS: [MAIL_LOOPBACK.verificationToken, MAIL_LOOPBACK.transactionalToken].join(","),
+        LOOPBACK_MAIL_TIMEOUT_DELAY_MS: String(MAIL_LOOPBACK.timeoutDelayMs),
+      },
+    },
     {
       command: "pnpm --filter @repo/api exec tsx scripts/loopback-model-provider.ts",
       url: `http://127.0.0.1:${modelProviderPort}/healthz`,
@@ -683,7 +746,7 @@ export default defineConfig({
         process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {
-        ...process.env, ...fixtureEnv, ...modelProviderEnv,
+        ...process.env, ...fixtureEnv, ...modelProviderEnv, ...mailProviderEnv,
         // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
         // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。
         ...(process.env.CORE_LOOP_COUNTERPROOF_7 === "no-asr-provider" ? {} : asrProviderEnv),

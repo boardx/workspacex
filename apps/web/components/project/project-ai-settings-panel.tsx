@@ -66,7 +66,7 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
       <SectionTitle meta="哪些来源允许进入项目大脑（项目记忆只从这些来源生长）">AI 权限</SectionTitle>
       <Card>
         {settings === undefined && error === null && (
-          <p className="p-4 text-11 text-muted-foreground">加载中…</p>
+          <p className="p-4 text-12 text-muted-foreground">加载中…</p>
         )}
         {settings !== undefined && (
           <ul className="divide-y divide-border">
@@ -74,9 +74,11 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
               const on = draft.has(kind);
               return (
                 <li key={kind} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                  <span className="text-12 text-foreground">{C.PROJECT_AI_SOURCE_LABEL_ZH[kind]}</span>
+                  {/* 整行可点：label 指向开关按钮（此前只有右侧那个 28px 的小开关能点） */}
+                  <label htmlFor={`project-ai-source-toggle-${kind}`} className={canEdit ? "min-w-0 flex-1 cursor-pointer py-0.5 text-12 text-foreground" : "text-12 text-foreground"}>{C.PROJECT_AI_SOURCE_LABEL_ZH[kind]}</label>
                   {canEdit ? (
                     <Toggle
+                      id={`project-ai-source-toggle-${kind}`}
                       data-testid={`project-ai-source-${kind}`}
                       checked={on}
                       disabled={busy}
@@ -98,25 +100,27 @@ export function ProjectAiSettingsPanel({ projectId, canEdit }: { projectId: stri
         )}
         {settings !== undefined && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5">
-            <span className="text-11 text-muted-foreground" data-testid="project-ai-settings-meta">
-              {settings.updatedAt === null
-                ? "尚未设置过（默认全部允许）"
-                : `最近由 ${settings.updatedBy ?? "—"} 于 ${new Date(settings.updatedAt).toLocaleString("zh-CN")} 更新`}
+            <span className="text-12 text-muted-foreground" data-testid="project-ai-settings-meta">
+              {canEdit && dirty
+                ? <span className="text-warning" data-testid="project-ai-settings-dirty">有未保存的修改</span>
+                : settings.updatedAt === null
+                  ? "尚未设置过（默认全部允许）"
+                  : `最近由 ${settings.updatedBy ?? "—"} 于 ${new Date(settings.updatedAt).toLocaleString("zh-CN")} 更新`}
             </span>
             {canEdit ? (
               <span className="flex items-center gap-2">
-                {saved && !dirty && <span className="text-11 text-success" data-testid="project-ai-settings-saved">已保存</span>}
-                <Button size="sm" data-testid="project-ai-settings-save" disabled={!dirty || busy} onClick={() => void save()}>
+                {saved && !dirty && <span className="text-12 text-success" data-testid="project-ai-settings-saved">已保存</span>}
+                <Button size="sm" variant="primary" data-testid="project-ai-settings-save" disabled={!dirty || busy} onClick={() => void save()}>
                   {busy ? "保存中…" : "保存"}
                 </Button>
               </span>
             ) : (
-              <span className="text-11 text-muted-foreground">只有本项目的引导师（或组织负责人 / 管理员）能修改。</span>
+              <span className="text-12 text-muted-foreground">只有项目负责人（或组织负责人 / 管理员）能修改。</span>
             )}
           </div>
         )}
         {error !== null && (
-          <p className="border-t border-border px-4 py-2.5 text-11 text-destructive" data-testid="project-ai-settings-error">{error}</p>
+          <p className="border-t border-border px-4 py-2.5 text-12 text-destructive" data-testid="project-ai-settings-error">{error}</p>
         )}
       </Card>
     </section>
@@ -132,7 +136,7 @@ function describeFailure(e: unknown): string {
     switch (e.reasonCode) {
       case "NO_PROJECT_ROLE": return "你不在这个项目里，看不到它的 AI 权限。";
       case "ADMIN_NOT_SUPERUSER": return "组织管理员不自动拥有项目内容的读权限，需要先被加入项目。";
-      case "PROJECT_ROLE_INSUFFICIENT": return "只有本项目的引导师（或组织负责人 / 管理员）能修改 AI 权限。";
+      case "PROJECT_ROLE_INSUFFICIENT": return "只有项目负责人（或组织负责人 / 管理员）能修改 AI 权限。";
       case "ORG_ROLE_INSUFFICIENT": return "你的组织角色不足以修改这个项目的 AI 权限。";
       case "AUTH_SERVICE_UNAVAILABLE": return "身份校验服务暂时不可用，请稍后重试。";
     }

@@ -22,6 +22,19 @@ export interface PersonalRealtimeAsrObservation {
 }
 export interface PersonalRealtimeAsrGatewayDeps { tickets:RealtimeAsrTicketStore; repository:PersonalTranscriptionRepository;
   provider:AsrProviderPort; usage:AsrUsageMeter; ids:IdGenerator; observe?: (event:PersonalRealtimeAsrObservation)=>void; }
+/**
+ * e2e 反证开关（release-gate `core-loop.spec.ts` 步骤 7 的 `CORE_LOOP_COUNTERPROOF_7`）：与
+ * `interface/recording/segment-ingestion.ts` 的 `counterproofMode` 同一个环境变量、同一条纪律——
+ * 只在非 production 生效。转写页（`/rec`）走的是本网关的 `appendFinal`，不经过 `ingestSegment`，
+ * 所以同一个开关必须在这条写路径上也生效，否则 `drop-persist` / `noop-persist` 对它就是空转。
+ *   · `drop-persist`：落库整个失败 ⇒ `final` 永远不会发出（它在落库之后才发）。
+ *   · `noop-persist`：落库假装成功（`final` 照常发出、状态照常），但一行都不写库。
+ */
+function counterproofMode():"drop-persist"|"noop-persist"|null{
+  if(process.env.NODE_ENV==="production")return null;
+  const mode=process.env.WORKSPACEX_COUNTERPROOF_INGEST;
+  return mode==="drop-persist"||mode==="noop-persist"?mode:null;
+}
 function refuse(socket:Duplex,status:number){socket.write(`HTTP/1.1 ${status} Refused\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);socket.destroy();}
 
 export function matchPersonalRealtimeAsrPath(url:URL):{transcriptionId:string;captureId:string}|null{
@@ -78,11 +91,11 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         onPartial:r=>{if(!terminal)send({type:"interim",captureId:auth.captureId,text:r.text});},
         onFinal:r=>{if(terminal)return;finalReceivedAt=Date.now();const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
           lastFinalEndMs=endMs;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
-          const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});finalPersistedAt=Date.now();
+          const segmentId=deps.ids.next("personal-segment");const cp=counterproofMode();if(cp==="drop-persist")throw new Error("counterproof drop-persist: the personal append port is deliberately broken");if(cp!=="noop-persist")await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});finalPersistedAt=Date.now();
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
-          .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
+          .catch(e=>{logFinishFailure("persist-final",e);return fail("FINISH_TIMEOUT");}).then(()=>undefined);},
         onFlow:flow=>{if(!terminal)send({type:"flow",captureId:auth.captureId,...flow});},
-        onError:(reason,detail)=>void fail(asPersonalErrorReason(reason,detail,stopping)),
+        onError:(reason,detail)=>{if(stopping)process.stderr.write(`[personal-asr] provider error while stopping: ${reason} / ${String(detail).slice(0,120)}\n`);void fail(asPersonalErrorReason(reason,detail,stopping));},
         onClosed:()=>undefined,
       },{sampleRate:16_000,channels:1,encoding:"pcm16le"},{turnDetection:"recording"}).then(s=>{starting=false;
         if(terminal){s.abort();return;}providerReadyAt=Date.now();upstream=s;
@@ -91,16 +104,23 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         }).catch(()=>void fail("ASR_PROVIDER_UNAVAILABLE"));return;
     }
     if(!upstream||stopping||terminal){void fail("PROTOCOL_ERROR");return;} stopping=true;stopRequestedAt=Date.now();send({type:"stopping",captureId:auth.captureId});
-    void upstream.finish().then(async()=>{await writeChain;const durationSeconds=pcm16MonoDurationSeconds(receivedPcmBytes);
+    void atStage("upstream-finish",()=>upstream!.finish()).then(async()=>{await atStage("await-writes",()=>writeChain);const durationSeconds=pcm16MonoDurationSeconds(receivedPcmBytes);
       if(terminal)return;
-      if(!usageRecorded){usageRecorded=true;await deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
+      if(!usageRecorded){usageRecorded=true;await atStage("usage-record",()=>deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
       orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
-      model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)});}
-      await deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000});
+      model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)}));}
+      await atStage("finish-capture",()=>deps.repository.finishCapture({...auth,durationMs:pcm16MonoDurationMs(receivedPcmBytes)}));
       if(terminal)return;terminal=true;observeTerminal("completed");send({type:"completed",captureId:auth.captureId});ws.close();
     }).catch(()=>void fail("FINISH_TIMEOUT"));
   });
   ws.on("close",()=>{if(!terminal)void fail("ASR_PROVIDER_UNAVAILABLE");});
+}
+/** 收尾失败统一对外报 FINISH_TIMEOUT；真正卡在哪一步只写服务端日志（只记阶段与错误类名——err.message 可能含 SQL 片段，不外露）。 */
+function logFinishFailure(stage:string,error:unknown):void{
+  process.stderr.write(`[personal-asr] ${stage} failed: ${safeErrorDetail(error)}\n`);
+}
+async function atStage<T>(stage:string,work:()=>Promise<T>):Promise<T>{
+  try{return await work();}catch(error){logFinishFailure(stage,error);throw error;}
 }
 function safeJson(value:string):unknown{try{return JSON.parse(value);}catch{return null;}}
 function safeErrorDetail(error:unknown):string{return error instanceof Error?error.name:"unknown";}
@@ -112,6 +132,8 @@ function asPersonalErrorReason(reason:string,detail:string,stopping:boolean):typ
 
 const PCM16_MONO_16KHZ_BYTES_PER_SECOND=32_000;
 export function pcm16MonoDurationSeconds(bytes:number):number{return bytes/PCM16_MONO_16KHZ_BYTES_PER_SECOND;}
+/** `recording_sessions.duration_ms` 是 bigint：字节数不是 32 的倍数时 `秒*1000` 带小数，PG 会拒绝（整条收尾被误报成 FINISH_TIMEOUT）。必须取整。 */
+export function pcm16MonoDurationMs(bytes:number):number{return Math.round(pcm16MonoDurationSeconds(bytes)*1000);}
 export function billedPcm16MonoDurationSeconds(bytes:number):number{return Math.ceil(pcm16MonoDurationSeconds(bytes));}
 export function providerSessionUsageId(captureId:string,providerSessionId:string):string{
   return `personal:${captureId}:${providerSessionId}`;

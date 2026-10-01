@@ -239,7 +239,7 @@ export class EffectGateway {
       type: "effect_begun",
       stageId: cmd.stageId,
       reasonCode: null,
-      data: { effectKey: cmd.effectKey, capabilityCategory: cmd.capabilityCategory },
+      data: { effectKey: cmd.effectKey, capabilityCategory: cmd.capabilityCategory, provenance: provenanceOf(cmd) },
     });
 
     const result = await work(cmd.args);
@@ -251,7 +251,7 @@ export class EffectGateway {
       type: "effect_finalized",
       stageId: cmd.stageId,
       reasonCode: null,
-      data: { effectKey: cmd.effectKey, capabilityCategory: cmd.capabilityCategory },
+      data: { effectKey: cmd.effectKey, capabilityCategory: cmd.capabilityCategory, provenance },
     });
     return { kind: "executed", result, provenance };
   }

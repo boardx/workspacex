@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { LayoutList, Columns3, Search, ShieldAlert, PlugZap, Lock, CloudOff, Eye, ChevronUp, ChevronDown, Archive, Tag, X } from "lucide-react";
+import { LayoutList, Columns3, Search, ShieldAlert, PlugZap, Lock, CloudOff, Eye, ChevronUp, ChevronDown, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ import { CardMeta, ExceptionRecurrence, HIGHLIGHT_CLASS, KindLabel, LoadMoreBar,
 import { InboxDrawer } from "./inbox-drawer";
 import { InboxListView, type StageFilter } from "./inbox-list-view";
 import { TagEditor } from "./inbox-tags";
+import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 
 /**
  * UC-17.8 B3.4 —— 运营收件箱，**真栈**（契约 `inbox`：`listInbox` / `getInboxCounts`）。
@@ -183,7 +184,6 @@ export function DesignLoopInboxScreen({
   const archivedView = inboxView === "archived";
   /** 2026-09-08 ⑤——标签筛选（服务端 `tag`），`null` = 不筛。 */
   const [tagFilter, setTagFilter] = React.useState<string | null>(null);
-  const [showAllTags, setShowAllTags] = React.useState(false);
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
@@ -199,6 +199,7 @@ export function DesignLoopInboxScreen({
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState<string | null>(null);
   const [dragError, setDragError] = React.useState<string | null>(null);
+  React.useEffect(() => { setDragError(null); }, [openId]);
   /** B3.7——刚被关联标跳到的条目 id，短暂高亮后自清（看板卡片/列表行都认它）。 */
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
   /** B3.7——关联目标不在已加载列表里时的提示（不静默失败）。 */
@@ -337,17 +338,12 @@ export function DesignLoopInboxScreen({
   const filtered = visibleItems.filter(
     (i) => archivedView || stageFilter === "all" || i.stage === stageFilter,
   );
-  /** 标签 Chip 的来源是 `counts.byTag`（活跃条目全集，服务端算），当前筛选中的标签即使不在前 N 也要显示。 */
-  const tagChips = React.useMemo(() => {
+  /** 标签来源是 `counts.byTag`（活跃条目全集，服务端算），当前筛选中的标签即使不在前 N 也要显示（TagFilterBar 保证）。 */
+  const tagOptions = React.useMemo(() => {
     const all = counts?.byTag ?? [];
-    const shown = showAllTags ? all : all.slice(0, TAG_CHIP_LIMIT);
-    if (tagFilter !== null && !shown.some((t) => t.tag === tagFilter)) {
-      const found = all.find((t) => t.tag === tagFilter);
-      return [...shown, found ?? { tag: tagFilter, count: 0 }];
-    }
-    return shown;
-  }, [counts, showAllTags, tagFilter]);
-  const hiddenTagCount = Math.max(0, (counts?.byTag.length ?? 0) - TAG_CHIP_LIMIT);
+    if (tagFilter !== null && !all.some((t) => t.tag === tagFilter)) return [...all, { tag: tagFilter, count: 0 }];
+    return all;
+  }, [counts, tagFilter]);
   // drawer 按 id 查找仍然在完整 `items` 里找——已经打开的一条不该因为开关状态变化而消失。
   const open = items.find((i) => i.id === openId) ?? null;
 
@@ -474,6 +470,7 @@ export function DesignLoopInboxScreen({
    * 契约 `triageFeedback` 里允许携带 `issueDraft` 的边只有 `backlog → doing` 这一条）。
    */
   const createGithubIssue = async (item: InboxItem, issueDraft: FeedbackIssueDraft) => {
+    setDragError(null);
     // 2026-09-05「转开发」——设计方案走自己的那条操作（`POST /pm-designs/:id/github-issue`）。
     // 它与反馈那条**不是同一件事**：反馈是"转状态顺便建 issue"（issue 是 `triageFeedback`
     // 的副作用），方案是"建 issue 本身就是这次操作"（方案没有状态机，stage 由有没有 issue
@@ -505,8 +502,7 @@ export function DesignLoopInboxScreen({
         /* best-effort：徽标补不上就留白，drawer 展开时的现查还会再试 */
       }
     } catch (err) {
-      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）`);
-      window.setTimeout(() => setDragError(null), 3000);
+      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）。草稿已保留，请稍后重试。`);
     } finally {
       setBusyId(null);
     }
@@ -535,8 +531,7 @@ export function DesignLoopInboxScreen({
       setOpenIssueFormOnOpen(false);
       flashSaved("已创建 GitHub Issue，方案已转入开发");
     } catch (err) {
-      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）`);
-      window.setTimeout(() => setDragError(null), 3000);
+      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）。草稿已保留，请稍后重试。`);
     } finally {
       setBusyId(null);
     }
@@ -761,7 +756,7 @@ export function DesignLoopInboxScreen({
           {saved}
         </div>
       )}
-      {dragError !== null && (
+      {dragError !== null && open === null && (
         <div className="mx-4 mt-3 rounded-card bg-destructive px-3 py-1.5 text-12 text-destructive-foreground" data-testid="inbox-drag-error" role="alert">
           {dragError}
         </div>
@@ -878,45 +873,17 @@ export function DesignLoopInboxScreen({
         </div>
       </div>
       {/* 2026-09-08 ⑤——标签筛选：来源是 `counts.byTag`（活跃条目全集）。没有任何标签时整行不渲染。 */}
-      {(tagChips.length > 0 || tagFilter !== null) && (
-        <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2" role="group" aria-label="标签筛选" data-testid="inbox-tag-filter">
-          <Tag aria-hidden className="mr-0.5 h-3.5 w-3.5 text-muted-foreground" />
-          {tagChips.map(({ tag, count }) => (
-            <button
-              key={tag}
-              type="button"
-              aria-pressed={tagFilter === tag}
-              onClick={() => filterByTag(tag)}
-              data-testid={`inbox-tag-filter-${tag}`}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                tagFilter === tag ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground hover:bg-muted",
-              )}
-            >
-              {tag}
-              <span className="text-10 opacity-70">{count}</span>
-            </button>
-          ))}
-          {hiddenTagCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAllTags((v) => !v)}
-              data-testid="inbox-tag-filter-more"
-              className="rounded-control px-1.5 py-0.5 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {showAllTags ? "收起" : `还有 ${hiddenTagCount} 个…`}
-            </button>
-          )}
-          {tagFilter !== null && (
-            <button
-              type="button"
-              onClick={() => filterByTag(null)}
-              data-testid="inbox-tag-filter-clear"
-              className="ml-1 inline-flex items-center gap-0.5 rounded-control px-1.5 py-0.5 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <X aria-hidden className="h-3 w-3" /> 清除标签筛选
-            </button>
-          )}
+      {(tagOptions.length > 0 || tagFilter !== null) && (
+        <div className="border-b border-border px-4 py-2" data-testid="inbox-tag-filter">
+          <TagFilterBar
+            tags={tagOptions}
+            selected={tagFilter === null ? [] : [tagFilter]}
+            onChange={(next) => filterByTag(next[0] ?? null)}
+            prefix="inbox"
+            business="收件箱"
+            mode="single"
+            maxVisible={TAG_CHIP_LIMIT}
+          />
         </div>
       )}
 
@@ -1056,11 +1023,12 @@ export function DesignLoopInboxScreen({
         <InboxDrawer
           key={open.id} // B3.7：关联跳转换条目时整体重挂，不把上一条的理由/草稿状态带过去
           item={open}
+          actionError={dragError}
           onNavigateLink={navigateToLinked}
           busy={busyId === open.id}
           openDecline={openDeclineOnOpen}
           openIssueForm={openIssueFormOnOpen}
-          onClose={() => { setOpenId(null); setOpenDeclineOnOpen(false); setOpenIssueFormOnOpen(false); }}
+          onClose={() => { setDragError(null); setOpenId(null); setOpenDeclineOnOpen(false); setOpenIssueFormOnOpen(false); }}
           onStatus={(s) => void applyTransition(open, s)}
           onArchive={(reason) => void archiveWithReason(open, reason)}
           onCreateIssue={(issueDraft) => void createGithubIssue(open, issueDraft)}

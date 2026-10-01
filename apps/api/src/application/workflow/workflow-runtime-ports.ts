@@ -115,6 +115,8 @@ export interface WorkflowInstanceQueryPort {
       limit: number;
     },
   ): Promise<WorkflowInstanceState[]>;
+  /** 各实例 seq=1 instance_started 事件里的发起输入（目标摘录用）；缺失的实例不在结果里。 */
+  triggerInputs(orgId: string, instanceIds: readonly string[]): Promise<Map<string, Record<string, unknown>>>;
   /** 开过人工门（有 gate_opened 事件）的实例 id，新近优先；`openOnly` 只取仍在 awaiting_gate_decision 的。 */
   listGateInstanceIds(orgId: string, q: { openOnly: boolean; limit: number }): Promise<string[]>;
 }

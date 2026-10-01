@@ -39,13 +39,14 @@ import { SkillFeedback } from "./skill-feedback";
  * 后台的 worker（library 试跑、feedback 归因）/ 项目里的主持人（binding 三视角）。
  */
 export function SkillApp({
-  previewRole, uiState, screen, view, qs,
+  previewRole, uiState, screen, view, qs, previewEnabled = false,
 }: {
   previewRole: ProjectRole | null;
   uiState: UiState;
   screen: SkillScreen;
   view: SkillView;
   qs: { as?: string; org?: string };
+  previewEnabled?: boolean;
 }) {
   const href = (o: Partial<{ as: string; state: string; screen: string }>) => {
     const p = new URLSearchParams();
@@ -79,7 +80,7 @@ export function SkillApp({
       right={isProductionScreen ? undefined : <RightRail screen={screen} />}
     >
       <div className="flex h-full min-h-0 flex-col">
-        <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />
+        {(!isProductionScreen || previewEnabled) && <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />}
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {/*
             #520：默认屏接真实后端（`SkillController`）。它「不吃」`uiState` / `view`——

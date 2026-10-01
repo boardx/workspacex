@@ -42,6 +42,23 @@ describe("guided research reference layout", () => {
     state.outline[0]!.subsections = [{ id: "sub1", title: "准入政策", questions: ["有哪些要求？"] }];
     render(<ResearchChaptersWorkspace runtime={state} disabled={false} onSave={vi.fn()} onOptimize={vi.fn()} onNext={vi.fn()} />);
     expect(within(screen.getByTestId("research-chapters-workspace")).getByText("准入政策")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "小章节 1.1" })).toHaveValue("准入政策");
+    expect(screen.queryByText("AI 生成的章节摘要")).not.toBeInTheDocument();
+  });
+  it("derives questions from edited new chapter and subchapter titles while preserving existing questions", () => {
+    const state = runtimeFixture("report");
+    const save = vi.fn();
+    render(<ResearchChaptersWorkspace runtime={state} disabled={false} onSave={save} onOptimize={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "新增章节" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "章节标题" }), { target: { value: "审批风险" } });
+    fireEvent.click(screen.getByRole("button", { name: "新增小章节" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "小章节 2.1" }), { target: { value: "地方许可时长" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存章节结构" }));
+    const saved = save.mock.calls[0]![0];
+    expect(saved[0].questions).toEqual(state.outline[0]!.questions);
+    expect(saved[1].questions[0]).toContain("审批风险");
+    expect(saved[1].subsections[0].questions[0]).toContain("地方许可时长");
+    expect(JSON.stringify(saved)).not.toContain("需要回答什么问题");
   });
   it("renders unavailable steps as circular indicators, not disabled button tiles", () => {
     const navigate = vi.fn();
@@ -82,6 +99,7 @@ describe("guided research reference layout", () => {
   it("uses the reference-style six-step canvas instead of a generic document shell", () => {
     render(<GuidedResearchSixStepShell
       current="topic"
+      researchName="欧洲储能市场进入策略"
       available={["import", "topic"]}
       onNavigate={vi.fn()}
       onBack={vi.fn()}
@@ -90,6 +108,8 @@ describe("guided research reference layout", () => {
     />);
 
     expect(screen.getByTestId("guided-research-six-step-shell")).toHaveAttribute("data-reference-layout", "prototype-desktop");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("欧洲储能市场进入策略");
+    expect(screen.queryByText(/完善你的研究主题与相关信息/)).not.toBeInTheDocument();
     expect(screen.getByTestId("research-flow-progress")).toHaveAttribute("data-reference-variant", "monochrome-stepper");
     expect(screen.getByTestId("guided-research-six-step-main")).toHaveAttribute("data-reference-region", "work-canvas");
     expect(screen.getByTestId("guided-research-six-step-main")).toHaveClass("pb-24");
@@ -97,15 +117,16 @@ describe("guided research reference layout", () => {
     expect(screen.getByTestId("guided-research-six-step-assistant")).toHaveTextContent("研究助手");
   });
 
-  it("labels searched material by evidence level instead of presenting every snippet as verified", () => {
+  it("keeps evidence metadata out of the minimal material list", () => {
     const state = runtimeFixture("research");
     state.sources = [
       { ...state.sources[0]!, id: "full", document: { url: state.sources[0]!.url, retrievedAt: "2026-09-29T00:00:00Z", text: "全文", contentHash: "a".repeat(64), contentKind: "html", truncated: false } },
       { ...state.sources[0]!, id: "snippet", title: "只有检索摘要", document: undefined },
     ];
     render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
-    expect(screen.getByTestId("research-source-description-full")).toHaveTextContent("已读取全文");
-    expect(screen.getByTestId("research-source-description-snippet")).toHaveTextContent("检索摘要");
+    expect(screen.queryByText("已读取全文")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("资料证据概况")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "已获取的研究资料" }).className).not.toContain("divide-y");
   });
 
   it("keeps only the usable import input and next-step action", () => {
@@ -154,7 +175,7 @@ describe("guided research reference layout", () => {
 
   it("uses plan language while the plan is being generated", () => {
     render(<ResearchLoading node="outline" />);
-    expect(screen.getByRole("status")).toHaveTextContent("正在生成计划");
+    expect(screen.getByRole("status")).toHaveTextContent("正在生成研究计划");
     expect(screen.queryByText(/报告大纲|研究方向/)).not.toBeInTheDocument();
   });
 
@@ -175,7 +196,7 @@ describe("guided research reference layout", () => {
     expect(screen.queryByText(/个任务|已完成|检索失败/)).not.toBeInTheDocument();
     expect(within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link")).toHaveLength(1);
     expect(screen.getByRole("list", { name: "已获取的研究资料" })).toHaveAttribute("aria-live", "polite");
-    expect(screen.getByRole("button", { name: "查看完整描述" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看完整描述" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "实时动态" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "研究洞察" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "潜在冲突 / 风险提示" })).not.toBeInTheDocument();
@@ -189,18 +210,20 @@ describe("guided research reference layout", () => {
     expect(screen.queryByText("尚未找到相关网址")).not.toBeInTheDocument();
     expect(screen.getByRole("list", { name: "已获取的研究资料", hidden: true })).toHaveAttribute("aria-live", "polite");
   });
-  it("shows source descriptions with a standard link and expandable full description", () => {
+  it("shows one description line with full text on hover and opens on double click", () => {
     const state = runtimeFixture("research");
     state.sources[0]!.presentation = { title: "政策说明", summary: "检索得到的政策说明全文" };
     render(<GuidedResearchSourceWorkspace state={state} actions={null} />);
     const source = screen.getByTestId("research-source-description-source1");
-    expect(screen.getByText("检索得到的政策说明全文")).toBeInTheDocument();
+    expect(screen.queryByText("检索得到的政策说明全文")).not.toBeInTheDocument();
     expect(source).toHaveAttribute("title", "检索得到的政策说明全文");
     expect(screen.getByRole("link", { name: /政策说明/ })).toHaveAttribute("href", "https://example.org/policy");
-    expect(screen.getByRole("button", { name: "查看完整描述" })).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(screen.getByRole("button", { name: "查看完整描述" }));
-    expect(screen.getByRole("button", { name: "收起完整描述" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("research-source-full-description-source1")).toHaveTextContent("检索得到的政策说明全文");
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    fireEvent.click(source);
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.doubleClick(source);
+    expect(open).toHaveBeenCalledWith("https://example.org/policy", "_blank", "noopener,noreferrer");
+    open.mockRestore();
   });
 
   it("frames the report with contents, quality metrics, and an evidence limitation", () => {

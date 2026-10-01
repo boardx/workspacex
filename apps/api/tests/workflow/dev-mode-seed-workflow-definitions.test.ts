@@ -59,6 +59,16 @@ describe("dev-mode seed publishes the built-in workflow definitions", () => {
     const defs = await asOwner((c) => c.query<{ n: string }>("SELECT count(*) AS n FROM workflow_definitions WHERE org_id = $1", [orgId]));
     expect(Number(defs.rows[0]!.n)).toBeGreaterThanOrEqual(keys.length);
 
+    // 仅开发模式：内置写阶段需要的能力分类被授予 write（生产默认只读不变）。
+    const grants = await asOwner((c) =>
+      c.query<{ capability_category: string; side_effect_cap: string }>(
+        "SELECT capability_category, side_effect_cap FROM workflow_capability_grants WHERE org_id = $1 ORDER BY capability_category", [orgId]),
+    );
+    expect(grants.rows).toEqual([
+      { capability_category: "artifact.write", side_effect_cap: "write" },
+      { capability_category: "notify.inapp", side_effect_cap: "write" },
+    ]);
+
     runSeed();
     expect(await publishedKeys(orgId!)).toEqual(keys);
   }, 120_000);

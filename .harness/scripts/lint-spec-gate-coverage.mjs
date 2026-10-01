@@ -614,6 +614,7 @@ export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
         WORKSPACEX_ASR_PROVIDER_PORT: process.env.WORKSPACEX_ASR_PROVIDER_PORT ?? "39006",
         WORKSPACEX_VISION_PROVIDER_PORT: process.env.WORKSPACEX_VISION_PROVIDER_PORT ?? "39007",
         WORKSPACEX_LOOPBACK_SANDBOX_PORT: process.env.WORKSPACEX_LOOPBACK_SANDBOX_PORT ?? "39008",
+        WORKSPACEX_MAIL_PROVIDER_PORT: process.env.WORKSPACEX_MAIL_PROVIDER_PORT ?? "39009",
         COMPOSE_PROJECT_NAME: process.env.COMPOSE_PROJECT_NAME ?? "spec-gate-coverage-probe",
         WORKSPACEX_DB: process.env.WORKSPACEX_DB ?? "spec_gate_coverage_probe",
       },

@@ -1,4 +1,5 @@
 "use client";
+import { ResourceCard } from "@/components/ui/resource-card";
 import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,43 +28,29 @@ function readinessTag(r: Readiness) {
 
 function AgentCard({ agent, onOpen }: { agent: OfficialAgent; onOpen: (id: string) => void }) {
   return (
-    <Card data-testid={`agent-card-${agent.agentId}`} className="transition-colors hover:bg-muted/40">
-      <CardContent className="flex flex-col gap-3 pt-4">
-        <div className="flex items-center gap-3">
-          <Avatar
-            initials={agent.initials}
-            tone="ai"
-            size="lg"
-            data-testid="agent-card-avatar"
-          />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-13 font-bold text-background-foreground">{agent.name}</p>
-              <Badge tone="ai" data-testid="agent-card-official-badge">
-                官方
-              </Badge>
-            </div>
-            <p className="truncate text-11 text-muted-foreground">
-              {agent.code} · {agent.title}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <span data-testid="agent-card-workflows" className="text-11 text-muted-foreground">
-            {agent.workflowCount} 个可发起 Workflow
-          </span>
+    <ResourceCard
+      testId={`agent-card-${agent.agentId}`}
+      leading={<Avatar initials={agent.initials} tone="ai" size="lg" data-testid="agent-card-avatar" />}
+      title={agent.name}
+      subtitle={`${agent.code} · ${agent.title}`}
+      badges={<Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge>}
+      meta={
+        <>
+          <span data-testid="agent-card-workflows">{agent.workflowCount} 个可发起 Workflow</span>
           {readinessTag(agent.readiness)}
-        </div>
-        <div className="flex gap-2">
+        </>
+      }
+      actions={
+        <>
           <Button size="sm" variant="primary" data-testid="agent-card-start-chat" onClick={() => onOpen(agent.agentId)}>
             开始对话
           </Button>
           <Button size="sm" variant="outline" onClick={() => onOpen(agent.agentId)}>
             查看详情
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </>
+      }
+    />
   );
 }
 

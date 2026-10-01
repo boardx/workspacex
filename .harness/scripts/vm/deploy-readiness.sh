@@ -47,32 +47,39 @@ assert_caddy_routes_current() {
   return 0
 }
 
-# #4733: repair only the reviewed Board WebSocket route. The installed copy of this
-# helper is root-owned and sourced by the trusted deploy entry. Never render an
+# #4733 / #4853: repair only the reviewed Board and realtime voice WebSocket routes.
+# The installed helper is root-owned and sourced by the trusted deploy entry. Never render an
 # arbitrary checkout's Caddy template as root: deploy can also receive a tag or
 # preview ref. Every other missing route still fails the drift gate.
-ensure_board_sync_caddy_route() {
-  local live=$1 api_port=$2 candidate backup anchor_count
-  [[ "$live" == /etc/caddy/Caddyfile ]] || { echo "✗ Board route repair requires /etc/caddy/Caddyfile" >&2; return 1; }
+ensure_reviewed_websocket_caddy_routes() {
+  local live=$1 api_port=$2 candidate backup anchor_count patterns missing="" route
+  [[ "$live" == /etc/caddy/Caddyfile ]] || { echo "✗ WebSocket route repair requires /etc/caddy/Caddyfile" >&2; return 1; }
   [[ "$api_port" =~ ^[0-9]+$ ]] && ((api_port >= 1 && api_port <= 65535)) || {
-    echo "✗ Invalid API port for Board route repair" >&2
+    echo "✗ Invalid API port for WebSocket route repair" >&2
     return 1
   }
   [ -r "$live" ] || { echo "✗ Cannot read live Caddyfile" >&2; return 1; }
-  if caddy_route_patterns "$live" | grep -qxF '/whiteboards/*/sync'; then
-    return 0
-  fi
+  patterns=$(caddy_route_patterns "$live")
+  for route in '/whiteboards/*/sync' '/chat/realtime-digital-human'; do
+    if ! printf '%s\n' "$patterns" | grep -qxF "$route"; then
+      missing="${missing}${route} "
+    fi
+  done
+  [ -n "$missing" ] || return 0
   anchor_count=$(grep -Ec '^[[:space:]]*handle[[:space:]]+/kernel/probe/\*[[:space:]]*\{' "$live" || true)
   [[ "$anchor_count" == 1 ]] || { echo "✗ Cannot locate unique Caddy insertion point" >&2; return 1; }
 
-  candidate=$(mktemp /etc/caddy/.Caddyfile.board.XXXXXX)
+  candidate=$(mktemp /etc/caddy/.Caddyfile.websocket.XXXXXX)
   backup=$(mktemp /etc/caddy/.Caddyfile.backup.XXXXXX)
   cp -p "$live" "$backup"
-  awk -v port="$api_port" '
+  awk -v port="$api_port" -v routes="$missing" '
     /^[[:space:]]*handle[[:space:]]+\/kernel\/probe\/\*[[:space:]]*\{/ {
-      print "\thandle /whiteboards/*/sync {"
-      print "\t\treverse_proxy 127.0.0.1:" port
-      print "\t}"
+      count = split(routes, route, " ")
+      for (i = 1; i <= count; i++) if (route[i] != "") {
+        print "\thandle " route[i] " {"
+        print "\t\treverse_proxy 127.0.0.1:" port
+        print "\t}"
+      }
     }
     { print }
   ' "$live" > "$candidate"
@@ -92,7 +99,7 @@ ensure_board_sync_caddy_route() {
     return 1
   fi
   rm -f "$backup"
-  echo "  已补齐并加载 Board WebSocket 路由：/whiteboards/*/sync"
+  echo "  已补齐并加载 WebSocket 路由：${missing}"
 }
 
 redact_deploy_diagnostics() {
@@ -166,6 +173,27 @@ wait_for_stable_web() {
   return 1
 }
 
+# #4874 (related #4869): local health and a route declaration do not prove the public Upgrade reaches
+# the gateway. An anonymous RFC6455 handshake must be refused with 401; accepting
+# 101 would mask an authentication regression. No token, cookie, redirect or curlrc.
+assert_public_realtime_voice_handshake() {
+  local url=$1 status
+  if ! status=$(curl -q --http1.1 -sS --connect-timeout 2 --max-time 5 \
+    -o /dev/null -w '%{http_code}' \
+    -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+    -H 'Sec-WebSocket-Version: 13' \
+    -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "$url" 2>/dev/null); then
+    echo "✗ public realtime voice handshake transport failed (bounded timeout)" >&2
+    return 1
+  fi
+  if [[ "$status" != 401 ]]; then
+    [[ "$status" =~ ^[0-9]{3}$ ]] || status=invalid
+    echo "✗ public realtime voice handshake expected 401, received ${status}" >&2
+    return 1
+  fi
+  echo "  ✓ public realtime voice anonymous Upgrade=401"
+}
+
 run_post_restart_smoke() {
   local api_url="http://127.0.0.1:${APP_API_PORT:-3200}/healthz"
   local web_url="http://127.0.0.1:${APP_WEB_PORT:-3100}/"
@@ -178,6 +206,11 @@ run_post_restart_smoke() {
   echo "  ${API_HEALTH_PAYLOAD}"
 
   if ! wait_for_stable_web "$web_url"; then
+    print_deploy_diagnostics
+    return 1
+  fi
+
+  if ! assert_public_realtime_voice_handshake "https://${PUBLIC_DOMAIN:-devapp.boardx.us}/chat/realtime-digital-human"; then
     print_deploy_diagnostics
     return 1
   fi

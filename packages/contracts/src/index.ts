@@ -137,6 +137,18 @@ export * as whiteboardOrganize from "./whiteboard-organize";
  *   design-signoff.md 全部 status: pending，人类授权先开发后补签）──────── */
 export * as agentRole from "./agent-role";
 export * as workSkillMeta from "./work-skill-meta";
+export * as workSkillEvidenceLedger from "./work-skill-evidence-ledger";
 export * as workflowRuntime from "./workflow-runtime";
+export * as workflowCapabilityGrants from "./workflow-capability-grants";
 export * as workContent from "./work-content";
 export * as workEval from "./work-eval";
+
+/** #4787 通用项目邀请（邮箱 / 链接 → 组织成员 + 通用项目 collaborator）。 */
+export * as projectInvitation from "./project-invitation";
+
+/* ── phase-21 契约束（billing-payment，两束，2026-10-01 建，
+ *   design-signoff.md 待人类签核）────────────────────────────────────── */
+export * as billingCredits from "./billing-credits";
+export * as billingSubscription from "./billing-subscription";
+
+export { tagInputLimits, type TagInputLimits } from "./tag-input-limits";

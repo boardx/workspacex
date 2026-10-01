@@ -1,0 +1,26 @@
+[stack-admission] load1=2.34 cores=10 perCore=0.23 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-muouuenb-937e781e-956245d7d8a2 db=wsx_956245d7d8a282dc2155 compose=wsx-956245d7d8a282dc2155 pg=20591 redis=21591 api=24591 web=25591 sandbox=26591 model=27591 deep-agent=28591 asr=29591 vision=30591 loopback-sandbox=31591 mail=19591
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-voice-20261001/apps/api
+
+[db-isolation] db=wsx_956245d7d8a282dc2155 capacity=100 current=6 required=32
+[realtime-digital-human] upstream error: {"code":"InvalidApiKey","message":"secret detail"}
+ ✓ tests/chat/realtime-digital-human-gateway.test.ts (17 tests) 850ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted 628ms
+ ✓ tests/chat/realtime-voice-session.test.ts (12 tests) 5ms
+ ✓ tests/chat/realtime-voice-transcript-real-db.test.ts (2 tests) 5900ms
+
+ Test Files  3 passed (3)
+      Tests  31 passed (31)
+   Start at  09:27:55
+   Duration  10.78s (transform 501ms, setup 0ms, collect 979ms, tests 6.76s, environment 0ms, prepare 71ms)
+
+[db-isolation] db=wsx_956245d7d8a282dc2155 peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/chat/realtime-digital-human-gateway.test.ts tests/chat/realtime-voice-session.test.ts tests/chat/realtime-voice-transcript-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：12s

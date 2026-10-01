@@ -31,6 +31,7 @@ export function bannerUrlFor(orgId: string, bannerArtifactId: string | null): st
 }
 
 interface HomeConfigDbRow {
+  readonly theme_colors: HomeConfig["themeColors"];
   readonly org_id: string;
   readonly title: string;
   readonly tagline: string | null;
@@ -49,6 +50,7 @@ interface HomeConfigDbRow {
 
 function toHomeConfig(row: HomeConfigDbRow): HomeConfig {
   return {
+    themeColors: row.theme_colors ?? null,
     orgId: row.org_id,
     title: row.title,
     tagline: row.tagline,
@@ -94,9 +96,10 @@ export class PgHomeConfigRepository implements HomeConfigRepository {
         `INSERT INTO org_home_configs
            (org_id, title, tagline, banner_headline, banner_tagline, banner_preset,
             banner_color, banner_image_id, quick_actions, recommended_capabilities,
-            recommended_agents, sections, updated_by, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13, now())
+            recommended_agents, sections, updated_by, theme_colors, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14::jsonb, now())
          ON CONFLICT (org_id) DO UPDATE SET
+           theme_colors = CASE WHEN $15 THEN EXCLUDED.theme_colors ELSE org_home_configs.theme_colors END,
            title = EXCLUDED.title,
            tagline = EXCLUDED.tagline,
            banner_headline = EXCLUDED.banner_headline,
@@ -125,6 +128,8 @@ export class PgHomeConfigRepository implements HomeConfigRepository {
           JSON.stringify(input.recommendedAgents),
           JSON.stringify(input.sections),
           input.updatedBy,
+          input.themeColors == null ? null : JSON.stringify(input.themeColors),
+          input.themeColors !== undefined,
         ],
       );
       // INSERT ... RETURNING 恒返回一行，non-null 断言不需要——但 `rows[0]` 的类型是

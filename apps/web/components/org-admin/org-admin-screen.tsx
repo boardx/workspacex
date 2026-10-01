@@ -492,7 +492,9 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
 
 /* ═══════════════════════════════ 邀请（#363，仅 admin） ═══════════════════════════════ */
 
-const INVITE_STATUS_LABEL: Record<string, string> = {
+/** 与 `admin/member-invites-panel.tsx`（`/admin` 成员与配额屏的待处理邀请摘要）共用——
+ *  邀请状态的文案单源，别在第二处再抄一份。 */
+export const INVITE_STATUS_LABEL: Record<string, string> = {
   pending: "待接受",
   "awaiting-review": "待复核",
   revoked: "已撤销",
@@ -645,8 +647,9 @@ export function PopoverSelect({
   );
 }
 
-/** 一次性激活链接的展示载荷（invite-link-and-reads delta ①）。 */
-type OneTimeLink = {
+/** 一次性激活链接的展示载荷（invite-link-and-reads delta ①）。导出给
+ *  `admin/member-invites-panel.tsx` 复用重发流程——不重新拼一份链接展示逻辑。 */
+export type OneTimeLink = {
   readonly email: string;
   readonly url: string;
   /** invited = 新签发；resent = 重发（旧链接已作废）；approved = 双人复核批准后签发（D2 裁决 A）。 */
@@ -660,7 +663,7 @@ type OneTimeLink = {
  * ⚠ 链接**只在这一次响应里存在**——刷新列表、重新进页都拿不回来（服务端列表恒不含
  *   token），所以文案必须把「只显示这一次」说死，关闭要二次意图（按钮文案本身承担）。
  */
-function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismiss: () => void }) {
+export function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismiss: () => void }) {
   const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
   const inputRef = React.useRef<HTMLInputElement>(null);
 

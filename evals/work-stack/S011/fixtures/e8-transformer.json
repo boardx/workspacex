@@ -1,0 +1,18 @@
+{
+  "asset": "变压器 T2（合成）",
+  "maintenance": [
+    {
+      "asset": "T2",
+      "oilSampleOverdueMonths": 4
+    },
+    {
+      "asset": "T1",
+      "oilSampleOverdueMonths": 0
+    },
+    {
+      "asset": "T3",
+      "oilSampleOverdueMonths": 0
+    }
+  ],
+  "weather": "当日气温正常"
+}

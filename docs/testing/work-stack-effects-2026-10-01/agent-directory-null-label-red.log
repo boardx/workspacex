@@ -1,0 +1,57 @@
+
+ RUN  v2.1.9 /workspace/agent-directory-null-label-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/agent/agent-directory-controller-http.test.ts (8 tests | 1 failed | 7 skipped) 15ms
+   × AG04 AgentDirectoryController HTTP mapping > a legacy nullable label cannot break the directory or hide an official role 14ms
+     → [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "items",
+      0,
+      "roleLabel"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent/agent-directory-controller-http.test.ts > AG04 AgentDirectoryController HTTP mapping > a legacy nullable label cannot break the directory or hide an official role
+ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "items",
+      0,
+      "roleLabel"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+ ❯ Object.get error [as error] ../../../workspacex/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodObject.parse ../../../workspacex/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ AgentDirectoryController.list src/interface/controllers/agent-directory.controller.ts:57:50
+     55|         { identities: this.identities, repository: this.repository, wo…
+     56|       );
+     57|       return R.operations.listAgentDirectory.out.parse({ items });
+       |                                                  ^
+     58|     } catch (error) {
+     59|       if (error instanceof AgentDirectoryError && error.code === "UNAU…
+ ❯ tests/agent/agent-directory-controller-http.test.ts:72:60
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+   Start at  08:16:42
+   Duration  4.02s (transform 2.24s, setup 0ms, collect 3.05s, tests 15ms, environment 0ms, prepare 118ms)
+
+undefined
+/workspace/agent-directory-null-label-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent/agent-directory-controller-http.test.ts -t legacy nullable

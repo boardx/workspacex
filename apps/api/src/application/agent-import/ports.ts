@@ -58,5 +58,7 @@ export interface OfficialAgentRolePackImportRepository {
   findExisting(input: { readonly orgId: OrgId; readonly idempotencyKey: string; readonly payloadDigest: string }): Promise<ExistingAgentImportOutcome>;
   persistVerified(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly pack: OfficialAgentStarterPack }): Promise<PersistVerifiedOfficialAgentRolePackOutcome>;
   recordFailure(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly packId: string; readonly packVersion: string; readonly packDigest: string | null; readonly failureCode: string }): Promise<Exclude<ExistingAgentImportOutcome, { readonly kind: "missing" }>>;
+  /** 本组织已存在的官方 Agent 的 stableName（任何状态；用于「待启用」要约排除已导入的角色）。 */
+  importedOfficialStableNames(orgId: OrgId): Promise<readonly string[]>;
 }
 export const OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY = Symbol("OfficialAgentRolePackImportRepository");

@@ -3,6 +3,14 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewWorkbenchHeader } from "@/components/itv/interview-workbench-header";
 afterEach(cleanup);
+it("publishes the measured header height for sticky actions and cleans it up", () => {
+  const measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 208 } as DOMRect);
+  const view = render(<InterviewWorkbenchHeader name="研究" tags={[]} steps={[]} activeStep="runs" status="draft" version={1} topic={null} onStepChange={vi.fn()} onReturnToList={vi.fn()} />);
+  expect(view.container.style.getPropertyValue("--itv-header-height")).toBe("208px");
+  view.unmount();
+  expect(view.container.style.getPropertyValue("--itv-header-height")).toBe("");
+  measure.mockRestore();
+});
 const steps = ["intake", "analysis", "experts", "outline", "runs", "report"].map((id) => ({ id, label: id, detail: `${id} detail` }));
 it("timeline exposes an accessible step navigation with exactly one current stage", () => {
   const change = vi.fn();
@@ -28,12 +36,12 @@ it("return to list remains accessible independently of the timeline", () => {
   fireEvent.click(screen.getByRole("button", { name: "返回访谈列表" }));
   expect(back).toHaveBeenCalledTimes(1);
 });
-it("keeps status and version visible in later stages but declutters intake", () => {
+it("keeps technical metadata screen-reader accessible without cluttering any stage", () => {
   const props = { name: "交接班研究", tags: [], steps, status: "draft", version: 3, topic: null, onStepChange: vi.fn(), onReturnToList: vi.fn() };
   const view = render(<InterviewWorkbenchHeader {...props} activeStep="intake" />);
   expect(screen.getByTestId("itv-workflow-status")).toHaveClass("sr-only");
   expect(screen.getByTestId("itv-workflow-version")).toHaveClass("sr-only");
   view.rerender(<InterviewWorkbenchHeader {...props} activeStep="analysis" />);
-  expect(screen.getByTestId("itv-workflow-status")).not.toHaveClass("sr-only");
-  expect(screen.getByTestId("itv-workflow-version")).not.toHaveClass("sr-only");
+  expect(screen.getByTestId("itv-workflow-status")).toHaveClass("sr-only");
+  expect(screen.getByTestId("itv-workflow-version")).toHaveClass("sr-only");
 });

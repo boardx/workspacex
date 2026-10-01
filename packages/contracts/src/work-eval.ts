@@ -202,6 +202,8 @@ export const WorkEvalReport = z
     subjectVersionDigest: Sha256, // ADR-118 #9：评测对象是具体版本
     subjectVersionLabel: z.string().min(1).max(64),
     fixturesDigest: Sha256,
+    /** Suite/assertions/grader bytes. Legacy reports remain readable, but cannot prove current gates. */
+    suiteDigest: Sha256.optional(),
     graderVersion: z.string().min(1).max(64),
     lane: z.enum(["loopback", "real-model"]), // real-model 不参与 G4/G5（A3，R7）
     partial: z.boolean(), // --case 单跑 → true，不能作 G4/G5 证据（A2）

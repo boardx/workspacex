@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/web
+
+ ✓ tests/lib/official-role-import-scope.test.ts (7 tests) 19ms
+ ✓ tests/ui/chat-official-role-import-scope.test.tsx (8 tests) 416ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  06:57:21
+   Duration  6.15s (transform 4.61s, setup 371ms, collect 7.27s, tests 435ms, environment 1.33s, prepare 214ms)
+

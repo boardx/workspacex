@@ -6,7 +6,9 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { TagField, commitDraft } from "@/components/ui/tag-input";
+import { tagInputLimits, personalRealtimeTranscription } from "@repo/contracts";
+const TAG_LIMITS = tagInputLimits(personalRealtimeTranscription.operations.createPersonalTranscription.in.shape.tags);
 
 const DEFAULT_TRANSCRIPTION_NAME = "未命名转录";
 
@@ -16,14 +18,16 @@ export interface NewTranscriptionDraft {
 }
 
 export function CreateTranscriptionDialog({
-  open, onOpenChange, onCreate,
+  open, onOpenChange, onCreate, knownTags,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: NewTranscriptionDraft) => void | Promise<void>;
+  /** 已有标签词表（`标签 → 用量`），给输入框做建议；不给就没有建议。 */
+  knownTags?: ReadonlyMap<string, number>;
 }) {
   const [name, setName] = React.useState(DEFAULT_TRANSCRIPTION_NAME);
-  const [tags, setTags] = React.useState<string[]>([]);
+  const [tags, setTags] = React.useState<readonly string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState(false);
@@ -40,21 +44,11 @@ export function CreateTranscriptionDialog({
     if (!next) reset();
   }
 
-  function addTag() {
-    const next = tagDraft.trim();
-    if (!next || tags.includes(next) || tags.length >= 5) return;
-    setTags((current) => [...current, next]);
-    setTagDraft("");
-  }
-
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextName = name.trim();
     if (!nextName || submitting) return;
-    const pendingTag = tagDraft.trim();
-    const submittedTags = pendingTag && !tags.includes(pendingTag) && tags.length < 5
-      ? [...tags, pendingTag]
-      : tags;
+    const submittedTags = commitDraft(tags, tagDraft, TAG_LIMITS);
     setSubmitting(true);
     setSubmitError(false);
     try {
@@ -106,43 +100,15 @@ export function CreateTranscriptionDialog({
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="rec-create-tags" className="text-13 text-card-foreground">标签（可选）</Label>
-                <span data-testid="rec-create-tag-count" className="text-11 text-muted-foreground">{tags.length}/5</span>
-              </div>
-              <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-md border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
-                {tags.map((tag) => (
-                  <Badge key={tag} tone="neutral" className="gap-1 py-1">
-                    {tag}
-                    <button
-                      type="button"
-                      aria-label={`移除标签 ${tag}`}
-                      className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => setTags((current) => current.filter((item) => item !== tag))}
-                    >
-                      <X aria-hidden className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <Input
-                  id="rec-create-tags"
-                  data-testid="rec-create-tags"
-                  value={tagDraft}
-                  disabled={tags.length >= 5}
-                  aria-label="添加转录标签"
-                  placeholder={tags.length >= 5 ? "最多 5 个标签" : "添加标签，按回车确认"}
-                  className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  maxLength={20}
-                  onChange={(event) => setTagDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addTag();
-                    }
-                  }}
-                />
-              </div>
-              <p className="text-11 text-muted-foreground">最多可添加 5 个标签</p>
+              <TagField
+                value={tags}
+                onChange={setTags}
+                draft={tagDraft}
+                onDraftChange={setTagDraft}
+                knownTags={knownTags}
+                {...TAG_LIMITS}
+                testIdPrefix="rec-create-tag"
+              />
               {submitError && <p role="alert" className="text-11 text-destructive">创建失败，请稍后重试。</p>}
             </div>
 

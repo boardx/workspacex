@@ -14,7 +14,7 @@ import type { WorkflowDefinitionVersionInput, WorkflowStageDefinition } from "@r
 export const PRODUCT_LINE_SKILL_VERSION = "1.0.0";
 export const PRODUCT_LINE_DEFINITION_VERSION = 1;
 
-export type ContentLine = "research" | "product" | "sales" | "shared";
+export type ContentLine = "research" | "product" | "sales" | "shared" | "operations";
 
 export interface ContentStageDefinition {
   stageId: string;
@@ -238,5 +238,22 @@ export function toRuntimeDefinition(def: ContentWorkflowDefinition): WorkflowDef
           : { approverRoles: ["workflow_initiator"], approverUserIds: [], allowSelfApproval: true, onDenyStageId: null },
       maxAttempts: 1,
     })),
+  };
+}
+
+/** W029 v2 requires the user's task; v1 remains immutable for existing runs. */
+export function problemToPrdTriggerV2Definition(): WorkflowDefinitionVersionInput {
+  const legacy = toRuntimeDefinition(PRODUCT_LINE_WORKFLOWS.find((def) => def.key === "problem-to-prd")!);
+  return {
+    ...legacy,
+    version: 2,
+    graphRef: graphRefOf(legacy, 2),
+    inputSchema: {
+      type: "object",
+      required: ["rawInput"],
+      properties: {
+        rawInput: { type: "string", title: "产品问题或需求", minLength: 1, maxLength: 2000 },
+      },
+    },
   };
 }

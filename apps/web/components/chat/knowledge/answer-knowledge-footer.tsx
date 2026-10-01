@@ -69,10 +69,10 @@ export function AnswerKnowledgeFooter({
       {recallDegraded ? (
         <p
           role="status"
-          className="flex items-center gap-1 text-11 text-warning-foreground"
+          className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-2 text-12 text-foreground"
           data-testid="kg-channel-unavailable"
         >
-          <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
+          <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
           {KG_RELATED_QUERY_DEGRADED_ZH}
         </p>
       ) : null}

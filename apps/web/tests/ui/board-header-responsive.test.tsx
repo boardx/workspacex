@@ -23,3 +23,11 @@ it('moves presence and presentation into the narrow-desktop menu without duplica
  expect(within(header).getByRole('button',{name:'跟随 Grace'})).toBeVisible();expect(within(header).getByRole('button',{name:'开始演示'})).toBeVisible();
  expect(screen.getAllByRole('button',{name:'跟随 Grace'})).toHaveLength(1);
 });
+
+it('explains the disabled title field and provides the return path for renaming',async()=>{
+ vi.stubGlobal('matchMedia',()=>({matches:false,addEventListener:()=>{},removeEventListener:()=>{}}));
+ render(<BoardEditorHeader boardId="board" title="白板" status="已同步" readOnly={false} history={null} peers={null} presentation={null} more={null} userAvatar={null} onBack={()=>{}}/>);
+ fireEvent.keyDown(screen.getByTestId('board-title-menu'),{key:'ArrowDown'});
+ const input=await screen.findByRole('textbox',{name:'白板名称'});
+ expect(input).toBeDisabled();expect(input).toHaveAccessibleDescription('请返回白板列表，通过更多操作重命名。');
+});

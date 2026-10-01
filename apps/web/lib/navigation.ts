@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
-  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler, Home,
+  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler, Home, Workflow, CreditCard,
 } from "lucide-react";
 
 /**
@@ -221,6 +221,9 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // phase-18 的 UC 直接放在 requirements/ 下（没有 NN-模块 子目录），故以阶段目录名作前缀。
       { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["phase-18-org-brain-knowledge-graph/uc-18-4", "phase-18-org-brain-knowledge-graph/uc-18-3"] },
       { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo, ucRefs: ["11-board/uc-11-1"] },
+      // uiux-r4：工作流（我的运行 / 待我审批 / 运行看板）此前只有子页、主导航无入口，/workflows 本身 404。
+      // 入口指 /workflows（落地即重定向到「我的运行」），子页左栏 WorkflowNav 负责三者切换。
+      { key: "workflows", label: "工作流", href: "/workflows", icon: Workflow, ucRefs: [] },
       // 束: agent-role（AG04，phase-20 work-stack-foundation）—— 成员 Agent 目录顶层路由
       // `/agent`（与 `/skill` 平行，见 ui.md「成员目录作为新顶层路由 /agent」）。此前只有
       // 页面本体、没有导航入口——普通成员没有可发现的方式到达（review #AG04 指出）。
@@ -391,6 +394,15 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   落在 `template-admin`，两者等价）。这一条本身（`ADMIN_SECOND_LEVEL` 里的
           //   `canvas` 项，指向裸 `/canvas`）不受影响，仍是去重后不再渲染的重复入口。
           { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
+          // 束: billing-credits / billing-subscription（phase-21 billing-payment 两束，2026-10-01 建）。
+          // ⚠ 本轮只出①②③⑤签核材料（design-signoff.md status: pending），未接实现——落地后
+          //   收银台/订阅弹窗并入用户菜单与组织管理页的既有入口，计费管理端并入平台后台，不是独立页面。
+          //   `/preview/billing` 是签核用的静态原型屏（`ui-prototyper` 交付，
+          //   `phases/phase-21-billing-payment/ui-preview/` 下 31 张截图按束分目录），供
+          //   lint-nav-reachability 判可达用；接线落地后这一行应改指向真实入口，非遗漏。
+          // ucRefs 如实留空：本 phase 判据单一事实源是 requirements/*.md 的 R12（见各束 coverage.md），
+          // 不是 UC 文档编号体系，编一个假引用比留空更糟。
+          { key: "billing-preview", label: "计费预览", href: "/preview/billing", icon: CreditCard, ucRefs: [], isPrototype: true },
         ],
       },
       // 平台后台（见上方 2026-09-02 注）：全平台账号名册 + 反馈与迭代。地球图标与

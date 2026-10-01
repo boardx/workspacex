@@ -10,7 +10,10 @@
  */
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
+
+const listProjects = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/live-projects", () => ({ listProjects }));
 
 const nav = vi.hoisted(() => ({ pathname: "/settings" }));
 vi.mock("next/navigation", () => ({
@@ -38,6 +41,11 @@ function renderTopBar(pathname: string) {
 
 describe("F1971 · 后台管理界面顶栏不再出「不在具体项目里」提示", () => {
   afterEach(() => cleanup());
+
+  it("`/rec` focuses on transcription without unrelated role explanations", () => {
+    renderTopBar("/rec");
+    expect(screen.queryByTestId("topbar-no-project-hint")).toBeNull();
+  });
 
   it("`/admin` 总览页：提示不渲染", () => {
     renderTopBar("/admin");
@@ -67,5 +75,26 @@ describe("F1971 · 后台管理界面顶栏不再出「不在具体项目里」�
   it("反证：路径前缀恰好以 `/admin` 起始但不是子路由（如 `/adminfoo`）不应被误伤排除", () => {
     renderTopBar("/adminfoo");
     expect(screen.getByTestId("topbar-no-project-hint")).toBeInTheDocument();
+  });
+});
+
+describe("真实项目上下文显示名", () => {
+  afterEach(() => { cleanup(); listProjects.mockReset(); });
+  it("项目页解析名称，切换项目时不暂借上一个项目的名字", async () => {
+    listProjects.mockResolvedValueOnce([{ id: "p-1", name: "项目甲" }]);
+    const view = renderTopBar("/projects/p-1");
+    expect(await screen.findByText("项目甲")).toBeVisible();
+    let resolveNext!: (items: { id: string; name: string }[]) => void;
+    listProjects.mockReturnValueOnce(new Promise(resolve => { resolveNext = resolve; }));
+    nav.pathname = "/projects/p-2";
+    view.rerender(<TopBar identity={IDENTITY} previewRole={null} organizations={ORGS} onSwitchOrganization={() => {}} />);
+    expect(screen.queryByText("项目甲")).toBeNull();
+    expect(screen.getByTestId("topbar-project-context")).toHaveTextContent("项目");
+    await act(async () => { resolveNext([{ id: "p-2", name: "项目乙" }]); });
+    expect(screen.getByTestId("topbar-project-context")).toHaveTextContent("项目乙");
+  });
+  it("独立工具页不预取项目列表", () => {
+    renderTopBar("/brain");
+    expect(listProjects).not.toHaveBeenCalled();
   });
 });

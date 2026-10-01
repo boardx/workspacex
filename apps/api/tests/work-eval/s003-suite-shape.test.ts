@@ -11,6 +11,13 @@ import { pathToFileURL } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { suiteCoverageGaps, validateWorkEvalSuiteBundle } from "@repo/contracts/work-eval";
 
+import { parse as parseYaml } from "yaml";
+import Ajv from "ajv";
+import { S003InputSchema, S003OutputSchema, s003MachineSchemas } from "../../src/application/work-eval/s003-contract";
+import { S003InputSchema as ContractInputSchema, S003OutputSchema as ContractOutputSchema } from "@repo/contracts/work-skill-evidence-ledger";
+import { s003EnterpriseSearchLoopback } from "../../src/application/work-eval/loopback-agents";
+import { FixtureToolbox, mergeFixtures } from "../../src/application/work-eval/fixture-tools";
+
 const repoRoot = resolve(__dirname, "../../../..");
 const suiteDir = join(repoRoot, "evals/work-stack/S003");
 const cli = join(repoRoot, "packages/contracts/scripts/validate-work-eval-suite.ts");
@@ -35,6 +42,49 @@ function runCli(dir: string, extra: string[] = []) {
 }
 
 describe("evals/work-stack/S003 suite (EV01)", () => {
+  it("API and loopback consume the authoritative contract by reference", () => {
+    expect(S003InputSchema).toBe(ContractInputSchema);
+    expect(S003OutputSchema).toBe(ContractOutputSchema);
+    expect(s003EnterpriseSearchLoopback.inputSchema).toBe(ContractInputSchema);
+    expect(s003EnterpriseSearchLoopback.outputSchema).toBe(ContractOutputSchema);
+  });
+  it("ships the generated machine contract and rejects each previous non-contract enum", async () => {
+    const source = readFileSync(join(repoRoot, "skills/work-research/enterprise-search/SKILL.md"), "utf8");
+    const frontmatter = parseYaml(/^---\n([\s\S]*?)\n---/.exec(source)![1]!);
+    expect(frontmatter.metadata.work.inputSchema).toEqual(s003MachineSchemas.inputSchema);
+    expect(frontmatter.metadata.work.outputSchema).toEqual(s003MachineSchemas.outputSchema);
+    const ajv = new Ajv({ strict: false });
+    ajv.addFormat("date-time", { validate: (value: string) => !Number.isNaN(Date.parse(value)) });
+    const validateOutput = ajv.compile(s003MachineSchemas.outputSchema);
+    const bundle = load();
+    if (!bundle.ok) throw new Error("suite invalid");
+    for (const c of bundle.cases) {
+      const fixtures = c.fixtureRefs.map(f => JSON.parse(readFileSync(join(suiteDir, "fixtures", f), "utf8")));
+      const ledger = await s003EnterpriseSearchLoopback.run(c.input as never, new FixtureToolbox(mergeFixtures(fixtures), bundle.suite.toolsUnderTest));
+      expect(S003OutputSchema.safeParse(ledger).success, c.id).toBe(true);
+      expect(validateOutput(ledger), c.id).toBe(true);
+      const badQuery = { ...ledger, queryType: "fact" };
+      expect(S003OutputSchema.safeParse(badQuery).success).toBe(false);
+      const missing = { ...ledger };
+      delete missing.scopeDeclared;
+      expect(S003OutputSchema.safeParse(missing).success).toBe(false);
+      const noOwner = S003OutputSchema.parse(ledger);
+      if (noOwner.items[0]?.hits[0]) {
+        noOwner.queryType = "who-knows";
+        delete noOwner.items[0].hits[0].owner;
+        expect(S003OutputSchema.safeParse(noOwner).success).toBe(false);
+        expect(validateOutput(noOwner)).toBe(false);
+      }
+      const typed = S003OutputSchema.parse(ledger);
+      if (typed.items[0]?.hits[0]) {
+        typed.items[0].hits[0].relation = "draft-not-effective" as never;
+        expect(S003OutputSchema.safeParse(typed).success).toBe(false);
+      }
+      typed.coverageGaps.push({ itemId: "I1", reason: "scope-not-configured" as never, suggestion: "configure" });
+      expect(S003OutputSchema.safeParse(typed).success).toBe(false);
+    }
+  });
+
   it("validates against WorkEvalSuite/WorkEvalCase with stableId = dir = manifest.evalSuiteId", () => {
     const r = load();
     if (!r.ok) throw new Error(JSON.stringify(r.issues, null, 2));

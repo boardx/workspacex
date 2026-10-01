@@ -2,7 +2,7 @@
  * EV03 反证测试（04-eval-gates E10 / R12；契约束 work-eval V4）：每个坏 fixture 只坏一处，
  * 必须在对应门被判 fail 且整体退出非 0——判 pass 则本测试红。每条先证明合规基线是绿的。
  */
-import { rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { runWorkStackGates } from "../../src/infrastructure/work-eval/fs-work-stack-gates";
@@ -21,6 +21,39 @@ describe("lint-work-stack-gates counterproof (EV03, E10)", () => {
     const root = goodRepo();
     await evaluate(root);
     expect(runWorkStackGates({ repoRoot: root, ...quiet }).exitCode).toBe(0);
+  });
+
+  it.each(["grader-version", "grader-bytes", "case-assertion", "fixture-bytes", "legacy-report"])("rejects stale evaluation evidence after %s changes", async mutation => {
+    const root = goodRepo();
+    const reportPath = await evaluate(root);
+    expect(runWorkStackGates({ repoRoot: root, ...quiet }).exitCode).toBe(0);
+    const suiteDir = join(root, "evals/work-stack/S003");
+    if (mutation === "grader-version") {
+      const path = join(suiteDir, "suite.json");
+      const suite = JSON.parse(readFileSync(path, "utf8"));
+      suite.graderVersion = "s003-rules-999.0.0";
+      writeFileSync(path, JSON.stringify(suite));
+    } else if (mutation === "grader-bytes") {
+      const path = join(suiteDir, "grader.ts");
+      writeFileSync(path, `${readFileSync(path, "utf8")}\n// altered implementation without a version bump\n`);
+    } else if (mutation === "case-assertion") {
+      editCases(root, cases => cases.map((c, i) => i === 0 ? { ...c, expect: { assertions: [{ kind: "queryType", spec: "not-a-valid-type" }] } } : c));
+    } else if (mutation === "fixture-bytes") {
+      const path = join(suiteDir, "fixtures/api-migration-minutes.json");
+      const fixture = JSON.parse(readFileSync(path, "utf8"));
+      fixture.documents = [];
+      writeFileSync(path, JSON.stringify(fixture));
+    } else {
+      const report = JSON.parse(readFileSync(reportPath, "utf8"));
+      delete report.suiteDigest;
+      writeFileSync(reportPath, JSON.stringify(report));
+    }
+    const result = runWorkStackGates({ repoRoot: root, ...quiet });
+    expect(result.exitCode).toBe(1);
+    const gates = result.judgements[0]!.gates;
+    expect(gates.find(g => g.gate === "G4")).toMatchObject({ outcome: "fail", reasonCode: "REPORT_STALE" });
+    for (const name of ["G3", "G5"]) expect(gates.find(g => g.gate === name)?.outcome).toBe("fail");
+    expect(gates.find(g => g.gate === "G0")?.outcome).toBe("pass");
   });
 
   it("missing license → G1 fail PROVENANCE_LICENSE_MISSING", async () => {
@@ -77,6 +110,30 @@ describe("lint-work-stack-gates counterproof (EV03, E10)", () => {
     const root = goodRepo();
     writeFileSync(join(root, "evals/work-stack/S003/suite.json"), JSON.stringify({ schemaVersion: 1, stableId: "S003" }));
     expect(gate(root, "G4")).toMatchObject({ exitCode: 1, outcome: "fail", reasonCode: "NO_SUITE" });
+  });
+
+  it("a Markdown contract reference remains G2 fail even after a 10/10 loopback report", async () => {
+    const manifest = s003Manifest();
+    manifest.outputSchema = {
+      $ref: "requirements/work-stack-v2/skills/S003-enterprise-search.md#输出契约",
+    };
+    const root = goodRepo({ manifest });
+    await evaluate(root);
+    const result = gate(root, "G2");
+    expect(result).toMatchObject({ exitCode: 1, outcome: "fail", reasonCode: "SCHEMA_INVALID" });
+    expect(result.reason).toContain("outputSchema is not a valid JSON Schema");
+    expect(result.reason).toContain("S003-enterprise-search.md");
+    expect(gate(root, "G4").outcome).toBe("pass");
+  });
+
+  it("G2 validates ISO timestamps instead of silently ignoring date-time formats", async () => {
+    const manifest = s003Manifest();
+    manifest.inputSchema = {
+      type: "object", properties: { observedAt: { type: "string", format: "date-time" } },
+    };
+    const root = goodRepo({ manifest });
+    editCases(root, cases => cases.map(c => ({ ...c, input: { ...(c.input as object), observedAt: "yesterday" } })));
+    expect(gate(root, "G2")).toMatchObject({ outcome: "fail", reasonCode: "SCHEMA_INVALID" });
   });
 
   it("case input violating inputSchema or a missing fixture → G2 fail SCHEMA_INVALID (E2)", async () => {

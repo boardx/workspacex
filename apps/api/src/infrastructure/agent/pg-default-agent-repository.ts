@@ -54,7 +54,7 @@ export function resolveDeepAgentModel(): { readonly provider: string; readonly m
   return { provider: DEEP_AGENT_PROVIDER_NAME, modelId };
 }
 
-const DEFAULT_AGENT_TEMPLATE: SystemAgentTemplate = {
+export const DEFAULT_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: DEFAULT_AGENT_STABLE_NAME,
   name: DEFAULT_AGENT_NAME,
   abbr: "通用",

@@ -11,6 +11,11 @@ import type { z } from "zod";
 import type { BoardRunBadge, BoardWorkflowRunCard } from "@repo/contracts/work-content";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
+import { formatDateTime } from "@/lib/workflow-run-meta";
+import { runTitleDisplay } from "@/lib/workflow-display-copy";
 
 export type BoardRunCardData = z.infer<typeof BoardWorkflowRunCard>;
 type RunBadge = z.infer<typeof BoardRunBadge>;
@@ -29,6 +34,12 @@ const COLUMNS: readonly { key: BoardRunCardData["column"]; label: string }[] = [
   { key: "done", label: "已完成" },
 ];
 
+const COLUMN_EMPTY: Record<BoardRunCardData["column"], string> = {
+  in_progress: "暂无进行中的运行",
+  review: "暂无待审阅的运行",
+  done: "还没有已完成的运行",
+};
+
 function initialsOf(name: string): string {
   return Array.from(name.trim()).slice(0, 2).join("") || "?";
 }
@@ -46,6 +57,9 @@ function WorkflowIcon() {
 
 export function BoardRunCard({ card, onOpen }: { card: BoardRunCardData; onOpen?: (href: string) => void }) {
   const badge = BADGE_VIEW[card.badge];
+  const sessionCtx = useOptionalSession();
+  const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
+  const when = formatDateTime(card.createdAt);
   const open = () => (onOpen ? onOpen(card.href) : window.location.assign(card.href));
   return (
     <article
@@ -63,12 +77,17 @@ export function BoardRunCard({ card, onOpen }: { card: BoardRunCardData; onOpen?
       <div className="flex items-start gap-2">
         <WorkflowIcon />
         <p data-testid="board-run-card-title" className="flex-1 text-12 font-medium text-background-foreground">
-          {card.title}
+          {runTitleDisplay(card.title)}
         </p>
         <Badge tone={badge.tone} data-testid="board-run-card-badge" data-badge={card.badge}>
           {badge.label}
         </Badge>
       </div>
+      {card.goal ? <p data-testid="board-run-card-goal" className="line-clamp-2 text-12 text-muted-foreground">目标：{card.goal}</p> : null}
+      <p data-testid="board-run-card-meta" className="flex items-center gap-2 text-11 text-muted-foreground">
+        <span data-testid="board-run-card-initiator" className="truncate">发起人：{memberLabel(card.initiatorUserId, sessionCtx?.session?.userId, memberNames)}</span>
+        {when ? <time data-testid="board-run-card-time" dateTime={card.createdAt ?? undefined} className="ml-auto shrink-0">{when}</time> : null}
+      </p>
       <div className="flex -space-x-1" data-testid="board-run-card-agents">
         {card.agents.length > 0
           ? card.agents.map((a) => (
@@ -93,6 +112,11 @@ export function BoardRunColumns({ cards, onOpen }: { cards: readonly BoardRunCar
                 {colCards.length}
               </span>
             </h2>
+            {colCards.length === 0 ? (
+              <p data-testid={`board-run-column-empty-${col.key}`} className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-12 text-muted-foreground">
+                {COLUMN_EMPTY[col.key]}
+              </p>
+            ) : null}
             {colCards.map((c) => (
               <BoardRunCard key={c.id} card={c} onOpen={onOpen} />
             ))}
@@ -116,6 +140,7 @@ export function LiveBoardRunColumns({
 }) {
   const [cards, setCards] = React.useState<BoardRunCardData[] | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
   React.useEffect(() => {
     let live = true;
     setCards(null);
@@ -124,9 +149,21 @@ export function LiveBoardRunColumns({
       .then((r) => { if (live) setCards(r.cards); })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [projectId, load]);
-  if (failed) return <p role="alert" data-testid="board-run-cards-error">运行卡加载失败，请稍后重试。</p>;
-  if (cards === null) return <p data-testid="board-run-cards-loading">加载中…</p>;
-  if (cards.length === 0) return <p data-testid="board-run-cards-empty">暂无可见的 Workflow 运行。</p>;
+  }, [projectId, load, reloadKey]);
+  if (failed) {
+    return (
+      <div role="alert" data-testid="board-run-cards-error" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+        <p className="min-w-0 flex-1 text-12 text-muted-foreground">运行卡加载失败，请稍后重试。</p>
+        <Button size="sm" variant="outline" onClick={() => setReloadKey((k) => k + 1)} data-testid="board-run-cards-retry">重试</Button>
+      </div>
+    );
+  }
+  if (cards === null) {
+    return (
+      <div className="grid gap-4 md:grid-cols-3" data-testid="board-run-cards-loading" role="status" aria-label="加载中">
+        {[0, 1, 2].map((i) => <span key={i} className="h-24 animate-pulse rounded-lg bg-muted" />)}
+      </div>
+    );
+  }
   return <BoardRunColumns cards={cards} />;
 }

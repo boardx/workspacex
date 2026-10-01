@@ -7,7 +7,7 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
  await page.getByTestId('survey-create-primary').click();
  await page.getByLabel('问卷名称').fill('AI 校对验收');
- await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
+ await page.getByLabel('添加标签',{exact:true}).fill('客户调研');await page.getByLabel('添加标签',{exact:true}).press('Enter');
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
@@ -20,11 +20,12 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await expect(dialog).toBeVisible();
  await expect(dialog.getByLabel('AI 提案 Markdown')).toHaveValue(/#/);
  await dialog.getByLabel('AI 提案 Markdown').fill('# AI 校对验收\n\n## feedback [open]\n请描述具体建议\n');
+ const savedSource=page.waitForResponse(response=>response.url().endsWith('/source')&&response.request().method()==='PUT');
  await dialog.getByRole('button',{name:'应用到问卷',exact:true}).click();
  await expect(page.getByRole('region',{name:'问卷设计画布'})).toContainText('请描述具体建议');
  await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveCount(0);
  await page.screenshot({path:testInfo.outputPath('survey-ai-applied-designer.png'),fullPage:true});
- await expect(page.getByRole('status').filter({hasText:'所有修改已保存'})).toBeVisible();
+ expect((await savedSource).ok()).toBeTruthy();
  await page.reload();await expect(page.getByRole('region',{name:'问卷设计画布'})).toContainText('请描述具体建议');
 });
 
@@ -95,6 +96,31 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 
   await expect(page.getByRole('heading',{name:'AI 智能生成问卷'})).toHaveCount(0);
   await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveCount(0);
+
+  await expect(page.getByRole('button',{name:'保存修改',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'使用问卷模板',exact:true})).toHaveCount(0);
+  await expect(page.getByText('管理模板库',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('所有修改已保存',{exact:true})).toHaveCount(0);
+  const publishAction=page.locator('header').getByRole('button',{name:'发布回收',exact:true});
+  await expect(publishAction).toBeEnabled();
+  const colors=await publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color}));
+  // primary = hsl(240 6% 8.4%), converted to rounded sRGB channels.
+  expect(colors).toEqual({background:'rgb(20, 20, 23)',color:'rgb(255, 255, 255)'});
+  await expect(page.locator('[data-survey-inline-edit]').first()).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  const autosaved=page.waitForResponse(response=>response.url().endsWith('/source')&&response.request().method()==='PUT');
+  await page.getByLabel('问卷名称').fill('会议反馈自动保存');
+  expect((await autosaved).ok()).toBeTruthy();
+  await page.reload();
+  await expect(page.getByLabel('问卷名称')).toHaveValue('会议反馈自动保存');
+  const restored=page.waitForResponse(response=>response.url().endsWith('/source')&&response.request().method()==='PUT');
+  await page.getByLabel('问卷名称').fill(TEMPLATE_TITLE);
+  expect((await restored).ok()).toBeTruthy();
+  await page.getByRole('button',{name:'更多操作'}).click();
+  await page.getByRole('button',{name:'保存为问卷模板',exact:true}).click();
+  const saveTemplateDialog=page.getByRole('dialog',{name:'保存为问卷模板',exact:true});
+  await expect(saveTemplateDialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'更多操作'}).click();
 
   await page.getByRole("button", { name: "更多操作" }).click();
   await page.getByRole("button", { name: "设计报告模板（可选）" }).click();
@@ -176,12 +202,13 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);
-  const persistedSurvey = page.locator("article").filter({
+  // 2026-09-30：问卷卡片统一成标准 ResourceCard（testid `survey-card-<id>`），统计并入副标题「N 个题目 · M 份答卷（有效 K）」
+  const persistedSurvey = page.locator('[data-testid^="survey-card-"]').filter({
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
   await expect(persistedSurvey).toContainText("发布中");
-  await expect(persistedSurvey).toContainText("8题目数");
-  await expect(persistedSurvey).toContainText("2答卷数");
+  await expect(persistedSurvey).toContainText("8 个题目");
+  await expect(persistedSurvey).toContainText("2 份答卷");
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-desktop.png"),fullPage:true});
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("navigation", { name: "问卷二级导航" })).toBeVisible();

@@ -1,0 +1,20 @@
+
+> agentic-harness-template@ harness /workspace/workstack-effect-fixes
+> tsx .harness/scripts/cli.ts "eval" "--entity" "S003" "--baseline"
+
+eval S003 run S003-20261001T052729-0e3746 (loopback)
+  subject skill@1.0.0|lb:s003-loopback-1.0.0 sha256:180e71f8e550429926ae8aacd543de0404efdd6c76c2f3b54ff7ce34a36a0cf5
+  grader s003-rules-1.0.0  fixtures sha256:2d60ddf6827efc413ad04a0f3a37af1ddb326c017920214c2f65c075e8b3705c
+  E1     subject=pass  baseline=fail 
+  E2     subject=pass  baseline=fail 
+  E3     subject=pass  baseline=pass 
+  E4     subject=pass  baseline=fail 
+  E5     subject=pass  baseline=fail 
+  E6     subject=pass  baseline=fail 
+  E7     subject=pass  baseline=pass 
+  E8     subject=pass  baseline=fail 
+  E9     subject=pass  baseline=fail 
+  E10    subject=pass  baseline=fail 
+  subject 10/10 pass
+  baseline 2/10 pass
+  report evals/work-stack/S003/reports/S003-20261001T052729-0e3746.json

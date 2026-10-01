@@ -30,9 +30,15 @@ EVIDENCE_DIR="${REAL_MODEL_E2E_EVIDENCE_DIR:-${REPO_ROOT}/apps/web/test-results/
 rm -rf "$EVIDENCE_DIR"
 mkdir -p "$EVIDENCE_DIR"
 STACK_LOG="${EVIDENCE_DIR}/50-stack-up.log"
+SPEC_COMPLETED=0
 
 cleanup() {
   local code=$?
+  # Bash can enter EXIT with status 0 after a nounset expansion failure. Success
+  # requires reaching the end of the spec command, not just a zero trap status.
+  if [ "$code" -eq 0 ] && [ "${SPEC_COMPLETED:-0}" -ne 1 ]; then
+    code=1
+  fi
   echo ""
   echo "[real-model-smoke] 收尾：释放本轮起的资源"
   for pidfile in /tmp/e2e-api.pid /tmp/e2e-sandbox.pid /tmp/e2e-deep-agent.pid; do
@@ -43,8 +49,8 @@ cleanup() {
   done
   [ -n "${STACK_PID:-}" ] && kill "$STACK_PID" 2>/dev/null || true
   docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" down -v --remove-orphans >/dev/null 2>&1 || true
-  echo "[real-model-smoke] 证据包：$EVIDENCE_DIR"
-  exit $code
+  echo "[real-model-smoke] 证据包：${EVIDENCE_DIR:-未创建}"
+  exit "$code"
 }
 trap cleanup EXIT
 
@@ -88,6 +94,7 @@ elif [ "${1:-}" = "web-artifact-reliability" ]; then
 else
   pnpm run e2e:real-model-smoke:raw || SPEC_EXIT=$?
 fi
+SPEC_COMPLETED=1
 
 echo "[real-model-smoke] ④ 收后端日志（脱敏后进证据包）"
 pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-api.log "${EVIDENCE_DIR}/60-api.log" 4000 || true

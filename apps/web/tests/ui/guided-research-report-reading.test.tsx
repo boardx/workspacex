@@ -20,7 +20,7 @@ it.each(["final", "draft"])("reads a saved %s as a report without generation dia
   vi.mocked(getResearchRuntime).mockResolvedValue(state);
   render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
   await screen.findByRole("heading", { name: base.report!.title });
-  expect(screen.getByTestId("research-report-history")).not.toHaveAttribute("open");
+  expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
   expect(screen.getByTestId(kind === "final" ? "research-report-document" : "research-report-preview-text").querySelectorAll('[data-testid="research-report-chapter"]')).toHaveLength(base.report!.sections.length);
   expect(screen.queryByTestId("research-report-timeline")).not.toBeInTheDocument();
   expect(screen.queryByTestId("research-report-evidence-warning")).not.toBeInTheDocument();

@@ -1,0 +1,44 @@
+[stack-admission] load1=1.98 cores=5 perCore=0.40 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mupb7dyk-b7a7d076-dcf216470dc1 db=wsx_dcf216470dc169e3ac16 compose=wsx-dcf216470dc169e3ac16 pg=20935 redis=21935 api=24935 web=25935 sandbox=26935 model=27935 deep-agent=28935 asr=29935 vision=30935 loopback-sandbox=31935 mail=19935
+ Network wsx-dcf216470dc169e3ac16_default  Creating
+ Network wsx-dcf216470dc169e3ac16_default  Created
+ Container wsx-dcf216470dc169e3ac16-postgres-1  Creating
+ Container wsx-dcf216470dc169e3ac16-postgres-1  Created
+ Container wsx-dcf216470dc169e3ac16-postgres-1  Starting
+ Container wsx-dcf216470dc169e3ac16-postgres-1  Started
+ Container wsx-dcf216470dc169e3ac16-postgres-1  Waiting
+ Container wsx-dcf216470dc169e3ac16-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] db=wsx_dcf216470dc169e3ac16 capacity=100 current=6 required=32
+ ✓ tests/workflow/effect-gateway-recheck.test.ts (11 tests) 25555ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > E2: lease already lost -> WorkflowLeaseLostError, permission is never rechecked, tool never called 416ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > E4 initiator_not_member: initiator removed from org -> blocked_permission, tool never called 374ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > E4 agent_permission_revoked: agent no longer has a runnable published version -> blocked_permission 332ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > E4 tool_authorization_revoked: capability grant revoked -> blocked_permission 575ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > E4 capability_exceeds_side_effect_cap: stage's declared sideEffect exceeds the org's MCP cap -> blocked_permission 369ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > a capability with no grant row configured defaults to read-only (ADR-120 决策 #2: 默认只读, 不继承写权限) 302ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > R3-10 cancel: instance is `cancelling` -> next effect is blocked with EffectCancelledError, instance falls to `cancelled`, tool never called 413ms
+   ✓ WF04 effect-gateway: permission recheck (E2/E4) > idempotency_key_reused surfaces as a WorkflowUseCaseError and never calls the tool a second time 347ms
+ ✓ tests/workflow/effect-no-replay.test.ts (4 tests) 2525ms
+   ✓ WF04 effect-gateway: crash-recovery reconciliation, no replay (E1) > E1: crash between begin and finalize leaves the receipt 'begun'; retrying does not call the tool again; reconcile(true) resolves it without a second call 440ms
+   ✓ WF04 effect-gateway: crash-recovery reconciliation, no replay (E1) > E1: no reconcile implementation (or it cannot confirm) -> unresolved, instance moves to needs_attention with effect_unreconciled 523ms
+   ✓ WF04 effect-gateway: crash-recovery reconciliation, no replay (E1) > reconcile on a receipt that was never begun is a no-op ('not_begun'), no reconciler call 418ms
+   ✓ WF04 effect-gateway: crash-recovery reconciliation, no replay (E1) > A1-style replay: a successful effect's second execute() call with the same key returns the cached result and never calls the tool twice 310ms
+ ✓ tests/workflow/effect-projection.test.ts (5 tests) 30ms
+
+ Test Files  3 passed (3)
+      Tests  20 passed (20)
+   Start at  09:06:06
+   Duration  36.99s (transform 3.50s, setup 0ms, collect 6.14s, tests 28.11s, environment 1ms, prepare 287ms)
+
+[db-isolation] db=wsx_dcf216470dc169e3ac16 peak_connections=3
+[timing] bash /tmp/workstack-effect-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：49s
+  清理：1s
+  总计：50s

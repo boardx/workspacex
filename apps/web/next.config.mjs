@@ -442,6 +442,10 @@ export default {
       // 裸路径与 `:path*` 各一条：前者匹配不到子路径为空的清单读。
       { source: `${prefix}/tool-permission-grants`, destination: `${apiOrigin}/tool-permission-grants` },
       { source: `${prefix}/tool-permission-grants/:path*`, destination: `${apiOrigin}/tool-permission-grants/:path*` },
+      // 工作流权限授予（组织 admin）：`WorkflowCapabilityGrantController` 同样是 `@Controller()`（空前缀），
+      // 裸路径 `GET /workflow-capability-grants` + `PUT/DELETE /workflow-capability-grants/:capabilityCategory`。
+      { source: `${prefix}/workflow-capability-grants`, destination: `${apiOrigin}/workflow-capability-grants` },
+      { source: `${prefix}/workflow-capability-grants/:path*`, destination: `${apiOrigin}/workflow-capability-grants/:path*` },
       // #3440：composer「自动批准文档生成所需权限」开关。`DocumentGenerationAutoApproveController`
       // 同样是 `@Controller()`（空前缀），路径是裸的 `GET/PUT /document-generation-auto-approve`——
       // 与上面 `/tool-permission-grants` 同一个形状同一个坑，没有 `:path*` 子路径，只需一条。
@@ -459,6 +463,9 @@ export default {
       // `createAgent`（`AgentController`）现在挂了裸的 `POST /agents`，
       // `listAgents`（`GET /agents`，仍未接线）将来也落在同一条裸路径上。
       // 补上裸路径这一条，不能只靠 `:path*` 兜底（同一个坑的第八次）。
+      // AG06：`POST /agent-interrupts/:interruptId/escalation-decision`（升级卡片裁决）。
+      // `EscalationDecisionController` 是 `@Controller()`（空前缀），与上面 `/agent-runs` 同一个坑。
+      { source: `${prefix}/agent-interrupts/:path*`, destination: `${apiOrigin}/agent-interrupts/:path*` },
       { source: `${prefix}/agents`, destination: `${apiOrigin}/agents` },
       { source: `${prefix}/agents/:path*`, destination: `${apiOrigin}/agents/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
@@ -525,6 +532,11 @@ export default {
       // 同 `/org-invites` 的做法，裸前缀与 `:path*` 各一条。
       { source: `${prefix}/project-invites`, destination: `${apiOrigin}/project-invites` },
       { source: `${prefix}/project-invites/:path*`, destination: `${apiOrigin}/project-invites/:path*` },
+      // #4787 通用项目邀请：受邀人落地页 `/projects/join?invite=` 打 `POST /project-invitations/{preview,accept,activate}`。
+      // 注意是 `project-invitations`（邀请实体）不是上面的 `project-invites`（工作坊邀请链接），两个前缀互不遮挡。
+      // 负责人一侧的 `/projects/:projectId/invitations…` 已被上面的 `/projects/:path*` 覆盖。
+      // 没有裸 `/project-invitations` 路由，只补 `:path*`（同 `/plan-control` 先例）。
+      { source: `${prefix}/project-invitations/:path*`, destination: `${apiOrigin}/project-invitations/:path*` },
       // F977：`PlanControlController` 是 `@Controller()`（空前缀），路径是裸的
       // `GET /plan-control/threads/:threadId/ledger` —— 与上面 `/agent-runs`、
       // `/threads`、`/copilotkit` 同一个形状、同一个坑（lint-rewrite-coverage 实测
@@ -587,6 +599,26 @@ export default {
       { source: `${prefix}/admin/nav`, destination: `${apiOrigin}/admin/nav` },
       { source: `${prefix}/admin/work-stack/:path*`, destination: `${apiOrigin}/admin/work-stack/:path*` },
       { source: `${prefix}/admin/skill-development/:path*`, destination: `${apiOrigin}/admin/skill-development/:path*` },
+      // ── Phase 21 billing-payment（契约束 billing-credits / billing-subscription）──
+      // 15 条契约路由**逐条**代理，不写 `/billing/:path*` 通配：afterFiles 在动态路由
+      // **之前**匹配，通配会先把将来任何 `/billing/*` 前端页面整页代理走（同
+      // `/chat/:path*`（#2021）与 `/workflows`（#3492）两次同型事故）。缺任一条 =
+      // 同源代理部署下被 Next 接住返回 404 HTML（`lint-rewrite-coverage --strict` 实测抓到）。
+      { source: `${prefix}/billing/config`, destination: `${apiOrigin}/billing/config` },
+      { source: `${prefix}/billing/packages`, destination: `${apiOrigin}/billing/packages` },
+      { source: `${prefix}/billing/orders`, destination: `${apiOrigin}/billing/orders` },
+      { source: `${prefix}/billing/orders/:orderNo`, destination: `${apiOrigin}/billing/orders/:orderNo` },
+      { source: `${prefix}/billing/orders/:orderNo/mock-paid`, destination: `${apiOrigin}/billing/orders/:orderNo/mock-paid` },
+      { source: `${prefix}/billing/wallet`, destination: `${apiOrigin}/billing/wallet` },
+      { source: `${prefix}/billing/transactions`, destination: `${apiOrigin}/billing/transactions` },
+      { source: `${prefix}/billing/admin/wallets/:ownerType/:ownerId`, destination: `${apiOrigin}/billing/admin/wallets/:ownerType/:ownerId` },
+      { source: `${prefix}/billing/admin/credits/grant`, destination: `${apiOrigin}/billing/admin/credits/grant` },
+      { source: `${prefix}/billing/org-settings/:orgId`, destination: `${apiOrigin}/billing/org-settings/:orgId` },
+      { source: `${prefix}/billing/subscription`, destination: `${apiOrigin}/billing/subscription` },
+      { source: `${prefix}/billing/subscription/upgrade-link`, destination: `${apiOrigin}/billing/subscription/upgrade-link` },
+      { source: `${prefix}/billing/subscription/management-link`, destination: `${apiOrigin}/billing/subscription/management-link` },
+      { source: `${prefix}/billing/webhooks/wechat`, destination: `${apiOrigin}/billing/webhooks/wechat` },
+      { source: `${prefix}/billing/webhooks/stripe`, destination: `${apiOrigin}/billing/webhooks/stripe` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },

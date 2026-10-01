@@ -588,6 +588,20 @@ export const AgentRunView = z.object({
     toolName: z.string(),
     decision: z.enum(["once", "run", "forever", "deny", "reject", "edit"]).nullable(),
   }).strict()).optional(),
+  /**
+   * uiux-r3 #4.5 —— AG06 升级裁决的留痕：升级卡片被裁决后不能凭空消失，线程里要留一条
+   * 「决定人 · 同意/驳回 · 说明 · 时间」的记录，刷新后依旧。来源与 `resolvedApprovals` 同一份
+   * append-only 的 `agent_runs.resolved_approvals`（裁决与留痕同一条条件 UPDATE）。
+   * `argsSummary` 是当时的 `EscalatePayload` JSON（事项/原因）。纯展示；缺字段 = 没有。
+   */
+  resolvedEscalations: z.array(z.object({
+    permissionRequestId: z.string().nullable(),
+    argsSummary: z.string().nullable(),
+    decision: z.enum(["resolve", "reject"]),
+    text: z.string(),
+    decidedBy: z.object({ userId: z.string(), displayName: z.string().nullable() }).strict().nullable(),
+    decidedAt: z.string().nullable(),
+  }).strict()).optional(),
 }).strict();
 
 export const operations = {
@@ -730,6 +744,8 @@ export const operations = {
       packId: PackCoordinate,
       packVersion: PackCoordinate,
       idempotencyKey: z.string().min(1).max(255),
+      /** Optional fail-closed organization binding for multi-request admin imports. */
+      expectedOrgId: z.string().min(1).max(255).optional(),
     }).strict(),
     out: SkillStarterImportResult,
     err: SkillStarterImportError.options,
@@ -795,6 +811,8 @@ export const operations = {
       packId: PackCoordinate,
       packVersion: PackCoordinate,
       idempotencyKey: z.string().min(1).max(255),
+      /** Optional fail-closed organization binding for multi-request admin imports. */
+      expectedOrgId: z.string().min(1).max(255).optional(),
     }).strict(),
     out: AgentStarterImportResult,
     /** AG03：同端点分流出的官方角色包导入额外失败码（`UNRESOLVED_WORKFLOW_REF`/`UNRESOLVED_SKILL_REF`/`AGENT_STARTER_TOOL_POLICY_INVALID`）。 */

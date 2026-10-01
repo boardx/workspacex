@@ -162,6 +162,23 @@ deep_agent_project_capability_env() {
   return 0
 }
 
+# 记忆向量召回的嵌入模型（2026-09-30 devapp 实测：部署链从没配过它，向量通道一直静默关闭）。
+# 缺哪个 key 就把默认值补进 deploy.env；**已有的行一律不动**——值为空的行也不动：
+# `KERNEL_EMBEDDING_MODEL_ID=` 是运维显式关掉向量通道，不能被部署悄悄打开。
+# 默认值是字面量（调用方写死），不经外部输入，写法同 WORKSPACEX_OBJECT_ROOT。
+# 用法：embedding_backfill_defaults <env_file> <model_id> <model_version> <dimensions>
+embedding_backfill_defaults() {
+  local file=$1 pair key
+  for pair in "KERNEL_EMBEDDING_MODEL_ID=$2" "KERNEL_EMBEDDING_MODEL_VERSION=$3" "KERNEL_EMBEDDING_DIMENSIONS=$4"; do
+    key=${pair%%=*}
+    if ! grep -q "^${key}=" "$file" 2>/dev/null; then
+      printf '%s\n' "$pair" >> "$file"
+      echo "  $(basename "$file") 里没有 ${key}，已写入默认值 ${pair#*=}"
+    fi
+  done
+  return 0
+}
+
 # #2929: provision/deploy share this one idempotent writer. Existing non-empty values are
 # never changed; malformed values fail closed instead of being silently rotated. The helper
 # reports key names only, never their values.
@@ -244,8 +261,12 @@ deep_agent_project_native_env() {
     printf 'NATIVE_SESSION_SOCKET=%s\n' "$container_socket"
     printf 'NATIVE_SESSION_SERVICE_BASE_URL=%s\n' "$service_base"
     printf 'NATIVE_SESSION_SERVICE_KEY=%s\n' "$service_key"
+    # 同一把 key、Deep Agent 的检索路由（/internal/retrieval/embeddings、/rerank）读的名字。
+    # 2026-09-30 devapp 实测：只投影了 NATIVE_SESSION_SERVICE_KEY ⇒ 这两条路由读到空值、
+    # API 的每一次嵌入请求都 401，向量通道静默关闭（kg_embedding_outbox 积压、0 条向量）。
+    printf 'DEEP_AGENT_SERVICE_INTERNAL_KEY=%s\n' "$service_key"
   } >> "$dest"
-  echo "  Native recovery env 已投影：admission=${admission} socket=PRESENT service-key=PRESENT" >&2
+  echo "  Native recovery env 已投影：admission=${admission} socket=PRESENT service-key=PRESENT retrieval-key=PRESENT" >&2
 }
 
 # Read the restarted process' NUL-delimited /proc environ and assert the runtime bindings
@@ -267,6 +288,59 @@ native_runtime_assert_api_env_file() {
     echo "✗ native runtime process env missing or inconsistent" >&2
     return 1
   fi
+}
+
+# Type=simple becomes active before ExecStart finishes exec. Re-read MainPID each sample;
+# a replaced PID or invalid environment breaks the consecutive-valid sequence (#4848).
+native_runtime_api_process_env_file() {
+  printf '/proc/%s/environ' "$1"
+}
+
+native_runtime_wait_for_api_env() {
+  local service=$1 expected_socket=$2 expected_admission=$3
+  local attempts=${DEPLOY_NATIVE_ENV_READINESS_ATTEMPTS:-30}
+  local timeout_seconds=${DEPLOY_NATIVE_ENV_READINESS_TIMEOUT_SECONDS:-30}
+  local required=${DEPLOY_NATIVE_ENV_STABLE_SAMPLES:-2}
+  local interval=${DEPLOY_READINESS_INTERVAL_SECONDS:-1}
+  local attempt deadline remaining query_timeout pid after_pid file stable=0 stable_pid=""
+  if [[ ! "$attempts" =~ ^[1-9][0-9]*$ || ! "$timeout_seconds" =~ ^[1-9][0-9]*$ ||
+        ! "$required" =~ ^[1-9][0-9]*$ || ! "$interval" =~ ^[0-9]+$ ]]; then
+    echo "✗ invalid native API process env readiness budget" >&2
+    return 1
+  fi
+  deadline=$((SECONDS + timeout_seconds))
+  for ((attempt = 1; attempt <= attempts && SECONDS < deadline; attempt++)); do
+    remaining=$((deadline - SECONDS))
+    query_timeout=$((remaining < 2 ? remaining : 2))
+    pid=$(timeout --signal=KILL "$query_timeout" systemctl show --property MainPID --value "$service" 2>/dev/null) || pid=""
+    if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
+      file=$(native_runtime_api_process_env_file "$pid")
+      if native_runtime_assert_api_env_file "$file" "$expected_socket" "$expected_admission" 2>/dev/null; then
+        remaining=$((deadline - SECONDS))
+        ((remaining > 0)) || break
+        query_timeout=$((remaining < 2 ? remaining : 2))
+        after_pid=$(timeout --signal=KILL "$query_timeout" systemctl show --property MainPID --value "$service" 2>/dev/null) || after_pid=""
+        if [[ "$after_pid" == "$pid" ]] && ((SECONDS < deadline)); then
+          if [[ "$stable_pid" == "$pid" ]]; then stable=$((stable + 1)); else stable=1; fi
+          stable_pid=$pid
+          echo "  Native API env sample=${attempt} stable=${stable}/${required}"
+          if ((stable >= required)); then return 0; fi
+        else
+          stable=0; stable_pid=""
+        fi
+      else
+        stable=0; stable_pid=""
+      fi
+    else
+      stable=0; stable_pid=""
+    fi
+    if ((attempt < attempts && SECONDS < deadline)); then
+      remaining=$((deadline - SECONDS))
+      sleep "$((interval < remaining ? interval : remaining))"
+    fi
+  done
+  echo "✗ native API process env readiness timed out; no stable process with expected runtime bindings" >&2
+  return 1
 }
 
 # 2026-09-08（#3033）：API 侧把 run_control_callback.base_url 交给 Deep Agent 时读的是

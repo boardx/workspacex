@@ -68,7 +68,7 @@ test.describe.serial("端到端自检：蓝本设计器 14 项全部结构化，
 
     // ⚠ 前缀选择器会连带匹配卡片内部的 tpl-live-card-name/-state 等子元素，
     //   必须用 Card 容器（div）收窄——同 blueprint-contract-gap-audit 的既有注释。
-    const card = page.locator('div[data-testid^="tpl-live-card-bp-"]').filter({ hasText: BLUEPRINT_NAME });
+    const card = page.locator('[data-testid^="tpl-live-card-bp-"]').filter({ hasText: BLUEPRINT_NAME });
     await expect(card).toBeVisible();
     const testId = await card.getAttribute("data-testid");
     blueprintId = (testId ?? "").replace("tpl-live-card-", "");

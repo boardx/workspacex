@@ -49,8 +49,8 @@ it("outline controls reorder raw sibling groups and retain stable question refer
   const second = "## [财务专家](#expert-finance)\n\n1. 谁批准预算？\n";
   const change = vi.fn();
   render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: first + second }} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
-  expect(screen.getByRole("button", { name: "上移当前分组" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "下移当前分组" }));
+  expect(screen.getByRole("button", { name: "上移专家 采购专家" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "下移专家 采购专家" }));
   expect(change).toHaveBeenCalledWith(second + first);
 });
 it("shows every expert question group and uses the left rail only as a scroll shortcut", () => {
@@ -280,7 +280,7 @@ it("shows expert identity cards and only direct questions in the outline workspa
   const expertsDocument = { ...source, step: "experts" as const, markdown: `## [${expert.displayName}](#expert-${expert.expertId})\n\n### 专业角色\n护士长\n` };
   render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: raw }} directory={[]} expertsDocument={expertsDocument} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
 
-  const expertCard = screen.getByRole("button", { name: new RegExp(expert.displayName) });
+  const expertCard = within(screen.getByRole("navigation", { name: "访谈问题分组" })).getByRole("button", { name: expert.displayName });
   expect(within(expertCard).getByRole("img", { name: `${expert.displayName}的插画头像` })).toBeVisible();
   expect(within(expertCard).getByText(expert.displayName)).toBeVisible();
   expect(within(expertCard).getByText("护士长")).toBeVisible();

@@ -6,6 +6,16 @@ function keyOf(scope: DraftScope): string | null {
 }
 function read(key: string | null): string { try { return key ? sessionStorage.getItem(key) ?? "" : ""; } catch { return ""; } }
 function write(key: string | null, text: string) { try { if (key) { if (text) sessionStorage.setItem(key, text); else sessionStorage.removeItem(key); } } catch { /* Keep the in-memory draft when storage is unavailable. */ } }
+/**
+ * Seed the draft for a scope once, e.g. from a `/chat?prefill=` deep link (agent detail
+ * 「在对话中发起」). Never overwrites text the user already typed in that scope.
+ */
+export function seedComposerDraft(scope: DraftScope, text: string): boolean {
+  const key = keyOf(scope);
+  if (!key || !text.trim() || read(key)) return false;
+  write(key, text);
+  return true;
+}
 /** Unsent text survives task navigation. A newly created task takes ownership of its draft. */
 export function useComposerDraft(scope: DraftScope) {
   const key = keyOf(scope);

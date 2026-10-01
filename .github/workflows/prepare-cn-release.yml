@@ -49,7 +49,7 @@ jobs:
           revision="${RUN_SHA}"
           [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && revision="${INPUT_SHA}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "${revision}" ]] || { echo "::error::release SHA or checkout differs"; exit 1; }
-          git fetch --no-tags origin main
+          git rev-parse --verify origin/main >/dev/null
           git merge-base --is-ancestor "${revision}" origin/main || { echo "::error::release SHA is not contained in main"; exit 1; }
           cache=/opt/workspacex-cn/release-origin-cache.git
           repository=/opt/workspacex-cn/repository
@@ -67,6 +67,10 @@ jobs:
             [.harness/scripts/vm/build-cn-release-candidate.sh]=/usr/local/bin/workspacex-cn-build-candidate
             [.harness/scripts/vm/publish-cn-release.sh]=/usr/local/lib/workspacex-cn/publish-cn-release.sh
             [.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+            [.harness/scripts/vm/collect-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
+            [.harness/scripts/vm/cn-release-preflight-evidence.mjs]=/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs
+            [.harness/scripts/vm/cn-release-orphans.py]=/usr/local/lib/workspacex-cn/cn-release-orphans.py
+            [.harness/scripts/vm/cn-bootstrap-source-probe.mjs]=/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs
           )
           for source in "${!trusted[@]}"; do
             target=${trusted[$source]}
@@ -91,8 +95,15 @@ jobs:
             revision="${INPUT_SHA}"
             release="${INPUT_RELEASE}"
           fi
+          attempt_id="gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release SHA must be exact"; exit 1; }
-          if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}"; then
+          if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}" "${attempt_id}"; then
             echo "::error::CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED: verify the exact NOPASSWD sudoers rule and protected prebuild receipt"
             exit 1
           fi
+          {
+            echo "### CN release candidate"
+            echo "- Exact SHA: \`${revision}\`"
+            echo "- Release: \`${release}\`"
+            echo "- Attempt: \`${attempt_id}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

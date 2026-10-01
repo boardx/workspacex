@@ -32,7 +32,7 @@ test("research persists all five model-backed steps through the real UI, API and
     await expect(page.getByRole("button", { name: "1 导入需求", exact: true })).toHaveAttribute("aria-current", "step");
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
-  await expect(page.getByRole("heading", { name: "确认研究主题", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: researchName, exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/research\/[^/]+\/topic$/);
   await expect(page.getByTestId("research-topic-information")).toBeVisible();
   await page.getByRole("button", { name: "AI 助手", exact: true }).click();
@@ -47,7 +47,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-skill-messages")).toContainText("请检查研究方向");
   await page.getByRole("button", { name: "AI 助手", exact: true }).click();
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
-    await expect(page.getByRole("heading", { name: expectedTitle === "研究方向" ? "确认研究主题" : "研究计划", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: researchName, exact: true })).toBeVisible();
     await expect(page.getByTestId(expectedTitle === "研究方向" ? "guided-research-topic-panel" : "guided-research-plan-panel")).toHaveAttribute(
       "data-reference-layout",
       expectedTitle === "研究方向" ? "topic-workspace" : "plan-workspace",
@@ -55,24 +55,24 @@ test("research persists all five model-backed steps through the real UI, API and
     if (expectedTitle !== "报告大纲") await expect(page.getByRole("button", { name: "下一步：研究计划", exact: true })).toBeEnabled();
     if (expectedTitle === "报告大纲") {
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
-      const preview = page.getByTestId("guided-research-markdown-preview");
-      await expect(preview).toBeVisible();
+      const plans = page.getByRole("list", { name: "研究计划", exact: true });
+      await expect(plans).toBeVisible();
       await expect(page.getByTestId("guided-research-markdown-editor")).toHaveCount(0);
-      await preview.dblclick();
-      const editor = page.getByTestId("guided-research-markdown-editor");
+      await page.getByRole("button", { name: /^编辑计划 1/ }).click();
+      const editor = page.getByRole("textbox", { name: "计划 1", exact: true });
       await expect(editor).toBeVisible();
-      await editor.fill((await editor.inputValue()).replace(/目标：[^\n]+/, "目标：核实政策适用范围与实施约束"));
-      await expect(page.getByRole("button", { name: "保存 Markdown", exact: true })).toBeEnabled();
+      await editor.fill("核实政策适用范围与实施约束");
+      await expect(page.getByRole("button", { name: "保存计划", exact: true })).toBeEnabled();
       const savedDraft = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
         && response.request().method() === "POST" && response.request().postDataJSON()?.action === "save");
-      await page.getByRole("button", { name: "保存 Markdown", exact: true }).click();
+      await page.getByRole("button", { name: "保存计划", exact: true }).click();
       await page.getByRole("button", { name: "确认保存", exact: true }).click();
       expect((await savedDraft).ok()).toBe(true);
       await page.reload();
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
-      await page.getByTestId("guided-research-markdown-preview").dblclick();
-      await expect(page.getByTestId("guided-research-markdown-editor")).toHaveValue(/目标：核实政策适用范围与实施约束/);
-      await page.getByRole("button", { name: "取消", exact: true }).click();
+      await page.getByRole("button", { name: /^编辑计划 1/ }).click();
+      await expect(page.getByRole("textbox", { name: "计划 1", exact: true })).toHaveValue("核实政策适用范围与实施约束");
+      await page.getByRole("textbox", { name: "计划 1", exact: true }).press("Enter");
       await expect(page.getByTestId("guided-research-markdown-editor")).toHaveCount(0);
       await expect(page.getByTestId("research-intent-card")).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("research-plan-markdown.png"), fullPage: true });
@@ -108,6 +108,10 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.setViewportSize({ width: 1280, height: 900 });
   const reportResponse = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.node === "research");
   await page.getByRole("button", { name: "确认并继续", exact: true }).click();
+  await expect(page).toHaveURL(/\/research\/[^/]+\/chapters$/);
+  await page.reload();
+  await expect(page.getByTestId("research-chapters-workspace")).toBeVisible();
+  await page.getByRole("button", { name: "下一步：生成报告", exact: true }).click();
   const streamResponse = await reportResponse;
   expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
   await expect(page.getByTestId("research-report-timeline")).toBeVisible();
@@ -128,7 +132,7 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
-  expect(runtime.outline[0].objective).toBe("核实政策适用范围与实施约束");
+  expect(runtime.outline[0].title).toBe("核实政策适用范围与实施约束");
   // One deliberately invalid evidence response is repaired automatically without a second UI command.
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
   expect(runtime.errorCode).toBeNull();

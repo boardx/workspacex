@@ -1,0 +1,37 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/work-eval/eval-runner.test.ts (19 tests | 1 failed | 18 skipped) 108ms
+   × harness eval runner (EV02) > refuses changed grader bytes in the same process instead of reusing its cached module 106ms
+     → expected +0 to be 2 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/work-eval/eval-runner.test.ts > harness eval runner (EV02) > refuses changed grader bytes in the same process instead of reusing its cached module
+AssertionError: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/work-eval/eval-runner.test.ts:163:29
+    161|     const errors: string[] = [];
+    162|     const second = await S003(root, { err: message => errors.push(mess…
+    163|     expect(second.exitCode).toBe(EXIT.SUITE_INVALID);
+       |                             ^
+    164|     expect(second.reportPath).toBeNull();
+    165|     expect(errors.join("\n")).toContain("fresh process");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 skipped (19)
+   Start at  07:12:23
+   Duration  3.07s (transform 1.85s, setup 0ms, collect 2.24s, tests 108ms, environment 0ms, prepare 66ms)
+
+undefined
+/workspace/eval-evidence-trust-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/work-eval/eval-runner.test.ts -t refuses changed grader bytes

@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/eval-runner.test.ts (18 tests) 7688ms
+   ✓ harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported 2344ms
+   ✓ harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2 4393ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  07:08:31
+   Duration  11.17s (transform 2.33s, setup 0ms, collect 2.65s, tests 7.69s, environment 0ms, prepare 69ms)

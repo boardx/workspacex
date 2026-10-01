@@ -15,6 +15,7 @@ import {
   KG_CLAIM_KIND_DISPLAY_ORDER,
   KG_CLAIM_KIND_LABEL_ZH,
   KG_GRAPH_VIEW_MAX_NODES,
+  KG_OBJECT_KIND_LABEL_ZH as CONTRACT_OBJECT_KIND_LABEL_ZH,
   KG_TRI_STATE_LABEL_ZH,
   type KgClaim,
   type KgClaimKind,
@@ -34,16 +35,7 @@ export { KG_CLAIM_KIND_LABEL_ZH };
 export const KG_CLAIM_KIND_ORDER: readonly KgClaimKind[] = KG_CLAIM_KIND_DISPLAY_ORDER;
 
 /* ── 「人和事」按类型显示（用词表：实体 → 人物 / 公司 / 项目 / …），界面不出现「实体」字样 ── */
-export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = {
-  person: "人物",
-  organization: "公司",
-  project: "项目",
-  product: "产品",
-  concept: "概念",
-  term: "术语",
-  metric: "指标",
-  event: "事件",
-};
+export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = CONTRACT_OBJECT_KIND_LABEL_ZH;
 
 /** 全部禁用词（R5 用词表的内部术语）——单测用它扫界面上渲染出来的文字，确保说人话。 */
 export const KG_BANNED_USER_FACING_WORDS = ["实体", "结论", "三态", "晋升", "本体", "L0", "L1"] as const;

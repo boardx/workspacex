@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 
@@ -23,7 +23,7 @@ describe("LiveSurveyLibrary", () => {
     render(<LiveSurveyLibrary />);await screen.findByRole('heading',{name:'还没有问卷'});
     fireEvent.click(screen.getByTestId('survey-create-primary'));
     fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'产品调研'}});
-    fireEvent.change(screen.getByLabelText('标签'),{target:{value:'产品'}});
+    fireEvent.change(screen.getByTestId('survey-create-tag-input'),{target:{value:'产品'}});
     fireEvent.click(screen.getByRole('button',{name:'下一步'}));
     await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/created/design'));
     expect(request).toHaveBeenLastCalledWith('/surveys',expect.objectContaining({method:'POST',body:expect.objectContaining({title:'产品调研',tags:['产品'],questions:[]})}),expect.anything());
@@ -59,8 +59,8 @@ describe("LiveSurveyLibrary", () => {
       {id:"r3",quality:"normal",analysis:"excluded"},
     ]})]);
     render(<LiveSurveyLibrary />);
-    const label = await screen.findByText("有效答卷");
-    expect(label.parentElement).toHaveTextContent("2有效答卷");
+    // 统计并入标准卡片的副标题：「N 个题目 · M 份答卷（有效 K）」，有效数口径不变
+    expect(await screen.findByTestId("survey-card-survey-1")).toHaveTextContent("有效 2");
   });
   it("shows real survey status and routes collecting surveys to response review", async () => {
     request.mockResolvedValueOnce([survey()]);
@@ -71,11 +71,11 @@ describe("LiveSurveyLibrary", () => {
     expect(push).toHaveBeenCalledWith("/studio/survey/survey-1/responses");
   });
 
-  it("presents the approved library hierarchy with a neutral visual cover", async () => {
+  it("presents the approved library hierarchy in the standard resource card", async () => {
     request.mockResolvedValueOnce([survey({ tags: ["客户调研", "满意度"] })]);
     render(<LiveSurveyLibrary />);
 
-    expect(await screen.findByTestId("survey-card-cover-survey-1")).toBeInTheDocument();
+    expect(await screen.findByTestId("survey-card-survey-1")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "导入 Markdown" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "问卷二级导航" })).toHaveClass("survey-library-nav");
     expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("发布中");
@@ -99,7 +99,12 @@ describe("LiveSurveyLibrary", () => {
     request.mockResolvedValueOnce([]);
     render(<LiveSurveyLibrary />);
     expect(await screen.findByRole("heading", { name: "还没有问卷" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(2);
+    const create = within(screen.getByTestId("empty")).getByRole("button", { name: "新建问卷" });
+    expect(create).toHaveClass("bg-primary");
+    fireEvent.click(create);
+    expect(screen.getByRole("dialog", { name: "新建问卷" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
   });
   it("filters by real tags and keeps templates optional without status filters", async () => {
@@ -107,7 +112,7 @@ describe("LiveSurveyLibrary", () => {
     render(<LiveSurveyLibrary />);
     await screen.findByRole('link',{name:'员工体验'});
     expect(screen.queryByRole('button',{name:/草稿.*筛选/})).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button',{name:'客户调研'}));
+    fireEvent.click(screen.getByRole('button',{name:/^客户调研/}));
     expect(screen.getByRole('link',{name:'客户满意度'})).toBeInTheDocument();
     expect(screen.queryByRole('link',{name:'员工体验'})).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:'报告模板'})).toBeInTheDocument();
@@ -120,7 +125,7 @@ describe("LiveSurveyLibrary", () => {
     await screen.findByRole("link", { name: "客户满意度" });
     expect(screen.queryByRole("button", { name: "标签8" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /更多标签/ }));
-    fireEvent.click(screen.getByRole("button", { name: "标签8" }));
+    fireEvent.click(screen.getByRole("button", { name: /^标签8/ }));
     expect(screen.getByRole("link", { name: "客户满意度" })).toBeInTheDocument();
   });
 });

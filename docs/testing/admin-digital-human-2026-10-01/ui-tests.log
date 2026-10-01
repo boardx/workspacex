@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/admin-digital-human-fixes/apps/web
+
+ ✓ tests/ui/admin-official-digital-human.test.tsx (5 tests) 456ms
+   ✓ 后台官方数字人发现与启用 > 显式打开才读取；启用传完整依赖要约并刷新后台目录 333ms
+ ✓ tests/ui/admin-agent-catalog.test.tsx (7 tests) 927ms
+   ✓ Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板 > ③ 点卡片打开侧边面板：字段、就地改名（真的打 mutate）、停用确认都在面板里 315ms
+ ✓ tests/session/agent-admin-route-no-mock.test.ts (5 tests) 83ms
+ ✓ tests/ui/home-config-admin-v2.test.tsx (19 tests) 579ms
+
+ Test Files  4 passed (4)
+      Tests  36 passed (36)
+   Start at  05:53:11
+   Duration  5.77s (transform 2.81s, setup 845ms, collect 8.67s, tests 2.04s, environment 2.93s, prepare 376ms)
+

@@ -7,6 +7,7 @@
  */
 import {
   WORKFLOW_TERMINAL_STATUSES,
+  WorkflowEffectProvenance,
   type WorkflowDefinitionVersionView,
   type WorkflowInstanceProjection,
   type WorkflowInstanceStatus,
@@ -14,6 +15,7 @@ import {
 import { deriveGates, gateView, isApproverOfAnyGate } from "./human-gate-state";
 import { WorkflowUseCaseError } from "./workflow-errors";
 import type { WorkflowActor, WorkflowDefinitionRepository } from "./workflow-ports";
+import { goalFromTriggerInput } from "./trigger-goal";
 import type {
   WorkflowAccessPort,
   WorkflowEventStore,
@@ -34,8 +36,9 @@ export function isTerminal(status: WorkflowInstanceStatus): boolean {
   return WORKFLOW_TERMINAL_STATUSES.includes(status);
 }
 
+/** 阶段产出链接指向前端产出页（与 Board 运行卡 href 同一族）；API 没有 `/outputs/:id` 路由。 */
 export function stageOutputHref(instanceId: string, outputId: string): string {
-  return `/workflow-instances/${encodeURIComponent(instanceId)}/outputs/${encodeURIComponent(outputId)}`;
+  return `/workflows/runs/${encodeURIComponent(instanceId)}/result?output=${encodeURIComponent(outputId)}`;
 }
 
 export function buildProjection(
@@ -115,9 +118,10 @@ export function buildProjection(
     status: instance.status,
     stateVersion: instance.stateVersion,
     reasonCode: instance.reasonCode,
+    goal: goalFromTriggerInput(events.find((e) => e.type === "instance_started")?.data.input),
     stages,
     openGate: openGateView(events, definition, viewer, instance),
-    effects: [],
+    effects: projectEffects(instance, events),
     lastSeq,
     viewerCapabilities: {
       canCancel: mayControl && !terminal && instance.status !== "cancelling",
@@ -174,4 +178,36 @@ export async function loadVisibleProjection(
     throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
   }
   return buildProjection(snap, definition, actor);
+}
+
+/** Effects are observed only within this snapshot's event prefix, never from a later receipt read. */
+function projectEffects(instance: WorkflowInstanceState, events: WorkflowStoredEvent[]): WorkflowInstanceProjection["effects"] {
+  const effects = new Map<string, WorkflowInstanceProjection["effects"][number]>();
+  for (const event of events) {
+    if (!event.stageId || typeof event.data.effectKey !== "string" || typeof event.data.capabilityCategory !== "string") continue;
+    const key = JSON.stringify([event.stageId, event.data.effectKey]);
+    const previous = effects.get(key);
+    const status = event.type === "effect_begun" ? "begun"
+      : event.type === "effect_finalized" ? (event.data.reconciled === true ? "reconciled" : "finalized")
+      : event.type === "effect_blocked" && event.reasonCode === "effect_unreconciled" && previous ? "unresolved" : null;
+    if (!status) continue;
+    // A duplicate begin cannot erase an already observed finalization.
+    if (status === "begun" && previous) continue;
+    const provenance = event.data.provenance;
+    const recorded = typeof provenance === "object" && provenance !== null ? provenance as Record<string, unknown> : {};
+    const hasProvenance = typeof recorded.initiatorUserId === "string" && typeof recorded.agentId === "string"
+      && typeof recorded.agentVersionId === "string" && (recorded.approvalRequestId === null || typeof recorded.approvalRequestId === "string");
+    const parsed = WorkflowEffectProvenance.safeParse({
+      effectKey: event.data.effectKey, stageId: event.stageId, capabilityCategory: event.data.capabilityCategory, status,
+      initiatorUserId: hasProvenance ? recorded.initiatorUserId : previous?.initiatorUserId ?? instance.initiatorUserId,
+      agentId: hasProvenance ? recorded.agentId : previous?.agentId ?? instance.agentId,
+      agentVersionId: hasProvenance ? recorded.agentVersionId : previous?.agentVersionId ?? instance.agentVersionId,
+      gateId: hasProvenance ? recorded.approvalRequestId : previous?.gateId ?? null,
+      // Receipts currently do not record a skill pin or expose their finalized timestamp in events.
+      // Legacy events likewise cannot identify the actual approving gate: never infer one from proximity.
+      skillVersion: null, finalizedAt: null,
+    });
+    if (parsed.success) effects.set(key, parsed.data);
+  }
+  return [...effects.values()];
 }

@@ -70,7 +70,7 @@ export function invalidateOrgAvatar(orgId: string): void {
   orgAvatarListeners.forEach((l) => l());
 }
 
-function useOrgAvatarUrl(orgId: string, identityAvatarUrl: string | null, adminCanRefresh: boolean): string | null {
+export function useOrgAvatarUrl(orgId: string, identityAvatarUrl: string | null, adminCanRefresh: boolean): string | null {
   // override：`invalidateOrgAvatar` 之后经空补丁读拿到的比 session identity 更新的权威值
   // （模块缓存里的条目）。undefined = 没有覆盖值，用 identity 里登录即得的那份。
   const [override, setOverride] = React.useState<string | null | undefined>(() =>

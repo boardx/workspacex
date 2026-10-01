@@ -91,16 +91,16 @@ describe("MCP 服务器屏：真实数据的卡片目录 + 面板", () => {
     render(<McpScreen state="default" />);
     await screen.findByTestId("admin-mcp-list");
     const filters = screen.getByTestId("admin-mcp-tag-filters");
-    expect(within(filters).getByTestId("admin-mcp-tag-filter-intranet").textContent).toContain("内网 1");
-    expect(within(filters).getByTestId("admin-mcp-tag-filter-pending-security-review").textContent).toContain("待安全评审 2");
-    expect(within(filters).getByTestId("admin-mcp-tag-filter-connected").textContent).toContain("已连接 1");
-    expect(within(filters).getByTestId("admin-mcp-tag-filter-customer-data").textContent).toContain("涉客户数据 1");
+    expect(within(filters).getByTestId("admin-mcp-tag-intranet").textContent).toContain("内网 1");
+    expect(within(filters).getByTestId("admin-mcp-tag-pending-security-review").textContent).toContain("待安全评审 2");
+    expect(within(filters).getByTestId("admin-mcp-tag-connected").textContent).toContain("已连接 1");
+    expect(within(filters).getByTestId("admin-mcp-tag-customer-data").textContent).toContain("涉客户数据 1");
 
-    fireEvent.click(screen.getByTestId("admin-mcp-tag-filter-internet"));
+    fireEvent.click(screen.getByTestId("admin-mcp-tag-internet"));
     expect(screen.queryByTestId("admin-mcp-card-crm")).toBeNull();
     expect(screen.getByTestId("admin-mcp-card-deepwiki")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("admin-mcp-tag-filter-all"));
+    fireEvent.click(screen.getByTestId("admin-mcp-tag-all"));
     fireEvent.change(screen.getByTestId("admin-mcp-search"), { target: { value: "salesforce" } });
     expect(screen.getByTestId("admin-mcp-card-crm")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-mcp-card-deepwiki")).toBeNull();

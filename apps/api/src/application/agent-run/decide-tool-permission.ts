@@ -15,6 +15,7 @@ import { AGENT_INTERRUPTS_TOOL_NAME_LIST } from "@repo/contracts/agent-interrupt
  * 可见性/权限纪律逐字沿用 `decideAgentRun`（同目录）：locator → resolveVisibility →
  * observer/归档线程禁操作 → 条件 UPDATE 输了竞态按冲突报，不重试不覆盖。
  */
+import { REQUEST_HANDOFF_TOOL_NAME } from "@repo/contracts/agent-role";
 import type { ToolPermissionDecisionKind } from "@repo/contracts/plan-permissions";
 import type { OrgId } from "../../domain/org-id";
 import { AGENT_WORKFLOW_START_TOOL_NAME } from "../agent/request-agent-workflow-start";
@@ -78,6 +79,10 @@ export async function decideToolPermission(
   // AG05：start_workflow 的结果只由服务端算出；放行（once/run/forever）等于执行模型原参数，只允许拒绝。
   if (beforeDisclosed.payload.pendingApproval?.toolName === AGENT_WORKFLOW_START_TOOL_NAME && input.decision !== "deny") {
     throw new RunNotAwaitingToolPermissionError("workflow_start_outcome_is_server_computed");
+  }
+  // AG07：request_handoff 的结果只由网关算出；放行等于执行模型原参数，只允许拒绝。
+  if (beforeDisclosed.payload.pendingApproval?.toolName === REQUEST_HANDOFF_TOOL_NAME && input.decision !== "deny") {
+    throw new RunNotAwaitingToolPermissionError("handoff_outcome_is_server_computed");
   }
   if (!deps.runs.decidePermissionRequest || !await deps.runs.decidePermissionRequest(
     input.orgId, input.runId, permissionRequestId, input.decision, input.userId,

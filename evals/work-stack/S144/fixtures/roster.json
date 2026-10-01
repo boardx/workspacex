@@ -1,0 +1,25 @@
+{
+  "org": "synthetic-org-acme",
+  "teams": {
+    "team-backend": {
+      "manager": "u-mgr-backend",
+      "members": [
+        "person:p1",
+        "person:p2",
+        "person:p3"
+      ]
+    }
+  },
+  "callers": {
+    "u-mgr-backend": {
+      "role": "manager",
+      "teams": [
+        "team-backend"
+      ]
+    },
+    "u-analyst": {
+      "role": "pmo-analyst",
+      "teams": []
+    }
+  }
+}

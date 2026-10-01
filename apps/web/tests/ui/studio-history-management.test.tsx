@@ -1,3 +1,4 @@
+import { tagInputLimits, interview } from "@repo/contracts";
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -5,7 +6,7 @@ import { StudioMetadataDialog, StudioDeleteDialog } from "@/components/studio/st
 
 function edit(onSave: (draft: { name: string; tags: readonly string[] }) => Promise<void>) {
   const onOpenChange = vi.fn();
-  render(<StudioMetadataDialog business="访谈" prefix="test" open initialName="原名称" initialTags={["旧标签"]} onSave={onSave} onOpenChange={onOpenChange} />);
+  render(<StudioMetadataDialog tagLimits={tagInputLimits(interview.operations.updateDigitalInterviewMetadata.in.shape.tags)} business="访谈" prefix="test" open initialName="原名称" initialTags={["旧标签"]} onSave={onSave} onOpenChange={onOpenChange} />);
   return onOpenChange;
 }
 
@@ -15,7 +16,7 @@ describe("Studio history management", () => {
     const save = vi.fn(() => new Promise<void>(done => { resolve = done; }));
     const closed = edit(save);
     fireEvent.change(screen.getByTestId("test-edit-name"), { target: { value: "  新名称  " } });
-    fireEvent.change(screen.getByTestId("test-edit-tags"), { target: { value: " 新标签 " } });
+    fireEvent.change(screen.getByTestId("test-edit-tag-input"), { target: { value: " 新标签 " } });
     const form = screen.getByTestId("test-edit-submit").closest("form")!;
     fireEvent.submit(form);
     fireEvent.submit(form);
@@ -31,12 +32,12 @@ describe("Studio history management", () => {
     const save = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(undefined);
     const closed = edit(save);
     fireEvent.change(screen.getByTestId("test-edit-name"), { target: { value: "保留名称" } });
-    fireEvent.change(screen.getByTestId("test-edit-tags"), { target: { value: "保留标签" } });
+    fireEvent.change(screen.getByTestId("test-edit-tag-input"), { target: { value: "保留标签" } });
     fireEvent.click(screen.getByTestId("test-edit-submit"));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(closed).not.toHaveBeenCalled();
     expect(screen.getByTestId("test-edit-name")).toHaveValue("保留名称");
-    expect(screen.getByTestId("test-edit-tags")).toHaveValue("保留标签");
+    expect(screen.getByTestId("test-edit-tag-input")).toHaveValue("保留标签");
     fireEvent.click(screen.getByTestId("test-edit-submit"));
     await waitFor(() => expect(closed).toHaveBeenCalledWith(false));
     expect(save).toHaveBeenCalledTimes(2);

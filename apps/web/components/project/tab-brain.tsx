@@ -10,7 +10,7 @@ import { ProjectEvidenceSection } from "./project-evidence-section";
 export function TabBrain({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col" data-testid="project-brain-tab">
-      <div className="mx-auto w-full max-w-4xl px-6 pt-6">
+      <div className="mx-auto w-full max-w-5xl px-4 pt-4 sm:px-6 sm:pt-6">
         <ProjectBrainPanel projectId={projectId} />
       </div>
       <ProjectEvidenceSection projectId={projectId} />

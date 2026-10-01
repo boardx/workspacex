@@ -1,12 +1,13 @@
 "use client";
 import * as React from "react";
+import { LiveMessagesContext } from "@/lib/chat-workbench/tool-preamble";
 import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 import { CopilotChatMessageView, CopilotChatAssistantMessage, useRenderToolCall } from "@copilotkit/react-core/v2";
 import { progressMessageIds, type TraceStore, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { V2AssistantMessage } from "@/components/chat/copilotkit-v2-assistant-message";
 import { RunInterjections } from "./run-interjections";
 import { RunTracePanel } from "./run-trace-panel";
-import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
+import { RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
 import { JournalToolOutcomeContext } from "@/lib/chat-workbench/tool-outcome";
 
 function ExecutionTool({ entry }: { entry: TraceEntry }): React.ReactNode {
@@ -32,7 +33,8 @@ export const renderExecutionTool = (entry: TraceEntry) => {
   // write_todos is already projected as the single durable plan ledger. Keep its
   // trace row, arguments and status for audit, but do not turn every journal
   // snapshot into another full plan card inside the expanded trace.
-  return isDecisionTool(toolName) || toolName === "write_todos" ? null : <ExecutionTool entry={entry} />;
+  // UIUX r4：行内提示（转交被拒）已画在消息里，执行轨迹里再画一份就是同一句话出现两次。
+  return isDecisionTool(toolName) || isInlineNoticeTool(toolName) || toolName === "write_todos" ? null : <ExecutionTool entry={entry} />;
 };
 type TraceContext = { events: TraceStore; messageRuns: Readonly<Record<string, string>>; toolCallMessageIds?: ReadonlySet<string>; resolvePersistedMessageId?: (messageId: string) => string | null; isSettledMessageId?: (messageId: string) => boolean; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void;
   /** issue #3399 ② —— 未被采纳的插话必须有一条真的能把它发出去的路径。 */
@@ -98,7 +100,7 @@ export function TaskTimeline({ events, messageRuns, toolCallMessageIds = EMPTY_I
   // 同一份事实的另一面：有锚点的 run 由 inline 槽画，没锚点的才由 fallback 槽画。
   const displayed = new Set(Object.keys(anchors));
   return <TraceContext.Provider value={value}>
-    <CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} />
+    <LiveMessagesContext.Provider value={props.messages ?? null}><CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} /></LiveMessagesContext.Provider>
     {Object.entries(events).filter(([runId]) => !displayed.has(runId)).map(([runId, trace]) =>
       <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
   </TraceContext.Provider>;

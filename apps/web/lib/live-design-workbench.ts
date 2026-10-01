@@ -56,7 +56,9 @@ export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
 export const PROJECT_TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
   ui: "UI 原型",
-  wireframe: "线框图",
+  // design-delta `novice-workbench-list`：普通用户评测集把「线框图」列为术语（第一次来的业务人员不认得）。
+  // 只改展示名，存储值仍是 `wireframe`。
+  wireframe: "草图",
 };
 
 /** 空状态引导语 / 固定回执——展示层文案，不落库（见契约文件头【待确认点 2】）。 */

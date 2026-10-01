@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { TagChip } from "@/components/ui/tag-chip";
+import { hasTag, normalizeTag, sameTag } from "@/lib/tag-utils";
 
 /**
  * 标签输入器——**全仓唯一一份**（2026-09-09 人类指令：「标签的输入，请参考其他的界面的
@@ -64,15 +66,22 @@ export function TagInput({
   const trimmed = text.trim();
   const full = maxTags !== undefined && value.length >= maxTags;
 
+  // 被拒绝/被截断时的一句人话（输入框再动就消失）——不静默吞掉用户的输入
+  const [notice, setNotice] = React.useState<string | null>(null);
+
   function add(tag: string): void {
-    const t = maxTagLength === undefined ? tag.trim() : tag.trim().slice(0, maxTagLength);
+    const normalized = normalizeTag(tag);
+    const t = maxTagLength === undefined ? normalized : normalized.slice(0, maxTagLength);
     setText("");
-    if (t.length === 0 || value.includes(t) || full) return;
+    if (t.length === 0 || full) return;
+    // 忽略大小写去重：「Client」「client」是同一个标签（lib/tag-utils.ts）
+    if (hasTag(value, t)) { setNotice(`「${t}」已经有了`); return; }
+    setNotice(t.length < normalized.length ? `标签最多 ${String(maxTagLength)} 个字，已截断为「${t}」` : null);
     onChange([...value, t]);
   }
 
   function remove(tag: string): void {
-    onChange(value.filter((t) => t !== tag));
+    onChange(value.filter((t) => !sameTag(t, tag)));
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
@@ -94,10 +103,10 @@ export function TagInput({
   const suggestions = React.useMemo(() => {
     if (full) return [];
     const pool = [...knownTags.entries()]
-      .filter(([tag]) => !value.includes(tag) && (trimmed.length === 0 || tag.includes(trimmed)))
+      .filter(([tag]) => !hasTag(value, tag) && (trimmed.length === 0 || tag.toLocaleLowerCase().includes(trimmed.toLocaleLowerCase())))
       .slice(0, 8)
       .map(([tag, count]) => ({ tag, note: noteFor?.(count) ?? "", isNew: false }));
-    if (trimmed.length > 0 && !knownTags.has(trimmed) && !value.includes(trimmed)) {
+    if (trimmed.length > 0 && !hasTag([...knownTags.keys()], trimmed) && !hasTag(value, trimmed)) {
       return [{ tag: trimmed, note: "回车也可以", isNew: true }, ...pool];
     }
     return pool;
@@ -110,24 +119,14 @@ export function TagInput({
         data-testid={`${testIdPrefix}-box`}
       >
         {value.map((tag) => (
-          <span
+          <TagChip
             key={tag}
-            className="flex items-center gap-1 rounded-full bg-inverse px-2 py-0.5 text-10 font-medium text-inverse-foreground"
-            data-testid={`${testIdPrefix}-chip-${tag}`}
+            testId={`${testIdPrefix}-chip-${tag}`}
+            removeTestId={`${testIdPrefix}-remove-${tag}`}
+            onRemove={disabled ? undefined : () => remove(tag)}
           >
             {tag}
-            {!disabled && (
-              <button
-                type="button"
-                className="text-inverse-foreground/70 transition-colors duration-fast hover:text-inverse-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={`移除标签 ${tag}`}
-                onClick={() => remove(tag)}
-                data-testid={`${testIdPrefix}-remove-${tag}`}
-              >
-                ×
-              </button>
-            )}
-          </span>
+          </TagChip>
         ))}
         <input
           className="min-w-32 flex-1 rounded-control bg-transparent text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
@@ -135,7 +134,7 @@ export function TagInput({
           value={text}
           disabled={disabled || full}
           maxLength={maxTagLength}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setNotice(null); }}
           onCompositionStart={() => { composing.current = true; }}
           onCompositionEnd={() => { composing.current = false; }}
           onKeyDown={onKeyDown}
@@ -167,7 +166,9 @@ export function TagInput({
       <span className="text-10 text-muted-foreground" data-testid={`${testIdPrefix}-hint`}>
         {full
           ? `最多 ${String(maxTags)} 个标签，已经满了——删掉一个才能再加`
-          : value.length > 0
+          : notice !== null
+            ? notice
+            : value.length > 0
             ? `已选 ${String(value.length)} 个标签`
             : (emptyHint ?? "输入即搜索已有标签，回车新建一个")}
       </span>
@@ -181,8 +182,54 @@ export function commitDraft(
   draft: string,
   opts?: { readonly maxTags?: number; readonly maxTagLength?: number },
 ): readonly string[] {
-  const t = opts?.maxTagLength === undefined ? draft.trim() : draft.trim().slice(0, opts.maxTagLength);
-  if (t === "" || value.includes(t)) return value;
+  const t = opts?.maxTagLength === undefined ? normalizeTag(draft) : normalizeTag(draft).slice(0, opts.maxTagLength);
+  if (t === "" || hasTag(value, t)) return value;
   if (opts?.maxTags !== undefined && value.length >= opts.maxTags) return value;
   return [...value, t];
 }
+
+/**
+ * 表单里的「标签」一栏：标题 +「n/上限」计数 + 共享 `TagInput`。创建/编辑弹窗一律用它，
+ * 不再各写一份「Badge 芯片 + 输入框」。上限/长度必须由调用方按自己模块的契约传入。
+ * 计数的 testid 是 `${testIdPrefix}-count`。
+ */
+export function TagField({
+  label = "标签（可选）", value, onChange, draft, onDraftChange, knownTags, maxTags, maxTagLength, noteFor, disabled, testIdPrefix, emptyHint,
+}: {
+  label?: string;
+  value: readonly string[];
+  onChange: (next: readonly string[]) => void;
+  draft: string;
+  onDraftChange: (next: string) => void;
+  knownTags?: ReadonlyMap<string, number>;
+  maxTags?: number;
+  maxTagLength?: number;
+  noteFor?: (count: number) => string;
+  disabled?: boolean;
+  testIdPrefix: string;
+  emptyHint?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-13 font-medium text-card-foreground">{label}</span>
+        <span data-testid={`${testIdPrefix}-count`} className="text-11 text-muted-foreground">{maxTags === undefined ? String(value.length) : `${String(value.length)}/${String(maxTags)}`}</span>
+      </div>
+      <TagInput
+        value={value}
+        onChange={onChange}
+        knownTags={knownTags ?? EMPTY_KNOWN}
+        noteFor={noteFor ?? ((n) => (n > 0 ? `${String(n)} 个在用` : ""))}
+        maxTags={maxTags}
+        maxTagLength={maxTagLength}
+        disabled={disabled}
+        draft={draft}
+        onDraftChange={onDraftChange}
+        testIdPrefix={testIdPrefix}
+        emptyHint={emptyHint}
+      />
+    </div>
+  );
+}
+
+const EMPTY_KNOWN: ReadonlyMap<string, number> = new Map();

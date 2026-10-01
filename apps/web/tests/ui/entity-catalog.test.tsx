@@ -38,7 +38,7 @@ function Harness({ rows, initialSelected = null }: { rows: readonly Row[]; initi
       keyOf={(r) => r.id}
       searchTextOf={(r) => `${r.name} ${r.id}`}
       tagsOf={(r) => [tagOf(r.status), tagOf(r.scope)]}
-      renderCard={(r) => <div>{r.name}</div>}
+      renderCard={(r) => ({ title: r.name })}
       onRefresh={() => {}}
       emptyState="没有行"
       selectedKey={selected}
@@ -53,33 +53,33 @@ describe("EntityCatalog · 卡片目录壳", () => {
   it("标签由行汇总并带数量；多选是「且」；「全部」清空", () => {
     render(<Harness rows={ROWS} />);
     const filters = screen.getByTestId("t-tag-filters");
-    expect(within(filters).getByTestId("t-tag-filter-enabled").textContent).toContain("已启用 2");
-    expect(within(filters).getByTestId("t-tag-filter-disabled").textContent).toContain("已停用 1");
-    expect(within(filters).getByTestId("t-tag-filter-team-only").textContent).toContain("team-only 1");
+    expect(within(filters).getByTestId("t-tag-enabled").textContent).toContain("已启用 2");
+    expect(within(filters).getByTestId("t-tag-disabled").textContent).toContain("已停用 1");
+    expect(within(filters).getByTestId("t-tag-team-only").textContent).toContain("team-only 1");
 
-    fireEvent.click(screen.getByTestId("t-tag-filter-enabled"));
+    fireEvent.click(screen.getByTestId("t-tag-enabled"));
     let list = screen.getByTestId("t-list");
     expect(list.textContent).toContain("排序器");
     expect(list.textContent).toContain("摘要器");
     expect(list.textContent).not.toContain("翻译器");
     // 数量基于全部行，不随已选标签变化。
-    expect(screen.getByTestId("t-tag-filter-disabled").textContent).toContain("已停用 1");
+    expect(screen.getByTestId("t-tag-disabled").textContent).toContain("已停用 1");
 
-    fireEvent.click(screen.getByTestId("t-tag-filter-team-only"));
+    fireEvent.click(screen.getByTestId("t-tag-team-only"));
     list = screen.getByTestId("t-list");
     expect(list.textContent).toBe("摘要器");
     expect(screen.getByTestId("t-count").textContent).toContain("筛选后 1 个");
 
-    fireEvent.click(screen.getByTestId("t-tag-filter-all"));
+    fireEvent.click(screen.getByTestId("t-tag-all"));
     expect(screen.getByTestId("t-list").textContent).toContain("翻译器");
-    expect(screen.getByTestId("t-tag-filter-all")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("t-tag-all")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("搜索与标签叠加是「且」；筛空显示 no-match，不是真实空态", () => {
     render(<Harness rows={ROWS} />);
     fireEvent.change(screen.getByTestId("t-search"), { target: { value: "器" } });
     expect(screen.getByTestId("t-list").textContent).toContain("翻译器");
-    fireEvent.click(screen.getByTestId("t-tag-filter-disabled"));
+    fireEvent.click(screen.getByTestId("t-tag-disabled"));
     expect(screen.getByTestId("t-list").textContent).toBe("翻译器");
     fireEvent.change(screen.getByTestId("t-search"), { target: { value: "摘要" } });
     expect(screen.queryByTestId("t-list")).toBeNull();

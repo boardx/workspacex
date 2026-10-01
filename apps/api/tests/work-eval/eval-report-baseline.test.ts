@@ -80,6 +80,7 @@ describe("harness eval --baseline (EV02)", () => {
       subjectVersionDigest: `sha256:${"a".repeat(64)}`,
       subjectVersionLabel: "t",
       fixturesDigest: `sha256:${"b".repeat(64)}`,
+      suiteDigest: `sha256:${"c".repeat(64)}`,
       runId: "r1",
     });
     expect(report.subject.passed).toBe(2);

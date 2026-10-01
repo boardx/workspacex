@@ -1,4 +1,4 @@
-import { ESCALATE_TOOL_NAME } from "@repo/contracts/agent-role";
+import { ESCALATE_TOOL_NAME, REQUEST_HANDOFF_TOOL_NAME } from "@repo/contracts/agent-role";
 import { AGENT_WORKFLOW_START_TOOL_NAME } from "../agent/request-agent-workflow-start";
 import { validateInterruptDecision } from "./validate-interrupt-decision";
 /**
@@ -81,6 +81,10 @@ export async function decideAgentRun(
   // 「已发起」；approve 会执行模型原参数（含模型自填的 outcome）。两者都拒绝，只允许 reject。
   if (beforeDisclosed.payload.pendingApproval?.toolName === AGENT_WORKFLOW_START_TOOL_NAME && input.decision !== "reject") {
     throw new AgentRunNotAwaitingToolPermissionError("workflow_start_outcome_is_server_computed");
+  }
+  // AG07：request_handoff 同理——结果（是否登记、登记了哪一行）只由网关按钉住的 delegationPolicy 算出。
+  if (beforeDisclosed.payload.pendingApproval?.toolName === REQUEST_HANDOFF_TOOL_NAME && input.decision !== "reject") {
+    throw new AgentRunNotAwaitingToolPermissionError("handoff_outcome_is_server_computed");
   }
   const form = beforeDisclosed.payload.pendingApproval?.interrupt;
   if (form && !validateInterruptDecision(form, input)) {

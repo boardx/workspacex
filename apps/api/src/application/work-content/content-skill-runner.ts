@@ -29,7 +29,12 @@ export interface AgentVersionModelPort {
   agentVersionModel(orgId: string, agentVersionId: string): Promise<{ modelProvider: string; modelId: string } | null>;
 }
 
-export type ContentSkillRunFailure = "agent_version_missing" | "skill_output_not_json_object";
+/** Read SKILL.md from the exact published version pinned by the Workflow, in its organization. */
+export interface ContentSkillInstructionsPort {
+  skillInstructions(orgId: string, stableId: string, semanticVersion: string): Promise<string | null>;
+}
+
+export type ContentSkillRunFailure = "agent_version_missing" | "skill_instructions_missing" | "skill_output_not_json_object";
 
 export class ContentSkillRunError extends Error {
   /** 机读错误码（`failureKindOf` 只看 code，不读 message）：`CONTENT_SKILL_AGENT_VERSION_MISSING` / `CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT`。 */
@@ -37,7 +42,8 @@ export class ContentSkillRunError extends Error {
   constructor(readonly reason: ContentSkillRunFailure, readonly skillId: string) {
     super(`content skill ${skillId}: ${reason}`);
     this.name = "ContentSkillRunError";
-    this.code = reason === "agent_version_missing" ? "CONTENT_SKILL_AGENT_VERSION_MISSING" : "CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT";
+    this.code = reason === "agent_version_missing" ? "CONTENT_SKILL_AGENT_VERSION_MISSING"
+      : reason === "skill_instructions_missing" ? "CONTENT_SKILL_INSTRUCTIONS_MISSING" : "CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT";
   }
 }
 
@@ -59,16 +65,20 @@ export class ModelContentSkillRunner implements ContentSkillRunnerPort {
   constructor(
     private readonly model: ModelCallPort,
     private readonly agents: AgentVersionModelPort,
+    private readonly skills: ContentSkillInstructionsPort,
   ) {}
 
   async run(call: ContentSkillInvocation): Promise<Record<string, unknown>> {
     const pinned = await this.agents.agentVersionModel(call.orgId, call.agentVersionId);
     if (!pinned) throw new ContentSkillRunError("agent_version_missing", call.skillId);
+    const instructions = await this.skills.skillInstructions(call.orgId, call.skillId, call.skillVersion);
+    if (!instructions?.trim()) throw new ContentSkillRunError("skill_instructions_missing", call.skillId);
     const completion = await this.model.complete({
       modelProvider: pinned.modelProvider,
       modelId: pinned.modelId,
       system: [
         `Workflow ${call.workflowId} stage ${call.stageId}: run Skill ${call.skillId}@${call.skillVersion}.`,
+        instructions,
         "Use the workflow input and the prior stage outputs in the user message.",
         CONTENT_SKILL_REPLY_INSTRUCTION,
       ].join("\n"),

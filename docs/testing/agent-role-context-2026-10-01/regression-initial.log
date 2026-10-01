@@ -1,0 +1,59 @@
+[stack-admission] load1=0.58 cores=5 perCore=0.12 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mup3zs7s-c1a61440-9315122972c3 db=wsx_9315122972c36950b170 compose=wsx-9315122972c36950b170 pg=20657 redis=21657 api=24657 web=25657 sandbox=26657 model=27657 deep-agent=28657 asr=29657 vision=30657 loopback-sandbox=31657 mail=19657
+ Network wsx-9315122972c36950b170_default  Creating
+ Network wsx-9315122972c36950b170_default  Created
+ Container wsx-9315122972c36950b170-postgres-1  Creating
+ Container wsx-9315122972c36950b170-postgres-1  Created
+ Container wsx-9315122972c36950b170-postgres-1  Starting
+ Container wsx-9315122972c36950b170-postgres-1  Started
+ Container wsx-9315122972c36950b170-postgres-1  Waiting
+ Container wsx-9315122972c36950b170-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/agent-role-context-fixes/apps/api
+
+[db-isolation] db=wsx_9315122972c36950b170 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (13 tests) 29ms
+ ✓ tests/agent-runtime/deep-agent-model-provider.test.ts (19 tests) 440ms
+ ❯ tests/knowledge-graph/recall-ranking.test.ts (15 tests | 1 failed) 33ms
+   × F08: 结论原文不能伪造材料结构 > 原文里的换行被压成一行（评审 P5） 11ms
+     → expected [ …(3) ] to have a length of 2 but got 3
+ ✓ tests/agent-runtime/remember-tool-guidance.test.ts (2 tests) 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/recall-ranking.test.ts > F08: 结论原文不能伪造材料结构 > 原文里的换行被压成一行（评审 P5）
+AssertionError: expected [ …(3) ] to have a length of 2 but got 3
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ tests/knowledge-graph/recall-ranking.test.ts:88:19
+     86|     const msg = buildKnowledgeContextMessage(r)!;
+     87|     const lines = msg.split("\n");
+     88|     expect(lines).toHaveLength(2);
+       |                   ^
+     89|     expect(lines[1]!.startsWith("- [AI 记下的] v2 上线 （")).toBe(true…
+     90|     expect(lines.some((l) => l.startsWith("系统："))).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 48 passed (49)
+   Start at  05:44:18
+   Duration  9.18s (transform 3.03s, setup 0ms, collect 5.92s, tests 509ms, environment 1ms, prepare 325ms)
+
+[db-isolation] db=wsx_9315122972c36950b170 peak_connections=1
+undefined
+/workspace/agent-role-context-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/execute-run-progress.test.ts tests/agent-runtime/deep-agent-model-provider.test.ts tests/knowledge-graph/recall-ranking.test.ts tests/agent-runtime/remember-tool-guidance.test.ts
+[timing] bash /tmp/workstack-role-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：25s
+  清理：1s
+  总计：26s

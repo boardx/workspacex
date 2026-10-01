@@ -1,0 +1,39 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/pdf-runtime-diagnostic-fixes
+
+ ❯ apps/api/tests/agent-runtime/document-parse-runtime-composition.test.ts (2 tests | 2 failed) 22ms
+   × logs missing native owner from the production factory without exposing configuration 18ms
+     → expected [ [ { …(2) } ] ] to deeply equal [ [ { …(2) } ] ]
+   × logs missing native socket from the production factory without exposing configuration 3ms
+     → expected [ [ { …(2) } ] ] to deeply equal [ [ { …(2) } ] ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/tests/agent-runtime/document-parse-runtime-composition.test.ts > logs missing native owner from the production factory without exposing configuration
+ FAIL  apps/api/tests/agent-runtime/document-parse-runtime-composition.test.ts > logs missing native socket from the production factory without exposing configuration
+AssertionError: expected [ [ { …(2) } ] ] to deeply equal [ [ { …(2) } ] ]
+
+- Expected
++ Received
+
+  Array [
+    Array [
+      Object {
+        "event": "document_parse_failed",
+-       "reason": "runtime_unavailable",
++       "reason": "unknown",
+      },
+    ],
+  ]
+
+ ❯ apps/api/tests/agent-runtime/document-parse-runtime-composition.test.ts:21:26
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  06:53:21
+   Duration  17.03s (transform 10.24s, setup 0ms, collect 16.57s, tests 22ms, environment 0ms, prepare 90ms)
+

@@ -1,0 +1,18 @@
+
+ RUN  v2.1.9 /workspace/eval-evidence-trust-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/eval-runner.test.ts (19 tests) 6491ms
+   ✓ harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported 1897ms
+   ✓ harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2 3814ms
+ ✓ tests/work-eval/gates-counterproof.test.ts (19 tests) 869ms
+ ✓ tests/work-eval/gates-g0-g4.test.ts (12 tests) 7173ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 6783ms
+ ✓ tests/work-eval/s003-suite-shape.test.ts (6 tests) 946ms
+   ✓ evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 797ms
+ ✓ tests/work-eval/eval-report-baseline.test.ts (4 tests) 107ms
+
+ Test Files  5 passed (5)
+      Tests  60 passed (60)
+   Start at  07:12:55
+   Duration  21.64s (transform 2.06s, setup 0ms, collect 4.26s, tests 15.59s, environment 1ms, prepare 358ms)

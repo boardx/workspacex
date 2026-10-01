@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import { stripControlMarkersForDisplay } from "@/lib/chat-control-markers";
 import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment } from "@/lib/live-chat";
 import {
@@ -106,7 +107,7 @@ const CurrentUserMessageIdCtx = React.createContext<string | null>(null);
  * （没有 provider，或这条是历史回读，不是本会话发的）。
  */
 const CurrentUserMessageExtractionCtx =
-  React.createContext<{ threadId: string; messageId: string } | null>(null);
+  React.createContext<{ threadId: string; messageId: string; showEmptyNotice: boolean } | null>(null);
 
 function V2UserMessageRenderer({
   content,
@@ -117,7 +118,7 @@ function V2UserMessageRenderer({
   return (
     <div className="flex flex-col gap-1" {...(messageId === null ? {} : { [MESSAGE_ANCHOR_ATTR]: messageId })}>
       <div data-testid="chat-user-message-text" className="whitespace-pre-wrap text-13 text-secondary-foreground">
-        {content}
+        {typeof content === "string" ? stripControlMarkersForDisplay(content) : content}
       </div>
       {attachments !== null && attachments.items.length > 0 ? (
         <MessageAttachments attachments={attachments.items} threadId={attachments.threadId} />
@@ -126,6 +127,7 @@ function V2UserMessageRenderer({
         <ExtractionFeedbackChip
           threadId={extraction.threadId}
           messageId={extraction.messageId}
+          showEmptyNotice={extraction.showEmptyNotice}
           {...(typeof content === "string" ? { statement: content } : {})}
         />
       ) : null}
@@ -138,7 +140,10 @@ function V2UserMessageImpl(
 ): JSX.Element {
   const ctx = React.useContext(UserMessageAttachmentsCtx);
   const items = ctx?.byMessageId.get(props.message.id);
-  const persistedId = useCopilotKitV2MessageActions()?.identity.resolvePersisted(props.message.id) ?? props.message.id;
+  const actions = useCopilotKitV2MessageActions();
+  const persistedId = actions?.identity.resolvePersisted(props.message.id) ?? props.message.id;
+  // uiux-r3 #5.4：和数字人对话（选中了某个 agent）时不画「这句没有需要记的」这行。
+  const inDigitalHumanChat = Boolean(actions?.agentId);
   // provider 不产生任何 DOM 节点——气泡外壳仍然只有框架渲染的那一个
   // （`copilotkit-v2.css` 锚定的 `data-testid="copilot-user-message"`），
   // 不会因为这次接线多出一层包装盒子。
@@ -153,10 +158,13 @@ function V2UserMessageImpl(
   // 静态类型是 `string | 数组`，只有纯字符串这一支有对应的可发送正文）。
   const text = typeof props.message.content === "string" ? props.message.content : "";
   // issue #4180 —— 只有本会话真的发出去过的消息（`sentThisSession` 按视图 id 记，即
-  // `clientMessageId`）才挂反馈条；historical 回读的消息 ctx 里查不到，`extraction` 为 null。
+  // `clientMessageId`）且真实线程已就绪才挂反馈条。首次发送会先乐观插入用户消息，
+  // 后端随后才回显 threadId；此间不能请求空线程路由。historical 回读不发起查询。
   const extraction = React.useMemo(
-    () => (ctx !== null && ctx.sentThisSession.has(props.message.id) ? { threadId: ctx.threadId, messageId: persistedId } : null),
-    [ctx, props.message.id, persistedId],
+    () => (ctx !== null && ctx.threadId.trim() !== "" && ctx.sentThisSession.has(props.message.id)
+      ? { threadId: ctx.threadId, messageId: persistedId, showEmptyNotice: !inDigitalHumanChat }
+      : null),
+    [ctx, props.message.id, persistedId, inDigitalHumanChat],
   );
   return (
     <CurrentUserMessageIdCtx.Provider value={persistedId}>

@@ -1,9 +1,10 @@
-import { Body, ConflictException, Controller, ForbiddenException, HttpStatus, Inject, NotFoundException, Post, Res, UnprocessableEntityException } from "@nestjs/common";
+import { Body, ConflictException, Controller, ForbiddenException, Get, HttpStatus, Inject, NotFoundException, Post, Res, UnprocessableEntityException } from "@nestjs/common";
 import type { Response } from "express";
 import { agentRole as R, wave2Runtime as C } from "@repo/contracts";
 import { importAgentStarterPack, AgentStarterImportAdminRequiredError, AgentStarterImportIdempotencyConflictError, AgentStarterPackConflictError, AgentStarterPackInvalidError, AgentStarterPackNotFoundError, AgentStarterSkillVersionMismatchError, AgentStarterSkillVersionMissingError, AgentStarterToolPolicyInvalidError } from "../../application/agent-import/import-agent-starter-pack";
 import { importOfficialAgentRolePack, OfficialAgentRolePackAdminRequiredError, OfficialAgentRolePackConflictError, OfficialAgentRoleWorkflowRefUnresolvedError, OfficialAgentRolePackIdempotencyConflictError, OfficialAgentRolePackInvalidError, OfficialAgentRolePackNotFoundError, OfficialAgentRoleSkillRefUnresolvedError, OfficialAgentRoleToolPolicyInvalidError } from "../../application/agent-import/import-official-agent-role-pack";
 import { AGENT_STARTER_IMPORT_REPOSITORY, AGENT_STARTER_PACK_SOURCE, OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY, WORKFLOW_DEFINITION_STORE, type AgentStarterImportRepository, type AgentStarterPackSource, type OfficialAgentRolePackImportRepository, type WorkflowDefinitionStore } from "../../application/agent-import/ports";
+import { getOfficialRolePackOffer } from "../../application/agent-import/get-official-role-pack-offer";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { isOfficialAgentStarterPackShape } from "../../domain/agent/starter-pack";
 import type { Principal } from "../../domain/principal";
@@ -20,18 +21,28 @@ export class AgentStarterImportController {
     @Inject(WORKFLOW_DEFINITION_STORE) private readonly workflows: WorkflowDefinitionStore,
     @Inject(OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY) private readonly officialImports: OfficialAgentRolePackImportRepository,
   ) {}
-  @Post("/admin/agents/starter-pack-imports")
-  async import(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(C.operations.importAgentStarterPack.in)) body: { packId: string; packVersion: string; idempotencyKey: string }, @Res({ passthrough: true }) response: Response) {
+  /** 官方数字人待启用要约：成员可读（只展示），管理员据 `canEnable` 一键启用（走下方 POST）。 */
+  @Get(R.operations.getOfficialRolePackOffer.path)
+  async officialRolePackOffer(@CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);
+    const offer = await getOfficialRolePackOffer({ identities: this.identities, imports: this.officialImports }, { actorId: principal.userId, orgId: principal.orgId });
+    return R.operations.getOfficialRolePackOffer.out.parse(offer);
+  }
+
+  @Post("/admin/agents/starter-pack-imports")
+  async import(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(C.operations.importAgentStarterPack.in)) body: { packId: string; packVersion: string; idempotencyKey: string; expectedOrgId?: string }, @Res({ passthrough: true }) response: Response) {
+    assertPrincipal(principal);
+    if (body.expectedOrgId !== undefined && body.expectedOrgId !== principal.orgId) throw new ForbiddenException();
+    const { expectedOrgId: _expectedOrgId, ...importBody } = body;
     // UC-3：同一端点按 pack 内容形状分流——entries 带 roleRef 即官方角色包，走独立的
     // 校验/落库路径（角色字段 + workflowAllowlist 引用解析）；否则沿用既有 org 包路径（AG02）。
     // 不存在的 packId/packVersion 在两条路径各自的用例里都会正确落到 NOT_FOUND，peek 失败不提前分流。
     const peeked = await this.packs.load(body.packId, body.packVersion);
     if (peeked !== null && isOfficialAgentStarterPackShape(peeked)) {
-      return this.importOfficial(principal, body, response);
+      return this.importOfficial(principal, importBody, response);
     }
     try {
-      const imported = await importAgentStarterPack({ identities: this.identities, packs: this.packs, imports: this.imports }, { actorId: principal.userId, orgId: principal.orgId, ...body });
+      const imported = await importAgentStarterPack({ identities: this.identities, packs: this.packs, imports: this.imports }, { actorId: principal.userId, orgId: principal.orgId, ...importBody });
       response.status(imported.created ? HttpStatus.CREATED : HttpStatus.OK);
       return C.operations.importAgentStarterPack.out.parse(imported.result);
     } catch (error) {

@@ -76,6 +76,7 @@ export function SurveyQuestionEditor({
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
+  const [draggingType, setDraggingType] = React.useState<SurveyQuestionType | null>(null);
   const lastEmittedSignature = React.useRef<string | null>(null);
   const questionsSignature = JSON.stringify(questions);
   React.useEffect(() => {
@@ -145,6 +146,11 @@ export function SurveyQuestionEditor({
     change([...questions, next]);
     setId(next.id);
     setPicking(false);
+  }
+  function handleToolDragStart(event: React.DragEvent<HTMLButtonElement>, type: SurveyQuestionType) {
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/x-survey-question-type", type);
+    setDraggingType(type);
   }
   function changeType(type: SurveyQuestionType) {
     if (!question) return;
@@ -318,7 +324,7 @@ export function SurveyQuestionEditor({
   return (
     <div className={studioLayout ? "flex min-h-0 flex-col gap-4 p-5 lg:h-full lg:overflow-hidden" : "space-y-5 p-5"}>
       <div className={`flex flex-wrap items-center justify-between gap-3 ${studioLayout ? "shrink-0" : ""}`}>
-        <p className="text-12 text-muted-foreground">
+        <p className={studioLayout ? "sr-only" : "text-12 text-muted-foreground"}>
           选择题型，配置题目，再用实时预览试填。
         </p>
         <div className="flex flex-wrap gap-2">
@@ -369,13 +375,16 @@ export function SurveyQuestionEditor({
             <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
               <h3 className="mb-2 text-12 font-medium text-muted-foreground">{group}</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => {
                   const Icon = questionTypeIcons[item.type] ?? FileText;
                   return <button
-                    key={item.type} type="button" data-testid={`add-question-${item.type}`}
+                    key={item.type} type="button" draggable={!disabled}
+                    data-testid={`add-question-${item.type}`}
+                    onDragStart={(event) => handleToolDragStart(event, item.type)}
+                    onDragEnd={() => setDraggingType(null)}
                     onClick={() => add(item.type)}
-                    className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-md border border-border bg-background px-2 py-3 text-center text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex min-h-9 cursor-grab items-center gap-2 rounded-md bg-muted px-3 py-2 text-left text-12 font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
                   ><Icon aria-hidden="true" className="h-5 w-5" />{item.label}</button>;
                 })}
               </div>
@@ -513,7 +522,7 @@ export function SurveyQuestionEditor({
               {question.provenance && (
                 <p data-testid="question-provenance" className="text-12 text-muted-foreground">
                   {question.provenance.source === "question-library" ? "题库来源" : question.provenance.source === "template" ? "模板来源" : "手动创建"}
-                  {" · "}{question.provenance.certifiedAt ? "已认证" : "需重新认证"}
+                  {" · 题库认证："}{question.provenance.certifiedAt ? "已认证" : "待认证"}
                 </p>
               )}
               {!studioLayout && <label className="block text-12">
@@ -677,7 +686,7 @@ export function SurveyQuestionEditor({
         {preview && !overviewFirst && (
           <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : ''}`}>
             <div role="region" aria-label="问卷设计画布" className="space-y-4">
-            {studioLayout && <div className="border-b border-border pb-3"><h2 className="text-16 font-semibold">问卷设计画布</h2><p className="mt-1 text-12 text-muted-foreground">选择左侧题目，在右侧调整设置；下方可试填预览。</p></div>}
+            {studioLayout && <h2 className="sr-only">问卷设计画布</h2>}
             <div className="flex gap-2">
               <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览
@@ -690,7 +699,20 @@ export function SurveyQuestionEditor({
               </Button>
             </div>
             <div
-              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
+              data-testid="survey-question-drop-zone"
+              onDragOver={(event) => {
+                if (draggingType) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const type = event.dataTransfer.getData("application/x-survey-question-type") as SurveyQuestionType;
+                if (type && SURVEY_QUESTION_TYPES.some((item) => item.type === type)) add(type);
+                setDraggingType(null);
+              }}
+              className={`mx-auto space-y-7 bg-card px-4 py-8 sm:px-8 ${draggingType ? "ring-2 ring-ring" : ""} ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
               {studioLayout && <section aria-label="问卷封面" className="grid gap-5 rounded-lg border border-border bg-card p-5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
                 <div className="flex aspect-[4/3] items-center justify-center rounded-md border border-dashed border-border bg-muted/50 text-muted-foreground" aria-label="尚未设置封面图">
@@ -699,7 +721,6 @@ export function SurveyQuestionEditor({
                 <div className="min-w-0">
                   <p className="text-12 font-medium text-muted-foreground">问卷封面</p>
                   <h2 className="mt-2 text-20 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h2>
-                  <p className="mt-2 text-12 leading-5 text-muted-foreground">封面与标题将作为答题页的开场信息，发布时随当前问卷版本一起固定。</p>
                 </div>
               </section>}
               {(studioLayout ? questions : visibleSurveyQuestions(questions, answers)).map((q, questionIndex) => (
@@ -711,19 +732,18 @@ export function SurveyQuestionEditor({
                         {questions.filter((item) => item.chapterId === q.chapterId).length} 题
                       </span>
                     </div>}
-                  <section className={studioLayout ? `rounded-lg border p-4 transition-colors ${q.id === question?.id ? "border-primary bg-accent/20" : "border-border"}` : ""}>
-                    {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
-                      className="mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group cursor-text border border-transparent px-6 py-6 transition-colors ${q.id === question?.id ? "border-ring" : "hover:border-border"}` : ""}>
+                    {studioLayout && <button type="button" data-survey-inline-edit aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
+                      className={`mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}
                       onClick={() => { setId(q.id); setPendingType(undefined); }}>
-                      Q{questionIndex + 1} · 点击编辑
+                      {String(questionIndex + 1).padStart(2, "0")}
                     </button>}
                     {studioLayout && q.id === question?.id ? (
                       <fieldset disabled={locked} className="space-y-4" aria-label={`编辑第 ${questionIndex + 1} 题`}>
                         <label className="block text-12 font-medium">
-                          问题内容
                           <Textarea
                             aria-label="问题内容"
-                            className="mt-1 text-16 font-medium"
+                            className="min-h-10 resize-none border-transparent bg-transparent text-16 font-medium shadow-none transition-colors hover:border-border focus-visible:border-ring"
                             value={q.title}
                             onChange={(event) => update({ ...q, title: event.target.value })}
                           />
@@ -734,6 +754,7 @@ export function SurveyQuestionEditor({
                           questions={questions}
                           onChange={update}
                           mode="content"
+                          inline
                         />
                       </fieldset>
                     ) : (

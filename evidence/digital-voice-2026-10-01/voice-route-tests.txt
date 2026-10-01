@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-voice-20261001
+
+ ✓ .harness/scripts/vm/deploy-readiness.test.ts (20 tests | 18 skipped) 29ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 18 skipped (20)
+   Start at  09:36:27
+   Duration  302ms (transform 58ms, setup 0ms, collect 49ms, tests 29ms, environment 0ms, prepare 36ms)
+

@@ -20,7 +20,8 @@ const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-
 vi.mock(copilotkitV2CssPath, () => ({}));
 
 import { CopilotChatMessageView, CopilotChatConfigurationProvider, CopilotKit } from "@copilotkit/react-core/v2";
-import { V2UserMessage } from "@/components/chat/copilotkit-v2-user-message";
+import { UserMessageAttachmentsCtx, V2UserMessage } from "@/components/chat/copilotkit-v2-user-message";
+import { CopilotKitV2MessageActionsProvider } from "@/components/chat/copilotkit-v2-message-actions";
 import { onRememberStatement } from "@/lib/knowledge-graph-events";
 import type { Message } from "@copilotkit/react-core/v2";
 
@@ -111,5 +112,34 @@ describe("issue #4179 —— 消息旁「记住这句」：只在用户自己发
     );
     await screen.findByTestId("chat-user-message-text");
     expect(screen.queryByTestId("chat-message-remember")).not.toBeInTheDocument();
+  });
+});
+
+/** uiux-r3 #5.4 / 人类决策：数字人对话里不画「这句没有需要记的 · 记一条」。 */
+describe("uiux-r3 #5.4 —— 数字人对话不出「这句没有需要记的」", () => {
+  async function renderSent(agentId: string | null): Promise<void> {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ claims: [], status: "empty" }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const messages: Message[] = [{ id: "m-sent", role: "user", content: "今天天气不错" }];
+    render(
+      withCopilotKit(
+        <CopilotKitV2MessageActionsProvider value={{ identity: { resolvePersisted: (id: string) => id } as never, agentId, agentLabel: null, landing: null }}>
+          <UserMessageAttachmentsCtx.Provider value={{ threadId: "t", byMessageId: new Map(), sentThisSession: new Set(["m-sent"]) } as never}>
+            <CopilotChatMessageView messages={messages} isRunning={false} userMessage={V2UserMessage} />
+          </UserMessageAttachmentsCtx.Provider>
+        </CopilotKitV2MessageActionsProvider>,
+      ),
+    );
+    await screen.findByTestId("chat-user-message-text");
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  it("普通对话：empty 时有这一行（对照组）", async () => {
+    await renderSent(null);
+    expect(await screen.findByTestId("kg-extraction-empty")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+  it("选中数字人：这一行整个不画", async () => {
+    await renderSent("dh-agent-1");
+    expect(screen.queryByTestId("kg-extraction-empty")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });

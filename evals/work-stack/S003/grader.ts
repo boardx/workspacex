@@ -5,10 +5,10 @@
  * 输出：pass|fail 与首条失败原因；grader 抛异常由运行器记为 error（E3），本文件不吞异常。
  * 自包含（不 import 仓内模块），由 EV02 运行器按路径加载。
  */
-export const GRADER_VERSION = "s003-rules-1.0.0";
+export const GRADER_VERSION = "s003-rules-1.0.1";
 
 type Hit = { hitId: string; sourceId: string; versionId: string; relation: string; supersededBy?: string; excerpt: string; owner?: string };
-type Item = { itemId: string; status: string; researchPlanItemRef?: string; queriesRun: { scope: string; query: string; status: string }[]; hits: Hit[] };
+type Item = { itemId: string; status: string; claimToVerify: string; queriesRun: { scope: string; query: string; status: string }[]; hits: Hit[] };
 export type Ledger = {
   queryType: string;
   scopeDeclared: { scopes: string[] };
@@ -50,7 +50,7 @@ const checks: Record<string, (l: Ledger, t: Trace, spec: any) => boolean> = {
   scopeHybridNotConfigured: l =>
     !l.scopeDeclared.scopes.includes("organization-hybrid") ||
     l.items.some(i => i.queriesRun.some(q => q.scope === "organization-hybrid" && q.status === "not-configured")),
-  itemsLinkedTo: (l, _t, s: string) => l.items.length > 0 && l.items.every(i => i.researchPlanItemRef === s),
+  itemsLinkedTo: (l, _t, s: string) => l.items.length > 0 && l.items.every(i => i.claimToVerify.startsWith(`${s}: `)),
 };
 
 export const ASSERTION_KINDS: readonly string[] = Object.keys(checks);

@@ -110,7 +110,6 @@ components/projects/project-more-menu.tsx	className="flex items-center gap-2 rou
 components/projects/projects-screen.tsx	"rounded-full border px-2.5 py-0.5 text-11 transition-colors duration-200",
 components/projects/projects-screen.tsx	"transition-colors duration-200 hover:bg-muted",
 components/projects/projects-screen.tsx	<Card data-testid={`projects-card-${project.id}`} className="transition-all duration-200 hover:shadow-md">
-components/projects/projects-screen.tsx	className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-200 hover:bg-muted"
 components/projects/projects-screen.tsx	className="rounded-full transition-colors duration-200 hover:bg-border"
 components/rec/create-transcription-dialog.tsx	className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 components/rec/live-transcript.tsx	"scroll-mt-4 rounded-md border p-2.5 transition-colors duration-200",

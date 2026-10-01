@@ -21,7 +21,7 @@ export function BasicFieldsSection({ form, onChange }: Props) {
     <section className={SECTION}>
       <h2 className="text-13 font-semibold text-card-foreground">基本信息</h2>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-config-title">标题（横幅上方小字，最多 24 字）</Label>
+        <Label htmlFor="home-config-title">品牌标题（最多 24 字）</Label>
         <Input id="home-config-title" value={form.title} maxLength={24} onChange={(e) => onChange({ ...form, title: e.target.value })} data-testid="home-config-title" />
       </div>
       <div className="flex flex-col gap-1.5">
@@ -170,6 +170,7 @@ export function BannerSection({ orgId, form, onChange }: Props & { orgId: string
       <div className="flex flex-col gap-1.5">
         <Label>预览（成员看到的样子）</Label>
         <HomeBanner
+          orgId={orgId}
           title={form.title || "标题"}
           greeting="你好，成员"
           headline={form.bannerHeadline}

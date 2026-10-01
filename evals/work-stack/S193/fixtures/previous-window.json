@@ -1,0 +1,14 @@
+{
+  "ref": "run-8/s193/portfolio",
+  "window": {
+    "start": "2026-04-01",
+    "end": "2026-06-30"
+  },
+  "accountsCovered": 20,
+  "themes": [
+    {
+      "label": "价格",
+      "accounts": 4
+    }
+  ]
+}

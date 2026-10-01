@@ -19,6 +19,7 @@
  * 所以本轮诚实地退化：`toolPolicy` 为空 ⇒ 不需要任何能力 ⇒ `ready`；非空 ⇒ 无法判定
  * ⇒ `unknown`（契约里「授权查询失败 → unknown，不整页报错」的合法状态，这里是「查询能力
  * 尚不存在」的等价情形）。WS04 落地后换成真实分类比对，调用方（本文件）的形状不用跟着改。
+ * 例外（2026-09-30）：非空但本组织已有**已发布**的白名单 Workflow ⇒ `ready`（见 `readinessOf`）。
  */
 import type { AgentRoleFieldsT } from "../../domain/agent/definition";
 import type { IdentityRepository } from "../identity/ports";
@@ -47,10 +48,18 @@ export interface AgentDirectoryRow {
   readonly workflowAllowlist: readonly string[];
   /** 只用长度判 ready/unknown（见文件头「就绪状态」）；不外泄具体分类内容。 */
   readonly toolPolicyLength: number;
+  /** 详情页补充（`getAgentDirectoryProfile`）：职责一句话（`capability_listings.duty`），可能为空或等于名字。 */
+  readonly duty: string | null;
+  /** 官方角色编号（`capability_listings.abbr`，仅 official），委派策略按它引用目标。 */
+  readonly roleRef: string | null;
+  readonly skillMountIds: readonly string[];
+  readonly skillVersionIds: readonly string[];
+  readonly delegationTargetRefs: readonly string[];
+  readonly requireApprovalForHandoff: boolean;
 }
 
 export interface AgentDirectoryRepository {
-  /** 只返回 `roleCategory` 非空、`org-wide` 可见、已发布、启用中的行。 */
+  /** 只返回 `org-wide` 可见、已发布、启用中的行；未分类的行以 `general` 返回（UIUX r4：通用助手要进目录）。 */
   listVisible(orgId: OrgId): Promise<readonly AgentDirectoryRow[]>;
   findVisible(orgId: OrgId, agentId: string): Promise<AgentDirectoryRow | null>;
 }
@@ -76,13 +85,20 @@ function initialsOf(name: string): string {
   return trimmed.length > 0 ? trimmed[0]!.toUpperCase() : "?";
 }
 
-function readinessOf(row: AgentDirectoryRow): "ready" | "unknown" {
-  return row.toolPolicyLength === 0 ? "ready" : "unknown";
+/**
+ * `toolPolicy` 为空 ⇒ ready。非空时：若装配了「可发起」端口且过滤后仍有可发起的 Workflow ⇒ ready——
+ * 那些 Workflow 已通过 UC-WR-1 发布校验（Skill 全部在本组织目录可解析），角色的能力是经由它们交付的；
+ * `toolPolicy` 只是能力分类声明（ADR-120 #2，不产生授权），不单独门控。其余 ⇒ unknown（如实不判）。
+ */
+function readinessOf(row: AgentDirectoryRow, launchableChecked: boolean): "ready" | "unknown" {
+  if (row.toolPolicyLength === 0) return "ready";
+  return launchableChecked && row.workflowAllowlist.length > 0 ? "ready" : "unknown";
 }
 
 async function toCard(
   row: AgentDirectoryRow,
   workflows: WorkflowDefinitionStore,
+  launchableChecked = false,
 ): Promise<AgentDirectoryCardOut> {
   const resolvedWorkflows = await Promise.all(
     row.workflowAllowlist.map(async (stableId) => ({
@@ -101,7 +117,7 @@ async function toCard(
     tags: [...row.tags],
     catalogSource: row.catalogSource,
     workflows: resolvedWorkflows,
-    readiness: readinessOf(row),
+    readiness: readinessOf(row, launchableChecked),
   };
 }
 
@@ -142,7 +158,7 @@ export async function listAgentDirectory(
     return true;
   });
   const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
-  return Promise.all(filtered.map((row) => toCard(onlyLaunchable(row, launchable), deps.workflows)));
+  return Promise.all(filtered.map((row) => toCard(onlyLaunchable(row, launchable), deps.workflows, launchable !== null)));
 }
 
 export async function getAgentDirectoryCard(
@@ -156,5 +172,62 @@ export async function getAgentDirectoryCard(
   const row = await deps.repository.findVisible(input.orgId, input.agentId);
   if (row === null) throw new AgentDirectoryError("AGENT_NOT_FOUND");
   const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;
-  return toCard(onlyLaunchable(row, launchable), deps.workflows);
+  return toCard(onlyLaunchable(row, launchable), deps.workflows, launchable !== null);
+}
+
+export interface AgentDirectoryProfileOut {
+  readonly agentId: string;
+  readonly duty: string | null;
+  readonly mountedSkillIds: readonly string[];
+  readonly pinnedSkillVersionIds: readonly string[];
+  readonly delegationTargets: readonly {
+    readonly agentId: string;
+    readonly name: string;
+    readonly initials: string;
+    readonly roleLabel: string;
+    readonly avatar: AgentAvatar | null;
+  }[];
+  readonly requireApprovalForHandoff: boolean;
+}
+
+/** 占位职责（迁移回填 `duty = name`）不算职责：与名字/角色标签相同即视为未登记。 */
+function meaningfulDuty(row: AgentDirectoryRow): string | null {
+  const duty = row.duty?.trim() ?? "";
+  if (duty.length === 0) return null;
+  if (duty === row.name.trim() || duty === row.roleLabel.trim()) return null;
+  return duty;
+}
+
+/**
+ * AG04 follow-up —— 成员详情页的补充读：同 `getAgentDirectoryCard` 的判定顺序（先成员、后仓储），
+ * 转交对象只保留**当前在目录里可见**的角色（引用了看不到的角色 ⇒ 不列，不泄露存在性）。
+ */
+export async function getAgentDirectoryProfile(
+  input: { readonly orgId: OrgId; readonly actorId: string; readonly agentId: string },
+  deps: Pick<AgentDirectoryDeps, "identities" | "repository">,
+): Promise<AgentDirectoryProfileOut> {
+  const membership = await deps.identities.findOrgMembership(input.actorId, input.orgId);
+  if (!membership) throw new AgentDirectoryError("UNAUTHENTICATED");
+
+  const row = await deps.repository.findVisible(input.orgId, input.agentId);
+  if (row === null) throw new AgentDirectoryError("AGENT_NOT_FOUND");
+  const refs = new Set(row.delegationTargetRefs);
+  const visible = refs.size === 0 ? [] : await deps.repository.listVisible(input.orgId);
+  const delegationTargets = visible
+    .filter((other) => other.agentId !== row.agentId && other.roleRef !== null && refs.has(other.roleRef))
+    .map((other) => ({
+      agentId: other.agentId,
+      name: other.name,
+      initials: initialsOf(other.name),
+      roleLabel: other.roleLabel,
+      avatar: other.avatar,
+    }));
+  return {
+    agentId: row.agentId,
+    duty: meaningfulDuty(row),
+    mountedSkillIds: [...new Set(row.skillMountIds)],
+    pinnedSkillVersionIds: [...new Set(row.skillVersionIds)],
+    delegationTargets,
+    requireApprovalForHandoff: row.requireApprovalForHandoff,
+  };
 }

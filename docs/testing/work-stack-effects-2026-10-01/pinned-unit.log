@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-content/loopback-content-skill.test.ts (3 tests) 11ms
+ ✓ tests/work-content/pinned-skill-instructions.test.ts (3 tests) 18ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  05:22:31
+   Duration  1.71s (transform 713ms, setup 0ms, collect 252ms, tests 29ms, environment 0ms, prepare 142ms)
+

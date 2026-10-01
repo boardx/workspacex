@@ -1,0 +1,151 @@
+
+ RUN  v2.1.9 /workspace/workflow-effect-projection-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/workflow/effect-projection.test.ts (5 tests | 5 failed) 36ms
+   × effect event projection > keeps snapshot prefix at begun; finalized duplicates produce exactly one effect per stage/key 22ms
+     → expected { Object (instanceId, orgId, ...) } to match object { lastSeq: 1, effects: [ { …(2) } ] }
+(20 matching properties omitted from actual)
+   × effect event projection > does not guess a gate from earlier approval or skill from stage pins for legacy events 2ms
+     → expected [] to deeply equal [ { effectKey: 'same-key', …(9) } ]
+   × effect event projection > preserves original provenance through reconciliation and ignores permission blocks without effects 3ms
+     → expected undefined to match object { status: 'reconciled', …(1) }
+   × effect event projection > writes actual execution provenance into both events and exposes finalized effects 3ms
+     → expected [ undefined, undefined ] to deeply equal [ …(2) ]
+   × effect event projection > keeps tenant lookup and visibility before exposing any effect 4ms
+     → expected [] to have a length of 1 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/workflow/effect-projection.test.ts > effect event projection > keeps snapshot prefix at begun; finalized duplicates produce exactly one effect per stage/key
+AssertionError: expected { Object (instanceId, orgId, ...) } to match object { lastSeq: 1, effects: [ { …(2) } ] }
+(20 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "effects": Array [
+-     Object {
+-       "gateId": "actual-gate",
+-       "status": "begun",
+-     },
+-   ],
++   "effects": Array [],
+    "lastSeq": 1,
+  }
+
+ ❯ tests/workflow/effect-projection.test.ts:25:41
+     23|   it("keeps snapshot prefix at begun; finalized duplicates produce exa…
+     24|     const events = [event(1, "effect_begun", { provenance }), event(2,…
+     25|     expect(project(events.slice(0, 1))).toMatchObject({ lastSeq: 1, ef…
+       |                                         ^
+     26|     const result = project([...events, event(4, "effect_begun"), event…
+     27|     expect(result.lastSeq).toBe(5);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/workflow/effect-projection.test.ts > effect event projection > does not guess a gate from earlier approval or skill from stage pins for legacy events
+AssertionError: expected [] to deeply equal [ { effectKey: 'same-key', …(9) } ]
+
+- Expected
++ Received
+
+- Array [
+-   Object {
+-     "agentId": "agent",
+-     "agentVersionId": "version",
+-     "capabilityCategory": "artifact.write",
+-     "effectKey": "same-key",
+-     "finalizedAt": null,
+-     "gateId": null,
+-     "initiatorUserId": "owner",
+-     "skillVersion": null,
+-     "stageId": "persist",
+-     "status": "finalized",
+-   },
+- ]
++ Array []
+
+ ❯ tests/workflow/effect-projection.test.ts:34:28
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/workflow/effect-projection.test.ts > effect event projection > preserves original provenance through reconciliation and ignores permission blocks without effects
+AssertionError: expected undefined to match object { status: 'reconciled', …(1) }
+
+- Expected:
+Object {
+  "gateId": "actual-gate",
+  "status": "reconciled",
+}
+
++ Received:
+undefined
+
+ ❯ tests/workflow/effect-projection.test.ts:39:128
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/workflow/effect-projection.test.ts > effect event projection > writes actual execution provenance into both events and exposes finalized effects
+AssertionError: expected [ undefined, undefined ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  Array [
+-   Object {
+-     "agentId": "agent",
+-     "agentVersionId": "version",
+-     "approvalRequestId": "actual-gate",
+-     "initiatorUserId": "owner",
+-   },
+-   Object {
+-     "agentId": "agent",
+-     "agentVersionId": "version",
+-     "approvalRequestId": "actual-gate",
+-     "initiatorUserId": "owner",
+-   },
++   undefined,
++   undefined,
+  ]
+
+ ❯ tests/workflow/effect-projection.test.ts:59:48
+     57|       agentVersionId: "version", approvalRequestId: "actual-gate", fin…
+     58|     }, async () => ({ artifactId: "artifact" }));
+     59|     expect(events.map(e => e.data.provenance)).toEqual([provenance, pr…
+       |                                                ^
+     60|     expect(finalize).toHaveBeenCalledWith(expect.anything(), expect.ob…
+     61|     expect(project(events).effects).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/workflow/effect-projection.test.ts > effect event projection > keeps tenant lookup and visibility before exposing any effect
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/workflow/effect-projection.test.ts:70:109
+     68|     await expect(getInstanceProjection(deps, { orgId: "o1", userId: "s…
+     69|     expect(loadSnapshot).toHaveBeenCalledWith("o2", "i1");
+     70|     expect((await getInstanceProjection(deps, { orgId: "o1", userId: "…
+       |                                                                                                             ^
+     71|   });
+     72| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  09:02:44
+   Duration  957ms (transform 475ms, setup 0ms, collect 196ms, tests 36ms, environment 1ms, prepare 69ms)
+
+undefined
+/workspace/workflow-effect-projection-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/workflow/effect-projection.test.ts

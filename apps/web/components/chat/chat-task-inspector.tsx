@@ -10,9 +10,7 @@ import { RosterPanel, type RosterPanelProps } from "@/components/chat/chat-roste
 import {
   ChatMaterialsDropOverlay, useFileDropSurface, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
-import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
-import { PlanStepActionList } from "@/components/chat/plan-step-action-list";
-import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
+import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
 import { onOpenClaimSources, onOpenKnowledgePanel, requestOpenClaimSources } from "@/lib/knowledge-graph-events";
 import { readChatMemoryRequest } from "@/lib/chat-memory-link";
@@ -24,7 +22,6 @@ import {
   type InspectorTab,
 } from "@/lib/chat-task-inspector-tabs";
 import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
-import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
 import { ChatArtifactView, type LoadedArtifact } from "@/components/chat/chat-artifact-view";
@@ -119,10 +116,6 @@ export interface ChatTaskInspectorProps {
   /** 正在上传、还没成功的材料条数——人类实测：从这个页签点「+」上传时，进度只出现在
    *  composer 里，「材料」这边在传完之前毫无反馈。默认 0（未接线时行为不变）。 */
   readonly uploadingMaterialsCount?: number;
-  /** 2026-09-27 计划显示统一 —— 最近一轮里每步计划下做过的动作（键 = 步骤文本）。
-   *  右栏「进度」页签是三处计划里讲**细节**的那一处：底部面板讲进行到哪、带控制，消息流讲
-   *  本轮结束时的快照，这里讲每一步具体做了什么。不传 = 只列步骤（此前行为）。 */
-  readonly planStepActions?: ReadonlyMap<string, readonly PlanStepAction[]>;
   /**
    * issue #3347 —— 「材料」页签的上传入口（点击 + 拖拽）。
    *
@@ -165,7 +158,6 @@ export interface ChatTaskInspectorProps {
 }
 
 const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }> = {
-  progress: { label: "进度", Icon: ListChecks },
   materials: { label: "材料", Icon: FolderOpen },
   artifacts: { label: "产物", Icon: Package },
   roster: { label: "编制", Icon: Users },
@@ -178,7 +170,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
-    uploadingMaterialsCount = 0, planStepActions,
+    uploadingMaterialsCount = 0,
     planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
     attachUploadPort = null, uploadDisabledReason = null, showKnowledge = false,
   } = props;
@@ -203,17 +195,9 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     [materialsCount, artifactsCount, isRunning],
   );
 
-  // issue #2260 —— 账本是唯一在 AG-UI 实时桥与 confirm/resume/retry 触发的
-  // queued/tick 续跑两条通路下都跟得上真实进度的数据源（文件头注）。账本一旦
-  // 有步骤（`ledger.steps.length > 0`），一律以它为准，不再信 `planTodos`：
-  // 后者只在实时桥通路上更新，续跑通路下会停在陈旧值，正是本 issue 的症状。
-  const { ledger: planLedger } = usePlanLedgerPolling(threadId, props.projectId);
-  const ledgerTodos: readonly PlanTodo[] | null = planLedger !== null && planLedger.steps.length > 0
-    ? planLedger.steps.map((s) => ({ content: s.content, status: s.status }))
-    : null;
-  const effectivePlanTodos = ledgerTodos ?? planTodos;
-
-  const [activeTab, setActiveTab] = React.useState<InspectorTab>("progress");
+  // 2026-09-30 人类：「三个地方有计划……保留一个地方就可以了」→ 计划只在消息流里显示；
+  // 「进度」页签撤掉（它显示的阶段与已用时长在「运行详情」里本来就有）。
+  const [activeTab, setActiveTab] = React.useState<InspectorTab>("materials");
   /**
    * 2026-09-23 人类交办「对标 Claude Code / Codex，应该在右边可以打开结果」——
    * 右栏里被打开的那一个产物。非 null = 产物页签进入**详情态**（列表 ↔ 详情，
@@ -327,7 +311,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   );
   React.useEffect(() => {
     if ((activeTab === "roster" && roster === undefined) || (activeTab === "memory" && !showKnowledge)) {
-      setActiveTab("progress");
+      setActiveTab("materials");
     }
   }, [activeTab, roster, showKnowledge]);
 
@@ -547,15 +531,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           aria-label={TAB_META[activeTab].label}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
         >
-          {activeTab === "progress" ? (
-            <ProgressTab
-              planTodos={effectivePlanTodos}
-              isRunning={isRunning}
-              runPhaseLabel={runPhaseLabel}
-              runElapsedSeconds={runElapsedSeconds}
-              stepActions={planStepActions}
-            />
-          ) : activeTab === "materials" ? (
+          {activeTab === "materials" ? (
             <ChatMaterialsPanel
               hasSelection={hasSelection}
               threadId={threadId}
@@ -650,59 +626,6 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         {inspector}
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * 「进度」页签 —— 计划快照（读）+ 步骤级完成比例。
- *
- * ⚠ 完成比例读的是 todo 的 `status`，不是任何前端定时器推算出来的百分比：
- * 验收卡 TW-P0-3⑤ 的"完成比例"指的就是步骤级比例（那一节明确写了它不是单次
- * 工具调用的在途态——人类 2026-08-10 已裁决不做那个）。
- */
-function ProgressTab({
-  planTodos, isRunning, runPhaseLabel, runElapsedSeconds, stepActions,
-}: {
-  planTodos: readonly PlanTodo[] | null;
-  isRunning: boolean;
-  runPhaseLabel: string | null;
-  runElapsedSeconds: number | null;
-  stepActions?: ReadonlyMap<string, readonly PlanStepAction[]>;
-}) {
-  const todos = planTodos !== null && planTodos.length > 0 ? planTodos : null;
-  if (todos === null && !isRunning) {
-    return (
-      <p className="px-3 py-3 text-11 text-muted-foreground" data-testid="chat-task-workbench-inspector-progress-empty">
-        还没有进行中的任务。描述一个目标，Agent 会先列出计划，这里会实时显示每一步的进展。
-      </p>
-    );
-  }
-  const done = todos === null ? 0 : todos.filter((t) => t.status === "completed").length;
-  return (
-    <div className="flex flex-col gap-2 p-2">
-      {runPhaseLabel !== null || runElapsedSeconds !== null ? (
-        <p className="px-1 text-11 text-muted-foreground" data-testid="chat-task-workbench-inspector-progress-phase">
-          {runPhaseLabel ?? "正在处理…"}
-          {runElapsedSeconds !== null ? ` · 已用 ${runElapsedSeconds} 秒` : ""}
-        </p>
-      ) : null}
-      {todos === null ? (
-        <p className="px-1 text-11 text-muted-foreground">Agent 正在理解目标，计划出来后会显示在这里。</p>
-      ) : (
-        <>
-          <p className="px-1 text-11 font-medium text-card-foreground" data-testid="chat-task-workbench-plan-ratio">
-            已完成 {done}/{todos.length} 步
-          </p>
-          <AgentPlanPanel
-            steps={[]}
-            stateSnapshotTodos={[...todos]}
-            panelTestId="chat-task-workbench-plan-panel"
-            stepTestId="chat-task-workbench-plan-step"
-            renderStepDetail={stepActions === undefined ? undefined : (todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} />}
-          />
-        </>
-      )}
-    </div>
   );
 }
 

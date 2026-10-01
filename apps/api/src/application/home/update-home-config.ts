@@ -38,6 +38,7 @@ export async function updateHomeConfig(
 
 function persist(deps: UpdateHomeConfigDeps, input: UpdateHomeConfigUseCaseInput): Promise<HomeConfig> {
   return deps.repo.upsert(input.orgId, {
+    themeColors: input.themeColors,
     title: input.title,
     tagline: input.tagline,
     bannerHeadline: input.bannerHeadline,

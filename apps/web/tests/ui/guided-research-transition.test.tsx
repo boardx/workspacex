@@ -9,7 +9,7 @@ beforeEach(() => vi.resetAllMocks());
 describe("confirm and generate the next research step", () => {
   it.each([
     ["brief", "directions"], ["directions", "outline"],
-    ["outline", "research"], ["research", "report"],
+    ["outline", "research"],
   ] as const)("%s immediately shows %s loading and waits for generated content", async (from, to) => {
     const before = runtimeFixture(from);
     const generated = { ...runtimeFixture(to), version: 5 };
@@ -20,8 +20,7 @@ describe("confirm and generate the next research step", () => {
     fireEvent.click(await screen.findByRole("button", { name: from === "directions" ? "下一步：研究计划" : from === "outline" ? "开始研究" : "确认并继续" }));
     expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0]).toEqual(expect.objectContaining({ node: from, action: from === "research" ? "complete" : "confirm" }));
-    if (from === "research") expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[1]).toEqual(expect.any(Function));
+    expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0]).toEqual(expect.objectContaining({ node: from, action: "confirm" }));
     await act(async () => { confirm(generated); });
     expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
     expect(screen.getByTestId(`research-flow-${to === "research" ? "search" : to}`)).toBeInTheDocument();

@@ -44,12 +44,12 @@ export function DocumentGenerationAutoApproveToggle({ disabled }: { disabled?: b
 
   return (
     <span
-      className="flex items-center gap-1.5 rounded-md border border-border-subtle bg-panel px-2 py-1"
+      className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-subtle bg-panel px-2 py-1"
       data-testid="chat-document-generation-auto-approve"
       title="打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限"
     >
       <FileCheck2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-11 text-muted-foreground">自动批准文档生成所需权限</span>
+      <span className="text-11 text-muted-foreground"><span className="hidden sm:inline">自动批准文档生成所需权限</span><span className="sm:hidden">自动批准文档权限</span></span>
       <Toggle
         checked={enabled}
         onCheckedChange={onChange}

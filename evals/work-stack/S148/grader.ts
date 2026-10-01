@@ -1,0 +1,90 @@
+/**
+ * S148 流程说明文档 —— 规则 grader（EV01；ADR-119 规则 grader 优先，无 llmJudge）。
+ * 输入：cases.jsonl 中某条 case 的 `expect.assertions`、被测输出（见
+ * requirements/work-stack-v2/skills/S148-process-documentation.md §6；抛错码的 case 输出为 { error: { code } }）与运行轨迹。
+ * 输出：pass|fail 与首条失败原因；未知断言种类抛异常，由运行器记为 error（E3），本文件不吞异常。
+ * 自包含（不 import 仓内模块）。
+ */
+export const GRADER_VERSION = "s148-rules-1.0.0";
+
+export type Assertion = { kind: string; spec: unknown };
+export type GradeResult = { outcome: "pass" | "fail"; reason: string | null };
+export type Trace = { toolCalls: { name: string; kind: "read" | "write" }[] };
+type Out = Record<string, any>;
+
+/** 点路径取值；`*` 展开数组（或对象的全部值）。返回叶子值列表，路径不存在得 [undefined]。 */
+function resolve(o: unknown, path: string): unknown[] {
+  let cur: unknown[] = [o];
+  for (const seg of path.split(".")) {
+    const next: unknown[] = [];
+    for (const c of cur) {
+      if (seg === "*") {
+        if (Array.isArray(c)) next.push(...c);
+        else if (c && typeof c === "object") next.push(...Object.values(c));
+        else next.push(undefined);
+      } else next.push(c && typeof c === "object" ? (c as Out)[seg] : undefined);
+    }
+    cur = next;
+  }
+  return cur;
+}
+const eq = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
+const matches = (item: unknown, where: Record<string, unknown>) =>
+  Object.entries(where).every(([k, v]) => resolve(item, k).every((x) => eq(x, v)));
+
+const checks: Record<string, (o: Out, t: Trace, spec: any) => boolean> = {
+  pathEquals: (o, _t, s) => { const v = resolve(o, s.path); return v.length > 0 && v.every((x) => eq(x, s.value)); },
+  pathNotEquals: (o, _t, s) => resolve(o, s.path).every((x) => !eq(x, s.value)),
+  pathIn: (o, _t, s) => { const v = resolve(o, s.path); return v.length > 0 && v.every((x) => (s.values as unknown[]).some((y) => eq(x, y))); },
+  pathPresent: (o, _t, s) => resolve(o, s.path).every((x) => x !== undefined && x !== null),
+  pathAbsent: (o, _t, s) => resolve(o, s.path).every((x) => x === undefined),
+  pathNull: (o, _t, s) => resolve(o, s.path).every((x) => x === null),
+  pathNonEmpty: (o, _t, s) => resolve(o, s.path).every((x) => (Array.isArray(x) ? x.length > 0 : typeof x === "string" ? x.length > 0 : x !== undefined && x !== null)),
+  pathEmpty: (o, _t, s) => resolve(o, s.path).every((x) => x === undefined || x === null || (Array.isArray(x) && x.length === 0) || x === ""),
+  arrayIncludes: (o, _t, s) => resolve(o, s.path).some((x) => Array.isArray(x) && x.some((y) => eq(y, s.value))),
+  arrayExcludes: (o, _t, s) => resolve(o, s.path).every((x) => !Array.isArray(x) || x.every((y) => !eq(y, s.value))),
+  arrayLenLte: (o, _t, s) => resolve(o, s.path).every((x) => Array.isArray(x) && x.length <= s.n),
+  arrayLenGte: (o, _t, s) => resolve(o, s.path).every((x) => Array.isArray(x) && x.length >= s.n),
+  anyItem: (o, _t, s) => resolve(o, s.path).flatMap((x) => (Array.isArray(x) ? x : [])).some((i) => matches(i, s.where)),
+  noItem: (o, _t, s) => resolve(o, s.path).flatMap((x) => (Array.isArray(x) ? x : [])).every((i) => !matches(i, s.where)),
+  allItems: (o, _t, s) => resolve(o, s.path).flatMap((x) => (Array.isArray(x) ? x : [])).every((i) => matches(i, s.where)),
+  textPresent: (o, _t, s: string) => JSON.stringify(o).includes(s),
+  textAbsent: (o, _t, s: string) => !JSON.stringify(o).includes(s),
+  errorCode: (o, _t, s: string) => o.error?.code === s,
+  noError: (o) => o.error === undefined,
+  noWriteToolCalls: (_o, t) => t.toolCalls.every((c) => c.kind !== "write"),
+  forbiddenFields: (o, _t, s: string[]) => s.every((f) => !(f in o)),
+  invariant: (o, _t, s: string) => {
+    const f = INVARIANTS[s];
+    if (!f) throw new Error("S148 grader: unknown invariant " + s);
+    return f(o);
+  },
+};
+
+/** S148 输出契约（§6）不变量的机检实现；case 通过 { kind: "invariant", spec: <name> } 引用。 */
+const INVARIANTS: Record<string, (o: Out) => boolean> = {
+  statusIsDraft: (o) => o.status === "draft",
+  nullAccountableHasViolation: (o) => (o.activities ?? []).every((a: any) => (a.raci.A !== null && typeof a.raci.A === "string") || (o.raciViolations ?? []).some((v: any) => v.activityId === a.activityId)),
+  accountableIsARole: (o) => (o.activities ?? []).every((a: any) => a.raci.A === null || !/(委员会|团队|全员|小组|committee|team|everyone|all staff)/i.test(a.raci.A)),
+  mapBasisHasRef: (o) => o.flowBasis !== "s018-map" || (typeof o.s018MapRef === "string" && o.s018MapRef.length > 0),
+  responsiblePresent: (o) => (o.activities ?? []).every((a: any) => a.raci.R.length > 0 || (o.raciViolations ?? []).some((v: any) => v.activityId === a.activityId && v.rule === "no-responsible")),
+};
+
+export const ASSERTION_KINDS: readonly string[] = Object.keys(checks);
+export const INVARIANT_NAMES: readonly string[] = Object.keys(INVARIANTS);
+
+export function grade(assertions: readonly Assertion[], output: Out, trace: Trace = { toolCalls: [] }): GradeResult {
+  for (const a of assertions) {
+    const check = checks[a.kind];
+    if (!check) throw new Error("S148 grader: unknown assertion kind " + a.kind);
+    let ok: boolean;
+    try {
+      ok = check(output, trace, a.spec);
+    } catch (error) {
+      // 输出结构不符合契约导致断言无法求值 ⇒ 判 fail（不是 grader 缺陷）；未知断言种类仍在上面抛出。
+      return { outcome: "fail", reason: a.kind + " not evaluable: " + (error instanceof Error ? error.message : String(error)) };
+    }
+    if (!ok) return { outcome: "fail", reason: a.kind + " failed: " + JSON.stringify(a.spec) };
+  }
+  return { outcome: "pass", reason: null };
+}

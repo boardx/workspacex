@@ -12,7 +12,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { agentRuntime, identity } from "@repo/contracts";
+import { agentRole, agentRuntime, identity, wave2Runtime } from "@repo/contracts";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-catalog", orgRole: "admin" }));
@@ -119,14 +119,14 @@ describe("Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板", (
     expect(screen.queryByTestId("admin-agent-definition-list-panel")).toBeNull();
 
     const filters = screen.getByTestId("admin-agent-tag-filters");
-    expect(within(filters).getByTestId("admin-agent-tag-filter-listing").textContent).toContain("目录条目 2");
-    expect(within(filters).getByTestId("admin-agent-tag-filter-executable").textContent).toContain("可执行 1");
+    expect(within(filters).getByTestId("admin-agent-tag-listing").textContent).toContain("目录条目 2");
+    expect(within(filters).getByTestId("admin-agent-tag-executable").textContent).toContain("可执行 1");
 
-    fireEvent.click(screen.getByTestId("admin-agent-tag-filter-executable"));
+    fireEvent.click(screen.getByTestId("admin-agent-tag-executable"));
     expect(screen.getByTestId("admin-agent-list").textContent).toContain("值班助理");
     expect(screen.getByTestId("admin-agent-list").textContent).not.toContain("客服 Agent");
 
-    fireEvent.click(screen.getByTestId("admin-agent-tag-filter-all"));
+    fireEvent.click(screen.getByTestId("admin-agent-tag-all"));
     fireEvent.change(screen.getByTestId("admin-agent-search"), { target: { value: "结算" } });
     expect(screen.getByTestId("admin-agent-list").textContent).toContain("结算 Agent");
     expect(screen.getByTestId("admin-agent-list").textContent).not.toContain("客服 Agent");
@@ -216,4 +216,27 @@ describe("Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板", (
     expect(within(drawer).queryByTestId("admin-agent-row-agent-1-save")).toBeNull();
     expect(drawer).toHaveTextContent("只有组织管理员可以修改");
   });
+  it("官方角色启用后同时重新读取目录条目和可执行定义", async () => {
+    let enabled = false;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === agentRole.operations.getOfficialRolePackOffer.path) return jsonResponse({
+        packId: "official-digitalhuman-roles", packVersion: "1.5.0", canEnable: true, requiredSkillPacks: [],
+        pending: enabled ? [] : [{ roleRef: "D003", name: "产品经理", roleLabel: "产品经理", avatar: null, roleCategory: "product", tags: [], workflowAllowlist: ["W029"] }],
+      });
+      if (url.pathname === wave2Runtime.operations.importAgentStarterPack.path && init?.method === "POST") {
+        enabled = true;
+        return jsonResponse({});
+      }
+      if (url.pathname === agentRuntime.operations.listAgents.path) return jsonResponse(enabled ? [{ ...DEFINITION, agentId: "official-pm", name: "产品经理" }] : []);
+      return jsonResponse(enabled ? [listing("official-pm", "产品经理")] : []);
+    }));
+    render(<AgentScreen state="default" />);
+    await screen.findByTestId("admin-agent-catalog");
+    fireEvent.click(screen.getByRole("button", { name: "官方数字人" }));
+    fireEvent.click(await screen.findByRole("button", { name: "启用官方数字人" }));
+    await screen.findByTestId("admin-agent-definition-official-pm");
+    expect(await screen.findByTestId("admin-agent-row-official-pm")).toHaveTextContent("产品经理");
+  });
+
 });

@@ -72,6 +72,7 @@ type Call = [string, { method?: string; body?: Record<string, unknown>; query?: 
 const callsTo = (path: string, method = "GET") =>
   (apiRequest.mock.calls as Call[]).filter(([p, o]) => p === path && (o?.method ?? "GET") === method);
 
+
 describe("① 快速反馈：review 阶段只有标题 + 详细说说", () => {
   it("2026-09-10 人类反馈：不再渲染任何一排结构化输入框，类型切换也不变出来", async () => {
     render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);
@@ -280,7 +281,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "x1" } });
-    await waitFor(() => expect(screen.getByTestId("inbox-drag-error")).toBeTruthy());
+    await screen.findByTestId("inbox-drag-error");
     // 回滚后卡片回到待处理列。
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
     expect(screen.getByTestId("inbox-card-B-1")).toBeTruthy();
@@ -557,6 +558,26 @@ describe("⑨ 转入开发 ⇔ 建 GitHub Issue（2026-09-05：不再有独立�
     expect(draft.title).toBe("改过的标题");
     expect(draft.labels).toEqual(["user-feedback", "bug"]);
     await waitFor(() => expect(screen.getByTestId("inbox-column-count-doing").textContent).toBe("1"));
+  });
+
+  it("建 issue 失败后错误在抽屉内可见，草稿保留且状态不迁移", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [feedbackItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path.endsWith("/events")) return { events: [] };
+      if (path.endsWith("/status") && opts?.method === "PUT") throw new Error("offline");
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-start"));
+    fireEvent.change(screen.getByTestId("inbox-issue-title"), { target: { value: "保留我修改的标题" } });
+    fireEvent.click(screen.getByTestId("inbox-issue-submit"));
+    const drawer = screen.getByTestId("inbox-drawer");
+    expect(await within(drawer).findByRole("alert")).toHaveTextContent("草稿已保留");
+    expect(screen.getByTestId("inbox-issue-title")).toHaveValue("保留我修改的标题");
+    expect(screen.getByTestId("inbox-issue-submit")).toBeEnabled();
+    expect(screen.getByTestId("inbox-column-count-doing")).toHaveTextContent("0");
   });
 
   it("服务端回 imageUploadWarnings ⇒ 展示持续的附件上传警告，不吞", async () => {
@@ -1006,6 +1027,12 @@ async function clickMore(testid: string): Promise<void> {
   await openMore();
   fireEvent.click(await screen.findByTestId(testid));
 }
+/** design-delta `novice-workbench-list`：卡片的编辑 / 删除收进每张卡的「⋯」菜单（Radix，pointerdown 打开），菜单项沿用原 testid。 */
+// ⚠ 用同步的 getByTestId：有的用例开着假时钟，findBy* 靠计时器轮询会一直等下去（Radix 菜单在 pointerdown 后是同步渲染的）。
+async function clickCardMenu(projectId: string, testid: string): Promise<void> {
+  fireEvent.pointerDown(screen.getByTestId(`project-more-${projectId}`), { button: 0, ctrlKey: false });
+  fireEvent.click(screen.getByTestId(testid));
+}
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
@@ -1117,7 +1144,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    fireEvent.click(screen.getByTestId("project-edit-p1"));
+    await clickCardMenu("p1", "project-edit-p1");
     fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "新名" } });
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -1376,8 +1403,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       render(<DesignWorkbenchHome state="default" />);
       await screen.findByTestId("workbench-tag-后台");
       fireEvent.click(screen.getByTestId("workbench-tag-后台"));
-      await screen.findByTestId("workbench-tag-clear");
-      fireEvent.click(screen.getByTestId("workbench-tag-clear"));
+      await screen.findByTestId("workbench-tag-all");
+      fireEvent.click(screen.getByTestId("workbench-tag-all"));
       await waitFor(() => expect(screen.getByTestId("project-card-dp-3")).toBeTruthy());
       expect(queries[queries.length - 1]?.tags).toBeUndefined();
     });
@@ -2097,7 +2124,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    fireEvent.click(screen.getByTestId("project-delete-p1"));
+    await clickCardMenu("p1", "project-delete-p1");
     // 迭代 39 起删除要先确认（见 UIUX 18 那一组）——这一条断的是确认之后真的走 DELETE。
     fireEvent.click(await screen.findByTestId("workbench-delete-yes"));
     await waitFor(() => expect(screen.queryByTestId("project-card-p1")).toBeNull());
@@ -2986,12 +3013,12 @@ describe("2026-09-08：看板五条改进（同异常折叠 / 归档箱 / 标签
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     await screen.findByTestId("inbox-tag-filter");
-    expect(screen.getByTestId("inbox-tag-filter-导出")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("inbox-tag-filter-登录"));
+    expect(screen.getByTestId("inbox-tag-导出")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-tag-登录"));
     await waitFor(() => expect(callsTo("/inbox").some(([, o]) => o?.query?.tag === "登录")).toBe(true));
-    expect(screen.getByTestId("inbox-tag-filter-登录").getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByTestId("inbox-tag-filter-clear"));
-    await waitFor(() => expect(screen.getByTestId("inbox-tag-filter-登录").getAttribute("aria-pressed")).toBe("false"));
+    expect(screen.getByTestId("inbox-tag-登录").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByTestId("inbox-tag-all"));
+    await waitFor(() => expect(screen.getByTestId("inbox-tag-登录").getAttribute("aria-pressed")).toBe("false"));
     // 卡片上的标签芯片也是筛选入口。
     const before = callsTo("/inbox").length;
     fireEvent.click(screen.getByTestId("inbox-card-B-1-tag-登录-filter"));
@@ -3112,7 +3139,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
     fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
     fireEvent.click(await screen.findByTestId("inbox-action-design-handoff"));
     fireEvent.click(await screen.findByTestId("inbox-issue-submit"));
-    await waitFor(() => expect(screen.getByTestId("inbox-drag-error")).toBeTruthy());
+    expect(await within(screen.getByTestId("inbox-drawer")).findByRole("alert")).toHaveTextContent("没能创建 GitHub Issue");
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
   });
 });
@@ -5111,7 +5138,7 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     listOnly();
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    fireEvent.click(screen.getByTestId("project-delete-p1"));
+    await clickCardMenu("p1", "project-delete-p1");
 
     // ⭐ 反证锚点：把卡片的 onDelete 接回裸 handleDelete ⇒ 这三条红（一次误点，项目就没了）。
     const box = await screen.findByTestId("workbench-delete-confirm");
@@ -5143,7 +5170,7 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
       });
       render(<DesignWorkbenchHome state="default" />);
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
-      fireEvent.click(screen.getByTestId("project-delete-p1"));
+      await clickCardMenu("p1", "project-delete-p1");
       fireEvent.click(screen.getByTestId("workbench-delete-yes"));
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
       expect(screen.getByTestId("workbench-action-error").textContent).toContain("没能删除这个项目");
@@ -5199,9 +5226,12 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     listOnly([project({ name: "会员下单" })]);
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
-    // ⭐ 反证锚点：改回写死的「删除项目」/「编辑项目」⇒ 这两条红（读屏听到的每一张卡都一样）。
-    expect(screen.getByTestId("project-delete-p1").getAttribute("aria-label")).toBe("删除「会员下单」");
-    expect(screen.getByTestId("project-edit-p1").getAttribute("aria-label")).toBe("编辑「会员下单」");
+    // ⭐ 反证锚点：改回写死的「更多操作」⇒ 这条红（读屏听到的每一张卡都一样）。
+    // design-delta `novice-workbench-list`：编辑 / 删除收进了「⋯」，项目名由这颗按钮带上。
+    expect(screen.getByTestId("project-more-p1").getAttribute("aria-label")).toBe("「会员下单」的更多操作");
+    fireEvent.pointerDown(screen.getByTestId("project-more-p1"), { button: 0, ctrlKey: false });
+    expect(screen.getByTestId("project-delete-p1")).toHaveTextContent("删除这个设计");
+    expect(screen.getByTestId("project-edit-p1")).toHaveTextContent("改名字和标签");
   });
 
   it("AI 出题失败 ⇒ 说一句话并指一条走得通的路，而不是转圈停下什么都没有", async () => {

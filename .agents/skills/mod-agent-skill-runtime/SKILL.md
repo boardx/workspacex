@@ -55,6 +55,18 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-01：DevApp PDF 的三次 `tool_call_unresolved` 发生在执行前：模型把 `document-understanding` 技能名当作工具名，原生快照授权直接抛异常。不存在注册 handler 的名字应先返回错误 ToolMessage，让模型读取 SKILL.md 并纠正工具与 schema；注册了但快照不允许的工具仍必须 fail-closed，不能把 ToolAuthorityError 统一吞掉（出处：issue #4869，runner 取证 36845699068）。
+- 2026-10-01：内容评测的 Zod 输入/输出也必须定义在 contracts；API 中的 JSON Schema 生成可保留薄派生，但不应因此把 Zod 原定义留在 application，或把 zod-to-json-schema 的 devDependency 变成 contracts 运行期依赖。引用 identity 与发货 --check 一并验证搬迁无漂移（出处：PR #4867，s003-single-source 反证）。
+- 2026-10-01：Workflow Skill 阶段只传 stableId/version 给模型，不会执行已作者化的方法；必须在生产 DI 中读取本组织固定已发布版本的 SKILL.md，缺版本/正文前置失败。回环模型仅按阶段名给 JSON 的测试会掩盖正文缺失，补正文敏感反证、升级后旧版保留和跨租户读取测试（出处：#4862）。
+
+- 2026-10-01：聊天选人提供官方角色启用，并不意味着后台目录也能发现它们；后台需明确提供待启用要约入口，复用完整 Skill/Workflow/角色依赖导入流程，仅显式点击写入，并在组织切换时取消旧视图回调（出处：[issue #4865](https://github.com/boardx/workspacex/issues/4865)）。
+- 2026-10-01：选择角色的系统消息传到 Python 引擎后，共享 graph 的静态 system_prompt 仍可能另行声明“通用助手”，造成两套身份冲突。验收应捕获真实 LangChain graph/middleware 送入模型的消息，覆盖 native 与 legacy；端口 fake 捕获和提示字符串存在都不证明模型服从。共享执行规则只定义运行纪律，角色以固定版本指令为准（角色上下文审查 #4872）。
+- 2026-10-01：个人画像每轮召回时，必须区分“用户背景”和“当前角色职责”，尤其问候/能力介绍与附件分析；固定角色正文传到了模型不等于回答遵守，协议回归与真实模型专业效果应分开验收（出处：[issue #4868](https://github.com/boardx/workspacex/issues/4868)）。
+- 2026-10-01：标准文档工具的不可重放执行失败需保留固定诊断分类；controller不能吞掉超时/取消/截断/执行标识不匹配之间的区别，日志仅输出有界枚举、不输出原始异常与文档数据（出处：[issue #4873](https://github.com/boardx/workspacex/issues/4873)）。
+- 2026-10-01：Work Skill 的 input/output JSON Schema `$ref` 不能指向 Markdown 章节。S003 的 loopback
+  曾在缺少输出字段且使用非契约枚举时获得 10/10：只验证 grader 断言不能证明输出满足契约。
+  用 `work-eval/s003-contract.ts` 派生包 schema，实际 subject 输出先严格校验再评分；G2 显式登记
+  date-time format，避免 AJV 默认忽略时间格式。新包由 builder 发货为 1.0.1，保留旧版本与固定 pins。
 - 2026-09-29：`PgDatabase.inTx` 读 `run-lease.ts` 的 AsyncLocalStorage 给每个事务加 agent run 租约围栏——从 run 里
   **派生出去、生命周期独立**的后台工作（AG05：`start_workflow` 触发的 `WorkflowRuntimeService.dispatch`）会继承这个上下文，
   run 一写回，后台实例的每个事务都抛 `agent_run_lease_lost`，实例永远停在 `running`。派生后台工作必须

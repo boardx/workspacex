@@ -11,6 +11,7 @@ import { HomeView } from "@/components/home/home-screen";
 import { cn } from "@/lib/utils";
 import { describeHomeConfigFailure } from "@/lib/home-config-failure";
 import { getHomeConfig, updateHomeConfig, type HomeConfig } from "@/lib/live-home-config";
+import { HomeThemeSection } from "./home-config-theme-section";
 import { BannerSection, BasicFieldsSection } from "./home-config-appearance-section";
 import { QuickActionsSection, SectionsSection } from "./home-config-content-sections";
 import { RecommendedAgentsSection, RecommendedSkillsSection } from "./home-config-recommend-sections";
@@ -36,7 +37,7 @@ export function HomeConfigScreen() {
   const [config, setConfig] = React.useState<HomeConfig | null>(null);
   const [form, setForm] = React.useState<HomeConfigFormState | null>(null);
   const [invalidFields, setInvalidFields] = React.useState<Record<string, string>>({});
-  const [tab, setTab] = React.useState<"edit" | "preview">("edit");
+  const [tab, setTab] = React.useState<"edit" | "content" | "layout" | "preview">("edit");
 
   const load = React.useCallback(async () => {
     if (orgId === null) return;
@@ -98,7 +99,7 @@ export function HomeConfigScreen() {
     <HomeConfigShell wide={previewing}>
       {form !== null && orgId !== null ? (
         <div role="tablist" aria-label="首页配置视图" className="flex gap-1 border-b border-border" data-testid="home-config-tabs">
-          {([["edit", "编辑", Pencil], ["preview", "预览首页", Eye]] as const).map(([key, label, Icon]) => (
+          {([["edit", "外观", Pencil], ["content", "内容", Home], ["layout", "布局", Home], ["preview", "预览首页", Eye]] as const).map(([key, label, Icon]) => (
             <button
               key={key}
               type="button"
@@ -140,13 +141,20 @@ export function HomeConfigScreen() {
           >
             {form !== null && orgId !== null ? (
               <div className="flex flex-col gap-6">
+                <div hidden={tab !== "edit"} className="flex flex-col gap-6">
+                <HomeThemeSection orgId={orgId} form={form} onChange={setForm} />
                 <BasicFieldsSection form={form} onChange={setForm} />
                 <BannerSection orgId={orgId} form={form} onChange={setForm} />
+                </div>
+                <div hidden={tab !== "layout"} className="flex flex-col gap-6">
                 <QuickActionsSection form={form} onChange={setForm} />
                 <SectionsSection form={form} onChange={setForm} />
+                </div>
+                <div hidden={tab !== "content"} className="flex flex-col gap-6">
                 <RecommendedAgentsSection form={form} onChange={setForm} />
                 <RecommendedSkillsSection orgId={orgId} form={form} onChange={setForm} />
-                <div className="flex items-center gap-2">
+                </div>
+                <div className="sticky bottom-0 flex items-center gap-2 border-t border-border bg-panel py-4">
                   <Button type="submit" variant="primary" disabled={!dirty} data-testid="home-config-save">保存</Button>
                   <Button type="button" variant="outline" onClick={() => setTab("preview")} data-testid="home-config-open-preview">
                     <Eye aria-hidden className="h-3.5 w-3.5" />预览首页
@@ -213,7 +221,7 @@ function HomeConfigShell({ children, wide = false }: { children: React.ReactNode
       <div className={cn("mx-auto flex flex-col gap-6 p-6", wide ? "max-w-6xl" : "max-w-2xl")} data-testid="home-config-screen">
         <div className="flex items-center gap-2">
           <Home aria-hidden className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-16 font-semibold tracking-tight">首页配置</h1>
+          <h1 className="text-24 font-semibold tracking-tight">首页配置</h1>
         </div>
         <p className="text-12 text-muted-foreground">配置本组织成员登录后第一落点（「首页」）的横幅、入口与推荐内容。</p>
         {children}

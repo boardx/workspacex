@@ -42,6 +42,7 @@ import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
 import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
+import { WorkflowTimeline } from "./workflow-timeline";
 const STEPS = [
   ["design", "设计问卷"],
   ["publish", "发布回收"],
@@ -297,12 +298,21 @@ export function LiveSurveyWorkspace({
     if (surveyId !== "new") window.history.pushState(null, "", withProjectId(surveyPath(surveyId, next as SurveyDestination), projectId));
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
-  const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
+  const autosaveEligible = !!draft && !runtime?.publication && step === "design" && dirty &&
     !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
     () => execute(async () => { await save(); }, "saving"));
+  const openPublish = () => {
+    if (conflicted || busy) return;
+    if (!dirty) { selectStep("publish"); return; }
+    void execute(async () => {
+      const persisted = await save();
+      selectStep("publish");
+      if (surveyId === "new") router.replace(withProjectId(surveyPath(persisted.id, "publish"), projectId));
+    }, "saving");
+  };
   return (
-    <main className={`min-w-0 bg-background ${step === "design" ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden" : ""}`}>
+    <main className={`min-w-0 bg-background ${step === "design" ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden [&_button:not(:disabled):not([data-survey-inline-edit])]:bg-primary [&_button:not(:disabled):not([data-survey-inline-edit])]:text-primary-foreground [&_button:not(:disabled):not([data-survey-inline-edit]):hover]:bg-primary-hover" : ""}`}>
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"
@@ -324,7 +334,7 @@ export function LiveSurveyWorkspace({
             }
           />
           <p className="mt-1 text-10 text-muted-foreground">
-            {dirty
+            {operation === "saving" ? step === "design" ? "正在自动保存…" : "正在保存…" : dirty
               ? "有未保存修改"
               : runtime
                 ? `已保存 · ${new Date(runtime.updatedAt).toLocaleString("zh-CN")}`
@@ -335,6 +345,7 @@ export function LiveSurveyWorkspace({
           <Button variant="outline" aria-expanded={secondaryActionsOpen} aria-controls="survey-secondary-actions" onClick={() => setSecondaryActionsOpen(value => !value)}>更多操作</Button>
           {secondaryActionsOpen && (
             <div id="survey-secondary-actions" className="absolute right-0 top-full z-20 mt-2 flex min-w-52 flex-col gap-1 rounded-lg border border-border bg-card p-2 shadow-md">
+              {step === "design" && draft && <SurveyTemplateActions saveOnly kind="question" draft={draft} onApply={() => undefined} locked={!!runtime?.publication} disabled={busy || !projectedInSync} />}
               <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("template"); }}>设计报告模板（可选）</Button>
               {runtime && <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("report"); }}>分析报告（可选）</Button>}
               {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
@@ -342,7 +353,8 @@ export function LiveSurveyWorkspace({
             </div>
           )}
         </div>
-        <Button
+        {step === "design" ? <Button variant="primary" disabled={busy || !draft || conflicted} onClick={openPublish}>发布回收</Button> : <Button
+          variant="primary"
           disabled={busy || !draft || !dirty}
           onClick={() =>
             void execute(async () => {
@@ -351,32 +363,23 @@ export function LiveSurveyWorkspace({
           }
         >
           {operation === "saving" ? "保存中…" : error && dirty && !conflicted ? "重试保存" : busy ? "处理中…" : "保存修改"}
-        </Button>
+        </Button>}
       </header>
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-3 px-5 py-1">
-        {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{conflicted ? "检测到版本冲突，本地修改仍保留" : operation === "saving" ? "正在保存修改…" : error && dirty ? "保存失败，修改仍保留；请重试保存" : busy ? "正在处理…" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
-        {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
-      </div>
-      <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-x-auto px-5 py-2">
-        {workflowSteps.map(([id, label], i) => (
-          <button
-            type="button"
-            key={id}
-            aria-label={`${i + 1}. ${label}`}
-            onClick={() => selectStep(id)}
-            className={`flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 ${step === id ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${step === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
-            {label}
-          </button>
-        ))}
-      </nav>
+      <WorkflowTimeline
+        steps={workflowSteps}
+        activeStep={step === "template" ? "design" : step}
+        onSelect={(next) => step === "design" && next === "publish" ? openPublish() : selectStep(next)}
+      />
       {error && (
         <div
           role="alert"
           className="m-4 rounded-md border border-destructive/30 p-3 text-12 text-destructive"
         >
           <p>{error}</p>
+          {step === "design" && dirty && !conflicted && <>
+            <p role="status">保存失败，修改仍保留</p>
+            <Button variant="primary" disabled={busy} onClick={() => void execute(async () => { await save(); }, "saving")}>重试保存</Button>
+          </>}
           {retryable && step === "publish" && runtime?.status === "draft" && (
             <Button
               className="mt-3"
@@ -389,7 +392,7 @@ export function LiveSurveyWorkspace({
         </div>
       )}
       {notice && (
-        <p role="status" className="px-5 pt-3 text-12 text-success">
+        <p role="status" className={step === "design" ? "sr-only" : "px-5 pt-3 text-12 text-success"}>
           {notice}
         </p>
       )}
@@ -441,7 +444,6 @@ export function LiveSurveyWorkspace({
           {step === "design" && (<>
             <fieldset disabled={!projectedInSync} className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
-            <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               studioLayout
               surveyTitle={draft.title}
