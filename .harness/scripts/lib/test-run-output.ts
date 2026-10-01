@@ -2,6 +2,7 @@
 export class TestRunOutput {
   private readonly tails = new Map<string, string>();
   private zeroTests = false;
+  private executedTests = false;
   private selectedFiles: number | null = null;
   private vitestSeen = false;
   private emptyAnnouncement = false;
@@ -16,12 +17,14 @@ export class TestRunOutput {
       this.zeroTests = summary[1] === "no tests";
       this.selectedFiles = this.zeroTests ? 0 : Number.parseInt(summary[1]!, 10);
     }
+    const summaries = text.match(/^\s*Tests\s+(?:\d+ (?:passed|failed)\s*\|\s*)*\d+ (?:passed|failed)(?:\s*\|\s*\d+ (?:skipped|todo))*\s*\(\d+\)\s*$/gm) ?? [];
+    this.executedTests ||= summaries.some((line) => [...line.matchAll(/\b(\d+) (?:passed|failed)\b/g)].some((count) => Number(count[1]) > 0));
     this.webServerFailed ||= /Process from config\.webServer was not able to start|Timed out waiting[^\n]*config\.webServer/.test(text);
     this.tails.set(stream, text.slice(-4096));
   }
 
   classify(code: number): { code: number; diagnostic: string | null } {
-    if (this.zeroTests || (this.selectedFiles === null && this.vitestSeen && this.emptyAnnouncement)) {
+    if (!this.executedTests && (this.zeroTests || (this.selectedFiles === null && this.vitestSeen && this.emptyAnnouncement))) {
       return {
         code: code === 0 ? 1 : code,
         diagnostic: code === 0

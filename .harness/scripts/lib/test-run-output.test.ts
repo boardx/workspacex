@@ -27,6 +27,16 @@ describe("test-run output truthfulness", () => {
     expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
     expect(output.classify(3)).toEqual({ code: 3, diagnostic: null });
   });
+  it("ignores embedded phrases and gives executed summaries precedence across streams", () => {
+    const output = new TestRunOutput();
+    output.observe("stdout", "application says No test files found\n");
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+    output.observe("stderr", "No test files found\nTest Files no tests\n");
+    output.observe("stdout", " Tests 1 passed (1)\n");
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+    expect(output.classify(9).code).toBe(9);
+  });
+
   it("explicitly identifies a pre-test webServer failure", () => {
     const output = new TestRunOutput();
     output.observe("stderr", "Error: Process from config.webServer was not able to start. Exit code: 1\n");

@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { LANES } from "./ci-lane-dedup.mjs";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
@@ -60,7 +61,7 @@ async function runWrapperOnce(options: {
   if (options.vitestCase) {
     const config = join(temp, "vitest.config.mjs");
     writeFileSync(config, "export default {test:{globals:true,include:['**/*.test.js'],passWithNoTests:true}};");
-    writeFileSync(join(temp, "selected.test.js"), `test('real selected assertion',()=>{${options.vitestCase === "logged-empty" ? "console.log('No test files found');" : ""}expect(2+2).toBe(4);});`);
+    writeFileSync(join(temp, "selected.test.js"), `test('real selected assertion',()=>{${options.vitestCase === "logged-empty" ? "console.log('No test files found'); console.log('Test Files no tests');" : ""}expect(2+2).toBe(4);});`);
     childArgs.splice(1, childArgs.length - 1,
       resolve(ROOT, "node_modules/vitest/vitest.mjs"), "run", "--root", temp,
       "--config", config, "--maxWorkers=1", "--minWorkers=1",
@@ -162,7 +163,16 @@ describe("#387 trusted full-stack gate contract", () => {
   it("accepts an actual Vitest selected assertion and still cleans its scope", async () => {
     const result = await runWrapper({ vitestCase: "positive" });
     expect(result.code, result.stderr).toBe(0);
-    expect(result.stdout).toMatch(/Tests\s+1 passed/);
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
+    expect(result.stderr).not.toContain("零测试执行");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  }, 60_000);
+
+  it("accepts a real passed test logging empty-run phrases and still cleans its scope", async () => {
+    const result = await runWrapper({ vitestCase: "logged-empty" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain("No test files found");
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
     expect(result.stderr).not.toContain("零测试执行");
     expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
   }, 60_000);
