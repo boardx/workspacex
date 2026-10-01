@@ -1,0 +1,12 @@
+............                                                             [100%]
+=============================== warnings summary ===============================
+tests/test_role_model_context.py::test_selected_role_survives_to_actual_model_request[What can you do?-native]
+  /tmp/role-acceptance-venv/lib/python3.12/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+tests/test_role_model_context.py::test_selected_role_survives_to_actual_model_request[What can you do?-native]
+  /workspace/workstack-effect-fixes/apps/deep-agent-service/src/deep_agent_service/standard_sql_database.py:9: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12 passed, 2 warnings in 8.54s

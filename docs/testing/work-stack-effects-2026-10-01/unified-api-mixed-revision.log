@@ -1,0 +1,73 @@
+[stack-admission] load1=1.06 cores=5 perCore=0.21 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mup6iabn-9bf2c0cf-baac842de869 db=wsx_baac842de869a8db9888 compose=wsx-baac842de869a8db9888 pg=20205 redis=21205 api=24205 web=25205 sandbox=26205 model=27205 deep-agent=28205 asr=29205 vision=30205 loopback-sandbox=31205 mail=19205
+ Network wsx-baac842de869a8db9888_default  Creating
+ Network wsx-baac842de869a8db9888_default  Created
+ Container wsx-baac842de869a8db9888-postgres-1  Creating
+ Container wsx-baac842de869a8db9888-postgres-1  Created
+ Container wsx-baac842de869a8db9888-postgres-1  Starting
+ Container wsx-baac842de869a8db9888-postgres-1  Started
+ Container wsx-baac842de869a8db9888-postgres-1  Waiting
+ Container wsx-baac842de869a8db9888-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] db=wsx_baac842de869a8db9888 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (13 tests) 30ms
+ ✓ tests/agent-runtime/deep-agent-model-provider.test.ts (19 tests) 357ms
+ ✓ tests/work-eval/eval-runner.test.ts (17 tests) 6637ms
+   ✓ harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported 2020ms
+   ✓ harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2 3877ms
+ ✓ tests/knowledge-graph/recall-ranking.test.ts (15 tests) 24ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ✓ tests/work-content/problem-to-prd-real-loopback-e2e.test.ts (2 tests) 34556ms
+   ✓ W029 end-to-end on the real loopback model script (dashscope alias) > frame (and every later Skill stage) completes; gates approve through to a published PrdArtifact 1933ms
+ ✓ tests/work-eval/gates-g0-g4.test.ts (12 tests) 7562ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 7155ms
+ ✓ tests/work-eval/gates-counterproof.test.ts (14 tests) 1008ms
+ ✓ tests/agent-runtime/standard-document-tools.test.ts (11 tests) 31ms
+ ✓ tests/work-eval/s003-suite-shape.test.ts (6 tests) 1289ms
+   ✓ evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 1103ms
+ ✓ tests/agent-runtime/starter-import-org-scope.test.ts (6 tests) 287ms
+ ✓ tests/work-content/pinned-skill-instructions.test.ts (3 tests) 24ms
+ ❯ tests/agent-runtime/document-parse-diagnostics.test.ts (2 tests | 1 failed) 23ms
+   × does not classify arbitrary provider text or leak document details 13ms
+     → expected 'unknown' to be 'runtime_unavailable' // Object.is equality
+ ✓ tests/agent-runtime/remember-tool-guidance.test.ts (2 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/document-parse-diagnostics.test.ts > does not classify arbitrary provider text or leak document details
+AssertionError: expected 'unknown' to be 'runtime_unavailable' // Object.is equality
+
+Expected: "runtime_unavailable"
+Received: "unknown"
+
+ ❯ tests/agent-runtime/document-parse-diagnostics.test.ts:7:78
+      5| afterEach(()=>vi.restoreAllMocks());
+      6| it('does not classify arbitrary provider text or leak document details…
+      7|  expect(documentParseFailureReason(new Error('document_parse_unavailab…
+       |                                                                              ^
+      8|  expect(documentParseFailureReason(new Error('document_parse_denied'))…
+      9|  expect(documentParseFailureReason(new Error('document_parse_input_cha…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 12 passed (13)
+      Tests  1 failed | 121 passed (122)
+   Start at  06:54:46
+   Duration  67.45s (transform 10.74s, setup 0ms, collect 10.74s, tests 51.83s, environment 3ms, prepare 1.07s)
+
+[db-isolation] db=wsx_baac842de869a8db9888 peak_connections=8
+undefined
+/workspace/workstack-effect-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/work-content/problem-to-prd-real-loopback-e2e.test.ts tests/agent-runtime/document-parse-diagnostics.test.ts tests/agent-runtime/standard-document-tools.test.ts tests/agent-runtime/execute-run-progress.test.ts tests/agent-runtime/deep-agent-model-provider.test.ts tests/knowledge-graph/recall-ranking.test.ts tests/agent-runtime/remember-tool-guidance.test.ts tests/agent-runtime/starter-import-org-scope.test.ts tests/work-content/pinned-skill-instructions.test.ts tests/work-eval/eval-runner.test.ts tests/work-eval/s003-suite-shape.test.ts tests/work-eval/gates-counterproof.test.ts tests/work-eval/gates-g0-g4.test.ts
+[timing] bash /tmp/workstack-unified-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m29s
+  清理：1s
+  总计：1m30s

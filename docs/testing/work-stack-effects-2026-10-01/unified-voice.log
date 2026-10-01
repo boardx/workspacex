@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes
+
+ ✓ .harness/scripts/vm/deploy-readiness.test.ts (28 tests) 2918ms
+   ✓ anonymous Upgrade probe actual transport > passes production gateway 401 and fails a misrouted HTTP server 1997ms
+ ✓ .harness/scripts/vm/deploy-trusted-copy-drift.test.ts (5 tests) 134ms
+ ✓ .harness/scripts/vm/realtime-voice-route-repair.test.ts (5 tests) 208ms
+
+ Test Files  3 passed (3)
+      Tests  38 passed (38)
+   Start at  06:50:48
+   Duration  4.26s (transform 1.34s, setup 0ms, collect 97ms, tests 3.26s, environment 1ms, prepare 200ms)
+
