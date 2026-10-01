@@ -57,6 +57,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 ## 踩坑与经验（append-only，最新在上）
 - 2026-10-01：DevApp PDF 的三次 `tool_call_unresolved` 发生在执行前：模型把 `document-understanding` 技能名当作工具名，原生快照授权直接抛异常。不存在注册 handler 的名字应先返回错误 ToolMessage，让模型读取 SKILL.md 并纠正工具与 schema；注册了但快照不允许的工具仍必须 fail-closed，不能把 ToolAuthorityError 统一吞掉（出处：issue #4869，runner 取证 36845699068）。
 - 2026-10-01：召回画像的第一人称内容不可当作 assistant 历史发言注入，否则用户身份会形成助手自述；保留记忆但标记为 user 背景参考，固定角色仍在 system。执行器反证与真实 LangChain native/legacy 请求捕获分开验证，不能据此宣称真实模型遵守（PR #4892）。
+- 2026-10-01：官方角色中文名称不会自动进入固定版本 instructions；作者化应明确身份与差异化方法。矩阵直接 Skill 与 workflow依赖不同，静态包不能编造组织内随机versionId；将真实内容坐标签入包摘要，在租户事务解析 verified/published pins，其他坐标冻结为显式pending。跨包同stableName不同内容应失败；用新不可变兼容包消除共享分叉，不改旧包、不把候选伪装已验证（PR #4892，official-role-authorship真实PG18/18与原矩阵纠正反证）。
+
 - 2026-10-01：内容评测的 Zod 输入/输出也必须定义在 contracts；API 中的 JSON Schema 生成可保留薄派生，但不应因此把 Zod 原定义留在 application，或把 zod-to-json-schema 的 devDependency 变成 contracts 运行期依赖。引用 identity 与发货 --check 一并验证搬迁无漂移（出处：PR #4867，s003-single-source 反证）。
 - 2026-10-01：Workflow Skill 阶段只传 stableId/version 给模型，不会执行已作者化的方法；必须在生产 DI 中读取本组织固定已发布版本的 SKILL.md，缺版本/正文前置失败。回环模型仅按阶段名给 JSON 的测试会掩盖正文缺失，补正文敏感反证、升级后旧版保留和跨租户读取测试（出处：#4862）。
 

@@ -1,0 +1,20 @@
+# Official role authorship and exact Skill readiness
+
+Base: `e999a6561`; contracts dependency: `41bc30060`. The shipped role pack becomes `official-digitalhuman-roles@1.6.0`. Seven distinct Chinese prompts explain professional work backgrounds without invented employment history, methods, concrete help, decision boundaries and the distinction between requester memories and role identity. Historical 1.0–1.5 instruction digests are derived from preserved original text, not the newly authored prompts.
+
+The composition matrix and signed starter content remain authoritative. `generate-official-role-skill-coordinates.ts` generates exact direct coordinates; `--check` detects drift. These coordinates are included in `authoredSkillBindings` in the signed pack digest. The import/upgrade transaction resolves only tenant-local stableId + stableName + contentDigest matches. Published verified versions become actual pins; candidates or missing versions become explicit immutable `pending_skill_bindings`. The new column defaults to an empty list for compatibility. Adding pins from a baseline version preserves its pending list unless the caller supplies a replacement. Nothing promotes candidates or changes old published versions. Tool categories and imported packages do not create authorization.
+
+`work-sales@1.0.0` contains an S009/customer-research fork that conflicts with the already required product pack. A new immutable `work-sales@1.1.0` excludes that duplicate fork; all other entries remain exactly equal to 1.0.0. The old package is unchanged. The full required-package union is mechanically checked for equal names/content digests on shared stable names. D005 keeps exactly its original fourteen matrix Skill targets and D006 retains S035. D005 has **no direct S009** in the matrix: an initially incorrect test assertion was rejected and corrected to check product-role S009, rather than expanding sales permissions. CRM and sales Workflow execution remain deferred.
+
+## Evidence
+
+- Baseline role-source counterproof: the four initial authoring/coordinate tests failed against `e999a6561`; current authored identities, matrix membership and content digests pass.
+- Final DB-free selection: 13/13 passed across authored-role, resolver permission-exemption, role-insert guard and tolerant-read tests.
+- Contract single-source tests: 4/4 passed in the broader selection. An unrelated missing DB-free selection registration initially caused the harness to refuse execution; explicitly registered pure source tests then ran without a database.
+- Coordinate generator `--check`: exit 0.
+- API lint: exit 0, including permission paths, manifests and architecture direction. The new resolver exemption has explicit source guards; it adds no ACL grant or unscoped catalog fallback.
+- Real PostgreSQL/Nest HTTP suite `official-role-pack-import.test.ts`: final **18/18 passed** under standard test-isolation using only the existing PostgreSQL image; the wrapper released its containers and volumes. First run was 16/18: it exposed the sales package conflict and obsolete 1.5 version assertion, both corrected before the final run.
+- The real PG readiness test imports the actual research package, retains candidate states, and creates one explicitly synthetic trusted verified fixture to test the boundary. Only its exact version becomes executable; the other nine research targets remain awaiting verification. A fresh organization imports all seven roles successfully with explicit missing-version gaps. This fixture is not evidence that professional G5 model evaluation was performed.
+- `git diff --check`: exit 0. No full build/typecheck or browser stack was launched by this subtask; integrated API typechecking and browser evidence are handled by the parent and other agents.
+
+Prompt content and protocol checks do not prove that a real model follows the role, produces different professional answers, analyzes PDFs correctly or is available on devapp. Those remain separate real-model/deployment acceptance requirements.
