@@ -74,6 +74,15 @@ const snapshot = async () => {
 };
 const rows = () => page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(elements => elements.map(element => ({id: element.dataset.objectId, kind: element.dataset.objectKind, text: element.dataset.objectText, geometry: JSON.parse(element.dataset.geometry), from: element.dataset.connectorFrom, to: element.dataset.connectorTo})));
 const surface = () => page.getByTestId('board-fabric-surface');
+const deselectForPixelRead = async () => {
+  const before = await canonicalState();
+  await page.getByTestId('board-tool-select').click();
+  await surface().click({ position: { x: 1100, y: 120 } });
+  await page.getByText('0 个已选对象', { exact: true }).waitFor();
+  await poll(() => surface().getAttribute('data-selection-scene'), value => !value || value === 'null', 'pixel sampling has no selection chrome');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assertHeldUncommitted(before, await canonicalState());
+};
 const connectorPixels = () => surface().locator('canvas.lower-canvas').evaluate(canvas => {
   const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
   let count = 0, x = 0, y = 0;
@@ -92,14 +101,14 @@ const inkAt = point => surface().locator('canvas.lower-canvas').evaluate((canvas
 const selectionCornerInk = async bounds => {
   const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
   const point = { x: box.x + px + (bounds.left + bounds.width) * zoom, y: box.y + py + (bounds.top + bounds.height) * zoom };
-  return surface().locator('canvas.upper-canvas').evaluate((canvas, point) => {
+  return surface().locator('canvas.lower-canvas').evaluate((canvas, point) => {
     const box = canvas.getBoundingClientRect(), sx = canvas.width / box.width, sy = canvas.height / box.height;
     const bytes = canvas.getContext('2d').getImageData(Math.round((point.x - box.x - 7) * sx), Math.round((point.y - box.y - 7) * sy), Math.round(14 * sx), Math.round(14 * sy)).data;
     let count = 0; for (let index = 0; index < bytes.length; index += 4) if (bytes[index + 3] > 50 && bytes[index] < 80 && bytes[index + 1] > 60 && bytes[index + 1] < 180 && bytes[index + 2] > 180) count++;
-    return { point, bluePixels: count };
+    return { point, bluePixels: count, canvasChannel: 'lower-canvas' };
   }, point);
 };
-const selectionBlueChrome = () => surface().locator('canvas.upper-canvas').evaluate(canvas => {
+const selectionBlueChrome = () => surface().locator('canvas.lower-canvas').evaluate(canvas => {
   const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
   let count = 0, sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0;
   const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
@@ -109,7 +118,7 @@ const selectionBlueChrome = () => surface().locator('canvas.upper-canvas').evalu
     count++; sumX += x; sumY += y; sumX2 += x * x; sumY2 += y * y;
     bounds.left = Math.min(bounds.left, x); bounds.top = Math.min(bounds.top, y); bounds.right = Math.max(bounds.right, x); bounds.bottom = Math.max(bounds.bottom, y);
   }
-  return { count, bounds, fingerprint: [count, sumX, sumY, sumX2, sumY2].join(':') };
+  return { count, bounds, fingerprint: [count, sumX, sumY, sumX2, sumY2].join(':'), canvasChannel: 'lower-canvas' };
 });
 const drawingMeasurements = async object => {
   const stroke = object.extensionData.contentObject.strokes.find(item => item.tool !== 'eraser');
@@ -403,7 +412,7 @@ try {
     const edge = readObjects(doc).find(object => object.id === edgeId); doc.destroy();
     await submit([{ type: 'create', object: edge }]); await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
     const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
-    const center = { x: box.x + px + (edge.connector.start.x + edge.connector.end.x) / 2 * zoom, y: box.y + py + (edge.connector.start.y + edge.connector.end.y) / 2 * zoom };
+    const center = { x: box.x + px + (edge.connector.fromPoint.x + edge.connector.toPoint.x) / 2 * zoom, y: box.y + py + (edge.connector.fromPoint.y + edge.connector.toPoint.y) / 2 * zoom };
     await page.mouse.click(center.x, center.y);
     for (const target of ['board-connector-handle-from', 'board-connector-body-hit']) for (const button of ['middle', 'right']) {
       const hit = await page.getByTestId(target).boundingBox(); assert(hit, `${target} must be real selected DOM overlay`);
@@ -486,14 +495,16 @@ try {
       assert.equal(strokes[0].opacity, BOARD_DRAWING_TOOL_STYLES[choice].opacity, 'persisted opacity matches the canonical selected instrument style');
       if (choice === 'pen') naturalPenId = created[0].id;
       else naturalHighlighterId = created[0].id;
+      await deselectForPixelRead();
       const measured = await poll(() => drawingMeasurements(created[0]), value => value.thickness > 0, `${choice} actual committed ink`); assertDrawingPixels(measured);
-      await page.getByTestId('board-draw-select').click(); await page.screenshot({ path: join(out, `${choice}-natural.png`) }); measurements.push({ choice, id: created[0].id, ...measured });
+      await page.screenshot({ path: join(out, `${choice}-natural.png`) }); measurements.push({ choice, id: created[0].id, ...measured });
     }
     assert(measurements[1].expectedAlpha < measurements[0].expectedAlpha, 'actual highlighter is translucent relative to pen');
     const highlighter = (await snapshot()).objects.find(object => object.id === naturalHighlighterId), overlap = structuredClone(highlighter);
     overlap.id = randomUUID(); overlap.geometry.x += 380;
     overlap.extensionData.contentObject.strokes = [0, 1].map(() => ({ ...structuredClone(highlighter.extensionData.contentObject.strokes[0]), id: randomUUID() }));
     await submit([{ type: 'create', object: overlap }]); await page.reload(); await synced();
+    await deselectForPixelRead();
     const expectedOverlapAlpha = (1 - (1 - highlighter.extensionData.contentObject.strokes[0].opacity) ** 2) * 255;
     const composite = { ...await drawingMeasurements(overlap), expectedAlpha: expectedOverlapAlpha }; assertDrawingPixels(composite);
     await page.screenshot({ path: join(out, 'highlighter-independent-strokes-overlap.png') });
@@ -517,10 +528,11 @@ try {
       const next = after.objects.find(item => item.id === naturalId);
       if (mode === 'resize') assert(next.geometry.width !== g.width || next.geometry.height !== g.height, 'drawing really resizes');
       else assert(next.geometry.rotation !== g.rotation, 'drawing really rotates');
+      await deselectForPixelRead();
       const measured = await drawingMeasurements(next); assertDrawingPixels(measured);
-      await page.keyboard.press('Control+z'); await synced(); const undone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(before.objects), 'drawing single undo'); assertDrawingPixels(await drawingMeasurements(undone.objects.find(item => item.id === naturalId)));
-      await page.keyboard.press('Control+Shift+z'); await synced(); const redone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(after.objects), 'drawing single redo'); assertDrawingPixels(await drawingMeasurements(redone.objects.find(item => item.id === naturalId)));
-      await page.reload(); await synced(); assert.deepEqual((await canonicalState()).objects, after.objects); const reloaded = await drawingMeasurements(next); assertDrawingPixels(reloaded);
+      await page.keyboard.press('Control+z'); await synced(); const undone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(before.objects), 'drawing single undo'); await deselectForPixelRead(); assertDrawingPixels(await drawingMeasurements(undone.objects.find(item => item.id === naturalId)));
+      await page.keyboard.press('Control+Shift+z'); await synced(); const redone = await poll(canonicalState, value => JSON.stringify(value.objects) === JSON.stringify(after.objects), 'drawing single redo'); await deselectForPixelRead(); assertDrawingPixels(await drawingMeasurements(redone.objects.find(item => item.id === naturalId)));
+      await page.reload(); await synced(); assert.deepEqual((await canonicalState()).objects, after.objects); await deselectForPixelRead(); const reloaded = await drawingMeasurements(next); assertDrawingPixels(reloaded);
       await page.screenshot({ path: join(out, `drawing-${naturalId}-${mode}-redo-reload.png`) }); gestures.push({ id: naturalId, mode, beforeHead: before.head, afterHead: after.head, before: measuredBefore, committed: measured, reloaded });
     }
     return gestures;
