@@ -286,6 +286,19 @@ export const AgentDirectoryCard = z.object({
  * 不含授权详情（R5）：技能只给 ID（名字由成员可读的技能端点换），转交对象只列本组织目录里可见的角色。
  * `duty` 为空 = 未登记职责一句话（与名字/角色标签相同的占位值也视为空，不回显）。
  */
+export const PendingSkillBinding = z.object({
+  stableId: z.string().regex(/^S\d{3}$/),
+  stableName: z.string().min(1),
+  contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  reason: z.enum(["awaiting_verification", "missing_version"]),
+  skillId: z.string().min(1).optional(),
+  versionId: z.string().min(1).optional(),
+  displayName: z.string().min(1).optional(),
+}).strict();
+export type PendingSkillBinding = z.infer<typeof PendingSkillBinding>;
+export const AuthoredSkillBinding = PendingSkillBinding.pick({ stableId: true, stableName: true, contentDigest: true }).strict();
+export type AuthoredSkillBinding = z.infer<typeof AuthoredSkillBinding>;
+
 export const AgentDirectoryProfile = z.object({
   agentId: Id,
   duty: z.string().nullable(),
@@ -293,6 +306,10 @@ export const AgentDirectoryProfile = z.object({
   mountedSkillIds: z.array(z.string()).max(64),
   /** 已发布版本钉住的技能版本（`agent_versions.skill_version_ids`）。 */
   pinnedSkillVersionIds: z.array(z.string()).max(64),
+  /** Exact published pins, including versions older than the catalog current version. */
+  pinnedSkills: z.array(z.object({ skillId: z.string(), versionId: z.string() }).strict()).max(64),
+  /** Unverified/missing declared capabilities are informational, never executable pins. */
+  pendingSkillBindings: z.array(PendingSkillBinding).max(64),
   /** 委派策略允许转交、且当前在目录中可见的角色。 */
   delegationTargets: z.array(z.object({
     agentId: Id,
