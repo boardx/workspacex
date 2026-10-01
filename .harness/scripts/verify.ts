@@ -33,6 +33,17 @@ export async function verify(args: Args): Promise<void> {
   // base gate inherit the same DB/Redis/compose namespace from this single helper.
   // #468：同 with-test-isolation —— 端口向 OS 预留，起子命令前释放。
   const reservation = await ensureReservedTestIsolation(process.env);
+  try {
+    await verifyReserved(args, reservation);
+  } finally {
+    await reservation.dispose();
+  }
+}
+
+async function verifyReserved(
+  args: Args,
+  reservation: Awaited<ReturnType<typeof ensureReservedTestIsolation>>,
+): Promise<void> {
   const isolation = reservation.env;
   await reservation.release();
   Object.assign(process.env, isolation, {
