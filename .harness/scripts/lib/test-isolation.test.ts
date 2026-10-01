@@ -185,6 +185,7 @@ describe("test isolation contract (#74)", () => {
     for (const name of [
       "WORKSPACEX_ISOLATION_ID",
       "WORKSPACEX_DB",
+      "WORKSPACEX_NATIVE_POSTGRES",
       "PGDATABASE",
       "PGPORT",
       "REDIS_PORT",
@@ -197,6 +198,7 @@ describe("test isolation contract (#74)", () => {
     const baseline = deriveTestIsolation({ isolationId: "turbo-cache-a", worktreePath: ROOT });
     const baselineHash = turboApiTestHash(baseline);
     expect(turboApiTestHash(baseline)).toBe(baselineHash);
+    expect(turboApiTestHash({ ...baseline, WORKSPACEX_NATIVE_POSTGRES: "1" })).not.toBe(baselineHash);
     for (const name of [
       "WORKSPACEX_DB",
       "PGDATABASE",
