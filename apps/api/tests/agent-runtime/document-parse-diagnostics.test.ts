@@ -4,9 +4,10 @@ import {DocumentParseExecutionError,documentParseFailureReason} from '../../src/
 import {StandardDocumentToolsController} from '../../src/interface/controllers/standard-document-tools.controller';
 afterEach(()=>vi.restoreAllMocks());
 it('does not classify arbitrary provider text or leak document details',()=>{
+ expect(documentParseFailureReason(new Error('document_parse_unavailable'))).toBe('runtime_unavailable');
  expect(documentParseFailureReason(new Error('document_parse_denied'))).toBe('denied');
  expect(documentParseFailureReason(new Error('document_parse_input_changed'))).toBe('input_changed');
- for(const value of [new Error('document_parse_denied /inputs/private.pdf'),new Error('secret=abc'),new Error('constructor'),'document_parse_denied',null])expect(documentParseFailureReason(value)).toBe('unknown');
+ for(const value of [new Error('document_parse_unavailable secret=abc'),new Error('document_parse_denied /inputs/private.pdf'),new Error('secret=abc'),new Error('constructor'),'document_parse_denied',null])expect(documentParseFailureReason(value)).toBe('unknown');
 });
 it('preserves the external refusal while logging only a bounded reason',async()=>{
  const secret='private-document-body-and-credential';

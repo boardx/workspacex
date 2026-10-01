@@ -17,6 +17,7 @@ export class DocumentParseExecutionError extends Error {
  }
 }
 const DOCUMENT_FAILURE_REASONS = {
+ document_parse_unavailable: 'runtime_unavailable',
  document_parse_denied: 'denied',
  document_parse_input_not_bound: 'input_not_bound',
  document_parse_input_changed: 'input_changed',
