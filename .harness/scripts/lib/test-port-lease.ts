@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmdirSync, unlinkSync, writeFileSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { alive } from "./stack-admission";
@@ -7,6 +7,8 @@ import { alive } from "./stack-admission";
 interface PortLeaseOwner {
   pid: number;
   token: string;
+  /** Set durably before any child may start; abnormal exit quarantines this port. */
+  starting?: true;
 }
 
 /** Machine-wide, shared by all worktrees. Override only to isolate test fixtures. */
@@ -41,14 +43,16 @@ function readOwner(dir: string): PortLeaseOwner | null {
   }
   if (!owner || !Number.isSafeInteger(owner.pid) || owner.pid <= 0 ||
       typeof owner.token !== "string" || !/^[\da-f-]{36}$/.test(owner.token) ||
-      ownerFile(dir, owner) !== join(dir, names[0]!)) return null;
+      ownerFile(dir, owner) !== join(dir, names[0]!) ||
+      (owner.starting !== undefined && owner.starting !== true)) return null;
   return owner;
 }
 
 /** Only the winner of unlinking this immutable token may remove the directory. */
-function removeOwner(dir: string, owner: PortLeaseOwner): void {
+function removeOwner(dir: string, owner: PortLeaseOwner, teardownComplete = false): void {
   const current = readOwner(dir);
   if (current?.pid !== owner.pid || current.token !== owner.token) return;
+  if (current.starting && !teardownComplete) return;
   try {
     unlinkSync(ownerFile(dir, owner));
   } catch (error) {
@@ -60,7 +64,7 @@ function removeOwner(dir: string, owner: PortLeaseOwner): void {
 }
 
 /** Atomic claim; a live or unverifiable owner means this candidate is unavailable. */
-export function acquireTestPortLease(port: number, root: string): { release: () => void } | null {
+export function acquireTestPortLease(port: number, root: string): { release: (teardownComplete?: boolean) => void; markStarting: () => void } | null {
   mkdirSync(root, { recursive: true, mode: 0o700 });
   const dir = join(root, String(port));
   const owner: PortLeaseOwner = { pid: process.pid, token: randomUUID() };
@@ -85,7 +89,7 @@ export function acquireTestPortLease(port: number, root: string): { release: () 
   };
   if (!create()) {
     const existing = readOwner(dir);
-    if (existing === null || alive(existing.pid)) return null;
+    if (existing === null || existing.starting || alive(existing.pid)) return null;
     // alive() is shared with admission. Confirm ESRCH before reclaiming: EPERM
     // and other probe errors do not prove that another user's process is dead.
     try {
@@ -97,5 +101,20 @@ export function acquireTestPortLease(port: number, root: string): { release: () 
     removeOwner(dir, existing);
     if (!create()) return null;
   }
-  return { release: () => removeOwner(dir, owner) };
+  return {
+    release: (teardownComplete = false) => removeOwner(dir, owner, teardownComplete),
+    markStarting: () => {
+      const current = readOwner(dir);
+      if (current?.pid !== owner.pid || current.token !== owner.token) throw new Error("[test-isolation] port lease ownership lost before startup");
+      if (current.starting) return;
+      const pending = join(dir, `${owner.pid}-${owner.token}.pending`);
+      try {
+        // Two files during publication mean unavailable, never unowned.
+        writeFileSync(pending, JSON.stringify({ ...current, starting: true }), { flag: "wx" });
+        renameSync(pending, ownerFile(dir, owner));
+      } finally {
+        try { unlinkSync(pending); } catch (error) { if (!isErrorCode(error, "ENOENT")) throw error; }
+      }
+    },
+  };
 }

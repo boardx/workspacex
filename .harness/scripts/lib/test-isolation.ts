@@ -292,7 +292,9 @@ export interface PortReservation {
   /** Release OS listeners before startup, retaining ownership of every port. */
   release: () => Promise<void>;
   /** Release listeners and advisory leases only after child/stack teardown. */
-  dispose: () => Promise<void>;
+  dispose: (teardownComplete?: boolean) => Promise<void>;
+  /** Durable quarantine marker, published before any child can start. */
+  markStarting: () => void;
 }
 
 /**
@@ -308,29 +310,30 @@ export async function reserveIsolationPorts(
   options: { leaseDir?: string } = {},
 ): Promise<PortReservation> {
   const held: Array<ReturnType<typeof createServer>> = [];
-  const leases: Array<{ release: () => void }> = [];
+  const leases: Array<{ release: (teardownComplete?: boolean) => void; markStarting: () => void }> = [];
   const leaseDir = options.leaseDir ?? testPortLeaseDir();
   const release = async (): Promise<void> => {
     await Promise.all(held.splice(0).map((s) => new Promise<void>((r) => s.close(() => r()))));
   };
-  const releaseLeases = (): void => {
+  const releaseLeases = (teardownComplete = false): void => {
     const errors: unknown[] = [];
     for (const lease of leases.splice(0)) {
-      try { lease.release(); } catch (error) { errors.push(error); }
+      try { lease.release(teardownComplete); } catch (error) { errors.push(error); }
     }
     if (errors.length) throw new AggregateError(errors, "[test-isolation] port lease teardown failed");
   };
   // verify's die() uses process.exit(), which bypasses async finally blocks.
   // One handler per owning scope; inherited scopes never register one.
+  // Startup-marked ports remain quarantined on exit without completed teardown.
   const onExit = (): void => {
     try { releaseLeases(); } catch (error) { console.error(error); process.exitCode = 1; }
   };
-  const dispose = async (): Promise<void> => {
+  const dispose = async (teardownComplete = true): Promise<void> => {
     try {
       await release();
     } finally {
       try {
-        releaseLeases();
+        releaseLeases(teardownComplete);
       } finally {
         process.removeListener("exit", onExit);
       }
@@ -379,6 +382,7 @@ export async function reserveIsolationPorts(
     ports,
     release,
     dispose,
+    markStarting: () => { for (const lease of leases) lease.markStarting(); },
   };
 }
 
@@ -390,10 +394,10 @@ export async function reserveIsolationPorts(
 export async function ensureReservedTestIsolation(
   inherited: NodeJS.ProcessEnv,
   options: Pick<IsolationOptions, "worktreePath"> & { leaseDir?: string } = {},
-): Promise<{ env: TestIsolationEnv; release: () => Promise<void>; dispose: () => Promise<void>; reserved: boolean }> {
+): Promise<{ env: TestIsolationEnv; release: () => Promise<void>; dispose: (teardownComplete?: boolean) => Promise<void>; markStarting: () => void; reserved: boolean }> {
   const existing = inheritedIsolation(inherited);
-  if (existing) return { env: existing, release: async () => {}, dispose: async () => {}, reserved: false };
+  if (existing) return { env: existing, release: async () => {}, dispose: async () => {}, markStarting: () => {}, reserved: false };
   const seed = ensureTestIsolation(inherited, options);
   const reservation = await reserveIsolationPorts(seed, { leaseDir: options.leaseDir ?? testPortLeaseDir(inherited) });
-  return { env: { ...seed, ...reservation.ports }, release: reservation.release, dispose: reservation.dispose, reserved: true };
+  return { env: { ...seed, ...reservation.ports }, release: reservation.release, dispose: reservation.dispose, markStarting: reservation.markStarting, reserved: true };
 }

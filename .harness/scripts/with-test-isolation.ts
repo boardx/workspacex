@@ -59,6 +59,7 @@ export async function runWithTestIsolation(
 
   let reservation: Awaited<ReturnType<typeof ensureReservedTestIsolation>> | undefined;
   let slot: StackSlot | undefined;
+  let teardownComplete = true;
   try {
     // #468：端口不再靠哈希猜，而是真的向 OS 预留（探到即持有），起栈前才释放。
     timing.start("环境预留");
@@ -109,6 +110,10 @@ export async function runWithTestIsolation(
     }
 
     // 占位监听必须在起栈**之前**释放，否则 docker bind 会撞上我们自己。
+    // Publish before closing listeners or spawning: wrapper SIGKILL/OOM can leave
+    // unknown descendants alive. Only completed teardown may dispose this marker.
+    reservation.markStarting();
+    teardownComplete = false;
     await reservation.release();
     timing.start("命令执行");
     const child = spawn(command[0]!, command.slice(1), { env, stdio: "inherit" });
@@ -135,6 +140,7 @@ export async function runWithTestIsolation(
     timing.stop();
     timing.start("清理");
     const cleanupError = cleanup();
+    teardownComplete = cleanupError === null && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1";
     timing.stop();
 
     const run = timing.finish(command.join(" "), isolation.WORKSPACEX_ISOLATION_ID);
@@ -159,7 +165,7 @@ export async function runWithTestIsolation(
     // #3128: listener release before startup does not release port ownership.
     // Also covers admission/setup errors and outer-scope mismatch before spawn.
     try {
-      await reservation?.dispose();
+      await reservation?.dispose(teardownComplete);
     } finally {
       try {
         slot?.release();

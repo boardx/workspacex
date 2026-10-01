@@ -81,14 +81,18 @@ describe("#3128 wrapper owns port leases through teardown", () => {
     ["SIGTERM", { signal: "SIGTERM" as const }, 143],
     ["SIGINT", { signal: "SIGINT" as const }, 130],
     ["spawn failure", { missingCommand: true }, 1],
-  ])("%s keeps ownership during cleanup then releases all leases", async (_label, options, expected) => {
+  ])("%s keeps ownership during cleanup and releases only after successful teardown", async (_label, options, expected) => {
     const result = await run(options);
     expect(result.code, result.stderr).toBe(expected);
     expect(result.duringCleanup).toHaveLength(Object.keys(PORT_BASE).length);
     if (!("signal" in options) && !("missingCommand" in options)) {
       expect(result.duringChild).toEqual(result.duringCleanup);
     }
-    expect(result.remaining).toEqual([]);
+    if ("cleanupExit" in options && options.cleanupExit !== 0) {
+      expect(result.remaining).toEqual(result.duringCleanup);
+    } else {
+      expect(result.remaining).toEqual([]);
+    }
   });
 
   it.each([
@@ -104,4 +108,70 @@ describe("#3128 wrapper owns port leases through teardown", () => {
     expect(result.leaseDirExists).toBe(true);
     expect(result.remaining).toEqual([]);
   });
+});
+
+it("#3128 SIGKILL of the wrapper cannot surrender an alive child's unbound startup port", async () => {
+  const temp = mkdtempSync(join(tmpdir(), "orphan-startup-lease-"));
+  const leaseDir = join(temp, "leases"), ready = join(temp, "ready.json");
+  const go = join(temp, "go"), bound = join(temp, "bound"), stop = join(temp, "stop"), done = join(temp, "done");
+  const docker = join(temp, "docker");
+  writeFileSync(docker, "#!/bin/sh\nexit 0\n"); chmodSync(docker, 0o755);
+  const script = `const fs=require('node:fs'),net=require('node:net');const paths=${JSON.stringify({ready,go,bound,stop,done})};let server;fs.writeFileSync(paths.ready,JSON.stringify({pid:process.pid,port:Number(process.env.WORKSPACEX_API_PORT)}));const timer=setInterval(()=>{if(fs.existsSync(paths.stop)){clearInterval(timer);const finish=()=>{fs.writeFileSync(paths.done,'done');process.exit(0)};if(server)server.close(finish);else finish();return;}if(!server&&fs.existsSync(paths.go)){server=net.createServer();server.listen(Number(process.env.WORKSPACEX_API_PORT),'127.0.0.1',()=>fs.writeFileSync(paths.bound,'bound'));}},20);`;
+  const wrapper = spawn(process.execPath, ["--import", "tsx", ".harness/scripts/fixtures/with-test-isolation-fixture.ts", "--", process.execPath, "-e", script], {
+    cwd: ROOT, env: { ...process.env, WORKSPACEX_ISOLATION_ID: undefined, WORKSPACEX_ISOLATION_SEED: temp,
+      WORKSPACEX_VERIFY_OUTER_DB: undefined, WORKSPACEX_VERIFY_OUTER_COMPOSE: undefined,
+      WORKSPACEX_TEST_PORT_LEASE_DIR: leaseDir, PATH: `${temp}:${process.env.PATH ?? ""}` },
+    stdio: "ignore",
+  });
+  async function until(predicate: () => boolean) {
+    const end = Date.now() + 10_000;
+    while (!predicate() && Date.now() < end) await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(predicate()).toBe(true);
+  }
+  async function claim(port: number): Promise<boolean> {
+    const probe = spawn(process.execPath, ["--import", "tsx", ".harness/scripts/fixtures/test-port-lease-fixture.ts", leaseDir, String(port)], {
+      cwd: ROOT, stdio: ["ignore", "ignore", "pipe", "ipc"],
+    });
+    const closed = new Promise<void>((resolve) => probe.once("close", () => resolve()));
+    try {
+      const held = await new Promise<boolean>((resolve, reject) => {
+        probe.once("message", (m) => resolve((m as { held: boolean }).held));
+        probe.once("error", reject);
+        probe.once("exit", () => reject(new Error("probe exited before reporting ownership")));
+      });
+      if (held) probe.send("release");
+      await closed;
+      return held;
+    } finally { probe.kill(); }
+  }
+  try {
+    await until(() => existsSync(ready));
+    const child = JSON.parse(readFileSync(ready, "utf8")) as { pid: number; port: number };
+    expect(child.pid).not.toBe(wrapper.pid);
+    expect(existsSync(bound)).toBe(false); // An actual command is alive, but has not bound yet.
+    const exited = new Promise<void>((resolve) => wrapper.once("exit", () => resolve()));
+    wrapper.kill("SIGKILL");
+    await exited;
+    expect(await claim(child.port), "orphan-startup port must remain leased to the alive child").toBe(false);
+    writeFileSync(go, "go");
+    await until(() => existsSync(bound));
+    expect(await claim(child.port)).toBe(false);
+    writeFileSync(stop, "stop");
+    await until(() => existsSync(done));
+    // Death alone never proves all descendants are gone: keep the quarantine.
+    await until(() => !existsSync(`/proc/${child.pid}/stat`) || /\) Z /.test(readFileSync(`/proc/${child.pid}/stat`, "utf8")));
+    expect(await claim(child.port)).toBe(false);
+    // Simulate explicit recovery of this test's own exact port only, after its
+    // known child exited and a real bind proves there is no listener.
+    const listener = (await import("node:net")).createServer();
+    await new Promise<void>((resolve, reject) => { listener.once("error", reject); listener.listen(child.port, "127.0.0.1", resolve); });
+    await new Promise<void>((resolve) => listener.close(() => resolve()));
+    rmSync(join(leaseDir, String(child.port)), { recursive: true });
+    expect(await claim(child.port)).toBe(true);
+  } finally {
+    writeFileSync(stop, "stop");
+    wrapper.kill("SIGKILL");
+    if (existsSync(ready)) await until(() => existsSync(done));
+    rmSync(temp, { recursive: true, force: true });
+  }
 });
