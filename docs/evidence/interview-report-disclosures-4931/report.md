@@ -17,3 +17,5 @@ Verification:
 The temporary local Playwright configuration used one worker, `next build && next start`, an exclusive local port, no server reuse and the repository's hermetic font fixture. No Docker stack or external model was started. Earlier dev-mode attempts failed before target assertions while client chunks/routes were still loading; their logs and traces are retained in the review evidence projection. Production rendering resolved those environment failures without weakening assertions.
 
 Logs in this directory: `unit.log`, `typecheck.log`, `browser.log`.
+
+Integration: preserved PR #4953 (`0b3bfed2cb10ba7ddfde91ba12346fa14daa40d2`) as a merge parent. Its complete hidden → visible → hidden, six-stage and atomic action-geometry assertions are retained; the additional default-visible evidence assertions remain.
