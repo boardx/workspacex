@@ -225,7 +225,7 @@ describe("#2929 DevApp native session topology", () => {
 
   it("checks the restarted API process env and reports only boolean key state", () => {
     const restartAt = deployText.indexOf("systemctl restart workspacex-api workspacex-web");
-    const probeAt = deployText.indexOf("native_runtime_assert_api_env_file");
+    const probeAt = deployText.indexOf("native_runtime_wait_for_api_env");
     expect(restartAt).toBeGreaterThan(-1);
     expect(probeAt).toBeGreaterThan(restartAt);
     expect(deployText.indexOf("native_runtime_assert_deep_agent_api_callback")).toBeGreaterThan(restartAt);
