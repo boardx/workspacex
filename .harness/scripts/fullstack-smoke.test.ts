@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { LANES } from "./ci-lane-dedup.mjs";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
@@ -140,7 +141,7 @@ describe("#387 trusted full-stack gate contract", () => {
   it("accepts an actual Vitest selected assertion and still cleans its scope", async () => {
     const result = await runWrapper({ vitestCase: "positive" });
     expect(result.code, result.stderr).toBe(0);
-    expect(result.stdout).toMatch(/Tests\s+1 passed/);
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
     expect(result.stderr).not.toContain("零测试执行");
     expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
   }, 60_000);
@@ -149,7 +150,7 @@ describe("#387 trusted full-stack gate contract", () => {
     const result = await runWrapper({ vitestCase: "logged-empty" });
     expect(result.code, result.stderr).toBe(0);
     expect(result.stdout).toContain("No test files found");
-    expect(result.stdout).toMatch(/Tests\s+1 passed/);
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
     expect(result.stderr).not.toContain("零测试执行");
     expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
   }, 60_000);
