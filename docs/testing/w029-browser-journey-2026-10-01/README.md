@@ -1,4 +1,4 @@
-# W029 mechanical browser journey
+# W029 v2 business-input browser journey
 
 Spec: `apps/web/e2e/w029-browser-journey.spec.ts`, preparation helper: `apps/web/e2e/support/workflow-browser-journey.ts`.
 
@@ -8,13 +8,15 @@ D003 is resolved from the published member-readable directory. Its real AgentDet
 
 No API interception, direct database seeding of a finished instance, or fabricated model result is used. Stage screenshots and JSON evidence are attached via `testInfo.outputPath`; Playwright trace is enabled. Only synthetic fixture data is involved; evidence remains local unless separately authorized.
 
-## Important trigger-schema gap
+## Real business-input evidence
 
-The current v1 published definition supplies `{type: "object"}` without problem/evidence properties or required fields. The UI therefore starts with `{}`. The spec records the actual schema and outgoing request, asserts an empty trigger and null goal, and explicitly marks user-problem consumption **BLOCKED**. A mechanically successful run must not be reported as correct analysis of a supplied user's problem. Once the trigger schema is repaired, this spec must be updated to supply and verify meaningful input.
+The spec requires published v2 with required string `rawInput` (1–2000 characters). Through the actual trigger form it submits `团队反馈白板首次导入流程太复杂，请定义问题与PRD`. The observed real POST must contain version 2 and this exact input, and return a real instance ID. Empty-input v1 is not accepted as passing this journey.
+
+The browser evidence proves UI-to-API submission and subsequent actual stages, approvals and persisted output. The authorized instance projection does not expose raw trigger input: this test does not expand that public contract. Frozen input and actual stage-input propagation require the companion real PostgreSQL/API integration test. Semantic relevance of the generated PRD is not established by a loopback upstream.
 
 ## Upstream and orchestration boundaries
 
-Use the parent's derived local fullstack configuration and existing loopback-only `dashscope` alias. This checks real browser/API/PostgreSQL workflow orchestration with deterministic model responses. Actual model quality, actual authored-input quality, and production devapp behavior remain **BLOCKED / unverified**. Sales and CRM execution are excluded by user authorization.
+Use the parent's derived local fullstack configuration and existing loopback-only `dashscope` alias. This checks real browser/API/PostgreSQL workflow orchestration with deterministic model responses. Actual model quality, generated business-content quality, and production devapp behavior remain **BLOCKED / unverified**. Sales and CRM execution are excluded by user authorization.
 
 The parent owns project registration: the workflow project should explicitly depend on the official digital-human journey project; do not rely on file sorting. No original CI configuration, root scripts, or stack startup was changed here.
 

@@ -1,4 +1,4 @@
-/** W029 mechanical browser acceptance; loopback model and empty trigger input are explicit limitations. */
+/** W029 business-input browser acceptance; loopback model quality remains unverified. */
 import { expect, test } from "@playwright/test";
 import { agentRole, workContent, workflowCapabilityGrants, workflowRuntime } from "@repo/contracts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -6,6 +6,7 @@ import { prepareOfficialWorkflowAdmin, readWorkflowJourneyApi as readApi, workfl
 
 const C = workflowRuntime.workflowRuntime;
 const KEY = "problem-to-prd";
+const RAW_INPUT = "团队反馈白板首次导入流程太复杂，请定义问题与PRD";
 const GATES = ["frame_gate", "target_gate", "solution_gate", "prd_gate"] as const;
 const fill = (path: string, params: Record<string, string>) => path.replace(/:([A-Za-z]+)/g, (_, key: string) => encodeURIComponent(params[key]!));
 test.use({ trace: "on", screenshot: "on" });
@@ -14,8 +15,8 @@ test.setTimeout(600_000);
 test("W029 direct role launch: real grants, four real approval confirmations, persisted PRD and reload", async ({ page }, info) => {
   await info.attach("verification-boundary", { body: Buffer.from(JSON.stringify({
     browserApiDatabase: "real", upstream: "existing fullstack loopback", realModelQuality: "BLOCKED: model credentials absent",
-    triggerSchema: "No problem/evidence fields; this run submits {}", problemConsumption: "BLOCKED: no user problem was supplied",
-    scope: "mechanical workflow/grant/approval/output persistence only; sales/CRM excluded",
+    triggerSchema: "v2 required rawInput", inputEvidence: "Real UI and observed POST; frozen database/stage input is covered separately by API integration tests",
+    scope: "business input submission, workflow/grant/approval/output persistence; sales/CRM excluded",
   }, null, 2)), contentType: "application/json" });
   await prepareOfficialWorkflowAdmin(page, info);
   await test.step("administrator grants artifact.write and notify.inapp in the real settings UI", async () => {
@@ -49,26 +50,33 @@ test("W029 direct role launch: real grants, four real approval confirmations, pe
   const runnable = C.listRunnableWorkflows.out.parse(await readApi(page, fill(C.listRunnableWorkflows.path, { agentId: pm!.agentId })));
   const definition = runnable.items.find(w => w.key === KEY);
   expect(definition, "W029 must really be published for this pinned official role").toBeDefined();
-  // The current schema may be {type:'object'}; it supplies no required trigger fields.
-  expect(definition!.inputSchema.required ?? []).toEqual([]);
-  expect(definition!.inputSchema.properties ?? {}).toEqual({});
+  expect(definition!.version).toBe(2);
+  expect(definition!.inputSchema.required).toContain("rawInput");
+  expect(definition!.inputSchema.properties).toMatchObject({ rawInput: { type: "string", minLength: 1, maxLength: 2000 } });
   let instanceId = "";
-  await test.step("AgentDetail WorkflowRunEntry actually starts W029 with the known empty input", async () => {
+  await test.step("AgentDetail WorkflowRunEntry submits a real product problem to W029 v2", async () => {
     await page.goto(`/agent/${pm!.agentId}`);
     await expect(page.getByTestId("agent-detail-workflows")).toBeVisible();
     await page.getByTestId("workflow-run-entry").click();
     await expect(page.getByTestId(`workflow-run-start-${KEY}`)).toBeVisible();
     await shot(page, info, "04-direct-role-workflow-picker");
+    await page.getByTestId(`workflow-run-start-${KEY}`).click();
+    const form = page.getByTestId(`workflow-run-form-${KEY}`);
+    await expect(form).toBeVisible();
+    await form.getByTestId("workflow-run-input-rawInput").fill(RAW_INPUT);
+    await shot(page, info, "04-product-problem-entered");
     const path = fill(C.startInstance.path, { key: KEY });
     const observed = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === `/__fullstack_api${path}`);
-    await page.getByTestId(`workflow-run-start-${KEY}`).click();
+    await form.getByTestId("workflow-run-form-submit").click();
     const response = await observed;
     expect(response.status()).toBe(201);
     const input = C.startInstance.in.parse(response.request().postDataJSON());
-    expect(input).toMatchObject({ key: KEY, agentId: pm!.agentId, version: definition!.version, input: {} });
+    expect(input).toMatchObject({ key: KEY, agentId: pm!.agentId, version: 2, input: { rawInput: RAW_INPUT } });
+    expect(input.input).toEqual({ rawInput: RAW_INPUT });
     instanceId = C.startInstance.out.parse(await response.json()).instanceId;
-    await info.attach("trigger-schema-gap", { body: Buffer.from(JSON.stringify({ definitionVersion: definition!.version,
-      inputSchema: definition!.inputSchema, actualSubmittedInput: input.input, status: "BLOCKED: cannot verify a user's problem was consumed" }, null, 2)), contentType: "application/json" });
+    await info.attach("business-input-submission", { body: Buffer.from(JSON.stringify({ definitionVersion: definition!.version,
+      inputSchema: definition!.inputSchema, actualSubmittedInput: input.input, status: "PASS: actual browser POST accepted the exact authored input",
+      stageInputEvidence: "Separate real PostgreSQL/API integration test; instance projection does not expose private trigger input" }, null, 2)), contentType: "application/json" });
     await expect(page).toHaveURL(new RegExp(`/workflows/runs/${instanceId}$`));
     await shot(page, info, "05-w029-started");
   });
@@ -78,7 +86,7 @@ test("W029 direct role launch: real grants, four real approval confirmations, pe
     await test.step(`${stageId}: user approves and confirms the real gate`, async () => {
       await expect.poll(async () => (await projection()).openGate?.stageId, { timeout: 120_000 }).toBe(stageId);
       const before = await projection();
-      expect(before).toMatchObject({ status: "awaiting_gate_decision", agentId: pm!.agentId, agentVersionId: pm!.versionId, goal: null });
+      expect(before).toMatchObject({ status: "awaiting_gate_decision", agentId: pm!.agentId, agentVersionId: pm!.versionId });
       const gate = before.openGate!;
       expect(gate.viewerCanDecide).toBe(true);
       const drawer = page.getByTestId("workflow-approval-drawer");
@@ -122,7 +130,8 @@ test("W029 direct role launch: real grants, four real approval confirmations, pe
     expect(workContent.operations.getInstanceOutput.out.parse(await readApi(page, path))).toEqual(output);
     expect((await projection()).effects).toEqual(finished.effects);
     await shot(page, info, "09-prd-after-reload");
-    await info.attach("mechanical-workflow-evidence", { body: Buffer.from(JSON.stringify({ instanceId, approved,
-      finishedProjection: finished, output, realModelQuality: "BLOCKED", userProblemConsumption: "BLOCKED: trigger input {}" }, null, 2)), contentType: "application/json" });
+    await info.attach("workflow-business-input-evidence", { body: Buffer.from(JSON.stringify({ instanceId, approved,
+      finishedProjection: finished, output, realModelQuality: "BLOCKED", submittedRawInput: RAW_INPUT, inputSubmission: "PASS: v2 real UI/POST",
+      stageInputEvidence: "Separate PostgreSQL/API integration test", semanticQuality: "BLOCKED: loopback is not a real model quality evaluation" }, null, 2)), contentType: "application/json" });
   });
 });
