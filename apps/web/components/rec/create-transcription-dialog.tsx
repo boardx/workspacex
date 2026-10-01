@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
-import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
+import { tagInputLimits, personalRealtimeTranscription } from "@repo/contracts";
+const TAG_LIMITS = tagInputLimits(personalRealtimeTranscription.operations.createPersonalTranscription.in.shape.tags);
 
 const DEFAULT_TRANSCRIPTION_NAME = "未命名转录";
 
@@ -47,7 +48,7 @@ export function CreateTranscriptionDialog({
     event.preventDefault();
     const nextName = name.trim();
     if (!nextName || submitting) return;
-    const submittedTags = commitDraft(tags, tagDraft, STUDIO_TAG_LIMITS);
+    const submittedTags = commitDraft(tags, tagDraft, TAG_LIMITS);
     setSubmitting(true);
     setSubmitError(false);
     try {
@@ -105,7 +106,7 @@ export function CreateTranscriptionDialog({
                 draft={tagDraft}
                 onDraftChange={setTagDraft}
                 knownTags={knownTags}
-                {...STUDIO_TAG_LIMITS}
+                {...TAG_LIMITS}
                 testIdPrefix="rec-create-tag"
               />
               {submitError && <p role="alert" className="text-11 text-destructive">创建失败，请稍后重试。</p>}

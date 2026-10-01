@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
-import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
+import { tagInputLimits, interview } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
 import { createDigitalInterviewDraft, type InterviewScope } from "@/lib/interview-api";
 import { withProjectId } from "@/components/project/project-breadcrumb";
+const TAG_LIMITS = tagInputLimits(interview.DigitalInterviewDraftInput.shape.tags);
 
 const INDEPENDENT_SCOPE: InterviewScope = { kind: "none", projectId: null, researchProjectId: null };
 const DEFAULT_INTERVIEW_NAME = "未命名访谈";
@@ -49,7 +50,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || busy) return;
-    const nextTags = commitDraft(tags, tagDraft, STUDIO_TAG_LIMITS);
+    const nextTags = commitDraft(tags, tagDraft, TAG_LIMITS);
     const payload = { name: name.trim(), tags: [...nextTags], scope };
     const fingerprint = JSON.stringify(payload);
     if (requestAttempt.current?.fingerprint !== fingerprint) {
@@ -91,7 +92,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
               onDraftChange={setTagDraft}
               knownTags={knownTags}
               label="标签（可选）"
-              {...STUDIO_TAG_LIMITS}
+              {...TAG_LIMITS}
               testIdPrefix="itv-create-tag"
             />
             <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>

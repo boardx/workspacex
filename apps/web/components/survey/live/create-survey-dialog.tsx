@@ -5,11 +5,12 @@ import { SurveyLibraryTemplateSchema, type SurveyLibraryTemplate } from "@repo/c
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
-import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
+import { tagInputLimits, surveySource } from "@repo/contracts";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { getBuiltinSurveyTemplates } from "@/lib/survey/builtin-templates";
 import type { SurveyCreationDraft } from "@/lib/survey/creation-draft";
+const TAG_LIMITS = tagInputLimits(surveySource.SurveyTagsSchema);
 
 export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
   /** 已有标签词表，给输入框做建议。 */
@@ -38,7 +39,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
     }).catch(e=>{if(active)setError(e instanceof Error ? e.message : "模板加载失败");}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[open,mode]);
-  function allTags(){return [...commitDraft(tags,pendingTag,STUDIO_TAG_LIMITS)];}
+  function allTags(){return [...commitDraft(tags,pendingTag,TAG_LIMITS)];}
   async function create(event:React.FormEvent){
     event.preventDefault();if(lock.current)return;setError("");
     const source=[...builtins,...templates].find(row=>row.id===selected);
@@ -62,7 +63,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
     <DialogTitle>新建问卷</DialogTitle><DialogDescription>先填写名称与标签，再选择创建方式。报告模板为可选项。</DialogDescription>
     <form className="space-y-5" onSubmit={event=>void create(event)}>
       <label className="block space-y-2 text-13">问卷名称<Input aria-label="问卷名称" disabled={busy} value={name} onChange={event=>setName(event.target.value)} autoFocus /></label>
-      <TagField value={tags} onChange={setTags} draft={pendingTag} onDraftChange={setPendingTag} knownTags={knownTags} disabled={busy} {...STUDIO_TAG_LIMITS} testIdPrefix="survey-create-tag" label="标签" />
+      <TagField value={tags} onChange={setTags} draft={pendingTag} onDraftChange={setPendingTag} knownTags={knownTags} disabled={busy} {...TAG_LIMITS} testIdPrefix="survey-create-tag" label="标签" />
       <fieldset disabled={busy} className="space-y-3"><legend className="mb-2 text-13 font-medium">选择创建方式</legend><div className="grid gap-3 sm:grid-cols-3">
         {([ ["blank","空白创建","直接进入设计问卷"],["ai","AI 导入创建","先导入内容并校对 Markdown，再进入设计"],["template","从模板创建","使用现有问卷模板，直接进入设计"] ] as const).map(([value,title,description])=><label key={value} className={`rounded-lg border p-4 ${mode===value?"border-primary bg-accent":"border-border"}`}><input type="radio" name="survey-create-mode" value={value} checked={mode===value} onChange={()=>{setMode(value);setError("");}} /><span className="ml-2 font-medium">{title}</span><p className="mt-2 text-12 text-muted-foreground">{description}</p></label>)}
       </div></fieldset>

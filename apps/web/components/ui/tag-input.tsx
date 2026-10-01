@@ -202,8 +202,8 @@ export function TagField({
   draft: string;
   onDraftChange: (next: string) => void;
   knownTags?: ReadonlyMap<string, number>;
-  maxTags: number;
-  maxTagLength: number;
+  maxTags?: number;
+  maxTagLength?: number;
   noteFor?: (count: number) => string;
   disabled?: boolean;
   testIdPrefix: string;
@@ -213,7 +213,7 @@ export function TagField({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <span className="text-13 font-medium text-card-foreground">{label}</span>
-        <span data-testid={`${testIdPrefix}-count`} className="text-11 text-muted-foreground">{String(value.length)}/{String(maxTags)}</span>
+        <span data-testid={`${testIdPrefix}-count`} className="text-11 text-muted-foreground">{maxTags === undefined ? String(value.length) : `${String(value.length)}/${String(maxTags)}`}</span>
       </div>
       <TagInput
         value={value}

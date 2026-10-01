@@ -1,3 +1,4 @@
+import { tagInputLimits, interview } from "@repo/contracts";
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -5,7 +6,7 @@ import { StudioMetadataDialog, StudioDeleteDialog } from "@/components/studio/st
 
 function edit(onSave: (draft: { name: string; tags: readonly string[] }) => Promise<void>) {
   const onOpenChange = vi.fn();
-  render(<StudioMetadataDialog business="访谈" prefix="test" open initialName="原名称" initialTags={["旧标签"]} onSave={onSave} onOpenChange={onOpenChange} />);
+  render(<StudioMetadataDialog tagLimits={tagInputLimits(interview.operations.updateDigitalInterviewMetadata.in.shape.tags)} business="访谈" prefix="test" open initialName="原名称" initialTags={["旧标签"]} onSave={onSave} onOpenChange={onOpenChange} />);
   return onOpenChange;
 }
 

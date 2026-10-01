@@ -1,7 +1,7 @@
 "use client";
 
 import { TagField, commitDraft } from "@/components/ui/tag-input";
-import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
+import { tagInputLimits, surveySource } from "@repo/contracts";
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, ClipboardList, X } from "lucide-react";
@@ -13,6 +13,7 @@ import {
   normalizeSurveyCreationDraft,
   type SurveyCreationDraft,
 } from "@/lib/survey/creation-draft";
+const TAG_LIMITS = tagInputLimits(surveySource.SurveyTagsSchema);
 
 const DEFAULT_SURVEY_NAME = "未命名问卷";
 
@@ -43,7 +44,7 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
     onOpenChange(false);
   };
 
-  const normalized = normalizeSurveyCreationDraft({ ...draft, tags: [...commitDraft(draft.tags, tagInput, STUDIO_TAG_LIMITS)] });
+  const normalized = normalizeSurveyCreationDraft({ ...draft, tags: [...commitDraft(draft.tags, tagInput, TAG_LIMITS)] });
   const submitMetadata = (event: React.FormEvent) => {
     event.preventDefault();
     if (!normalized) return;
@@ -87,7 +88,7 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
                 onChange={(next) => setDraft((current) => ({ ...current, tags: [...next] }))}
                 draft={tagInput}
                 onDraftChange={setTagInput}
-                {...STUDIO_TAG_LIMITS}
+                {...TAG_LIMITS}
                 testIdPrefix="survey-create-tag"
               />
               <div className="flex justify-end gap-3">

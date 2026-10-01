@@ -56,4 +56,11 @@ describe("卡片与标签单一事实源", () => {
       expect(read(f), f).toMatch(/TagField/);
     }
   });
+  it("通用标签工具不声明业务限制，Studio 表单从契约推导", () => {
+    expect(read("lib/tag-utils.ts")).not.toMatch(/STUDIO_TAG_LIMITS|maxTags:\s*\d|maxTagLength:\s*\d/);
+    for (const file of ["components/rec/create-transcription-dialog.tsx", "components/research-studio/create-guided-research-dialog.tsx", "components/itv/digital-interview-create-modal.tsx", "components/survey/live/create-survey-dialog.tsx", "components/survey/resource-library/survey-create-dialog.tsx"]) {
+      expect(read(file), file).toMatch(/tagInputLimits\(/);
+    }
+  });
+
 });

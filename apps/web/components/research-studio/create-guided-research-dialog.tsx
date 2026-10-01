@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
-import { STUDIO_TAG_LIMITS } from "@/lib/tag-utils";
+import { tagInputLimits, research } from "@repo/contracts";
+const TAG_LIMITS = tagInputLimits(research.GuidedResearchMetadata.shape.tags);
 
 const DEFAULT_RESEARCH_NAME = "未命名研究";
 
@@ -47,7 +48,7 @@ export function CreateGuidedResearchDialog({
     event.preventDefault();
     const nextTitle = title.trim();
     if (!nextTitle) return;
-    const submittedTags = commitDraft(tags, tagDraft, STUDIO_TAG_LIMITS);
+    const submittedTags = commitDraft(tags, tagDraft, TAG_LIMITS);
     onContinue({ title: nextTitle, tags: submittedTags });
     changeOpen(false);
   }
@@ -95,7 +96,7 @@ export function CreateGuidedResearchDialog({
                 draft={tagDraft}
                 onDraftChange={setTagDraft}
                 knownTags={knownTags}
-                {...STUDIO_TAG_LIMITS}
+                {...TAG_LIMITS}
                 testIdPrefix="research-create-tag"
               />
             </div>

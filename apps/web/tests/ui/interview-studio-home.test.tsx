@@ -309,7 +309,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       fireEvent.keyDown(tagInput, { key: "Enter" });
     }
     expect(within(dialog).getAllByTestId(/^itv-create-tag-chip-/)).toHaveLength(5);
-    expect(tagInput).toBeDisabled();
+    expect(tagInput).not.toBeDisabled();
     expect(within(dialog).getByTestId("itv-create-scope")).toHaveTextContent("独立访谈");
 
     fireEvent.click(within(dialog).getByLabelText("移除标签 B2B"));
