@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { Plus, Sparkles, Bot, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,8 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
         </ul>
       )}
       {open ? (
+        <>
+        <Link href="/platform-admin/agent" className="text-12 underline text-muted-foreground">找不到官方数字人？前往 Agent 目录启用</Link>
         <PickerShell
           catalog={catalog}
           emptyHint="本组织还没有已发布的数字人。"
@@ -106,6 +109,7 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
             </div>
           )}
         />
+        </>
       ) : null}
     </section>
   );
