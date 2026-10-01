@@ -48,3 +48,13 @@ it('keeps pending-only roles at zero executable skills and clears their pending 
  expect(await screen.findByTestId('chat-skill-pending-S901')).toBeDisabled();expect(screen.getByTestId('chat-skill-role-counts')).toHaveAttribute('data-available-count','0');expect(screen.getByTestId('chat-skill-role-counts')).toHaveAttribute('data-pending-count','1');expect(screen.queryByTestId('chat-skill-mount-option-skill-research')).not.toBeInTheDocument();
  view.rerender(<ChatSkillMountPanel {...props} actingAgentId="research" variant="composer" openRequest={1}/>);expect(screen.queryByTestId('chat-skill-pending-S901')).not.toBeInTheDocument();
 });
+
+import {ChatPopoverCoordinatorProvider} from '@/components/chat/chat-popover-coordinator';
+it('keeps the skill picker open under the real coordinator and still closes it on a role change',async()=>{
+ const view=render(<ChatPopoverCoordinatorProvider><ChatSkillMountPanel {...props} actingAgentId="pm"/></ChatPopoverCoordinatorProvider>);
+ await waitFor(()=>expect(screen.getByTestId('chat-skill-mount')).toBeEnabled());fireEvent.click(screen.getByTestId('chat-skill-mount'));
+ expect(await screen.findByTestId('chat-skill-mount-option-skill-pm')).toBeInTheDocument();
+ view.rerender(<ChatPopoverCoordinatorProvider><ChatSkillMountPanel {...props} actingAgentId="research"/></ChatPopoverCoordinatorProvider>);
+ await waitFor(()=>expect(screen.queryByTestId('chat-skill-mount-picker')).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.getByTestId('chat-skill-mount')).toBeEnabled());fireEvent.click(screen.getByTestId('chat-skill-mount'));expect(await screen.findByTestId('chat-skill-mount-option-skill-research')).toBeInTheDocument();
+});
