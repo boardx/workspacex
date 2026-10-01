@@ -127,6 +127,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-report-evidence-gap")).toHaveCount(0);
   await expect(page.getByTestId("research-report-preview-text")).toContainText("本章分析", { timeout: 30000 });
   await expect(page.getByTestId("research-report")).toHaveCount(0);
+  await expect(page.getByTestId("research-report-timeline-step").filter({ hasText: "生成 ·" }).locator("[aria-hidden]").first()).toBeVisible();
+  await expect(page.getByTestId("research-report-timeline").locator('[aria-busy="true"]')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("research-report-streaming.png"), fullPage: true });
   // Reload disconnects SSE. The server-owned generation must continue, not be replayed.
   await page.reload();

@@ -37,8 +37,7 @@ flowchart TD
   class S2 tested
   %% evidence S2: UI/检索回归已先失败后通过
   class S3 done
-  class S4 blocked
-  %% blocked S4: 官方 seeded 冷构建启动超过600秒，用例未运行；开发服务复测因每核负载超过15停止排队。
+  class S4 doing
   class S5 todo
 ```
 
@@ -63,3 +62,8 @@ flowchart TD
 
 - 官方 seeded 浏览器运行：Web 冷构建启动超时（600 秒）；测试未开始，不记 passing。隔离外壳退出并完成资源清理，已核对本次构建进程与容器均不存在。
 - 开发服务复测：临时配置仅替换 Web 的启动命令为 `next dev`，沿用官方真实 API / 隔离 PostgreSQL / 回环模型 fixture；排队约 6 分钟后每核负载超过 15（准入上限 2.5），已停止本次排队；未启动测试栈。
+
+- 2026-10-01 用户要求正式环境方式验证后提交 PR：触发现有 CI harness-verify fullstack-smoke 车道，exact SHA `b105e0d28`，run `36850851389`；沿用 next build + next start、真实 API 与隔离 PostgreSQL，不使用 next dev。
+
+- 正式构建 CI run 36850851389：next build + next start 全栈 134 passed / 1 skipped；用户研究五步链路通过，几何验证 7 passed。已保存 exact SHA manifest 与两张研究截图。
+- 截图复核发现首次正文 delta 时 timeline 尚未推送 running 元数据、须等轮询：新增反证失败，persistTimeline 在写入成功后发送 snapshot（后续由 SSE controller 压缩为 progress）；章节编排 56 测试现已通过。补充 E2E active 状态断言，准备复测新 SHA。
