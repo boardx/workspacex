@@ -61,3 +61,53 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
  });
 
 });
+
+describe('actual embedded nonproduction tag proof program',()=>{
+ const workflow=readFileSync(join(process.cwd(),'.github/workflows/cn-release-tag-proof.yml'),'utf8');
+ const code=workflow.split("python3 - <<'PY'\n")[1].split('\n          PY')[0].split('\n').map(line=>line.slice(10)).join('\n');
+ const fakeGh=`#!/usr/bin/env python3
+import json,os,sys
+from pathlib import Path
+a=sys.argv[1:];method=a[a.index('--method')+1];path=a[a.index('--method')+2];fields={}
+for i in range(len(a)-1):
+ if a[i] in ['-f','-F']:
+  k,v=a[i+1].split('=',1);fields[k]=v
+file=Path(os.environ['FIXTURE_STATE']);state=json.loads(file.read_text()) if file.exists() else {'refs':{}}
+source='a'*40;other='b'*40;obj='c'*40;mode=os.environ['FIXTURE_MODE'];status=200;body={}
+name=path.split('/tags/')[-1];protected=name.startswith('cn-release-proof-')
+if '/rulesets?' in path:body=[{'id':1,'target':'tag','enforcement':'active'}]
+elif path.endswith('/rulesets/1'):body={'id':1,'target':'tag','enforcement':'active','bypass_actors':[],'conditions':{'ref_name':{'include':['refs/tags/cn-release-proof-*'],'exclude':[]}},'rules':[{'type':'update'},{'type':'deletion'}]}
+elif '/git/commits/' in path:body={'parents':[{'sha':other}]}
+elif method=='POST' and path.endswith('/git/tags'):
+ state['tag']={'tag':fields['tag'],'object':{'type':'commit','sha':source,'url':'fixture'},'message':fields['message'],'sha':obj};body=state['tag'];status=201
+elif method=='POST' and path.endswith('/git/refs'):
+ name=fields['ref'].split('refs/tags/')[1];state['refs'][name]=fields['sha'];body={'object':{'type':'tag' if name.startswith('cn-release-proof-') else 'commit','sha':fields['sha']}};status=201
+elif method=='GET' and '/git/ref/tags/' in path:
+ if name in state['refs']:body={'object':{'type':'tag' if protected else 'commit','sha':state['refs'][name]}}
+ else:status=404;body={'message':'Not Found'}
+elif method=='GET' and '/git/tags/' in path:body=state['tag']
+elif method in ['PATCH','DELETE'] and '/git/refs/tags/' in path:
+ if protected:
+  if mode=='permission':status=403;body={'message':'Resource not accessible by integration'}
+  elif mode==method.lower()+'-success':
+   if method=='PATCH':state['refs'][name]=other
+   else:state['refs'].pop(name,None);status=204;body=None
+  else:
+   if mode=='mutated-ref':state['refs'][name]=other
+   status=422;body={'message':'Repository rule violations found: GH013; cannot '+('update' if method=='PATCH' else 'delete')+' protected ref'}
+ elif method=='PATCH':state['refs'][name]=fields['sha'];body={'object':{'sha':fields['sha']}}
+ elif mode=='cleanup-failure':status=500;body={'message':'fixture control cleanup failure'}
+ else:state['refs'].pop(name,None);status=204;body=None
+else:raise RuntimeError('Unexpected API '+method+' '+path)
+file.write_text(json.dumps(state))
+print('HTTP/2 '+str(status)+'\\ncontent-type: application/json\\n\\n'+(json.dumps(body) if body is not None else ''))
+sys.exit(0 if 200<=status<300 else 1)
+`;
+ for(const mode of ['success','permission','patch-success','delete-success','mutated-ref','cleanup-failure'])it('executes real proof code with '+mode,()=>{
+  const dir=mkdtempSync(join(tmpdir(),'cn-tag-proof-'));owned.push(dir);mkdirSync(join(dir,'proof-evidence'));mkdirSync(join(dir,'bin'));
+  writeFileSync(join(dir,'proof.py'),code);writeFileSync(join(dir,'bin/gh'),fakeGh);chmodSync(join(dir,'bin/gh'),0o700);
+  const r=spawnSync('python3',['proof.py'],{cwd:dir,encoding:'utf8',env:{...process.env,PATH:join(dir,'bin')+':'+process.env.PATH,GH_REPO:'boardx/workspacex',SOURCE_SHA:'a'.repeat(40),RUN_ID:'123',RUN_ATTEMPT:'1',FIXTURE_MODE:mode,FIXTURE_STATE:join(dir,'state.json')}});
+  if(mode==='success') {expect(r.status,r.stderr).toBe(0);expect(JSON.parse(readFileSync(join(dir,'proof-evidence/receipt.json'),'utf8')).status).toBe('passed')}
+  else {expect(r.status).not.toBe(0);expect(()=>readFileSync(join(dir,'proof-evidence/receipt.json'))).toThrow();expect(r.stdout).not.toContain('CN_RELEASE_TAG_PROOF_PASS')}
+ });
+});

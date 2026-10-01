@@ -250,3 +250,5 @@ prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须
 环境/tag 治理与 runner 已安装可信入口必须先完成独立审阅及实际验证，见 [固定 tag 治理审阅清单](frozen-tag-governance.md)。本代码不修改这些规则。tag 创建只继承既有 contents:write，不依赖内建 App creation bypass；update/deletion 无 bypass。App metadata 只绑定 native Deployment，不是 token 能力证明。真实 token/tag 创建与不可变性仍需非生产演练；tag 本身不是 receipt/授权，名称被预占只能用新 attempt 重走完整流程。完整发布收据未完成前不承诺五分钟 READY。
 
 冻结候选的原生审批不能假定 creator 为 bot：Actions Environment Deployment 使用触发者身份。校验 GitHub Actions App、actual current run/attempt actor/triggering_actor、精确 source/ref/env、成功 admit job 与其 html_url；最新 status 必须同 actor 与 exact job。人工生成成功状态或借旧 attempt 的 URL 不能放行。
+
+非生产 `cn-release-tag-proof` 工作流只在初次治理安装/治理规则变更后证明真实 GITHUB_TOKEN 的创建能力及 zero-bypass update/delete 拒绝；不在每次已 prepared activation 重跑。其 `cn-release-proof-*` 规则/审计 tag 与生产 `cn-prepared-*` 严格分离，不可用 proof 规则冒充生产就绪。实际 proof 缺失即治理未验收；本地 mock 反证或规则存在不算 token proof。
