@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { ProjectInviteCard } from "./project-invite-card";
 import { SectionTitle } from "./parts";
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
@@ -15,6 +17,9 @@ import {
   NON_WORKSHOP_MEMBER_ROLE_LABEL, NON_WORKSHOP_MEMBER_ROLES,
   type NonWorkshopMemberEntry, type NonWorkshopMemberRole,
 } from "@/lib/live-project-collaborators";
+
+/** 候选人超过这个数才出搜索框——名单短时多一个输入框只是噪音。 */
+const SEARCH_THRESHOLD = 8;
 
 /**
  * 「协作者」面板（项目中枢 B3-T5，#4499）——研究项目 / 用户洞察两类容器的名单，两档
@@ -82,6 +87,53 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
   const candidates = orgRoster.filter((m) => !memberIds.has(m.userId));
   const roleOptions = NON_WORKSHOP_MEMBER_ROLES.map((r) => ({ value: r, label: NON_WORKSHOP_MEMBER_ROLE_LABEL[r] }));
 
+  const [search, setSearch] = React.useState("");
+  const q = search.trim().toLowerCase();
+  const visible = q === "" ? candidates : candidates.filter((c) => c.displayName.toLowerCase().includes(q));
+  const nameTab = (
+    <div className="flex flex-col gap-2">
+      {candidates.length > SEARCH_THRESHOLD && (
+        <Input value={search} onChange={(e) => setSearch(e.currentTarget.value)} placeholder="搜索组织成员…"
+          aria-label="搜索组织成员" data-testid="project-invite-name-search" />
+      )}
+      {candidates.length > SEARCH_THRESHOLD && q !== "" && visible.length === 0 && (
+        <p className="text-11 text-muted-foreground" data-testid="project-invite-name-nomatch">没有匹配的成员。</p>
+      )}
+      <div className="flex flex-wrap items-end gap-2" data-testid="project-collaborators-add">
+              <label className="flex flex-col gap-1 text-11 text-muted-foreground">
+                <span>从组织成员里指派</span>
+                <Select
+                  data-testid="project-collaborators-add-user"
+                  value={pickUser}
+                  onValueChange={setPickUser}
+                  placeholder={candidates.length === 0 ? "组织里没有可指派的人" : "选择成员…"}
+                  disabled={busy || candidates.length === 0}
+                  options={visible.map((c) => ({ value: c.userId, label: c.displayName }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-11 text-muted-foreground">
+                <span>角色</span>
+                <Select
+                  data-testid="project-collaborators-add-role"
+                  value={pickRole}
+                  onValueChange={(v) => setPickRole(v as NonWorkshopMemberRole)}
+                  options={roleOptions}
+                  className="min-w-[8rem]"
+                />
+              </label>
+              {candidates.length === 0 && (
+                <p className="basis-full text-11 text-muted-foreground" data-testid="project-collaborators-add-hint">
+                  组织里暂时没有其他成员可指派；有新成员加入组织后就能在这里选到。
+                </p>
+              )}
+              <Button size="sm" variant="primary" disabled={busy || pickUser === ""} data-testid="project-collaborators-add-submit"
+                onClick={() => void run(async () => { await addNonWorkshopMember({ projectId, userId: pickUser, role: pickRole }); setPickUser(""); })}>
+                加入
+              </Button>
+            </div>
+    </div>
+  );
+
   return (
     <section data-testid="project-collaborators-panel">
       <SectionTitle meta="项目只对名单上的人可见：负责人管理成员，协作者参与内容">协作者</SectionTitle>
@@ -130,44 +182,12 @@ export function ProjectCollaboratorsPanel({ projectId }: { projectId: string }) 
           </ul>
         )}
 
-        {canManage && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-border p-3" data-testid="project-collaborators-add">
-            <label className="flex flex-col gap-1 text-11 text-muted-foreground">
-              <span>从组织成员里指派</span>
-              <Select
-                data-testid="project-collaborators-add-user"
-                value={pickUser}
-                onValueChange={setPickUser}
-                placeholder={candidates.length === 0 ? "组织里没有可指派的人" : "选择成员…"}
-                disabled={busy || candidates.length === 0}
-                options={candidates.map((c) => ({ value: c.userId, label: c.displayName }))}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-11 text-muted-foreground">
-              <span>角色</span>
-              <Select
-                data-testid="project-collaborators-add-role"
-                value={pickRole}
-                onValueChange={(v) => setPickRole(v as NonWorkshopMemberRole)}
-                options={roleOptions}
-                className="min-w-[8rem]"
-              />
-            </label>
-            {candidates.length === 0 && (
-              <p className="basis-full text-11 text-muted-foreground" data-testid="project-collaborators-add-hint">
-                组织里暂时没有其他成员可指派；有新成员加入组织后就能在这里选到。
-              </p>
-            )}
-            <Button size="sm" variant="primary" disabled={busy || pickUser === ""} data-testid="project-collaborators-add-submit"
-              onClick={() => void run(async () => { await addNonWorkshopMember({ projectId, userId: pickUser, role: pickRole }); setPickUser(""); })}>
-              加入
-            </Button>
-          </div>
-        )}
+
         {actionError !== null && (
           <p className="border-t border-border px-3.5 py-2 text-12 text-destructive" data-testid="project-collaborators-action-error">{actionError}</p>
         )}
       </Card>
+      {canManage && <div className="mt-5"><ProjectInviteCard projectId={projectId} nameTab={nameTab} /></div>}
     </section>
   );
 }
