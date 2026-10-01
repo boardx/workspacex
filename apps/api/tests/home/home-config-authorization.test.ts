@@ -299,3 +299,30 @@ describe("横幅图片", () => {
     expect((badType as HttpException).getStatus()).toBe(415);
   });
 });
+
+
+describe("homepage theme persistence", () => {
+  it("round-trips theme colors and preserves them for legacy writes", async () => {
+    await seedOrg({ orgId: ORG, teamNames: [], projectId: `${ORG}-p` });
+    const themeColors = { ...C.DEFAULT_HOME_THEME, primary: "#6532A8" };
+    await updateHomeConfig({ repo }, { orgId: toOrgId(ORG), ...input({ themeColors }) });
+    expect((await getHomeConfig({ repo }, toOrgId(ORG))).themeColors).toEqual(themeColors);
+    await updateHomeConfig({ repo }, { orgId: toOrgId(ORG), ...input({ title: "Legacy save" }) });
+    expect((await getHomeConfig({ repo }, toOrgId(ORG))).themeColors).toEqual(themeColors);
+    await updateHomeConfig({ repo }, { orgId: toOrgId(ORG), ...input({ themeColors: null }) });
+    expect((await getHomeConfig({ repo }, toOrgId(ORG))).themeColors).toBeNull();
+  });
+
+  it("does not expose another organization's theme", async () => {
+    await seedOrg({ orgId: ORG, teamNames: [], projectId: `${ORG}-p` });
+    await seedOrg({ orgId: OTHER_ORG, teamNames: [], projectId: `${OTHER_ORG}-p` });
+    await updateHomeConfig({ repo }, { orgId: toOrgId(ORG), ...input({ themeColors: C.DEFAULT_HOME_THEME }) });
+    expect((await getHomeConfig({ repo }, toOrgId(OTHER_ORG))).themeColors).toBeNull();
+  });
+
+  it("rejects partial, invalid, or additional theme fields at the API boundary", () => {
+    expect(C.ThemeColors.safeParse({ primary: "#123456" }).success).toBe(false);
+    expect(C.ThemeColors.safeParse({ ...C.DEFAULT_HOME_THEME, primary: "red" }).success).toBe(false);
+    expect(C.ThemeColors.safeParse({ ...C.DEFAULT_HOME_THEME, background: "#FFFFFF" }).success).toBe(false);
+  });
+});

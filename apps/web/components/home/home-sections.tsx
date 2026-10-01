@@ -37,9 +37,9 @@ export function QuickActionsGrid({ actions }: { actions: HomeConfig["quickAction
     .map((a) => ({ key: a.key, ...QUICK_ACTION_CATALOG[a.key] }));
   if (items.length === 0) return null;
   return (
-    <section aria-label="快捷入口" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5" data-testid="home-quick-actions">
-      {items.map(({ key, href, icon: Icon, label, desc }) => (
-        <Link key={key} href={href} data-testid={`home-quick-action-${key}`} className={TILE}>
+    <section aria-label="快捷入口" className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="home-quick-actions">
+      {items.map(({ key, href, icon: Icon, label, desc }, index) => (
+        <Link key={key} href={href} data-testid={`home-quick-action-${key}`} style={{ backgroundColor: `color-mix(in srgb, hsl(var(--${["secondary", "primary", "accent", "secondary"][index % 4]})) 10%, hsl(var(--card)))` }} className={cn(TILE, "min-h-36 border-transparent p-5")}>
           <span className="flex h-8 w-8 items-center justify-center rounded-control bg-accent text-accent-foreground">
             <Icon aria-hidden className="h-4 w-4" />
           </span>

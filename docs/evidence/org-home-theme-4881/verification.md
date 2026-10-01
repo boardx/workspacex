@@ -1,0 +1,22 @@
+# 组织首页主题配置验证（Refs #4881）
+
+- 初始化：仓库指定 pnpm 9.15.0 的 `./init.sh` 快速路径通过。
+- Web/API TypeScript：通过（`tsc --noEmit --incremental false`）。
+- 前端相关测试：4 个文件、67 项通过。
+- 改动文件 Next lint：通过。
+- Chromium（1440 × 1024 与 390 × 844）：Logo 上传自动生成配色、从现有 Logo 重新生成、手动改色、保存、重新进入首页、预览、布局标签通过；无 pageerror、窄屏无水平溢出。
+- 浏览器使用隔离 API fixture，不能替代真实后端保存测试。
+- 真实数据库测试：隔离外壳成功启动，但测试数据库镜像构建被代理拒绝（apt.postgresql.org 403），未执行测试；单独拉取 PostgreSQL 基础镜像也因 Docker Hub 匿名拉取限额失败。新增数据库主题读写/旧客户端保留/组织隔离测试已保存，尚未验证。
+- 未部署、未合并。
+
+## 行为与兼容性
+
+Logo 使用既有组织头像上传与 PATCH 接口；更改立即同步组织资料，界面明确提示。主题颜色单独随首页配置保存。旧客户端省略 themeColors 时保留库中已有值；null 清除品牌覆盖。配色仅作用于首页与后台预览，不修改全局深浅色偏好。透明/近白背景过滤，无有效像素回落默认；成功、警告、错误保留语义色。现有产品导航与真实个人数据来源保留。
+
+## 交付状态
+
+实现本地提交已完成。自动审批拒绝向 GitHub `boardx/workspacex` 推送分支（私有源码/历史上传需明确授权）；没有执行推送、没有创建 PR。等待用户批准此确切目标。
+
+2026-10-01 后续：用户明确授权提交 PR，分支推送成功。推送前 20 项受影响模块 typecheck/lint 门控全部通过。已创建草稿 PR https://github.com/boardx/workspacex/pull/4882。数据库与严格视觉对照阻塞仍在，未合并或部署。
+
+PR CI 修复：gates-fast 检出前端 ThemeColors 重复定义。改为 z.infer<typeof homeConfig.ThemeColors>，直接消费契约。相同 lint-contract-source 检查及 67 项首页回归测试通过。另一个 gates-test (4) 失败是 auth.docker.io 返回 502，发生在数据库启动前；等待新提交 CI 验证。
