@@ -1,0 +1,32 @@
+[stack-admission] load1=2.50 cores=5 perCore=0.50 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mup4mn95-fc0329ee-ed4bab9d909d db=wsx_ed4bab9d909dad760c10 compose=wsx-ed4bab9d909dad760c10 pg=20325 redis=21325 api=24325 web=25325 sandbox=26325 model=27325 deep-agent=28325 asr=29325 vision=30325 loopback-sandbox=31325 mail=19325
+ Network wsx-ed4bab9d909dad760c10_default  Creating
+ Network wsx-ed4bab9d909dad760c10_default  Created
+ Container wsx-ed4bab9d909dad760c10-postgres-1  Creating
+ Container wsx-ed4bab9d909dad760c10-postgres-1  Created
+ Container wsx-ed4bab9d909dad760c10-postgres-1  Starting
+ Container wsx-ed4bab9d909dad760c10-postgres-1  Started
+ Container wsx-ed4bab9d909dad760c10-postgres-1  Waiting
+ Container wsx-ed4bab9d909dad760c10-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/pdf-tool-diagnostics-fixes/apps/api
+
+[db-isolation] db=wsx_ed4bab9d909dad760c10 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (12 tests) 28ms
+ ✓ tests/agent-runtime/standard-document-tools.test.ts (11 tests) 23ms
+ ✓ tests/agent-runtime/document-parse-diagnostics.test.ts (2 tests) 9ms
+
+ Test Files  3 passed (3)
+      Tests  25 passed (25)
+   Start at  06:02:04
+   Duration  4.94s (transform 2.26s, setup 0ms, collect 3.00s, tests 60ms, environment 1ms, prepare 208ms)
+
+[db-isolation] db=wsx_ed4bab9d909dad760c10 peak_connections=1
+[timing] bash /tmp/workstack-pdf-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：1s
+  总计：20s

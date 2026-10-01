@@ -1,11 +1,12 @@
 import {timingSafeEqual} from 'node:crypto';
-import {Body,Controller,Headers,HttpCode,Inject,Param,Post,UnauthorizedException,ServiceUnavailableException,BadRequestException} from '@nestjs/common';
+import {Body,Controller,Headers,HttpCode,Inject,Param,Post,UnauthorizedException,ServiceUnavailableException,BadRequestException,Logger} from '@nestjs/common';
 import {DocumentParseInvocation} from '@repo/contracts/standard-document-tools';
-import {STANDARD_DOCUMENT_SERVICE,type StandardDocumentService} from '../../application/agent-run/standard-document-tools';
+import {STANDARD_DOCUMENT_SERVICE,documentParseFailureReason,type StandardDocumentService} from '../../application/agent-run/standard-document-tools';
 import {toOrgId} from '../../domain/org-id';
 import {Public} from '../public.decorator';
 @Controller()
 export class StandardDocumentToolsController {
+ private readonly logger=new Logger(StandardDocumentToolsController.name);
  constructor(@Inject(STANDARD_DOCUMENT_SERVICE) private service:StandardDocumentService|null){}
  @Public() @Post('/internal/agent-runs/:runId/document/parse') @HttpCode(200)
  async parse(@Headers('x-deep-agent-internal-key') key:string|undefined,@Param('runId') runId:string,@Body() body:unknown){
@@ -16,6 +17,9 @@ export class StandardDocumentToolsController {
   if(!this.service)throw new ServiceUnavailableException('document_parse_unavailable');
   const {orgId,attemptId,leaseEpoch,bindingId,toolCallId,permissionRequestId,toolArgs}=parsed.data;
   try{return await this.service.parse({orgId:toOrgId(orgId),parentRunId:runId,attemptId,leaseEpoch,bindingId,toolCallId,permissionRequestId},toolArgs);}
-  catch{throw new ServiceUnavailableException('document_parse_failed_no_result_confirmed');}
+  catch(error){
+   this.logger.warn({event:'document_parse_failed',reason:documentParseFailureReason(error)});
+   throw new ServiceUnavailableException('document_parse_failed_no_result_confirmed');
+  }
  }
 }
