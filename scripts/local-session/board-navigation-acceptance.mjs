@@ -255,7 +255,8 @@ try {
   const deselectForPixelRead = async () => {
     const before = await canonicalState();
     await page.getByTestId('board-tool-select').click();
-    await surface().click({ position: { x: 1100, y: 120 } });
+    const box = await surface().boundingBox();
+    await surface().click({ position: { x: box.width * .9, y: box.height * .7 } });
     await poll(async () => await page.getByTestId('board-context-toolbar').count() + await page.getByTestId('board-selection-layout-toolbar').count(), value => value === 0, 'pixel sampling has no selected-object toolbar');
     await poll(() => surface().getAttribute('data-selection-scene'), value => !value || value === 'null', 'pixel sampling has no selection chrome');
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -284,6 +285,7 @@ try {
     await page.setViewportSize({ width, height: 900 });
     await fitAndSettle();
   await check(`wheel, middle/right pan width ${width}`, async () => {
+    await deselectForPixelRead();
     const box = await surface().boundingBox(); assert(box);
     const canonicalBefore = await canonicalState();
     const start = {x: box.x + box.width * .7, y: box.y + 160};
@@ -468,6 +470,13 @@ try {
     await page.mouse.click(a.x, a.y); await page.keyboard.down('Shift'); try { await page.mouse.click(b.x, b.y); } finally { await page.keyboard.up('Shift'); }
     const gestures = [];
     for (const mode of ['move', 'resize', 'rotate']) {
+      if (mode === 'rotate') {
+        const beforePan = await canonicalState(), box = await surface().boundingBox(), oldViewport = (await viewport()).map(Number);
+        const start = { x: box.x + box.width * .9, y: box.y + box.height * .65 };
+        await drag(start, { x: start.x, y: start.y - 180 }, 'middle');
+        await poll(viewport, value => Math.abs(Number(value[0]) - oldViewport[0]) < 1e-6 && Math.abs(Number(value[2]) - oldViewport[2] + 180) < 1, 'real pan exposes rotation control without canonical mutation');
+        assertHeldUncommitted(beforePan, await canonicalState());
+      }
       const selected = await poll(() => surface().getAttribute('data-selection-scene'), value => value !== null, 'real Fabric ActiveSelection');
       const scene = JSON.parse(selected), box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
       const screen = p => ({ x: box.x + px + p.x * zoom, y: box.y + py + p.y * zoom });
