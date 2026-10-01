@@ -39,7 +39,7 @@ import type { FeedbackTarget } from "@/lib/live-feedback";
 import { ApiError } from "@/lib/api-client";
 import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
 
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); vi.unstubAllGlobals(); });
 
 function openDialogFor(target: FeedbackTarget, label: string | null = null) {
   render(
@@ -96,6 +96,17 @@ const mineItem = {
 };
 
 describe("FB-2 反馈弹层（采集侧）", () => {
+  it("自动整理失败时保留原文，并准确说明可手动提交", async () => {
+    mockSubmitThenList(mineItem);
+    openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "真实原文保留" } });
+    await proceedToReview();
+    expect(screen.getByText("自动整理暂不可用，原文已保留。请确认标题和正文后提交。")).toBeVisible();
+    expect(screen.queryByText("AI 整理好了，请确认后提交。")).toBeNull();
+    expect(screen.getByTestId("feedback-detail-input")).toHaveValue("真实原文保留");
+    expect(screen.getByTestId("feedback-submit")).toBeEnabled();
+  });
+
   it("① 请求体恰好六个字段（结构化字段全空 ⇒ 不带 structured 键），没有 submittedBy / status —— 按实际发出的请求断言", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
@@ -683,10 +694,14 @@ describe("迭代 35：提反馈这个框——内部码不上屏，丢掉的东�
      * 用户只会以为它们也传上去了。
      */
     apiRequest.mockImplementation(async () => ({ items: [] }));
+    // 配额测试仍触发真实上传封装；stub HTTP 边界并等待上传结束，避免真实请求逃出测试环境。
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, text: async () => JSON.stringify({ attachmentId: "quota-test", url: "/feedback/attachments/quota-test" }) });
+    vi.stubGlobal("fetch", fetchMock);
     openDialogFor({ kind: "product" });
     const png = (n: string) => new File([new Uint8Array([1])], n, { type: "image/png" });
     const six = [png("1.png"), png("2.png"), png("3.png"), png("4.png"), png("5.png"), png("6.png")];
-    fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: six } });
+    await act(async () => { fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: six } }); });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     const note = await screen.findByTestId("feedback-attachment-quota");
     expect(note.textContent).toContain("只收下了 5 个");
     expect(note.textContent).toContain("1 个没加进来");

@@ -92,6 +92,19 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     expect(screen.queryByTestId("projects-list-error")).toBeNull();
   });
 
+  it("R8 标签：重复的标签就地提示「已经有这个标签了」（不再静默吞），输入框有 40 字上限", async () => {
+    render(<ProjectsScreen />);
+    await screen.findByTestId("projects-list");
+    fireEvent.click(screen.getByTestId("projects-card-p-real-1-tag-add"));
+    const input = screen.getByTestId("projects-card-p-real-1-tag-input");
+    expect(input).toHaveAttribute("maxlength", "40");
+    fireEvent.change(input, { target: { value: "客户" } });     // 该项目已有「客户」
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByTestId("projects-card-p-real-1-tags-error")).toHaveTextContent("已经有这个标签了");
+    fireEvent.change(input, { target: { value: "客户2" } });    // 继续输入 ⇒ 提示消失
+    expect(screen.queryByTestId("projects-card-p-real-1-tags-error")).toBeNull();
+  });
+
   it("搜索框按名称过滤真实列表", async () => {
     render(<ProjectsScreen />);
 

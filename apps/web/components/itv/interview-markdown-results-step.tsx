@@ -9,12 +9,13 @@ import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
 import { InterviewSourceReportReview } from "./interview-source-report-review";
 
-export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin }: {
+export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange }: {
   readonly interviewId: string; readonly step: "runs" | "report";
   readonly runs: DigitalInterviewWorkflowView["expertRuns"];
   readonly legacySelectedExpertIds?: readonly string[];
   readonly onVersionChange: (version: number) => void; readonly onReport: () => void;
   readonly reportPin?: { documentId: string; version: number };
+  readonly onBusyChange?: (busy: boolean) => void;
 }) {
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -53,6 +54,8 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       if (action !== "pause") { dispatching.current = false; if (mounted.current) setPending(false); }
     }
   }, [interviewId, receive]);
+  React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
+  React.useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
   React.useEffect(() => {
     if (step !== "runs" || source?.execution?.status !== "running" || pending || error) return;
     const timer = window.setTimeout(() => void execute("advance"), dispatchDelay.current);
@@ -113,7 +116,6 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       {execution?.status === "running" && <Button variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</Button>}
       {execution?.status === "paused" && <Button disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
       {execution?.status === "failed" && <Button disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
-      <p className="text-sm text-muted-foreground">暂停不取消正在生成的回答；已保存回答不会重复生成。</p>
     </div>}
     {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} /> : document ? <InterviewReportStep document={document} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p>}
     {step === "report" && (state?.status === "failed" || error) && <Button variant="outline" disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</Button>}

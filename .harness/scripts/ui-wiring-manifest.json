@@ -1915,6 +1915,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/board-object-authoring/page.tsx"
     },
+    "/preview/board-authoring": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/board-authoring/page.tsx"
+    },
     "/preview/board-workspace": {
       "kind": "preview",
       "screen": "apps/web/app/preview/board-workspace/page.tsx"

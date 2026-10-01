@@ -146,6 +146,7 @@ export async function updateProjectTags(projectId: string, tags: readonly string
 }
 
 export const PROJECT_TAGS_MAX = project.PROJECT_TAGS_MAX;
+export const PROJECT_TAG_MAX_LENGTH = project.PROJECT_TAG_MAX_LENGTH;
 
 export type AgendaSegment = z.infer<typeof project.AgendaSegment>;
 export type CreateAgendaSegmentOut = z.infer<typeof project.operations.createAgendaSegment.out>;

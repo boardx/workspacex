@@ -344,6 +344,7 @@ export function LiveSurveyWorkspace({
           )}
         </div>
         <Button
+          variant="primary"
           disabled={busy || !draft || !dirty}
           onClick={() =>
             void execute(async () => {
@@ -356,7 +357,7 @@ export function LiveSurveyWorkspace({
       </header>
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-3 px-5 py-1">
         {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{conflicted ? "检测到版本冲突，本地修改仍保留" : operation === "saving" ? "正在保存修改…" : error && dirty ? "保存失败，修改仍保留；请重试保存" : busy ? "正在处理…" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
-        {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
+        {step === "design" && <Button variant="primary" disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
       </div>
       <WorkflowTimeline
         steps={workflowSteps}

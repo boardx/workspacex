@@ -98,7 +98,7 @@ describe("生产 /tasks：只有真实数据", () => {
     getMyToday.mockRejectedValue(new ApiError(403, "NO_PROJECT_ROLE", { reasonCode: "NO_PROJECT_ROLE" }));
     render(<TodayBoardLive />);
     const title = await screen.findByTestId("tasks-live-no-project-title");
-    expect(title.textContent).toContain("还没有加入任何项目的看板");
+    expect(title.textContent).toContain("还没有可用的工作坊任务看板");
     expect(screen.queryByTestId("tasks-live-error")).toBeNull();
     expectNoMockOrRawHttp(document.body.textContent ?? "");
   });

@@ -67,6 +67,7 @@ describe("#4743 列表页 → 新建项目弹窗", () => {
     expect(screen.queryByTestId("project-new")).toBeNull();
     const trigger = screen.getByTestId("projects-new");
     expect(trigger.tagName).toBe("BUTTON"); // 不再是指向 /project/new 的链接
+    trigger.focus();
     fireEvent.click(trigger);
     expect(await screen.findByTestId("project-new")).toBeInTheDocument();
     expect(screen.getByTestId("project-new-title")).toHaveTextContent("新建项目");
@@ -77,6 +78,7 @@ describe("#4743 列表页 → 新建项目弹窗", () => {
     expect(pushMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("project-new-cancel"));
     await waitFor(() => expect(screen.queryByTestId("project-new")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });
 
@@ -90,6 +92,17 @@ describe("#4743 弹窗提交", () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith(`/projects/p-new-9?org=${ORG}`));
     expect(posts).toHaveLength(1);
     expect(posts[0]!.body).toEqual({ orgId: ORG, name: "新品上市调研", kind: "general", blueprintVersionId: null });
+  });
+
+  it("R8 项目名有长度上限（60）：输入框 maxLength，接近上限才出计数", async () => {
+    stubFetch(() => jsonResponse({}));
+    render(<ProjectsScreen />);
+    fireEvent.click(await screen.findByTestId("projects-new"));
+    const input = await screen.findByTestId("project-new-name");
+    expect(input).toHaveAttribute("maxlength", "60");
+    expect(screen.queryByTestId("project-new-name-count")).toBeNull();
+    fireEvent.change(input, { target: { value: "名".repeat(50) } });
+    expect(screen.getByTestId("project-new-name-count")).toHaveTextContent("50 / 60");
   });
 
   it("失败：人话文案 + data-reason 带原因码，按钮恢复可点，不跳转", async () => {

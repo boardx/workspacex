@@ -46,8 +46,8 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
   const summaryMarkdown = !expert ? document?.markdown : attributed.map((block) => document!.markdown.slice(block.start, block.end)).join("\n\n");
   const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
-  const answered = runs.reduce((sum, run) => sum + Math.min(run.completedQuestions, run.totalQuestions), 0);
   const completed = runs.filter((run) => run.status === "completed").length;
+  const answered = runs.reduce((sum, run) => sum + Math.min(run.completedQuestions, run.totalQuestions), 0);
   const progress = total ? Math.round(answered / total * 100) : 0;
   const ready = runs.length > 0 && runs.every((run) => run.status === "completed") && Boolean(document?.markdown.trim());
   const statusCounts = [

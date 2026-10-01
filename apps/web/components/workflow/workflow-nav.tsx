@@ -1,5 +1,6 @@
 /** WF08 —— Workflow 路由左栏导航（我的运行 / 待我审批）；CT10 加 Board 运行卡视图。 */
 import * as React from "react";
+import Link from "next/link";
 import { ArrowLeft, CheckSquare, KanbanSquare, PlayCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,7 @@ export function WorkflowNav({ active, projectId }: { readonly active: WorkflowNa
           const isActive = item.key === active;
           const Icon = item.icon;
           return (
-            <a
+            <Link
               key={item.key}
               href={projectId ? `${item.href}?projectId=${encodeURIComponent(projectId)}` : item.href}
               data-testid={`workflow-nav-${item.key}`}
@@ -37,7 +38,7 @@ export function WorkflowNav({ active, projectId }: { readonly active: WorkflowNa
             >
               <Icon aria-hidden className="h-4 w-4 shrink-0" />
               <span className="flex-1 truncate">{item.label}</span>
-            </a>
+            </Link>
           );
         })}
       </div>
@@ -48,13 +49,13 @@ export function WorkflowNav({ active, projectId }: { readonly active: WorkflowNa
 /** 从项目进入 Workflow 视图后的退路：回到该项目（项目默认页，组织由服务端按 principal 解析）。 */
 export function BackToProjectLink({ projectId, testId }: { readonly projectId: string; readonly testId: string }) {
   return (
-    <a
+    <Link
       href={`/projects/${encodeURIComponent(projectId)}`}
       data-testid={testId}
       className="inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"
     >
       <ArrowLeft aria-hidden className="h-3.5 w-3.5" />返回项目
-    </a>
+    </Link>
   );
 }
 
@@ -92,7 +93,7 @@ export function WorkflowMobileNav({ active, projectId }: { readonly active: Work
         {ITEMS.map((item) => {
           const isActive = item.key === active;
           return (
-            <a
+            <Link
               key={item.key}
               href={`${item.href}${q}`}
               data-testid={`workflow-mobile-nav-${item.key}`}
@@ -103,7 +104,7 @@ export function WorkflowMobileNav({ active, projectId }: { readonly active: Work
               )}
             >
               {item.label}
-            </a>
+            </Link>
           );
         })}
       </div>

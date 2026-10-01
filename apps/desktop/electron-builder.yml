@@ -38,6 +38,10 @@ extraResources:
       #   「Can't allocate required memory」（windows-latest 实测）。
       - "!**/node_modules/@repo/desktop/**"
       - "!**/node_modules/.pnpm/node_modules/@repo/desktop/**"
+      # 上面两条 `/**` 只排除链接「里面」，不排除链接这个条目本身——mac 上它作为悬空符号链接
+      # 留在包里，check-bundle-lean 判红（从 main e9995c9b4 打包实测）。条目本身也要排除。
+      - "!**/node_modules/@repo/desktop"
+      - "!**/node_modules/.pnpm/node_modules/@repo/desktop"
       - "!**/release/win-unpacked/**"
       - "!**/release/mac-arm64/**"
       - "!**/*.test.ts"
