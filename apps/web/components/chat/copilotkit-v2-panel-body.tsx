@@ -92,7 +92,6 @@ import {
   useChatAttachments, ChatAttachmentDock, ChatComposerAttachmentStrip, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
-import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
 // issue #2767 -- 接入 F08 的 ToolPermissionCard，退役 `copilotkit-v2-approval-dialog.tsx`
 // 的 `SendEmailApprovalDialog`（该组件的非交互分支曾经对"根本没停下来等人"的调用也弹
@@ -1489,25 +1488,9 @@ export function CopilotKitV2PanelBody({
     onAttachUploadPortChange?.(attachUploadPort);
   }, [attachUploadPort, onAttachUploadPortChange]);
 
-  /**
-   * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。
-   * `initialChatThreadId === null`（还没有任何线程）时如实为 0——这不是占位，是
-   * 事实：没有线程就没有真实的挂载对象可数。有线程时读一次真实的 `listThreadMounts`
-   * （与 `ChatSkillMountPanel` 同一条端点，`out.temporary` 是该线程当前临时挂载的
-   * skill 列表——`listThreadDeviations` 契约本体的字段名，不是 `mounts`），不写死数字。
-   */
+  // The skill panel supplies the role-scoped selected count from its authoritative read.
   const [mountedSkillsCount, setMountedSkillsCount] = React.useState(0);
-  React.useEffect(() => {
-    if (initialChatThreadId === null || sessionToken === null) {
-      setMountedSkillsCount(0);
-      return;
-    }
-    let cancelled = false;
-    void listThreadMounts(initialChatThreadId, undefined, sessionToken)
-      .then((out) => { if (!cancelled) setMountedSkillsCount(out.temporary.length); })
-      .catch(() => { if (!cancelled) setMountedSkillsCount(0); });
-    return () => { cancelled = true; };
-  }, [initialChatThreadId, sessionToken]);
+
 
   // Execution details now live in TaskTimeline; the status announcer only announces transitions.
   /**
@@ -2505,6 +2488,7 @@ export function CopilotKitV2PanelBody({
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
                   <ChatSkillMountPanel
                     variant="composer"
+                    actingAgentId={actingAgentId}
                     threadId={initialChatThreadId}
                     orgId={orgId}
                     bearer={sessionToken}
@@ -2514,6 +2498,7 @@ export function CopilotKitV2PanelBody({
                     onMentionMounted={onSkillMentionMounted}
                     openRequest={skillOpenRequest}
                     onTriggerStateChange={setSkillTrigger}
+                    onMountsChange={setMountedSkillsCount}
                   />
                 ) : null}
               </div>

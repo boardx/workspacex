@@ -8,6 +8,7 @@ import {
   unmountSkill,
   type ThreadSkillMount,
 } from "@/lib/live-skill-mount";
+import { getAgentDirectoryProfile } from "@/lib/agent-directory";
 import { listSkills, type SkillListItem } from "@/lib/live-skill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ import { useChatPopoverSlot } from "./chat-popover-coordinator";
  */
 export function ChatSkillMountPanel({
   threadId,
+  actingAgentId,
   projectId,
   orgId,
   bearer,
@@ -69,6 +71,8 @@ export function ChatSkillMountPanel({
   onTriggerStateChange,
 }: {
   threadId: string;
+  /** Explicit role selection scopes skills; null/undefined retains the general pool. */
+  actingAgentId?: string | null;
   /**
    * 2026-09-02 composer 三层结构（人类最终裁决：技能恢复原样，只把入口搬进「+」菜单）：
    * - `"row"`（默认，旧轨道 `chat-read-screen.tsx`/`personal-chat-screen.tsx`）——
@@ -132,6 +136,39 @@ export function ChatSkillMountPanel({
   ) => void;
 }) {
   const [mounts, setMounts] = React.useState<readonly ThreadSkillMount[]>([]);
+  const roleScopeKey = JSON.stringify([orgId, threadId, bearer, actingAgentId ?? null]);
+  const liveScope = React.useRef(roleScopeKey);
+  liveScope.current = roleScopeKey;
+  const [cleaning, setCleaning] = React.useState(false);
+  const [roleScope, setRoleScope] = React.useState<{ key: string; versions: ReadonlyMap<string, ReadonlySet<string>> } | null>(null);
+  const loadPool = React.useCallback(async () => {
+    const key = roleScopeKey;
+    const [items, profile] = await Promise.all([
+      listSkills(orgId), actingAgentId ? getAgentDirectoryProfile(actingAgentId) : Promise.resolve(null),
+    ]);
+    if (liveScope.current !== key) return;
+    const enabled = items.filter((item) => item.status === "已启用");
+    const versions = new Map<string, Set<string>>();
+    const addVersion = (skillId: string, versionId: string) => {
+      const pinned = versions.get(skillId) ?? new Set<string>();
+      pinned.add(versionId);
+      versions.set(skillId, pinned);
+    };
+    if (profile) {
+      // The member profile resolves the published version IDs, including older pins.
+      const pins = (profile as typeof profile & { pinnedSkills?: readonly { skillId: string; versionId: string }[] }).pinnedSkills;
+      if (pins) for (const pin of pins) addVersion(pin.skillId, pin.versionId);
+      else for (const item of enabled) {
+        if (item.currentVersionId && profile.pinnedSkillVersionIds.includes(item.currentVersionId)) addVersion(item.skillId, item.currentVersionId);
+      }
+    } else {
+      for (const item of enabled) if (item.currentVersionId) addVersion(item.skillId, item.currentVersionId);
+    }
+    setRoleScope({ key, versions });
+    setPool(profile ? enabled.filter((item) => versions.has(item.skillId)) : enabled);
+  }, [actingAgentId, orgId, roleScopeKey]);
+  const scopedMounts = actingAgentId ? (roleScope?.key === roleScopeKey ? mounts.filter((entry) => roleScope.versions.get(entry.skillId)?.has(entry.versionId)) : []) : mounts;
+
   /**
    * ⚠ 服务端下发的乐观锁版本号，**不在客户端拼**（契约 `listThreadDeviations.out.version`）。
    *   `null` = 还没读到 ⇒ **不提交**。用「读不到就传空串」兜底等于关掉乐观锁，
@@ -221,13 +258,15 @@ export function ChatSkillMountPanel({
     }
   }, [bearer, projectId, threadId]);
 
+  const latestReload = React.useRef(reload);
+  latestReload.current = reload;
   React.useEffect(() => {
     void reload();
   }, [reload]);
 
   React.useEffect(() => {
-    onMountsChange?.(mounts.length);
-  }, [mounts.length, onMountsChange]);
+    onMountsChange?.(scopedMounts.length);
+  }, [scopedMounts.length, onMountsChange]);
 
   React.useEffect(() => {
     if (!onMountsSnapshotChange) return;
@@ -245,29 +284,23 @@ export function ChatSkillMountPanel({
    * 变成错误态——挂载本身是好的。
    */
   React.useEffect(() => {
-    if (mounts.length === 0 || pool.length > 0 || !orgId) return;
-    let alive = true;
-    void (async () => {
-      try {
-        const items = await listSkills(orgId);
-        if (alive) setPool(items.filter((item) => item.status === "已启用"));
-      } catch {
-        /* 名字拿不到就显示 id，不打断挂载栏 */
-      }
-    })();
-    return () => { alive = false; };
-  }, [mounts.length, pool.length, orgId]);
+    setPool([]);
+    setRoleScope(null);
+    setPending(false);
+    setCleaning(false);
+    setPicking(false);
+    setFailure(null);
+    const key = roleScopeKey;
+    void loadPool().catch((error) => { if (liveScope.current === key) setFailure(describeMessageFailure(error, "读取数字人的技能")); });
+  }, [loadPool, roleScopeKey, setPicking]);
 
   const openPicker = async (openedByMention: boolean) => {
     mentionOpenedRef.current = openedByMention;
     setPicking(true);
     setFailure(null);
-    try {
-      const items = await listSkills(orgId);
-      setPool(items.filter((item) => item.status === "已启用"));
-    } catch (error) {
-      setFailure(describeMessageFailure(error, "读取可挂载的 skill"));
-    }
+    const key = roleScopeKey;
+    try { await loadPool(); }
+    catch (error) { if (liveScope.current === key) setFailure(describeMessageFailure(error, "读取可挂载的 skill")); }
   };
 
   /**
@@ -289,7 +322,8 @@ export function ChatSkillMountPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionQuery]);
 
-  const visiblePool = mentionQuery ? pool.filter((item) => item.name.includes(mentionQuery)) : pool;
+  const currentPool = roleScope?.key !== roleScopeKey ? [] : pool;
+  const visiblePool = mentionQuery ? currentPool.filter((item) => item.name.includes(mentionQuery)) : currentPool;
 
   /** `openRequest` 变化 ⇒ 打开一次（见该 prop 头注）。 */
   const lastOpenRequestRef = React.useRef(openRequest);
@@ -301,8 +335,8 @@ export function ChatSkillMountPanel({
   }, [openRequest]);
 
   React.useEffect(() => {
-    onTriggerStateChange?.({ canOpen: !pending && version !== null, mountedCount: mounts.length, loading });
-  }, [onTriggerStateChange, pending, version, mounts.length, loading]);
+    onTriggerStateChange?.({ canOpen: !pending && !cleaning && version !== null, mountedCount: scopedMounts.length, loading });
+  }, [onTriggerStateChange, pending, cleaning, version, scopedMounts.length, loading]);
 
   /**
    * issue #1803 gap #9（人类 2026-08-22 devapp 真实浏览器实测）——此前浮层要等
@@ -318,13 +352,16 @@ export function ChatSkillMountPanel({
    * "先关一下、失败后弹回来"，但错误信息与可重试性一个字节没丢。
    */
   const mount = async (skillId: string) => {
-    if (version === null || pending) return;
+    const item = currentPool.find((candidate) => candidate.skillId === skillId);
+    if (version === null || pending || cleaning || (actingAgentId && (!item || !roleScope?.versions.get(skillId)?.has(item.currentVersionId ?? "")))) return;
+    const key = roleScopeKey;
     const viaMention = mentionOpenedRef.current;
     setPicking(false);
     setPending(true);
     setFailure(null);
     try {
       await mountSkills(threadId, projectId, { skillIds: [skillId], expectedVersion: version }, bearer);
+      if (liveScope.current !== key) { await latestReload.current(); return; }
       mentionOpenedRef.current = false;
       // 重读而不是把 POST 的回包拼进本地列表：版本号必须跟着一起更新，
       // 否则下一次挂载会拿着旧指纹去撞 409。
@@ -333,10 +370,11 @@ export function ChatSkillMountPanel({
     } catch (error) {
       // 失败：把浮层重新打开，让用户看到错误、可以重试或换一个 skill——
       // 不是"乐观关闭"就意味着失败也悄悄放过。
+      if (liveScope.current !== key) return;
       setPicking(true);
       setFailure(describeMessageFailure(error, "挂载 skill"));
     } finally {
-      setPending(false);
+      if (liveScope.current === key) setPending(false);
     }
   };
 
@@ -353,6 +391,30 @@ export function ChatSkillMountPanel({
       setPending(false);
     }
   };
+
+
+  const cleanupAttempts = React.useRef(new Set<string>());
+  React.useEffect(() => {
+    if (!actingAgentId || roleScope?.key !== roleScopeKey) return;
+    const key = roleScopeKey;
+    const incompatible = mounts.filter((entry) => entry.removedAt === null && !roleScope.versions.get(entry.skillId)?.has(entry.versionId) && !cleanupAttempts.current.has(`${key}/${threadId}/${entry.mountId}`));
+    if (!incompatible.length) return;
+    setCleaning(true);
+    for (const entry of incompatible) cleanupAttempts.current.add(`${key}/${threadId}/${entry.mountId}`);
+    void (async () => {
+      try {
+        for (const entry of incompatible) {
+          if (liveScope.current !== key) return;
+          await unmountSkill(threadId, entry.mountId, projectId, bearer);
+        }
+        if (liveScope.current === key) await reload();
+      } catch (error) {
+        if (liveScope.current === key) setFailure(describeMessageFailure(error, "清理上一个数字人的技能选择"));
+      } finally {
+        if (liveScope.current === key) setCleaning(false);
+      }
+    })();
+  }, [actingAgentId, bearer, mounts, projectId, reload, roleScope, roleScopeKey, threadId]);
 
   /** 挂载态一个 chip。 */
   const mountedChip = (entry: ThreadSkillMount) => {
@@ -427,9 +489,9 @@ export function ChatSkillMountPanel({
           {mentionTriggerChar} {mentionQuery}
         </span>
       ) : null}
-      {pool.length === 0 ? (
+      {currentPool.length === 0 ? (
         <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
-          本组织没有「已启用」的 skill 可挂载。
+          {actingAgentId ? "这个数字人没有可用的已启用技能。" : "本组织没有「已启用」的 skill 可挂载。"}
         </span>
       ) : visiblePool.length === 0 ? (
         <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
@@ -443,12 +505,13 @@ export function ChatSkillMountPanel({
             <button
               key={item.skillId}
               type="button"
-              disabled={pending}
+              disabled={pending || cleaning || Boolean(actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? ""))}
               data-testid={`chat-skill-mount-option-${item.skillId}`}
               onClick={() => void mount(item.skillId)}
               className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="max-w-full truncate text-11 font-medium text-card-foreground">{item.name}</span>
+              {actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? "") ? <span className="text-10 text-muted-foreground">数字人已固定使用此技能，无需临时挂载</span> : null}
               <span className="line-clamp-1 text-10 text-muted-foreground">
                 {item.duty.trim() || "这个 skill 还没有填写说明"}
               </span>
@@ -461,7 +524,7 @@ export function ChatSkillMountPanel({
             key={item.skillId}
             size="xs"
             variant="outline"
-            disabled={pending}
+            disabled={pending || cleaning || Boolean(actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? ""))}
             data-testid={`chat-skill-mount-option-${item.skillId}`}
             onClick={() => void mount(item.skillId)}
           >
@@ -492,7 +555,7 @@ export function ChatSkillMountPanel({
       data-testid="chat-skill-mount-failure"
     >
       <p className="text-11 text-destructive">{failure}</p>
-      <Button size="xs" variant="outline" data-testid="chat-skill-mount-retry" onClick={() => void reload()}>
+      <Button size="xs" variant="outline" data-testid="chat-skill-mount-retry" onClick={() => { cleanupAttempts.current.clear(); void reload(); void loadPool(); }}>
         <RefreshCw aria-hidden className="h-3 w-3" />重试
       </Button>
     </div>
@@ -506,9 +569,9 @@ export function ChatSkillMountPanel({
         ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
         className="flex min-w-0 flex-wrap items-center gap-1"
         data-testid="chat-skill-mount-panel"
-        data-mounted-count={mounts.length}
+        data-mounted-count={scopedMounts.length}
       >
-        {mounts.map(mountedChip)}
+        {scopedMounts.map(mountedChip)}
         {picker}
         {failureBanner}
       </div>
@@ -530,13 +593,13 @@ export function ChatSkillMountPanel({
           <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-loading">
             正在读取…
           </span>
-        ) : mounts.length === 0 ? (
+        ) : scopedMounts.length === 0 ? (
           // ⚠ 真实空态。这里**不**塞任何示例 skill（契约 A1/V10）。
           <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-empty">
             还没有挂载任何 skill
           </span>
         ) : (
-          mounts.map(mountedChip)
+          scopedMounts.map(mountedChip)
         )}
 
         <Button
@@ -544,7 +607,7 @@ export function ChatSkillMountPanel({
           variant="outline"
           className="ml-auto"
           /** ⚠ 版本号读不到就不给提交入口——不是禁用「挂载」这个能力，是拒绝盲写。 */
-          disabled={pending || version === null}
+          disabled={pending || cleaning || version === null}
           data-testid="chat-skill-mount"
           onClick={() => void openPicker(false)}
         >
