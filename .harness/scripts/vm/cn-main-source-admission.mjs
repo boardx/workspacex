@@ -1,5 +1,6 @@
 // Release source admission is distinct from PR merge admission (#4972).
 // Historical PR policy and merge-time reconstruction remain the original single source.
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { classifyChecks } from '../lib/pr-queue.ts';
@@ -24,7 +25,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
  const observations=historical.map(c=>({id:c.id,name:c.name,status:c.status,conclusion:c.conclusion,startedAt:c.started_at,completedAt:c.completed_at}));
  observations.push(...facts.prStatuses.map(s=>commitStatusToObservation({id:s.id,context:s.context,state:s.state,createdAt:s.created_at})));
  if(!ready(reconstructMergeTimeChecks(observations,pr.merged_at),policy))fail('MAIN_SOURCE_MERGE_CI');
- if(!Array.isArray(facts.sourceChecks)||facts.sourceChecks.some(c=>c.head_sha!==source||c.app?.slug!=='github-actions'))fail('MAIN_SOURCE_RUNTIME_CHECK_IDENTITY');
+ if(!Array.isArray(facts.sourceChecks)||facts.sourceChecks.some(c=>c.head_sha!==source||c.app?.slug!=='github-actions'||!Number.isSafeInteger(c.id)||c.id<=0))fail('MAIN_SOURCE_RUNTIME_CHECK_IDENTITY');
  if(!Array.isArray(facts.sourceStatuses)||facts.sourceStatuses.some(s=>s.url!==`https://api.github.com/repos/${repository}/statuses/${source}`))fail('MAIN_SOURCE_RUNTIME_STATUS_IDENTITY');
  // Same classifier semantics; only the release runtime obligations differ from a PR.
  const checks=facts.sourceChecks.map(c=>({name:c.name,status:c.status,conclusion:c.conclusion}));
@@ -35,7 +36,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
  const obligations=[...new Set([...runtimePolicy.requiredChecks.filter(n=>n!=='merge-gate'&&!runtimePolicy.aggregates[n]),...Object.values(runtimePolicy.aggregates).flat(),...deployNeeds])];
  const runtimeChecks=obligations.flatMap(name=>{const job=facts.deploymentWorkflow.jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||!Array.isArray(matrix.shard)||!matrix.shard.length||matrix.shard.some(n=>!Number.isSafeInteger(n)||n<1)||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');return matrix.shard.map(n=>`${name} (${n})`)});
  if(!ready(checks,{...runtimePolicy,requiredChecks:runtimeChecks}))fail('MAIN_SOURCE_RUNTIME_CI');
- return {sourceSha:source,prNumber:pr.number,prHeadSha:head,mergeParentSha:parents[0],mergeTree:facts.mergeTree,mergedAt:pr.merged_at};
+ return {historicalRuns:historical.filter(c=>Date.parse(c.started_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,name:c.name,headSha:c.head_sha,status:c.status,conclusion:c.conclusion,startedAt:c.started_at,completedAt:c.completed_at})),historicalStatuses:facts.prStatuses.filter(c=>Date.parse(c.created_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),runtimeStatuses:facts.sourceStatuses.slice().sort((a,b)=>String(a.context).localeCompare(String(b.context))).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),policySha256:createHash('sha256').update(JSON.stringify({historical:policy,runtime:runtimePolicy})).digest('hex'),mergeChecks:reconstructMergeTimeChecks(observations,pr.merged_at).sort((a,b)=>a.name.localeCompare(b.name)),runtimeChecks:facts.sourceChecks.filter(c=>runtimeChecks.includes(c.name)).map(c=>({id:c.id,name:c.name,conclusion:c.conclusion})).sort((a,b)=>a.name.localeCompare(b.name)),sourceSha:source,prNumber:pr.number,prHeadSha:head,mergeParentSha:parents[0],mergeTree:facts.mergeTree,mergedAt:pr.merged_at};
 }
 export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  if(repository!=='boardx/workspacex'||!sha.test(source))fail('MAIN_SOURCE_INPUT');
@@ -45,7 +46,7 @@ export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  const pr=gh(`${prefix}/pulls/${associated[0].number}`),parent=sourceCommit.parents?.[0]?.sha,head=pr.head?.sha;
  if(!sha.test(parent)||!sha.test(head))fail('MAIN_SOURCE_TREE');
  // git is argv-only, supplied by CLI; no shell interpolation or branch mutation.
- for(const s of [source,parent,head])git(['fetch','--no-tags','origin',s]);
+ for(const s of [source,parent,head])git(['cat-file','-e',`${s}^{commit}`]);
  const mergeTree=git(['merge-tree','--write-tree',parent,head]).trim();
  if(!sha.test(mergeTree))fail('MAIN_SOURCE_TREE');
  const currentMain=gh(`${prefix}/git/ref/heads/main`).object?.sha;
