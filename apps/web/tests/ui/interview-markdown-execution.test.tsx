@@ -10,6 +10,13 @@ const active: InterviewMarkdownEnvelope = { ...source, version: 3, execution: { 
 beforeEach(() => { Object.values(api).forEach((mock) => mock.mockReset()); api.initializeInterviewMarkdown.mockResolvedValue(source); api.loadInterviewMarkdown.mockResolvedValue({ ...source, version: 9 }); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 const renderResults = () => render(<InterviewMarkdownResultsStep interviewId="itv-execution-7" step="runs" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+it("keeps durable interviewing highlighted on runs while viewing report", async () => {
+  api.initializeInterviewMarkdown.mockResolvedValue(active);
+  const runningStep = vi.fn();
+  render(<InterviewMarkdownResultsStep interviewId="itv-execution-7" step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} onRunningStepChange={runningStep} />);
+  await waitFor(() => expect(runningStep).toHaveBeenCalledWith("runs"));
+  expect(runningStep).not.toHaveBeenCalledWith("report");
+});
 it("starting execution sends a freshly read source version rather than the initial version", async () => {
   api.executeInterviewMarkdown.mockResolvedValue({ ...active, version: 10, execution: { ...active.execution!, status: "paused" } });
   renderResults();

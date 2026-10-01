@@ -58,7 +58,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     }
   }, [interviewId, receive]);
   React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
-  React.useEffect(() => { onRunningStepChange?.(generatingReport ? "report" : pending || source?.execution?.status === "running" ? step : null); }, [pending, generatingReport, source?.execution?.status, step, onRunningStepChange]);
+  React.useEffect(() => { onRunningStepChange?.(generatingReport ? "report" : pending ? step : source?.execution?.status === "running" ? "runs" : null); }, [pending, generatingReport, source?.execution?.status, step, onRunningStepChange]);
   React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
   React.useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
   React.useEffect(() => {

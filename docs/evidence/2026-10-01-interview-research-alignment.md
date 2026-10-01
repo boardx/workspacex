@@ -10,11 +10,12 @@ User confirmed aligning interview with the existing user-research flow. New bran
 - Duplicate interview hero/progress bar and nonessential introductory copy removed. Durable expert/answer counts remain.
 - Report details default closed; mobile directory can collapse. Persisted Markdown, attribution, version protection and export evidence declarations remain intact.
 - Running navigation includes planning/editing operations and distinguishes report generation from interview execution.
+- Independent review found durable execution was highlighted on the viewed report route. A regression failed first, then passed after mapping durable execution to runs; long expert names now wrap within the sidebar.
 
 ## Verification
 
 - `./init.sh`: exit 0 (quick dependency/bootstrap path).
-- `pnpm --filter web exec vitest run interview --maxWorkers=2 --minWorkers=1`: 28 files / 201 tests passed.
+- `pnpm --filter web exec vitest run interview --maxWorkers=2 --minWorkers=1`: 28 files / 202 tests passed.
 - `pnpm --filter web typecheck`: exit 0.
 - `pnpm --filter web lint`: exit 0, including design lint.
 - Chromium rendering real components and real application CSS at 1440, 768, 375 px: no horizontal overflow; current step has transparent background; optional report details closed; print media exposes evidence boundary. This is frontend layout evidence, **not** an API/database end-to-end or deployed-version verification.
@@ -41,7 +42,7 @@ flowchart LR
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
   class A done;
   class C tested
-  %% evidence C: 201 interview tests, typecheck, lint and Chromium 1440/768/375 pass
+  %% evidence C: 202 interview tests, typecheck, lint and Chromium 1440/768/375 pass
   class B tested
   %% evidence B: Reference source compared with screenshots and actual Chromium rendering
   class D doing;
