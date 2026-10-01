@@ -155,7 +155,18 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
   const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
   expect(token).toBeTruthy();
+  const expectedRows = await canonicalRows(page);
+  const expectedIds = expectedRows.map(object => object.id).sort();
+  expect(expectedIds).toContain(from); expect(expectedIds).toContain(to);
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
+  await expect.poll(async () => {
+    const persisted = await canonicalBoardSnapshot(page.request, token!, boardId);
+    return persisted.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id));
+  }, {timeout: 30_000, message: 'local object content and geometry must be durably acknowledged before connecting'}).toEqual(expectedRows.map(({id,text,geometry,parentId})=>({id,text,geometry,parentId})));
+  await expect.poll(() => canonicalRows(page)).toEqual(expectedRows);
   const before = await canonicalBoardSnapshot(page.request, token!, boardId);
+  expect(before.objects.map(object => object.id).sort()).toEqual(expectedIds);
+  expect(before.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id))).toEqual(expectedRows.map(({id,text,geometry,parentId})=>({id,text,geometry,parentId})));
   const sourceOutline = page.getByTestId(`board-a11y-object-${from}`);
   await sourceOutline.focus(); await sourceOutline.press('Enter');
   const editor = page.getByTestId('board-thinking-editor');

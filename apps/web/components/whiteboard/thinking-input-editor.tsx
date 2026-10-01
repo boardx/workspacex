@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { beginComposition, beginTextInput, commitComposition, updateTextInput, type TextInputIntent } from "@repo/whiteboard-core";
+import { beginComposition, beginTextInput, commitComposition, scenePointFromLocal, updateTextInput, type TextInputIntent } from "@repo/whiteboard-core";
 import { BOARD_FABRIC_VISUAL } from "./fabric/board-fabric-visual";
 import type { BoardFabricObject, BoardViewport } from "./fabric/board-fabric-object";
 
@@ -72,9 +72,11 @@ export function ThinkingInputEditor({ object, initialValue, viewport, readOnly, 
   const lineHeight = style.lineHeight ?? 1.3;
   const contentWidth = Math.max(fontSize, geometry.width - inset * 2);
   const textHeight = estimatedLineCount(intent.draft, contentWidth, fontSize) * fontSize * lineHeight;
+  const contentHeight = Math.min(textHeight, Math.max(fontSize * lineHeight, geometry.height - inset * 2));
   const verticalAlignment = object.kind === "text" ? "top" : style.verticalAlignment ?? "middle";
-  const verticalSpace = Math.max(inset, geometry.height - textHeight - inset);
-  const paddingTop = verticalAlignment === "bottom" ? verticalSpace : verticalAlignment === "middle" ? Math.max(inset, (geometry.height - textHeight) / 2) : inset;
+  const verticalSpace = Math.max(inset, geometry.height - contentHeight - inset);
+  const textTop = verticalAlignment === "bottom" ? verticalSpace : verticalAlignment === "middle" ? Math.max(inset, (geometry.height - contentHeight) / 2) : inset;
+  const position = scenePointFromLocal(geometry, { x: inset, y: textTop });
   return <textarea
     ref={inputRef}
     data-testid="board-thinking-editor"
@@ -108,18 +110,15 @@ export function ThinkingInputEditor({ object, initialValue, viewport, readOnly, 
     className="absolute z-40 m-0 appearance-none resize-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:outline-none focus-visible:ring-0"
     style={{
       boxSizing: "border-box",
-      left: geometry.x * zoom + viewport.panX,
-      top: geometry.y * zoom + viewport.panY,
-      width: Math.max(1, geometry.width * zoom),
-      height: Math.max(1, geometry.height * zoom),
+      left: position.x * zoom + viewport.panX,
+      top: position.y * zoom + viewport.panY,
+      width: Math.max(1, contentWidth * zoom),
+      height: Math.max(1, contentHeight * zoom),
       transform: `rotate(${geometry.rotation}deg)`,
-      transformOrigin: "center center",
+      transformOrigin: "0 0",
       borderRadius: sticky ? BOARD_FABRIC_VISUAL.sticky.radius * zoom : 0,
-      paddingLeft: inset * zoom,
-      paddingRight: inset * zoom,
-      paddingTop: paddingTop * zoom,
-      paddingBottom: inset * zoom,
-      overflow: "hidden",
+      padding: 0,
+      overflow: textHeight > contentHeight ? "auto" : "hidden",
       fontFamily: style.fontFamily ?? BOARD_FABRIC_VISUAL.fontFamily,
       fontSize: fontSize * zoom,
       fontWeight: style.bold ? 700 : 400,
