@@ -1,3 +1,4 @@
+import { WhiteboardAdmission } from './whiteboard-admission';
 import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Y from 'yjs';
@@ -17,6 +18,8 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   const wss = new WebSocketServer({ noServer: true, maxPayload: WHITEBOARD_SYNC.inboundFrameBytes, perMessageDeflate: false,
     handleProtocols: protocols => protocols.has(WHITEBOARD_SYNC.protocol) ? WHITEBOARD_SYNC.protocol : false });
   const peers = new Set<Peer>();
+  const admission = new WhiteboardAdmission();
+  const authentication = new WhiteboardAdmission();
   function send(ws: WebSocket, message: WhiteboardServerMessage) {
     if (ws.readyState !== ws.OPEN) return;
     if (ws.bufferedAmount > 2 * 1024 * 1024) { ws.close(1013, 'slow client'); return; }
@@ -37,15 +40,23 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   const upgrade = (request: import('node:http').IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => {
     const path=new URL(request.url ?? '/', 'http://localhost').pathname;
     const match=/^\/whiteboards\/([0-9a-f-]{36})\/sync$/i.exec(path); if (!match) return;
-    const refuse=(status:number) => { socket.write(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`); socket.destroy(); };
+    const refuse=(status:number) => { if (socket.destroyed) return; socket.write(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`); socket.destroy(); };
     const offered=String(request.headers['sec-websocket-protocol'] ?? '').split(',').map(s=>s.trim());
     const credential=offered.find(s=>s.startsWith(WHITEBOARD_SYNC.bearerSubprotocolPrefix));
     if (!credential || !offered.includes(WHITEBOARD_SYNC.protocol)) { refuse(401); return; }
+    const lifetime = new AbortController();
+    socket.once('close', () => lifetime.abort());
     const token=credential.slice(WHITEBOARD_SYNC.bearerSubprotocolPrefix.length), boardId=match[1]!;
     void (async()=>{
-      const principal=await deps.principals.resolve({authorization:`Bearer ${token}`}); if (!principal) { refuse(401); return; }
-      const [board,identity]=await Promise.all([deps.boards.get(principal,boardId),deps.identities?.resolve(principal)??Promise.resolve({displayName:principal.userId,avatarUrl:null,principalKind:'user' as const})]); if (!board) { refuse(404); return; }
+      const principal=await authentication.run(token, () => deps.principals.resolve({authorization:`Bearer ${token}`}), lifetime.signal); if (!principal) { refuse(401); return; }
+      const [board,identity]=await admission.run(principal.orgId, async () => {
+        const board = await deps.boards.get(principal,boardId);
+        lifetime.signal.throwIfAborted();
+        const identity = await (deps.identities?.resolve(principal) ?? Promise.resolve({displayName:principal.userId,avatarUrl:null,principalKind:'user' as const}));
+        return [board,identity] as const;
+      }, lifetime.signal); if (!board) { refuse(404); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
+      lifetime.signal.throwIfAborted();
       wss.handleUpgrade(request,socket,head,ws=>{
         const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
@@ -62,14 +73,15 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if (message.type==='hello') {
               if(peer.ready) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
               // Keep a server-only full mirror for cross-process catch-up, never trust client content.
-              const full=await deps.store.load(principal,boardId);
+              const full=await admission.run(principal.orgId, () => deps.store.load(principal,boardId), lifetime.signal);
+              if (ws.readyState!==ws.OPEN) return;
               if(message.resume) {
                 if(message.resume.epoch!==full.epoch) send(ws,{type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:full.epoch,seq:full.seq});
                 else if(message.resume.seq>full.seq) send(ws,{type:'recovery',code:'HISTORY_UNAVAILABLE',disposition:'reload-required',epoch:full.epoch,seq:full.seq});
                 else send(ws,{type:'recovery',code:'RESUME_OK',disposition:'resumed',epoch:full.epoch,seq:full.seq});
               }
               Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq;
-              const diff=await deps.store.load(principal,boardId,decoded(message.stateVector));
+              const diff={...full,update:Y.encodeStateAsUpdate(peer.mirror,decoded(message.stateVector))};
               Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.ready=true; peer.role=diff.role; peer.archived=diff.archived; clearTimeout(deadline);
               send(ws,{type:'sync',...diff,update:encoded(diff.update)}); presence(peer); return;
             }
@@ -105,7 +117,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
           }).catch(error=>failFromError(ws,error)).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());
-        ws.on('close',()=>{clearTimeout(deadline);peers.delete(peer);peer.mirror.destroy();presence(peer);});
+        ws.on('close',()=>{lifetime.abort();clearTimeout(deadline);peers.delete(peer);peer.mirror.destroy();presence(peer);});
       });
     })().catch(()=>refuse(503));
   };
