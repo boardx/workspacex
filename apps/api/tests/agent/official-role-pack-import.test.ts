@@ -154,6 +154,33 @@ beforeEach(async () => {
 });
 
 describe("official role pack import (AG03 / UC-3)", () => {
+  it("freezes only exact verified local Skills as executable and leaves candidates transparently pending", async () => {
+    // Real starter import creates candidate catalog rows; this fixture marks one trusted version verified
+    // to exercise the import boundary, not to claim that its model evaluation was performed here.
+    const skillImport = await fetch(`${base}/admin/skills/starter-pack-imports`, {
+      method: "POST", headers: authFor(ADMIN),
+      body: JSON.stringify({ packId: "work-research", packVersion: "1.0.0", idempotencyKey: randomUUID() }),
+    });
+    expect(skillImport.status).toBe(201);
+    await skillImport.json();
+    const verifiedId = await asApp(ORG, async (client) => {
+      const row = (await client.query<{skill_id:string;version_id:string}>(
+        "SELECT s.id AS skill_id,v.id AS version_id FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id WHERE s.org_id=$1 AND s.stable_name='enterprise-search' AND v.published=true", [ORG])).rows[0]!;
+      await client.query("UPDATE skill_catalog_entries SET channel='verified' WHERE org_id=$1 AND skill_id=$2", [ORG,row.skill_id]);
+      return row.version_id;
+    });
+    const response = await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
+    expect(response.status).toBe(201);
+    const stored = await asApp(ORG, async (client) => (await client.query<{skill_version_ids:string[];pending_skill_bindings:{stableId:string;reason:string;versionId?:string}[]}>(
+      "SELECT v.skill_version_ids,v.pending_skill_bindings FROM agents a JOIN agent_versions v ON v.id=a.published_version_id AND v.org_id=a.org_id WHERE a.org_id=$1 AND a.stable_name='d002-research-knowledge-analyst'", [ORG])).rows[0]!);
+    expect(stored.skill_version_ids).toEqual([verifiedId]);
+    expect(stored.pending_skill_bindings).toHaveLength(9);
+    expect(stored.pending_skill_bindings.some((binding) => binding.stableId === "S003")).toBe(false);
+    expect(stored.pending_skill_bindings.every((binding) => binding.reason === "awaiting_verification" && binding.versionId)).toBe(true);
+    const channels = await asApp(ORG, async (client) => (await client.query<{channel:string;n:string}>("SELECT channel,count(*)::text AS n FROM skill_catalog_entries WHERE org_id=$1 GROUP BY channel", [ORG])).rows);
+    expect(channels.find((row) => row.channel === "verified")!.n).toBe("1");
+  });
+
   it("creates 7 catalogSource='official' agent drafts with workflowAllowlist matching the composition matrix, no authorization granted", async () => {
     const response = await postImport(ADMIN, { packId: OFFICIAL_AGENT_ROLE_PACK_ID, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION, idempotencyKey: randomUUID() });
     expect(response.status).toBe(201);
@@ -173,6 +200,16 @@ describe("official role pack import (AG03 / UC-3)", () => {
       "d011-design-thinking-expert",
     ]);
     for (const row of rows) expect(row.catalog_source).toBe("official");
+    // A fresh organization remains usable without inventing verified skills: every gap is frozen explicitly.
+    const versions = await asApp(ORG, async (client) => (await client.query<{instructions:string;skill_version_ids:string[];pending_skill_bindings:unknown[]; stable_name:string}>(
+      "SELECT a.stable_name,v.instructions,v.skill_version_ids,v.pending_skill_bindings FROM agents a JOIN agent_versions v ON v.org_id=a.org_id AND v.id=a.published_version_id WHERE a.org_id=$1", [ORG])).rows);
+    for (const role of buildOfficialAgentRolePack().agents) {
+      const version = versions.find((entry) => entry.stable_name === role.stableName)!;
+      expect(version.instructions).toBe(role.instructions);
+      expect(version.skill_version_ids).toEqual([]);
+      expect(version.pending_skill_bindings).toEqual(role.authoredSkillBindings!.map((binding) => ({ ...binding, reason: "missing_version" })));
+    }
+
     expect(rows.find((r) => r.stable_name === "d002-research-knowledge-analyst")).toMatchObject({
       role_category: "research",
       workflow_allowlist: ["W001", "W060", "W009", "W006", "W057"],
