@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { TestRunOutput } from "./test-run-output";
 
 describe("test-run output truthfulness", () => {
+  it("rejects a real Turbo-prefixed empty runner even when another task passed", () => {
+    const output = new TestRunOutput();
+    output.observe("stdout", "empty-selection:test:  RUN  v2.1.9 /tmp/test\nempty-selection:test: No test files found, exiting with code 0\n");
+    output.observe("stdout", "web:test:  RUN  v2.1.9 /tmp/web\nweb:test: Test Files 1 passed (1)\nweb:test: Tests 1 passed (1)\n");
+    expect(output.classify(0)).toEqual({ code: 1, diagnostic: expect.stringContaining("零测试执行") });
+  });
+  it("keeps task-local positive summaries authoritative over their own empty-phrase logs", () => {
+    const output = new TestRunOutput();
+    output.observe("stdout", "web:test:  RUN  v2.1.9 /tmp/web\nweb:test: No test files found\nweb:test: Test Files no tests\nweb:test: Test Files 1 passed (1)\nweb:test: Tests 1 passed (1)\n");
+    expect(output.classify(0)).toEqual({ code: 0, diagnostic: null });
+  });
   it("rejects a successful zero-selection summary split across ANSI chunks", () => {
     const output = new TestRunOutput();
     output.observe("stdout", "\u001b[32m Test Fi");
