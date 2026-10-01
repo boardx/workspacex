@@ -28,3 +28,7 @@
 
 
 统一交付 PR #4867，验收前核对部署包含本次统一分支全部修复；历史子 PR SHA 不代表统一部署。当前没有跨 session 发送工具或本地收件箱写入能力，状态仍为待派发。
+
+## 完整验收计划（新要求）
+
+以 ACCEPTANCE-PLAN.md、acceptance-cases.csv、acceptance-entities.csv 和 acceptance-execution-matrix.csv 为准备及执行清单；全量320登记在 acceptance-all-entities.csv。原四角色必须分别真实登录/启用/使用/产出/刷新重读；7角色包不替代4角色验收。每角色交8个关键步骤画面及连续trace/视频；精确证据要求和专业/可用性判据见计划第7–9节。所有缺实现/缺服务项目记BLOCKED，不以目录记录、mock截图或loopback结果宣称完整端到端通过。派发仍未发生。
