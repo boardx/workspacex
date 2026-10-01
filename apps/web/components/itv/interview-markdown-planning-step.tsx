@@ -11,17 +11,20 @@ import { InterviewAnalysisStep } from "./interview-analysis-step";
 import { importInterviewTextFile } from "@/lib/interview-text-import";
 
 /** Planning routes use the Markdown source API exclusively; workflow JSON is metadata only. */
-export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue }: {
+export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue, onRunningStepChange }: {
   readonly interviewId: string;
   readonly step: "intake" | "analysis";
   readonly onVersionChange: (version: number) => void;
   readonly onDirtyChange: (dirty: boolean) => void;
   readonly onContinue: (step: "analysis" | "experts") => void;
+  readonly onRunningStepChange?: (step: string | null) => void;
 }) {
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [markdown, setMarkdown] = React.useState("");
   const [pending, setPending] = React.useState(true);
   const [error, setError] = React.useState("");
+  React.useEffect(() => { onRunningStepChange?.(pending ? step : null); }, [pending, step, onRunningStepChange]);
+  React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
   const callbacks = React.useRef({ onVersionChange, onDirtyChange, onContinue });
   callbacks.current = { onVersionChange, onDirtyChange, onContinue };
   function receive(next: InterviewMarkdownEnvelope) {
@@ -91,7 +94,6 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
     ? "分析生成未完成" : null;
   return <div>
     {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { receive(await loadInterviewMarkdown(interviewId)); })}>重新载入已保存版本（保留编辑文字）</Button></div>}
-    {step === "intake" && intakeImmutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认需求只读，不能覆盖原文。可继续查看分析；修改研究内容需要新修订。</p>}
     {step === "intake" ? <InterviewIntakeStep voiceSessionToken={getStoredSessionToken() ?? undefined} markdown={markdown} pending={pending} readOnly={intakeImmutable} onImportFile={importInterviewTextFile} onUploadFile={async (file) => {
       if (intakeImmutable) throw new Error("已确认需求需要创建新修订");
       if (file.size > chatFileUpload.ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) throw new Error("研究文件不能超过同步提取上限");
