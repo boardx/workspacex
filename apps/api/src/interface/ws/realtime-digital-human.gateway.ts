@@ -187,10 +187,16 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
     });
     socket.on("error", () => fail("UPSTREAM_FAILED"));
     socket.on("close", () => {
-      if (upstream !== socket) return;
+      if (upstream !== socket || hangingUp) return;
+      hangingUp = true;
       flushAssistant();
-      send({ type: "session.closed" });
-      client.close();
+      // 上游断开仍须让最后一轮完成落库并发出 turn.persisted，再通知客户端刷新线程。
+      // append 卡住时有界结束；未落库的轮次不会伪造 persisted 确认。
+      void Promise.race([persistChain, delay(HANGUP_PERSIST_WAIT_MS)]).finally(() => {
+        close();
+        send({ type: "session.closed" });
+        client.close();
+      });
     });
   };
 

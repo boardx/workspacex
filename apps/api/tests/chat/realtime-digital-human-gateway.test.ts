@@ -205,6 +205,44 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     ws.close();
   });
 
+  it("upstream close drains a deferred assistant append before notifying the client", async () => {
+    let releaseAppend!: () => void;
+    let appendEntered = false;
+    const appendGate = new Promise<void>((resolve) => { releaseAppend = resolve; });
+    voice.append = async (_session, turn) => {
+      appendEntered = true;
+      await appendGate;
+      voice.appended.push(turn);
+      return "m-deferred";
+    };
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    const up = upstreamSockets[0]!;
+    up.send(JSON.stringify({ type: "response.audio_transcript.delta", delta: "关闭前最后回答" }));
+    up.close();
+    await until(() => appendEntered);
+    releaseAppend();
+    await closed;
+    expect(voice.appended).toEqual([{ role: "assistant", text: "关闭前最后回答" }]);
+    expect(frames.slice(-2)).toEqual([
+      { type: "turn.persisted", role: "assistant", messageId: "m-deferred" },
+      { type: "session.closed" },
+    ]);
+  });
+
+  it("upstream close remains bounded when append never resolves, without a false persisted acknowledgement", async () => {
+    voice.append = async () => new Promise<string>(() => {});
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    upstreamSockets[0]!.send(JSON.stringify({ type: "response.audio_transcript.delta", delta: "无法确认保存" }));
+    upstreamSockets[0]!.close();
+    await closed;
+    expect(frames.at(-1)).toEqual({ type: "session.closed" });
+    expect(frames.some((frame) => frame.type === "turn.persisted")).toBe(false);
+  }, 3_500);
+
   it("hangup mid-sentence (server VAD upstream): commits the open speech, persists the last user turn, THEN closes", async () => {
     // 真实形状的假上游：session.updated → VAD speech_started → 客户端挂断 → 收到 commit 才回转写。
     upstream.on("connection", (socket) => {
