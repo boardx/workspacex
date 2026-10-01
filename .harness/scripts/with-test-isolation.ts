@@ -10,6 +10,7 @@ import {
   type HeavySuiteLockHandle,
 } from "./lib/heavy-suite-lock";
 import { Stopwatch, printReport, recordRun } from "./lib/verify-timing";
+import { TestRunOutput } from "./lib/test-run-output";
 
 export interface TestIsolationRuntime {
   acquireSlot: (options: AcquireOptions) => Promise<StackSlot>;
@@ -108,7 +109,16 @@ export async function runWithTestIsolation(
   // 占位监听必须在起栈**之前**释放，否则 docker bind 会撞上我们自己。
   await reservation.release();
   timing.start("命令执行");
-  const child = spawn(command[0]!, command.slice(1), { env, stdio: "inherit" });
+  const output = new TestRunOutput();
+  const child = spawn(command[0]!, command.slice(1), { env, stdio: ["inherit", "pipe", "pipe"] });
+  child.stdout.on("data", (chunk: Buffer) => {
+    output.observe("stdout", chunk.toString());
+    process.stdout.write(chunk);
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    output.observe("stderr", chunk.toString());
+    process.stderr.write(chunk);
+  });
   let receivedSignal: NodeJS.Signals | null = null;
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
     process.once(signal, () => {
@@ -127,7 +137,8 @@ export async function runWithTestIsolation(
   );
   const result = await new Promise<{ code: number | null; error: Error | null }>((resolve) => {
     child.once("error", (error) => resolve({ code: null, error }));
-    child.once("exit", (code) => resolve({ code, error: null }));
+    // close waits for both output pipes; exit can precede the final summary.
+    child.once("close", (code) => resolve({ code, error: null }));
   });
   timing.stop();
   timing.start("清理");
@@ -155,7 +166,9 @@ export async function runWithTestIsolation(
     const signalExit = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 }[receivedSignal];
     return signalExit;
   }
-  if (result.code !== 0) return result.code ?? 1;
+  const classified = output.classify(result.code ?? 1);
+  if (classified.diagnostic) console.error(classified.diagnostic);
+  if (classified.code !== 0) return classified.code;
   return cleanupError ? 1 : 0;
 }
 
