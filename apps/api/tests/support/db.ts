@@ -231,8 +231,11 @@ export async function resetOrgs(first: string | readonly string[], ...rest: stri
   const c = new pg.Client(migrationConfig());
   await c.connect();
   // ON DELETE CASCADE carries teams / projects / groups / memberships / bindings with it.
-  await c.query("DELETE FROM organizations WHERE id = ANY($1::text[])", [orgIds]);
-  await c.end();
+  try {
+    await c.query("DELETE FROM organizations WHERE id = ANY($1::text[])", [orgIds]);
+  } finally {
+    await c.end();
+  }
 }
 
 export async function migrateOnce(): Promise<void> {

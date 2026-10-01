@@ -41,3 +41,34 @@ it("does not forget a replacement registered while the prior cleanup is running"
   await cleanupSeededOrganizations();
   expect(next).toHaveBeenCalledOnce();
 });
+
+it("retries only a rolled-back PostgreSQL deadlock and forgets ownership after success", async () => {
+  const remove = vi.fn<() => Promise<void>>()
+    .mockRejectedValueOnce(Object.assign(new Error("deadlock detected"), { code: "40P01" }))
+    .mockResolvedValue(undefined);
+  trackSeededOrganization("deadlock-once", remove);
+  await cleanupSeededOrganizations();
+  await cleanupSeededOrganizations();
+  expect(remove).toHaveBeenCalledTimes(2);
+});
+
+it("fails closed after three deadlocks and retains ownership for a later cleanup", async () => {
+  const failure = Object.assign(new Error("deadlock detected"), { code: "40P01" });
+  const remove = vi.fn<() => Promise<void>>().mockRejectedValue(failure);
+  trackSeededOrganization("deadlock-exhausted", remove);
+  await expect(cleanupSeededOrganizations()).rejects.toBe(failure);
+  expect(remove).toHaveBeenCalledTimes(3);
+  remove.mockResolvedValue(undefined);
+  await cleanupSeededOrganizations();
+  await cleanupSeededOrganizations();
+  expect(remove).toHaveBeenCalledTimes(4);
+});
+
+it("does not retry other PostgreSQL failures", async () => {
+  const failure = Object.assign(new Error("permission denied"), { code: "42501" });
+  const remove = vi.fn<() => Promise<void>>().mockRejectedValueOnce(failure).mockResolvedValue(undefined);
+  trackSeededOrganization("denied", remove);
+  await expect(cleanupSeededOrganizations()).rejects.toBe(failure);
+  expect(remove).toHaveBeenCalledOnce();
+  await cleanupSeededOrganizations();
+});
