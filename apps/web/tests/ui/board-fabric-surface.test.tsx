@@ -33,7 +33,8 @@ const probe = vi.hoisted(() => ({
 
 }));
 
-vi.mock("fabric", () => {
+vi.mock("fabric", async () => {
+  const actual = await vi.importActual<typeof import("fabric")>("fabric");
   class MockObject implements MockProjectedObject {
     data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string };
     left = 0; top = 0; width = 100; height = 80; scaleX = 1; scaleY = 1; angle = 0;
@@ -56,7 +57,15 @@ vi.mock("fabric", () => {
   }
   class MockRect extends MockObject { mockKind = "rect"; constructor(first?: unknown, second?: Record<string, unknown>) { super(undefined, second ?? (first as Record<string, unknown>)); probe.primitiveKinds.push("Rect"); } }
   class MockCircle extends MockObject { mockKind = "circle"; constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Circle"); } }
-  class MockTextbox extends MockObject { mockKind = "textbox"; }
+  class MockTextbox extends MockObject {
+    mockKind = "textbox";
+    text?: string; fontFamily?: string; fontSize?: number; fontWeight?: number; lineHeight?: number;
+    initDimensions() {}
+    calcTextWidth() {
+      return new actual.Textbox(this.text ?? "", { width: this.width, fontFamily: this.fontFamily, fontSize: this.fontSize,
+        fontWeight: this.fontWeight, lineHeight: this.lineHeight, splitByGrapheme: true }).calcTextWidth();
+    }
+  }
   class MockPath extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Path"); } }
   class MockImage extends MockObject { constructor(first?: unknown, second: Record<string, unknown> = {}) { super(first, second); probe.primitiveKinds.push("Image"); probe.imageOptions.push(second); } setElement() {} }
   class MockGroup extends MockObject {
@@ -284,7 +293,7 @@ describe("BoardFabricSurface", () => {
     renderSurface({ objects: [OBJECTS[0]!, OBJECTS[1]!, panel, edge] });
     expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["panel", "s-1", "r-1", "edge"]);
     expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")?.children?.filter(child => child.mockKind === "textbox")).toHaveLength(label ? 1 : 0);
-    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")).toMatchObject({ selectable: true, evented: true, perPixelTargetFind: true, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")).toMatchObject({ selectable: true, evented: true, perPixelTargetFind: true, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false, hasBorders: false });
   });
 
   it("highlights and reparents nested Panels at the completed Fabric gesture boundary", () => {

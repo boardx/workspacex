@@ -19,7 +19,9 @@ it("opens only the requested inspector, dismisses with Escape and returns focus"
 });
 
 it("does not reopen a creation palette just because an existing text object is selected", () => {
-  render(<BoardBottomDock activeTool="select" creationTool={{ kind: "text", preset: "body" }} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} />);
+  const view = render(<BoardBottomDock activeTool="select" creationTool={{ kind: "text", preset: "body" }} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} />);
+  expect(screen.queryByTestId("board-add-connector")).toBeNull();
+  view.rerender(<BoardBottomDock connectorEnabled activeTool="select" creationTool={{ kind: "text", preset: "body" }} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} />);
   expect(screen.getByTestId("board-add-text")).toHaveClass("bg-primary", "text-primary-foreground", "hover:bg-primary-hover", "hover:text-primary-foreground");
   expect(screen.queryByTestId("board-tool-picker")).toBeNull();
   fireEvent.click(screen.getByTestId("board-add-text"));

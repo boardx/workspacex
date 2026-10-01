@@ -24,7 +24,9 @@ it('selecting the sticky tool does not create an unintended note before canvas p
 });
 it('keeps the FigJam tool order and exposes Frame as a first-class creation mode',()=>{
  const creation=vi.fn();
- render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ const view = render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ expect(screen.queryByTestId("board-add-connector")).toBeNull();
+ view.rerender(<BoardBottomDock connectorEnabled activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
  const dock=screen.getByTestId('board-creation-dock');
  expect(dock).toHaveClass('w-max','max-w-[calc(100vw-2rem)]');
  expect(dock.lastElementChild).toHaveClass('w-max','max-w-full','gap-0.5','p-1','xl:gap-1','xl:p-1.5');
