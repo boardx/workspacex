@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-01：内容评测的 Zod 输入/输出也必须定义在 contracts；API 中的 JSON Schema 生成可保留薄派生，但不应因此把 Zod 原定义留在 application，或把 zod-to-json-schema 的 devDependency 变成 contracts 运行期依赖。引用 identity 与发货 --check 一并验证搬迁无漂移（出处：PR #4867，s003-single-source 反证）。
 - 2026-10-01：Workflow Skill 阶段只传 stableId/version 给模型，不会执行已作者化的方法；必须在生产 DI 中读取本组织固定已发布版本的 SKILL.md，缺版本/正文前置失败。回环模型仅按阶段名给 JSON 的测试会掩盖正文缺失，补正文敏感反证、升级后旧版保留和跨租户读取测试（出处：#4862）。
 
 - 2026-10-01：聊天选人提供官方角色启用，并不意味着后台目录也能发现它们；后台需明确提供待启用要约入口，复用完整 Skill/Workflow/角色依赖导入流程，仅显式点击写入，并在组织切换时取消旧视图回调（出处：[issue #4865](https://github.com/boardx/workspacex/issues/4865)）。

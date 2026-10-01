@@ -1,0 +1,49 @@
+
+ RUN  v2.1.9 /workspace/s003-contract-single-source-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/contract-single-source.test.ts (4 tests | 1 failed) 52335ms
+   ✓ contract as single source, backend side > no backend file redefines a contract type 21232ms
+   × contract as single source, backend side > no backend file declares its own zod object schema (schemas belong in the contract) 123ms
+     → Request/response shapes are defined once, in packages/contracts.
+  application/work-eval/s003-contract.ts:10  export const S003InputSchema = z.object({
+  application/work-eval/s003-contract.ts:16  const Hit = z.object({
+  application/work-eval/s003-contract.ts:21  const OutputShape = z.object({: expected [ …(3) ] to deeply equal []
+   ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 30978ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/contract-single-source.test.ts > contract as single source, backend side > no backend file declares its own zod object schema (schemas belong in the contract)
+AssertionError: Request/response shapes are defined once, in packages/contracts.
+  application/work-eval/s003-contract.ts:10  export const S003InputSchema = z.object({
+  application/work-eval/s003-contract.ts:16  const Hit = z.object({
+  application/work-eval/s003-contract.ts:21  const OutputShape = z.object({: expected [ …(3) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "application/work-eval/s003-contract.ts:10  export const S003InputSchema = z.object({",
++   "application/work-eval/s003-contract.ts:16  const Hit = z.object({",
++   "application/work-eval/s003-contract.ts:21  const OutputShape = z.object({",
++ ]
+
+ ❯ tests/contract-single-source.test.ts:76:7
+     74|       offenders,
+     75|       `Request/response shapes are defined once, in packages/contracts…
+     76|     ).toEqual([]);
+       |       ^
+     77|   });
+     78| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  07:18:34
+   Duration  55.24s (transform 1.61s, setup 0ms, collect 2.04s, tests 52.34s, environment 0ms, prepare 73ms)
+
+undefined
+/workspace/s003-contract-single-source-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/contract-single-source.test.ts

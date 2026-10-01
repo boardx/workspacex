@@ -136,6 +136,7 @@ export * as whiteboardOrganize from "./whiteboard-organize";
  *   design-signoff.md 全部 status: pending，人类授权先开发后补签）──────── */
 export * as agentRole from "./agent-role";
 export * as workSkillMeta from "./work-skill-meta";
+export * as workSkillEvidenceLedger from "./work-skill-evidence-ledger";
 export * as workflowRuntime from "./workflow-runtime";
 export * as workflowCapabilityGrants from "./workflow-capability-grants";
 export * as workContent from "./work-content";

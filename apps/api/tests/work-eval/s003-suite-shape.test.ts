@@ -13,7 +13,8 @@ import { suiteCoverageGaps, validateWorkEvalSuiteBundle } from "@repo/contracts/
 
 import { parse as parseYaml } from "yaml";
 import Ajv from "ajv";
-import { S003OutputSchema, s003MachineSchemas } from "../../src/application/work-eval/s003-contract";
+import { S003InputSchema, S003OutputSchema, s003MachineSchemas } from "../../src/application/work-eval/s003-contract";
+import { S003InputSchema as ContractInputSchema, S003OutputSchema as ContractOutputSchema } from "@repo/contracts/work-skill-evidence-ledger";
 import { s003EnterpriseSearchLoopback } from "../../src/application/work-eval/loopback-agents";
 import { FixtureToolbox, mergeFixtures } from "../../src/application/work-eval/fixture-tools";
 
@@ -41,6 +42,12 @@ function runCli(dir: string, extra: string[] = []) {
 }
 
 describe("evals/work-stack/S003 suite (EV01)", () => {
+  it("API and loopback consume the authoritative contract by reference", () => {
+    expect(S003InputSchema).toBe(ContractInputSchema);
+    expect(S003OutputSchema).toBe(ContractOutputSchema);
+    expect(s003EnterpriseSearchLoopback.inputSchema).toBe(ContractInputSchema);
+    expect(s003EnterpriseSearchLoopback.outputSchema).toBe(ContractOutputSchema);
+  });
   it("ships the generated machine contract and rejects each previous non-contract enum", async () => {
     const source = readFileSync(join(repoRoot, "skills/work-research/enterprise-search/SKILL.md"), "utf8");
     const frontmatter = parseYaml(/^---\n([\s\S]*?)\n---/.exec(source)![1]!);
