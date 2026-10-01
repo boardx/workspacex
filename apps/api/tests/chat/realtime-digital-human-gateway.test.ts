@@ -265,6 +265,45 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     expect(frames.some((f) => f.type === "turn.persisted")).toBe(true);
   });
 
+  it("commits a short utterance buffered before the upstream handshake completes", async () => {
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    let acceptUpgrade: (() => void) | undefined;
+    upstream = new WebSocketServer({
+      port: 0, host: "127.0.0.1",
+      verifyClient: (_info, accept) => { acceptUpgrade = () => accept(true); },
+    });
+    const events: string[] = [];
+    upstream.on("connection", (socket) => {
+      upstreamSockets.push(socket);
+      let bytes = 0;
+      socket.on("message", (raw) => {
+        const event = JSON.parse(String(raw)) as { type: string; audio?: string };
+        events.push(event.type);
+        if (event.type === "session.update") socket.send(JSON.stringify({ type: "session.updated" }));
+        if (event.type === "input_audio_buffer.append") bytes += Buffer.from(event.audio ?? "", "base64").byteLength;
+        if (event.type === "input_audio_buffer.commit") socket.send(JSON.stringify({
+          type: "conversation.item.input_audio_transcription.completed", transcript: `缓冲语音 ${bytes} 字节`,
+        }));
+      });
+    });
+    config = { ...config, baseUrl: `ws://127.0.0.1:${await listen(upstream)}/realtime` };
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));
+    await until(() => acceptUpgrade !== undefined);
+    // Pong proves the gateway consumed the preceding binary frame while upstream is CONNECTING.
+    const consumed = new Promise<void>((resolve) => ws.once("pong", () => resolve()));
+    ws.send(Buffer.alloc(640));
+    ws.ping();
+    await consumed;
+    acceptUpgrade!();
+    await until(() => frames.some((frame) => frame.type === "session.ready") && events.includes("input_audio_buffer.append"));
+    ws.send(JSON.stringify({ type: "session.stop" }));
+    await closed;
+    expect(events.filter((event) => event === "input_audio_buffer.commit")).toHaveLength(1);
+    expect(voice.appended).toEqual([{ role: "user", text: "缓冲语音 640 字节" }]);
+    expect(frames.some((frame) => frame.type === "turn.persisted")).toBe(true);
+  });
+
   it("hangup with nothing said: no commit, closes promptly, nothing persisted", async () => {
     const { ws, frames, closed } = await connect(port);
     ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));

@@ -160,6 +160,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       }));
       for (const audio of pendingAudio.splice(0)) {
         socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: audio.toString("base64") }));
+        audioSent = true;
       }
     });
     socket.on("message", (message) => {
