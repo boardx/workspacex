@@ -63,8 +63,8 @@ export function InterviewWorkbenchHeader({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="text-sm font-semibold tracking-tight text-foreground">AI 模拟访谈工作台</span>
-          <span data-testid="itv-workflow-status-badge" className="hidden rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground sm:inline-flex">状态：{status}</span>
-          <span data-testid="itv-workflow-version-badge" className="hidden rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground sm:inline-flex">版本 {version}</span>
+          <span aria-hidden="true" data-testid="itv-workflow-status-badge" className="hidden rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground sm:inline-flex">状态：{status}</span>
+          <span aria-hidden="true" data-testid="itv-workflow-version-badge" className="hidden rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground sm:inline-flex">版本 {version}</span>
         </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <span data-testid="itv-workflow-status" className="sr-only">状态：{status}</span>
