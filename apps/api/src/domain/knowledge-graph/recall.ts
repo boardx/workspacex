@@ -217,7 +217,7 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const names = input.objects.flatMap((o) => [o.name, ...o.aliases])
     .map(normalizeName).filter((n) => n.length >= MIN_SEED_LENGTH).sort((a, b) => b.length - a.length);
   for (const name of names) focusQuery = focusQuery.split(name).join(" ");
-  const focusTokens = lexicalTokens(focusQuery.replace(/只回答|是多少|多少|是什么|什么|请问|告诉我|的总|项目|现在|目前|是谁|谁决定的/g, " "));
+  const focusTokens = lexicalTokens(focusQuery.replace(/只回答|是多少|多少|是什么|什么|请问|告诉我|的总|项目|现在|目前|是谁|谁决定的|要求|需求|情况|背景|信息|概况|相关|怎么样|哪些|了解|介绍/g, " "));
   const focused = seeds.length > 0 && input.claims.some((c) => recallable(c, input.now ?? new Date()) && lexicalScore(focusTokens, c.statement) > 0);
   // Keep strong semantic paraphrases even when they use a different attribute word.
   // The ordinary vector threshold still applies below; focus only removes weak

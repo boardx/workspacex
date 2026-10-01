@@ -238,3 +238,16 @@ it("独立纯向量模式不混入全文、图、强制决定或画像背景", (
   expect(hybrid.items.map((i) => i.claim.id)).not.toContain("forced");
   expect(hybrid.items[0]!.channels).toEqual(["fts", "graph", "vector"]);
 });
+
+
+describe("广义问题仍保留可见的完整背景", () => {
+  for (const query of ["客户 A 有什么要求？", "客户 A 的情况怎么样？", "介绍客户 A 的背景信息"]) {
+    it(query, () => {
+      const objects = [{ id: "customer", name: "客户 A", aliases: [] }];
+      const claims = [claim("contract", "客户 A 的合同在法务那里"), claim("demand", "客户 A 要求 v2 下周一上线", { scope: "personal", triState: "confirmed" })];
+      const graph = claims.map(c => ({ claimId: c.id, path: [{ src: "object:customer", relation: "about", dst: `claim:${c.id}` }] }));
+      const result = fuseRecall({ query, objects, claims, graph, limit: 8 });
+      expect(result.items.map(i => i.claim.id).sort()).toEqual(["contract", "demand"]);
+    });
+  }
+});
