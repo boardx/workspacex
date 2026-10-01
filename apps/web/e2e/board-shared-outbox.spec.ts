@@ -38,7 +38,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const existingFrame=await seedExistingFrame(page,100,100,320,240);
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(1);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
-  await surface.hover();await page.mouse.wheel(0,100_000);await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
+  await surface.hover();await page.keyboard.down("ControlOrMeta");await page.mouse.wheel(0,100_000);await page.keyboard.up("ControlOrMeta");await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   await page.getByTestId(`board-a11y-object-${existingFrame}`).evaluate((element:HTMLElement)=>element.click());
   const createdIds:string[]=[];
   // Duplicate an existing Frame through real keyboard commands; each copy enters the shared outbox.

@@ -68,6 +68,8 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     frames: [...row.frames],
     prototype: [...row.prototype],
     frameNotes: [...row.frameNotes],
+    // Navigation is part of the public project contract, including after reload/undo.
+    frameLinks: row.frameLinks.map((links) => [...links]),
     // 迭代 13：原型自己的明暗主题。行里没有（这个字段之前建的项目）⇒ `dark`，
     // 与它出现之前的行为逐字相同。
     theme: row.theme ?? "dark",

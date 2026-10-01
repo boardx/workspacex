@@ -31,13 +31,16 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, onInlineEdit = null, pins, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
   onFocusFrame: (index: number) => void;
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
+  /** HTML 页里选中的元素（与画布同一对 props）。 */
+  selectedRef?: string | null;
+  onSelectRef?: ((ref: string | null) => void) | null;
   /** 对标 R7：画板上同样可以双击改字。 */
   onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
   /** 对标 R8：批注钉。每块屏只画自己树里找得到的那几个（节点 id 项目内唯一）。 */
@@ -287,6 +290,8 @@ export function PrototypeBoard({
                 root={prototype[i] ?? null}
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
+                selectedRef={selectedRef}
+                onSelectRef={onSelectRef}
                 onInlineEdit={onInlineEdit}
                 pins={pins}
                 device={device}

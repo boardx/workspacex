@@ -1,0 +1,37 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-design-html-acceptance/packages/contracts
+
+ ❯ tests/design-html-page.test.ts (17 tests | 1 failed) 27ms
+   × 元素编号与局部替换 > 局部 CSS 不写全局规则，替换内容的 style 同样限定作用域 4ms
+     → expected '<style>.btn{color:blue}</style><div d…' not to contain '.btn{color:red}'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/design-html-page.test.ts > 元素编号与局部替换 > 局部 CSS 不写全局规则，替换内容的 style 同样限定作用域
+AssertionError: expected '<style>.btn{color:blue}</style><div d…' not to contain '.btn{color:red}'
+
+- Expected
++ Received
+
++ <style>.btn{color:blue}</style><div data-ref="r1"><button class="btn" data-ref="r2">新甲</button><style>.btn{background:red}
+  .btn{color:red}
++ </style><button class="btn" data-ref="r3">乙</button></div>
+
+ ❯ tests/design-html-page.test.ts:131:21
+    129|     expect(second.html).toContain('class="btn"');
+    130|     expect(second.html).not.toContain("wsx-local-");
+    131|     expect(out).not.toContain('.btn{color:red}');
+       |                     ^
+    132|     expect(out).not.toContain('.btn{background:red}');
+    133|     expect(out).toContain(":where(.wsx-local-");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  19:09:35
+   Duration  967ms (transform 504ms, setup 0ms, collect 758ms, tests 27ms, environment 0ms, prepare 35ms)
+
+undefined
+/private/tmp/wsx-design-html-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/design-html-page.test.ts
