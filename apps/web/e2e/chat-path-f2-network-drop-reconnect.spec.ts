@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
@@ -39,6 +40,21 @@ test.setTimeout(300_000);
 
 test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面自己续上，不重复不空转", async ({ page, context }) => {
   const threadId = await openFreshDeepAgentThread(page);
+  const gateId = randomUUID();
+  const userText = `${CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger}:F2:${gateId}`;
+  const fixtureOrigin = `http://127.0.0.1:${process.env.WORKSPACEX_DEEP_AGENT_PROVIDER_PORT}`;
+  const armed = await page.request.post(`${fixtureOrigin}/__test/f2/arm`, { data: { gateId, userText } });
+  expect(armed.status()).toBe(200);
+  let resumeEnabled = false;
+  let targetRunId: string | null = null;
+  let reconnectObserved!: () => void;
+  const reconnect = new Promise<void>((resolve) => { reconnectObserved = resolve; });
+  page.on("websocket", (socket) => {
+    if (!resumeEnabled || targetRunId === null || !socket.url().includes(`/agent-runs/${targetRunId}/events`)) return;
+    // A frame from a newly opened, same-run browser socket proves successful reconnection.
+    socket.once("framereceived", () => reconnectObserved());
+  });
+
 
   /*
    * 用**十步滚动剧本**（`deepAgentScrollAcceptanceTrigger`，替身要 20 次状态轮询才终态）
@@ -46,7 +62,7 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
    * 自己的自检上（"断网期间就已经拿到最终回答"）——那说明这条用例当时根本没测到重连。
    * 同一条教训的另一半：断网动作**紧跟发送**，不再先等 5 秒。
    */
-  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+  await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();
 
   /*
@@ -60,14 +76,15 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
    * 现在等的是**权威读**：人类消息落库并挂上 runId。它证明请求已经到达服务端（断网不会
    * 把这一发打掉），且通常在毫秒级完成，不会像 DOM 渲染那样把窗口拖长。
    */
-  const beforeOutage = await awaitStoredHumanMessage(page, threadId, CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+  const beforeOutage = await awaitStoredHumanMessage(page, threadId, userText);
   const humanTurn = beforeOutage.find(
-    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
+    (message) => message.authorKind === "human" && message.text === userText,
   );
   expect(humanTurn, "用户那条消息必须已落库").toBeDefined();
   expect(humanTurn!.agentRunId, "落库的用户消息必须挂着这次 run").toEqual(expect.any(String));
 
   // ── 真实断网：浏览器这一侧的请求全部失败，服务端的 run 不受影响 ──
+  targetRunId = humanTurn!.agentRunId!;
   await context.setOffline(true);
 
   /*
@@ -88,7 +105,11 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
   // 断网期间界面不许自己宣布成功：这一刻它**不可能**知道 run 的终态。
   const messagesDuringOutage = await page.getByTestId("copilotkit-v2-messages").innerText();
 
+  resumeEnabled = true;
   await context.setOffline(false);
+  await expect.poll(async () => Promise.race([reconnect.then(() => true), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 100))]), { timeout: 60_000, message: "同一次 run 必须在浏览器自动重连并收到事件，才能释放最终回答" }).toBe(true);
+  const released = await page.request.post(`${fixtureOrigin}/__test/f2/release`, { data: { gateId } });
+  expect(released.status()).toBe(200);
 
   // ── 判据①：不刷新，界面自己追上这次 run 的最终回答 ──
   await expect(
@@ -101,7 +122,7 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
   // ── 判据②：续上的是 journal 的续播，不是从头重放——落库消息不重复 ──
   const messages = await storedMessages(page, threadId);
   const humanTurns = messages.filter(
-    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
+    (message) => message.authorKind === "human" && message.text === userText,
   );
   expect(humanTurns, "这一轮用户消息只应落库一条——断线重连不得把请求重发一遍").toHaveLength(1);
   const agentTurns = messages.filter(
