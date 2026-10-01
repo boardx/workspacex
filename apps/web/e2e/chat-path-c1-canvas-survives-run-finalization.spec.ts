@@ -87,7 +87,7 @@ function persistedFenceCount(texts: readonly string[]): number {
   return texts.reduce((sum, text) => sum + (text.match(/```canvas/g) ?? []).length, 0);
 }
 
-test("@path:C1 一轮分步产出多个画布：收尾不消失、落库有全部围栏、刷新后仍在", async ({ page }) => {
+test("@path:C1 一轮分步产出多个画布：收尾不消失、落库有全部围栏、刷新后仍在", async ({ page }, testInfo) => {
   const threadId = await openFreshDeepAgentThread(page);
 
   await page.getByTestId("copilotkit-v2-input").fill(TRIGGER);
@@ -130,12 +130,54 @@ test("@path:C1 一轮分步产出多个画布：收尾不消失、落库有全�
     + "落库正文要么两样都有，要么就不是「用户看见哪些就落库哪些」",
   ).toBe(true);
 
+  // #3298: opt-in counterexample, armed only after criteria ①②③ passed.
+  // Intercept browser history hydration, never page.request's authoritative
+  // reads or the live AGUI stream. The real persisted message, ids and journal
+  // remain intact; only the reloaded browser receives assistant text without
+  // canvas fences. Criterion ④ must fail, while ①②③ already passed.
+  let strippedFences = 0;
+  const hydrationCounterexample = process.env.CHAT_C1_HYDRATE_COUNTEREXAMPLE === "1";
+  if (hydrationCounterexample) {
+    await testInfo.attach("C1-before-reload-counterexample", {
+      body: JSON.stringify({ threadId, peak, terminalCanvases: await fabrics(page).count(), persistedFences: persistedFenceCount(agentTexts) }),
+      contentType: "application/json",
+    });
+    await page.route((url) => url.pathname.endsWith(`/chat/threads/${threadId}/messages`), async (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      const response = await route.fetch();
+      expect(response.ok(), "hydrate counterexample requires the real successful history response").toBe(true);
+      const payload = await response.json() as { messages: Array<{ authorKind: string; text: string }> };
+      for (const message of payload.messages) {
+        if (message.authorKind !== "agent") continue;
+        message.text = message.text.replace(/```canvas[^\n]*\r?\n[\s\S]*?```/g, () => {
+          strippedFences += 1;
+          return "[reload-only canvas omission]";
+        });
+      }
+      await route.fulfill({ response, json: payload });
+    });
+  }
+
   // ── ④ 整页刷新：穿透前端内存态，看的是落库事实（缺陷①对用户的最终形态）────────
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(
-    fabrics(page),
-    `刷新后画布数应仍为 ${N}。为 0 = #3243 人类实测那句「刷新后一个也没有」`,
-  ).toHaveCount(N, { timeout: 120_000 });
+  try {
+    await expect(
+      fabrics(page),
+      `刷新后画布数应仍为 ${N}。为 0 = #3243 人类实测那句「刷新后一个也没有」`,
+    ).toHaveCount(N, { timeout: 120_000 });
+  } finally {
+    if (hydrationCounterexample) {
+      const persistedAfterFault = await storedMessages(page, threadId);
+      await testInfo.attach("C1-reload-only-counterexample", {
+        body: JSON.stringify({ strippedFences, reloadedCanvases: await fabrics(page).count(),
+          persistedFences: persistedFenceCount(persistedAfterFault.filter((message) => message.authorKind === "agent").map((message) => message.text)) }),
+        contentType: "application/json",
+      });
+      expect(strippedFences, "counterexample must actually reach browser history hydration").toBe(N);
+      expect(persistedFenceCount(persistedAfterFault.filter((message) => message.authorKind === "agent").map((message) => message.text)),
+        "reload-only fault must leave authoritative stored fences intact").toBe(N);
+    }
+  }
 
   // ── ⑤ 状态一致性：渲染这一侧与落库那一侧是同一个数，不是各自碰巧对 ──────────
   const afterReload = await storedMessages(page, threadId);
