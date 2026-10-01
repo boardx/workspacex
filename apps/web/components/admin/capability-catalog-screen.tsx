@@ -163,7 +163,7 @@ export function CapabilityCatalogScreen({
     return () => {
       generation.current += 1;
     };
-  }, [load]);
+  }, [load, definitionsRefreshKey]);
 
   React.useEffect(() => {
     void loadDefinitions();
