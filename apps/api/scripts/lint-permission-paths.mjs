@@ -72,6 +72,10 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/work-content/pg-content-skill-instructions.ts",
+    "Issue #4862: reads executable SKILL.md only from the Workflow's exact published Skill version in its tenant; this is runtime definition loading after Workflow start admission, not retrieval of user context. Skills have no ACL ObjectRef kind. No interface imports this adapter; ModelContentSkillRunner consumes it only inside the admitted Workflow runtime. tests/work-content/pinned-skill-instructions.test.ts restricts its tables, tenant binding, fixed-version predicate and import boundary; problem-to-prd-real-loopback-e2e.test.ts verifies imported content, version isolation and cross-tenant denial. Remove this exemption if those guards are removed or the adapter gains a user-facing/context read path.",
+  ],
+  [
     "src/infrastructure/deploy/bootstrap-compatibility.ts",
     "CN release read-only operator audit (#4728): compares configured bootstrap admin identity and system-agent seed identities under BEGIN READ ONLY, returns only fixed booleans/classification codes and an email digest, and is never exposed to HTTP callers. Object visibility filters do not authorize environment-wide deployment compatibility. This exemption requires tests/deploy/bootstrap-compatibility.test.ts to prove read-only guard, rollback, password mismatch refusal, redacted result shape, and that no interface module imports the probe.",
   ],

@@ -1,0 +1,2 @@
+node .harness/scripts/lint-work-stack-graph.mjs
+✓ Work Stack v2 组合图闭合：320 个实体，已作者化 120，已评审 86

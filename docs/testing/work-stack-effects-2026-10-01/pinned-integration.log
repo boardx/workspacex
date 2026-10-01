@@ -1,0 +1,34 @@
+[stack-admission] load1=0.35 cores=5 perCore=0.07 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mup3c0mk-dff1866e-4633aa8dc86c db=wsx_4633aa8dc86c754e17e9 compose=wsx-4633aa8dc86c754e17e9 pg=20117 redis=21117 api=24117 web=25117 sandbox=26117 model=27117 deep-agent=28117 asr=29117 vision=30117 loopback-sandbox=31117 mail=19117
+ Network wsx-4633aa8dc86c754e17e9_default  Creating
+ Network wsx-4633aa8dc86c754e17e9_default  Created
+ Container wsx-4633aa8dc86c754e17e9-postgres-1  Creating
+ Container wsx-4633aa8dc86c754e17e9-postgres-1  Created
+ Container wsx-4633aa8dc86c754e17e9-postgres-1  Starting
+ Container wsx-4633aa8dc86c754e17e9-postgres-1  Started
+ Container wsx-4633aa8dc86c754e17e9-postgres-1  Waiting
+ Container wsx-4633aa8dc86c754e17e9-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] db=wsx_4633aa8dc86c754e17e9 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ✓ tests/work-content/problem-to-prd-real-loopback-e2e.test.ts (2 tests) 29646ms
+   ✓ W029 end-to-end on the real loopback model script (dashscope alias) > frame (and every later Skill stage) completes; gates approve through to a published PrdArtifact 1044ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  05:25:47
+   Duration  33.41s (transform 9.19s, setup 0ms, collect 2.64s, tests 29.65s, environment 0ms, prepare 58ms)
+
+[db-isolation] db=wsx_4633aa8dc86c754e17e9 peak_connections=6
+[timing] bash /tmp/workstack-pinned-db-test.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：47s
+  清理：1s
+  总计：47s

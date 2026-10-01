@@ -1,0 +1,2562 @@
+[
+  {
+    "status": "✅ 通过",
+    "id": "D002",
+    "kind": "数字人",
+    "name": "Research & Knowledge Analyst",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "D003",
+    "kind": "数字人",
+    "name": "Product Manager",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "D005",
+    "kind": "数字人",
+    "name": "Sales Representative",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "D011",
+    "kind": "数字人",
+    "name": "Design Thinking Expert",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W001",
+    "kind": "Workflow",
+    "name": "Research-to-Brief",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W002",
+    "kind": "Workflow",
+    "name": "Meeting-to-Actions",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W006",
+    "kind": "Workflow",
+    "name": "Knowledge Capture Loop",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W009",
+    "kind": "Workflow",
+    "name": "Evidence-to-Recommendation",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W011",
+    "kind": "Workflow",
+    "name": "Lead-to-Qualified",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W012",
+    "kind": "Workflow",
+    "name": "Prospect-to-Meeting",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W013",
+    "kind": "Workflow",
+    "name": "Meeting-to-Opportunity",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W014",
+    "kind": "Workflow",
+    "name": "Opportunity-to-Close",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W015",
+    "kind": "Workflow",
+    "name": "Weekly Pipeline Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W016",
+    "kind": "Workflow",
+    "name": "Forecast Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W018",
+    "kind": "Workflow",
+    "name": "Account Expansion",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W027",
+    "kind": "Workflow",
+    "name": "Discovery-to-Opportunity",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W028",
+    "kind": "Workflow",
+    "name": "Research-to-Insight",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W029",
+    "kind": "Workflow",
+    "name": "Problem-to-PRD",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W030",
+    "kind": "Workflow",
+    "name": "PRD-to-Sprint",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W031",
+    "kind": "Workflow",
+    "name": "Experiment Loop",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W032",
+    "kind": "Workflow",
+    "name": "Roadmap Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W057",
+    "kind": "Workflow",
+    "name": "Question-to-Analysis",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "W060",
+    "kind": "Workflow",
+    "name": "Research-to-Evidence",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S003",
+    "kind": "Skill",
+    "name": "Enterprise Search",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S005",
+    "kind": "Skill",
+    "name": "Meeting Prep",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S006",
+    "kind": "Skill",
+    "name": "Meeting Summary",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S007",
+    "kind": "Skill",
+    "name": "Status Update",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S008",
+    "kind": "Skill",
+    "name": "Competitive Analysis",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S009",
+    "kind": "Skill",
+    "name": "Customer Research",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S010",
+    "kind": "Skill",
+    "name": "Risk Assessment",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S012",
+    "kind": "Skill",
+    "name": "Decision Brief",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S016",
+    "kind": "Skill",
+    "name": "Knowledge Capture",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S017",
+    "kind": "Skill",
+    "name": "Task Extraction",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S018",
+    "kind": "Skill",
+    "name": "Process Mapping",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S020",
+    "kind": "Skill",
+    "name": "Executive Briefing",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S021",
+    "kind": "Skill",
+    "name": "Customer Intelligence",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S022",
+    "kind": "Skill",
+    "name": "Account Tiering",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S023",
+    "kind": "Skill",
+    "name": "Account Planning",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S024",
+    "kind": "Skill",
+    "name": "Prospecting",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S025",
+    "kind": "Skill",
+    "name": "Lead Triage",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S026",
+    "kind": "Skill",
+    "name": "Outreach",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S027",
+    "kind": "Skill",
+    "name": "Meeting Scheduling",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S028",
+    "kind": "Skill",
+    "name": "Sales Call Summary",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S029",
+    "kind": "Skill",
+    "name": "Opportunity Update",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S030",
+    "kind": "Skill",
+    "name": "Pipeline Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S031",
+    "kind": "Skill",
+    "name": "Forecasting",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S032",
+    "kind": "Skill",
+    "name": "Close Plan",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S033",
+    "kind": "Skill",
+    "name": "Renewal Radar",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S034",
+    "kind": "Skill",
+    "name": "CRM Hygiene",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S035",
+    "kind": "Skill",
+    "name": "Customer Health",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S036",
+    "kind": "Skill",
+    "name": "Proposal Builder",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S061",
+    "kind": "Skill",
+    "name": "Product Discovery",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S062",
+    "kind": "Skill",
+    "name": "User Interview Planning",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S063",
+    "kind": "Skill",
+    "name": "Research Synthesis",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S064",
+    "kind": "Skill",
+    "name": "Problem Framing",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S065",
+    "kind": "Skill",
+    "name": "Opportunity Mapping",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S066",
+    "kind": "Skill",
+    "name": "Product Brainstorming",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S067",
+    "kind": "Skill",
+    "name": "PRD / Spec Writing",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S068",
+    "kind": "Skill",
+    "name": "Prioritization",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S069",
+    "kind": "Skill",
+    "name": "Roadmap Planning",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S070",
+    "kind": "Skill",
+    "name": "Sprint Planning",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S071",
+    "kind": "Skill",
+    "name": "Experiment Design",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S072",
+    "kind": "Skill",
+    "name": "Metrics Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S073",
+    "kind": "Skill",
+    "name": "Product Launch",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S074",
+    "kind": "Skill",
+    "name": "User Activation",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S075",
+    "kind": "Skill",
+    "name": "Design Critique",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S076",
+    "kind": "Skill",
+    "name": "Design Handoff",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S142",
+    "kind": "Skill",
+    "name": "Work Item Management",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S155",
+    "kind": "Skill",
+    "name": "Business Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S157",
+    "kind": "Skill",
+    "name": "Data Exploration",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S158",
+    "kind": "Skill",
+    "name": "Data Validation",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S160",
+    "kind": "Skill",
+    "name": "SQL Query",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S161",
+    "kind": "Skill",
+    "name": "Statistical Analysis",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S162",
+    "kind": "Skill",
+    "name": "KPI Design",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S164",
+    "kind": "Skill",
+    "name": "Data Visualization",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S167",
+    "kind": "Skill",
+    "name": "Market Sizing",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S168",
+    "kind": "Skill",
+    "name": "Trend Analysis",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S169",
+    "kind": "Skill",
+    "name": "Knowledge Synthesis",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S170",
+    "kind": "Skill",
+    "name": "Scientific Research Planning",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S171",
+    "kind": "Skill",
+    "name": "Evidence Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S172",
+    "kind": "Skill",
+    "name": "Data Storytelling",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D001",
+    "kind": "数字人",
+    "name": "Executive / Strategy Partner",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D004",
+    "kind": "数字人",
+    "name": "Marketing & Growth Manager",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D006",
+    "kind": "数字人",
+    "name": "Customer Success Specialist",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D007",
+    "kind": "数字人",
+    "name": "Project / Operations Manager",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D008",
+    "kind": "数字人",
+    "name": "Finance Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D009",
+    "kind": "数字人",
+    "name": "Legal & Compliance Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D010",
+    "kind": "数字人",
+    "name": "HR & Talent Specialist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W003",
+    "kind": "Workflow",
+    "name": "Decision-to-Execution",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W004",
+    "kind": "Workflow",
+    "name": "Weekly Executive Digest",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W007",
+    "kind": "Workflow",
+    "name": "Issue-to-Resolution",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W017",
+    "kind": "Workflow",
+    "name": "Renewal Risk Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W019",
+    "kind": "Workflow",
+    "name": "Campaign Brief-to-Launch",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W020",
+    "kind": "Workflow",
+    "name": "Content Idea-to-Publish",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W021",
+    "kind": "Workflow",
+    "name": "SEO Audit-to-Fix",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W022",
+    "kind": "Workflow",
+    "name": "Social Content-to-Distribution",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W023",
+    "kind": "Workflow",
+    "name": "Paid Campaign Optimization",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W024",
+    "kind": "Workflow",
+    "name": "Lifecycle Email Loop",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W025",
+    "kind": "Workflow",
+    "name": "Marketing Weekly Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W026",
+    "kind": "Workflow",
+    "name": "Launch Campaign",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W033",
+    "kind": "Workflow",
+    "name": "Month-End Close",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W034",
+    "kind": "Workflow",
+    "name": "Budget-to-Forecast",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W035",
+    "kind": "Workflow",
+    "name": "Variance Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W036",
+    "kind": "Workflow",
+    "name": "Cash Forecast",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W038",
+    "kind": "Workflow",
+    "name": "Audit Support",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W039",
+    "kind": "Workflow",
+    "name": "Board Finance Pack",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W040",
+    "kind": "Workflow",
+    "name": "Contract Intake-to-Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W041",
+    "kind": "Workflow",
+    "name": "NDA Triage",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W042",
+    "kind": "Workflow",
+    "name": "Regulatory Change-to-Action",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W043",
+    "kind": "Workflow",
+    "name": "Matter Intake-to-Closure",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W044",
+    "kind": "Workflow",
+    "name": "Policy Change Workflow",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W045",
+    "kind": "Workflow",
+    "name": "Investigation Workflow",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W046",
+    "kind": "Workflow",
+    "name": "AI Vendor Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W047",
+    "kind": "Workflow",
+    "name": "Job-to-Hire",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W048",
+    "kind": "Workflow",
+    "name": "Candidate Screening",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W049",
+    "kind": "Workflow",
+    "name": "New Hire Onboarding",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W050",
+    "kind": "Workflow",
+    "name": "Performance Cycle",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W051",
+    "kind": "Workflow",
+    "name": "Workforce Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W052",
+    "kind": "Workflow",
+    "name": "Request-to-Project",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W053",
+    "kind": "Workflow",
+    "name": "Weekly PMO Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W055",
+    "kind": "Workflow",
+    "name": "Process Improvement",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W056",
+    "kind": "Workflow",
+    "name": "Incident-to-Postmortem",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S011",
+    "kind": "Skill",
+    "name": "Root Cause Analysis",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S013",
+    "kind": "Skill",
+    "name": "Scenario Analysis",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S014",
+    "kind": "Skill",
+    "name": "Document Review",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S015",
+    "kind": "Skill",
+    "name": "Response Drafting",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "✅ 通过",
+    "id": "S019",
+    "kind": "Skill",
+    "name": "SOP Authoring",
+    "document": true,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S037",
+    "kind": "Skill",
+    "name": "Sales Enablement",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S039",
+    "kind": "Skill",
+    "name": "Marketing Plan",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S040",
+    "kind": "Skill",
+    "name": "GTM Positioning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S041",
+    "kind": "Skill",
+    "name": "Campaign Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S042",
+    "kind": "Skill",
+    "name": "Content Strategy",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S043",
+    "kind": "Skill",
+    "name": "Content Creation",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S044",
+    "kind": "Skill",
+    "name": "Copywriting",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S045",
+    "kind": "Skill",
+    "name": "Brand Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S047",
+    "kind": "Skill",
+    "name": "SEO Audit",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S048",
+    "kind": "Skill",
+    "name": "AI Search Optimization",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S050",
+    "kind": "Skill",
+    "name": "Schema Optimization",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S051",
+    "kind": "Skill",
+    "name": "Sitemap Optimization",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S052",
+    "kind": "Skill",
+    "name": "Image SEO",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S053",
+    "kind": "Skill",
+    "name": "Social Content",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S054",
+    "kind": "Skill",
+    "name": "Social Distribution",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S055",
+    "kind": "Skill",
+    "name": "Lifecycle Email",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S056",
+    "kind": "Skill",
+    "name": "Paid Ads",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S057",
+    "kind": "Skill",
+    "name": "Ad Creative",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S058",
+    "kind": "Skill",
+    "name": "Attribution",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S059",
+    "kind": "Skill",
+    "name": "Analytics Tracking",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S079",
+    "kind": "Skill",
+    "name": "FP&A Forecast",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S080",
+    "kind": "Skill",
+    "name": "Budget Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S081",
+    "kind": "Skill",
+    "name": "Cash Flow Forecast",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S082",
+    "kind": "Skill",
+    "name": "Journal Entry",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S083",
+    "kind": "Skill",
+    "name": "Reconciliation",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S084",
+    "kind": "Skill",
+    "name": "Month-end Close",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S085",
+    "kind": "Skill",
+    "name": "Variance Analysis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S086",
+    "kind": "Skill",
+    "name": "Audit Support",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S090",
+    "kind": "Skill",
+    "name": "Model Audit",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S091",
+    "kind": "Skill",
+    "name": "Board Finance Pack",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S092",
+    "kind": "Skill",
+    "name": "Treasury Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S102",
+    "kind": "Skill",
+    "name": "Data Pack Builder",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S103",
+    "kind": "Skill",
+    "name": "Contract Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S104",
+    "kind": "Skill",
+    "name": "NDA Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S106",
+    "kind": "Skill",
+    "name": "DPA Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S107",
+    "kind": "Skill",
+    "name": "Legal Research",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S108",
+    "kind": "Skill",
+    "name": "Regulatory Monitoring",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S109",
+    "kind": "Skill",
+    "name": "Regulatory Gap Analysis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S110",
+    "kind": "Skill",
+    "name": "Policy Monitoring",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S111",
+    "kind": "Skill",
+    "name": "Policy Drafting",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S112",
+    "kind": "Skill",
+    "name": "Compliance Check",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S113",
+    "kind": "Skill",
+    "name": "Matter Management",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S114",
+    "kind": "Skill",
+    "name": "Matter Intake",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S115",
+    "kind": "Skill",
+    "name": "Matter Update",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S116",
+    "kind": "Skill",
+    "name": "Renewal Tracking",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S117",
+    "kind": "Skill",
+    "name": "Escalation Routing",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S118",
+    "kind": "Skill",
+    "name": "Internal Investigation",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S119",
+    "kind": "Skill",
+    "name": "Legal Chronology",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S124",
+    "kind": "Skill",
+    "name": "Privacy Impact Assessment",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S125",
+    "kind": "Skill",
+    "name": "AI Impact Assessment",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S126",
+    "kind": "Skill",
+    "name": "AI Vendor Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S127",
+    "kind": "Skill",
+    "name": "Policy Q&A",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S128",
+    "kind": "Skill",
+    "name": "Job Description Builder",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S129",
+    "kind": "Skill",
+    "name": "Resume Screening",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S130",
+    "kind": "Skill",
+    "name": "Interview Prep",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S131",
+    "kind": "Skill",
+    "name": "Recruiting Pipeline",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S132",
+    "kind": "Skill",
+    "name": "Offer Drafting",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S133",
+    "kind": "Skill",
+    "name": "Onboarding",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S134",
+    "kind": "Skill",
+    "name": "Performance Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S135",
+    "kind": "Skill",
+    "name": "Compensation Analysis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S136",
+    "kind": "Skill",
+    "name": "People Analytics",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S137",
+    "kind": "Skill",
+    "name": "Workforce Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S138",
+    "kind": "Skill",
+    "name": "Workforce Economics",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S139",
+    "kind": "Skill",
+    "name": "Org Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S140",
+    "kind": "Skill",
+    "name": "AI Adoption Enablement",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S141",
+    "kind": "Skill",
+    "name": "Project Planning",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S143",
+    "kind": "Skill",
+    "name": "Status Reporting",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S144",
+    "kind": "Skill",
+    "name": "Capacity Planning",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S145",
+    "kind": "Skill",
+    "name": "Change Request",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S146",
+    "kind": "Skill",
+    "name": "Vendor Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S148",
+    "kind": "Skill",
+    "name": "Process Documentation",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S153",
+    "kind": "Skill",
+    "name": "Meeting Facilitation",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S154",
+    "kind": "Skill",
+    "name": "Execution Plan",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S156",
+    "kind": "Skill",
+    "name": "Continuous Improvement",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S177",
+    "kind": "Skill",
+    "name": "Incident Response",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S179",
+    "kind": "Skill",
+    "name": "Technical Documentation",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S187",
+    "kind": "Skill",
+    "name": "Support Triage",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S188",
+    "kind": "Skill",
+    "name": "Draft Support Response",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S189",
+    "kind": "Skill",
+    "name": "Customer Escalation",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S190",
+    "kind": "Skill",
+    "name": "Knowledge Base Article",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S191",
+    "kind": "Skill",
+    "name": "QBR Preparation",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S192",
+    "kind": "Skill",
+    "name": "Renewal Risk",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S193",
+    "kind": "Skill",
+    "name": "Voice of Customer",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S194",
+    "kind": "Skill",
+    "name": "Support Operations",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S195",
+    "kind": "Skill",
+    "name": "Strategy Review",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S196",
+    "kind": "Skill",
+    "name": "Board Meeting Preparation",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S197",
+    "kind": "Skill",
+    "name": "Decision Logging",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S198",
+    "kind": "Skill",
+    "name": "OKR Alignment",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "S199",
+    "kind": "Skill",
+    "name": "Business Model Analysis",
+    "document": true,
+    "evalSuite": true
+  },
+  {
+    "status": "⬜",
+    "id": "D012",
+    "kind": "数字人",
+    "name": "Lean / Kaizen Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D013",
+    "kind": "数字人",
+    "name": "Six Sigma / Quality Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D014",
+    "kind": "数字人",
+    "name": "Business Process Reengineering Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D015",
+    "kind": "数字人",
+    "name": "Agile / Product Operating Model Coach",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D016",
+    "kind": "数字人",
+    "name": "Organizational Change Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D017",
+    "kind": "数字人",
+    "name": "Decision Science Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D018",
+    "kind": "数字人",
+    "name": "AI Transformation Architect",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D019",
+    "kind": "数字人",
+    "name": "Manufacturing Operations Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D020",
+    "kind": "数字人",
+    "name": "Supply Chain & Procurement Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D021",
+    "kind": "数字人",
+    "name": "Retail & E-commerce Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D022",
+    "kind": "数字人",
+    "name": "Banking & Financial Services Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D023",
+    "kind": "数字人",
+    "name": "Insurance & Claims Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D024",
+    "kind": "数字人",
+    "name": "Healthcare Operations Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D025",
+    "kind": "数字人",
+    "name": "Life Sciences / Pharma Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D026",
+    "kind": "数字人",
+    "name": "Education & Learning Designer",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D027",
+    "kind": "数字人",
+    "name": "Real Estate & Construction Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D028",
+    "kind": "数字人",
+    "name": "Energy & Utilities Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D029",
+    "kind": "数字人",
+    "name": "Logistics & Transportation Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D030",
+    "kind": "数字人",
+    "name": "Government / Public Service Expert",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W008",
+    "kind": "Workflow",
+    "name": "Request-to-Artifact",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W010",
+    "kind": "Workflow",
+    "name": "Approval-and-Publish",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W037",
+    "kind": "Workflow",
+    "name": "Investment Memo",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W054",
+    "kind": "Workflow",
+    "name": "Vendor Evaluation",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W058",
+    "kind": "Workflow",
+    "name": "Data-to-Dashboard",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W059",
+    "kind": "Workflow",
+    "name": "Metric Definition-to-Monitoring",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S088",
+    "kind": "Skill",
+    "name": "DCF Valuation",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S089",
+    "kind": "Skill",
+    "name": "Comparable Companies",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S093",
+    "kind": "Skill",
+    "name": "Credit Analysis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S094",
+    "kind": "Skill",
+    "name": "Investment Thesis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S095",
+    "kind": "Skill",
+    "name": "Equity Research",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S097",
+    "kind": "Skill",
+    "name": "Sector Overview",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S098",
+    "kind": "Skill",
+    "name": "Investment Memo",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S147",
+    "kind": "Skill",
+    "name": "Vendor Management",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S151",
+    "kind": "Skill",
+    "name": "Inventory Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S152",
+    "kind": "Skill",
+    "name": "Procurement Planning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S159",
+    "kind": "Skill",
+    "name": "Data Cleaning",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S163",
+    "kind": "Skill",
+    "name": "Dashboard Design",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S165",
+    "kind": "Skill",
+    "name": "Data Context Extraction",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S166",
+    "kind": "Skill",
+    "name": "Metric Definition",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S173",
+    "kind": "Skill",
+    "name": "Architecture Design",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S182",
+    "kind": "Skill",
+    "name": "Skill Authoring",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S184",
+    "kind": "Skill",
+    "name": "Connector Builder",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S185",
+    "kind": "Skill",
+    "name": "Automation Design",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S200",
+    "kind": "Skill",
+    "name": "AI Transformation Assessment",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D031",
+    "kind": "数字人",
+    "name": "FP&A Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D032",
+    "kind": "数字人",
+    "name": "Accounting Specialist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D033",
+    "kind": "数字人",
+    "name": "Treasury Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D034",
+    "kind": "数字人",
+    "name": "Procurement Specialist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D035",
+    "kind": "数字人",
+    "name": "Supply Chain Planner",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D036",
+    "kind": "数字人",
+    "name": "Quality Engineer",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D037",
+    "kind": "数字人",
+    "name": "Manufacturing Planner",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D038",
+    "kind": "数字人",
+    "name": "Software Engineer",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D039",
+    "kind": "数字人",
+    "name": "Solution Architect",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D040",
+    "kind": "数字人",
+    "name": "Data Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D041",
+    "kind": "数字人",
+    "name": "Data Engineer",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D042",
+    "kind": "数字人",
+    "name": "Cybersecurity Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D043",
+    "kind": "数字人",
+    "name": "UX Researcher",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D044",
+    "kind": "数字人",
+    "name": "Content Strategist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D045",
+    "kind": "数字人",
+    "name": "Revenue Operations Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D046",
+    "kind": "数字人",
+    "name": "Customer Support Operations Specialist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D047",
+    "kind": "数字人",
+    "name": "Learning Experience Designer",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D048",
+    "kind": "数字人",
+    "name": "Compliance Officer",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D049",
+    "kind": "数字人",
+    "name": "Business Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D050",
+    "kind": "数字人",
+    "name": "Process Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D051",
+    "kind": "数字人",
+    "name": "Credit Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D052",
+    "kind": "数字人",
+    "name": "Investment Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D053",
+    "kind": "数字人",
+    "name": "Risk Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D054",
+    "kind": "数字人",
+    "name": "Clinical Research Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D055",
+    "kind": "数字人",
+    "name": "Regulatory Affairs Specialist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D056",
+    "kind": "数字人",
+    "name": "Medical Affairs Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D057",
+    "kind": "数字人",
+    "name": "Construction Project Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D058",
+    "kind": "数字人",
+    "name": "Real Estate Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D059",
+    "kind": "数字人",
+    "name": "Energy Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "D060",
+    "kind": "数字人",
+    "name": "Sustainability / ESG Analyst",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "W005",
+    "kind": "Workflow",
+    "name": "Document Review-to-Approval",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S001",
+    "kind": "Skill",
+    "name": "Profile Onboarding",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S002",
+    "kind": "Skill",
+    "name": "Profile Customization",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S004",
+    "kind": "Skill",
+    "name": "Research Synthesis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S038",
+    "kind": "Skill",
+    "name": "Revenue Operations",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S046",
+    "kind": "Skill",
+    "name": "Brand Guidelines",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S049",
+    "kind": "Skill",
+    "name": "Programmatic SEO",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S060",
+    "kind": "Skill",
+    "name": "Referral Program",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S077",
+    "kind": "Skill",
+    "name": "Design System",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S078",
+    "kind": "Skill",
+    "name": "Accessibility Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S087",
+    "kind": "Skill",
+    "name": "Three-Statement Model",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S096",
+    "kind": "Skill",
+    "name": "Earnings Preview",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S099",
+    "kind": "Skill",
+    "name": "Portfolio Monitoring",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S100",
+    "kind": "Skill",
+    "name": "Fund Administration",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S101",
+    "kind": "Skill",
+    "name": "Transaction Materials",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S105",
+    "kind": "Skill",
+    "name": "Vendor Agreement Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S120",
+    "kind": "Skill",
+    "name": "Demand Intake",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S121",
+    "kind": "Skill",
+    "name": "Due Diligence",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S122",
+    "kind": "Skill",
+    "name": "Closing Checklist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S123",
+    "kind": "Skill",
+    "name": "Post-Merger Integration",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S149",
+    "kind": "Skill",
+    "name": "Runbook Authoring",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S150",
+    "kind": "Skill",
+    "name": "Inbox Triage",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S174",
+    "kind": "Skill",
+    "name": "System Design",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S175",
+    "kind": "Skill",
+    "name": "Code Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S176",
+    "kind": "Skill",
+    "name": "Debugging",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S178",
+    "kind": "Skill",
+    "name": "Deploy Checklist",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S180",
+    "kind": "Skill",
+    "name": "Security Review",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S181",
+    "kind": "Skill",
+    "name": "Performance Analysis",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S183",
+    "kind": "Skill",
+    "name": "Skill QA",
+    "document": false,
+    "evalSuite": false
+  },
+  {
+    "status": "⬜",
+    "id": "S186",
+    "kind": "Skill",
+    "name": "Engineering Effectiveness",
+    "document": false,
+    "evalSuite": false
+  }
+]

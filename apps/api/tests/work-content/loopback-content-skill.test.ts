@@ -11,6 +11,7 @@ import type { ModelCallPort } from "../../src/application/agent-run/ports";
 import { assemblePrdArtifact, prdStageOutputsFrom } from "../../src/domain/work-content/prd-artifact";
 
 const agents = { agentVersionModel: async () => ({ modelProvider: "dashscope", modelId: "m" }) };
+const skills = { skillInstructions: async () => "# Problem Framing\nIdentify the problem and supporting evidence." };
 const call = (stageId: string) => ({
   orgId: "o", instanceId: "i", agentVersionId: "av", workflowId: "W029", stageId, skillId: "S064", skillVersion: "1.0.0",
   input: { problem: "导入太难" }, prior: {},
@@ -27,7 +28,7 @@ const loopbackPort = (seen: string[]): ModelCallPort => ({
 describe("loopback content-skill reply", () => {
   it("recognises the runner's own stage prompt and returns one JSON object valid for every W029 stage contract", async () => {
     const seen: string[] = [];
-    const out = await new ModelContentSkillRunner(loopbackPort(seen), agents).run(call("frame"));
+    const out = await new ModelContentSkillRunner(loopbackPort(seen), agents, skills).run(call("frame"));
     expect(isContentSkillRequest(seen[0])).toBe(true);
     expect(out).toMatchObject({ loopback: true, stageId: "frame", skill: "S064@1.0.0" });
     for (const schema of [PrdFrameStageOutput, PrdPriorityStageOutput, PrdDraftStageOutput, PrdKpiStageOutput]) expect(schema.safeParse(out).success).toBe(true);
@@ -42,9 +43,9 @@ describe("loopback content-skill reply", () => {
 
   it("production runner stays strict: a prefixed echo is still skill_output_not_json_object", async () => {
     const echo = { complete: async (req: { user: string }) => ({ text: `[loopback] ${req.user}` }) } as unknown as ModelCallPort;
-    await expect(new ModelContentSkillRunner(echo, agents).run(call("frame"))).rejects.toMatchObject({
+    await expect(new ModelContentSkillRunner(echo, agents, skills).run(call("frame"))).rejects.toMatchObject({
       name: "ContentSkillRunError", reason: "skill_output_not_json_object", code: "CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT",
     });
-    await expect(new ModelContentSkillRunner(echo, agents).run(call("frame"))).rejects.toBeInstanceOf(ContentSkillRunError);
+    await expect(new ModelContentSkillRunner(echo, agents, skills).run(call("frame"))).rejects.toBeInstanceOf(ContentSkillRunError);
   });
 });

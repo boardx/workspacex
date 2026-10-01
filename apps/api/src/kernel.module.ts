@@ -1160,6 +1160,7 @@ import { BOARD_RUN_CARDS_DEPS, type ListBoardRunCardsDeps } from "./application/
 import { PgBoardRunSource } from "./infrastructure/board/pg-board-run-source";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "./application/workflow/workflow-runtime-service";
 import { ModelContentSkillRunner } from "./application/work-content/content-skill-runner";
+import { PgContentSkillInstructions } from "./infrastructure/work-content/pg-content-skill-instructions";
 import { PgSkillCatalogVersionResolver } from "./infrastructure/workflow/pg-skill-catalog-version-resolver";
 import { PgWorkflowAccess } from "./infrastructure/workflow/pg-workflow-access";
 import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
@@ -1316,7 +1317,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         // CT06：Skill 版本从本组织 Work Skill 目录解析；内容线 Skill 以发起 Agent 固定版本的模型执行，
         // PRD 经 effect-gateway 发布并通知发起人（W029）。
         skills: new PgSkillCatalogVersionResolver(db),
-        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db)), notifications },
+        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db), new PgContentSkillInstructions(db)), notifications },
         onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
         // 阶段业务失败（含重试）落日志：只带 name/code/reason 与 failureKind，不带 message / 模型原文。
         onStageFailure: (f) => logger.error(f.final ? "workflow.stage_failed" : "workflow.stage_retried", {

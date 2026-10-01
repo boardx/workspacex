@@ -10,6 +10,10 @@ import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrdArtifact, operations as wc } from "@repo/contracts/work-content";
+import type { ModelCallPort } from "../../src/application/agent-run/ports";
+import { ModelContentSkillRunner } from "../../src/application/work-content/content-skill-runner";
+import { PgContentSkillInstructions } from "../../src/infrastructure/work-content/pg-content-skill-instructions";
+import { PgWorkflowAccess } from "../../src/infrastructure/workflow/pg-workflow-access";
 import { WorkflowInstanceProjection, workflowRuntime as C } from "@repo/contracts/workflow-runtime";
 import { publishDefinitionVersion } from "../../src/application/workflow/publish-definition-version";
 import { officialRoleWorkflowAllowlists } from "../../src/domain/agent/official-role-packs";
@@ -121,6 +125,40 @@ describe("W029 end-to-end on the real loopback model script (dashscope alias)", 
       (r) => r.status === 200 && r.body.status !== "running" && r.body.status !== "cancelling",
       60_000,
     );
+
+  it("reads the imported pinned procedure, keeps it after a newer version exists, and isolates organizations", async () => {
+    const instructions = new PgContentSkillInstructions(e.db);
+    const pinned = await instructions.skillInstructions(ORG, "S064", "1.0.0");
+    expect(pinned).toContain("# 问题框定（S064）");
+    await asApp(ORG, async (c) => {
+      await c.query(
+        `INSERT INTO skill_versions (id,org_id,skill_id,semantic_label,content_digest,manifest,creator_id,created_at,published)
+         SELECT $2,org_id,skill_id,'2.0.0',content_digest,manifest,creator_id,now(),false
+           FROM skill_versions WHERE org_id=$1 AND skill_id=(SELECT skill_id FROM skill_catalog_entries WHERE org_id=$1 AND stable_id='S064') AND semantic_label='1.0.0'`,
+        [ORG, "skill-w029rl-s064-v2"],
+      );
+      await c.query(
+        `INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
+         VALUES ($1,$2,'SKILL.md',$3,'text/markdown',$4)`,
+        [ORG, "skill-w029rl-s064-v2", Buffer.from("# New procedure"), "b".repeat(64)],
+      );
+      await c.query("SELECT wave2_publish_skill_version($1,$2)", [ORG, "skill-w029rl-s064-v2"]);
+    });
+    expect(await instructions.skillInstructions(ORG, "S064", "1.0.0")).toBe(pinned);
+    expect(await instructions.skillInstructions(ORG, "S064", "2.0.0")).toBe("# New procedure");
+    expect(await instructions.skillInstructions("org-w029rl-other", "S064", "1.0.0")).toBeNull();
+    let modelCalls = 0;
+    const model = { complete: async ({ system }: { system: string }) => {
+      modelCalls++;
+      return { text: JSON.stringify({ authoredProcedureUsed: system.includes(pinned!) }) };
+    } } as unknown as ModelCallPort;
+    const runner = new ModelContentSkillRunner(model, new PgWorkflowAccess(e.db), instructions);
+    const call = { orgId: ORG, instanceId: "w029rl-pinned-procedure", agentVersionId: `${D003_AGENT}-v1`,
+      workflowId: "W029", stageId: "frame", skillId: "S064", skillVersion: "1.0.0", input: {}, prior: {} };
+    expect(await runner.run(call)).toEqual({ authoredProcedureUsed: true });
+    await expect(runner.run({ ...call, skillVersion: "9.9.9" })).rejects.toMatchObject({ code: "CONTENT_SKILL_INSTRUCTIONS_MISSING" });
+    expect(modelCalls).toBe(1);
+  });
 
   it("frame (and every later Skill stage) completes; gates approve through to a published PrdArtifact", async () => {
     const r = await pm().post(C.startInstance.path.replace(":key", W029.key), { agentId: D003_AGENT, requestId: rid(), input: { problem: "客户反馈导入太难" } });
