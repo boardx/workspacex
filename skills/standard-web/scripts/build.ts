@@ -8,14 +8,10 @@ const collect=(directory:string,paths:string[])=>paths.map(path=>{const bytes=re
 // 这里只留构建侧独有的事实：显示名、文件清单与上游 commit。
 const meta=(directory:string)=>parseSkillFrontmatter(readFileSync(resolve(root,directory,'SKILL.md'),'utf8'),directory);
 const research=meta('web-research'),artifact=meta('web-artifact');
-// Runtime packages cannot read repo-only .agents paths. Project the canonical bytes,
-// rather than maintaining a second editable design rule set in this skill.
-const designSource=resolve(root,'../../.agents/skills/frontend-design');
-const projectDesign=(source:string,path:string)=>{const bytes=readFileSync(resolve(designSource,source));return {path,mediaType:source.endsWith('.txt')?'text/plain':'text/markdown',digest:sha256(bytes),contentBase64:bytes.toString('base64')};};
 const skills=[
  {stableName:research.stableName,name:'联网研究',semanticVersion:research.semanticVersion,manifest:{capabilityId:research.capabilityId,upstreamCommit:'07d2952d346d81d06bd181db8c560a77f2b51bc8'},files:collect('web-research',['SKILL.md','references/evidence-ledger.md','references/upstream.md','LICENSE'])},
- {stableName:artifact.stableName,name:'交互式网页产物',semanticVersion:artifact.semanticVersion,manifest:{capabilityId:artifact.capabilityId,upstreamCommit:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'},files:[...collect('web-artifact',['SKILL.md','references/acceptance.md','references/upstream.md','references/design.md','LICENSE']),projectDesign('SKILL.md','references/frontend-design.md'),projectDesign('LICENSE.txt','references/frontend-design.LICENSE.txt')]},
+ {stableName:artifact.stableName,name:'交互式网页产物',semanticVersion:artifact.semanticVersion,manifest:{capabilityId:artifact.capabilityId,upstreamCommit:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'},files:collect('web-artifact',['SKILL.md','references/acceptance.md','references/upstream.md','LICENSE'])},
 ];
-const unsigned={schemaVersion:1,packId:'standard-web',packVersion:'1.1.3',skills};
-const pack={...unsigned,packDigest:sha256(JSON.stringify(unsigned))};verifySkillStarterPack(pack,{packId:'standard-web',packVersion:'1.1.3'});
-writeFileSync(resolve(root,'../starter-packs/standard-web/1.1.3.json'),JSON.stringify(pack,null,2)+'\n');
+const unsigned={schemaVersion:1,packId:'standard-web',packVersion:'1.1.2',skills};
+const pack={...unsigned,packDigest:sha256(JSON.stringify(unsigned))};verifySkillStarterPack(pack,{packId:'standard-web',packVersion:'1.1.2'});
+writeFileSync(resolve(root,'../starter-packs/standard-web/1.1.2.json'),JSON.stringify(pack,null,2)+'\n');

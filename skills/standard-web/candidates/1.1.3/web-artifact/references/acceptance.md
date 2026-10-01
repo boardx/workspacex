@@ -5,6 +5,7 @@
 - `sourceFiles`: 路径、SHA-256、读回结果。
 - `bundle`: `/workspace/web-artifact/bundle.html` 的 SHA-256、字节数、读回结果。
 - `preview`: 两个保留的 run 隔离 URL（`preview.workspacex.invalid` 的 desktop/mobile）；记录 adapter 从当前 workspace 读回并临时装载的结果。它们不是公网 URL。
+- `design`: 题材、受众、主要任务、所选方向、frontend-design 原文判据逐项结果和对应桌面/移动截图证据；没有实际视觉读取时填 not_tested。
 - `desktop`: 视口、结构快照、主要按钮、表单、空状态、横向溢出结果。
 - `mobile`: 固定 390×844 视口、横向溢出和主要操作结果；必须与固定 1280×720 desktop 分开导航和截图。
 - `network`: 一个允许请求和一个未授权请求的实际结果；未授权请求必须没有副作用。
