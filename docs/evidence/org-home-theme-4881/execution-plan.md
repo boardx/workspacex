@@ -38,8 +38,7 @@ flowchart TD
   class S3 done
   class S4 blocked
   %% blocked S4: 前端测试和浏览器验证通过；真实数据库镜像依赖下载被代理拒绝，Docker Hub 拉取限额，完整后端测试未执行
-  class S5 blocked
-  %% blocked S5: 自动审批拒绝 git push 到 boardx/workspacex：私有源码和历史上传缺少明确授权；等待用户批准，未创建 PR
+  class S5 done
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
