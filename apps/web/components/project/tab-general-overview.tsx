@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { Brain, MessageSquarePlus, Users, UserPlus, Workflow } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +52,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
               <p className="mt-0.5 text-12 text-muted-foreground">项目还是空的——先做下面任意一步，内容、成员和大脑都会在这里长出来。</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              <a
+              <Link
                 href={tabHref("content")}
                 data-testid="project-general-overview-start-content"
                 className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-base hover:border-primary"
@@ -61,8 +62,8 @@ export function TabGeneralOverview({ projectId, tabHref }: {
                   <span className="text-13 font-medium">新建第一段内容</span>
                   <span className="text-12 text-muted-foreground">一段对话、一块白板，或关联已有的访谈、问卷</span>
                 </span>
-              </a>
-              <a
+              </Link>
+              <Link
                 href={tabHref("settings")}
                 data-testid="project-general-overview-start-invite"
                 className="flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-base hover:border-primary"
@@ -72,7 +73,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
                   <span className="text-13 font-medium">邀请协作者</span>
                   <span className="text-12 text-muted-foreground">在「设置」里管理项目成员</span>
                 </span>
-              </a>
+              </Link>
             </div>
           </div>
         </Card>
@@ -108,7 +109,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
         )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="project-general-overview-counts">
           {CONTENT_FILTERS.filter((f) => f.key !== "all").map((f) => (
-            <a
+            <Link
               key={f.key}
               href={tabHref("content", f.key)}
               data-testid={`project-general-overview-count-${f.key}`}
@@ -118,7 +119,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
               <span className="font-mono text-16 font-semibold">
                 {index.ready ? index.counts[f.key as Exclude<typeof f.key, "all">] : "—"}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
@@ -137,7 +138,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
           <ul className="flex flex-col gap-1.5" data-testid="project-general-overview-recent">
             {recent.map((e) => (
               <li key={`${e.type}-${e.id}`}>
-                <a
+                <Link
                   href={e.href}
                   data-testid={`project-general-overview-recent-${e.type}-${e.id}`}
                   className="flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2 transition-colors duration-base hover:border-primary"
@@ -146,7 +147,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
                   <span className="min-w-0 flex-1 truncate text-12">{e.title}</span>
                   <Badge tone="outline">{contentTypeLabel(e.type)}</Badge>
                   <span className="shrink-0 text-11 text-muted-foreground">{formatDate(e.updatedAt)}</span>
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
@@ -155,7 +156,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
 
       <section>
         <SectionTitle meta="项目记忆里 AI 与成员沉淀的结论">项目大脑</SectionTitle>
-        <a
+        <Link
           href={tabHref("brain")}
           data-testid="project-general-overview-brain"
           className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 transition-colors duration-base hover:border-primary"
@@ -172,7 +173,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
               <BrainStat label="冲突" value={brain.summary.conflicts} testId="project-general-overview-brain-conflicts" />
             </>
           )}
-        </a>
+        </Link>
       </section>
 
       {/*
@@ -182,14 +183,14 @@ export function TabGeneralOverview({ projectId, tabHref }: {
       */}
       <section>
         <SectionTitle meta="本项目发起的工作流运行（只读看板）">工作流运行</SectionTitle>
-        <a
+        <Link
           href={`/workflows/board?projectId=${encodeURIComponent(projectId)}`}
           data-testid="project-general-overview-workflow-runs"
           className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-12 transition-colors duration-base hover:border-primary"
         >
           <Workflow aria-hidden className="h-4 w-4 text-muted-foreground" />
           <span>查看运行看板</span>
-        </a>
+        </Link>
       </section>
     </div>
   );

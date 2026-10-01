@@ -468,7 +468,7 @@ function ProjectRealCard({
         tags={<TagsEditor project={project} onChanged={onChanged} />}
         actions={
           <Button asChild variant="primary" size="sm">
-            <a href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</a>
+            <Link href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</Link>
           </Button>
         }
       />
