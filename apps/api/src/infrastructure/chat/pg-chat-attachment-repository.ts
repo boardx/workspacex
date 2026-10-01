@@ -27,7 +27,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       const r = await s.query<{ n: number }>(
         `SELECT count(*)::int AS n
            FROM chat_message_attachments
-          WHERE org_id = $1 AND thread_id = $2 AND message_id IS NULL`,
+          WHERE org_id = $1 AND thread_id = $2 AND message_id IS NULL AND cancelled_at IS NULL`,
         [orgId, threadId],
       );
       return r.rows[0]?.n ?? 0;
@@ -46,7 +46,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       );
       if (!thread.rows.length) throw new Error("attachment_thread_unavailable");
       const pending = await s.query<{ n: number }>(
-        "SELECT count(*)::int AS n FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2 AND message_id IS NULL",
+        "SELECT count(*)::int AS n FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2 AND message_id IS NULL AND cancelled_at IS NULL",
         [row.orgId, row.threadId],
       );
       if (checkAttachmentCount(pending.rows[0]?.n ?? 0)) {
@@ -55,9 +55,9 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       await writeObject();
       await s.query(
         `INSERT INTO chat_message_attachments
-           (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes, extracted_ref, created_at)
-         VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, NULL, $8::timestamptz)`,
-        [row.id, row.orgId, row.threadId, row.storageRef, row.filename, row.mime, row.bytes, row.createdAt],
+           (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes, extracted_ref, created_at, uploaded_by)
+         VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, NULL, $8::timestamptz, $9)`,
+        [row.id, row.orgId, row.threadId, row.storageRef, row.filename, row.mime, row.bytes, row.createdAt, row.uploadedBy ?? null],
       );
     });
   }
@@ -75,7 +75,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       }>(
         `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at
            FROM chat_message_attachments
-          WHERE org_id = $1 AND thread_id = $2 AND id = $3`,
+          WHERE org_id = $1 AND thread_id = $2 AND id = $3 AND cancelled_at IS NULL`,
         [orgId, threadId, attachmentId],
       );
       const hit = r.rows[0];
@@ -97,6 +97,16 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
    * 这里不重复披露判定，只做数据整形（同一个理由，这类"读端口先由上层判过权限
    * 才会被调用"的路径不在 `guard()` 覆盖范围内）。
    */
+  async cancelPending(orgId:OrgId,threadId:string,id:string,userId:string):Promise<"missing"|"cancelled"|"sent"|"denied"> {
+    return this.db.withTenant(orgId,async s=>{
+      await s.query('SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE',[orgId,threadId]);
+      const row=(await s.query<{message_id:string|null;uploaded_by:string|null}>('SELECT message_id,uploaded_by FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2 AND id=$3 FOR UPDATE',[orgId,threadId,id])).rows[0];
+      if(!row)return 'missing';if(row.message_id!==null)return 'sent';if(row.uploaded_by!==userId)return 'denied';
+      await s.query('UPDATE chat_message_attachments SET cancelled_at=COALESCE(cancelled_at,now()) WHERE org_id=$1 AND id=$2',[orgId,id]);
+      await s.query(`INSERT INTO chat_attachment_extraction_outbox(org_id,attachment_id) VALUES($1,$2) ON CONFLICT(attachment_id) DO UPDATE SET status='pending',locked_at=NULL`,[orgId,id]);
+      return 'cancelled';
+    });
+  }
   async listSentByThread(orgId: OrgId, threadId: string): Promise<readonly SentAttachmentRow[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{

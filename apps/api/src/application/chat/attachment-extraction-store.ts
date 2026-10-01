@@ -30,6 +30,9 @@ export interface AttachmentForExtraction {
 }
 
 export interface AttachmentExtractionStore {
+  isCancelled?(orgId:OrgId,id:string):Promise<boolean>;
+  publishExtracted?(orgId:OrgId,id:string,ref:string,excerpt:string,write:()=>Promise<void>):Promise<boolean>;
+  completeCancelled?(orgId:OrgId,id:string):Promise<void>;
   /** 入队一条抽取待办；`ON CONFLICT (attachment_id) DO NOTHING`——重复入队是 no-op。 */
   enqueue(orgId: OrgId, attachmentId: string): Promise<void>;
 

@@ -43,6 +43,7 @@ export class AttachmentUploadError extends Error {
 }
 
 export interface AttachmentRow {
+  readonly uploadedBy?: string;
   readonly id: string;
   readonly orgId: OrgId;
   readonly threadId: string;
@@ -62,6 +63,7 @@ export interface AttachmentCommandRepository {
   countPendingByThread(orgId: OrgId, threadId: string): Promise<Guarded<number>>;
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set）。 */
   insertAttachment(row: AttachmentRow, writeObject: () => Promise<void>): Promise<void>;
+  cancelPending?(orgId: OrgId,threadId:string,id:string,userId:string):Promise<"missing"|"cancelled"|"sent"|"denied">;
   /**
    * #1584 —— 按 id 查一行附件（预览/下载用），`null` 表示这个线程里没有这个 id。
    * 返回 `Guarded<AttachmentRow | null>`：租户表读一律经 permission-filter 出门（R7），
@@ -155,7 +157,7 @@ export async function uploadAttachment(
   // the pending slot must be rejected before it creates bytes in object storage.
   await deps.attachments.insertAttachment({
     id, orgId: input.orgId, threadId: input.threadId, storageRef,
-    filename: input.filename, mime: input.mime, bytes: byteLen, createdAt,
+    filename: input.filename, mime: input.mime, bytes: byteLen, createdAt, uploadedBy: input.userId,
   }, async () => {
     try {
       await deps.store.putOnce(storageRef, input.bytes, input.mime);
