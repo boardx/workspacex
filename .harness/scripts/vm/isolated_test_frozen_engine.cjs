@@ -1,3 +1,4 @@
+const canonicalCanvas=require('fs').readFileSync(__dirname+'/canvas-audit-law.cjs','utf8');const mainEngine=require('fs').readFileSync(__dirname+'/conservation-engine.cjs','utf8');const marker='const canvasValidator=(function(){const module={exports:{}};';const start=mainEngine.indexOf(marker)+marker.length;const end=mainEngine.indexOf('return module.exports.validateCanvasAudit;})();',start);require('assert').strictEqual(mainEngine.slice(start,end),canonicalCanvas);const digest=require('crypto').createHash('sha256').update(canonicalCanvas).digest('hex');require('assert').ok(mainEngine.includes("input.plan.canvasValidatorSha256==='"+digest+"'"));
 const fs=require('fs'),vm=require('vm'),crypto=require('crypto'),assert=require('assert');
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 for(const file of ['conservation-engine.cjs','secondary-conservation-engine-final.cjs']){

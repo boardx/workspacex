@@ -186,7 +186,7 @@ def offline_node(code,payload):
  if not stat.S_ISREG(st.st_mode) or st.st_uid not in (0,os.geteuid()) or st.st_mode&0o022:raise ValueError('TRUSTED_NODE_REQUIRED')
  for parent in node.parents:
   st=parent.lstat()
-  if not stat.S_ISDIR(st.st_mode) or st.st_uid not in (0,os.geteuid()) or st.st_mode&0o022:raise ValueError('TRUSTED_NODE_ANCESTOR')
+  if not stat.S_ISDIR(st.st_mode) or st.st_uid not in (0,os.geteuid()) or (st.st_mode&0o022 and not st.st_mode&stat.S_ISVTX):raise ValueError('TRUSTED_NODE_ANCESTOR')
  result=subprocess.run([node,'-e',code],input=json.dumps(payload).encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=10,env={'PATH':'/usr/local/bin:/usr/bin:/bin','LANG':'C'})
  if result.returncode or len(result.stdout)>1048576:raise ValueError('OFFLINE_SEMANTIC_VALIDATOR_REJECTED')
  return json.loads(result.stdout)

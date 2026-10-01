@@ -27,8 +27,22 @@ async function validateCanvasAudit(client,law){
  const identity=(await client.query("SELECT attidentity FROM pg_attribute WHERE attrelid='public.canvas_template_audit'::regclass AND attname='id' AND NOT attisdropped")).rows;
  must(identity.length===1&&identity[0].attidentity==='a','CANVAS_IDENTITY_ALWAYS');
  const policies=(await client.query("SELECT polname,polcmd,polpermissive,polroles=ARRAY[0::oid] public_roles,pg_get_expr(polqual,polrelid) using_expr,pg_get_expr(polwithcheck,polrelid) check_expr FROM pg_policy WHERE polrelid='public.canvas_template_audit'::regclass")).rows;
- const normalize=x=>x.replace(/::text/g,'').replace(/[\s()]/g,'');
- must(policies.length===1&&policies[0].polname===law.rls.policy&&policies[0].polcmd==='*'&&policies[0].polpermissive&&policies[0].public_roles&&normalize(policies[0].using_expr)===normalize(law.rls.using)&&normalize(policies[0].check_expr)===normalize(law.rls.withCheck),'CANVAS_POLICY_IDENTITY');
+ const normalize=x=>typeof x==='string'?x.replace(/::text/g,'').replace(/[\s()]/g,''):x;
+ // SQL 0014 kernel_apply_org_freeze_policies installs these three RESTRICTIVE
+ // policies in addition to the migration's permissive tenant policy.
+ const expectedPolicies=[
+  {name:law.rls.policy,cmd:'*',permissive:true,using:law.rls.using,check:law.rls.withCheck},
+  {name:'canvas_template_audit_org_frozen_ins',cmd:'a',permissive:false,using:null,check:'kernel_org_is_writable(org_id)'},
+  {name:'canvas_template_audit_org_frozen_upd',cmd:'w',permissive:false,using:null,check:'kernel_org_is_writable(org_id)'},
+  {name:'canvas_template_audit_org_frozen_del',cmd:'d',permissive:false,using:'kernel_org_is_writable(org_id)',check:null}
+ ];
+ must(law.freezePoliciesApplied===true&&policies.length===expectedPolicies.length,'CANVAS_POLICY_INVENTORY');
+ for(const e of expectedPolicies){
+  const matching=policies.filter(p=>p.polname===e.name);
+  must(matching.length===1,'CANVAS_POLICY_INVENTORY');
+  const p=matching[0];
+  must(p.polcmd===e.cmd&&p.polpermissive===e.permissive&&p.public_roles===true&&normalize(p.using_expr)===normalize(e.using)&&normalize(p.check_expr)===normalize(e.check),'CANVAS_POLICY_IDENTITY');
+ }
  const indexes=(await client.query("SELECT i.indisvalid,i.indisready,i.indisunique,i.indpred IS NULL no_predicate,i.indexprs IS NULL no_expression,array_agg(a.attname ORDER BY keys.ordinality) columns FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY keys(attnum,ordinality) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=keys.attnum WHERE i.indrelid='public.canvas_template_audit'::regclass AND c.relname=$1 GROUP BY i.indisvalid,i.indisready,i.indisunique,i.indpred,i.indexprs",[law.index.name])).rows;
  must(indexes.length===1&&indexes[0].indisvalid&&indexes[0].indisready&&!indexes[0].indisunique&&indexes[0].no_predicate&&indexes[0].no_expression&&JSON.stringify(indexes[0].columns)===JSON.stringify(law.index.columns),'CANVAS_INDEX_IDENTITY');
  return {tableRlsAclRowsVerified:true,functionBodiesVerified:true,triggersVerified:true,constraintsVerified:true,indexVerified:true,policyIdentityVerified:true,completeLawVerified:true};

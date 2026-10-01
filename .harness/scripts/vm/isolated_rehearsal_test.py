@@ -1,4 +1,5 @@
-import importlib.util,json,tempfile,unittest,uuid,datetime,hashlib,os,sys,subprocess
+import importlib.util,json,tempfile,unittest,uuid,datetime,hashlib,os,sys,subprocess,shutil
+from unittest.mock import patch
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 spec=importlib.util.spec_from_file_location('rehearsal',Path(__file__).with_name('isolated_rehearsal.py'));m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
@@ -246,6 +247,42 @@ const pg={Client:class{constructor(){this.connection={stream:{remoteAddress:p.bi
    self.assertEqual(snapshot.private_key(ref),b'fixture-key-only');key.chmod(0o644)
    with self.assertRaisesRegex(ValueError,'PRIVATE_KEY_MODE'):snapshot.private_key(ref)
 class OfflineClosureTests(unittest.TestCase):
+ @classmethod
+ def setUpClass(cls):
+  # CI setup-node may be owned by another toolcache uid. Copy the actual executable
+  # into a private current-user tree; never weaken the production root-owner gate.
+  source=Path(shutil.which('node')).resolve();cls.node_directory=tempfile.TemporaryDirectory(dir=Path('/tmp').resolve());cls.node=Path(cls.node_directory.name)/'node'
+  shutil.copyfile(source,cls.node);cls.node.chmod(0o700)
+  if hashlib.sha256(cls.node.read_bytes()).digest()!=hashlib.sha256(source.read_bytes()).digest():raise ValueError('TEST_NODE_BYTE_DRIFT')
+  original_which=shutil.which
+  cls.node_resolver=patch.object(m.shutil,'which',side_effect=lambda command,*args,**kwargs:str(cls.node) if command=='node' else original_which(command,*args,**kwargs));cls.node_resolver.start()
+ @classmethod
+ def tearDownClass(cls):
+  cls.node_resolver.stop();cls.node_directory.cleanup()
+ def test_real_node_writable_permissions_rejected(self):
+  self.node.chmod(0o777)
+  try:
+   with self.assertRaisesRegex(ValueError,'TRUSTED_NODE_REQUIRED'):m.offline_node('console.log(JSON.stringify({verified:true}))',{})
+  finally:self.node.chmod(0o700)
+  self.assertTrue(m.offline_node('console.log(JSON.stringify({verified:true}))',{})['verified'])
+ def test_real_sticky_and_nonsticky_ancestor_guard(self):
+  parent=Path(self.node_directory.name)/'ancestor';parent.mkdir(mode=0o700);private=parent/'private';private.mkdir(mode=0o700);node=private/'node';shutil.copyfile(self.node,node);node.chmod(0o700)
+  original_resolver=m.shutil.which
+  with patch.object(m.shutil,'which',side_effect=lambda command,*args,**kwargs:str(node) if command=='node' else original_resolver(command,*args,**kwargs)):
+   parent.chmod(0o1777);self.assertTrue(m.offline_node('console.log(JSON.stringify({verified:true}))',{})['verified'])
+   parent.chmod(0o777)
+   with self.assertRaisesRegex(ValueError,'TRUSTED_NODE_ANCESTOR'):m.offline_node('console.log(JSON.stringify({verified:true}))',{})
+   parent.chmod(0o1777);original=Path.lstat
+   def foreign_owner(path):
+    value=original(path)
+    if path==parent:
+     values=list(value);values[4]=os.geteuid()+9999;return os.stat_result(values)
+    return value
+   # Non-root portable tests cannot chown: only this ancestor UID is simulated.
+   # The file, sticky mode, full process invocation and other metadata are real.
+   with patch.object(Path,'lstat',foreign_owner):
+    with self.assertRaisesRegex(ValueError,'TRUSTED_NODE_ANCESTOR'):m.offline_node('console.log(JSON.stringify({verified:true}))',{})
+  self.assertIsNotNone(shutil.which('openssl'))
  def test_real_files_transitive_import_missing_and_hash_drift(self):
   with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
    root=Path(d);p=root/'entry.py';p.write_text('from isolated_dependency import value\nprint(value)\n');p.chmod(0o600)
