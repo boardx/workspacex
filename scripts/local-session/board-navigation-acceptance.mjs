@@ -74,14 +74,21 @@ const snapshot = async () => {
 };
 const rows = () => page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(elements => elements.map(element => ({id: element.dataset.objectId, kind: element.dataset.objectKind, text: element.dataset.objectText, geometry: JSON.parse(element.dataset.geometry), from: element.dataset.connectorFrom, to: element.dataset.connectorTo})));
 const surface = () => page.getByTestId('board-fabric-surface');
-const deselectForPixelRead = async () => {
-  const before = await canonicalState();
-  await page.getByTestId('board-tool-select').click();
-  await surface().click({ position: { x: 1100, y: 120 } });
-  await page.getByText('0 个已选对象', { exact: true }).waitFor();
-  await poll(() => surface().getAttribute('data-selection-scene'), value => !value || value === 'null', 'pixel sampling has no selection chrome');
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  assertHeldUncommitted(before, await canonicalState());
+const pixelLayerDiagnostics = async (name, point, context) => {
+  const layers = {};
+  for (const channel of ['lower-canvas', 'upper-canvas']) layers[channel] = await surface().locator(`canvas.${channel}`).evaluate((canvas, point) => {
+    const rect = canvas.getBoundingClientRect(), sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+    const x = Math.round((point.x - rect.x) * sx), y = Math.round((point.y - rect.y) * sy);
+    const ctx = canvas.getContext('2d'), pixels = ctx.getImageData(x - 7, y - 7, 14, 14).data;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }; let count = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 50 && data[i] < 80 && data[i + 1] > 60 && data[i + 1] < 180 && data[i + 2] > 180) {
+      const px = i / 4 % canvas.width, py = Math.floor(i / 4 / canvas.width); count++;
+      bounds.left = Math.min(bounds.left, px); bounds.right = Math.max(bounds.right, px); bounds.top = Math.min(bounds.top, py); bounds.bottom = Math.max(bounds.bottom, py);
+    }
+    return { rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, backing: { width: canvas.width, height: canvas.height }, sample: { x, y }, rawRGBA: Array.from(pixels), blueCount: count, blueBounds: bounds };
+  }, point);
+  writeFileSync(join(out, `${name}-pixel-layers.json`), JSON.stringify({ point, context, viewport: await viewport(), scene: await surface().getAttribute('data-selection-scene'), layers }, null, 2));
 };
 const connectorPixels = () => surface().locator('canvas.lower-canvas').evaluate(canvas => {
   const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
@@ -231,6 +238,15 @@ try {
   });
 
   const canonicalState = async () => ({ head: await (await api('GET', `/v1/whiteboards/${boardId}/head`)).json(), objects: (await snapshot()).objects });
+  const deselectForPixelRead = async () => {
+    const before = await canonicalState();
+    await page.getByTestId('board-tool-select').click();
+    await surface().click({ position: { x: 1100, y: 120 } });
+    await page.getByText('0 个已选对象', { exact: true }).waitFor();
+    await poll(() => surface().getAttribute('data-selection-scene'), value => !value || value === 'null', 'pixel sampling has no selection chrome');
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assertHeldUncommitted(before, await canonicalState());
+  };
   const submit = async commands => {
     const head = await (await api('GET', `/v1/whiteboards/${boardId}/head`)).json();
     const orgId = await page.evaluate(() => JSON.parse(localStorage.getItem('wsx.session')).currentOrgId);
@@ -414,6 +430,7 @@ try {
     const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
     const center = { x: box.x + px + (edge.connector.fromPoint.x + edge.connector.toPoint.x) / 2 * zoom, y: box.y + py + (edge.connector.fromPoint.y + edge.connector.toPoint.y) / 2 * zoom };
     await page.mouse.click(center.x, center.y);
+    await pixelLayerDiagnostics(`overlay-${width}`, center, { connector: edge.connector });
     for (const target of ['board-connector-handle-from', 'board-connector-body-hit']) for (const button of ['middle', 'right']) {
       const hit = await page.getByTestId(target).boundingBox(); assert(hit, `${target} must be real selected DOM overlay`);
       const start = { x: hit.x + hit.width / 2, y: hit.y + hit.height / 2 };
@@ -443,7 +460,9 @@ try {
       const rotationPoint = screen({ x: scene.bounds.left + scene.bounds.width * (.5 + rotationControl.x), y: scene.bounds.top + scene.bounds.height * (.5 + rotationControl.y) });
       const start = mode === 'move' ? screen(scene.hitPoints[0]) : mode === 'resize' ? screen({ x: scene.bounds.left + scene.bounds.width, y: scene.bounds.top + scene.bounds.height }) : { x: rotationPoint.x + rotationControl.offsetX, y: rotationPoint.y + rotationControl.offsetY };
       const before = await canonicalState(), beforePixels = await connectorPixels();
-      const beforeCorner = await selectionCornerInk(scene.bounds); assert(beforeCorner.bluePixels >= 3, 'actual Fabric selection corner is rendered');
+      const beforeCorner = await selectionCornerInk(scene.bounds);
+      await pixelLayerDiagnostics(`multi-${mode}-before`, beforeCorner.point, { scene });
+      assert(beforeCorner.bluePixels >= 3, 'actual Fabric selection corner is rendered');
       const beforeBlueChrome = await selectionBlueChrome();
       const toolbar = page.getByTestId('board-selection-layout-toolbar'); const beforeToolbar = await toolbar.boundingBox(); assert(beforeToolbar);
       await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 40, start.y + (mode === 'rotate' ? 12 : 25), { steps: 12 });
