@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = Number(process.env.WORKSPACEX_WEB_PORT ?? "3198");
+const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${port}`;
+
 /**
  * 原型截图审计车道（2026-09-09）。
  *
@@ -19,14 +22,18 @@ export default defineConfig({
   reporter: "list",
   timeout: 120_000,
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3198",
+    baseURL,
     ...devices["Desktop Chrome"],
     viewport: { width: 1440, height: 900 },
   },
   projects: [{ name: "prototype-audit" }],
   webServer: {
-    command: "NEXT_DIST_DIR=.next-audit next dev -p 3198",
-    url: "http://localhost:3198",
+    command: `NEXT_DIST_DIR=.next-audit next dev -p ${port}`,
+    url: baseURL,
+    env: {
+      NEXT_PUBLIC_API_URL: baseURL,
+      NEXT_PUBLIC_API_PATH_PREFIX: "",
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },
