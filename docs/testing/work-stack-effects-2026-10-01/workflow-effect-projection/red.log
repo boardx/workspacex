@@ -75,13 +75,13 @@ AssertionError: expected [] to deeply equal [ { effectKey: 'same-key', …(9) } 
  FAIL  tests/workflow/effect-projection.test.ts > effect event projection > preserves original provenance through reconciliation and ignores permission blocks without effects
 AssertionError: expected undefined to match object { status: 'reconciled', …(1) }
 
-- Expected: 
+- Expected:
 Object {
   "gateId": "actual-gate",
   "status": "reconciled",
 }
 
-+ Received: 
++ Received:
 undefined
 
  ❯ tests/workflow/effect-projection.test.ts:39:128
