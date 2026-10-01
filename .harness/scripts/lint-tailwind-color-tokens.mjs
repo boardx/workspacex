@@ -37,8 +37,20 @@ const WEB = join(ROOT, "apps", "web");
 /*
  * 2026-09-23（#3892）清零：`text-foreground` 全仓 62 处（跨行口径）一次性换成
  * `text-background-foreground`。基线机制留着——下一次再有人要登记存量，照这个形状写。
+ *
+ * 2026-10-01（#4893）：#3892 之后的新组件（itv / whiteboard / workflow /
+ * board-workspace-preview / home 等）又引入同一族死类名 50 处——照上面那句
+ * 「照这个形状写」登记为存量，**只准变小**；逐处换成哪个 token 需看着屏幕判断，
+ * 留给各组件作者。同轮把 3 处误报（`bg-cover`、`bg-gradient-to-*` 是 v3 内置
+ * 工具类）补进 BUILTIN，不再计入命中。
  */
-const LEGACY = new Map();
+const LEGACY = new Map([
+  ["text-foreground", 28],
+  ["border-foreground", 8],
+  ["bg-foreground", 9],
+  ["bg-success-tint", 3],
+  ["text-success-tint-foreground", 2],
+]);
 
 /** 从 tailwind.config.ts 的 colors 块解析全部合法颜色名（单源）。 */
 export function colorNames(cfgText) {
@@ -67,6 +79,10 @@ const BUILTIN = new Set([
   "solid", "dashed", "dotted", "double", "hidden", "collapse", "separate",
   // ring- / divide-
   "inset", "offset", "reverse",
+  // bg- 的 background-size 与渐变方向（v3 内置工具类，不引用颜色 token）
+  "cover", "contain",
+  "gradient-to-t", "gradient-to-tr", "gradient-to-r", "gradient-to-br",
+  "gradient-to-b", "gradient-to-bl", "gradient-to-l", "gradient-to-tl",
 ]);
 
 /*
