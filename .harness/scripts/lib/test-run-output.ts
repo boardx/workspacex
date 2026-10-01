@@ -7,6 +7,10 @@ class TestRunSummary {
   private emptyAnnouncement = false;
   private webServerFailed = false;
 
+  clone(): TestRunSummary {
+    return Object.assign(new TestRunSummary(), this);
+  }
+
   observe(text: string): void {
     this.vitestSeen ||= /(?:^|\n)\s*(?:RUN|DEV)\s+v\d+\./.test(text);
     this.emptyAnnouncement ||= /(?:^|\n)\s*No test files found\b/.test(text);
@@ -39,25 +43,40 @@ class TestRunSummary {
 export class TestRunOutput {
   private readonly tails = new Map<string, string>();
   private readonly tasks = new Map<string, TestRunSummary>();
-  observe(stream: string, chunk: string): void {
-    const text = ((this.tails.get(stream) ?? "") + chunk).replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
-    const grouped = new Map<string, string[]>();
-    for (const line of text.split("\n")) {
-      const prefixed = /^([@\w./-]+(?::[\w.-]+)+):\s+(.*)$/.exec(line);
-      const task = prefixed?.[1] ?? "";
-      const lines = grouped.get(task) ?? [];
-      lines.push(prefixed?.[2] ?? line);
-      grouped.set(task, lines);
-    }
-    for (const [task, lines] of grouped) {
-      const summary = this.tasks.get(task) ?? new TestRunSummary();
-      summary.observe(lines.join("\n"));
-      this.tasks.set(task, summary);
-    }
-    this.tails.set(stream, text.slice(-4096));
+  private observeLine(tasks: Map<string, TestRunSummary>, raw: string): void {
+    const line = raw.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
+    const prefixed = /^([@\w./-]+(?::[\w.-]+)+):\s+(.*)$/.exec(line);
+    const task = prefixed?.[1] ?? "";
+    const summary = tasks.get(task) ?? new TestRunSummary();
+    summary.observe(prefixed?.[2] ?? line);
+    tasks.set(task, summary);
   }
+
+  observe(stream: string, chunk: string): void {
+    let pending = this.tails.get(stream) ?? "";
+    let start = 0;
+    while (start < chunk.length) {
+      const newline = chunk.indexOf("\n", start);
+      const end = newline === -1 ? chunk.length : newline;
+      // Keep the line's beginning, including its runner identity. Never promote
+      // an arbitrary suffix of an oversized log line into a new runner.
+      pending += chunk.slice(start, Math.min(end, start + 4096 - pending.length));
+      if (newline === -1) break;
+      this.observeLine(this.tasks, pending);
+      pending = "";
+      start = newline + 1;
+    }
+    this.tails.set(stream, pending);
+  }
+
   classify(code: number): { code: number; diagnostic: string | null } {
-    for (const summary of this.tasks.values()) {
+    // A final summary need not end in a newline. Preview pending lines without
+    // committing them: callers may continue observing after classification.
+    const tasks = new Map([...this.tasks].map(([task, summary]) => [task, summary.clone()]));
+    for (const pending of this.tails.values()) {
+      if (pending) this.observeLine(tasks, pending);
+    }
+    for (const summary of tasks.values()) {
       const outcome = summary.classify(code);
       if (outcome.diagnostic !== null) return outcome;
     }
