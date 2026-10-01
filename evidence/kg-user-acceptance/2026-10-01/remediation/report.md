@@ -10,7 +10,7 @@
 
 真实模型服务仍被网络代理拒绝 CONNECT（403），自然语言抽取、真实语义嵌入、完整方案比较、推荐可靠性及真实任务跟踪尚未完成新验收。用户已批准继续，批准没有自动改变环境网络配置。
 
-[逐步截图画廊](experience-gallery.html) · [机器汇总](check-summary.json) · [69项原始结果](comprehensive-final/results.json) · [每项状态](comprehensive-final/checks.json) · [完整执行日志](comprehensive-final/run.log)
+[逐步截图画廊（图片已内嵌）](experience-gallery.html) · [72页截图PDF](知识图谱端到端截图.pdf) · [机器汇总](check-summary.json) · [69项原始结果](comprehensive-final/results.json) · [每项状态](comprehensive-final/checks.json) · [完整执行日志](comprehensive-final/run.log)
 
 ## 已实施及通过复验的修复
 
