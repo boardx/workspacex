@@ -89,6 +89,28 @@ const inkAt = point => surface().locator('canvas.lower-canvas').evaluate((canvas
   for (let index = 0; index < data.length; index += 4) if (data[index + 3] > 200 && Math.max(data[index], data[index + 1], data[index + 2]) < 80) count++;
   return count;
 }, point);
+const selectionCornerInk = async bounds => {
+  const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
+  const point = { x: box.x + px + (bounds.left + bounds.width) * zoom, y: box.y + py + (bounds.top + bounds.height) * zoom };
+  return surface().locator('canvas.upper-canvas').evaluate((canvas, point) => {
+    const box = canvas.getBoundingClientRect(), sx = canvas.width / box.width, sy = canvas.height / box.height;
+    const bytes = canvas.getContext('2d').getImageData(Math.round((point.x - box.x - 7) * sx), Math.round((point.y - box.y - 7) * sy), Math.round(14 * sx), Math.round(14 * sy)).data;
+    let count = 0; for (let index = 0; index < bytes.length; index += 4) if (bytes[index + 3] > 50 && bytes[index] < 80 && bytes[index + 1] > 60 && bytes[index + 1] < 180 && bytes[index + 2] > 180) count++;
+    return { point, bluePixels: count };
+  }, point);
+};
+const selectionBlueChrome = () => surface().locator('canvas.upper-canvas').evaluate(canvas => {
+  const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  let count = 0, sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0;
+  const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+  for (let index = 0; index < data.length; index += 4) {
+    if (data[index + 3] <= 50 || data[index] >= 80 || data[index + 1] <= 60 || data[index + 1] >= 180 || data[index + 2] <= 180) continue;
+    const x = (index / 4) % canvas.width, y = Math.floor(index / 4 / canvas.width);
+    count++; sumX += x; sumY += y; sumX2 += x * x; sumY2 += y * y;
+    bounds.left = Math.min(bounds.left, x); bounds.top = Math.min(bounds.top, y); bounds.right = Math.max(bounds.right, x); bounds.bottom = Math.max(bounds.bottom, y);
+  }
+  return { count, bounds, fingerprint: [count, sumX, sumY, sumX2, sumY2].join(':') };
+});
 const drawingMeasurements = async object => {
   const stroke = object.extensionData.contentObject.strokes.find(item => item.tool !== 'eraser');
   const points = object.extensionData.contentObject.strokes.flatMap(item => item.points);
@@ -117,11 +139,20 @@ const drawingMeasurements = async object => {
     }
     const targetInk = color => color[3] > input.expectedAlpha * .3 && input.rgb.every((value, index) => Math.abs(color[index] - value) <= 20);
     const endcapRGBA = pixel(input.endcap), outsideRGBA = pixel(input.outside);
+    const bitmap = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    const inkBounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity, count: 0 };
+    for (let index = 0; index < bitmap.length; index += 4) {
+      if (bitmap[index + 3] < 30 || !input.rgb.every((value, channel) => Math.abs(bitmap[index + channel] - value) <= 20)) continue;
+      const x = (index / 4) % canvas.width, y = Math.floor(index / 4 / canvas.width);
+      inkBounds.left = Math.min(inkBounds.left, x); inkBounds.top = Math.min(inkBounds.top, y); inkBounds.right = Math.max(inkBounds.right, x); inkBounds.bottom = Math.max(inkBounds.bottom, y); inkBounds.count++;
+    }
     return { thickness: offsets.length ? offsets.at(-1) - offsets[0] + .5 : 0, centerOffset: offsets.length ? (offsets[0] + offsets.at(-1)) / 2 : null,
       endcapAlpha: endcapRGBA[3], endcapColorMatches: targetInk(endcapRGBA), outsideInk: targetInk(outsideRGBA), endcapRGBA, outsideRGBA,
-      alpha: pixel(input.joint)[3], centerRGBA: pixel(input.center), jointRGBA: pixel(input.joint) };
+      alpha: pixel(input.joint)[3], centerRGBA: pixel(input.center), jointRGBA: pixel(input.joint), actualBitmapBounds: inkBounds, canvasBounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }, canvasBacking: { width: canvas.width, height: canvas.height } };
   }, { center, endcap, outside, joint: screen(joint), c, s, expectedThickness, expectedAlpha, rgb });
-  return { ...measured, expectedThickness, expectedAlpha, geometry, strokeWidth: stroke.width, screenCenter: center };
+  const result = { ...measured, expectedThickness, expectedAlpha, geometry, strokeWidth: stroke.width, screenCenter: center };
+  writeFileSync(join(out, `drawing-measurement-${object.id}-${geometry.rotation}-${geometry.width}-${geometry.height}.json`), JSON.stringify({ object, surfaceBounds: box, viewport: await viewport(), intrinsic: { minX, minY, width: intrinsicWidth, height: intrinsicHeight }, expectedScreenSamples: { center, endcap, outside, joint: screen(joint) }, scenes: JSON.parse(await surface().getAttribute('data-object-scenes')), result }, null, 2));
+  return result;
 };
 const viewport = async () => Promise.all(['zoom', 'pan-x', 'pan-y'].map(key => surface().getAttribute(`data-viewport-${key}`)));
 const point = async id => {
@@ -371,7 +402,9 @@ try {
       relationship: { fromPoint: { x: 280, y: 140 }, toPoint: { x: 460, y: 200 }, fromAnchor: 'right', toAnchor: 'left', type: 'straight', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: '', semanticRelation: '' } } });
     const edge = readObjects(doc).find(object => object.id === edgeId); doc.destroy();
     await submit([{ type: 'create', object: edge }]); await page.reload(); await synced(); await page.getByTestId('board-zoom-fit-board').click();
-    const center = await point(edgeId); await page.mouse.click(center.x, center.y);
+    const box = await surface().boundingBox(), [zoom, px, py] = (await viewport()).map(Number);
+    const center = { x: box.x + px + (edge.connector.start.x + edge.connector.end.x) / 2 * zoom, y: box.y + py + (edge.connector.start.y + edge.connector.end.y) / 2 * zoom };
+    await page.mouse.click(center.x, center.y);
     for (const target of ['board-connector-handle-from', 'board-connector-body-hit']) for (const button of ['middle', 'right']) {
       const hit = await page.getByTestId(target).boundingBox(); assert(hit, `${target} must be real selected DOM overlay`);
       const start = { x: hit.x + hit.width / 2, y: hit.y + hit.height / 2 };
@@ -401,11 +434,19 @@ try {
       const rotationPoint = screen({ x: scene.bounds.left + scene.bounds.width * (.5 + rotationControl.x), y: scene.bounds.top + scene.bounds.height * (.5 + rotationControl.y) });
       const start = mode === 'move' ? screen(scene.hitPoints[0]) : mode === 'resize' ? screen({ x: scene.bounds.left + scene.bounds.width, y: scene.bounds.top + scene.bounds.height }) : { x: rotationPoint.x + rotationControl.offsetX, y: rotationPoint.y + rotationControl.offsetY };
       const before = await canonicalState(), beforePixels = await connectorPixels();
-      const handles = nodes.map(node => page.getByTestId(`connector-handle-${node.id}-right`));
-      const beforeHandles = await Promise.all(handles.map(handle => handle.boundingBox())); assert(beforeHandles.every(Boolean));
+      const beforeCorner = await selectionCornerInk(scene.bounds); assert(beforeCorner.bluePixels >= 3, 'actual Fabric selection corner is rendered');
+      const beforeBlueChrome = await selectionBlueChrome();
       const toolbar = page.getByTestId('board-selection-layout-toolbar'); const beforeToolbar = await toolbar.boundingBox(); assert(beforeToolbar);
       await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 40, start.y + (mode === 'rotate' ? 12 : 25), { steps: 12 });
-      const liveHandles = await Promise.all(handles.map((handle, index) => poll(() => handle.boundingBox(), value => value && Math.hypot(value.x - beforeHandles[index].x, value.y - beforeHandles[index].y) > 3, `multi ${mode} live handle ${index}`)));
+      const liveScene = await poll(async () => JSON.parse(await surface().getAttribute('data-selection-scene')), value => value && ['left', 'top', 'width', 'height'].some(key => Math.abs(value.bounds[key] - scene.bounds[key]) > 1), `multi ${mode} actual ActiveSelection bounds move`);
+      let liveCorner;
+      const liveBlueChrome = await selectionBlueChrome();
+      if (mode === 'rotate') {
+        assert(liveBlueChrome.count > 20 && liveBlueChrome.fingerprint !== beforeBlueChrome.fingerprint, 'real rotation chrome is nonempty and changes before release');
+      } else {
+        liveCorner = await selectionCornerInk(liveScene.bounds); assert(liveCorner.bluePixels >= 3, 'Fabric corner follows live selection bounds');
+        assert(Math.hypot(liveCorner.point.x - beforeCorner.point.x, liveCorner.point.y - beforeCorner.point.y) > 3, 'real selection corner moves before release');
+      }
       const liveToolbar = await toolbar.boundingBox(); assert(liveToolbar);
       assert(Math.hypot(liveToolbar.x - beforeToolbar.x, liveToolbar.y - beforeToolbar.y) > 1, `multi ${mode} menu follows before release`);
       assert(liveToolbar.x >= 0 && liveToolbar.x + liveToolbar.width <= 1441, 'held multi-selection toolbar stays inside viewport');
@@ -417,7 +458,7 @@ try {
       assert(changed.every(item => JSON.stringify(item.before) !== JSON.stringify(item.after)), 'both selected objects change in one transaction');
       if (mode === 'rotate') assert(changed.every(item => item.before.rotation !== item.after.rotation), 'multi rotation changes both canonical angles');
       if (mode === 'resize') assert(changed.every(item => item.before.width !== item.after.width || item.before.height !== item.after.height), 'multi resize changes both canonical dimensions');
-      gestures.push({ mode, beforeHead: before.head, afterHead: after.head, beforeHandles, liveHandles, beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
+      gestures.push({ mode, beforeHead: before.head, afterHead: after.head, beforeSelection: scene.bounds, liveSelection: liveScene.bounds, beforeCorner, liveCorner, beforeBlueChrome, liveBlueChrome, cornerEvidence: mode === 'rotate' ? 'Observed raster chrome change; rotated control coordinates require independent screenshot review, not a claimed AABB corner oracle.' : 'Predicted unrotated bottom-right control sample.', beforeToolbar, liveToolbar, beforePixels, livePixels, changed });
     }
     return gestures;
   });
