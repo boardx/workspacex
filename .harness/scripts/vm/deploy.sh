@@ -753,6 +753,8 @@ if ! sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
 fi
 echo "  必需 env var 就绪"
 
+# Bind actual build bytes before the restart, then attest only after real smoke success.
+DEVAPP_BUILD_RECEIPT=$(node /usr/local/lib/workspacex-devapp-runtime-identity.mjs build "$SOURCE_REVISION" "$APP_DIR")
 step "6. 重启服务"
 systemctl restart workspacex-api workspacex-web
 for s in workspacex-api workspacex-web; do
@@ -775,5 +777,8 @@ step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 DEPLOY_STAGE=smoke
 write_deploy_status 0
 run_post_restart_smoke
+DEPLOY_STAGE=runtime-identity
+write_deploy_status 0
+node /usr/local/lib/workspacex-devapp-runtime-identity.mjs attest "$SOURCE_REVISION" "$APP_DIR" "$DEVAPP_BUILD_RECEIPT"
 
 printf '\n✅ 部署完成：%s\n' "$(sudo -u "$RUN_AS" git log --oneline -1)"
