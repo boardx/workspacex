@@ -19,6 +19,9 @@ import { join, relative, sep } from "node:path";
 export const DB_FREE_TEST_PREFIXES = [
   "tests/contract-single-source.test.ts",
   "tests/agent-runtime/starter-import-org-scope.test.ts",
+  "tests/agent/agent-directory-controller-http.test.ts",
+  "tests/agent/agent-directory-repo-guard.test.ts",
+  "tests/agent/list-agent-directory.test.ts",
   "tests/work-eval/eval-report-baseline.test.ts",
   "tests/work-eval/eval-runner.test.ts",
   "tests/work-eval/gates-counterproof.test.ts",

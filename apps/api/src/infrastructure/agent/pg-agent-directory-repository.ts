@@ -24,7 +24,7 @@ interface Row extends AgentRoleColumnsRow {
   agent_id: string;
   version_id: string;
   name: string;
-  role_label: string;
+  role_label: string | null;
   tool_policy: readonly unknown[];
   duty: string | null;
   abbr: string | null;
@@ -56,7 +56,9 @@ function toRow(row: Row): AgentDirectoryRow {
     agentId: row.agent_id,
     versionId: row.version_id,
     name: row.name,
-    roleLabel: row.role_label,
+    // The database column is nullable for legacy/bootstrap agents. Match the
+    // definition read adapters; do not invent a role or fail the whole directory.
+    roleLabel: row.role_label ?? "",
     avatar: fields.avatar,
     // UIUX r4：没有角色分类的组织可见 Agent（系统预置「通用助手」、组织自建）归入「通用」，
     // 不再被目录整个挡在外面——它们对成员可用，目录不列就找不到。
