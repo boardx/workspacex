@@ -24,6 +24,7 @@ const roleCols = Object.values(AGENT_ROLE_COLUMN_OF)
 interface Row extends AgentRoleColumnsRow {
   agent_id: string;
   version_id: string;
+  instructions: string | null;
   name: string;
   role_label: string | null;
   tool_policy: readonly unknown[];
@@ -36,7 +37,7 @@ interface Row extends AgentRoleColumnsRow {
 }
 
 const SELECT = `
-  SELECT a.id AS agent_id, v.id AS version_id, a.name, a.role_label, v.tool_policy,
+  SELECT a.id AS agent_id, v.id AS version_id, a.name, a.role_label, v.tool_policy, v.instructions,
          cl.duty, CASE WHEN a.catalog_source = 'official' THEN cl.abbr END AS abbr,
          a.skill_mounts, v.skill_version_ids, v.pending_skill_bindings, ${roleCols}
     FROM agents a
@@ -58,6 +59,7 @@ function toRow(row: Row): AgentDirectoryRow {
   return {
     agentId: row.agent_id,
     versionId: row.version_id,
+    instructions: row.instructions,
     name: row.name,
     // The database column is nullable for legacy/bootstrap agents. Match the
     // definition read adapters; do not invent a role or fail the whole directory.

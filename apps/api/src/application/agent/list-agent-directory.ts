@@ -40,6 +40,8 @@ export class AgentDirectoryError extends Error {
 export interface AgentDirectoryRow {
   readonly agentId: string;
   readonly versionId: string;
+  /** 内部使用的当前发布快照指令；目录 DTO 不暴露。 */
+  readonly instructions?: string | null;
   readonly name: string;
   readonly roleLabel: string;
   readonly avatar: AgentAvatar | null;

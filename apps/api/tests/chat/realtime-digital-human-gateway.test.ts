@@ -330,6 +330,25 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     expect(parsed.voiceMap).toEqual({ research: "Cherry" });
   });
 
+  it("pins the POC realtime model despite unrelated deployment model overrides", async () => {
+    config = readRealtimeModelConfig({
+      KERNEL_OMNI_REALTIME_BASE_URL: config.baseUrl,
+      KERNEL_OMNI_REALTIME_API_KEY: config.apiKey,
+      KERNEL_OMNI_REALTIME_MODEL: "wrong-omni-model",
+      KERNEL_MODEL_NAME: "qwen-plus",
+      KERNEL_ASR_MODEL: "qwen3-asr-flash-realtime",
+    });
+    expect(config.model).toBe("qwen3.8-omni-flash-realtime");
+    const { ws, frames } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    expect(upstreamUrls[0]).toBe("/realtime?model=qwen3.8-omni-flash-realtime Bearer sk-test");
+    expect(frames.find((frame) => frame.type === "session.ready")).toEqual({
+      type: "session.ready", model: "qwen3.8-omni-flash-realtime",
+    });
+    ws.close();
+  });
+
   it("loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted", async () => {
     for (const socket of upstreamSockets) socket.terminate();
     await new Promise<void>((resolve) => upstream.close(() => resolve()));

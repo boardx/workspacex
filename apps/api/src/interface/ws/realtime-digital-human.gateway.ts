@@ -41,11 +41,14 @@ export interface RealtimeModelConfig {
   readonly transcriptionModel?: string;
 }
 
+/** 固定沿用 #4549 POC 的 Omni 协议模型；文字/ASR/部署覆盖不能更换实时对话协议。 */
+export const REALTIME_CONVERSATION_MODEL = "qwen3.8-omni-flash-realtime";
+
 export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): RealtimeModelConfig {
   return {
     baseUrl: env.KERNEL_OMNI_REALTIME_BASE_URL ?? workspaceRealtimeUrl(env.KERNEL_MODEL_BASE_URL) ?? env.KERNEL_ASR_BASE_URL,
     apiKey: env.KERNEL_OMNI_REALTIME_API_KEY ?? env.KERNEL_ASR_API_KEY ?? env.DASHSCOPE_API_KEY,
-    model: env.KERNEL_OMNI_REALTIME_MODEL ?? "qwen3.8-omni-flash-realtime",
+    model: REALTIME_CONVERSATION_MODEL,
     defaultVoice: env.KERNEL_OMNI_REALTIME_VOICE ?? DEFAULT_REALTIME_VOICE,
     voiceMap: parseRealtimeVoiceMap(env.KERNEL_OMNI_REALTIME_VOICE_MAP),
     transcriptionModel: env.KERNEL_OMNI_REALTIME_TRANSCRIPTION_MODEL ?? "gummy-realtime-v1",
