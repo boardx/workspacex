@@ -1,0 +1,44 @@
+[stack-admission] load1=1.50 cores=5 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mupex8qq-c3370ef6-0a4ed083abb3 db=wsx_0a4ed083abb3bb620228 compose=wsx-0a4ed083abb3bb620228 pg=20347 redis=21347 api=24347 web=25347 sandbox=26347 model=27347 deep-agent=28347 asr=29347 vision=30347 loopback-sandbox=31347 mail=19347
+ Network wsx-0a4ed083abb3bb620228_default  Creating
+ Network wsx-0a4ed083abb3bb620228_default  Created
+ Container wsx-0a4ed083abb3bb620228-postgres-1  Creating
+ Container wsx-0a4ed083abb3bb620228-postgres-1  Created
+ Container wsx-0a4ed083abb3bb620228-postgres-1  Starting
+ Container wsx-0a4ed083abb3bb620228-postgres-1  Started
+ Container wsx-0a4ed083abb3bb620228-postgres-1  Waiting
+ Container wsx-0a4ed083abb3bb620228-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] db=wsx_0a4ed083abb3bb620228 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"b37d2da3-da91-4448-ac2a-901ccd059503","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:22:68)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"dab0cf4c-18c2-44f2-9497-3c3cb7299d71","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:21:73)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b2612fb1-1a8d-42a4-8d11-cbd2d0934475","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:21:73)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ce2f7cf7-70f2-435b-9fbd-656ccf71d709","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:22:68)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"9d851f9c-6c41-4e97-bd3c-142e589bc371","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:22:68)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f051d861-593b-49ab-a1d9-acd0efdd3a48","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:22:68)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ddd5bf7c-0bf6-4147-8ef3-5c2c42eb43b0","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at OfficialRoleUpgradeController.upgrade (/workspace/workstack-effect-fixes/apps/api/src/interface/controllers/official-role-upgrade.controller.ts:22:68)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /workspace/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_baeb60aac93c989f26f8204d73ff2736/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent/official-role-upgrade-real.test.ts (4 tests) 43283ms
+   ✓ official-role immutable selected upgrade: real PostgreSQL/HTTP > creates a new version, freezes pending refs honestly, preserves old version and disabled status, replays identical request 503ms
+   ✓ official-role immutable selected upgrade: real PostgreSQL/HTTP > rejects stale selection, nonadmin, cross-org and custom role, with zero version writes 411ms
+ ✓ tests/agent-runtime/starter-import-org-scope.test.ts (6 tests) 208ms
+ ✓ tests/agent/official-role-upgrade.test.ts (3 tests) 15ms
+
+ Test Files  3 passed (3)
+      Tests  13 passed (13)
+   Start at  10:50:17
+   Duration  51.14s (transform 13.37s, setup 0ms, collect 4.96s, tests 43.51s, environment 1ms, prepare 250ms)
+
+[db-isolation] db=wsx_0a4ed083abb3bb620228 peak_connections=4
+[timing] bash /tmp/workstack-upgrade-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m8s
+  清理：1s
+  总计：1m10s

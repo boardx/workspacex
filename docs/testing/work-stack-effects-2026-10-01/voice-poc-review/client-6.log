@@ -1,0 +1,10 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/web
+
+ ✓ tests/live-omni-conversation-hangup.test.ts (6 tests) 242ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  11:39:28
+   Duration  4.74s (transform 2.37s, setup 262ms, collect 3.59s, tests 242ms, environment 3ms, prepare 96ms)

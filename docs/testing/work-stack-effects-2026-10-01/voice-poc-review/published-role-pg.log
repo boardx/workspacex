@@ -1,0 +1,31 @@
+[stack-admission] load1=1.66 cores=5 perCore=0.33 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mupgr2y7-9a5021da-1331a5af7680 db=wsx_1331a5af768043362961 compose=wsx-1331a5af768043362961 pg=20783 redis=21783 api=24783 web=25783 sandbox=26783 model=27783 deep-agent=28783 asr=29783 vision=30783 loopback-sandbox=31783 mail=19783
+ Network wsx-1331a5af768043362961_default  Creating
+ Network wsx-1331a5af768043362961_default  Created
+ Container wsx-1331a5af768043362961-postgres-1  Creating
+ Container wsx-1331a5af768043362961-postgres-1  Created
+ Container wsx-1331a5af768043362961-postgres-1  Starting
+ Container wsx-1331a5af768043362961-postgres-1  Started
+ Container wsx-1331a5af768043362961-postgres-1  Waiting
+ Container wsx-1331a5af768043362961-postgres-1  Healthy
+draft-read counterproof exit: 1
+
+ RUN  v2.1.9 /tmp/voice-published-pg/apps/api
+
+[db-isolation] db=wsx_1331a5af768043362961 capacity=100 current=6 required=32
+ ✓ tests/chat/realtime-voice-transcript-real-db.test.ts (4 tests) 2509ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  11:41:55
+   Duration  19.80s (transform 8.40s, setup 0ms, collect 12.04s, tests 2.51s, environment 0ms, prepare 385ms)
+
+[db-isolation] db=wsx_1331a5af768043362961 peak_connections=3
+[timing] bash /tmp/voice-published-pg-check.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m4s
+  清理：3s
+  总计：1m7s
