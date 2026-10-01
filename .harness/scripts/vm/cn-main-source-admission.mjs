@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { classifyChecks } from '../lib/pr-queue.ts';
 import { reconstructMergeTimeChecks, commitStatusToObservation } from '../lib/pr-green.ts';
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml } from '../vendor/yaml-2.9.0/parser.mjs';
 import { parsePolicy } from '../lib/ci-check-policy.mjs';
 import { shardPlan } from '../ci-api-shards.mjs';
 const shardHelperSha256=createHash('sha256').update(readFileSync(new URL('../ci-api-shards.mjs',import.meta.url))).digest('hex');
