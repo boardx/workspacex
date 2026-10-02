@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync,existsSync } from 'node:fs';
 import { join,resolve,relative,isAbsolute,dirname,basename } from 'node:path';
 import {tmpdir} from 'node:os';
+import {identityOperation} from './native-startup-receipt.mjs';
 
 export function listRuntimeSourceFiles(root) {
   const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
@@ -66,6 +67,10 @@ export function descendsFrom(pid,ancestor,parentOf) {
 }
 
 export function verifyRuntimeManifest({manifestPath,root,base,origin,sourceFiles}) {
+  return identityOperation('IDENTITY_SOURCE',()=>verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}));
+}
+
+function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
   assert(manifestPath,'Explicit candidate runtime manifest required');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
   const canonical=realpathSync(root);
@@ -82,15 +87,19 @@ export function verifyRuntimeManifest({manifestPath,root,base,origin,sourceFiles
   assert.deepEqual(manifest.sourceHashes,committedRuntimeSourceHashes(root,manifest.head,sourceFiles),'runtime source must match exact attested commit, not matching dirty source');
   for(const kind of ['web','api']) {
     const process=manifest.processes.find(item=>item.kind===kind);
+    identityOperation('IDENTITY_CWD',()=>{
     assert(process&&Number.isInteger(process.pid)&&process.pid>0,'runtime child pid required');
     const cwd=execFileSync('lsof',['-a','-p',String(process.pid),'-d','cwd','-Fn'],{encoding:'utf8'}).split('\n').find(line=>line.startsWith('n'))?.slice(1);
     assert(cwd,'runtime process must still exist');
     assert.equal(realpathSync(cwd),realpathSync(process.cwd));
     assert(realpathSync(cwd).startsWith(canonical+'/'),'runtime must execute within candidate');
+    });
     const url=new URL(kind==='web'?base:origin),port=url.port|| (url.protocol==='https:'?'443':'80');
+    identityOperation('IDENTITY_LISTENER',()=>{
     const listeners=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'}).trim().split('\n').map(Number);
-    const parentOf=pid=>Number(execFileSync('ps',['-o','ppid=','-p',String(pid)],{encoding:'utf8'}).trim());
+    const parentOf=pid=>identityOperation('IDENTITY_ANCESTRY',()=>Number(execFileSync('ps',['-o','ppid=','-p',String(pid)],{encoding:'utf8'}).trim()));
     assert(listeners.length>0&&listeners.every(pid=>descendsFrom(pid,process.pid,parentOf)),`${kind} listener must belong to attested service process`);
+    });
   }
   return {head:manifest.head,webRoot:canonical,apiRoot:canonical,processes:manifest.processes,sourceHashes:manifest.sourceHashes};
 }

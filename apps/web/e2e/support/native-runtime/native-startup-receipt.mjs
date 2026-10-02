@@ -5,7 +5,16 @@ import {randomUUID} from 'node:crypto';
 import {tmpdir} from 'node:os';
 
 const phases=new Set(['BOOTSTRAP','SOURCE','IMPORT','PREFLIGHT','TOOLCHAIN','PLAN','INITDB','POSTGRES','DATABASE','CONFIG','MIGRATE','SEED','ROLE','BUILD','API','STORAGE','WEB','IDENTITY']);
-const codes=new Set(['ERR_ASSERTION','MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','ENOENT','EACCES','EPERM','ENOSPC','ENOTDIR','EADDRINUSE','ECONNREFUSED','ECONNRESET','ETIMEDOUT','ENOBUFS','ERR_CHILD_PROCESS_STDIO_MAXBUFFER','TYPE_ERROR','UNKNOWN']);
+const identityCodes=new Set(['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY']);
+const codes=new Set(['ERR_ASSERTION','MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','ENOENT','EACCES','EPERM','ENOSPC','ENOTDIR','EADDRINUSE','ECONNREFUSED','ECONNRESET','ETIMEDOUT','ENOBUFS','ERR_CHILD_PROCESS_STDIO_MAXBUFFER','TYPE_ERROR','UNKNOWN',...identityCodes]);
+
+export function identityOperation(code,operation){
+  assert(identityCodes.has(code));
+  try{return operation();}catch(cause){
+    if(cause instanceof Error&&identityCodes.has(Object.getOwnPropertyDescriptor(cause,'code')?.value))throw cause;
+    const error=new Error(code,{cause});error.code=code;throw error;
+  }
+}
 
 export function safeStartupCode(error){
   try{if(codes.has(error?.code))return error.code;if(error instanceof TypeError)return 'TYPE_ERROR';}catch{ /* Error accessors must not escape the whitelist. */ }
