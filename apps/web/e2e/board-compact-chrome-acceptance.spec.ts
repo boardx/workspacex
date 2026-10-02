@@ -48,7 +48,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    // R04 hides the new Frame palette; retain its historical geometry reference
    // in evidence and exercise all stored Frame properties through the visible UI.
    await info.attach('legacy-frame-palette-reference',{body:Buffer.from(JSON.stringify({reachable:false,reason:'R04 draft hides new Frame creation; design approval remains pending',width:[360,386],height:[340,410],viewportMargin:16,bottomGap:2})),contentType:'application/json'});
-   const existingFrame=await seedExistingFrame(page,1800,1400);
+   const existingFrame=await seedExistingFrame(page,100,100);
    await page.getByTestId(`board-a11y-object-${existingFrame}`).click();
    await page.getByTestId('board-inspector-expand').click();
    const frameInspector=page.getByTestId('board-context-toolbar');
