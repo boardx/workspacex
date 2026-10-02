@@ -30,6 +30,7 @@ const probe = vi.hoisted(() => ({
   primitiveKinds: [] as string[],
   imageSources: [] as string[],
   imageOptions: [] as Record<string, unknown>[],
+  canvas: null as { _currentTransform: unknown } | null,
 
 }));
 
@@ -78,7 +79,8 @@ vi.mock("fabric", async () => {
   }
   class Canvas {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
-    constructor() { probe.instances += 1; }
+    _currentTransform: unknown = null;
+    constructor() { probe.instances += 1; probe.canvas = this; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
     remove(object: MockProjectedObject) {
       probe.objects.splice(probe.objects.indexOf(object), 1);
@@ -141,6 +143,33 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 describe("BoardFabricSurface", () => {
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
+
+  it.each(["hand", "draw-pen", "erase"] as const)("keeps %s projections noninteractive after canonical updates and additions", tool => {
+    const callbacks = { onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const props = { objects: OBJECTS, selectedObjectIds: [], readOnly: false, tool, viewport: VIEWPORT, ...callbacks };
+    const view = render(<BoardFabricSurface {...props} />);
+    expect(probe.objects.every(item => !item.selectable && !item.evented)).toBe(true);
+    view.rerender(<BoardFabricSurface {...props} objects={[
+      ...OBJECTS.map(item => ({ ...item, revision: item.revision + 1 })),
+      { ...OBJECTS[0]!, id: "remote-sticky" },
+    ]} />);
+    expect(probe.objects).toHaveLength(3);
+    expect(probe.objects.every(item => !item.selectable && !item.evented)).toBe(true);
+    view.rerender(<BoardFabricSurface {...props} tool="select" />);
+    expect(probe.objects.every(item => item.selectable && item.evented)).toBe(true);
+  });
+
+  it("cancels a stale Fabric transform before a hand pan can move its target", () => {
+    const onViewportChange = vi.fn(), onObjectTransform = vi.fn();
+    renderSurface({ tool: "hand", onViewportChange, onObjectTransform });
+    probe.canvas!._currentTransform = { target: probe.objects[0], action: "drag" };
+    probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown", { clientX: 400, clientY: 300 }) });
+    expect(probe.canvas!._currentTransform).toBeNull();
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 510, clientY: 340 }) });
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { clientX: 510, clientY: 340 }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ panX: 110, panY: 40 }), "pan");
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
 
   it("pans with two-finger wheel in select mode and reserves control-wheel for pinch zoom", () => {
     const onViewportChange = vi.fn();
