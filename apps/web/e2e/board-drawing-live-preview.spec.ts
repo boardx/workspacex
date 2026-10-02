@@ -144,7 +144,16 @@ test("Eraser hits only unlocked drawings in one undo step and survives peer relo
     await expect.poll(() => paintedStrokePixels(page)).toBe(0);
     await Promise.all([page.reload(), peer.reload()]);
     for (const tab of [page, peer]) {
-      await expect(tab.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(4);
+      const mirror = tab.getByTestId("board-a11y-mirror");
+      await expect(mirror.locator("li[data-object-id]")).toHaveCount(4);
+      await expect.poll(() => mirror.locator("li[data-object-id]").evaluateAll(rows =>
+        rows.map(row => row.getAttribute("data-object-id")).sort())).toEqual(erased.map(row => row.id).sort());
+      for (const protectedObject of [locked, sticky]) {
+        const row = mirror.locator(`li[data-object-id="${protectedObject.id}"]`);
+        await expect(row).toBeVisible();
+        await expect(row).toHaveAttribute("data-geometry", JSON.stringify(protectedObject.geometry));
+        await expect(row).toHaveAttribute("data-object-text", protectedObject.content.text);
+      }
       await expect(tab.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
       await expect.poll(() => paintedStrokePixels(tab)).toBe(0);
     }
