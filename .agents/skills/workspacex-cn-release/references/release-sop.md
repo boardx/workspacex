@@ -224,6 +224,8 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-21 | `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` | workflow 使用 `sudo -n` 调用精确可信入口；sudoers 漂移立即失败并指向 bootstrap 修复，不再占用 runner 等密码 |
 | 2026-10-01 | `CN_PROMOTION_NOT_READY` | 完整 exact-SHA prepared receipt 在无 environment 的 readiness job 验证；审批后复验失败直接停止，不补 prepare/build；真实 Bash 对 0/1/3/42 退出码的反证覆盖两道门（#4908）。 |
 
+| 2026-10-02 | `RUNTIME_SOURCE_UNSAFE` | 按路径段拒绝 `..`，允许真实 Git 的 `[[...slug]]` 路由；构建前以非特权 `verify-source` 检查冻结源码；构建后 digest/attest 校验不减。真实 Git catchall、symlink、gitlink、字节漂移及 pre-sudo 反证由 runtime identity/gate 测试覆盖（#5037） |
+
 ## 12. 发布后清理
 
 删除临时 Docker credentials、一次性 CMS key、临时 checkout、临时 pnpm wrapper 和失败 build 容器；确认 release lock free、无孤儿、生产容器 restart=0。保留不可变 manifest、receipt、事件时间线、验收证据和回滚基线。敏感文件权限保持 root 0600。
@@ -255,6 +257,5 @@ prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须
 
 治理规则的 bypass_actors 缺失是 NOT_READY，不是零 bypass。GitHub 只向规则写权限调用者显示该字段；若实际 GITHUB_TOKEN 隐藏它，应先审阅受控管理员治理收据适配，不能在普通读 API 返回中推断零绕过或更换高权限 PAT。
 
-| 2026-10-02 | `RUNTIME_SOURCE_UNSAFE` | 按路径段拒绝 `..`，允许真实 Git 的 `[[...slug]]` 路由；构建前以非特权 `verify-source` 检查冻结源码；构建后 digest/attest 校验不减。真实 Git catchall、symlink、gitlink、字节漂移及 pre-sudo 反证由 runtime identity/gate 测试覆盖（#5037） |
 
 本地发布修复验证必须使用候选 checkout 自己的依赖布局：运行 `pnpm install --frozen-lockfile --prefer-offline` 复用 store，再执行验证；若明确只需要静态验证，可加 `--ignore-scripts` 并记录边界。不得将其他 workspace 的 `node_modules` 链入候选，因为 workspace 包可能解析到其他版本的源码；即使 lockfile 相同，也不能用这种结果证明候选通过。PR CI 的冻结安装和 exact head 检查仍是权威。
