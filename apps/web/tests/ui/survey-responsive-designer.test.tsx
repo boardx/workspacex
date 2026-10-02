@@ -1,7 +1,7 @@
 import * as React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { createSurveyQuestion } from "@repo/contracts/survey-question-types";
+import { createSurveyQuestion, SurveyWorkflowQuestionSchema } from "@repo/contracts/survey-question-types";
 import { SurveyQuestionEditor } from "@/components/survey/live/question-editor";
 import { ResponsiveDesignerPanel } from "@/components/survey/live/responsive-designer-panel";
 
@@ -272,6 +272,36 @@ it("clears local undo history when a template replaces the question set", () => 
   fireEvent.click(screen.getByRole("button", { name: "应用外部模板" }));
   expect(screen.getByRole("button", { name: "编辑第 1 题：模板问题" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
+});
+
+
+it("preserves undo and redo through schema-normalized autosave but resets on genuine remote changes", () => {
+  function DesignerWithAutosave() {
+    const [value, setValue] = React.useState([createSurveyQuestion("short", "original", 1)]);
+    return <>
+      <button onClick={() => setValue(current => current.map(question => ({ ...question, title: "真实远端修改" })))}>加载远端更改</button>
+      <SurveyQuestionEditor studioLayout questions={value} onChange={next => setValue(next.map(question => SurveyWorkflowQuestionSchema.parse(question)))} />
+    </>;
+  }
+  render(<DesignerWithAutosave />);
+  fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByText("题目目录 · 1")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "重做最近修改" }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
+  expect(screen.getByText("题目目录 · 3")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "加载远端更改" }));
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeDisabled();
 });
 
 it("preserves manual selection and consecutive edits after a repair target is selected", () => {

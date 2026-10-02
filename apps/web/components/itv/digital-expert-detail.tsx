@@ -1,17 +1,30 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
+import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 import { findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
 import { ExpertAvatarEditor } from "./expert-avatar";
 
 export function DigitalExpertDetail({ expertId }: { expertId: string }) {
-  const expert = findMockDigitalExpert(expertId);
+  const mock = findMockDigitalExpert(expertId);
+  const [published, setPublished] = React.useState<{ id: string; expert: DigitalExpertCatalogRow | null } | null>(null);
+  React.useEffect(() => {
+    if (mock) return;
+    let active = true;
+    void loadDigitalExperts().then(
+      ({ items }) => { if (active) setPublished({ id: expertId, expert: items.find((item) => item.expertId === expertId) ?? null }); },
+      () => { if (active) setPublished({ id: expertId, expert: null }); },
+    );
+    return () => { active = false; };
+  }, [expertId, mock]);
+  const expert = mock ?? (published?.id === expertId ? published.expert : null);
 
   if (!expert) {
     return (
       <main className="flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground">
-        未找到该 Mock 专家。
+        <div className="space-y-4 text-center"><p>{published?.id === expertId ? "该专家不可用或无访问权限。" : "正在加载专家…"}</p><Link href="/itv?tab=experts" className="underline">返回专家列表</Link></div>
       </main>
     );
   }
@@ -33,7 +46,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{expert.displayName}</h1>
-                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">{mock ? "模拟画像" : "组织已发布专家"}</span>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{expert.role}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{expert.location}</p>
