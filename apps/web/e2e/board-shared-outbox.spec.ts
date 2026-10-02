@@ -78,6 +78,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   for(const tab of [page,testPeer]){await expectSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
+  await Promise.all(chunkReads);expect(chunks.some(chunk=>chunk.path.includes('/app/studio/board/'))).toBe(true);
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';
   await testPeer.close();peer=undefined;
  }finally{
