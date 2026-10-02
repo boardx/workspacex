@@ -54,6 +54,7 @@ const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTION_OPTIONS_EMPTY: "选项题必须包含有效选项",
   MAPPING_INCOMPLETE: "报告章节尚未覆盖对应题目",
   LEADING_QUESTION: "题目措辞可能带有诱导性",
+  QUESTION_CONFIG_INVALID: "题目配置不完整或无效",
   LOGIC_INVALID: "条件显示或跳转规则无效",
 };
 function emptyDraft(): SurveyDraftInput {
@@ -519,7 +520,7 @@ export function LiveSurveyWorkspace({
                               onClick={() => {
                                 const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
                                 const targetQuestionId = blocker.side === "question" &&
-                                  (blocker.code === "MAPPING_INCOMPLETE" || blocker.code === "LOGIC_INVALID")
+                                  (blocker.code === "MAPPING_INCOMPLETE" || blocker.code === "LOGIC_INVALID" || blocker.code === "QUESTION_CONFIG_INVALID")
                                   ? blocker.subjectId
                                   : undefined;
                                 selectStep(
