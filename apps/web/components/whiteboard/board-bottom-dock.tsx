@@ -56,6 +56,7 @@ const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ cont
 
 export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
+  const toolDragActive = useRef(false);
   // React portals retain this component ancestry even though their DOM lives
   // outside nav. Do not unmount an extension before its portal receives a click
   // or before Dialog restores focus after Escape.
@@ -76,7 +77,16 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
   const connectorOpen = creationTool?.kind === "connector";
   const panelOpen = creationTool?.kind === "panel";
   return (
-    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className={cn("absolute bottom-5 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2",editing&&"max-sm:hidden")}>
+    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent}
+      onDragStart={(event) => { toolDragActive.current = Boolean(dockRef.current?.contains(event.target as Node) && Array.from(event.dataTransfer.types ?? []).includes("application/x-workspacex-board-tool")); }}
+      onDragEnd={() => {
+        if (!toolDragActive.current) return;
+        toolDragActive.current = false;
+        setPickerOpen(false);
+        onCreationToolChange(null);
+        onToolChange("select");
+      }}
+      aria-label="白板工具" className={cn("absolute bottom-5 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
         <div data-testid="board-tool-picker" style={stickyOpen?{width:420,maxWidth:"calc(100vw - 2rem)",marginInline:"auto"}:undefined} className="mb-4 flex max-h-80 min-w-64 max-w-full flex-wrap items-center justify-center gap-2 overflow-auto rounded-2xl border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
