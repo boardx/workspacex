@@ -26,13 +26,28 @@ export function InlineQuestionText({ value, label, editLabel = label, placeholde
       ref.current?.focus();
       if (multiline && ref.current) {
         ref.current.style.height = "auto";
-        ref.current.style.height = `${ref.current.scrollHeight}px`;
+        ref.current.style.height = `${ref.current.scrollHeight + 2}px`;
       }
     } else if (returnFocus.current) {
       returnFocus.current = false;
       readingRef.current?.focus();
     }
   }, [editing, multiline, value]);
+  React.useLayoutEffect(() => {
+    if (!editing || !multiline || disabled || !ref.current || typeof ResizeObserver === "undefined") return;
+    const field = ref.current;
+    let width = field.getBoundingClientRect().width;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = field.getBoundingClientRect().width;
+      // Height changes also notify the observer; only width changes need resizing.
+      if (nextWidth === width) return;
+      width = nextWidth;
+      field.style.height = "auto";
+      field.style.height = `${field.scrollHeight + 2}px`;
+    });
+    observer.observe(field);
+    return () => observer.disconnect();
+  }, [editing, multiline, disabled]);
   const fieldClass = cn("min-h-9 w-full border-transparent bg-transparent px-2 py-1 shadow-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0", className);
   if (editing && !disabled) {
     const props = {
@@ -48,7 +63,7 @@ export function InlineQuestionText({ value, label, editLabel = label, placeholde
         }
       },
     };
-    return multiline ? <Textarea {...props} /> : <Input {...props} />;
+    return multiline ? <Textarea {...props} rows={1} /> : <Input {...props} />;
   }
   return <button ref={readingRef} type="button" data-survey-inline-edit disabled={disabled} aria-label={editLabel}
     className={cn("min-h-9 w-full whitespace-pre-wrap break-words rounded-control border border-transparent px-2 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", !value && "text-muted-foreground", className)}
