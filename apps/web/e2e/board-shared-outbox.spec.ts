@@ -5,10 +5,9 @@ import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
-import {sharedOutboxPanelCommands} from './support/board-shared-outbox-fixture';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
-// Eight existing panels + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
+// Eight real UI panel creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
@@ -36,17 +35,21 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expectSynced(page);mark('board-opened');
-  const empty=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(empty.manifest.seq).toBe(0);
-  const createdIds=Array.from({length:8},()=>randomUUID());
-  await call('POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:empty.manifest.epoch,commands:sharedOutboxPanelCommands(createdIds)});
-  await expect(objectRows(page)).toHaveCount(8);await expectSynced(page);
-  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.epoch).toBe(empty.manifest.epoch);expect(initial.manifest.seq).toBe(empty.manifest.seq+1);mark('existing-panels-seeded');
+  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   metadata.observe(page,'original');
-  await page.reload();await expectSynced(page);await expect(objectRows(page)).toHaveCount(8);
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
-  await expect(objectRows(page)).toHaveCount(8);
-  mark('panels-rendered');
+  await page.getByTestId('board-add-frame').click();
+  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
+  const createdIds:string[]=[];
+  for(let index=0;index<8;index++){
+   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
+   const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
+   const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);expect(ids).toEqual(expect.arrayContaining(createdIds));createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
+  }
+  await page.getByRole('button',{name:'Close frame tools'}).click();
+  await expect(objectRows(page)).toHaveCount(8);mark('panels-created');
   const panelOutline=objectRows(page).last().getByRole('button');await panelOutline.focus();await panelOutline.press('Enter');
   await page.getByTestId('board-inspector-expand').click();
   const title=page.getByRole('textbox',{name:'区域标题',exact:true});
