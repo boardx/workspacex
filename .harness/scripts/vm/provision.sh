@@ -37,6 +37,7 @@
 #      当次 job 的 PATH，`sudo -u workspacex` 起的新进程看不到。现在 Node/pnpm 装
 #      在系统级路径（NodeSource + corepack），sudo 的默认 secure_path 与 workspacex
 #      的 shell 都能直接解析到。
+set +x
 set -euo pipefail
 
 PUBLIC_DOMAIN=${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN, e.g. devapp.boardx.us}
@@ -229,6 +230,15 @@ else
   echo "${ENV_FILE} 已存在，不覆盖——避免把线上密码换成新值后服务连不上自己的库"
 fi
 
+# Deployment diagnostics use the same scrubber; credentials are read inside the shell.
+# shellcheck disable=SC1090
+source "$APP_DIR/.harness/scripts/vm/deploy-readiness.sh"
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+exec > >(redact_deploy_diagnostics) 2>&1
+
 # 2026-09-06 实测事故：上面那个块**只在 deploy.env 不存在时**跑。于是后来给部署链新增的
 # 每一个必需键（如 `DIAG_DB_PASSWORD`，2026-09-02 随 app_diag_ro 一起加的）在**已经存在
 # deploy.env 的机器上永远不会被补进去**，重跑 provision.sh 也不会——`if [ ! -f ]` 直接跳过。
@@ -401,6 +411,7 @@ step "7. /usr/local/bin/workspacex-deploy（root 拥有的副本，仓库里那�
 install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deploy-readiness.sh" /usr/local/lib/workspacex-deploy-readiness.sh
 install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh" /usr/local/lib/workspacex-deep-agent-lib.sh
 install -o root -g root -m 0755 "${APP_DIR}/.harness/scripts/vm/deploy.sh" /usr/local/bin/workspacex-deploy
+install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/devapp-runtime-identity.mjs" /usr/local/lib/workspacex-devapp-runtime-identity.mjs
 echo "已装 $(sha256sum /usr/local/bin/workspacex-deploy | cut -d' ' -f1)"
 
 # 2026-09-06：上面这三份此前**只有人手动跑本脚本才会更新**——改了 deploy.sh 合入 main

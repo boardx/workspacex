@@ -49,7 +49,7 @@ describe("run trace disclosure", () => {
   });
   it("mounts durable subtask projection only when the journal recorded a dispatch", () => {
     const spawn: ExecutionEvent = { ...base, seq: 1, kind: "tool_start", toolCallId: "tool-sub", toolName: "spawn_async_task", args: { description: "检索资料" } };
-    render(<RunTracePanel runId="run-1" events={[spawn]} />);
+    render(<RunTracePanel runId="run-1" events={[spawn]} running />);
     /*
      * issue #3100 D6 —— 「有子任务在后台跑」这件事**不许**被埋在执行过程的折叠区里。
      * 面板此前挂在 `run-trace-body` 内，而那个区块默认 `hidden`：TW-P0-7③ 要断言的

@@ -3,6 +3,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewRunsStep } from "@/components/itv/interview-runs-step";
 afterEach(cleanup);
+it("keeps report actions above the saved transcript without a second progress hero", () => {
+  render(<InterviewRunsStep runs={[]} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.queryByRole("heading", { name: "开始访谈" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "生成报告" }).closest('[data-testid="itv-step-actions"]')).not.toBeNull();
+});
 it("queued experts are not presented as actively interviewing", () => {
   render(<InterviewRunsStep runs={[{ expertId: "queued-7", displayName: "待访谈专家", status: "pending", completedQuestions: 0, totalQuestions: 1 }]} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByText("等待访谈 · 0/1")).toBeVisible();
@@ -31,7 +37,7 @@ it("left expert cards select the matching summary without requiring the top tabs
 });
 it("progress uses persisted counters while summary retains Markdown attribution", () => {
   render(<InterviewRunsStep runs={[{ expertId: "nurse-7", displayName: "护理模拟角色", status: "running", completedQuestions: 2, totalQuestions: 4 }]} document={{ documentId: "runs-1", step: "runs", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "## 护理模拟角色\n\n> 最近一次交接班遗漏发生在夜班。\n\n来源：[问题七](#question-q7)" }} pending={false} onGenerateReport={vi.fn()} />);
-  expect(screen.getByRole("progressbar", { name: "访谈整体进度" })).toHaveAttribute("aria-valuenow", "50");
+  expect(screen.getByText("已保存回答 2/4")).toBeVisible();
   expect(screen.getByText("最近一次交接班遗漏发生在夜班。")).toBeVisible();
   expect(screen.getByRole("link", { name: "问题七" })).toHaveAttribute("href", "#question-q7");
   expect(screen.getByRole("button", { name: "生成报告" })).toBeDisabled();
@@ -44,7 +50,7 @@ it("execution task progress counts experts and distinguishes each persisted stat
     { expertId: "failed", displayName: "失败专家", status: "failed", completedQuestions: 0, totalQuestions: 1 },
   ]} taskProgress pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByText(/^已完成专家 1\/4/u)).toBeVisible();
-  expect(screen.getByRole("progressbar", { name: "访谈整体进度" })).toHaveAttribute("aria-valuenow", "25");
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.getByText("进行中 1")).toBeVisible();
   expect(screen.getByText("等待访谈 1")).toBeVisible();
   expect(screen.getByText("执行失败 1")).toBeVisible();

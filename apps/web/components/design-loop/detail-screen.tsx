@@ -50,7 +50,7 @@ import {
   type ProjectTemplate,
   type DesignShareScope,
 } from "@/lib/live-design-workbench";
-import { designWorkbench } from "@repo/contracts";
+import { designHtmlPage, designWorkbench } from "@repo/contracts";
 import { describeFailure } from "@/lib/design-failure";
 import { humanTime } from "@/lib/human-time";
 
@@ -182,7 +182,16 @@ export function DesignDetailScreen({
   /** 迭代 9：最近一轮模型给的下一步建议（`reply.suggestions`），挂在最后一条 AI 气泡下，点一下即发。 */
   const [suggestions, setSuggestions] = React.useState<readonly string[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedIdRaw] = React.useState<string | null>(null);
+  /**
+   * HTML 页里选中的**元素**（`data-ref`）。换选中节点就清掉它——所以 `setSelectedId` 是个包装：
+   * 画布先调 `onSelect(节点)`（清旧元素）、再调 `onSelectRef(元素)`（设新元素），顺序就是语义。
+   */
+  const [selectedRef, setSelectedRef] = React.useState<string | null>(null);
+  const setSelectedId = React.useCallback((id: string | null | ((prev: string | null) => string | null)) => {
+    setSelectedIdRaw(id);
+    setSelectedRef(null);
+  }, []);
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** 深度 S6：右栏的「代码」面板。 */
@@ -346,6 +355,21 @@ export function DesignDetailScreen({
     () => (project !== null && selectedId !== null && canvasMode !== "preview" ? findPrototypeNodePath(project.prototype, selectedId) : null),
     [project, selectedId, canvasMode],
   );
+  /** 选中的节点是 HTML 页 ⇒ 它的 HTML（焦点 chip 要说「针对的是哪个元素」，发消息要不要带元素编号也看它）。 */
+  const focusedHtml = React.useMemo(() => {
+    const n = focus?.path[focus.path.length - 1];
+    return n !== undefined && n.type === "html" ? n.props.html : null;
+  }, [focus]);
+  // Element refs are positional: any HTML writeback can renumber them. Require a
+  // fresh click after a page changes rather than silently targeting a different element.
+  const previousHtmlFocus = React.useRef<{ id: string | null; html: string | null } | null>(null);
+  React.useEffect(() => {
+    const previous = previousHtmlFocus.current;
+    if (previous !== null && previous.id === selectedId && previous.html !== null && focusedHtml !== null && previous.html !== focusedHtml) {
+      setSelectedRef(null);
+    }
+    previousHtmlFocus.current = { id: selectedId, html: focusedHtml };
+  }, [focusedHtml, selectedId]);
   /** 迭代 11：每页出发的跳转表（服务端接线前可能没有 ⇒ 空）。 */
   // 预览旧版本时不画连线：版本快照里还没有 links（存储形状是 delta §5 要人类拍板的取舍 ②）。
   const frameLinks = React.useMemo(() => (preview === null ? project?.frameLinks : undefined) ?? [], [preview, project]);
@@ -731,6 +755,8 @@ export function DesignDetailScreen({
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
         project.refImages.map((r) => r.id),
         maxScreens,
+        // HTML 页里选中了元素 ⇒ 随消息发它的编号，服务端只改这一个元素（选中整页 ⇒ 不带）。
+        focus !== null && canvasMode === "edit" && focusedHtml !== null && selectedRef !== null ? selectedRef : undefined,
       );
       stopPoll();
       /*
@@ -971,7 +997,7 @@ export function DesignDetailScreen({
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
               <Crosshair aria-hidden className="h-3 w-3 text-primary" />
               <span className="truncate">
-                针对：<span className="text-background-foreground">{prototypeNodeLabel(focus.path[focus.path.length - 1]!)}</span>
+                针对：<span className="text-background-foreground" data-testid="design-detail-focus-label">{(focusedHtml !== null && selectedRef !== null ? designHtmlPage.describeHtmlPageElement(focusedHtml, selectedRef) : null) ?? prototypeNodeLabel(focus.path[focus.path.length - 1]!)}</span>
                 <span className="ml-1 text-10">（{project.frames[focus.frameIndex]} › {focus.path.slice(0, -1).map(prototypeNodeLabel).join(" › ") || "根"}）</span>
               </span>
               <button type="button" onClick={() => setSelectedId(null)} aria-label="取消针对" className="ml-auto rounded-control p-0.5 transition-colors duration-fast hover:bg-card" data-testid="design-detail-focus-clear">
@@ -1203,6 +1229,8 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      selectedRef={selectedRef}
+                      onSelectRef={preview === null ? setSelectedRef : null}
                       onInlineEdit={preview === null && canvasMode === "edit" ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
@@ -1241,6 +1269,8 @@ export function DesignDetailScreen({
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      selectedRef={selectedRef}
+                      onSelectRef={preview === null ? setSelectedRef : null}
                       onInlineEdit={preview === null && canvasMode === "edit" ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}

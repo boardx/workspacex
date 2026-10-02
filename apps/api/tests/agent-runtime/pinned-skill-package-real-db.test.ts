@@ -68,6 +68,20 @@ describe("WX-E004 immutable complete packages", () => {
   it("does not read another organization's version or unpublished draft, even when explicitly pinned", async () => {
     expect(await repo.readPinnedSkills(toOrgId(org), [version("other"), version("draft")])).toEqual([]);
   });
+  it("#2529: disabled executable content is unavailable for every pinned snapshot and re-enabling restores it", async () => {
+    const skill = `skill-e004-revocation-${suffix}`;
+    const pinnedVersion = version("revocation");
+    await seed(org, skill, pinnedVersion);
+    expect((await repo.readPinnedSkills(toOrgId(org), [pinnedVersion])).map(s => s.versionId))
+      .toEqual([pinnedVersion]);
+    await asApp(org, c => c.query("UPDATE skills SET status='disabled' WHERE org_id=$1 AND id=$2", [org, skill]));
+    // All sources (agent pins, mounted versions, enabled defaults) converge on this
+    // executable-content reader. Preserve the snapshot ID; return no disabled body.
+    expect(await repo.readPinnedSkills(toOrgId(org), [pinnedVersion])).toEqual([]);
+    await asApp(org, c => c.query("UPDATE skills SET status='enabled' WHERE org_id=$1 AND id=$2", [org, skill]));
+    expect((await repo.readPinnedSkills(toOrgId(org), [pinnedVersion]))[0]?.content)
+      .toBe(files[0]!.content.toString("utf8"));
+  });
   it("rejects corrupt persisted bytes instead of advertising a complete verified package", async () => {
     await expect(repo.readPinnedSkills(toOrgId(org), [version("corrupt")])).rejects.toThrow("integrity mismatch");
   });

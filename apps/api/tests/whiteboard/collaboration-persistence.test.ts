@@ -45,6 +45,55 @@ describe('whiteboard collaboration durable transactions', () => {
     } finally { await fresh.close(); }
     await expect(store.writeCommands(owner, board.id, { ...input, commands: [command('b')] })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
   });
+  it('#4197: only the authenticated deleting actor restores the durable original identity', async () => {
+    const board = await createBoard();
+    await repo.putMember(owner, board.id, { userId: editor.userId, role: 'editor' });
+    await store.writeCommands(owner, board.id, { epoch: 1, requestId: randomUUID(), commands: [command('own-delete')] });
+    const deleted = randomUUID();
+    await store.writeCommands(owner, board.id, { epoch: 1, requestId: deleted, commands: [{type:'delete', id:'own-delete'}] });
+    const input = {epoch:1, updateId:randomUUID(), gestureId:randomUUID(), deleteGestureId:deleted, objectIds:['own-delete']};
+    await expect(store.restoreDeletion(editor, board.id, input)).rejects.toMatchObject({code:'FORBIDDEN'});
+    await expect(store.restoreDeletion(outsider, board.id, input)).rejects.toMatchObject({code:'NOT_FOUND'});
+    const receipt = await db.withTenant(orgId, s => s.query<{actor_id:string;restored_update_id:string|null}>(
+      'SELECT actor_id, restored_update_id FROM whiteboard_deletion_receipts WHERE org_id=$1 AND board_id=$2 AND delete_gesture_id=$3', [orgId,board.id,deleted]));
+    expect(receipt.rows).toEqual([{actor_id:owner.userId,restored_update_id:null}]);
+    const load = await store.load(owner, board.id), hostile = createWhiteboardDocument();
+    Y.applyUpdate(hostile, load.update);
+    const vector = Y.encodeStateVector(hostile);
+    hostile.getMap('deletedObjects').delete('own-delete');
+    const raw = randomUUID();
+    await expect(store.append(owner, board.id, {epoch:1,updateId:raw,gestureId:raw,update:Y.encodeStateAsUpdate(hostile,vector)})).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+    hostile.destroy();
+    expect((await store.load(owner,board.id)).seq).toBe(2);
+    const ack = await store.restoreDeletion(owner, board.id, input);
+    expect(ack).toMatchObject({seq:3,replayed:false});
+    expect(await store.restoreDeletion(owner,board.id,input)).toMatchObject({seq:3,replayed:true});
+    const fresh = new PgDatabase(appConfig()), doc = createWhiteboardDocument();
+    try {
+      const recovered = await new PgWhiteboardCollaborationStore(fresh,new WorkerWhiteboardUpdateValidator(),120,objects).load(owner,board.id);
+      Y.applyUpdate(doc,recovered.update);
+      expect(readObjects(doc).map(o=>o.id)).toEqual(['own-delete']);
+      expect(recovered.seq).toBe(3);
+    } finally {doc.destroy();await fresh.close();}
+  });
+  it('#4197: a winning concurrent delete invalidates the original actor receipt', async () => {
+    const board = await createBoard();
+    await repo.putMember(owner,board.id,{userId:editor.userId,role:'editor'});
+    await store.writeCommands(owner,board.id,{epoch:1,requestId:randomUUID(),commands:[command('race')]});
+    const base=await store.load(owner,board.id), peer=createWhiteboardDocument();
+    Y.applyUpdate(peer,base.update);
+    peer.clientID=0xffffffff;
+    const vector=Y.encodeStateVector(peer);
+    peer.getMap('deletedObjects').set('race',true);
+    const deleted=randomUUID();
+    await store.writeCommands(owner,board.id,{epoch:1,requestId:deleted,commands:[{type:'delete',id:'race'}]});
+    const competing=randomUUID();
+    await store.append(editor,board.id,{epoch:1,updateId:competing,gestureId:competing,update:Y.encodeStateAsUpdate(peer,vector)});
+    peer.destroy();
+    await expect(store.restoreDeletion(owner,board.id,{epoch:1,updateId:randomUUID(),gestureId:randomUUID(),deleteGestureId:deleted,objectIds:['race']})).rejects.toMatchObject({code:'VALIDATION_FAILED'});
+    const persisted=await store.load(owner,board.id),doc=createWhiteboardDocument();
+    try {Y.applyUpdate(doc,persisted.update);expect(readObjects(doc)).toEqual([]);expect(persisted.seq).toBe(3);}finally{doc.destroy();}
+  });
   it('merges offline concurrent updates and state-vector reads', async () => {
     const board = await createBoard(); await store.writeCommands(owner, board.id, { epoch: 1, requestId: randomUUID(), commands: [command('n')] });
     const loaded = await store.load(owner, board.id), a = createWhiteboardDocument(), b = createWhiteboardDocument();

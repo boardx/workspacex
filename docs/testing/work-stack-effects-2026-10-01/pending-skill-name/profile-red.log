@@ -1,0 +1,59 @@
+
+ RUN  v2.1.9 /workspace/pending-skill-name-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/agent/list-agent-directory.test.ts (18 tests | 1 failed) 39ms
+   × legacy frozen pending IDs receive exact authored titles in the read projection only 23ms
+     → expected [ { stableId: 'S061', …(4) }, …(2) ] to deeply equal [ { stableId: 'S061', …(4) }, …(2) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent/list-agent-directory.test.ts > legacy frozen pending IDs receive exact authored titles in the read projection only
+AssertionError: expected [ { stableId: 'S061', …(4) }, …(2) ] to deeply equal [ { stableId: 'S061', …(4) }, …(2) ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+      "contentDigest": "216b22fa7cfe08cfaa912dadc810dc88918f96c2c394cc02c7d9b26dc2dfbe4f",
+-     "displayName": "产品探索（S061）",
++     "displayName": "S061",
+      "reason": "awaiting_verification",
+      "stableId": "S061",
+      "stableName": "product-discovery",
+    },
+    Object {
+      "contentDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "displayName": "S061",
+      "reason": "awaiting_verification",
+      "stableId": "S061",
+      "stableName": "product-discovery",
+    },
+    Object {
+      "contentDigest": "216b22fa7cfe08cfaa912dadc810dc88918f96c2c394cc02c7d9b26dc2dfbe4f",
+      "displayName": "真实中文名称",
+      "reason": "awaiting_verification",
+      "stableId": "S061",
+      "stableName": "product-discovery",
+    },
+  ]
+
+ ❯ tests/agent/list-agent-directory.test.ts:211:40
+    209|   const original = [binding, drifted, named];
+    210|   const profile = await getAgentDirectoryProfile({ orgId: ORG, actorId…
+    211|   expect(profile.pendingSkillBindings).toEqual([{ ...binding, displayN…
+       |                                        ^
+    212|   expect(original[0]!.displayName).toBe("S061");
+    213|   expect(profile.pinnedSkills).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 passed (18)
+   Start at  11:55:39
+   Duration  6.41s (transform 4.14s, setup 0ms, collect 4.51s, tests 39ms, environment 0ms, prepare 114ms)
+
+undefined
+/workspace/pending-skill-name-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent/list-agent-directory.test.ts

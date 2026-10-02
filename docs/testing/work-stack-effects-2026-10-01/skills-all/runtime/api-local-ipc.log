@@ -1,0 +1,23 @@
+
+ RUN  v2.1.9 /workspace/skills-all-runtime/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (15 tests) 39ms
+ ✓ tests/work-eval/eval-runner.test.ts (19 tests) 16959ms
+   ✓ harness eval runner (EV02) > refuses changed grader bytes in the same process instead of reusing its cached module 8616ms
+   ✓ harness eval runner (EV02) > EV01 validate-work-eval-suite still fails on a missing fixture (eval's E2 downgrade does not hide it) 392ms
+   ✓ harness eval runner (EV02) > UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported 2466ms
+   ✓ harness eval runner (EV02) > CLI: `harness eval --entity S003` prints a summary and exits 0; broken suite exits 2 4529ms
+ ✓ tests/work-eval/gates-counterproof.test.ts (19 tests) 1107ms
+ ✓ tests/work-eval/gates-g0-g4.test.ts (12 tests) 8839ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 8315ms
+ ✓ tests/work-eval/s003-suite-shape.test.ts (7 tests) 1803ms
+   ✓ evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 1610ms
+ ✓ tests/agent-run/runtime-profile-continuation.test.ts (6 tests) 20ms
+ ✓ tests/work-eval/eval-report-baseline.test.ts (4 tests) 105ms
+ ✓ tests/chat/agent-default-skill-loading.test.ts (9 tests) 11ms
+
+ Test Files  8 passed (8)
+      Tests  91 passed (91)
+   Start at  11:57:15
+   Duration  42.33s (transform 4.57s, setup 0ms, collect 10.48s, tests 28.88s, environment 2ms, prepare 689ms)

@@ -402,16 +402,19 @@ async function mutateExisting(
     orgId: input.orgId,
     type: CHAT_LIFECYCLE_AUDIT_TYPE.delete,
     actorId: input.userId,
-    // ⚠ 线程行马上就没了，而事件仍指向它——这正是删除追溯要的：
-    //   `provenance_events` 与 `chat_threads` 之间没有外键，事件不随对象消失。
+    // The lifecycle removal is audited for both physical deletion and read-only
+    // retention. Never claim that retained execution/billing history was erased.
     target: { kind: "thread", id: threadId },
-    detail: { projectId: realProjectId, reason: input.reason, messageCount, expectedVersion },
+    detail: { projectId: realProjectId, reason: input.reason, messageCount, expectedVersion,
+      ...(deleted.retained ? { retention: "agent-history", retainedVersion: deleted.version } : {}) },
   });
   return {
     threadId,
-    version: expectedVersion,
+    version: deleted.version ?? expectedVersion,
     auditEventId,
-    impactScope: `${messageCount} 条消息随线程删除`,
+    impactScope: deleted.retained
+      ? `${messageCount} 条消息已从活动会话移除；Agent 执行与计量历史保留，会话归档只读`
+      : `${messageCount} 条消息随线程删除`,
   };
 }
 

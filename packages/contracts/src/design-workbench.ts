@@ -1097,6 +1097,8 @@ export const operations = {
         refImageIds: z.array(z.string()).max(PROTOTYPE_MAX_REF_IMAGES).optional(),
         /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
         focusNodeId: PrototypeNodeId.optional(),
+        /** HTML 页里选中的**元素**编号（清洗时补的 `data-ref`，见 `design-html-page.ts`）。只在 `focusNodeId` 是 html 页时有意义：模型只改这一个元素。 */
+        focusRef: z.string().regex(/^r\d{1,5}$/).optional(),
         /**
          * 迭代 20：**这一轮最多画几页**。
          *

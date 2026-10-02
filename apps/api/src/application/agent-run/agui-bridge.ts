@@ -82,7 +82,7 @@ import type { ProvenanceWriter } from "../provenance/ports";
 import type { IdFactory } from "../artifact/ports";
 import {
   acceptHumanMessage, listMessagePage,
-  AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
+  AgentSkillScopeViolationError, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
 } from "../chat/message-roundtrip";
 import type {
@@ -104,7 +104,7 @@ import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
 // `acceptHumanMessage`，缺这三个字段编译期就会红——不是运行时才发现漏注入。
 import type { GenerateThreadTitleDeps } from "../chat/generate-thread-title";
 
-export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
+export { AgentSkillScopeViolationError, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
   AgentRunNotVisibleError,
   TitleInvalidError, AgentRunNotAwaitingToolPermissionError, type DecideAgentRunDeps };
@@ -129,6 +129,7 @@ export interface AguiBridgeDeps extends GenerateThreadTitleDeps {
 }
 
 export interface AguiBridgeInput {
+  readonly explicitAgent?: boolean;
   readonly userId: string;
   readonly orgId: OrgId;
   readonly agentId: string;
@@ -324,6 +325,7 @@ async function pollAguiRunToOutcome(
   const maxPolls = input.maxPolls ?? resolveRunMaxPolls(pollIntervalMs);
   let lastSeenDeltaSeq = input.initialLastSeenDeltaSeq ?? -1;
   let reportedStepCount = input.initialReportedStepCount ?? 0;
+  const reportedPlanStatuses = new Map<number, RunStepPublic["status"]>();
   let lastExecutionSeq = input.initialExecutionSeq ?? -1;
   let reportedRunning = false;
   let reportedContextBuilt = false;
@@ -374,8 +376,19 @@ async function pollAguiRunToOutcome(
       // `step.status === "in_progress"` alone conflates a real interrupt with an ordinary
       // multi-step tool call's own "announced, still executing" progress frame.
       const isPendingApproval = projection.status === "awaiting_tool_permission";
-      for (const step of projection.steps.slice(reportedStepCount)) {
-        if (step.kind === "tool_call") input.onStep(step, isPendingApproval);
+      for (const [index, step] of projection.steps.entries()) {
+        if (step.kind !== "tool_call") continue;
+        // readRun folds a call's append-only progress/completion rows at the
+        // original position. Its completion may not increase the array length.
+        // Journal transport already owns tool envelopes; refresh only its plan
+        // producer, once, so the relay can pair the real result with real todos.
+        const journalPlan = deps.runs.readExecutionEvents !== undefined && step.toolName === "write_todos";
+        const planCompleted = journalPlan && reportedPlanStatuses.get(index) === "in_progress"
+          && step.status !== "in_progress";
+        if (index >= reportedStepCount || planCompleted) {
+          input.onStep(step, isPendingApproval);
+          if (journalPlan) reportedPlanStatuses.set(index, step.status);
+        }
       }
       reportedStepCount = projection.steps.length;
     }
@@ -442,7 +455,7 @@ export async function runAguiBridgeTurn(
 
   const accepted = await acceptHumanMessage(deps, {
     userId: input.userId, orgId: input.orgId, threadId,
-    clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId,
+    clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId, explicitAgent: input.explicitAgent,
     attachmentIds: input.attachmentIds,
     onAccepted: () => deps.executor.kick(input.orgId),
   });

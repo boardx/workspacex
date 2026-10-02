@@ -103,9 +103,24 @@ ensure_reviewed_websocket_caddy_routes() {
 }
 
 redact_deploy_diagnostics() {
-  sed -E \
-    -e 's/(AUTHORIZATION|Authorization|authorization|TOKEN|Token|token|PASSWORD|Password|password|COOKIE|Cookie|cookie)=[^[:space:]]+/\1=<redacted>/g' \
-    -e 's/([Bb]earer)[[:space:]]+[^[:space:]]+/\1 <redacted>/g'
+  local repo=${APP_DIR:-/opt/workspacex/app}
+  local scrubber="$repo/apps/web/e2e/support/real-model-evidence.ts"
+  local loader="$repo/node_modules/tsx/dist/loader.mjs"
+  # Reuse the existing shape + exact-environment-value scrubber. Never dump
+  # secrets when bootstrap dependencies are absent: consume and suppress instead.
+  if [[ ! -r "$scrubber" || ! -r "$loader" ]]; then
+    cat >/dev/null
+    printf '%s\n' '<redacted> diagnostics suppressed: shared scrubber unavailable'
+    return 0
+  fi
+  WORKSPACEX_DEPLOY_SCRUBBER="$scrubber" node --import "$loader" --input-type=module -e '
+    import { pathToFileURL } from "node:url";
+    import { createInterface } from "node:readline";
+    const { scrubSecrets } = await import(pathToFileURL(process.env.WORKSPACEX_DEPLOY_SCRUBBER).href);
+    for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
+      console.log(scrubSecrets(line).replaceAll("<REDACTED>", "<redacted>"));
+    }
+  ' 2>/dev/null
 }
 
 print_deploy_diagnostics() {

@@ -620,6 +620,13 @@ export default {
       { source: `${prefix}/billing/webhooks/wechat`, destination: `${apiOrigin}/billing/webhooks/wechat` },
       { source: `${prefix}/billing/webhooks/stripe`, destination: `${apiOrigin}/billing/webhooks/stripe` },
     ];
-    return { beforeFiles: chatV2BranchRewrites, afterFiles };
+    // #930: the static /projects page wins before afterFiles. API callers send
+    // Accept: application/json; browser navigation and RSC requests must keep the page.
+    const projectsApiRewrites = prefix === "" ? [{
+      source: "/projects",
+      has: [{ type: "header", key: "accept", value: "application/json" }],
+      destination: `${apiOrigin}/projects`,
+    }] : [];
+    return { beforeFiles: [...chatV2BranchRewrites, ...projectsApiRewrites], afterFiles };
   },
 };

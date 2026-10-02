@@ -30,9 +30,12 @@ const skillGroupLabels: Record<string, (count: number) => string> = {
 function groupLabel(stage: string, count: number): string {
   return skillGroupLabels[stage]?.(count) ?? `${skillStageLabels[stage] ?? "技能活动"} · ${count} 项`;
 }
-function eventLabel(entry: TraceEntry): string {
-  if (entry.activityStage) return `${skillStageLabels[entry.activityStage] ?? "技能活动"} · ${entry.text}`;
-  if (entry.kind === "skill") return `${entry.status === "failed" ? "技能调用失败" : entry.status === "running" ? "正在调用技能" : "已调用技能"} · ${entry.text}`;
+function runningStatusLabel(active: boolean, skill = false): string {
+  return active ? (skill ? "正在调用技能" : "正在执行") : "未收到完成状态";
+}
+function eventLabel(entry: TraceEntry, active: boolean): string {
+  if (entry.activityStage) return `${entry.status === "running" && !active ? runningStatusLabel(active) : skillStageLabels[entry.activityStage] ?? "技能活动"} · ${entry.text}`;
+  if (entry.kind === "skill") return `${entry.status === "failed" ? "技能调用失败" : entry.status === "running" ? runningStatusLabel(active, true) : "已调用技能"} · ${entry.text}`;
   /**
    * issue #3316 ② —— 这一行**必须说出调用的是哪件工具**。
    *
@@ -54,7 +57,7 @@ function eventLabel(entry: TraceEntry): string {
    * 展开层。`toolObject`（`lib/chat-workbench/tool-label`，与工具卡共用的那一份）把它
    * 抽成一句人话接在后面；认不出参数时返回 `null`，这一行就退回原来的样子，**不编**。
    */
-  const verb = `${entry.status === "failed" ? "执行失败" : entry.status === "running" ? "正在执行" : "已执行"} · ${toolLabel(entry.text)}`;
+  const verb = `${entry.status === "failed" ? "执行失败" : entry.status === "running" ? runningStatusLabel(active) : "已执行"} · ${toolLabel(entry.text)}`;
   const object = toolObject(entry.text, entry.args);
   return object === null ? verb : `${verb} · ${object}`;
 }
@@ -248,8 +251,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
                   {entry.kind === "skill" ? <Sparkles aria-hidden className="h-3.5 w-3.5" /> : <Wrench aria-hidden className="h-3.5 w-3.5" />}
-                  <span data-testid="chat-task-workbench-event-row">{eventLabel(entry)}</span>
-                  {entry.status === "observed" ? <Circle data-testid="run-trace-entry-status-icon" aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 data-testid="run-trace-entry-status-icon" aria-label={active ? "执行中" : "未收到完成状态"} className={active ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle data-testid="run-trace-entry-status-icon" aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check data-testid="run-trace-entry-status-icon" aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
+                  <span data-testid="chat-task-workbench-event-row">{eventLabel(entry, active)}</span>
+                  {entry.status === "observed" ? <Circle data-testid="run-trace-entry-status-icon" aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 data-testid="run-trace-entry-status-icon" aria-label={runningStatusLabel(active)} className={active ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle data-testid="run-trace-entry-status-icon" aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check data-testid="run-trace-entry-status-icon" aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
                 </span>
                 {/* issue #3322 —— 最近一条工具内进展，画在**折叠行上**。
                     用户的原话是「等了很久没有任何的细节」；把细节藏在 <details> 里等人
@@ -300,7 +303,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                           onClick={() => {
                             requestOpenInRightPanel({
                               id: entry.id,
-                              title: eventLabel(entry),
+                              title: eventLabel(entry, active),
                               text: entry.result as string,
                               url: toolUrl(entry.args),
                             });

@@ -7,6 +7,19 @@ const state = { sessionId: "s", version: 2, revision: 1, currentNode: "report", 
   sources: [{ content: "PRIVATE SOURCE".repeat(10000) }], messages: [{ text: "private" }], reportPrevious: { text: "history" },
 } as unknown as ResearchRuntime;
 describe("bounded report progress projection", () => {
+  it("returns changed research source metadata without excerpts or fetched document bodies", () => {
+    const research = { ...state, currentNode: "research" as const, reportStream: null,
+      tasks: [{ id: "t", sectionId: "o", query: "policy", status: "failed" as const, attempts: 1, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }],
+      sources: [{ id: "src", taskId: "t", title: "Official policy", url: "https://example.org/policy", retrievedAt: "now", decision: "accepted" as const, content: "PRIVATE EXCERPT".repeat(1000), document: { text: "PRIVATE DOCUMENT".repeat(1000) } }],
+    } as unknown as ResearchRuntime;
+    const first = runtimeProgress(research);
+    expect(first.research?.sources?.[0]?.title).toBe("Official policy");
+    expect(first.research?.tasks[0]?.errorCode).toBe("RESEARCH_SEARCH_UNAVAILABLE");
+    expect(JSON.stringify(first)).not.toContain("PRIVATE");
+    expect(JSON.stringify(first).length).toBeLessThan(2000);
+    const unchanged = runtimeProgress(research, undefined, 0, undefined, first.research?.cursor);
+    expect(unchanged.research?.sources).toBeUndefined();
+  });
   it("sends only missing text and excludes source, message and history bodies", () => {
     const result = runtimeProgress(state, "r", 3, createHash("sha256").update("第一章").digest("hex"));
     expect(result.stream).toMatchObject({ offset: 3, delta: "第二章", sequence: 3 });
