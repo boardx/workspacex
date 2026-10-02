@@ -22,9 +22,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Verify isolated import credential boundaries
+        run: node --test scripts/tests/studio-skill-files-credentials.test.mjs
       - name: Run isolated real import, save and pin recovery
         env:
           TMPDIR: ${{ runner.temp }}
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts
       - name: Retain structured browser evidence
         if: always()
