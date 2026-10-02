@@ -403,7 +403,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           await expect(button).toBeVisible(); const target = await button.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
-        await expect(page.getByTestId("board-add-frame")).toHaveCount(0);
+        await expect(page.getByTestId("board-add-frame")).toHaveCount(0); // testid-gate: absent Frame creation stays hidden in the approved core-tool scope
         const handles = page.locator(`[data-testid^="connector-handle-${object.id}-"]`);
         await expect(handles).toHaveCount(4);
         for (const handle of await handles.all()) {
@@ -418,7 +418,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
         await outline.focus(); await outline.press("Enter");
         await page.getByLabel("对象文字", { exact: true }).press("Escape");
         await expect(handles).toHaveCount(4);
-        await expect(page.getByTestId("board-add-frame")).toHaveCount(0);
+        await expect(page.getByTestId("board-add-frame")).toHaveCount(0); // testid-gate: absent Frame creation stays hidden after Connector cancellation
         await expect.poll(() => geometry(second)).toBe(original);
         await testInfo.attach(`${viewport.width}x${viewport.height}-${kind}-selected`, { path: screenshotPath, contentType: "image/png" });
       }

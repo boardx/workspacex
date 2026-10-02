@@ -15,7 +15,7 @@ export async function verifyEditorConnectorEntry(page: Page, boardId: string, ca
     return { head, objects };
   };
   const before = await state();
-  await expect(page.getByTestId("board-add-frame")).toHaveCount(0);
+  await expect(page.getByTestId("board-add-frame")).toHaveCount(0); // testid-gate: absent Frame creation remains outside the approved core-tool scope
   const button = page.getByTestId("board-add-connector");
   await expect(button).toBeVisible(); await expect(button).toBeEnabled();
   await button.click();
@@ -30,6 +30,6 @@ export async function verifyEditorConnectorEntry(page: Page, boardId: string, ca
   await expect(page.getByTestId("board-connector-picker")).toHaveCount(0);
   await page.getByTestId("board-tool-select").click();
   await expect(page.getByTestId("board-tool-select")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("board-add-frame")).toHaveCount(0);
+  await expect(page.getByTestId("board-add-frame")).toHaveCount(0); // testid-gate: absent Frame creation remains hidden after returning to Select
   expect(await state()).toEqual(before);
 }
