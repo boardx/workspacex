@@ -41,7 +41,8 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   if(phase==='pending'){await expect(status).not.toHaveAttribute('aria-label',/^已同步/);await expect(status.locator('svg')).toHaveClass(/lucide-loader-circle/);const animation=await status.locator('svg').evaluate(element=>{const style=getComputedStyle(element);return {name:style.animationName,state:style.animationPlayState,duration:style.animationDuration};});expect(animation.name).not.toBe('none');expect(animation.state).toBe('running');expect(parseFloat(animation.duration)).toBeGreaterThan(0);}
   const bounds=await status.locator('svg').boundingBox(),viewport=page.viewportSize()!;expect(bounds).not.toBeNull();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.y).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(viewport.width);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(64);
-  await info.attach(`${name}-${viewport.width}`,{body:await page.screenshot(),contentType:'image/png'});
+  const path=info.outputPath(`${name}-${viewport.width}.png`);await page.screenshot({path});
+  await info.attach(`${name}-${viewport.width}`,{path,contentType:'image/png'});
  };
  const edit=async(page:Page,id:string,text:string)=>{const outline=page.getByTestId(`board-a11y-object-${id}`);await outline.focus();await outline.press('Enter');const editor=page.getByRole('textbox',{name:'对象文字',exact:true});await expect(editor).toBeVisible();await editor.fill(text);await editor.press('ControlOrMeta+Enter');await expect(editor).toHaveCount(0);};
  try{

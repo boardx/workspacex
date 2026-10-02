@@ -54,6 +54,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   expect(receipt.boardSha256).toBe(sha256(boardId));expect(receipt.complete).toBe(true);expect(receipt.dropped).toBe(0);
   return receipt;
  };
+ const saveScreenshot=async(page:Page,label:string)=>{const name=`${label}-${page.viewportSize()!.width}`,path=info.outputPath(`${name}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});};
  const cloudProof=async(phase:'synced'|'offline',label:string)=>{
   const status=peer.getByTestId('board-sync-status'),icon=status.locator('svg'),viewport=peer.viewportSize();expect(viewport).not.toBeNull();
   await expect(status).toHaveAttribute('data-sync-phase',phase);await expect(icon).toHaveCount(1);await expect(icon).toBeVisible();
@@ -61,7 +62,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   const bounds=await icon.boundingBox();expect(bounds).not.toBeNull();expect(bounds!.width).toBeGreaterThanOrEqual(19);expect(bounds!.height).toBeGreaterThanOrEqual(19);
   expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.y).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(viewport!.width);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(64);
   await expect(peer.getByTestId('board-sync-banner')).toHaveCount(0); // testid-gate: absent Legacy sync banner was removed.
-  await info.attach(`${label}-${viewport!.width}`,{body:await status.screenshot(),contentType:'image/png'});
+  await saveScreenshot(peer,label);
  };
  try{
   const login=origin.waitForResponse(response=>new URL(response.url()).pathname==='/auth/login'&&response.request().method()==='POST');
@@ -109,7 +110,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   const pendingIds=await durableIds(peer,boardId);expect(new Set(pendingIds).size).toBe(2);expect(pendingIds.every(id=>/^[0-9a-f-]{36}$/i.test(id))).toBe(true);
   const expected=await canonicalRows(origin);expect(expected).toHaveLength(1);
   expect(transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toEqual([]);
-  await info.attach('origin-offline-two-receipts',{body:await origin.screenshot(),contentType:'image/png'});
+  await saveScreenshot(origin,'origin-offline-two-receipts');
   await origin.close();expect(origin.isClosed()).toBe(true);expect(peer.isClosed()).toBe(false);expect(await durableIds(peer,boardId)).toEqual(pendingIds);
   const started=performance.now(),remaining=()=>{const budget=45_000-(performance.now()-started);expect(budget).toBeGreaterThan(0);return budget;};
   await context.setOffline(false);
@@ -126,7 +127,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   await expect.poll(()=>durableIds(peer,boardId),{timeout:remaining()}).toEqual([]);
   expect(performance.now()-started).toBeLessThanOrEqual(45_000);
   observations.push({phase:'same-profile-takeover',before:before.revision,after:after.revision,pendingIds,elapsedMs:performance.now()-started,rowsSha256:sha256(JSON.stringify(expected))});
-  await info.attach('peer-recovered-without-reload',{body:await peer.screenshot(),contentType:'image/png'});
+  await saveScreenshot(peer,'peer-recovered-without-reload');
   await cloudProof('synced','cloud-recovered');
   // This is a real upstream handshake fault, not a browser route or protocol mock.
   const faultBefore=await canonicalBoardSnapshot(api,token,boardId),receiptBefore=await proxyReceipt();
@@ -148,15 +149,15 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   expect(attempts.map(event=>event.status)).toEqual([503,101]);
   const faultAcks=transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='received'&&event.type==='ack'&&typeof event.updateId==='string'&&faultIds.includes(event.updateId));expect(faultAcks).toHaveLength(1);
   expect(performance.now()-faultStarted).toBeLessThanOrEqual(45_000);
-  await info.attach('peer-real-503-recovered',{body:await peer.screenshot(),contentType:'image/png'});
+  await saveScreenshot(peer,'peer-real-503-recovered');
   observations.push({phase:'real-503-recovery',before:faultBefore.revision,after:faultAfter.revision,receipt:faultReceipt,elapsedMs:performance.now()-faultStarted});
   await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(faultAfter);expect(await durableIds(peer,boardId)).toEqual([]);
-  await info.attach('peer-reload-persisted',{body:await peer.screenshot(),contentType:'image/png'});
+  await saveScreenshot(peer,'peer-reload-persisted');
   observations.push({phase:'runtime-end',runtimeBefore,runtimeAfter:await verifyRuntimeIdentity(api,sourceSha,await chunks())});
  }catch(error){
   failure=error;
   if(!peer.isClosed()){
-   try{await info.attach('origin-close-failure',{body:await peer.screenshot(),contentType:'image/png'});observations.push({phase:'failed',head:boardId&&token?await boardHead(api,token,boardId):null,syncLabel:await peer.getByTestId('board-sync-status').getAttribute('aria-label')});}
+   try{await saveScreenshot(peer,'origin-close-failure');observations.push({phase:'failed',head:boardId&&token?await boardHead(api,token,boardId):null,syncLabel:await peer.getByTestId('board-sync-status').getAttribute('aria-label')});}
    catch(diagnosticError){cleanupErrors.push(diagnosticError);}
   }
  }finally{
