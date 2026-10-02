@@ -1,0 +1,136 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ❯ tests/ui/digital-expert-detail.test.tsx (2 tests | 2 failed) 2021ms
+   × opens an accessible published expert with its actual profile and quick link 1016ms
+     → Unable to find role="heading" and name "Published support"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × keeps directory recovery when an expert is unavailable 1004ms
+     → Unable to find an element with the text: 该专家不可用或无访问权限。. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/digital-expert-detail.test.tsx > opens an accessible published expert with its actual profile and quick link
+TestingLibraryElementError: Unable to find role="heading" and name "Published support"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/digital-expert-detail.test.tsx:13:23
+     11|   api.loadDigitalExperts.mockResolvedValue({ items: [{ ...MOCK_DIGITAL…
+     12|   render(<DigitalExpertDetail expertId="published-support" />);
+     13|   expect(await screen.findByRole("heading", { name: "Published support…
+       |                       ^
+     14|   expect(screen.getByText("Published profile background")).toBeVisible…
+     15|   expect(screen.getByText("组织已发布专家")).toBeVisible();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/digital-expert-detail.test.tsx > keeps directory recovery when an expert is unavailable
+TestingLibraryElementError: Unable to find an element with the text: 该专家不可用或无访问权限。. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground"[39m
+    [36m>[39m
+      [0m未找到该 Mock 专家。[0m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/digital-expert-detail.test.tsx:21:23
+     19|   api.loadDigitalExperts.mockResolvedValue({ items: [] });
+     20|   render(<DigitalExpertDetail expertId="unavailable" />);
+     21|   expect(await screen.findByText("该专家不可用或无访问权限。" )).toBeV…
+       |                       ^
+     22|   expect(screen.getByRole("link", { name: "返回专家列表" })).toHaveAtt…
+     23|   expect(screen.queryByRole("link", { name: "快捷访谈" })).not.toBeInT…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  19:49:27
+   Duration  3.87s (transform 114ms, setup 208ms, collect 219ms, tests 2.02s, environment 945ms, prepare 72ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/digital-expert-detail.test.tsx --maxWorkers=1 --minWorkers=1

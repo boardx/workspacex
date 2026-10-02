@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ✓ tests/ui/interview-markdown-editing.test.tsx (28 tests) 3201ms
+   ✓ confirmed source is read-only and cannot spend a model call on regeneration 360ms
+   ✓ virtual expert requires a Markdown preview and explicit review before adding 505ms
+ ✓ tests/lib/interview-outline-order.test.ts (4 tests) 55ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  20:59:10
+   Duration  11.12s (transform 2.68s, setup 413ms, collect 4.41s, tests 3.26s, environment 1.70s, prepare 170ms)
+

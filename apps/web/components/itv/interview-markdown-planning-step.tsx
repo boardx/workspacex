@@ -97,7 +97,10 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
     {step === "intake" ? <InterviewIntakeStep voiceSessionToken={getStoredSessionToken() ?? undefined} markdown={markdown} pending={pending} readOnly={intakeImmutable} onImportFile={importInterviewTextFile} onUploadFile={async (file) => {
       if (intakeImmutable) throw new Error("已确认需求需要创建新修订");
       if (file.size > chatFileUpload.ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) throw new Error("研究文件不能超过同步提取上限");
-      const current = await saveIntake(await loadInterviewMarkdown(interviewId));
+      let current = await loadInterviewMarkdown(interviewId);
+      // The attachment transaction can create the first intake. A blank editor
+      // has no draft to persist and must not be sent to the nonempty save API.
+      if (markdown.trim()) current = await saveIntake(current);
       const result = await uploadInterviewMarkdownAttachment(interviewId, file, { expectedVersion: current.version, expectedDocumentVersion: current.documents.find((doc) => doc.step === "intake")?.version ?? 0 });
       receive(result.source); setMarkdown(result.source.documents.find((doc) => doc.step === "intake")?.markdown ?? markdown); callbacks.current.onDirtyChange(false);
     }} onChange={(text) => { setMarkdown(text); callbacks.current.onDirtyChange(true); }}

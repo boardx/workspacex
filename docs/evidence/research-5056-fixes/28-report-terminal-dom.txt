@@ -1,0 +1,240 @@
+- alert
+- banner:
+  - generic: Deep Research
+  - generic: 智能研究平台
+  - button "返回研究列表":
+    - text: 返回研究列表
+  - heading "研究W3C的WCAG 2.2网页无障碍标准，重点比较新增成功标准对公共服务网站的影响" [level=1]
+  - navigation "研究步骤":
+    - list:
+      - button "已完成 导入需求":
+        - generic: 已完成
+        - generic: 导入需求
+      - button "已完成 确认研究主题":
+        - generic: 已完成
+        - generic: 确认研究主题
+      - button "已完成 研究计划":
+        - generic: 已完成
+        - generic: 研究计划
+      - button "已完成 资料研究":
+        - generic: 已完成
+        - generic: 资料研究
+      - button "已完成 报告章节":
+        - generic: 已完成
+        - generic: 报告章节
+      - button "6 生成报告":
+        - generic: "6"
+        - generic: 生成报告
+- main:
+  - main:
+    - article:
+      - heading "W3C WCAG 2.2 网页无障碍标准对公共服务网站的影响及合规认证分析" [level=2]
+      - navigation "报告目录":
+        - heading "目录" [level=3]
+        - button "展开"
+      - heading "执行摘要" [level=3]
+      - paragraph:
+        - text: WCAG 2.2 引入了针对焦点管理、目标尺寸和无障碍认证的新增标准，对公共服务网站的物理交互和逻辑认证提出了更严格的量化要求。分析表明，从 2.1 AA 升级至 2.2 AA 需重点测试六项新标准，包括确保键盘焦点不被遮挡
+        - superscript:
+          - 'link "来源 1：WCAG 2.2: What Changed and Why It Matters - AUDITSU"':
+            - /url: https://auditsu.com/resources/wcag-2-2-what-changed-and-why-it-matters
+            - text: "1"
+        - text: 、满足 24 CSS 像素的最小目标尺寸
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: ，以及支持密码管理器的无障碍认证
+        - superscript:
+          - link "来源 3：WCAG 2.2 Explained & How to Test for It - Equalize Digital":
+            - /url: https://equalizedigital.com/wcag-2-2-explained-how-to-test-for-it/
+            - text: "3"
+        - text: 。然而，受限于证据提取过程中的无效模型证据警告，当前关于合规级别的法律与采购影响、旧系统豁免机制及持续审计频率等关键操作细节仍存在显著缺口。现有分析应被视为存在未解决局限性的草稿，公共服务机构在制定合规战略时必须考虑这些不确定性带来的风险。
+      - heading "研究范围与方法" [level=3]
+      - paragraph: 本研究旨在探讨 W3C WCAG 2.2 网页无障碍标准中新增成功标准对公共服务网站的影响，并比较 A 级与 AA 级合规认证的区别与操作路径。研究范围聚焦于焦点与操作目标的测试方法，以及可访问性认证的声明机制，主要依赖 W3C 官方标准和 Understanding 文档作为公开证据。在来源覆盖与证据局限性方面，必须明确指出本报告受到严重的证据覆盖警告限制。由于大量来源被标记为无效模型证据，许多核心提取数据被排除，导致无法建立完整的来源覆盖。具体而言，第一章草稿未能充分综合 3.3.8（无障碍认证）的具体测试证据，且缺乏对监管与合同影响因素的顶层综合，依赖通用介绍；第二章草稿明确承认缺失 A 级与 AA 级在法律后果、公共采购和审计权重上的对比证据，以及旧系统豁免机制、重新评估频率和合规声明元数据细节的完整官方指导。因此，本报告综合的章节内容属于未验证的草稿，其发现不能呈现为已验证的完整事实，机构在决策时需充分认识到信息缺失带来的合规风险。
+      - heading "1. WCAG 2.2 焦点与操作目标标准：合规等级及测试方法" [level=3]
+      - paragraph:
+        - text: WCAG 2.2 的成功标准不仅是技术指南，更是可直接用于设计规范、采购、法规和合同协议的可测试声明
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。这一属性构成了公共服务网站合规的核心影响因素，意味着任何偏离都将面临明确的法律与合同风险。从关键事实来看，从 WCAG 2.1 AA 升级至 2.2 AA 必须测试六项新增标准，涵盖焦点、拖动、目标尺寸、帮助一致性、冗余输入及无障碍认证
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: 。其中，A 级的 3.2.6（一致的帮助）和 3.3.7（冗余输入）为公共服务网站的信息架构和表单逻辑设定了基础底线。在可执行结论方面，除了视觉与物理操作目标，AA 级标准 3.3.8（无障碍认证）要求测试登录表单时，必须确保用户能够通过粘贴方式填充密码字段、支持密码管理器，且双因素认证（2FA）字段同样允许粘贴数据
+        - superscript:
+          - link "来源 3：WCAG 2.2 Explained & How to Test for It - Equalize Digital":
+            - /url: https://equalizedigital.com/wcag-2-2-explained-how-to-test-for-it/
+            - text: "3"
+        - text: 。这些事实共同确立了 WCAG 2.2 在逻辑认证与物理交互上的双重合规闭环，要求公共服务网站在采购和开发阶段必须将这些可测试标准写入验收合同。
+      - heading "焦点不被遮挡与焦点外观：区分 AA 和 AAA 要求" [level=4]
+      - paragraph:
+        - text: 在 WCAG 2.2 中，焦点管理标准通过 AA 级与 AAA 级的严格程度递进，明确了组件遮挡与指示器外观的测试边界。在 AA 级层面，标准 2.4.11 确保键盘焦点不被完全隐藏，而 AAA 级的 2.4.12（增强版）则提出了更严苛的要求：聚焦元素的任何部分均不得被其他内容遮挡
+        - superscript:
+          - 'link "来源 1：WCAG 2.2: What Changed and Why It Matters - AUDITSU"':
+            - /url: https://auditsu.com/resources/wcag-2-2-what-changed-and-why-it-matters
+            - text: "1"
+        - text: 。在进行合规测试时，必须明确评估对象是聚焦的组件本身，而非焦点指示器，除非该指示器位于组件内部或由组件自身的变化来指示焦点
+        - superscript:
+          - 'link "来源 5：Understanding Success Criterion 2.4.12: Focus Not Obscured ... - W3C"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-enhanced.html
+            - text: "5"
+        - text: 。这一区分防止了开发者通过添加外部微小指示器来规避组件主体被遮挡的审查。对于包含复杂导航的公共服务网站，确保焦点组件不被模态框遮挡是降低键盘用户认知负荷的核心。AA 级允许部分遮挡，但这在长表单中易导致迷失；因此，高可用性政务网站应优先对标 AAA 级的“零遮挡”原则。
+      - paragraph:
+        - text: 对于 AAA 级的 2.4.13（焦点外观），标准规定了焦点指示器的最小视觉阈值。当键盘焦点可见时，指示器的面积必须至少等于未聚焦组件 2 CSS 像素厚度的周长，且聚焦与未聚焦状态下的相同像素区域对比度不得低于 3:1
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。在测试方法上，需通过计算组件最小边界框的周长来确定最小面积。例如，对于一个 90 像素宽、30 像素高的矩形控件，其 2 CSS 像素厚度的周长面积计算为外部矩形（92x32）与内部矩形（88x28）的面积差，即 480 平方像素
+        - superscript:
+          - 'link "来源 6：Understanding Success Criterion 2.4.13: Focus Appearance | WAI"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html
+            - text: "6"
+        - text: 。为了满足这一要求，开发者可采用官方提供的充分技术，如创建双色焦点指示器以确保与所有组件的对比度，或在组件内部创建强焦点指示器
+        - superscript:
+          - 'link "来源 6：Understanding Success Criterion 2.4.13: Focus Appearance | WAI"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html
+            - text: "6"
+        - text: 。这种精确的数学定义为自动化测试和人工审查提供了无歧义的判定依据。
+      - heading "最小目标尺寸 24 CSS 像素与间距例外的测试方法" [level=4]
+      - paragraph:
+        - text: 针对指针输入操作，WCAG 2.2 新增了 AA 级标准 2.5.8（最小目标尺寸），直接回应了运动障碍用户在触控或鼠标操作中的误触痛点。该标准强制要求指针输入的目标尺寸至少为 24 乘 24 CSS 像素
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: 。考虑到密集界面的设计限制，标准引入了“间距例外”测试方法：若目标尺寸不足 24x24 CSS 像素，则必须确保以每个目标边界框为中心、直径为 24 CSS 像素的虚拟圆互不相交，且不与任何其他目标的虚拟圆相交
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。这种基于“安全触控区域”的测试逻辑，要求测试人员在二维平面上验证目标间的物理隔离度。在自动化测试中，这意味着需要编写碰撞检测算法，遍历所有可点击元素的边界框（bounding box），并验证其扩展后的安全圆是否发生重叠。这为密集数据表格或复杂控制面板的公共服务页面提供了灵活的合规路径，同时守住了防误触的底线。
+      - paragraph:
+        - text: 在执行该标准的测试时，一个关键的影响因素是缩放因子的独立性。合规性评估严格基于 CSS 像素尺寸，而不受页面缩放级别的影响。当用户放大页面时，元素的 CSS 像素尺寸在底层逻辑中保持不变，这意味着开发者绝不能以“用户放大页面后目标尺寸足够”为由来规避合规责任
+        - superscript:
+          - 'link "来源 7：Understanding Success Criterion 2.5.8: Target Size (Minimum) | WAI"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+            - text: "7"
+        - text: 。这一约束条件对公共服务网站具有深远影响，因为老年用户或视障用户高度依赖浏览器缩放功能。如果网站在默认视口下目标尺寸不达标，即使放大后视觉上变大，其底层的触控热区依然拥挤，无法真正解决误触问题。因此，测试必须在基础视口下完成 24 像素目标或安全间距的布局验证，确保移动端与桌面端在默认状态下的操作容错率。
+      - heading "证据覆盖与局限性说明" [level=4]
+      - paragraph: 需要明确指出，本章分析所依赖的部分关于具体自动化测试工具链或更广泛上下文的提取数据因模型证据验证问题被排除，导致关于某些特定测试软件如何解析这些几何规则的覆盖存在缺口。然而，核心的 W3C 官方标准定义、层级划分及几何计算方法已通过有效的官方与权威解析来源得到充分验证。这种排除虽然使得我们无法深入探讨特定商业测试工具的底层实现差异，但并不影响基于 W3C 官方标准构建合规测试逻辑框架的准确性与权威性。
+      - heading "2. WCAG 2.2 可访问性认证与合规声明机制分析" [level=3]
+      - paragraph: 本章旨在基于W3C官方指南，深度解析WCAG 2.2合规认证的要求、声明格式及验证流程。在展开具体分析前，必须明确本章节的证据覆盖警告：由于前期数据提取过程中存在大量无效模型证据（invalid_model_evidence）警告，且针对合规声明元数据细节、A/AA级法律采购影响、部分合规旧系统豁免机制以及重新评估频率的专项检索未能返回完整结果，本章节的证据覆盖存在客观局限。这种排除无效提取导致的覆盖不完整，意味着即使现有来源支持部分关于合规级别和测试方法的发现，许多关键的操作细节和法律效力问题仍未解答。以下内容基于现有验证摘录构建分析框架，对于未解答的问题，需依赖后续对W3C官方文档的完整验证，公共服务机构在决策时必须考虑这些不确定性带来的合规风险。
+      - heading "WCAG 2.2 合规核心要求与声明要素" [level=4]
+      - paragraph:
+        - text: W3C官方标准确立了合规声明的规范性框架。合规声明本身在W3C指南中是可选的，但一旦选择发布，就必须严格满足5.3.1节规定的必要组件
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。合规声明的核心元数据必须明确指定所符合的WCAG版本（如WCAG 2.2
+        - superscript:
+          - link "来源 8：How to Meet WCAG (Quick Reference) - W3C":
+            - /url: https://www.w3.org/WAI/WCAG22/quickref/
+            - text: "8"
+        - text: ）以及具体的符合级别（A、AA或AAA）
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。对于公共服务网站而言，准确描述评估范围是一项重大挑战。官方指南要求合规必须针对“完整页面”和“完整流程”进行声明
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: ，这意味着不能仅挑选网站中符合标准的静态页面进行声明，而必须涵盖用户完成特定公共服务的整个交互链路。关于“符合”一词的使用，官方设定了严格的限制条件：必须满足特定的合规级别、仅使用受无障碍支持的技术方式，并且遵循“非干扰”原则
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。然而，当前提取的官方片段并未提供合规声明中关于“评估日期”等具体元数据格式要求，也未详细说明如何精确界定动态生成内容的合规边界。这一未解答的问题意味着公共服务机构在起草声明时缺乏官方指导，可能导致声明范围模糊并引发审计争议，需进一步查阅W3C无障碍声明最佳实践指南以验证这些缺失的规范。
+      - heading "新增标准的认证证据链构建" [level=4]
+      - paragraph:
+        - text: 针对WCAG 2.2新增的视觉与交互标准，认证过程必须超越传统的静态代码扫描。以焦点外观（2.4.11）和操作目标大小（2.5.8）为例，证据链需引入浏览器布局和视口阶段的验证。布局引擎（如Blink、WebKit、Gecko）需计算2D元素边界框、粘性层z-index堆叠及滚动视口间隙
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: 。这种基于渲染结果的测试能验证粘性头部是否遮挡焦点元素，以及触摸目标是否满足24×24像素的边界框要求
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: 。因此，必须保留包含视口几何数据和渲染状态截图的测试记录。对于新增的主观判断类标准，第三方认证机构可能要求提供详尽的技术文档，例如包含具体测试程序、审查员投票记录及针对每个标准证据引用的结构化审计数据集
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: 。这种多维度的证据收集有助于减少主观评估偏差。然而，当前证据并未详细说明针对主观标准的具体评估矩阵和量化指标。这一证据缺口意味着在认证过程中，机构需自行建立内部评估基线，否则在面临严格审计时，主观标准的合规性证明可能面临挑战，需要后续验证官方Understanding文档中的相关指导。
+      - heading "A 级与 AA 级合规在认证中的区别与影响" [level=4]
+      - paragraph:
+        - text: W3C官方标准定义了三个合规级别：A级（最低）、AA级和AAA级（最高）
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。在公共服务领域，明确A级与AA级的区别对合规战略至关重要。A级仅解决最基础的无障碍障碍，而AA级通常涵盖更广泛的交互与认知需求。然而，关于仅达到A级合规的公共服务网站在法律声明中需如何具体披露其局限性，以及AA级合规在公共采购和审计中的具体权重，当前检索未能返回完整的官方证据。这一证据缺口具有重大的决策影响：如果机构仅满足A级，其在合规声明中必须极其谨慎地界定范围，以避免虚假声明的风险。不同合规级别对用户信任度和法律责任规避的具体影响差异，在现有证据中缺乏量化数据与官方指导支持。由于缺乏关于A级与AA级在法律后果上的明确对比，公共服务机构不能单纯依赖W3C标准本身来规避责任，而必须结合所在司法管辖区的具体法规进行评估。这种证据的不确定性要求机构在制定合规战略时，必须充分认识到信息缺失带来的合规风险，并在决策中保持审慎。
+      - heading "部分合规与例外情况的官方处理机制" [level=4]
+      - paragraph:
+        - text: 当公共服务网站无法实现完全合规时，W3C官方指南提供了部分合规的声明机制。官方明确列出了针对第三方内容的部分合规声明（5.4）和针对语言的部分合规声明（5.5）
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: 。这意味着，如果网站嵌入了无法直接控制的第三方服务，或在支持多语言时某些版本尚未完成改造，机构可通过部分合规机制进行声明。这种机制的核心限制在于，部分合规不能用于掩盖机构自身开发内容的缺陷，且必须明确指出不符合标准的具体范围。对于因技术债务或预算限制无法改造的旧有系统，官方认可的替代访问方式或具体豁免理由在当前提取的片段中并未详细展开。这一缺口导致机构在处理遗留系统时缺乏明确的官方庇护路径。在合规声明中透明报告未满足的标准时，机构需说明缺陷对用户的具体影响，并提供替代访问渠道。由于缺乏关于旧系统豁免的完整官方细则，机构在应用部分合规时需建立严格的内部治理，避免将其作为逃避全面改造的借口，并需进一步验证官方关于替代方案的具体建议。
+      - heading "认证流程验证与持续合规维护" [level=4]
+      - paragraph:
+        - text: 从自我评估过渡到第三方认证，验证流程的关键在于证据的客观性与全面性。第三方认证机构通常要求提供结构化的审计数据集，其中包含详细的测试程序、审查员投票记录以及针对每个标准的证据引用
+        - superscript:
+          - 'link "来源 2：WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+            - text: "2"
+        - text: 。这种严格的文档要求是确保验证流程客观性的核心决策依据。然而，在公共服务网站内容频繁更新的场景下，如何确保证明的持续有效性是一个重大挑战。当前官方指南的提取片段并未明确提供重新评估的具体频率和触发条件。这一未解答的问题意味着机构不能依赖一次性的认证报告来维持长期的合规状态。在缺乏官方关于重新评估频率明确建议的情况下，机构必须建立内部的持续监控机制，以应对动态内容带来的合规退化风险。建议机构在内部流程中设定基于发布周期的定期审查触发条件，确保在核心交互逻辑发生变更时，能够及时更新合规声明和证据链。后续需进一步查阅W3C官方指南，以验证关于持续合规维护的具体操作建议。
+      - heading "综合结论" [level=3]
+      - paragraph:
+        - text: 综合跨章节分析，WCAG 2.2 在物理交互层面提供了明确的数学和几何测试路径，例如 24 CSS 像素的最小目标尺寸及基于周长计算的焦点外观阈值
+        - superscript:
+          - 'link "来源 6：Understanding Success Criterion 2.4.13: Focus Appearance | WAI"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html
+            - text: "6"
+        - text: ，但在渲染状态和主观标准的验证上需要复杂的布局引擎数据支持。在合规战略的权衡中，公共服务网站应优先满足 AA 级要求以覆盖更广泛的交互需求，并在物理操作上对标 AAA 级的零遮挡原则以降低键盘用户的认知负荷。针对认证流程，由于缺乏官方关于重新评估频率的明确建议，机构必须建立基于发布周期的内部持续监控机制，以应对动态内容带来的合规退化风险。可操作的下一步包括：在采购和开发合同中写入 2.2 新增标准的量化测试指标；针对第三方内容和多语言场景制定透明的部分合规声明策略
+        - superscript:
+          - link "来源 4：Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+            - text: "4"
+        - text: ；并保留包含视口几何数据的测试记录以构建认证证据链。然而，剩余的不确定性依然显著：由于证据覆盖警告，A 级与 AA 级在具体司法管辖区的法律后果差异、旧有系统豁免的官方庇护路径，以及合规声明中评估日期等元数据格式要求仍未得到验证。公共服务机构不能单纯依赖当前不完整的证据链来规避责任，必须结合当地具体法规进行审慎评估。
+      - region "参考来源":
+        - heading "参考来源" [level=3]
+        - list:
+          - 'link "WCAG 2.2: What Changed and Why It Matters - AUDITSU"':
+            - /url: https://auditsu.com/resources/wcag-2-2-what-changed-and-why-it-matters
+          - paragraph: https://auditsu.com/resources/wcag-2-2-what-changed-and-why-it-matters
+          - 'link "WCAG 2.2 AA Testing: How to Test the 6 Criteria Automated ..."':
+            - /url: https://webspecification.com/blog/wcag-22-success-criteria/
+          - paragraph: https://webspecification.com/blog/wcag-22-success-criteria/
+          - link "WCAG 2.2 Explained & How to Test for It - Equalize Digital":
+            - /url: https://equalizedigital.com/wcag-2-2-explained-how-to-test-for-it/
+          - paragraph: https://equalizedigital.com/wcag-2-2-explained-how-to-test-for-it/
+          - link "Web Content Accessibility Guidelines (WCAG) 2.2 - W3C":
+            - /url: https://www.w3.org/TR/WCAG22/
+          - paragraph: https://www.w3.org/TR/WCAG22/
+          - 'link "Understanding Success Criterion 2.4.12: Focus Not Obscured ... - W3C"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-enhanced.html
+          - paragraph: https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-enhanced.html
+          - 'link "Understanding Success Criterion 2.4.13: Focus Appearance | WAI"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html
+          - paragraph: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html
+          - 'link "Understanding Success Criterion 2.5.8: Target Size (Minimum) | WAI"':
+            - /url: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+          - paragraph: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+          - link "How to Meet WCAG (Quick Reference) - W3C":
+            - /url: https://www.w3.org/WAI/WCAG22/quickref/
+          - paragraph: https://www.w3.org/WAI/WCAG22/quickref/
+    - button "生成完整报告"
+    - button "更多操作"
+- button "AI 助手":
+  - text: AI 助手

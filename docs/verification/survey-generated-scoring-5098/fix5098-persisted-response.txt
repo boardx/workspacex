@@ -1,0 +1,119 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-7n-c31495b5-0d6c23f263b1":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-7n-c31495b5-0d6c23f263b1
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": CURRENT 真实评分配置复测 5098
+    - paragraph: 已保存 · 2026/10/2 22:32:19
+    - button "更多操作"
+    - button "保存修改" [disabled]
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收":
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - region "答卷列表":
+      - paragraph: 1 份答卷
+      - generic "答卷分类":
+        - button "全部 1" [pressed]
+        - button "有效 1"
+        - button "待复核 0"
+        - button "已排除分析 0"
+      - textbox "搜索答卷":
+        - /placeholder: 搜索编号或回答关键词
+      - button "导出 Markdown"
+      - table:
+        - rowgroup:
+          - row "选择本页答卷 编号 提交时间 用时 质量 操作":
+            - columnheader "选择本页答卷":
+              - checkbox "选择本页答卷"
+            - columnheader "编号"
+            - columnheader "提交时间"
+            - columnheader "用时"
+            - columnheader "质量"
+            - columnheader "操作"
+        - rowgroup:
+          - row "选择答卷 528edbe4-9c1c-4762-a642-265eaafd190b 528edbe4-9c1 2026/10/2 22:32:19 30 秒 有效 查看完整答卷":
+            - cell "选择答卷 528edbe4-9c1c-4762-a642-265eaafd190b":
+              - checkbox "选择答卷 528edbe4-9c1c-4762-a642-265eaafd190b"
+            - cell "528edbe4-9c1"
+            - cell "2026/10/2 22:32:19"
+            - cell "30 秒"
+            - cell "有效"
+            - cell "查看完整答卷":
+              - button "查看完整答卷" [active]
+      - paragraph: 已选择 0 项
+      - button "上一页" [disabled]
+      - generic: 1 / 1
+      - button "下一页" [disabled]
+    - region "答卷详情":
+      - heading "答卷详情" [level=2]
+      - button "上一条答卷" [disabled]: 上一条
+      - button "下一条答卷" [disabled]: 下一条
+      - button "标记待复核"
+      - button "排除分析" [disabled]
+      - button "收起详情"
+      - paragraph: 528edbe4-9c1c-4762-a642-265eaafd190b · 2026/10/2 22:32:19 · 用时 30 秒
+      - text: 排除原因
+      - textbox "排除分析原因":
+        - /placeholder: 例如：测试性或重复提交
+      - list:
+        - paragraph: 1. 请为您对本产品的总体满意度进行评分（1星为非常不满意，5星为非常满意）。
+        - paragraph: "4"
+        - paragraph: 2. 您有多大可能将本产品推荐给您的朋友或同事？（0分表示完全不可能，10分表示极有可能）
+        - paragraph: "9"
+        - paragraph: 3. 请问您认为本产品在哪些方面可以进一步改进？
+        - paragraph: 真实评分配置复测5098：改善说明文字。
+    - group "分析报告（可选）":
+      - generic "分析报告（可选）未生成":
+        - generic: ›
+        - text: 分析报告（可选）未生成

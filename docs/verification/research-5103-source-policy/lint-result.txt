@@ -1,0 +1,20 @@
+✓ global-scope test fixtures：28 个文件全部已声明
+· [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (13 distinct keys)
+· [debt] apps/web/lib/mock/tpl.ts:523  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+· [debt] apps/web/lib/mock/tpl.ts:529  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:541  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:560  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+· [debt] apps/web/lib/mock/tpl.ts:562  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+· [debt] apps/web/lib/mock/tpl.ts:564  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+· [debt] apps/web/components/tpl/designer-panels.tsx:710  second design-facet definition table spread over multiple lines (11 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=4886 violations=0 debt=8 keys=13 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 78 个文件，skill 取数只经 Context API（I-25）
+scanned=78 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+lint-work-skill-manifests: 89/89 个 Work Skill manifest 通过
+✅ lint-arch-deps: 1919 files, all dependencies point inward
+scanned=1919

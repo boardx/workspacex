@@ -1,0 +1,139 @@
+ ✓ tests/guided-research-session-contract.test.ts (25 tests) 119ms
+ ✓ tests/design-workbench.test.ts (64 tests) 238ms
+ ✓ tests/digital-interview-contract.test.ts (18 tests) 82ms
+ ✓ tests/inbox.test.ts (45 tests) 73ms
+ ✓ tests/survey-question-types.test.ts (22 tests) 274ms
+ ✓ tests/design-prototype.test.ts (58 tests) 623ms
+ ✓ tests/capability-admin-deltas.test.ts (9 tests) 56ms
+ ✓ tests/plan-control/plan-control-schema-single-source.test.ts (45 tests) 144ms
+ ✓ tests/skill-source-connections.test.ts (9 tests) 56ms
+ ✓ tests/survey-report.test.ts (15 tests) 163ms
+ ✓ tests/skill-import-recovery.test.ts (10 tests) 110ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 24ms
+ ✓ tests/skill-development.test.ts (10 tests) 32ms
+ ✓ tests/agent-interrupts/cross-lang-tool-parity.test.ts (8 tests) 53ms
+ ✓ tests/skill-trial-artifact-download.test.ts (9 tests) 156ms
+ ✓ tests/plan-control/plan-surface-single-source.test.ts (18 tests) 1377ms
+   ✓ 不变量 I1：契约说常驻阶段条的 phase，绝不可能被整块藏掉 > ∀ 输入：pinIndicator 与 shouldSurfacePlanPhaseIndicator(phase) 逐格相等（没有第二份判据） 1240ms
+ ✓ tests/deep-agent-hitl.test.ts (7 tests) 91ms
+ ✓ tests/agui-file-event-contract.test.ts (30 tests) 188ms
+ ✓ tests/skill-source-binding.test.ts (7 tests) 419ms
+   ✓ source binding review-only boundary > rejects stale CAS, mismatched preview/candidate, expired authorization and moved source 313ms
+ ✓ tests/skill-history-content.test.ts (5 tests) 124ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 51ms
+ ✓ tests/plan-permissions/cross-lang-skill-hitl-parity.test.ts (11 tests) 23ms
+ ✓ tests/agent-interrupts/schema.test.ts (14 tests) 49ms
+ ✓ tests/skill-source-assessment.test.ts (6 tests) 36ms
+ ✓ tests/survey-source.test.ts (10 tests) 65ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 1574ms
+   ✓ 业务代码不得硬编码待定阈值 > 'vectorRecallBaseline' 没有被写死 988ms
+   ✓ 业务代码不得硬编码待定阈值 > 'retentionMaterial' 没有被写死 545ms
+ ✓ tests/first-value-events.test.ts (7 tests) 16ms
+ ✓ tests/personal-realtime-transcription.test.ts (8 tests) 35ms
+ ✓ tests/plan-control/evaluate-plan-gate-table.test.ts (21 tests) 13ms
+ ✓ tests/plan-control/run-status-view-single-source.test.ts (10 tests) 1609ms
+   ✓ deriveRunStatusView 全叉积不变量（#3365） > I3：currentStepIndex 非空 ⇒ 它指向的那一步不是 completed；无未完成步骤 ⇒ 恒为 null 427ms
+   ✓ deriveRunStatusView 全叉积不变量（#3365） > I4：进度条分子恒等于账本 progress.completed，不许是「跑到第几步」的推算 320ms
+   ✓ deriveRunStatusView 全叉积不变量（#3365） > I5：步骤全完成 ⇒ 不得同时宣称推进中（人类截图里那句「2/2 已完成」+「执行中」） 302ms
+   ✓ deriveRunStatusView 全叉积不变量（#3365） > I6：报了错 ⇒ 停滞态 + 可见恢复入口，且不得用推进族文案 399ms
+ ✓ tests/survey-report-analysis.test.ts (9 tests) 97ms
+ ✓ tests/interview-markdown.test.ts (13 tests) 138ms
+ ✓ tests/artifacts-steering/cross-lang-interjection-parity.test.ts (6 tests) 11ms
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 8ms
+ ✓ tests/work-eval/suite-schema.test.ts (8 tests) 60ms
+ ✓ tests/instance-telemetry.test.ts (12 tests) 53ms
+ ✓ tests/design-html-page.test.ts (19 tests) 68ms
+ ✓ tests/skill-trial-read-deltas.test.ts (5 tests) 27ms
+ ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 29ms
+ ✓ tests/plan-control/plan-confirm-gate.test.ts (10 tests) 8ms
+ ✓ tests/capability-runtime-policy.test.ts (5 tests) 16ms
+ ✓ tests/contract-shape.test.ts (87 tests) 282ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 64ms
+ ✓ tests/standard-document-tools.test.ts (5 tests) 102ms
+ ✓ tests/agent-interrupts/choose-option-schema.test.ts (11 tests) 10ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 42ms
+ ✓ tests/standard-capabilities.test.ts (20 tests) 105ms
+ ✓ tests/knowledge-graph/invalidate-edges-contract.test.ts (9 tests) 82ms
+ ✓ tests/skill-patch-proposal.test.ts (5 tests) 93ms
+ ✓ tests/skill-entry-points.test.ts (6 tests) 188ms
+ ✓ tests/skill-upload-feedback.test.ts (4 tests) 24ms
+ ✓ tests/system-error-logs.test.ts (15 tests) 69ms
+ ✓ tests/workflow/definition-schema.test.ts (6 tests) 109ms
+ ✓ src/research-trust.test.ts (6 tests) 46ms
+ ✓ tests/model-admission-history.test.ts (5 tests) 18ms
+ ✓ tests/survey.test.ts (6 tests) 15ms
+ ✓ tests/agent-interrupts/fill-params-guess-rationale.test.ts (7 tests) 17ms
+ ✓ tests/whiteboard-operation.test.ts (4 tests) 27ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 8ms
+ ✓ tests/native-tool-identities.test.ts (4 tests) 11ms
+ ✓ tests/agent/role-fields-schema.test.ts (23 tests) 63ms
+ ✓ tests/whiteboard-sync.test.ts (2 tests) 736ms
+   ✓ separates bounded inbound updates and state vectors from whole-document sync frames 720ms
+ ✓ tests/whiteboard.test.ts (4 tests) 56ms
+ ✓ tests/standard-browser-tools.test.ts (3 tests) 44ms
+ ✓ tests/skill-file-edit.test.ts (3 tests) 28ms
+ ✓ tests/work-skill/manifest-schema.test.ts (16 tests) 16ms
+ ✓ tests/wave2-runtime/awaiting-tool-permission-status.test.ts (5 tests) 132ms
+ ✓ tests/canvas-grid-density.test.ts (4 tests) 10ms
+ ✓ tests/plan-control/plan-phase-running-not-preparing.test.ts (4 tests) 3ms
+ ✓ tests/agui-assistant-body-composition.test.ts (6 tests) 6ms
+ ✓ tests/deployment.test.ts (6 tests) 19ms
+ ✓ tests/agui-run-error-disposition.test.ts (4 tests) 5ms
+ ✓ tests/standard-schedule.test.ts (4 tests) 72ms
+ ✓ tests/design-prototype-image-src.test.ts (3 tests) 34ms
+ ✓ tests/standard-remember.test.ts (3 tests) 16ms
+ ✓ tests/whiteboard-import.test.ts (3 tests) 12ms
+ ✓ tests/survey-default-report.test.ts (33 tests) 74ms
+ ✓ tests/whiteboard-connector-endpoints.test.ts (3 tests) 58ms
+ ✓ tests/tag-input-limits.test.ts (6 tests) 30ms
+ ✓ tests/feedback-tags.test.ts (3 tests) 43ms
+ ✓ tests/canvas-section-layout-bounds.test.ts (4 tests) 69ms
+ ✓ tests/standard-sql.test.ts (3 tests) 14ms
+ ✓ tests/invite-email-authoritative.test.ts (7 tests) 16ms
+ ✓ tests/whiteboard-objects-read.test.ts (3 tests) 1427ms
+   ✓ canonical Board objects Read contract > uses the canonical object-count limit without a silent first-page truncation 1417ms
+ ✓ tests/agent/escalate-interrupt-kind.test.ts (5 tests) 13ms
+ ✓ tests/standard-subtask-tools.test.ts (5 tests) 2219ms
+   ✓ native subtask shared boundary > generated Python boundary is fresh 2204ms
+ ✓ src/survey-runtime.test.ts (2 tests) 26ms
+ ✓ tests/native-file-delegation.test.ts (2 tests) 21ms
+ ✓ tests/standard-web-tools.test.ts (2 tests) 23ms
+ ✓ tests/whiteboard-collaboration.test.ts (1 test) 16ms
+ ✓ tests/agent/starter-pack-toolpolicy-schema.test.ts (18 tests) 65ms
+ ✓ tests/sandbox-session.test.ts (3 tests) 18ms
+ ✓ tests/standard-canvas-tools.test.ts (2 tests) 14ms
+ ✓ tests/standard-context-tools.test.ts (2 tests) 15ms
+ ✓ tests/interview-evidence-single-source.test.ts (1 test) 12ms
+ ✓ tests/edition-capability-enforcement.test.ts (4 tests) 5808ms
+   ✓ passes on the real matrix and names every known gap 1146ms
+   ✓ rejects a gated row whose enforcementRef cannot be found in the implementation 1289ms
+   ✓ rejects a new known gap that nobody accounted for 1980ms
+   ✓ rejects a non-gated row that carries a ref nobody checks 1391ms
+ ✓ tests/skill-package-manifest.test.ts (2 tests) 59ms
+ ✓ tests/native-input-binding.test.ts (2 tests) 22ms
+ ✓ tests/standard-audio-tools.test.ts (2 tests) 8ms
+ ✓ tests/survey-collection-settings.test.ts (6 tests) 108ms
+ ✓ tests/standard-image-tools.test.ts (2 tests) 19ms
+ ✓ tests/standard-skill-draft.test.ts (2 tests) 10ms
+ ✓ tests/whiteboard-asset.test.ts (1 test) 10ms
+ ✓ tests/schedule-notifications.test.ts (2 tests) 41ms
+ ✓ tests/whiteboard-document.test.ts (2 tests) 42ms
+ ✓ tests/chat-file-upload-mime.test.ts (2 tests) 3ms
+ ✓ tests/agent-skill-pins.test.ts (2 tests) 6ms
+ ✓ tests/standard-artifact-download.test.ts (1 test) 10ms
+ ✓ tests/survey-markdown-proposal.test.ts (2 tests) 10ms
+ ✓ tests/standard-run-cancel.test.ts (1 test) 14ms
+ ✓ tests/tool-progress-schema.test.ts (1 test) 9ms
+ ✓ tests/whiteboard-portable.test.ts (1 test) 99ms
+ ✓ tests/standard-run-status.test.ts (1 test) 30ms
+ ✓ tests/tool-authority-schema.test.ts (1 test) 15ms
+ ✓ src/standard-memory.test.ts (1 test) 6ms
+ ✓ tests/board-operation-contract.test.ts (1 test) 4ms
+ ✓ tests/board-event-model.test.ts (1 test) 8ms
+ ✓ tests/guided-research-citations.test.ts (7 tests) 17ms
+ ✓ tests/prototype-node-type-label.test.ts (2 tests) 7ms
+ ✓ tests/native-artifact-schema.test.ts (1 test) 835ms
+   ✓ shared artifact schema remains fresh and does not fake readiness 834ms
+ Test Files  120 passed (120)
+      Tests  1131 passed (1131)
+   Duration  22.47s (transform 17.15s, setup 0ms, collect 67.26s, tests 22.33s, environment 40ms, prepare 41.92s)
