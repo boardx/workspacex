@@ -346,6 +346,9 @@ test("report summary cards count only saved Markdown items and simulated complet
 });
 
 test("prototype journey keeps the list shell separate from all six full-screen stages", async ({ page }, testInfo) => {
+  // Six routes at desktop, tablet and phone sizes took 3.1m on a cold local
+  // Next dev server. Keep a bounded budget for this journey, not the whole suite.
+  test.setTimeout(300_000);
   const expert = { ...MOCK_DIGITAL_EXPERTS[0]!, expertId: "expert-audit" };
   const auditExperts = [expert, ...MOCK_DIGITAL_EXPERTS.slice(1, 5).map((candidate, index) => ({ ...candidate, expertId: `expert-audit-${index + 2}` }))];
   const expertHeading = (candidate: typeof expert) => `## [${candidate.displayName}](#expert-${candidate.expertId})`;
@@ -430,7 +433,10 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   await expect(page).toHaveURL(/\/itv$/u);
   await createDialog.getByRole("button", { name: "取消" }).click();
   await page.getByTestId(`itv-history-card-${view.interviewId}`).getByRole("link", { name: /继续访谈/u }).click();
-  await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/intake$/u);
+  // This is a client transition to a cold Next dev route. The trace shows the
+  // intake RSC request remaining pending beyond the default 5s assertion budget.
+  // Keep clicking the real link and require the exact route and rendered workbench.
+  await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/intake$/u, { timeout: 60_000 });
   await expect(page.getByTestId("shell-rail")).toHaveCount(0);
   await expect(page.getByTestId("itv-workbench-timeline")).toBeVisible();
 
