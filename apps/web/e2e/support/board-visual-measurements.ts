@@ -11,7 +11,7 @@ export async function visualMeasurement(page:Page) {
     const box=surface.getBoundingClientRect();let available=0,total=0;
     for(let y=box.top+8;y<box.bottom;y+=16)for(let x=box.left+8;x<box.right;x+=16){total++;const hit=document.elementFromPoint(x,y);if(hit instanceof HTMLCanvasElement&&hit.dataset.fabric==='top')available++;}
     const bars=[...document.querySelectorAll<HTMLElement>('[data-testid="board-context-toolbar"]')].filter(e=>e.getBoundingClientRect().height);
-    const controls=['board-add-sticky','board-add-shape','board-add-draw','board-add-connector'].map(name=>{
+    const controls=['board-add-sticky','board-add-text','board-add-shape','board-add-draw'].map(name=>{
       const element=document.querySelector<HTMLElement>(`[data-testid="${name}"]`);if(!element)return{name,width:0,height:0,reachable:false};
       const rect=element.getBoundingClientRect(),hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
       return{name,width:rect.width,height:rect.height,reachable:Boolean(hit&&element.contains(hit))};

@@ -1,3 +1,4 @@
+import { seedExistingFrame } from "./board-acceptance-support";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -111,6 +112,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await createSticky("circle", { x: 640, y: 250 }, 2);
   await createSticky("square", { x: 920, y: 250 }, 3);
   await page.getByTestId("board-add-text").click();
+  await surface.click({position:{x:1040,y:450}});
   await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(4);
@@ -279,6 +281,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
 
   const objectsBeforeShape = await objectIds();
   await page.getByTestId("board-add-shape").click();
+  await surface.click({position:{x:850,y:400}});
   const shapeObject = await expectCreatedObject(objectsBeforeShape, "shape", "Shape quick create");
   await selectObjectAndExpand(shapeObject);
   await expect(inspector).toContainText("形状");
@@ -289,6 +292,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
 
   const objectsBeforeText = await objectIds();
   await page.getByTestId("board-add-text").click();
+  await surface.click({position:{x:1040,y:450}});
   await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
   await finishEditingAndSelect();
   const textObject = await expectCreatedObject(objectsBeforeText, "text", "Text quick create");
@@ -318,11 +322,8 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await page.getByTestId("board-inspector-close").click();
 
   const objectsBeforeFrame = await objectIds();
-  await page.getByTestId("board-add-frame").click();
-  await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
-  await surface.click({ position: { x: 120, y: 100 } });
-  const frameObject = await expectCreatedObject(objectsBeforeFrame, "panel", "Frame canvas gesture");
-  await page.getByRole("button", { name: "Close frame tools" }).click();
+  await seedExistingFrame(page,120,100);
+  const frameObject = await expectCreatedObject(objectsBeforeFrame, "panel", "Existing Frame fixture");
   await selectObjectAndExpand(frameObject);
   await expect(inspector).toContainText("Frame / 区域");
   await expect(page.getByTestId("board-frame-size-presets")).toBeVisible();
