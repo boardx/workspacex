@@ -586,23 +586,36 @@ export function allSpecFiles() {
  * 问 Playwright 自己：这份 config 到底会跑哪些文件。
  * `--list` 不起 webServer、不需要浏览器；env 给的是占位值，只为让 `required()` 不抛。
  */
+export function r08DiscoveryEnvironment(args, environment = process.env) {
+  if (!args.includes("--list")) throw new Error("Coverage placeholders require Playwright --list");
+  return {
+    ...environment,
+    BOARD_PEER_WEB_URL: environment.BOARD_PEER_WEB_URL ?? "http://127.0.0.1:39002",
+    BOARD_PEER_OUTPUT_DIR: environment.BOARD_PEER_OUTPUT_DIR ?? "spec-gate-discovery-only",
+    BOARD_ACCEPTANCE_SHA: environment.BOARD_ACCEPTANCE_SHA ?? "discovery-not-runtime",
+    BOARD_ACCEPTANCE_RUNTIME_MARKER: environment.BOARD_ACCEPTANCE_RUNTIME_MARKER ?? "discovery-not-runtime",
+    BOARD_ACCEPTANCE_RUNTIME_STARTED_AT: environment.BOARD_ACCEPTANCE_RUNTIME_STARTED_AT ?? "discovery-not-runtime",
+  };
+}
+
 export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
   const configFile = path.posix.relative(pkgDir, configPath);
-  const raw = execFileSync(
-    "pnpm",
-    [
+  const args = [
       "exec", "playwright", "test", "--config", configFile, "--list", "--reporter=json",
       // 迭代 24：把 CI 命令里的 `--project` 原样传给 `--list`。Playwright 自己会把
       // 该 project 的 `dependencies` 闭包一起算进来——这正是我们不手写闭包的理由，
       // 同文件头「最后一跳刻意不自己解析」那一段。
       ...projects.map((p) => `--project=${p}`),
-    ],
+    ];
+  const raw = execFileSync(
+    "pnpm",
+    args,
     {
       cwd: path.join(REPO_ROOT, pkgDir),
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       env: {
-        ...process.env,
+        ...r08DiscoveryEnvironment(args),
         WORKSPACEX_API_PORT: process.env.WORKSPACEX_API_PORT ?? "39001",
         WORKSPACEX_WEB_PORT: process.env.WORKSPACEX_WEB_PORT ?? "39002",
         PGPORT: process.env.PGPORT ?? "39003",
