@@ -50,3 +50,16 @@ its required isolation environment variables. Run it through the repository’s
 normal isolation wrapper with apps/web as cwd; do not start a parallel hand-built
 stack. `--list` only collects; omitting `--list` starts the inherited fullstack
 services, so actual execution belongs to the coordinating session.
+
+The fresh fullstack configuration runs Chromium, Firefox and WebKit sequentially
+(`workers: 1`, `retries: 0`) against one inherited production build/API stack.
+This does not change the separate canonical board-storage CI Chromium project.
+Install the lockfile-resolved Web Playwright engines before this local acceptance:
+`pnpm --filter web exec playwright install chromium firefox webkit`.
+The real localhost HTTPS fixture trusts only its generated short-lived test
+certificate via the browser context; it preserves actual browser CORS enforcement
+and reports exact Origin/Range/status/byte counts. Node fixture tests alone do not
+prove browser CORS or application persistence. Delayed cancellation cases forward
+the real API upload, hold its actual response, and explicitly record a durable
+server asset if it completed before the client cancelled; client abort is not
+evidence that such an unreferenced asset was deleted.
