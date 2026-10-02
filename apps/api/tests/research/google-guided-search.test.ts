@@ -82,7 +82,48 @@ describe("BoardX Google guided research search", () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html><body>Full policy text</body></html>", { headers: { "content-type": "text/html" } }));
     await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).resolves.toMatchObject({ text: "Full policy text", contentKind: "html", truncated: false });
     expect(lookup).toHaveBeenCalledWith("example.org", { all: true, verbatim: true });
-    expect(fetcher.mock.calls[0]![1]).toMatchObject({ redirect: "error" });
+    expect(fetcher.mock.calls[0]![1]).toMatchObject({ redirect: "manual" });
+  });
+  it("follows a public redirect after validating its destination", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "/final" } }))
+      .mockResolvedValueOnce(new Response("Actual evidence", { headers: { "content-type": "text/plain" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read(hit.url)).resolves.toMatchObject({ text: "Actual evidence" });
+    expect(fetcher.mock.calls[1]![0]).toBe("https://example.org/final");
+    expect(lookup).toHaveBeenCalledTimes(2);
+  });
+  it("blocks redirects to metadata before issuing the second request", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read(hit.url)).rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+  it("bounds redirect loops", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => new Response(null, { status: 302, headers: { location: "/loop" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read(hit.url)).rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_UNAVAILABLE" });
+    expect(fetcher.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+  it("recovers one temporary search provider failure without rerunning successful searches", async () => {
+    const fetcher = provider().mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(new GoogleGuidedSearch(fetcher).search("policy")).resolves.toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it("recovers a temporary document failure within the same timeout budget", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response("Recovered evidence", { headers: { "content-type": "text/plain" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read(hit.url)).resolves.toMatchObject({ text: "Recovered evidence" });
+    expect(fetcher.mock.calls[0]![1]!.signal).toBe(fetcher.mock.calls[1]![1]!.signal);
+  });
+  it.each([401, 403, 404])("does not retry permanent document HTTP %s failures", async (status) => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status }));
+    await expect(new GoogleGuidedSearch(fetcher).read(hit.url)).rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_UNAVAILABLE" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+  it("revalidates DNS for a redirected hostname before fetching it", async () => {
+    lookup.mockResolvedValueOnce([{ address: "93.184.215.14", family: 4 }]).mockResolvedValueOnce([{ address: "10.0.0.1", family: 4 }]);
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 302, headers: { location: "https://redirect.example.org/policy" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read(hit.url)).rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).toHaveBeenCalledOnce();
   });
   it("blocks private and metadata destinations before fetching documents", async () => {
     const fetcher = vi.fn<typeof fetch>();

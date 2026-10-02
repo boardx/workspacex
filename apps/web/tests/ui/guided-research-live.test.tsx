@@ -14,6 +14,17 @@ const initial: GuidedResearchRuntime = {
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(structuredClone(initial)); });
 afterEach(() => vi.useRealTimers());
 describe("live research workspace", () => {
+  it("shows a readable reason for each failed search without restoring plan cards", async () => {
+    const state = runtimeFixture("research");
+    state.tasks = [{ ...state.tasks[0]!, status: "failed", errorCode: "RESEARCH_SEARCH_UNAVAILABLE", title: "政策资料" }];
+    state.errorCode = "RESEARCH_SEARCH_PARTIAL_FAILURE";
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
+    await screen.findByRole("button", { name: "继续重试" });
+    expect(screen.getByTestId("research-failed-tasks")).toHaveTextContent("政策资料");
+    expect(screen.getByTestId("research-failed-tasks")).toHaveTextContent("暂时不可用");
+    expect(screen.queryByTestId("research-plan-details")).not.toBeInTheDocument();
+  });
   it("restores server drafts and lets confirmation perform required generation", async () => {
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     expect(await screen.findByDisplayValue("Storage")).toBeInTheDocument();
@@ -209,3 +220,4 @@ it("keeps recovered edits when an abandoned execution lease has expired", async 
   expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("Keep this draft");
   expect(getResearchRuntime).toHaveBeenCalledTimes(2);
 });
+import { runtimeFixture } from "../guided-runtime-fixture";
