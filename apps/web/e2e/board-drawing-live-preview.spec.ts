@@ -90,8 +90,11 @@ test("Eraser hits only unlocked drawings in one undo step and survives peer relo
     for (const [index, offset] of [80, 160].entries()) {
       // A selected drawing receives another stroke. Deselect through the canvas
       // before creating the second independent drawing.
-      await page.keyboard.press("v");
-      await surface.click({position:{x:120,y:120}});
+      const selectTool = page.getByTestId("board-tool-select");
+      await selectTool.click();
+      await expect(selectTool).toHaveAttribute("aria-pressed", "true");
+      await surface.locator("canvas.upper-canvas").click({position:{x:120,y:120}});
+      await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("未选择对象");
       await page.getByTestId("board-add-draw").click();
       await startStroke(page, surface, offset);
       await page.mouse.up();
