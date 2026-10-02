@@ -57,8 +57,8 @@ test.afterEach(async () => {
 // observed in CI #4984. This helper regression does not emulate Board services.
 test('viewport snapshot survives ACK banner removal between protocol reads', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-testid="board-sync-banner">Pending ACK</aside></main>`);
-  const banner = page.getByTestId('board-sync-banner');
+  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-viewport-transient-banner>Pending ACK</aside></main>`);
+  const banner = page.locator('[data-viewport-transient-banner]');
   expect(await readBoardViewportSnapshot(page)).toMatchObject({ bannerBounds: { x: 0, y: 64, width: 1280, height: 32 } });
   expect(await banner.isVisible()).toBe(true);
   // An ACK commits between the old isVisible and boundingBox protocol calls.
