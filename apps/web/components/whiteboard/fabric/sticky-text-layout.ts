@@ -25,8 +25,8 @@ export function watchStickyFontLayouts(fonts: {ready: Promise<unknown>; addEvent
   fonts.addEventListener("loadingdone",ready);void fonts.ready.then(ready);
   return () => {disposed=true;fonts.removeEventListener("loadingdone",ready);pointer.off("mouse:down",down);pointer.off("mouse:up",up);};
 }
-export function fabricStickyTextMeasure(options: {fontFamily?: string; fontWeight?: string | number; fontStyle?: "normal" | "italic" | "oblique"; lineHeight?: number}): StickyTextMeasure {
-  const box = new Textbox("", {...options, splitByGrapheme:true});
+export function fabricStickyTextMeasure(options: {fontFamily?: string; fontWeight?: string | number; fontStyle?: "normal" | "italic" | "oblique"; lineHeight?: number}, box = new Textbox("", {...options, splitByGrapheme:true})): StickyTextMeasure {
+  box.set(options);
   return (text, width, fontSize) => {box.set({text, width, fontSize}); return {width:box.width,height:box.height};};
 }
 export function layoutStickyText(input: StickyTextLayoutInput, measure: StickyTextMeasure): StickyTextLayout {

@@ -123,12 +123,14 @@ export function snapFabricRotation(
   target.setCoords();
 }
 
-function stickyTextOptions(object: BoardFabricObject, options: ReturnType<typeof textOptionsFor>) {
+function stickyTextOptions(object: BoardFabricObject, options: ReturnType<typeof textOptionsFor>, label: Textbox) {
   const layout = layoutStickyText({ text: object.content.text, width: object.geometry.width, height: object.geometry.height,
     variant: object.sticky?.variant ?? "square", padding: BOARD_FABRIC_VISUAL.sticky.padding,
-    fontSize: options.fontSize, minimumFontSize: stickyMinimumFontSize(), verticalAlignment: object.style.verticalAlignment }, fabricStickyTextMeasure(options));
+    fontSize: options.fontSize, minimumFontSize: stickyMinimumFontSize(), verticalAlignment: object.style.verticalAlignment }, fabricStickyTextMeasure(options, label));
+  const clipPath = label.clipPath instanceof Rect ? label.clipPath : new Rect();
+  clipPath.set({ width: layout.width, height: layout.height, left: 0, top: -layout.top, originX: "center", originY: "center" });
   return { width: layout.width, fontSize: layout.fontSize, top: layout.top,
-    clipPath: new Rect({ width: layout.width, height: layout.height, left: 0, top: -layout.top, originX: "center", originY: "center" }),
+    clipPath,
     data: { stickyTextOverflow: layout.overflow } };
 }
 
@@ -307,6 +309,8 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       ...textOptionsFor(object, { fontSize: 24, alignment: "left" }),
     });
   } else if (object.kind === "ellipse") {
+    const label = new Textbox(object.content.text, textOptions);
+    label.set(stickyTextOptions(object, richText, label));
     projected = new Group([
       new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
@@ -324,15 +328,19 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   } else if (object.kind === "group") {
     projected = new Rect({ width: object.geometry.width, height: object.geometry.height, fill: "transparent", stroke: "#6366F1", strokeWidth: 1, strokeDashArray: [5, 5] });
   } else if (object.kind === "sticky" && object.sticky?.variant === "circle") {
+    const label = new Textbox(object.content.text, textOptions);
+    label.set(stickyTextOptions(object, richText, label));
     projected = new Group([
       new Circle({ radius: Math.min(object.geometry.width, object.geometry.height) / 2, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, { ...textOptions, ...stickyTextOptions(object, richText) }),
+      label,
     ]);
   } else {
+    const label = new Textbox(object.content.text, textOptions);
+    if (object.kind === "sticky") label.set(stickyTextOptions(object, richText, label));
     const cornerRadius = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.radius : 12;
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, { ...textOptions, ...(object.kind === "sticky" ? stickyTextOptions(object, richText) : {}) }),
+      label,
     ]);
   }
   if (object.kind === "sticky" && projected instanceof Group) {
@@ -440,7 +448,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
       label.set({ width: Math.max(24, object.geometry.width - inset), splitByGrapheme: true, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, angle: 0, flipX: false, flipY: false, left: 0, originX: "center", originY: "center" });
       const top = object.style.verticalAlignment === "top" ? -object.geometry.height / 2 + 16 + label.height / 2
         : object.style.verticalAlignment === "bottom" ? object.geometry.height / 2 - 16 - label.height / 2 : 0;
-      if (object.kind === "sticky" && label instanceof Textbox) label.set(stickyTextOptions(object, richText));
+      if (object.kind === "sticky" && label instanceof Textbox) label.set(stickyTextOptions(object, richText, label));
       else label.set({ top });
       label.setCoords();
     }
