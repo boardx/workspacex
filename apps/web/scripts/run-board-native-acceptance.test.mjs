@@ -4,7 +4,15 @@ import {spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
-import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics} from './run-board-native-acceptance.mjs';
+import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof} from './run-board-native-acceptance.mjs';
+import * as startupReceipts from '../e2e/support/native-runtime/native-startup-receipt.mjs';
+test('startup failure uses sole parser and rejects missing, malformed and foreign-source receipts',()=>{
+  const head='a'.repeat(40);
+  const parsed={phase:'API',code:'ERR_ASSERTION',status:'failed',sourceHead:head};
+  assert.deepEqual(startupFailureProof({readStartupFailure:()=>startupReceipts.parseStartupReceipt(parsed)},'',head),parsed);
+  for(const value of [{...parsed,sourceHead:'b'.repeat(40)},{...parsed,status:'passed'},{...parsed,raw:'secret'}])assert.throws(()=>startupFailureProof({readStartupFailure:()=>startupReceipts.parseStartupReceipt(value)},'',head));
+  assert.throws(()=>startupFailureProof(startupReceipts,'/definitely-missing/native-private-data',head));
+});
 const base=['--','pnpm','--filter','web','exec','playwright','test','--config'];
 test('each workflow suite has its own exact checkout without discarding failed build evidence',()=>{
   const workflow=readFileSync(new URL('../../../.github/workflows/board-native-acceptance.yml',import.meta.url),'utf8');

@@ -44,6 +44,12 @@ export function safeStartupDiagnostics(log){
   return{matchedFailure:failed.length===1?failed[0]:'UNKNOWN',ambiguous:failed.length>1};
 }
 
+export function startupFailureProof(diagnostics,data,head){
+  const receipt=diagnostics.readStartupFailure(data);
+  if(receipt.sourceHead!==null)assert.equal(receipt.sourceHead,head);
+  return receipt;
+}
+
 export function screenshotProof(config,screenshots){
   for(const item of screenshots){assert(Number.isInteger(item.bytes)&&item.bytes>24);assert(Number.isInteger(item.width)&&item.width>0);assert(Number.isInteger(item.height)&&item.height>0);}
   assert(screenshots.length>0);assert(screenshots.some(item=>item.width===1440));assert(screenshots.some(item=>item.width===390));
@@ -122,9 +128,13 @@ async function run(){
     }catch{cleanupFailures.push('OWNED_BUILD_OR_SOURCE_CHECK_FAILED');}
     cleanupCompleted=cleanupFailures.length===0;if(!cleanupCompleted)failureReason=failureReason??'OWNED_CLEANUP_FAILED';
     closeSync(fd);
-    let startupDiagnostics={matchedFailure:'UNKNOWN',ambiguous:false};
+    let startupDiagnostics={matchedFailure:'UNKNOWN',ambiguous:false},startupFailure=null;
     if(phase==='STARTUP')try{startupDiagnostics=safeStartupDiagnostics(readFileSync(privateLog,'utf8'));}catch{ /* Private diagnostics are optional, never a passing gate. */ }
-    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
+    if((phase==='PREPARE'||phase==='STARTUP')&&existsSync(join(data,'native-startup-failure.json')))try{
+      const diagnostics=await import(pathToFileURL(join(support,'native-startup-receipt.mjs')).href);
+      startupFailure=startupFailureProof(diagnostics,data,head);
+    }catch{startupFailure=null;cleanupFailures.push('STARTUP_FAILURE_RECEIPT_INVALID');cleanupCompleted=false;failureReason=failureReason??'STARTUP_FAILURE_RECEIPT_INVALID';}
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
   }
   if(failureReason)throw new Error(failureReason);
 }
