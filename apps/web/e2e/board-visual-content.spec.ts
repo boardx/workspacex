@@ -1,5 +1,5 @@
 import { applyAcknowledgedHistory, boardProjectionWithoutIdentity, readBoardProjection } from "./support/board-history-acceptance";
-import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
+import {expectBoardSynced} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -61,7 +61,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   const board = await created.json() as Board;
   cleanup = { boardId: board.id, token };
   await page.goto(`/studio/board/${board.id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   await page.getByTestId("board-add-shape").click();
   await page.getByTestId("board-fabric-surface").click({position:{x:500,y:280}});
@@ -81,7 +81,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await expect(page.getByRole("button", { name: "图形：绘图" })).toBeVisible();
 
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   const beforeLastCreation = await readBoardProjection(page);
   const beforeLastCreationIds = new Set(beforeLastCreation.map(object => object.id));
 
@@ -92,11 +92,11 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await expect(page.getByTestId("board-a11y-mirror").locator('[aria-description*="图片已验证"]')).toHaveCount(1, { timeout: 15_000 });
 
   await expect(outline).toHaveCount(4);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const peer = await context.newPage();
   await peer.goto(`/studio/board/${board.id}`);
-  await expect(peer.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(peer,30_000);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
 
   const afterLastCreation = await readBoardProjection(page);
@@ -122,7 +122,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await peer.close();
 
   await page.reload();
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
   await expect.poll(() => readBoardProjection(page)).toEqual(afterRedo);
   await expect(page.getByRole("button", { name: "图形：research.png" })).toHaveAttribute("aria-description", /图片已验证/);

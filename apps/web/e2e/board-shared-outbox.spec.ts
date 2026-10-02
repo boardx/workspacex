@@ -1,5 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
+import {expectBoardSynced} from './support/board-sync-status';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
@@ -8,7 +9,7 @@ import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metada
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
-// Eight real UI panel creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
+// Eight real UI sticky creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
@@ -31,20 +32,19 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
  const objectRows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
  const rows=(tab:Page)=>objectRows(tab).evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
- const synced=(tab:Page)=>tab.getByTestId('board-sync-status');
- const expectSynced=async(tab:Page,timeout?:number)=>{await expect(synced(tab)).toHaveAttribute('aria-label',/^已同步(?: · 序列 \d+)?$/,{timeout});};
  try{
   await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
-  await page.goto(`/studio/board/${boardId}`);await expectSynced(page);mark('board-opened');
+  await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   const createdIds:string[]=[];
   for(let index=0;index<8;index++){
-   await page.getByTestId('board-add-sticky').click();
-   await surface.locator('canvas.upper-canvas').click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+   await page.getByTestId('board-tool-select').click();
+   await page.keyboard.press('n');
+   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
    await expect(objectRows(page),`Sticky gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
    const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='sticky')).toBe(true);
    const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);expect(ids).toEqual(expect.arrayContaining(createdIds));createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
@@ -66,7 +66,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
-  await expectSynced(page,remaining());await expectSynced(testPeer,remaining());
+  await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
   mark('peer-converged');
   evidence.drainMs=performance.now()-started;expect(evidence.drainMs).toBeLessThanOrEqual(DRAIN_SLA_MS);
@@ -77,7 +77,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
   await Promise.all([page.reload(),testPeer.reload()]);
   mark('both-reloaded');
-  for(const tab of [page,testPeer]){await expectSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
+  for(const tab of [page,testPeer]){await expectBoardSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
   await Promise.all(chunkReads);expect(chunks.some(chunk=>chunk.path.includes('/app/studio/board/'))).toBe(true);
