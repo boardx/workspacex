@@ -67,6 +67,9 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
   await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
   await page.keyboard.press('Escape');
+  // Escape dismisses focused chrome; explicitly clear the selected object.
+  await page.getByRole('button', {name: '取消选择', exact: true}).click();
+  await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
   await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}
 });
