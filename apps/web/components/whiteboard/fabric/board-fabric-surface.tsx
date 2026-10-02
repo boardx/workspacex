@@ -60,9 +60,9 @@ export interface BoardFabricSurfaceProps {
   /** Fired once at Fabric's gesture completion boundary, never for projection patches. */
   /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
   onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>;
+  /** Ephemeral scene geometry only; never a canonical command or collaboration update. */
+  onTransformPreview?: (items: readonly { id: string; geometry: BoardFabricGeometry }[]) => void;
   onObjectsTransform?: (items: readonly { id: string; geometry: BoardFabricGeometry; parentId?: string | null }[], options?: { duplicate: boolean }) => boolean | Promise<boolean>;
-  /** Gesture-only geometry for object chrome, never a persistence command. */
-  onTransformPreview?: (items: readonly { id: string; geometry: BoardFabricGeometry }[] | null) => void;
   onViewportChange: (viewport: BoardViewport, source: BoardViewportSource) => void;
   onCanvasClick?: (point: { x: number; y: number }) => void;
   onCanvasDoubleClick?: (point: { x: number; y: number }) => void;
@@ -572,6 +572,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
   const stateRef = React.useRef({ readOnly, tool, viewport, drawingAppearance });
   callbacksRef.current = { onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
+  const clearTransformPreviewRef = React.useRef<() => void>(() => undefined);
   stateRef.current = { readOnly, tool, viewport, drawingAppearance };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
@@ -728,13 +729,23 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         registryRef.current.set(object.id, replacement); previewedConnectors.add(object.id);
       }
       callbacksRef.current.onTransformPreview?.(items);
+      updatePreviewScenes(members);
+      canvas.requestRenderAll();
+    };
+    const updatePreviewScenes = (members: TaggedFabricObject[] = []) => {
       setObjectScenes([...registry].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
       const active = canvas.getActiveObject();
       if (active && members.length > 1) setSelectionScene({ bounds: active.getBoundingRect(), hitPoints: members.map(member => { const box = member.getBoundingRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }) });
+    };
+    const clearTransformPreview = () => {
+      restoreConnectorPreviews();
+      callbacksRef.current.onTransformPreview?.([]);
+      updatePreviewScenes();
       canvas.requestRenderAll();
     };
+    clearTransformPreviewRef.current = clearTransformPreview;
     const transformCompleted = (event: { target?: FabricObject }) => {
-      callbacksRef.current.onTransformPreview?.(null);
+      clearTransformPreview();
       setSnapPreview(null);
       const target = event.target as TaggedFabricObject | undefined;
       if (!target) return;
@@ -880,7 +891,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       previewedMembers.clear();
       canvas._currentTransform = null;
       restoreConnectorPreviews();
-      callbacksRef.current.onTransformPreview?.(null);
+      callbacksRef.current.onTransformPreview?.([]);
+      updatePreviewScenes();
       cancelDrawing();
       duplicateGesture = null;
       activeInput = null;
@@ -892,6 +904,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const abortNativeInput = (event: Event, restorePan = true) => {
       const target = canvas._currentTransform?.target as TaggedFabricObject | undefined;
       const ids = new Set([...selectedObjectIdsRef.current, ...(target?.data?.boardObjectId ? [target.data.boardObjectId] : [])]);
+      clearTransformPreview();
       cancelInput(restorePan);
       canvas._currentTransform = null;
       if (event.type.startsWith("touch")) finishCancelledFabricTouch(canvas,event as TouchEvent);
@@ -1143,6 +1156,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       inputDocument.removeEventListener("contextmenu", preventAuxiliaryMenu);
       inputDocument.removeEventListener("keydown", cancelAuxiliaryKey, true);
       inputDocument.defaultView?.removeEventListener("blur", cancelAuxiliaryPan);
+      clearTransformPreviewRef.current = () => undefined;
       cancelDrawingRef.current = () => undefined;
       cancelTransformRef.current = () => undefined;
       inputWindow?.removeEventListener("blur", cancelOnBlur);
@@ -1275,6 +1289,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    clearTransformPreviewRef.current();
     cancelDrawingRef.current();
     cancelTransformRef.current();
     canvas.selection = tool === "select" && !readOnly;
