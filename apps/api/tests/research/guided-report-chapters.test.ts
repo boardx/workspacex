@@ -575,7 +575,7 @@ describe("chapter-based report generation", () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!];
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
-      if (context.reportStage.startsWith("evidence")) return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: any, index: number) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: any) => ({ questionId: question.id, quote: index === 0 ? chunk.content : "Fabricated quote", insight: "Limited evidence", relevance: "direct" })) })) }) };
+      if (context.reportStage.startsWith("evidence")) return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: any, index: number) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: any) => ({ questionId: question.id, quote: chunk.sourceId === "source-a" ? chunk.content : "Fabricated quote", insight: "Limited evidence", relevance: "direct" })) })) }) };
       return { text: JSON.stringify(answer(context)) };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
@@ -637,4 +637,20 @@ describe("chapter-based report generation", () => {
     expect(f.state.reportQualityWarnings).toEqual([]);
   });
 
+});
+
+describe("report evidence debug recorder wiring", () => {
+  it.each([false, true])("records only bounded validation metadata without affecting report generation (sink fails=%s)", async (sinkFails) => {
+    const f = fixture(); const events: any[] = [];
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const recorder = { record: (event: unknown) => { events.push(event); if (sinkFails) throw new Error("recorder unavailable"); } } as any;
+    const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config, model, undefined, recorder);
+    const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+    const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+    const result = await service.execute(actor, session, { sessionId: "s", requestId: "diagnostic", node: "report", action: "generate", expectedVersion: 4 });
+    expect(result.errorCode).toBeNull(); expect(result.report?.sections).toHaveLength(2);
+    expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ traceId: "diagnostic", kind: "research.report.evidence_attempt", level: "info", data: { sessionId: "s", attempt: 1, suppliedChunks: 2, validChunks: 2, retryChunks: 0, reasonCounts: {}, failed: false } });
+    expect(events[0].durationMs).toBeGreaterThanOrEqual(0); expect(JSON.stringify(events)).not.toContain("Evidence for");
+  });
 });

@@ -106,7 +106,7 @@ describe("verified report evidence coverage", () => {
     expect(result.matches.values().next().value).toHaveLength(1);
     expect(state.reportEvidenceWarnings ?? []).toEqual([]);
   });
-  it("does not leak earlier invalid attempt evidence into a repaired response", async () => {
+  it("retains only wholly valid chunks from the first attempt when failed chunks repair as irrelevant", async () => {
     const state = fixture(2); let calls = 0;
     const result = await extractReportEvidence(state, config, auditFor((context) => {
       calls++; const output = evaluate(context);
@@ -114,7 +114,8 @@ describe("verified report evidence coverage", () => {
       else for (const evaluation of output.evaluations) { evaluation.matches = []; evaluation.irrelevant = true; }
       return output;
     }));
-    expect(calls).toBe(2); expect([...result.matches.values()].flat()).toEqual([]);
+    expect(calls).toBe(2); expect([...result.matches.values()].flat()).toHaveLength(2);
+    expect([...result.matches.values()].flat().every((item) => item.sourceId === "s0" && !item.quote.includes("fabricated"))).toBe(true);
   });
   it("fails honestly when repair leaves no verified evidence", async () => {
     const state = fixture(1); let calls = 0;
