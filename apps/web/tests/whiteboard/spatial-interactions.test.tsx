@@ -39,9 +39,9 @@ function mount() {
   return doc;
 }
 
-function createPanelAndSticky(doc:Y.Doc) {
-  // Existing Frames remain editable; current UX hides their creation entry.
-  act(()=>new SpatialRelationshipCommandPort(doc).dispatch({boardId:"spatial-board",clientId:"fixture",gestureId:crypto.randomUUID(),command:{type:"create-panel",id:crypto.randomUUID(),geometry:{x:0,y:0,width:400,height:300,rotation:0},panel:{version:1,mode:"freeform",autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:"horizontal"}}}));
+function createPanelAndSticky(doc: Y.Doc) {
+  // Existing semantic Frames remain editable; R04 removes only new Frame UI.
+  act(() => new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "existing-panel", command: { type: "create-panel", id: "existing-panel", geometry: { x: 0, y: 0, width: 400, height: 300, rotation: 0 }, panel: { version: 1, mode: "freeform", autoExpand: true, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } }));
   fireEvent.keyDown(window,{key:"n"});
   fireEvent.click(screen.getByTestId("mock-canvas-click"));
 }
