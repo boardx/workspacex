@@ -1,0 +1,28 @@
+[stack-admission] load1=2.29 cores=10 perCore=0.23 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mur8q2lg-4a7d143e-76769468cc8b db=wsx_76769468cc8be25dfeee compose=wsx-76769468cc8be25dfeee pg=20728 redis=21728 api=24728 web=25728 sandbox=26728 model=27728 deep-agent=28728 asr=29728 vision=30728 loopback-sandbox=31728 mail=19728
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_76769468cc8be25dfeee capacity=100 current=6 required=32
+ ✓ tests/research/guided-report-chapters.test.ts (59 tests) 1751ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 505ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 506ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 503ms
+ ✓ tests/research/guided-report-evidence-retry.test.ts (26 tests) 10ms
+ ✓ tests/research/guided-report-evidence.test.ts (14 tests) 14ms
+ ✓ tests/research/guided-report-quote-references.test.ts (7 tests) 4ms
+
+ Test Files  4 passed (4)
+      Tests  106 passed (106)
+   Start at  01:32:00
+   Duration  5.96s (transform 545ms, setup 11ms, collect 1.16s, tests 1.78s, environment 0ms, prepare 95ms)
+
+[db-isolation] db=wsx_76769468cc8be25dfeee peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/research/guided-report-quote-references.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-report-evidence-retry.test.ts tests/research/guided-report-chapters.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：7s

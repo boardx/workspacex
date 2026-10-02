@@ -24,7 +24,7 @@ const config = { provider: "test", id: "model" };
 function answer(context: any) {
   if (context.reportStage === "evidence" || context.researchStage === "source_relevance") return { evaluations: context.chunks.map((chunk: any) => {
     const matches = context.questions.filter((question: any) => context.researchStage === "source_relevance" ? chunk.questionIds.includes(question.id) : chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
-      .map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "The excerpt supports a limited policy comparison.", relevance: "direct" }));
+      .map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "The excerpt supports a limited policy comparison.", relevance: "direct" }));
     return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !matches.length, matches };
   }) };
   if (context.reportStage === "quality") return { questions: context.evidenceByQuestion.map((question: any) => ({ questionId: question.id, status: question.gap ? "gap" : "answered", rationale: "The chapter addresses this question with appropriate limitations." })), supported: true, analysisDepth: "adequate", issues: [] };
@@ -167,8 +167,8 @@ describe("chapter-based report generation", () => {
     const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(c.reportStage === "synthesis" ? { ...answer(c), title: "Limited", summary: "Coverage is limited." } : answer(c)) }; } };
     await generateReportChapters(f.state, model, config, f.persist);
     const chunks = contexts.filter((c) => c.reportStage === "evidence").flatMap((c) => c.chunks);
-    expect(chunks.every((chunk) => chunk.sourceId === "source-a" && chunk.content.length <= 6000)).toBe(true);
-    expect(chunks.reduce((total, chunk) => total + chunk.content.length, 0)).toBe(30000);
+    expect(chunks.every((chunk) => chunk.sourceId === "source-a" && (chunk.content ?? chunk.quoteOptions.map((option: any) => option.text).join("")).length <= 6000)).toBe(true);
+    expect(chunks.reduce((total, chunk) => total + (chunk.content ?? chunk.quoteOptions.map((option: any) => option.text).join("")).length, 0)).toBe(30000);
     const firstChapter = contexts.find((c) => c.reportStage === "chapter");
     expect(firstChapter.evidenceGaps).toEqual([{ query: "b policy", status: "failed", errorCode: null }]); expect(firstChapter.reportPartial).toBe(true);
   });
@@ -576,7 +576,7 @@ describe("chapter-based report generation", () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!];
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
-      if (context.reportStage.startsWith("evidence")) return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: any, index: number) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: any) => ({ questionId: question.id, quote: chunk.sourceId === "source-a" ? chunk.content : "Fabricated quote", insight: "Limited evidence", relevance: "direct" })) })) }) };
+      if (context.reportStage.startsWith("evidence")) return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: any, index: number) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: any) => ({ questionId: question.id, quote: chunk.sourceId === "source-a" ? chunk.quoteOptions[0].text : "Fabricated quote", insight: "Limited evidence", relevance: "direct" })) })) }) };
       return { text: JSON.stringify(answer(context)) };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
