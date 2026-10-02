@@ -217,7 +217,7 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const sourceBounds = await sourceHandle.boundingBox(); expect(sourceBounds).not.toBeNull();
   const target = before.objects.find(object => object.id === to)!; expect(target).toBeTruthy();
   const anchor = rotatedAnchorPoint(target, 'left');
-  const surface = page.getByTestId('board-fabric-surface'), bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
+  const bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
   const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
   const destination = {x: bounds!.x + Number(await surface.getAttribute('data-viewport-pan-x')) + anchor.x * zoom,
     y: bounds!.y + Number(await surface.getAttribute('data-viewport-pan-y')) + anchor.y * zoom};
