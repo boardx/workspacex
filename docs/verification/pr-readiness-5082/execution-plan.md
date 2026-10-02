@@ -37,7 +37,7 @@ flowchart TD
   class S3 done
   class S4 tested
   %% evidence S4: 58 focused tests; 775 diagnostic suite tests; typecheck/lint; R09 browser exit 0 and ledger
-  class S5 todo
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
