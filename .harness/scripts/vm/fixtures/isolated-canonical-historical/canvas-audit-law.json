@@ -1,0 +1,69 @@
+{
+  "kind": "canvas-template-audit",
+  "expectedCreatedTable": "public.canvas_template_audit",
+  "existingRows": "empty-before-no-template-writes",
+  "requiredColumns": [
+    "id",
+    "org_id",
+    "key",
+    "version",
+    "action",
+    "from_status",
+    "to_status",
+    "actor_id",
+    "actor_source",
+    "occurred_at",
+    "changed_fields"
+  ],
+  "identity": "id GENERATED ALWAYS",
+  "organizationForeignKey": "ON DELETE CASCADE",
+  "checks": [
+    "actor_source IN ('principal', 'host')",
+    "(actor_source='principal') = (actor_id IS NOT NULL)"
+  ],
+  "index": {
+    "name": "canvas_template_audit_version_idx",
+    "columns": [
+      "org_id",
+      "key",
+      "version",
+      "id"
+    ]
+  },
+  "rls": {
+    "enabled": true,
+    "forced": true,
+    "policy": "canvas_template_audit_tenant",
+    "using": "org_id=current_setting('app.current_org',true)",
+    "withCheck": "org_id=current_setting('app.current_org',true)"
+  },
+  "appRwPrivileges": [
+    "SELECT"
+  ],
+  "functions": {
+    "canvas_template_audit_append_only": {
+      "prosrcSha256": "579d2d75d66830d4a06d8cfb7fd839af84e2a94b3f58ef6ba45bebc2c72b222b",
+      "body": "\nBEGIN\n  IF TG_OP='DELETE' AND NOT EXISTS (SELECT 1 FROM public.organizations WHERE id=OLD.org_id) THEN RETURN OLD; END IF;\n  RAISE EXCEPTION 'canvas template audit is append-only';\nEND;\n",
+      "definitionSuffix": "LANGUAGE plpgsql SET search_path=public,pg_temp"
+    },
+    "record_canvas_template_audit": {
+      "prosrcSha256": "d2d21cc805f0d8b6f43523f6311cf06b0dbd08918c2ff98e2d47d79f42e84612",
+      "body": "\nDECLARE\n  actor text := NULLIF(current_setting('app.canvas_template_actor',true),'');\n  requested text := NULLIF(current_setting('app.canvas_template_action',true),'');\n  operation text;\n  previous text;\n  fields text[];\nBEGIN\n  IF TG_OP='INSERT' THEN\n    operation := CASE WHEN requested='adopt' THEN 'adopt' WHEN NEW.version=1 THEN 'create' ELSE 'mint' END;\n    fields := ARRAY['created'];\n  ELSE\n    IF to_jsonb(OLD)-'updated_at'=to_jsonb(NEW)-'updated_at' THEN RETURN NEW; END IF;\n    previous := OLD.status;\n    operation := CASE\n      WHEN OLD.status='archived' AND NEW.status<>'archived' THEN 'restore'\n      WHEN NEW.status='archived' AND requested='publish' THEN 'supersede'\n      WHEN NEW.status='archived' THEN 'archive'\n      WHEN OLD.status<>NEW.status AND NEW.status='published' THEN 'publish'\n      WHEN OLD.status<>NEW.status AND NEW.status='trial' THEN 'trial'\n      ELSE 'edit' END;\n    SELECT array_agg(item.key ORDER BY item.key) INTO fields\n      FROM jsonb_each(to_jsonb(NEW)-'updated_at') item\n      WHERE item.value IS DISTINCT FROM to_jsonb(OLD)->item.key;\n  END IF;\n  INSERT INTO public.canvas_template_audit(org_id,key,version,action,from_status,to_status,actor_id,actor_source,changed_fields)\n    VALUES(NEW.org_id,NEW.key,NEW.version,operation,previous,NEW.status,actor,\n      CASE WHEN actor IS NULL THEN 'host' ELSE 'principal' END,fields);\n  RETURN NEW;\nEND;\n",
+      "definitionSuffix": "LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp"
+    }
+  },
+  "triggers": {
+    "canvas_template_audit_append_only_trg": {
+      "table": "canvas_template_audit",
+      "tgtype": 27,
+      "function": "canvas_template_audit_append_only"
+    },
+    "canvas_templates_audit_trg": {
+      "table": "canvas_templates",
+      "tgtype": 21,
+      "function": "record_canvas_template_audit"
+    }
+  },
+  "recordFunctionPublicExecute": false,
+  "freezePoliciesApplied": true
+}

@@ -278,12 +278,13 @@ export interface ChatRepository {
     expectedVersion: number,
   ): Promise<number | null>;
 
-  /** 删除。返回 `null` 表示版本已变；返回条数用于 `impactScope`（删除是可追溯动作）。 */
+  /** Remove from active conversations. Agent history is retained in an archived read-only
+   * thread; history-free threads are physically deleted. Null means version changed. */
   deleteThread(
     orgId: OrgId,
     threadId: string,
     expectedVersion: number,
-  ): Promise<{ messageCount: number } | null>;
+  ): Promise<{ messageCount: number; retained?: boolean; version?: number } | null>;
 
   /**
    * 置顶 / 取消置顶（2026-09-03，F109 续，ad-hoc）。乐观并发：`expectedVersion`

@@ -65,6 +65,10 @@ let runId = "";
  * 建一个中间态。 */
 let stateCallCount = 0;
 let statusCallCount = 0;
+let multistep = false;
+let streamStage = 0;
+let multistepFinished = false;
+let acknowledgeState: (() => void) | undefined;
 
 function respond(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -87,20 +91,59 @@ async function startLanggraphServer(): Promise<void> {
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}/stream`) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.write('event: metadata\ndata: {}\n\n');
+      if (multistep) {
+        // Each frame is released by the preceding real state read, so every
+        // progress/result snapshot reaches the provider before the next one.
+        void (async () => {
+          for (const stage of [1, 2, 3]) {
+            if (res.destroyed) return;
+            streamStage = stage;
+            await new Promise<void>(resolve => {
+              acknowledgeState = resolve;
+              res.write('event: updates\ndata: {"tools":{"messages":[]}}\n\n');
+            });
+          }
+          multistepFinished = true;
+          res.end();
+        })();
+        res.once("close", () => acknowledgeState?.());
+        return;
+      }
       const finish = () => {
-        statusCallCount = Math.max(statusCallCount, 1);
-        stateCallCount = Math.max(stateCallCount, 1);
+        if (!multistep) {
+          statusCallCount = Math.max(statusCallCount, 1);
+          stateCallCount = Math.max(stateCallCount, 1);
+        }
         res.end();
       };
       finish();
       return;
     }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = statusCallCount === 0 ? "running" : "success";
+      const status = (multistep ? !multistepFinished : statusCallCount === 0) ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
+      if (multistep) {
+        stateCallCount++;
+        const stage = streamStage;
+        const messages: Record<string, unknown>[] = [{ type: "human", content: "Find and read documents" }];
+        if (stage >= 1) messages.push({ type: "ai", content: "", tool_calls: [
+          { id: "search-2016", name: "search_documents", args: { query: "market" } },
+          { id: "read-2016", name: "read_document", args: { document_id: "doc-2016" } },
+        ] });
+        if (stage >= 2) messages.push({ type: "tool", tool_call_id: "search-2016", content: "Found doc-2016" });
+        if (stage >= 3) messages.push(
+          { type: "tool", tool_call_id: "read-2016", content: "Document market evidence" },
+          { type: "ai", content: FINAL_TEXT },
+        );
+        respond(res, 200, { values: { messages } });
+        const acknowledged = acknowledgeState;
+        acknowledgeState = undefined;
+        acknowledged?.();
+        return;
+      }
       const messages = stateCallCount === 0
         ? [{ type: "human", content: "画一个架构图" }]
         : [
@@ -228,6 +271,10 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
+  multistep = false;
+  streamStage = 0;
+  multistepFinished = false;
+  acknowledgeState = undefined;
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
@@ -237,6 +284,33 @@ beforeEach(async () => {
 });
 
 describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CALL_* 事件", () => {
+  it("#2016: folded progress updates deliver each real terminal result once with its original tool ID", async () => {
+    multistep = true;
+    const events = await postBridgeTurn("Find and read documents");
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+    const starts = events.filter(e => e.type === EventType.TOOL_CALL_START);
+    const results = events.filter(e => e.type === EventType.TOOL_CALL_RESULT);
+    expect(starts.map(e => e.toolCallName)).toEqual(["search_documents", "read_document"]);
+    expect(results).toHaveLength(2);
+    for (const [name, content] of [
+      ["search_documents", "Found doc-2016"], ["read_document", "Document market evidence"],
+    ]) {
+      const start = starts.find(e => e.toolCallName === name)!;
+      const result = results.filter(e => e.toolCallId === start.toolCallId);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.content).toBe(content);
+    }
+    // Verify this exercised actual append-only progress→terminal folding in PG,
+    // rather than a fixture that only ever reported an already completed tool.
+    const steps = await asApp(ORG, c => c.query<{ tool_name: string; status: string; tool_call_id: string }>(
+      "SELECT tool_name,status,tool_call_id FROM agent_run_steps WHERE org_id=$1 AND kind='tool_call' ORDER BY seq", [ORG]));
+    for (const name of ["search_documents", "read_document"]) {
+      const call = steps.rows.filter(row => row.tool_name === name);
+      expect(call.map(row => row.status)).toEqual(["in_progress", "succeeded"]);
+      expect(new Set(call.map(row => row.tool_call_id)).size).toBe(1);
+    }
+  }, 30_000);
+
   it("一次真实工具调用产出 TOOL_CALL_START/ARGS/END/RESULT，再是最终答案；无流式正文时保留规划摘要回退", async () => {
     const events = await postBridgeTurn("画一个架构图");
 

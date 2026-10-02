@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { planControl } from "@repo/contracts/plan-control";
 
 /**
  * CK-P3 + CK-P4（issue #2054）—— v2 轨道逐条消息操作与 run 进度的真栈取证。
@@ -17,8 +18,8 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
  *      messageId 一律 404，而 v2 流式消息在视图里的 id 是控制器 `randomUUID()` 出来的
  *      临时聚合 id。如果 `chat_message_id` 回显没接上、或者接错了，按钮照样画得出来、
  *      点得下去，只是每次都 404——所以这里显式断言 `not 404`，不只断言"UI 显示已记录"。
- *   ③ **重试**：断言的是**产生了一次新的 run 请求**（wire 上 `POST /api/copilotkit/...`
- *      的计数增加），不是"横幅消失了"。一个把 error state 清掉的假重试会让横幅消失。
+ *   ③ **重试**：有计划时走唯一的 UC-10 恢复入口，断言真实 POST、持久 run 与已完成
+ *      步骤保留，不是"横幅消失了"。#3416 已收起会丢进度的整条消息重发入口。
  *
  * ## 为什么先选一个真实 agent
  *
@@ -28,8 +29,6 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
  * 所以这里显式选中 `CHAT_READ_E2E.agentId`——这既是反馈按钮真实的出现条件，也顺带让
  * 回复来自确定性的 loopback provider（`agentReplyPrefix` 可核对）。
  */
-
-const RUN_ROUTE = /\/api\/copilotkit\//;
 
 async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
   await expect
@@ -139,35 +138,48 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
   await expect(assistantBubble.getByTestId("chat-agent-feedback")).toHaveCount(1);
 });
 
-test("CK-P4 失败重试——横幅上的「重试」真的发起一次新 run，不是把错误状态擦掉", async ({ page }) => {
+test("CK-P4 有计划的失败重试——唯一恢复入口真的创建新 run 并保留已完成步骤", async ({ page }) => {
   await loginAndOpenChat(page);
-
-  let runRequestCount = 0;
-  page.on("request", (req) => {
-    if (req.method() === "POST" && RUN_ROUTE.test(req.url())) runRequestCount += 1;
-  });
-
+  const failedLedger = page.waitForResponse(async (response) => {
+    if (response.request().method() !== "GET" || !/\/plan-control\/threads\/[^/]+\/ledger(?:\?|$)/.test(response.url()) || !response.ok()) return false;
+    return planControl.getPlanLedger.out.parse(await response.json()).phase === "failed";
+  }, { timeout: 60_000 });
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentFailureTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-
   await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(1, { timeout: 60_000 });
-  const countAfterFirstRun = runRequestCount;
-  expect(countAfterFirstRun).toBeGreaterThan(0);
-
-  const retry = page.getByTestId("copilotkit-v2-retry");
+  const ledgerResponse = await failedLedger;
+  const before = planControl.getPlanLedger.out.parse(await ledgerResponse.json());
+  const completed = before.steps.filter(step => step.status === "completed");
+  expect(completed.length, "fixture must have real completed progress to preserve").toBeGreaterThan(0);
+  expect(before.failedStepId).toBeTruthy();
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  expect(token).toBeTruthy();
+  const headers = { Authorization: `Bearer ${token}` };
+  // #3416: don't offer whole-message resend alongside step recovery. That would
+  // discard progress and duplicate the human message; UC-10 owns this case.
+  const retry = page.getByTestId("chat-task-workbench-failure-retry-step");
   await expect(retry).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("copilotkit-v2-retry")).toHaveCount(0);
+  const retried = page.waitForResponse(response => response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/steps/retry"));
   await retry.click();
-
-  // ── 反证 wire 上真的多了一次 run 请求 ───────────────────────────────────────
-  // 一个只把 `error` state 置 null 的假重试同样会让横幅消失，但计数不会涨。
-  await expect
-    .poll(() => runRequestCount, { timeout: 60_000, intervals: [500, 1_000, 2_000] })
-    .toBeGreaterThan(countAfterFirstRun);
-
-  // 重发的是**失败的那一句**（不是空串、不是 composer 当前草稿）：它在消息区出现两次。
-  const userBubbles = page.getByTestId("copilotkit-v2-messages").getByText(
-    CHAT_READ_E2E.deepAgentFailureTrigger,
-    { exact: false },
-  );
-  await expect.poll(async () => userBubbles.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+  const response = await retried;
+  expect(response.status()).toBe(201);
+  expect(response.request().postDataJSON()).toEqual({ planStepId: before.failedStepId });
+  const created = planControl.retryPlanStep.out.parse(await response.json());
+  expect(created.runId).toBeTruthy();
+  const base = response.url().split("/plan-control/")[0];
+  const persistedRun = await page.request.get(`${base}/agent-runs/${created.runId}`, { headers });
+  expect(persistedRun.ok()).toBe(true);
+  expect((await persistedRun.json()).runId).toBe(created.runId);
+  const afterResponse = await page.request.get(ledgerResponse.url(), { headers });
+  expect(afterResponse.ok()).toBe(true);
+  const after = planControl.getPlanLedger.out.parse(await afterResponse.json());
+  for (const step of completed) expect(after.steps.find(candidate => candidate.planStepId === step.planStepId)?.status).toBe("completed");
+  // Restrict to real user message bodies: the task timeline also renders the
+  // same input as a run label, which is not a second human message.
+  const userBubbles = page.getByTestId("copilotkit-v2-messages")
+    .getByTestId("chat-user-message-text").filter({ hasText: CHAT_READ_E2E.deepAgentFailureTrigger });
+  await expect(userBubbles).toHaveCount(1);
+  await expect(userBubbles).toHaveText(CHAT_READ_E2E.deepAgentFailureTrigger);
 });

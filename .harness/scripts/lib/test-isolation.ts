@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { acquireTestPortLease, testPortLeaseDir } from "./test-port-lease.ts";
 
 export interface IsolationOptions {
   isolationId?: string;
@@ -265,7 +266,8 @@ export function ensureTestIsolation(
 //
 // 修法：**向操作系统要端口，而不是猜端口**。从哈希推出的位置开始向上探测，逐个真的
 // bind 一次；探到的端口**持续持有**直到调用方把栈起起来前才释放（`release()`），
-// 这样两个并发 run 不可能选中同一个端口 —— 后者 bind 会失败，自然跳过。
+// #3128：监听释放后另一个轻量 wrapper 仍可能选中尚未起服务的端口。
+// 因此每个候选还要原子持有机器全局 PID/token 租约，直到整个 scope teardown。
 // 起点再叠一个进程内随机偏移，两个同 id 的并发 run 也不会从同一个位置开始探。
 import { createServer } from "node:net";
 
@@ -273,9 +275,12 @@ import { createServer } from "node:net";
 const MAX_PROBES = 400;
 
 function listenOn(port: number): Promise<ReturnType<typeof createServer> | null> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const server = createServer();
-    server.once("error", () => resolve(null));
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") resolve(null);
+      else reject(error);
+    });
     // 只占 127.0.0.1：docker 的宿主端口映射也绑在 127.0.0.1（见 docker-compose.dev.yml），
     // 绑 0.0.0.0 会把"别人已经占了回环"这件事漏掉。
     server.listen(port, "127.0.0.1", () => resolve(server));
@@ -284,70 +289,115 @@ function listenOn(port: number): Promise<ReturnType<typeof createServer> | null>
 
 export interface PortReservation {
   ports: Record<PortKey, string>;
-  /** 释放全部占位监听。调用方必须在真正起栈**之前**调它，且只调一次。 */
+  /** Release OS listeners before startup, retaining ownership of every port. */
   release: () => Promise<void>;
+  /** Release listeners and advisory leases only after child/stack teardown. */
+  dispose: (teardownComplete?: boolean) => Promise<void>;
+  /** Durable quarantine marker, published before any child can start. */
+  markStarting: () => void;
 }
 
 /**
- * 为一次隔离实际预留六个空闲端口。
+ * 为一次隔离实际预留 PORT_BASE 中每个角色的空闲端口。
  *
  * 与旧 `portFrom` 的区别是**验证**：每个端口都真的 bind 过一次才算数，并且在
- * `release()` 之前一直被本进程持有 —— 并发的另一个 run 探到它会 bind 失败并跳过。
+ * `release()` 之前由监听持有；之后由 PID/token 租约继续保护，直到 `dispose()`。
  * 探测越界（本段 `PORT_BAND` 个位置里连 MAX_PROBES 个都占满）时**大声失败**，
  * 绝不退回"就用这个吧"—— 那正是本 issue 要根除的行为。
  */
-export async function reserveIsolationPorts(seed: TestIsolationEnv): Promise<PortReservation> {
+export async function reserveIsolationPorts(
+  seed: TestIsolationEnv,
+  options: { leaseDir?: string } = {},
+): Promise<PortReservation> {
   const held: Array<ReturnType<typeof createServer>> = [];
+  const leases: Array<{ release: (teardownComplete?: boolean) => void; markStarting: () => void }> = [];
+  const leaseDir = options.leaseDir ?? testPortLeaseDir();
+  const release = async (): Promise<void> => {
+    await Promise.all(held.splice(0).map((s) => new Promise<void>((r) => s.close(() => r()))));
+  };
+  const releaseLeases = (teardownComplete = false): void => {
+    const errors: unknown[] = [];
+    for (const lease of leases.splice(0)) {
+      try { lease.release(teardownComplete); } catch (error) { errors.push(error); }
+    }
+    if (errors.length) throw new AggregateError(errors, "[test-isolation] port lease teardown failed");
+  };
+  // verify's die() uses process.exit(), which bypasses async finally blocks.
+  // One handler per owning scope; inherited scopes never register one.
+  // Startup-marked ports remain quarantined on exit without completed teardown.
+  const onExit = (): void => {
+    try { releaseLeases(); } catch (error) { console.error(error); process.exitCode = 1; }
+  };
+  const dispose = async (teardownComplete = true): Promise<void> => {
+    try {
+      await release();
+    } finally {
+      try {
+        releaseLeases(teardownComplete);
+      } finally {
+        process.removeListener("exit", onExit);
+      }
+    }
+  };
   const ports = {} as Record<PortKey, string>;
   // 进程内随机起点偏移：两个 isolationId 相同的并发 run 不会从同一个位置开始探。
   const jitter = Math.floor(Math.random() * PORT_BAND);
 
-  for (const key of PORT_KEYS) {
-    const base = PORT_BASE[key];
-    const derived = Number(seed[key]);
-    const start = Number.isFinite(derived) ? derived : base;
-    let chosen: number | null = null;
-    for (let probe = 0; probe < MAX_PROBES; probe += 1) {
-      const offset = (start - base + (probe === 0 ? 0 : jitter + probe)) % PORT_BAND;
-      const candidate = base + offset;
-      const server = await listenOn(candidate);
-      if (server) {
-        held.push(server);
-        chosen = candidate;
-        break;
+  try {
+    for (const key of PORT_KEYS) {
+      const base = PORT_BASE[key];
+      const derived = Number(seed[key]);
+      const start = Number.isFinite(derived) ? derived : base;
+      let chosen: number | null = null;
+      for (let probe = 0; probe < MAX_PROBES; probe += 1) {
+        const offset = (start - base + (probe === 0 ? 0 : jitter + probe)) % PORT_BAND;
+        const candidate = base + offset;
+        const lease = acquireTestPortLease(candidate, leaseDir);
+        if (!lease) continue;
+        leases.push(lease);
+        const server = await listenOn(candidate);
+        if (server) {
+          held.push(server);
+          chosen = candidate;
+          break;
+        }
+        lease.release();
+        leases.pop();
       }
+      if (chosen === null) {
+        throw new Error(
+          `[test-isolation] ${key} 段（${base}–${base + PORT_BAND - 1}）连续 ${MAX_PROBES} 个端口都占用中——` +
+            "不猜一个端口硬上，先查是不是有栈没清干净（pnpm harness sweep-docker）。",
+        );
+      }
+      ports[key] = String(chosen);
     }
-    if (chosen === null) {
-      await Promise.all(held.map((s) => new Promise<void>((r) => s.close(() => r()))));
-      throw new Error(
-        `[test-isolation] ${key} 段（${base}–${base + PORT_BAND - 1}）连续 ${MAX_PROBES} 个端口都占用中——` +
-          "不猜一个端口硬上，先查是不是有栈没清干净（pnpm harness sweep-docker）。",
-      );
-    }
-    ports[key] = String(chosen);
+  } catch (error) {
+    await dispose();
+    throw error;
   }
+  process.once("exit", onExit);
 
   return {
     ports,
-    release: async () => {
-      await Promise.all(held.map((s) => new Promise<void>((r) => s.close(() => r()))));
-      held.length = 0;
-    },
+    release,
+    dispose,
+    markStarting: () => { for (const lease of leases) lease.markStarting(); },
   };
 }
 
 /**
  * 最外层入口：继承已有隔离，或推导 + **实际预留**端口。
- * 返回的 `release` 必须在起栈前调用；`reserved: false` 表示端口是继承来的，
- * 上层已经持有过，本层不该重复预留（嵌套 verify 的场景）。
+ * `release` 在起栈前关闭监听，`dispose` 在 teardown 后释放租约。
+ * `reserved: false` 表示继承上层的隔离；两个释放操作都是空操作，不能删父租约。
  */
 export async function ensureReservedTestIsolation(
   inherited: NodeJS.ProcessEnv,
-  options: Pick<IsolationOptions, "worktreePath"> = {},
-): Promise<{ env: TestIsolationEnv; release: () => Promise<void>; reserved: boolean }> {
+  options: Pick<IsolationOptions, "worktreePath"> & { leaseDir?: string } = {},
+): Promise<{ env: TestIsolationEnv; release: () => Promise<void>; dispose: (teardownComplete?: boolean) => Promise<void>; markStarting: () => void; reserved: boolean }> {
   const existing = inheritedIsolation(inherited);
-  if (existing) return { env: existing, release: async () => {}, reserved: false };
+  if (existing) return { env: existing, release: async () => {}, dispose: async () => {}, markStarting: () => {}, reserved: false };
   const seed = ensureTestIsolation(inherited, options);
-  const reservation = await reserveIsolationPorts(seed);
-  return { env: { ...seed, ...reservation.ports }, release: reservation.release, reserved: true };
+  const reservation = await reserveIsolationPorts(seed, { leaseDir: options.leaseDir ?? testPortLeaseDir(inherited) });
+  return { env: { ...seed, ...reservation.ports }, release: reservation.release, dispose: reservation.dispose, markStarting: reservation.markStarting, reserved: true };
 }

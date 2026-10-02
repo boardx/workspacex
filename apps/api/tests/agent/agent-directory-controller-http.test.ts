@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { NotFoundException, UnauthorizedException } from "@nestjs/common";
-import { agentRole as R } from "@repo/contracts";
+import { agentDefaults, agentRole as R } from "@repo/contracts";
 import { AgentDirectoryController } from "../../src/interface/controllers/agent-directory.controller";
 import type { AgentDirectoryRepository, AgentDirectoryRow } from "../../src/application/agent/list-agent-directory";
 import type { IdentityRepository } from "../../src/application/identity/ports";
@@ -49,11 +49,11 @@ describe("AG04 AgentDirectoryController HTTP mapping", () => {
     const roleColumns = Object.fromEntries(Object.entries(AGENT_ROLE_COLUMN_OF).map(([field, column]) =>
       [column, R.AGENT_ROLE_FIELD_DEFAULTS[field as keyof typeof R.AGENT_ROLE_FIELD_DEFAULTS]]));
     const legacy = {
-      ...roleColumns, agent_id: "legacy", version_id: "legacy-v", name: "Legacy Agent", role_label: null,
+      ...roleColumns, stable_name: agentDefaults.DEFAULT_AGENT_STABLE_NAME, agent_id: "legacy", version_id: "legacy-v", name: "Legacy Agent", role_label: null,
       tool_policy: [], duty: null, abbr: null, skill_mounts: [], skill_version_ids: [],
     };
     const official = {
-      ...legacy, agent_id: "official", version_id: "official-v", name: "产品经理", role_label: "产品经理",
+      ...legacy, stable_name: "official-product-manager", agent_id: "official", version_id: "official-v", name: "产品经理", role_label: "产品经理",
       role_category: "product", catalog_source: "official", abbr: "D003", duty: "分析需求和撰写 PRD",
     };
     const rows = [legacy, official];
@@ -75,8 +75,8 @@ describe("AG04 AgentDirectoryController HTTP mapping", () => {
     expect(list.items.find(item => item.agentId === "official")?.roleLabel).toBe("产品经理");
     const legacyCard = await controller.getOne(MEMBER, "legacy");
     expect(legacyCard.roleLabel).toBe("");
-    await expect(controller.getProfile(MEMBER, "legacy")).resolves.toMatchObject({ agentId: "legacy" });
-    await expect(controller.getProfile(MEMBER, "official")).resolves.toMatchObject({ agentId: "official", duty: "分析需求和撰写 PRD" });
+    await expect(controller.getProfile(MEMBER, "legacy")).resolves.toMatchObject({ agentId: "legacy", skillScope: "general" });
+    await expect(controller.getProfile(MEMBER, "official")).resolves.toMatchObject({ agentId: "official", skillScope: "agent_pins", duty: "分析需求和撰写 PRD" });
   });
 
   it("list: 未认证 → 401", async () => {
@@ -114,4 +114,26 @@ describe("AG04 follow-up getProfile HTTP mapping", () => {
     await expect(setup({ authed: false }).getProfile(MEMBER, "agent-1")).rejects.toBeInstanceOf(UnauthorizedException);
     await expect(setup({ found: null }).getProfile(MEMBER, "nope")).rejects.toBeInstanceOf(NotFoundException);
   });
+});
+
+it("profile resolves an old published pin to its exact catalog skill ID with tenant/platform bounds", async () => {
+  const roleColumns = Object.fromEntries(Object.entries(AGENT_ROLE_COLUMN_OF).map(([field, column]) =>
+    [column, R.AGENT_ROLE_FIELD_DEFAULTS[field as keyof typeof R.AGENT_ROLE_FIELD_DEFAULTS]]));
+  const sqlCalls: { sql: string; params?: readonly unknown[] }[] = [];
+  const database: DatabasePort = {
+    withTenant: async (_orgId, fn) => fn({ query: async <T>(sql: string, params?: readonly unknown[]) => {
+      sqlCalls.push({ sql, params });
+      return { rows: (sql.includes("FROM skill_versions")
+        ? [{ skill_id: "catalog-skill", version_id: "old-version" }]
+        : [{ ...roleColumns, agent_id: "agent-1", version_id: "agent-v1", name: "角色", role_label: "角色", tool_policy: [], duty: null, abbr: null, skill_mounts: [], skill_version_ids: ["old-version"] }]) as unknown as T[] };
+    } }),
+    withoutTenant: async () => { throw new Error("tenant context required"); }, close: async () => {},
+  };
+  const repository = new PgAgentDirectoryRepository(database);
+  const controller = new AgentDirectoryController({ findOrgMembership: async () => ({ orgRole: "member" }) } as unknown as IdentityRepository, repository, { resolveName: async () => null } as unknown as WorkflowDefinitionStore);
+  expect(await controller.getProfile(MEMBER, "agent-1")).toMatchObject({ pinnedSkills: [{ skillId: "catalog-skill", versionId: "old-version" }] });
+  const lookup = sqlCalls.find(call => call.sql.includes("FROM skill_versions"));
+  expect(lookup?.params).toEqual(["org-1", ["old-version"], "org-platform"]);
+  expect(lookup?.sql).toContain("sv.published");
+  expect(lookup?.sql).toContain("sk.org_id=sv.org_id");
 });

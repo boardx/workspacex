@@ -6,6 +6,9 @@
  * 下面这些用例存在——尤其是「纯改标签保留」和「加页不丢已有页」两条。
  */
 import { describe, expect, it } from "vitest";
+import { designHtmlPage } from "@repo/contracts";
+import { projectDesignProject } from "../../src/application/design-workbench/project-shared";
+import { designProjectRow } from "../support/fake-design-project-repo";
 import { mergeScreens, prototypeOf } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
 import type { PrototypeNode } from "../../src/application/design-workbench/project-ports";
 
@@ -90,5 +93,24 @@ describe("#3340 prototypeOf：一页缺树不许把整份原型抹掉", () => {
   it("全都画出来了 ⇒ 与旧行为逐项相同，不回归", () => {
     const out = prototypeOf([{ frame: "A", root: tree("a"), links: [] }, { frame: "B", root: tree("b"), links: [] }]);
     expect(out.map((r) => r === null)).toEqual([false, false]);
+  });
+});
+
+
+describe("HTML navigation persistence and public response", () => {
+  const oldHtml = designHtmlPage.sanitizeHtmlPage('<button data-goto="1">下一页</button>').html;
+  const newHtml = designHtmlPage.sanitizeHtmlPage('<button>停止跳转</button>').html;
+  const initial = [{ frame: "首页", root: { type: "html" as const, props: { html: newHtml } }, links: [] }, { frame: "第二页", root: tree("二"), links: [] }];
+  it("恢复 HTML 时导航由恢复后的内容重建，不沿用当前 links", () => {
+    const screens = mergeScreens(initial, { prototype: [{ type: "html", props: { html: oldHtml } }, tree("二")] });
+    expect(screens[0]!.links).toEqual(designHtmlPage.htmlPageLinks(oldHtml));
+    const again = mergeScreens(screens, { prototype: [{ type: "html", props: { html: newHtml } }, tree("二")] });
+    expect(again[0]!.links).toEqual([]);
+  });
+  it("读 API 的项目视图包含导航，刷新后预览与导出同样能跳页", () => {
+    const links = [designHtmlPage.htmlPageLinks(oldHtml), []];
+    const view = projectDesignProject(designProjectRow({ frameLinks: links }), "测试用户");
+    expect(view.frameLinks).toEqual(links);
+    expect(view.frameLinks).not.toBe(links);
   });
 });

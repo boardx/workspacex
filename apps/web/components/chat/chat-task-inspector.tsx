@@ -21,11 +21,12 @@ import {
   type InspectorSignals,
   type InspectorTab,
 } from "@/lib/chat-task-inspector-tabs";
-import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
+import type { ChatAttachment, ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
 import { ChatArtifactView, type LoadedArtifact } from "@/components/chat/chat-artifact-view";
 import { ChatAttachmentView } from "@/components/chat/chat-attachment-view";
+import { ChatAttachmentPreviewModal } from "@/components/chat/chat-attachment-preview-modal";
 import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
 import {
   // `activeTab` 这个名字在本文件里已经是「右栏四个页签里选中的那一个」（InspectorTab）。
@@ -216,6 +217,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 返回只是把列表铺回来，开着的那几份仍然开着，随时能切回去。
    */
   const [artifactListMode, setArtifactListMode] = React.useState(true);
+  const [enlargedFile, setEnlargedFile] = React.useState<{ threadId: string; attachment: ChatAttachment } | null>(null);
+  React.useEffect(() => { setEnlargedFile(null); }, [threadId]);
   // 「产物」页签统一外壳（见 `ChatArtifactsPanel` 的 `versions`）：版本面板把条数报上来，
   // 外壳据此出总数与唯一的空态；统一刷新按钮同时触发两边重读。
   const [versionsCount, setVersionsCount] = React.useState<number | null>(null);
@@ -232,6 +235,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 的同一形状。要么让它可达，要么不写；这里选不写。
    */
   const openInPanel = artifactListMode ? null : activeArtifactTab(artifactTabs);
+  // Use the real attachment metadata, never invent byte counts or a second fetch path.
+  const openFile = openInPanel?.kind === "file" && openInPanel.threadId === threadId
+    ? materials?.items.find((item) => item.id === openInPanel.attachmentId)
+    : undefined;
   const openInPanelTab = React.useCallback((tab: ArtifactTab) => {
     setArtifactTabs((prev) => openTab(prev, tab));
     setArtifactListMode(false);
@@ -560,6 +567,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                 onBack={() => { setArtifactListMode(true); }}
                 onEnlarge={onOpenArtifact !== undefined && openInPanel.kind === "artifact"
                   ? () => { onOpenArtifact(openInPanel.item); }
+                  : openFile && threadId
+                    ? () => { setEnlargedFile({ threadId, attachment: openFile }); }
                   : undefined}
               />
             ) : (
@@ -602,6 +611,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           )}
         </div>
       )}
+      {enlargedFile && enlargedFile.threadId === threadId ? (
+        <ChatAttachmentPreviewModal
+          threadId={enlargedFile.threadId}
+          attachment={enlargedFile.attachment}
+          onClose={() => { setEnlargedFile(null); }}
+        />
+      ) : null}
     </aside>
   );
   if (!mobile) return inspector;

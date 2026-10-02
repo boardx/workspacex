@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-design-html-acceptance/apps/api
+
+ ✓ tests/design-workbench/design-chat-model.test.ts (71 tests) 44ms
+ ✓ tests/design-workbench/project-lifecycle.test.ts (62 tests) 18ms
+ ✓ tests/design-workbench/html-page-generation.test.ts (26 tests) 13ms
+ ✓ tests/design-workbench/merge-screens.test.ts (11 tests) 3ms
+ ✓ tests/design-workbench/frontend-design-coverage.test.ts (5 tests) 4ms
+
+ Test Files  5 passed (5)
+      Tests  175 passed (175)
+   Start at  20:45:43
+   Duration  1.76s (transform 490ms, setup 0ms, collect 1.29s, tests 81ms, environment 0ms, prepare 103ms)
+

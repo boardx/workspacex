@@ -123,39 +123,49 @@ test("@path:D1 执行轨迹里失败的工具调用：外层与内层工具卡�
 });
 
 /**
- * 实时消息流里的那张卡——**同一个缺陷尚未收口的另一半**。
- *
- * `useToolCardStatus` 只在拿得到 `JournalToolOutcomeContext` 时才用权威状态，而那个
- * context 只由轨迹面板（`workbench/task-timeline.tsx`）下发。实时消息流里的工具卡
- * （`copilotkit-v2-assistant-message.tsx` 的 `copilotkit-v2-tool-calls-group`）拿到的是
- * `null`，于是**回落到框架三态**——那里没有失败态，失败的调用照样发绿色对勾。
- *
- * `tool-outcome.ts` 的头注把这条回落写成「"没有事实可用"的缺省」。但这一轮里事实是有的：
- * 同一屏的轨迹面板正拿着它。**用户在消息流里先看到的就是那张绿勾卡**，展开轨迹才看到红的
- * ——两处对同一次调用给出相反的结论，这正是 #3204 ① 要收敛掉的那个形状，只是收敛只做了
- * 一半。
- *
- * 处置同 C2：`test.fixme`（不删断言、不改宽、不 `test.skip`），阻塞于 **#3257**；
- * 修好后把 `fixme` 改回 `test`，正文一个字不用动。
+ * #3257 originally demanded a second legacy tool group. PR #2927 now gives
+ * journal-backed runs one timeline projection; PR #3210 supplies the authoritative
+ * outcome to its actual tool renderer. Requiring that retired duplicate would
+ * recreate the conflicting UI. Exercise the current message-stream projection
+ * before terminal waiting, then require the same outcomes after persisted reload.
  */
-test.fixme("@path:D1 实时消息流里失败的工具调用同样不得显示成功（阻塞于 #3257）", async ({ page }) => {
-  await runFailingToolTurn(page);
+test("@path:D1 消息流的唯一工具投影：失败不显示成功，刷新后仍区分成败（#3257）", async ({ page }) => {
+  await openFreshDeepAgentThread(page);
+  await page.getByTestId("copilotkit-v2-input").fill(TRIGGER);
+  await page.getByTestId("copilotkit-v2-send").click();
 
-  const group = page.getByTestId("copilotkit-v2-tool-calls-group").last();
-  await expect(group).toBeVisible({ timeout: 60_000 });
-  const toggle = group.getByTestId("copilotkit-v2-tool-calls-group-toggle");
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  async function expectSingleToolProjection(): Promise<void> {
+    const body = await expandRunTrace(page);
+    const failedCard = body.getByTestId("copilotkit-v2-tool-generic").filter({ hasText: FAIL_TEXT });
+    await expect(failedCard, "真实失败调用必须出现在消息流的权威轨迹里").toHaveCount(1, { timeout: 60_000 });
+    const failedRow = body.getByTestId("run-trace-entry").filter({
+      has: page.getByTestId("copilotkit-v2-tool-generic").filter({ hasText: FAIL_TEXT }),
+    });
+    await expect(failedRow).toHaveAttribute("data-status", "failed");
+    const successfulRow = body.locator('[data-testid="run-trace-entry"][data-status="succeeded"]')
+      .filter({ has: page.getByTestId("copilotkit-v2-tool-generic") });
+    await expect(successfulRow).toHaveCount(1);
+    for (const row of [failedRow, successfulRow]) {
+      const details = row.locator(":scope > details");
+      if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
+    }
+    await expect(failedCard).toBeVisible();
+    await expect(failedCard).toHaveAttribute("data-tool-status", "failed");
+    await expect(failedCard.getByLabel("失败", { exact: true })).toBeVisible();
+    await expect(failedCard).toContainText(FAIL_TEXT);
+    const successfulCard = successfulRow.getByTestId("copilotkit-v2-tool-generic");
+    await expect(successfulCard).toBeVisible();
+    await expect(successfulCard).toHaveAttribute("data-tool-status", "complete");
+    await expect(successfulCard.getByLabel("失败", { exact: true })).toHaveCount(0);
+    // The source run has exactly one failed and one successful call. A duplicate
+    // renderer must not silently resurrect a contradictory green failure card.
+    await expect(page.getByTestId("copilotkit-v2-tool-generic")).toHaveCount(2);
+    await expect(page.getByTestId("copilotkit-v2-tool-calls-group")).toHaveCount(0);
+  }
 
-  const cards = group.getByTestId("copilotkit-v2-tool-generic");
-  const failedCard = cards.filter({ hasText: FAIL_TEXT });
-  await expect(
-    failedCard,
-    "消息流里应能找到那次失败调用的卡片（按它的失败原因正文定位，不按序号——"
-    + "序号会随剧本调整漂移）",
-  ).toHaveCount(1, { timeout: 30_000 });
-  await expect(
-    failedCard,
-    "同一次调用，轨迹面板里是 failed，消息流里也必须是 failed。这里写着 complete = "
-    + "同一屏上两处对同一件事给出相反结论，用户先看到的恰恰是错的那一处",
-  ).toHaveAttribute("data-tool-status", "failed");
+  await test.step("消息流首次显示工具结果：失败与成功不得混淆", expectSingleToolProjection);
+  await expectAssistantTurnSettled(page, 180_000);
+  await test.step("终态后仍只有一份工具事实", expectSingleToolProjection);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await test.step("刷新回读仍然区分成败，不复活绿色失败卡", expectSingleToolProjection);
 });

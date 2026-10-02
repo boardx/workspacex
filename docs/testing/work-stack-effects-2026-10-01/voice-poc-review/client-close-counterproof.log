@@ -1,0 +1,26 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/chat-role-skill-scope-fixes/apps/web
+
+ ❯ tests/live-omni-conversation-hangup.test.ts (3 tests | 1 failed) 1040ms
+   × releases microphone capture and the audio player on a remote socket close exactly once 1018ms
+     → expected "spy" to be called 1 times, but got 0 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/live-omni-conversation-hangup.test.ts > releases microphone capture and the audio player on a remote socket close exactly once
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/live-omni-conversation-hangup.test.ts:72:43
+     70|  FakeSocket.last!.emit('message',{data:JSON.stringify({type:'assistant…
+     71|  FakeSocket.last!.readyState=3;FakeSocket.last!.emit('close',{});
+     72|  await vi.waitFor(()=>expect(stopCapture).toHaveBeenCalledTimes(1));ex…
+       |                                           ^
+     73|  await handle.stop();FakeSocket.last!.emit('close',{});expect(stopCapt…
+     74| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  11:33:07
+   Duration  5.33s (transform 2.40s, setup 164ms, collect 3.56s, tests 1.04s, environment 0ms, prepare 91ms)

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { OfficialAgentRolePackImportRepository, AgentStarterImportResult, ExistingAgentImportOutcome, PersistVerifiedOfficialAgentRolePackOutcome } from "../../application/agent-import/ports";
+import { resolveOfficialRoleSkillRefs } from "./resolve-official-role-skill-refs";
 import { insertAgentVersionFromDraft } from "./agent-version-insert";
 
 /**
@@ -80,6 +81,7 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
         return { kind: "name-conflict" };
       }
 
+      const resolvedSkills = await resolveOfficialRoleSkillRefs(s, input.orgId, input.pack);
       const agentIds: string[] = []; const versionIds: string[] = [];
       for (const agent of input.pack.agents) {
         const agentId = `agent-${randomUUID()}`; const versionId = `agent-version-${randomUUID()}`;
@@ -102,7 +104,7 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
             [...agent.role.tags],
           ],
         );
-        await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: agent.skillVersions.map((ref) => ref.versionId), modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });
+        await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: resolvedSkills.get(agent.stableName)!.pins, pendingSkillBindings: resolvedSkills.get(agent.stableName)!.pending, modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });
         await s.query("UPDATE agents SET published_version_id=$3,updated_at=$4 WHERE id=$1 AND org_id=$2", [agentId, input.orgId, versionId, importedAt]);
         // toolPolicy 中的分类不产生任何授权（ADR-120 #2，I-6）：这里只写目录行，不触碰任何
         // 授权/凭证表——与普通 starter-pack 导入完全同一条纪律。
