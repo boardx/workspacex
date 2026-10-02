@@ -8,6 +8,12 @@ function Field({ multiline = false }: { multiline?: boolean }) {
   return <InlineQuestionText value={value} label="题目" onChange={setValue} multiline={multiline} />;
 }
 
+it("starts multiline inline editing with a single row", () => {
+  render(<Field multiline />);
+  fireEvent.click(screen.getByRole("button", { name: "题目" }));
+  expect(screen.getByRole("textbox", { name: "题目" })).toHaveAttribute("rows", "1");
+});
+
 it("returns multiline text to reading with Enter but preserves Shift+Enter", () => {
   render(<Field multiline />);
   fireEvent.click(screen.getByRole("button", { name: "题目" }));

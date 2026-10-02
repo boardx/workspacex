@@ -26,7 +26,7 @@ export function InlineQuestionText({ value, label, editLabel = label, placeholde
       ref.current?.focus();
       if (multiline && ref.current) {
         ref.current.style.height = "auto";
-        ref.current.style.height = `${ref.current.scrollHeight}px`;
+        ref.current.style.height = `${ref.current.scrollHeight + 2}px`;
       }
     } else if (returnFocus.current) {
       returnFocus.current = false;
@@ -48,7 +48,7 @@ export function InlineQuestionText({ value, label, editLabel = label, placeholde
         }
       },
     };
-    return multiline ? <Textarea {...props} /> : <Input {...props} />;
+    return multiline ? <Textarea {...props} rows={1} /> : <Input {...props} />;
   }
   return <button ref={readingRef} type="button" data-survey-inline-edit disabled={disabled} aria-label={editLabel}
     className={cn("min-h-9 w-full whitespace-pre-wrap break-words rounded-control border border-transparent px-2 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", !value && "text-muted-foreground", className)}

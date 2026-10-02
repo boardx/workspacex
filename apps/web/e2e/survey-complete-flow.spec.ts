@@ -15,9 +15,21 @@ test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ pa
   await expect(titleButton).toBeVisible();
   await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "单选", exact: true })).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+  for (const area of [page.getByRole("navigation", { name: "问卷工作流" }), page.getByTestId("survey-designer-outline"), page.getByTestId("survey-designer-settings")]) {
+    for (const button of await area.getByRole("button").all()) {
+      await expect(button).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+    }
+  }
+  await expect(page.getByRole("button", { name: "试填问卷", exact: true })).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+  const number = titleButton.locator("..").locator("span").last();
+  const numberBounds = await number.boundingBox();
+  const titleBounds = await titleButton.boundingBox();
+  expect(numberBounds && titleBounds && Math.abs(numberBounds.y - titleBounds.y)).toBeLessThan(12);
   await titleButton.click();
   const title = canvas.getByRole("textbox", { name: "问题内容", exact: true });
   await expect(title).toBeFocused();
+  await expect(title).toHaveAttribute("rows", "1");
+  expect((await title.boundingBox())?.height).toBeLessThan(44);
   const saved = page.waitForResponse(response => response.url().endsWith("/source") && response.request().method() === "PUT");
   await title.fill("本次会议名称");
   await page.getByLabel("问卷名称", { exact: true }).click();
@@ -31,6 +43,9 @@ test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ pa
   for (const width of [768, 375]) {
     await page.setViewportSize({ width, height: 992 });
     await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toBeVisible();
+    const editBounds = await title.boundingBox();
+    const narrowNumberBounds = await title.locator("..").locator("span").last().boundingBox();
+    expect(narrowNumberBounds && editBounds && Math.abs(narrowNumberBounds.y - editBounds.y)).toBeLessThan(12);
     await expect(page.getByRole("button", { name: "发布回收", exact: true })).toBeVisible();
     const documentWidth = await page.locator("body").evaluate(element => element.scrollWidth);
     expect(documentWidth).toBeLessThanOrEqual(width);
