@@ -3,7 +3,19 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,chmodSync,lstatSync,readFileSync,rmSync,realpathSync,symlinkSync,unlinkSync,mkdirSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {safeStartupCode,parseStartupReceipt,writeStartupFailure,readStartupFailure} from './native-startup-receipt.mjs';
+import {safeStartupCode,parseStartupReceipt,writeStartupFailure,readStartupFailure,identityOperation} from './native-startup-receipt.mjs';
+
+test('identity suboperations retain original private cause while exposing only sole fixed codes',()=>{
+  for(const code of ['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY']){
+    const original=new Error('private token SQL password path'),head='a'.repeat(40);
+    let failure;try{identityOperation('IDENTITY_SOURCE',()=>identityOperation(code,()=>{throw original;}));}catch(error){failure=error;}
+    assert.equal(failure.code,code);assert.equal(failure.cause,original);
+    const receipt=parseStartupReceipt({phase:'IDENTITY',code:safeStartupCode(failure),status:'failed',sourceHead:head});
+    assert.equal(JSON.stringify(receipt).includes('private'),false);assert.equal(receipt.code,code);
+  }
+  assert.throws(()=>identityOperation('private secret',()=>true));
+  assert.equal(identityOperation('IDENTITY_CWD',()=>42),42);
+});
 
 test('real import failure exposes only fixed phase and Node code, not its private message',async()=>{
   let failure;try{await import('file:///definitely-missing/native-private-module.mjs');}catch(error){failure=error;}
