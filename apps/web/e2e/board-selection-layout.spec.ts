@@ -3,6 +3,7 @@ import {expectBoardSynced} from './support/board-sync-status';
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { verifyEditorConnectorEntry } from "./support/board-editor-connector-entry";
 
 test.describe.configure({ mode: "default", timeout: 420_000 });
 test.use({ actionTimeout: 15_000 });
@@ -198,7 +199,7 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
   await expect(second.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
   const original = await geometry(page);
   await expect.poll(() => geometry(second)).toBe(original);
-  return { secondContext, second, original };
+  return { secondContext, second, original, boardId, token };
 }
 
 test.describe("organize <=2 actions", () => {
@@ -356,7 +357,7 @@ test.describe("organize <=2 actions", () => {
 // the attached screenshots against the visual acceptance rubric.
 test("visual acceptance: compact selection in three viewports", async ({ page, request, browser, baseURL }, testInfo) => {
   test.setTimeout(180_000);
-  const { secondContext, original } = await setupMixedBoard(page, request, browser, baseURL);
+  const { secondContext, second, original, boardId, token } = await setupMixedBoard(page, request, browser, baseURL);
   try {
     for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }]) {
       await page.setViewportSize(viewport);
@@ -402,8 +403,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           await expect(button).toBeVisible(); const target = await button.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
-        // Connector creation is reached through the selected object's actual handles.
-        await expect(page.getByTestId("board-add-connector")).toHaveCount(0);
+        await expect(page.getByTestId("board-add-frame")).toHaveCount(0);
         const handles = page.locator(`[data-testid^="connector-handle-${object.id}-"]`);
         await expect(handles).toHaveCount(4);
         for (const handle of await handles.all()) {
@@ -412,6 +412,14 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
         }
         const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);
         await page.screenshot({ path: screenshotPath });
+        await verifyEditorConnectorEntry(page, boardId, async (method, path, data) => (await apiRequest(request, token, method, path, data)).json(), async () => {
+          await page.screenshot({ path: testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-connector-picker.png`) });
+        });
+        await outline.focus(); await outline.press("Enter");
+        await page.getByLabel("对象文字", { exact: true }).press("Escape");
+        await expect(handles).toHaveCount(4);
+        await expect(page.getByTestId("board-add-frame")).toHaveCount(0);
+        await expect.poll(() => geometry(second)).toBe(original);
         await testInfo.attach(`${viewport.width}x${viewport.height}-${kind}-selected`, { path: screenshotPath, contentType: "image/png" });
       }
     }
