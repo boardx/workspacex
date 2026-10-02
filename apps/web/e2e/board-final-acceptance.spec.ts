@@ -121,8 +121,9 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
   } finally {
     // Archive safe routing/receipt metadata even when fail-closed removes the UI.
     // This distinguishes server rejection from receipt conflicts without payloads.
-    await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
-    await archiveAcceptanceBoard(request, token, id);
+    try {
+      await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
+    } finally { await archiveAcceptanceBoard(request, token, id); }
   }
 });
 
