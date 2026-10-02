@@ -35,9 +35,9 @@ flowchart TD
   class S1 tested
   %% evidence S1: 公开合成终态离线探针：9个来源/4域外→5个来源/0域外，数据库写入0、模型调用0；README.md
   class S2 tested
-  %% evidence S2: initial-red-result.txt与report-save-red-result.txt定位真实绕过，后续tests-result.txt 143通过
+  %% evidence S2: initial-red-result.txt、report-save-red-result.txt及内部引用先红反例定位绕过；最终tests-result.txt 144通过
   class S3 tested
-  %% evidence S3: 共享来源匹配器、恢复hash、报告引用校验；tests-result.txt 9文件143通过
+  %% evidence S3: 共享匹配器、恢复hash、报告引用与内部引用校验；最终tests-result.txt 9文件144通过
   class S4 tested
   %% evidence S4: tests-result.txt 9文件144通过；内部ID及scheme/port先红反例已修复；类型、lint、init exit0
   class S5 doing
