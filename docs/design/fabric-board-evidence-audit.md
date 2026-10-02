@@ -39,6 +39,35 @@ to isolate entity pixels; free overlay pan retains an arrow, but arrowhead style
 Synthetic input/blur does not establish native Trackpad, OS IME or clipboard success.
 Run1-Run15 failures remain separate evidence; their later fixes do not rewrite failed reports.
 
+<a id="2026-10-02-诊断更正索引"></a>
+
+## 2026-10-02 诊断更正索引
+
+This appended historical index restores navigation to committed skill experience.
+It does not update the older ledger's publication queries or certify any current
+source, CI, main delivery or full-round browser acceptance.
+
+- [Hand reconciliation](../../.agents/skills/mod-fabric-canvas/references/input-and-projection.md#hand-与-canonical-refresh-的交互边界):
+  source `30432d5224f880909aa6eadcf0ff3b00d83504e4`, four RED counterexamples
+  and 89 focused component tests. This does not establish the long meeting journey.
+- [Pixel and mock oracle corrections](../../.agents/skills/mod-fabric-canvas/references/verification.md#像素-oracle-与归因更正):
+  original drawing failures remain RED. Actual normal-UI selection diagnostics
+  distinguish control occlusion from missing ink; the actual Group/Path correction
+  `fd2ceaf4c2c55f8ac19eb33d40654f0a48aa2de7` records focused 20/20, not business
+  browser acceptance. No older screenshot certifies the current delivery head.
+- [CI prerequisites](../../.agents/skills/mod-fabric-canvas/references/verification.md#ci-前提):
+  browser installation must exist in the same executing job. Link navigation does
+  not establish successful installation or acceptance of a later runtime source.
+
+## Skill Navigation Execution Binding
+
+The [five-task reader packet](../../.agents/skills/mod-fabric-canvas/scripts/fresh-skill-use.md)
+is prepared input, not proof of a fresh reader. A genuinely independent no-history
+reader must preserve its actual response, task identity, frozen full HEAD and
+followed reference/code/test lines. An inherited-context recovery inspection does
+not satisfy that gate. Keep document preview, actual business runtime, CI and
+main ancestry evidence separate, and retain hardware manual-required boundaries.
+
 ## Updating The Ledger
 
 Record a new exact source SHA only after freeze; associate screenshots/API/refresh/cleanup

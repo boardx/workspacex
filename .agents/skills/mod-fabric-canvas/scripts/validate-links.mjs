@@ -1,7 +1,25 @@
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
 import { resolve, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { parse } from 'yaml';
+
+const contractsRequire = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../../../packages/contracts/package.json'));
+const { unified } = await import(contractsRequire.resolve('unified'));
+const { default: remarkParse } = await import(contractsRequire.resolve('remark-parse'));
+
+function explicitAnchors(source) {
+  const tree = unified().use(remarkParse).parse(source), anchors = new Set();
+  const visit = node => {
+    if (node.type === 'html') {
+      const match = /^<a\s+id=["']([^"']+)["']\s*>(?:\s*<\/a>)?$/.exec(node.value.trim());
+      if (match) anchors.add(match[1]);
+    }
+    for (const child of node.children ?? []) visit(child);
+  };
+  visit(tree);
+  return anchors;
+}
 
 export function validateSkill(skillDir, repoRoot = resolve(skillDir, '../../..')) {
   const root = realpathSync(repoRoot), entry = resolve(skillDir, 'SKILL.md');
@@ -17,12 +35,15 @@ export function validateSkill(skillDir, repoRoot = resolve(skillDir, '../../..')
   const checked = [];
   for (const file of files) {
     for (const href of links(readFileSync(file, 'utf8'))) {
-      if (/^https?:\/\//.test(href) || href.startsWith('#')) continue;
+      if (/^https?:\/\//.test(href)) continue;
       if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('/')) throw Error(`Nonportable local link: ${href}`);
-      const target = resolve(dirname(file), decodeURIComponent(href.split('#')[0]));
+      const [path, fragment] = href.split('#');
+      const target = path ? resolve(dirname(file), decodeURIComponent(path)) : file;
       if (!existsSync(target)) throw Error(`Missing relative link: ${relative(root, file)} -> ${href}`);
       const within = relative(root, realpathSync(target));
       if (within === '..' || within.startsWith(`..${sep}`)) throw Error(`Link escapes repository: ${href}`);
+      // Explicit anchors avoid duplicating renderer-specific heading slug rules.
+      if (fragment && !explicitAnchors(readFileSync(target, 'utf8')).has(decodeURIComponent(fragment))) throw Error(`Missing explicit anchor: ${relative(root, file)} -> ${href}`);
       checked.push({ file: relative(root, file), href, target: within });
     }
   }

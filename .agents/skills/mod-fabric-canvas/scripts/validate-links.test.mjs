@@ -34,3 +34,23 @@ test('absolute local paths are not portable evidence links', () => fixture(({roo
   writeFileSync(join(skill,'references/0.md'), '[Private evidence](/private/tmp/run/report.json)');
   assert.throws(() => validateSkill(skill,root), /Nonportable/);
 }));
+
+test('an existing file with a missing fragment rejects', () => fixture(({root,skill}) => {
+  writeFileSync(join(skill,'references/0.md'), '[Missing](1.md#absent)');
+  assert.throws(() => validateSkill(skill,root), /Missing explicit anchor/);
+}));
+test('real Unicode and encoded local anchors resolve', () => fixture(({root,skill}) => {
+  writeFileSync(join(skill,'references/0.md'), '<a id="同步"></a>\n[Local](#%E5%90%8C%E6%AD%A5)\n[Peer](1.md#peer)');
+  writeFileSync(join(skill,'references/1.md'), '<a id="peer"></a>\n# Peer');
+  assert.equal(validateSkill(skill,root).links, 8);
+}));
+test('anchor text inside a fenced example is not an actual anchor', () => fixture(({root,skill}) => {
+  writeFileSync(join(skill,'references/0.md'), '[Example](1.md#example)');
+  writeFileSync(join(skill,'references/1.md'), '```html\n<a id="example"></a>\n```');
+  assert.throws(() => validateSkill(skill,root), /Missing explicit anchor/);
+}));
+test('anchor text inside an HTML comment is not an actual anchor', () => fixture(({root,skill}) => {
+  writeFileSync(join(skill,'references/0.md'), '[Comment](1.md#comment)');
+  writeFileSync(join(skill,'references/1.md'), '<!-- <a id="comment"></a> -->');
+  assert.throws(() => validateSkill(skill,root), /Missing explicit anchor/);
+}));
