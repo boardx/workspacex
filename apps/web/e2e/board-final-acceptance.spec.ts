@@ -69,14 +69,6 @@ test('Organize: 20 scattered stickies -> equal-gap grid in <=2 actions', async (
 
 test('Panel: drag 10 unparented objects inside, then move the whole container', async ({page, request}) => {
   const transport=createSpatialWsMetadataRecorder();transport.observe(page,'original');
-  await page.addInitScript(()=>{
-    const diagnostics:Array<Record<string,unknown>>=[];
-    Object.defineProperty(window,'__wsxBoardBlockDiagnostics',{value:diagnostics});
-    window.addEventListener('wsx-board-diagnostic-block',event=>{
-      const detail=(event as CustomEvent).detail as Record<string,unknown>;
-      if(diagnostics.length<10&&typeof detail?.reason==='string'&&/^[A-Z_]{1,64}$/.test(detail.reason))diagnostics.push({reason:detail.reason,...Object.fromEntries(['seq','confirmedSeq','pending'].filter(key=>detail[key]===null||(typeof detail[key]==='number'&&Number.isSafeInteger(detail[key])&&detail[key]>=0)).map(key=>[key,detail[key]]))});
-    });
-  });
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance panel');
   try {
     const panel = {...object('research-panel', 'frame', 100, 120, 'Customer research', 1100, 550), extensionData: {spatial: panelMetadata}};
@@ -114,7 +106,7 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
   } finally {
     // Archive safe routing/receipt metadata even when fail-closed removes the UI.
     // This distinguishes server rejection from receipt conflicts without payloads.
-    await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),clientBlocks:await page.evaluate(()=>Reflect.get(window,'__wsxBoardBlockDiagnostics')??[]).catch(()=>[]),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
+    await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
     await archiveAcceptanceBoard(request, token, id);
   }
 });
