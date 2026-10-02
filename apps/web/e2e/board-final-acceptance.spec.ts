@@ -1,3 +1,4 @@
+import {createSpatialWsMetadataRecorder} from "./support/board-spatial-ws-metadata";
 import {randomUUID} from 'node:crypto';
 import {expect} from '@playwright/test';
 import {test,assertJourneyReload} from './board-journey-evidence';
@@ -67,6 +68,7 @@ test('Organize: 20 scattered stickies -> equal-gap grid in <=2 actions', async (
 });
 
 test('Panel: drag 10 unparented objects inside, then move the whole container', async ({page, request}) => {
+  const transport=createSpatialWsMetadataRecorder();transport.observe(page,'original');
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance panel');
   try {
     const panel = {...object('research-panel', 'frame', 100, 120, 'Customer research', 1100, 550), extensionData: {spatial: panelMetadata}};
@@ -101,7 +103,12 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       if (next.id !== panel.id) expect(next.parentId).toBe(panel.id);
     }
     await assertJourneyReload(page, id, after, request, token);
-  } finally { await archiveAcceptanceBoard(request, token, id); }
+  } finally {
+    // Archive safe routing/receipt metadata even when fail-closed removes the UI.
+    // This distinguishes server rejection from receipt conflicts without payloads.
+    await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
+    await archiveAcceptanceBoard(request, token, id);
+  }
 });
 
 test('Diagram: A->B->C via one-drag connections remain attached after each shape moves', async ({page, request}) => {
