@@ -46,19 +46,27 @@ jobs:
           cd pgvector-0.8.6
           make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
           make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
-      - name: Create exact temporary source checkout
+      - name: Create exact connector source checkout
         run: |
-          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-candidate
-          git -C /private/tmp/wsx-native-candidate checkout --detach "$(git rev-parse HEAD)"
-          cd /private/tmp/wsx-native-candidate
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-connectors
+          git -C /private/tmp/wsx-native-connectors checkout --detach "$(git rev-parse HEAD)"
+          cd /private/tmp/wsx-native-connectors
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native connector acceptance
-        working-directory: /private/tmp/wsx-native-candidate
+        working-directory: /private/tmp/wsx-native-connectors
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts
+      - name: Create exact ordinary-file source checkout
+        if: always()
+        run: |
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-files
+          git -C /private/tmp/wsx-native-files checkout --detach "$(git rev-parse HEAD)"
+          cd /private/tmp/wsx-native-files
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native ordinary-file acceptance
         if: always()
-        working-directory: /private/tmp/wsx-native-candidate
+        working-directory: /private/tmp/wsx-native-files
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-files-completion.config.ts
       - name: Retain bounded statistics and screenshots without private runtime credentials
         if: always()
