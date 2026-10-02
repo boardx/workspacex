@@ -157,6 +157,8 @@ describe("B2 平台模板母版", () => {
       ),
     );
     expect(own.rows[0]?.n).toBe("1");
+    const audit=await db.withTenant(toOrgId(ORG_A),s=>s.query("SELECT action,actor_id,actor_source FROM canvas_template_audit WHERE org_id=$1 AND key=$2 ORDER BY id",[ORG_A,KEY]));
+    expect(audit.rows).toEqual([{action:'adopt',actor_id:ADMIN_A,actor_source:'principal'},{action:'publish',actor_id:ADMIN_A,actor_source:'principal'}]);
   });
 
   it("④ A 组织 fork **不影响** B 组织 —— 否则就退化成共享，AC2 被破", async () => {

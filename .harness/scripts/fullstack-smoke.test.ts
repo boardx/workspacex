@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { LANES } from "./ci-lane-dedup.mjs";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
@@ -25,6 +26,8 @@ async function runWrapper(options: {
   childExit?: number;
   dockerExit?: number;
   signal?: "SIGINT" | "SIGTERM";
+  vitestCase?: "positive" | "empty" | "logged-empty";
+  slowOutput?: boolean;
 }) {
   try {
     return await runWrapperOnce(options);
@@ -38,6 +41,8 @@ async function runWrapperOnce(options: {
   childExit?: number;
   dockerExit?: number;
   signal?: "SIGINT" | "SIGTERM";
+  vitestCase?: "positive" | "empty" | "logged-empty";
+  slowOutput?: boolean;
 }) {
   const temp = mkdtempSync(join(tmpdir(), "fullstack-cleanup-"));
   const log = join(temp, "docker.log");
@@ -50,10 +55,22 @@ async function runWrapperOnce(options: {
   const isolation = deriveTestIsolation({ isolationId: `cleanup-${Math.random()}`, worktreePath: ROOT });
   const childScript = options.signal
     ? "setInterval(() => {}, 1000)"
+    : options.slowOutput ? "process.stdout.write('x'.repeat(16*1024*1024)+'FINAL_SUMMARY_MARKER\\n')"
     : `process.exit(${options.childExit ?? 0})`;
+  const childArgs = [process.execPath, "-e", childScript];
+  if (options.vitestCase) {
+    const config = join(temp, "vitest.config.mjs");
+    writeFileSync(config, "export default {test:{globals:true,include:['**/*.test.js'],passWithNoTests:true}};");
+    writeFileSync(join(temp, "selected.test.js"), `test('real selected assertion',()=>{${options.vitestCase === "logged-empty" ? "console.log('No test files found'); console.log('Test Files no tests');" : ""}expect(2+2).toBe(4);});`);
+    childArgs.splice(1, childArgs.length - 1,
+      resolve(ROOT, "node_modules/vitest/vitest.mjs"), "run", "--root", temp,
+      "--config", config, "--maxWorkers=1", "--minWorkers=1",
+      ...(options.vitestCase === "empty" ? ["does-not-exist"] : []),
+    );
+  }
   const child = spawn(process.execPath, [
     "--import", "tsx", ".harness/scripts/fixtures/with-test-isolation-fixture.ts", "--",
-    process.execPath, "-e", childScript,
+    ...childArgs,
   ], {
     cwd: ROOT,
     env: {
@@ -70,9 +87,12 @@ async function runWrapperOnce(options: {
   });
   let stdout = "";
   let stderr = "";
-  child.stdout?.on("data", (chunk) => { stdout += String(chunk); });
+  child.stdout?.on("data", (chunk) => {
+    stdout += String(chunk);
+    if (options.slowOutput) { child.stdout!.pause(); setTimeout(() => child.stdout!.resume(), 10); }
+  });
   child.stderr?.on("data", (chunk) => { stderr += String(chunk); });
-  const exit = new Promise<number | null>((resolveExit) => child.once("exit", resolveExit));
+  const exit = new Promise<number | null>((resolveExit) => child.once("close", resolveExit));
   try {
     if (options.signal) {
       try {
@@ -117,6 +137,46 @@ function expectedCleanup(composeProject: string): string {
 }
 
 describe("#387 trusted full-stack gate contract", () => {
+  it("forwards the entire large burst and final marker to a slow reader", async () => {
+    const result = await runWrapper({ slowOutput: true });
+    expect(result.code, result.stderr).toBe(0);
+    const end = result.stdout.indexOf("FINAL_SUMMARY_MARKER\n");
+    expect(end).toBeGreaterThanOrEqual(16 * 1024 * 1024);
+    expect(/[^x]/.test(result.stdout.slice(end - 16 * 1024 * 1024, end))).toBe(false);
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  }, 60_000);
+
+  it("keeps a real passing test green when it logs the empty-run phrase", async () => {
+    const result = await runWrapper({ vitestCase: "logged-empty" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
+    expect(result.stderr).not.toContain("零测试执行");
+  }, 60_000);
+
+  it("rejects an actual Vitest zero-selection exit0 and still cleans its scope", async () => {
+    const result = await runWrapper({ vitestCase: "empty" });
+    expect(result.code, result.stderr).toBe(1);
+    expect(result.stderr).toContain("零测试执行");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  }, 60_000);
+
+  it("accepts an actual Vitest selected assertion and still cleans its scope", async () => {
+    const result = await runWrapper({ vitestCase: "positive" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
+    expect(result.stderr).not.toContain("零测试执行");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  }, 60_000);
+
+  it("accepts a real passed test logging empty-run phrases and still cleans its scope", async () => {
+    const result = await runWrapper({ vitestCase: "logged-empty" });
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain("No test files found");
+    expect(stripVTControlCharacters(result.stdout)).toMatch(/Tests\s+1 passed/);
+    expect(result.stderr).not.toContain("零测试执行");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  }, 60_000);
+
   it("derives browser and API ports inside the same #74 isolation scope", () => {
     const a = deriveTestIsolation({ isolationId: "fullstack-a", worktreePath: ROOT });
     const b = deriveTestIsolation({ isolationId: "fullstack-b", worktreePath: ROOT });

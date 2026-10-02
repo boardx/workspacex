@@ -1,3 +1,10 @@
+import { acceptHumanMessage, AgentSkillScopeViolationError } from "../../src/application/chat/message-roundtrip";
+import { CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER, ENABLED_SKILL_VERSION_READER } from "../../src/application/chat/message-command-ports";
+import { CHAT_REPOSITORY } from "../../src/application/chat/ports";
+import { IDENTITY_REPOSITORY, DECISION_ID_FACTORY } from "../../src/application/identity/ports";
+import { MODEL_CALL_PORT } from "../../src/application/agent-run/ports";
+import { THREAD_TITLE_MODEL_CONFIG } from "../../src/application/chat/generate-thread-title";
+import { agentDefaults } from "@repo/contracts";
 /**
  * #1652 —— 「chat 里 `#` 挂 skill → 真的产出 .pptx」这条链路的**真栈门控**。
  *
@@ -194,7 +201,7 @@ async function seedAgent(agentId: string, versionId: string): Promise<void> {
     await c.query(
       `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
        VALUES ($1,$2,$3,$4,'enabled',$5,now(),now()) ON CONFLICT DO NOTHING`,
-      [agentId, ORG, agentId, agentId, ACTOR],
+      [agentId, ORG, agentId === AGENT ? agentDefaults.DEFAULT_AGENT_STABLE_NAME : agentId, agentId, ACTOR],
     );
     await c.query(
       `INSERT INTO agent_versions
@@ -605,4 +612,24 @@ describe("T5 回喂重试循环真的在重试", () => {
     expect(file.name).toBe("Retry_Deck.pptx");
     expect(inspectPptx(await readBackBytes(file.objectKey)).slideCount).toBe(3);
   }, 120_000);
+});
+
+it("a client cannot grant a non-general published role the mounted skill pool", async () => {
+  await mountSkillOnThread();
+  const response = await fetch(`${BASE}/chat/threads/${THREAD}/messages`, {
+    method: "POST", headers: principal(),
+    body: JSON.stringify({ clientMessageId: randomUUID(), text: "try mounted skill", agentId: AGENT_BARE, explicitAgent: false, skillScope: "general" }),
+  });
+  expect(response.status).toBe(422);
+  // Queue/AGUI callers carry selection provenance internally; even false cannot grant this role skills.
+  await expect(acceptHumanMessage({
+    repo: app.get(IDENTITY_REPOSITORY), ids: app.get(DECISION_ID_FACTORY), chat: app.get(CHAT_REPOSITORY),
+    commands: app.get(CHAT_MESSAGE_COMMAND_REPOSITORY), publishedAgents: app.get(PUBLISHED_AGENT_READER),
+    threadMounts: app.get(THREAD_MOUNTED_SKILL_READER), enabledSkills: app.get(ENABLED_SKILL_VERSION_READER),
+    model: app.get(MODEL_CALL_PORT), titleModel: app.get(THREAD_TITLE_MODEL_CONFIG), log: () => {},
+  }, { userId: ACTOR, orgId: toOrgId(ORG), threadId: THREAD, clientMessageId: randomUUID(),
+    text: "try internal false provenance", agentId: AGENT_BARE, explicitAgent: false,
+  })).rejects.toBeInstanceOf(AgentSkillScopeViolationError);
+  const rows = await asApp(ORG, c => c.query("SELECT id FROM agent_runs WHERE org_id=$1 AND agent_id=$2", [ORG, AGENT_BARE]));
+  expect(rows.rows).toEqual([]);
 });

@@ -1,7 +1,16 @@
 import {describe,it,expect} from 'vitest';
-import {readFabricInput,panFabricViewport} from '@/components/whiteboard/fabric/fabric-input';
+import {boardWheelDelta,readFabricInput,panFabricViewport} from '@/components/whiteboard/fabric/fabric-input';
 const touch=(identifier:number,clientX:number,clientY:number,force?:number)=>({identifier,clientX,clientY,force});
 describe('Fabric default MouseEvent/TouchEvent input boundary',()=>{
+ it('pans ordinary trackpad scroll and zooms only Ctrl/Meta pinch, normalizing wheel units',()=>{
+  const event={deltaX:12,deltaY:20,deltaMode:0,ctrlKey:false,metaKey:false};
+  expect(boardWheelDelta(event,720)).toEqual({x:12,y:20,zoom:false});
+  expect(boardWheelDelta({...event,ctrlKey:true},720)?.zoom).toBe(true);
+  expect(boardWheelDelta({...event,metaKey:true},720)?.zoom).toBe(true);
+  expect(boardWheelDelta({...event,deltaMode:1},720)).toEqual({x:192,y:320,zoom:false});
+  expect(boardWheelDelta({...event,deltaX:0,deltaY:1,deltaMode:2},720)?.y).toBe(720);
+  expect(boardWheelDelta({...event,deltaY:NaN},720)).toBeNull();
+ });
  it('reproduces raw touch cast NaN and pans with the real primary contact',()=>{
   const down={type:'touchstart',touches:[touch(7,100,120)]},move={type:'touchmove',touches:[touch(7,145,153)]};
   expect(Number.isNaN(Number((move as {clientX?:number}).clientX)-Number((down as {clientX?:number}).clientX))).toBe(true);

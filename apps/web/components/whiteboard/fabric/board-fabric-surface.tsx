@@ -1,11 +1,11 @@
 "use client";
 import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
-import { finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
+import { boardWheelDelta, finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
 import { ActiveSelection, Canvas, Circle, FabricImage, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
-import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, type SnapResult } from "@repo/whiteboard-core";
+import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, rotatedAnchorPoint, type SnapResult } from "@repo/whiteboard-core";
 import { WHITEBOARD_CONNECTOR_LIMITS } from "@repo/contracts/whiteboard-document";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
@@ -56,6 +56,8 @@ export interface BoardFabricSurfaceProps {
   /** Fired once at Fabric's gesture completion boundary, never for projection patches. */
   /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
   onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>;
+  /** Ephemeral scene geometry only; never a canonical command or collaboration update. */
+  onTransformPreview?: (items: readonly { id: string; geometry: BoardFabricGeometry }[]) => void;
   onObjectsTransform?: (items: readonly { id: string; geometry: BoardFabricGeometry; parentId?: string | null }[], options?: { duplicate: boolean }) => boolean | Promise<boolean>;
   onViewportChange: (viewport: BoardViewport, source: BoardViewportSource) => void;
   onCanvasClick?: (point: { x: number; y: number }) => void;
@@ -486,7 +488,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   return { x: canonicalTransformNumber(x), y: canonicalTransformNumber(y), width: canonicalTransformNumber(width), height: canonicalTransformNumber(height), rotation: canonicalTransformNumber(rotation) };
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onTransformPreview, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -503,10 +505,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
+  const clearTransformPreviewRef = React.useRef<() => void>(() => undefined);
   const cancelDrawingRef = React.useRef<() => void>(() => undefined);
-  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
+  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onTransformPreview, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
   const stateRef = React.useRef({ readOnly, tool, viewport, drawingAppearance });
-  callbacksRef.current = { onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
+  callbacksRef.current = { onSelectionChange, onObjectTransform, onTransformPreview, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
   stateRef.current = { readOnly, tool, viewport, drawingAppearance };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
@@ -605,7 +608,50 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       setSnapPreview(result.guides.length || result.measurements.length ? result : null);
       canvas.requestRenderAll();
     };
+    let previewIds = new Set<string>();
+    const patchAttachedConnectors = (geometries: Map<string, BoardFabricGeometry>) => {
+      for (const canonical of canonicalRef.current.values()) {
+        const connection = canonical.connector;
+        if (!connection || ![connection.from, connection.to].some(id => id && previewIds.has(id))) continue;
+        const endpoint = (id: string | undefined, anchor: typeof connection.fromAnchor, offset: typeof connection.fromOffset, fallback: { x: number; y: number }) => {
+          const object = id ? canonicalRef.current.get(id) : undefined;
+          return object ? rotatedAnchorPoint({ geometry: geometries.get(id!) ?? object.geometry }, anchor, offset) : fallback;
+        };
+        const start = endpoint(connection.from, connection.fromAnchor, connection.fromOffset, connection.start);
+        const end = endpoint(connection.to, connection.toAnchor, connection.toOffset, connection.end);
+        const old = registry.get(canonical.id);
+        if (!old) continue;
+        const index = canvas.getObjects().indexOf(old);
+        const next = createFabricObject({ ...canonical, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 }, connector: { ...connection, start, end } });
+        canvas.remove(old); canvas.add(next); canvas.moveObjectTo(next, index); registry.set(canonical.id, next);
+      }
+    };
+    const clearTransformPreview = () => {
+      if (!previewIds.size) return;
+      patchAttachedConnectors(new Map());
+      previewIds = new Set();
+      callbacksRef.current.onTransformPreview?.([]);
+      canvas.requestRenderAll();
+    };
+    clearTransformPreviewRef.current = clearTransformPreview;
+    const previewTransform = (event: { target?: FabricObject }) => {
+      const target = event.target as TaggedFabricObject | undefined;
+      if (!target || stateRef.current.readOnly) return;
+      const members = target.data?.boardObjectId ? [target] : ("getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : []);
+      const items = members.flatMap(member => {
+        const id = member.data?.boardObjectId, canonical = id ? canonicalRef.current.get(id) : undefined;
+        return id && canonical && !canonical.locked && canonical.kind !== "connector" ? [{ id, geometry: members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical) }] : [];
+      });
+      previewIds = new Set(items.map(item => item.id));
+      patchAttachedConnectors(new Map(items.map(item => [item.id, item.geometry])));
+      callbacksRef.current.onTransformPreview?.(items);
+      setObjectScenes([...registry].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
+      const active = canvas.getActiveObject();
+      if (active && members.length > 1) setSelectionScene({ bounds: active.getBoundingRect(), hitPoints: members.map(member => { const box = member.getBoundingRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }) });
+      canvas.requestRenderAll();
+    };
     const transformCompleted = (event: { target?: FabricObject }) => {
+      clearTransformPreview();
       setSnapPreview(null);
       const target = event.target as TaggedFabricObject | undefined;
       if (!target) return;
@@ -739,6 +785,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const abortNativeInput = (event: Event, restorePan = true) => {
       const target = canvas._currentTransform?.target as TaggedFabricObject | undefined;
       const ids = new Set([...selectedObjectIdsRef.current, ...(target?.data?.boardObjectId ? [target.data.boardObjectId] : [])]);
+      clearTransformPreview();
       cancelInput(restorePan);
       canvas._currentTransform = null;
       if (event.type.startsWith("touch")) finishCancelledFabricTouch(canvas,event as TouchEvent);
@@ -785,6 +832,43 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (event.touches.length === 0) {pinch = null;suppressTouch = false;}
     };
     const inputDocument = element.ownerDocument;
+    // Capture auxiliary mouse navigation before Fabric can start a selection or
+    // transform. Document listeners finish the drag even outside the canvas.
+    let auxiliaryPan: { last: FabricInput; start: typeof canvas.viewportTransform; button: number } | null = null;
+    const auxiliaryMouse = (event: MouseEvent) => {
+      if (event.type === "mousedown") {
+        if (auxiliaryPan || !host.contains(event.target as Node) || !(event.target instanceof HTMLCanvasElement) || ![1, 2].includes(event.button)) return;
+        const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
+        if (!input) return;
+        abortNativeInput(event);
+        auxiliaryPan = { last: input, start: [...canvas.viewportTransform], button: event.button };
+      } else if (!auxiliaryPan) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
+      if (!input || !auxiliaryPan) return;
+      const transform = panFabricViewport(canvas.viewportTransform, auxiliaryPan.last, input);
+      if (transform) canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
+      auxiliaryPan.last = input;
+      if (event.type === "mouseup" && event.button === auxiliaryPan.button) {
+        auxiliaryPan = null;
+        const transform = canvas.viewportTransform;
+        callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4], panY: transform[5] }, "pan");
+      }
+      canvas.requestRenderAll();
+    };
+    const cancelAuxiliaryPan = () => {
+      if (!auxiliaryPan) return;
+      canvas.setViewportTransform(auxiliaryPan.start);
+      auxiliaryPan = null;
+      canvas.requestRenderAll();
+    };
+    const cancelAuxiliaryKey = (event: KeyboardEvent) => { if (event.key === "Escape") cancelAuxiliaryPan(); };
+    const preventAuxiliaryMenu = (event: MouseEvent) => { if (event.target instanceof HTMLCanvasElement && host.contains(event.target)) event.preventDefault(); };
+    for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.addEventListener(type, auxiliaryMouse, true);
+    inputDocument.addEventListener("contextmenu", preventAuxiliaryMenu);
+    inputDocument.addEventListener("keydown", cancelAuxiliaryKey, true);
+    inputDocument.defaultView?.addEventListener("blur", cancelAuxiliaryPan);
     for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.addEventListener(type,nativePinch,{capture:true,passive:false});
     inputDocument.addEventListener("pointerdown", observePen, true);
     inputDocument.addEventListener("pointermove", observePen, true);
@@ -901,8 +985,17 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const wheel = (event: TPointerEventInfo<WheelEvent>) => {
       event.e.preventDefault();
       event.e.stopPropagation();
-      const nextZoom = clampBoardZoom(canvas.getZoom() * Math.pow(.998, event.e.deltaY));
-      canvas.zoomToPoint(new Point(event.e.offsetX, event.e.offsetY), nextZoom);
+      const delta = boardWheelDelta(event.e, canvas.getHeight());
+      if (!delta) return;
+      const nextZoom = delta.zoom ? clampBoardZoom(canvas.getZoom() * Math.pow(.998, delta.y)) : canvas.getZoom();
+      if (delta.zoom) {
+        const bounds = canvas.upperCanvasEl.getBoundingClientRect();
+        canvas.zoomToPoint(new Point(event.e.clientX - bounds.left, event.e.clientY - bounds.top), nextZoom);
+      } else {
+        const transform = [...canvas.viewportTransform];
+        transform[4]! -= delta.x; transform[5]! -= delta.y;
+        canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
+      }
       const transform = canvas.viewportTransform;
       callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: nextZoom, panX: transform[4], panY: transform[5] }, "wheel");
     };
@@ -910,9 +1003,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("selection:updated", selectionChanged);
     canvas.on("selection:cleared", selectionChanged);
     canvas.on("object:modified", transformCompleted);
-    canvas.on("object:moving", event => { moving(event); previewSnap(event, "move"); });
-    canvas.on("object:scaling", event => previewSnap(event, "scale"));
-    canvas.on("object:rotating", event => previewSnap(event, "rotate"));
+    canvas.on("object:moving", event => { moving(event); previewSnap(event, "move"); previewTransform(event); });
+    canvas.on("object:scaling", event => { previewSnap(event, "scale"); previewTransform(event); });
+    canvas.on("object:rotating", event => { previewSnap(event, "rotate"); previewTransform(event); });
     canvas.on("mouse:down", pointerDown);
     canvas.on("mouse:move", pointerMove);
     canvas.on("mouse:up", pointerUp);
@@ -922,6 +1015,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:out", () => callbacksRef.current.onObjectHoverChange?.(null));
     return () => {
       disposed = true;
+      for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.removeEventListener(type, auxiliaryMouse, true);
+      inputDocument.removeEventListener("contextmenu", preventAuxiliaryMenu);
+      inputDocument.removeEventListener("keydown", cancelAuxiliaryKey, true);
+      inputDocument.defaultView?.removeEventListener("blur", cancelAuxiliaryPan);
+      clearTransformPreviewRef.current = () => undefined;
       cancelDrawingRef.current = () => undefined;
       for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.removeEventListener(type,nativePinch,true);
       inputDocument.removeEventListener("pointerdown", observePen, true);
@@ -1030,6 +1128,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    clearTransformPreviewRef.current();
     cancelDrawingRef.current();
     canvas.selection = tool === "select" && !readOnly;
     canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";

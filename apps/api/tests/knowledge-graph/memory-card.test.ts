@@ -770,14 +770,14 @@ describe("F17: 执行器接线（executeQueuedRuns → 回答落库 → getTurnM
       return { call: calls.at(-1)!, answerId: answer!.id };
     };
     const { call, answerId } = await runOnce("run-kg-f17-1", "记住：年度预算 800 万", true);
-    const note = (call.history ?? []).find((m) => m.content.startsWith("【记忆卡片】"));
+    const note = (call.history ?? []).find((m) => m.role === "user" && m.content.startsWith("【用户背景参考材料】") && m.content.includes("【记忆卡片】"));
     expect(note?.content).toContain("年度预算 800 万");
     expect(note?.content).toContain("现在还没有记");
     expect(await cardOf(T.run, answerId)).toEqual({ cardId: expect.any(String), kind: "remember", state: "open", items: [{ claimId: null, statement: "年度预算 800 万" }] });
     expect(await personalLive("年度预算 800 万")).toEqual([]);
 
     const off = await runOnce("run-kg-f17-2", "记住：年度预算 900 万", false);
-    expect((off.call.history ?? []).some((m) => m.content.startsWith("【记忆卡片】"))).toBe(false);
+    expect((off.call.history ?? []).some((m) => m.role === "user" && m.content.startsWith("【用户背景参考材料】") && m.content.includes("【记忆卡片】"))).toBe(false);
     expect((await turnMemory(T.run, off.answerId)).prompt).toBeNull();
   });
 });

@@ -1,0 +1,32 @@
+[WebServer] (node:88747) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:88753) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:89767) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [design-html] › e2e/design-html.spec.ts:25:5 › local CSS replacement changes only selected same-class element (7.7s)
+
+
+  1) [design-html] › e2e/design-html.spec.ts:25:5 › local CSS replacement changes only selected same-class element 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "rgb(48, 77, 67)"
+    Received: "rgb(255, 0, 0)"
+
+      30 |     await page.getByTestId('design-detail-send').click();
+      31 |     await expect.poll(() => posted.length).toBe(2);
+    > 32 |     expect(posted[1]?.focusRef).toBeUndefined();
+         |                                                 ^
+      33 |     await expect(page.getByTestId('design-detail-generating')).toHaveCount(0);
+      34 |     await page.getByTestId('design-detail-mode-preview').click();
+      35 |     await frame(page).getByRole('button', { name: '写下心情' }).click();
+        at /private/tmp/wsx-design-html-acceptance/apps/web/e2e/design-html.spec.ts:32:213
+
+    Error Context: test-results/design-html-local-CSS-repl-c00ff-selected-same-class-element-design-html/error-context.md
+
+  1 failed
+    [design-html] › e2e/design-html.spec.ts:25:5 › local CSS replacement changes only selected same-class element 

@@ -7,7 +7,10 @@ vi.mock("@/lib/api-client", () => ({ apiRequest: calls.request }));
 beforeEach(() => { calls.read.mockReset(); calls.request.mockReset(); });
 describe("durable approval", () => {
   it("restores four choices without AGUI tool messages and posts the authoritative request id", async () => {
-    calls.read.mockResolvedValueOnce({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "Safe summary" } }).mockResolvedValue({ status: "running", pendingApproval: null });
+    // Polling cannot consume an approval: only the decision request changes server state.
+    calls.read.mockImplementation(async () => calls.request.mock.calls.length === 0
+      ? { status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "Safe summary" } }
+      : { status: "running", pendingApproval: null });
     calls.request.mockResolvedValue({ runId: "run", permissionRequestId: "request-id" });
     render(<RestoredRunApproval runId="run" bearer="token" />);
     const card = await screen.findByTestId("chat-task-workbench-approval-card");

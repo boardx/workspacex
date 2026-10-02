@@ -6,11 +6,12 @@
  *   422 MIME 与字节不符 · 409 该线程 pending 达 10。
  * 断言查真库（`chat_message_attachments`，`message_id IS NULL`），不看进程内状态。
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import {toOrgId} from "../../src/domain/org-id";
+import { mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { chatFileUpload as CFU } from "@repo/contracts";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -105,6 +106,26 @@ beforeEach(async () => {
 });
 
 describe("POST /chat/threads/:threadId/attachments", () => {
+  it("#963: concurrent uploads admit only one remaining slot and leave no losing object", async () => {
+    for (let i = 0; i < CFU.ATTACHMENT_LIMITS.maxAttachmentsPerMessage - 1; i++) {
+      expect((await upload({ filename: `seed-${i}.pdf`, mime: "application/pdf", bytes: PDF })).status).toBe(201);
+    }
+    const beforeDisk = new Set(readdirSync(join(OBJECT_ROOT, "chat-attachments", ORG)));
+    const responses = await Promise.all(Array.from({ length: 4 }, (_, i) =>
+      upload({ filename: `race-${i}.pdf`, mime: "application/pdf", bytes: PDF })));
+    expect(responses.map(r => r.status).sort()).toEqual([201, 409, 409, 409]);
+    for (const response of responses.filter(r => r.status === 409)) {
+      expect(await response.json()).toMatchObject({ reasonCode: "ATTACHMENT_LIMIT_EXCEEDED" });
+    }
+    expect(await pendingCount(THREAD)).toBe(CFU.ATTACHMENT_LIMITS.maxAttachmentsPerMessage);
+    const rows = await asApp(ORG, c => c.query<{ storage_ref: string }>(
+      "SELECT storage_ref FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2", [ORG, THREAD]));
+    const disk = readdirSync(join(OBJECT_ROOT, "chat-attachments", ORG)).filter(name => !name.endsWith(".mime"));
+    const added = disk.filter(name => !beforeDisk.has(name));
+    expect(added).toHaveLength(1);
+    expect(rows.rows.map(r => r.storage_ref.split("/").at(-1))).toContain(added[0]);
+  }, 60_000);
+
   it("201: 合法 PDF 落一行 pending 附件（message_id NULL），返回契约 Attachment 形状", async () => {
     const res = await upload({ filename: "brief.pdf", mime: "application/pdf", bytes: PDF });
     expect(res.status).toBe(201);
@@ -242,4 +263,101 @@ describe("POST /chat/threads/:threadId/attachments", () => {
     expect(await over.json()).toMatchObject({ reasonCode: "ATTACHMENT_LIMIT_EXCEEDED" });
     expect(await pendingCount(THREAD)).toBe(limit); // 仍是 limit，没多落
   });
+});
+
+it('#962 cancels only the uploader pending bytes, is refresh-safe and reclaims capacity across twelve cycles',async()=>{
+ const {OBJECT_STORE}=await import('../../src/application/artifact/ports');
+ const store=app.get<import('../../src/application/artifact/ports').ObjectStore>(OBJECT_STORE);
+ const cancel=(id:string,user=ACTOR)=>fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}`,{method:'DELETE',headers:{'x-kernel-test-principal':`${user}:${ORG}`}});
+ const peer='peer-962';await addOrgMember(ORG,peer,'consultant',null);await addProjectMember(ORG,PROJECT,peer,'facilitator',null);
+ for(let i=0;i<12;i++){
+  const uploaded=await upload({filename:'draft.png',mime:'image/png',bytes:PNG});expect(uploaded.status).toBe(201);const {id}=await uploaded.json() as {id:string};
+  const key=`chat-attachments/${ORG}/${id}`,derived=`chat-attachments-extracted/${ORG}/${id}.md`;
+  await store.putOnce(derived,new TextEncoder().encode('draft extraction'),'text/markdown');
+  if(i===0){expect((await cancel(id,peer)).status).toBe(403);expect((await cancel(id,OBSERVER)).status).toBe(403);expect(await store.head(key)).not.toBeNull();}
+  expect((await cancel(id)).status).toBe(204);expect((await cancel(id)).status).toBe(204);
+  expect(await store.head(key)).toBeNull();expect(await store.head(derived)).toBeNull();
+  expect((await fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}/content`,{headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`}})).status).toBe(404);
+  expect(await pendingCount(THREAD)).toBe(0);
+ }
+});
+
+it('#962 refuses a sent attachment and keeps its source bytes unchanged',async()=>{
+ const {addChatMessage}=await import('../support/chat-db');
+ const uploaded=await upload({filename:'sent.png',mime:'image/png',bytes:PNG});expect(uploaded.status).toBe(201);const {id}=await uploaded.json() as {id:string};
+ await addChatMessage({orgId:ORG,id:'sent-962',threadId:THREAD,body:'sent',authorId:ACTOR});
+ await asApp(ORG,c=>c.query('UPDATE chat_message_attachments SET message_id=$2 WHERE id=$1',[id,'sent-962']));
+ const response=await fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}`,{method:'DELETE',headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`}});
+ expect(response.status).toBe(409);expect(await response.json()).toMatchObject({reasonCode:'ATTACHMENT_NOT_PENDING'});
+ const {OBJECT_STORE}=await import('../../src/application/artifact/ports');const store=app.get<import('../../src/application/artifact/ports').ObjectStore>(OBJECT_STORE);
+ expect(await store.get(`chat-attachments/${ORG}/${id}`)).toEqual(PNG);
+ await expect(asApp(ORG,c=>c.query('DELETE FROM chat_message_attachments WHERE id=$1',[id]))).resolves.toMatchObject({rowCount:0});
+});
+
+it('#962 cancellation wins against an extraction in flight, which cannot publish bytes afterwards',async()=>{
+ const {OBJECT_STORE}=await import('../../src/application/artifact/ports');
+ const {ATTACHMENT_EXTRACTION_STORE}=await import('../../src/application/chat/attachment-extraction-store');
+ const {extractAttachment}=await import('../../src/application/chat/attachment-extraction-worker');
+ const {PHYSICAL_PURGE_PORT}=await import('../../src/application/files/physical-delete-ports');
+ const store=app.get<import('../../src/application/artifact/ports').ObjectStore>(OBJECT_STORE);
+ const extraction=app.get<import('../../src/application/chat/attachment-extraction-store').AttachmentExtractionStore>(ATTACHMENT_EXTRACTION_STORE);
+ const purge=app.get<import('../../src/application/files/physical-delete-ports').PhysicalPurgePort>(PHYSICAL_PURGE_PORT);
+ const uploaded=await upload({filename:'inflight.png',mime:'image/png',bytes:PNG});expect(uploaded.status).toBe(201);const {id}=await uploaded.json() as {id:string};
+ await asApp(ORG,c=>c.query("UPDATE chat_message_attachments SET mime='application/pdf' WHERE id=$1",[id]));
+ let entered!:()=>void,release!:()=>void;const started=new Promise<void>(r=>{entered=r;}),blocked=new Promise<void>(r=>{release=r;});
+ const worker=extractAttachment({store,extraction,purge,converter:{convert:async()=>{entered();await blocked;return {ok:true,markdown:'late derived output'};}}},toOrgId(ORG),id);
+ await started;
+ try{const response=await fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}`,{method:'DELETE',headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`}});expect(response.status).toBe(204);}finally{release();}
+ expect(await worker).toBe('gone');expect(await store.head(`chat-attachments-extracted/${ORG}/${id}.md`)).toBeNull();expect(await pendingCount(THREAD)).toBe(0);
+});
+
+it('#962 cleanup failure preserves durable retry state while blocking reads and association',async()=>{
+ const {PHYSICAL_PURGE_PORT}=await import('../../src/application/files/physical-delete-ports');
+ const purge=app.get<import('../../src/application/files/physical-delete-ports').PhysicalPurgePort>(PHYSICAL_PURGE_PORT);
+ const uploaded=await upload({filename:'retry.png',mime:'image/png',bytes:PNG});expect(uploaded.status).toBe(201);const {id}=await uploaded.json() as {id:string};
+ expect(purge.purgeExact).toBeTypeOf('function');
+ const spy=vi.spyOn(purge as import('../../src/application/files/physical-delete-ports').PhysicalPurgePort & Required<Pick<import('../../src/application/files/physical-delete-ports').PhysicalPurgePort,'purgeExact'>>,'purgeExact').mockRejectedValue(new Error('owned test outage'));
+ const cancel=()=>fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}`,{method:'DELETE',headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`}});
+ try{
+  expect((await cancel()).status).toBe(503);
+  const state=await asApp(ORG,async c=>({row:(await c.query('SELECT cancelled_at,message_id FROM chat_message_attachments WHERE id=$1',[id])).rows[0],jobs:(await c.query('SELECT id FROM chat_attachment_extraction_outbox WHERE attachment_id=$1',[id])).rows,count:(await c.query('SELECT count(*)::int AS n FROM chat_message_attachments WHERE thread_id=$1 AND message_id IS NULL AND cancelled_at IS NULL',[THREAD])).rows[0]}));
+  await seedCancellationAgent();
+  const send=await fetch(`${BASE}/chat/threads/${THREAD}/messages`,{method:'POST',headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`,'content-type':'application/json'},body:JSON.stringify({clientMessageId:crypto.randomUUID(),text:'cancelled send',agentId:'cancel-agent',attachmentIds:[id]})});
+  expect(send.status).toBe(422);expect(await send.json()).toMatchObject({reasonCode:'ATTACHMENT_NOT_PENDING'});
+  for(let i=0;i<CFU.ATTACHMENT_LIMITS.maxAttachmentsPerMessage;i++){const next=await upload({filename:'capacity.png',mime:'image/png',bytes:PNG});expect(next.status).toBe(201);}
+  const rejected=await asApp(ORG,c=>c.query("SELECT id FROM chat_messages WHERE thread_id=$1 AND body='cancelled send'",[THREAD]));expect(rejected.rows).toHaveLength(0);
+  expect(state.row.cancelled_at).not.toBeNull();expect(state.row.message_id).toBeNull();expect(state.jobs).toHaveLength(1);expect(state.count.n).toBe(0);
+  expect((await fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}/content`,{headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`}})).status).toBe(404);
+ }finally{spy.mockRestore();}
+ expect((await cancel()).status).toBe(204);
+ expect(await pendingCount(THREAD)).toBe(CFU.ATTACHMENT_LIMITS.maxAttachmentsPerMessage);
+});
+
+async function seedCancellationAgent(){
+ await asApp(ORG,async c=>{
+  await c.query("INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at) VALUES('cancel-agent',$1,'cancel-agent','Cancel','enabled',$2,now(),now())",[ORG,ACTOR]);
+  await c.query("INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at) VALUES('cancel-version',$1,'cancel-agent','v1',$2,'test','{}','test','test','[]',$3,now(),now())",[ORG,'0'.repeat(64),ACTOR]);
+  await c.query("UPDATE agents SET published_version_id='cancel-version' WHERE org_id=$1 AND id='cancel-agent'",[ORG]);
+ });
+}
+
+it('#962 a send/cancel race commits exactly one pending-attachment outcome',async()=>{
+ await seedCancellationAgent();
+ const uploaded=await upload({filename:'race.png',mime:'image/png',bytes:PNG});expect(uploaded.status).toBe(201);const {id}=await uploaded.json() as {id:string};
+ const headers={'x-kernel-test-principal':`${ACTOR}:${ORG}`,'content-type':'application/json'};
+ const [sent,cancelled]=await Promise.all([
+  fetch(`${BASE}/chat/threads/${THREAD}/messages`,{method:'POST',headers,body:JSON.stringify({clientMessageId:crypto.randomUUID(),text:'send attachment',agentId:'cancel-agent',attachmentIds:[id]})}),
+  fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}`,{method:'DELETE',headers}),
+ ]);
+ expect([[202,409],[422,204]]).toContainEqual([sent.status,cancelled.status]);
+ const rows=await asApp(ORG,c=>c.query('SELECT message_id,cancelled_at FROM chat_message_attachments WHERE id=$1',[id]));
+ if(sent.status===202){expect(rows.rows).toHaveLength(1);expect(rows.rows[0].message_id).not.toBeNull();expect(rows.rows[0].cancelled_at).toBeNull();}
+ else{expect(rows.rows).toHaveLength(0);const messages=await asApp(ORG,c=>c.query("SELECT id FROM chat_messages WHERE thread_id=$1 AND body='send attachment'",[THREAD]));expect(messages.rows).toHaveLength(0);}
+});
+
+it('#962 legacy unknown uploader fails closed without deleting bytes',async()=>{
+ const uploaded=await upload({filename:'legacy.png',mime:'image/png',bytes:PNG});expect(uploaded.status).toBe(201);const {id}=await uploaded.json() as {id:string};
+ await asApp(ORG,c=>c.query('UPDATE chat_message_attachments SET uploaded_by=NULL WHERE id=$1',[id]));
+ const response=await fetch(`${BASE}/chat/threads/${THREAD}/attachments/${id}`,{method:'DELETE',headers:{'x-kernel-test-principal':`${ACTOR}:${ORG}`}});expect(response.status).toBe(403);
+ const {OBJECT_STORE}=await import('../../src/application/artifact/ports');const store=app.get<import('../../src/application/artifact/ports').ObjectStore>(OBJECT_STORE);expect(await store.get(`chat-attachments/${ORG}/${id}`)).toEqual(PNG);
 });

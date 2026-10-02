@@ -61,6 +61,11 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-10-01：空前缀同源代理的 `GET /projects` 与静态页面同名，`afterFiles`
+  到不了 API；仅对 `Accept: application/json` 在 `beforeFiles` 代理集合端点，
+  HTML 导航与 RSC 请求仍走项目页面。列表失败统一用 `StateShell dep-failed`，
+  不展示原始解析/网络诊断。（出处：[issue #930](https://github.com/boardx/workspacex/issues/930)）
+
 - 2026-10-01：本文件此前引用过已被 #4358 删除的 mock 路径 `apps/web/lib/mock/project.ts`<!-- skill-doctor:ignore：就是在说它已不存在 -->，
   引用一直没跟着更新——被 `pnpm harness skills doctor` 的「失效路径引用」门控
   抓到并修正。删文件 / 挪位置时，**同一个 PR 里更新 `.agents/skills/**` 的引用**（门控只查

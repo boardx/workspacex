@@ -3,6 +3,62 @@ import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const TEMPLATE_TITLE = "会议反馈调查";
 
+test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await loginAsAdmin(page);
+  await page.setViewportSize({ width: 1586, height: 992 });
+  await page.goto("/studio/survey?tab=modules");
+  const template = page.locator("article").filter({ has: page.getByRole("heading", { name: TEMPLATE_TITLE, exact: true }) });
+  await template.getByRole("button", { name: "使用并创建问卷" }).click();
+  const canvas = page.getByRole("region", { name: "问卷设计画布" });
+  const titleButton = canvas.getByRole("button", { name: "编辑第 1 题：会议名称" });
+  await expect(titleButton).toBeVisible();
+  await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "单选", exact: true })).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+  for (const area of [page.getByRole("navigation", { name: "问卷工作流" }), page.getByTestId("survey-designer-outline"), page.getByTestId("survey-designer-settings")]) {
+    for (const button of await area.getByRole("button").all()) {
+      await expect(button).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+    }
+  }
+  await expect(page.getByRole("button", { name: "试填问卷", exact: true })).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+  const number = titleButton.locator("..").locator("span").last();
+  const numberBounds = await number.boundingBox();
+  const titleBounds = await titleButton.boundingBox();
+  expect(numberBounds && titleBounds && Math.abs(numberBounds.y - titleBounds.y)).toBeLessThan(12);
+  await titleButton.click();
+  const title = canvas.getByRole("textbox", { name: "问题内容", exact: true });
+  await expect(title).toBeFocused();
+  await expect(title).toHaveAttribute("rows", "1");
+  expect((await title.boundingBox())?.height).toBeLessThan(44);
+  const saved = page.waitForResponse(response => response.url().endsWith("/source") && response.request().method() === "PUT");
+  await title.fill("本次会议名称");
+  await page.getByLabel("问卷名称", { exact: true }).click();
+  await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toHaveCount(0);
+  expect((await saved).ok()).toBeTruthy();
+  await page.screenshot({ path: testInfo.outputPath("survey-paper-reading.png"), fullPage: true });
+  await page.reload();
+  await expect(canvas.getByRole("button", { name: "编辑第 1 题：本次会议名称" })).toBeVisible();
+  await canvas.getByRole("button", { name: "编辑第 1 题：本次会议名称" }).click();
+  await page.screenshot({ path: testInfo.outputPath("survey-paper-editing.png"), fullPage: true });
+  await title.fill("请描述本次会议中目标达成、团队沟通与行动落实的具体情况。".repeat(8));
+  for (const width of [768, 375]) {
+    await page.setViewportSize({ width, height: 992 });
+    await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toBeVisible();
+    await expect.poll(() => title.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    const editBounds = await title.boundingBox();
+    const narrowNumberBounds = await title.locator("..").locator("span").last().boundingBox();
+    expect(narrowNumberBounds && editBounds && Math.abs(narrowNumberBounds.y - editBounds.y)).toBeLessThan(12);
+    await expect(page.getByRole("button", { name: "发布回收", exact: true })).toBeVisible();
+    const documentWidth = await page.locator("body").evaluate(element => element.scrollWidth);
+    expect(documentWidth).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath(`survey-paper-${width}.png`), fullPage: true });
+  }
+  const mobileHeight = (await title.boundingBox())!.height;
+  await page.setViewportSize({ width: 1586, height: 992 });
+  await expect.poll(async () => (await title.boundingBox())!.height).toBeLessThan(mobileHeight);
+  await expect.poll(() => title.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+});
+
 test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>{
  test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
  await page.getByTestId('survey-create-primary').click();
@@ -86,6 +142,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(template).toContainText("8 道题目");
   await template.getByRole("button", { name: "使用并创建问卷" }).click();
   await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\/design$/);
+  const createdSurveyId = new URL(page.url()).pathname.split("/")[3];
 
   await expect(page.getByLabel("问卷名称")).toHaveValue(TEMPLATE_TITLE);
   await expect(page.getByText("题目目录 · 8")).toBeVisible();
@@ -203,16 +260,14 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);
   // 2026-09-30：问卷卡片统一成标准 ResourceCard（testid `survey-card-<id>`），统计并入副标题「N 个题目 · M 份答卷（有效 K）」
-  const persistedSurvey = page.locator('[data-testid^="survey-card-"]').filter({
-    has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
-  });
+  const persistedSurvey = page.getByTestId(`survey-card-${createdSurveyId}`);
   await expect(persistedSurvey).toContainText("发布中");
   await expect(persistedSurvey).toContainText("8 个题目");
   await expect(persistedSurvey).toContainText("2 份答卷");
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-desktop.png"),fullPage:true});
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("navigation", { name: "问卷二级导航" })).toBeVisible();
-  await expect(page.getByRole("link", { name: TEMPLATE_TITLE, exact: true })).toBeVisible();
+  await expect(persistedSurvey.getByRole("link", { name: TEMPLATE_TITLE, exact: true })).toBeVisible();
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-mobile.png"),fullPage:true});
 });
 

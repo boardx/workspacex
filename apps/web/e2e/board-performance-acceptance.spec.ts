@@ -118,7 +118,14 @@ for (const count of [1000, 5000, 10000]) test(`fabric ${count / 1000}k performan
       await active.mouse.up(); await heap();
     }
     await markPhase(active, 'zoom'); await active.mouse.move(650, 420);
-    for (let index = 0; index < 20; index++) {await active.mouse.wheel(0, index < 10 ? -20 : 20); await settled(active);}
+    const zoomBefore = Number(await active.getByTestId('board-fabric-surface').getAttribute('data-viewport-zoom'));
+    await active.keyboard.down('ControlOrMeta');
+    try {
+      for (let index = 0; index < 20; index++) {
+        await active.mouse.wheel(0, index < 10 ? -20 : 20); await settled(active);
+        if (index === 9) expect(Number(await active.getByTestId('board-fabric-surface').getAttribute('data-viewport-zoom'))).toBeGreaterThan(zoomBefore);
+      }
+    } finally { await active.keyboard.up('ControlOrMeta'); }
     phase('pan-zoom-complete');
     await markPhase(active, 'idle'); await active.getByTestId('board-tool-select').click();
     const stickyId = 'perf-00000';

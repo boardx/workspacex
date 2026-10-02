@@ -3,10 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { InterviewMarkdownWorkbench } from "@/components/itv/interview-markdown-workbench";
+import { InterviewStepHeader } from "@/components/itv/interview-step-header";
 const { push, load, branch } = vi.hoisted(() => ({ push: vi.fn(), load: vi.fn(), branch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/interview-markdown-api", () => ({ loadInterviewMarkdown: load, branchInterviewMarkdown: branch }));
-vi.mock("@/components/itv/interview-markdown-planning-step", () => ({ InterviewMarkdownPlanningStep: ({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => void }) => <button onClick={() => onDirtyChange(true)}>修改原文</button> }));
+vi.mock("@/components/itv/interview-markdown-planning-step", () => ({ InterviewMarkdownPlanningStep: ({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => void }) => <><InterviewStepHeader title="导入需求" /><button onClick={() => onDirtyChange(true)}>修改原文</button></> }));
 vi.mock("@/components/itv/interview-markdown-editing-step", () => ({ InterviewMarkdownEditingStep: () => <div /> }));
 vi.mock("@/components/itv/interview-markdown-results-step", () => ({ InterviewMarkdownResultsStep: () => <div /> }));
 const identity: DigitalInterviewWorkflowView = {
