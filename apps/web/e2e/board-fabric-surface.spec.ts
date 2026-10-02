@@ -4,6 +4,7 @@ import { expect, request as playwrightRequest, test, type APIRequestContext, typ
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { readBoardViewportSnapshot } from "./board-viewport-snapshot";
+import { canonicalBoardSnapshot } from "./board-acceptance-support";
 
 /** Real services only: authenticated UI, HTTP Board lifecycle and the production collaboration route. */
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -366,7 +367,11 @@ test("live drag attachments follow before one durable transform and survive undo
   boardToArchive = { ...board, token };
   const a = randomUUID(), b = randomUUID(), edge = randomUUID();
   const geometry = { x: 220, y: 220, width: 180, height: 140, rotation: 0 };
-  const object = (id: string, kind: "sticky" | "connector", value: typeof geometry) => ({ id, schemaVersion: 1, kind, geometry: value, text: id, style: {}, parentId: null, orderKey: id });
+  // Explicit rectangle semantics preserve this fixture's 180x140 hit geometry;
+  // legacy stickies default to square and normalize height on transform.
+  const stickyMetadata = { variant: "rectangle", sizing: "fixed", color: "#F8D76E" };
+  const object = (id: string, kind: "sticky" | "connector", value: typeof geometry) => ({ id, schemaVersion: 1, kind, geometry: value, text: id, style: {}, parentId: null, orderKey: id,
+    ...(kind === "sticky" ? { extensionData: { thinkingInput: { sticky: stickyMetadata } } } : {}) });
   await apiRequest(api, token, "POST", `/v1/whiteboards/${board.id}/operations`, {
     apiVersion: "2026-09-01", requestId: randomUUID(), boardId: board.id, expectedRevision: { epoch: 1, seq: 0 },
     actor: { kind: "human", actorId: FULLSTACK_E2E.adminUserId, orgId: FULLSTACK_E2E.orgId, role: "owner", scopes: ["board:read", "board:write"], delegatedBy: null },
@@ -380,6 +385,13 @@ test("live drag attachments follow before one durable transform and survive undo
   const canonical = () => page.getByTestId("board-a11y-mirror").locator(`li[data-object-id="${a}"]`).getAttribute("data-geometry");
   const scenes = () => surface.evaluate(el => ({ items: JSON.parse(el.getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>, z: Number(el.getAttribute("data-viewport-zoom")), px: Number(el.getAttribute("data-viewport-pan-x")), py: Number(el.getAttribute("data-viewport-pan-y")), box: el.getBoundingClientRect().toJSON() as { x: number; y: number } }));
   const before = await canonical(), initial = await scenes(), note = initial.items.find(item => item.id === a)!;
+  const savedDocument = await canonicalBoardSnapshot(api, token, board.id);
+  for (const id of [a, b]) {
+    const saved = savedDocument.objects.find(object => object.id === id)!;
+    expect(saved.extensionData?.thinkingInput).toMatchObject({ sticky: stickyMetadata });
+    expect(saved.geometry).toMatchObject({ width: 180, height: 140 });
+    expect(initial.items.find(item => item.id === id)).toMatchObject({ left: saved.geometry.x, top: saved.geometry.y, width: 180, height: 140 });
+  }
   const savedHead = await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json() as { epoch: number; seq: number };
   const x = initial.box.x + initial.px + (note.left + note.width / 2) * initial.z, y = initial.box.y + initial.py + (note.top + note.height / 2) * initial.z;
   await page.mouse.click(x, y);
@@ -392,6 +404,11 @@ test("live drag attachments follow before one durable transform and survive undo
   expect(Math.abs((await handle.boundingBox())!.x - handleBefore.x)).toBeGreaterThan(50);
   const current = await scenes(), moved = current.items.find(item => item.id === a)!, attached = current.items.find(item => item.id === edge)!;
   const destination = current.items.find(item => item.id === b)!;
+  expect(JSON.parse((await canonical())!)).toMatchObject({ width: 180, height: 140 });
+  expect(moved).toMatchObject({ width: 180, height: 140 });
+  expect(destination).toMatchObject({ width: 180, height: 140 });
+  const heldDocument = await canonicalBoardSnapshot(api, token, board.id);
+  expect(heldDocument.objects, "held gesture must preserve canonical geometry and rectangle metadata").toEqual(savedDocument.objects);
   const endpoints = { start: { x: moved.left + moved.width, y: moved.top + moved.height / 2 }, end: { x: destination.left, y: destination.top + destination.height / 2 } };
   // Bounding boxes include arrow/label/stroke bounds. Independently probe the
   // actual Fabric ink on the live expected segment, away from the midpoint label.
