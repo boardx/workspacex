@@ -293,6 +293,12 @@ it("preserves undo and redo through schema-normalized autosave but resets on gen
   fireEvent.click(screen.getByRole("button", { name: "重做最近修改" }));
   expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "新增题目", exact: true }));
+  expect(screen.getByText("题目目录 · 3")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "加载远端更改" }));
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "重做最近修改" })).toBeDisabled();
