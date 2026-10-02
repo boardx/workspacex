@@ -109,7 +109,10 @@ export const finishGuidedResearchCollection = (
 export const completeGuidedResearchSession = (sessionId: string) =>
   checkpointRequest(research.operations.completeGuidedResearchSession, sessionId, {});
 
-export type GuidedResearchRuntime = z.infer<typeof research.GuidedResearchRuntime>;
+export type GuidedResearchRuntime = z.infer<typeof research.GuidedResearchRuntime> & {
+  /** Display projection only; the durable checkpoint remains server-owned. */
+  reportSavedChapterCount?: number;
+};
 export type GuidedResearchRuntimeCommand = z.infer<typeof research.GuidedResearchRuntimeCommand>;
 export type GuidedResearchRuntimeDraft = z.infer<typeof research.GuidedResearchRuntimeDraft>;
 export async function getResearchRuntime(sessionId: string): Promise<GuidedResearchRuntime> {
@@ -157,7 +160,7 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
         content: current.sources.find((previous) => previous.id === source.id)?.content ?? source.presentation?.summary ?? source.title,
       })) ?? current.sources } : {}),
     ...(update.busy && update.currentNode === "report"
-      ? { report: null, reportDraft: null, ...(isNewReportAttempt ? { reportCheckpoint: null } : {}) }
+      ? { report: null, reportDraft: null, ...(isNewReportAttempt ? { reportCheckpoint: null, reportSavedChapterCount: update.reportSavedChapterCount } : {}) }
       : {}),
     reportStream,
   };

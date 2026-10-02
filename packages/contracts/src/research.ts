@@ -1114,6 +1114,8 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
   qualityScore: true, publicationReadiness: true,
 }).extend({
+  // Derived from the durable checkpoint; chapter bodies stay out of progress.
+  reportSavedChapterCount: z.number().int().nonnegative().optional(),
   research: z.object({
     cursor: z.string().regex(/^[a-f0-9]{64}$/),
     tasks: z.array(GuidedResearchTask),

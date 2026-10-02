@@ -43,3 +43,13 @@ describe("report progress cursor", () => {
     expect(mergeResearchProgress(current, { ...progress, sessionId: "other" })).toBe(current);
   });
 });
+
+it("updates saved chapter progress without replacing durable chapter bodies", () => {
+  const state = { ...runtimeFixture("report"), busy: true, reportSavedChapterCount: 1 };
+  const update = { sessionId: state.sessionId, version: state.version, busy: true, currentNode: "report", stream: null, reportSavedChapterCount: 3 } as unknown as ResearchRuntimeProgress;
+  const next = mergeResearchProgress(state, update);
+  expect(next).toHaveProperty("reportSavedChapterCount", 3);
+  expect(next.reportCheckpoint).toBe(state.reportCheckpoint);
+  const newAttempt = mergeResearchProgress(next, { ...update, version: state.version + 1, reportSavedChapterCount: undefined });
+  expect(newAttempt).toHaveProperty("reportSavedChapterCount", undefined);
+});
