@@ -6,8 +6,8 @@ import {pathToFileURL} from 'node:url';
 import {sha256} from '../board-runtime-evidence';
 import {apiOrigin} from '../board-acceptance-support';
 
-// The frozen external verifier is the single implementation supplied by the runtime owner.
-const verifierDigest='a4310104445dc7f942ea76212269391e68775522ba9da9f4dde1fc1c83a4d34d';
+// The reviewed shared producer supplies the single runtime verifier implementation.
+const verifierDigest='6ae9157907ebe0f4c455fc79267ab3950aa39ae5e80ef9227364be45aaeb28e5';
 const root=resolve(__dirname,'../../../..');
 type Manifest={ready:boolean;head:string;startedAt:string;deploymentMarker:string;sourceFiles:string[];sourceHashes:Record<string,string>};
 type Verifier={verifyRuntimeManifest(input:{manifestPath:string;root:string;base:string;origin:string;sourceFiles:string[]}):unknown};
