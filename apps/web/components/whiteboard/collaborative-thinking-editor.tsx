@@ -3,7 +3,7 @@
 import { boardSelectAllIds } from './board-select-all';
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type PointerEvent } from "react";
 import {useBoardFrame,boardFrameCenter,followBoardFrame} from "./use-board-frame";
-import { Undo2, Redo2, Copy, Clipboard, Trash2, MoreHorizontal, X, Download, RotateCw } from "lucide-react";
+import { Undo2, Redo2, Copy, Clipboard, Trash2, MoreHorizontal, Download, RotateCw, X } from "lucide-react";
 import { boardFileMetadata, downloadBoardFile, uploadBoardFile } from './board-file-upload';
 import * as Y from "yjs";
 import { canonicalSceneBounds } from "@repo/whiteboard-core";
