@@ -82,9 +82,9 @@ vi.mock("fabric", async () => {
   }
   class Canvas {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
-    upperCanvasEl = document.createElement("canvas");
     _currentTransform: unknown = null;
-    constructor() { probe.instances += 1; probe.canvas = this; }
+    upperCanvasEl: HTMLCanvasElement;
+    constructor(element: HTMLCanvasElement) { this.upperCanvasEl = element; probe.instances += 1; probe.canvas = this; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
     remove(object: MockProjectedObject) {
       probe.objects.splice(probe.objects.indexOf(object), 1);

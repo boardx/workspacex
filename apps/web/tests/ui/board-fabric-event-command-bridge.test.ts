@@ -17,7 +17,8 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
-    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
+    source?: string;
+    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; if (typeof value === "string") this.source = value; Object.assign(this, options); }
     getObjects() { return this.children; }
     private children: MockFabricObject[] = [];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
@@ -147,12 +148,12 @@ describe("Board Fabric event-to-command boundary", () => {
     act(() => canvas.emit("object:moving", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
     expect(events.onTransformPreview).toHaveBeenLastCalledWith([{ id: base.id, geometry: { x: 80, y: 130, width: 200, height: 140, rotation: 0 } }]);
     expect(events.onObjectTransform).not.toHaveBeenCalled();
-    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.left).toBe(285);
+    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*285[ ,]200/);
     act(() => canvas.emit("object:modified", { target }));
     expect(events.onObjectTransform).toHaveBeenCalledTimes(1);
-    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith(null);
     expect(target.left).toBe(base.geometry.x);
-    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.left).toBe(215);
+    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*215[ ,]90/);
   });
 
   it("reports rotated and scaled geometry and clears preview on native cancellation", () => {
@@ -165,7 +166,7 @@ describe("Board Fabric event-to-command boundary", () => {
     act(() => canvas.emit("mouse:down", { target, e: new MouseEvent("mousedown", { clientX: 20, clientY: 30 }) }));
     const cancel = new Event("pointercancel", { bubbles: true }); Object.assign(cancel, { pointerType: "mouse", isPrimary: true });
     fireEvent(screen.getByTestId("board-fabric-canvas"), cancel);
-    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith(null);
     expect(events.onObjectTransform).not.toHaveBeenCalled();
   });
 
@@ -173,7 +174,7 @@ describe("Board Fabric event-to-command boundary", () => {
     const events = callbacks();
     render(surface([base], events));
     act(() => mountedCanvas().emit("mouse:wheel", { e: new WheelEvent("wheel", { deltaX: 12, deltaY: 30 }) }));
-    expect(events.onViewportChange).toHaveBeenCalledWith({ ...viewport, panX: -12, panY: -30 }, "wheel");
+    expect(events.onViewportChange).toHaveBeenCalledWith({ ...viewport, panX: -12, panY: -30 }, "pan");
     expect(events.onObjectTransform).not.toHaveBeenCalled();
   });
 
