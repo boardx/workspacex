@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import { parseContentObject } from './content-object-model';
 import { WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardObject as WhiteboardObjectValue } from '@repo/contracts/whiteboard-document';
 import { createWhiteboardDocument, executeCommands, objectMap, tombstones, validateDocument } from './document';
+import { isKnownThinkingInputMetadata } from './thinking-input';
 
 export interface DuplicatedWhiteboardSnapshot {
   snapshot: Uint8Array;
@@ -77,6 +78,7 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
           // This canonical envelope is a typed value, not a board-object reference.
           // Validate its exact schema and still inspect its fields for opaque references.
           if (key === 'contentObject') assertNoOpaqueReference(parseContentObject(value), sourceIds);
+          else if (key === 'thinkingInput' && isKnownThinkingInputMetadata(value)) continue;
           else assertNoOpaqueReference(value, sourceIds, key);
         }
       }
