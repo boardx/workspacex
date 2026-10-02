@@ -39,6 +39,8 @@ async function startStroke(page: Page, surface: Locator, offset: number) {
 }
 
 test("Fabric Draw previews before commit, cancels without writes, and commits exactly one drawing", async ({ page, request }) => {
+  // Keep the committed third stroke clear of the Draw panel, as in the eraser case.
+  await page.setViewportSize({width: 1280, height: 900});
   const token = await boardLogin(page);
   const boardId = await createAcceptanceBoard(request, token, "Draw live preview acceptance");
   try {
