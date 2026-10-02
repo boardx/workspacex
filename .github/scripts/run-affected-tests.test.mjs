@@ -25,6 +25,8 @@ test('selected executable web test installs its core Chromium shell before test,
 });
 for (const [name, tasks, exists] of [
   ['web not selected', [{ taskId: '@repo/api#test', command: 'vitest run' }], () => true],
+  ['docs-only plan', [], () => true],
+  ['web lint and typecheck only', [{ taskId: 'web#lint', command: 'eslint .' }, { taskId: 'web#typecheck', command: 'tsc --noEmit' }], () => true],
   ['only web build selected', [{ taskId: 'web#build', command: 'next build' }], () => true],
   ['nonexistent web test', [{ ...web, command: '<NONEXISTENT>' }], () => true],
   ['pixel test absent', [web], () => false],
@@ -36,6 +38,15 @@ test('fork plan and actual test both retain API coverage', () => {
   const r = recording([], { env: { IS_FORK_PR: 'true' } }); r.run();
   assert.deepEqual(r.calls[0].args, ['turbo', 'run', 'test', '--affected', '--dry=json']);
   assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--affected']);
+});
+test('fork and same-repository executable web plans install before their identical actual test', () => {
+  for (const fork of ['true', 'false']) {
+    const r = recording([{ taskId: '@repo/api#test', command: 'vitest run' }, web], { env: { IS_FORK_PR: fork, TURBO_SCM_BASE: 'origin/base', PLAYWRIGHT_BROWSERS_PATH: '/runner/temp/browser' } });
+    r.run(); assert.equal(r.calls.length, 3);
+    assert.deepEqual(r.calls[2].args, r.calls[0].args.slice(0, -1));
+    assert.equal(r.calls[0].args.includes('--filter=!@repo/api'), fork === 'false');
+    assert.ok(r.calls[1].args.includes('install'));
+  }
 });
 test('invalid plan and missing explicit browser path fail closed before testing', () => {
   assert.throws(() => selectsWebTest({ packages: ['web'] }), /Invalid Turbo/);
@@ -55,6 +66,7 @@ test('workflow wires the exact affected runner and private cache only inside aff
   assert.match(affected, /PLAYWRIGHT_BROWSERS_PATH: \$\{\{ runner.temp \}\}\/workspacex-web-pixel-browsers/);
   assert.match(affected, /node \.github\/scripts\/run-affected-tests.mjs/);
   assert.match(affected, /TURBO_SCM_BASE:/); assert.match(affected, /IS_FORK_PR:/);
+  assert.doesNotMatch(affected, /browserplan|ci-affected-browser|playwright install/);
 });
 
 test('actual Turbo web test preserves strict mode and only scoped browser cache passthrough', () => {

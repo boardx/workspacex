@@ -43,6 +43,13 @@ function pathScenePoint(path: Path, commandIndex: 0 | 1): Point {
   return util.transformPoint(local, path.calcTransformMatrix());
 }
 
+function capsuleSceneStart(path: Path): Point {
+  const sides = path.path.filter(command => command[0] === "M" || command[0] === "L");
+  const left = sides[0]!, right = sides[2]!;
+  const local = new Point((Number(left[1]) + Number(right[1])) / 2 - path.pathOffset.x, (Number(left[2]) + Number(right[2])) / 2 - path.pathOffset.y);
+  return util.transformPoint(local, path.calcTransformMatrix());
+}
+
 function expectedWorldPoint(geometry: BoardFabricObject["geometry"], point: { x: number; y: number }): Point {
   const localX = (point.x - 10) * geometry.width / 40;
   const localY = (point.y - 20) * geometry.height / 40;
@@ -54,6 +61,52 @@ function expectedWorldPoint(geometry: BoardFabricObject["geometry"], point: { x:
 }
 
 describe("real Fabric drawing coordinate projection", () => {
+  it("keeps variable-pressure centrelines exact when a thicker stroke changes ink bounds", () => {
+    const geometry = { x: 10, y: 20, width: 80, height: 80, rotation: 37 };
+    const beforeRecord = drawing(geometry);
+    if (beforeRecord.boardContent?.type !== "drawing") throw new Error("DRAWING_FIXTURE_INVALID");
+    const variable = { ...firstStroke, points: [{ x: 10, y: 20, pressure: .1 }, { x: 30, y: 40, pressure: .2 }, { x: 50, y: 60, pressure: 1 }] };
+    beforeRecord.boardContent = { ...beforeRecord.boardContent, strokes: [variable] };
+    const afterRecord = { ...beforeRecord, revision: 2, boardContent: { ...beforeRecord.boardContent, strokes: [variable, { ...variable, id: "thicker", width: 30 }] } };
+    const before = capsuleSceneStart(render(beforeRecord).getObjects()[0] as Path);
+    const after = capsuleSceneStart(render(afterRecord).getObjects()[0] as Path);
+    const expected = expectedWorldPoint(geometry, variable.points[0]!);
+    expect(before.x).toBeCloseTo(expected.x, 5);
+    expect(before.y).toBeCloseTo(expected.y, 5);
+    expect(after.x).toBeCloseTo(expected.x, 5);
+    expect(after.y).toBeCloseTo(expected.y, 5);
+  });
+
+  it.each([
+    { tool: "marker" as const, width: 8, scaleX: 2, scaleY: 2, rotation: 0 },
+    { tool: "eraser" as const, width: 24, scaleX: 2, scaleY: 2, rotation: 0 },
+    { tool: "marker" as const, width: 8, scaleX: 2, scaleY: 2, rotation: 73 },
+    { tool: "eraser" as const, width: 24, scaleX: 2, scaleY: 2, rotation: 90 },
+    { tool: "marker" as const, width: 8, scaleX: 1, scaleY: 1, rotation: 0 },
+    { tool: "eraser" as const, width: 24, scaleX: 1, scaleY: 1, rotation: 90 },
+    { tool: "marker" as const, width: 8, scaleX: 2, scaleY: .5, rotation: 37 },
+  ])("preserves maximum scene ink width for $tool at $scaleX/$scaleY scale and $rotation degrees", ({ tool, width, scaleX, scaleY, rotation }) => {
+    const geometry = { x: 10, y: 20, width: 40 * scaleX, height: 40 * scaleY, rotation };
+    const captured: DrawingStroke = { ...firstStroke, id: "appended", tool, width, opacity: tool === "marker" ? .9 : 1, ...(tool === "eraser" ? { erases: [firstStroke.id] } : {}) };
+    const intrinsic = worldStrokeToDrawingSpace(geometry, [firstStroke], captured);
+    expect(intrinsic.width).toBeCloseTo(width / Math.max(scaleX, scaleY));
+    expect(intrinsic.opacity).toBe(captured.opacity);
+    expect(intrinsic.points.map(point => point.pressure)).toEqual(captured.points.map(point => point.pressure));
+    const expanded = geometryForAppendedDrawingStroke(geometry, [firstStroke], intrinsic);
+    const record = drawing(expanded);
+    if (record.boardContent?.type !== "drawing") throw new Error("DRAWING_FIXTURE_INVALID");
+    record.boardContent = { ...record.boardContent, strokes: [firstStroke, intrinsic] };
+    const projected = render(record);
+    const appended = projected.getObjects()[1] as Path;
+    const matrix = appended.calcTransformMatrix();
+    const widestScale = Math.max(Math.hypot(matrix[0], matrix[1]), Math.hypot(matrix[2], matrix[3]));
+    const pressure = (captured.points[0]!.pressure + captured.points[1]!.pressure) / 2;
+    const capsuleSides = appended.path.filter(command => command[0] === "M" || command[0] === "L");
+    const fromLeft = capsuleSides[0]!, fromRight = capsuleSides[2]!;
+    const actualWidth = Math.hypot(Number(fromLeft[1]) - Number(fromRight[1]), Number(fromLeft[2]) - Number(fromRight[2]));
+    expect(actualWidth * widestScale).toBeCloseTo(width * (.35 + pressure * .65), 5);
+  });
+
   it.each([
     { label: "move", geometry: { x: 110, y: 100, width: 40, height: 40, rotation: 0 } },
     { label: "resize", geometry: { x: 10, y: 20, width: 80, height: 20, rotation: 0 } },
@@ -63,7 +116,8 @@ describe("real Fabric drawing coordinate projection", () => {
     const after = render(drawing(geometry, true));
     const beforePath = before.getObjects()[0] as Path;
     const afterPath = after.getObjects()[0] as Path;
-    expect(beforePath.path).toEqual([["M", 0, 0], ["L", 40, 40]]);
+    expect(beforePath.strokeWidth).toBe(0);
+    expect(beforePath.fill).toBe(firstStroke.color);
 
     for (const index of [0, 1] as const) {
       const expected = expectedWorldPoint(geometry, firstStroke.points[index]!);

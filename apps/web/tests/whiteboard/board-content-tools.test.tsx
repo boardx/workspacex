@@ -4,13 +4,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
+import { drawingEraserTargets } from "@/components/whiteboard/fabric/drawing-hit-test";
 
 vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
   BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick, onObjectsTransform }: {
     objects: readonly BoardFabricObject[];
     onSelectionChange: (ids: string[], source: "canvas") => void;
-    onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
+    onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; points: Array<{ x: number; y: number; pressure: number }>; targetObjectIds?: readonly string[] }) => void;
     onCanvasClick?: (point: { x: number; y: number }) => void;
     onObjectsTransform?: (items: Array<{ id: string; geometry: BoardFabricObject["geometry"] }>) => void;
   }) => <div data-testid="board-fabric-surface"><output data-testid="image-preview">{objects.filter(object=>object.kind==="image").map(object=>object.imageAssetUrl).join(",")}</output>
@@ -23,7 +24,7 @@ vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
     <button data-testid="move-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, x: 110, y: 100 } }])}>move</button>
     <button data-testid="resize-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, width: 80, height: 20 } }])}>resize</button>
     <button data-testid="rotate-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, rotation: 90 } }])}>rotate</button>
-    <button data-testid="erase-stroke" onClick={() => onDrawingComplete?.({ tool: "eraser", points: [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }] })}>erase</button>
+    <button data-testid="erase-stroke" onClick={() => { const points = [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }]; onDrawingComplete?.({ tool: "eraser", points, targetObjectIds: drawingEraserTargets(objects, points, 24) }); }}>erase</button>
     <button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 200, y: 220 })}>canvas</button>
   </div>,
 }));
