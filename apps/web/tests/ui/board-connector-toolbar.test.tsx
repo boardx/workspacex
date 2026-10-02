@@ -1,17 +1,18 @@
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
-import {afterEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import type {ConnectorRelationship} from '@repo/whiteboard-core';
 import {WHITEBOARD_CONNECTOR_LIMITS} from '@repo/contracts/whiteboard-document';
 import {BoardConnectorToolbar} from '@/components/whiteboard/board-connector-toolbar';
-afterEach(cleanup);
+beforeEach(()=>{vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({left:100,top:400,bottom:444,right:144,x:100,y:400,width:44,height:44,toJSON:()=>({})});});
+afterEach(()=>{cleanup();vi.restoreAllMocks();});
 it('anchors connector inspectors above their own trigger instead of the fixed side panel',()=>{
  mount();vi.spyOn(screen.getByTestId('board-connector-width-open'),'getBoundingClientRect').mockReturnValue({left:100,top:400,bottom:444,right:144,x:100,y:400,width:44,height:44,toJSON:()=>({})});fireEvent.click(screen.getByTestId('board-connector-width-open'));
  expect(screen.getByRole('dialog')).toHaveAttribute('data-board-popover-placement','above');
  expect(screen.getByRole('dialog')).toHaveStyle({transform:'translateY(-100%)'});
 });
-it.each([80,90])('keeps a near-header trigger %s contextual using an explicit below collision fallback',top=>{
+it.each([90,220.5])('keeps a restricted-space trigger %s above with a scrollable height limit',top=>{
  mount();vi.spyOn(screen.getByTestId('board-connector-width-open'),'getBoundingClientRect').mockReturnValue({left:100,top,bottom:top+44,right:144,x:100,y:top,width:44,height:44,toJSON:()=>({})});fireEvent.click(screen.getByTestId('board-connector-width-open'));
- const dialog=screen.getByRole('dialog');expect(dialog).toHaveAttribute('data-board-popover-placement','below');expect(dialog).toHaveStyle({top:`${top+52}px`,maxHeight:`${window.innerHeight-top-68}px`});expect(dialog.style.transform).toBe('');
+ const dialog=screen.getByRole('dialog');expect(dialog).toHaveAttribute('data-board-popover-placement','above');expect(dialog).toHaveStyle({top:`${top-8}px`,maxHeight:`${top-80}px`,transform:'translateY(-100%)'});expect(dialog.className).toContain('overflow-y-auto');
 });
 it('clamps the inspector within the viewport and follows trigger movement without changing content',()=>{
  const{change}=mount();const trigger=screen.getByTestId('board-connector-width-open');

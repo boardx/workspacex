@@ -183,6 +183,25 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const before = await canonicalBoardSnapshot(page.request, token!, boardId);
   expect(before.objects.map(object => object.id).sort()).toEqual(expectedIds);
   expect(before.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id))).toEqual(expectedRows.map(({id,text,geometry,parentId})=>({id,text,geometry,parentId})));
+  const surface = page.getByTestId('board-fabric-surface');
+  const blank = await surface.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    const scenes = JSON.parse(element.getAttribute('data-object-scenes') ?? '[]') as Array<{left: number; top: number; width: number; height: number}>;
+    const zoom = Number(element.getAttribute('data-viewport-zoom'));
+    const panX = Number(element.getAttribute('data-viewport-pan-x'));
+    const panY = Number(element.getAttribute('data-viewport-pan-y'));
+    for (let y = 24; y < box.height - 24; y += 48) for (let x = 24; x < box.width - 24; x += 48) {
+      const point = {x: box.x + x, y: box.y + y};
+      if ((document.elementFromPoint(point.x, point.y) as HTMLElement | null)?.dataset.fabric !== 'top') continue;
+      if (scenes.some(scene => x >= panX + scene.left * zoom - 24 && x <= panX + (scene.left + scene.width) * zoom + 24
+        && y >= panY + scene.top * zoom - 24 && y <= panY + (scene.top + scene.height) * zoom + 24)) continue;
+      return point;
+    }
+    return null;
+  });
+  expect(blank, 'A real empty canvas hit must clear the previous multi-selection').not.toBeNull();
+  await page.mouse.click(blank!.x, blank!.y);
+  await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
   const sourceOutline = page.getByTestId(`board-a11y-object-${from}`);
   await sourceOutline.focus(); await sourceOutline.press('Enter');
   const editor = page.getByTestId('board-thinking-editor');
@@ -198,7 +217,7 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const sourceBounds = await sourceHandle.boundingBox(); expect(sourceBounds).not.toBeNull();
   const target = before.objects.find(object => object.id === to)!; expect(target).toBeTruthy();
   const anchor = rotatedAnchorPoint(target, 'left');
-  const surface = page.getByTestId('board-fabric-surface'), bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
+  const bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
   const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
   const destination = {x: bounds!.x + Number(await surface.getAttribute('data-viewport-pan-x')) + anchor.x * zoom,
     y: bounds!.y + Number(await surface.getAttribute('data-viewport-pan-y')) + anchor.y * zoom};
