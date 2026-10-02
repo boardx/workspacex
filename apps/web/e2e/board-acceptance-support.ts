@@ -5,7 +5,8 @@ import {rotatedAnchorPoint} from '@repo/whiteboard-core';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 
-export const BOARD_SYNCED_STATUS = /^已同步(?: · 序列 \d+)?$/;
+import {expectBoardSynced} from './support/board-sync-status';
+export {BOARD_SYNCED_STATUS} from './support/board-sync-status';
 export const apiOrigin = () => `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
 export async function boardLogin(page: Page, email: string = FULLSTACK_E2E.email, password: string = FULLSTACK_E2E.password) {
   await page.goto('/login'); await page.getByTestId('login-email').fill(email);
@@ -87,7 +88,7 @@ export async function canonicalRows(page: Page): Promise<CanonicalRow[]> {
 }
 export async function openBoard(page: Page, id: string, count: number) {
   await page.goto(`/studio/board/${id}`);
-  await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS,{timeout:30_000});
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(count);
 }
 export async function settled(page: Page) {
@@ -174,7 +175,7 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const expectedRows = await canonicalRows(page);
   const expectedIds = expectedRows.map(object => object.id).sort();
   expect(expectedIds).toContain(from); expect(expectedIds).toContain(to);
-  await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS,{timeout:30_000});
+  await expectBoardSynced(page,30_000);
   await expect.poll(async () => {
     const persisted = await canonicalBoardSnapshot(page.request, token!, boardId);
     return persisted.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id));
@@ -233,7 +234,7 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const after = await canonicalBoardSnapshot(page.request, token!, boardId);
   expect(after.objects).toHaveLength(before.objects.length + 1);
   expect(after.objects.filter(object => object.kind === 'connector' && object.connector?.from === from && object.connector?.to === to)).toHaveLength(1);
-  await page.reload(); await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS,{timeout:30_000});
+  await page.reload(); await expectBoardSynced(page,30_000);
   expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(after);
   return 1;
 }
