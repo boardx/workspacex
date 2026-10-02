@@ -5,7 +5,7 @@ import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {connectByHandles} from './board-acceptance-support';
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
-const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-frame','board-add-more'] as const;
+const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-more'] as const;
 async function captureReference(page:Page,info:TestInfo,name:string){const path=info.outputPath(`${name}.png`);await page.screenshot({path,fullPage:false});await info.attach(name,{path,contentType:'image/png'});}
 const separated=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1;
 
@@ -41,14 +41,10 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
 
    await page.getByTestId('board-tool-select').click();await page.getByTestId('board-add-draw').click();
    const drawPanel=page.getByTestId('board-draw-tool-panel');await expect(drawPanel).toBeVisible();const drawBounds=(await drawPanel.boundingBox())!;
-   expect(drawBounds.width).toBeGreaterThanOrEqual(740);expect(drawBounds.width).toBeLessThanOrEqual(762);expect(drawBounds.height).toBeGreaterThanOrEqual(230);expect(drawBounds.height).toBeLessThanOrEqual(280);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
-   for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-opacity-55','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
+   expect(drawBounds.width).toBeLessThanOrEqual(640);expect(drawBounds.height).toBeGreaterThanOrEqual(110);expect(drawBounds.height).toBeLessThanOrEqual(180);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
+   for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
+   await expect(drawPanel.getByRole('button',{name:'Opacity 55%',exact:true})).toHaveCount(0);
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
-
-   await page.getByTestId('board-add-frame').click();const framePanel=page.getByTestId('board-frame-tool-panel');await expect(framePanel).toBeVisible();const frameBounds=(await framePanel.boundingBox())!;
-   expect(frameBounds.width).toBeGreaterThanOrEqual(360);expect(frameBounds.width).toBeLessThanOrEqual(386);expect(frameBounds.height).toBeGreaterThanOrEqual(340);expect(frameBounds.height).toBeLessThanOrEqual(410);expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
-   for(const id of ['board-frame-rectangle','board-frame-rounded','board-frame-circle','board-frame-layout','board-frame-blank','board-frame-section','board-frame-grid','board-frame-timeline','board-frame-size-s','board-frame-size-m','board-frame-size-l','board-frame-size-custom'])await expect(page.getByTestId(id)).toBeVisible();
-   await captureReference(page,info,`reference-frame-panel-${label}`);await page.getByRole('button',{name:'Close frame tools'}).click();await expect(framePanel).toBeHidden();
 
    await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
    await expect(page.getByTestId('board-context-toolbar')).toBeVisible();
@@ -69,6 +65,11 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
   await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
   await page.keyboard.press('Escape');await page.setViewportSize({width:1536,height:1024});
+  // Hidden creation entries do not remove selected-object connection handles.
+  await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
+  await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
   await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
   expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}

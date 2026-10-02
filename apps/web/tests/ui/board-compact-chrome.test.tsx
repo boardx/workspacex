@@ -29,5 +29,5 @@ it("does not reopen a creation palette just because an existing text object is s
   expect(screen.getByTestId("board-text-body")).toHaveClass("bg-primary", "text-primary-foreground", "hover:bg-primary-hover", "hover:text-primary-foreground");
   fireEvent.pointerDown(document.body);
   expect(screen.queryByTestId("board-tool-picker")).toBeNull();
-  for (const tool of ["sticky", "shape", "draw", "connector", "frame"]) expect(screen.getByTestId(`board-add-${tool}`)).toHaveStyle({minHeight:"56px",minWidth:"56px"});
+  for (const tool of ["sticky", "shape", "draw"]) expect(screen.getByTestId(`board-add-${tool}`)).toHaveStyle({minHeight:"56px",minWidth:"56px"});
 });

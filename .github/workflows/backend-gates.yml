@@ -581,6 +581,7 @@ jobs:
        (github.event_name == 'workflow_dispatch' && inputs.deploy_skill_files_preview &&
         github.ref == 'refs/heads/codex/ai-capability-studio-live' &&
         inputs.expected_skill_files_sha == github.sha))
+    # Execution mirror of .harness/devapp-operation-policy.json; checked by #5040.
     concurrency:
       group: workspacex-devapp-deploy
       cancel-in-progress: false

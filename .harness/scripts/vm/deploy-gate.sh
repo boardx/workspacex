@@ -90,6 +90,12 @@ deploy_gate_main() {
   # 先确认「要跑的那份脚本」就是本次提交里的那份，再去跑它。
   assert_trusted_copies_match_repo || return 1
 
+  # Read only: reject unsafe/drifting source before dependency installation or build.
+  local candidate_source candidate_root
+  candidate_root=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
+  candidate_source=$(git -C "$candidate_root" rev-parse --verify "$1^{commit}")
+  node "$SCRIPT_DIR/devapp-runtime-identity.mjs" verify-source "$candidate_source" "$candidate_root" || return 1
+
   nonce=$(/usr/bin/openssl rand -hex 16)
   [[ "$nonce" =~ ^[0-9a-f]{32}$ ]] || { echo "✗ could not create deploy invocation nonce" >&2; return 1; }
 
