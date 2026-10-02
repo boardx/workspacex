@@ -33,7 +33,8 @@ export function createFaultProxy(config){
   if(upstream.origin!==`http://127.0.0.1:${upstream.port}`||upstream.pathname!=='/'||upstream.search||upstream.hash||upstream.username||upstream.password||!/^[a-f0-9]{64}$/.test(config.canonicalManifestSha256??''))throw new Error('NON_CANONICAL_UPSTREAM');
   if(typeof config.controlSecret!=='string'||config.controlSecret.length<32||typeof config.bearerPrefix!=='string'||!config.bearerPrefix.length||!Number.isInteger(config.port)||config.port<1024||config.port>65535||config.port===Number(upstream.port))throw new Error('INVALID_PROXY_CONFIGURATION');
   const sockets=new Set(),ownedSockets=new Map(),requests=new Set();
-  let stopping=false,started=false;
+  let stopping=false,started=false,holdingWrites=false;
+  const releaseWrites=()=>{holdingWrites=false;for(const [client,owned] of ownedSockets){if(owned.heldHead.length){owned.socket.write(owned.heldHead);owned.heldHead=Buffer.alloc(0);}client.resume();}};
   const track=socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));return socket;};
   const server=http.createServer((request,response)=>{
     if(stopping){response.writeHead(503).end();return;}
@@ -44,7 +45,9 @@ export function createFaultProxy(config){
         if(command==='receipt'&&request.method==='GET'){response.writeHead(200,{'content-type':'application/json','cache-control':'no-store'}).end(JSON.stringify(policy.receipt()));return;}
         if(request.method!=='POST'){response.writeHead(405).end();return;}
         if(command==='deny-once')policy.arm();
-        else if(command==='restore')policy.restore();
+        else if(command==='restore'){policy.restore();releaseWrites();}
+        else if(command==='hold-writes'){holdingWrites=true;for(const socket of ownedSockets.keys())socket.pause();policy.record({event:'writes-held'});}
+        else if(command==='release-writes'){releaseWrites();policy.record({event:'writes-released'});}
         else if(command==='drop')for(const socket of ownedSockets.keys())socket.destroy();
         else{response.writeHead(404).end();return;}
         response.writeHead(200,{'content-type':'application/json','cache-control':'no-store'}).end(JSON.stringify({runId:policy.runId,accepted:true}));
@@ -80,14 +83,15 @@ export function createFaultProxy(config){
       if(stopping||client.destroyed){socket.destroy();return;}
       const headerLines=incoming.rawHeaders.reduce((values,value,index,array)=>index%2===0?[...values,`${value}: ${array[index+1]}`]:values,[]);
       client.write(`HTTP/1.1 101 Switching Protocols\r\n${headerLines.join('\r\n')}\r\n\r\n`);
-      if(head.length)socket.write(head);if(upstreamHead.length)client.write(upstreamHead);
+      if(head.length&&!(sessionHash&&holdingWrites))socket.write(head);if(upstreamHead.length)client.write(upstreamHead);
       if(sessionHash){
         policy.confirmUpgrade(sessionHash,connectionId,incoming.statusCode);
-        ownedSockets.set(client,{socket,sessionHash,connectionId});
+        ownedSockets.set(client,{socket,sessionHash,connectionId,heldHead:holdingWrites?head:Buffer.alloc(0)});
         client.once('close',()=>{ownedSockets.delete(client);socket.destroy();policy.record({connectionId,event:'closed',sessionSha256:sessionHash});});
       }
       socket.once('close',()=>client.destroy());socket.once('error',()=>client.destroy());client.once('error',()=>socket.destroy());
       client.pipe(socket);socket.pipe(client);
+      if(sessionHash&&holdingWrites)client.pause();
     });
     remote.end();
   });

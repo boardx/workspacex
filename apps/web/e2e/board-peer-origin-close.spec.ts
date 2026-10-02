@@ -30,7 +30,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  const sourceSha=runtimeSourceIdentity(),context=origin.context(),peer=await context.newPage();
  const chunks=observeRuntimeChunks(peer),transport=createSpatialWsMetadataRecorder();transport.observe(origin,'original');transport.observe(peer,'peer');
  const title=`R08 closed origin ${randomUUID()}`,objectId=randomUUID(),observations:Array<Record<string,unknown>>=[];
- let token='',boardId='',failure:unknown,runtimeStarted=false;
+ let token='',boardId='',failure:unknown,runtimeStarted=false,cleanupPending=false;
  const cleanupErrors:unknown[]=[];
  let ownedProxy:{proof:{listener:string};dispose:()=>Promise<void>}|undefined;
  let verifyProxySources:(()=>Promise<void>)|undefined;
@@ -164,16 +164,18 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   try{await context.setOffline(false);}catch(error){cleanupErrors.push(error);}
   if(boardId&&token)try{
    const owned=await (await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(owned.ownerId).toBe(F.userId);expect(owned.name).toBe(title);
-   await archiveAcceptanceBoard(api,token,boardId);const archived=await (await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();
-   await boardApi(api,token,'DELETE',`/whiteboards/${boardId}`,{requestId:randomUUID(),confirmation:'PERMANENTLY_DELETE',expectedLifecycleRevision:archived.lifecycleRevision});
-   expect((await api.get(`${apiOrigin()}/whiteboards/${boardId}`,{headers:{authorization:`Bearer ${token}`}})).status()).toBe(404);
+   if(process.env.BOARD_SYNC_CLEANUP_APPROVED_BOARD_ID===boardId&&process.env.BOARD_SYNC_CLEANUP_APPROVED_BOARD_TITLE===title){
+    await archiveAcceptanceBoard(api,token,boardId);const archived=await (await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();
+    await boardApi(api,token,'DELETE',`/whiteboards/${boardId}`,{requestId:randomUUID(),confirmation:'PERMANENTLY_DELETE',expectedLifecycleRevision:archived.lifecycleRevision});
+    expect((await api.get(`${apiOrigin()}/whiteboards/${boardId}`,{headers:{authorization:`Bearer ${token}`}})).status()).toBe(404);
+   }else{cleanupPending=true;observations.push({phase:'preserve-owned-cleanup',boardId,title,ownerId:owned.ownerId,cleanupPending:true});}
   }catch(error){cleanupErrors.push(error);}
   try{await peer.close();}catch(error){cleanupErrors.push(error);}
   if(ownedProxy)try{await ownedProxy.dispose();}catch(error){cleanupErrors.push(error);}
   if(verifyProxySources)try{await verifyProxySources();}catch(error){cleanupErrors.push(error);}
   try{expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);}catch(error){cleanupErrors.push(error);}
   if(runtimeStarted)try{observations.push({phase:'post-cleanup-runtime',proof:await verifyRuntimeIdentity(api,sourceSha,await chunks())});}catch(error){cleanupErrors.push(error);}
-  try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,status:failure||cleanupErrors.length?'failed':'passed',viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
+  try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,status:failure||cleanupErrors.length?'failed':'functional-cases-passed',completed:!failure&&!cleanupErrors.length&&!cleanupPending,cleanupPending,viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
  }
  if(failure||cleanupErrors.length)throw new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Origin-close acceptance or cleanup failed');
 });
