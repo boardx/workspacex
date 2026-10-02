@@ -1,7 +1,7 @@
 /** Test-only composition: real Nest/PG, explicitly injected localhost voice supplier.
  * Production src/main.ts never reads these test endpoints or selects a loopback.
  */
-import { createApp, attachStreamingSurfaces } from "../src/main";
+import { startApi } from "../src/main";
 import { readRealtimeModelConfig } from "../src/interface/ws/realtime-digital-human.gateway";
 
 const apiPort = Number(process.env.WORKSPACEX_API_PORT);
@@ -11,10 +11,10 @@ for (const port of [apiPort, supplierPort]) {
 }
 const shared = readRealtimeModelConfig();
 if (!shared.apiKey) throw new Error("fullstack shared model test credential is required");
-const app = await createApp();
-app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
-await app.listen(apiPort, "127.0.0.1");
-attachStreamingSurfaces(app, {
+await startApi({
+  port: apiPort,
+  listenHost: "127.0.0.1",
+  loadLocalEnv: false,
   realtimeConfig: { ...shared, baseUrl: `ws://127.0.0.1:${supplierPort}/omni-realtime` },
 });
 process.stdout.write(`fullstack test API listening on ${apiPort}; voice supplier LOCAL_PROTOCOL\n`);

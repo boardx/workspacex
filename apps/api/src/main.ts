@@ -251,17 +251,22 @@ export function attachStreamingSurfaces(app: NestExpressApplication, options: { 
   });
 }
 
-if (isProcessEntry()) {
-  loadLocalEnvFileForDev();
+export async function startApi(options: {
+  port?: number;
+  listenHost?: string;
+  loadLocalEnv?: boolean;
+  realtimeConfig?: RealtimeModelConfig;
+} = {}): Promise<NestExpressApplication> {
+  if (options.loadLocalEnv !== false) loadLocalEnvFileForDev();
   const app = await createApp();
   app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
-  const port = Number(process.env.PORT ?? 3200);
+  const port = options.port ?? Number(process.env.PORT ?? 3200);
   // KERNEL_LISTEN_HOST: WorkspaceX Local pins the API to 127.0.0.1 -- a single-user desktop must
   // not expose its session tokens to the LAN (the DMG showed up as `*:3200`, 2026-09-17).
   // Unset = today's behaviour (all interfaces) for every server deployment.
-  const listenHost = process.env.KERNEL_LISTEN_HOST?.trim();
+  const listenHost = options.listenHost ?? process.env.KERNEL_LISTEN_HOST?.trim();
   if (listenHost) await app.listen(port, listenHost); else await app.listen(port);
-  attachStreamingSurfaces(app);
+  attachStreamingSurfaces(app, { realtimeConfig: options.realtimeConfig });
   process.stdout.write(`api listening on ${port}\n`);
 
   /**
@@ -349,4 +354,7 @@ if (isProcessEntry()) {
   };
   await sweepOrphans();
   setInterval(() => void sweepOrphans(), ORPHANED_RUN_SWEEP_INTERVAL_MS).unref();
+  return app;
 }
+
+if (isProcessEntry()) await startApi();

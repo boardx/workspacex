@@ -11,3 +11,7 @@ cn.local.env保留在共享主目录，只在进程内读，不复制入库。�
 临时PGlite/API/Web stack session在本轮验收结束须停止，数据/private/tmp/wsx-digital-r1-data，端口14310/14320/14325/14328；未启动Docker。浏览器线上基线需要保留至R2修复复验。
 
 后续顺序：R1 PR绿后→R2 D002角色硬门与研究产物→R3 D003→R4 D011→R5 D005内部/集成/至少10轮真实麦克风双向交谈与P95。未部署的修复不能算DevApp通过。
+
+## Latest resource and CI state
+
+The temporary local voice stack was stopped; ports 14310/14320/14325/14328 are released. PR #5128 is draft to respect the user's no-auto-merge instruction. Its initial core-loop red exposed missing startup catalog initialization in the test composition; shared startup repair is under revalidation. R2 online D002 background/Skills failures are saved but not yet repaired or scored.
