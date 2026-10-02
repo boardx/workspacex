@@ -107,6 +107,18 @@ describe("访谈 Markdown 正文单源", () => {
 
 
 describe("formatted report quality", () => {
+  it.each(["测试用户。", "不应测试用户。"])("rejects empty analysis sections and generic action: %s", (action) => {
+    const report = `## 跨回答综合\n\n## 决策影响\n\n## 边界与反例\n\n## 下一步验证建议\n\n${action}`;
+    expect(assessInterviewReportAnalysis(report).ok).toBe(false);
+    expect(assessInterviewReportAnalysis(report).missing).toContain("verifiable_action");
+    expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
+  });
+  it("does not treat empty analysis headings as evidence even with a concrete action", () => {
+    const report = "## 跨回答综合\n\n## 决策影响\n\n## 边界与反例\n\n## 下一步验证建议\n\n独立访谈五位用户，对比三方证据并验证完成时长。";
+    expect(assessInterviewReportAnalysis(report).missing).toEqual([
+      "cross_answer_synthesis", "decision_implication", "boundary_or_counterevidence",
+    ]);
+  });
   it("accepts bold analysis labels and concrete validation sections from provider Markdown", () => {
     const report = "## 跨回答综合\n\n共同模式：信息对齐失效。\n\n- **决策影响**：应优先验证安装前确认，暂缓扩展功能。\n- **边界与反例**：标准鞋柜无需增加表单，置信度中等。\n\n## 下一步验证建议\n\n1. **执行三角验证深度访谈**：独立访谈五起延期事件中的用户、师傅和客服，对比三方证据。\n2. **A/B测试**：采集实验组与对照组的返工率和下单转化率。";
     expect(assessInterviewReportAnalysis(report)).toEqual({ ok: true, missing: [] });
