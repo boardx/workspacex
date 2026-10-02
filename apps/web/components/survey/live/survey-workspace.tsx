@@ -312,7 +312,7 @@ export function LiveSurveyWorkspace({
     }, "saving");
   };
   return (
-    <main className={`min-w-0 bg-background ${step === "design" ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden [&_button:not(:disabled):not([data-survey-inline-edit])]:bg-primary [&_button:not(:disabled):not([data-survey-inline-edit])]:text-primary-foreground [&_button:not(:disabled):not([data-survey-inline-edit]):hover]:bg-primary-hover" : ""}`}>
+    <main className={`min-w-0 bg-background ${step === "design" ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden" : ""}`}>
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"

@@ -44,6 +44,7 @@ function runDriftCheck(mutate?: (installedDeploy: string) => void): {
   chmodSync(bin, 0o755);
   copyFileSync(join(VM_DIR, "deploy-readiness.sh"), join(temp, "workspacex-deploy-readiness.sh"));
   copyFileSync(join(VM_DIR, "deep-agent-lib.sh"), join(temp, "workspacex-deep-agent-lib.sh"));
+  copyFileSync(join(VM_DIR, "devapp-runtime-identity.mjs"), join(temp, "workspacex-devapp-runtime-identity.mjs"));
   mutate?.(bin);
 
   const result = spawnSync(

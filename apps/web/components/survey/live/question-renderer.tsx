@@ -24,6 +24,7 @@ type Props = {
   removeUpload?: SurveyRemoveUpload;
   shuffleSeed?: string;
   showDescription?: boolean;
+  showTitle?: boolean;
 };
 export function SurveyQuestionRenderer({
   question: q,
@@ -34,6 +35,7 @@ export function SurveyQuestionRenderer({
   removeUpload,
   shuffleSeed = "preview",
   showDescription = true,
+  showTitle = true,
 }: Props) {
   const config = q.config ?? {};
   const choices = surveyChoices(q);
@@ -108,7 +110,7 @@ export function SurveyQuestionRenderer({
         aria-label={label}
         className="space-y-2 border-b border-border py-3"
       >
-        <h2 className="text-18 font-semibold">{label}</h2>
+        <h2 className={showTitle ? "text-18 font-semibold" : "sr-only"}>{label}</h2>
         {config.images?.description && (
           <Image
             unoptimized
@@ -119,7 +121,7 @@ export function SurveyQuestionRenderer({
             className="max-h-80 max-w-full object-contain"
           />
         )}
-        {config.description && (
+        {showDescription && config.description && (
           <p className="whitespace-pre-wrap text-13">{config.description}</p>
         )}
       </section>
@@ -605,7 +607,7 @@ export function SurveyQuestionRenderer({
       aria-describedby={errors.length ? `error-${q.id}` : undefined}
       className="min-w-0 space-y-3"
     >
-      <legend className="mb-3 break-words text-14 font-medium">
+      <legend className={showTitle ? "mb-3 break-words text-14 font-medium" : "sr-only"}>
         {label}
         {q.required ? " *" : ""}
       </legend>

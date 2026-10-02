@@ -83,6 +83,21 @@ export async function openOmniConversation(
   let closed = false;
   let muted = false;
   let settle: (() => void) | null = null;
+  let captureStop: Promise<void> | null = null;
+  let playerClose: Promise<void> | null = null;
+  let notifiedClosed = false;
+  const notifyClosed = () => {
+    if (notifiedClosed) return;
+    notifiedClosed = true;
+    handlers.onClosed();
+  };
+  const releaseMedia = async () => {
+    // Capture can arrive after a remote close while microphone permission is pending.
+    if (capture && !captureStop) captureStop = Promise.resolve().then(() => capture!.stop());
+    playerClose ??= player.close();
+    // A microphone stop failure must not prevent the playback context from closing.
+    await Promise.allSettled([captureStop, playerClose]);
+  };
   socket.addEventListener("message", (event) => {
     const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
     if (!parsed.success) return handlers.onError("实时模型返回了无法识别的数据");
@@ -106,11 +121,15 @@ export async function openOmniConversation(
     if (frame.type === "session.error") return handlers.onError(frame.message, frame.reason);
     if (frame.type === "turn.persisted") return handlers.onTurnPersisted?.(frame.role, frame.messageId);
     if (settle) return settle();
-    handlers.onClosed();
+    closed = true;
+    void releaseMedia().then(() => { socket.close(); notifyClosed(); });
   });
   socket.addEventListener("close", () => {
     settle?.();
-    if (!closed) handlers.onClosed();
+    if (!closed) {
+      closed = true;
+      void releaseMedia().then(notifyClosed);
+    }
   });
   socket.addEventListener("error", () => handlers.onError("实时通话网络连接已中断"));
   const start = typeof target === "string" ? { boardId: target } : target;
@@ -121,11 +140,16 @@ export async function openOmniConversation(
   } catch (error) {
     closed = true;
     socket.close();
-    await player.close();
+    await releaseMedia();
     const denied = error instanceof LiveRecordingError && error.kind === "permission-denied";
     throw new OmniConversationStartError(denied ? "mic-denied" : "mic-unavailable");
   }
+  if (closed) {
+    await releaseMedia();
+    throw new OmniConversationStartError("connect-failed");
+  }
   capture.onFrame((frame) => {
+    if (closed) return;
     handlers.onInputLevel?.(muted ? 0 : pcm16Level(frame));
     if (muted) return;
     if (socket.readyState === WebSocket.OPEN) socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
@@ -139,10 +163,9 @@ export async function openOmniConversation(
       handlers.onAssistantAudio(false);
     },
     stop: async () => {
-      if (closed) return;
+      if (closed) { await releaseMedia(); return; }
       closed = true;
-      await capture?.stop();
-      await player.close();
+      await releaseMedia();
       // 挂断：告诉服务端收尾，等它把最后一句转写落库（期间照常收 turn.persisted）并回 session.closed，
       // 再关连接——直接关会丢掉「说完立刻挂断」的那一句（uiux-r4：挂断后线程为空）。
       if (socket.readyState === WebSocket.OPEN) {
@@ -151,7 +174,7 @@ export async function openOmniConversation(
         await Promise.race([settled, new Promise<void>((resolve) => setTimeout(resolve, STOP_SETTLE_TIMEOUT_MS))]);
       }
       socket.close();
-      handlers.onClosed();
+      notifyClosed();
     },
   };
 }

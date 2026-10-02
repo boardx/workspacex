@@ -1,4 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
+import { researchWorkspaceStyle } from "./research-workspace-style";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadResearchWord, printResearchPdf } from "@/lib/research-report-export";
@@ -55,7 +57,7 @@ export function GuidedResearchReportDocument({ document, provisional = false, hi
     ...(document.conclusion ? [{ id: "research-report-conclusion", title: "综合结论" }] : []),
     ...(document.references.length ? [{ id: "research-report-references", title: "参考来源" }] : []),
   ];
-  return <div className="space-y-6">{historical && <p className="text-12 text-muted-foreground">历史报告</p>}<article ref={root} className="mx-auto grid w-full min-w-0 gap-8 bg-card text-card-foreground xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10" data-testid={anchorId(provisional ? "research-report-preview-text" : "research-report-document")}>
+  return <div className="space-y-6">{historical && <p className="text-12 text-muted-foreground">历史报告</p>}<article ref={root} className={cn(researchWorkspaceStyle.report, "mx-auto w-full")} data-testid={anchorId(provisional ? "research-report-preview-text" : "research-report-document")}>
     <header className="border-b border-border pb-6 pt-3 xl:col-start-2"><h2 className="text-24 font-semibold leading-relaxed tracking-tight sm:text-30">{document.title || "研究报告"}</h2>{!provisional && limitations && <p className="mt-3 rounded-md border border-destructive/40 bg-muted p-3 text-sm text-background-foreground" data-testid="research-report-limitations">{limitations}</p>}</header>
     {anchors.length > 0 && <nav aria-label="报告目录" className="min-w-0 border-b border-border pb-5 xl:sticky xl:top-6 xl:col-start-1 xl:row-start-2 xl:max-h-[calc(100vh-5rem)] xl:self-start xl:overflow-y-auto xl:border-b-0 xl:border-r xl:pr-5"><div className="flex items-center justify-between"><h3 className="text-14 font-semibold">目录</h3><button type="button" data-report-ui aria-expanded={contentsOpen} aria-controls={anchorId("research-report-contents")} onClick={() => setContentsOpen(!contentsOpen)} className="rounded-sm px-2 py-1 text-12 text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring xl:hidden">{contentsOpen ? "收起" : "展开"}</button></div><ol id={anchorId("research-report-contents")} className={`${contentsOpen ? "block" : "hidden"} mt-4 space-y-2 text-12 leading-relaxed xl:block`}>{anchors.map((anchor) => <li key={anchor.id}><a href={`#${anchorId(anchor.id)}`} className={`block rounded-sm text-muted-foreground transition-colors hover:text-background-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${"subsection" in anchor ? "pl-3 text-11" : ""}`}>{anchor.title}</a></li>)}</ol></nav>}
     <div className="min-w-0 space-y-10 xl:col-start-2 xl:row-start-2">

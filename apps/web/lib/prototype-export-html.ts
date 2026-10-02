@@ -18,6 +18,7 @@
  * 换页那一小段脚本是**内联**的，且只做一件事：显示/隐藏页。
  */
 import { designPrototype } from "@repo/contracts";
+import { HTML_PAGE_MESSAGE_SOURCE } from "./html-page-srcdoc";
 import { exportFileStem, type Romanize } from "./export-file-name";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -212,6 +213,7 @@ ${pages}
   var pages = Array.prototype.slice.call(document.querySelectorAll('.wx-page'));
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.wx-tab'));
   function go(i){
+    if (!Number.isInteger(i) || i < 0 || i >= pages.length) return;
     pages.forEach(function(p,k){ p.hidden = k !== i; });
     tabs.forEach(function(t,k){ t.setAttribute('aria-pressed', String(k === i)); });
   }
@@ -232,6 +234,19 @@ ${pages}
       target.addEventListener('keydown', function(e){
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(l.t); }
       });
+    });
+  });
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if (!d || d.source !== ${JSON.stringify(HTML_PAGE_MESSAGE_SOURCE)} || d.type !== 'goto' || typeof d.id !== 'string') return;
+    // Opaque sandbox origins cannot be matched by origin. Match the concrete frame
+    // window and its own link table instead; a sibling/window cannot forge navigation.
+    pages.forEach(function(page, pi){
+      if (page.hidden) return;
+      var frame = page.querySelector('iframe');
+      if (!frame || e.source !== frame.contentWindow) return;
+      var link = (links[pi] || []).find(function(l){ return l.f === d.id; });
+      if (link) go(link.t);
     });
   });
   if (!${forPrint ? "true" : "false"}) go(0);

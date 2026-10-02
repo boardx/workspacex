@@ -23,7 +23,7 @@ it("blocks readonly drop/pick/retry while permitting local removal", async () =>
   act(() => hook.result.current.retry(id));
   await act(async () => {});
   expect(upload).toHaveBeenCalledTimes(1);
-  act(() => hook.result.current.removeAttachment(id));
+  await act(async () => { await hook.result.current.removeAttachment(id); });
   expect(hook.result.current.attachments).toHaveLength(0);
 });
 

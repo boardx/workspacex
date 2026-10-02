@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /workspace/pending-skill-name-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent/list-agent-directory.test.ts (18 tests) 43ms
+ ✓ tests/agent/pending-skill-display-name.test.ts (3 tests) 38ms
+ ✓ tests/agent/official-role-skill-resolver-guard.test.ts (2 tests) 18ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  11:55:54
+   Duration  10.40s (transform 4.78s, setup 0ms, collect 6.59s, tests 99ms, environment 1ms, prepare 651ms)

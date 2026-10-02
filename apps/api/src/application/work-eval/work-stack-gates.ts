@@ -16,7 +16,7 @@
  * - G5：`decideG5`（EV05 才据此改通道；这里只为产出完整 WorkGateStatus）。
  * Workflow/Agent（A1）：G1/G3/G5 = not_applicable（NOT_REQUIRED_FOR_KIND）。
  */
-import Ajv from "ajv";
+import { newWorkSkillSchemaValidator } from "./machine-schema-validator";
 import {
   decideG5,
   PHASE1_GATES,
@@ -116,14 +116,6 @@ const NonSkillIdentityManifest = z
 type GateManifest = Pick<z.infer<typeof IdentityManifest>, "stableId" | "evalSuiteId" | "inputSchema" | "outputSchema"> &
   Partial<Pick<z.infer<typeof IdentityManifest>, "provenance" | "dependencies">>;
 
-function newAjv() {
-  const ajv = new Ajv({ strict: false, allErrors: true });
-  // AJV does not include standard formats by default; silently ignoring timestamps
-  // would let malformed contract samples pass G2.
-  const dateTime = z.string().datetime({ offset: true });
-  ajv.addFormat("date-time", { type: "string", validate: value => dateTime.safeParse(value).success });
-  return ajv;
-}
 
 function ajvErrors(errors: { instancePath: string; message?: string }[] | null | undefined): string {
   return (errors ?? []).map(e => `${e.instancePath || "(root)"} ${e.message ?? "invalid"}`).join("; ");
@@ -162,7 +154,7 @@ function judgeG1(provenance: readonly unknown[]): GateResult {
 }
 
 function judgeG2(s: GateSubject, manifest: GateManifest): GateResult {
-  const ajv = newAjv();
+  const ajv = newWorkSkillSchemaValidator();
   const problems: string[] = [];
   const compile = (name: "inputSchema" | "outputSchema") => {
     try {

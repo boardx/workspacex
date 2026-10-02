@@ -33,10 +33,73 @@ function fixture(initial = seed(), read?: GuidedSearchPort["read"]) {
   const actor = { orgId: toOrgId("recovery-org"), userId: "owner", sessionId: session.sessionId };
   const service = new GuidedRuntimeService(store, model, { search, read }, { provider: "test", id: "test" });
   return { model, search, writes, write, setQueries: (next: string[]) => { queries = next; },
+    saveBrief: (value: ResearchRuntime["brief"]) => service.execute(actor, session, { node: "brief", action: "save", draft: { node: "brief", value }, sessionId: session.sessionId, requestId: String(state.version), expectedVersion: state.version }),
     run: (action: "start" | "retry" | "complete" = "start", allowPartialResearch = false) => service.execute(actor, session, { node: "research", action, sessionId: session.sessionId, requestId: String(state.version), expectedVersion: state.version, ...(allowPartialResearch ? { allowPartialResearch: true } : {}) }) };
 }
 
 describe("bounded search query recovery", () => {
+  it("persists edited topic information without sending the user back to import", async () => {
+    const state = seed();
+    const f = fixture(state);
+    const saved = await f.saveBrief({ ...state.brief, topic: "更新主题" });
+    expect(saved.currentNode).toBe("directions");
+    expect(saved.availableNodes).toEqual(["brief", "directions"]);
+    expect(saved.brief.topic).toBe("更新主题");
+    expect(saved.tasks).toEqual([]);
+    expect(saved.sources).toEqual([]);
+    expect(saved.outline).toEqual([]);
+  });
+  it("allows an explicit retry after transient failures exhausted a previous attempt budget", async () => {
+    const state = seed();
+    state.tasks[0]!.status = "failed";
+    state.tasks[0]!.errorCode = "RESEARCH_SEARCH_UNAVAILABLE";
+    state.tasks[0]!.searchAttempts = Array.from({ length: C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT }, () => ({ query: original, status: "failed" as const, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }));
+    const f = fixture(state);
+    f.search.mockResolvedValue([hit]);
+    const result = await f.run("retry");
+    expect(result.tasks[0]!.status).toBe("succeeded");
+    expect(result.sources[0]?.url).toBe(hit.url);
+    expect(f.search).toHaveBeenCalledTimes(1);
+  });
+  it("persists fast search results and fills a free slot while another query is still pending", async () => {
+    const state = seed();
+    state.tasks = Array.from({ length: 4 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state);
+    let release!: () => void;
+    const slow = new Promise<void>((resolve) => { release = resolve; });
+    let nextStarted!: () => void;
+    const next = new Promise<void>((resolve) => { nextStarted = resolve; });
+    f.search.mockImplementation(async (query) => {
+      if (query === "query-0") await slow;
+      if (query === "query-3") nextStarted();
+      return [{ ...hit, url: `${hit.url}/${query}` }];
+    });
+    const operation = f.run();
+    try {
+      await Promise.race([next, new Promise((_, reject) => setTimeout(() => reject(new Error("search batch barrier")), 1000))]);
+      expect(f.writes.some((snapshot) => snapshot.tasks[1]!.status === "succeeded" && snapshot.tasks[0]!.status === "running")).toBe(true);
+    } finally { release(); await operation; }
+  });
+  it("does not hold completed sibling results behind a slow recovery query", async () => {
+    const state = seed();
+    state.tasks = Array.from({ length: 4 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state);
+    let release!: () => void;
+    const slow = new Promise<void>((resolve) => { release = resolve; });
+    let recoveryStarted!: () => void;
+    const recovery = new Promise<void>((resolve) => { recoveryStarted = resolve; });
+    f.search.mockImplementation(async (query) => {
+      if (query === "query-0") return [];
+      if (query === short) { recoveryStarted(); await slow; }
+      return [{ ...hit, url: `${hit.url}/${encodeURIComponent(query)}` }];
+    });
+    const operation = f.run();
+    try {
+      await recovery;
+      expect(f.search.mock.calls.some(([query]) => query === "query-3")).toBe(true);
+      expect(f.writes.some((snapshot) => snapshot.tasks[1]!.status === "succeeded")).toBe(true);
+    } finally { release(); await operation; }
+  });
   it("persists readable source bodies and summaries during research, before report generation", async () => {
     const read = vi.fn(async () => ({ text: hit.content, contentKind: "html" as const, truncated: false }));
     const f = fixture(seed(), read);

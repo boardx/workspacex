@@ -86,7 +86,7 @@ test("刷新和切换后仍处理同一持久审批请求", async ({ page }) => 
   await expect(page.getByTestId("restored-run-approval")).toBeVisible({ timeout: 60000 });
   expect(((await (await page.request.get(url, { headers })).json()) as Run).pendingApproval.permissionRequestId).toBe(run.pendingApproval.permissionRequestId);
   await page.goto("/projects");
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/projects$/);
   await page.goto(taskUrl);
   const card = page.getByTestId("restored-run-approval");
   await expect(card).toBeVisible({ timeout: 60000 });

@@ -87,6 +87,31 @@ describe("report conversation regeneration", () => {
 });
 
 describe("chapter-based report generation", () => {
+  it("overlaps evidence calls while serializing durable writes and keeping progress monotonic", async () => {
+    const f = fixture();
+    f.state.sources = Array.from({ length: 24 }, (_, index) => ({ ...f.state.sources[index % 2]!, id: `source-${index}-${index % 2 ? "a" : "b"}`, url: `https://example.com/${index}` }));
+    let active = 0, peak = 0, activeWrites = 0, writePeak = 0;
+    const persist: RuntimePersistence = Object.assign(async () => {
+      activeWrites++; writePeak = Math.max(writePeak, activeWrites);
+      await Promise.resolve(); f.writes.push(structuredClone(f.state)); activeWrites--;
+    }, { requestId: "parallel-evidence", observe: f.persist.observe });
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage === "evidence") {
+        active++; peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, context.batchIndex === 0 ? 20 : 1));
+        active--;
+      }
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, persist);
+    expect(peak).toBe(2); expect(writePeak).toBe(1);
+    const progress = f.writes.filter((state) => state.progress?.stage === "organizing").map((state) => state.progress!.completed);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+    expect(Math.max(...progress)).toBe(3);
+    expect(report.sections.map((chapter) => chapter.sectionId)).toEqual(["b", "a"]);
+    expect(f.state.reportCheckpoint?.chapters).toEqual(report.sections);
+  });
   it("makes N chapter calls in exact enabled order then synthesizes, streaming actual deltas into one aggregate", async () => {
     const f = fixture(); const contexts: Record<string, any>[] = []; const inputs: string[] = [];
     const complete = vi.fn(async (input) => { const context = JSON.parse(input.user); contexts.push(context); inputs.push(input.system); return { text: JSON.stringify(answer(context)) }; });

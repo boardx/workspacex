@@ -25,17 +25,15 @@ describe("guided research reference layout", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "其它" }), { target: { value: "甲".repeat(2000) } });
     fireEvent.click(screen.getByRole("checkbox", { name: "市场增长质量" }));
     expect(screen.getByRole("alert")).toHaveTextContent("重点关注总长度不能超过 2000 字");
-    expect(screen.getByRole("button", { name: "保存研究信息" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "保存研究信息" })).not.toBeInTheDocument();
   });
-  it("confirms the downstream impact before saving changed research information", () => {
+  it("keeps editing inline instead of asking for manual save confirmation", () => {
     const onSave = vi.fn();
     render(<ResearchTopicInformation brief={runtimeFixture().brief} disabled={false} onSave={onSave} />);
     fireEvent.change(screen.getByRole("textbox", { name: "研究主题" }), { target: { value: "更新后的研究主题" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存研究信息" }));
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog")).toHaveTextContent("研究计划、资料研究和当前报告将需要重新生成");
-    fireEvent.click(screen.getByRole("button", { name: "确认并重新生成" }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ topic: "更新后的研究主题" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("待保存");
   });
   it("lists report chapters with their subsections", () => {
     const state = runtimeFixture("report");
