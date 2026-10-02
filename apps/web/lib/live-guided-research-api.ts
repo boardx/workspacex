@@ -135,6 +135,11 @@ export async function getResearchRuntimeProgress(sessionId: string, stream?: Gui
 }
 export function mergeResearchProgress(current: GuidedResearchRuntime, update: ResearchRuntimeProgress): GuidedResearchRuntime {
   if (current.sessionId !== update.sessionId || update.version < current.version || (update.version === current.version && !current.busy && update.busy)) return current;
+  // Polling and SSE may race. Reject the whole stale projection, not only its
+  // text delta, so durable metadata such as saved chapter count cannot rewind.
+  if (update.version === current.version && (update.revision < current.revision
+    || (update.stream && current.reportStream && update.stream.requestId === current.reportStream.requestId
+      && update.stream.sequence < current.reportStream.sequence))) return current;
   const { stream, research: researchUpdate, ...metadata } = update;
   const isNewReportAttempt = update.busy && update.currentNode === "report"
     && (update.version > current.version || Boolean(stream && current.reportStream && stream.requestId !== current.reportStream.requestId));
