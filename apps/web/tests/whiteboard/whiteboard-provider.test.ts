@@ -200,6 +200,39 @@ it('coalesces notification bursts but reconciles a notification received during 
     expect(snapshots).toHaveBeenCalledTimes(2);expect(state.pending).toBe(1);expect(updates(socket)).toHaveLength(1);expect(readObjects(doc).map(item=>item.id)).toEqual(['during-snapshot']);
   }finally{provider.close();doc.destroy();source.destroy();server.destroy();}
 });
+it('socket disconnect and a failed reconnect preserve the same durable receipt until a real ACK',async()=>{
+  const outbox=new DurableMemoryOutbox(),doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},outbox);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const first=Socket.sockets[0]!;sync(first,server);
+    executeCommands(doc,[{type:'create',object:sticky('disconnect-pending')}],'local');await vi.advanceTimersByTimeAsync(0);
+    const expected=structuredClone(outbox.updates.get('test-session')!),receipt=updates(first)[0]!;expect(expected).toHaveLength(1);
+    first.onclose?.({code:1006});expect(state.phase).toBe('offline');expect(state.pending).toBe(1);
+    await vi.advanceTimersByTimeAsync(500);const failed=Socket.sockets[1]!;failed.onclose?.({code:1006});
+    expect(state.phase).toBe('offline');expect(state.pending).toBe(1);expect(updates(failed)).toEqual([]);expect(outbox.updates.get('test-session')).toEqual(expected);
+    await vi.advanceTimersByTimeAsync(1000);const recovered=Socket.sockets[2]!;sync(recovered,server);await vi.advanceTimersByTimeAsync(0);
+    expect(updates(recovered)).toEqual([receipt]);expect(state.pending).toBe(1);expect(outbox.updates.get('test-session')).toEqual(expected);
+    recovered.message({type:'ack',updateId:receipt.updateId,gestureId:receipt.gestureId,seq:1});await vi.advanceTimersByTimeAsync(0);
+    expect(state.phase).toBe('online');expect(state.pending).toBe(0);expect(outbox.updates.get('test-session')).toEqual([]);expect(readObjects(doc).map(item=>item.id)).toEqual(['disconnect-pending']);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it.each(['unmount','revoke'] as const)('%s fences a late asynchronous sender before it can submit',async mode=>{
+  const outbox=new DurableMemoryOutbox();let release!:()=>void,start!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{start=resolve;});
+  const claim=vi.fn(async()=>{start();await gate;return true;}),releaseClaims=vi.fn(async()=>{});
+  const durable=Object.assign(outbox,{claim,releaseClaims}),doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},durable);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);
+    executeCommands(doc,[{type:'create',object:sticky('late-sender')}],'local');await vi.advanceTimersByTimeAsync(0);await started;
+    if(mode==='unmount')provider.close();else socket.message({type:'recovery',disposition:'access-revoked',code:'ACCESS_REVOKED'});
+    release();await vi.advanceTimersByTimeAsync(0);
+    expect(updates(socket)).toEqual([]);expect(socket.readyState).toBe(3);expect(releaseClaims).toHaveBeenCalled();
+    if(mode==='revoke'){expect(state.phase).toBe('blocked');expect(state.role).toBe('viewer');expect(readObjects(doc)).toEqual([]);expect(outbox.updates.get('test-session')).toBeUndefined();}
+    else expect(outbox.updates.get('test-session')).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10000);expect(Socket.sockets).toHaveLength(1);expect(updates(socket)).toEqual([]);
+  }finally{release();provider.close();await vi.advanceTimersByTimeAsync(0);doc.destroy();server.destroy();}
+});
 beforeEach(() => { vi.useFakeTimers(); Socket.sockets = []; auth.token = 'test-session'; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('handshakes before writes, only ACK clears pending, and reconnect replays same updateId', () => {
