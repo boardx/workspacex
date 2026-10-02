@@ -177,6 +177,7 @@ describe("step-aligned research transitions", () => {
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
       node: "outline", action: "save_chapters", draft: { node: "outline", value: outline },
     })));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存章节结构" })).not.toBeInTheDocument());
     expect(screen.getByTestId("research-chapters-workspace")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/research/grs-live/chapters");
     expect(screen.queryByTestId("guided-research-plan-panel")).not.toBeInTheDocument();
