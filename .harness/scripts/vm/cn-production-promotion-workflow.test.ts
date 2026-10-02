@@ -16,6 +16,10 @@ describe("GitHub-based CN production promotion", () => {
     const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-checkout-offline.selftest.mjs"], { encoding: "utf8" });
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
+  it("executes domestic Git export and runner capability failure fixtures", () => {
+    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-domestic-checkout.selftest.mjs"], { encoding: "utf8", timeout: 30000 });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+  }, 35000);
   it("accepts only an exact SHA and an explicit compare-and-swap baseline", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("release_sha:");
