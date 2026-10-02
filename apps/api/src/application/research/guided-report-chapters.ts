@@ -71,18 +71,24 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     const chapters: Chapter[] = structuredClone(approved);
     let live = Boolean(emit);
     let resetSynthesis: (() => void) | undefined;
+    let writes = Promise.resolve();
+    let evidenceCompleted = 0;
     const persistTimeline = async () => {
-      await persist();
-      persist.observe({ type: "snapshot", state: structuredClone(state) });
+      // Evidence model calls overlap, but durable writes and observer snapshots never do.
+      writes = writes.then(async () => {
+        await persist();
+        persist.observe({ type: "snapshot", state: structuredClone(state) });
+      });
+      await writes;
     };
     const audited = async (input: ModelCallInput, validate: (text: string) => unknown, publish?: (delta: string) => Promise<void>) => {
       const context = JSON.parse(input.user) as { reportStage: string; section?: { id: string }; batchIndex?: number; batchTotal?: number };
       const stage = context.reportStage.startsWith("evidence") ? "organizing" : context.reportStage === "quality" ? "reviewing" : context.reportStage.startsWith("synthesis") ? "synthesizing" : "writing";
       const timelineStage = stage === "organizing" ? "evidence" : stage === "reviewing" ? "review" : stage === "synthesizing" ? "synthesis" : "chapter";
       for (let attempt = 0; attempt < 2; attempt++) {
-        updateReportTimeline(state, timelineStage, attempt || context.reportStage.endsWith("revision") ? "retrying" : "running", { sectionId: context.section?.id, attempt: true, ...(timelineStage === "evidence" ? { completed: context.batchIndex ?? 0, total: context.batchTotal ?? 1 } : {}) });
+        updateReportTimeline(state, timelineStage, attempt || context.reportStage.endsWith("revision") ? "retrying" : "running", { sectionId: context.section?.id, attempt: true, ...(timelineStage === "evidence" ? { completed: evidenceCompleted, total: context.batchTotal ?? 1 } : {}) });
         const call = { id: randomUUID(), node: "report" as const, modelId: config.id, status: "failed" as "failed" | "succeeded", createdAt: new Date().toISOString() };
-        state.progress = { stage, completed: stage === "organizing" ? (context.batchIndex ?? 0) : chapters.length, total: stage === "organizing" ? (context.batchTotal ?? 1) : sections.length, ...(context.section ? { sectionId: context.section.id } : {}) };
+        state.progress = { stage, completed: stage === "organizing" ? evidenceCompleted : chapters.length, total: stage === "organizing" ? (context.batchTotal ?? 1) : sections.length, ...(context.section ? { sectionId: context.section.id } : {}) };
         state.modelCalls.push(call); await persistTimeline();
         let seen = false; let callbackFailed = false; let callbackError: unknown;
         let result;
@@ -105,7 +111,11 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         if (publish && !seen && live) { live = false; await resetStream?.(); }
         const parsed = validate(result.text); call.status = "succeeded";
         if (timelineStage === "chapter" || timelineStage === "synthesis") updateReportTimeline(state, timelineStage, "completed", { sectionId: context.section?.id });
-        if (stage === "organizing" && state.progress) state.progress.completed += 1;
+        if (stage === "organizing" && state.progress) {
+          evidenceCompleted += 1;
+          state.progress.completed = evidenceCompleted;
+          updateReportTimeline(state, "evidence", "running", { completed: evidenceCompleted, total: context.batchTotal ?? 1 });
+        }
         try { await persistTimeline(); }
         catch (error) { updateReportTimeline(state, timelineStage, "running", { sectionId: context.section?.id }); throw error; }
         return parsed;

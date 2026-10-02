@@ -1,8 +1,14 @@
+import { OFFICIAL_ROLE_UPGRADE_REPOSITORY } from "./application/agent-import/upgrade-official-roles";
+import { PgOfficialRoleUpgradeRepository } from "./infrastructure/agent/pg-official-role-upgrade-repository";
+import { OfficialRoleUpgradeController } from "./interface/controllers/official-role-upgrade.controller";
 import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
 import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
 import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { WhiteboardFilesController } from './interface/controllers/whiteboard-files.controller';
+import { WHITEBOARD_FILE_ASSETS, WhiteboardFileAssets } from './application/whiteboard/file-assets';
+import { PgBoardFileAssets } from './infrastructure/whiteboard/pg-file-assets';
 import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
 import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
 import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
@@ -1176,6 +1182,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
 
 @Module({
   controllers: [
+    WhiteboardFilesController,
     WorkflowRuntimeController,
     BoardRunCardsController,
     KnowledgeGraphController,
@@ -1197,6 +1204,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     McpRemoteDiscoveryController,
     McpServersController,
     AgentStarterImportController,
+    OfficialRoleUpgradeController,
     AgentSkillPinsController,
     SkillVersionEditController,
     SkillFileEditController,
@@ -1727,6 +1735,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       ),
     },
     {
+      provide: OFFICIAL_ROLE_UPGRADE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOfficialRoleUpgradeRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOfficialAgentRolePackImportRepository(db),
       inject: [DATABASE_PORT],
@@ -2074,12 +2087,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: ATTACHMENT_EXTRACTION_EXECUTOR,
       useFactory: (
         store: ObjectStore, extraction: AttachmentExtractionStore,
-        converter: AttachmentToMarkdownPort, vision: AttachmentVisionPort, logger: LoggerPort,
+        converter: AttachmentToMarkdownPort, vision: AttachmentVisionPort, logger: LoggerPort,purge:PhysicalPurgePort,
       ) => new AttachmentExtractionExecutor(
         store, extraction, converter, vision, logger,
-        process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
+        process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",2,purge,
       ),
-      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT],
+      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT,PHYSICAL_PURGE_PORT],
     },
     {
       // #1559：会话内临时挂载（F65）进入 run 快照的读口。没有它，挂载被记录、被展示，
@@ -3405,6 +3418,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: WHITEBOARD_IMAGE_ASSETS,
       useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_FILE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardFileAssets(boards, new PgBoardFileAssets(db, boards), objects),
       inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
     },
     {

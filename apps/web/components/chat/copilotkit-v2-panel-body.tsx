@@ -92,7 +92,6 @@ import {
   useChatAttachments, ChatAttachmentDock, ChatComposerAttachmentStrip, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
-import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
 // issue #2767 -- 接入 F08 的 ToolPermissionCard，退役 `copilotkit-v2-approval-dialog.tsx`
 // 的 `SendEmailApprovalDialog`（该组件的非交互分支曾经对"根本没停下来等人"的调用也弹
@@ -1489,25 +1488,9 @@ export function CopilotKitV2PanelBody({
     onAttachUploadPortChange?.(attachUploadPort);
   }, [attachUploadPort, onAttachUploadPortChange]);
 
-  /**
-   * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。
-   * `initialChatThreadId === null`（还没有任何线程）时如实为 0——这不是占位，是
-   * 事实：没有线程就没有真实的挂载对象可数。有线程时读一次真实的 `listThreadMounts`
-   * （与 `ChatSkillMountPanel` 同一条端点，`out.temporary` 是该线程当前临时挂载的
-   * skill 列表——`listThreadDeviations` 契约本体的字段名，不是 `mounts`），不写死数字。
-   */
+  // The skill panel supplies the role-scoped selected count from its authoritative read.
   const [mountedSkillsCount, setMountedSkillsCount] = React.useState(0);
-  React.useEffect(() => {
-    if (initialChatThreadId === null || sessionToken === null) {
-      setMountedSkillsCount(0);
-      return;
-    }
-    let cancelled = false;
-    void listThreadMounts(initialChatThreadId, undefined, sessionToken)
-      .then((out) => { if (!cancelled) setMountedSkillsCount(out.temporary.length); })
-      .catch(() => { if (!cancelled) setMountedSkillsCount(0); });
-    return () => { cancelled = true; };
-  }, [initialChatThreadId, sessionToken]);
+
 
   // Execution details now live in TaskTimeline; the status announcer only announces transitions.
   /**
@@ -1535,6 +1518,11 @@ export function CopilotKitV2PanelBody({
     { text: string; attachments: readonly ChatAttachment[]; clientMessageId: string } | null
   >(null);
 
+  const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
+    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages);
+
+  const sendIsBlocked = !canWrite || archived || runIsRunning || attach.hasUploading;
+
   const send = React.useCallback(
     async (
       override?: string,
@@ -1549,11 +1537,11 @@ export function CopilotKitV2PanelBody({
       },
     ) => {
       const text = (override ?? inputDraft).trim();
-      if (!canWrite || archived || text === "" || runIsRunning) return false;
+      if (sendIsBlocked || text === "") return false;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
-      if (attach.hasUploading) return false;
+
       const acceptedBefore = acceptedRunEpoch.current;
       sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
@@ -1579,6 +1567,8 @@ export function CopilotKitV2PanelBody({
       // Set 天然去重）。
       setSentMessageIds((cur) => (cur.has(clientMessageId) ? cur : new Set(cur).add(clientMessageId)));
       if (!agent.messages.some((message) => message.id === clientMessageId)) agent.addMessage({ id: clientMessageId, role: "user", content: text });
+      // Sending is an explicit request to see the new turn, including after reading history.
+      scrollMessagesToBottom("auto");
       /*
        * 2026-09-15 人类实测反馈 —— 附件在**发送这一刻**就从 composer 移到那条用户消息
        * 上，不等这一轮 run 跑完。
@@ -1657,7 +1647,8 @@ export function CopilotKitV2PanelBody({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId, realtimeContext],
+    [agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom],
+
   );
 
   /**
@@ -1700,8 +1691,6 @@ export function CopilotKitV2PanelBody({
       agent, initialChatThreadId: effectiveChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
     });
 
-  const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
-    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages);
 
   /**
    * issue #2096（真实 devapp 实测：打字/滚动时消息区画布内容闪烁）—— 根因：两个
@@ -2180,7 +2169,7 @@ export function CopilotKitV2PanelBody({
                 给第二个语义不同的重试（见 `planStepRecoveryOffered` 头注）。 */}
             {shouldOfferBannerRetry({
               hasResendableMessage: lastSentRef.current !== null,
-              agentIsRunning: agent.isRunning,
+              sendIsBlocked,
               planStepRecoveryOffered,
             }) ? (
               <button
@@ -2505,6 +2494,7 @@ export function CopilotKitV2PanelBody({
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
                   <ChatSkillMountPanel
                     variant="composer"
+                    actingAgentId={actingAgentId}
                     threadId={initialChatThreadId}
                     orgId={orgId}
                     bearer={sessionToken}
@@ -2514,6 +2504,7 @@ export function CopilotKitV2PanelBody({
                     onMentionMounted={onSkillMentionMounted}
                     openRequest={skillOpenRequest}
                     onTriggerStateChange={setSkillTrigger}
+                    onMountsChange={setMountedSkillsCount}
                   />
                 ) : null}
               </div>

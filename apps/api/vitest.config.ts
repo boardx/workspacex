@@ -19,6 +19,7 @@ export default defineConfig({
     // 前置时**抛错**而不是跳过。
     exclude: ["tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts", "tests/agent-runtime/standard-document-locators-http.test.ts", "tests/agent-runtime/native-runtime-lane.test.ts"],
     globalSetup: ["tests/support/db-global-setup.ts"],
+    setupFiles: ["tests/support/db-file-cleanup.ts"],
     /**
      * WORKSPACEX_DB is how parallel workers avoid dropping each other's database, and
      * `scripts/lib.sh` translates it into PGDATABASE for the shell gates. Vitest had no

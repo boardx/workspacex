@@ -1114,6 +1114,12 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
   qualityScore: true, publicationReadiness: true,
 }).extend({
+  research: z.object({
+    cursor: z.string().regex(/^[a-f0-9]{64}$/),
+    tasks: z.array(GuidedResearchTask),
+    sources: z.array(GuidedResearchSource.pick({ id: true, taskId: true, taskIds: true, title: true, url: true,
+      retrievedAt: true, decision: true, presentation: true, documentError: true, addedByUser: true })).optional(),
+  }).strict().optional(),
   stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
     offset: z.number().int().nonnegative(), delta: z.string().max(1048576),
     status: z.enum(["streaming", "failed"]),
@@ -1131,7 +1137,7 @@ export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
 export const operations = {
   getGuidedResearchRuntimeProgress: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime/progress",
-    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional() }).strict(),
+    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional() }).strict(),
     out: GuidedResearchRuntimeProgress, err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
   },
   streamGuidedResearchRuntime: {

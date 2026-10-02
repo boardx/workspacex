@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fabricHarness = vi.hoisted(() => {
   type Handler = (event: { target?: MockFabricObject; e?: unknown }) => void;
-  const state = { canvases: [] as MockCanvas[] };
+  const state = { canvases: [] as MockCanvas[], realGroup: null as typeof import("fabric").Group | null };
   class MockFabricObject {
     data?: { boardObjectId?: string; adapterKind?: string; renderedRevision?: number };
     left = 0;
@@ -17,7 +17,8 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
-    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
+    source?: string;
+    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; if (typeof value === "string") this.source = value; Object.assign(this, options); }
     getObjects() { return this.children; }
     private children: MockFabricObject[] = [];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
@@ -44,6 +45,7 @@ const fabricHarness = vi.hoisted(() => {
 
 vi.mock("fabric", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fabric")>();
+  fabricHarness.state.realGroup = actual.Group;
   const MockFabricObject = fabricHarness.MockFabricObject;
   type Handler = (event: { target?: InstanceType<typeof MockFabricObject>; e?: unknown }) => void;
   class Canvas {
@@ -80,11 +82,20 @@ vi.mock("fabric", async (importOriginal) => {
     discardActiveObject() { this.active = undefined; }
     getActiveObject() { return this.active; }
   }
+  // Connector paths and tips need Fabric's real fit-content layout. Other
+  // fixtures retain the existing lightweight object transform boundary.
+  const Group = function (children: InstanceType<typeof MockFabricObject>[], options: Record<string, unknown>) {
+    return children.some(child => child instanceof actual.Path)
+      ? new actual.Group(children as unknown as import("fabric").FabricObject[], options)
+      : new MockFabricObject(children, options);
+  };
+  Group.prototype = MockFabricObject.prototype;
   return {
     ...actual,
     Canvas,
+    Line: MockFabricObject,
     Circle: MockFabricObject,
-    Group: MockFabricObject,
+    Group,
     Point: MockFabricObject,
     Rect: MockFabricObject,
     Textbox: MockFabricObject,
@@ -95,6 +106,7 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
 import { BoardFabricSurface } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { Path } from "fabric";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 const base: BoardFabricObject = {
@@ -109,7 +121,8 @@ const base: BoardFabricObject = {
 const viewport = { zoom: 1, panX: 0, panY: 0, fitRequest: 0 };
 const callbacks = () => ({
   onSelectionChange: vi.fn(),
-  onObjectTransform: vi.fn(),
+  onObjectTransform: vi.fn(() => false),
+  onTransformPreview: vi.fn(),
   onViewportChange: vi.fn(),
 });
 const surface = (objects: readonly BoardFabricObject[], events: ReturnType<typeof callbacks>, readOnly = false) => createElement(BoardFabricSurface, {
@@ -133,6 +146,84 @@ const firstProjected = (canvas: ReturnType<typeof mountedCanvas>) => {
 
 describe("Board Fabric event-to-command boundary", () => {
   beforeEach(() => { fabricHarness.state.canvases.length = 0; });
+
+  it("proves real Fabric Group path endpoints stay in world coordinates despite stroke bounds", async () => {
+    const { Group, Path, Point, util } = await vi.importActual<typeof import("fabric")>("fabric");
+    for (const [x, y] of [[285, 200], [215, 90]]) {
+      const path = new Path(`M ${x} ${y} L 500 100`, { fill: "", stroke: "#29261E", strokeWidth: 2 });
+      const group = new Group([path]);
+      const world = (px: number, py: number) => util.transformPoint(new Point(px - path.pathOffset.x, py - path.pathOffset.y), path.calcTransformMatrix());
+      expect(world(x!, y!)).toMatchObject({ x, y });
+      expect(world(500, 100)).toMatchObject({ x: 500, y: 100 });
+      expect(group.getBoundingRect().left).toBe(x! - 1);
+      expect(group.getBoundingRect().left).not.toBe(x);
+    }
+  });
+
+  it("previews attached connectors and chrome after snapping without committing, then restores rejection", () => {
+    const events = callbacks();
+    const edge: BoardFabricObject = { ...base, id: "edge", kind: "connector", orderKey: "b", geometry: { x: 210, y: 90, width: 290, height: 10, rotation: 0 }, connector: { from: base.id, fromAnchor: "right", toAnchor: "left", fromOffset: { x: 5, y: 0 }, type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 215, y: 90 }, end: { x: 500, y: 100 } } };
+    render(surface([base, edge], events));
+    const canvas = mountedCanvas(), target = canvas.objects.find(item => item.data?.boardObjectId === base.id)!;
+    target.set({ left: 80, top: 130 });
+    act(() => canvas.emit("object:moving", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([{ id: base.id, geometry: { x: 80, y: 130, width: 200, height: 140, rotation: 0 } }]);
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+    const heldEdge = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(heldEdge).toBeInstanceOf(fabricHarness.state.realGroup);
+    const heldPath = heldEdge.getObjects().find(item => item instanceof Path);
+    expect(heldPath).toBeInstanceOf(Path);
+    expect((heldPath as unknown as Path).path).toEqual([["M", 285, 200], ["L", 500, 100]]);
+    act(() => canvas.emit("object:modified", { target }));
+    expect(events.onObjectTransform).toHaveBeenCalledTimes(1);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
+    expect(target.left).toBe(base.geometry.x);
+    const restoredEdge = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(restoredEdge).toBeInstanceOf(fabricHarness.state.realGroup);
+    const restoredPath = restoredEdge.getObjects().find(item => item instanceof Path);
+    expect(restoredPath).toBeInstanceOf(Path);
+    expect((restoredPath as unknown as Path).path).toEqual([["M", 215, 90], ["L", 500, 100]]);
+  });
+
+  it("reports rotated and scaled geometry and clears preview on native cancellation", () => {
+    const events = callbacks(); render(surface([base], events));
+    const canvas = mountedCanvas(), target = firstProjected(canvas);
+    target.set({ angle: 90, scaleX: 2, scaleY: 2 });
+    act(() => canvas.emit("object:rotating", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
+    expect(events.onTransformPreview.mock.calls.at(-1)?.[0][0]?.geometry).toMatchObject({ width: 400, height: 280, rotation: 90 });
+    canvas._currentTransform = { target };
+    act(() => canvas.emit("mouse:down", { target, e: new MouseEvent("mousedown", { clientX: 20, clientY: 30 }) }));
+    const cancel = new Event("pointercancel", { bubbles: true }); Object.assign(cancel, { pointerType: "mouse", isPrimary: true });
+    fireEvent(screen.getByTestId("board-fabric-canvas"), cancel);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it("pans unmodified wheel input without publishing an object command", () => {
+    const events = callbacks();
+    render(surface([base], events));
+    act(() => mountedCanvas().emit("mouse:wheel", { e: new WheelEvent("wheel", { deltaX: 12, deltaY: 30 }) }));
+    expect(events.onViewportChange).toHaveBeenCalledWith({ ...viewport, panX: -12, panY: -30 }, "pan");
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])("pans button %i outside the canvas and cancels on Escape or blur", (button) => {
+    const events = callbacks();
+    render(surface([base], events));
+    const element = screen.getByTestId("board-fabric-canvas");
+    fireEvent.mouseDown(element, { button, clientX: 100, clientY: 120 });
+    fireEvent.mouseMove(document, { clientX: 140, clientY: 150 });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect((mountedCanvas() as unknown as { viewportTransform: number[] }).viewportTransform).toEqual([1, 0, 0, 1, 0, 0]);
+    fireEvent.mouseDown(element, { button, clientX: 100, clientY: 120 });
+    fireEvent.mouseMove(document, { clientX: 140, clientY: 150 });
+    fireEvent.blur(window);
+    expect(events.onViewportChange).not.toHaveBeenCalled();
+    fireEvent.mouseDown(element, { button, clientX: 100, clientY: 120 });
+    fireEvent.mouseUp(document, { button, clientX: 140, clientY: 150 });
+    expect(events.onViewportChange).toHaveBeenCalledWith({ ...viewport, panX: 40, panY: 30 }, "pan");
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+  });
 
   it("emits one transform command only when a completed local Fabric gesture fires", () => {
     const events = callbacks();

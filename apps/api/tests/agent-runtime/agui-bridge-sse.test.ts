@@ -26,6 +26,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
+import { DEFAULT_RUN_POLL_INTERVAL_MS, resolveRunMaxPolls } from "../../src/application/agent-run/poll-budget";
 import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
@@ -50,6 +51,12 @@ const V1 = "agent-version-agui-bridge-v1";
 const SKILL = "skill-agui-bridge";
 const SV = "skill-version-agui-bridge-v1";
 const MODEL = "pinned-model-agui-bridge";
+
+// #3131: two sequential SSE runs can each consume the configured relay budget
+// (20s in this lane). Allow both deadlines plus 10s HTTP/fixture overhead without
+// widening single-turn tests or the production relay deadline.
+const CONTINUATION_TEST_BUDGET_MS =
+  2 * resolveRunMaxPolls(DEFAULT_RUN_POLL_INTERVAL_MS) * DEFAULT_RUN_POLL_INTERVAL_MS + 10_000;
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
@@ -376,6 +383,7 @@ describe("POST /copilotkit/agui", () => {
     const before = await asApp(ORG, (c) => c.query("SELECT count(*)::int AS n FROM chat_threads WHERE org_id=$1", [ORG]));
 
     const first = await postBridgeTurn({ text: "First message please remember 42" });
+    expect(first.events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
     const firstCustom = first.events.find(
       (e) => e.type === EventType.CUSTOM && (e as { name?: string }).name === "chat_thread_id",
     ) as { value: string } | undefined;
@@ -386,6 +394,7 @@ describe("POST /copilotkit/agui", () => {
     expect((afterFirst.rows[0] as { n: number }).n).toBe((before.rows[0] as { n: number }).n + 1);
 
     const second = await postBridgeTurn({ text: "Second message, same thread", chatThreadId });
+    expect(second.events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
     const secondCustom = second.events.find(
       (e) => e.type === EventType.CUSTOM && (e as { name?: string }).name === "chat_thread_id",
     ) as { value: string } | undefined;
@@ -404,7 +413,7 @@ describe("POST /copilotkit/agui", () => {
       "First message please remember 42",
       "Second message, same thread",
     ]);
-  }, 30_000);
+  }, CONTINUATION_TEST_BUDGET_MS);
 
   it("422s when the AG-UI body carries no user message", async () => {
     const url = new URL(`${BASE}/copilotkit/agui`);

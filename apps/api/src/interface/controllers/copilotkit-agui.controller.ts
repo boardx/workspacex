@@ -1,3 +1,4 @@
+import { requiresAgentSkillPins } from "../../application/chat/agent-skill-scope";
 import { createExecutionJournalRelay } from "./execution-journal-relay";
 import { type ExecutionEvent } from "@repo/contracts/execution-journal";
 /**
@@ -121,7 +122,7 @@ import {
 import {
   runAguiBridgeTurn, resumeAguiBridgeTurn, resumeAguiBridgeTurnToolPermission,
   NoAwaitingToolPermissionRunError,
-  AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
+  AgentSkillScopeViolationError, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
   AgentRunNotVisibleError,
   TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingToolPermissionError,
@@ -723,6 +724,10 @@ export class CopilotkitAguiController {
       toOrgId(principal.orgId), agentIdParam, agentIdSourceParam,
     );
 
+    const requestedExplicitAgent = Boolean(agentIdParam?.trim()) && agentIdSourceParam?.trim() !== "env-default";
+    const explicitAgent = requiresAgentSkillPins({ requestedExplicitAgent, resolvedAgentId: agentId,
+      serverDefaultAgentId: await this.defaultAgents.resolveDefaultAgentId(toOrgId(principal.orgId)) });
+
     // issue #2021 -- suggestion runs short-circuit BEFORE any thread/message machinery.
     // See `isSuggestionRequest`'s own doc: an immediately-finished empty run, no thread
     // created, no agent run. Placed before the resume/text validation so a suggestion
@@ -930,6 +935,7 @@ export class CopilotkitAguiController {
           }))
         : await runAguiBridgeTurn(this.deps, {
           userId: principal.userId, orgId: toOrgId(principal.orgId), agentId,
+          explicitAgent,
           text: realtimeContext
             ? `${text!}\n\n[当前白板上下文]\nboardId: ${realtimeContext.boardId}\nselectedObjectIds: ${realtimeContext.selectedObjectIds.join(", ") || "none"}`
             : text!,
@@ -1041,6 +1047,8 @@ export class CopilotkitAguiController {
         writeRunError("NO_WRITE_ROLE");
       } else if (e instanceof MessageThreadArchivedError) {
         writeRunError("THREAD_ARCHIVED_READONLY");
+      } else if (e instanceof AgentSkillScopeViolationError) {
+        writeRunError("AGENT_SKILL_SCOPE_VIOLATION");
       } else if (e instanceof AgentNotPublishedError) {
         writeRunError("AGENT_NOT_FOUND");
       } else if (e instanceof MessageIdempotencyConflictError) {

@@ -5,6 +5,7 @@
  * 是否执行抽取（迁到独立 worker 进程时置 0）。并发 = `concurrency`（默认 2）：起 N 条排空循环，
  * 各自 `claimNext`（`FOR UPDATE SKIP LOCKED` 保证不重复认领），一直认到没活。
  */
+import type {PhysicalPurgePort} from "../../application/files/physical-delete-ports";
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { LoggerPort } from "../../application/ports/logger.port";
@@ -32,9 +33,10 @@ export class AttachmentExtractionExecutor implements AttachmentExtractionExecuto
     private readonly logger: LoggerPort,
     private readonly autostart: boolean,
     private readonly concurrency = 2,
+    purge?:PhysicalPurgePort,
   ) {
     this.deps = {
-      store,
+      store,purge,
       extraction,
       converter,
       vision,

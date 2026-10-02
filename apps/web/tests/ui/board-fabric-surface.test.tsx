@@ -30,6 +30,10 @@ const probe = vi.hoisted(() => ({
   primitiveKinds: [] as string[],
   imageSources: [] as string[],
   imageOptions: [] as Record<string, unknown>[],
+  canvas: null as { _currentTransform: unknown } | null,
+  canvasWidth: 1200,
+  canvasHeight: 800,
+  resize: null as (() => void) | null,
 
 }));
 
@@ -78,7 +82,9 @@ vi.mock("fabric", async () => {
   }
   class Canvas {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
-    constructor() { probe.instances += 1; }
+    _currentTransform: unknown = null;
+    upperCanvasEl: HTMLCanvasElement;
+    constructor(element: HTMLCanvasElement) { this.upperCanvasEl = element; probe.instances += 1; probe.canvas = this; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
     remove(object: MockProjectedObject) {
       probe.objects.splice(probe.objects.indexOf(object), 1);
@@ -98,7 +104,7 @@ vi.mock("fabric", async () => {
       probe.objects.splice(index, 0, object);
     }
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
-    getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
+    getWidth() { return probe.canvasWidth; } getHeight() { return probe.canvasHeight; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
     getScenePoint(event?: MouseEvent) { return event && (event.clientX || event.clientY) ? { x: event.clientX, y: event.clientY } : { x: 123, y: 234 }; }
     setActiveObject(object: MockProjectedObject) { probe.active = object; probe.activeId = object.data?.boardObjectId ?? null; if (probe.emitSelectionOnSet) probe.handlers.get("selection:updated")?.({ target: object }); }
@@ -118,7 +124,7 @@ vi.mock("fabric", async () => {
 
 });
 
-class ResizeObserverMock { observe() {} disconnect() {} }
+class ResizeObserverMock { constructor(callback: () => void) { probe.resize = callback; } observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 vi.stubGlobal("Image", class {
   alt = ""; onload: (() => void) | null = null; private value = "";
@@ -139,8 +145,36 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
+  beforeEach(() => { probe.canvasWidth = 1200; probe.canvasHeight = 800; probe.resize = null; });
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
+
+  it.each(["hand", "draw-pen", "erase"] as const)("keeps %s projections noninteractive after canonical updates and additions", tool => {
+    const callbacks = { onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const props = { objects: OBJECTS, selectedObjectIds: [], readOnly: false, tool, viewport: VIEWPORT, ...callbacks };
+    const view = render(<BoardFabricSurface {...props} />);
+    expect(probe.objects.every(item => !item.selectable && !item.evented)).toBe(true);
+    view.rerender(<BoardFabricSurface {...props} objects={[
+      ...OBJECTS.map(item => ({ ...item, revision: item.revision + 1 })),
+      { ...OBJECTS[0]!, id: "remote-sticky" },
+    ]} />);
+    expect(probe.objects).toHaveLength(3);
+    expect(probe.objects.every(item => !item.selectable && !item.evented)).toBe(true);
+    view.rerender(<BoardFabricSurface {...props} tool="select" />);
+    expect(probe.objects.every(item => item.selectable && item.evented)).toBe(true);
+  });
+
+  it("cancels a stale Fabric transform before a hand pan can move its target", () => {
+    const onViewportChange = vi.fn(), onObjectTransform = vi.fn();
+    renderSurface({ tool: "hand", onViewportChange, onObjectTransform });
+    probe.canvas!._currentTransform = { target: probe.objects[0], action: "drag" };
+    probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown", { clientX: 400, clientY: 300 }) });
+    expect(probe.canvas!._currentTransform).toBeNull();
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 510, clientY: 340 }) });
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { clientX: 510, clientY: 340 }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ panX: 110, panY: 40 }), "pan");
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
 
   it("pans with two-finger wheel in select mode and reserves control-wheel for pinch zoom", () => {
     const onViewportChange = vi.fn();
@@ -195,7 +229,7 @@ describe("BoardFabricSurface", () => {
     expect(onObjectTransform).not.toHaveBeenCalled();
     probe.handlers.get("object:modified")?.({ target: sticky });
     expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 117, y: 93 }));
-    expect(onTransformPreview).toHaveBeenLastCalledWith(null);
+    expect(onTransformPreview).toHaveBeenLastCalledWith([]);
   });
 
   it("preserves imported non-square Sticky dimensions during held movement and release", () => {
@@ -273,7 +307,7 @@ describe("BoardFabricSurface", () => {
     act(() => probe.handlers.get("object:moving")?.({ target: sticky }));
     act(() => window.dispatchEvent(new Event("blur")));
     expect(sticky.left).toBe(40);
-    expect(onTransformPreview).toHaveBeenLastCalledWith(null);
+    expect(onTransformPreview).toHaveBeenLastCalledWith([]);
     act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
     expect(onObjectTransform).not.toHaveBeenCalled();
   });
@@ -976,6 +1010,30 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: valid });
     expect(onObjectTransform).toHaveBeenCalledOnce();
     expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 120 }));
+  });
+
+  it("does not replay Fit when selection chrome changes, but fits new requests and real resizes", () => {
+    const onViewportChange = vi.fn();
+    const props = { objects: OBJECTS, selectedObjectIds: [] as string[], readOnly: false, tool: "select" as const,
+      viewport: { ...VIEWPORT, fitRequest: 1 }, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange };
+    const initialInsets = { left: 48, right: 48, top: 48, bottom: 48 };
+    const selectedInsets = { ...initialInsets, top: 120 };
+    const view = render(<BoardFabricSurface {...props} fitInsets={initialInsets} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    const initialFit = onViewportChange.mock.calls[0]![0];
+    view.rerender(<BoardFabricSurface {...props} selectedObjectIds={["r-1"]} fitInsets={selectedInsets} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    view.rerender(<BoardFabricSurface {...props} selectedObjectIds={["r-1"]} fitInsets={selectedInsets} viewport={{ ...VIEWPORT, fitRequest: 2 }} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(2);
+    expect(onViewportChange.mock.calls[1]![0]).not.toEqual(initialFit);
+    probe.canvasWidth = 900;
+    const host = screen.getByTestId("board-fabric-surface");
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 900 });
+    act(() => probe.resize?.());
+    expect(onViewportChange).toHaveBeenCalledTimes(3);
+    expect(onViewportChange.mock.calls[2]![0].zoom).toBeLessThan(onViewportChange.mock.calls[1]![0].zoom);
+    act(() => probe.resize?.());
+    expect(onViewportChange).toHaveBeenCalledTimes(3);
   });
 
   it("clamps viewport to 5%-800% and fits canonical content locally", () => {

@@ -20,7 +20,7 @@
 //   3. 据此**该跑什么、什么可以推迟到候选组**（且推迟必须有理由、必须队列已启用）；
 //   4. 合并该走**入队**还是**直接合并**（两者不是同一件事，不许混为一谈）；
 //   5. 事后追溯时，「绿」的证据**是从哪个 commit 上读来的**（旧 PR head 的绿不算）。
-import { REQUIRED_CHECKS, mergeAuthorization, type CoordMode, type PrQueueState } from "./pr-queue";
+import { REQUIRED_CHECKS, mergeAuthorization, type CoordMode, type PrQueueState } from "./pr-queue.ts";
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 /** git 的空树 SHA：push 事件里「分支刚建出来，没有上一个 commit」时 `before` 就是它。 */

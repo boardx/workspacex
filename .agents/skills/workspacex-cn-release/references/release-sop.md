@@ -136,6 +136,14 @@ prepare receipt 至少绑定：source SHA、release、manifest SHA-256、六镜�
 
 若有破坏性 migration，退出本通道，进入维护窗口。普通通道不得 waiver `product` 或 `unknown` 失败。
 
+### GitHub prepare-before-approval 通道（#4908）
+
+`prepare-cn-release` 在 successful main backend-gates 后冻结事件的 exact SHA。与 promotion 共用不取消运行的 concurrency group；排队时间计入日历 lead time。先只读核 root 保护的 preparation input 与离线 source cache，随后 build/seal、host `--prepare`，最后运行完整 `workspacex-cn-verify-promotion`。只有最后一个实际 verifier 成功，才能称 prepared。
+
+`promote-cn-production` 首先在无 environment 的 `readiness` job 检 exact workflow/source 身份、可信副本、完整 receipt 和实时 baseline；缺失、过期、漂移或门控失败立即 `CN_PROMOTION_NOT_READY`，不请求人工审批。`admit` 依赖 readiness，通过唯一 production-cn-promotion 审批后再次验证相同 receipt。审批期间证据失效即停止，绝不在审批后补 build、源码或 `--prepare`。
+
+`CN_RELEASE_PREPARE_INPUTS_PRESENT` 仅证明前置输入存在及基础身份/闭包，不是 READY。受控运维仍须提供真实 migration、backup、shadow/business evidence、两阶段 preflight 及 root 离线缓存；本改动没有自动制造这些证据，也不从 runner 可写镜像冒充 root cache。root cache 在输入检查与 canonical prepare 均拒绝 alternates、http-alternates 及 symlink，避免 Git fsck 借外部对象得到假闭包；runner 仅只读核保护仓库 baseline，不执行新增 fetch 或扩大写权限。缺输入时保持旧生产并返回 NOT_READY。新可信脚本必须按目标 SHA 安装和独立审阅；不能给旧版本静默替换脚本来绕过 drift gate。这条通道的代码测试不等于主机、GitHub governance 或生产浏览器验收。
+
 ## 7. Step 4：晋级与 300 秒 activate
 
 只有 prepared receipt 有效才以 compare-and-swap 推进 `main-cn`：old SHA 必须等于 attempt 冻结值，new SHA 必须等于 source SHA。冲突即停止，不 force 覆盖。
@@ -214,6 +222,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `CANDIDATE_CHECKOUT_DRIFT` | 构建入口在持有 release lock 后记录干净 baseline checkout，成功和失败都在同一个 EXIT trap 恢复；回执必须机械证明 HEAD、`main-cn` 和四个运行容器仍是 baseline |
 | 2026-09-21 | `CN_RELEASE_PREFLIGHT_REJECTED` | prebuild 在构建事件之前、preactivate 在 prepare 与 activation 之前由 exact-SHA 验证器强制复验；原始证据与验证结果 root-only、create-once 或 byte-identical reuse |
 | 2026-09-21 | `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` | workflow 使用 `sudo -n` 调用精确可信入口；sudoers 漂移立即失败并指向 bootstrap 修复，不再占用 runner 等密码 |
+| 2026-10-01 | `CN_PROMOTION_NOT_READY` | 完整 exact-SHA prepared receipt 在无 environment 的 readiness job 验证；审批后复验失败直接停止，不补 prepare/build；真实 Bash 对 0/1/3/42 退出码的反证覆盖两道门（#4908）。 |
 
 ## 12. 发布后清理
 
@@ -225,3 +234,23 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 ## 迁移账本完整性门（#4828）
 
 采集与计划必须使用 [versioned完整只读快照契约](migration-snapshot.md)。旧readOnly+ledger格式、截断Cloud Assistant输出或缺独立SQLCOUNT的数组均拒绝；先核验外部sourcebinding与完整provider响应，再生成canonical计划。完整性通过不解除drift/out-of-order/risk门，不授权生产迁移。
+
+## 固定候选 tag 派发（#4919；治理生效后才能使用）
+
+候选必须先包含 `CN_FROZEN_RELEASE_DISPATCHER_V1` 和对应 identity validator。历史候选不能借新 main 的 workflow 改写自己的 source；不兼容返回 `CN_FROZEN_RELEASE_DISPATCHER_NOT_READY`，不得悄悄替换为最新 main。
+
+`prepare-cn-release` 在完整 host verifier、实际 exact-source CI 和 Devapp 证据通过后，创建不可变 annotated tag `cn-prepared-<40位source>-<attempt>`。tag message 绑定完整 prepared 收据原始 hash、manifest、四镜像 digest、baseline、Devapp 证据 hash 和实际验收 run。已经存在的 tag 只允许完全一致的复用，不更新或删除。
+
+从此 tag 派发 `promote-cn-production`：GitHub 的 `GITHUB_SHA`、实际 workflow SHA、candidate source 和 native Environment Deployment SHA 保持一致；后续 main 提交进入下一候选。workflow 身份与 release source 在请求中分别记录，即使两者值相同也不混作一个字段。readiness 请求 digest 包括实际 run ID/attempt，在唯一人工审批后逐字复验。审批后只验证已存在离线对象，不从 GitHub补 source，不 prepare/build。
+
+实际 Devapp 验收记录由受控适配器以 root:root0600 保存到 candidate attempt 目录的 `devapp-acceptance.json`，引用同目录 `devapp-evidence.bin` 的真实字节 SHA。字段为 `status=passed`、`sourceSha`、`runtimeSourceShas`（api/web/agent/sandbox 均为候选）、`browserAccepted=true`、`evidenceSha256`、`workflowRunId`。它是既有真实运行体/浏览器验收记录的机器适配，不是靠 CI head_sha 推断运行体、不是新 Devapp 部署平台。verifier 核验实际 evidence 字节并只输出安全字段；GitHub identity gate 再核查对应 `real-model-chat-evidence.yml` run 的 actual repository/head_sha/status/conclusion。缺真实记录、缺 byte binding 或 run 不匹配均 NOT_READY，不生成假成功。
+
+prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须显式声明；contents write 仅用于候选 tag/main-cn CAS。不得给部署状态写权限来制造成功。激活前必须读到同 source/ref、同 workflow run 的真实 successful native `production-cn-promotion` Deployment status，不能拿其它 run 或 latest-main 的成功替代。
+
+环境/tag 治理与 runner 已安装可信入口必须先完成独立审阅及实际验证，见 [固定 tag 治理审阅清单](frozen-tag-governance.md)。本代码不修改这些规则。tag 创建只继承既有 contents:write，不依赖内建 App creation bypass；update/deletion 无 bypass。App metadata 只绑定 native Deployment，不是 token 能力证明。真实 token/tag 创建与不可变性仍需非生产演练；tag 本身不是 receipt/授权，名称被预占只能用新 attempt 重走完整流程。完整发布收据未完成前不承诺五分钟 READY。
+
+冻结候选的原生审批不能假定 creator 为 bot：Actions Environment Deployment 使用触发者身份。校验 GitHub Actions App、actual current run/attempt actor/triggering_actor、精确 source/ref/env、成功 admit job 与其 html_url；最新 status 必须同 actor 与 exact job。人工生成成功状态或借旧 attempt 的 URL 不能放行。
+
+非生产 `cn-release-tag-proof` 工作流只在初次治理安装/治理规则变更后证明真实 GITHUB_TOKEN 的创建能力及 zero-bypass update/delete 拒绝；不在每次已 prepared activation 重跑。其 `cn-release-proof-*` 规则/审计 tag 与生产 `cn-prepared-*` 严格分离，不可用 proof 规则冒充生产就绪。实际 proof 缺失即治理未验收；本地 mock 反证或规则存在不算 token proof。
+
+治理规则的 bypass_actors 缺失是 NOT_READY，不是零 bypass。GitHub 只向规则写权限调用者显示该字段；若实际 GITHUB_TOKEN 隐藏它，应先审阅受控管理员治理收据适配，不能在普通读 API 返回中推断零绕过或更换高权限 PAT。

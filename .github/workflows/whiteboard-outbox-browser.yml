@@ -1,0 +1,46 @@
+name: whiteboard-outbox-browser
+on:
+  pull_request:
+    paths:
+      - 'apps/web/lib/whiteboard-outbox*.ts'
+      - 'apps/web/lib/whiteboard-indexeddb.ts'
+      - 'apps/web/tests/whiteboard/whiteboard-outbox*.test.ts'
+      - 'apps/web/scripts/verify-whiteboard-outbox-browser.mjs'
+      - 'packages/contracts/src/whiteboard*.ts'
+      - '.github/workflows/whiteboard-outbox-browser.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/lib/whiteboard-outbox*.ts'
+      - 'apps/web/lib/whiteboard-indexeddb.ts'
+      - 'apps/web/tests/whiteboard/whiteboard-outbox*.test.ts'
+      - 'apps/web/scripts/verify-whiteboard-outbox-browser.mjs'
+      - 'packages/contracts/src/whiteboard*.ts'
+      - '.github/workflows/whiteboard-outbox-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: outbox-native-browser-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-browser-key-storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium firefox webkit
+      - name: Verify actual encrypted outbox in three native browsers
+        run: node apps/web/scripts/verify-whiteboard-outbox-browser.mjs > "$RUNNER_TEMP/outbox-native-browser.json"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: outbox-native-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/outbox-native-browser.json
+          if-no-files-found: ignore
