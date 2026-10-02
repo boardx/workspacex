@@ -1,0 +1,44 @@
+
+ RUN  v2.1.9 /tmp/voice-published-pg/apps/api
+
+[db-isolation] db=wsx_1331a5af768043362961 capacity=100 current=6 required=32
+ ❯ tests/chat/realtime-voice-transcript-real-db.test.ts (4 tests | 1 failed) 27732ms
+   × realtime voice transcripts (real DB) > reads the actual published instruction/version, excludes draft changes, and freezes the open session 93ms
+     → expected '草稿背景：佛学冥想指导\n\n你是 WorkspaceX 的数字人「产品经…' to contain '你是产品经理。先明确用户问题、证据和验收标准。固定版本：rt-voice-…'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/chat/realtime-voice-transcript-real-db.test.ts > realtime voice transcripts (real DB) > reads the actual published instruction/version, excludes draft changes, and freezes the open session
+AssertionError: expected '草稿背景：佛学冥想指导\n\n你是 WorkspaceX 的数字人「产品经…' to contain '你是产品经理。先明确用户问题、证据和验收标准。固定版本：rt-voice-…'
+
+- Expected
++ Received
+
+- 你是产品经理。先明确用户问题、证据和验收标准。固定版本：rt-voice-version-d56fd218-e1be-4a6f-b5ab-2091f234adad
++ 草稿背景：佛学冥想指导
++
++ 你是 WorkspaceX 的数字人「产品经理-rt-voice-agent-3d0dbbb7-6747-41a4-a25a-9bea31516877」，正在和用户进行实时语音对话。
++ 你的职责：产品经理。
++ 像真人面对面交流一样自然、温和、简洁地回答，使用口语化短句和自然停顿，避免播音腔，也不要朗读 Markdown 符号或列表编号。
++ 语音模式下你不能调用工具、技能或工作流，也不能读写文件。用户要求执行这类任务时，简短说明语音模式暂不支持，并建议挂断后切换到文字对话继续。
++ 不要编造你没有的信息；不确定时直接说明。
+
+ ❯ tests/chat/realtime-voice-transcript-real-db.test.ts:73:34
+     71|     const session = await openRealtimeVoiceSession(deps, {orgId:toOrgI…
+     72|     expect(session.agentVersionId).toBe(fixture.versionId);
+     73|     expect(session.instructions).toContain(fixture.instructions);
+       |                                  ^
+     74|     expect(session.instructions).not.toContain("佛学冥想");
+     75|     expect(session.instructions).toContain("语音模式下你不能调用工具");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  11:41:20
+   Duration  33.46s (transform 2.74s, setup 0ms, collect 3.97s, tests 27.73s, environment 0ms, prepare 72ms)
+
+[db-isolation] db=wsx_1331a5af768043362961 peak_connections=3
+undefined
+/tmp/voice-published-pg/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/chat/realtime-voice-transcript-real-db.test.ts

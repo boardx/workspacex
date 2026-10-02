@@ -137,7 +137,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
           type: object.connector!.type ?? "straight", startStyle: object.connector!.startStyle ?? "none",
           endStyle: object.connector!.endStyle ?? "arrow", lineStyle: object.connector!.lineStyle ?? "solid",
           label: object.connector!.label ?? object.text, semanticRelation: object.connector!.semanticRelation ?? "",
-          start, end,
+          start, end, fromOffset: object.connector!.fromOffset, toOffset: object.connector!.toOffset,
         };
       })() : undefined,
       parentId: object.parentId ?? undefined,

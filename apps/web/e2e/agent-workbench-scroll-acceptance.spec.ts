@@ -3,6 +3,10 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openFreshThread } from "./chat-task-workbench-fixture";
 import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
 
+// Adjacent same-name tools are grouped in the approved UI. Count their actual
+// member nodes as well as standalone tool rows, never just the group header.
+const TOOL_ACTIVITY = '[data-testid="run-trace-entry"][data-kind="tool"], [data-testid="run-trace-entry"][data-kind="tool-group"] [data-testid="run-trace-group-member"]';
+
 test("S8: ten rounds and one hundred tool activities retain the reading position", async ({ page }) => {
   test.setTimeout(600_000);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -31,8 +35,8 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
       await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBeLessThan(5);
       const anchor = page.getByTestId("run-trace-panel").first();
       const top = (await anchor.boundingBox())!.y;
-      const count = await panel.getByTestId("run-trace-entry").count();
-      await expect.poll(() => panel.getByTestId("run-trace-entry").count()).toBeGreaterThan(count);
+      const count = await panel.locator(TOOL_ACTIVITY).count();
+      await expect.poll(() => panel.locator(TOOL_ACTIVITY).count()).toBeGreaterThan(count);
       expect(Math.abs((await anchor.boundingBox())!.y - top), "streaming must not move the reading anchor").toBeLessThan(3);
       // Toggle the visible anchor with a real user click, without scrolling it.
       await anchor.getByTestId("run-trace-toggle").click();
@@ -50,10 +54,20 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
     const completed = journal.filter(event => event.kind === "tool_end" && event.ok !== false);
     expect(new Set(completed.map(event => event.toolCallId)).size).toBe(10);
     for (const event of completed) toolIdentities.add(`${event.runId}:${event.toolCallId}`);
-    await expect(panel.locator('[data-testid="run-trace-entry"][data-kind="tool"]')).toHaveCount(10);
+    await expect(panel.locator(TOOL_ACTIVITY)).toHaveCount(10);
+    // Grouping deliberately reduces height. Use the real disclosure controls
+    // so the next round has genuinely overflowing content to scroll through.
+    const groups = panel.locator('[data-kind="tool-group"] details');
+    for (let index = 0; index < await groups.count(); index += 1) {
+      const group = groups.nth(index);
+      if (!await group.evaluate(el => (el as HTMLDetailsElement).open)) {
+        await group.locator("summary").click();
+      }
+      await expect(group.getByTestId("run-trace-group-member").first()).toBeVisible();
+    }
     expect(journal.some(event => event.kind === "status" && event.status === "succeeded")).toBe(true);
     await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0);
   }
   expect(toolIdentities.size).toBe(100);
-  await expect(page.locator('[data-testid="run-trace-entry"][data-kind="tool"]')).toHaveCount(100);
+  await expect(page.locator(TOOL_ACTIVITY)).toHaveCount(100);
 });

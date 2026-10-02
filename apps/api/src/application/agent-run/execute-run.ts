@@ -1,3 +1,5 @@
+import { assertFrozenAgentSkillScope } from "./frozen-agent-skill-scope";
+import { requesterMemoryHistory } from "./requester-memory-context";
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
 import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
 import { withAttachmentNotice } from "./attachment-notice";
@@ -9,7 +11,7 @@ import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { RunLeaseLostError, currentRunLease } from "./run-lease";
 import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
-import { publicExecutionPayload } from "./public-execution-payload";
+import { publicExecutionPayload, publicExecutionSummary } from "./public-execution-payload";
 /**
  * `executeAgentRun` -- the Wave 2 §5 slice, and nothing else.
  *
@@ -50,7 +52,7 @@ import { publicExecutionPayload } from "./public-execution-payload";
  * three old branches physically gone from this file's own source, not merely unreachable.
  */
 import { OpenToolCalls, type RunTerminationOutcome } from "./open-tool-calls";
-import { nativeToolProvenance } from "@repo/contracts/native-tool-identities";
+import { toolTraceMetadata, ToolTraceTimings } from "./tool-trace-metadata";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -558,6 +560,7 @@ async function executeClaimed(
   // or a catalog for `isDeepAgentRun` -- see `buildSystemPrompt`'s own doc comment).
   const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
   try {
+    assertFrozenAgentSkillScope(run);
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
       // Fail closed. A run that quietly proceeds with two of its three pinned Skills has
@@ -917,7 +920,7 @@ async function executeClaimed(
   // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
   // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
   const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
-  history = [...notes.map((content) => ({ role: "assistant" as const, content })), ...history];
+  history = [...requesterMemoryHistory(notes), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
@@ -1039,6 +1042,7 @@ async function executeClaimed(
   let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
   deltaSeq += 1;
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
+  const toolTraceTimings = new ToolTraceTimings();
   // issue #3403 ② —— 「每一次开始了的工具调用都要有终态」。为什么只能在产生端补、
   // 为什么 #3316 / #3369 都没覆盖到，见 `open-tool-calls.ts` 的头注。
   /*
@@ -1139,26 +1143,27 @@ async function executeClaimed(
           outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
           failureCode: event.ok === false ? "MODEL_CALL_FAILED" : null,
           toolName: event.toolName,
-          toolArgsSummary: event.toolArgsSummary,
-          toolResultSummary: event.toolResultSummary,
-          planningNote: event.planningNote,
+          toolArgsSummary: publicExecutionSummary(event.toolArgsSummary),
+          toolResultSummary: publicExecutionSummary(event.toolResultSummary),
+          planningNote: publicExecutionSummary(event.planningNote),
           toolCallId: event.toolCallId ?? null,
         });
         seqCursor.value += 1;
         await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
         const journalToolCallId = `${executionAttemptId}:${event.toolCallId ?? stepSeq}`;
+        const elapsed = toolTraceTimings.observe(journalToolCallId, stepStartedAt, event.phase);
         if (event.phase === "in_progress") {
           openToolCalls.open(journalToolCallId, {
             kind: "tool_end", attemptId: executionAttemptId, toolCallId: journalToolCallId,
             sourceToolCallId: event.toolCallId ?? undefined,
-            ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)),
+            ...toolTraceMetadata(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)),
             toolName: event.toolName, result: null, ok: false,
           });
         } else openToolCalls.close(journalToolCallId);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
-          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
-          : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
+          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...toolTraceMetadata(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
+          : { kind: "tool_end", ...elapsed, attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...toolTraceMetadata(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
         if (status === "succeeded" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },
       async (delta, metadata) => {

@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-design-html-acceptance/packages/contracts
+
+ ✓ tests/design-prototype.test.ts (58 tests) 75ms
+ ✓ tests/design-html-page.test.ts (19 tests) 31ms
+
+ Test Files  2 passed (2)
+      Tests  77 passed (77)
+   Start at  19:21:15
+   Duration  1.84s (transform 1.05s, setup 0ms, collect 1.61s, tests 106ms, environment 0ms, prepare 227ms)
+

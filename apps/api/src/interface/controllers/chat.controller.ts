@@ -168,7 +168,7 @@ import {
 } from "../../application/chat/message-command-ports";
 import {
   acceptHumanMessage,
-  AgentNotPublishedError,
+  AgentSkillScopeViolationError, AgentNotPublishedError,
   InvalidMessageCursorError,
   listMessagePage,
   MessageAttachmentNotPendingError,
@@ -462,6 +462,7 @@ export class ChatController {
       if (e instanceof MessageThreadArchivedError) {
         throw new ConflictException({ reasonCode: "THREAD_ARCHIVED_READONLY" });
       }
+      if (e instanceof AgentSkillScopeViolationError) throw new UnprocessableEntityException("AGENT_SKILL_SCOPE_VIOLATION");
       if (e instanceof AgentNotPublishedError) throw new UnprocessableEntityException("AGENT_NOT_FOUND");
       if (e instanceof MessageAttachmentNotPendingError) {
         throw new UnprocessableEntityException({ reasonCode: "ATTACHMENT_NOT_PENDING" });

@@ -70,6 +70,36 @@ describe("personal realtime ASR gateway", () => {
     client.ws.close();
   });
 
+  it("#1150: stopping after a persisted final completes without rewriting the text", async () => {
+    let handlers!: AsrSessionHandlers;
+    const persisted: unknown[] = [];
+    let finished = 0;
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async next => {
+        handlers = next;
+        return { pushAudio: () => undefined, commit: () => undefined,
+          finish: async () => undefined, abort: () => undefined };
+      },
+    };
+    const client = await connect({ provider, repository: repositoryStub({
+      appendFinal: async input => { persisted.push(input); },
+      finishCapture: async () => { finished += 1; },
+    }), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    handlers.onFinal({ text: "已保存正文", confidence: null });
+    expect(await client.next()).toMatchObject({ type: "final", text: "已保存正文" });
+    const before = structuredClone(persisted);
+    client.ws.send(JSON.stringify({ type: "stop" }));
+    expect(await client.next()).toMatchObject({ type: "stopping" });
+    expect(await client.next()).toMatchObject({ type: "completed" });
+    expect(persisted).toEqual(before);
+    expect(persisted).toHaveLength(1);
+    expect(finished).toBe(1);
+    client.ws.close();
+  });
+
   it("does not swallow an upstream error emitted while stopping", async () => {
     const provider: AsrProviderPort = {
       isConfigured: () => true,

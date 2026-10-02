@@ -52,6 +52,7 @@ export async function updateTemplateDraft(
   await requireTemplateAdmin({ identity: deps.identity }, input);
 
   const outcome = await deps.templates.updateDraft({
+    actorId: input.userId,
     orgId: input.orgId,
     key: input.key,
     version: input.version,

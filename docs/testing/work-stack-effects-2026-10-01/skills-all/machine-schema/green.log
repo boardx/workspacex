@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /workspace/pending-skill-name-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/work-eval/gates-counterproof.test.ts (19 tests) 1083ms
+ ✓ tests/work-eval/gates-g0-g4.test.ts (12 tests) 9002ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > a compliant S003 package passes G0–G4 (and G5), exits 0 and yields a valid WorkGateStatus 311ms
+   ✓ lint-work-stack-gates G0–G4 (EV03) > the .mjs entry runs against the repo and passes through the exit code; bad args are rejected 8278ms
+ ✓ tests/work-eval/s003-suite-shape.test.ts (7 tests) 1188ms
+   ✓ evals/work-stack/S003 suite (EV01) > CLI exits 0 on the real suite and non-zero with the field path when suite.json misses a field 1039ms
+ ✓ tests/work-eval/machine-schema-vocabulary.test.ts (3 tests) 144ms
+
+ Test Files  4 passed (4)
+      Tests  41 passed (41)
+   Start at  12:02:40
+   Duration  20.41s (transform 4.22s, setup 0ms, collect 6.06s, tests 11.42s, environment 2ms, prepare 376ms)

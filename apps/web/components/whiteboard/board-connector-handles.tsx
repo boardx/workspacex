@@ -41,7 +41,7 @@ export function BoardConnectorHandles({viewport,path,relationship,color,canEdit,
   }
   occupied.push(position);
   if(position!==origin)leaders.push({id:handleId??kind,from:origin,to:position});
-  return <button key={`${kind}:${handleId??''}`} type="button" data-testid={`board-connector-handle-${handleId??kind}`} data-handle-kind={kind} aria-label={name} title={name} className="pointer-events-auto absolute grid h-11 w-11 touch-none place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{left:position.x,top:position.y,transform:'translate(-50%, -50%)'}} onPointerDown={event=>onPointerDown(kind,handleId,event)} {...events}><span aria-hidden="true" className={kind==='label'?'h-3 w-3 rotate-45 border-2 border-primary bg-background':'h-3 w-3 rounded-full border-2 border-primary bg-background'}/></button>;
+  return <button key={`${kind}:${handleId??''}`} type="button" data-testid={`board-connector-handle-${handleId??kind}`} data-handle-kind={kind} aria-label={name} title={name} className="pointer-events-auto absolute grid h-[45px] w-[45px] touch-none place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{left:position.x,top:position.y,transform:'translate(-50%, -50%)'}} onPointerDown={event=>onPointerDown(kind,handleId,event)} {...events}><span aria-hidden="true" className={kind==='label'?'h-3 w-3 rotate-45 border-2 border-primary bg-background':'h-3 w-3 rounded-full border-2 border-primary bg-background'}/></button>;
  };
  const handles=path&&relationship&&canEdit?[
   handle('from',path.start,'调整连接起点'),handle('to',path.end,'调整连接终点'),

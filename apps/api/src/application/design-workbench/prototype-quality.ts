@@ -210,7 +210,7 @@ function primaryFocus(nodes: readonly designPrototype.PrototypeNode[]): QualityD
  *   `示例文本`、`待定`、`TODO`）。宁可漏判也不要误判：真实文案里出现「示例」二字是常有的事，
  *   误判会让一页好页被打回重画，比漏判贵。
  */
-const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
+export const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
   /lorem ipsum/i,
   /^(标题|副标题|正文|文本|内容|按钮|描述|说明)\s*[0-9一二三四五六七八九十]*$/,
   /^(item|title|text|label|button|placeholder|content)\s*[0-9]*$/i,

@@ -552,14 +552,33 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     orgId: OrgId,
     threadId: string,
     expectedVersion: number,
-  ): Promise<{ messageCount: number } | null> {
+  ): Promise<{ messageCount: number; retained?: boolean; version?: number } | null> {
     return this.db.withTenant(orgId, async (s) => {
+      // Serialize against concurrent acceptance/deletion before deciding retention.
+      // Keeping the run FK intact also avoids billing run_id SET NULL attempting to
+      // update immutable token usage, and leaves every append-only trigger untouched.
+      const thread = await s.query<{ version: number }>(
+        "SELECT version FROM chat_threads WHERE id=$1 AND org_id=$2 AND version=$3 FOR UPDATE",
+        [threadId, orgId, expectedVersion],
+      );
+      if (!thread.rows.length) return null;
       // 条数在同一个事务里、删除之前读。删完再数恒为 0——一个恒为 0 的影响范围
       // 比没有影响范围更糟：它看起来像已经验证过了。
       const c = await s.query<{ n: string }>(
         "SELECT count(*)::text AS n FROM chat_messages WHERE thread_id = $1 AND org_id = $2",
         [threadId, orgId],
       );
+      const history = await s.query<{ present: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM agent_runs WHERE org_id=$1 AND thread_id=$2) AS present",
+        [orgId, threadId],
+      );
+      if (history.rows[0]?.present) {
+        const retained = await s.query<{ version: number }>(
+          "UPDATE chat_threads SET archived=true,version=version+1 WHERE id=$1 AND org_id=$2 AND version=$3 RETURNING version",
+          [threadId, orgId, expectedVersion],
+        );
+        return { messageCount: Number(c.rows[0]?.n ?? "0"), retained: true, version: retained.rows[0]!.version };
+      }
       const r = await s.query<{ id: string }>(
         `DELETE FROM chat_threads
           WHERE id = $1 AND org_id = $2 AND version = $3

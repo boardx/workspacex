@@ -887,7 +887,7 @@ test("发送后 thinking 等待动画（非流式/deep-agent 情形）—— 提
  * 按人类裁决（方案 B）**不删断言、不改宽**：锚点已经迁完（下面就是迁移后的版本），
  * 差的是 #3032 那一行产品修复；补上之后把 `test.fixme` 改回 `test` 即可。
  */
-test.fixme("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送也拽回最新", async ({ page }) => {
+test("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送也拽回最新", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
