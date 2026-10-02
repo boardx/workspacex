@@ -86,6 +86,11 @@ function fencedJson(
   }
 }
 
+/** Compare question content without treating object property order as a change. */
+export function surveyQuestionsContentSignature(questions: readonly SurveyDraftInput["questions"][number][]): string {
+  return stableJson(questions);
+}
+
 export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseResult {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const diagnostics: SurveySourceDiagnostic[] = [];
