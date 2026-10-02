@@ -224,7 +224,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-21 | `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` | workflow 使用 `sudo -n` 调用精确可信入口；sudoers 漂移立即失败并指向 bootstrap 修复，不再占用 runner 等密码 |
 | 2026-10-01 | `CN_PROMOTION_NOT_READY` | 完整 exact-SHA prepared receipt 在无 environment 的 readiness job 验证；审批后复验失败直接停止，不补 prepare/build；真实 Bash 对 0/1/3/42 退出码的反证覆盖两道门（#4908）。 |
 
-| 2026-10-02 | `RUNTIME_SOURCE_UNSAFE` | 按路径段拒绝 `..`，允许真实 Git 的 `[[...slug]]` 路由；构建前以非特权 `verify-source` 检查冻结源码；构建后 digest/attest 校验不减。真实 Git catchall、symlink、gitlink、字节漂移及 pre-sudo 反证由 runtime identity/gate 测试覆盖（#5037） |
+| 2026-10-02 | `RUNTIME_SOURCE_UNSAFE` | 按路径段拒绝 `..`，允许真实 Git 的 `[[...slug]]` 路由；构建前以非特权 `verify-source` 检查冻结源码；构建后 digest/attest 校验不减。真实 Git catchall、symlink、gitlink、字节漂移及 pre-sudo 反证由 runtime identity/gate 测试覆盖（#5037）。缺失 identity module 的应急修复使用已审阅 exact identity-only installer；漂移提示中的 full provision 不是本次应急操作，禁止因此重写应用配置 |
 
 ## 12. 发布后清理
 
