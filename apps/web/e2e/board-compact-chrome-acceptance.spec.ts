@@ -41,8 +41,10 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
 
    await page.getByTestId('board-tool-select').click();await page.getByTestId('board-add-draw').click();
    const drawPanel=page.getByTestId('board-draw-tool-panel');await expect(drawPanel).toBeVisible();const drawBounds=(await drawPanel.boundingBox())!;
-   expect(drawBounds.width).toBeGreaterThanOrEqual(740);expect(drawBounds.width).toBeLessThanOrEqual(762);expect(drawBounds.height).toBeGreaterThanOrEqual(230);expect(drawBounds.height).toBeLessThanOrEqual(280);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
-   for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-opacity-55','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
+   expect(drawBounds.width).toBeGreaterThanOrEqual(740);expect(drawBounds.width).toBeLessThanOrEqual(762);expect(drawBounds.height).toBeGreaterThanOrEqual(128);expect(drawBounds.height).toBeLessThanOrEqual(140);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
+   for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
+   await expect(page.locator('[data-testid^="board-draw-opacity-"]')).toHaveCount(0);
+   for(const choice of ['pen','marker','pencil','highlighter'])await expect(page.getByTestId(`board-draw-preview-${choice}`)).toBeVisible();
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
 
    // R04 hides the new Frame palette; retain its historical geometry reference
