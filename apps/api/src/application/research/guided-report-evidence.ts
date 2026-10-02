@@ -1,4 +1,5 @@
 import { collectChunkEvidence, type EvidenceCandidate, type EvidenceAttemptDiagnostic } from "./guided-report-evidence-validation";
+import { sourceAllowedByPolicy } from "./guided-source-policy";
 import { updateReportTimeline } from "./guided-report-timeline";
 import { boundedWork } from "./guided-bounded-work";
 import { research as C } from "@repo/contracts";
@@ -28,9 +29,9 @@ export function reportQuestions(sections: ReportSection[]): EvidenceQuestion[] {
 }
 export function canonicalEvidenceSources(state: ResearchRuntime) {
   const unique = new Map<string, ResearchRuntime["sources"][number]>();
-  const fetchedMode = state.sources.some((source) => source.document);
-  for (const source of state.sources) {
-    if (source.decision !== "accepted") continue;
+  const eligible = state.sources.filter((source) => source.decision === "accepted" && sourceAllowedByPolicy(source, state.sourcePolicy));
+  const fetchedMode = eligible.some((source) => source.document);
+  for (const source of eligible) {
     if (fetchedMode && !source.document) continue;
     const url = new URL(source.url); url.hash = "";
     const previous = unique.get(url.href);

@@ -221,3 +221,17 @@ it("keeps recovered edits when an abandoned execution lease has expired", async 
   expect(getResearchRuntime).toHaveBeenCalledTimes(2);
 });
 import { runtimeFixture } from "../guided-runtime-fixture";
+
+
+it("saves post-research chapter edits without returning to the research plan (#5081)", async () => {
+  const state = runtimeFixture("research");
+  vi.mocked(getResearchRuntime).mockResolvedValue(state);
+  vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: state.version + 1,
+    outline: state.outline.map((item) => ({ ...item, title: "Edited chapter title" })) });
+  render(<GuidedResearchLive sessionId="grs-live" visualStage="chapters" onBack={vi.fn()} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "章节标题" }), { target: { value: "Edited chapter title" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存章节结构" }));
+  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "save_chapters" })));
+  expect(await screen.findByRole("textbox", { name: "章节标题" })).toHaveValue("Edited chapter title");
+  expect(screen.queryByRole("button", { name: "开始研究" })).not.toBeInTheDocument();
+});

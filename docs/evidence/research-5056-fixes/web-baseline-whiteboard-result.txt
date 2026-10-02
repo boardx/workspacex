@@ -1,0 +1,34 @@
+   ✓ creates a real shape and structured Tile from the touch-first dock 4891ms
+   × creates a verified durable image without writing bytes or blob/data URLs into the shared document 1113ms
+   × retains a shared image asset across duplicate deletion and remote bulk deletion until editor unmount 1072ms
+   × uses the verified durable path for clipboard paste 1096ms
+   × uses the verified durable path for file drop 1114ms
+   × validates HTTPS image MIME, size, and magic bytes before storing a durable asset reference 1256ms
+   × verifies JPEG, GIF, WEBP and sanitizes SVG into the exact displayed bytes 5ms
+     → promise rejected "TypeError: Failed to execute 'digest' on … { code: '…' }" instead of resolving
+   ✓ applies contextual color and duplicates with a 24px offset 441ms
+   × rehydrates a persisted image in a fresh editor session 1068ms
+   × never creates ready canonical content when durable upload fails 1055ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > creates a verified durable image without writing bytes or blob/data URLs into the shared document
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > retains a shared image asset across duplicate deletion and remote bulk deletion until editor unmount
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > uses the verified durable path for clipboard paste
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > uses the verified durable path for file drop
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > validates HTTPS image MIME, size, and magic bytes before storing a durable asset reference
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > verifies JPEG, GIF, WEBP and sanitizes SVG into the exact displayed bytes
+AssertionError: promise rejected "TypeError: Failed to execute 'digest' on … { code: '…' }" instead of resolving
+Caused by: TypeError: Failed to execute 'digest' on 'SubtleCrypto': 2nd argument is not instance of ArrayBuffer, Buffer, TypedArray, or DataView.
+Serialized Error: { code: 'ERR_INVALID_ARG_TYPE' }
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > rehydrates a persisted image in a fresh editor session
+AssertionError: expected '' to match /^blob:/
+ FAIL  tests/whiteboard/board-content-tools.test.tsx > never creates ready canonical content when durable upload fails
+TestingLibraryElementError: Unable to find an element with the text: /图片未保存/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ Test Files  1 failed (1)
+      Tests  8 failed | 22 passed (30)
+   Duration  22.98s (transform 3.13s, setup 726ms, collect 1.09s, tests 15.30s, environment 3.75s, prepare 296ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/board-content-tools.test.tsx --maxWorkers=1 --minWorkers=1
