@@ -35,8 +35,13 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
         width:(g.width*c+g.height*s)*zoom,height:(g.width*s+g.height*c)*zoom};
     });
     if(occupied.length!==count)throw new Error('NATIVE_GEOMETRY_COUNT_MISMATCH');
-    for(let y=100;y<box.height-180;y+=28)for(let x=40;x<box.width-40;x+=28){
+    const chrome=Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
+    // Leave a visible paper footprint and comment affordance around the placement,
+    // not merely a clickable center underneath the fixed header after reload.
+    const margin=Math.max(120,120*zoom);
+    for(let y=margin;y<box.height-margin;y+=28)for(let x=margin;x<box.width-margin;x+=28){
       if(document.elementFromPoint(box.x+x,box.y+y)!==canvas)continue;
+      if(chrome.some(rect=>box.x+x+margin>=rect.left&&box.x+x-margin<=rect.right&&box.y+y+margin>=rect.top&&box.y+y-margin<=rect.bottom))continue;
       if(occupied.some(g=>Math.abs(x-g.x)<=g.width/2+24&&Math.abs(y-g.y)<=g.height/2+24))continue;
       return{x:box.x+x,y:box.y+y};
     }
