@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
+import { parse } from 'yaml';
 import { probeSkillImportAuthentication } from './ci-skill-import-auth-probe.mjs';
 
 async function run(options: { mode?: string; status?: number; limit?: number; remaining?: number; absent?: boolean } = {}) {
@@ -54,5 +55,41 @@ describe('dedicated public Skill import authentication probe', () => {
     expect(step).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');
     expect(step).not.toContain('github.token');
     expect(step).toContain('node .harness/scripts/ci-skill-import-auth-probe.mjs');
+  });
+});
+
+// #5048: execute the workflow's actual credential expression against synthetic events.
+describe('isolated Skill files workflow authentication boundary', () => {
+  const workflow = parse(readFileSync(new URL('../../.github/workflows/skill-files-e2e.yml', import.meta.url), 'utf8'));
+  const steps = workflow.jobs['skill-files-e2e'].steps;
+  const probe = steps.find((step: { run?: string }) => step.run === 'node .harness/scripts/ci-skill-import-auth-probe.mjs');
+  const runner = steps.find((step: { name?: string }) => step.name === 'Run isolated real import, save and pin recovery');
+  it.each([
+    ['pull_request', 'boardx/workspacex', 'FAKE'],
+    ['pull_request', 'outside/fork', ''],
+    ['push', undefined, 'FAKE'],
+    ['workflow_dispatch', undefined, 'FAKE'],
+  ])('passes dedicated auth only for trusted %s from %s', (event, headRepo, expected) => {
+    expect(probe).toBeDefined();
+    for (const step of [probe, runner]) {
+      const value = step.env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN;
+      expect(value).not.toContain('github.token');
+      expect(value).not.toContain('secrets.GITHUB_TOKEN');
+      const expression = value.match(/^\$\{\{ (.+) \}\}$/)?.[1];
+      expect(expression).toBeDefined();
+      const evaluate = new Function('github', 'secrets', `return (${expression});`);
+      const github = { event_name: event, repository: 'boardx/workspacex', event: { pull_request: { head: { repo: { full_name: headRepo } } } } };
+      expect(evaluate(github, { WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: 'FAKE' })).toBe(expected);
+      expect(evaluate(github, {})).toBe('');
+    }
+  });
+  it('probes before isolation and keeps real browser acceptance and failure evidence', () => {
+    expect(steps.indexOf(probe)).toBeGreaterThan(-1);
+    expect(steps.indexOf(probe)).toBeLessThan(steps.indexOf(runner));
+    expect(runner.env.TMPDIR).toBe('${{ runner.temp }}');
+    expect(runner.run).toContain('with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs');
+    expect(runner.run).toContain('playwright test --config playwright.skill-files.config.ts');
+    expect(runner['continue-on-error']).toBeUndefined();
+    expect(steps.find((step: { name?: string }) => step.name === 'Retain structured browser evidence').if).toBe('always()');
   });
 });
