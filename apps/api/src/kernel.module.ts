@@ -3,6 +3,9 @@ import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './applicati
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
 import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { WhiteboardFilesController } from './interface/controllers/whiteboard-files.controller';
+import { WHITEBOARD_FILE_ASSETS, WhiteboardFileAssets } from './application/whiteboard/file-assets';
+import { PgBoardFileAssets } from './infrastructure/whiteboard/pg-file-assets';
 import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
 import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
 import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
@@ -1176,6 +1179,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
 
 @Module({
   controllers: [
+    WhiteboardFilesController,
     WorkflowRuntimeController,
     BoardRunCardsController,
     KnowledgeGraphController,
@@ -3405,6 +3409,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: WHITEBOARD_IMAGE_ASSETS,
       useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_FILE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardFileAssets(boards, new PgBoardFileAssets(db, boards), objects),
       inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
     },
     {
