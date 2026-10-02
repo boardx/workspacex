@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, symlinkSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, symlinkSync, chmodSync} from 'node:fs';
 import {join, dirname} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
@@ -21,6 +21,20 @@ test('storage receipt binds actual fs environment and startup identity', () => f
   assert.throws(() => verifyFileStorage({...manifest, head: 'b'.repeat(40)}));
   assert.throws(() => verifyFileStorage({...manifest, processes: [{kind: 'api', pid: manifest.processes[0].pid + 1}]}));
   assert.throws(() => verifyFileStorage({...manifest, fileStorage: undefined}));
+  assert.throws(() => verifyFileStorage({...manifest, processes: [{kind: 'api', pid: 999999999}]}), error => {
+    assert.match(error.message, /^FILES_STORAGE_PROCESS_ENV_UNAVAILABLE:(?:-?\d+|unknown)$/);
+    assert.equal(error.cause, undefined); assert.equal(error.stdout, undefined); assert.equal(error.stderr, undefined); assert.equal(error.cmd, undefined);
+    return true;
+  });
+}));
+
+test('symlink ancestors, writable ancestors and non-0600 receipts fail closed', () => fixture(({dataDir, objectRoot, manifest}) => {
+  manifest.fileStorage = attestFileStorage({manifest, dataDir, apiEnvironment: {WORKSPACEX_OBJECT_STORE: 'fs', WORKSPACEX_OBJECT_ROOT: objectRoot}});
+  const alias = join(dataDir, 'ancestor-alias'); symlinkSync(dataDir, alias);
+  assert.throws(() => verifyFileStorage({...manifest, fileStorage: {...manifest.fileStorage, objectRoot: join(alias, 'objects')}}));
+  chmodSync(objectRoot, 0o777); assert.throws(() => verifyFileStorage(manifest)); chmodSync(objectRoot, 0o755);
+  chmodSync(manifest.fileStorage.receiptPath, 0o400); assert.throws(() => verifyFileStorage(manifest)); chmodSync(manifest.fileStorage.receiptPath, 0o600);
+  assert.equal(verifyFileStorage(manifest).objectRoot, objectRoot);
 }));
 
 test('wrong backend, edited receipt and symlink storage cannot attest', () => fixture(({dataDir, objectRoot, manifest}) => {
