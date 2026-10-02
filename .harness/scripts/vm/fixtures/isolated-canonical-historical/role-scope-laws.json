@@ -1,0 +1,49 @@
+{
+  "20261001094500_official_role_pending_skill_bindings.sql": {
+    "sqlSha256": "22e9da184ee08fecc83df8d1c364b5f5035f76d41ca2a54916cea2e58d70d522",
+    "body": {
+      "kind": "official-role-pending-skill-bindings",
+      "relation": "public.agent_versions",
+      "column": {
+        "name": "pending_skill_bindings",
+        "type": "jsonb",
+        "nullable": false,
+        "default": []
+      },
+      "check": "jsonb_typeof(pending_skill_bindings) = 'array'",
+      "retainedLegacyValues": [],
+      "preserve": "original columns multiset, constraints, policies, ACL, owner, RLS and sequences",
+      "firstBefore": "reject preexisting added column or same-name CHECK",
+      "repeat": "reuse original before baseline; normal migrator repeat applies zero SQL"
+    },
+    "lawSha256": "5c5df61ed62d95aedb5823b17e544110b31a9cec4c7de9eb50e1538a093c1913"
+  },
+  "20261001095000_agent_run_skill_scope.sql": {
+    "sqlSha256": "38861dea461c59dcaedba76444fa6dac0137608716311f4c14c445cb6be72bf4",
+    "body": {
+      "kind": "agent-run-skill-scope",
+      "relations": [
+        "public.agent_runs",
+        "public.thread_message_queue"
+      ],
+      "columns": {
+        "agent_runs.skill_scope": {
+          "type": "text",
+          "nullable": true,
+          "default": null
+        },
+        "thread_message_queue.explicit_agent": {
+          "type": "boolean",
+          "nullable": true,
+          "default": null
+        }
+      },
+      "check": "skill_scope IS NULL OR skill_scope IN ('agent_pins','general')",
+      "retainedLegacyValues": null,
+      "preserve": "original columns multiset, constraints, policies, ACL, owner, RLS and sequences",
+      "firstBefore": "reject preexisting added columns or same-name CHECK; DROP/ADD cannot hide incompatible constraint",
+      "repeat": "reuse original before baseline; normal migrator repeat applies zero SQL"
+    },
+    "lawSha256": "b2366868f9c0fe80abc6d3997be47dac343e7f5432bced9b37ce4cee60bff0d6"
+  }
+}
