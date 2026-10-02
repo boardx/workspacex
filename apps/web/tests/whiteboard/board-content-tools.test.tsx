@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, executeCommands, readObjects, readPanelMetadata } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { drawingEraserTargets } from "@/components/whiteboard/fabric/drawing-hit-test";
+import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 
 vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
@@ -135,35 +136,26 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-draw"));
   fireEvent.click(screen.getByTestId("board-draw-stroke-8"));
-  fireEvent.click(screen.getByTestId("board-draw-opacity-55"));
+  expect(screen.queryByTestId("board-draw-opacity-55")).not.toBeInTheDocument();
   fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
   fireEvent.click(screen.getByTestId("draw-stroke"));
   const drawing = readObjects(doc)[0]!;
   expect(drawing.kind).toBe("drawing");
-  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", width:8, opacity:.55, color:"#2563EB", points: [{ pressure: .2 }, { pressure: .9 }] }] });
+  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", width:8, opacity:drawingToolStyle("pen").opacity, color:"#2563EB", points: [{ pressure: .2 }, { pressure: .9 }] }] });
   fireEvent.click(screen.getByTestId("erase-stroke"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
   doc.destroy();
 });
 
-it("opens Frame from the F shortcut without creating twice and persists the chosen semantics", async () => {
+it("keeps Frame creation hidden and ignores its former shortcut", async () => {
   const doc = await setup();
   fireEvent.keyDown(window,{key:"f"});
   expect(readObjects(doc)).toEqual([]);
-  expect(screen.getByTestId("board-frame-tool-panel")).toBeVisible();
-  fireEvent.click(screen.getByTestId("board-frame-circle"));
-  fireEvent.click(screen.getByTestId("board-frame-size-l"));
-  for (let index = 0; index < 8; index += 1) {
-    fireEvent.click(screen.getByTestId("canvas-click"));
-    expect(readObjects(doc), `Frame gesture ${index + 1} should add one object`).toHaveLength(index + 1);
-  }
-  const panels=readObjects(doc);
-  const panel=panels[0]!;
-  expect(new Set(panels.map((object) => object.id))).toHaveLength(8);
-  expect(panels.every((object) => object.kind === "frame")).toBe(true);
-  expect(panel).toMatchObject({kind:"frame",text:"Circle",geometry:{width:1280,height:800}});
-  expect(readPanelMetadata(panel)).toMatchObject({mode:"freeform",shape:"circle",template:"blank"});
+  expect(screen.queryByTestId("board-frame-tool-panel")).toBeNull();
+  expect(screen.queryByTestId("board-add-panel")).toBeNull();
+  fireEvent.click(screen.getByTestId("canvas-click"));
+  expect(readObjects(doc)).toEqual([]);
   doc.destroy();
 });
 
@@ -171,6 +163,7 @@ it("moves selected-object chrome out of the way while Draw is active", async () 
   const doc=await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
   fireEvent.click(screen.getByTestId("board-shape-circle"));
+  fireEvent.click(screen.getByTestId("canvas-click"));
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
   fireEvent.click(screen.getByTestId("board-add-draw"));
   expect(screen.getByTestId("board-draw-tool-panel")).toBeVisible();
@@ -488,6 +481,7 @@ it("rejects malformed partial responses before creating an image object", async 
 it("applies contextual color and duplicates with a 24px offset", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
+  fireEvent.click(screen.getByTestId("canvas-click"));
   const source = readObjects(doc)[0]!;
   openAppearance();
   fireEvent.change(screen.getByLabelText("形状填充色"), { target: { value: "#93C5FD" } });

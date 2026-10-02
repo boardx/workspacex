@@ -1,3 +1,4 @@
+import { seedExistingFrame } from "./board-acceptance-support";
 import { randomUUID } from "node:crypto";
 import { PortableBoardBundle, PortableExportResult } from "@repo/contracts/whiteboard-portable";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
@@ -165,14 +166,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   const surface = page.getByTestId("board-fabric-surface");
-  await page.getByTestId("board-add-frame").click();
-  await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
-  await page.getByTestId("board-frame-size-s").click();
-  // The Frame panel occupies the lower center of the editor. Use an exposed
-  // canvas point so the real Fabric mouse event, rather than panel chrome, owns it.
-  // The S size also keeps the whole Frame inside the later real marquee gesture.
-  await surface.click({ position: { x: 360, y: 320 } });
-  await page.getByRole("button", { name: "Close frame tools" }).click();
+  await seedExistingFrame(page,200,200,320,240);
   await expect(outline).toHaveCount(1);
   await openStickyTool(page);
   // A click on the Frame targets the existing Fabric object, so creation-on-blank
@@ -209,6 +203,11 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await openInspector(page, true, true);
   const autoExpand = page.getByLabel("区域自动扩展", { exact: true });
   const clipContent = page.getByLabel("区域裁剪内容", { exact: true });
+  // Existing-frame fixture starts false; establish the same true precondition
+  // through the actual UI before exercising true -> false -> clip -> expand.
+  await expect(autoExpand).not.toBeChecked();
+  await autoExpand.check();
+  await expect(autoExpand).toBeChecked();
   await autoExpand.evaluate((element: HTMLInputElement) => element.click());
   await expect(autoExpand).not.toBeChecked();
   await expect(clipContent).toBeEnabled();
