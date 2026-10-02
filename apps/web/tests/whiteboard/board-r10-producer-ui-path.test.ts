@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {it,expect,vi} from 'vitest';
 import {expectBoardSynced} from '../../e2e/support/board-sync-status';
+import {spatialFrameMetadata} from '../../e2e/support/board-spatial-ws-metadata';
 vi.mock('@playwright/test',()=>({expect:(value:{visible:boolean;attributes:Record<string,string>})=>({
  toBeVisible:async()=>{if(!value.visible)throw new Error('not visible');},
  toHaveAttribute:async(name:string,wanted:string|RegExp)=>{
@@ -51,4 +52,15 @@ it('keeps acceptance pointer gestures in bounds and reserves a measured startup 
  expect(journey).not.toContain("for (const name of ['A', 'B', 'C'])");
  expect(performance).toContain('BOARD_PERFORMANCE_SERVER_TIMEOUT_MS ?? 360_000');
  expect(performance).toContain('server?.timeout === 30_000 ? server.timeout');
+});
+it('uses strict cloud acknowledgement for file refresh and records only safe panel failure metadata',()=>{
+ const files=read('board-files-acceptance.spec.ts');
+ expect(files.match(/await expectBoardSynced\(page\)/g)).toHaveLength(2);
+ expect(files).not.toContain('toHaveText(BOARD_SYNCED_STATUS)');
+ const panel=read('board-final-acceptance.spec.ts');
+ expect(panel).toContain("transport.observe(page, 'original')");
+ expect(panel).toContain("attach('panel-failure-transport'");
+ expect(panel).toContain("throw error;");
+ expect(spatialFrameMetadata(JSON.stringify({type:'error',code:'ACCESS_DENIED',token:'secret',message:'private text',update:'private bytes'}))).toEqual({type:'error',code:'ACCESS_DENIED'});
+ expect(spatialFrameMetadata(JSON.stringify({type:'error',code:'private reason with spaces',token:'secret'}))).toEqual({type:'error'});
 });
