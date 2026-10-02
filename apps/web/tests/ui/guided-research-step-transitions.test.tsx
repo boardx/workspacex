@@ -180,7 +180,8 @@ describe("step-aligned research transitions", () => {
         value: expect.arrayContaining([expect.objectContaining({ id: "o1", title: "新的政策章节" })]),
       }),
     })));
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "章节标题" })).toHaveValue("新的政策章节"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存章节结构" })).not.toBeInTheDocument());
+    expect(screen.getByRole("textbox", { name: "章节标题" })).toHaveValue("新的政策章节");
     expect(window.location.pathname).toBe("/research/grs-live/chapters");
     expect(screen.getByTestId("research-chapters-workspace")).toBeInTheDocument();
     expect(screen.queryByTestId("guided-research-plan-panel")).not.toBeInTheDocument();
