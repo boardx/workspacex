@@ -4,8 +4,24 @@ import {spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
-import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof} from './run-board-native-acceptance.mjs';
+import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics} from './run-board-native-acceptance.mjs';
 const base=['--','pnpm','--filter','web','exec','playwright','test','--config'];
+test('each workflow suite has its own exact checkout without discarding failed build evidence',()=>{
+  const workflow=readFileSync(new URL('../../../.github/workflows/board-native-acceptance.yml',import.meta.url),'utf8');
+  for(const suite of ['connectors','files']){
+    assert(workflow.includes(`git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-${suite}`));
+    assert(workflow.includes(`git -C /private/tmp/wsx-native-${suite} checkout --detach "$(git rev-parse HEAD)"`));
+    assert(workflow.includes(`working-directory: /private/tmp/wsx-native-${suite}`));
+  }
+  assert(!workflow.includes('wsx-native-candidate'));assert(!workflow.includes('rm '));
+});
+test('startup diagnostics expose only literal safe categories, never private log content',()=>{
+  const secret='TOKEN=private-value SQL password=secret /private/machine/path';
+  assert.deepEqual(safeStartupDiagnostics(secret),{matchedFailure:'UNKNOWN',ambiguous:false});
+  assert.deepEqual(safeStartupDiagnostics(`${secret}\nnative-web-build failed; inspect private log`),{matchedFailure:'native-web-build',ambiguous:false});
+  assert.deepEqual(safeStartupDiagnostics('native-migrate failed; inspect private log\nnative-web-build failed; inspect private log'),{matchedFailure:'UNKNOWN',ambiguous:true});
+  assert.equal(JSON.stringify(safeStartupDiagnostics(secret)).includes('secret'),false);
+});
 test('only complete native connector and file configurations may execute',()=>{
   for(const config of ['e2e/board-connector-existing-runtime.config.ts','e2e/board-files-completion.config.ts'])assert.equal(acceptanceCommand([...base,config])[7],config);
   for(const args of [[...base,'e2e/other.config.ts'],[...base,'e2e/board-files-completion.config.ts','--list'],[...base,'e2e/board-files-completion.config.ts','--grep','plain'],['--','echo','passed'],[]])assert.throws(()=>acceptanceCommand(args));
