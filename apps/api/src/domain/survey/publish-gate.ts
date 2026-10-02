@@ -4,6 +4,7 @@ import type {
 } from "@repo/contracts/survey";
 import {
   isSurveyPageElement,
+  validateSurveyQuestion,
   validateSurveyQuestionLogic,
 } from "@repo/contracts/survey-question-types";
 import type { SurveyReportTemplate } from "@repo/contracts/survey-report";
@@ -95,6 +96,14 @@ export function evaluateSurveyForPublish(
   }
 
   for (const [index, question] of input.questions.entries()) {
+    const configurationDiagnostics = validateSurveyQuestion(question);
+    if (configurationDiagnostics.length)
+      blockers.push({
+        code: "QUESTION_CONFIG_INVALID",
+        side: "question",
+        subjectId: question.id,
+        missingFields: configurationDiagnostics,
+      });
     const diagnostics = validateSurveyQuestionLogic(
       question,
       index,
