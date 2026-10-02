@@ -151,8 +151,8 @@ it('erases precise no-hint geometry once while preserving non-drawing, hidden an
  fireEvent.click(screen.getByTestId('erase-no-ids'));const erased=readObjects(doc);expect(transactions).toHaveLength(1);
  for(const id of ['first','second'])expect(erased.find(object=>object.id===id)?.extensionData?.contentObject).toMatchObject({strokes:[stroke,{tool:'eraser',erases:['vector']}]});
  for(const id of ['spoof','hidden','locked'])expect(erased.find(object=>object.id===id)).toEqual(baseline.find(object=>object.id===id));
- fireEvent.click(screen.getByRole('button',{name:'撤销',exact:true}));expect(readObjects(doc)).toEqual(baseline);fireEvent.click(screen.getByRole('button',{name:'重做',exact:true}));expect(readObjects(doc)).toEqual(erased);
- fireEvent.click(screen.getByRole('button',{name:'撤销',exact:true}));fireEvent.click(screen.getByTestId('erase-restricted'));expect(readObjects(doc).find(object=>object.id==='second')).toEqual(baseline.find(object=>object.id==='second'));expect(readObjects(doc).find(object=>object.id==='first')).not.toEqual(baseline.find(object=>object.id==='first'));doc.destroy();
+ fireEvent.click(screen.getByRole('button',{name:/^撤销$/}));expect(readObjects(doc)).toEqual(baseline);fireEvent.click(screen.getByRole('button',{name:/^重做$/}));expect(readObjects(doc)).toEqual(erased);
+ fireEvent.click(screen.getByRole('button',{name:/^撤销$/}));fireEvent.click(screen.getByTestId('erase-restricted'));expect(readObjects(doc).find(object=>object.id==='second')).toEqual(baseline.find(object=>object.id==='second'));expect(readObjects(doc).find(object=>object.id==='first')).not.toEqual(baseline.find(object=>object.id==='first'));doc.destroy();
 });
 
 it('blocked editing rejects geometric erase even when the callback omits target hints',async()=>{
