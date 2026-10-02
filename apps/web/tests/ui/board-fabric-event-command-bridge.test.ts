@@ -8,6 +8,7 @@ const fabricHarness = vi.hoisted(() => {
   const state = { canvases: [] as MockCanvas[] };
   class MockFabricObject {
     data?: { boardObjectId?: string; adapterKind?: string; renderedRevision?: number };
+    source?: string;
     left = 0;
     top = 0;
     width = 100;
@@ -17,7 +18,7 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
-    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
+    constructor(value?: unknown, options: Record<string, unknown> = {}) { if (typeof value === "string") this.source = value; this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
     getObjects() { return this.children; }
     private children: MockFabricObject[] = [];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
@@ -138,6 +139,19 @@ const firstProjected = (canvas: ReturnType<typeof mountedCanvas>) => {
 describe("Board Fabric event-to-command boundary", () => {
   beforeEach(() => { fabricHarness.state.canvases.length = 0; });
 
+  it("proves real Fabric Group path endpoints stay in world coordinates despite stroke bounds", async () => {
+    const { Group, Path, Point, util } = await vi.importActual<typeof import("fabric")>("fabric");
+    for (const [x, y] of [[285, 200], [215, 90]]) {
+      const path = new Path(`M ${x} ${y} L 500 100`, { fill: "", stroke: "#29261E", strokeWidth: 2 });
+      const group = new Group([path]);
+      const world = (px: number, py: number) => util.transformPoint(new Point(px - path.pathOffset.x, py - path.pathOffset.y), path.calcTransformMatrix());
+      expect(world(x!, y!)).toMatchObject({ x, y });
+      expect(world(500, 100)).toMatchObject({ x: 500, y: 100 });
+      expect(group.getBoundingRect().left).toBe(x! - 1);
+      expect(group.getBoundingRect().left).not.toBe(x);
+    }
+  });
+
   it("previews attached connectors and chrome after snapping without committing, then restores rejection", () => {
     const events = callbacks();
     const edge: BoardFabricObject = { ...base, id: "edge", kind: "connector", orderKey: "b", geometry: { x: 210, y: 90, width: 290, height: 10, rotation: 0 }, connector: { from: base.id, fromAnchor: "right", toAnchor: "left", fromOffset: { x: 5, y: 0 }, type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 215, y: 90 }, end: { x: 500, y: 100 } } };
@@ -147,12 +161,12 @@ describe("Board Fabric event-to-command boundary", () => {
     act(() => canvas.emit("object:moving", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
     expect(events.onTransformPreview).toHaveBeenLastCalledWith([{ id: base.id, geometry: { x: 80, y: 130, width: 200, height: 140, rotation: 0 } }]);
     expect(events.onObjectTransform).not.toHaveBeenCalled();
-    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.left).toBe(285);
+    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*285[ ,]200\s*L\s*500[ ,]100$/);
     act(() => canvas.emit("object:modified", { target }));
     expect(events.onObjectTransform).toHaveBeenCalledTimes(1);
     expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
     expect(target.left).toBe(base.geometry.x);
-    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.left).toBe(215);
+    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*215[ ,]90\s*L\s*500[ ,]100$/);
   });
 
   it("reports rotated and scaled geometry and clears preview on native cancellation", () => {
