@@ -130,18 +130,18 @@ export async function dragObject(page: Page, id: string, dx: number, dy: number,
   await page.getByTestId('board-zoom-fit-board').click();
   const before = (await canonicalRows(page)).find(row => row.id === id)!;
   const point = await objectPoint(page, id, header);
+  const diagnosticsEnabled = process.env.BOARD_DRAG_DIAGNOSTIC === '1';
   const diagnostic = async (phase: string) => {
-    if (process.env.BOARD_DRAG_DIAGNOSTIC !== '1') return;
     const projection = await surfaceSnapshot(page, point.x, point.y);
     console.log('BOARD_DRAG_DIAGNOSTIC', JSON.stringify({id, phase, point, dx, dy, projection, rows: await canonicalRows(page)}));
   };
-  await diagnostic('before');
+  if (diagnosticsEnabled) await diagnostic('before');
   await page.mouse.move(point.x, point.y); await page.mouse.down();
-  await diagnostic('down');
+  if (diagnosticsEnabled) await diagnostic('down');
   await page.mouse.move(point.x + dx * point.zoom, point.y + dy * point.zoom, {steps: 12});
-  await diagnostic('moved');
+  if (diagnosticsEnabled) await diagnostic('moved');
   await page.mouse.up();
-  await diagnostic('up');
+  if (diagnosticsEnabled) await diagnostic('up');
   // Reparenting is center-hit based and an auto-expanding panel may move its
   // own bounds while accepting the child. parentId is the canonical outcome;
   // the pre-drop absolute target is not stable across that container update.
