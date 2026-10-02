@@ -43,6 +43,7 @@ function createPanelAndSticky(doc:Y.Doc) {
   // Frames remain editable; the creation dock intentionally no longer exposes them.
   act(()=>new SpatialRelationshipCommandPort(doc).dispatch({boardId:"spatial-board",clientId:"fixture",gestureId:crypto.randomUUID(),command:{type:"create-panel",id:crypto.randomUUID(),geometry:{x:0,y:0,width:400,height:300,rotation:0},panel:{version:1,mode:"freeform",autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:"horizontal"}}}));
   fireEvent.keyDown(window,{key:"n"});
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
 }
 
 it("creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port", () => {
@@ -139,8 +140,8 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
   openProperties();
   expect(screen.getByLabelText("语义关系")).toBeDisabled();
-  for(const button of screen.getByTestId("board-connector-toolbar").querySelectorAll("button"))expect(button).toBeDisabled();
-  expect(screen.getByTestId("board-connector-color")).toBeDisabled();
+  expect(screen.queryByTestId("board-connector-toolbar")).toBeNull();
+  expect(screen.queryByTestId("board-connector-color")).toBeNull();
   doc.destroy();
 });
 
