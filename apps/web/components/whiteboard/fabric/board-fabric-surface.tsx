@@ -148,6 +148,8 @@ function panelGuides(object: BoardFabricObject): FabricObject[] {
 }
 
 const connectorRenderOrigins = new WeakMap<FabricObject, { x: number; y: number }>();
+const connectorRenderIdentityFor = (object: BoardFabricObject) => object.kind === "connector"
+  ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
 
 export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
@@ -623,7 +625,13 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const old = registry.get(canonical.id);
         if (!old) continue;
         const index = canvas.getObjects().indexOf(old);
-        const next = createFabricObject({ ...canonical, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 }, connector: { ...connection, start, end } });
+        const preview = { ...canonical, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 }, connector: { ...connection, start, end } };
+        const next = createFabricObject(preview);
+        applyCanonicalObject(next, preview, stateRef.current.readOnly);
+        // The held Fabric projection owns these endpoints until release. A
+        // chrome-only React echo has the same canonical input identity; an
+        // actual remote/canonical change still differs and must reproject.
+        next.data = { ...next.data, connectorRenderIdentity: connectorRenderIdentityFor(canonical) };
         canvas.remove(old); canvas.add(next); canvas.moveObjectTo(next, index); registry.set(canonical.id, next);
       }
     };
@@ -1062,7 +1070,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       for (const object of orderedObjects) {
         const current = registryRef.current.get(object.id);
         // Render identity stays local; canonical and preview revision numbers can collide.
-        const connectorRenderIdentity = object.kind === "connector" ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
+        const connectorRenderIdentity = connectorRenderIdentityFor(object);
         const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
         const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
         let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
