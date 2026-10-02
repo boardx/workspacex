@@ -137,6 +137,7 @@ export interface PreparationActions {
   buildImmutableImages(): Promise<z.infer<typeof imageSetSchema>>;
   renderCanonicalConfig(): Promise<z.infer<typeof durableConfigSchema>>;
   assessDiff(): Promise<z.infer<typeof diffSchema>>;
+  readMigrationEvidence?(): Promise<{ planBytes: Uint8Array; pendingBytes: Uint8Array; compatibility: z.infer<typeof migrationCompatibilitySchema> }>;
   verifyDatabaseBackup(): Promise<"passed">;
   runShadowChecks(): Promise<{ shadowReadiness: "passed"; shadowBusiness: "passed" }>;
 }
@@ -153,11 +154,30 @@ export async function createPreparedCnRelease(input: {
   const [images, durableConfig, diff, databaseBackup, shadow] = await Promise.all([
     actions.buildImmutableImages(), actions.renderCanonicalConfig(), actions.assessDiff(), actions.verifyDatabaseBackup(), actions.runShadowChecks(),
   ]);
+  let migrationAssessed = gate(diff);
+  let migrationBindings = {};
+  if (diff.migrationRisk === "compatible") {
+    if (!actions.readMigrationEvidence) throw new Error("TRUSTED_MIGRATION_EVIDENCE_REQUIRED");
+    const evidence = await actions.readMigrationEvidence();
+    const planSha256 = createHash("sha256").update(evidence.planBytes).digest("hex");
+    const pendingSha256 = createHash("sha256").update(evidence.pendingBytes).digest("hex");
+    const proof = migrationCompatibilitySchema.parse(evidence.compatibility);
+    if (proof.planSha256 !== planSha256 || proof.pendingSha256 !== pendingSha256
+      || proof.sourceRevision !== input.sourceRevision || proof.baselineSha256 !== input.baselineSha256
+      || (input.migrationPlanSha256 && input.migrationPlanSha256 !== planSha256)
+      || (input.pendingMigrationSha256 && input.pendingMigrationSha256 !== pendingSha256)
+      || (input.baselineSourceRevision && input.baselineSourceRevision !== proof.baselineSourceRevision)) {
+      throw new Error("MIGRATION_EVIDENCE_BYTES_MISMATCH");
+    }
+    migrationAssessed = { status: "passed", evidenceSha256: planSha256 };
+    migrationBindings = { baselineSourceRevision: proof.baselineSourceRevision, migrationPlanSha256: planSha256,
+      pendingMigrationSha256: pendingSha256, migrationCompatibility: proof };
+  }
   const receipt = validatePreparedCnRelease({
-    schemaVersion: 1, status: "prepared", ...input, failures: input.failures ?? [], images, durableConfig, diff,
+    schemaVersion: 1, status: "prepared", ...input, ...migrationBindings, failures: input.failures ?? [], images, durableConfig, diff,
     checks: {
       sourceFrozen: gate(frozen), imagesImmutable: gate(images), canonicalConfigRendered: gate(durableConfig),
-      migrationAssessed: gate(diff), databaseBackup: gate(databaseBackup),
+      migrationAssessed, databaseBackup: gate(databaseBackup),
       shadowReadiness: gate(shadow.shadowReadiness), shadowBusiness: gate(shadow.shadowBusiness),
     },
   });

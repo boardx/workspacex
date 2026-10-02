@@ -72,7 +72,31 @@ describe("CN fast-safe preparation", () => {
     };
     await expect(createPreparedCnRelease({ sourceRevision: sha("a"), baselineSha256: "b".repeat(64),
       release: "2026.9.14-cn.11", manifestSha256: "c".repeat(64), preparedAt: "2026-09-14T00:00:00.000Z",
-      expiresAt: "2026-09-15T00:00:00.000Z" }, actions)).rejects.toThrow("INVALID_PREPARED_CN_RELEASE");
+      expiresAt: "2026-09-15T00:00:00.000Z" }, actions)).rejects.toThrow("TRUSTED_MIGRATION_EVIDENCE_REQUIRED");
+  });
+
+  it("prepares compatible receipts from trusted evidence bytes and rejects changed plan bytes", async () => {
+    const planBytes = Buffer.from("actual isolated plan bytes"), pendingBytes = Buffer.from("actual pending inventory bytes");
+    const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+    const proof = { baselineSourceRevision: sha("b"), sourceRevision: sha("a"), baselineSha256: "b".repeat(64),
+      planSha256: hash(planBytes), pendingSha256: hash(pendingBytes), scope: "restored-baseline-runtime" as const,
+      sqlExecuted: true as const, cleanupPassed: true as const,
+      oldRead: { ...gate(), status: "passed" as const }, oldWrite: { ...gate(), status: "passed" as const },
+      candidateRead: { ...gate(), status: "passed" as const }, candidateWrite: { ...gate(), status: "passed" as const } };
+    const actions = {
+      freezeSource: async () => sha("a"), buildImmutableImages: async () => evidence().images,
+      renderCanonicalConfig: async () => ({ ...evidence().durableConfig, asrProfile: true as const, platformSuperuserEmails: true as const, githubIssueProfile: true as const }),
+      assessDiff: async () => ({ migrationRisk: "compatible" as const, pendingMigrationCount: 1, changedServices: ["api"] as "api"[] }),
+      readMigrationEvidence: async () => ({ planBytes, pendingBytes, compatibility: proof }),
+      verifyDatabaseBackup: async () => "passed" as const,
+      runShadowChecks: async () => ({ shadowReadiness: "passed" as const, shadowBusiness: "passed" as const }),
+    };
+    const input = { sourceRevision: sha("a"), baselineSha256: "b".repeat(64), release: "2026.9.14-cn.11", manifestSha256: "c".repeat(64),
+      preparedAt: "2026-09-14T00:00:00.000Z", expiresAt: "2026-09-15T00:00:00.000Z" };
+    const receipt = await createPreparedCnRelease(input, actions);
+    expect(receipt.checks.migrationAssessed.evidenceSha256).toBe(hash(planBytes));
+    await expect(createPreparedCnRelease(input, { ...actions, readMigrationEvidence: async () => ({ planBytes: Buffer.from("changed"), pendingBytes, compatibility: proof }) })).rejects.toThrow("MIGRATION_EVIDENCE_BYTES_MISMATCH");
+    await expect(createPreparedCnRelease(input, { ...actions, assessDiff: async () => ({ migrationRisk: "none" as const, pendingMigrationCount: 138, changedServices: ["api"] as "api"[] }) })).rejects.toThrow("INVALID_PREPARED_CN_RELEASE");
   });
 
   it("blocks missing durable profiles, weak timeouts, skips, and non-digest images", () => {
