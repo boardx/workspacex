@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { interviewMarkdown } from "@repo/contracts";
 import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "../lib/mock/digital-expert-personas";
+
+async function captureRuntimeEvidence(page: Page, testInfo: TestInfo, name: string, fullPage = false): Promise<void> {
+  const path = testInfo.outputPath(name);
+  await page.screenshot({ path, fullPage });
+  await testInfo.attach(name, { path, contentType: "image/png" });
+}
 
 const view = {
   interviewId: "itv-quality-e2e", name: "采购决策研究", tags: ["用户研究"], topic: null,
@@ -424,7 +430,7 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   expect(Math.abs(firstRow[0]!.y - firstRow[1]!.y)).toBeLessThan(2);
   expect(Math.abs(firstRow[0]!.y - firstRow[2]!.y)).toBeLessThan(2);
   await page.screenshot({ path: testInfo.outputPath("00-list.png"), fullPage: true });
-  await page.screenshot({ path: "../../docs/evidence/interview-density/list-1440.png", fullPage: true });
+  await captureRuntimeEvidence(page, testInfo, "list-1440.png", true);
   await page.getByTestId("itv-create").click();
   const createDialog = page.getByTestId("itv-create-dialog");
   await expect(createDialog).toBeVisible();
@@ -520,15 +526,13 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       expect((action?.y ?? 900) + (action?.height ?? 0), "desktop intake primary action should fit in the first viewport without excess whitespace").toBeLessThan(800);
     }
     await page.screenshot({ path: testInfo.outputPath(`${index + 2}-${step}.png`), fullPage: true });
-    if (step === "analysis") await page.screenshot({
-      path: "../../docs/evidence/interview-density/analysis-1280.png", fullPage: true,
-    });
+    if (step === "analysis") await captureRuntimeEvidence(page, testInfo, "analysis-1280.png", true);
     if (step === "report") {
-      await page.screenshot({ path: "../../docs/evidence/interview-density/report-1280.png" });
+      await captureRuntimeEvidence(page, testInfo, "report-1280.png");
       const appendix = page.getByTestId("itv-source-report-markdown").getByRole("heading", { name: "附录：原始洞察摘要" });
       await appendix.evaluate((node) => node.scrollIntoView({ block: "center" }));
       await expect(appendix).toBeVisible();
-      await page.screenshot({ path: "../../docs/evidence/interview-density/report-1280-end.png" });
+      await captureRuntimeEvidence(page, testInfo, "report-1280-end.png");
     }
     if (step === "experts") {
       await page.getByRole("button", { name: "添加虚拟专家" }).click();
@@ -575,17 +579,17 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       }
       await page.screenshot({ path: testInfo.outputPath(`${step}-${width}.png`), fullPage: true });
       if (step === "report" && width === 390) {
-        await page.screenshot({ path: "../../docs/evidence/interview-density/report-390.png" });
+        await captureRuntimeEvidence(page, testInfo, "report-390.png");
         const table = page.getByTestId("itv-source-report-markdown").getByRole("table");
         await table.evaluate((node) => node.scrollIntoView({ block: "center" }));
         const tableBounds = await table.boundingBox();
         const stickyBounds = await page.getByTestId("itv-workbench-header").boundingBox();
         expect(tableBounds?.y, "mobile table must not be hidden by the sticky header").toBeGreaterThan((stickyBounds?.y ?? 0) + (stickyBounds?.height ?? 0));
-        await page.screenshot({ path: "../../docs/evidence/interview-density/report-390-table.png" });
+        await captureRuntimeEvidence(page, testInfo, "report-390-table.png");
         const appendix = page.getByTestId("itv-source-report-markdown").getByRole("heading", { name: "附录：原始洞察摘要" });
         await appendix.evaluate((node) => node.scrollIntoView({ block: "center" }));
         await expect(appendix).toBeVisible();
-        await page.screenshot({ path: "../../docs/evidence/interview-density/report-390-end.png" });
+        await captureRuntimeEvidence(page, testInfo, "report-390-end.png");
       }
     }
   }
