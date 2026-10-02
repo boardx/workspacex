@@ -24,7 +24,9 @@ it('selecting the sticky tool does not create an unintended note before canvas p
 });
 it('keeps creation tools ordered and hides Arrow and Frame entrypoints',()=>{
  const creation=vi.fn();
- render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ const view = render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ expect(screen.queryByTestId("board-add-connector")).toBeNull();
+ view.rerender(<BoardBottomDock connectorEnabled activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
  const dock=screen.getByTestId('board-creation-dock');
  expect(dock).toHaveClass('w-max','max-w-[calc(100vw-2rem)]');
  expect(dock.lastElementChild).toHaveClass('w-max','max-w-full','gap-0.5','p-1','xl:gap-1','xl:p-1.5');
@@ -32,7 +34,7 @@ it('keeps creation tools ordered and hides Arrow and Frame entrypoints',()=>{
  const positions=ordered.map(id=>Array.from(dock.querySelectorAll('button')).indexOf(screen.getByTestId(id)));
  expect(positions).toEqual([...positions].sort((a,b)=>a-b));
  expect(screen.queryByTestId('board-add-frame')).toBeNull();
- expect(screen.queryByTestId('board-add-connector')).toBeNull();
+ expect(screen.getByTestId('board-add-connector')).toBeVisible();
  fireEvent.click(screen.getByTestId('board-add-more'));
  expect(screen.queryByTestId('board-add-panel')).toBeNull();
 });

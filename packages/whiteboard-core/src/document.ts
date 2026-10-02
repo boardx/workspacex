@@ -1,8 +1,9 @@
 import * as Y from 'yjs';
-import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
+import { WhiteboardObject, WhiteboardGeometry, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import { validateContentExtension } from './content-object-model';
 import { validateSpatialExtension } from './spatial-model';
 import { rotatedAnchorPoint } from './spatial-geometry';
+import { resolveConnectorPath } from './connector-path';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -57,10 +58,17 @@ export function validateDocument(doc: Y.Doc): void {
     }
     if (value.connector && ((value.connector.from && (!all.has(value.connector.from) || tombstones(doc).has(value.connector.from)))
       || (value.connector.to && (!all.has(value.connector.to) || tombstones(doc).has(value.connector.to))))) throw new Error('INVALID_CONNECTOR');
+    if (value.connector?.route) {
+      const c = value.connector, from = c.from ? all.get(c.from)! : null, to = c.to ? all.get(c.to)! : null;
+      const start = from ? rotatedAnchorPoint(from, c.fromAnchor ?? 'center', c.fromOffset) : c.fromPoint!;
+      const end = to ? rotatedAnchorPoint(to, c.toAnchor ?? 'center', c.toOffset) : c.toPoint!;
+      resolveConnectorPath({ start, end, type: c.type, route: c.route, fromAnchor: c.fromAnchor, toAnchor: c.toAnchor });
+    }
   }
 }
 function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
   const objects = objectMap(doc), deleted = tombstones(doc);
+  const routeGeometryIds = new Set<string>();
   for (const command of commands) {
     if (command.type === 'create') {
       const { id, text, style, ...rest } = command.object;
@@ -70,11 +78,13 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       item.set('text', new Y.Text(text));
       item.set('style', new Y.Map<unknown>(Object.entries(style)));
       objects.set(id, item);
+      if (command.object.connector?.route) routeGeometryIds.add(id);
       continue;
     }
     if (command.type === 'restore') {
       if (!objects.has(command.id) || !deleted.has(command.id)) throw new Error('TOMBSTONE_NOT_FOUND');
       deleted.delete(command.id);
+      if (decode(command.id, objects.get(command.id)!).connector?.route) routeGeometryIds.add(command.id);
       continue;
     }
     const item = objects.get(command.id);
@@ -94,6 +104,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       deleted.set(command.id, true);
     }
     if (command.type === 'geometry') {
+      if (current.connector?.route) routeGeometryIds.add(command.id);
       if (current.kind !== 'connector') for (const [id, value] of objects) {
         if (deleted.has(id)) continue;
         const edge = decode(id, value);
@@ -106,9 +117,10 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
         if (!edge.connector || (edge.connector.from !== command.id && edge.connector.to !== command.id)) continue;
         const from = edge.connector.from ? decode(edge.connector.from, objects.get(edge.connector.from)!) : null;
         const to = edge.connector.to ? decode(edge.connector.to, objects.get(edge.connector.to)!) : null;
-        const start = from ? rotatedAnchorPoint(from, edge.connector.fromAnchor ?? 'center') : edge.connector.fromPoint!;
-        const end = to ? rotatedAnchorPoint(to, edge.connector.toAnchor ?? 'center') : edge.connector.toPoint!;
-        value.set('geometry', { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 });
+        const start = from ? rotatedAnchorPoint(from, edge.connector.fromAnchor ?? 'center', edge.connector.fromOffset) : edge.connector.fromPoint!;
+        const end = to ? rotatedAnchorPoint(to, edge.connector.toAnchor ?? 'center', edge.connector.toOffset) : edge.connector.toPoint!;
+        const bounds = edge.connector.route ? resolveConnectorPath({ start, end, type: edge.connector.type, route: edge.connector.route, fromAnchor: edge.connector.fromAnchor, toAnchor: edge.connector.toAnchor }).bounds : { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) };
+        value.set('geometry', { ...bounds, width: Math.max(1, bounds.width), height: Math.max(1, bounds.height), rotation: 0 });
       }
     }
     if (command.type === 'style') {
@@ -135,6 +147,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     if (command.type === 'connector') {
       if (current.kind !== 'connector') throw new Error('CONNECTOR_KIND_REQUIRED');
       item.set('connector', structuredClone(command.connector));
+      if (current.connector?.route || command.connector.route) routeGeometryIds.add(command.id);
     }
     if (command.type === 'text') {
       const text = item.get('text') as Y.Text;
@@ -142,6 +155,20 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       if (command.deleteCount) text.delete(command.index, command.deleteCount);
       if (command.insert) text.insert(command.index, command.insert);
     }
+  }
+  // Resolve after the entire batch so attached nodes may be created later in it.
+  for (const id of routeGeometryIds) {
+    if (deleted.has(id)) continue;
+    const item = objects.get(id)!, edge = decode(id, item), c = edge.connector!;
+    const endpoint = (targetId: string | undefined, point: { x: number; y: number } | undefined, anchor: typeof c.fromAnchor, offset: typeof c.fromOffset) => {
+      if (!targetId) return point!;
+      const target = objects.get(targetId);
+      if (!target || deleted.has(targetId)) throw new Error('INVALID_CONNECTOR');
+      return rotatedAnchorPoint(decode(targetId, target), anchor ?? 'center', offset);
+    };
+    const start = endpoint(c.from, c.fromPoint, c.fromAnchor, c.fromOffset), end = endpoint(c.to, c.toPoint, c.toAnchor, c.toOffset);
+    const bounds = c.route ? resolveConnectorPath({ start, end, type: c.type, route: c.route, fromAnchor: c.fromAnchor, toAnchor: c.toAnchor }).bounds : { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) };
+    item.set('geometry', WhiteboardGeometry.parse({ ...bounds, width: Math.max(1, bounds.width), height: Math.max(1, bounds.height), rotation: 0 }));
   }
 }
 /** Synchronous preflight means a failing batch never mutates the caller's document. Origin is not authentication. */

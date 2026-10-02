@@ -40,9 +40,10 @@ function mount() {
 }
 
 function createPanelAndSticky(doc:Y.Doc) {
-  // Frames remain editable; the creation dock intentionally no longer exposes them.
+  // Existing Frames remain editable; current UX hides their creation entry.
   act(()=>new SpatialRelationshipCommandPort(doc).dispatch({boardId:"spatial-board",clientId:"fixture",gestureId:crypto.randomUUID(),command:{type:"create-panel",id:crypto.randomUUID(),geometry:{x:0,y:0,width:400,height:300,rotation:0},panel:{version:1,mode:"freeform",autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:"horizontal"}}}));
   fireEvent.keyDown(window,{key:"n"});
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
 }
 
 it("creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port", () => {
@@ -121,22 +122,26 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.click(screen.getByTestId("mock-transform-selected"));
   expect(readObjects(doc).find((object) => object.id === edge.id)?.geometry).not.toEqual(before);
   fireEvent.click(screen.getByTestId(`mock-select-${edge.id}`));
+  fireEvent.click(screen.getByTestId("board-connector-label-open"));
+  fireEvent.change(screen.getByTestId("board-connector-label"), { target: { value: "depends on" } });
+  fireEvent.click(screen.getByTestId("board-connector-label-save"));
+  fireEvent.click(screen.getByTestId("board-connector-label-open"));
+  fireEvent.click(screen.getByTestId("board-connector-path-open"));
+  fireEvent.click(screen.getByTestId("board-connector-curve"));
+  fireEvent.click(screen.getByTestId("board-connector-pattern-open"));
+  fireEvent.click(screen.getByTestId("board-connector-pattern-dotted"));
+  fireEvent.click(screen.getByTestId("board-connector-endpoints-open"));
+  fireEvent.click(screen.getByTestId("board-connector-start-circle"));
+  fireEvent.click(screen.getByTestId("board-connector-end-diamond"));
   openProperties();
-  fireEvent.change(screen.getByLabelText("连接标签"), { target: { value: "depends on" } });
   fireEvent.change(screen.getByLabelText("语义关系"), { target: { value: "depends_on" } });
-  fireEvent.change(screen.getByLabelText("连接路径"), { target: { value: "curve" } });
-  fireEvent.change(screen.getByLabelText("连接线型"), { target: { value: "dotted" } });
-  fireEvent.change(screen.getByLabelText("连接起点"), { target: { value: "circle" } });
-  fireEvent.change(screen.getByLabelText("连接终点"), { target: { value: "diamond" } });
   expect(readObjects(doc).find((object) => object.id === edge.id)?.connector).toMatchObject({ label: "depends on", semanticRelation: "depends_on", type: "curve", lineStyle: "dotted", startStyle: "circle", endStyle: "diamond" });
   openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
   openProperties();
-  expect(screen.getByLabelText("连接标签")).toBeDisabled();
-  expect(screen.getByLabelText("连接路径")).toBeDisabled();
-  expect(screen.getByLabelText("连接线型")).toBeDisabled();
-  expect(screen.getByLabelText("连接起点")).toBeDisabled();
-  expect(screen.getByLabelText("连接终点")).toBeDisabled();
+  expect(screen.getByLabelText("语义关系")).toBeDisabled();
+  expect(screen.queryByTestId("board-connector-toolbar")).toBeNull();
+  expect(screen.queryByTestId("board-connector-color")).toBeNull();
   doc.destroy();
 });
 
@@ -198,9 +203,25 @@ it("keeps multi-selection quiet and restores handles for touch single-selection"
   expect(screen.queryAllByTestId(/^connector-handle-/)).toHaveLength(0);
   const a=readObjects(doc)[0]!;fireEvent.click(screen.getByTestId(`mock-select-${a.id}`));
   expect(screen.getAllByTestId(/^connector-handle-/)).toHaveLength(4);
-  const handle=screen.getByTestId(`connector-handle-${a.id}-right`);expect(handle).toHaveClass("h-11","w-11");
-  fireEvent.click(handle);const b=readObjects(doc).find(object=>object.id!==a.id)!;
-  fireEvent.click(screen.getByTestId(`mock-select-${b.id}`));fireEvent.click(screen.getByTestId(`connector-handle-${b.id}-left`));
+  const handle=screen.getByTestId(`connector-handle-${a.id}-right`);expect(handle).toHaveClass("h-[45px]","w-[45px]");
+  const inverseZoom = Number(handle.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+  const boardZoom = Number(handle.parentElement?.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+  expect(inverseZoom).toBeGreaterThan(0);
+  expect(boardZoom).toBeGreaterThan(0);
+  expect(45 * inverseZoom * boardZoom).toBeGreaterThanOrEqual(44);
+  fireEvent.click(handle);
+  expect(readObjects(doc).some(object=>object.kind==='connector')).toBe(false);
+  const b=readObjects(doc).find(object=>object.id!==a.id)!;
+  const pointer=(type:string,x:number,y:number)=>{const event=new MouseEvent(type,{bubbles:true,button:0,clientX:x,clientY:y});Object.defineProperty(event,"pointerId",{value:1});return event;};
+  const host=screen.getByTestId("collaborative-editor");
+  fireEvent(handle,pointer("pointerdown",a.geometry.x+a.geometry.width,a.geometry.y+a.geometry.height/2));
+  fireEvent(host,pointer("pointermove",b.geometry.x,b.geometry.y+b.geometry.height/2));
+  expect(readObjects(doc).some(object=>object.kind==='connector')).toBe(false);
+  fireEvent(host,pointer("pointerup",b.geometry.x,b.geometry.y+b.geometry.height/2));
+  expect(readObjects(doc).find(object=>object.kind==='connector')?.connector).toMatchObject({from:a.id,to:b.id});
+  fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+  expect(readObjects(doc).some(object=>object.kind==='connector')).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "重做" }));
   expect(readObjects(doc).find(object=>object.kind==='connector')?.connector).toMatchObject({from:a.id,to:b.id});
 });
 
