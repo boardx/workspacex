@@ -3,7 +3,7 @@ import type {Canvas} from "fabric";
 type Contact = {identifier:number;clientX:number;clientY:number;force?:number};
 type Input = {type?:string;clientX?:number;clientY?:number;pointerId?:number;pointerType?:string;isPrimary?:boolean;button?:number;pressure?:number;touches?:ArrayLike<Contact>;changedTouches?:ArrayLike<Contact>};
 export type FabricInput = {id:string;x:number;y:number;pressure:number};
-export function readFabricInput(event:Input|undefined,activeId?:string|null):FabricInput|null {
+export function readFabricInput(event:Input|undefined,activeId?:string|null,allowNavigationButton=false):FabricInput|null {
  if(!event||event.isPrimary===false)return null;
  let id:string,x:number|undefined,y:number|undefined,pressure:number|undefined;
  if(event.changedTouches||event.touches){
@@ -13,7 +13,7 @@ export function readFabricInput(event:Input|undefined,activeId?:string|null):Fab
   if(!contact)return null;
   id=`touch:${contact.identifier}`;x=contact.clientX;y=contact.clientY;pressure=contact.force;
  }else{
-  if(event.button!==undefined&&event.type?.endsWith('down')&&event.button!==0)return null;
+  if(event.button!==undefined&&event.type?.endsWith('down')&&event.button!==0&&!allowNavigationButton)return null;
   id=event.pointerId===undefined?'mouse':`pointer:${event.pointerId}`;x=event.clientX;y=event.clientY;pressure=event.pressure;
  }
  if(activeId&&id!==activeId||!Number.isFinite(x)||!Number.isFinite(y))return null;

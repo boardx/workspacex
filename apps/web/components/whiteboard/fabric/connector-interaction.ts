@@ -4,6 +4,7 @@ export function connectorInteraction(kind: string) {
   return kind === "connector" ? {
     perPixelTargetFind: true,
     hasControls: false,
+    hasBorders: false,
     lockMovementX: true,
     lockMovementY: true,
     lockScalingX: true,

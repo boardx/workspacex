@@ -59,7 +59,7 @@ async function createInvitation(request: APIRequestContext, kind: "t" | "lt") {
 }
 
 for (const kind of ["t", "lt"] as const) {
-  test(`旅程①邀请注册：${kind} 激活后直接进入工作台，刷新仍保留正确身份`, async ({ browser, request, baseURL }) => {
+  test(`旅程①邀请注册：${kind} 激活后直接进入工作台，刷新仍保留正确身份`, async ({ browser, request, baseURL }, testInfo) => {
     const { invited, api, orgId, adminSession, inviteToken } = await createInvitation(request, kind);
 
     // A clean context proves the administrator's existing session cannot satisfy the landing assertions.
@@ -110,18 +110,19 @@ for (const kind of ["t", "lt"] as const) {
         expect(resolved.orgRole).toBe("consultant");
       }
       expect(navigations).not.toContain("/login");
-      const { resolve } = await import("node:path");
+      const screenshotPath = testInfo.outputPath(`invite-${kind}-projects.png`);
       await page.screenshot({
-        path: resolve(__dirname, `../../../docs/evidence/user-feedback-3600/invite-${kind}-projects.png`),
+        path: screenshotPath,
         fullPage: true,
       });
+      await testInfo.attach(`invite-${kind}-projects`, { path: screenshotPath, contentType: "image/png" });
     } finally {
       await context.close();
     }
   });
 }
 
-test("旅程①邀请注册：真实跨标签页锁保留先提交的密码登录会话", async ({ browser, request, baseURL }) => {
+test("旅程①邀请注册：真实跨标签页锁保留先提交的密码登录会话", async ({ browser, request, baseURL }, testInfo) => {
   const { admin, invited, api, orgId, adminSession, inviteToken } = await createInvitation(request, "lt");
   const context = await browser.newContext({ baseURL });
   const holder = await context.newPage();
@@ -199,11 +200,12 @@ test("旅程①邀请注册：真实跨标签页锁保留先提交的密码登�
     const resolved = await identity.json() as { displayName: string; orgRole: string };
     expect(resolved.displayName).toBe(admin.displayName);
     expect(resolved.orgRole).toBe("admin");
-    const { resolve } = await import("node:path");
+    const screenshotPath = testInfo.outputPath("invite-cross-tab-preserved.png");
     await invitePage.screenshot({
-      path: resolve(__dirname, "../../../docs/evidence/user-feedback-3600/invite-cross-tab-preserved.png"),
+      path: screenshotPath,
       fullPage: true,
     });
+    await testInfo.attach("invite-cross-tab-preserved", { path: screenshotPath, contentType: "image/png" });
   } finally {
     await context.close();
   }

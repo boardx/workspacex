@@ -52,6 +52,7 @@ export {
 } from './content-objects';
 export {
   SpatialRelationshipCommandPort,
+  translateConnector,
   type ConnectorAnchor,
   type ConnectorLineStyle,
   type ConnectorRelationship,
@@ -64,6 +65,8 @@ export {
   type SpatialEvent,
   type SpatialPrecondition,
 } from './spatial-relationships';
+export { resolveConnectorPath, sampleConnectorPath, nearestConnectorPoint, connectorPathHandles, editConnectorPathHandle, connectorLabelPlacement, connectorPathHitTest, connectorPathVisualBounds, connectorPathToSvg, type ConnectorPathInput, type ConnectorPathPoint, type ConnectorPathBounds, type ConnectorArcSample, type ResolvedConnectorPath, type ConnectorPathSample, type ConnectorPathHandle } from './connector-path';
+export { snapConnectorEndpoint, type ConnectorSnapCandidate } from './connector-snap';
 export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode, type PanelShape, type PanelTemplate } from './spatial-model';
 export {
   DEFAULT_LAYOUT_GAP,

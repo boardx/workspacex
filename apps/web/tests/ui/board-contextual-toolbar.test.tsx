@@ -111,10 +111,12 @@ it("limits the adjustable inspector to the editor container on a narrow viewport
     if (this.dataset.testid === "collaborative-editor") return { x: 0, y: 0, left: 0, top: 0, right: 480, bottom: 600, width: 480, height: 600, toJSON: () => ({}) } as DOMRect;
     return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect;
   });
-  render(<section data-testid="collaborative-editor"><BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} panelRef={createRef<HTMLElement>()} compactActions={<button type="button" data-testid="board-properties-open">精确属性</button>}><div>properties</div></BoardSelectedObjectPanel></section>);
+  render(<section data-testid="collaborative-editor"><BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} panelRef={createRef<HTMLElement>()} floatingStyle={{ left: 32, top: 72 }} compactActions={<button type="button" data-testid="board-properties-open">精确属性</button>}><div>properties</div></BoardSelectedObjectPanel></section>);
+  expect(screen.getByTestId("board-context-toolbar")).toHaveStyle({ left: "32px", top: "72px" });
   openProperties();
   const panel = screen.getByTestId("board-context-toolbar");
-  expect(panel).toHaveClass("max-sm:!bottom-24", "max-sm:!top-auto", "max-sm:!max-h-[calc(100%_-_7rem)]");
+  expect(panel).toHaveStyle({ left: "32px", top: "72px", "--board-inspector-max-width": "448px", "--board-inspector-max-height": "480px" });
+  expect(panel).not.toHaveClass("max-sm:!bottom-24", "max-sm:!top-auto");
   expect(screen.getByTestId("board-inspector-resize")).toHaveAttribute("aria-valuemax", "448");
   const height = screen.getByTestId("board-inspector-resize-height");
   expect(height).toHaveAttribute("aria-valuemax", "480");
@@ -122,9 +124,11 @@ it("limits the adjustable inspector to the editor container on a narrow viewport
   fireEvent.pointerDown(height, { pointerId: 3, clientX: 100, clientY: 100 });
   fireEvent.pointerMove(height, { pointerId: 3, clientX: 100, clientY: 140 });
   fireEvent.pointerUp(height, { pointerId: 3, clientX: 100, clientY: 140 });
-  expect(height).toHaveAttribute("aria-valuenow", "400");
+  expect(height).toHaveAttribute("aria-valuenow", "480");
   fireEvent.keyDown(height, { key: "ArrowDown" });
-  expect(height).toHaveAttribute("aria-valuenow", "376");
+  expect(height).toHaveAttribute("aria-valuenow", "480");
+  fireEvent.keyDown(height, { key: "ArrowUp" });
+  expect(height).toHaveAttribute("aria-valuenow", "456");
   bounds.mockRestore();
 });
 
