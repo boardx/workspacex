@@ -19,7 +19,7 @@ const evidence = (overrides: Record<string, unknown> = {}) => ({
   release: "2026.9.14-cn.11",
   manifestSha256: digest("c").slice(7),
   images: { web: digest("1"), api: digest("2"), agent: digest("3"), sandbox: digest("4") },
-  diff: { migrationRisk: "none", changedServices: ["web", "api", "agent"] },
+  diff: { migrationRisk: "none", pendingMigrationCount: 0, changedServices: ["web", "api", "agent"] },
   durableConfig: {
     asrProfile: true,
     platformSuperuserEmails: true,
@@ -38,12 +38,17 @@ const evidence = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("CN fast-safe preparation", () => {
+  it("rejects none when pending migrations exist or their count is unknown", () => {
+    for (const pendingMigrationCount of [138, undefined, -1, 1.5]) {
+      expect(() => validatePreparedCnRelease(evidence({ diff: { migrationRisk: "none", changedServices: ["api"], pendingMigrationCount } }))).toThrow("INVALID_PREPARED_CN_RELEASE");
+    }
+  });
   it("freezes an exact four-image release without any traffic action", async () => {
     const actions = {
       freezeSource: vi.fn(async () => sha("a")),
       buildImmutableImages: vi.fn(async () => evidence().images),
       renderCanonicalConfig: vi.fn(async () => ({ ...evidence().durableConfig, asrProfile: true as const, platformSuperuserEmails: true as const, githubIssueProfile: true as const })),
-      assessDiff: vi.fn(async () => ({ migrationRisk: "none" as const, changedServices: ["web", "api", "agent"] as ("web" | "api" | "agent" | "sandbox")[] })),
+      assessDiff: vi.fn(async () => ({ migrationRisk: "none" as const, pendingMigrationCount: 0, changedServices: ["web", "api", "agent"] as ("web" | "api" | "agent" | "sandbox")[] })),
       verifyDatabaseBackup: vi.fn(async () => "passed" as const),
       runShadowChecks: vi.fn(async () => ({ shadowReadiness: "passed" as const, shadowBusiness: "passed" as const })),
     };
@@ -56,14 +61,52 @@ describe("CN fast-safe preparation", () => {
     expect(Object.keys(actions)).not.toContain("activateTraffic");
   });
 
+  it("blocks the preparation API when the caller labels migrations compatible without proof", async () => {
+    const actions = {
+      freezeSource: vi.fn(async () => sha("a")),
+      buildImmutableImages: vi.fn(async () => evidence().images),
+      renderCanonicalConfig: vi.fn(async () => ({ ...evidence().durableConfig, asrProfile: true as const, platformSuperuserEmails: true as const, githubIssueProfile: true as const })),
+      assessDiff: vi.fn(async () => ({ migrationRisk: "compatible" as const, pendingMigrationCount: 1, changedServices: ["api"] as "api"[] })),
+      verifyDatabaseBackup: vi.fn(async () => "passed" as const),
+      runShadowChecks: vi.fn(async () => ({ shadowReadiness: "passed" as const, shadowBusiness: "passed" as const })),
+    };
+    await expect(createPreparedCnRelease({ sourceRevision: sha("a"), baselineSha256: "b".repeat(64),
+      release: "2026.9.14-cn.11", manifestSha256: "c".repeat(64), preparedAt: "2026-09-14T00:00:00.000Z",
+      expiresAt: "2026-09-15T00:00:00.000Z" }, actions)).rejects.toThrow("INVALID_PREPARED_CN_RELEASE");
+  });
+
   it("blocks missing durable profiles, weak timeouts, skips, and non-digest images", () => {
     for (const invalid of [
       evidence({ durableConfig: { ...evidence().durableConfig, asrProfile: false } }),
       evidence({ durableConfig: { ...evidence().durableConfig, copilotkitPrefixTimeoutSeconds: 300 } }),
       evidence({ checks: { ...evidence().checks, shadowBusiness: { status:"skipped", evidenceSha256:"e".repeat(64) } } }),
       evidence({ images: { ...evidence().images, api: "registry/app:latest" } }),
-      evidence({ diff: { migrationRisk: "destructive", changedServices: ["api"] } }),
+      evidence({ diff: { migrationRisk: "destructive", pendingMigrationCount: 1, changedServices: ["api"] } }),
     ]) expect(() => validatePreparedCnRelease(invalid)).toThrow("INVALID_PREPARED_CN_RELEASE");
+  });
+
+  it("refuses caller-declared compatibility without exact old and new read/write evidence", () => {
+    const compatible = evidence({ diff: { migrationRisk: "compatible", pendingMigrationCount: 1, changedServices: ["api"] } });
+    expect(() => validatePreparedCnRelease(compatible)).toThrow("INVALID_PREPARED_CN_RELEASE");
+    const proof = {
+      baselineSourceRevision: sha("b"), sourceRevision: sha("a"), baselineSha256: "b".repeat(64),
+      planSha256: "c".repeat(64), pendingSha256: "d".repeat(64),
+      scope: "restored-baseline-runtime", sqlExecuted: true, cleanupPassed: true,
+      oldRead: gate(), oldWrite: gate(), candidateRead: gate(), candidateWrite: gate(),
+    };
+    const bound = { ...compatible, baselineSourceRevision: sha("b"), migrationPlanSha256: proof.planSha256,
+      pendingMigrationSha256: proof.pendingSha256, migrationCompatibility: proof,
+      checks: { ...compatible.checks, migrationAssessed: { status: "passed", evidenceSha256: proof.planSha256 } } };
+    expect(validatePreparedCnRelease(bound).diff.migrationRisk).toBe("compatible");
+    expect(() => validatePreparedCnRelease({ ...bound, checks: compatible.checks })).toThrow("INVALID_PREPARED_CN_RELEASE");
+    for (const change of [
+      { sourceRevision: sha("f") }, { baselineSourceRevision: sha("f") },
+      { baselineSha256: "f".repeat(64) }, { planSha256: "f".repeat(64) }, { pendingSha256: "f".repeat(64) },
+      { scope: "synthetic-local-rehearsal" }, { sqlExecuted: false }, { cleanupPassed: false },
+      { oldRead: undefined }, { oldWrite: { status: "failed", evidenceSha256: "e".repeat(64) } },
+      { candidateRead: undefined }, { candidateWrite: { status: "skipped", evidenceSha256: "e".repeat(64) } },
+    ]) expect(() => validatePreparedCnRelease({ ...bound, migrationCompatibility: { ...proof, ...change } }))
+      .toThrow("INVALID_PREPARED_CN_RELEASE");
   });
 
   it("binds the receipt to the exact manifest bytes and four application digests", () => {

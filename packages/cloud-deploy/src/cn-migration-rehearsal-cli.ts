@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
+import { bindLegacyProjectSource, probeLegacyProjectSql } from "./cn-project-compatibility-probe";
 import { generateMigrationPlan, migrationHash } from "./cn-migration-plan";
 import { validateMigrationSnapshot, readMigrationSnapshotFile } from "./cn-migration-snapshot";
 import { acquireRehearsalRun, openPrivateReport, assertLocalDockerEndpoint, assertRehearsalResourcesAbsent } from "./cn-migration-rehearsal-safety";
@@ -146,6 +147,12 @@ try {
       await client.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at,catalog_source) VALUES($1,$2,$3,'1.0.0',$4,'synthetic only','{}','synthetic','synthetic','[]','synthetic',now(),now(),'official')`, [`drill-version-${org}`, `drill-org-${org}`, agent, "0".repeat(64)]);
     }
   });
+  const legacySource = bindLegacyProjectSource(root, baselineSha);
+  report.legacyProjectSource = legacySource;
+  const beforeLegacy = await withDb(db, client => probeLegacyProjectSql(client, "drill-org-a", "compat-before"));
+  check("legacy-project-read-before-W1", beforeLegacy.allReads);
+  check("legacy-project-write-before-W1", beforeLegacy.allWrites);
+  report.legacyProjectBefore = beforeLegacy;
   if (nonSuperBypass) {
     await withDb(db, async client => {
       await client.query("CREATE ROLE rehearsal_migration LOGIN PASSWORD 'synthetic_rehearsal_role_only' NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS");
@@ -209,6 +216,13 @@ try {
     }
   }
   await authority.migrate(suffixCfg, { dir: fullDir });
+  const afterLegacy = await withDb(db, client => probeLegacyProjectSql(client, "drill-org-a", "compat-after"));
+  report.legacyProjectAfter = afterLegacy;
+  check("legacy-project-read-incompatible-after-W1", afterLegacy.allReads, false);
+  check("legacy-project-write-incompatible-after-W1", afterLegacy.allWrites, false);
+  check("legacy-project-read-failure-is-missing-relation", Object.values(afterLegacy.readFailures).every(code => code === "42P01"));
+  check("legacy-project-write-failure-is-kind-check", Object.values(afterLegacy.writeFailures).every(code => code === "23514"));
+  report.oldVersionCompatible = false;
   await withDb(db, async client => {
     const expectedProjects = ["a", "b"].flatMap(org => ["r", "u"].map(suffix => ({ id: `drill-${org}-${suffix}`, org_id: `drill-org-${org}`, kind: "general" })));
     check("W1-project-ID-org-kind-conservation", await projectSnapshot(client), expectedProjects);
