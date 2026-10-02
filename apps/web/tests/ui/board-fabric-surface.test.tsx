@@ -455,13 +455,14 @@ describe("BoardFabricSurface", () => {
     expect(onPanelHoverChange).toHaveBeenLastCalledWith(null);
   });
 
-  it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {
+  it.each([0.5, 1, 2])("converts a dragged dock tool drop at zoom %s into world coordinates without creating renderer-owned state", (zoom) => {
     const onToolDrop = vi.fn();
-    renderSurface({ viewport: { ...VIEWPORT, zoom: 2, panX: 10, panY: 20 }, onToolDrop });
+    renderSurface({ viewport: { ...VIEWPORT, zoom, panX: 10, panY: 20 }, onToolDrop });
+    vi.spyOn(screen.getByTestId("board-fabric-surface"), "getBoundingClientRect").mockReturnValue({ left: 30, top: 40, width: 1000, height: 800, right: 1030, bottom: 840, x: 30, y: 40, toJSON() {} });
     const payload = JSON.stringify({ kind: "sticky", variant: "circle" });
     const event = createEvent.drop(screen.getByTestId("board-fabric-surface"));
     Object.defineProperties(event, {
-      clientX: { value: 210 }, clientY: { value: 220 },
+      clientX: { value: 40 + 100 * zoom }, clientY: { value: 60 + 100 * zoom },
       dataTransfer: { value: { getData: (type: string) => type === "application/x-workspacex-board-tool" ? payload : "", types: ["application/x-workspacex-board-tool"] } },
     });
     fireEvent(screen.getByTestId("board-fabric-surface"), event);

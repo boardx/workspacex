@@ -229,10 +229,10 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     setSelected([id]); setEditing({ id, initial });
   }, [doc]);
 
-  const createStickyAt = useCallback((point: Point, variant: StickyVariant = "square", text = "") => {
+  const createStickyAt = useCallback((point: Point, variant: StickyVariant = "square", text = "", color = stickyColor) => {
     if (readOnly) { setNotice("当前白板为只读，不能创建便利贴。"); return null; }
     const id = crypto.randomUUID(), size = stickySize(variant);
-    const envelope = createStickyBatchEnvelope({ boardId, clientId, gestureId: crypto.randomUUID(), variant, color:{custom:stickyColor}, items: [{ id, text, geometry: topLeft(point, size.width, size.height) }] });
+    const envelope = createStickyBatchEnvelope({ boardId, clientId, gestureId: crypto.randomUUID(), variant, color:{custom:color}, items: [{ id, text, geometry: topLeft(point, size.width, size.height) }] });
     if (!dispatchEnvelope(envelope)) return null; beginCreatedEditing(id, text); return id;
   }, [beginCreatedEditing, boardId, clientId, dispatchEnvelope, readOnly, stickyColor]);
   const createTextAt = useCallback((point: Point, preset: TextStylePreset = "body", text = "") => {
@@ -285,7 +285,15 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     if (executeSpatial({ type: "create-panel", id, text: FRAME_CHOICE_LABELS[frameChoice], geometry: topLeft(point, frameDimensions.width, frameDimensions.height), panel: defaultPanel(mode,frameChoice) })) setSelected([id]);
     return id;
   }, [defaultPanel, executeSpatial, frameChoice, frameDimensions.height, frameDimensions.width]);
-  const createFromTool = useCallback((point: Point, requested = creationTool) => { if (requested?.kind === "sticky") createStickyAt(point, requested.variant); else if (requested?.kind === "text") createTextAt(point, requested.preset); else if (requested?.kind === "shape") createShapeAt(point, requested.variant); else if (requested?.kind === "content") createStructuredAt(point, requested.contentType); else if (requested?.kind === "panel") createPanelAt(point, requested.mode); }, [createPanelAt, createShapeAt, createStickyAt, createStructuredAt, createTextAt, creationTool]);
+  const createFromTool = useCallback((point: Point, requested = creationTool) => {
+    if (mutationBlocked || !requested) return;
+    let created: string | null = null;
+    if (requested.kind === "sticky") created = createStickyAt(point, requested.variant, "", "color" in requested && typeof requested.color === "string" ? requested.color : stickyColor);
+    else if (requested.kind === "text") created = createTextAt(point, requested.preset);
+    else if (requested.kind === "shape") created = createShapeAt(point, requested.variant);
+    else if (requested.kind === "content") created = createStructuredAt(point, requested.contentType);
+    if (created) { setCreationTool(null); setTool("select"); }
+  }, [mutationBlocked, createShapeAt, createStickyAt, createStructuredAt, createTextAt, creationTool, stickyColor]);
   const createStickyBatch = useCallback((lines: readonly string[], point: Point) => {
     const items = lines.map((text, index) => ({ id: crypto.randomUUID(), text, geometry: { x: point.x + (index % 5) * 204, y: point.y + Math.floor(index / 5) * 204, width: 180, height: 180, rotation: 0 } }));
     if (!dispatchEnvelope(createStickyBatchEnvelope({ boardId, clientId, gestureId: crypto.randomUUID(), color:{custom:stickyColor}, items }))) return;
@@ -447,7 +455,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     if ((event.metaKey || event.ctrlKey) && key === "d") { if (!readOnly && selected.length) { event.preventDefault(); duplicateRoots(selected); } return; }
     if ((event.metaKey || event.ctrlKey) && key === "g") { event.preventDefault(); if (event.shiftKey && selected.length === 1) executeSpatial({ type: "ungroup", id: selected[0]! }); else if (selected.length > 1) { const id = crypto.randomUUID(); if (executeSpatial({ type: "group", id, objectIds: selected })) setSelected([id]); } return; }
     if (event.metaKey || event.ctrlKey) return;
-    if (key === "v") { setTool("select"); setCreationTool(null); } else if (key === "h" || event.code === "Space") { event.preventDefault(); setTool("hand"); setCreationTool(null); } else if (key === "n" && event.shiftKey) { event.preventDefault(); if (!readOnly) setBulk(""); } else if (key === "n") { event.preventDefault(); const requested = { kind: "sticky", variant: "square" } as const; setTool("select"); setCreationTool(requested); createStickyAt(centerPoint(viewport), requested.variant); } else if (key === "t") { event.preventDefault(); const requested = { kind: "text", preset: "body" } as const; setTool("select"); setCreationTool(requested); createTextAt(centerPoint(viewport), requested.preset); } else if (key === "s") { event.preventDefault(); const requested = { kind: "shape", variant: "rounded-rectangle" } as const; setTool("select"); setCreationTool(requested); createShapeAt(centerPoint(viewport), requested.variant); } else if (key === "p") { event.preventDefault(); setDrawChoice("pen"); setCreationTool(null); setTool("draw-pen"); } else if (key === "i") { event.preventDefault(); imageInput.current?.click(); } else if (key === "f") { event.preventDefault(); setSelected([]); setFrameChoice("rectangle"); setTool("select"); setCreationTool({ kind: "panel", mode: "freeform" }); }
+    if (key === "v") { setTool("select"); setCreationTool(null); } else if (key === "h" || event.code === "Space") { event.preventDefault(); setTool("hand"); setCreationTool(null); } else if (key === "n" && event.shiftKey) { event.preventDefault(); if (!readOnly) setBulk(""); } else if (key === "n") { event.preventDefault(); const requested = { kind: "sticky", variant: "square" } as const; setTool("select"); setCreationTool(requested); } else if (key === "t") { event.preventDefault(); const requested = { kind: "text", preset: "body" } as const; setTool("select"); setCreationTool(requested); } else if (key === "s") { event.preventDefault(); const requested = { kind: "shape", variant: "rounded-rectangle" } as const; setTool("select"); setCreationTool(requested); } else if (key === "p") { event.preventDefault(); setDrawChoice("pen"); setCreationTool(null); setTool("draw-pen"); } else if (key === "i") { event.preventDefault(); imageInput.current?.click(); }
   }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [centerPoint, chromeHost, connectorGesture, createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, model.objects, objects, mutationBlocked, performRedo, performUndo, readOnly, selected, viewport]);
 
   const editingObject = editing ? model.objects.find((candidate) => candidate.id === editing.id) : undefined;
