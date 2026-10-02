@@ -1,11 +1,11 @@
 import {expect, type APIRequestContext, type Page} from '@playwright/test';
+import {expectBoardSynced} from './support/board-sync-status';
 import {createHash,randomUUID} from 'node:crypto';
 import type {WhiteboardCommand, WhiteboardObject} from '@repo/whiteboard-core';
 import {rotatedAnchorPoint} from '@repo/whiteboard-core';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 
-import {expectBoardSynced} from './support/board-sync-status';
 export {BOARD_SYNCED_STATUS} from './support/board-sync-status';
 export const apiOrigin = () => `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
 export async function boardLogin(page: Page, email: string = FULLSTACK_E2E.email, password: string = FULLSTACK_E2E.password) {

@@ -1,9 +1,9 @@
 import {writeFile} from 'node:fs/promises';
+import {expectBoardSynced} from './support/board-sync-status';
 import {cpus, totalmem, platform} from 'node:os';
 import {resolve} from 'node:path';
 import {expect, test, type CDPSession, type Page} from '@playwright/test';
 import {archiveAcceptanceBoard, boardApi, boardLogin, canonicalRows, createAcceptanceBoard, objectPoint, openBoard, settled} from './board-acceptance-support';
-import {expectBoardSynced} from './support/board-sync-status';
 import {browserNow, canonicalSnapshot, installBrowserMeasurements, markPhase, monotonicNow, observeBoardTransport, provisionDataset, recordFeedbackSince} from './board-performance-support';
 import {observeRuntimeChunks, runtimeSourceIdentity, sha256, verifyRuntimeIdentity} from './board-runtime-evidence';
 import {boardPerformancePolicy, validateBoardPerformanceArtifact} from '../scripts/board-performance-policy.mjs';

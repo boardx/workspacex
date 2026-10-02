@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { BOARD_SYNCED_STATUS } from './board-sync-status';
+import { expectBoardSynced } from './board-sync-status';
 
 export function historyAckPattern(kind: '撤销' | '重做') {
   return new RegExp(`^${kind}已由服务器确认 · 序列 [1-9]\\d*$`);
@@ -9,7 +9,7 @@ export function historyAckPattern(kind: '撤销' | '重做') {
 export async function applyAcknowledgedHistory(page: Page, kind: '撤销' | '重做') {
   await page.getByRole('button', { name: kind, exact: true }).click();
   await expect(page.getByText(historyAckPattern(kind))).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 }
 
 /** Canonical model projection: identity, geometry, text, hierarchy and relationships. */

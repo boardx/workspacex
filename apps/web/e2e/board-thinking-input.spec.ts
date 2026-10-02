@@ -1,5 +1,5 @@
 import { applyAcknowledgedHistory, boardProjectionWithoutIdentity, readBoardProjection } from "./support/board-history-acceptance";
-import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
+import {expectBoardSynced} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -78,7 +78,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   cleanup = { boardId: board.id, token };
 
   await page.goto(`/studio/board/${board.id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await page.getByTestId("board-add-sticky").click();
   await page.getByTestId("board-sticky-square").click();
   await page.getByTestId("board-fabric-surface").click({ position: { x: 300, y: 220 } });
@@ -92,11 +92,11 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   const outline = page.getByTestId("board-a11y-mirror");
   await expect(outline.getByRole("button")).toHaveCount(20);
   await expect(outline.getByRole("button", { name: "图形：想法 20" })).toBeAttached();
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const peer = await context.newPage();
   await peer.goto(`/studio/board/${board.id}`);
-  await expect(peer.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(peer,30_000);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(20);
 
   const beforeLastCreation = await readBoardProjection(page);
@@ -130,7 +130,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await peer.close();
 
   await page.reload();
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);
   await expect.poll(() => readBoardProjection(page)).toEqual(afterRedo);
 });

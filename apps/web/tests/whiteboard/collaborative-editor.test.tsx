@@ -290,3 +290,13 @@ it.each([744,680])('uses measured frame height %i for viewport presence and arms
   fireEvent.keyDown(screen.getByLabelText('对象文字'),{key:'Escape'});fireEvent.click(screen.getByTestId('fabric-place'));expect(readObjects(doc)).toHaveLength(1);
  }finally{cleanup();doc.destroy();bounds.mockRestore();}
 });
+
+it.each(['connecting','pending','offline','synced'] as const)('projects actual editor sync phase %s into the header',phase=>{
+ const doc=createWhiteboardDocument(),retry=vi.fn();
+ render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="Board" status={phase==='synced'?'已同步 · 序列 12':phase==='pending'?'2 项修改等待服务器确认':phase==='offline'?'连接中断':'正在连接服务器'} syncPhase={phase} onRetrySync={retry}/>);
+ const status=screen.getByTestId('board-sync-status');expect(status).toHaveAttribute('data-sync-phase',phase);expect(status.querySelector('svg')).not.toBeNull();
+ expect(status.querySelector('svg')).toHaveClass(...(phase==='pending'||phase==='connecting'?['motion-safe:animate-spin']:['shrink-0']));
+ if(phase==='offline'){fireEvent.click(screen.getByTestId('board-retry-sync'));expect(retry).toHaveBeenCalledOnce();}
+ else expect(screen.queryByTestId('board-retry-sync')).toBeNull();
+ doc.destroy();
+});

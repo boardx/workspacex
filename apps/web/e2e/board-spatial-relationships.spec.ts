@@ -1,4 +1,5 @@
 import { seedExistingFrame } from "./board-acceptance-support";
+import {expectBoardSynced} from './support/board-sync-status';
 import { randomUUID } from "node:crypto";
 import { PortableBoardBundle, PortableExportResult } from "@repo/contracts/whiteboard-portable";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
@@ -162,7 +163,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const created = await apiCall(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Spatial ${randomUUID()}` });
   const boardId = (await created.json() as { id: string }).id; cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   const surface = page.getByTestId("board-fabric-surface");
@@ -205,6 +206,9 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await openInspector(page, true, true);
   const autoExpand = page.getByLabel("区域自动扩展", { exact: true });
   const clipContent = page.getByLabel("区域裁剪内容", { exact: true });
+  // Establish the enabled policy before exercising the original toggle-off contract.
+  await autoExpand.check();
+  await expect(autoExpand).toBeChecked();
   await autoExpand.evaluate((element: HTMLInputElement) => element.click());
   await expect(autoExpand).not.toBeChecked();
   await expect(clipContent).toBeEnabled();
@@ -305,19 +309,19 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
   // Verify persisted convergence, not another tab replaying the same IndexedDB outbox.
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   const peerContext = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
   const peer = await peerContext.newPage();
   transportMetadata.observe(peer, "peer");
   try {
   await login(peer);
-  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await peer.goto(`/studio/board/${boardId}`); await expectBoardSynced(peer);
   await expect.poll(() => boardRows(peer)).toEqual(await boardRows(page));
 
   const expectedRows = await boardRows(page);
   await expect.poll(() => boardRows(peer)).toEqual(expectedRows);
 
-  await page.reload(); await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await page.reload(); await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
@@ -330,7 +334,7 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
   const boardId = (await created.json() as { id: string }).id;
   cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   return boardId;
 }
 

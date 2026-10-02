@@ -518,6 +518,79 @@ it("exposes the import callback in the editor header",async()=>{
   const button=await screen.findByTestId('board-import-open');fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
 });
 
+it("retries a failed canvas drop at its original coordinates with the original file", async()=>{
+ const doc=await setup();const transport=fetch;let fail=true;
+ vi.stubGlobal('fetch',vi.fn((url:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'&&fail?(fail=false,Promise.resolve(new Response(null,{status:503}))):transport(url,init)));
+ const file=new File([byteBuffer(png(40,30))],'retry-drop.png',{type:'image/png'}),drop=createEvent.drop(screen.getByTestId('collaborative-editor'));
+ Object.defineProperties(drop,{clientX:{value:300},clientY:{value:240},dataTransfer:{value:{files:[file],items:[{kind:'file'}]}}});
+ fireEvent(screen.getByTestId('collaborative-editor'),drop);
+ await screen.findByTestId('board-image-retry');expect(readObjects(doc)).toHaveLength(0);
+ fireEvent.click(screen.getByTestId('board-image-retry'));
+ await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));
+ expect(readObjects(doc)[0]).toMatchObject({geometry:{x:140,y:120},extensionData:{contentObject:{fileName:'retry-drop.png',intrinsicWidth:40,intrinsicHeight:30}}});
+ expect(screen.queryByTestId('board-image-retry')).toBeNull();doc.destroy();
+});
+
+it("does not cancel the first upload when another entrypoint fires while it is busy",async()=>{
+ const {doc}=await setupView();let finish!:(value:unknown)=>void;
+ const decode=vi.fn(()=>new Promise(resolve=>{finish=resolve;}));vi.stubGlobal('createImageBitmap',decode);
+ const input=screen.getByTestId('board-image-input');const file=new File([byteBuffer(png())],'first.png',{type:'image/png'});
+ fireEvent.change(input,{target:{files:[file]}});
+ await waitFor(()=>expect(decode).toHaveBeenCalledTimes(1));
+ fireEvent.paste(screen.getByTestId('collaborative-editor'),{clipboardData:{files:[new File([byteBuffer(png())],'second.png',{type:'image/png'})],getData:()=>''}});
+ expect(decode).toHaveBeenCalledTimes(1);expect(input).toBeDisabled();
+ await act(async()=>finish({width:32,height:24,close:vi.fn()}));
+ await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));
+ expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({fileName:'first.png'});doc.destroy();
+});
+
+it("does not upload or commit after readonly changes during image decoding",async()=>{
+ const {doc,rerender}=await setupView();let finish!:(value:unknown)=>void;
+ vi.stubGlobal('createImageBitmap',vi.fn(()=>new Promise(resolve=>{finish=resolve;})));
+ fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'revoked.png',{type:'image/png'})]}});
+ await waitFor(()=>expect(finish).toBeDefined());
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+ rerender(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly title="内容板" status="只读"/>);
+ await act(async()=>finish({width:32,height:24,close:vi.fn()}));
+ expect(readObjects(doc)).toHaveLength(0);
+ expect(vi.mocked(fetch).mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+ expect(screen.getByTestId('board-image-input')).toBeDisabled();doc.destroy();
+});
+
+it("accepts a modal file drop through the durable image upload path",async()=>{
+ const doc=await setup();fireEvent.click(screen.getByTestId('board-add-image'));
+ const dialog=screen.getByRole('dialog');const drop=createEvent.drop(dialog);
+ Object.defineProperty(drop,'dataTransfer',{value:{files:[new File([byteBuffer(png())],'dialog-drop.png',{type:'image/png'})],types:['Files']}});
+ fireEvent(dialog,drop);await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));
+ expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({fileName:'dialog-drop.png',persistence:'durable'});doc.destroy();
+});
+
+it("erases only hit unlocked drawings in one undo/redo gesture without selecting them",async()=>{
+ const doc=await setup();
+ const content={version:1,type:'drawing',strokes:[{id:'ink',tool:'pen',width:3,color:'#18181B',opacity:1,points:[{x:10,y:20,pressure:.5},{x:50,y:60,pressure:.5}]}]};
+ act(()=>executeCommands(doc,[0,1,2].map(index=>({type:'create' as const,object:{id:`drawing-${index}`,schemaVersion:1 as const,kind:'drawing' as const,geometry:{x:10+index*5,y:20+index*5,width:40,height:40,rotation:0},text:'',style:{},parentId:null,orderKey:String(index),locked:index===2,extensionData:{contentObject:content}}})),'seed'));
+ fireEvent.click(screen.getByTestId('erase-stroke'));
+ const strokes=(index:number)=>(readObjects(doc).find(object=>object.id===`drawing-${index}`)!.extensionData!.contentObject as {strokes:unknown[]}).strokes;
+ expect(strokes(0)).toHaveLength(2);expect(strokes(1)).toHaveLength(2);expect(strokes(2)).toHaveLength(1);
+ fireEvent.click(screen.getByRole('button',{name:'撤销'}));
+ expect(strokes(0)).toHaveLength(1);expect(strokes(1)).toHaveLength(1);expect(strokes(2)).toHaveLength(1);
+ fireEvent.click(screen.getByRole('button',{name:'重做'}));
+ expect(strokes(0)).toHaveLength(2);expect(strokes(1)).toHaveLength(2);expect(strokes(2)).toHaveLength(1);doc.destroy();
+});
+
+it("retains the original replacement target when retrying after the image dialog closes",async()=>{
+ const doc=await setup(),input=screen.getByTestId('board-image-input');
+ fireEvent.change(input,{target:{files:[new File([byteBuffer(png())],'original.png',{type:'image/png'})]}});
+ await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));const original=readObjects(doc)[0]!;
+ openAppearance();fireEvent.click(screen.getByRole('button',{name:'替换'}));
+ const transport=fetch;let fail=true;vi.stubGlobal('fetch',vi.fn((url:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'&&fail?(fail=false,Promise.resolve(new Response(null,{status:503}))):transport(url,init)));
+ fireEvent.change(input,{target:{files:[new File([byteBuffer(png(64,48))],'replacement-retry.png',{type:'image/png'})]}});
+ await screen.findByTestId('board-image-retry');fireEvent.click(screen.getByTestId('board-image-close'));
+ fireEvent.click(screen.getByTestId('board-image-retry'));
+ await waitFor(()=>expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({fileName:'replacement-retry.png',intrinsicWidth:64}));
+ expect(readObjects(doc)).toHaveLength(1);expect(readObjects(doc)[0]!.id).toBe(original.id);expect(readObjects(doc)[0]!.geometry).toEqual(original.geometry);doc.destroy();
+});
+
 it("places one Shape per gesture then returns to Select and remembers the variant",async()=>{
  const doc=await setup();
  fireEvent.click(screen.getByTestId("board-add-shape"));
