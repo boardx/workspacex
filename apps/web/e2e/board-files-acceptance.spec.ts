@@ -1,9 +1,10 @@
+import {expectBoardSynced} from './support/board-sync-status';
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile, writeFile} from 'node:fs/promises';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {apiOrigin, boardApi, boardLogin, createAcceptanceBoard, archiveAcceptanceBoard, openBoard, boardHead, BOARD_SYNCED_STATUS} from './board-acceptance-support';
+import {apiOrigin, boardApi, boardLogin, createAcceptanceBoard, archiveAcceptanceBoard, openBoard, boardHead} from './board-acceptance-support';
 import {fileAssetRows, fileWriteCounterproof, setFileFixtureOrgFrozen} from './support/board-files-storage';
 import {isBoardFileUploadResponse} from './support/board-file-upload-response';
 import {securityFixture} from './support/board-security-fixture';
@@ -37,7 +38,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     expect(metadata).toMatchObject({fileName, byteSize: bytes.length, contentDigest: digest, persistence: 'durable'});
     const row = page.getByTestId('board-a11y-mirror').locator('li[data-object-id]');
     await expect(row).toHaveCount(1); await expect(row).toHaveAttribute('data-object-text', fileName);
-    await expect(page.getByTestId('board-sync-status')).toHaveText(BOARD_SYNCED_STATUS);
+    await expectBoardSynced(page);
     await expect.poll(() => fileAssetRows(F.orgId, board)).toEqual([{asset_id: metadata.assetId, metadata, state: 'active'}]);
     expect(await fileAssetRows(foreign.orgId, board)).toEqual([]); expect(await fileAssetRows(null, board)).toEqual([]);
     const positiveWrites = await fileWriteCounterproof(F.orgId, F.orgId, board, metadata.assetId);
@@ -54,7 +55,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     expect(await positive.body()).toEqual(bytes);
     expect(positive.headers()).toMatchObject({'content-type': 'application/octet-stream', 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff'});
     expect(positive.headers()['content-disposition']).toBe(`attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-    await page.reload(); await expect(page.getByTestId('board-sync-status')).toHaveText(BOARD_SYNCED_STATUS);
+    await page.reload(); await expectBoardSynced(page);
     await expect(row).toHaveCount(1); await expect(row).toHaveAttribute('data-object-text', fileName);
     const outlineButton = row.getByRole('button'); await outlineButton.focus(); await outlineButton.press('Enter');
     const downloaded = page.waitForEvent('download'); await page.getByRole('button', {name: '下载', exact: true}).click();
