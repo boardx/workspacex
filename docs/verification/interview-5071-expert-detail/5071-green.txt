@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 397ms
+ ✓ tests/ui/digital-expert-detail.test.tsx (2 tests) 193ms
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  19:50:08
+   Duration  7.32s (transform 1.78s, setup 575ms, collect 2.91s, tests 591ms, environment 2.32s, prepare 171ms)
+

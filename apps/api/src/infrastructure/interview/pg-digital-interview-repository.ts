@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   CreateDigitalInterviewRecordInput,
@@ -361,6 +362,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         const source=await s.query<{expert_snapshot:StoredDigitalExpert;converted_interview_id:string|null}>(`SELECT q.expert_snapshot,q.converted_interview_id FROM digital_quick_interviews q JOIN interview_sessions i ON i.org_id=q.org_id AND i.id=q.interview_id WHERE q.org_id=$1 AND q.interview_id=$2 AND i.version=$3 FOR UPDATE OF q`,[input.orgId,input.sourceInterviewId,input.expectedVersion]);
         if(!source.rows[0]) throw new Error("CONCURRENT_MODIFICATION");
         if(source.rows[0].converted_interview_id){
+          await this.initializeConvertedWorkflow(s, input.orgId, source.rows[0].converted_interview_id, input.actorId);
           const existing=await s.query<DigitalInterviewRow>(`SELECT ${COLUMNS},project_id,false AS is_collaborator FROM interview_sessions WHERE org_id=$1 AND id=$2`,[input.orgId,source.rows[0].converted_interview_id]);
           const sourceMaterials=await this.readSourceMaterials(s,input.orgId,source.rows[0].converted_interview_id);
           await s.query("COMMIT"); return {...toStored(existing.rows[0]!),sourceMaterials};
@@ -368,6 +370,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         const expert=source.rows[0].expert_snapshot;
         await s.query(`INSERT INTO interview_sessions(id,org_id,source_kind,title,created_by,tags,topic,digital_status,source_quick_interview_id,selected_expert_ids,version)
           VALUES($1,$2,'virtual',$3,$4,$5,$6,'draft',$7,ARRAY[$8],1)`,[input.interviewId,input.orgId,input.name,input.actorId,[...input.tags],input.topic,input.sourceInterviewId,expert.expertId]);
+        await this.initializeConvertedWorkflow(s, input.orgId, input.interviewId, input.actorId);
         await s.query(`UPDATE digital_quick_interviews SET converted_interview_id=$3 WHERE org_id=$1 AND interview_id=$2`,[input.orgId,input.sourceInterviewId,input.interviewId]);
         await s.query(`INSERT INTO digital_interview_source_materials
           (org_id,interview_id,source_quick_interview_id,source_message_id,ordinal,role,body,source_pointers)
@@ -379,6 +382,18 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         return {interviewId:input.interviewId,orgId:input.orgId,name:input.name,tags:input.tags,topic:input.topic,status:"draft" as const,sourceQuickInterviewId:input.sourceInterviewId,selectedExpertIds:[expert.expertId],reportId:null,version:1,createdBy:input.actorId,sourceMaterials};
       } catch(e){await s.query("ROLLBACK");throw e;}
     });
+  }
+
+  /** Conversion and its replay must produce a draft readable by the workflow API. */
+  private async initializeConvertedWorkflow(session: TenantSession, orgId: OrgId, interviewId: string, actorId: string) {
+    await session.query(`INSERT INTO digital_interview_revisions
+      (org_id,id,interview_id,revision_number,is_current,created_by)
+      SELECT $1,$2,$3,1,true,$4 WHERE NOT EXISTS
+        (SELECT 1 FROM digital_interview_revisions WHERE org_id=$1 AND interview_id=$3)
+      ON CONFLICT DO NOTHING`, [orgId, `rev-${randomUUID()}`, interviewId, actorId]);
+    await session.query(`INSERT INTO digital_interview_skill_threads(org_id,id,interview_id,created_by)
+      VALUES($1,$2,$3,$4) ON CONFLICT (org_id,interview_id) DO NOTHING`,
+    [orgId, `thread-${randomUUID()}`, interviewId, actorId]);
   }
 
   private async readQuickMessages(session: {query<T>(sql:string,params?:readonly unknown[]):Promise<{rows:T[]}>}, orgId: OrgId, interviewId: string) {

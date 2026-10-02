@@ -38,3 +38,11 @@ describe("bounded report progress projection", () => {
     expect(runtimeProgress(state, "r", 999).stream?.offset).toBe(0);
   });
 });
+
+it("projects durable saved chapter count without chapter bodies", () => {
+  const result = runtimeProgress({ ...state, reportCheckpoint: { basis: "current", chapters: [{ sectionId: "one", body: "PRIVATE CHAPTER".repeat(10000) }, { sectionId: "two", body: "PRIVATE CHAPTER" }] } } as unknown as ResearchRuntime);
+  expect(result).toHaveProperty("reportSavedChapterCount", 2);
+  expect(JSON.stringify(result)).not.toContain("PRIVATE CHAPTER");
+  expect(result).not.toHaveProperty("reportCheckpoint");
+  expect(JSON.stringify(result).length).toBeLessThan(600);
+});
