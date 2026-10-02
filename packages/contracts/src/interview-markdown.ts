@@ -51,15 +51,33 @@ const REPORT_ACTION_SIGNALS = [
 ];
 const reportHasAny = (markdown: string, patterns: readonly RegExp[]) => patterns.some((pattern) => pattern.test(markdown));
 export function assessInterviewReportAnalysis(markdown: string): InterviewReportAnalysisAssessment {
+  const text = reportAnalysisText(markdown);
   const missing: InterviewReportAnalysisGap[] = [];
-  if (!reportHasAny(markdown, REPORT_SYNTHESIS_SIGNALS)) missing.push("cross_answer_synthesis");
-  if (!reportHasAny(markdown, REPORT_DECISION_SIGNALS)) missing.push("decision_implication");
-  if (!reportHasAny(markdown, REPORT_BOUNDARY_SIGNALS)) missing.push("boundary_or_counterevidence");
-  if (!reportHasAny(markdown, REPORT_ACTION_SIGNALS)) missing.push("verifiable_action");
+  if (!reportHasAny(text, REPORT_SYNTHESIS_SIGNALS)) missing.push("cross_answer_synthesis");
+  if (!reportHasAny(text, REPORT_DECISION_SIGNALS)) missing.push("decision_implication");
+  if (!reportHasAny(text, REPORT_BOUNDARY_SIGNALS)) missing.push("boundary_or_counterevidence");
+  if (!hasInterviewReportVerifiableAction(markdown)) missing.push("verifiable_action");
   return { ok: missing.length === 0, missing };
 }
 export function hasInterviewReportVerifiableAction(markdown: string): boolean {
-  return reportHasAny(markdown, REPORT_ACTION_SIGNALS);
+  const text = reportAnalysisText(markdown);
+  if (reportHasAny(text, REPORT_ACTION_SIGNALS)) return true;
+  const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+  return nodes.some((node, index) => {
+    if (node.type !== "heading" || !/^(?:下一步验证建议|建议行动|行动建议|验证计划)[：:]?$/u.test(analysisNodeText(node).trim())) return false;
+    const following: string[] = [];
+    for (const next of nodes.slice(index + 1)) {
+      if (next.type === "heading" && (next.depth ?? 0) <= (node.depth ?? 0)) break;
+      following.push(analysisNodeText(next));
+    }
+    return following.join("\n").split("\n").some((line) => {
+      const action = line.trim();
+      return action.length >= 8 && !/^(?:不应|无需|不要|禁止|不必)/u.test(action)
+        && /(?:访谈|测试|验证|观察|测量|对比|监控|采集)/u.test(action)
+        && /(?:指标|信号|样本|用户|任务|假设|率|时长|次数|角色|证据)/u.test(action)
+        && /(?:对照组|实验组|三角|三方|独立|指标|信号|假设|[一二三四五六七八九十\d]+(?:次|起|位|人|天|周|月)|时长|率)/u.test(action);
+    });
+  });
 }
 
 export const InterviewMarkdownExecution = z.object({
@@ -153,6 +171,26 @@ export type InterviewMarkdownProjection = Readonly<{
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 type MarkdownNode = { type: string; value?: string; depth?: number; url?: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: MarkdownNode[] };
+
+/** Quality checks read visible prose, never code examples, HTML or link URLs. */
+function analysisNodeText(node: MarkdownNode): string {
+  if (["html", "code", "inlineCode", "image"].includes(node.type)) return "";
+  const separator = ["list", "listItem", "root", "blockquote"].includes(node.type) ? "\n" : "";
+  return node.value ?? node.children?.map(analysisNodeText).filter(Boolean).join(separator) ?? "";
+}
+function reportAnalysisText(markdown: string): string {
+  const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+  return nodes.filter((node, index) => {
+    if (node.type !== "heading") return true;
+    // A label alone is not analysis. Include a heading only when its section
+    // contains prose; code examples and empty child headings do not count.
+    for (const next of nodes.slice(index + 1)) {
+      if (next.type === "heading" && (next.depth ?? 0) <= (node.depth ?? 0)) break;
+      if (next.type !== "heading" && analysisNodeText(next).trim()) return true;
+    }
+    return false;
+  }).map(analysisNodeText).filter(Boolean).join("\n");
+}
 
 function plainText(node: MarkdownNode): string {
   if (node.type === "html") return "";

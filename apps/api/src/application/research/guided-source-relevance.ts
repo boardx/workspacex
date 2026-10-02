@@ -58,7 +58,11 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     const content = screeningContent(source);
     for (const taskId of sourceTaskIds(source)) {
       const task = state.tasks.find((item) => item.id === taskId);
-      const questionIds = questions.filter((question) => question.sectionId === task?.sectionId).map((question) => question.id);
+      const scopedQuestions = questions.filter((question) => question.sectionId === task?.sectionId);
+      // Replacement/deleted chapter IDs do not invalidate retrieved facts.
+      // Reassess them against current questions; exact quotes and relevance
+      // validation still decide whether the original task's source is useful.
+      const questionIds = (scopedQuestions.length || !task ? scopedQuestions : questions).map((question) => question.id);
       if (!task || !questionIds.length) continue;
       for (let offset = 0; offset < content.length; offset += 6000) result.push({ sourceId: source.id, taskId, questionIds,
         chunkId: JSON.stringify([source.id, taskId, offset]), title: source.title.slice(0, 300), url: source.url, content: content.slice(offset, offset + 6000) });

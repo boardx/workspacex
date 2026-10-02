@@ -1,0 +1,121 @@
+[stack-admission] load1=22.87 cores=10 perCore=2.29 running=2/2
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 160s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 165s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 170s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 175s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 180s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 185s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 190s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 195s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 200s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 205s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 210s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 215s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 220s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 225s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 230s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 235s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 240s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 245s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 250s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 255s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 260s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 265s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 270s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 275s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 280s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 285s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 290s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 295s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 300s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 305s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 310s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 315s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 320s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 325s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 330s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 335s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 340s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 345s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 350s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 355s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 360s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 365s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 370s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 375s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 380s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 385s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 390s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 395s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 400s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 405s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 410s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 415s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 420s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 425s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 430s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 435s
+[test-isolation] id=run-muqy2qyj-b3291918-2366b90ddabc db=wsx_2366b90ddabcf186dffb compose=wsx-2366b90ddabcf186dffb pg=20605 redis=21605 api=24605 web=25605 sandbox=26605 model=27605 deep-agent=28605 asr=29605 vision=30605 loopback-sandbox=31605 mail=19605
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+[db-isolation] db=wsx_2366b90ddabcf186dffb capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"6e49c57d-9cbf-40a2-9b65-abc16c659563","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:489:77)\n    at DigitalInterviewController.message (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:471:219)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+(node:3688) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"level":"error","msg":"http exception","traceId":"b256e1b6-00bc-42b7-a4df-c0d21c861245","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:486:55)\n    at DigitalInterviewController.quick (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:466:169)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"3961b323-6b59-4edd-a983-da2dcdf8f7d0","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:486:55)\n    at DigitalInterviewController.quick (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:466:169)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f7818970-be26-41db-8684-47eea6e5d50b","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:486:55)\n    at DigitalInterviewController.message (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:471:219)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"17b7d8a0-1699-4559-98eb-70ed8b90fcec","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:486:55)\n    at DigitalInterviewController.message (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:471:219)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"9f1095ab-668f-4608-a12a-f492081b29b7","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:486:55)\n    at DigitalInterviewController.convert (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:476:252)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"2479ad7f-b048-4549-a897-9495604df4e9","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:486:55)\n    at DigitalInterviewController.convert (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/src/interface/controllers/digital-interview.controller.ts:476:252)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/itv/quick-digital-interview.test.ts (5 tests) 20280ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  20:41:12
+   Duration  24.98s (transform 3.79s, setup 7ms, collect 1.11s, tests 20.28s, environment 0ms, prepare 42ms)
+
+[db-isolation] db=wsx_2366b90ddabcf186dffb peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/itv/quick-digital-interview.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：7m15s
+  命令执行：26s
+  清理：0s
+  总计：7m42s

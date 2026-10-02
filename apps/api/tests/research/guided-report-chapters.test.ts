@@ -1,3 +1,4 @@
+import { research as C } from "@repo/contracts";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import { reportBasis, reportSourceAliases, canonicalReportText, aliasResolver } from "../../src/application/research/guided-report-checkpoint";
 import { GuidedRuntimeService, validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
@@ -653,4 +654,53 @@ describe("report evidence debug recorder wiring", () => {
     expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ traceId: "diagnostic", kind: "research.report.evidence_attempt", level: "info", data: { sessionId: "s", attempt: 1, suppliedChunks: 2, validChunks: 2, retryChunks: 0, reasonCounts: {}, failed: false } });
     expect(events[0].durationMs).toBeGreaterThanOrEqual(0); expect(JSON.stringify(events)).not.toContain("Evidence for");
   });
+});
+
+describe("post-research chapter structure saves (#5081)", () => {
+  it.each(["save_chapters", "save"])("%s keeps the appropriate invalidation boundary", async (action) => {
+    const f = fixture(); f.state.busy = false; f.state.availableNodes = ["brief", "directions", "outline", "research", "report"];
+    f.state.sources[1]!.decision = "excluded";
+    f.state.reportDraft = { title: "Old draft", summary: "Old", sections: [] };
+    const beforeSources = structuredClone(f.state.sources), beforeTasks = structuredClone(f.state.tasks);
+    const value = f.state.outline.map((item) => ({ ...item, title: `${item.title} edited`, questions: [...item.questions, "New unsupported question?"] }));
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const model: ModelCallPort = { complete: vi.fn(async () => { throw new Error("must not generate while saving"); }) };
+    const service = new GuidedRuntimeService(store, model, { search: vi.fn(async () => []) }, config);
+    const result = await service.execute({ sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor,
+      { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any,
+      { sessionId: "s", node: "outline", action, requestId: "chapter-save", expectedVersion: 4, draft: { node: "outline", value } } as any);
+    expect(result.errorCode).toBeNull(); expect(result.outline).toEqual(value); expect(result.reportDraft).toBeNull(); expect(result.completed).toBe(false);
+    expect(model.complete).not.toHaveBeenCalled();
+    if (action === "save_chapters") {
+      expect(result.sources).toEqual(beforeSources); expect(result.tasks).toEqual(beforeTasks); expect(result.availableNodes).toContain("research");
+      expect(result.currentNode).toBe("research"); expect(result.availableNodes).not.toContain("report");
+    } else { expect(result.sources).toEqual([]); expect(result.tasks).toEqual([]); expect(result.currentNode).toBe("outline"); }
+  });
+});
+
+it("rejects chapter saves without an explicit outline draft or in another node", () => {
+  const valid = { sessionId: "s", requestId: "save", expectedVersion: 4, node: "outline", action: "save_chapters", draft: { node: "outline", value: fixture().state.outline } };
+  expect(C.GuidedResearchRuntimeCommand.safeParse(valid).success).toBe(true);
+  for (const invalid of [{ ...valid, draft: undefined }, { ...valid, node: "research" }, { ...valid, message: "generate without evidence" }]) {
+    expect(C.GuidedResearchRuntimeCommand.safeParse(invalid).success).toBe(false);
+  }
+});
+
+it("reassesses preserved sources when replacement chapters are confirmed (#5081)", async () => {
+  const f = fixture(); f.state.busy = false; f.state.availableNodes = ["brief", "directions", "outline", "research", "report"];
+  f.state.sources[0]!.decision = "excluded";
+  const sources = structuredClone(f.state.sources), tasks = structuredClone(f.state.tasks), contexts: any[] = [];
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+  const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(answer(c)) }; } };
+  const service = new GuidedRuntimeService(store, model, { search: async () => { throw new Error("must reuse retrieved facts"); } }, config);
+  const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+  const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+  const value = [{ ...f.state.outline[2]!, id: "replacement", order: 0 }];
+  await service.execute(actor, session, { sessionId: "s", node: "outline", action: "save_chapters", requestId: "edit", expectedVersion: 4, draft: { node: "outline", value } });
+  const result = await service.execute(actor, session, { sessionId: "s", node: "research", action: "complete", requestId: "confirm", expectedVersion: 4, draft: { node: "research", value: f.state.sources.map(({id,decision})=>({id,decision})) } });
+  expect(contexts.some((c) => c.researchStage === "source_relevance")).toBe(true);
+  expect(result.sources.map(({id,decision})=>({id,decision}))).toEqual(sources.map(({id,decision})=>({id,decision})));
+  expect(result.tasks).toEqual(tasks); expect(result.currentNode).toBe("report");
+  expect(contexts.some((c) => c.reportStage === "evidence")).toBe(true);
+  expect(contexts.some((c) => c.reportStage === "quality")).toBe(true);
 });

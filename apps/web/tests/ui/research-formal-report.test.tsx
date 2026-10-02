@@ -62,3 +62,13 @@ describe("formal research report", () => {
     expect(final.summary).toBe("未知〔来源不可用〕");
   });
 });
+
+it("shows the latest durable saved count from progress while retaining the checkpoint", () => {
+  const state = { ...runtime, report: null, reportSavedChapterCount: 3,
+    outline: Array.from({ length: 4 }, (_, i) => ({ ...runtime.outline[0]!, id: `chapter-${i}` })),
+    reportCheckpoint: { basis: "same-attempt", chapters: runtime.report!.sections },
+    reportStream: { requestId: "r", sequence: 1, status: "streaming" as const, text: JSON.stringify({ sections: runtime.report!.sections }) } };
+  render(<GuidedResearchReportPreview state={state} />);
+  expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 3 / 4 个章节");
+  expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("报告尚未完成");
+});

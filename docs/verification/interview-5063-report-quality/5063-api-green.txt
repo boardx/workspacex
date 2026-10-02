@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/digital-interview-report.test.ts (8 tests) 32ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  19:55:41
+   Duration  2.86s (transform 1.48s, setup 0ms, collect 2.38s, tests 32ms, environment 1ms, prepare 155ms)
+
