@@ -1,0 +1,45 @@
+[WebServer] (node:82057) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:82063) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:84150) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [design-html] › e2e/design-html.spec.ts:14:5 › HTML selection focusRef clear and preview navigation (7.1s)
+  ✘  2 [design-html] › e2e/design-html.spec.ts:22:5 › offline HTML export iframe navigation (6.8s)
+(node:85597) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 [design-html] › e2e/design-html.spec.ts:23:5 › 375px no page horizontal overflow (709ms)
+
+
+  1) [design-html] › e2e/design-html.spec.ts:22:5 › offline HTML export iframe navigation ──────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('.wx-page').nth(1)
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for locator('.wx-page').nth(1)
+        14 × locator resolved to <section hidden="" id="screen-1" class="wx-page">…</section>
+           - unexpected value "hidden"
+
+
+      20 |  await page.getByTestId('design-detail-mode-preview').click(); await frame(page).getByRole('button',{name:'写下心情'}).click(); await expect(frame(page).getByRole('heading',{name:'写日记'})).toBeVisible(); await expect(page.getByTestId('design-detail-focus')).toHaveCount(0); await page.screenshot({path:resolve(evidence,'html-browser-preview-navigation.png'),fullPage:true});
+      21 | });
+    > 22 | test('offline HTML export iframe navigation',async({page,context})=>{ await open(page); await clickMore(page,'design-detail-export'); const pending=page.waitForEvent('download'); await page.getByTestId('design-detail-export-html').click(); const path=resolve(evidence,'emotional-diary-offline.html'); await(await pending).saveAs(path); const offline=await context.newPage();await offline.goto(`file://${path}`);const home=offline.locator('.wx-page').nth(0);const write=offline.locator('.wx-page').nth(1);await expect(home).toBeVisible();await home.frameLocator('iframe').getByRole('button',{name:'写下心情'}).click();await expect(write).toBeVisible();await expect(home).toBeHidden();await offline.screenshot({path:resolve(evidence,'html-browser-offline-navigation.png'),fullPage:true});});
+         |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ^
+      23 | test('375px no page horizontal overflow',async({page})=>{await page.setViewportSize({width:375,height:812});await open(page);await expect(frame(page).getByRole('heading',{name:'情绪日记'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:resolve(evidence,'html-browser-mobile-375.png'),fullPage:true});});
+      24 |
+        at /private/tmp/wsx-design-html-acceptance/apps/web/e2e/design-html.spec.ts:22:634
+
+    Error Context: test-results/design-html-offline-HTML-export-iframe-navigation-design-html/error-context.md
+
+  1 failed
+    [design-html] › e2e/design-html.spec.ts:22:5 › offline HTML export iframe navigation ───────────
+  2 passed (30.3s)

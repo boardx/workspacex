@@ -8,17 +8,20 @@ import { Button } from "@/components/ui/button";
 import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
 import { InterviewSourceReportReview } from "./interview-source-report-review";
+import { InterviewStepHeader } from "./interview-step-header";
 
-export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange }: {
+export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange, onRunningStepChange }: {
   readonly interviewId: string; readonly step: "runs" | "report";
   readonly runs: DigitalInterviewWorkflowView["expertRuns"];
   readonly legacySelectedExpertIds?: readonly string[];
   readonly onVersionChange: (version: number) => void; readonly onReport: () => void;
   readonly reportPin?: { documentId: string; version: number };
   readonly onBusyChange?: (busy: boolean) => void;
+  readonly onRunningStepChange?: (step: string | null) => void;
 }) {
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [generatingReport, setGeneratingReport] = React.useState(false);
   const [error, setError] = React.useState("");
   const dispatching = React.useRef(false);
   const mounted = React.useRef(true);
@@ -55,6 +58,8 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     }
   }, [interviewId, receive]);
   React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
+  React.useEffect(() => { onRunningStepChange?.(generatingReport ? "report" : pending ? step : source?.execution?.status === "running" ? "runs" : null); }, [pending, generatingReport, source?.execution?.status, step, onRunningStepChange]);
+  React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
   React.useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
   React.useEffect(() => {
     if (step !== "runs" || source?.execution?.status !== "running" || pending || error) return;
@@ -91,7 +96,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       : runs;
   async function generateReport() {
     if (pending || !source || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")) return;
-    setPending(true); setError("");
+    setPending(true); setGeneratingReport(true); setError("");
     try {
       let current = await loadInterviewMarkdown(interviewId);
       const answers = current.documents.find((item) => item.step === "runs");
@@ -106,19 +111,18 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
         try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Keep previously loaded document. */ }
         setError("报告生成未完成，已保存文档保留。请重试；已确认版本不会被覆盖。");
       }
-    } finally { if (mounted.current) setPending(false); }
+    } finally { if (mounted.current) { setPending(false); setGeneratingReport(false); } }
   }
+  const reportRetry = step === "report" && (state?.status === "failed" || error) ? <Button variant="outline" disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</Button> : null;
   return <div>
     {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><Button variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</Button></div>}
     {state?.status === "failed" && <p role="alert" className="mb-4 text-sm text-destructive">本次生成未完成，以下为已保存内容，不代表完整报告。</p>}
-    {step === "runs" && <div className="mb-5 flex flex-wrap gap-3">
+    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} actions={<>
       {!execution && <Button disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</Button>}
       {execution?.status === "running" && <Button variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</Button>}
       {execution?.status === "paused" && <Button disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
       {execution?.status === "failed" && <Button disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
-    </div>}
-    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} /> : document ? <InterviewReportStep document={document} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p>}
-    {step === "report" && (state?.status === "failed" || error) && <Button variant="outline" disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</Button>}
+    </>} /> : document ? <InterviewReportStep actions={reportRetry} document={document} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告">{reportRetry}</InterviewStepHeader><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p></>}
     {step === "report" && source && document && <InterviewSourceReportReview source={source} onSaved={receive} />}
   </div>;
 }

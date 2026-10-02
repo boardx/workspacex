@@ -54,7 +54,7 @@ export class GuidedResearchController {
     const input = C.operations.getGuidedResearchRuntimeProgress.in.safeParse({ ...(query as object), sessionId });
     if (!input.success) throw new BadRequestException();
     const state = await this.getRuntime(principal, sessionId);
-    return runtimeProgress(state!, input.data.requestId, input.data.offset, input.data.digest);
+    return runtimeProgress(state!, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
   }
 
   @Post(C.operations.executeGuidedResearchRuntime.path)

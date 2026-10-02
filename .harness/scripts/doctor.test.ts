@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   isEvidenceCommitIntegrated,
   judgeClosedIssueDrift,
+  checkIssueClosedButNotDone,
   judgeDuplicateFeatureIds,
   judgeEvidenceIdMismatch,
   judgePlaceholderIdSurvived,
@@ -51,6 +52,19 @@ describe("isEvidenceCommitIntegrated", () => {
 });
 
 describe("judgeClosedIssueDrift (#1557 反向检查：issue 已关、feature 未 passing)", () => {
+  it("#2485 strict CI rejects a completed issue without passing verification; local checks warn", () => {
+    const feature = { id: "F34", status: "in_progress" } as Parameters<typeof checkIssueClosedButNotDone>[1];
+    const issue = { number: 87, title: "F34", body: "<!-- harness-feature: 01/F34 -->", state: "CLOSED", stateReason: "COMPLETED" };
+    for (const level of ["FAIL", "WARN"] as const) {
+      const findings: Parameters<typeof checkIssueClosedButNotDone>[3] = [];
+      checkIssueClosedButNotDone("01", feature, [issue], findings, level);
+      expect(findings).toEqual([{ level, phase: "01", msg: expect.stringContaining("#87") }]);
+      const exempt: typeof findings = [];
+      checkIssueClosedButNotDone("01", feature, [{ ...issue, stateReason: "NOT_PLANNED" }], exempt, level);
+      expect(exempt).toEqual([]);
+    }
+  });
+
   it("flags a CLOSED issue whose feature is still in_progress", () => {
     const msg = judgeClosedIssueDrift({ id: "F34", status: "in_progress" }, { number: 87, state: "CLOSED", stateReason: "COMPLETED" });
     expect(msg).toContain("F34");

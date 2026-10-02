@@ -1,0 +1,13 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/web
+
+ ✓ tests/ui/chat-role-skill-scope.test.tsx (10 tests) 1014ms
+   ✓ limits candidates by exact role bindings even when names are identical 620ms
+ ✓ tests/ui/chat-skill-mount-panel-auto-close.test.tsx (9 tests) 428ms
+ ✓ tests/ui/agent-detail.test.tsx (10 tests) 642ms
+
+ Test Files  3 passed (3)
+      Tests  29 passed (29)
+   Start at  11:34:14
+   Duration  12.69s (transform 6.10s, setup 1.36s, collect 12.44s, tests 2.08s, environment 15.30s, prepare 860ms)

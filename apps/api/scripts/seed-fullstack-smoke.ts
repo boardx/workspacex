@@ -4,7 +4,7 @@ import {
   addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../tests/support/db";
 import { addBrowserArtifact } from "../tests/support/files-db";
-import { recording as C } from "@repo/contracts";
+import { agentDefaults, recording as C } from "@repo/contracts";
 import { createHash } from "node:crypto";
 import { FsObjectStore } from "../src/infrastructure/storage/fs-object-store";
 import { objectStoreRoot } from "../src/infrastructure/storage/object-store-root";
@@ -272,9 +272,10 @@ await asApp(orgId, async (client) => {
   await asApp(orgId, async (client) => {
     await client.query(
       `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
-       VALUES ($1,$2,$1,$3,'enabled',$4,now(),now())
+       VALUES ($1,$2,$5,$3,'enabled',$4,now(),now())
        ON CONFLICT (id) DO NOTHING`,
-      [agentId, orgId, agentDisplayName, adminUserId],
+      // The echo fixture serves the general-assistant mounted-Skill journeys, not an authored role.
+      [agentId, orgId, agentDisplayName, adminUserId, agentDefaults.DEFAULT_AGENT_STABLE_NAME],
     );
     await client.query(
       `INSERT INTO agent_versions

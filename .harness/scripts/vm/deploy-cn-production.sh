@@ -4,11 +4,12 @@ set -euo pipefail
 
 mode=deploy
 case ${1:-} in
+  --check-prepare-inputs) mode=check-prepare-inputs; shift ;;
   --prepare) mode=prepare; shift ;;
   --rollback) mode=rollback; shift ;;
   --verify-active) mode=verify-active; shift ;;
 esac
-[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "usage: workspacex-cn-deploy [--prepare|--rollback|--verify-active] <40-hex-revision> <attempt-id>" >&2; exit 2; }
+[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "usage: workspacex-cn-deploy [--check-prepare-inputs|--prepare|--rollback|--verify-active] <40-hex-revision> <attempt-id>" >&2; exit 2; }
 [[ ${EUID} -eq 0 ]] || { echo "CN_DEPLOY_REQUIRES_ROOT" >&2; exit 1; }
 revision=$1
 attempt_id=$2
@@ -39,6 +40,32 @@ baseline_state="$runtime/baseline.json"
 baseline_nginx="$runtime/baseline-nginx.conf"
 
 fail() { echo "CN_DEPLOY_REJECTED: $1" >&2; exit 1; }
+offline_source_self_contained() {
+  # fsck may succeed by borrowing objects outside this protected cache. Such a
+  # cache is not an offline artifact and must never admit a build or preparation.
+  local path
+  for path in "$SOURCE_CACHE/objects/info/alternates" "$SOURCE_CACHE/objects/info/http-alternates"; do
+    [[ ! -e "$path" && ! -L "$path" ]] || return 1
+  done
+  [[ -z "$(find "$SOURCE_CACHE" -type l -print -quit)" ]]
+}
+if [[ "$mode" == check-prepare-inputs ]]; then
+  # Read-only closure check before a build can consume the release budget.
+  # It does not synthesize shadow/migration evidence or grant activation.
+  [[ -f "$preparation_input" && ! -L "$preparation_input" && "$(stat -c '%U:%G:%a' "$preparation_input")" == root:root:600 ]] || { echo CN_RELEASE_NOT_READY_PREPARATION_INPUT >&2; exit 3; }
+  [[ -d "$SOURCE_CACHE" && ! -L "$SOURCE_CACHE" && "$(stat -c '%U:%G:%a' "$SOURCE_CACHE")" == root:root:700 ]] || { echo CN_RELEASE_NOT_READY_OFFLINE_SOURCE >&2; exit 3; }
+  offline_source_self_contained || { echo CN_RELEASE_NOT_READY_SOURCE_EXTERNAL_OBJECTS >&2; exit 3; }
+  [[ "$(GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" rev-parse refs/heads/main)" == "$revision" ]] || { echo CN_RELEASE_NOT_READY_OFFLINE_SOURCE_SHA >&2; exit 3; }
+  [[ -z "$(find "$SOURCE_CACHE/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] && GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" fsck --full --no-reflogs >/dev/null || { echo CN_RELEASE_NOT_READY_SOURCE_CLOSURE >&2; exit 3; }
+  node - "$preparation_input" "$revision" <<'NODE' || { echo CN_RELEASE_NOT_READY_PREPARATION_IDENTITY >&2; exit 3; }
+try {
+  const fs=require("node:fs"),[path,revision]=process.argv.slice(2),v=JSON.parse(fs.readFileSync(path,"utf8"));
+  if(v.sourceRevision!==revision||!Number.isFinite(Date.parse(v.expiresAt))||Date.parse(v.expiresAt)<=Date.now())process.exit(1);
+} catch { process.exit(1); }
+NODE
+  echo CN_RELEASE_PREPARE_INPUTS_PRESENT
+  exit 0
+fi
 pnpm() { COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 "$@"; }
 [[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
 resolve_browser_executable() {
@@ -249,6 +276,7 @@ if [[ "$mode" == prepare ]]; then
   private_root_file "$preparation_input"
   [[ ! -e "$release_checkout" && ! -e "$runtime" ]] || fail "release preparation already exists"
   [[ -d "$SOURCE_CACHE" && ! -L "$SOURCE_CACHE" && "$(stat -c '%U:%G:%a' "$SOURCE_CACHE")" == root:root:700 ]] || fail "trusted offline source cache is unavailable"
+  offline_source_self_contained || fail "offline source cache depends on external objects"
   [[ "$(GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" rev-parse refs/heads/main)" == "$revision" ]] || fail "offline source cache revision mismatch"
   [[ -z "$(find "$SOURCE_CACHE/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || fail "offline source cache is partial"
   GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" fsck --full --no-reflogs >/dev/null || fail "offline source cache object closure is incomplete"

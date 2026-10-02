@@ -60,7 +60,7 @@ export async function restoreTemplate(
   }
 
   try {
-    await deps.templates.setState(input.orgId, input.key, input.version, next.next);
+    await deps.templates.setState(input.orgId, input.key, input.version, next.next, input.userId);
   } catch (e) {
     if (isUniquePublishedViolation(e)) throw new CanvasPublishedVersionConflictError(input.key);
     throw e;
