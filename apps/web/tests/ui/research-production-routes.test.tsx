@@ -118,3 +118,33 @@ it("only applies a real assistant proposal after explicit user adoption", async 
   fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
   expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("Suggested objective");
 });
+
+it.each([101, 123, 200, 2000])("creates research from a %i-character requirement using a contract-valid default title", async (length) => {
+  vi.mocked(createGuidedResearchSession).mockImplementation(async (input) => {
+    research.operations.createGuidedResearchSession.in.parse(input);
+    return { sessionId: "long-description" } as never;
+  });
+  vi.mocked(getResearchRuntime).mockResolvedValue({ version: 3, currentNode: "directions" } as never);
+  render(<ResearchNewRoute />);
+  const description = "研".repeat(length);
+  fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: description } });
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/long-description/topic"));
+  const input = vi.mocked(createGuidedResearchSession).mock.calls[0]![0];
+  expect(input.brief?.goal).toBe(description);
+  expect(input.title).toBe(description.slice(0, research.GuidedResearchMetadata.shape.title.maxLength!));
+});
+
+it("bounds a default title derived from a prefilled topic while preserving the topic", async () => {
+  vi.mocked(createGuidedResearchSession).mockImplementation(async (input) => {
+    research.operations.createGuidedResearchSession.in.parse(input);
+    return { sessionId: "prefilled-topic" } as never;
+  });
+  vi.mocked(getResearchRuntime).mockResolvedValue({ version: 3, currentNode: "directions" } as never);
+  const navigate = vi.fn();
+  const topic = "研".repeat(120);
+  render(<ResearchIntake initialBrief={{ topic, goal: "研究无障碍标准", timeRange: "", region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={navigate} renderAssistant={() => null} />);
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "prefilled-topic"));
+  expect(vi.mocked(createGuidedResearchSession).mock.calls[0]![0].brief?.topic).toBe(topic);
+});

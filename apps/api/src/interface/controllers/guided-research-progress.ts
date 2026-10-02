@@ -13,6 +13,7 @@ export function runtimeProgress(state: ResearchRuntime, requestId?: string, offs
     currentNode: state.currentNode, availableNodes: state.availableNodes,
     busy: state.busy, leaseUntil: state.leaseUntil, errorCode: state.errorCode,
     completed: state.completed, progress: state.progress, reportTimeline: state.reportTimeline,
+    reportSavedChapterCount: state.reportCheckpoint?.chapters.length ?? 0,
     reportPartial: state.reportPartial, reportSourceAliases: state.reportSourceAliases, reportQualityWarnings: state.reportQualityWarnings ?? [],
     ...(state.currentNode === "research" ? { research: { cursor, tasks: state.tasks, ...(sourceCursor === cursor ? {} : { sources }) } } : {}),
     stream: stream ? { requestId: stream.requestId, sequence: stream.sequence, offset: start,

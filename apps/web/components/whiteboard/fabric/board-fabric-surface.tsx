@@ -204,6 +204,10 @@ const connectorRenderOrigins = new WeakMap<FabricObject, { x: number; y: number 
 const connectorRenderIdentityFor = (object: BoardFabricObject) => object.kind === "connector"
   ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
 
+function panelOutlineStyle(style: BoardFabricObject["style"]) {
+  return { stroke: style.stroke ?? BOARD_FABRIC_VISUAL.panel.outlineColor, strokeWidth: style.strokeWidth ?? BOARD_FABRIC_VISUAL.panel.outlineWidth };
+}
+
 export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
   const horizontalTextInset = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32;
@@ -319,8 +323,8 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   } else if (object.kind === "panel") {
     const panelShape = object.panel?.shape ?? "rectangle";
     const frame = panelShape === "circle"
-      ? new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke ?? "#94A3B8", strokeWidth: 1, strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" })
-      : new Rect({ width: object.geometry.width, height: object.geometry.height, rx: panelShape === "rounded" ? 16 : 0, ry: panelShape === "rounded" ? 16 : 0, fill: object.style.fill, stroke: object.style.stroke ?? "#94A3B8", strokeWidth: 1, strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" });
+      ? new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, ...panelOutlineStyle(object.style), strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" })
+      : new Rect({ width: object.geometry.width, height: object.geometry.height, rx: panelShape === "rounded" ? 16 : 0, ry: panelShape === "rounded" ? 16 : 0, fill: object.style.fill, ...panelOutlineStyle(object.style), strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" });
     projected = new Group([
       frame,
       new Textbox(object.panel?.title ?? object.content.text, { ...textOptions, top: -object.geometry.height / 2 + 24, fontSize: 16, fontWeight: 700 }),
@@ -432,7 +436,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
     projected.set({ height: object.geometry.height, strokeWidth: 0 });
   } else if (["sticky", "shape", "ellipse", "rectangle", "panel", "placeholder"].includes(object.kind) && "getObjects" in projected && typeof projected.getObjects === "function") {
     const [shape, label] = projected.getObjects();
-    shape?.set({ fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, ...(object.kind === "panel" ? { strokeDashArray: object.panel?.clipContent ? undefined : [8, 5] } : {}) });
+    shape?.set({ fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, ...(object.kind === "panel" ? { ...panelOutlineStyle(object.style), strokeDashArray: object.panel?.clipContent ? undefined : [8, 5] } : {}) });
     label?.set({ text: object.kind === "panel" ? object.panel?.title ?? object.content.text : object.content.text, ...richText });
   }
   const textContainer = ["sticky", "shape", "ellipse", "rectangle"].includes(object.kind);

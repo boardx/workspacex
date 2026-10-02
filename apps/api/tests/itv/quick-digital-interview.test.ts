@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { interview as C } from "@repo/contracts";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { assembleFromRecorded } from "../../src/application/context-pack/replay-pack";
 import { packContentHash } from "../../src/domain/context-pack/pack-hash";
 import type { RecordedRun } from "../../src/domain/context-pack/recorded-run";
@@ -115,7 +115,7 @@ describe("F03 快捷数字专家访谈 HTTP", () => {
     expect(restored.messages).toEqual([]);
   });
 
-  it("转批量保留问答和来源指针，无权与不存在使用同一 404", async () => {
+  it("转批量保留问答和来源指针，重放修复旧工作流，无权与不存在使用同一 404", async () => {
     const quick = C.operations.startQuickDigitalInterview.out.parse(await (await fetch(`${base}/interviews/digital/quick`, { method: "POST", headers: auth, body: startBody("start-convert") })).json());
     const withMessage = C.operations.appendQuickDigitalInterviewMessage.out.parse(await (await fetch(`${base}/interviews/digital/quick/${quick.interviewId}/messages`, { method: "POST", headers: auth, body: JSON.stringify({ interviewId: quick.interviewId, text: "交付风险？", expectedVersion: quick.version }) })).json());
     const convertBody = JSON.stringify({ interviewId: quick.interviewId, expectedVersion: withMessage.version, name: "德国采购批量研究", tags: ["采购"], topic: "验证采购决策链" });
@@ -129,6 +129,25 @@ describe("F03 快捷数字专家访谈 HTTP", () => {
     ]);
     const replayBody=C.operations.convertQuickInterviewToBatch.out.parse(await replay!.json());
     expect(replayBody).toEqual(first);
+    const workflowResponse = await fetch(`${base}/interviews/digital/${first.interviewId}`, { headers: auth });
+    expect(workflowResponse.status).toBe(200);
+    const workflow = C.operations.getDigitalInterview.out.parse(await workflowResponse.json());
+    expect(workflow.interviewId).toBe(first.interviewId);
+    expect(workflow.sourceQuickInterviewId).toBe(quick.interviewId);
+    // Simulate a pre-fix conversion using only this run's isolated fixture rows.
+    await asOwner(async c => {
+      await c.query(`DELETE FROM digital_interview_skill_threads WHERE org_id=$1 AND interview_id=$2`, [ORG, first.interviewId]);
+      await c.query(`DELETE FROM digital_interview_revisions WHERE org_id=$1 AND interview_id=$2`, [ORG, first.interviewId]);
+    });
+    const repairedResponse = await fetch(`${base}/interviews/digital/quick/${quick.interviewId}/convert`, { method: "POST", headers: auth, body: convertBody });
+    expect(repairedResponse.status).toBe(201);
+    const repaired = C.operations.convertQuickInterviewToBatch.out.parse(await repairedResponse.json());
+    expect(repaired).toEqual(first);
+    const repairedWorkflowResponse = await fetch(`${base}/interviews/digital/${first.interviewId}`, { headers: auth });
+    expect(repairedWorkflowResponse.status).toBe(200);
+    const repairedWorkflow = C.operations.getDigitalInterview.out.parse(await repairedWorkflowResponse.json());
+    expect(repairedWorkflow.interviewId).toBe(first.interviewId);
+    expect(repairedWorkflow.sourceQuickInterviewId).toBe(quick.interviewId);
     const otherAuth = { ...auth, "x-kernel-test-principal": `other:${OTHER}` };
     const denied = await fetch(`${base}/interviews/digital/quick/${quick.interviewId}`, { headers: otherAuth });
     const missing = await fetch(`${base}/interviews/digital/quick/missing`, { headers: auth });

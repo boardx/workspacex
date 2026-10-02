@@ -127,6 +127,8 @@ async function surfaceSnapshot(page: Page, x: number, y: number) {
   }, {x,y});
 }
 export async function dragObject(page: Page, id: string, dx: number, dy: number, header = false, expectedParentId?: string, maxSceneError = 1) {
+  // The next real gesture must start from an acknowledged canonical state.
+  await expectBoardSynced(page,30_000);
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
   await page.getByTestId('board-zoom-fit-board').click();
   const before = (await canonicalRows(page)).find(row => row.id === id)!;
@@ -148,6 +150,7 @@ export async function dragObject(page: Page, id: string, dx: number, dy: number,
   // the pre-drop absolute target is not stable across that container update.
   if (expectedParentId !== undefined) {
     await expect.poll(async () => (await canonicalRows(page)).find(row => row.id === id)?.parentId).toBe(expectedParentId);
+    await expectBoardSynced(page,30_000);
     return;
   }
   // Fabric converts between viewport and scene coordinates while dragging.
@@ -158,6 +161,7 @@ export async function dragObject(page: Page, id: string, dx: number, dy: number,
     if (!geometry) return Number.POSITIVE_INFINITY;
     return Math.max(Math.abs(geometry.x - before.geometry.x - dx), Math.abs(geometry.y - before.geometry.y - dy));
   }).toBeLessThanOrEqual(maxSceneError);
+  await expectBoardSynced(page,30_000);
 }
 export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
   const sorted = [...rows].sort((a, b) => a.geometry.y - b.geometry.y || a.geometry.x - b.geometry.x);
@@ -264,4 +268,19 @@ export async function seedExistingFrame(page: Page, x: number, y: number, width 
   });
   await expect(page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${id}"]`)).toBeVisible();
   return id;
+}
+
+/** Find a blank point from the real projected scenes; creation ignores object hits. */
+export async function clickBlankCanvas(page: Page) {
+  const surface=page.getByTestId('board-fabric-surface');
+  const point=await surface.evaluate(element=>{
+    const canvas=element.querySelector('canvas.upper-canvas');if(!canvas)throw new Error('Fabric interaction canvas missing');
+    const rect=canvas.getBoundingClientRect(),zoom=Number(element.getAttribute('data-viewport-zoom')),panX=Number(element.getAttribute('data-viewport-pan-x')),panY=Number(element.getAttribute('data-viewport-pan-y'));
+    const scenes=JSON.parse(element.getAttribute('data-object-scenes')??'[]') as Array<{left:number;top:number;width:number;height:number}>;
+    for(let y=100;y<Math.min(rect.height-180,420);y+=40)for(let x=40;x<rect.width-40;x+=40){
+      if(!scenes.some(scene=>x>=scene.left*zoom+panX-12&&x<=((scene.left+scene.width)*zoom+panX+12)&&y>=scene.top*zoom+panY-12&&y<=((scene.top+scene.height)*zoom+panY+12)))return{x,y};
+    }
+    throw new Error('No exposed blank canvas point available for actual placement');
+  });
+  await surface.locator('canvas.upper-canvas').click({position:point});
 }
