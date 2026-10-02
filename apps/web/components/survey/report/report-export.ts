@@ -66,10 +66,14 @@ export async function buildSurveyReportWord(
     Table,
     TableRow,
     TableCell,
+    TableLayoutType,
+    WidthType,
     HeadingLevel,
     ImageRun,
     PageBreak,
   } = await import("docx");
+  const wordPage = { width: 11906, height: 16838, margin: 1134 };
+  const bodyWidth = wordPage.width - wordPage.margin * 2;
   const children: (
     | InstanceType<typeof Paragraph>
     | InstanceType<typeof Table>
@@ -182,15 +186,29 @@ export async function buildSurveyReportWord(
                 : []),
             ]),
           ];
+          const numericColumns = values[0]!.length - 1;
+          const labelWidth = Math.round(bodyWidth * (block.type === "gap" ? 0.4 : 0.6));
+          const numericWidth = Math.floor((bodyWidth - labelWidth) / numericColumns);
+          const columnWidths = [labelWidth, ...Array.from({ length: numericColumns }, (_, index) =>
+            index === numericColumns - 1
+              ? bodyWidth - labelWidth - numericWidth * (numericColumns - 1)
+              : numericWidth,
+          )];
           children.push(
             new Table({
+              width: { size: bodyWidth, type: WidthType.DXA },
+              layout: TableLayoutType.FIXED,
+              columnWidths,
               rows: values.map(
                 (cells, i) =>
                   new TableRow({
                     tableHeader: i === 0,
                     children: cells.map(
-                      (text) =>
-                        new TableCell({ children: [new Paragraph(text)] }),
+                      (text, column) =>
+                        new TableCell({
+                          width: { size: columnWidths[column]!, type: WidthType.DXA },
+                          children: [new Paragraph(text)],
+                        }),
                     ),
                   }),
               ),
@@ -212,7 +230,8 @@ export async function buildSurveyReportWord(
         {
           properties: {
             page: {
-              margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 },
+              size: { width: wordPage.width, height: wordPage.height },
+              margin: { top: wordPage.margin, bottom: wordPage.margin, left: wordPage.margin, right: wordPage.margin },
             },
           },
           children,
