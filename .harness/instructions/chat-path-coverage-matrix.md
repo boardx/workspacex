@@ -4,7 +4,7 @@
 >
 > 它**不定义**任何延迟阈值——那是 `chat-agent-performance-acceptance.md` 那张 SLO 表的事；
 > 也**不定义**界面质量判据——那是 `chat-ux-acceptance-criteria.md` 与
-> `chat-task-workbench-acceptance.md` 的事。本文件里出现的每一个数字都只是路径编号。
+> `chat-task-workbench-acceptance.md` 的事。本文件的数字只用于路径编号或明确的覆盖构造（如 C9 的产物数量），不新增性能阈值。
 > 同一事实不得声明在两处（根 `AGENTS.md`），这份表的范围边界就是这条纪律的直接后果。
 
 ## 怎么用这份表
@@ -45,6 +45,8 @@
 | B5 刷新恢复 | 刷新后恢复同一个 permissionRequestId，旧请求重放得 409 | `copilotkit-v2-hitl` | 已覆盖 | chat-read |
 | B6 重复裁决防护 | 继续操作只提交一次，旧请求不能重复裁决 | `agent-task-planning-hitl` | 已覆盖 | chat-read |
 | B7 条件性确认门 | 复杂任务先确认计划，简单问题直答不加门槛 | `chat-task-workbench-workflow-states` | 当前红 | chat-task-workbench |
+| B8 授权记忆与分级同键 | 同一授权事实在分级、裁决、后续调用间同键；once / run / forever / deny 的记忆范围与隔离边界可核 | — | 未覆盖 | — |
+| B9 待确认请求必可见可操作 | 权威 pending 请求出现后可见且可裁决；提交后同一 request 不再次挂载，刷新恢复仍可操作 | — | 未覆盖 | — |
 | C1 画布围栏渲染 | 模型产出的 canvas 围栏真渲染成工作坊画布 | `chat-canvas-guidance-render`（#3080 迁 v2 锚点后恢复执行） | 已覆盖 | chat-read |
 | C2 画布编辑往返 | 最大化编辑 → 保存 → reload 重开看到保存版 → 可回到原始版 | `chat-diagram-save-reopen-roundtrip` | 已覆盖 | chat-read |
 | C3 画布模板全生命周期 | 管理员建模板 → 发布 → 引导师绑定 → 该项目 chat 可达 | `core-journey-04-canvas-template-lifecycle-chat` | 已覆盖 | e2e-full |
@@ -53,12 +55,14 @@
 | C6 Office 产物 | chat 里请求 docx / xlsx / pptx，产出可下载且可重新打开 | `chat-path-c6-office-artifacts` | 已覆盖 | chat-path-coverage |
 | C7 PDF 产物 | chat 里请求 PDF，页数与逐页渲染可核 | `real-model-pdf-smoke` | 已覆盖 | real-model-smoke |
 | C8 子任务产物写回 | durable subtask 产出文件回到父会话，可下载 | `chat-path-c8-subtask-artifact-writeback`（编排半段会跑；**文件半段 `test.fixme`**） | 部分 | chat-path-coverage |
+| C9 多产物刷新恢复 | N=10，生成未终态时刷新后继续生成；每个产物身份与内容保留，不丢失、不重复、不按模板名合并 | — | 未覆盖 | — |
 | D1 工具卡片渲染 | `write_todos` / `search_documents` 定制卡片走到终态 | `copilotkit-v2-tool-rendering` | 已覆盖（曾 `当前红`，根因见下节，#3166 修） | chat-read |
 | D2 轨迹折叠与回放 | 默认折叠、运行中展开实时更新、刷新后可回放 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
 | D3 会话内挂载 skill | 临时挂载落库、刷新仍在、重复挂载幂等 | `chat-agent-skill-context` | 已覆盖 | chat-read |
 | D4 skill 三态区分 | 「目录可见 / 正文送达 / 真的执行过」三者不得混为一谈 | `chat-path-d4-skill-three-states` | 已覆盖 | chat-read |
 | D5 切换 agent | wire 上的 header 与回复来源都换了；不选时默认路径完好 | `copilotkit-v2-agent-switch` | 已覆盖 | chat-read |
 | D6 子 Agent 折叠树 | 展开可见输入 / 工具 / 耗时 / 结果 | `chat-task-workbench-tool-events` | 当前红 | chat-task-workbench |
+| D7 工具步骤状态单源 | 同一 toolCallId 的折叠行、展开卡片、历史回放与权威步骤状态恒等；失败不可显示成功 | — | 未覆盖 | — |
 | E1 语音输入 | 麦克风实时转录进输入框、可编辑、发送后成为消息 | `copilotkit-v2-voice-input` | 已覆盖 | chat-read |
 | E2 附件 + 视觉 | 图片进模型；能力缺席时诚实告知而非静默丢图 | `chat-vision-honest-degrade` | 已覆盖 | e2e-full |
 | E3 附件预览下载 | 上传后可预览、可下载、授权正确 | `chat-attachment-preview-download` | 已覆盖 | chat-read |
@@ -70,6 +74,88 @@
 | F5 取消传播到子任务 | 父取消后子任务不再产出、不发布晚到产物 | `chat-path-f5-cancel-propagates-to-subtask` | 已覆盖 | chat-path-coverage |
 | F6 并发双 run | 两个线程同时跑，事件不串线、不互相覆盖 | `chat-path-f6-concurrent-runs` | 已覆盖 | chat-read |
 | F7 上游超时 / 断流 | 模型侧断流后 UI 诚实结束，不假装还在跑 | `chat-path-f7-upstream-stream-abort` | 已覆盖 | chat-read |
+| F8 阶段与进度来自真实账本 | 无 active run 不显示运行阶段；真实账本推进时阶段与进度一致，同一计划修订的总数不跳变 | — | 未覆盖 | — |
+| F9 失败可诊断性 | 不同真实失败可按契约类别区分并定位同一 run / step；脱敏、恢复动作与失败事实一致 | — | 未覆盖 | — |
+
+## 测试设计复审（#3254，2026-10-01，design-only）
+
+本轮读的是 `95e36a337fbb404b56e4a1a566c6a742f6e8c266` 的 spec、配置与 workflow，
+不是新的浏览器验收。原 issue 的 2026-09 人肉缺陷是设计动因；下面只认当前源码仍能
+证明的覆盖边界。六个新增行均为 `未覆盖`，spec / 车道为 `—`：**设计有了不等于断言
+已经实现、进入 CI 或跑过**。既有行的覆盖状态与历史实跑记录保留，不用本次文档 lint
+替代动态判决。实现 spec、修改产品、扩展门控与给 UI 加探针是后续独立任务。
+
+### 缺陷与设计层次
+
+| 原始缺陷 | 对应路径 | 需要补足的设计层次 |
+| --- | --- | --- |
+| #3212 / #3221（授权不被记住、授权键与分级键不同） | B4 → B8 | 单次裁决不足以证明跨调用记忆；加同键、作用域与未授权边界。 |
+| #3186 / #3207 / #3244（裁决无反应、该出现的确认不出现、提交后再次出现） | B4 / B5 → B9 | 从权威 pending 状态开始判，不能把弹窗已经出现写成先决条件。 |
+| #3204（失败工具卡显示成功） | D1 / D2 → D7 | 终态存在不足以证明同一次调用的多个渲染点同态；补状态不变量。 |
+| #3243 / #3230（多个画布刷新丢失）、#3252（按模板名判身份） | C4 / C5 → C9 | 补大数量、进行中刷新、刷新后继续生成的联合构造，并比较身份与语义内容。 |
+| #3214 / #3208 / #3251（空会话阶段条、阶段停滞、总数跳变） | B7 / F4 → F8 | 补真实账本驱动、空运行边界、修订内进度一致性，不能用手写账本响应代替派生链。 |
+| #3211（失败原因不可分辨） | F1 / F7 → F9 | 横幅存在与非空只证明诚实呈现；补可诊断类别、归属和安全恢复。 |
+
+### 六条缺口的构造与反证设计
+
+- **B8**：以契约的 once / run / forever / deny 为作用域，安排同一 run 的重复调用、
+  新 run、不同授权键及不同主体；逐步对照分级查询、持久裁决与是否再次询问。
+  同范围同键按授权记忆执行，范围外或不同键不能继承。反证：记忆恒不命中应红；
+  把所有键当同一个键或把 run 授权扩散到新 run 也应红。避免只证明按钮存在或一次 run 完成。
+- **B9**：先从权威 run 读到未裁决 requestId，再断言用户真正可见、可操作；
+  不把“已显示弹窗”当构造前提。裁决、重复事件、刷新与回放都围绕同一 requestId。
+  新 request 应可见；已裁决 request 不应再次成为待操作卡片。反证：零尺寸/不可点击卡片、
+  去掉挂载或重复挂载已裁决请求都应红，不能靠 attached 代替 visible/操作结果。
+- **C9**：构造十个具有可区分身份与正文的产物，包含同模板不同正文；
+  用可控提供方的非终态信号扣住后续产出，观察到运行中产物后刷新，再释放生成。
+  对照刷新前已持久化集合、刷新后恢复集合和最终十个产物的权威身份/内容，
+  并核对 UI 无重复挂载。反证：只恢复最后一个、按模板名去重、恢复后重发已落库产物、
+  丢掉晚到产物均应红。不能用完成后刷新、等固定秒数或 PNG 体量替代这个联合构造；
+  不依赖已下线的 chat 暂停入口。
+- **D7**：以同一 run / toolCallId 的真实步骤为基准，检查运行中、成功、失败、拒绝/取消
+  在折叠行与展开卡片上的对应呈现，并在刷新后回放同一事实；状态语义以现有契约为准。
+  反证：只把外层失败改成成功必须红；只验证两处相等也不够，两处一起错仍须被权威读抓住。
+- **F8**：从无 active run 的空会话开始，再让真实持久账本经历计划、执行及终态；
+  不 route.fulfill 账本派生结果。UI 每步与账本和契约派生规则对齐；同一计划修订内
+  完成数/总数自洽，修订变更显式归属新修订。反证：恒返 preparing、空会话强挂阶段条、
+  只改 UI 总数或从旧修订拼入新步骤均应红。现有 plan-control 契约仍是状态和字段单源，
+  本节不另造 phase 枚举或 SLO。
+- **F9**：构造可区分的真实失败类别（以既有契约为准），逐一核对权威失败、用户文案、
+  run / step 归属及允许的恢复动作，并验证诊断不包含凭据或私密输入。
+  反证：所有原因映成同一句通用文案、失败归到另一个 run、显示不适用的重试动作都应红。
+  用户提示仍须人类可读；“机器类别可核”不要求把内部枚举原样泄露给用户。
+
+### 当前判据强度抽查：不要把历史问题写成现状
+
+| 当前源码证据 | 可得结论与仍缺的范围 |
+| --- | --- |
+| `copilotkit-v2-hitl.spec.ts` 的 `decide` 与一次完成/刷新/旧 request 裁决测试 | 单次 once/deny/forever、刷新身份及旧请求防重放有断言；B8 的跨调用/作用域联合覆盖仍不能由这些测试替代。 |
+| `chat-agent-skill-context.spec.ts` 对空浮层用 `toBeAttached()` | 该断言只能证挂载，不能借它证明 B9 的 pending 确认可见可操作；当前注释已把零尺寸浮层用途写明。 |
+| `chat-task-workbench-workflow-states.spec.ts` 先明确断言 planning，再用 SIX_PHASES 检查枚举合法性 | 原 issue 的“只做六选一”已不准确；仍需 F8 的真实账本派生/空运行/修订一致性，不能将枚举检查当那条链的验收。 |
+| `core-journey-04-canvas-template-lifecycle-chat.spec.ts` 末段只看线程列表与新建按钮 | 模板管理/绑定路径不能证明真的创建 chat、发送消息并使用模板；C3 的 chat 半段设计缺口仍应单独补。 |
+| `copilotkit-v2-error-banner.spec.ts` 与 `chat-path-f7-upstream-stream-abort.spec.ts` 检查横幅非空及界面可继续使用 | 诚实结束不等于原因可分辨，F9 不应降成同一条非空断言。 |
+| `chat-diagram-save-reopen-roundtrip.spec.ts` 已按读回 source 正文比较新增节点 | 原 PNG 体量代理已移除，不能继续报告为现存缺陷；C9 仍是另一个进行中刷新/多身份联合区间。 |
+| `copilotkit-v2-voice-input.spec.ts` 已严格检查录音过程的累计字节增长 | 原长度可相等的判据已修，不能把旧文字当本轮发现。 |
+| `chat-vision-honest-degrade.spec.ts` 已核对降级告知全文并刷新读回 | 已超出回复存在性检查；本轮不再声称“诚实告知零断言”。 |
+
+### 执行现实与实施边界
+
+原有三十七行当前分布为：chat-read 二十六、e2e-full 两、chat-path-coverage 五、
+chat-task-workbench 三、real-model-smoke 一；新增六行不绑定车道。不要把旧 issue 中
+“F3 无 spec”或“C8 整文件零执行”的统计沿用到当前树：F3 已明确挂起，C8 有可执行的
+编排半段和停放的文件半段；附件预览/召回来源也各有未执行断言，不能当整条路径已验完。
+
+`harness-verify.yml` 的 chat-read / e2e-full 在 pull_request 上不执行，push/schedule
+及允许的完整手动车道才可能跑；chat-path-coverage 与 chat-task-workbench 仅在
+workflow_dispatch 对应开关开启时运行。真实模型另有受凭据与运行期前置约束的
+`real-model-chat-evidence.yml` 手动车道。本次只检查这些入口定义，不报告任何新增实跑。
+“文件有 test”“workflow 成功”“这条断言真的执行且通过”是三件不同的事实。
+
+实施时新行先按既有首跑/搬家纪律取得真实路径证据和反证，再更新 spec、车道与覆盖列；
+不得为了让矩阵绿而改宽断言、取消负向用例或改成 skip。本 issue 只交付设计：
+建议的“已覆盖行检查执行入口”第七道门、跨渲染点单源断言 helper 与产品 semantic 探针
+均**尚未落地**。未来 helper 应要求探针非空、比对权威身份/状态，并有错误同态反证，
+不能把零探针或两处一起错误当通过。本次不修改 linter、测试、workflow 或产品代码。
 
 ## 已知缺口（表里 `未覆盖` / `部分` 的逐条理由）
 

@@ -354,6 +354,16 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
     expect(restored).toEqual(state); expect(restored.report!.sections[0]!.sourceIds).toEqual([sourceId]);
   });
+  it("restores an autosaved topic on the topic step in another service instance", async () => {
+    await reachResearch();
+    const edited = { ...brief, topic: "Autosaved scope" };
+    await run("save", { node: "brief", draft: { node: "brief", value: edited } });
+    const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
+    expect(restored.brief).toEqual(edited);
+    expect(restored.currentNode).toBe("directions");
+    expect(restored.availableNodes).toEqual(["brief", "directions"]);
+    expect(restored.outline).toEqual([]); expect(restored.sources).toEqual([]); expect(restored.tasks).toEqual([]);
+  });
   it("reconfirms a historical edited draft and regenerates downstream results", async () => {
     await reachResearch();
     const edited = { ...brief, topic: "Revised scope" };

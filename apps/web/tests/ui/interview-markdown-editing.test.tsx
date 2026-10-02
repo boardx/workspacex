@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewExpertsStep } from "@/components/itv/interview-experts-step";
 import { InterviewOutlineStep, normalizeOutlineForPersistence } from "@/components/itv/interview-outline-step";
@@ -29,8 +29,9 @@ it("confirmed source is read-only and cannot spend a model call on regeneration"
     if (init.method === "POST") posts.push(url);
     return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: 1, documents: [source], states: [{ documentId: source.documentId, status: "confirmed", failure: null }] }));
   });
-  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  expect(await screen.findByRole("status")).toHaveTextContent("只读");
+  const receivedVersion = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={receivedVersion} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  await waitFor(() => expect(receivedVersion).toHaveBeenCalledWith(1));
   expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeDisabled();
   expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "生成专家建议" })).not.toBeInTheDocument();

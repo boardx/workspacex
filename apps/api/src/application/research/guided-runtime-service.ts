@@ -2,6 +2,7 @@ import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-rec
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
 import { collectSourceDocuments } from "./guided-source-documents";
+import { boundedWork } from "./guided-bounded-work";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
 import { preservePreviousReport } from "./guided-report-history";
 import { researchDesignShapes, researchDesignInstruction, validateGeneratedResearchDesign, preserveResearchDesign } from "./guided-research-design";
@@ -393,39 +394,17 @@ export class GuidedRuntimeService {
       // persistence exception carrying that code must stay non-recoverable on reload.
       return isRecoverableSearchFailure(code) ? "RESEARCH_SEARCH_UNAVAILABLE" : code;
     };
-    for (let offset = 0; offset < remaining.length; offset += 3) {
-      const batch = remaining.slice(offset, offset + 3);
-      const previousErrors = batch.map((task) => task.searchAttempts?.at(-1)?.errorCode ?? task.errorCode);
-      const records = batch.map((task, index) => {
-        task.status = "running"; task.attempts += 1; task.errorCode = null;
-        task.searchAttempts ??= [];
-        // A resumed empty/irrelevant query needs a new query, not the same search again.
-        if (task.searchAttempts.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT || (task.searchAttempts.length && isRecoverableSearchFailure(previousErrors[index]!))) return null;
-        const attempt = { query: task.searchAttempts.at(-1)?.query ?? task.query, status: "running" as "running" | "succeeded" | "failed", errorCode: null as string | null };
-        task.searchAttempts.push(attempt); return attempt;
-      });
-      updateProgress(); await persist();
-      // Only provider calls run concurrently; all state writes are serialized.
-      const results = await Promise.allSettled(records.map((record) => record ? searchWithSourcePolicy(this.search, record.query, state.sourcePolicy) : Promise.resolve(null)));
-      for (const [index, task] of batch.entries()) {
+    const previousErrors = remaining.map((task) => task.searchAttempts?.at(-1)?.errorCode ?? task.errorCode);
+    const records: Array<NonNullable<ResearchRuntime["tasks"][number]["searchAttempts"]>[number] | null> = [];
+    const recoveries: ResearchRuntime["tasks"] = [];
+    const recover = async (task: ResearchRuntime["tasks"][number]) => {
         let recoverable = false;
-        const record = records[index];
-        try {
-          const result = results[index]!;
-          if (result.status === "rejected") throw result.reason;
-          task.errorCode = result.value === null ? previousErrors[index] ?? "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" : await this.acceptSearchResults(state, task, result.value, persist);
-          recoverable = isRecoverableSearchFailure(task.errorCode);
-        } catch (error) { task.errorCode = errorCode(error); }
-        task.status = task.errorCode ? "failed" : "succeeded";
-        if (record) { record.status = task.status; record.errorCode = task.errorCode; }
-        updateProgress(); await persist();
-        if (!recoverable || task.searchAttempts!.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
         let queries: string[];
         try {
           queries = await recoveryQueries(state, task, (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate));
         } catch (error) {
           // Query-generation failures do not turn unusable evidence into success.
-          task.errorCode = errorCode(error); await persist(); continue;
+          task.errorCode = errorCode(error); await persist(); return;
         }
         for (const query of queries.slice(0, C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT - task.searchAttempts!.length)) {
           const attempt = { query, status: "running" as "running" | "succeeded" | "failed", errorCode: null as string | null };
@@ -442,8 +421,38 @@ export class GuidedRuntimeService {
           updateProgress(); await persist();
           if (!recoverable) break;
         }
-      }
-    }
+    };
+    await boundedWork(remaining, 3, (_task, index) => {
+      const record = records[index];
+      return record ? searchWithSourcePolicy(this.search, record.query, state.sourcePolicy) : Promise.resolve(null);
+    }, async (task, result, index) => {
+        let recoverable = false;
+        const record = records[index];
+        try {
+          if (result.status === "rejected") throw result.reason;
+          task.errorCode = result.value === null ? previousErrors[index] ?? "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" : await this.acceptSearchResults(state, task, result.value, persist);
+          recoverable = isRecoverableSearchFailure(task.errorCode);
+        } catch (error) { task.errorCode = errorCode(error); }
+        task.status = task.errorCode ? "failed" : "succeeded";
+        if (record) { record.status = task.status; record.errorCode = task.errorCode; }
+        updateProgress(); await persist();
+        if (!recoverable || task.searchAttempts!.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) return;
+        recoveries.push(task);
+    }, async (task, index) => {
+        task.status = "running"; task.attempts += 1; task.errorCode = null;
+        task.searchAttempts ??= [];
+        // A resumed empty/irrelevant query needs a new query, not the same search again.
+        if (task.searchAttempts.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT || (task.searchAttempts.length && isRecoverableSearchFailure(previousErrors[index]!))) {
+          records[index] = null;
+        } else {
+          const attempt = { query: task.searchAttempts.at(-1)?.query ?? task.query, status: "running" as "running" | "succeeded" | "failed", errorCode: null as string | null };
+          task.searchAttempts.push(attempt); records[index] = attempt;
+        }
+        updateProgress(); await persist();
+    });
+    // Finish and persist independent initial searches before a slow recovery can
+    // monopolize their commit queue. Recovery remains bounded and durable.
+    for (const task of recoveries) await recover(task);
     if (this.search.read) await collectSourceDocuments(state.sources, (url) => this.search.read!(url), persist);
     // Best-effort chapter coverage: search bounded, topic-scoped variants for chapters
     // with fewer than three unique accepted URLs. This never turns an honest gap into
@@ -555,7 +564,10 @@ export class GuidedRuntimeService {
     if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }
     if (action === "save") {
       if (!command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-      applyDraft(state, command.draft); return;
+      const editingTopic = command.draft.node === "brief" && state.currentNode !== "brief";
+      applyDraft(state, command.draft);
+      if (editingTopic) { state.currentNode = "directions"; state.availableNodes = ["brief", "directions"]; }
+      return;
     }
     if (action === "apply") {
       const proposal = state.proposal;
@@ -602,6 +614,12 @@ export class GuidedRuntimeService {
       await this.generate(state, node, persist, command.message, action === "retry"); return;
     }
     if ((action === "start" || action === "retry") && node === "research") {
+      // A human retry starts a fresh transport attempt, not an unbounded automatic
+      // loop. Keep the bounded recent history and the lifetime attempts counter.
+      if (action === "retry") for (const task of state.tasks) {
+        if (task.status === "failed" && ["RESEARCH_SEARCH_UNAVAILABLE", "RESEARCH_EXECUTION_INTERRUPTED"].includes(task.errorCode ?? "")
+          && (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) task.searchAttempts!.shift();
+      }
       // Explicit refresh retries missing reading metadata without resetting successful searches.
       if (action === "start") for (const source of state.sources) if (!source.presentation && !source.addedByUser && source.decision !== "excluded") delete source.relevanceBasis;
       await this.executeSearch(state, persist, internalSources); return;

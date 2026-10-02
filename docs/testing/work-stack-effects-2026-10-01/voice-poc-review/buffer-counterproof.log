@@ -1,0 +1,35 @@
+
+ RUN  v2.1.9 /workspace/voice-config-fixes
+
+[realtime-digital-human] upstream error: {"code":"InvalidApiKey","message":"secret detail"}
+ ❯ apps/api/tests/chat/realtime-digital-human-gateway.test.ts (19 tests | 1 failed) 1011ms
+   × WS /chat/realtime-digital-human — Chat 语音模式 > commits a short utterance buffered before the upstream handshake completes 41ms
+     → expected [] to have a length of 1 but got +0
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted 642ms
+ ✓ apps/api/tests/chat/realtime-voice-session.test.ts (13 tests) 62ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/tests/chat/realtime-digital-human-gateway.test.ts > WS /chat/realtime-digital-human — Chat 语音模式 > commits a short utterance buffered before the upstream handshake completes
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ apps/api/tests/chat/realtime-digital-human-gateway.test.ts:302:77
+    300|     ws.send(JSON.stringify({ type: "session.stop" }));
+    301|     await closed;
+    302|     expect(events.filter((event) => event === "input_audio_buffer.comm…
+       |                                                                             ^
+    303|     expect(voice.appended).toEqual([{ role: "user", text: "缓冲语音 64…
+    304|     expect(frames.some((frame) => frame.type === "turn.persisted")).to…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 31 passed (32)
+   Start at  11:33:10
+   Duration  8.84s (transform 3.73s, setup 0ms, collect 6.99s, tests 1.07s, environment 0ms, prepare 210ms)

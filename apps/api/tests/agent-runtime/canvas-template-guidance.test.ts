@@ -332,3 +332,12 @@ describe("2026-09-10 回归：画布的主语是业务主题，不是这段对�
     expect(out).toContain("上一张画布做得怎么样");
   });
 });
+
+// #2113: an available canvas template must not itself encourage standard diagrams.
+it("canvas introduction delegates visualization decisions and only distinguishes formats", () => {
+  const guidance = buildCanvasTemplateGuidance([{ key: "hmw", displayName: "HMW", sections: [{ name: "想法1" }] }])!;
+  const introduction = guidance.split("本组织已配置")[0]!;
+  expect(introduction).toContain("只规定格式");
+  expect(introduction).toContain("可视化规则统一判定");
+  expect(introduction).not.toMatch(/优先用 mermaid|flowchart|时序图|思维导图/);
+});

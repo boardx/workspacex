@@ -90,6 +90,40 @@ function deps(runs: AgentRunStore, model: ModelCallPort): ExecuteAgentRunDeps {
 }
 
 describe("Phase 14 F01 -- 网关转发到内核（gateway → kernel forwarding）", () => {
+  it.each([
+    { name: "unmounted version", pins: ["role-version"], versions: ["mount-version"] },
+    { name: "missing frozen pins", pins: undefined, versions: [] },
+    { name: "empty role pins", pins: [], versions: ["mount-version"] },
+  ])("rejects agent_pins $name before reading Skill content or calling the provider", async ({ pins, versions }) => {
+    const store = fakeStore(baseRun({ skillScope: "agent_pins", agentPinnedSkillVersionIds: pins, skillVersionIds: versions }));
+    const readPinnedSkills = vi.fn(store.readPinnedSkills);
+    store.readPinnedSkills = readPinnedSkills;
+    const complete = vi.fn(async () => ({ text: "must not execute" }));
+    const completeWithProgress = vi.fn(async () => ({ text: "must not execute" }));
+    const checkKernelHealth = vi.fn(async () => "healthy" as const);
+    await executeQueuedRuns(deps(store, { complete, completeWithProgress, checkKernelHealth }), { orgId: ORG });
+    expect(store.failedWith).toBe("SKILL_VERSION_UNAVAILABLE");
+    expect(store.output).toBeNull();
+    expect(readPinnedSkills).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    expect(completeWithProgress).not.toHaveBeenCalled();
+    expect(checkKernelHealth).not.toHaveBeenCalled();
+  });
+
+  it.each(["general", "agent_pins"] as const)("forwards a valid %s frozen Skill snapshot", async skillScope => {
+    const versionId = skillScope === "general" ? "thread-mount-version" : "role-version";
+    const store = fakeStore(baseRun({ skillScope, agentPinnedSkillVersionIds: ["role-version"], skillVersionIds: [versionId] }));
+    const skill: PinnedSkillContent = { versionId, stableName: "scope-test", name: "Scope test", content: "Provide a scoped answer." };
+    const readPinnedSkills = vi.fn(async () => [skill]);
+    store.readPinnedSkills = readPinnedSkills;
+    const completeWithProgress = vi.fn(async () => ({ text: "scoped answer" }));
+    await executeQueuedRuns(deps(store, { complete: async () => { throw new Error("kernel path expected"); }, completeWithProgress }), { orgId: ORG });
+    expect(store.failedWith).toBeNull();
+    expect(store.output?.text).toBe("scoped answer");
+    expect(readPinnedSkills).toHaveBeenCalledWith(ORG, [versionId]);
+    expect(completeWithProgress).toHaveBeenCalledTimes(1);
+  });
+
   it.each([false, true])("attributes file-tool journal events only in a trusted native invocation (%s)", async native => {
     const store = fakeStore(baseRun({ leaseEpoch: 1 }));
     const events: ExecutionEventInput[] = [];

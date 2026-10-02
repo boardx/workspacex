@@ -1,0 +1,14 @@
+{
+  "focused": {
+    "tag": "BUTTON",
+    "text": "\nR0612-02\n巴西黄波旁 18kg\n陈澄 · 中深焙\n08:30 – 11:00\n",
+    "visible": true,
+    "outlineStyle": "solid",
+    "outlineWidth": "2px",
+    "outlineColor": "rgb(168, 85, 50)"
+  },
+  "reducedMotionRule": true,
+  "declaredMotion": true,
+  "inputs": [],
+  "reducedMotionMatches": true
+}

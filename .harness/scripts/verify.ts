@@ -2,6 +2,8 @@
 // 这是"通过状态门控"的唯一实现。agent 不能自己改 passing。
 // ADR-012 D5：只有 --sprint 模式能把 status 翻成 passing（证据落盘 + 派生视图刷新
 // 与翻转原子绑定）；--phase/--feature 模式仅作调试观察，验证通过也不改 status。
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sprintDir } from "./lib/paths";
@@ -33,8 +35,38 @@ export async function verify(args: Args): Promise<void> {
   // base gate inherit the same DB/Redis/compose namespace from this single helper.
   // #468：同 with-test-isolation —— 端口向 OS 预留，起子命令前释放。
   const reservation = await ensureReservedTestIsolation(process.env);
+  let started = false;
+  let completed = false;
+  let abnormalChild = false;
+  try {
+    await verifyReserved(args, { ...reservation, markStarting: () => {
+      reservation.markStarting();
+      started = true;
+    } }, (code) => { if (code !== 0) abnormalChild = true; });
+    completed = true;
+  } finally {
+    let teardownComplete = !started || !reservation.reserved;
+    if (started && reservation.reserved && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1") {
+      const cleanup = spawnSync("docker", ["compose", "-f",
+        fileURLToPath(new URL("../../apps/api/docker-compose.dev.yml", import.meta.url)),
+        "-p", reservation.env.COMPOSE_PROJECT_NAME, "down", "-v"],
+      { env: { ...process.env, ...reservation.env }, stdio: "ignore" });
+      teardownComplete = completed && !abnormalChild && !cleanup.error && cleanup.status === 0;
+      if (!teardownComplete) console.error("[test-isolation] verify lifecycle or scoped teardown incomplete; port leases quarantined");
+    }
+    await reservation.dispose(teardownComplete);
+    if (started && reservation.reserved && !teardownComplete && process.env.WORKSPACEX_KEEP_TEST_STACK !== "1") {
+      throw new Error("[test-isolation] verify lifecycle or scoped teardown incomplete; port leases quarantined");
+    }
+  }
+}
+
+async function verifyReserved(
+  args: Args,
+  reservation: Awaited<ReturnType<typeof ensureReservedTestIsolation>>,
+  recordChildExit: (code: number) => void,
+): Promise<void> {
   const isolation = reservation.env;
-  await reservation.release();
   Object.assign(process.env, isolation, {
     WORKSPACEX_VERIFY_OUTER_DB: isolation.WORKSPACEX_DB,
     WORKSPACEX_VERIFY_OUTER_COMPOSE: isolation.COMPOSE_PROJECT_NAME,
@@ -88,6 +120,9 @@ export async function verify(args: Args): Promise<void> {
 
   // #1332：风险由**本次改动碰了哪些文件**决定，是改动的属性而非 feature 的属性，
   // 所以整轮只收集一次，循环内所有 feature 共用同一个判定。
+  // Publish before the first released listener or subprocess (including risk collection).
+  reservation.markStarting();
+  await reservation.release();
   const changedFiles = collectChangedFiles();
 
   let promoted = 0, failed = 0;
@@ -146,6 +181,7 @@ export async function verify(args: Args): Promise<void> {
     if (ok) {
       for (const cmd of f.verification) {
         const r = sh(cmd);
+        recordChildExit(r.code);
         logs.push(`$ ${cmd}\n[exit ${r.code}]\n${r.stdout}${r.stderr}`);
         if (r.code !== 0) {
           ok = false;
@@ -202,6 +238,7 @@ export async function verify(args: Args): Promise<void> {
       } else {
         log.step(`运行基础验证（风险档=${level}）: ${baseCmd}`);
         br = sh(baseCmd);
+        recordChildExit(br.code);
         recordCredential({
           sha,
           fingerprint,

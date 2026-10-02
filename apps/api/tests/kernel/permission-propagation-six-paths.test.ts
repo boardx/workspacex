@@ -1419,7 +1419,13 @@ describe("lint-permission-paths: counter-proof", () => {
     // tenant/published semantic version; pinned-skill-instructions.test.ts constrains the
     // SQL/import boundary and problem-to-prd-real-loopback-e2e.test.ts proves tenant/version
     // isolation. Remove this increment together with that adapter exemption if guards change.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(122);
+    // #4948/#4917 adds exactly two catalog metadata adapters (122 -> 124):
+    // resolve-official-role-skill-refs reads only authorized admin exact verified coordinates;
+    // pg-official-role-upgrade writes only explicit org-admin upgrades under tenant locks.
+    // Enforced by official-role-skill-resolver-guard and official-role-upgrade tests, including
+    // cross-org/admin denial and immutable historic versions. Remove these two allowances
+    // with either adapter or its guard; this does not authorize broader skill content reads.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(124);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
