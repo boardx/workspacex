@@ -11,3 +11,5 @@
 依赖：PR #5130。所有 PR 禁止合入 main；#5056 保持打开。#5130 仍有 Board Diagram 90px（阈值32px）真实 CI 故障，已在 #5094 与 PR 公布；backend-gates 尚未产出 backend-required。
 
 独立审查：ACCEPT，绑定 fa80bd496149a0b1e74eadc233d8c2a8cf6699b1；无 P1/P2。基线 1da2a394d 的 main 父提交实际是 7cc6d6a07ddda3bb87a625669dbd573455ab3016（包含 c1f333117），无新增研究或 Board 逻辑。
+
+浏览器验证：真实 UI/API/PostgreSQL 五步回环（受控模型）1 PASS，命令4m36s含构建，总计4m46s，清理1s；docker和LISTEN检查证实本会话栈及端口释放。已创建 PR #5134，以 #5130 为基线，无 PR/main 合并。#5130 协作者快进到 bed6564ac（只增加已测 Board 原子坐标读取测试辅助修复），已同步保留，研究代码未变。CI 仍待完成。
