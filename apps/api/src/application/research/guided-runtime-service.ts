@@ -1,4 +1,5 @@
 import type { DebugTracePort } from "../ports/debug-trace.port";
+import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
@@ -56,16 +57,10 @@ export function assertInternalSourceAccess(requested: readonly string[], authori
   if (requested.some((id) => !allowed.has(id))) throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
 }
 type SourcePolicy = NonNullable<ResearchRuntime["sourcePolicy"]>;
-function normalizedPolicyHost(value: string): string {
-  const host = value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0]!.replace(/^www\./, "");
-  if (!host || !/^[a-z0-9.-]+$/.test(host) || host.includes("..")) throw new ResearchRuntimeError("RESEARCH_SOURCE_URL_INVALID");
-  return host;
-}
 export async function searchWithSourcePolicy(search: GuidedSearchPort, query: string, policy?: SourcePolicy) {
   if (!policy || policy.mode === "open") return search.search(query);
-  if (policy.mode === "restrict" && !policy.domains.length) throw new ResearchRuntimeError("RESEARCH_SOURCE_POLICY_INVALID");
-  if (!policy.domains.length) return search.search(query);
-  const domains = policy.domains.map(normalizedPolicyHost);
+  const domains = sourcePolicyDomains(policy);
+  if (!domains.length) return search.search(query);
   const scopedQuery = `${query} (${domains.map((domain) => `site:${domain}`).join(" OR ")})`;
   const hits = await search.search(scopedQuery);
   if (policy.mode === "prioritize") {
@@ -77,10 +72,7 @@ export async function searchWithSourcePolicy(search: GuidedSearchPort, query: st
     }
     return [...combined.values()];
   }
-  return hits.filter((hit) => {
-    const host = new URL(hit.url).hostname.toLowerCase().replace(/^www\./, "");
-    return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
-  });
+  return hits.filter((hit) => sourceAllowedByPolicy(hit, policy));
 }
 function appendActivity(state: ResearchRuntime, stage: NonNullable<ResearchRuntime["activity"]>[number]["stage"], summary: string, status: NonNullable<ResearchRuntime["activity"]>[number]["status"], taskId: string | null = null): void {
   const activity = state.activity ?? (state.activity = []);
@@ -142,7 +134,7 @@ export function validateRuntimeDraft(state: ResearchRuntime, draft: RuntimeDraft
     if (inlineReportSources(draft.value.title).length) throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
     const expected = state.outline.filter((item) => item.enabled).map((item) => item.id);
     const actual = draft.value.sections.map((item) => item.sectionId);
-    const accepted = new Set(state.sources.filter((item) => item.decision === "accepted").map((item) => item.id));
+    const accepted = new Set(state.sources.filter((item) => item.decision === "accepted" && sourceAllowedByPolicy(item, state.sourcePolicy)).map((item) => item.id));
     if (!expected.length || actual.length !== expected.length || new Set(actual).size !== actual.length || actual.some((id, index) => id !== expected[index])
       || draft.value.sections.some((section) => section.sourceIds.some((id) => !accepted.has(id)))) throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
     for (const section of draft.value.sections) {
@@ -357,11 +349,12 @@ export class GuidedRuntimeService {
     const taskId = taskIds[0];
     if (!taskId) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
     for (const source of sources) {
-      const url = `https://internal.workspacex.local/artifacts/${encodeURIComponent(source.id)}`;
+      const reference = internalSourceReference(source.id);
+      const url = reference.url;
       if (state.sources.some((item) => item.url === url)) continue;
       const text = source.content.slice(0, 60000);
       state.sources.push(C.GuidedResearchSource.parse({
-        id: `internal:${source.id}`, taskId, taskIds, title: source.title, url,
+        id: reference.id, taskId, taskIds, title: source.title, url,
         content: text.slice(0, 30000), retrievedAt: source.retrievedAt, decision: "accepted",
         document: { url, retrievedAt: source.retrievedAt, text, contentHash: source.contentHash, contentKind: "text", truncated: source.content.length > text.length },
       }));
@@ -566,6 +559,15 @@ export class GuidedRuntimeService {
     if (command.allowPartialResearch !== undefined && (node !== "research" || !["confirm", "complete"].includes(action))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
     if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }
+    if (action === "save_chapters") {
+      if (node !== "outline" || command.draft?.node !== "outline" || !state.availableNodes.includes("research")) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+      validateRuntimeDraft(state, command.draft);
+      // Chapter edits reuse retrieved facts. The next report must reassess the
+      // edited questions through the existing evidence and quality pipeline.
+      invalidate(state, "research");
+      state.outline = command.draft.value.map((item, order) => ({ ...item, order }));
+      return;
+    }
     if (action === "save") {
       if (!command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       const editingTopic = command.draft.node === "brief" && state.currentNode !== "brief";

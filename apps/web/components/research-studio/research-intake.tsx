@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { research as researchContract } from "@repo/contracts";
 import { ArrowRight, Upload } from "lucide-react";
 import { InterviewVoiceInput } from "@/components/itv/interview-voice-input";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -14,6 +15,7 @@ import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog"
 import { createGuidedResearchSession, getResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
 type Brief = GuidedResearchSession["brief"];
 type Step = "home" | "brief" | "directions" | "outline" | "search" | "report";
+function defaultResearchTitle(topic: string) { return topic.trim().slice(0, researchContract.GuidedResearchMetadata.shape.title.maxLength!); }
 const EMPTY_BRIEF: Brief = { topic: "", goal: "", timeRange: "", region: "", focus: "" };
 function requestId(prefix: string) { return prefix + "-" + crypto.randomUUID(); }
 function workflowGraphVersion(workflow: GuidedResearchWorkflowProjection | null) { return workflow?.graphVersion ?? null; }
@@ -102,14 +104,14 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   const [createDraft] = React.useState<GuidedResearchCreateDraft>(() => {
     try {
       const stored = window.sessionStorage.getItem(CREATE_DRAFT_KEY);
-      if (!stored) return { title: initialBrief.topic, tags: [] };
+      if (!stored) return { title: defaultResearchTitle(initialBrief.topic), tags: [] };
       const parsed = JSON.parse(stored) as Partial<GuidedResearchCreateDraft>;
       return {
-        title: typeof parsed.title === "string" && parsed.title.trim() ? parsed.title.trim() : initialBrief.topic,
+        title: typeof parsed.title === "string" && parsed.title.trim() ? parsed.title.trim() : defaultResearchTitle(initialBrief.topic),
         tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 5) : [],
       };
     } catch {
-      return { title: initialBrief.topic, tags: [] };
+      return { title: defaultResearchTitle(initialBrief.topic), tags: [] };
     }
   });
   const [submitting, setSubmitting] = React.useState(false);
@@ -149,7 +151,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         return;
       }
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief });
-      const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || confirmedBrief.topic, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
+      const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || defaultResearchTitle(confirmedBrief.topic), tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
       if (!active.current) return;
       if (onCreated) {
         await onCreated(createdSession.sessionId);

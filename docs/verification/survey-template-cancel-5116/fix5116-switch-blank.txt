@@ -1,0 +1,271 @@
+- alert
+- link:
+  - /url: "#wsx-main-content"
+  - text: 跳到主要内容
+- navigation "主导航":
+  - button:
+    - generic: o
+  - link:
+    - /url: /home
+    - generic: 首页
+  - link:
+    - /url: /chat
+    - generic: 对话
+  - link:
+    - /url: /projects
+    - generic: 项目
+  - link:
+    - /url: /research
+    - generic: 研究
+  - link:
+    - /url: /itv
+    - generic: 访谈
+  - link:
+    - /url: /brain
+    - generic: 大脑
+  - link:
+    - /url: /tasks
+    - generic: 任务
+  - link:
+    - /url: /workflows
+    - generic: 工作流
+  - link:
+    - /url: /admin
+    - generic: 组织后台
+  - button:
+    - generic: 更多
+  - button:
+    - generic: 提醒
+  - generic: 0 条未读
+  - button:
+    - generic: 反馈
+  - button:
+    - generic: F
+- banner:
+  - generic: org org-fullstack-7n-c31495b5-0d6c23f263b1
+  - paragraph: 管理员
+- main:
+  - main:
+    - heading [level=1]: 问卷
+    - textbox:
+      - /placeholder: 搜索问卷名称或标签
+    - button:
+      - text: 新建问卷
+    - navigation:
+      - link:
+        - /url: /studio/survey
+        - text: 我的问卷
+      - link:
+        - /url: /studio/survey?tab=modules
+        - text: 问卷模板
+      - link:
+        - /url: /studio/survey?tab=reports
+        - text: 报告模板
+    - region:
+      - button [pressed]: 全部标签
+      - button:
+        - text: 验收标签1002
+        - generic: "1"
+      - generic: 共 14 个问卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/e448d53d-c7b7-44db-a5b7-d6c4f2cc4f5b
+            - text: CURRENT 真实样本全报告按钮
+        - paragraph: 3 个题目 · 11 份答卷（有效 11）
+        - generic: 发布中
+        - button:
+        - generic: 包含“CURRENT 报告评分1”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 23:23:14
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/fdb761cc-147b-48b9-af0f-203319efd3d5
+            - text: CURRENT 标签与新增取消验收
+        - paragraph: 2 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button:
+        - generic: 包含“单行文本”等问题，邀请目标受访者分享真实反馈。
+        - generic: 验收标签1002
+        - text: 最近更新：2026/10/2 23:09:33
+        - button: 继续设计
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/f730f963-75c2-46ef-9655-3341a09e3bef
+            - text: CURRENT 真实评分配置复测 5098
+        - paragraph: 3 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button:
+        - generic: 包含“请为您对本产品的总体满意度进行评分（1星为非常不满意，5星为非常满意）。”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 22:32:19
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/abe784a9-3668-41d1-b301-f300f52d644f
+            - text: CURRENT 模板问卷服务器版本 A
+        - paragraph: 8 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button:
+        - generic: 包含“会议名称”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 21:59:49
+        - button: 继续设计
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/ddf3861c-dc2d-4ebf-8dcf-cd09beb6b4b8
+            - text: CURRENT 并行旧页限答拒绝验收
+        - paragraph: 2 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button:
+        - generic: 包含“单选”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 21:57:17
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/9b32b017-67cf-4aa1-9258-a1325122322b
+            - text: CURRENT 修复定位连续编辑 5086
+        - paragraph: 2 个题目 · 0 份答卷（有效 0）
+        - generic: 发布中
+        - button:
+        - generic: 包含“图片多选”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 21:50:58
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/fed20c0a-a664-468a-a3cc-f83745087ac6
+            - text: CURRENT 导入入口验收 1002
+        - paragraph: 3 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button:
+        - generic: 包含“总体而言，您对本次会议的满意程度如何？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 21:43:47
+        - button: 继续设计
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/e22eddb8-e1bb-4665-b190-6c5de1f15007
+            - text: CURRENT 全按钮验收 1002
+        - paragraph: 34 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button:
+        - generic: 包含“单行文本”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 21:02:14
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/ee701121-a0d1-4b0c-8a45-ea275d1da106
+            - text: CURRENT 条件显示与跳转复测
+        - paragraph: 3 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button:
+        - generic: 包含“CURRENT 跳转选择”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 20:26:47
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/9081bade-43be-4056-900e-26ff491202de
+            - text: CURRENT 图片发布诊断最小复现
+        - paragraph: 1 个题目 · 0 份答卷（有效 0）
+        - generic: 待发布
+        - button:
+        - generic: 包含“图片单选”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 20:10:28
+        - button: 继续设计
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/f04a0677-5e14-4604-aee8-2ea8c41217f6
+            - text: PR5017 剩余真人验收 1002
+        - paragraph: 3 个题目 · 2 份答卷（有效 2）
+        - generic: 发布中
+        - button:
+        - generic: 包含“请选择是否继续回答后续问题。本题用于验收长题干在桌面、平板与手机宽度的自动增高：请仔细阅读完整说明，选择选项一将直接跳到最后一道题，选择选项二将依次回答中间题目。题干末尾校验标记：LONG-END-5017。”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 19:37:02
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/37379223-d185-4a23-bfea-2a50b657d2d6
+            - text: PR5017 删除确认专用临时问卷
+        - paragraph: 0 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button:
+        - generic: 添加问题、发布问卷并收集真实反馈。
+        - text: 最近更新：2026/10/2 18:40:49
+        - button: 继续设计
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/0556ccbc-3d4b-4148-9f7b-79e085687061
+            - text: PR5017 AI文件导入
+        - paragraph: 3 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button:
+        - generic: 包含“您对会议效率的满意程度？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 18:40:19
+        - button: 继续编辑
+        - button: 查看答卷
+      - article:
+        - heading [level=3]:
+          - link:
+            - /url: /studio/survey/a9e01430-5b29-42c3-b96d-ae50d149ef51
+            - text: PR5017 自建长题干跳转模板
+        - paragraph: 3 个题目 · 0 份答卷（有效 0）
+        - generic: 发布中
+        - button:
+        - generic: 包含“副本专属题干-不改变原模板”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/2 18:19:44
+        - button: 继续编辑
+        - button: 查看答卷
+      - complementary:
+        - paragraph: 报告模板（可选）
+        - heading [level=2]: 为该问卷设计报告模板
+        - link:
+          - /url: /studio/survey?tab=reports
+          - text: 去创建报告模板
+- dialog "新建问卷":
+  - heading "新建问卷" [level=2]
+  - paragraph: 先填写名称与标签，再选择创建方式。报告模板为可选项。
+  - text: 问卷名称
+  - textbox "问卷名称": CURRENT 模板应用与切换复测5116
+  - generic: 标签
+  - generic: 0/5
+  - textbox "添加标签":
+    - /placeholder: 输入标签，回车确认
+  - button "验收标签1002 1 个在用":
+    - generic: 验收标签1002
+    - generic: 1 个在用
+  - generic: 输入即搜索已有标签，回车新建一个
+  - group "选择创建方式":
+    - generic: 选择创建方式
+    - radio "空白创建 直接进入设计问卷" [checked] [active]
+    - text: 空白创建
+    - paragraph: 直接进入设计问卷
+    - radio "AI 导入创建 先导入内容并校对 Markdown，再进入设计"
+    - text: AI 导入创建
+    - paragraph: 先导入内容并校对 Markdown，再进入设计
+    - radio "从模板创建 使用现有问卷模板，直接进入设计"
+    - text: 从模板创建
+    - paragraph: 使用现有问卷模板，直接进入设计
+  - button "取消"
+  - button "下一步"
+  - button "关闭":

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SurveyQuestionTypeSchema, SurveyWorkflowQuestionSchema, validateSurveyQuestionLogic } from "./survey-question-types";
+import { createSurveyQuestion, SurveyQuestionTypeSchema, SurveyWorkflowQuestionSchema, validateSurveyQuestionLogic } from "./survey-question-types";
 import { SurveyReportTemplateSchema, type SurveyReportTemplate } from "./survey-report";
 import type { SurveyDraftInput } from "./survey-runtime";
 
@@ -86,6 +86,11 @@ function fencedJson(
   }
 }
 
+/** Compare question content without treating object property order as a change. */
+export function surveyQuestionsContentSignature(questions: readonly SurveyDraftInput["questions"][number][]): string {
+  return stableJson(questions);
+}
+
 export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseResult {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const diagnostics: SurveySourceDiagnostic[] = [];
@@ -141,7 +146,11 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
     const options = semanticBody.filter((line) => /^-\s+\S/.test(line)).map((line) => line.replace(/^-\s+/, "").trim());
     if (!prompt) diagnostics.push({ code: "QUESTION_PROMPT_REQUIRED", message: "题目需要题干", line: i + 1, column: 1 });
     if (choiceTypes.has(type) && options.length < 2) diagnostics.push({ code: "OPTIONS_REQUIRED", message: "选择题至少需要两个选项", line: i + 1, column: 1 });
-    const question = SurveyWorkflowQuestionSchema.safeParse({ id, order: questions.length + 1, chapterId: advanced.chapterId ?? "general", title: prompt || id, type: parsedType.data, required, options, config: advanced.config, provenance: advanced.provenance });
+    const scoringType = parsedType.data === "rating" || parsedType.data === "nps" || parsedType.data === "slider";
+    const config = advanced.config === undefined && scoringType
+      ? createSurveyQuestion(parsedType.data, id, questions.length + 1).config
+      : advanced.config;
+    const question = SurveyWorkflowQuestionSchema.safeParse({ id, order: questions.length + 1, chapterId: advanced.chapterId ?? "general", title: prompt || id, type: parsedType.data, required, options, config, provenance: advanced.provenance });
     if (!question.success) {
       diagnostics.push(diagnostic("QUESTION_SYNTAX", "题目元数据不符合题型配置约束", i + 1));
       continue;

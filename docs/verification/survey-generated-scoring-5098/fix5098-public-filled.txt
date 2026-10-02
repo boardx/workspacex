@@ -1,0 +1,44 @@
+- main:
+  - heading "CURRENT 真实评分配置复测 5098" [level=1]
+  - paragraph: 匿名填写 · 3 道题 · 标记 * 的题目为必答
+  - group "请为您对本产品的总体满意度进行评分（1星为非常不满意，5星为非常满意）。":
+    - generic: 请为您对本产品的总体满意度进行评分（1星为非常不满意，5星为非常满意）。
+    - radio "1 星"
+    - text: 1 星
+    - radio "2 星"
+    - text: 2 星
+    - radio "3 星"
+    - text: 3 星
+    - radio "4 星" [checked]
+    - text: 4 星
+    - radio "5 星"
+    - text: 5 星
+  - group "您有多大可能将本产品推荐给您的朋友或同事？（0分表示完全不可能，10分表示极有可能）":
+    - generic: 您有多大可能将本产品推荐给您的朋友或同事？（0分表示完全不可能，10分表示极有可能）
+    - radio "0"
+    - text: "0"
+    - radio "1"
+    - text: "1"
+    - radio "2"
+    - text: "2"
+    - radio "3"
+    - text: "3"
+    - radio "4"
+    - text: "4"
+    - radio "5"
+    - text: "5"
+    - radio "6"
+    - text: "6"
+    - radio "7"
+    - text: "7"
+    - radio "8"
+    - text: "8"
+    - radio "9" [checked]
+    - text: "9"
+    - radio "10"
+    - text: "10"
+  - group "请问您认为本产品在哪些方面可以进一步改进？":
+    - generic: 请问您认为本产品在哪些方面可以进一步改进？
+    - textbox "请问您认为本产品在哪些方面可以进一步改进？" [active]: 真实评分配置复测5098：改善说明文字。
+  - button "提交答卷"
+- alert
