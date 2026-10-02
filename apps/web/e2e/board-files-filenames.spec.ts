@@ -1,8 +1,11 @@
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {apiOrigin, boardLogin, boardHead, createAcceptanceBoard} from './board-acceptance-support';
+import {apiOrigin, boardLogin, boardHead, createAcceptanceBoard, openBoard, canonicalBoardSnapshot} from './board-acceptance-support';
+import {expectBoardSynced} from './support/board-sync-status';
+import {isBoardFileUploadResponse} from './support/board-file-upload-response';
 import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-storage';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
@@ -50,4 +53,50 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
     try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
   }
   if (failures.length) throw new AggregateError(failures, 'R09 filename acceptance or owned cleanup failed');
+});
+
+test('R09 native UI downloads retain literal filenames and bytes after refresh', async ({page, request, baseURL}, info) => {
+  const beforeProof = await verifyConnectorRuntimeManifest();
+  const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
+  const owner = await boardLogin(page), failures: unknown[] = [], observations: Array<Record<string, unknown>> = [];
+  try { for (const [fileName] of filenames) {
+    const name = `R09 native filename ${randomUUID()}`, board = await createAcceptanceBoard(request, owner, name);
+    try {
+      await openBoard(page, board, 0);
+      const initial = await boardHead(request, owner, board), bytes = Buffer.from(`native filename ${fileName} ${randomUUID()}`);
+      const box = await page.getByTestId('collaborative-editor').boundingBox();
+      expect(box).not.toBeNull();
+      const uploaded = page.waitForResponse(response => isBoardFileUploadResponse(response.request().method(), response.url(), board, apiOrigin(), baseURL));
+      const transfer = await page.evaluateHandle(({name, data}) => {
+        const value = new DataTransfer(); value.items.add(new File([new Uint8Array(data)], name, {type: 'text/plain'})); return value;
+      }, {name: fileName, data: [...bytes]});
+      try { await page.getByTestId('board-fabric-surface').dispatchEvent('drop', {dataTransfer: transfer, clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2}); }
+      finally { await transfer.dispose(); }
+      const response = await uploaded; expect(response.status()).toBe(201);
+      const metadata = WhiteboardFileMetadata.parse(await response.json()); expect(metadata.fileName).toBe(fileName);
+      await expectBoardSynced(page);
+      const committed = await canonicalBoardSnapshot(request, owner, board);
+      expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+      await page.reload(); await expectBoardSynced(page);
+      const row = page.getByTestId('board-a11y-mirror').locator('li[data-object-id]');
+      await expect(row).toHaveCount(1); await expect(row).toHaveAttribute('data-object-text', fileName);
+      const button = row.getByRole('button'); await button.focus(); await button.press('Enter');
+      const downloading = page.waitForEvent('download'); await page.getByRole('button', {name: '下载', exact: true}).click();
+      const download = await downloading, path = await download.path(); expect(path).toBeTruthy();
+      const saved = await readFile(path!); expect(saved).toEqual(bytes);
+      expect(createHash('sha256').update(saved).digest('hex')).toBe(createHash('sha256').update(bytes).digest('hex'));
+      expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(committed);
+      expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+      await page.screenshot({path: info.outputPath(`R09-native-download-${observations.length}.png`), fullPage: true});
+      observations.push({fileName, suggestedFilename: download.suggestedFilename(), literalNamePreserved: download.suggestedFilename() === fileName, bytesVerified: true, metadata});
+      // The original criterion remains strict even when a platform sanitizes a name.
+      expect(download.suggestedFilename()).toBe(fileName);
+    } catch (error) { failures.push(error); }
+    finally { try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); } }
+  } } catch (error) { failures.push(error); }
+  finally {
+    try { await info.attach('R09 native download evidence', {body: JSON.stringify({observations, nativeDatabase, syntheticUploadNotOsDrop: true, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'}); } catch (error) { failures.push(error); }
+    try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
+  }
+  if (failures.length) throw new AggregateError(failures, 'R09 literal native download criteria or owned cleanup failed');
 });
