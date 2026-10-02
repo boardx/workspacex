@@ -259,3 +259,14 @@ prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须
 
 
 本地发布修复验证必须使用候选 checkout 自己的依赖布局：运行 `pnpm install --frozen-lockfile --prefer-offline` 复用 store，再执行验证；若明确只需要静态验证，可加 `--ignore-scripts` 并记录边界。不得将其他 workspace 的 `node_modules` 链入候选，因为 workspace 包可能解析到其他版本的源码；即使 lockfile 相同，也不能用这种结果证明候选通过。PR CI 的冻结安装和 exact head 检查仍是权威。
+
+
+### 国内缓存准备路径（#5069）
+
+`prepare-cn-release.yml` 从 root 验证完整缓存导出 exact candidate 与 main-cn bundle，
+在一次性 runner workspace 本地 clone、fsck 和 ancestry 校验，不执行 GitHub HTTPS checkout。
+runner 仅获得 `workspacex-cn-export-source` 的只读参数能力；缓存写入 helper 不能加入 sudoers。
+受控安装必须同时安装 export wrapper 与 stage helper，并校验 root 所有权及字节身份。
+缺对象、promisor、alternates、baseline 不一致或发布锁忙时立即 NOT_READY，不回退公网下载。
+这条路径只消费已校验的国内缓存；它不等同于新版本 OSS/OIDC 自动运输已经部署或验收。
+独立记录 workflow SHA、source SHA 和 attempt，完整运输仍需另外验收。
