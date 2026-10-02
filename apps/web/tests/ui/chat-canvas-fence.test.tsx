@@ -107,8 +107,12 @@ describe("工作坊画布模板围栏在 chat 里被渲染（不再是代码块�
   });
 
   it("```canvas + 内置 persona 模板 → 走 fabric 画布分支，不落代码块、不落错误态", async () => {
+    let resolveTemplates!: (value: { templates: never[] }) => void;
+    listCanvasTemplates.mockReturnValueOnce(new Promise<{ templates: never[] }>(resolve => { resolveTemplates = resolve; }));
     render(<MarkdownMessage text={`看这张画像：\n\n${PERSONA_FENCE}\n\n以上。`} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
+    expect(el.getAttribute("data-template-source")).toBeNull();
+    resolveTemplates({ templates: [] });
     await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("builtin"));
     expect(screen.queryByTestId("chat-canvas-error")).toBeNull();
     // 围栏前后的正文仍在（一个围栏不该吃掉整条消息）

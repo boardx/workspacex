@@ -22,3 +22,8 @@ export const BOARD_DRAWING_TOOL_STYLES = {
 export function drawingToolStyle(tool: DrawingTool): BoardDrawingToolStyle {
   return BOARD_DRAWING_TOOL_STYLES[tool];
 }
+
+// Pencil uses the persisted pen primitive with its own graphite appearance.
+export function drawingChoiceStyle(choice: DrawingTool | "pencil"): BoardDrawingToolStyle {
+  return choice === "pencil" ? { color: "#52525B", width: 2, opacity: .65 } : drawingToolStyle(choice);
+}
