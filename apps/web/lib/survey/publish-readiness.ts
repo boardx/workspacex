@@ -14,6 +14,7 @@ export type PublishReadinessAssessment = {
 const PENALTY: Record<SurveyPublishBlocker["code"], number> = {
   QUESTIONS_EMPTY: 100,
   QUESTION_OPTIONS_EMPTY: 25,
+  QUESTION_CONFIG_INVALID: 30,
   MAPPING_INCOMPLETE: 20,
   LEADING_QUESTION: 20,
   LOGIC_INVALID: 30,
@@ -21,6 +22,7 @@ const PENALTY: Record<SurveyPublishBlocker["code"], number> = {
 
 const LABEL: Record<SurveyPublishBlocker["code"], string> = {
   QUESTIONS_EMPTY: "添加至少一道可回答的问题",
+  QUESTION_CONFIG_INVALID: "修复题目配置",
   QUESTION_OPTIONS_EMPTY: "为选项题补充可选择的答案",
   MAPPING_INCOMPLETE: "将题目映射到报告章节",
   LEADING_QUESTION: "改用中性的题目措辞",

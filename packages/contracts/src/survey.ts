@@ -17,6 +17,7 @@ export const SurveyAnonymitySchema = z.enum(["anonymous", "identified"]);
 export const SurveyPublishBlockerCodeSchema = z.enum([
   "QUESTIONS_EMPTY",
   "QUESTION_OPTIONS_EMPTY",
+  "QUESTION_CONFIG_INVALID",
   "MAPPING_INCOMPLETE",
   "LEADING_QUESTION",
   "LOGIC_INVALID",

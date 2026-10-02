@@ -17,6 +17,27 @@ const question = (input: {
 });
 
 describe("survey publish gate", () => {
+  it("returns targeted configuration diagnostics for an image question and clears them after repair", () => {
+    const image = {
+      id: "image-q", order: 1, chapterId: "general", title: "Choose an image",
+      type: "image_single" as const, required: true, options: ["A", "B"],
+      config: { optionIds: ["a", "b"] },
+    };
+    const template = { id: "optional", title: "Report", sections: [] };
+    const blocked = evaluateSurveyForPublish({ questions: [image], template });
+    expect(blocked).toHaveLength(1);
+    expect(blocked[0]).toMatchObject({
+      code: "QUESTION_CONFIG_INVALID", side: "question", subjectId: "image-q",
+      missingFields: ["请为每个图片选项配置图片和替代文字"],
+    });
+    expect(evaluateSurveyForPublish({ questions: [{ ...image, config: {
+      ...image.config, images: {
+        a: { url: "https://example.com/a.png", alt: "Image A" },
+        b: { url: "https://example.com/b.png", alt: "Image B" },
+      },
+    } }], template })).toEqual([]);
+  });
+
   it('allows a valid survey to publish without an optional report template',()=>{
     expect(evaluateSurveyForPublish({questions:[question({id:'q1',title:'您的建议是什么？',type:'open'})],template:{id:'optional',title:'可选报告',sections:[]}})).toEqual([]);
   });
@@ -81,6 +102,11 @@ describe("survey publish gate", () => {
         code: "MAPPING_INCOMPLETE",
         side: "section",
         subjectId: "section-empty",
+      },
+      {
+        code: "QUESTION_CONFIG_INVALID",
+        side: "question",
+        subjectId: "q-optionless",
       },
       {
         code: "QUESTION_OPTIONS_EMPTY",
