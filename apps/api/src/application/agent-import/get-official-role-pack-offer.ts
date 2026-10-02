@@ -18,9 +18,11 @@ import type { agentRole } from "@repo/contracts";
 import type { IdentityRepository } from "../identity/ports";
 import type { OrgId } from "../../domain/org-id";
 import { buildOfficialAgentRolePack, officialRoleSkillPacks } from "../../domain/agent/official-role-packs";
+import type { OfficialRoleUpgradeRepository, OfficialRoleUpgradeOffer } from "./upgrade-official-roles";
 import type { OfficialAgentRolePackImportRepository } from "./ports";
 
 export interface OfficialRolePackOfferView {
+  readonly upgrades?: readonly OfficialRoleUpgradeOffer[];
   readonly packId: string;
   readonly packVersion: string;
   readonly canEnable: boolean;
@@ -37,7 +39,7 @@ export interface OfficialRolePackOfferView {
 }
 
 export async function getOfficialRolePackOffer(
-  deps: { readonly identities: IdentityRepository; readonly imports: Pick<OfficialAgentRolePackImportRepository, "importedOfficialStableNames"> },
+  deps: { readonly identities: IdentityRepository; readonly imports: Pick<OfficialAgentRolePackImportRepository, "importedOfficialStableNames">; readonly upgrades?: OfficialRoleUpgradeRepository },
   input: { readonly actorId: string; readonly orgId: OrgId },
 ): Promise<OfficialRolePackOfferView> {
   const pack = buildOfficialAgentRolePack();
@@ -47,6 +49,7 @@ export async function getOfficialRolePackOffer(
   ]);
   const have = new Set(imported);
   return {
+    upgrades: deps.upgrades ? await deps.upgrades.offers(input.orgId,pack) : [],
     packId: pack.packId,
     packVersion: pack.packVersion,
     canEnable: membership?.orgRole === "admin",

@@ -146,6 +146,9 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
    * 让它们从 RETURNING 回来，「服务端说了算」这件事就由库来兑现而不是由一段拼装代码兑现。
    */
   async create(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
+    readonly auditAction?: "create" | "adopt";
     readonly orgId: OrgId;
     readonly key: string;
     readonly displayName: string;
@@ -159,6 +162,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly gridRows: GridRows;
   }): Promise<CreateTemplateOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      if (cmd.actorId) await s.query("SELECT set_config('app.canvas_template_actor', $1, true), set_config('app.canvas_template_action', $2, true)", [cmd.actorId, cmd.auditAction ?? "create"]);
       const r = await s.query<{
         key: string;
         version: number;
@@ -238,6 +242,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
    * 时的第二道防线（先提交的那个让后者撞主键，回退到零行）。
    */
   async mintVersion(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly displayName: string;
@@ -252,6 +258,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly gridRows: GridRows;
   }): Promise<MintTemplateVersionOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      if (cmd.actorId) await s.query("SELECT set_config('app.canvas_template_actor', $1, true), set_config('app.canvas_template_action', $2, true)", [cmd.actorId, "mint"]);
       const r = await s.query<{
         key: string;
         version: number;
@@ -454,6 +461,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
    * 接口文档。这条 disambiguation 查询只在失败路径上跑，不影响成功路径的单语句写入。
    */
   async updateDraft(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly version: number;
@@ -466,6 +475,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly gridRows: GridRows;
   }): Promise<UpdateDraftOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      if (cmd.actorId) await s.query("SELECT set_config('app.canvas_template_actor', $1, true), set_config('app.canvas_template_action', $2, true)", [cmd.actorId, "edit"]);
       const r = await s.query<{
         key: string;
         version: number;
@@ -531,6 +541,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
    * version`，`sections` 完全不在 `SET` 子句里，物理上不可能被这条 SQL 改动。
    */
   async updateMetadata(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly version: number;
@@ -544,6 +556,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly recommendAfter: readonly string[];
   }): Promise<UpdateMetadataOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      if (cmd.actorId) await s.query("SELECT set_config('app.canvas_template_actor', $1, true), set_config('app.canvas_template_action', $2, true)", [cmd.actorId, "edit"]);
       const r = await s.query<{
         key: string;
         version: number;
@@ -606,12 +619,15 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
    *   DEFERRABLE），那一刻就会失败。索引挡住了这个顺序错误，这条注释只是说明为什么。
    */
   async publish(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly version: number;
     readonly visibility: VisibilityScope;
   }): Promise<PublishOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      if (cmd.actorId) await s.query("SELECT set_config('app.canvas_template_actor', $1, true), set_config('app.canvas_template_action', $2, true)", [cmd.actorId, "publish"]);
       const archived = await s.query<{ key: string; version: number }>(
         `UPDATE canvas_templates
             SET status = 'archived', archived_from = 'published', updated_at = now()
@@ -636,8 +652,10 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     key: string,
     version: number,
     next: TemplateVersionState,
+    actorId?: string,
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      if (actorId) await s.query("SELECT set_config('app.canvas_template_actor', $1, true)", [actorId]);
       await s.query(
         `UPDATE canvas_templates
             SET status = $4, archived_from = $5, updated_at = now()

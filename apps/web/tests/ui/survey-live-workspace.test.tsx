@@ -31,7 +31,7 @@ describe('live survey workspace persistence',()=>{
  it('keeps a single header publish action and moves template saving into more actions',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
-  await screen.findByLabelText('问题内容');
+  await screen.findByRole('button',{name:'编辑第 1 题：真实问题'});
   expect(screen.queryByRole('button',{name:'保存修改'})).not.toBeInTheDocument();
   expect(screen.queryByRole('button',{name:'使用问卷模板'})).not.toBeInTheDocument();
   expect(screen.queryByText('管理模板库')).not.toBeInTheDocument();
@@ -122,7 +122,8 @@ describe('live survey workspace persistence',()=>{
  });
  it('keeps visual editing enabled while replacing a question title',async()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
-  const title=await screen.findByLabelText('问题内容');
+  fireEvent.click(await screen.findByRole('button',{name:'编辑第 1 题：真实问题'}));
+  const title=screen.getByRole('textbox',{name:'问题内容'});
   fireEvent.change(title,{target:{value:''}});
   expect(title).toBeEnabled();
   fireEvent.change(title,{target:{value:'新问题 '}});

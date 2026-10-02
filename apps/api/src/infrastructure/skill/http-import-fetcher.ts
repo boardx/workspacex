@@ -107,7 +107,33 @@ function githubDiagnosticHeaders(headers: import("node:http").IncomingHttpHeader
   return result;
 }
 
-function once(url: URL, seams: ImportFetchSeams): Promise<{
+/** Explicit server-only public-repository read credential; never borrow a runner/admin token. */
+export const GITHUB_IMPORT_TOKEN_ENV = "WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN";
+export const MAX_QUOTA_WAIT_MS = 2_000;
+
+function trustedGithubApi(url: URL): boolean {
+  return url.protocol === "https:" && url.hostname === "api.github.com" && !url.port;
+}
+
+/** Keep the public import error contract, while distinguishing a retryable upstream quota failure. */
+export class GithubImportRateLimitError extends ImportSourceRefusedError {
+  readonly retryable = true;
+  constructor(readonly retryAfterMs: number | null) {
+    super("IMPORT_FETCH_FAILED");
+    this.name = "GithubImportRateLimitError";
+  }
+}
+
+function quotaWait(status: number, headers: Record<string, string>): number | null | undefined {
+  if (status !== 429 && !(status === 403 && (headers["x-ratelimit-remaining"] === "0" || headers["retry-after"]))) return undefined;
+  const retry = headers["retry-after"];
+  if (retry && /^\d+$/.test(retry)) return Number(retry) * 1000;
+  const reset = headers["x-ratelimit-reset"];
+  if (reset && /^\d+$/.test(reset)) return Math.max(0, Number(reset) * 1000 - Date.now());
+  return null;
+}
+
+function once(url: URL, seams: ImportFetchSeams, token?: string): Promise<{
   readonly status: number;
   readonly diagnostics: Record<string, string>;
   readonly location: string | null;
@@ -133,6 +159,7 @@ function once(url: URL, seams: ImportFetchSeams): Promise<{
         headers: {
           "user-agent": "workspacex-skill-import/1.0",
           accept: "application/vnd.github+json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
         },
       },
       (response) => {
@@ -180,19 +207,31 @@ export async function fetchImportSource(
 ): Promise<FetchedImportSource> {
   let target = assertImportUrlAllowed(rawUrl, policy);
 
+  // Capture only for a direct API request. A redirect never carries this credential,
+  // including redirects back to the API or from an arbitrary import host.
+  const token = trustedGithubApi(target) ? process.env[GITHUB_IMPORT_TOKEN_ENV]?.trim() : undefined;
+  let retried = false;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    const result = await once(target, seams);
+    let result = await once(target, seams, hop === 0 ? token : undefined);
+    const wait = trustedGithubApi(target) ? quotaWait(result.status, result.diagnostics) : undefined;
+    if (wait !== undefined && wait !== null && wait <= MAX_QUOTA_WAIT_MS && !retried) {
+      retried = true;
+      await new Promise((resolve) => setTimeout(resolve, wait));
+      result = await once(target, seams, hop === 0 ? token : undefined);
+    }
     if (result.status >= 300 && result.status < 400 && result.location !== null) {
       // 重定向目标要按**当前 URL** 解析相对地址，然后重新过第一道门。
       target = assertImportUrlAllowed(new URL(result.location, target).toString(), policy);
       continue;
     }
     if (result.status !== 200) {
-      if (target.protocol === "https:" && target.hostname === "api.github.com" && !target.port) {
+      if (trustedGithubApi(target)) {
         console.warn("[skill-import] upstream-http-failure", {
           host: "api.github.com", status: result.status, headers: result.diagnostics,
         });
       }
+      const remainingWait = trustedGithubApi(target) ? quotaWait(result.status, result.diagnostics) : undefined;
+      if (remainingWait !== undefined) throw new GithubImportRateLimitError(remainingWait);
       throw new ImportSourceRefusedError("IMPORT_FETCH_FAILED");
     }
     return { url: target.toString(), mediaType: result.mediaType, body: result.body };

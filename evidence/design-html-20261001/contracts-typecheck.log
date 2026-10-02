@@ -1,0 +1,4 @@
+
+> @repo/contracts@0.0.0 typecheck /private/tmp/wsx-design-html-acceptance/packages/contracts
+> tsc --noEmit
+

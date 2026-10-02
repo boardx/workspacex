@@ -18,7 +18,7 @@
  * 不是像素级还原：幻灯片是 16:9 的纸，原型可能是一部手机。要的是「内容和结构都在、能改」，
  * 要像素级的请用「当前页 PNG」。
  */
-import { designPrototype } from "@repo/contracts";
+import { designHtmlPage, designPrototype } from "@repo/contracts";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { exportFileStem, type Romanize } from "@/lib/export-file-name";
 import { localDateStamp } from "@/lib/prototype-export-html";
@@ -205,6 +205,11 @@ function lay(n: Node, x: number, y: number, w: number, c: Ctx): Laid {
     }
     // design-delta `prototype-board`：底板一块浅灰框，便签 / 形状按中心坐标画成色块。
     // 连线暂不画——PPT 这一层的形状里没有线段，加线要再开一种形状（范围外，见 PR 说明）。
+    // HTML 页：PPT 里没有 HTML 的位置，放一块灰底 + 这页的文字摘要；完整版面请用 HTML 导出。
+    case "html": {
+      const h = 4 * k;
+      return { h, shapes: [{ kind: "box", x, y, w, h, text: designHtmlPage.htmlPageVisibleText(n.props.html).slice(0, 300), pt: 10 * k, fill: PANEL, color: MUTED }] };
+    }
     case "board": {
       const h = ({ sm: 1.6, md: 2.6, lg: 3.8, fill: 3.8 } as const)[n.props.height ?? "md"] * k;
       const W = { sticky: 24, shape: 20, text: 30 } as const;

@@ -50,7 +50,7 @@ export class PgAttachmentExtractionRepository implements AttachmentExtractionSto
 
   async complete(orgId: OrgId, jobId: string): Promise<void> {
     await this.db.withTenant(orgId, (s) =>
-      s.query(`DELETE FROM chat_attachment_extraction_outbox WHERE org_id = $1 AND id = $2`, [orgId, jobId]),
+      s.query(`DELETE FROM chat_attachment_extraction_outbox o WHERE org_id = $1 AND id = $2 AND NOT EXISTS(SELECT 1 FROM chat_message_attachments a WHERE a.org_id=o.org_id AND a.id=o.attachment_id AND a.cancelled_at IS NOT NULL)`, [orgId, jobId]),
     );
   }
 
@@ -75,6 +75,17 @@ export class PgAttachmentExtractionRepository implements AttachmentExtractionSto
     });
   }
 
+  async isCancelled(orgId:OrgId,id:string):Promise<boolean>{
+    return this.db.withTenant(orgId,async s=>(await s.query<{cancelled:boolean}>('SELECT cancelled_at IS NOT NULL AS cancelled FROM chat_message_attachments WHERE org_id=$1 AND id=$2',[orgId,id])).rows[0]?.cancelled===true);
+  }
+  async completeCancelled(orgId:OrgId,id:string):Promise<void>{await this.db.withTenant(orgId,s=>s.query('DELETE FROM chat_message_attachments WHERE org_id=$1 AND id=$2 AND cancelled_at IS NOT NULL AND message_id IS NULL',[orgId,id]));}
+  async publishExtracted(orgId:OrgId,id:string,ref:string,excerpt:string,write:()=>Promise<void>):Promise<boolean>{
+    return this.db.withTenant(orgId,async s=>{
+      const row=await s.query('SELECT id FROM chat_message_attachments WHERE org_id=$1 AND id=$2 AND cancelled_at IS NULL FOR UPDATE',[orgId,id]);
+      if(!row.rows.length)return false;
+      await write();await s.query(`UPDATE chat_message_attachments SET extracted_ref=$3,extracted_excerpt=$4,extraction_status='extracted',extraction_error=NULL WHERE org_id=$1 AND id=$2`,[orgId,id,ref,excerpt]);return true;
+    });
+  }
   async recordExtracted(orgId: OrgId, attachmentId: string, extractedRef: string, excerpt: string): Promise<void> {
     await this.db.withTenant(orgId, (s) =>
       s.query(

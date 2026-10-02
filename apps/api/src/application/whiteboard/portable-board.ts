@@ -22,6 +22,7 @@ function mapImages(object:WhiteboardObject,map:(image:ImageContent)=>ImageConten
  // stored representation; only explicit image migration fields may change.
  const content=structuredClone(object.extensionData!.contentObject) as CanonicalContentObject;
  const visit=(item:CanonicalContentObject):CanonicalContentObject=>{
+  if(item.type==='tile'&&item.tileType==='file'&&item.fields.some(field=>field.key==='assetId'&&field.value.startsWith('board-file-')))throw new Fault('UNSUPPORTED_FORMAT');
   if(item.type==='tile'&&item.coverAssetId)throw new Fault('UNSUPPORTED_FORMAT');
   if(item.type==='image')return map(item);
   if(item.type==='template')return{...item,objects:item.objects?.map(child=>({...child,content:visit(child.content) as typeof child.content}))};

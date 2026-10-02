@@ -1,0 +1,80 @@
+
+ RUN  v2.1.9 /workspace/skills-all-runtime/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/work-eval/eval-all-skills-execution-error.test.ts (1 test | 1 failed) 234ms
+   × a failed current execution cannot reuse prior gate counts or hide its missing report 233ms
+     → expected { stableId: 'S003', …(8) } to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/work-eval/eval-all-skills-execution-error.test.ts > a failed current execution cannot reuse prior gate counts or hide its missing report
+AssertionError: expected { stableId: 'S003', …(8) } to be null
+
+- Expected:
+null
+
++ Received:
+Object {
+  "baselinePassed": null,
+  "decidedAt": "2026-10-01T11:58:47.139Z",
+  "deterministicTotal": null,
+  "evidenceReportPath": null,
+  "gates": Array [
+    Object {
+      "gate": "G0",
+      "outcome": "pass",
+      "reason": "stableId S003 unique, listed, 1 entity doc",
+      "reasonCode": "OK",
+    },
+    Object {
+      "gate": "G1",
+      "outcome": "pass",
+      "reason": "1 provenance entries complete, licenses allowed",
+      "reasonCode": "OK",
+    },
+    Object {
+      "gate": "G2",
+      "outcome": "pass",
+      "reason": "schemas valid; 0 case inputs/outputs conform",
+      "reasonCode": "OK",
+    },
+    Object {
+      "gate": "G3",
+      "outcome": "fail",
+      "reason": "no valid suite: permission-denial / prompt-injection coverage cannot be shown (E7)",
+      "reasonCode": "INJECTION_OR_DENIAL_CASE_MISSING",
+    },
+    Object {
+      "gate": "G4",
+      "outcome": "fail",
+      "reason": "suite invalid (E1): cases.jsonl (file): at least one case is required; suite.json mustPassCaseIds.0: unknown case id E2; suite.json mustPassCaseIds.1: unknown case id E3; suite.json mustPassCaseIds.2: unknown case id E6",
+      "reasonCode": "NO_SUITE",
+    },
+    Object {
+      "gate": "G5",
+      "outcome": "fail",
+      "reason": "G0–G4 not all passed",
+      "reasonCode": "PRIOR_GATE_FAILED",
+    },
+  ],
+  "scriptVersion": "lint-work-stack-gates-1.0.1",
+  "stableId": "S003",
+  "subjectPassed": null,
+  "subjectVersionDigest": "sha256:b3e88769b9326bf421be8309be240a7336b6c9c77b7edd80f9b9ccd851678c05",
+}
+
+ ❯ tests/work-eval/eval-all-skills-execution-error.test.ts:14:26
+     12|   const current = await evaluator.evaluate("S003", { baseline: true });
+     13|   expect(current.reportPath).toBeNull();
+     14|   expect(current.status).toBeNull();
+       |                          ^
+     15|   expect(current.error).toContain("evaluation did not produce a report…
+     16|   const batch = await runAllSkillsCommand({ repoRoot: root, baseline: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  11:58:41
+   Duration  5.38s (transform 3.17s, setup 0ms, collect 4.14s, tests 234ms, environment 0ms, prepare 99ms)

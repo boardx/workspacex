@@ -76,6 +76,8 @@ const BRIDGE_RUN_ERROR_DISPOSITION = {
   NO_WRITE_ROLE: "settled",
   THREAD_ARCHIVED_READONLY: "settled",
   AGENT_NOT_FOUND: "settled",
+  /** Rejected before accepting a run: a temporary skill version exceeds the selected role pins. */
+  AGENT_SKILL_SCOPE_VIOLATION: "settled",
   ATTACHMENT_NOT_PENDING: "settled",
   TITLE_INVALID: "settled",
   AUTHZ_UNAVAILABLE: "settled",
