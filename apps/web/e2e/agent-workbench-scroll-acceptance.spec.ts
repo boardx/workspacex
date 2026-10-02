@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openFreshThread } from "./chat-task-workbench-fixture";
 import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
+import { timelineScrollBrowserFixture } from "./support/timeline-scroll-browser-fixture";
 
 // Adjacent same-name tools are grouped in the approved UI. Count their actual
 // member nodes as well as standalone tool rows, never just the group header.
@@ -15,7 +17,18 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
   const messages = page.getByTestId("copilotkit-v2-messages");
   const toolIdentities = new Set<string>();
   for (let round = 0; round < 10; round += 1) {
-    await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+    // #5023: handshake at the actual first tool event, not a timing assumption
+    // that Chromium will render before the fixture's six-second stream ends.
+    const gateId = randomUUID();
+    const userText = `${CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger}:F2:${gateId}`;
+    const fixtureOrigin = `http://127.0.0.1:${process.env.WORKSPACEX_DEEP_AGENT_PROVIDER_PORT}`;
+    const armed = await page.request.post(`${fixtureOrigin}/__test/f2/arm`, { data: { gateId, userText, pauseAtHalfStep: 1 } });
+    expect(armed.status()).toBe(200);
+    const release = async () => {
+      const released = await page.request.post(`${fixtureOrigin}/__test/f2/release`, { data: { gateId } });
+      expect(released.status()).toBe(200);
+    };
+    await page.getByTestId("copilotkit-v2-input").fill(userText);
     await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
     const responsePromise = page.waitForResponse(response => response.request().method() === "POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url()));
     await page.getByTestId("copilotkit-v2-send").click();
@@ -36,6 +49,7 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
       const anchor = page.getByTestId("run-trace-panel").first();
       const top = (await anchor.boundingBox())!.y;
       const count = await panel.locator(TOOL_ACTIVITY).count();
+      await release();
       await expect.poll(() => panel.locator(TOOL_ACTIVITY).count()).toBeGreaterThan(count);
       expect(Math.abs((await anchor.boundingBox())!.y - top), "streaming must not move the reading anchor").toBeLessThan(3);
       // Toggle the visible anchor with a real user click, without scrolling it.
@@ -46,6 +60,8 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
       await expect(page.getByTestId("copilotkit-v2-scroll-to-bottom")).toBeVisible();
       await page.getByTestId("copilotkit-v2-scroll-to-bottom").click();
       await expect.poll(() => messages.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(60);
+    } else {
+      await release();
     }
     await finished;
     const events = (await response.text()).split(/\r?\n/).filter(line => line.startsWith("data: ")).map(line => JSON.parse(line.slice(6)));
@@ -70,4 +86,48 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
   }
   expect(toolIdentities.size).toBe(100);
   await expect(page.locator(TOOL_ACTIVITY)).toHaveCount(100);
+});
+
+
+// #5023: 55px overflow is below the real 80px tolerance. A user can still
+// scroll upward; streaming must preserve that explicit intent until returning.
+test("small-overflow upward intent survives streamed layout changes", async ({ page }) => {
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: await timelineScrollBrowserFixture() });
+  const messages = page.locator("#messages");
+  await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBe(55);
+  await messages.hover();
+  await page.mouse.wheel(0, -100_000);
+  await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBeLessThan(5);
+  await expect(page.locator("#following")).toHaveText("false");
+  const anchorTop = (await page.locator("#anchor").boundingBox())!.y;
+  for (let delta = 0; delta < 3; delta += 1) {
+    await page.locator("#grow").click();
+    await expect.poll(() => messages.evaluate(el => el.scrollHeight)).toBe(256 + delta);
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await messages.evaluate(el => el.scrollTop)).toBeLessThan(5);
+    expect(Math.abs((await page.locator("#anchor").boundingBox())!.y - anchorTop)).toBeLessThan(3);
+  }
+  // A real pointer click releases the directional latch, but must not itself
+  // restore following before any actual downward scroll.
+  await messages.click({ position: { x: 20, y: 100 } });
+  await expect(page.locator("#following")).toHaveText("false");
+  expect(await messages.evaluate(el => el.scrollTop)).toBeLessThan(5);
+  await messages.hover();
+  await page.mouse.wheel(0, 100_000);
+  await expect(page.locator("#following")).toHaveText("true");
+  await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBe(58);
+  await page.locator("#grow").click();
+  await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBe(59);
+  await messages.focus();
+  await page.keyboard.press("Home");
+  await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBeLessThan(5);
+  await expect(page.locator("#following")).toHaveText("false");
+  await page.locator("#grow").click();
+  await expect.poll(() => messages.evaluate(el => el.scrollHeight)).toBe(260);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(await messages.evaluate(el => el.scrollTop)).toBeLessThan(5);
+  await page.locator("#jump").click();
+  await expect(page.locator("#following")).toHaveText("true");
+  await expect.poll(() => messages.evaluate(el => el.scrollTop)).toBe(60);
 });
