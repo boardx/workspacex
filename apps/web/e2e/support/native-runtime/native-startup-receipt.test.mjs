@@ -17,6 +17,23 @@ test('identity suboperations retain original private cause while exposing only s
   assert.equal(identityOperation('IDENTITY_CWD',()=>42),42);
 });
 
+test('optional real-child CWD context accepts only fixed safe values and preserves legacy receipts',()=>{
+  const legacy={phase:'IDENTITY',code:'IDENTITY_CWD',status:'failed',sourceHead:'a'.repeat(40)};
+  assert.deepEqual(parseStartupReceipt(legacy),legacy);
+  const context={service:'web',pidAlive:true,commandExit:0,pathPresent:true,pathEqual:false,childExitCode:null,childSignal:null};
+  const original=new Error('private environment token cwd stderr');
+  let failure;try{identityOperation('IDENTITY_SOURCE',()=>identityOperation('IDENTITY_CWD',()=>{throw original;},context));}catch(error){failure=error;}
+  assert.equal(failure.cause,original);assert.deepEqual(failure.identityCwd,context);
+  const receipt=parseStartupReceipt({...legacy,identityCwd:{...failure.identityCwd,childExitCode:1}});
+  assert.equal(JSON.stringify(receipt).includes('private'),false);
+  for(const invalid of [{...context,service:'private'},{...context,path:'/private/secret'},{...context,pidAlive:'true'},{...context,commandExit:NaN},{...context,childExitCode:256},{...context,childSignal:'secret'}])assert.throws(()=>parseStartupReceipt({...legacy,identityCwd:invalid}));
+  assert.throws(()=>parseStartupReceipt({...legacy,code:'IDENTITY_SOURCE',identityCwd:context}));
+  let invalidDiagnosticFailure;
+  try{identityOperation('IDENTITY_CWD',()=>{throw original;},{...context,commandExit:256});}catch(error){invalidDiagnosticFailure=error;}
+  assert.equal(invalidDiagnosticFailure.code,'IDENTITY_CWD');assert.equal(invalidDiagnosticFailure.cause,original);assert.equal(invalidDiagnosticFailure.identityCwd,undefined);
+  assert.equal(parseStartupReceipt({...legacy,identityCwd:{...context,pidAlive:null}}).identityCwd.pidAlive,null);
+});
+
 test('real import failure exposes only fixed phase and Node code, not its private message',async()=>{
   let failure;try{await import('file:///definitely-missing/native-private-module.mjs');}catch(error){failure=error;}
   assert.equal(safeStartupCode(failure),'ERR_MODULE_NOT_FOUND');

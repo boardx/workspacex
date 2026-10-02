@@ -191,7 +191,7 @@ export class WhiteboardProvider {
           const index = this.pending.findIndex(item => item.updateId === message.updateId);
           const receiptKey=`${message.updateId}:${message.gestureId}`;
           if (index < 0 || this.pending[index]?.gestureId!==message.gestureId) {
-            if (this.acked.has(receiptKey)) { this.publish({ duplicateAcks: this.state.duplicateAcks + 1, lastAckSequence: message.seq }); return; }
+            if (this.acked.has(receiptKey)) { this.publish({ duplicateAcks: this.state.duplicateAcks + 1 }); return; }
             this.block('ACK_CONFLICT'); return;
           }
           if (!this.inFlight.has(message.updateId)) { this.block('ACK_CONFLICT'); return; }
