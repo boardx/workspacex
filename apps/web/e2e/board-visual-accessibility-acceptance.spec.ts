@@ -38,6 +38,7 @@ test('visual and accessibility real object states, input and negative controls',
       {...object('visual-connector','connector',0,0,'关联',1,1),connector:{from:'visual-text',to:'visual-shape',fromAnchor:'right' as const,toAnchor:'left' as const,type:'straight' as const,endStyle:'arrow' as const}}];
     await operate(request,token,boardId,createCommands(values));
     const png=boardImagePngFixture();
+    await page.getByTestId('board-add-image').click();await expect(page.getByRole('dialog',{name:'添加图片'})).toBeVisible();
     await page.getByTestId('board-image-input').setInputFiles({name:'visual-reference.png',mimeType:'image/png',buffer:png});
     await expect.poll(async()=>(await canonicalRows(page)).filter(row=>row.kind==='image').length).toBe(1);
     // A real vector stroke through browser mouse input, not a background bitmap fixture.
