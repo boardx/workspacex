@@ -315,7 +315,16 @@ it("hides mutating single-object controls when the selected object is locked", (
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
-  expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
+  const toolbar = screen.getByTestId("board-context-toolbar");
+  expect(within(toolbar).getByTestId("board-sticky-style-open")).toBeEnabled();
+  fireEvent.click(within(toolbar).getByTestId("board-sticky-style-open"));
+  expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
+  expect(screen.getByTestId("sticky-quick-color-yellow")).toBeDisabled();
+  const before = readObjects(doc);
+  fireEvent.click(screen.getByTestId("context-sticky-circle"));
+  fireEvent.click(screen.getByTestId("sticky-quick-color-yellow"));
+  expect(readObjects(doc)).toEqual(before);
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "选择中包含锁定对象");
   doc.destroy();

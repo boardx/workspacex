@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { PortableBoardBundle, PortableExportResult } from "@repo/contracts/whiteboard-portable";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -444,7 +445,7 @@ test("copy paste sanitization", async ({ page, request }) => {
 });
 
 test("contextual controls availability", async ({ page, request }) => {
-  await openEmptyBoard(page, request, "Context availability");
+  const boardId = await openEmptyBoard(page, request, "Context availability");
   await openStickyTool(page);
   await page.getByTestId("board-fabric-surface").click({ position: { x: 600, y: 350 } });
   await exitCreationTool(page);
@@ -463,5 +464,36 @@ test("contextual controls availability", async ({ page, request }) => {
   await openInspector(page);
   await expect(spatial.getByRole("button", { name: "复制副本", exact: true })).toBeDisabled();
   await expect(spatial.getByRole("button", { name: "复制副本", exact: true })).toHaveAttribute("title", "选择中包含锁定对象");
-  await expect(page.getByRole("complementary", { name: "便利贴快捷工具" })).toHaveCount(0);
+  // Locked objects retain viewable style controls; every mutation stays unavailable.
+  const readonlyTools = page.getByRole("complementary", { name: "便利贴快捷工具" });
+  await expect(readonlyTools).toBeVisible();
+  await page.getByTestId("board-sticky-style-open").click();
+  const shape = page.getByTestId("context-sticky-circle");
+  const color = page.getByTestId("sticky-quick-color-yellow");
+  await expect(shape).toBeDisabled();
+  await expect(color).toBeDisabled();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  const checkpoint = async () => (await apiCall(request, cleanup!.token, "POST", `/whiteboards/${boardId}/checkpoints`, { requestId: randomUUID() })).json() as Promise<{ manifest: { epoch: number; seq: number } }>;
+  const before = await checkpoint();
+  const lockedId = await objectRow(page, "sticky").getAttribute("data-object-id");
+  expect(lockedId).toBeTruthy();
+  const canonicalLockedObject = async () => {
+    const response = await apiCall(request, cleanup!.token, "POST", `/whiteboards/${boardId}/portable/export`);
+    const exported = PortableExportResult.parse(await response.json());
+    const bundle = PortableBoardBundle.parse(JSON.parse(Buffer.from(exported.contentBase64, "base64").toString("utf8")));
+    const object = bundle.objects.content.find(item => item.id === lockedId);
+    expect(object).toBeDefined();
+    expect(object!.kind).toBe("sticky");
+    expect(object!.locked).toBe(true);
+    return object!;
+  };
+  const canonicalBefore = await canonicalLockedObject();
+  await shape.evaluate(element => (element as HTMLButtonElement).click());
+  await color.evaluate(element => (element as HTMLButtonElement).click());
+  // Compare the complete persisted object, including thinkingInput variant/color,
+  // style and geometry, without relying on visual or ARIA state as authority.
+  expect(await canonicalLockedObject()).toEqual(canonicalBefore);
+  const after = await checkpoint();
+  expect(after.manifest.epoch).toBe(before.manifest.epoch);
+  expect(after.manifest.seq).toBe(before.manifest.seq);
 });
