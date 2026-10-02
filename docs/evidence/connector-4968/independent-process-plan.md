@@ -34,7 +34,9 @@ Listing and pure tests are preparation, not actual browser acceptance.
   label position and red stroke. It is not user Connector creation proof.
 - Editor changes width and label; owner drags actual curve and label handles.
   All three processes read actual synced phase/ARIA and the same authoritative head
-  and complete canonical object data through their own real tokens.
+  and the same authoritative head through their own real tokens. Only owner/editor
+  export complete canonical data: viewer export is forbidden by the real import
+  service access contract and is not used as a local-render readback shortcut.
 - Each gesture requires nonempty submitted update/gesture IDs and one matching
   server ACK from the initiating process, unchanged epoch and exact seq+1. The
   concurrent same-width-field case requires both ACKs, seq+2 and the final width

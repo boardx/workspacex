@@ -82,7 +82,8 @@ test('C05 distinct browser processes converge on Connector style path and concur
     expect(revisions.at(-1)!.epoch).toBe(authoritative.head.epoch);
     expect(Math.max(...frames.filter(frame=>frame.direction==='received'&&typeof frame.seq==='number').map(frame=>frame.seq!))).toBe(authoritative.head.seq);
    }
-   for(const token of tokens){const snapshot=await canonicalBoardSnapshot(api,token,boardId);expect(snapshot.revision).toEqual(authoritative.head);expect(snapshot.objects).toEqual(authoritative.objects);}
+   for(const token of tokens.slice(0,2)){const snapshot=await canonicalBoardSnapshot(api,token,boardId);expect(snapshot.revision).toEqual(authoritative.head);expect(snapshot.objects).toEqual(authoritative.objects);}
+   expect(await boardHead(api,tokens[2]!,boardId)).toEqual(authoritative.head);
    // Read the actual lower canvas. The cubic oracle is independent of production path helpers.
    const relation=authoritative.edge.connector!;
    const anchor=(id:string,side:'right'|'left')=>{const node=authoritative.objects.find(item=>item.id===id)!;return {x:node.geometry.x+(side==='right'?node.geometry.width:0),y:node.geometry.y+node.geometry.height/2};};
