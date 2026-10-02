@@ -1,10 +1,11 @@
+import pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { WhiteboardFileAssets, type BoardFileRecord } from '../../src/application/whiteboard/file-assets';
 import type { WhiteboardRepository } from '../../src/application/whiteboard/ports';
 import type { Principal } from '../../src/domain/principal';
 import { WHITEBOARD_FILE_LIMITS } from '@repo/contracts/whiteboard-file';
 import { PgBoardFileAssets } from '../../src/infrastructure/whiteboard/pg-file-assets';
-import type { DatabasePort } from '../../src/application/ports/database.port';
+import type { DatabasePort, TenantSession } from '../../src/application/ports/database.port';
 import { WhiteboardFilesController } from '../../src/interface/controllers/whiteboard-files.controller';
 import type { Response } from 'express';
 
@@ -128,5 +129,57 @@ describe('durable board files', () => {
     await expect(viewer.get(principal, boardId, 'unknown')).resolves.toBeNull(); expect(reads).toBe(1);
     const metadata = await fixture().service.upload(principal, boardId, bytes, 'a.txt', 'text/plain');
     await expect(viewer.save(principal, boardId, { metadata, objectKey: 'untrusted' })).rejects.toMatchObject({ code: 'FORBIDDEN' }); expect(reads).toBe(1);
+  });
+});
+
+const frozenPolicyMessage = 'new row violates row-level security policy "whiteboard_file_assets_org_frozen_ins" for table "whiteboard_file_assets"';
+function databaseDenial(message=frozenPolicyMessage,code='42501') {
+  const error=new pg.DatabaseError(message,0,'error');error.code=code;return error;
+}
+function failedInsertFixture(error:Error) {
+  let refs=3,accessChecks=0;const assets=2,events:string[]=[];
+  const boards={get:async()=>{accessChecks++;return{role:'owner',archived:false};}} as unknown as WhiteboardRepository;
+  // Unit transaction port models pending writes; live PG/RLS verification remains CI.
+  const db={withTenant:async(_org:string,run:(session:TenantSession)=>Promise<unknown>)=>{
+    events.push('begin');let pendingRefs=refs;
+    try{
+      const result=await run({query:async(sql:string)=>{
+        if(sql.includes('INSERT INTO whiteboard_asset_refs')){events.push('ref insert');pendingRefs++;return{rows:[]};}
+        if(sql.includes('INSERT INTO whiteboard_file_assets')){events.push('asset insert denied');throw error;}
+        return{rows:[]};
+      }});refs=pendingRefs;events.push('commit');return result;
+    }catch(failure){events.push('rollback');throw failure;}
+  }} as unknown as DatabasePort;
+  const repository=new PgBoardFileAssets(db,boards),blobs=new Map<string,Uint8Array>();
+  const service=new WhiteboardFileAssets(boards,repository,{putOnce:async(key,value)=>{blobs.set(key,value);},get:async key=>blobs.get(key)??null,head:async key=>blobs.has(key)?{sizeBytes:blobs.get(key)!.length,mime:'application/octet-stream'}:null});
+  return{controller:new WhiteboardFilesController(service),repository,events,rows:()=>({refs,assets}),blobs,accessChecks:()=>accessChecks};
+}
+describe('ordinary-file frozen RLS adapter mapping',()=>{
+  it('retains HTTP404 privacy for cross-tenant uploads and reads without writes',async()=>{
+    const f=fixture(),controller=new WhiteboardFilesController(f.service),other={...principal,orgId:'other'} as Principal;
+    await expect(controller.upload(other,boardId,{buffer:Buffer.from(bytes),originalname:'a.txt',mimetype:'text/plain'} as Express.Multer.File)).rejects.toMatchObject({status:404});
+    await expect(controller.content(other,boardId,`board-file-${'0'.repeat(64)}`,{} as Response)).rejects.toMatchObject({status:404});
+    expect(f.records.size).toBe(0);expect(f.blobs.size).toBe(0);
+  });
+  it.each([false,true])('maps only the known frozen policy to HTTP403 after transaction rollback (driver table fields=%s)',async fields=>{
+    const denied=databaseDenial();if(fields){denied.table='whiteboard_file_assets';denied.schema='public';}
+    const f=failedInsertFixture(denied),before=f.rows();
+    await expect(f.controller.upload(principal,boardId,{buffer:Buffer.from(bytes),originalname:'frozen.txt',mimetype:'text/plain'} as Express.Multer.File)).rejects.toMatchObject({status:403});
+    expect(f.events).toEqual(['begin','ref insert','asset insert denied','rollback']);expect(f.rows()).toEqual(before);
+    // Bytes may already exist, but neither SQL reference nor metadata is published.
+    expect(f.blobs.size).toBe(1);expect(f.accessChecks()).toBeGreaterThanOrEqual(3);
+  });
+  it.each([
+    ['wrong SQLSTATE',()=>databaseDenial(frozenPolicyMessage,'08006')],
+    ['different policy',()=>databaseDenial(frozenPolicyMessage.replace('whiteboard_file_assets_org_frozen_ins','tenant_isolation'))],
+    ['different table',()=>databaseDenial(frozenPolicyMessage.replace('for table "whiteboard_file_assets"','for table "other_assets"'))],
+    ['generic table RLS',()=>databaseDenial('new row violates row-level security policy for table "whiteboard_file_assets"')],
+    ['wrong driver schema',()=>Object.assign(databaseDenial(),{schema:'untrusted'})],
+    ['wrong driver table',()=>Object.assign(databaseDenial(),{table:'other_assets'})],
+    ['unknown database error',()=>new Error('database unavailable')],
+  ])('preserves %s without disguising it as forbidden',async(_label,create)=>{
+    const denied=create(),f=failedInsertFixture(denied),before=f.rows();
+    await expect(f.controller.upload(principal,boardId,{buffer:Buffer.from(bytes),originalname:'a.txt',mimetype:'text/plain'} as Express.Multer.File)).rejects.toBe(denied);
+    expect(f.events.at(-1)).toBe('rollback');expect(f.events).not.toContain('commit');expect(f.rows()).toEqual(before);
   });
 });
