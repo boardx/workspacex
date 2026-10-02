@@ -229,7 +229,7 @@ describe("BoardFabricSurface", () => {
     expect(onObjectTransform).not.toHaveBeenCalled();
     probe.handlers.get("object:modified")?.({ target: sticky });
     expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 117, y: 93 }));
-    expect(onTransformPreview).toHaveBeenLastCalledWith(null);
+    expect(onTransformPreview).toHaveBeenLastCalledWith([]);
   });
 
   it("preserves imported non-square Sticky dimensions during held movement and release", () => {
@@ -307,7 +307,7 @@ describe("BoardFabricSurface", () => {
     act(() => probe.handlers.get("object:moving")?.({ target: sticky }));
     act(() => window.dispatchEvent(new Event("blur")));
     expect(sticky.left).toBe(40);
-    expect(onTransformPreview).toHaveBeenLastCalledWith(null);
+    expect(onTransformPreview).toHaveBeenLastCalledWith([]);
     act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
     expect(onObjectTransform).not.toHaveBeenCalled();
   });
