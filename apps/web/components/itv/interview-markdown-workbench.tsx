@@ -10,6 +10,8 @@ import { InterviewMarkdownEditingStep } from "./interview-markdown-editing-step"
 import { InterviewMarkdownResultsStep } from "./interview-markdown-results-step";
 import type { WorkbenchStep } from "./digital-interview-workflow";
 import { InterviewRevisionAction } from "./interview-step-header";
+import { researchWorkspaceStyle } from "@/components/research-studio/research-workspace-style";
+import { cn } from "@/lib/utils";
 
 
 /** Legacy workflow contributes identity metadata only, never an editable research body. */
@@ -54,7 +56,7 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
   const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onRunningStepChange: setRunningStep, onDirtyChange: (value: boolean) => { dirty.current = value; } };
   return <div data-testid="itv-markdown-workbench" className="min-h-dvh min-w-0 bg-muted/20">
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} status="Markdown 研究工作台" version={version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
-      <main className="mx-auto min-w-0 max-w-[1440px] px-4 pb-8 pt-1 lg:px-8">
+      <main className={cn(researchWorkspaceStyle.main, "pb-8")}>
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
       <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <Button variant="outline" disabled={branching} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button> : null}>
       <section key={`${step}:${branchEpoch}`} className="mt-4">
