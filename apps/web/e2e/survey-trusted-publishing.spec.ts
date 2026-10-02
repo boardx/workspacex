@@ -76,8 +76,9 @@ test("发布门控展示全部阻断，修复后显式进入回收且匿名方�
 
   await page.goto(`/studio/survey/${created.data.id}/publish`);
   await page.getByRole("button", { name: "检查发布条件" }).click();
-  await expect(page.getByText("发现 4 项发布阻断")).toBeVisible();
+  await expect(page.getByText("发现 5 项发布阻断")).toBeVisible();
   await expect(page.getByText(/题目措辞可能带有诱导性/)).toBeVisible();
+  await expect(page.getByText("题目配置不完整或无效")).toBeVisible();
   await expect(page.getByText(/选项题必须包含有效选项/)).toBeVisible();
   await expect(page.getByText(/报告章节尚未覆盖对应题目/)).toHaveCount(2);
   await expect(page.getByText("发布准备已完成")).toHaveCount(0);
