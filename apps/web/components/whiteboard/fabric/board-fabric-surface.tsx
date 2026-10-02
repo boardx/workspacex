@@ -490,6 +490,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
+  const appliedFitRef = React.useRef<{ request: number; width: number; height: number } | null>(null);
+  const [surfaceSize, setSurfaceSize] = React.useState({ width: 0, height: 0 });
   const registryRef = React.useRef(new Map<string, TaggedFabricObject>());
   const stackingOrderRef = React.useRef<string[]>([]);
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
@@ -525,7 +527,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const canvas = new Canvas(element, { ...BOARD_FABRIC_VISUAL.marquee, selection: !stateRef.current.readOnly, preserveObjectStacking: true, uniformScaling: true });
     canvasRef.current = canvas;
     const resize = () => {
-      canvas.setDimensions({ width: host.clientWidth || 1200, height: host.clientHeight || 720 });
+      const width = host.clientWidth || 1200, height = host.clientHeight || 720;
+      canvas.setDimensions({ width, height });
+      setSurfaceSize(current => current.width === width && current.height === height ? current : { width, height });
       canvas.requestRenderAll();
     };
     resize();
@@ -1081,6 +1085,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || viewport.fitRequest === 0) return;
+    const width = canvas.getWidth(), height = canvas.getHeight();
+    const applied = appliedFitRef.current;
+    // Selection chrome must not replay a completed Fit during a pointer gesture.
+    // A new request or an actual canvas resize still recomputes the viewport.
+    if (applied?.request === viewport.fitRequest && applied.width === width && applied.height === height) return;
     const currentViewport = stateRef.current.viewport;
     const fitMode = currentViewport.fitMode ?? "board";
     const projected = fitMode === "selection"
@@ -1090,6 +1099,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         })
       : canvas.getObjects();
     if (fitMode === "selection" && projected.length === 0) return;
+    appliedFitRef.current = { request: viewport.fitRequest, width, height };
     if (projected.length === 0) {
       callbacksRef.current.onViewportChange({ ...currentViewport, zoom: 1, panX: 0, panY: 0 }, "fit");
       return;
@@ -1103,7 +1113,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.setViewportTransform([zoom, 0, 0, zoom, panX, panY]);
     callbacksRef.current.onViewportChange({ ...currentViewport, zoom, panX, panY }, "fit");
     canvas.requestRenderAll();
-  }, [viewport.fitRequest,fitInsets]);
+  }, [viewport.fitRequest,fitInsets,surfaceSize.width,surfaceSize.height]);
 
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
