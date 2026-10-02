@@ -5,6 +5,7 @@ import { createWhiteboardDocument, executeCommands, readObjects, readPanelMetada
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { drawingEraserTargets } from "@/components/whiteboard/fabric/drawing-hit-test";
+import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 
 vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
@@ -128,12 +129,12 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-draw"));
   fireEvent.click(screen.getByTestId("board-draw-stroke-8"));
-  fireEvent.click(screen.getByTestId("board-draw-opacity-55"));
+  expect(screen.queryByTestId("board-draw-opacity-55")).not.toBeInTheDocument();
   fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
   fireEvent.click(screen.getByTestId("draw-stroke"));
   const drawing = readObjects(doc)[0]!;
   expect(drawing.kind).toBe("drawing");
-  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", width:8, opacity:.55, color:"#2563EB", points: [{ pressure: .2 }, { pressure: .9 }] }] });
+  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", width:8, opacity:drawingToolStyle("pen").opacity, color:"#2563EB", points: [{ pressure: .2 }, { pressure: .9 }] }] });
   fireEvent.click(screen.getByTestId("erase-stroke"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
