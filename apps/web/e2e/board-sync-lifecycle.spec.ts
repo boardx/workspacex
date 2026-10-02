@@ -92,9 +92,12 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'viewer'});
   await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();await expectBoardSynced(peer,30_000,true);
   const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=transport.snapshot().events.length;
-  await peer.keyboard.press('n');await peer.keyboard.press('Delete');await peer.keyboard.press('ControlOrMeta+z');await peer.mouse.click(100,180);
+  const viewerOutline=peer.getByTestId(`board-a11y-object-${objectId}`);await viewerOutline.focus();await viewerOutline.press('Enter');await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
+  const readonlyPoint=await objectPoint(peer,objectId);await peer.mouse.move(readonlyPoint.x,readonlyPoint.y);await peer.mouse.down();await peer.mouse.move(readonlyPoint.x+20*readonlyPoint.zoom,readonlyPoint.y+20*readonlyPoint.zoom,{steps:8});await peer.mouse.up();await peer.mouse.dblclick(readonlyPoint.x,readonlyPoint.y);await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
+  await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await peer.keyboard.press('Delete');await peer.keyboard.press('ControlOrMeta+z');await peer.keyboard.press('n');
+  const peerSocket=transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
   await peer.goto('/home');await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
-  await expect.poll(()=>transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='close').length).toBeGreaterThanOrEqual(2);
+  await expect.poll(()=>transport.snapshot().events.slice(readonlyEvents).some(event=>event.client==='peer'&&event.direction==='close'&&event.socketId===peerSocket)).toBe(true);
   // A real quiet interval catches detached timers; no mocked provider is involved.
   await peer.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
   expect(transport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
@@ -103,6 +106,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await edit(owner,objectId,'Unsubmitted detached editor');const unmountEvents=transport.snapshot().events.length;
   await owner.goto('/home');await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);await owner.context().setOffline(false);
   await owner.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(unmountBefore);
+  expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='open')).toHaveLength(0);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   expect(transport.snapshot().dropped).toBe(0);observations.push({phase:'editable-offline-unmount',lateUpdates:0,before:unmountBefore.revision,after:await boardHead(api,ownerToken,boardId)});
  }catch(error){failure=error;}
