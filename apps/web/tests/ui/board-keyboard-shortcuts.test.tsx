@@ -6,9 +6,9 @@ import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fab
 
 const probe = vi.hoisted(() => ({ tool: "", selection: [] as string[] }));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, tool, onSelectionChange }: { objects: readonly BoardFabricObject[]; tool: string; onSelectionChange: (ids: readonly string[], source: "canvas") => void }) => {
+  BoardFabricSurface: ({ objects, tool, onSelectionChange, onCanvasClick }: { objects: readonly BoardFabricObject[]; tool: string; onSelectionChange: (ids: readonly string[], source: "canvas") => void; onCanvasClick?: (point: { x: number; y: number }) => void }) => {
     probe.tool = tool; probe.selection = objects.map((object) => object.id);
-    return <div data-testid="surface"><button data-testid="select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), "canvas")}>select</button></div>;
+    return <div data-testid="surface"><button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 100, y: 120 })}>canvas</button><button data-testid="select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), "canvas")}>select</button></div>;
   },
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -19,10 +19,14 @@ it("maps authoring shortcuts to canonical object creation and tool state without
   const doc = createWhiteboardDocument();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.keyDown(window, { key: "n" });
+  expect(readObjects(doc)).toHaveLength(0);
+  fireEvent.click(screen.getByTestId("canvas-click"));
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.keyDown(window, { key: "t" });
+  fireEvent.click(screen.getByTestId("canvas-click"));
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.keyDown(window, { key: "s" });
+  fireEvent.click(screen.getByTestId("canvas-click"));
   expect(new Set(readObjects(doc).map((object) => object.kind))).toEqual(new Set(["sticky", "text", "rectangle"]));
   fireEvent.keyDown(window, { key: "p" }); expect(probe.tool).toBe("draw-pen");
   fireEvent.keyDown(window, { key: "h" }); expect(probe.tool).toBe("hand");
@@ -37,8 +41,8 @@ it("maps authoring shortcuts to canonical object creation and tool state without
 it("groups a multi-selection through Cmd/Ctrl+G and opens bulk sticky creation with Shift+N", () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
-  fireEvent.keyDown(window, { key: "n" }); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
-  fireEvent.keyDown(window, { key: "n" }); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
+  fireEvent.keyDown(window, { key: "n" }); fireEvent.click(screen.getByTestId("canvas-click")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
+  fireEvent.keyDown(window, { key: "n" }); fireEvent.click(screen.getByTestId("canvas-click")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.click(screen.getByTestId("select-all"));
   fireEvent.keyDown(window, { key: "g", ctrlKey: true });
   expect(readObjects(doc).filter((object) => object.kind === "group")).toHaveLength(1);
@@ -50,7 +54,7 @@ it("groups a multi-selection through Cmd/Ctrl+G and opens bulk sticky creation w
 it("copies, pastes, and duplicates canonical selections through standard shortcuts", () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
-  fireEvent.keyDown(window, { key: "n" }); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
+  fireEvent.keyDown(window, { key: "n" }); fireEvent.click(screen.getByTestId("canvas-click")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.click(screen.getByTestId("select-all"));
   const original = readObjects(doc)[0]!;
   fireEvent.keyDown(window, { key: "c", ctrlKey: true });

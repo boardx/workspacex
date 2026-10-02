@@ -137,6 +137,8 @@ it("guards shortcuts inside inputs and creates from N/T only when canvas context
   expect(readObjects(doc)).toHaveLength(0);
   fireEvent.keyDown(title,{key:"Escape"});
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
+  expect(readObjects(doc)).toHaveLength(0);
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
   expect(readObjects(doc)).toHaveLength(1);
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "t" });
   expect(readObjects(doc)).toHaveLength(1);
@@ -151,7 +153,7 @@ it("exposes three sticky shapes and five text presets from the touch dock", () =
   expect(screen.getByTestId("board-sticky-circle")).toBeVisible();
   const setData = vi.fn();
   fireEvent.dragStart(screen.getByTestId("board-sticky-circle"), { dataTransfer: { setData, effectAllowed: "" } });
-  expect(setData).toHaveBeenCalledWith("application/x-workspacex-board-tool", JSON.stringify({ kind: "sticky", variant: "circle" }));
+  expect(setData).toHaveBeenCalledWith("application/x-workspacex-board-tool", JSON.stringify({ kind: "sticky", variant: "circle", color: "#FFE99A" }));
   fireEvent.click(screen.getByTestId("board-add-text"));
   for (const preset of ["title", "heading", "subheading", "body", "caption"]) expect(screen.getByTestId(`board-text-${preset}`)).toBeVisible();
   fireEvent.click(screen.getByTestId("board-text-title"));

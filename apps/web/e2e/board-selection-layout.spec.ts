@@ -183,6 +183,7 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
   await page.getByTestId("board-bulk-apply").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
   await page.keyboard.press("t");
+  await page.getByTestId("board-fabric-surface").click({position:{x:600,y:160}});
   const textEditor = page.getByLabel("对象文字", { exact: true });
   await expect(textEditor).toBeVisible();
   await textEditor.fill("研究标题");
