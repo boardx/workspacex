@@ -61,9 +61,14 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    await page.getByTestId('board-inspector-expand').click();
    const frameInspector=page.getByTestId('board-context-toolbar');
    await expect(page.getByTestId('board-frame-size-presets')).toBeVisible();
-   const frameBounds=(await frameInspector.boundingBox())!;
+   const frameLayout=await page.evaluate(()=>{
+    const bounds=(id:string)=>{const element=document.querySelector(`[data-testid="${id}"]`);if(!element)throw new Error(`Missing ${id}`);const rect=element.getBoundingClientRect();return{x:rect.x,y:rect.y,width:rect.width,height:rect.height};};
+    return{frame:bounds('board-context-toolbar'),header:bounds('board-editor-header'),dock:bounds('board-creation-dock')};
+   });
+   await info.attach(`frame-live-layout-${label}`,{body:Buffer.from(JSON.stringify({cachedHeader:header,cachedDock:dock,live:frameLayout})),contentType:'application/json'});
+   const frameBounds=frameLayout.frame;
    expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);
-   expect(frameBounds.y).toBeGreaterThanOrEqual(header.y+header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
+   expect(frameBounds.y).toBeGreaterThanOrEqual(frameLayout.header.y+frameLayout.header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(frameLayout.dock.y-2);
    for(const name of ['区域标题','区域布局'])await expect(page.getByLabel(name,{exact:true})).toBeVisible();
    await captureReference(page,info,`reference-existing-frame-inspector-${label}`);await page.getByTestId('board-inspector-close').click();
 
@@ -86,7 +91,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
   await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
   await page.keyboard.press('Escape');await page.setViewportSize({width:1536,height:1024});
-  // Hidden creation entries preserve selected-object handles and Escape dismissal.
+  // Approved creation entry preserves selected-object handles and Escape dismissal.
   await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
   await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
   await page.keyboard.press('Escape');
@@ -94,7 +99,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.getByRole('button', {name: '取消选择', exact: true}).click();
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
   await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
-  await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
+  await verifyEditorConnectorEntry(page,board.id,call,()=>captureReference(page,info,'reference-connector-after-dismissal'));
   expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}
 });
