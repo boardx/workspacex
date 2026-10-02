@@ -9,7 +9,7 @@ import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metada
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
-// Eight real UI Sticky creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
+// Eight real UI sticky creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
@@ -42,8 +42,9 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   const createdIds:string[]=[];
   for(let index=0;index<8;index++){
-   await page.getByTestId('board-add-sticky').click();
-   await surface.locator('canvas.upper-canvas').click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+   await page.getByTestId('board-tool-select').click();
+   await page.keyboard.press('n');
+   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
    await expect(objectRows(page),`Sticky gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
    const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='sticky')).toBe(true);
    const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);expect(ids).toEqual(expect.arrayContaining(createdIds));createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));

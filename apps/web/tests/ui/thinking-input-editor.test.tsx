@@ -17,26 +17,25 @@ function object(kind: "sticky" | "text"): BoardFabricObject {
 
 describe("ThinkingInputEditor", () => {
   it.each([
-    { rotation: 0, left: "196px", top: "314px" },
-    { rotation: 90, left: "46px", top: "236px" },
+    { rotation: 0, left: "196px", top: "318.05px" },
+    { rotation: 90, left: "41.95px", top: "236px" },
   ])("places the inset middle-aligned editor at independent fixed coordinates for $rotation degrees", ({ rotation, left, top }) => {
     const note = object("sticky");
     note.geometry.rotation = rotation;
     render(<ThinkingInputEditor object={note} initialValue="短文字" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={vi.fn(() => true)} onCancel={vi.fn()} onContinue={vi.fn()} />);
-    // The local origin (24, 76) maps to (124, 196) at 0 degrees and
-    // (24, 144) at 90 degrees, before zoom 1.5 and pan (10, 20).
-    expect(screen.getByTestId("board-thinking-editor")).toHaveStyle({ left, top, width: "198px", height: "42px", padding: "0px", transformOrigin: "0 0" });
+    // Fabric's one-line 20px glyph box measures 22.6px; centered local y is 78.7.
+    expect(screen.getByTestId("board-thinking-editor")).toHaveStyle({ left, top, width: "198px", height: "33.9px", padding: "0px", transformOrigin: "0 0" });
   });
   it.each(["top", "middle", "bottom"] as const)("limits rotated %s-aligned editing to the real text content box", alignment => {
     const note = object("sticky");
     note.style.verticalAlignment = alignment;
     render(<ThinkingInputEditor object={note} initialValue="短文字" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={vi.fn(() => true)} onCancel={vi.fn()} onContinue={vi.fn()} />);
     const input = screen.getByTestId("board-thinking-editor");
-    const top = alignment === "top" ? 24 : alignment === "bottom" ? 128 : 76;
+    const top = alignment === "top" ? 24 : alignment === "bottom" ? 133.4 : 78.7;
     const position = scenePointFromLocal(note.geometry, { x: 24, y: top });
     expect(parseFloat(input.style.left)).toBeCloseTo(position.x * 1.5 + 10, 8);
     expect(parseFloat(input.style.top)).toBeCloseTo(position.y * 1.5 + 20, 8);
-    expect(input).toHaveStyle({ width: "198px", height: "42px", padding: "0px", transformOrigin: "0 0" });
+    expect(input).toHaveStyle({ width: "198px", height: "33.9px", padding: "0px", transformOrigin: "0 0" });
     expect(input.style.pointerEvents).not.toBe("none");
   });
 
@@ -53,10 +52,10 @@ describe("ThinkingInputEditor", () => {
     const input = screen.getByTestId("board-thinking-editor");
     await waitFor(() => expect(input).toHaveFocus());
     expect(input).toHaveClass("appearance-none", "bg-transparent", "border-0", "outline-none", "resize-none", "p-0", "shadow-none");
-    const position = scenePointFromLocal(object("sticky").geometry, { x: 24, y: 76 });
+    const position = scenePointFromLocal(object("sticky").geometry, { x: 24, y: 78.7 });
     expect(parseFloat(input.style.left)).toBeCloseTo(position.x * viewport.zoom + viewport.panX, 8);
     expect(parseFloat(input.style.top)).toBeCloseTo(position.y * viewport.zoom + viewport.panY, 8);
-    expect(input).toHaveStyle({ width: "198px", height: "42px", transform: "rotate(17deg)", color: "#123456" });
+    expect(input).toHaveStyle({ width: "198px", height: "33.9px", transform: "rotate(17deg)", color: "#123456" });
     expect(input.style.paddingLeft).toBe("0px");
     expect(input.style.paddingRight).toBe("0px");
     expect(input.style.fontFamily).toBe('"Noto Serif SC"');
