@@ -93,6 +93,13 @@ async function setupView() {
 }
 function openAppearance() { const trigger = screen.queryByTestId("board-inspector-expand"); if (trigger) fireEvent.click(trigger); }
 async function setup() { return (await setupView()).doc; }
+function openImagePicker() {
+  // The upload input belongs to the actual modal, rather than the permanently mounted dock.
+  expect(screen.queryByTestId("board-image-input")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "图片，快捷键 I" }));
+  expect(screen.getByTestId("board-image-upload-dialog")).toBeVisible();
+  return screen.getByLabelText("上传图片");
+}
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
   const doc = await setup();
@@ -214,7 +221,7 @@ it.each([
 
 it("keeps an unsupported image file recoverable without creating a broken object", async () => {
   const doc = await setup();
-  const input = screen.getByTestId("board-image-input");
+  const input = openImagePicker();
   expect(input).toHaveAccessibleName("上传图片");
   fireEvent.change(input, { target: { files: [new File(["plain"], "notes.txt", { type: "text/plain" })] } });
   expect(screen.getByText(/请选择 JPG、PNG、WEBP、GIF 或 SVG/)).toBeVisible();
@@ -224,7 +231,7 @@ it("keeps an unsupported image file recoverable without creating a broken object
 
 it("creates a verified durable image without writing bytes or blob/data URLs into the shared document", async () => {
   const { doc, unmount } = await setupView();
-  const input = screen.getByTestId("board-image-input");
+  const input = openImagePicker();
   fireEvent.change(input, { target: { files: [new File([byteBuffer(png())], "photo.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   const image = readObjects(doc)[0]!;
@@ -236,8 +243,8 @@ it("creates a verified durable image without writing bytes or blob/data URLs int
   openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "替换" }));
-  await waitFor(() => expect(screen.getByText("替换图片")).toBeVisible());
-  fireEvent.change(input, { target: { files: [new File([byteBuffer(png(64, 48))], "replacement.png", { type: "image/png" })] } });
+  await waitFor(() => expect(screen.getByRole("heading", { name: "替换图片" })).toBeVisible());
+  fireEvent.change(screen.getByLabelText("上传图片"), { target: { files: [new File([byteBuffer(png(64, 48))], "replacement.png", { type: "image/png" })] } });
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("replacement.png"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]).toMatchObject({ id: image.id, extensionData: { contentObject: { replacementOf: image.id, intrinsicWidth: 64, intrinsicHeight: 48 } } });
@@ -265,7 +272,7 @@ it("discards a local image decode that completes after editor unmount", async ()
   const close = vi.fn();
   vi.stubGlobal("createImageBitmap", vi.fn(() => new Promise((resolve) => { resolveDecode = resolve; })));
   const { doc, unmount } = await setupView();
-  fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "late.png", { type: "image/png" })] } });
+  fireEvent.change(openImagePicker(), { target: { files: [new File([byteBuffer(png())], "late.png", { type: "image/png" })] } });
   await waitFor(() => expect(createImageBitmap).toHaveBeenCalledOnce());
   unmount();
   await act(async () => { resolveDecode({ width: 32, height: 24, close }); await Promise.resolve(); });
@@ -277,7 +284,7 @@ it("discards a local image decode that completes after editor unmount", async ()
 
 it("retains a shared image asset across duplicate deletion and remote bulk deletion until editor unmount", async () => {
   const { doc, unmount } = await setupView();
-  fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "shared.png", { type: "image/png" })] } });
+  fireEvent.change(openImagePicker(), { target: { files: [new File([byteBuffer(png())], "shared.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
   expect(readObjects(doc)).toHaveLength(2);
@@ -342,7 +349,7 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable a
   const bytes = png(48, 36);
   const assets=fetch;vi.stubGlobal("fetch", vi.fn(async (url:RequestInfo|URL,init?:RequestInit) => String(url).startsWith("https://assets.example.com/")?new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}`, "content-length": String(bytes.length) } }):assets(url,init)));
   const doc = await setup();
-  fireEvent.click(screen.getByTestId("board-add-image"));
+  fireEvent.click(screen.getByRole("button", { name: "图片，快捷键 I" }));
   fireEvent.change(screen.getByTestId("board-image-url"), { target: { value: "https://assets.example.com/photo.png" } });
   fireEvent.click(screen.getByTestId("board-image-url-apply"));
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
@@ -370,7 +377,7 @@ it("aborts and discards a remote image fetch that completes after editor unmount
   }));
   vi.stubGlobal("fetch", fetcher);
   const { doc, unmount } = await setupView();
-  fireEvent.click(screen.getByTestId("board-add-image"));
+  fireEvent.click(screen.getByRole("button", { name: "图片，快捷键 I" }));
   fireEvent.change(screen.getByTestId("board-image-url"), { target: { value: "https://assets.example.com/late.png" } });
   fireEvent.click(screen.getByTestId("board-image-url-apply"));
   await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
@@ -462,10 +469,18 @@ it("rejects malformed partial responses before creating an image object", async 
   const bytes = png();
   vi.stubGlobal("fetch", vi.fn(async () => new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 8-${bytes.length + 7}/${bytes.length + 8}` } })));
   const doc = await setup();
-  fireEvent.click(screen.getByTestId("board-add-image"));
+  fireEvent.click(screen.getByRole("button", { name: "图片，快捷键 I" }));
   fireEvent.change(screen.getByTestId("board-image-url"), { target: { value: "https://assets.example.com/photo.png" } });
   fireEvent.click(screen.getByTestId("board-image-url-apply"));
-  await waitFor(() => expect(screen.getByText(/无法读取该 HTTPS 图片/)).toBeVisible());
+  await waitFor(() => expect(screen.getByTestId("board-image-error")).toHaveTextContent("图片未添加。请检查文件、HTTPS 地址或跨域权限后重试。"));
+  expect(screen.getByRole("button", { name: "重试" })).toBeEnabled();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledWith("https://assets.example.com/photo.png", expect.objectContaining({ credentials: "omit", headers: { Range: "bytes=0-26214399" } }));
+  expect(createImageBitmap).not.toHaveBeenCalled();
+  expect(objectUrls.size).toBe(0);
+  // Establish the precise rejection behind the shared UI error: no malformed range reaches decode or upload.
+  const { inspectRemoteImageUrl } = await import("@/components/whiteboard/board-content-adapter");
+  await expect(inspectRemoteImageUrl("https://assets.example.com/photo.png")).rejects.toThrow("IMAGE_RANGE_INVALID");
   expect(readObjects(doc)).toEqual([]);
   doc.destroy();
 });
@@ -503,7 +518,7 @@ it("instantiates a template as one stable object set", async () => {
 
 it("rehydrates a persisted image in a fresh editor session",async()=>{
   const {doc,unmount}=await setupView();
-  fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'shared.png',{type:'image/png'})]}});
+  fireEvent.change(openImagePicker(),{target:{files:[new File([byteBuffer(png())],'shared.png',{type:'image/png'})]}});
   await waitFor(()=>expect(screen.getByTestId('image-preview').textContent).toMatch(/^blob:/));
   const first=screen.getByTestId('image-preview').textContent,assetId=(readObjects(doc)[0]!.extensionData!.contentObject as {assetId:string}).assetId;
   unmount();expect(objectUrls.size).toBe(0);
@@ -515,7 +530,7 @@ it("rehydrates a persisted image in a fresh editor session",async()=>{
 });
 it("never creates ready canonical content when durable upload fails",async()=>{
   vi.stubGlobal('fetch',vi.fn(async()=>new Response(null,{status:503})));
-  const {doc,unmount}=await setupView();fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'fail.png',{type:'image/png'})]}});
+  const {doc,unmount}=await setupView();fireEvent.change(openImagePicker(),{target:{files:[new File([byteBuffer(png())],'fail.png',{type:'image/png'})]}});
   await waitFor(()=>expect(screen.getByText(/图片未保存/)).toBeVisible());expect(readObjects(doc)).toEqual([]);expect(objectUrls.size).toBe(0);unmount();doc.destroy();
 });
 it("exposes the import callback in the editor header",async()=>{
