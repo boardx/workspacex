@@ -6,23 +6,33 @@ import {join,resolve,basename} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
 
+const suites={
+  'e2e/board-connector-existing-runtime.config.ts':{count:7,files:['board-connector-authority.spec.ts','board-connector-copy-defaults.spec.ts','board-connector-history.spec.ts','board-connector-independent-process.spec.ts','board-connector-interchange.spec.ts']},
+  'e2e/board-files-completion.config.ts':{count:6,files:['board-files-boundaries.spec.ts','board-files-filenames.spec.ts','board-files-placement.spec.ts','board-files-retry.spec.ts']},
+};
+
 export function acceptanceCommand(args){
   assert.equal(args[0],'--');const command=args.slice(1);
   assert.deepEqual(command.slice(0,6),['pnpm','--filter','web','exec','playwright','test']);
   assert.equal(command[6],'--config');
-  assert(['e2e/board-connector-existing-runtime.config.ts','e2e/board-files-completion.config.ts'].includes(command[7]));
+  assert(Object.hasOwn(suites,command[7]));
   assert.equal(command.length,8,'Only the complete signed suite may run');return command;
 }
 
 export function suiteResult(config,report){
-  const files=config.includes('files')?['board-files-boundaries.spec.ts','board-files-filenames.spec.ts','board-files-placement.spec.ts','board-files-retry.spec.ts']:['board-connector-authority.spec.ts','board-connector-copy-defaults.spec.ts','board-connector-history.spec.ts','board-connector-independent-process.spec.ts','board-connector-interchange.spec.ts'];
-  const expected=config.includes('files')?6:7,seen=new Set();let count=0;
+  const {files,count:expected}=suites[config],seen=new Set();let count=0;
   const visit=suite=>{for(const spec of suite.specs??[]){seen.add(basename(spec.file));assert.equal(spec.ok,true);for(const test of spec.tests??[]){count++;assert.equal(test.status,'expected');assert.equal(test.results.length,1);assert.equal(test.results[0].status,'passed');}}for(const nested of suite.suites??[])visit(nested);};
   for(const suite of report.suites??[])visit(suite);
-  assert.deepEqual([...seen].sort(),files.sort());assert.equal(count,expected);
+  assert.deepEqual([...seen].sort(),[...files].sort());assert.equal(count,expected);
   assert.equal(report.errors?.length??0,0);assert.equal(report.stats?.expected,expected);
   for(const key of ['unexpected','flaky','skipped'])assert.equal(report.stats?.[key],0);
   return{expected,unexpected:0,flaky:0,skipped:0};
+}
+
+export function suitePresent(config,tracked){
+  const {files}=suites[config],paths=new Set(tracked),hasConfig=paths.has(`apps/web/${config}`),present=files.filter(file=>paths.has(`apps/web/e2e/${file}`));
+  if(!hasConfig&&present.length===0)return false;
+  assert(hasConfig,'Existing native specs require their complete config');assert.equal(present.length,files.length,'Partial native suite is not an absent feature');return true;
 }
 
 export function runtimeExitProof(code,signal,wasAlive){assert.equal(wasAlive,true,'Runtime exited before owned stop');assert.equal(signal,null);assert.equal(code,0);}
@@ -43,9 +53,14 @@ async function run(){
   const support=join(root,'apps/web/e2e/support/native-runtime');
   const authority=await import(pathToFileURL(join(support,'runtime-attestation.mjs')).href);
   const privateRoot=join('/private/tmp',`wsx-native-ci-${randomUUID()}`),safeRoot=join(publicRoot,command[7].includes('files')?'files':'connectors');
-  assert(!existsSync(privateRoot)&&!existsSync(safeRoot));mkdirSync(privateRoot,{mode:0o700});mkdirSync(safeRoot,{recursive:true,mode:0o700});
+  assert(!existsSync(privateRoot)&&!existsSync(safeRoot));mkdirSync(safeRoot,{recursive:true,mode:0o700});
+  const sourceFiles=authority.listRuntimeSourceFiles(root);
+  if(!suitePresent(command[7],sourceFiles)){
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false},null,2),{mode:0o600,flag:'wx'});return;
+  }
+  mkdirSync(privateRoot,{mode:0o700});
   const data=join(privateRoot,'data'),manifestInput=join(privateRoot,'source-manifest.json');
-  writeFileSync(manifestInput,JSON.stringify({root,head,sourceFiles:authority.listRuntimeSourceFiles(root)}),{mode:0o600,flag:'wx'});
+  writeFileSync(manifestInput,JSON.stringify({root,head,sourceFiles}),{mode:0o600,flag:'wx'});
   const build=join(root,'apps/web/.next-fullstack-e2e');assert(!existsSync(build),'Owned fresh production build required');
   const privateLog=join(privateRoot,'execution.log'),fd=openSync(privateLog,'wx',0o600);
   let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null;
@@ -55,7 +70,7 @@ async function run(){
     const [code,signal]=await once(child,'exit');assert.equal(signal,null);assert.equal(code,0);
   };
   try{
-    await execute(process.execPath,[join(support,'wsx-board-native-runtime-prepare.mjs'),'--root',root,'--head',head,'--data-dir',data,'--source-manifest',manifestInput,'--postgres-tool-root',toolRoot,'--file-storage-attestation']);
+    await execute(process.execPath,[join(support,'wsx-board-native-runtime-prepare.mjs'),'--root',root,'--head',head,'--data-dir',data,'--source-manifest',manifestInput,'--postgres-tool-root',toolRoot,...(command[7].includes('files')?['--file-storage-attestation']:[])]);
     runtime=spawn(process.execPath,[join(support,'wsx-board-native-runtime-start.mjs'),join(data,'native-runtime-plan.json')],{cwd:root,env:process.env,stdio:['ignore',fd,fd]});
     runtimeState=runtimeSpawnState(runtime);
     const manifestPath=join(data,'runtime-manifest.json');
