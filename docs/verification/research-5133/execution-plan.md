@@ -37,7 +37,7 @@ flowchart TD
   %% evidence S2: /private/tmp/research-5133-red.log: 2 expected failures; /private/tmp/research-5133-regression.log: 106 PASS
   class S3 tested
   %% evidence S3: research-suite-summary.log: 34 files 423 PASS; typecheck.log: exit 0; real-model-result.json: 22 matches 2 calls
-  class S4 todo
+  class S4 doing
   class S5 todo
 ```
 

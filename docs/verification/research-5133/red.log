@@ -1,0 +1,76 @@
+[stack-admission] load1=2.45 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mur8o5i5-d770c4f3-cf3575996e77 db=wsx_cf3575996e77db61b8ff compose=wsx-cf3575996e77db61b8ff pg=20225 redis=21225 api=24225 web=25225 sandbox=26225 model=27225 deep-agent=28225 asr=29225 vision=30225 loopback-sandbox=31225 mail=19225
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_cf3575996e77db61b8ff capacity=100 current=6 required=32
+ ❯ tests/research/guided-report-quote-references.test.ts (7 tests | 2 failed) 8ms
+   × block-local source excerpt references > materializes a selected source excerpt without trusting model-written quote text 4ms
+     → expected [ 'source:official/chunk:0', …(1) ] to deeply equal []
+   × supplies bounded block-local choices once and materializes selected quotes in extraction 1ms
+     → expected 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…' to be undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-quote-references.test.ts > block-local source excerpt references > materializes a selected source excerpt without trusting model-written quote text
+AssertionError: expected [ 'source:official/chunk:0', …(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "source:official/chunk:0",
++   "source:official/chunk:1",
++ ]
+
+ ❯ tests/research/guided-report-quote-references.test.ts:14:29
+     12|   it("materializes a selected source excerpt without trusting model-wr…
+     13|     const result = collect([evaluation(0, [match("source:official/chun…
+     14|     expect(result.retryIds).toEqual([]);
+       |                             ^
+     15|     expect(result.valid.get(chunks[0]!.chunkId)?.[0]?.evidence.quote).…
+     16|     expect(result.valid.get(chunks[1]!.chunkId)?.[0]?.evidence.quote).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/research/guided-report-quote-references.test.ts > supplies bounded block-local choices once and materializes selected quotes in extraction
+AssertionError: expected 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…' to be undefined
+
+- Expected: 
+undefined
+
++ Received: 
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+ ❯ tests/research/guided-report-quote-references.test.ts:41:27
+     39|     const request = JSON.parse(input.user);
+     40|     const chunk = request.chunks[0];
+     41|     expect(chunk.content).toBeUndefined();
+       |                           ^
+     42|     expect(chunk.quoteOptions.map((choice: any) => choice.text).join("…
+     43|     expect(chunk.quoteOptions.every((choice: any) => choice.text.lengt…
+ ❯ boundedWork.results.<computed> src/application/research/guided-report-evidence.ts:82:15
+ ❯ worker src/application/research/guided-bounded-work.ts:25:58
+ ❯ Module.boundedWork src/application/research/guided-bounded-work.ts:36:27
+ ❯ Module.extractReportEvidence src/application/research/guided-report-evidence.ts:65:9
+ ❯ tests/research/guided-report-quote-references.test.ts:38:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  01:30:31
+   Duration  2.80s (transform 477ms, setup 4ms, collect 582ms, tests 8ms, environment 0ms, prepare 24ms)
+
+[db-isolation] db=wsx_cf3575996e77db61b8ff peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/research/guided-report-quote-references.test.ts
+[timing] pnpm --filter api exec vitest run tests/research/guided-report-quote-references.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：4s
