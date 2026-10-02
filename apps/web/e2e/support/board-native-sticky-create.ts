@@ -54,8 +54,9 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await expect(editor).toBeFocused();await editor.fill(text);await editor.press('Escape');
   await expect(editor).toHaveCount(0);
   const created=(await canonicalRows(page)).filter(row=>!before.some(old=>old.id===row.id));
-  expect(created).toHaveLength(1);expect(created[0]).toMatchObject({kind:'sticky',text});
-  expect((await canonicalRows(page)).filter(row=>row.id!==created[0].id)).toEqual(before);
+  expect(created).toHaveLength(1);const note=created[0];if(!note)throw new Error('NATIVE_STICKY_NOT_CREATED');
+  expect(note).toMatchObject({kind:'sticky',text});
+  expect((await canonicalRows(page)).filter(row=>row.id!==note.id)).toEqual(before);
   await expectBoardSynced(page,30_000);
   const snapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),head=await boardHead(proof.api,proof.token,proof.boardId),updates=proof.updates();
   // A second real click cannot repeat the disarmed creation.
@@ -63,12 +64,12 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await page.mouse.click(nextPoint.x,nextPoint.y);
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   await expectBoardSynced(page,30_000);
-  expect(await canonicalRows(page)).toEqual([...before,created[0]].sort((a,b)=>a.id.localeCompare(b.id)));
+  expect(await canonicalRows(page)).toEqual([...before,note].sort((a,b)=>a.id.localeCompare(b.id)));
   expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
   expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   await expectBoardSynced(page,30_000);
   expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
   expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
-  return created[0];
+  return note;
 }
