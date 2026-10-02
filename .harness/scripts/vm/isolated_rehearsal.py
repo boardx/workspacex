@@ -5,7 +5,13 @@ from pathlib import Path
 PRODUCTION='pgm-uf6rg214cp381l49'
 DBS=('workspacex','workspacex_agent','workspacex_memory')
 STAGES=('restore','before','migrate','canonical-setup','canvas-audit','after','snapshot','recovery-verify')
+SAFE_PROVIDER_CODES=frozenset(('Forbidden','User.NoPermission','InvalidAccountPassword.Format','Account.AddError','InvalidDBInstanceId.NotFound','InvalidDBInstanceName.NotFound'))
 class UnknownOutcome(RuntimeError):pass
+def report_provider_error(error):
+ marker=str(error) if isinstance(error,UnknownOutcome) else ''
+ code=marker.removeprefix('PROVIDER_REJECTED:')
+ if marker.startswith('PROVIDER_REJECTED:') and code in SAFE_PROVIDER_CODES:print(json.dumps({'providerErrorCode':code,'mutationOutcome':'unknown','readbackRequired':True}),file=sys.stderr)
+
 def private_json(path):
  st=path.lstat()
  if not stat.S_ISREG(st.st_mode) or st.st_mode&0o077 or st.st_uid!=os.geteuid():raise ValueError('PRIVATE_INPUT_REQUIRED')
@@ -87,7 +93,12 @@ class ProcessAdapter:
    process=subprocess.Popen([sys.executable,'-I','-c',"import runpy,sys;sys.path.insert(0,sys.argv[1]);sys.argv=sys.argv[2:];runpy.run_path(sys.argv[0],run_name='__main__')",str(directory),str(path)]+([] if operation is None else [operation]),stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,start_new_session=True,env=environment)
    try:
     output,_=process.communicate(json.dumps(payload).encode(),timeout=self.timeout(operation) if callable(self.timeout) else self.timeout)
-    if process.returncode!=0:raise UnknownOutcome('ADAPTER_PROCESS_FAILED')
+    if process.returncode!=0:
+     # A safe provider rejection is diagnostic only; the mutation outcome still requires readback.
+     try:failure=json.loads(output) if len(output)<=256 else None
+     except ValueError:failure=None
+     if isinstance(failure,dict) and set(failure)=={'providerErrorCode'} and isinstance(failure['providerErrorCode'],str) and failure['providerErrorCode'] in SAFE_PROVIDER_CODES:raise UnknownOutcome('PROVIDER_REJECTED:'+failure['providerErrorCode'])
+     raise UnknownOutcome('ADAPTER_PROCESS_FAILED')
    except subprocess.TimeoutExpired:
     os.killpg(process.pid,signal.SIGTERM)
     try:process.communicate(timeout=180)
@@ -123,7 +134,8 @@ def rehearse(b,root,invoke):
   # Reconcile unknown registration/account outcomes only by reads, never resubmit.
   for name,op,read in [('oos','cleanup-register','cleanup-readback'),('account','account-create','account-readback')]:
    try:journal.once(name,lambda:invoke(op,payload))
-   except UnknownOutcome:
+   except UnknownOutcome as error:
+    report_provider_error(error)
     result=bounded_readback(lambda:invoke(read,payload),lambda r:r.get('registered' if name=='oos' else 'exists'),b)
     journal.reconcile(name,result)
    result=bounded_readback(lambda:invoke(read,payload),lambda r:r.get('registered' if name=='oos' else 'exists'),b)
@@ -312,4 +324,6 @@ def main():
  finally:os.close(lock);(root/'execution.lock').unlink()
 if __name__=='__main__':
  try:main()
- except BaseException:print('ISOLATED_REHEARSAL_REJECTED',file=sys.stderr);sys.exit(1)
+ except BaseException as error:
+  report_provider_error(error)
+  print('ISOLATED_REHEARSAL_REJECTED',file=sys.stderr);sys.exit(1)

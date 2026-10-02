@@ -5,7 +5,7 @@ No clone purchase operation. Never read production database credentials.
 import signal
 import base64,datetime,hashlib,hmac,json,os,re,subprocess,sys,urllib.parse,urllib.request,urllib.error,uuid
 from pathlib import Path
-from isolated_rehearsal import validate_binding,created,private_json,UnknownOutcome,ProcessAdapter
+from isolated_rehearsal import validate_binding,created,private_json,UnknownOutcome,ProcessAdapter,SAFE_PROVIDER_CODES
 
 class ProviderError(ValueError):
  def __init__(self,code):self.code=code;super().__init__('PROVIDER_REJECTED')
@@ -153,4 +153,11 @@ if __name__=='__main__':
  try:
   if os.geteuid()!=0 or len(sys.argv)!=2:raise ValueError('ROOT_OPERATION')
   print(json.dumps(run(sys.argv[1],json.load(sys.stdin))))
+ except ProviderError as error:
+  if isinstance(error.code,str) and error.code in SAFE_PROVIDER_CODES:print(json.dumps({'providerErrorCode':error.code}))
+  print('ISOLATED_ADAPTER_FAILED',file=sys.stderr);sys.exit(1)
+ except UnknownOutcome as error:
+  marker=str(error);code=marker.removeprefix('PROVIDER_REJECTED:')
+  if marker.startswith('PROVIDER_REJECTED:') and code in SAFE_PROVIDER_CODES:print(json.dumps({'providerErrorCode':code}))
+  print('ISOLATED_ADAPTER_FAILED',file=sys.stderr);sys.exit(1)
  except BaseException:print('ISOLATED_ADAPTER_FAILED',file=sys.stderr);sys.exit(1)
