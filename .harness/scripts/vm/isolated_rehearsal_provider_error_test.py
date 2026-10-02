@@ -7,7 +7,7 @@ class SafeErrors(unittest.TestCase):
  def setUp(self):
   fixture=fixtures.ObserveTests();fixture.setUp();self.binding=fixture.b
  def child(self,raw,adapter=False):
-  with tempfile.TemporaryDirectory(dir="/private/tmp") as td:
+  with tempfile.TemporaryDirectory(dir=str(Path(tempfile.gettempdir()).resolve())) as td:
    p=Path(td)/'child.py'
    modules={}
    if adapter:
@@ -31,7 +31,7 @@ class SafeErrors(unittest.TestCase):
   import subprocess
   source=Path(__file__).with_name('isolated_rehearsal.py').read_text()
   for code in ('Forbidden','User.NoPermission','InvalidAccountPassword.Format','SECRET_PASSWORD'):
-   with tempfile.TemporaryDirectory(dir='/private/tmp') as td:
+   with tempfile.TemporaryDirectory(dir=str(Path(tempfile.gettempdir()).resolve())) as td:
     p=Path(td)/'main.py'
     inject="\ndef main():raise UnknownOutcome("+repr('PROVIDER_REJECTED:'+code)+")\n"
     p.write_text(source.replace("if __name__=='__main__':",inject+"if __name__=='__main__':"))
@@ -58,10 +58,16 @@ def invoke(op,p):
  if op=='cleanup-readback-deleted':return {'notFound':True}
  if op=='cleanup-registration-readback-removed':return {'removed':True}
  return {}
-with tempfile.TemporaryDirectory(dir='/private/tmp') as td:
+with tempfile.TemporaryDirectory(dir=str(Path(tempfile.gettempdir()).resolve())) as td:
  try:c.rehearse(b,Path(td),invoke)
  except c.UnknownOutcome as error:print(json.dumps({'terminal':str(error),'calls':calls}))
 """
    r=subprocess.run([sys.executable,'-c',program,str(Path(__file__).parent),json.dumps(b),stage,code],capture_output=True,text=True)
    self.assertEqual(r.returncode,0,r.stderr);j=json.loads(r.stdout);self.assertEqual(j['terminal'],'READBACK_NOT_READY');self.assertEqual(j['calls'].count(stage),1);self.assertIn('cleanup',j['calls']);self.assertIn('cleanup-iam-remove',j['calls']);self.assertEqual(json.loads(r.stderr),{'providerErrorCode':code,'mutationOutcome':'unknown','readbackRequired':True})
+ def test_custom_system_temp_runs_real_child_cases(self):
+  import subprocess
+  with tempfile.TemporaryDirectory(dir=str(Path(tempfile.gettempdir()).resolve())) as selected:
+   env=dict(os.environ,TMPDIR=selected,TEMP=selected,TMP=selected)
+   r=subprocess.run([sys.executable,str(Path(__file__).resolve()),'SafeErrors.test_real_adapter_known_provider_codes_nonzero','SafeErrors.test_canonical_terminal_log_retains_only_safe_code','SafeErrors.test_rehearse_catch_preserves_diagnostic_without_reposting'],env=env,capture_output=True,text=True)
+   self.assertEqual(r.returncode,0,r.stderr)
 if __name__=='__main__':unittest.main(verbosity=2)
