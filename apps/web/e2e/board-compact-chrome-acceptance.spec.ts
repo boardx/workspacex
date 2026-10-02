@@ -51,7 +51,10 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    // in evidence and exercise all stored Frame properties through the visible UI.
    await info.attach('legacy-frame-palette-reference',{body:Buffer.from(JSON.stringify({reachable:false,reason:'R04 draft hides new Frame creation; design approval remains pending',width:[360,386],height:[340,410],viewportMargin:16,bottomGap:2})),contentType:'application/json'});
    const existingFrame=await seedExistingFrame(page,100,100);
-   await page.getByTestId(`board-a11y-object-${existingFrame}`).click();
+   const frameOutline=page.getByTestId(`board-a11y-object-${existingFrame}`);
+   await frameOutline.focus();await frameOutline.press('Enter');
+   await expect(frameOutline).toHaveAttribute('aria-pressed','true');
+   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 1 个对象');
    await page.getByTestId('board-inspector-expand').click();
    const frameInspector=page.getByTestId('board-context-toolbar');
    await expect(page.getByTestId('board-frame-size-presets')).toBeVisible();

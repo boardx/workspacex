@@ -5,6 +5,7 @@ import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 import {connectionGestureMetric} from '../scripts/board-connection-gesture-metric.mjs';
+import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';
@@ -68,7 +69,16 @@ test('Organize: 20 scattered stickies -> equal-gap grid in <=2 actions', async (
 });
 
 test('Panel: drag 10 unparented objects inside, then move the whole container', async ({page, request}) => {
-  const transport=createSpatialWsMetadataRecorder();transport.observe(page,'original');
+  const transport = createSpatialWsMetadataRecorder(); transport.observe(page, 'original');
+  const http: Array<{method: string; route: string; status: number}> = [];
+  page.on('response', response => {
+    const path = new URL(response.url()).pathname;
+    const route = /\/whiteboards\/[^/]+\/sync$/.test(path) ? 'sync'
+      : /\/whiteboards\/[^/]+\/operations$/.test(path) ? 'operations'
+      : /\/whiteboards\/[^/]+\/head$/.test(path) ? 'head'
+      : /\/whiteboards\/[^/]+$/.test(path) ? 'board' : null;
+    if (route && http.length < 200) http.push({method: response.request().method(), route, status: response.status()});
+  });
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance panel');
   try {
     const panel = {...object('research-panel', 'frame', 100, 120, 'Customer research', 1100, 550), extensionData: {spatial: panelMetadata}};
@@ -103,6 +113,11 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       if (next.id !== panel.id) expect(next.parentId).toBe(panel.id);
     }
     await assertJourneyReload(page, id, after, request, token);
+  } catch (error) {
+    try {
+      await test.info().attach('panel-failure-transport', {body: JSON.stringify({http, websocket: transport.snapshot(), denied: await page.getByTestId('denied').count()}), contentType: 'application/json'});
+    } catch (diagnosticError) { throw new AggregateError([error, diagnosticError], 'Panel failure and diagnostic capture failed', {cause: error}); }
+    throw error;
   } finally {
     // Archive safe routing/receipt metadata even when fail-closed removes the UI.
     // This distinguishes server rejection from receipt conflicts without payloads.
