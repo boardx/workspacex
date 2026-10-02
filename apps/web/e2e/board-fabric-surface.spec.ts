@@ -88,13 +88,11 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const assertViewportBounds = async () => {
     const bounds = await surface.boundingBox();
     expect(bounds).not.toBeNull();
-    // Sync notices overlay the editor; pending/ACK transitions must never
-    // resize the canvas or change its pointer coordinate origin.
+    // Header sync changes must never resize the canvas or its pointer origin.
     const region = page.getByTestId("board-editor-region");
     const shellBounds = await region.locator("..").boundingBox();
     const regionBounds = await region.boundingBox();
-    const banner = page.getByTestId("board-sync-banner");
-    const bannerBounds = await banner.isVisible() ? await banner.boundingBox() : null;
+    await expect(page.getByTestId("board-sync-banner")).toHaveCount(0);
     const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
@@ -108,10 +106,6 @@ test("fabric surface viewport", async ({ page, request: api }) => {
       [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
     ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
     expect(regionBounds!.height).toBeGreaterThan(0);
-    if (bannerBounds) {
-      expect(bannerBounds).toMatchObject({ x: 0, y: 64, width: viewport.width });
-      expect(bannerBounds.height).toBeGreaterThan(0);
-    }
   };
   await expect(assertViewportBounds).toPass({timeout: 5000});
   await page.setViewportSize({width: 1024, height: 768});
