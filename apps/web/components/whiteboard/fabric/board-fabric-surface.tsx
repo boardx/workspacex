@@ -4,7 +4,8 @@ import { finishCancelledFabricTouch, panFabricViewport, readFabricInput, type Fa
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
-import { ActiveSelection, Canvas, Circle, FabricImage, FixedLayout, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
+import { ActiveSelection, Canvas, Circle, FabricImage, FixedLayout, Group, Line, Path, Point, Rect, Textbox, Triangle, cache, util, type FabricObject, type TPointerEventInfo } from "fabric";
+import { fabricStickyTextMeasure, layoutStickyText, stickyMinimumFontSize, watchStickyFontLayouts } from "./sticky-text-layout";
 import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, rotatedAnchorPoint, localPointFromScene, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, type SnapResult } from "@repo/whiteboard-core";
 import { WHITEBOARD_CONNECTOR_LIMITS } from "@repo/contracts/whiteboard-document";
 import { BoardA11yMirror } from "./board-a11y-mirror";
@@ -120,6 +121,15 @@ export function snapFabricRotation(
   target.set({ angle: rotation.geometry.rotation });
   target.setPositionByOrigin(pivot, origin.originX, origin.originY);
   target.setCoords();
+}
+
+function stickyTextOptions(object: BoardFabricObject, options: ReturnType<typeof textOptionsFor>) {
+  const layout = layoutStickyText({ text: object.content.text, width: object.geometry.width, height: object.geometry.height,
+    variant: object.sticky?.variant ?? "square", padding: BOARD_FABRIC_VISUAL.sticky.padding,
+    fontSize: options.fontSize, minimumFontSize: stickyMinimumFontSize(), verticalAlignment: object.style.verticalAlignment }, fabricStickyTextMeasure(options));
+  return { width: layout.width, fontSize: layout.fontSize, top: layout.top,
+    clipPath: new Rect({ width: layout.width, height: layout.height, left: 0, top: -layout.top, originX: "center", originY: "center" }),
+    data: { stickyTextOverflow: layout.overflow } };
 }
 
 function applyFixedContainerLayout(projected: Group, width: number, height: number): void {
@@ -316,14 +326,18 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   } else if (object.kind === "sticky" && object.sticky?.variant === "circle") {
     projected = new Group([
       new Circle({ radius: Math.min(object.geometry.width, object.geometry.height) / 2, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, { ...textOptions, width: Math.max(24, Math.min(object.geometry.width, object.geometry.height) - BOARD_FABRIC_VISUAL.sticky.padding * 2) }),
+      new Textbox(object.content.text, { ...textOptions, ...stickyTextOptions(object, richText) }),
     ]);
   } else {
     const cornerRadius = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.radius : 12;
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, textOptions),
+      new Textbox(object.content.text, { ...textOptions, ...(object.kind === "sticky" ? stickyTextOptions(object, richText) : {}) }),
     ]);
+  }
+  if (object.kind === "sticky" && projected instanceof Group) {
+    applyFixedContainerLayout(projected, object.geometry.width, object.geometry.height);
+    projected.set({ width: object.geometry.width, height: object.geometry.height });
   }
   projected.set({
     ...BOARD_FABRIC_VISUAL.selection,
@@ -426,10 +440,12 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
       label.set({ width: Math.max(24, object.geometry.width - inset), splitByGrapheme: true, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, angle: 0, flipX: false, flipY: false, left: 0, originX: "center", originY: "center" });
       const top = object.style.verticalAlignment === "top" ? -object.geometry.height / 2 + 16 + label.height / 2
         : object.style.verticalAlignment === "bottom" ? object.geometry.height / 2 - 16 - label.height / 2 : 0;
-      label.set({ top });
+      if (object.kind === "sticky" && label instanceof Textbox) label.set(stickyTextOptions(object, richText));
+      else label.set({ top });
       label.setCoords();
     }
     // Keep text overflow from changing the container's selection/transform box.
+    if (object.kind === "sticky") applyFixedContainerLayout(projected, object.geometry.width, object.geometry.height);
     projected.set({ width: object.geometry.width, height: object.geometry.height });
   }
   const naturalWidth = projected.width || object.geometry.width;
@@ -1112,6 +1128,20 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (renderFrameRef.current !== null) cancelAnimationFrame(renderFrameRef.current);
       renderFrameRef.current = null;
     };
+  }, []);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current, fonts = document.fonts;
+    if (!canvas || !fonts) return;
+    const refresh = () => {
+      cache.clearFontCache();
+      for (const [id, projected] of registryRef.current) {
+        const canonical = canonicalRef.current.get(id);
+        if (canonical?.kind === "sticky") applyCanonicalObject(projected, canonical, stateRef.current.readOnly);
+      }
+      canvas.requestRenderAll();
+    };
+    return watchStickyFontLayouts(fonts, canvas, refresh);
   }, []);
 
   React.useEffect(() => {
