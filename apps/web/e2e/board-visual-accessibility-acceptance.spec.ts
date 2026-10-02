@@ -71,6 +71,7 @@ test('visual and accessibility real object states, input and negative controls',
       // Equivalent reflow + text scaling, explicitly not native browser zoom evidence.
       await page.setViewportSize({width:Math.round(1280/scale),height:720});
       await page.addStyleTag({content:`html {font-size:${16*scale}px !important} textarea,input,button {font-size:${14*scale}px !important}`});
+      await page.keyboard.press('Escape');await page.getByTestId('board-tool-select').click();await page.getByTestId('board-zoom-fit-board').click();
       const reflow=await createNativeSticky(page,`Reflow ${scale*100}%`,stickyProof);
       const reflowNote=page.getByTestId(`board-a11y-object-${reflow.id}`);await reflowNote.focus();await reflowNote.press('Enter');
       await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();
