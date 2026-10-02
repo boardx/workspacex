@@ -34,7 +34,7 @@ it('keeps creation tools ordered and hides Arrow and Frame entrypoints',()=>{
  const positions=ordered.map(id=>Array.from(dock.querySelectorAll('button')).indexOf(screen.getByTestId(id)));
  expect(positions).toEqual([...positions].sort((a,b)=>a-b));
  expect(screen.queryByTestId('board-add-frame')).toBeNull();
- expect(screen.getByTestId('board-add-connector')).toBeInTheDocument();
+ expect(screen.getByTestId('board-add-connector')).toBeVisible();
  fireEvent.click(screen.getByTestId('board-add-more'));
  expect(screen.queryByTestId('board-add-panel')).toBeNull();
 });

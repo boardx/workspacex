@@ -1,11 +1,11 @@
 import type { Page } from '@playwright/test';
 
-/** Read the transient ACK banner and all viewport bounds in one browser turn. */
+/** Read viewport bounds atomically, including the synthetic ACK-removal fixture. */
 export async function readBoardViewportSnapshot(page: Page) {
   return page.evaluate(() => {
     const rect = (element: Element | null) => element ? element.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number } : null;
     const region = document.querySelector('[data-testid="board-editor-region"]');
-    const banner = document.querySelector('[data-testid="board-sync-banner"]');
+    const banner = document.querySelector('[data-viewport-transient-banner]');
     const bannerVisible = banner && banner.getClientRects().length > 0 && getComputedStyle(banner).visibility !== 'hidden';
     return {
       bounds: rect(document.querySelector('[data-testid="board-fabric-surface"]')),

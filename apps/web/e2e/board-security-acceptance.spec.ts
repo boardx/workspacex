@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {expectBoardSynced} from './support/board-sync-status';
 import {randomUUID,createHash} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import * as Y from 'yjs';
@@ -43,7 +44,7 @@ test('security real tenant API WS and durable image authorization counterproofs'
   const ownerWs=await securitySocket(page,owner,board);record('owner-ws',ownerWs);expect(ownerWs.sync).toBe(true);
   const tenantWs=await securitySocket(peers[2]!,outsider,board);record('tenant-ws',tenantWs);expect(tenantWs.sync).toBe(false);expect(tenantWs.closed||tenantWs.error!==null).toBe(true);
   await http('cross-board-image',owner,`/whiteboards/${other}/assets/${asset.assetId}/content`);
-  await peers[0]!.goto(`/studio/board/${board}`);await expect(peers[0]!.getByTestId('collaborative-editor')).toBeVisible();await expect(peers[0]!.getByText(/^已同步/)).toBeVisible();
+  await peers[0]!.goto(`/studio/board/${board}`);await expect(peers[0]!.getByTestId('collaborative-editor')).toBeVisible();await expectBoardSynced(peers[0]!,undefined,true);
   await boardApi(request,owner,'DELETE',`/whiteboards/${board}/members/${F.leadUserId}`);await expect(peers[0]!.getByTestId('denied')).toBeVisible();await expect(peers[0]!.getByTestId('collaborative-editor')).toHaveCount(0);record('revoked-live-view',{cleared:true});
   await http('revoked-image',viewer,imagePath);await http('revoked-read',viewer,`/v1/whiteboards/${board}/head`);
   const revokedWs=await securitySocket(peers[0]!,viewer,board);record('revoked-ws',revokedWs);expect(revokedWs.sync).toBe(false);
