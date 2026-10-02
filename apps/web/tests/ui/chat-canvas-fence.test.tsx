@@ -80,9 +80,13 @@ beforeEach(() => {
 
 describe("工作坊画布模板围栏在 chat 里被渲染（不再是代码块）", () => {
   it("```canvas + 内置 persona 模板 → 走 fabric 画布分支，不落代码块、不落错误态", async () => {
+    let resolveTemplates!: (value: { templates: never[] }) => void;
+    listCanvasTemplates.mockReturnValueOnce(new Promise<{ templates: never[] }>(resolve => { resolveTemplates = resolve; }));
     render(<MarkdownMessage text={`看这张画像：\n\n${PERSONA_FENCE}\n\n以上。`} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
-    expect(el.getAttribute("data-template-source")).toBe("builtin");
+    expect(el.getAttribute("data-template-source")).toBeNull();
+    resolveTemplates({ templates: [] });
+    await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("builtin"));
     expect(screen.queryByTestId("chat-canvas-error")).toBeNull();
     // 围栏前后的正文仍在（一个围栏不该吃掉整条消息）
     expect(screen.getByText(/看这张画像/)).toBeInTheDocument();
@@ -97,14 +101,14 @@ describe("工作坊画布模板围栏在 chat 里被渲染（不再是代码块�
     render(<MarkdownMessage text={fence} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
     expect(el.getAttribute("data-fence-lang")).toBe("persona");
-    expect(el.getAttribute("data-template-source")).toBe("builtin");
+    await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("builtin"));
   });
 
   it("内置 key 会查一次组织模板库（判断是否被自定义过）；没有自定义行时仍用原生几何——" +
     "#2221 回归钉子：组织库里没有该 key 的自定义行时，不能因为「查了」就误判成已自定义", async () => {
     render(<MarkdownMessage text={PERSONA_FENCE} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
-    expect(el.getAttribute("data-template-source")).toBe("builtin");
+    await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("builtin"));
     expect(listCanvasTemplates).toHaveBeenCalledWith({ orgId: "org-personal-1" });
   });
 
@@ -225,7 +229,7 @@ describe("个人对话可用性", () => {
   it("不传任何项目/产物参数（= 个人对话）时，内置模板照样渲染", async () => {
     render(<MarkdownMessage text={PERSONA_FENCE} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
-    expect(el.getAttribute("data-template-source")).toBe("builtin");
+    await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("builtin"));
     expect(screen.queryByTestId("chat-canvas-error")).toBeNull();
   });
 
