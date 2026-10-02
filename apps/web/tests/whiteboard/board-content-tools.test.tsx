@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin } from "@repo/whiteboard-core";
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { drawingEraserTargets } from "@/components/whiteboard/fabric/drawing-hit-test";
@@ -25,6 +25,9 @@ vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
     <button data-testid="resize-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, width: 80, height: 20 } }])}>resize</button>
     <button data-testid="rotate-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, rotation: 90 } }])}>rotate</button>
     <button data-testid="erase-stroke" onClick={() => { const points = [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }]; onDrawingComplete?.({ tool: "eraser", points, targetObjectIds: drawingEraserTargets(objects, points, 24) }); }}>erase</button>
+    <button data-testid="erase-no-ids" onClick={()=>onDrawingComplete?.({tool:'eraser',points:[{x:0,y:100,pressure:.5},{x:100,y:0,pressure:.5}]})}>erase precise without hints</button>
+    <button data-testid="erase-empty" onClick={()=>onDrawingComplete?.({tool:'eraser',points:[{x:300,y:300,pressure:.5},{x:400,y:400,pressure:.5}]})}>erase empty</button>
+    <button data-testid="erase-restricted" onClick={()=>onDrawingComplete?.({tool:'eraser',points:[{x:0,y:100,pressure:.5},{x:100,y:0,pressure:.5}],targetObjectIds:['first']})}>erase first only</button>
     <button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 200, y: 220 })}>canvas</button>
   </div>,
 }));
@@ -138,6 +141,23 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
   doc.destroy();
+});
+
+it('erases precise no-hint geometry once while preserving non-drawing, hidden and locked objects through undo/redo',async()=>{
+ const doc=await setup();const stroke:DrawingStroke={id:'vector',tool:'pen',color:'#18181B',width:3,opacity:1,points:[{x:0,y:0,pressure:.5},{x:100,y:100,pressure:.5}]};
+ act(()=>executeCommands(doc,['first','second','spoof','hidden','locked'].map(id=>({type:'create' as const,object:{id,schemaVersion:1,kind:id==='spoof'?'sticky' as const:'drawing' as const,geometry:{x:0,y:0,width:100,height:100,rotation:0},style:{},text:'',parentId:null,orderKey:'',hidden:id==='hidden',locked:id==='locked',extensionData:{contentObject:{version:1,type:'drawing',strokes:[stroke]}}}})),'fixture'));
+ const baseline=readObjects(doc),transactions:unknown[]=[];doc.on('afterTransaction',transaction=>{if(transaction.origin instanceof WhiteboardCommandOrigin)transactions.push(transaction);});
+ fireEvent.click(screen.getByTestId('erase-empty'));expect(readObjects(doc)).toEqual(baseline);expect(transactions).toHaveLength(0);
+ fireEvent.click(screen.getByTestId('erase-no-ids'));const erased=readObjects(doc);expect(transactions).toHaveLength(1);
+ for(const id of ['first','second'])expect(erased.find(object=>object.id===id)?.extensionData?.contentObject).toMatchObject({strokes:[stroke,{tool:'eraser',erases:['vector']}]});
+ for(const id of ['spoof','hidden','locked'])expect(erased.find(object=>object.id===id)).toEqual(baseline.find(object=>object.id===id));
+ fireEvent.click(screen.getByRole('button',{name:'撤销',exact:true}));expect(readObjects(doc)).toEqual(baseline);fireEvent.click(screen.getByRole('button',{name:'重做',exact:true}));expect(readObjects(doc)).toEqual(erased);
+ fireEvent.click(screen.getByRole('button',{name:'撤销',exact:true}));fireEvent.click(screen.getByTestId('erase-restricted'));expect(readObjects(doc).find(object=>object.id==='second')).toEqual(baseline.find(object=>object.id==='second'));expect(readObjects(doc).find(object=>object.id==='first')).not.toEqual(baseline.find(object=>object.id==='first'));doc.destroy();
+});
+
+it('blocked editing rejects geometric erase even when the callback omits target hints',async()=>{
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'blocked',schemaVersion:1,kind:'drawing',geometry:{x:0,y:0,width:100,height:100,rotation:0},style:{},text:'',parentId:null,orderKey:'',extensionData:{contentObject:{version:1,type:'drawing',strokes:[{id:'vector',tool:'pen',width:3,opacity:1,color:'#18181B',points:[{x:0,y:0,pressure:.5},{x:100,y:100,pressure:.5}]}]}}}}],'fixture');
+ render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly title="Read only" status="已连接"/>);const baseline=readObjects(doc),transactions:unknown[]=[];doc.on('afterTransaction',transaction=>transactions.push(transaction));fireEvent.click(screen.getByTestId('erase-no-ids'));expect(readObjects(doc)).toEqual(baseline);expect(transactions).toHaveLength(0);doc.destroy();
 });
 
 it("hides legacy Arrow/Frame creation and shortcuts without creating objects", async () => {

@@ -571,10 +571,11 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     const style = drawingTool === "eraser" ? drawingToolStyle(drawingTool) : completedAppearance ?? (selectedDrawingTool !== drawingTool ? drawingToolStyle(drawingTool) : { ...drawingToolStyle(drawingTool), ...drawAppearance });
     const draft: DrawingStroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...style, ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
     if(drawingTool==='eraser'){
+      if(mutationBlocked)return;
       try{
         const commands:WhiteboardCommand[]=[];
         for(const object of readObjects(doc)){
-          const content=readContentObject(object);if(object.locked||content?.type!=='drawing')continue;
+          const content=readContentObject(object);if(object.kind!=='drawing'||object.hidden||object.locked||content?.type!=='drawing'||targetObjectIds&&!targetObjectIds.includes(object.id))continue;
           const erases=eraserTargetStrokeIds(object.geometry,content.strokes,draft);if(!erases.length)continue;
           const intrinsic=worldStrokeToDrawingSpace(object.geometry,content.strokes,{...draft,erases});
           const stroke=fitDrawingStrokeToExtensionBudget(content.strokes,intrinsic);
@@ -585,25 +586,6 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
       return;
     }
     try {
-      if (drawingTool === "eraser") {
-        if (mutationBlocked) return;
-        const commands: WhiteboardCommand[] = [];
-        for (const object of readObjects(doc)) {
-          if (!targetObjectIds?.includes(object.id) || object.kind !== "drawing" || object.hidden || object.locked) continue;
-          const content = readContentObject(object);
-          if (content?.type !== "drawing") continue;
-          const eraseDraft = {...draft, erases:content.strokes.filter(item=>item.tool !== "eraser").map(item=>item.id)};
-          const stroke = fitDrawingStrokeToExtensionBudget(content.strokes, worldStrokeToDrawingSpace(object.geometry,content.strokes,eraseDraft));
-          // An eraser may extend the intrinsic vector frame. Expand the object
-          // with the same transform compensation as a pen so existing ink does
-          // not shrink or shift when the mask begins outside its old bounds.
-          const geometry = geometryForAppendedDrawingStroke(object.geometry, content.strokes, stroke);
-          commands.push({ type: "geometry", id: object.id, geometry });
-          commands.push({type:"extension",id:object.id,key:"contentObject",value:{...content,strokes:[...content.strokes,stroke]}});
-        }
-        if (commands.length) execute(commands);
-        return;
-      }
       const existing = selectedContent?.type === "drawing" ? selectedContent.strokes : [];
       const intrinsicDraft = selectedObject && selectedContent?.type === "drawing"
         ? worldStrokeToDrawingSpace(selectedObject.geometry, existing, draft)
