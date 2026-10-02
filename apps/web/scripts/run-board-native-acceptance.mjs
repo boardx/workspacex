@@ -38,6 +38,12 @@ export function suitePresent(config,tracked){
 export function runtimeExitProof(code,signal,wasAlive){assert.equal(wasAlive,true,'Runtime exited before owned stop');assert.equal(signal,null);assert.equal(code,0);}
 export function runtimeSpawnState(child){const state={failed:false};child.on('error',()=>{state.failed=true;});return state;}
 
+export function safeStartupDiagnostics(log){
+  const known=['native-migrate','native-fullstack-seed','native-web-build'];
+  const failed=known.filter(name=>log.includes(`${name} failed; inspect private log`));
+  return{matchedFailure:failed.length===1?failed[0]:'UNKNOWN',ambiguous:failed.length>1};
+}
+
 export function screenshotProof(config,screenshots){
   for(const item of screenshots){assert(Number.isInteger(item.bytes)&&item.bytes>24);assert(Number.isInteger(item.width)&&item.width>0);assert(Number.isInteger(item.height)&&item.height>0);}
   assert(screenshots.length>0);assert(screenshots.some(item=>item.width===1440));assert(screenshots.some(item=>item.width===390));
@@ -63,7 +69,7 @@ async function run(){
   writeFileSync(manifestInput,JSON.stringify({root,head,sourceFiles}),{mode:0o600,flag:'wx'});
   const build=join(root,'apps/web/.next-fullstack-e2e');assert(!existsSync(build),'Owned fresh production build required');
   const privateLog=join(privateRoot,'execution.log'),fd=openSync(privateLog,'wx',0o600);
-  let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null;
+  let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE';
   const cleanupFailures=[];
   const execute=async(executable,args,environment=process.env)=>{
     const child=spawn(executable,args,{cwd:root,env:environment,stdio:['ignore',fd,fd]});
@@ -71,6 +77,7 @@ async function run(){
   };
   try{
     await execute(process.execPath,[join(support,'wsx-board-native-runtime-prepare.mjs'),'--root',root,'--head',head,'--data-dir',data,'--source-manifest',manifestInput,'--postgres-tool-root',toolRoot,...(command[7].includes('files')?['--file-storage-attestation']:[])]);
+    phase='STARTUP';
     runtime=spawn(process.execPath,[join(support,'wsx-board-native-runtime-start.mjs'),join(data,'native-runtime-plan.json')],{cwd:root,env:process.env,stdio:['ignore',fd,fd]});
     runtimeState=runtimeSpawnState(runtime);
     const manifestPath=join(data,'runtime-manifest.json');
@@ -81,6 +88,7 @@ async function run(){
       assert(Date.now()<deadline,'Native startup deadline exceeded');await new Promise(resolve=>setTimeout(resolve,1000));
     }
     const manifest=JSON.parse(readFileSync(manifestPath,'utf8')),environment=JSON.parse(readFileSync(join(data,'native-runner-environment.json'),'utf8'));
+    phase='ACCEPTANCE';
     const report=join(privateRoot,'playwright-report.json');
     const env={...process.env,...environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
     const test=spawn(command[0],[...command.slice(1),'--reporter=json','--output',join(privateRoot,'artifacts')],{cwd:root,env,stdio:['ignore',fd,fd]});
@@ -114,7 +122,9 @@ async function run(){
     }catch{cleanupFailures.push('OWNED_BUILD_OR_SOURCE_CHECK_FAILED');}
     cleanupCompleted=cleanupFailures.length===0;if(!cleanupCompleted)failureReason=failureReason??'OWNED_CLEANUP_FAILED';
     closeSync(fd);
-    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
+    let startupDiagnostics={matchedFailure:'UNKNOWN',ambiguous:false};
+    if(phase==='STARTUP')try{startupDiagnostics=safeStartupDiagnostics(readFileSync(privateLog,'utf8'));}catch{ /* Private diagnostics are optional, never a passing gate. */ }
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
   }
   if(failureReason)throw new Error(failureReason);
 }
