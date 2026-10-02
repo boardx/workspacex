@@ -35,6 +35,10 @@ export function useTimelineScroll(messages: unknown) {
    * 这个窗口就不存在了。
    */
   const isAtBottomRef = React.useRef(true);
+  // #5023: an explicit upward gesture overrides the near-bottom tolerance.
+  // Without this latch, 55px of overflow is still "near bottom" at scrollTop=0
+  // and the next streamed resize pulls the user back down.
+  const upwardScrollIntentRef = React.useRef(false);
   /**
    * 2026-09-02 人类实测反馈："滚到底部的那个箭头的逻辑是错误的"。两处根因：
    *
@@ -109,6 +113,7 @@ export function useTimelineScroll(messages: unknown) {
     // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
     // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
     if (el === null || typeof el.scrollTo !== "function") return;
+    upwardScrollIntentRef.current = false;
     setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior });
     isAtBottomRef.current = true;
@@ -124,7 +129,8 @@ export function useTimelineScroll(messages: unknown) {
   const handleMessagesScroll = React.useCallback(() => {
     const el = messagesContainerRef.current;
     if (el === null) return;
-    const nearBottom = isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
+    const nearBottom = !upwardScrollIntentRef.current
+      && isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
     // #3145：用户刚亲手介入过 ⇒ 这次滚动就是他的，程序化标记不得吞掉它（见
     // `userScrollIntentAtRef` 的头注：吞掉一次就再也没有第二次机会）。
     const userDriven = Date.now() - userScrollIntentAtRef.current <= USER_SCROLL_INTENT_WINDOW_MS;
@@ -140,9 +146,22 @@ export function useTimelineScroll(messages: unknown) {
 
   // 用户主动介入（滚轮 / 触摸 / 方向键 / 按下指针拖滚动条）即刻解除"程序化滚动中"
   // 标记——之后的 `scroll` 事件才是用户意图的真实信号。
-  const handleUserScrollIntent = React.useCallback(() => {
+  const handleUserScrollIntent = React.useCallback((event: React.SyntheticEvent) => {
     userScrollIntentAtRef.current = Date.now();
     clearProgrammaticScroll();
+    const delta = "deltaY" in event && typeof event.deltaY === "number" ? event.deltaY : 0;
+    const key = "key" in event && typeof event.key === "string" ? event.key : "";
+    if (delta < 0 || ["ArrowUp", "PageUp", "Home"].includes(key)) {
+      upwardScrollIntentRef.current = true;
+      isAtBottomRef.current = false;
+      setIsAtBottom(false);
+    } else if (delta > 0 || ["ArrowDown", "PageDown", "End"].includes(key)
+      || event.type === "pointerdown" || event.type === "touchstart") {
+      // Following is still decided by the next real scroll position, rather
+      // than by a gesture alone. Pointer/touch release the direction latch
+      // so their next actual scroll can restore following; a click alone cannot.
+      upwardScrollIntentRef.current = false;
+    }
   }, [clearProgrammaticScroll]);
 
   // `scrollend`（Chrome 114+/Firefox 109+；Safari 尚无）：平滑滚动真正结束的权威信号。
