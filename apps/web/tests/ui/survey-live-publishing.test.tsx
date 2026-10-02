@@ -175,6 +175,23 @@ describe("live survey trusted publishing", () => {
     expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("aria-current", "step");
   });
 
+  it("shows configuration diagnostics and focuses the image question for repair", async () => {
+    const diagnostic = "Image choices require an image URL and alternative text";
+    const blockers: SurveyPublishBlocker[] = [{
+      code: "QUESTION_CONFIG_INVALID", side: "question", subjectId: "q-image",
+      missingFields: [diagnostic],
+    }];
+    client.request.mockResolvedValueOnce(runtime({ questions: [
+      runtime().questions[0]!,
+      { id: "q-image", title: "Image question", type: "image_single", chapterId: "general", order: 2, required: true, options: ["A", "B"] },
+    ] })).mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    expect(await screen.findByText(diagnostic)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复题目配置" }));
+    expect(screen.getByRole("button", { name: "选择题目 2：Image question" })).toHaveAttribute("aria-current", "true");
+  });
+
   it("shows the logic diagnostic and focuses its question for repair", async () => {
     const blockers: SurveyPublishBlocker[] = [
       {
