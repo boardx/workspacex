@@ -18,9 +18,9 @@ test('tracked runtime closure rejects missing, extra, duplicate and omitted prod
   const manifestPath=join(root,'private-manifest.json');
   for(const sourceFiles of [runtime.slice(1),[...runtime,'docs/unrelated.md'],[...runtime,runtime[0]]]){
    writeFileSync(manifestPath,JSON.stringify({sourceFiles,sourceHashes:Object.fromEntries(runtime.map(path=>[path,'a'.repeat(64)]))}),{mode:0o600});
-   assert.throws(()=>verifyRuntimeManifest({manifestPath,root,base:'http://127.0.0.1:36317',origin:'http://127.0.0.1:36320',sourceFiles:runtime}),/startup manifest|duplicate startup/);
+   assert.throws(()=>verifyRuntimeManifest({manifestPath,root,base:'http://127.0.0.1:36317',origin:'http://127.0.0.1:36320',sourceFiles:runtime}),error=>error.code==='IDENTITY_SOURCE'&&/startup manifest|duplicate startup/.test(error.cause?.message));
   }
   writeFileSync(manifestPath,JSON.stringify({sourceFiles:runtime,sourceHashes:Object.fromEntries(runtime.slice(1).map(path=>[path,'a'.repeat(64)]))}),{mode:0o600});
-  assert.throws(()=>verifyRuntimeManifest({manifestPath,root,base:'http://127.0.0.1:36317',origin:'http://127.0.0.1:36320',sourceFiles:runtime}),/startup source hashes/);
+  assert.throws(()=>verifyRuntimeManifest({manifestPath,root,base:'http://127.0.0.1:36317',origin:'http://127.0.0.1:36320',sourceFiles:runtime}),error=>error.code==='IDENTITY_SOURCE'&&/startup source hashes/.test(error.cause?.message));
  }finally{rmSync(root,{recursive:true});}
 });
