@@ -21,11 +21,12 @@ function source(id: string, content: string): ResearchRuntime["sources"][number]
 const direct = source("kpl", "王者荣耀职业联赛 KPL 的商业收入来自赛事赞助及版权。");
 const context = source("competitor", "作为移动电竞对照，Mobile Legends 赛事采用地区联赛及赞助模式。");
 const car = source("acura", "Search Inventory: Acura vehicles available at local dealers.");
-type Input = { chunks: { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; content: string }[]; questions: { id: string }[] };
+type Input = { chunks: { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; content?: string; quoteOptions: { text: string; quoteRef: string }[] }[]; questions: { id: string }[] };
+function chunkText(chunk: Input["chunks"][number]) { return chunk.content ?? chunk.quoteOptions.map((option) => option.text).join(" "); }
 function evaluation(input: Input) {
   return { evaluations: input.chunks.map((chunk) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId,
-    irrelevant: chunk.content === car.content, matches: chunk.content === car.content ? [] : [{ questionId: chunk.questionIds[0]!,
-      quote: chunk.content.slice(0, 300), insight: "控制模型夹具：摘录支持对应的电竞商业模式比较。", relevance: chunk.content === context.content ? "context" : "direct" }] })) };
+    irrelevant: chunkText(chunk) === car.content, matches: chunkText(chunk) === car.content ? [] : [{ questionId: chunk.questionIds[0]!,
+      quote: chunk.quoteOptions[0]!.text.slice(0, 300), insight: "控制模型夹具：摘录支持对应的电竞商业模式比较。", relevance: chunkText(chunk) === context.content ? "context" : "direct" }] })) };
 }
 function complete() {
   return vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => { const output = evaluation(input as Input); validate(output); return output; });
@@ -108,7 +109,7 @@ describe("automatic research source relevance", () => {
     const state = runtime(); const long = source("long", "x".repeat(24000) + direct.content);
     const model = vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => {
       const batch = input as Input;
-      if (batch.chunks[0]!.content === direct.content) throw new Error("provider unavailable");
+      if (chunkText(batch.chunks[0]!) === direct.content) throw new Error("provider unavailable");
       const output = evaluation(batch); validate(output); return output;
     });
     await expect(screenResearchSources(state, [long], model)).rejects.toThrow("provider unavailable");
