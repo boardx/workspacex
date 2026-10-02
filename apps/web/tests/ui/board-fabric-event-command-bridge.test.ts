@@ -17,6 +17,8 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
+    lockMovementX = false;
+    lockMovementY = false;
     constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
     getObjects() { return this.children; }
     private children: MockFabricObject[] = [];
