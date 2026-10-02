@@ -59,7 +59,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    await page.getByTestId('board-a11y-object-idea-1').focus();await page.getByTestId('board-a11y-object-idea-1').press('Enter');
    await expect(page.getByTestId('board-a11y-object-idea-1')).toHaveAttribute('aria-pressed','true');
    await expect(page.getByTestId('board-thinking-editor')).toBeVisible();
-   await page.keyboard.press('Escape');await expect(page.getByTestId('board-thinking-editor')).toBeHidden();
+   await page.getByTestId('board-thinking-editor').press('Escape');await expect(page.getByTestId('board-thinking-editor')).toBeHidden();
    await expect(page.getByTestId('board-a11y-object-idea-1')).toHaveAttribute('aria-pressed','true');
    await expect(page.getByTestId('board-context-toolbar')).toBeVisible();
    const toolbar=(await page.getByTestId('board-context-toolbar').boundingBox())!;expect(toolbar.width).toBeLessThanOrEqual(432);
@@ -86,7 +86,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   const note=page.getByTestId('board-a11y-object-idea-1');await note.focus();await note.press('Enter');
   await expect(note).toHaveAttribute('aria-pressed','true');
   await expect(page.getByTestId('board-thinking-editor')).toBeVisible();
-  await page.keyboard.press('Escape');await expect(page.getByTestId('board-thinking-editor')).toBeHidden();
+  await page.getByTestId('board-thinking-editor').press('Escape');await expect(page.getByTestId('board-thinking-editor')).toBeHidden();
   await expect(note).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
   await captureReference(page,info,'reference-connection-handles-selected');
