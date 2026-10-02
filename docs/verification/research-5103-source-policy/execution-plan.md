@@ -39,7 +39,7 @@ flowchart TD
   class S3 tested
   %% evidence S3: 共享来源匹配器、恢复hash、报告引用校验；tests-result.txt 9文件143通过
   class S4 tested
-  %% evidence S4: tests-result.txt 143通过；typecheck-result.txt、lint-result.txt、init-result.txt exit0
+  %% evidence S4: tests-result.txt 9文件144通过；内部ID及scheme/port先红反例已修复；类型、lint、init exit0
   class S5 doing
 ```
 

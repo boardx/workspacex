@@ -37,6 +37,14 @@ describe("report evidence respects confirmed source scope", () => {
     state.sourcePolicy!.internalSourceIds = ["allowed"];
     expect(canonicalEvidenceSources(state).map(s => s.url)).toEqual([state.sources[0]!.url]);
   });
+  it("does not authorize internal IDs through an allowed public URL or domain", () => {
+    const state = fixture(["https://w3.org/a", "https://internal.workspacex.local/artifacts/denied", "http://internal.workspacex.local/artifacts/allowed", "https://internal.workspacex.local:8443/artifacts/allowed"]);
+    state.sources[0]!.id = "internal:allowed";
+    state.sources[1]!.id = "internal:denied";
+    state.sourcePolicy!.internalSourceIds = ["allowed"];
+    state.sourcePolicy!.domains.push("internal.workspacex.local");
+    expect(canonicalEvidenceSources(state)).toEqual([]);
+  });
   it("fails before model invocation when every source is outside the restricted scope", async () => {
     const state = fixture(["https://other.example/a"]); let calls = 0;
     await expect(extractReportEvidence(state, config, async () => { calls++; return {}; })).rejects.toThrow("RESEARCH_SOURCES_REQUIRED");

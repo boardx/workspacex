@@ -1,20 +1,20 @@
- ✓ tests/research/guided-runtime-orchestration.test.ts (4 tests) 102ms
- ✓ tests/research/guided-source-documents.test.ts (8 tests) 62ms
- ✓ tests/research/guided-research-trust.test.ts (10 tests) 26ms
- ✓ tests/research/guided-research-steering.test.ts (7 tests) 18ms
- ✓ tests/research/guided-report-source-policy.test.ts (9 tests) 113ms
- ✓ tests/research/guided-runtime-formal-validation.test.ts (4 tests) 10ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (4 tests) 25ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 22ms
+ ✓ tests/research/guided-research-trust.test.ts (10 tests) 5ms
+ ✓ tests/research/guided-report-source-policy.test.ts (10 tests) 10ms
+ ✓ tests/research/guided-research-steering.test.ts (7 tests) 4ms
+ ✓ tests/research/guided-runtime-formal-validation.test.ts (4 tests) 2ms
 
  Test Files  9 passed (9)
-      Tests  143 passed (143)
-   Start at  22:33:46
-   Duration  27.43s (transform 3.21s, setup 155ms, collect 13.69s, tests 3.07s, environment 2ms, prepare 1.39s)
+      Tests  144 passed (144)
+   Start at  22:45:03
+   Duration  6.81s (transform 558ms, setup 22ms, collect 2.02s, tests 1.85s, environment 1ms, prepare 202ms)
 
-[db-isolation] db=wsx_7d2659b28222adab9bc3 peak_connections=1
+[db-isolation] db=wsx_4707fded9574f103dca2 peak_connections=1
 [timing] pnpm --filter @repo/api exec vitest run tests/research/guided-report-source-policy.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-report-chapters.test.ts tests/research/guided-research-steering.test.ts tests/research/guided-research-trust.test.ts tests/research/guided-source-documents.test.ts tests/research/guided-runtime-formal-validation.test.ts tests/research/guided-runtime-orchestration.test.ts tests/research/guided-source-relevance.test.ts --maxWorkers=1 --minWorkers=1
   等待重e2e互斥锁：0s
   环境预留：0s
   等待资源：0s
-  命令执行：29s
-  清理：2s
-  总计：31s
+  命令执行：7s
+  清理：0s
+  总计：8s
