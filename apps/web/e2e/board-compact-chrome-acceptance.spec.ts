@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
+import {connectByHandles} from './board-acceptance-support';
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
 const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-more'] as const;
@@ -32,6 +33,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    if(width<1280)expect(navigation.y+navigation.height).toBeLessThanOrEqual(dock.y-2);else{expect(navigation.y+navigation.height).toBeCloseTo(height-20,0);expect(navigation.x).toBeGreaterThanOrEqual(dock.x+dock.width+16);}for(const id of ['board-overview-fit','board-zoom-menu','board-zoom-fit-board'])await expect(page.getByTestId(id)).toBeVisible();
    if(width===1024)await expect(page.getByTestId('board-editor-header').getByRole('button',{name:'开始演示',exact:true})).toHaveCount(0);
    const dockMetrics=await page.getByTestId('board-creation-dock').locator(':scope > div').last().evaluate(el=>({clientWidth:el.clientWidth,scrollWidth:el.scrollWidth}));expect(dockMetrics.scrollWidth).toBeLessThanOrEqual(dockMetrics.clientWidth);
+   await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
    const toolBounds=await Promise.all(dockOrder.map(async id=>({id,box:(await page.getByTestId(id).boundingBox())!})));for(let index=1;index<toolBounds.length;index++)expect(toolBounds[index]!.box.x).toBeGreaterThan(toolBounds[index-1]!.box.x);
    await expect.poll(async()=>{const surface=page.getByTestId('board-fabric-surface'),view=await surface.evaluate(el=>({z:Number(el.getAttribute('data-viewport-zoom')),x:Number(el.getAttribute('data-viewport-pan-x')),y:Number(el.getAttribute('data-viewport-pan-y'))}));return 100*view.z+view.x>=31&&1300*view.z+view.x<=width-31&&100*view.z+view.y>=header.y+header.height+15&&896*view.z+view.y<=dock.y-11;}).toBe(true);
    await captureReference(page,info,`reference-shell-${label}`);
@@ -71,5 +73,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.getByRole('button', {name: '取消选择', exact: true}).click();
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
   await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
+  await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
+  expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}
 });

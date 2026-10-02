@@ -22,6 +22,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Verify isolated import credential boundaries
+        run: node --test scripts/tests/studio-skill-files-credentials.test.mjs
       # Optional public-read credential; fork PRs stay anonymous, never borrow github.token.
       - name: Verify dedicated public Skill import authentication (optional)
         env:

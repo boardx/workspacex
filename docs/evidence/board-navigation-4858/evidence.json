@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "48a96cbe2e68f49167b9da54a4d9d44fd0c80b28",
+  "fullSuite": {
+    "before": {
+      "utc": "2026-10-01T21:15:25.769Z",
+      "head": "48a96cbe2e68f49167b9da54a4d9d44fd0c80b28",
+      "cleanStatus": "",
+      "sourceSha256": {
+        "apps/api/src/main.ts": "2ae7017b6d0d6a29f83739161d9632713c489dd66a94ea8d31ad578ef3f4813f",
+        "apps/api/src/interface/controllers/whiteboard-operation.controller.ts": "2bb903680097c20efdd607a6d8451457ec20df732534553959fc82b9ba00ccac",
+        "apps/api/src/interface/ws/whiteboard.gateway.ts": "e4e88bea930c3a46b00b194076142a687a18100de604ae687704c0b076546bd8",
+        "apps/api/src/infrastructure/whiteboard/update-validator-worker.ts": "0549cfdf775b8feb01b3d6dae2b7c3736f1d640f4523b1e8c69072fcd4705134",
+        "apps/api/src/application/whiteboard/operation-service.ts": "a97fb395d5868618b6653baf8237d0eaf5fe65003820dc500e741e9cd2429717",
+        "apps/web/components/whiteboard/live-board.tsx": "10935c6089dc710a79a44ca418a742787ad4d066177397e8d22e2d689db90717",
+        "apps/web/lib/whiteboard-provider.ts": "7f0ee1d286182c56505ab29eae17da87537e2c6aeb847fe3a27bcc1b862938dc",
+        "apps/web/components/whiteboard/collaborative-thinking-editor.tsx": "d18ef8de360131b138266544678172de11fd99bda9e7c939b45aabb539be056b",
+        "apps/web/components/whiteboard/fabric/board-fabric-surface.tsx": "35c644bc6c94064965344e8664128739987d05cd6dbca325656713008dab9187",
+        "apps/web/components/whiteboard/fabric/fabric-input.ts": "a4c5e47b7b2901875b79f2e9813ddbbd56959be792005d335c933299d7cc34d9",
+        "apps/web/components/whiteboard/fabric/board-fabric-visual.ts": "c93f68c62b244d2320b765e1b58eb6a42250eda91bb25da6b641dbf2fce4a3d4",
+        "apps/web/components/whiteboard/fabric/drawing-stroke-path.ts": "2955fb63ccdf30a055559d1a14af4054e679a6dd8d74f3d8dcbca9713c7e4488",
+        "apps/web/components/whiteboard/fabric/drawing-cache-bounds.ts": "c292e7d136034e3ef31edb5e6880410abac6c02e8102a2de0f62da9956c9a2ee",
+        "apps/web/components/whiteboard/fabric/drawing-hit-test.ts": "c40c190a6e8c864b6537b284eab441573b1eadeaafe5e682a4a093b5659f5479",
+        "apps/web/components/whiteboard/drawing-coordinate-space.ts": "bf974a1dd3c9428f1dbde68d3028f81fa6a4a8108ae9b254e7208de4a3eeb30b",
+        "apps/web/components/whiteboard/drawing-tool-style.ts": "abe600a8cca692d0417580fbeb2b770aca4dfcad93645386024c24a700739a48",
+        "apps/web/components/whiteboard/whiteboard-fabric-projection.ts": "e3d5891483f0dd380726da8dcf62f56f6a20ef4ab3ad8ad4e5a6278d7a11faed",
+        "apps/web/components/whiteboard/object-context-toolbar.tsx": "16801f6457135219a3d90f01a79f653d706c88f8c77d6040049b6d130d4228cc",
+        "apps/web/components/whiteboard/use-board-toolbar-position.ts": "5a385a2bd47e7b04eddb35fa08546f08c791941069814ef5adeae91053cbcfd2",
+        "apps/web/components/whiteboard/use-board-overlay-navigation.ts": "c94a72a0924b249df4432c09c6f3e0bf9fcb948c7d3fa88430db38026c5027c8",
+        "packages/whiteboard-core/src/index.ts": "2b7c85766fa952d948379c6a4388cd07285f21e6f75c4fc04fd2976057417fa7",
+        "packages/whiteboard-core/src/document.ts": "e492e508337fa85799f64d50d876d4f5f12222d1e84e5271e3934d1de815d765",
+        "packages/whiteboard-core/src/spatial-relationships.ts": "3b1a4c682efdde7952a759250d5272035e9b369ec9fe04edd743380b18c8eaa1",
+        "packages/whiteboard-core/src/spatial-geometry.ts": "33de211ea08d08888b8f03f5819df53402ad89e9c876849f27f99aac8ebcedd5",
+        "packages/whiteboard-core/src/selection-layout.ts": "e62d663825fa21db408aff01131875618bbeb2cfbde497141958c86ab91e520e",
+        "packages/whiteboard-core/src/content-object-model.ts": "6d1d160cd4e6163bce512e367f97594159536cf0a00d07140405af583c9647c9",
+        "packages/contracts/src/whiteboard-operation.ts": "960fbc9e8fcfb9b451261d69a102d9c0e41e2c8680b72a7c17e83f76757eeb7f",
+        "scripts/local-session/board-navigation-acceptance.mjs": "5a67c53e9370543b594df8305232b055071487325bb18550ff723a680ed9a92e",
+        "scripts/local-session/board-navigation-acceptance-classifier.mjs": "8c8b33372d194462ad1d8a61793d83ef33eaef7b0c824acf6b044d7c31b957b3",
+        "scripts/local-session/board-navigation-acceptance-scheduler.mjs": "7b4175333ee0ae14a7cc714f6a23b0bcb1315179e418452ddb931b1cdbebbd8f",
+        "scripts/local-session/board-navigation-acceptance-runtime.mjs": "331ffba31772b463326e4cd5caa8386bffce4c4cdf901db29a9764a3e4e98939",
+        "scripts/local-session/board-acceptance-runtime.mjs": "a4310104445dc7f942ea76212269391e68775522ba9da9f4dde1fc1c83a4d34d"
+      }
+    },
+    "after": {
+      "utc": "2026-10-01T21:23:16.904Z",
+      "head": "48a96cbe2e68f49167b9da54a4d9d44fd0c80b28",
+      "cleanStatus": "",
+      "sourceSha256": {
+        "apps/api/src/main.ts": "2ae7017b6d0d6a29f83739161d9632713c489dd66a94ea8d31ad578ef3f4813f",
+        "apps/api/src/interface/controllers/whiteboard-operation.controller.ts": "2bb903680097c20efdd607a6d8451457ec20df732534553959fc82b9ba00ccac",
+        "apps/api/src/interface/ws/whiteboard.gateway.ts": "e4e88bea930c3a46b00b194076142a687a18100de604ae687704c0b076546bd8",
+        "apps/api/src/infrastructure/whiteboard/update-validator-worker.ts": "0549cfdf775b8feb01b3d6dae2b7c3736f1d640f4523b1e8c69072fcd4705134",
+        "apps/api/src/application/whiteboard/operation-service.ts": "a97fb395d5868618b6653baf8237d0eaf5fe65003820dc500e741e9cd2429717",
+        "apps/web/components/whiteboard/live-board.tsx": "10935c6089dc710a79a44ca418a742787ad4d066177397e8d22e2d689db90717",
+        "apps/web/lib/whiteboard-provider.ts": "7f0ee1d286182c56505ab29eae17da87537e2c6aeb847fe3a27bcc1b862938dc",
+        "apps/web/components/whiteboard/collaborative-thinking-editor.tsx": "d18ef8de360131b138266544678172de11fd99bda9e7c939b45aabb539be056b",
+        "apps/web/components/whiteboard/fabric/board-fabric-surface.tsx": "35c644bc6c94064965344e8664128739987d05cd6dbca325656713008dab9187",
+        "apps/web/components/whiteboard/fabric/fabric-input.ts": "a4c5e47b7b2901875b79f2e9813ddbbd56959be792005d335c933299d7cc34d9",
+        "apps/web/components/whiteboard/fabric/board-fabric-visual.ts": "c93f68c62b244d2320b765e1b58eb6a42250eda91bb25da6b641dbf2fce4a3d4",
+        "apps/web/components/whiteboard/fabric/drawing-stroke-path.ts": "2955fb63ccdf30a055559d1a14af4054e679a6dd8d74f3d8dcbca9713c7e4488",
+        "apps/web/components/whiteboard/fabric/drawing-cache-bounds.ts": "c292e7d136034e3ef31edb5e6880410abac6c02e8102a2de0f62da9956c9a2ee",
+        "apps/web/components/whiteboard/fabric/drawing-hit-test.ts": "c40c190a6e8c864b6537b284eab441573b1eadeaafe5e682a4a093b5659f5479",
+        "apps/web/components/whiteboard/drawing-coordinate-space.ts": "bf974a1dd3c9428f1dbde68d3028f81fa6a4a8108ae9b254e7208de4a3eeb30b",
+        "apps/web/components/whiteboard/drawing-tool-style.ts": "abe600a8cca692d0417580fbeb2b770aca4dfcad93645386024c24a700739a48",
+        "apps/web/components/whiteboard/whiteboard-fabric-projection.ts": "e3d5891483f0dd380726da8dcf62f56f6a20ef4ab3ad8ad4e5a6278d7a11faed",
+        "apps/web/components/whiteboard/object-context-toolbar.tsx": "16801f6457135219a3d90f01a79f653d706c88f8c77d6040049b6d130d4228cc",
+        "apps/web/components/whiteboard/use-board-toolbar-position.ts": "5a385a2bd47e7b04eddb35fa08546f08c791941069814ef5adeae91053cbcfd2",
+        "apps/web/components/whiteboard/use-board-overlay-navigation.ts": "c94a72a0924b249df4432c09c6f3e0bf9fcb948c7d3fa88430db38026c5027c8",
+        "packages/whiteboard-core/src/index.ts": "2b7c85766fa952d948379c6a4388cd07285f21e6f75c4fc04fd2976057417fa7",
+        "packages/whiteboard-core/src/document.ts": "e492e508337fa85799f64d50d876d4f5f12222d1e84e5271e3934d1de815d765",
+        "packages/whiteboard-core/src/spatial-relationships.ts": "3b1a4c682efdde7952a759250d5272035e9b369ec9fe04edd743380b18c8eaa1",
+        "packages/whiteboard-core/src/spatial-geometry.ts": "33de211ea08d08888b8f03f5819df53402ad89e9c876849f27f99aac8ebcedd5",
+        "packages/whiteboard-core/src/selection-layout.ts": "e62d663825fa21db408aff01131875618bbeb2cfbde497141958c86ab91e520e",
+        "packages/whiteboard-core/src/content-object-model.ts": "6d1d160cd4e6163bce512e367f97594159536cf0a00d07140405af583c9647c9",
+        "packages/contracts/src/whiteboard-operation.ts": "960fbc9e8fcfb9b451261d69a102d9c0e41e2c8680b72a7c17e83f76757eeb7f",
+        "scripts/local-session/board-navigation-acceptance.mjs": "5a67c53e9370543b594df8305232b055071487325bb18550ff723a680ed9a92e",
+        "scripts/local-session/board-navigation-acceptance-classifier.mjs": "8c8b33372d194462ad1d8a61793d83ef33eaef7b0c824acf6b044d7c31b957b3",
+        "scripts/local-session/board-navigation-acceptance-scheduler.mjs": "7b4175333ee0ae14a7cc714f6a23b0bcb1315179e418452ddb931b1cdbebbd8f",
+        "scripts/local-session/board-navigation-acceptance-runtime.mjs": "331ffba31772b463326e4cd5caa8386bffce4c4cdf901db29a9764a3e4e98939",
+        "scripts/local-session/board-acceptance-runtime.mjs": "a4310104445dc7f942ea76212269391e68775522ba9da9f4dde1fc1c83a4d34d"
+      }
+    },
+    "bindingValid": true,
+    "stages": [
+      {
+        "name": "lint",
+        "command": [
+          "pnpm",
+          "--filter",
+          "web",
+          "lint"
+        ],
+        "startUtc": "2026-10-01T21:15:25.855Z",
+        "endUtc": "2026-10-01T21:15:31.310Z",
+        "exitCode": 0
+      },
+      {
+        "name": "typecheck",
+        "command": [
+          "pnpm",
+          "--filter",
+          "web",
+          "typecheck"
+        ],
+        "startUtc": "2026-10-01T21:15:31.310Z",
+        "endUtc": "2026-10-01T21:15:34.293Z",
+        "exitCode": 0
+      },
+      {
+        "name": "suite",
+        "command": [
+          "pnpm",
+          "--filter",
+          "web",
+          "exec",
+          "vitest",
+          "run",
+          "tests/ui",
+          "tests/whiteboard",
+          "--maxWorkers=1",
+          "--no-file-parallelism",
+          "--no-cache",
+          "--reporter=default",
+          "--reporter=json",
+          "--outputFile=/private/tmp/wsx-r01-full-ui-whiteboard-run6-20261002.json"
+        ],
+        "startUtc": "2026-10-01T21:15:34.293Z",
+        "endUtc": "2026-10-01T21:23:16.903Z",
+        "exitCode": 0
+      }
+    ],
+    "report": {
+      "sha256": "bcc11952f22ded3db7151507a49531fd40248bf5e2e114f81be744a5f52fc11f",
+      "success": true,
+      "files": 629,
+      "passedFiles": 629,
+      "totalTests": 5118,
+      "passedTests": 5113,
+      "failedTests": 0,
+      "skippedTests": 5
+    }
+  },
+  "browser": {
+    "run": "Run16",
+    "ok": true,
+    "caseCount": 21,
+    "start": {
+      "head": "48a96cbe2e68f49167b9da54a4d9d44fd0c80b28",
+      "sourceHashes": {
+        "apps/api/src/main.ts": "2ae7017b6d0d6a29f83739161d9632713c489dd66a94ea8d31ad578ef3f4813f",
+        "apps/api/src/interface/controllers/whiteboard-operation.controller.ts": "2bb903680097c20efdd607a6d8451457ec20df732534553959fc82b9ba00ccac",
+        "apps/api/src/interface/ws/whiteboard.gateway.ts": "e4e88bea930c3a46b00b194076142a687a18100de604ae687704c0b076546bd8",
+        "apps/api/src/infrastructure/whiteboard/update-validator-worker.ts": "0549cfdf775b8feb01b3d6dae2b7c3736f1d640f4523b1e8c69072fcd4705134",
+        "apps/api/src/application/whiteboard/operation-service.ts": "a97fb395d5868618b6653baf8237d0eaf5fe65003820dc500e741e9cd2429717",
+        "apps/web/components/whiteboard/live-board.tsx": "10935c6089dc710a79a44ca418a742787ad4d066177397e8d22e2d689db90717",
+        "apps/web/lib/whiteboard-provider.ts": "7f0ee1d286182c56505ab29eae17da87537e2c6aeb847fe3a27bcc1b862938dc",
+        "apps/web/components/whiteboard/collaborative-thinking-editor.tsx": "d18ef8de360131b138266544678172de11fd99bda9e7c939b45aabb539be056b",
+        "apps/web/components/whiteboard/fabric/board-fabric-surface.tsx": "35c644bc6c94064965344e8664128739987d05cd6dbca325656713008dab9187",
+        "apps/web/components/whiteboard/fabric/fabric-input.ts": "a4c5e47b7b2901875b79f2e9813ddbbd56959be792005d335c933299d7cc34d9",
+        "apps/web/components/whiteboard/fabric/board-fabric-visual.ts": "c93f68c62b244d2320b765e1b58eb6a42250eda91bb25da6b641dbf2fce4a3d4",
+        "apps/web/components/whiteboard/fabric/drawing-stroke-path.ts": "2955fb63ccdf30a055559d1a14af4054e679a6dd8d74f3d8dcbca9713c7e4488",
+        "apps/web/components/whiteboard/fabric/drawing-cache-bounds.ts": "c292e7d136034e3ef31edb5e6880410abac6c02e8102a2de0f62da9956c9a2ee",
+        "apps/web/components/whiteboard/fabric/drawing-hit-test.ts": "c40c190a6e8c864b6537b284eab441573b1eadeaafe5e682a4a093b5659f5479",
+        "apps/web/components/whiteboard/drawing-coordinate-space.ts": "bf974a1dd3c9428f1dbde68d3028f81fa6a4a8108ae9b254e7208de4a3eeb30b",
+        "apps/web/components/whiteboard/drawing-tool-style.ts": "abe600a8cca692d0417580fbeb2b770aca4dfcad93645386024c24a700739a48",
+        "apps/web/components/whiteboard/whiteboard-fabric-projection.ts": "e3d5891483f0dd380726da8dcf62f56f6a20ef4ab3ad8ad4e5a6278d7a11faed",
+        "apps/web/components/whiteboard/object-context-toolbar.tsx": "16801f6457135219a3d90f01a79f653d706c88f8c77d6040049b6d130d4228cc",
+        "apps/web/components/whiteboard/use-board-toolbar-position.ts": "5a385a2bd47e7b04eddb35fa08546f08c791941069814ef5adeae91053cbcfd2",
+        "apps/web/components/whiteboard/use-board-overlay-navigation.ts": "c94a72a0924b249df4432c09c6f3e0bf9fcb948c7d3fa88430db38026c5027c8",
+        "packages/whiteboard-core/src/index.ts": "2b7c85766fa952d948379c6a4388cd07285f21e6f75c4fc04fd2976057417fa7",
+        "packages/whiteboard-core/src/document.ts": "e492e508337fa85799f64d50d876d4f5f12222d1e84e5271e3934d1de815d765",
+        "packages/whiteboard-core/src/spatial-relationships.ts": "3b1a4c682efdde7952a759250d5272035e9b369ec9fe04edd743380b18c8eaa1",
+        "packages/whiteboard-core/src/spatial-geometry.ts": "33de211ea08d08888b8f03f5819df53402ad89e9c876849f27f99aac8ebcedd5",
+        "packages/whiteboard-core/src/selection-layout.ts": "e62d663825fa21db408aff01131875618bbeb2cfbde497141958c86ab91e520e",
+        "packages/whiteboard-core/src/content-object-model.ts": "6d1d160cd4e6163bce512e367f97594159536cf0a00d07140405af583c9647c9",
+        "packages/contracts/src/whiteboard-operation.ts": "960fbc9e8fcfb9b451261d69a102d9c0e41e2c8680b72a7c17e83f76757eeb7f",
+        "scripts/local-session/board-navigation-acceptance.mjs": "5a67c53e9370543b594df8305232b055071487325bb18550ff723a680ed9a92e",
+        "scripts/local-session/board-navigation-acceptance-classifier.mjs": "8c8b33372d194462ad1d8a61793d83ef33eaef7b0c824acf6b044d7c31b957b3",
+        "scripts/local-session/board-navigation-acceptance-scheduler.mjs": "7b4175333ee0ae14a7cc714f6a23b0bcb1315179e418452ddb931b1cdbebbd8f",
+        "scripts/local-session/board-navigation-acceptance-runtime.mjs": "331ffba31772b463326e4cd5caa8386bffce4c4cdf901db29a9764a3e4e98939",
+        "scripts/local-session/board-acceptance-runtime.mjs": "a4310104445dc7f942ea76212269391e68775522ba9da9f4dde1fc1c83a4d34d"
+      }
+    },
+    "end": {
+      "head": "48a96cbe2e68f49167b9da54a4d9d44fd0c80b28",
+      "sourceHashes": {
+        "apps/api/src/main.ts": "2ae7017b6d0d6a29f83739161d9632713c489dd66a94ea8d31ad578ef3f4813f",
+        "apps/api/src/interface/controllers/whiteboard-operation.controller.ts": "2bb903680097c20efdd607a6d8451457ec20df732534553959fc82b9ba00ccac",
+        "apps/api/src/interface/ws/whiteboard.gateway.ts": "e4e88bea930c3a46b00b194076142a687a18100de604ae687704c0b076546bd8",
+        "apps/api/src/infrastructure/whiteboard/update-validator-worker.ts": "0549cfdf775b8feb01b3d6dae2b7c3736f1d640f4523b1e8c69072fcd4705134",
+        "apps/api/src/application/whiteboard/operation-service.ts": "a97fb395d5868618b6653baf8237d0eaf5fe65003820dc500e741e9cd2429717",
+        "apps/web/components/whiteboard/live-board.tsx": "10935c6089dc710a79a44ca418a742787ad4d066177397e8d22e2d689db90717",
+        "apps/web/lib/whiteboard-provider.ts": "7f0ee1d286182c56505ab29eae17da87537e2c6aeb847fe3a27bcc1b862938dc",
+        "apps/web/components/whiteboard/collaborative-thinking-editor.tsx": "d18ef8de360131b138266544678172de11fd99bda9e7c939b45aabb539be056b",
+        "apps/web/components/whiteboard/fabric/board-fabric-surface.tsx": "35c644bc6c94064965344e8664128739987d05cd6dbca325656713008dab9187",
+        "apps/web/components/whiteboard/fabric/fabric-input.ts": "a4c5e47b7b2901875b79f2e9813ddbbd56959be792005d335c933299d7cc34d9",
+        "apps/web/components/whiteboard/fabric/board-fabric-visual.ts": "c93f68c62b244d2320b765e1b58eb6a42250eda91bb25da6b641dbf2fce4a3d4",
+        "apps/web/components/whiteboard/fabric/drawing-stroke-path.ts": "2955fb63ccdf30a055559d1a14af4054e679a6dd8d74f3d8dcbca9713c7e4488",
+        "apps/web/components/whiteboard/fabric/drawing-cache-bounds.ts": "c292e7d136034e3ef31edb5e6880410abac6c02e8102a2de0f62da9956c9a2ee",
+        "apps/web/components/whiteboard/fabric/drawing-hit-test.ts": "c40c190a6e8c864b6537b284eab441573b1eadeaafe5e682a4a093b5659f5479",
+        "apps/web/components/whiteboard/drawing-coordinate-space.ts": "bf974a1dd3c9428f1dbde68d3028f81fa6a4a8108ae9b254e7208de4a3eeb30b",
+        "apps/web/components/whiteboard/drawing-tool-style.ts": "abe600a8cca692d0417580fbeb2b770aca4dfcad93645386024c24a700739a48",
+        "apps/web/components/whiteboard/whiteboard-fabric-projection.ts": "e3d5891483f0dd380726da8dcf62f56f6a20ef4ab3ad8ad4e5a6278d7a11faed",
+        "apps/web/components/whiteboard/object-context-toolbar.tsx": "16801f6457135219a3d90f01a79f653d706c88f8c77d6040049b6d130d4228cc",
+        "apps/web/components/whiteboard/use-board-toolbar-position.ts": "5a385a2bd47e7b04eddb35fa08546f08c791941069814ef5adeae91053cbcfd2",
+        "apps/web/components/whiteboard/use-board-overlay-navigation.ts": "c94a72a0924b249df4432c09c6f3e0bf9fcb948c7d3fa88430db38026c5027c8",
+        "packages/whiteboard-core/src/index.ts": "2b7c85766fa952d948379c6a4388cd07285f21e6f75c4fc04fd2976057417fa7",
+        "packages/whiteboard-core/src/document.ts": "e492e508337fa85799f64d50d876d4f5f12222d1e84e5271e3934d1de815d765",
+        "packages/whiteboard-core/src/spatial-relationships.ts": "3b1a4c682efdde7952a759250d5272035e9b369ec9fe04edd743380b18c8eaa1",
+        "packages/whiteboard-core/src/spatial-geometry.ts": "33de211ea08d08888b8f03f5819df53402ad89e9c876849f27f99aac8ebcedd5",
+        "packages/whiteboard-core/src/selection-layout.ts": "e62d663825fa21db408aff01131875618bbeb2cfbde497141958c86ab91e520e",
+        "packages/whiteboard-core/src/content-object-model.ts": "6d1d160cd4e6163bce512e367f97594159536cf0a00d07140405af583c9647c9",
+        "packages/contracts/src/whiteboard-operation.ts": "960fbc9e8fcfb9b451261d69a102d9c0e41e2c8680b72a7c17e83f76757eeb7f",
+        "scripts/local-session/board-navigation-acceptance.mjs": "5a67c53e9370543b594df8305232b055071487325bb18550ff723a680ed9a92e",
+        "scripts/local-session/board-navigation-acceptance-classifier.mjs": "8c8b33372d194462ad1d8a61793d83ef33eaef7b0c824acf6b044d7c31b957b3",
+        "scripts/local-session/board-navigation-acceptance-scheduler.mjs": "7b4175333ee0ae14a7cc714f6a23b0bcb1315179e418452ddb931b1cdbebbd8f",
+        "scripts/local-session/board-navigation-acceptance-runtime.mjs": "331ffba31772b463326e4cd5caa8386bffce4c4cdf901db29a9764a3e4e98939",
+        "scripts/local-session/board-acceptance-runtime.mjs": "a4310104445dc7f942ea76212269391e68775522ba9da9f4dde1fc1c83a4d34d"
+      }
+    },
+    "identicalRuntimeAttestations": true,
+    "cases": [
+      {
+        "name": "authorized session and real board creation",
+        "ok": true
+      },
+      {
+        "name": "canonical owner seeds navigation fixtures",
+        "ok": true
+      },
+      {
+        "name": "wheel, middle/right pan width 1440",
+        "ok": true
+      },
+      {
+        "name": "live object/handles/menu/connector width 1440",
+        "ok": true
+      },
+      {
+        "name": "held resize controls/menu/edge width 1440",
+        "ok": true
+      },
+      {
+        "name": "held rotate controls/menu/edge width 1440",
+        "ok": true
+      },
+      {
+        "name": "cancel held object transform Escape width 1440",
+        "ok": true
+      },
+      {
+        "name": "cancel held object transform blur width 1440",
+        "ok": true
+      },
+      {
+        "name": "middle/right pan begins on connector DOM overlays width 1440",
+        "ok": true
+      },
+      {
+        "name": "wheel, middle/right pan width 390",
+        "ok": true
+      },
+      {
+        "name": "live object/handles/menu/connector width 390",
+        "ok": true
+      },
+      {
+        "name": "held resize controls/menu/edge width 390",
+        "ok": true
+      },
+      {
+        "name": "held rotate controls/menu/edge width 390",
+        "ok": true
+      },
+      {
+        "name": "cancel held object transform Escape width 390",
+        "ok": true
+      },
+      {
+        "name": "cancel held object transform blur width 390",
+        "ok": true
+      },
+      {
+        "name": "middle/right pan begins on connector DOM overlays width 390",
+        "ok": true
+      },
+      {
+        "name": "multi-selection move resize rotation held follow is one transaction each",
+        "ok": true
+      },
+      {
+        "name": "real pen/highlighter gestures preserve centre thickness round caps and single alpha",
+        "ok": true
+      },
+      {
+        "name": "real drawing resize rotation undo redo reload preserve ink geometry and opacity",
+        "ok": true
+      },
+      {
+        "name": "strong anisotropic drawing multi-eraser is one transaction and one undo",
+        "ok": true
+      },
+      {
+        "name": "owned fixture cleanup",
+        "ok": true
+      }
+    ],
+    "browserErrors": [],
+    "httpFailures": [],
+    "requestScheduling": {
+      "intervalMs": 1000,
+      "requestCount": 167,
+      "throttleWaitMs": 106077.06433699999,
+      "actualMinDispatchSpacingMs": 1000.0099999999802
+    },
+    "ownedFixtureCleanupStatus": 404,
+    "connectorAcceptanceBoundary": "R1 attached-line fixtures use no arrowhead to avoid entity-sample occlusion; arrowhead styles are NOT accepted by this matrix and require Round02. Free connector overlay fixtures retain arrowheads.",
+    "exclusions": [
+      "real Mac trackpad hardware",
+      "native touch gestures",
+      "native IME hardware",
+      "Highlighter defaults NOT ACCEPTED pending Round05 #4969; explicit opacity 25% is tested here.",
+      "native OS blur",
+      "Firefox/WebKit",
+      "multi-user conflicts"
+    ]
+  },
+  "screenshots": [
+    {
+      "name": "multi-rotate--30-held.png",
+      "sha256": "dd2c2b81a4956c540d112d944950f3c5011aef9f6e887e85561811cce0d24855"
+    },
+    {
+      "name": "multi-rotate--60-held.png",
+      "sha256": "fdfc5aaeb62d6ca2ba53b4b6a5cc81c4f6fbd5e461b7b193ac96ae3514f06cd3"
+    },
+    {
+      "name": "multi-rotate-redo-reload.png",
+      "sha256": "9c0b2cbf0d85fe996d29674a460143b5ec739c2e38536ca7c82137d530661af3"
+    },
+    {
+      "name": "navigation-390.png",
+      "sha256": "f6624180ffa2227c48df62ffc3cc073a3c33a36025d9dbc88e0681040a4b12e8"
+    },
+    {
+      "name": "highlighter-natural.png",
+      "sha256": "d0c42658779d2239b10d9330d1a251e12a1bc245c70fb5795fa602be7ab4045b"
+    }
+  ]
+}

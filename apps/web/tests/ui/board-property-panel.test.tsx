@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, readObjects, SpatialRelationshipCommandPort } from "@repo/whiteboard-core";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
@@ -9,7 +9,10 @@ vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
-afterEach(cleanup);
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 100, top: 400, bottom: 444, right: 144, x: 100, y: 400, width: 44, height: 44, toJSON: () => ({}) });
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function seed() {
   const doc = createWhiteboardDocument(), port = new SpatialRelationshipCommandPort(doc);
@@ -39,17 +42,35 @@ it("shows relationship-specific fields and disables precise edits after locking"
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-edge"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-connector-label-open"));
+  expect(screen.getByTestId("board-connector-label")).toHaveValue("needs");
+  fireEvent.change(screen.getByTestId("board-connector-label"), { target: { value: "needs\nreview" } });
+  expect(readObjects(doc).find((object) => object.id === "edge")?.connector?.label).toBe("needs");
+  fireEvent.click(screen.getByTestId("board-connector-label-save"));
+  expect(readObjects(doc).find((object) => object.id === "edge")?.connector?.label).toBe("needs\nreview");
+  fireEvent.click(screen.getByRole("button", { name: "关闭连接标签" }));
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   fireEvent.click(screen.getByRole("button", { name: "精确属性" }));
   expect(screen.getByTestId("board-connector-properties")).toBeVisible();
-  expect(screen.getByLabelText("连接标签")).toHaveValue("needs");
   expect(screen.queryByTestId("board-panel-properties")).toBeNull();
   fireEvent.change(screen.getByLabelText("语义关系"), { target: { value: "depends_on" } });
   expect(readObjects(doc).find((object) => object.id === "edge")?.connector?.semanticRelation).toBe("depends_on");
+  fireEvent.click(screen.getByRole("button", { name: "关闭更多操作" }));
+  fireEvent.click(screen.getByTestId("board-inspector-collapse"));
+  fireEvent.click(screen.getByTestId("board-connector-label-open"));
+  fireEvent.change(screen.getByTestId("board-connector-label"), { target: { value: "unsaved draft" } });
   act(() => { port.dispatch({ boardId: "board", clientId: "seed", gestureId: "lock", command: { type: "set-locked", objectIds: ["edge"], locked: true } }); });
-  expect(screen.getByLabelText("连接标签")).toBeDisabled();
-  expect(screen.getByLabelText("连接路径")).toBeDisabled();
+  expect(screen.getByTestId("board-connector-label")).toBeDisabled();
+  expect(screen.getByTestId("board-connector-label-save")).toBeDisabled();
+  expect(screen.getByTestId("board-connector-path-open")).toBeDisabled();
+  expect(screen.getByTestId("board-connector-width-open")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("board-connector-label-save"));
+  expect(readObjects(doc).find((object) => object.id === "edge")?.connector?.label).toBe("needs\nreview");
+  fireEvent.click(screen.getByRole("button", { name: "关闭连接标签" }));
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  expect(screen.getByLabelText("语义关系")).toBeDisabled();
+  expect(screen.getByTestId("board-inspector-geometry-x")).toBeDisabled();
   doc.destroy();
 });
 
