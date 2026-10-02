@@ -18,7 +18,7 @@
  * 整段不是 JSON ⇒ 把整段非空输出当回复文字（模型只是没按格式说话，话本身还是它说的），
  * 不写回。模型不可用/超时/空输出 ⇒ 退回 `DESIGN_WORKBENCH_CHAT_REPLY`、`source: "fallback"`，不抛。
  */
-import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
+import { designAiCollab, designHtmlPage, designPrototype, designWorkbench } from "@repo/contracts";
 import {
   scorePrototypeScreen,
   PROTOTYPE_QUALITY_THRESHOLD,
@@ -30,6 +30,11 @@ import { ModelCallError } from "../agent-run/ports";
 import type { FeedbackStructureModelConfig } from "../feedback/structure-feedback-draft";
 import type { DesignProjectRow } from "./project-ports";
 import { describeScreenIssues, normalizeScreenCandidate, parseScreenJson } from "./prototype-screen-repair";
+import {
+  briefToText, DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, DESIGN_ONE_HTML_SCREEN_SYSTEM_PROMPT,
+  DESIGN_OUTLINE_HTML_ADDENDUM, htmlCanvasWidth, htmlPageCss, parseDesignBrief, parseElementEditOutput, parseHtmlPageOutput,
+  parsePageEditOutput, pruneInvalidGotos, scoreHtmlPage, SIMPLER_HTML_HINT, summarizeHtmlScreen, type DesignBrief,
+} from "./html-page-design";
 
 export type AiReplySource = z.infer<typeof designAiCollab.AiReplySource>;
 export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteback>;
@@ -70,7 +75,11 @@ export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "pr
    */
   readonly refImages?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[];
   /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
-  readonly focus?: { readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown };
+  readonly focus?: {
+    readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown;
+    /** 选中的是 HTML 页（或其中一个元素）：整页 HTML 与元素编号。只给服务端的局部修改那条路用，不进树形 prompt。 */
+    readonly html?: { readonly page: string; readonly ref?: string };
+  };
   /**
    * 迭代 16（#3773 R2）——**分页生成的中间结果出口**。
    *
@@ -151,6 +160,11 @@ export interface ModelDesignChatReplierDeps {
   readonly model: ModelCallPort;
   readonly chatModel: FeedbackStructureModelConfig;
   readonly log: (message: string, detail: Record<string, unknown>) => void;
+  /**
+   * 首次生成是否走「整页 HTML」模式（方向 C，见 `html-page-design.ts`）。类的缺省 ⇒ 关（组件树模式），
+   * 需要显式开；产品默认开在控制器那一层（`DESIGN_HTML_PAGES`）。已有的树形页不受影响，两种页可以并存。
+   */
+  readonly htmlPages?: boolean;
 }
 
 /**
@@ -288,7 +302,24 @@ export const CHAT_HISTORY_MAX_TURNS = 20;
 /** 单条消息喂进去的上限：挡住「整段贴需求文档」一次吃光预算。 */
 export const CHAT_TURN_MAX_CHARS = 1200;
 
-function describeProject(ctx: DesignChatContext): string {
+/** HTML 模式的模板描述：设计宽度取**真实设备宽**（`apps/web/lib/prototype-devices.ts` 的 iPhone 15 / iPad / 桌面），不是树形原语那套 300/440/720。 */
+function htmlTemplateLine(template: DesignChatContext["template"]): string {
+  const w = htmlCanvasWidth(template);
+  return template === "mobile" ? `手机，设计宽度 ${String(w)}px，单列为主，底部主操作或底部导航贴底；高保真，可以用颜色表达状态与层级`
+    : template === "ui" ? `桌面，设计宽度 ${String(w)}px，可用多栏；高保真，可以用颜色表达状态与层级`
+    : `平板，设计宽度 ${String(w)}px；**低保真线框图**——画布会把颜色压成灰阶，所以不要靠颜色传达信息：` +
+      "状态、优先级、分组用文字、位置、线条、灰度深浅和字号层级表达；但版面比例、真实文案与层级要像真的界面，" +
+      "图片位用带对角线的灰框，不要画成粗糙的方块堆";
+}
+
+/** 树形 prompt 里的 HTML 页只留摘要（一页几万字的 HTML 既吃上下文、模型也改不了它——要改得先选中它，走局部修改）。 */
+function summarizeHtmlNodes(n: designPrototype.PrototypeNode | null): unknown {
+  if (n === null) return null;
+  if (n.type === "html") return { ...(n.id === undefined ? {} : { id: n.id }), type: "html", note: "整页版面（HTML），要改请让用户在画布上选中它", summary: designHtmlPage.htmlPageVisibleText(n.props.html).slice(0, 120) };
+  return designPrototype.isPrototypeContainer(n) ? { ...n, children: n.children.map(summarizeHtmlNodes) } : n;
+}
+
+function describeProject(ctx: DesignChatContext, html = false): string {
   const lines = [
     `项目名称：${ctx.name}`,
     /*
@@ -300,6 +331,7 @@ function describeProject(ctx: DesignChatContext): string {
      * 用 badge 的 tone 区分状态、用 primary/danger 区分按钮，全都退化成同一个灰。
      * 告诉它保真度，它才会改用结构和文字去表达那些区别。
      */
+    html ? `模板：${ctx.template}（${htmlTemplateLine(ctx.template)}）` :
     `模板：${ctx.template}（${
       ctx.template === "mobile" ? "手机，画布宽 300px，单列为主，底部可放 bottomnav；高保真，可以用颜色表达状态与层级"
       : ctx.template === "ui" ? "桌面，画布宽 720px，可用 grid 2–3 列与 hero 头图；高保真，可以用颜色表达状态与层级"
@@ -310,7 +342,7 @@ function describeProject(ctx: DesignChatContext): string {
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
-    `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype)}`,
+    `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype.map(summarizeHtmlNodes))}`,
   ];
   if (ctx.focus !== undefined) {
     lines.push(
@@ -605,7 +637,13 @@ export class ModelDesignChatReplier implements DesignChatModel {
    *   任何用户可见的东西。
    */
   private async generatePaged(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const outlineText = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_OUTLINE_SYSTEM_PROMPT, ctx.refImages);
+    // 方向 C：HTML 模式下骨架轮多要一份设计简报（色板 / 字阶 / 版式 / 记忆点），后面每页都带着它。
+    const htmlMode = this.deps.htmlPages === true;
+    const outlineText = await this.callModel(
+      describeProject(ctx, htmlMode), DESIGN_CHAT_REPLY_TIMEOUT_MS,
+      htmlMode ? DESIGN_OUTLINE_SYSTEM_PROMPT + DESIGN_OUTLINE_HTML_ADDENDUM : DESIGN_OUTLINE_SYSTEM_PROMPT,
+      ctx.refImages,
+    );
     if (outlineText.truncated) return this.fallback("MODEL_OUTPUT_TRUNCATED");
     let outlineRaw: unknown;
     try {
@@ -642,6 +680,8 @@ export class ModelDesignChatReplier implements DesignChatModel {
      * 不是某个具体数值；数值那一层已经由原语的档位闭集管住了。
      */
     const tone = typeof obj.tone === "string" ? obj.tone.trim().slice(0, 400) : "";
+    const brief = htmlMode ? parseDesignBrief(obj.brief) : undefined;
+    if (htmlMode && brief === undefined) this.deps.log("design chat: html mode but outline gave no usable brief, drawing without one", {});
     /**
      * 迭代 17：模型挑的强调色档位。过契约闭集——给了个不存在的名字（或压根没给）
      * ⇒ `undefined`，调用方不写这个字段，项目保持原样。**不猜、不近似匹配**：
@@ -722,7 +762,9 @@ export class ModelDesignChatReplier implements DesignChatModel {
      */
     const drawn = new Map<string, Record<string, unknown>>();
     const runOne = async (i: number, entry: OutlineEntry, anchors: readonly { frame: string; screen: Record<string, unknown> }[]): Promise<void> => {
-      const screen = await this.drawOneScreen(ctx, { outline, tone, index: i, entry, anchors, budget });
+      const screen = htmlMode
+        ? await this.drawOneHtmlScreen(ctx, { outline, tone, ...(brief === undefined ? {} : { brief }), index: i, entry, anchors, budget })
+        : await this.drawOneScreen(ctx, { outline, tone, index: i, entry, anchors, budget });
       if (screen === null) { failed.push(entry.frame); return; }
       drawn.set(entry.frame, screen);
       // `done` 是给后面几批当风格锚用的，按完成顺序追加即可（页序由 `snapshot()` 按骨架还原）。
@@ -885,6 +927,150 @@ export class ModelDesignChatReplier implements DesignChatModel {
       }
     }
     return best.screen;
+  }
+
+
+  /**
+   * 方向 C：画**一页 HTML**。和 `drawOneScreen` 同样三段降级（截断 ⇒ 更精炼重来；质量低 ⇒ 带具体反馈重问一次，
+   * 只留更好的那版；画不出 ⇒ `null`），区别只在产物是 `<page>` 里的 HTML，经清洗后装进一个 `html` 节点，
+   * 且**过不了契约不用重问**——清洗器保证了产物合法，能失败的只有「没写完」与「写空了」。
+   */
+  private async drawOneHtmlScreen(
+    ctx: DesignChatContext,
+    args: {
+      readonly outline: readonly OutlineEntry[];
+      readonly tone: string;
+      readonly brief?: DesignBrief;
+      readonly index: number;
+      readonly entry: OutlineEntry;
+      readonly anchors: readonly { readonly frame: string; readonly screen: Record<string, unknown> }[];
+      readonly budget: { left: number };
+    },
+  ): Promise<Record<string, unknown> | null> {
+    const { outline, tone, brief, index: i, entry, anchors, budget } = args;
+    const canvasWidth = htmlCanvasWidth(ctx.template);
+    const htmlOf = (s: Record<string, unknown>): string => ((s.root as { props?: { html?: string } }).props?.html) ?? "";
+    const context =
+      describeProject(ctx, true) +
+      (tone === "" ? "" : `\n\n整套界面的设计基调：${tone}`) +
+      (brief === undefined ? "" : `\n\n${briefToText(brief)}`) +
+      `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
+      outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
+      (anchors.length === 0 ? "" : "\n\n已经画好的页：\n" + anchors.map((d, k) => summarizeHtmlScreen(d.frame, htmlOf(d.screen), k === 0)).join("\n")) +
+      `\n\n现在只画第 ${i} 页「${entry.frame}」。data-goto 的值用上面的页序号（不要指向自己这一页）。`;
+
+    const ask = async (extra: string, timeout: number): Promise<{ page: ReturnType<typeof parseHtmlPageOutput>; truncated: boolean } | null> => {
+      try {
+        const r = await this.callModel(context + extra, timeout, DESIGN_ONE_HTML_SCREEN_SYSTEM_PROMPT, ctx.refImages);
+        return { page: r.truncated ? null : parseHtmlPageOutput(r.text, { index: i, screenCount: outline.length }), truncated: r.truncated };
+      } catch (e) {
+        this.deps.log("design chat: html screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+        return null;
+      }
+    };
+    const toScreen = (page: NonNullable<ReturnType<typeof parseHtmlPageOutput>>): Record<string, unknown> => ({
+      frame: entry.frame,
+      root: { type: "html", props: { html: page.html } },
+      ...(page.notes === undefined ? {} : { notes: page.notes }),
+      // `links` 是 HTML 的投影（契约 `htmlPageLinks`），从这里算，不让模型另写一份。
+      links: designHtmlPage.htmlPageLinks(page.html).map((l) => ({ from: l.from, to: l.to })),
+    });
+    const scoreOf = (page: NonNullable<ReturnType<typeof parseHtmlPageOutput>>): ReturnType<typeof scoreHtmlPage> =>
+      scoreHtmlPage(page.html, { screenCount: outline.length, canvasWidth, ...(brief === undefined ? {} : { brief }) });
+
+    let first = await ask("", DESIGN_CHAT_REPLY_TIMEOUT_MS);
+    if (first === null || first.page === null) {
+      // 没写完 / 写空了 ⇒ 要求更精炼再来一次（换了个请求，不是原样重试）。
+      this.deps.log("design chat: html screen unusable, retrying leaner", { index: i, truncated: first?.truncated ?? false });
+      first = await ask(SIMPLER_HTML_HINT, DESIGN_CHAT_REPAIR_TIMEOUT_MS);
+      if (first === null || first.page === null) return null;
+    }
+    if (first.page.removed.length > 0 || first.page.prunedGotos > 0) {
+      this.deps.log("design chat: html screen sanitized", { index: i, removed: first.page.removed, prunedGotos: first.page.prunedGotos });
+    }
+    let best = { page: first.page, report: scoreOf(first.page) };
+    if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
+      if (budget.left <= 0) {
+        this.deps.log("design chat: html quality below bar but retry budget spent", { index: i, score: best.report.total });
+      } else {
+        budget.left -= 1;
+        this.deps.log("design chat: html quality below bar, asking again with feedback", { index: i, score: best.report.total });
+        const again = await ask(
+          `\n\n你刚才写的这一页不够好，问题逐条如下：\n${best.report.feedback}\n\n你上一版的 HTML 在下面，请在它的基础上把每一条都补上，重新输出「${entry.frame}」这一页（仍然只输出 <notes> 与 <page>）：\n${best.page.html.slice(0, 12_000)}`,
+          DESIGN_CHAT_REPAIR_TIMEOUT_MS,
+        );
+        if (again?.page != null) {
+          const report = scoreOf(again.page);
+          // 更好才换——重问也可能更差。
+          this.deps.log("design chat: html quality retry done", { index: i, before: best.report.total, after: report.total });
+          if (report.total > best.report.total) best = { page: again.page, report };
+        }
+      }
+    }
+    const screen = toScreen(best.page);
+    // 清洗器保证了产物合法；这里是兜底（超长被截断等）——不合法就宁可这页记失败，也不写一页坏数据。
+    if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
+      this.deps.log("design chat: html screen rejected by contract", { index: i, length: best.page.html.length });
+      return null;
+    }
+    return screen;
+  }
+
+
+  /**
+   * 方向 C 步骤 4：**局部修改**。选中一个元素 ⇒ 只把这个元素 + 页面 CSS 发给模型，拼回去；
+   * 没选元素（选的是整页）⇒ 整页在原有基础上改；元素编号失效或输出不可用时不写回。产出走既有的 `patch`（setProps + setLinks），
+   * 所以撤销、版本、连线清洗都是现成的。模型没给出可用输出 ⇒ `null`（调用方退回固定回执，如实说没改成）。
+   */
+  private async editHtml(ctx: DesignChatContext): Promise<DesignChatReplyResult | null> {
+    const focus = ctx.focus!;
+    const { page, ref } = focus.html!;
+    const hit = designPrototype.findPrototypeNodePath(ctx.prototype, focus.id);
+    const index = hit?.frameIndex ?? 0;
+    const screenCount = Math.max(ctx.prototype.length, 1);
+    const instruction = [...ctx.chat].reverse().find((t) => t.role === "user")?.text ?? "";
+    const css = htmlPageCss(page).slice(0, 6000);
+    const finish = (html: string, reply: string): DesignChatReplyResult | null => {
+      const pruned = pruneInvalidGotos(html, index, screenCount).html;
+      const node = { type: "html" as const, props: { html: pruned } };
+      if (!designPrototype.PrototypeNode.safeParse(node).success) return null;
+      return {
+        text: ((reply === "" ? "改好了。" : reply) + this.blindNotice(ctx)).slice(0, 4000),
+        source: "model",
+        writeback: {
+          patch: [
+            { op: "setProps", id: focus.id, props: { html: pruned } },
+            // `links` 是 HTML 的投影：改了 data-goto 就要跟着重算，不然「模型说连好了、屏上点不动」。
+            { op: "setLinks", screen: index, links: designHtmlPage.htmlPageLinks(pruned).map((l) => ({ from: l.from, to: l.to })) },
+          ],
+        },
+        suggestions: [],
+      };
+    };
+
+    if (ref !== undefined) {
+      const el = designHtmlPage.htmlPageElement(page, ref);
+      if (el !== null) {
+        const label = designHtmlPage.describeHtmlPageElement(page, ref) ?? "元素";
+        const out = await this.callModel(
+          `页面现有 CSS（沿用它的变量、字阶、间距与圆角）：\n${css}\n\n被选中的元素 ${label}：\n${el.html.slice(0, 12_000)}\n\n用户说：${instruction}`,
+          DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_HTML_ELEMENT_EDIT_SYSTEM_PROMPT, ctx.refImages,
+        );
+        const parsed = out.truncated ? null : parseElementEditOutput(out.text);
+        const next = parsed === null ? null : designHtmlPage.replaceHtmlPageElement(page, ref, parsed.element, parsed.css);
+        if (parsed !== null && next !== null) return finish(next, parsed.reply);
+        this.deps.log("design chat: html element edit unusable, keeping page unchanged", { truncated: out.truncated });
+      }
+      // Selecting an element authorizes only that element. Never silently widen a
+      // failed/stale local edit into a model rewrite of the entire page.
+      return null;
+    }
+    const out = await this.callModel(
+      `现有这一页（共 ${String(screenCount)} 页，这是第 ${String(index)} 页「${focus.frame}」）：\n${page.slice(0, 40_000)}\n\n用户说：${instruction}\n\ndata-goto 的值用页序号（不要指向自己这一页）。`,
+      DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, ctx.refImages,
+    );
+    const parsed = out.truncated ? null : parsePageEditOutput(out.text, { index, screenCount });
+    return parsed === null ? null : finish(parsed.html, parsed.reply);
   }
 
   /** 解析单页输出并做保守修正（#4321）；解析不了 ⇒ null。**不**判契约，调用方判。 */
@@ -1080,6 +1266,18 @@ export class ModelDesignChatReplier implements DesignChatModel {
 
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
     const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult => this.fallback(reason);
+    // 选中的是 HTML 页（或其中一个元素）⇒ 局部修改：模型只看见被选中的那一块，不走整页树形 JSON。
+    if (ctx.focus?.html !== undefined) {
+      try {
+        const edited = await this.editHtml(ctx);
+        if (edited !== null) return edited;
+      } catch (e) {
+        this.deps.log("design chat: html edit failed", { detail: e instanceof Error ? e.message : "unknown" });
+        if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
+        return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : "MODEL_CALL_FAILED");
+      }
+      return fallbackWith("MODEL_BAD_JSON");
+    }
     /**
      * 迭代 12：**首次生成走分页**（还没有任何树 ⇒ 这一句必然要模型吐出全部页）。
      * 已有原型时不走——那时用户多半是局部改动（patch），一次调用足够，分页只会多花 N 倍的钱。

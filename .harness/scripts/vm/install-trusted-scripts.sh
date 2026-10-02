@@ -72,4 +72,6 @@ install_from_main ".harness/scripts/vm/deploy-readiness.sh" /usr/local/lib/works
 install_from_main ".harness/scripts/vm/deep-agent-lib.sh" /usr/local/lib/workspacex-deep-agent-lib.sh 0644
 install_from_main ".harness/scripts/vm/deploy.sh" /usr/local/bin/workspacex-deploy 0755
 
+install_from_main ".harness/scripts/vm/devapp-runtime-identity.mjs" /usr/local/lib/workspacex-devapp-runtime-identity.mjs 0644
+
 echo "✅ 已更新到 origin/${BRANCH} @ ${SOURCE_SHA}"

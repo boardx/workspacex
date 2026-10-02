@@ -23,7 +23,7 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
         throw new ResearchRuntimeError("RESEARCH_SEARCH_NOT_CONFIGURED");
       }
       url.searchParams.set("q", query);
-      const response = await this.fetcher(url.href, {
+      const response = await transientFetch(this.fetcher, url.href, {
         method: "GET", headers: { Accept: "application/json", "User-Agent": "boardx-research-agent" },
         signal: AbortSignal.timeout(45000), redirect: "error",
       });
@@ -50,9 +50,19 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
 
   async read(url: string) {
     try {
-      const parsed = new URL(url);
-      await assertPublicDocumentUrl(parsed, trustedLoopbackOrigin(this.endpoint));
-      const response = await this.fetcher(parsed.href, { headers: { Accept: "text/html,text/plain,text/markdown,application/pdf" }, signal: AbortSignal.timeout(10000), redirect: "error" });
+      let parsed = new URL(url);
+      const signal = AbortSignal.timeout(10000);
+      let response: Response;
+      for (let hop = 0; ; hop++) {
+        await assertPublicDocumentUrl(parsed, trustedLoopbackOrigin(this.endpoint));
+        signal.throwIfAborted();
+        response = await transientFetch(this.fetcher, parsed.href, { headers: { Accept: "text/html,text/plain,text/markdown,application/pdf" }, signal, redirect: "manual" });
+        if (![301, 302, 303, 307, 308].includes(response.status)) break;
+        const location = response.headers.get("location");
+        await response.body?.cancel();
+        if (!location || hop >= 3) throw new Error("unavailable");
+        parsed = new URL(location, parsed);
+      }
       if (!response.ok) throw new Error("unavailable");
       const type = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
       if (!DOCUMENT_TYPES.has(type)) throw new Error("unsupported");
@@ -66,6 +76,30 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
       throw new ResearchRuntimeError(`RESEARCH_DOCUMENT_${error instanceof Error ? error.message.toUpperCase() : "UNAVAILABLE"}`);
     }
   }
+}
+
+/** One bounded retry for rate limiting/temporary upstream failures; never retry 4xx auth errors. */
+async function transientFetch(fetcher: typeof fetch, url: string, options: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try { response = await fetcher(url, options); }
+    catch (error) {
+      if (attempt || options.signal?.aborted || !(error instanceof TypeError)) throw error;
+      await retryDelay(options.signal);
+      continue;
+    }
+    if (attempt || ![429, 502, 503, 504].includes(response.status)) return response;
+    await response.body?.cancel();
+    await retryDelay(options.signal);
+  }
+}
+async function retryDelay(signal?: AbortSignal | null): Promise<void> {
+  signal?.throwIfAborted();
+  await new Promise<void>((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(signal?.reason); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, 250);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 async function assertPublicDocumentUrl(url: URL, allowedLoopbackOrigin?: string): Promise<void> {

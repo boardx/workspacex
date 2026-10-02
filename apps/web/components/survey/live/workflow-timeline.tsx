@@ -25,9 +25,9 @@ export function WorkflowTimeline({ steps, activeStep, onSelect }: WorkflowTimeli
                 aria-label={`${index + 1}. ${label}`}
                 aria-current={active ? "step" : undefined}
                 onClick={() => onSelect(id)}
-                className={`flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 ${active ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                className={`flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 ${active ? "border-primary bg-muted font-semibold text-primary" : "border-transparent text-muted-foreground hover:bg-muted"}`}
               >
-                <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                <span className="text-12 tabular-nums">
                   {index + 1}
                 </span>
                 {label}

@@ -11,6 +11,20 @@ vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), execu
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => vi.useRealTimers());
 describe("reference research workflow", () => {
+  it("accepts a durable autosave result even when the save POST never closes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const initial = runtimeFixture("directions");
+    const saved = { ...initial, version: initial.version + 1, brief: { ...initial.brief, topic: "已持久化主题" }, directions: [], generatedNodes: ["brief" as const] };
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue(saved);
+    vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    fireEvent.change(await screen.findByRole("textbox", { name: "研究主题" }), { target: { value: "已持久化主题" } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.getByRole("textbox", { name: "研究主题" })).toHaveValue("已持久化主题");
+    expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent("已保存");
+  });
   it("protects unsaved topic information from the shared return button", async () => {
     const initial = runtimeFixture("directions");
     const back = vi.fn();
@@ -50,7 +64,7 @@ describe("reference research workflow", () => {
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     fireEvent.change(await screen.findByRole("textbox", { name: "研究主题" }), { target: { value: "新的研究主题" } });
     expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "保存研究信息" })).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent("待保存");
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("preserves unsaved chapter edits across unchanged server polls and saves the actual outline", () => {
@@ -95,11 +109,11 @@ describe("reference research workflow", () => {
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     const topic = await screen.findByRole("textbox", { name: "研究主题" });
     fireEvent.change(topic, { target: { value: "Revised European scope" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存研究信息" }));
     expect(executeResearchRuntime).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "确认并重新生成" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "brief", action: "save", draft: { node: "brief", value: { ...initial.brief, topic: "Revised European scope" } } })));
     expect(await screen.findByDisplayValue("Revised European scope")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeEnabled();
+    expect(screen.queryByRole("textbox", { name: "研究需求" })).not.toBeInTheDocument();
   });
   it("selects one chapter at a time instead of rendering every chapter detail", async () => {
     const initial = runtimeFixture("report");

@@ -261,6 +261,41 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     expect(handlers.closedCount.value).toBe(1);
   });
 
+  it.each([true, false])("#1150: silent stop with prior final=%s preserves the session outcome", async priorFinal => {
+    let finalDelivered!: () => void;
+    const finalReady = new Promise<void>(resolve => { finalDelivered = resolve; });
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") {
+        ws.send(JSON.stringify({ type: "session.updated" }));
+        if (priorFinal) ws.send(JSON.stringify({
+          type: "conversation.item.input_audio_transcription.completed", transcript: "already persisted",
+        }));
+      }
+      // Empty stop produces neither a final nor an error, as with an already drained VAD buffer.
+    });
+    const handlers = recordingHandlers();
+    const provider = new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    });
+    const session = await provider.open({ ...handlers,
+      onFinal: final => { handlers.onFinal(final); finalDelivered(); },
+    }, AUDIO);
+    if (priorFinal) await finalReady;
+    // Advance only the grace timer; websocket IO continues on real timers.
+    const setTimer = globalThis.setTimeout;
+    const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation((callback, delay, ...args) =>
+      setTimer(callback, delay === 15_000 ? 25 : delay, ...args));
+    try {
+      await session.finish();
+      expect(handlers.finals).toEqual(priorFinal ? ["already persisted"] : []);
+      if (priorFinal) expect(handlers.errors).toEqual([]);
+      else expect(handlers.errors).toEqual([{
+        reason: "ASR_PROVIDER_UNAVAILABLE", detail: "upstream did not settle the final segment in time",
+      }]);
+      expect(upstream.seenFrames.filter(frame => frame.type === "input_audio_buffer.commit")).toHaveLength(1);
+    } finally { timer.mockRestore(); session.abort(); }
+  });
+
   it("a caller-initiated finish() does NOT report a spurious error even though it also closes the socket", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));

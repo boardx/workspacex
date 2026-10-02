@@ -1,0 +1,10 @@
+ .../design-workbench/append-project-chat.ts        |  4 +-
+ .../design-workbench/design-chat-model.ts          |  7 ++-
+ .../design-workbench/html-page-design.ts           | 11 ++--
+ .../design-workbench/html-page-generation.test.ts  | 21 ++++++--
+ apps/web/components/design-loop/detail-screen.tsx  | 10 ++++
+ apps/web/lib/prototype-export-html.ts              | 15 ++++++
+ apps/web/playwright.design-loop.config.ts          |  3 +-
+ packages/contracts/src/design-html-page.ts         | 63 ++++++++++++++++++++--
+ packages/contracts/tests/design-html-page.test.ts  | 36 ++++++++++++-
+ 9 files changed, 152 insertions(+), 18 deletions(-)

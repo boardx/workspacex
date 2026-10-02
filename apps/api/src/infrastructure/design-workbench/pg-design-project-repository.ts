@@ -10,7 +10,7 @@
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
-import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
+import { designAiCollab, designHtmlPage, designPrototype, designWorkbench } from "@repo/contracts";
 import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
 import type { ShareSnapshot } from "../../application/design-workbench/share-snapshot";
 import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
@@ -156,7 +156,11 @@ export function mergeScreens(current: readonly StoredScreen[], patch: DesignProj
     const rootIn = patch.prototype !== undefined ? patch.prototype[i] : keep?.root;
     const root = rootIn ?? undefined;
     const notes = patch.frameNotes !== undefined ? patch.frameNotes[i] : keep?.notes;
-    const links = patch.frameLinks !== undefined ? patch.frameLinks[i] : keep?.links;
+    // HTML owns its navigation in data-goto. Recompute on every write, including
+    // restores whose historical parallel link list may refer to a newer page.
+    const links = root?.type === "html"
+      ? designHtmlPage.htmlPageLinks(root.props.html).filter((link) => link.to !== i && link.to < frames.length)
+      : patch.frameLinks !== undefined ? patch.frameLinks[i] : keep?.links;
     return {
       frame,
       ...(root === undefined ? {} : { root }),

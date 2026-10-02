@@ -71,11 +71,11 @@ describe("AgentDetail", () => {
     expect(workflowPrefill("Zz-Custom-Flow")).toBe(prefill);
   });
 
-  it("服务端职责优先；未就绪用白话说明；组织共享技能兜底有说明", async () => {
+  it("服务端职责优先；未就绪用白话说明；待验证技能单独展示", async () => {
     render(<AgentDetail agentId="a" onStartChat={vi.fn()}
       fetchCard={vi.fn().mockResolvedValue({ ...card, readiness: "unknown" })}
-      fetchExtras={vi.fn().mockResolvedValue(extras({ duty: "只做华东区大客户", skillSource: "org" }))} />);
-    await waitFor(() => expect(screen.getByTestId("agent-detail-skills-org-note")).toBeTruthy());
+      fetchExtras={vi.fn().mockResolvedValue(extras({ duty: "只做华东区大客户", pendingSkills: [{stableId:"stable-pending",stableName:"S901",contentDigest:"a".repeat(64),reason:"awaiting_verification",displayName:"验证需求"}] }))} />);
+    await waitFor(() => expect(screen.getByTestId("agent-detail-pending-skill")).toHaveTextContent("待验证"));
     expect(screen.getByTestId("agent-detail-duty").textContent).toBe("只做华东区大客户");
     expect(screen.getByTestId("agent-detail-readiness").textContent).toContain("日常对话可以直接开始");
   });
@@ -113,9 +113,9 @@ describe("AgentDetail", () => {
 });
 
 describe("loadAgentDetailExtras（真实端点组合）", () => {
-  it("挂载技能 + 钉住版本技能换成名字；都没有时退回组织共享技能；文件形式说明不当职责", async () => {
+  it("只展示已发布精确pins，忽略草稿挂载，空pins不退回组织池", async () => {
     vi.spyOn(dir, "getAgentDirectoryProfile").mockResolvedValue({
-      agentId: "a", duty: null, mountedSkillIds: ["s1"], pinnedSkillVersionIds: ["v2"], delegationTargets: [], requireApprovalForHandoff: true,
+      agentId: "a", duty: null, mountedSkillIds: ["s1"], pinnedSkillVersionIds: ["old-v2"], pinnedSkills:[{skillId:"s2",versionId:"old-v2"}], pendingSkillBindings:[], delegationTargets: [], requireApprovalForHandoff: true,
     });
     const catalog = [
       { skillId: "s1", name: "报价单", duty: "出报价", currentVersionId: "v1", visibility: "org-wide" },
@@ -124,14 +124,14 @@ describe("loadAgentDetailExtras（真实端点组合）", () => {
     vi.spyOn(skill, "listSkills").mockResolvedValue(catalog as never);
     const out = await loadAgentDetailExtras("a", "org-1");
     expect(out.skillSource).toBe("agent");
-    expect(out.skills).toEqual([{ skillId: "s1", name: "报价单", duty: "出报价" }, { skillId: "s2", name: "竞品分析", duty: null }]);
+    expect(out.skills).toEqual([{ skillId: "s2", versionId:"old-v2", name: "竞品分析", duty: null }]);
 
     vi.spyOn(dir, "getAgentDirectoryProfile").mockResolvedValue({
-      agentId: "a", duty: null, mountedSkillIds: [], pinnedSkillVersionIds: [], delegationTargets: [], requireApprovalForHandoff: true,
+      agentId: "a", duty: null, mountedSkillIds: [], pinnedSkillVersionIds: [], pinnedSkills:[], pendingSkillBindings:[], delegationTargets: [], requireApprovalForHandoff: true,
     });
     const fallback = await loadAgentDetailExtras("a", "org-1");
-    expect(fallback.skillSource).toBe("org");
-    expect(fallback.skills.map((s) => s.name)).toEqual(["报价单", "竞品分析"]);
+    expect(fallback.skillSource).toBe("agent");
+    expect(fallback.skills).toEqual([]);
   });
 });
 
@@ -142,4 +142,22 @@ describe("AgentDirectory → 详情", () => {
     expect(screen.getByTestId("agent-card-detail-link").getAttribute("href")).toBe("/agent/a-sales");
     expect(screen.getByTestId("agent-card-view-detail").getAttribute("href")).toBe("/agent/a-sales");
   });
+});
+
+describe('published role skill detail boundary',()=>{
+ it('uses only metadata for historical pins and never substitutes the latest contract',async()=>{
+  vi.spyOn(dir,'getAgentDirectoryProfile').mockResolvedValue({agentId:'a',duty:'职责',mountedSkillIds:['draft-only'],pinnedSkillVersionIds:['historical-version'],pinnedSkills:[{skillId:'bound-skill',versionId:'historical-version'}],pendingSkillBindings:[{stableId:'pending-stable',stableName:'S901',contentDigest:'a'.repeat(64),reason:'missing_version'}],delegationTargets:[],requireApprovalForHandoff:true});
+  vi.spyOn(skill,'listSkills').mockResolvedValue([]);
+  const detail=vi.spyOn(skill,'getSkillDetail').mockResolvedValue({skill:{skillId:'bound-skill',name:'真实技能名称',duty:'最新版本职责',currentVersionId:'latest-version'},contract:{systemPrompt:'最新正文不能代替旧pin'}} as never);
+  const result=await loadAgentDetailExtras('a','org');expect(detail).toHaveBeenCalledWith('bound-skill');expect(detail).not.toHaveBeenCalledWith('draft-only');expect(result.skills).toEqual([{skillId:'bound-skill',versionId:'historical-version',name:'真实技能名称',duty:null}]);expect(result.pendingSkills).toHaveLength(1);
+ });
+ it('keeps a pending-only role at zero executable skills and preserves chat and workflow entry',async()=>{
+  render(<AgentDetail agentId="a" onStartChat={vi.fn()} fetchCard={vi.fn().mockResolvedValue(card)} fetchExtras={vi.fn().mockResolvedValue(extras({skills:[],pendingSkills:[{stableId:'pending-stable',stableName:'S901',contentDigest:'a'.repeat(64),reason:'missing_version',displayName:'真实待验证技能'}]}))}/>);
+  const item=await screen.findByTestId('agent-detail-pending-skill');
+  expect(screen.getByTestId('agent-detail-readiness')).toHaveTextContent('日常对话可以直接开始');
+  expect(screen.getByTestId('agent-detail-readiness')).toHaveTextContent('待验证 1 项技能暂不可用');
+  expect(screen.getByTestId('agent-detail-readiness')).not.toHaveTextContent('能力都已开通');
+  expect(screen.getByTestId('agent-detail-start-chat')).toBeEnabled();
+  expect(screen.getByTestId('agent-detail-workflow-launch')).toBeEnabled();expect(item).toHaveAttribute('aria-disabled','true');expect(item).toHaveAttribute('data-state','missing_version');expect(item).toHaveAttribute('data-skill-stable-id','pending-stable');expect(item).toHaveTextContent('版本缺失');expect(screen.queryByTestId('agent-detail-skill')).not.toBeInTheDocument();expect(screen.getByTestId('agent-detail-skill-counts')).toHaveAttribute('data-available-count','0');expect(screen.getByTestId('agent-detail-skill-counts')).toHaveAttribute('data-pending-count','1');expect(screen.getByTestId('agent-detail-start-chat')).toBeInTheDocument();expect(screen.getByTestId('agent-detail-workflow-launch')).toBeInTheDocument();
+ });
 });

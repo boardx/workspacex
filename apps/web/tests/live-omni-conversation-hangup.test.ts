@@ -60,3 +60,42 @@ describe("openOmniConversation — hangup settles before closing", () => {
     expect(pcm16Level(new Int16Array([800, -800]))).toBeGreaterThan(0);
   });
 });
+
+it('releases microphone capture and the audio player on a remote socket close exactly once',async()=>{
+ vi.stubGlobal('WebSocket',FakeSocket as unknown as typeof WebSocket);
+ const closeAudio=vi.fn().mockResolvedValue(undefined);const stopSource=vi.fn();
+ vi.stubGlobal('AudioContext',class {currentTime=0;destination={};resume=vi.fn();close=closeAudio;createBuffer(){return {duration:1,getChannelData:()=>new Float32Array(1)};}createBufferSource(){return {connect:vi.fn(),start:vi.fn(),stop:stopSource};}});
+ const stopCapture=vi.fn().mockResolvedValue(undefined);const h=handlers();
+ const handle=await openOmniConversation('board-poc',h,{sessionToken:'tok',capture:async()=>({onFrame:vi.fn(),stop:stopCapture,sourceSampleRate:16000})});
+ FakeSocket.last!.emit('message',{data:JSON.stringify({type:'assistant.audio',audio:'AAA='})});
+ FakeSocket.last!.readyState=3;FakeSocket.last!.emit('close',{});
+ await vi.waitFor(()=>expect(stopCapture).toHaveBeenCalledTimes(1));expect(closeAudio).toHaveBeenCalledTimes(1);expect(stopSource).toHaveBeenCalledTimes(1);
+ await handle.stop();FakeSocket.last!.emit('close',{});expect(stopCapture).toHaveBeenCalledTimes(1);expect(closeAudio).toHaveBeenCalledTimes(1);expect(h.onClosed).toHaveBeenCalledTimes(1);
+});
+
+it('stops capture that resolves after a remote close during microphone startup',async()=>{
+ vi.stubGlobal('WebSocket',FakeSocket as unknown as typeof WebSocket);
+ let resolveCapture!: (capture: {onFrame:ReturnType<typeof vi.fn>;stop:ReturnType<typeof vi.fn>;sourceSampleRate:number})=>void;
+ const pending=new Promise<{onFrame:ReturnType<typeof vi.fn>;stop:ReturnType<typeof vi.fn>;sourceSampleRate:number}>(resolve=>{resolveCapture=resolve;});
+ const h=handlers();const opened=openOmniConversation({threadId:'thread',agentId:'role'},h,{sessionToken:'tok',capture:()=>pending});
+ const rejected=expect(opened).rejects.toMatchObject({kind:'connect-failed'});
+ await vi.waitFor(()=>expect(FakeSocket.last!.sent.some(frame=>typeof frame==='string'&&frame.includes('session.start'))).toBe(true));
+ FakeSocket.last!.readyState=3;FakeSocket.last!.emit('close',{});
+ const stop=vi.fn().mockResolvedValue(undefined);const onFrame=vi.fn();resolveCapture({onFrame,stop,sourceSampleRate:16000});await rejected;
+ expect(stop).toHaveBeenCalledTimes(1);expect(onFrame).not.toHaveBeenCalled();expect(h.onClosed).toHaveBeenCalledTimes(1);
+});
+
+it('releases resources on a server session.closed frame and ignores late microphone frames',async()=>{
+ vi.stubGlobal('WebSocket',FakeSocket as unknown as typeof WebSocket);
+ const h=handlers();const stop=vi.fn().mockResolvedValue(undefined);let frameListener!: (frame:Int16Array)=>void;
+ const handle=await openOmniConversation('board-poc',h,{sessionToken:'tok',capture:async()=>({onFrame:listener=>{frameListener=listener;},stop,sourceSampleRate:16000})});
+ FakeSocket.last!.emit('message',{data:JSON.stringify({type:'session.closed'})});await vi.waitFor(()=>expect(h.onClosed).toHaveBeenCalledTimes(1));
+ const sent=FakeSocket.last!.sent.length;frameListener(new Int16Array([10]));expect(FakeSocket.last!.sent).toHaveLength(sent);expect(h.onInputLevel).not.toHaveBeenCalled();expect(stop).toHaveBeenCalledTimes(1);expect(FakeSocket.last!.readyState).toBe(3);await handle.stop();expect(stop).toHaveBeenCalledTimes(1);
+});
+
+it('still closes playback when microphone stop rejects on remote close',async()=>{
+ vi.stubGlobal('WebSocket',FakeSocket as unknown as typeof WebSocket);const closeAudio=vi.fn().mockResolvedValue(undefined);
+ vi.stubGlobal('AudioContext',class {currentTime=0;destination={};resume=vi.fn();close=closeAudio;createBuffer(){return {duration:1,getChannelData:()=>new Float32Array(1)};}createBufferSource(){return {connect:vi.fn(),start:vi.fn(),stop:vi.fn()};}});
+ const h=handlers();await openOmniConversation('board-poc',h,{sessionToken:'tok',capture:async()=>({onFrame:vi.fn(),stop:vi.fn().mockRejectedValue(new Error('stop failed')),sourceSampleRate:16000})});
+ FakeSocket.last!.emit('message',{data:JSON.stringify({type:'assistant.audio',audio:'AAA='})});FakeSocket.last!.readyState=3;FakeSocket.last!.emit('close',{});await vi.waitFor(()=>expect(h.onClosed).toHaveBeenCalledTimes(1));expect(closeAudio).toHaveBeenCalledTimes(1);
+});

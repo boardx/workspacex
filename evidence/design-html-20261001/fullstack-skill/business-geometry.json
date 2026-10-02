@@ -1,0 +1,53 @@
+[
+  {
+    "id": "R0612-01",
+    "start": "08:00",
+    "end": "09:30",
+    "expectedLeft": 0,
+    "expectedWidth": 0.1875,
+    "actual": {
+      "text": "R0612-01\n埃塞耶加雪菲水洗 12kg\n林烘 · 浅焙\n08:00 – 09:30",
+      "containerClass": "machine-row mr-1",
+      "width": 208.5,
+      "height": 96,
+      "containerWidth": 1112,
+      "leftRatio": 0,
+      "widthRatio": 0.1875
+    },
+    "ok": true
+  },
+  {
+    "id": "R0612-02",
+    "start": "08:30",
+    "end": "11:00",
+    "expectedLeft": 0.0625,
+    "expectedWidth": 0.3125,
+    "actual": {
+      "text": "R0612-02\n巴西黄波旁 18kg\n陈澄 · 中深焙\n08:30 – 11:00",
+      "containerClass": "machine-row mr-1",
+      "width": 347.5,
+      "height": 96,
+      "containerWidth": 1112,
+      "leftRatio": 0.0625,
+      "widthRatio": 0.3125
+    },
+    "ok": true
+  },
+  {
+    "id": "R0612-03",
+    "start": "09:30",
+    "end": "11:00",
+    "expectedLeft": 0.1875,
+    "expectedWidth": 0.1875,
+    "actual": {
+      "text": "R0612-03\n云南花果山 15kg\n林烘 · 中焙\n09:30 – 11:00",
+      "containerClass": "machine-row mr-2",
+      "width": 208.5,
+      "height": 96,
+      "containerWidth": 1112,
+      "leftRatio": 0.1875,
+      "widthRatio": 0.1875
+    },
+    "ok": true
+  }
+]
