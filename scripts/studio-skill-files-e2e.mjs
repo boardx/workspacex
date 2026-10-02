@@ -4,6 +4,7 @@ import { mkdtemp, open, writeFile, readFile, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import { partitionSkillImportCredentials } from './studio-skill-files-credentials.mjs';
 import 'tsx/esm';
 const suppliedCommand=process.argv.slice(2);
 const browserCommand=['pnpm','--filter','web','exec','playwright','test','--config','playwright.skill-files.config.ts'];
@@ -15,7 +16,8 @@ const evidence=await mkdtemp(join(tmpdir(),`studio-browser-${process.env.COMPOSE
 const distName=`.next-studio-${process.env.COMPOSE_PROJECT_NAME}-${randomBytes(4).toString('hex')}`;
 const children=[]; const logs=[];
 const gitHead=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
-const env={...process.env, STUDIO_GIT_HEAD:gitHead, STUDIO_LANE:'1', WORKSPACEX_DEV_MODE:'1', MODEL_CREDENTIAL_KEY:randomBytes(32).toString('hex'), KERNEL_ALLOW_TEST_PRINCIPAL:'0', KERNEL_AGENT_RUN_AUTOSTART:'0', KERNEL_QUIET:'1', NEXT_TELEMETRY_DISABLED:'1'};
+const { sharedEnvironment, apiEnvironment } = partitionSkillImportCredentials(process.env);
+const env={...sharedEnvironment, STUDIO_GIT_HEAD:gitHead, STUDIO_LANE:'1', WORKSPACEX_DEV_MODE:'1', MODEL_CREDENTIAL_KEY:randomBytes(32).toString('hex'), KERNEL_ALLOW_TEST_PRINCIPAL:'0', KERNEL_AGENT_RUN_AUTOSTART:'0', KERNEL_QUIET:'1', NEXT_TELEMETRY_DISABLED:'1'};
 function processCommand(cmd,args,name,cwd=root, extra={}) {
   return open(`${evidence}/${name}.log`,'wx').then(log=>{
     logs.push(log); const child=spawn(cmd,args,{cwd,env:{...env,...extra},detached:true,stdio:['ignore',log.fd,log.fd]});
@@ -53,7 +55,7 @@ try {
   await run('docker',['compose','-f','apps/api/docker-compose.dev.yml','-p',env.COMPOSE_PROJECT_NAME,'up','-d','--wait','postgres','redis','minio'],'infra');
   await run('pnpm',['exec','tsx','scripts/studio-skill-files-init-db.mts'],'migrate');
   await run('pnpm',['--filter','@repo/api','exec','tsx','scripts/seed-dev-mode-accounts.ts'],'seed');
-  const api=await processCommand('pnpm',['--filter','@repo/api','start'],'api',root,{PORT:env.WORKSPACEX_API_PORT});
+  const api=await processCommand('pnpm',['--filter','@repo/api','start'],'api',root,{...apiEnvironment,PORT:env.WORKSPACEX_API_PORT});
   const apiOrigin=`http://127.0.0.1:${env.WORKSPACEX_API_PORT}`;
   await ready(`${apiOrigin}/healthz`,api);
   const webOrigin=`http://127.0.0.1:${env.WORKSPACEX_WEB_PORT}`;
