@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
@@ -18,7 +18,9 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  page.setDefaultNavigationTimeout(15_000);
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
- const metadata=createSpatialWsMetadataRecorder();
+ const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
+ const chunks:Array<{path:string;sha256:string;bytes:number}>=[],chunkReads:Array<Promise<void>>=[];
+ page.on('response',response=>{const path=new URL(response.url()).pathname;if(path.startsWith('/_next/static/')&&path.endsWith('.js')&&response.status()===200)chunkReads.push(response.body().then(body=>{chunks.push({path,sha256:createHash('sha256').update(body).digest('hex'),bytes:body.length});}).catch(()=>undefined));});
  const http:Array<{method:string;path:string;status:number}>=[];
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
@@ -36,7 +38,6 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expectSynced(page);mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
-  metadata.observe(page,'original');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   await page.getByTestId('board-add-frame').click();
@@ -68,8 +69,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   mark('peer-converged');
   evidence.drainMs=performance.now()-started;expect(evidence.drainMs).toBeLessThanOrEqual(DRAIN_SLA_MS);
   const final=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(final.manifest.epoch).toBe(initial.manifest.epoch);
-  expect(final.manifest.seq-initial.manifest.seq).toBe(16);
-  evidence.seedCommands=8;evidence.uiEdits=16;
+  expect(final.manifest.seq-initial.manifest.seq).toBe(24);
+  evidence.uiCreates=8;evidence.uiEdits=16;
   const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq)).toEqual([]);
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
   await Promise.all([page.reload(),testPeer.reload()]);
@@ -82,6 +83,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  }finally{
   await peer?.close().catch(()=>undefined);
   if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
+  await Promise.all(chunkReads);evidence.browserChunks=chunks;
   await info.attach('same-browser-outbox-evidence',{body:Buffer.from(JSON.stringify({...evidence,transport:metadata.snapshot()})),contentType:'application/json'});
  }
 });
