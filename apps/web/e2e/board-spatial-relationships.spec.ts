@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { PortableBoardBundle, PortableExportResult } from "@repo/contracts/whiteboard-portable";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -474,11 +475,24 @@ test("contextual controls availability", async ({ page, request }) => {
   await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   const checkpoint = async () => (await apiCall(request, cleanup!.token, "POST", `/whiteboards/${boardId}/checkpoints`, { requestId: randomUUID() })).json() as Promise<{ manifest: { epoch: number; seq: number } }>;
   const before = await checkpoint();
-  const selectedStyle = { shape: await shape.getAttribute("aria-pressed"), color: await color.getAttribute("aria-pressed") };
+  const lockedId = await objectRow(page, "sticky").getAttribute("data-object-id");
+  expect(lockedId).toBeTruthy();
+  const canonicalLockedObject = async () => {
+    const response = await apiCall(request, cleanup!.token, "POST", `/whiteboards/${boardId}/portable/export`);
+    const exported = PortableExportResult.parse(await response.json());
+    const bundle = PortableBoardBundle.parse(JSON.parse(Buffer.from(exported.contentBase64, "base64").toString("utf8")));
+    const object = bundle.objects.content.find(item => item.id === lockedId);
+    expect(object).toBeDefined();
+    expect(object!.kind).toBe("sticky");
+    expect(object!.locked).toBe(true);
+    return object!;
+  };
+  const canonicalBefore = await canonicalLockedObject();
   await shape.evaluate(element => (element as HTMLButtonElement).click());
   await color.evaluate(element => (element as HTMLButtonElement).click());
-  await expect(shape).toHaveAttribute("aria-pressed", selectedStyle.shape!);
-  await expect(color).toHaveAttribute("aria-pressed", selectedStyle.color!);
+  // Compare the complete persisted object, including thinkingInput variant/color,
+  // style and geometry, without relying on visual or ARIA state as authority.
+  expect(await canonicalLockedObject()).toEqual(canonicalBefore);
   const after = await checkpoint();
   expect(after.manifest.epoch).toBe(before.manifest.epoch);
   expect(after.manifest.seq).toBe(before.manifest.seq);
