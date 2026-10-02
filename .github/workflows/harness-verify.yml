@@ -563,8 +563,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.dedup.outputs.run == 'true'
+      - name: Verify dedicated public Skill import authentication (optional)
+        if: steps.dedup.outputs.run == 'true'
+        env:
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
+        run: node .harness/scripts/ci-skill-import-auth-probe.mjs
+      # Optional public-repository read-only credential; never substitute github.token.
       - name: Execute trusted full-stack smoke
         if: steps.dedup.outputs.run == 'true'
+        env:
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
