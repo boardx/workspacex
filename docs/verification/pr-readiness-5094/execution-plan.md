@@ -35,6 +35,7 @@ flowchart TD
   class S1 done
   class S2 done
   class S3 done
+  %% evidence S4: docs/verification/pr-readiness-5094/browser-result.txt
   class S4 tested
   class S5 doing
 ```
