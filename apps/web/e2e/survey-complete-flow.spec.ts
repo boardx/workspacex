@@ -40,9 +40,11 @@ test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ pa
   await expect(canvas.getByRole("button", { name: "编辑第 1 题：本次会议名称" })).toBeVisible();
   await canvas.getByRole("button", { name: "编辑第 1 题：本次会议名称" }).click();
   await page.screenshot({ path: testInfo.outputPath("survey-paper-editing.png"), fullPage: true });
+  await title.fill("请描述本次会议中目标达成、团队沟通与行动落实的具体情况。".repeat(8));
   for (const width of [768, 375]) {
     await page.setViewportSize({ width, height: 992 });
     await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toBeVisible();
+    await expect.poll(() => title.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
     const editBounds = await title.boundingBox();
     const narrowNumberBounds = await title.locator("..").locator("span").last().boundingBox();
     expect(narrowNumberBounds && editBounds && Math.abs(narrowNumberBounds.y - editBounds.y)).toBeLessThan(12);
@@ -51,6 +53,10 @@ test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ pa
     expect(documentWidth).toBeLessThanOrEqual(width);
     await page.screenshot({ path: testInfo.outputPath(`survey-paper-${width}.png`), fullPage: true });
   }
+  const mobileHeight = (await title.boundingBox())!.height;
+  await page.setViewportSize({ width: 1586, height: 992 });
+  await expect.poll(async () => (await title.boundingBox())!.height).toBeLessThan(mobileHeight);
+  await expect.poll(() => title.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
 });
 
 test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>{
