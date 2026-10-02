@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "target": "devapp",
+  "group": "workspacex-devapp-deploy",
+  "cancelInProgress": false,
+  "pendingCapacity": 1
+}
