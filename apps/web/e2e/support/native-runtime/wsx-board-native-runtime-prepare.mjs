@@ -5,26 +5,34 @@ import {createRequire} from 'node:module';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {assertTemporaryRuntimePaths,assertRuntimeSourceFiles} from './runtime-attestation.mjs';
+import {writeStartupFailure} from './native-startup-receipt.mjs';
 // Preparation only: no process, build or database is started by this file.
+let phase='BOOTSTRAP',data,sourceHead=null;
+try{
 const argv=process.argv.slice(2),arg=name=>argv[argv.indexOf(`--${name}`)+1];
 for(const name of ['root','head','data-dir','source-manifest'])assert(argv.includes(`--${name}`),`${name} required`);
-const root=realpathSync(arg('root')),head=arg('head'),data=resolve(arg('data-dir'));
-assertTemporaryRuntimePaths(root,data);
+const root=realpathSync(arg('root')),head=arg('head'),runtimeData=resolve(arg('data-dir'));
+const {assertTemporaryRuntimePaths,assertRuntimeSourceFiles}=await import('./runtime-attestation.mjs');
+assertTemporaryRuntimePaths(root,runtimeData);
+mkdirSync(runtimeData,{mode:0o700});data=runtimeData;phase='SOURCE';
 assert.equal(execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),head);
 assert.equal(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim(),'');
+sourceHead=head;
 const source=JSON.parse(readFileSync(arg('source-manifest'),'utf8'));assert.equal(realpathSync(source.root),root);assert.equal(source.head,head);
 assertRuntimeSourceFiles(root,source.sourceFiles);
+phase='IMPORT';
 const require=createRequire(join(root,'package.json'));require('tsx/cjs/api').register();require('tsx/esm/api').register();
 const load=path=>import(pathToFileURL(join(root,path)).href);
 const {runtimeSourceHashes,committedRuntimeSourceHashes,nativeAcceptanceOptions}=await import('./runtime-attestation.mjs');
+phase='SOURCE';
 assert.deepEqual(runtimeSourceHashes(root,source.sourceFiles),committedRuntimeSourceHashes(root,head,source.sourceFiles));
 const acceptanceInputs={...(argv.includes('--proxy-ws-port')?{proxyWebSocketPort:Number(arg('proxy-ws-port'))}:{}),...(argv.includes('--file-storage-attestation')?{fileStorageAttestation:true}:{})};
 nativeAcceptanceOptions({...acceptanceInputs,ports:{web:36317,api:36320,postgres:36321},sourceHashes:runtimeSourceHashes(root,source.sourceFiles)});
+phase='TOOLCHAIN';
 const toolRoot=argv.includes('--postgres-tool-root')?realpathSync(arg('postgres-tool-root')):'/private/tmp/wsx-postgresapp-2.9.6-tools/16',bin=join(toolRoot,'bin');
 for(const name of ['postgres','initdb','pg_ctl','psql','pg_isready','pg_config'])assert.match(execFileSync(join(bin,name),['--version'],{encoding:'utf8'}),/16\.15/);
 assert.match(readFileSync(join(toolRoot,'share/postgresql/extension/vector.control'),'utf8'),/default_version\s*=\s*'0\.8\.6'/);
-mkdirSync(data,{mode:0o700});
+phase='PLAN';
 const isolation=`r09-${randomUUID()}`,database=`wsx_r09_${randomUUID().replaceAll('-','')}`;
 const secrets={ownerPassword:randomBytes(32).toString('base64url'),appPassword:randomBytes(32).toString('base64url')};
 writeFileSync(join(data,'native-db-secrets.json'),JSON.stringify(secrets),{mode:0o600,flag:'wx'});
@@ -32,3 +40,4 @@ const plan={root,head,data,toolRoot,bin,isolation,database,marker:randomUUID(),p
 Object.assign(plan,acceptanceInputs);
 writeFileSync(join(data,'native-runtime-plan.json'),JSON.stringify(plan,null,2),{mode:0o600,flag:'wx'});
 console.log(JSON.stringify({prepared:true,ready:false,root,head,toolVersion:'16.15',vectorVersion:'0.8.6',planPath:join(data,'native-runtime-plan.json')}));
+}catch(error){try{if(data)writeStartupFailure({data,phase,sourceHead,error});}catch{ /* Keep the original preparation failure. */ }throw error;}
