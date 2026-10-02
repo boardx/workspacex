@@ -14,9 +14,20 @@
       "retainedLegacyValues": [],
       "preserve": "original columns multiset, constraints, policies, ACL, owner, RLS and sequences",
       "firstBefore": "reject preexisting added column or same-name CHECK",
-      "repeat": "reuse original before baseline; normal migrator repeat applies zero SQL"
+      "repeat": "reuse original before baseline; normal migrator repeat applies zero SQL",
+      "priorCatalogSqlChecksums": {
+        "20260926090000_i4227_agent_run_cited_sources.sql": "156d4cb526346c26cf84da1388766b7b97b7755f15551f592e994056b5139e85",
+        "20260928230000_ag01_agent_role_frozen_fields.sql": "8197fc60d1c6fc7ea0e2fe4ea8787042fa17c1d55a19c6eda73d617bd715354a",
+        "20260928240000_ag02_starter_pack_tool_policy_categories.sql": "95e110926e36bc674e6402ea095f73cbfae24c4613ab2f38d3a70abf4eedc4d0",
+        "20260929150000_dh_portrait_avatars.sql": "25679c6f642d8b46d34f56f7cbeef19d9c43eb79dd4cceec80a547c1b104d0fb",
+        "20260929160000_agent_tags.sql": "f91f4b3f742d7d355f1790b80c857cbac7fdc382287242fe55cf3d6ade6589e4",
+        "20260930121000_ag07_official_role_delegation.sql": "90f35ab028c04b8de9cf44f648dfc9a605732ee9a9ccf57f72948f86729801e7",
+        "20260930124000_ag06_official_escalation_rules.sql": "3b4a4425866565f5b983e782959f1fa7cdb12ab1dd89ee4640279f5d3852ddbc",
+        "20260930130000_agent_role_category_batch2.sql": "c473581a1f28ee189470b67239985d807534a17ff39448dfdb8d938c210f7b1f",
+        "20260930141000_rp_b2_official_role_pack_1_5_0.sql": "fc2be35f043862571556ebf835c19de70c11f89505ce9d550dd2c78f039a030c"
+      }
     },
-    "lawSha256": "5c5df61ed62d95aedb5823b17e544110b31a9cec4c7de9eb50e1538a093c1913"
+    "lawSha256": "0b1f45530ffc8743778a1b802bff731b984e10406080708b1c842c1e9d991c6a"
   },
   "20261001095000_agent_run_skill_scope.sql": {
     "sqlSha256": "38861dea461c59dcaedba76444fa6dac0137608716311f4c14c445cb6be72bf4",
@@ -42,8 +53,19 @@
       "retainedLegacyValues": null,
       "preserve": "original columns multiset, constraints, policies, ACL, owner, RLS and sequences",
       "firstBefore": "reject preexisting added columns or same-name CHECK; DROP/ADD cannot hide incompatible constraint",
-      "repeat": "reuse original before baseline; normal migrator repeat applies zero SQL"
+      "repeat": "reuse original before baseline; normal migrator repeat applies zero SQL",
+      "priorCatalogSqlChecksums": {
+        "20260926090000_i4227_agent_run_cited_sources.sql": "156d4cb526346c26cf84da1388766b7b97b7755f15551f592e994056b5139e85",
+        "20260928230000_ag01_agent_role_frozen_fields.sql": "8197fc60d1c6fc7ea0e2fe4ea8787042fa17c1d55a19c6eda73d617bd715354a",
+        "20260928240000_ag02_starter_pack_tool_policy_categories.sql": "95e110926e36bc674e6402ea095f73cbfae24c4613ab2f38d3a70abf4eedc4d0",
+        "20260929150000_dh_portrait_avatars.sql": "25679c6f642d8b46d34f56f7cbeef19d9c43eb79dd4cceec80a547c1b104d0fb",
+        "20260929160000_agent_tags.sql": "f91f4b3f742d7d355f1790b80c857cbac7fdc382287242fe55cf3d6ade6589e4",
+        "20260930121000_ag07_official_role_delegation.sql": "90f35ab028c04b8de9cf44f648dfc9a605732ee9a9ccf57f72948f86729801e7",
+        "20260930124000_ag06_official_escalation_rules.sql": "3b4a4425866565f5b983e782959f1fa7cdb12ab1dd89ee4640279f5d3852ddbc",
+        "20260930130000_agent_role_category_batch2.sql": "c473581a1f28ee189470b67239985d807534a17ff39448dfdb8d938c210f7b1f",
+        "20260930141000_rp_b2_official_role_pack_1_5_0.sql": "fc2be35f043862571556ebf835c19de70c11f89505ce9d550dd2c78f039a030c"
+      }
     },
-    "lawSha256": "b2366868f9c0fe80abc6d3997be47dac343e7f5432bced9b37ce4cee60bff0d6"
+    "lawSha256": "a21597ad4ad460d3377d7d8336633a762448d85dc63f8f55ed0ecd07c693a736"
   }
 }
