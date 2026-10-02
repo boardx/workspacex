@@ -1,4 +1,5 @@
 import { seedExistingFrame } from "./board-acceptance-support";
+import {expectBoardSynced} from './support/board-sync-status';
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -59,8 +60,8 @@ test.afterEach(async () => {
 // observed in CI #4984. This helper regression does not emulate Board services.
 test('viewport snapshot survives ACK banner removal between protocol reads', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-testid="board-sync-banner">Pending ACK</aside></main>`);
-  const banner = page.getByTestId('board-sync-banner');
+  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-viewport-transient-banner>Pending ACK</aside></main>`);
+  const banner = page.locator('[data-viewport-transient-banner]');
   expect(await readBoardViewportSnapshot(page)).toMatchObject({ bannerBounds: { x: 0, y: 64, width: 1280, height: 32 } });
   expect(await banner.isVisible()).toBe(true);
   // An ACK commits between the old isVisible and boundingBox protocol calls.
@@ -92,7 +93,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   boardToArchive = { id: boardId, token, lifecycleRevision: board.lifecycleRevision };
   await page.goto(`/studio/board/${boardId}`);
   await expect(page.getByTestId("collaborative-editor")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const surface = page.getByTestId("board-fabric-surface");
   const canvas = page.getByTestId("board-fabric-canvas");
@@ -122,8 +123,11 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     // race that transition and can wait forever for an already removed banner.
     const { bounds, shellBounds, regionBounds, bannerBounds, viewport } = await readBoardViewportSnapshot(page);
     expect(bounds).not.toBeNull();
-    // Sync notices overlay the editor; pending/ACK transitions must never
+    // Header sync state overlays the editor; pending/ACK transitions must never
     // resize the canvas or change its pointer coordinate origin.
+    const header = page.getByTestId("board-editor-header");
+    await expect(header.getByTestId("board-sync-status")).toBeVisible();
+    const headerBounds = await header.boundingBox();
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
     for (const [actual, expected] of [
@@ -136,10 +140,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
       [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
     ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
     expect(regionBounds!.height).toBeGreaterThan(0);
-    if (bannerBounds) {
-      expect(bannerBounds).toMatchObject({ x: 0, y: 64, width: viewport.width });
-      expect(bannerBounds.height).toBeGreaterThan(0);
-    }
+    expect(headerBounds).toMatchObject({ x: 0, y: 0, width: viewport.width, height: 64 });
   };
   await expect(assertViewportBounds).toPass({timeout: 5000});
   await page.setViewportSize({width: 1024, height: 768});
@@ -221,7 +222,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   const board = await created.json() as { id: string; lifecycleRevision: number };
   boardToArchive = { id: board.id, token, lifecycleRevision: board.lifecycleRevision };
   await page.goto(`/studio/board/${board.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const editor = page.getByTestId("collaborative-editor");
   const inspector = page.getByTestId("board-context-toolbar");

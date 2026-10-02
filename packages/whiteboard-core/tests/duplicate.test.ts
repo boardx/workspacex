@@ -78,6 +78,25 @@ describe('duplicateWhiteboardSnapshot', () => {
     } finally { source.destroy(); target.destroy(); }
   });
 
+  it.each(['photo', 'later'])('remaps a replaced durable image reference to %s and rejects missing targets', replacementTarget => {
+    const source = createWhiteboardDocument(), target = createWhiteboardDocument();
+    const content = {version: 1, type: 'image', status: 'ready', assetId: `board-image-${'a'.repeat(64)}`, sourceUrl: null,
+      mimeType: 'image/png', magicMimeType: 'image/png', intrinsicWidth: 64, intrinsicHeight: 48,
+      crop: {x:0,y:0,width:1,height:1}, opacity:1, borderColor:'#FFFFFF', borderWidth:0, cornerRadius:0,
+      fileName:'replacement.png', replacementOf:replacementTarget, failureCode:null, byteSize:150, retryCount:0,
+      contentDigest:`sha256:${'a'.repeat(64)}`, persistence:'durable'} as const;
+    try {
+      executeCommands(source, createContentObjectEnvelope({boardId:'board',clientId:'client',gestureId:'replacement',id:'photo',geometry,content}).commands, 'replacement');
+      if (replacementTarget === 'later') executeCommands(source, createContentObjectEnvelope({boardId:'board',clientId:'client',gestureId:'later',id:'later',geometry,content:{...content,replacementOf:null}}).commands, 'later');
+      const result = duplicateWhiteboardSnapshot(Y.encodeStateAsUpdate(source), id=>`copy_${id}`);
+      Y.applyUpdate(target,result.snapshot);
+      expect(readContentObject(readObjects(target).find(object=>object.id==='copy_photo')!)).toEqual({...content,replacementOf:`copy_${replacementTarget}`});
+      expect(readContentObject(readObjects(source).find(object=>object.id==='photo')!)).toEqual(content);
+      executeCommands(source,[{type:'extension',id:'photo',key:'contentObject',value:{...content,replacementOf:'missing'}}], 'missing-target');
+      expect(()=>duplicateWhiteboardSnapshot(Y.encodeStateAsUpdate(source),id=>`copy_${id}`)).toThrow('INVALID_DUPLICATE_REFERENCE');
+    } finally {source.destroy();target.destroy();}
+  });
+
   it('builds an independent Y.Doc whose later edits do not cross either direction', () => {
     const source = sourceDocument();
     const sourceBefore = Y.encodeStateAsUpdate(source);
