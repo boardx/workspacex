@@ -142,7 +142,9 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
     if (!prompt) diagnostics.push({ code: "QUESTION_PROMPT_REQUIRED", message: "题目需要题干", line: i + 1, column: 1 });
     if (choiceTypes.has(type) && options.length < 2) diagnostics.push({ code: "OPTIONS_REQUIRED", message: "选择题至少需要两个选项", line: i + 1, column: 1 });
     const scoringType = parsedType.data === "rating" || parsedType.data === "nps" || parsedType.data === "slider";
-    const config = advanced.config ?? (scoringType ? createSurveyQuestion(parsedType.data, id, questions.length + 1).config : undefined);
+    const config = advanced.config === undefined && scoringType
+      ? createSurveyQuestion(parsedType.data, id, questions.length + 1).config
+      : advanced.config;
     const question = SurveyWorkflowQuestionSchema.safeParse({ id, order: questions.length + 1, chapterId: advanced.chapterId ?? "general", title: prompt || id, type: parsedType.data, required, options, config, provenance: advanced.provenance });
     if (!question.success) {
       diagnostics.push(diagnostic("QUESTION_SYNTAX", "题目元数据不符合题型配置约束", i + 1));

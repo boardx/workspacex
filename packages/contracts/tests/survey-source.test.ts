@@ -20,6 +20,10 @@ describe("survey Markdown source compiler", () => {
     expect(roundTrip).toMatchObject({ ok: true, draft: { questions: [question] } });
   });
 
+  it("rejects explicit null scoring configuration instead of treating it as absent", () => {
+    expect(parseSurveyDesignMarkdown('# 调查\n\n## score [rating]\n请评分\n\n```survey-question\n{"config":null}\n```\n')).toMatchObject({ ok: false });
+  });
+
   it("preserves explicit scoring ranges and exposes invalid ranges for validation", () => {
     for (const config of [{ min: 2, max: 7, step: 1 }, { min: 3, max: 3, step: 1 }, {}]) {
       const result = parseSurveyDesignMarkdown(`# 调查\n\n## score [rating]\n请评分\n\n\`\`\`survey-question\n${JSON.stringify({ config })}\n\`\`\`\n`);
