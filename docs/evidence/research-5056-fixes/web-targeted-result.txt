@@ -1,0 +1,15 @@
+ ✓ tests/ui/guided-research-progress.test.ts (8 tests) 11ms
+ ✓ tests/ui/research-formal-report.test.tsx (5 tests) 991ms
+   ✓ formal research report > renders a numbered reading document and exports the same ordered synthesis and references 536ms
+ ✓ tests/ui/research-production-routes.test.tsx (14 tests) 2115ms
+   ✓ imports a text file into the requirement while preserving existing input 709ms
+   ✓ only applies a real assistant proposal after explicit user adoption 326ms
+ ✓ tests/ui/guided-research-live.test.tsx (16 tests) 2387ms
+   ✓ live research workspace > shows a readable reason for each failed search without restoring plan cards 615ms
+ ✓ tests/ui/guided-research-report-stream.test.tsx (16 tests) 8525ms
+   ✓ research report stream UI > shows actual model text before completion and ignores wrong request and duplicate deltas 427ms
+   ✓ polls lightweight progress, loads terminal state once and stops 4227ms
+   ✓ unlocks when progress is terminal even if the POST never closes 2082ms
+ Test Files  5 passed (5)
+      Tests  59 passed (59)
+   Duration  16.51s (transform 5.72s, setup 2.55s, collect 18.96s, tests 14.03s, environment 9.24s, prepare 1.33s)

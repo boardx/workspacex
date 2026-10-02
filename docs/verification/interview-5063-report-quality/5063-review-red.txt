@@ -1,0 +1,39 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ❯ tests/interview-markdown.test.ts (17 tests | 2 failed) 66ms
+   × formatted report quality > rejects empty analysis sections and generic action: 测试用户。 10ms
+     → expected true to be false // Object.is equality
+   × formatted report quality > rejects empty analysis sections and generic action: 不应测试用户。 6ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > rejects empty analysis sections and generic action: 测试用户。
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > rejects empty analysis sections and generic action: 不应测试用户。
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/interview-markdown.test.ts:112:54
+    110|   it.each(["测试用户。", "不应测试用户。"])("rejects empty analysis se…
+    111|     const report = `## 跨回答综合\n\n## 决策影响\n\n## 边界与反例\n\n#…
+    112|     expect(assessInterviewReportAnalysis(report).ok).toBe(false);
+       |                                                      ^
+    113|     expect(assessInterviewReportAnalysis(report).missing).toContain("v…
+    114|     expect(assessInterviewReportAnalysis(report).missing).toContain("b…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 15 passed (17)
+   Start at  20:47:35
+   Duration  649ms (transform 199ms, setup 0ms, collect 380ms, tests 66ms, environment 0ms, prepare 65ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/interview-markdown.test.ts --maxWorkers=1 --minWorkers=1
