@@ -23,7 +23,8 @@ test('missing or empty dedicated credential never borrows runner or administrato
 
 test('workflow binds the dedicated existing secret and wrapper applies it only at API startup', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/skill-files-e2e.yml', import.meta.url), 'utf8');
-  assert.ok(workflow.includes('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}'));
+  assert.ok(workflow.includes("WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN || '' }}"));
+  assert.ok(workflow.includes('node .harness/scripts/ci-skill-import-auth-probe.mjs'));
   assert.equal(workflow.includes('secrets.GITHUB_TOKEN'), false);
   assert.equal(workflow.includes('secrets.GH_TOKEN'), false);
   const wrapper = readFileSync(new URL('../studio-skill-files-e2e.mjs', import.meta.url), 'utf8');
