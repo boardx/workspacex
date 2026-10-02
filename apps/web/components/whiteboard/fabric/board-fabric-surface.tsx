@@ -189,6 +189,8 @@ function panelGuides(object: BoardFabricObject): FabricObject[] {
 }
 
 const connectorRenderOrigins = new WeakMap<FabricObject, { x: number; y: number }>();
+const connectorRenderIdentityFor = (object: BoardFabricObject) => object.kind === "connector"
+  ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
 
 export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
@@ -681,6 +683,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         if (!original || !existing) continue;
         const replacement = createFabricObject(original);
         applyCanonicalObject(replacement, original, stateRef.current.readOnly);
+        replacement.data = { ...replacement.data, connectorRenderIdentity: connectorRenderIdentityFor(original) };
         const index = canvas.getObjects().indexOf(existing);
         canvas.remove(existing); canvas.add(replacement); canvas.moveObjectTo(replacement, index);
         registryRef.current.set(id, replacement);
@@ -719,7 +722,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         if (!existing) continue;
         const replacement = createFabricObject(preview);
         applyCanonicalObject(replacement, preview, stateRef.current.readOnly);
-        if (replacement.data) replacement.data.connectorRenderIdentity = JSON.stringify([object.connector, object.geometry, object.style]);
+        replacement.data = { ...replacement.data, connectorRenderIdentity: connectorRenderIdentityFor(object) };
         const index = canvas.getObjects().indexOf(existing);
         canvas.remove(existing); canvas.add(replacement); canvas.moveObjectTo(replacement, index);
         registryRef.current.set(object.id, replacement); previewedConnectors.add(object.id);
@@ -1182,7 +1185,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const incoming = new Map(objects.map((object) => [object.id, object]));
       const plans = new Map(objects.map((object) => {
         const current = registryRef.current.get(object.id);
-        const connectorRenderIdentity = object.kind === "connector" ? JSON.stringify([object.connector, object.geometry, object.style]) : undefined;
+        const connectorRenderIdentity = connectorRenderIdentityFor(object);
         const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
         const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
         const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;

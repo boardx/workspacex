@@ -176,10 +176,13 @@ const SLOW_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SLOW_TRIGGER;
 const SLOW_HOLD_MS = Number(process.env.LOOPBACK_DEEP_AGENT_SLOW_HOLD_MS ?? "12000");
 const SCROLL_ACCEPTANCE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER;
 const SCROLL_ACCEPTANCE_REPLY = "十份文档已经逐一读取，十步滚动验收执行完成。";
-// Only an explicitly armed F2 execution is gated; ordinary scroll/S8 scripts retain their behavior.
-const f2Gates = new Map<string, { readonly userText: string; released: boolean }>();
+// Only explicitly armed executions are gated; ordinary scroll scripts retain their behavior.
+const f2Gates = new Map<string, { readonly userText: string; readonly pauseAtHalfStep: number; released: boolean }>();
 function isScrollText(text: string): boolean {
   return SCROLL_ACCEPTANCE_TRIGGER !== undefined && (text === SCROLL_ACCEPTANCE_TRIGGER || [...f2Gates.values()].some((gate) => gate.userText === text));
+}
+function f2PauseAt(text: string): number {
+  return [...f2Gates.values()].find((gate) => gate.userText === text)?.pauseAtHalfStep ?? SCROLL_TOTAL_HALF_STEPS;
 }
 function f2Held(text: string): boolean {
   return [...f2Gates.values()].some((gate) => gate.userText === text && !gate.released);
@@ -1227,12 +1230,13 @@ const server = createServer((req, res) => {
 
   if (req.method === "POST" && SCROLL_ACCEPTANCE_TRIGGER !== undefined && (url === "/__test/f2/arm" || url === "/__test/f2/release")) {
     void readBody(req).then((raw) => {
-      let input: { gateId?: string; userText?: string };
+      let input: { gateId?: string; userText?: string; pauseAtHalfStep?: number };
       try { input = JSON.parse(raw); } catch { sendJson(res, 400, { error: "invalid json" }); return; }
       if (typeof input.gateId !== "string" || input.gateId.length === 0) { sendJson(res, 400, { error: "gateId required" }); return; }
       if (url.endsWith("/arm")) {
         if (typeof input.userText !== "string" || !input.userText.startsWith(`${SCROLL_ACCEPTANCE_TRIGGER}:F2:`) || f2Gates.has(input.gateId)) { sendJson(res, 400, { error: "unique F2 turn required" }); return; }
-        f2Gates.set(input.gateId, { userText: input.userText, released: false });
+        if (input.pauseAtHalfStep !== undefined && input.pauseAtHalfStep !== 1) { sendJson(res, 400, { error: "only first-activity pause is supported" }); return; }
+        f2Gates.set(input.gateId, { userText: input.userText, pauseAtHalfStep: input.pauseAtHalfStep ?? SCROLL_TOTAL_HALF_STEPS, released: false });
       } else {
         const gate = f2Gates.get(input.gateId);
         if (!gate) { sendJson(res, 404, { error: "unknown gate" }); return; }
@@ -1657,7 +1661,7 @@ const server = createServer((req, res) => {
         return;
       }
       const gatedScroll = [...f2Gates.values()].some((gate) => gate.userText === record.userText);
-      if (gatedScroll && record.scrollHalfStep >= SCROLL_TOTAL_HALF_STEPS && f2Held(record.userText)) return;
+      if (gatedScroll && record.scrollHalfStep >= f2PauseAt(record.userText) && f2Held(record.userText)) return;
       if (idx >= pieces.length || (gatedScroll && record.scrollHalfStep < SCROLL_TOTAL_HALF_STEPS)) {
         // 十步滚动剧本：正文发完**流不结束**——真实 LangGraph 的 join 流在图还在跑
         // 工具节点时保持打开，工具落地逐个以 `event: updates` 的 `{"tools": ...}` patch

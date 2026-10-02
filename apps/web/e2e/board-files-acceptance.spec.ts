@@ -5,6 +5,7 @@ import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardApi, boardLogin, createAcceptanceBoard, archiveAcceptanceBoard, openBoard, boardHead, BOARD_SYNCED_STATUS} from './board-acceptance-support';
 import {fileAssetRows, fileWriteCounterproof, setFileFixtureOrgFrozen} from './support/board-files-storage';
+import {isBoardFileUploadResponse} from './support/board-file-upload-response';
 import {securityFixture} from './support/board-security-fixture';
 import {observeRuntimeChunks, runtimeSourceIdentity, verifyRuntimeIdentity} from './board-runtime-evidence';
 
@@ -25,7 +26,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     await openBoard(page, board, 0);
     const runtimeBefore = await verifyRuntimeIdentity(request, sha, await chunks());
     const fileName = 'R09-报告 "原始名称".txt', bytes = Buffer.from(`ordinary file ${randomUUID()}`), digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-    const uploadResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${apiOrigin()}/whiteboards/${board}/files`);
+    const uploadResponse = page.waitForResponse(response => isBoardFileUploadResponse(response.request().method(), response.url(), board, apiOrigin(), baseURL));
     const transfer = await page.evaluateHandle(({name, data}) => {
       const value = new DataTransfer(); value.items.add(new File([new Uint8Array(data)], name, {type: 'text/plain'})); return value;
     }, {name: fileName, data: [...bytes]});
@@ -102,7 +103,9 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     expect([403, 404]).toContain(frozenUpload.status()); expect(await fileAssetRows(foreign.orgId, frozenBoard)).toEqual(beforeFreeze);
     await setFileFixtureOrgFrozen(foreign.orgId, false);
     const runtimeAfter = await verifyRuntimeIdentity(request, sha, runtimeBefore.chunks);
-    await writeFile(info.outputPath('R09-files-result.json'), JSON.stringify({sha, runtimeBefore, runtimeAfter, boardId: board, metadata, legacyMetadata, persistedRows: firstRows, beforeDeniedHead, positiveWrites, deniedWrites, frozenWrites, observations, viewerUploadStatus: viewerWrite.status(), foreignUploadStatus: foreignWrite.status(), revokedStatus: revoked.status(), archivedUploadStatus: archivedUpload.status(), frozenUploadStatus: frozenUpload.status(), approved: false}, null, 2), {mode: 0o600});
+    const resultPath = info.outputPath('R09-files-result.json');
+    await writeFile(resultPath, JSON.stringify({sha, runtimeBefore, runtimeAfter, boardId: board, metadata, legacyMetadata, persistedRows: firstRows, beforeDeniedHead, positiveWrites, deniedWrites, frozenWrites, observations, viewerUploadStatus: viewerWrite.status(), foreignUploadStatus: foreignWrite.status(), revokedStatus: revoked.status(), archivedUploadStatus: archivedUpload.status(), frozenUploadStatus: frozenUpload.status(), approved: false}, null, 2), {mode: 0o600});
+    await info.attach('R09-files-result.json', {path: resultPath, contentType: 'application/json'});
   } finally {
     const errors: unknown[] = [];
     const clean = async (action: () => Promise<unknown>) => { try { await action(); } catch (error) { errors.push(error); } };
