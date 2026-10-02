@@ -59,6 +59,55 @@ pnpm --filter @repo/whiteboard-core exec vitest run
 这段是历史定位提示，技能迁移不携带 CI 修复，也不取代真实 PR job 结果。
 不要 skip 像素测试再声称覆盖；Fabric 7.4.0 是本次源码读取时版本，升级读 lock/package 现值。
 
+2026-10-02 的后续单源准备入口是 [commit 1e1eb5d](https://github.com/boardx/workspacex/commit/1e1eb5d5d3219388d6d1472192fcb1ac3688fbcd)
+中的 `.github/scripts/run-affected-tests.mjs` 及其同名 test。
+读取该 runner 的 `selectsWebTest`、`coreCli` 与计划/执行参数，不在 skill 复制安装命令或判断器。
+它从 web 的实际 `playwright-core/package.json` 定位 CLI，而非假设全局/根 CLI 的浏览器
+revision 一致；planning、安装与执行使用同一 base/filter/environment 和绝对 browser cache。
+历史 #5003 head 8f0e2d2 的 job 110708874417 有 6827 passed/2 failed，两个失败是缺
+chromium_headless_shell-1234（不是笔迹像素已失败）。引用这一日志只定位准备缺口，
+不声称新 runner 的远端 CI 已绿。无需 web test 的 dry plan 与安装失败的反例见该 runner test。
+
+## 像素 Oracle 与归因更正
+
+选中的 Fabric controls 可能绘在 lower canvas。实际笔迹的 midpoint 恰落在 mt/bt
+handle 上时，单点采到白色不能证明笔迹消失。先通过正常 UI 清选择，确认 mirror
+仍 attached、对象数量不变、selected count 为零，等两帧，再比较实际 canonical
+head/epoch/objects 未变后测实体 ink。不要调用 debug setter、清 doc 或放宽像素阈值。
+两帧只为稳定清选择后的绘制，不是凭空加入 latency-ready fence 或宣称解决缓存问题。
+Escape 不是清选择的可靠 oracle：run2 的真实 selection diagnostic 中，第一次 Escape
+只关闭 Draw panel，第二次仍 selected1；Select 后点击空画布 (50,550) 才 selected0。
+`/private/tmp/wsx-r05-selection-diagnostic/result.json` 的五步记录与 PNG 保留此反例，
+并记录 canonical head/full objects 未变。必须观察 selected0，不能假设按键次数等于成功；
+这只是独立诊断，不是完整 R05 run PASS。
+
+2026-10-02 原 R05 run1 的 pen midpoint (180,200) 为白，保留为原始 RED。
+独占 fresh-board no-reload probe 的 zero-frame/two-raf/100ms/500ms lower PNG 中，
+邻点 x160/170/174/186/190/200,y200 为 RGB24/24/27、alpha255，仅 x178/180/182 白；
+no-reload-final PNG 与 selection handle 对齐。fresh hydrate/reload 后该点黑是消去选择
+后的诊断证据，不会把原 run1 变成 PASS。来源见
+[审计更正索引](../../../../docs/design/fabric-board-evidence-audit.md#2026-10-02-诊断更正索引)；
+正常 UI 清选择 + unchanged-head 的修订仍须实际新 run 验收。
+因此不要沉淀「cached drawing blank 已修」或「R05 全通过」这类未证结论。
+
+Fabric mock 的 `Group` natural bounds 若固定为任意默认 width/height，会改变 scale、
+translate 与 clipping 的解释，不能把 mock bounds 当真实 Fabric 或 canonical oracle。
+Geometry 反例必须先核 mock 对 children/extents/layout 的处理，再用实际 Fabric、真实
+浏览器/像素或明确的 canonical frame 独立验证。保留原失败与测试假设更正，
+不要仅为了通过而改期望数值。具体反例：initial d5bff870 的 bridge mock 将 Path、
+Triangle、Group 全替换为不布局 children 的 MockFabricObject，导致 Group.left 为零；
+Surface 的 WeakMap 保存真实 getBoundingRect 与 canonical geometry 的偏移，因此旧 mock
+错误地将 held left 投影为零，而非预期 285。测试修订
+`fd2ceaf4c2c55f8ac19eb33d40654f0a48aa2de7` 使用实际 Path/Triangle 与实际 Group，
+独立断言 held path M285,200/L500,100 与拒绝后 M215,90/L500,100；同时保留
+held 零提交、release 一次提交、preview 清空与节点 geometry 恢复断言。
+原 RED 为 18 passed/2 failed，修订 focused 20/20；该 commit 的推送、CI、合并
+仍须查询当前 PR，不将测试 oracle 修正当业务浏览器验收。
+
+不同 SHA 的截图和报表不能互相借用：准确绑定当前 file/blob、manifest、runtime 和
+完整源 SHA，旧截图继续属于旧来源。证据追加 commit 与应用源码测试 commit 分别记录；
+source-only review、组件通过和浏览器接受是不同证据层级。
+
 ## 交付证据
 
 记录 exact source/commit、命令退出码、测试范围、浏览器数据回读、PNG/报告路径和未测边界。

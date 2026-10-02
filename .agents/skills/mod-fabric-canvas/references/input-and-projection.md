@@ -25,6 +25,26 @@ trackpad pinch 常由浏览器表示 Ctrl-wheel，不能根据 delta 小就宣�
 lostpointercapture、touchcancel、blur、Esc、dispose 必须结束临时手势/监听器，取消平移也要更新 React viewport。
 `finishCancelledFabricTouch` 使用 Fabric 私有 teardown，需要版本升级测试，不自造半个 TouchEvent。
 
+### Hand 与 canonical refresh 的交互边界
+
+2026-10-02 的精确修复来源是 [Nav commit 30432d5](https://github.com/boardx/workspacex/commit/30432d5224f880909aa6eadcf0ff3b00d83504e4)。
+Surface 的 `pointerDown`、canonical reconciliation 与 tool effect 必须共同保持当前工具的
+交互策略：Hand/Draw/Eraser 下 fresh 或 patched registry object 都不可重新 selectable/evented。
+只在 `[readOnly, tool]` effect 关交互不够，后续 canonical refresh 会重新调用投影函数。
+`current.selectable === readOnly` 也不是工具策略；Hand 的 false 与可写板的 false 相等，
+会导致反复 patch 并恢复交互。策略以当前 tool/readOnly/hidden/kind 的真实状态为准。
+Hand 导航开始时清 Fabric `_currentTransform`，与中/右键导航同类；否则 Fabric
+在 own `mouse:down` handler 前建立的对象 transform 可能先移动一次目标。
+
+原会议反例在 zoom 1.1 下手形拖过 Sticky，第一步屏幕位移 10/4 被写成 world
+位移 9.090909/3.636364；后续 pan 正常不代表 canonical 安全。
+该诊断来自旧 #5012 run 36946406305 artifact 11204743320 的 360 样本后 final reload，
+不是缩短 timer 或移动 fixture 绕开对象得出的通过。
+回归入口是 `board-fabric-surface.test.tsx` 的 noninteractive canonical-refresh/addition 与
+stale-transform 用例；meeting spec 保留原 seed、360 样本、DB/权限和 final hash，
+追加 hand-pan 后三客户端 canonical rows/hash 检查。4 个新用例有独立 RED→GREEN，
+该来源记录 Surface/input/adapter/bridge 89/89；这些组件测试不等于会议长时浏览器已通过。
+
 ## 对象拖动与连接线
 
 先区分 viewport 与对象 transform：纯 pan/zoom 使用共同 viewportTransform，所有 Fabric 对象和
@@ -68,6 +88,14 @@ FixedLayout + imperative canonical size 防止 Circle/文本 natural bounds 引�
 控制点对象来自共享 prototype，改 mtr 前 clone，否则其他对象跟着改变。
 `use-board-toolbar-position.ts`、chrome insets/fitRequest、ResizeObserver 三者需区分：
 选择/菜单高度变化不该重新消费旧 fitRequest；新 request 或真实尺寸变化才重新 fit。
+诊断 Fit 菜单时分别记录 request identity、真实 surface dimensions 与 chrome insets；
+菜单开合只改变 chrome 时，保持旧 request 已消费的事实，而不是用布局变动当新用户 Fit。
+源码入口是 Surface `appliedFitRef`/fit effect 与 `board-chrome-fit.ts`；
+核实当前候选路径，既有 helper 不存在时不从这段经验复制第二套算法。
+具体回归在 `9b67f2a6dc48acc48c061d0fd55e17f946b54301` 的 Surface test：
+初 fitRequest1 为一次 onViewport；选择与 insets 改变仍一次；新 fitRequest2 为两次；
+真实宽度变为 900 为三次；相同 resize 通知仍三次。它验证 request 消费策略，
+不将菜单 chrome 变化视作用户新 Fit，也不代替浏览器无遮挡验收。
 窄屏检查 root scrollLeft、菜单裁剪、按钮中心 `elementFromPoint`，仅菜单 bounds 在 viewport 不足以证明无遮挡。
 
 ## 单次创建

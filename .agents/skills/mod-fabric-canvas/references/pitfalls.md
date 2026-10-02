@@ -32,6 +32,15 @@
 - 冲突拒绝测试必须先证明 winning mutation；双端验收需实际独立 browser process 与应用源码冻结。
   判据见 [真实验收](verification.md)，不能由静态 fixture 注释或 runner hash 推断通过。
 
+## 2026-10-02 精确回流索引
+
+- Hand 远端刷新/首步误拖的实际代码、4 个 RED→GREEN 和会议长测未通过边界，
+  只在 [输入与投影](input-and-projection.md#hand-与-canonical-refresh-的交互边界) 维护详细记录。
+- lower-canvas selection control 遮笔迹的 R05 原 RED 与诊断更正，以及 mock Group
+  bounds 的独立 oracle 边界，见 [像素 Oracle 与归因更正](verification.md#像素-oracle-与归因更正)。
+- 精确 Playwright core CLI、Turbo plan/execute 参数的代码单源和旧缺 Chromium 日志，
+  见 [CI 前提](verification.md#ci-前提)。本索引不复制 runner 或其安装策略。
+
 ## 回流模板
 
 ```text

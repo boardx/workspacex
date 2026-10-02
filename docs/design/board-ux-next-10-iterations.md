@@ -3,15 +3,16 @@
 Date: 2026-10-02 (Asia/Shanghai).
 This is a user-requested delivery plan, not a feature-state or design-signoff source.
 Existing feature lists, bundle contracts and human signoff remain authoritative.
-Initial delivery: https://github.com/boardx/workspacex/pull/4965 (Draft).
+Historical initial publication: https://github.com/boardx/workspacex/pull/4965 (then Draft).
+Current publication heads are indexed once in fabric-board-evidence-audit.md, not inferred here.
 The initial PR is not counted as one of the ten following iterations.
-Round 01 software-subset evidence: https://github.com/boardx/workspacex/pull/4993
-(Draft stacked on #4965). Runtime source `48a96cbe2e68f49167b9da54a4d9d44fd0c80b28`;
+Historical Round 01 software-subset publication: https://github.com/boardx/workspacex/pull/4993
+(then Draft, stacked on #4965). Runtime source `48a96cbe2e68f49167b9da54a4d9d44fd0c80b28`;
 evidence-only head `5be0a4ef63868d58e2f6b8c8d8d7bb37fbef967d`.
 Native hardware remains unaccepted; live CI/review state must be read from GitHub,
 not inferred from this publication record.
-Round 02 publication: https://github.com/boardx/workspacex/pull/4998
-(Draft stacked on the navigation branch), source head
+Historical Round 02 publication: https://github.com/boardx/workspacex/pull/4998
+(then Draft, stacked on the navigation branch), original source head
 `fad52d981c8fb76821f75409b537f1b5ee315f45`. A fresh `gh pr view` confirmed
 OPEN/Draft at publication; full runtime acceptance, current CI and merge remain unverified.
 
@@ -151,7 +152,7 @@ These are task ownership boundaries, not simultaneous permission to edit shared 
 Main assigns a concrete agent before each round. Reviewers cannot approve their own edits.
 Actual PR/report/SHA/CI results are recorded in each linked issue, not copied as stale
 statuses into this plan. All ten rounds are planned; 01 has software-subset evidence
-in Draft #4993, but no complete iteration is declared passed. Connector runner
+in the historical #4993 publication, but no complete iteration is declared passed. Connector runner
 preparation is for 02, not evidence of complete 01 acceptance or 02 runtime acceptance.
 Existing Sticky S01-S18 source is the original development branch's
 phases/phase-19-board-visual-workspace/requirements/sticky-mural-acceptance.md;
@@ -184,17 +185,20 @@ never translated into an implementation or passing claim.
 
 ```mermaid
 flowchart TD
-  P0[Initial PR 4965: Draft] --> G[Fresh regression and CI]
+  P0[Initial PR 4965] --> G[Fresh regression and CI]
   G --> R1[01 Navigation and eraser]
   R1 --> R2[02 Connector capabilities]
   R2 --> R3[03 Connector authority and interchange]
-  R3 --> R4[04 Single-shot tools]
-  R4 --> R5[05 Drawing]
-  R5 --> R6[06 Sticky]
-  R6 --> R7[07 Images]
-  R7 --> R8[08 Cloud sync]
-  R8 --> R9[09 Files: approved compatibility]
-  R9 --> R10[10 Fabric Skill and audit]
+  G --> R4[04 Single-shot tools]
+  G --> R5[05 Drawing]
+  G --> R6[06 Sticky]
+  G --> R7[07 Images]
+  G --> R8[08 Cloud sync]
+  G --> R9[09 Files: approved compatibility]
+  R1 --> R10[10 Fabric Skill and audit: continuous feedback]
+  R2 --> R10
+  R5 --> R10
+  R9 --> R10
   D[Develop] --> A[Exact-SHA acceptance]
   A -->|Fail| D
   A -->|Pass| V[Independent review]
@@ -203,3 +207,13 @@ flowchart TD
   CI -->|Fail| D
   CI -->|Green and review accepted| N[Authorized gated merge and next iteration]
 ```
+
+### Progress And Evidence
+
+The Mermaid above is an execution/dependency map, not a second live-status ledger.
+Independent work may overlap; the machine-heavy lane remains serialized.
+Read the single [Fabric evidence audit](fabric-board-evidence-audit.md) for each round's
+published source, executed runner/report, actual screenshots and unverified gates.
+Its dated observations do not replace live PR checks or the authoritative feature list.
+Historical publication sources at the top of this plan remain historical; later source
+heads cannot inherit their screenshots or acceptance results automatically.
