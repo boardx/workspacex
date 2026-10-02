@@ -3,7 +3,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardLogin, boardHead, createAcceptanceBoard} from './board-acceptance-support';
-import {fileAssetRows} from './support/board-files-storage';
+import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-storage';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -19,6 +19,7 @@ const filenames = [
 
 test('R09 real multipart original filename matrix and literal RFC5987 download headers', async ({page, request}, info) => {
   const beforeProof = await verifyConnectorRuntimeManifest();
+  const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
   const owner = await boardLogin(page), name = `R09 filename matrix ${randomUUID()}`;
   const board = await createAcceptanceBoard(request, owner, name), failures: unknown[] = [];
   try {
@@ -42,7 +43,7 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
       observations.push({fileName, metadata, contentDisposition: download.headers()['content-disposition']});
     }
     expect(await fileAssetRows(F.orgId, board)).toHaveLength(filenames.length);
-    await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, browserSavedFilenameVerified: false, originalQuotedBrowserDownloadCriterionSatisfied: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
+    await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, nativeDatabase, browserSavedFilenameVerified: false, originalQuotedBrowserDownloadCriterionSatisfied: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
   } catch (error) { failures.push(error); }
   finally {
     try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); }

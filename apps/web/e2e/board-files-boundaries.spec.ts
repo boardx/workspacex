@@ -5,7 +5,7 @@ import {Board, DeleteBoard, DeleteBoardReceipt} from '@repo/contracts/whiteboard
 import {WHITEBOARD_FILE_LIMITS, WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardApi, boardLogin, boardHead, createAcceptanceBoard} from './board-acceptance-support';
-import {fileAssetRows} from './support/board-files-storage';
+import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-storage';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
 test('R09 missing, empty, oversized and revoked file writes leave no asset or board update', async ({browser, page, request, baseURL}, info) => {
@@ -16,6 +16,7 @@ test('R09 missing, empty, oversized and revoked file writes leave no asset or bo
   expect(manifest.nativeDatabase.actualServer.vector_version).toBe('0.8.6');
   expect(manifest.nativeDatabase.name).toBe(process.env.WORKSPACEX_DB);
   expect(manifest.nativeRoleProof).toEqual({current_role: 'app_rw', authenticated_role: 'app_rw', database: process.env.WORKSPACEX_DB, rolsuper: false, rolbypassrls: false, owner_membership: false});
+  const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
   const owner = await boardLogin(page), name = `R09 boundary ${randomUUID()}`;
   const board = await createAcceptanceBoard(request, owner, name);
   let context: BrowserContext | undefined;
@@ -55,7 +56,7 @@ test('R09 missing, empty, oversized and revoked file writes leave no asset or bo
     const denied = await upload(editor, validBytes, validName);
     expect([403, 404]).toContain(denied.status()); observations.push({case: 'revoked-identical-valid-request', status: denied.status()});
     expect(await fileAssetRows(F.orgId, board)).toEqual(rows); expect(await boardHead(request, owner, board)).toEqual(initial);
-    const evidence = {observations, oversizedBytes: oversized.length, inaccessibleAssetStatus: inaccessible.status(), requiredSuiteComplete: false, nativeOsDragVerified: false};
+    const evidence = {observations, nativeDatabase, oversizedBytes: oversized.length, inaccessibleAssetStatus: inaccessible.status(), requiredSuiteComplete: false, nativeOsDragVerified: false};
     await info.attach('R09 boundary HTTP evidence', {body: JSON.stringify(evidence, null, 2), contentType: 'application/json'});
   } catch (error) { failures.push(error); }
   finally {

@@ -3,7 +3,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardLogin, boardHead, createAcceptanceBoard, openBoard, canonicalRows} from './board-acceptance-support';
-import {fileAssetRows} from './support/board-files-storage';
+import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-storage';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 import {isBoardFileUploadResponse} from './support/board-file-upload-response';
@@ -11,6 +11,7 @@ import {expectBoardSynced} from './support/board-sync-status';
 
 for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and zoom at ${width}px`, async ({page, request, baseURL}, info) => {
   const beforeProof = await verifyConnectorRuntimeManifest();
+  const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
   await page.setViewportSize({width, height: 900});
   const owner = await boardLogin(page), name = `R09 placement ${width} ${randomUUID()}`;
   const board = await createAcceptanceBoard(request, owner, name), failures: unknown[] = [];
@@ -51,7 +52,7 @@ for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and
     expect(await canonicalRows(page)).toEqual(rows);
     expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
     await page.screenshot({path: info.outputPath(`R09-reloaded-${width}.png`), fullPage: true});
-    await info.attach('R09 placement evidence', {body: JSON.stringify({width, viewport, client, scene, metadata, rows, nativeOsDragVerified: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
+    await info.attach('R09 placement evidence', {body: JSON.stringify({width, viewport, client, scene, metadata, rows, nativeDatabase, nativeOsDragVerified: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
   } catch (error) { failures.push(error); }
   finally {
     try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); }
