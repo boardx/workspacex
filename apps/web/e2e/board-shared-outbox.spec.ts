@@ -5,9 +5,10 @@ import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
+import {sharedOutboxPanelCommands} from './support/board-shared-outbox-fixture';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
-// At most 8 creates + 16 text edits. 45s is a bounded drain SLA (~1.8s per unique
+// Eight existing panels + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
@@ -18,7 +19,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  page.setDefaultNavigationTimeout(15_000);
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
- const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
+ const metadata=createSpatialWsMetadataRecorder();
  const http:Array<{method:string;path:string;status:number}>=[];
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
@@ -28,45 +29,49 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
  const objectRows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
  const rows=(tab:Page)=>objectRows(tab).evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
- const synced=(tab:Page)=>tab.getByText(/^已同步(?: · 序列 \d+)?$/);
+ const synced=(tab:Page)=>tab.getByTestId('board-sync-status');
+ const expectSynced=async(tab:Page,timeout?:number)=>{await expect(synced(tab)).toHaveAttribute('aria-label',/^已同步(?: · 序列 \d+)?$/,{timeout});};
  try{
   await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
-  await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
-  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
+  await page.goto(`/studio/board/${boardId}`);await expectSynced(page);mark('board-opened');
+  const empty=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(empty.manifest.seq).toBe(0);
+  const createdIds=Array.from({length:8},()=>randomUUID());
+  await call('POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:empty.manifest.epoch,commands:sharedOutboxPanelCommands(createdIds)});
+  await expect(objectRows(page)).toHaveCount(8);await expectSynced(page);
+  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.epoch).toBe(empty.manifest.epoch);expect(initial.manifest.seq).toBe(empty.manifest.seq+1);mark('existing-panels-seeded');
+  metadata.observe(page,'original');
+  await page.reload();await expectSynced(page);await expect(objectRows(page)).toHaveCount(8);
   const surface=page.getByTestId('board-fabric-surface');
-  await surface.hover();await page.keyboard.down("ControlOrMeta");await page.mouse.wheel(0,100_000);await page.keyboard.up("ControlOrMeta");await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
-  await page.getByTestId('board-add-frame').click();
-  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
-  const createdIds:string[]=[];
-  for(let index=0;index<8;index++){
-   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
-   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
-   const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
-   const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
-  }
-  await page.getByRole('button',{name:'Close frame tools'}).click();
+  await surface.hover();await page.keyboard.down('Control');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('Control');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   await expect(objectRows(page)).toHaveCount(8);
-  mark('panels-created');
+  mark('panels-rendered');
+  const panelOutline=objectRows(page).last().getByRole('button');await panelOutline.focus();await panelOutline.press('Enter');
   await page.getByTestId('board-inspector-expand').click();
-  const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.fill(`${await title.inputValue()}shared-tab-proof`);
-  const pending=page.getByText(/^\d+ 项修改等待服务器确认$/);await expect(pending).toBeVisible();evidence.pendingBeforePeer=await pending.textContent();
+  const title=page.getByRole('textbox',{name:'区域标题',exact:true});
+  for(const id of createdIds){
+   const outline=page.getByTestId(`board-a11y-object-${id}`);await outline.focus();await outline.press('Enter');
+   await title.fill(`Frame ${id} queued`);await title.fill(`Frame ${id} shared-tab-proof`);
+  }
+  const pending=page.getByTestId('board-sync-status');await expect(pending).toHaveAttribute('aria-label',/^\d+ 项修改等待服务器确认$/);evidence.pendingBeforePeer=await pending.getAttribute('aria-label');
   mark('local-updates-queued');
-  const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='panel')).toBe(true);expect(expected.map(row=>row.id)).toEqual(createdIds);expect(expected.some(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
+  const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='panel')).toBe(true);expect(expected.map(row=>row.id)).toEqual([...createdIds].sort());expect(expected.every(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
-  await expect(synced(page)).toBeVisible({timeout:remaining()});await expect(synced(testPeer)).toBeVisible({timeout:remaining()});
+  await expectSynced(page,remaining());await expectSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
   mark('peer-converged');
   evidence.drainMs=performance.now()-started;expect(evidence.drainMs).toBeLessThanOrEqual(DRAIN_SLA_MS);
   const final=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(final.manifest.epoch).toBe(initial.manifest.epoch);
+  expect(final.manifest.seq-initial.manifest.seq).toBe(16);
+  evidence.seedCommands=8;evidence.uiEdits=16;
   const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq)).toEqual([]);
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
   await Promise.all([page.reload(),testPeer.reload()]);
   mark('both-reloaded');
-  for(const tab of [page,testPeer]){await expect(synced(tab)).toBeVisible({timeout:10_000});await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
+  for(const tab of [page,testPeer]){await expectSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';

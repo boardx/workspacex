@@ -427,6 +427,23 @@ jobs:
       # （非 PR 事件，或同仓 PR）生效；fork PR 上仍然把 @repo/api 留在 --affected 集合里，
       # 保底覆盖不丢，只是这一种场景下放弃去重收益（fork PR 本就少见，宁可偶尔重复
       # 跑一遍，不可接受的是不跑）。
+      - name: Select browser prerequisite from actual affected test tasks
+        id: browserplan
+        env:
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          if [ "$IS_FORK_PR" != "true" ]; then
+            pnpm turbo run test --affected --filter='!@repo/api' --dry=json > /tmp/affected-tests.json
+          else
+            pnpm turbo run test --affected --dry=json > /tmp/affected-tests.json
+          fi
+          node .harness/scripts/ci-affected-browser.mjs < /tmp/affected-tests.json >> "$GITHUB_OUTPUT"
+
+      - name: Install Chromium for selected web pixel tests
+        if: steps.browserplan.outputs.web_test == 'true'
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
       - name: 受影响模块 test
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
