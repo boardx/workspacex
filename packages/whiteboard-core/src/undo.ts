@@ -172,7 +172,10 @@ export class WhiteboardUndo {
     }
     if(entry.deleteGestureId)COMPENSATION.restoreDeletion={deleteGestureId:entry.deleteGestureId,objectIds:entry.objects.map(object=>object.id)};
     try{executeCommands(this.doc, entry.objects.map(object => ({type: 'restore' as const, id: object.id})), COMPENSATION);}finally{delete COMPENSATION.restoreDeletion;}
-    return entry;
+    const restored = new Map(readObjects(this.doc).map(object => [object.id, object]));
+    if (entry.objects.some(object => !restored.has(object.id))) return entry;
+    // Restored routed bounds may incorporate a surviving endpoint's remote move.
+    return { ...entry, objects: entry.objects.map(object => restored.get(object.id)!) };
   }
 
   private redoStructural(entry: StructuralHistory): StructuralHistory {
