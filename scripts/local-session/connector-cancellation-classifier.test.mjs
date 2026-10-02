@@ -17,4 +17,3 @@ test('CDP exact fetch ID attributes aborted request beside simultaneous successf
 test('CDP two aborted requests one signal cannot exempt either',()=>{const r=exact([failed(1),failed(2)],[cdp('n1','f1'),cdp('n2','f2')],[{...signal,fetchId:'f1'}]);assert.equal(r.expected.length,0);assert(r.unexpected.length>=2);});
 test('CDP missing or duplicated fetch ID fails closed',()=>{for(const networks of [[cdp('n1',null)],[cdp('n1','f1'),cdp('n2','f1',false)]]){const r=exact([failed(1)],networks,[{...signal,fetchId:'f1'}]);assert.equal(r.expected.length,0);assert(r.unexpected.length>0);}});
 test('CDP and Node failed-request counts must corroborate',()=>{const r=exact([failed(1),failed(2)],[cdp('n1','f1')],[{...signal,fetchId:'f1'}]);assert.equal(r.expected.length,0);assert.equal(r.nodeCorroboration.countMatched,false);});
-

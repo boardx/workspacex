@@ -33,4 +33,3 @@ export function classifyConnectorCdpCancellations({failedRequests,cdpRequests,fe
  for(const network of cdpFailed)if(!complete||!commentsFailures.includes(network))unexpected.push({kind:'cdp-loading-failed',...network});
  return{expected,unexpected,nodeCorroboration:{nodeCommentFailures:nodeComments.length,cdpCommentFailures:commentsFailures.length,exactlyAttributed:valid.length,countMatched:complete}};
 }
-
