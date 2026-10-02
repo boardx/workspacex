@@ -1,4 +1,5 @@
 import {createHash,randomUUID} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
@@ -85,6 +86,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await peer?.close().catch(()=>undefined);
   if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
   await Promise.all(chunkReads);evidence.browserChunks=chunks;
-  await info.attach('same-browser-outbox-evidence',{body:Buffer.from(JSON.stringify({...evidence,transport:metadata.snapshot()})),contentType:'application/json'});
+  const evidencePath=info.outputPath('same-browser-outbox-evidence.json');
+  await writeFile(evidencePath,JSON.stringify({...evidence,transport:metadata.snapshot()},null,2));
+  await info.attach('same-browser-outbox-evidence',{path:evidencePath,contentType:'application/json'});
  }
 });
