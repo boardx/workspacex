@@ -5,3 +5,5 @@
 前五修复最新已按classifyChecks全绿：#5130当前e91c1a10588bad401626348ad45a3518181101fa独立合并解决审查ACCEPT，#5134当前730837238c4c4efaa24377054556b7e0ff9979be。#5087/#5110已外部合并，本会话未合并。整体#5056仍未验收。
 
 单独复查持久化失败：初始化hook再次超时，44测试未执行，15m42s含清理1s；没有PASS。最终API typecheck退出0。完整研究suite尚未绿，下一步独立代码review与环境失败分诊；不要扩大超时掩盖问题。
+
+最新集成生产 SHA 7d3ff60d8895c7cfd78d9ea961967a8dc27193c2，父3285ea8f0 +5c3f76d4d，独立代码ACCEPT。新main原作用域消失时回退当前问题的逻辑保留；夹具同时保留quoteOptions和question.sectionId。9文件208单元PASS、typecheck退出0。纯测试transform墙钟499s、测试3.24s；不把异常运行计时作为性能或唯一因果证明。创建Draft PR以暴露实现与未验证边界，不认证完整回归或真实来源质量。#5134依赖已推送5c3f76d4d，197单元/typecheck/推送前9检查通过，新CI待检。
