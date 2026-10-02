@@ -6,6 +6,8 @@
 
 验证：先运行失败用例，7 条中 2 条预期失败；随后四个证据/章节文件 106 条通过，API typecheck 通过。完整研究模块首次运行发现 15 条旧模型夹具读取已移除 content 导致失败，已适配，重跑 34 文件 423 条全部通过。失败信息不隐去。
 
-真实模型：同一个公开 WCAG 来源、5 个原始分块、2 个批次，qwen3.7-plus 两次调用均通过，22 条 match 使用 quoteRef，0 条 literal quote，0 次重试，39356ms。旧协议同公开资料重放在两次内容尝试后仍无有效 match。单样本仅证明证据提取修复，不证明完整报告质量或整体速度 SLA。
+真实模型：同一个公开 WCAG 来源、5 个原始分块、2 个批次，qwen3.7-plus 两次调用均通过，22 条 match 使用 quoteRef，0 条 literal quote，0 次重试，39356ms。旧协议真实浏览器运行未得到有效 match；后续同公开资料诊断重放最终成功，9 条 match、3 次调用、67681ms。两者不可混为同一次终态。单样本仅证明证据提取修复，不证明完整报告质量或整体速度 SLA。
 
 依赖：PR #5130。所有 PR 禁止合入 main；#5056 保持打开。#5130 仍有 Board Diagram 90px（阈值32px）真实 CI 故障，已在 #5094 与 PR 公布；backend-gates 尚未产出 backend-required。
+
+独立审查：ACCEPT，绑定 fa80bd496149a0b1e74eadc233d8c2a8cf6699b1；无 P1/P2。基线 1da2a394d 的 main 父提交实际是 7cc6d6a07ddda3bb87a625669dbd573455ab3016（包含 c1f333117），无新增研究或 Board 逻辑。

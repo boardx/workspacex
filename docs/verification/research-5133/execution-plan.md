@@ -37,8 +37,9 @@ flowchart TD
   %% evidence S2: /private/tmp/research-5133-red.log: 2 expected failures; /private/tmp/research-5133-regression.log: 106 PASS
   class S3 tested
   %% evidence S3: research-suite-summary.log: 34 files 423 PASS; typecheck.log: exit 0; real-model-result.json: 22 matches 2 calls
-  class S4 doing
-  class S5 todo
+  class S4 tested
+  %% evidence S4: review.md: ACCEPT fa80bd496; browser regression pending S5; 423 tests and real evidence extraction passed
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
