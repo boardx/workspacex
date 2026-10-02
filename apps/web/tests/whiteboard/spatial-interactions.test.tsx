@@ -200,7 +200,7 @@ it("keeps multi-selection quiet and restores handles for touch single-selection"
   expect(screen.queryAllByTestId(/^connector-handle-/)).toHaveLength(0);
   const a=readObjects(doc)[0]!;fireEvent.click(screen.getByTestId(`mock-select-${a.id}`));
   expect(screen.getAllByTestId(/^connector-handle-/)).toHaveLength(4);
-  const handle=screen.getByTestId(`connector-handle-${a.id}-right`);expect(handle).toHaveClass("h-11","w-11");
+  const handle=screen.getByTestId(`connector-handle-${a.id}-right`);expect(handle).toHaveClass("h-[45px]","w-[45px]");
   fireEvent.click(handle);
   expect(readObjects(doc).some(object=>object.kind==='connector')).toBe(false);
   const b=readObjects(doc).find(object=>object.id!==a.id)!;
