@@ -8,7 +8,7 @@ import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metada
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
-// Eight real UI panel creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
+// Eight real UI sticky creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{

@@ -139,6 +139,8 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
   openProperties();
   expect(screen.getByLabelText("语义关系")).toBeDisabled();
+  for(const button of screen.getByTestId("board-connector-toolbar").querySelectorAll("button"))expect(button).toBeDisabled();
+  expect(screen.getByTestId("board-connector-color")).toBeDisabled();
   doc.destroy();
 });
 
