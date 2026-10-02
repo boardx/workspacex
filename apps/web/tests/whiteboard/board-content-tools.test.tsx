@@ -160,13 +160,13 @@ it('blocked editing rejects geometric erase even when the callback omits target 
  render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly title="Read only" status="已连接"/>);const baseline=readObjects(doc),transactions:unknown[]=[];doc.on('afterTransaction',transaction=>transactions.push(transaction));fireEvent.click(screen.getByTestId('erase-no-ids'));expect(readObjects(doc)).toEqual(baseline);expect(transactions).toHaveLength(0);doc.destroy();
 });
 
-it("hides legacy Arrow/Frame creation and shortcuts without creating objects", async () => {
+it("hides Frame and legacy shortcuts while exposing the approved Connector entry", async () => {
   const doc=await setup();
   for(const key of ["f","c"])fireEvent.keyDown(window,{key});
   expect(readObjects(doc)).toEqual([]);
   expect(screen.queryByTestId("board-frame-tool-panel")).toBeNull();
   expect(screen.queryByTestId("board-add-frame")).toBeNull();
-  expect(screen.queryByTestId("board-add-connector")).toBeNull();
+  expect(screen.getByTestId("board-add-connector")).toBeEnabled();
   doc.destroy();
 });
 
