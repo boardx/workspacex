@@ -1,8 +1,9 @@
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
+import {readContentObject} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {apiOrigin, boardLogin, boardHead, createAcceptanceBoard, openBoard, canonicalRows} from './board-acceptance-support';
+import {apiOrigin, boardApi, boardLogin, boardHead, createAcceptanceBoard, openBoard, canonicalRows, canonicalBoardSnapshot} from './board-acceptance-support';
 import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-storage';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
@@ -51,6 +52,25 @@ for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and
     await page.reload(); await expectBoardSynced(page, 30_000);
     expect(await canonicalRows(page)).toEqual(rows);
     expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+    const beforeTransfer = await canonicalBoardSnapshot(request, owner, board);
+    expect(beforeTransfer.objects).toHaveLength(1);
+    const content = readContentObject(beforeTransfer.objects[0]!);
+    if (!content || content.type !== 'tile') throw new Error('FILES_REQUIRE_DURABLE_FILE_TILE');
+    expect(content).toMatchObject({tileType: 'file', title: fileName, status: 'ready', actions: ['download'], link: null, coverAssetId: null});
+    expect(Object.fromEntries(content.fields.map(field => [field.key, field.value]))).toEqual(Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)])));
+    const portable = await request.post(`${apiOrigin()}/whiteboards/${board}/portable/export`, {headers: {authorization: `Bearer ${owner}`}});
+    expect(portable.status()).toBe(400); expect(await portable.json()).toMatchObject({reasonCode: 'UNSUPPORTED_FORMAT'});
+    const targetName = `R09 unsupported file copy ${randomUUID()}`;
+    const duplicate = await request.post(`${apiOrigin()}/whiteboards/${board}/duplicates`, {
+      headers: {authorization: `Bearer ${owner}`}, data: {requestId: randomUUID(), targetName, expectedSource: {epoch: initial.epoch, seq: initial.seq + 1}},
+    });
+    expect(duplicate.status()).toBe(409); expect(await duplicate.json()).toMatchObject({reasonCode: 'COPY_INTEGRITY_FAILED'});
+    const targets = await (await boardApi(request, owner, 'GET', `/whiteboards?query=${encodeURIComponent(targetName)}&archived=all`)).json();
+    expect(targets).toEqual({items: [], nextCursor: null});
+    expect(await canonicalRows(page)).toEqual(rows);
+    expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+    expect(await fileAssetRows(F.orgId, board)).toEqual([{asset_id: metadata.assetId, metadata, state: 'active'}]);
+    expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(beforeTransfer);
     await page.screenshot({path: info.outputPath(`R09-reloaded-${width}.png`), fullPage: true});
     await info.attach('R09 placement evidence', {body: JSON.stringify({width, viewport, client, scene, metadata, rows, nativeDatabase, nativeOsDragVerified: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
   } catch (error) { failures.push(error); }
