@@ -670,3 +670,22 @@ it("rejects chapter saves without an explicit outline draft or in another node",
     expect(C.GuidedResearchRuntimeCommand.safeParse(invalid).success).toBe(false);
   }
 });
+
+it("reassesses preserved sources when replacement chapters are confirmed (#5081)", async () => {
+  const f = fixture(); f.state.busy = false; f.state.availableNodes = ["brief", "directions", "outline", "research", "report"];
+  f.state.sources[0]!.decision = "excluded";
+  const sources = structuredClone(f.state.sources), tasks = structuredClone(f.state.tasks), contexts: any[] = [];
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+  const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(answer(c)) }; } };
+  const service = new GuidedRuntimeService(store, model, { search: async () => { throw new Error("must reuse retrieved facts"); } }, config);
+  const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+  const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+  const value = [{ ...f.state.outline[2]!, id: "replacement", order: 0 }];
+  await service.execute(actor, session, { sessionId: "s", node: "outline", action: "save_chapters", requestId: "edit", expectedVersion: 4, draft: { node: "outline", value } });
+  const result = await service.execute(actor, session, { sessionId: "s", node: "research", action: "complete", requestId: "confirm", expectedVersion: 4, draft: { node: "research", value: f.state.sources.map(({id,decision})=>({id,decision})) } });
+  expect(contexts.some((c) => c.researchStage === "source_relevance")).toBe(true);
+  expect(result.sources.map(({id,decision})=>({id,decision}))).toEqual(sources.map(({id,decision})=>({id,decision})));
+  expect(result.tasks).toEqual(tasks); expect(result.currentNode).toBe("report");
+  expect(contexts.some((c) => c.reportStage === "evidence")).toBe(true);
+  expect(contexts.some((c) => c.reportStage === "quality")).toBe(true);
+});
