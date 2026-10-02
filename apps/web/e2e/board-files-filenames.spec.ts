@@ -56,6 +56,7 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
 });
 
 test('R09 native UI downloads retain literal filenames and bytes after refresh', async ({page, request, baseURL}, info) => {
+  if (!baseURL) throw new Error('FILES_REQUIRE_EXISTING_RUNTIME_URLS');
   const beforeProof = await verifyConnectorRuntimeManifest();
   const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
   const owner = await boardLogin(page), failures: unknown[] = [], observations: Array<Record<string, unknown>> = [];
