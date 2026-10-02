@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
+import { toBoardFabricObjects } from "@/components/whiteboard/whiteboard-fabric-projection";
+import { sharedOutboxPanelCommands } from "../../e2e/support/board-shared-outbox-fixture";
 
 interface MockProjectedObject {
   data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string; drawingPreview?: boolean };
@@ -132,7 +134,7 @@ vi.stubGlobal("Image", class {
   get src() { return this.value; }
 });
 
-import { BoardFabricSurface, connectorTipAngles } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BoardFabricSurface, connectorTipAngles, createFabricObject } from "@/components/whiteboard/fabric/board-fabric-surface";
 
 const OBJECTS: readonly BoardFabricObject[] = [
   { id: "s-1", kind: "sticky", revision: 1, orderKey: "a", geometry: { x: 40, y: 60, width: 220, height: 180, rotation: 0 }, style: { fill: "#F8D76E", textColor: "#29261E" }, content: { text: "一个观察" } },
@@ -456,6 +458,22 @@ describe("BoardFabricSurface", () => {
       expect(byId(id).children?.[1]).toMatchObject({ text: id });
       for (const guide of byId(id).children!.slice(2)) expect(guide).toMatchObject({ selectable: false, evented: false, strokeUniform: true });
     }
+  });
+
+  it.each([undefined, { stroke: "#E11D48", strokeWidth: 7 }, { stroke: "#E11D48", strokeWidth: 0 }])("preserves canonical frame outline defaults and explicit styles through projection patches: %j", (style) => {
+    const frame=sharedOutboxPanelCommands(["visible-frame"])[0]!.object;
+    const canonical={...frame,style:style?.stroke ? {stroke:style.stroke} : {}};
+    const project=()=>toBoardFabricObjects([canonical]).map(object=>({...object,style:{...object.style,...style}}));
+    const objects=project();
+    expect(objects[0]?.kind).toBe("panel");
+    const constructed=createFabricObject(objects[0]!) as unknown as MockProjectedObject;
+    expect(constructed.children?.[0]).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+    const props={objects,selectedObjectIds:[],readOnly:false,tool:"select" as const,viewport:VIEWPORT,onSelectionChange:vi.fn(),onObjectTransform:vi.fn(),onViewportChange:vi.fn()};
+    const view=render(<BoardFabricSurface {...props}/>);
+    const outline=()=>probe.objects.find(object=>object.data?.boardObjectId===frame.id)!.children![0]!;
+    expect(outline()).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+    view.rerender(<BoardFabricSurface {...props} objects={project().map(object=>({...object,revision:object.revision+1,geometry:{...object.geometry,x:64}}))}/>);
+    expect(outline()).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
   });
 
   it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {
