@@ -80,6 +80,7 @@ export function SurveyQuestionEditor({
   >({});
   const [draggingType, setDraggingType] = React.useState<SurveyQuestionType | null>(null);
   const lastEmittedSignature = React.useRef<string | null>(null);
+  const appliedRepairTarget = React.useRef<string | null>(null);
   const questionsSignature = surveyQuestionsContentSignature(questions);
   React.useEffect(() => {
     if (lastEmittedSignature.current === questionsSignature) {
@@ -90,8 +91,15 @@ export function SurveyQuestionEditor({
     setRedoStack([]);
   }, [questionsSignature]);
   React.useEffect(() => {
-    if (selectedQuestionId && questions.some((q) => q.id === selectedQuestionId))
+    if (!selectedQuestionId) {
+      appliedRepairTarget.current = null;
+      return;
+    }
+    if (appliedRepairTarget.current === selectedQuestionId) return;
+    if (questions.some((q) => q.id === selectedQuestionId)) {
+      appliedRepairTarget.current = selectedQuestionId;
       setId(selectedQuestionId);
+    }
   }, [questions, selectedQuestionId]);
   const question = questions.find((q) => q.id === id) ?? questions[0];
   const index = questions.findIndex((q) => q.id === question?.id);
