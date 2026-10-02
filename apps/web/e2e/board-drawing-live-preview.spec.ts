@@ -29,6 +29,9 @@ async function startStroke(page: Page, surface: Locator, offset: number) {
   const bounds = await surface.boundingBox();
   expect(bounds).not.toBeNull();
   const start = { x: bounds!.x + 320 + offset, y: bounds!.y + 240 + offset };
+  for (const point of [start, { x: start.x + 80, y: start.y + 40 }]) {
+    expect(await page.evaluate(({x, y}) => document.elementFromPoint(x, y)?.matches("canvas.upper-canvas") ?? false, point)).toBe(true);
+  }
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(start.x + 80, start.y + 40, { steps: 8 });
@@ -80,6 +83,8 @@ test("Fabric Draw previews before commit, cancels without writes, and commits ex
 
 
 test("Eraser hits only unlocked drawings in one undo step and survives peer reload", async ({page, request}) => {
+  // At the default 720px height the Draw panel covers the second stroke's start.
+  await page.setViewportSize({width: 1280, height: 900});
   const token = await boardLogin(page);
   const boardId = await createAcceptanceBoard(request, token, "Eraser durable acceptance");
   let peer: Page | undefined;
