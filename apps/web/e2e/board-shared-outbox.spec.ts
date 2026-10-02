@@ -36,7 +36,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
-  await surface.hover();await page.mouse.wheel(0,100_000);await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
+  await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   await page.getByTestId('board-add-frame').click();
   await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
   const createdIds:string[]=[];
