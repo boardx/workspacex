@@ -254,3 +254,7 @@ prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须
 非生产 `cn-release-tag-proof` 工作流只在初次治理安装/治理规则变更后证明真实 GITHUB_TOKEN 的创建能力及 zero-bypass update/delete 拒绝；不在每次已 prepared activation 重跑。其 `cn-release-proof-*` 规则/审计 tag 与生产 `cn-prepared-*` 严格分离，不可用 proof 规则冒充生产就绪。实际 proof 缺失即治理未验收；本地 mock 反证或规则存在不算 token proof。
 
 治理规则的 bypass_actors 缺失是 NOT_READY，不是零 bypass。GitHub 只向规则写权限调用者显示该字段；若实际 GITHUB_TOKEN 隐藏它，应先审阅受控管理员治理收据适配，不能在普通读 API 返回中推断零绕过或更换高权限 PAT。
+
+| 2026-10-02 | `RUNTIME_SOURCE_UNSAFE` | 按路径段拒绝 `..`，允许真实 Git 的 `[[...slug]]` 路由；构建前以非特权 `verify-source` 检查冻结源码；构建后 digest/attest 校验不减。真实 Git catchall、symlink、gitlink、字节漂移及 pre-sudo 反证由 runtime identity/gate 测试覆盖（#5037） |
+
+本地发布修复验证必须使用候选 checkout 自己的依赖布局：运行 `pnpm install --frozen-lockfile --prefer-offline` 复用 store，再执行验证；若明确只需要静态验证，可加 `--ignore-scripts` 并记录边界。不得将其他 workspace 的 `node_modules` 链入候选，因为 workspace 包可能解析到其他版本的源码；即使 lockfile 相同，也不能用这种结果证明候选通过。PR CI 的冻结安装和 exact head 检查仍是权威。
