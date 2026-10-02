@@ -22,11 +22,9 @@ function insightKind(title: string): InsightKind | null {
 function savedInsights(document: interviewMarkdown.InterviewMarkdownDocument, projection: interviewMarkdown.InterviewMarkdownProjection) {
   const insights: { kind: InsightKind; headingId: string; markdown: string; count: number; expertId: string | null }[] = [];
   let activeExpert: string | null = null;
-  let expertDepth = 0;
   for (const block of projection.blocks) {
-    if (activeExpert && block.depth <= expertDepth) activeExpert = null;
     const expertLink = block.links.find((link) => /^#expert-[a-zA-Z0-9_-]+$/u.test(link.url));
-    if (expertLink) { activeExpert = expertLink.url.slice(8); expertDepth = block.depth; continue; }
+    if (expertLink) { activeExpert = expertLink.url.slice(8); continue; }
     const kind = insightKind(block.title);
     if (!kind) continue;
     const markdown = document.markdown.slice(block.contentStart, block.end).trim();
@@ -44,8 +42,13 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
 }) {
   const [expert, setExpert] = React.useState<string | null>(null);
   const projection = document ? interviewMarkdown.parseInterviewMarkdown(document) : null;
-  const attributed = projection?.blocks.filter((block) => block.links.some((link) => link.url === `#expert-${expert}`)) ?? [];
-  const summaryMarkdown = !expert ? document?.markdown : attributed.map((block) => document!.markdown.slice(block.start, block.end)).join("\n\n");
+  // Provider headings may be shallower than the server's expert wrapper. Only
+  // another attributed expert wrapper ends a saved expert segment.
+  const attributed = projection?.blocks.filter((block) => block.links.some((link) => /^#expert-[a-zA-Z0-9_-]+$/u.test(link.url))) ?? [];
+  const summaryMarkdown = !expert ? document?.markdown : attributed.flatMap((block, index) =>
+    block.links.some((link) => link.url === `#expert-${expert}`)
+      ? [document!.markdown.slice(block.start, attributed[index + 1]?.start ?? document!.markdown.length)] : [],
+  ).join("\n\n");
   const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
