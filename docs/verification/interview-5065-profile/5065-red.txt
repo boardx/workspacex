@@ -1,0 +1,45 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ❯ tests/lib/interview-virtual-expert.test.ts (4 tests | 2 failed) 7ms
+   × virtual expert Markdown proposal > reads the role name under the title label requested by the server prompt 3ms
+     → VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE
+   × virtual expert Markdown proposal > refuses ambiguous text between the role name label and the first field 1ms
+     → expected [Function] to throw an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/interview-virtual-expert.test.ts > virtual expert Markdown proposal > reads the role name under the title label requested by the server prompt
+Error: VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE
+ ❯ Module.parseVirtualExpertProposal lib/interview-virtual-expert.ts:20:52
+     18|   const normalized = markdown.replace(/\r\n?/gu, "\n").trim();
+     19|   const title = /^# ([^\n]+)\n\n/u.exec(normalized);
+     20|   if (!title || /<[^>]+>/u.test(normalized)) throw new Error("VIRTUAL_…
+       |                                                    ^
+     21|   const matches = [...normalized.matchAll(/^## ([^\n]+)\n/gmu)];
+     22|   if (matches.length !== sections.length || matches.some((match, index…
+ ❯ tests/lib/interview-virtual-expert.test.ts:17:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/lib/interview-virtual-expert.test.ts > virtual expert Markdown proposal > refuses ambiguous text between the role name label and the first field
+AssertionError: expected [Function] to throw an error
+ ❯ tests/lib/interview-virtual-expert.test.ts:24:69
+     22|     const fields = { name: "客服负责人", role: "客服", domains: "安装"…
+     23|     const body = renderVirtualExpertMarkdown(fields).replace(/^# [^\n]…
+     24|     expect(() => parseVirtualExpertProposal(`# 虚拟角色名称\n\n${body}…
+       |                                                                     ^
+     25|     expect(() => parseVirtualExpertProposal(`# 虚拟角色名称\n客服负责…
+     26|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  19:29:42
+   Duration  550ms (transform 36ms, setup 106ms, collect 17ms, tests 7ms, environment 0ms, prepare 54ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/lib/interview-virtual-expert.test.ts --maxWorkers=1 --minWorkers=1
