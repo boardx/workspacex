@@ -1,3 +1,4 @@
+import { agentDefaults } from "@repo/contracts";
 /**
  * #1652 T2 —— **没配沙箱的部署，chat 行为与接沙箱之前逐字节相同**。
  *
@@ -132,7 +133,7 @@ async function seedAgent(): Promise<void> {
     await c.query(
       `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
        VALUES ($1,$2,$3,$4,'enabled',$5,now(),now()) ON CONFLICT DO NOTHING`,
-      [AGENT, ORG, AGENT, AGENT, ACTOR],
+      [AGENT, ORG, agentDefaults.DEFAULT_AGENT_STABLE_NAME, AGENT, ACTOR],
     );
     await c.query(
       `INSERT INTO agent_versions

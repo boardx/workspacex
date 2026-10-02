@@ -52,6 +52,7 @@ assert_trusted_copies_match_repo() {
     "deploy.sh:${TRUSTED_DEPLOY_BIN}"
     "deploy-readiness.sh:${TRUSTED_LIB_DIR}/workspacex-deploy-readiness.sh"
     "deep-agent-lib.sh:${TRUSTED_LIB_DIR}/workspacex-deep-agent-lib.sh"
+    "devapp-runtime-identity.mjs:${TRUSTED_LIB_DIR}/workspacex-devapp-runtime-identity.mjs"
   )
 
   for pair in "${pairs[@]}"; do

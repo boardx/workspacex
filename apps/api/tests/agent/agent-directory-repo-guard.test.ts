@@ -28,8 +28,8 @@ const USE_CASE = new URL("../../src/application/agent/list-agent-directory.ts", 
 const repoSource = readFileSync(REPO, "utf8");
 const useCaseSource = readFileSync(USE_CASE, "utf8");
 
-/** 本仓储只允许命名的三张租户表——多一张就说明长出了新的读面。 */
-const ALLOWED_TABLES = new Set(["agents", "agent_versions", "capability_listings"]);
+/** 本仓储只允许命名的五张租户表——多一张就说明长出了新的读面。 */
+const ALLOWED_TABLES = new Set(["agents", "agent_versions", "capability_listings", "skill_versions", "skills"]);
 
 function tablesNamedIn(source: string): Set<string> {
   const found = new Set<string>();
@@ -42,7 +42,7 @@ function tablesNamedIn(source: string): Set<string> {
 }
 
 describe("AG04 白名单条目的前提：仓储侧", () => {
-  it("只命名允许的三张租户表", () => {
+  it("只命名允许的五张租户表", () => {
     const unexpected = [...tablesNamedIn(repoSource)].filter((t) => !ALLOWED_TABLES.has(t));
     expect(unexpected).toEqual([]);
   });
@@ -50,6 +50,13 @@ describe("AG04 白名单条目的前提：仓储侧", () => {
   it("装置自检：解析器真的能认出表名", () => {
     expect(tablesNamedIn(repoSource).has("agents")).toBe(true);
     expect(tablesNamedIn("SELECT 1 FROM some_other_table")).toEqual(new Set(["some_other_table"]));
+  });
+
+  it("pin metadata is limited to exact published versions in tenant or platform, never skill content", () => {
+    expect(repoSource).toContain("sk.org_id=sv.org_id");
+    expect(repoSource).toContain("(sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published");
+    expect(repoSource).toContain("row.skill_version_ids ?? []");
+    expect(repoSource).not.toMatch(/SELECT[^;]*sv\.(?:content|instructions|body)/s);
   });
 
   it("从不使用 withoutTenant", () => {

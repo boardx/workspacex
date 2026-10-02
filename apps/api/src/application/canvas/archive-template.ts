@@ -65,7 +65,7 @@ export async function archiveTemplate(
   const impact = previewArchiveImpact(boundSegmentIds);
 
   if (input.confirmed) {
-    await deps.templates.setState(input.orgId, input.key, input.version, next.next);
+    await deps.templates.setState(input.orgId, input.key, input.version, next.next, input.userId);
   }
 
   // ⚠ 预检也回 `status: "archived"`。契约的 `out.status` 是 `z.literal("archived")`——

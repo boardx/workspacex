@@ -43,6 +43,7 @@ export class AttachmentUploadError extends Error {
 }
 
 export interface AttachmentRow {
+  readonly uploadedBy?: string;
   readonly id: string;
   readonly orgId: OrgId;
   readonly threadId: string;
@@ -61,7 +62,8 @@ export interface AttachmentCommandRepository {
    */
   countPendingByThread(orgId: OrgId, threadId: string): Promise<Guarded<number>>;
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set）。 */
-  insertAttachment(row: AttachmentRow): Promise<void>;
+  insertAttachment(row: AttachmentRow, writeObject: () => Promise<void>): Promise<void>;
+  cancelPending?(orgId: OrgId,threadId:string,id:string,userId:string):Promise<"missing"|"cancelled"|"sent"|"denied">;
   /**
    * #1584 —— 按 id 查一行附件（预览/下载用），`null` 表示这个线程里没有这个 id。
    * 返回 `Guarded<AttachmentRow | null>`：租户表读一律经 permission-filter 出门（R7），
@@ -150,23 +152,20 @@ export async function uploadAttachment(
   // ④ 先对象存储后落库——存储失败不产生幽灵附件
   const id = deps.attachmentIds.next("att");
   const storageRef = `chat-attachments/${input.orgId}/${id}`;
-  try {
-    await deps.store.putOnce(storageRef, input.bytes, input.mime);
-  } catch (e) {
-    // #1704：原来是裸 `catch {}`。对外仍是 STORAGE_UNAVAILABLE（契约错误码不变，
-    // 也不把内部路径泄给调用方），但**原因必须留下痕迹**——上一次这条路径整片红时，
-    // 每个上传只回一个笼统的 STORAGE_UNAVAILABLE，EEXIST / ENOSPC / EACCES 无从分辨，
-    // 诊断只能靠猜。压平错误码是契约要求，压平**证据**不是。
-    console.error(
-      `[chat-attachment] putOnce failed key=${storageRef}: ` +
-      (e instanceof Error ? `${e.name}: ${e.message}` : String(e)),
-    );
-    throw new AttachmentUploadError("STORAGE_UNAVAILABLE");
-  }
   const createdAt = deps.clock.now();
+  // Admission and insertion share the repository transaction. A contender that loses
+  // the pending slot must be rejected before it creates bytes in object storage.
   await deps.attachments.insertAttachment({
     id, orgId: input.orgId, threadId: input.threadId, storageRef,
-    filename: input.filename, mime: input.mime, bytes: byteLen, createdAt,
+    filename: input.filename, mime: input.mime, bytes: byteLen, createdAt, uploadedBy: input.userId,
+  }, async () => {
+    try {
+      await deps.store.putOnce(storageRef, input.bytes, input.mime);
+    } catch (e) {
+      console.error(`[chat-attachment] putOnce failed key=${storageRef}: ` +
+        (e instanceof Error ? `${e.name}: ${e.message}` : String(e)));
+      throw new AttachmentUploadError("STORAGE_UNAVAILABLE");
+    }
   });
 
   // ⑤ F153：触发内容抽取。**绝不影响上传结果**——附件已持久，抽取 best-effort。

@@ -31,6 +31,9 @@ const probe = vi.hoisted(() => ({
   imageSources: [] as string[],
   imageOptions: [] as Record<string, unknown>[],
   canvas: null as { _currentTransform: unknown } | null,
+  canvasWidth: 1200,
+  canvasHeight: 800,
+  resize: null as (() => void) | null,
 
 }));
 
@@ -80,7 +83,8 @@ vi.mock("fabric", async () => {
   class Canvas {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
     _currentTransform: unknown = null;
-    constructor() { probe.instances += 1; probe.canvas = this; }
+    upperCanvasEl: HTMLCanvasElement;
+    constructor(element: HTMLCanvasElement) { this.upperCanvasEl = element; probe.instances += 1; probe.canvas = this; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
     remove(object: MockProjectedObject) {
       probe.objects.splice(probe.objects.indexOf(object), 1);
@@ -100,7 +104,7 @@ vi.mock("fabric", async () => {
       probe.objects.splice(index, 0, object);
     }
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
-    getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
+    getWidth() { return probe.canvasWidth; } getHeight() { return probe.canvasHeight; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
     getScenePoint(event?: MouseEvent) { return event && (event.clientX || event.clientY) ? { x: event.clientX, y: event.clientY } : { x: 123, y: 234 }; }
     setActiveObject(object: MockProjectedObject) { probe.active = object; probe.activeId = object.data?.boardObjectId ?? null; if (probe.emitSelectionOnSet) probe.handlers.get("selection:updated")?.({ target: object }); }
@@ -120,7 +124,7 @@ vi.mock("fabric", async () => {
 
 });
 
-class ResizeObserverMock { observe() {} disconnect() {} }
+class ResizeObserverMock { constructor(callback: () => void) { probe.resize = callback; } observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 vi.stubGlobal("Image", class {
   alt = ""; onload: (() => void) | null = null; private value = "";
@@ -141,6 +145,7 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
+  beforeEach(() => { probe.canvasWidth = 1200; probe.canvasHeight = 800; probe.resize = null; });
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
 
@@ -1004,6 +1009,30 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: valid });
     expect(onObjectTransform).toHaveBeenCalledOnce();
     expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 120 }));
+  });
+
+  it("does not replay Fit when selection chrome changes, but fits new requests and real resizes", () => {
+    const onViewportChange = vi.fn();
+    const props = { objects: OBJECTS, selectedObjectIds: [] as string[], readOnly: false, tool: "select" as const,
+      viewport: { ...VIEWPORT, fitRequest: 1 }, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange };
+    const initialInsets = { left: 48, right: 48, top: 48, bottom: 48 };
+    const selectedInsets = { ...initialInsets, top: 120 };
+    const view = render(<BoardFabricSurface {...props} fitInsets={initialInsets} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    const initialFit = onViewportChange.mock.calls[0]![0];
+    view.rerender(<BoardFabricSurface {...props} selectedObjectIds={["r-1"]} fitInsets={selectedInsets} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    view.rerender(<BoardFabricSurface {...props} selectedObjectIds={["r-1"]} fitInsets={selectedInsets} viewport={{ ...VIEWPORT, fitRequest: 2 }} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(2);
+    expect(onViewportChange.mock.calls[1]![0]).not.toEqual(initialFit);
+    probe.canvasWidth = 900;
+    const host = screen.getByTestId("board-fabric-surface");
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 900 });
+    act(() => probe.resize?.());
+    expect(onViewportChange).toHaveBeenCalledTimes(3);
+    expect(onViewportChange.mock.calls[2]![0].zoom).toBeLessThan(onViewportChange.mock.calls[1]![0].zoom);
+    act(() => probe.resize?.());
+    expect(onViewportChange).toHaveBeenCalledTimes(3);
   });
 
   it("clamps viewport to 5%-800% and fits canonical content locally", () => {

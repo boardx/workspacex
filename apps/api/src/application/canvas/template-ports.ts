@@ -179,6 +179,9 @@ export interface CanvasTemplateRepository {
    *   而本方法只铸 v1。只看 `(key, 1)` 会让「已有 v2、又建出一个不相干的 v1」成为可能。
    */
   create(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
+    readonly auditAction?: "create" | "adopt";
     readonly orgId: OrgId;
     readonly key: string;
     readonly displayName: string;
@@ -209,6 +212,8 @@ export interface CanvasTemplateRepository {
    *   收进一条语句，由 `(org_id, key, version)` 主键的唯一性兜底并发下的第二次冲突。
    */
   mintVersion(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly displayName: string;
@@ -255,6 +260,8 @@ export interface CanvasTemplateRepository {
    *   已经发布出去的版本"发生的窗口。
    */
   updateDraft(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly version: number;
@@ -276,6 +283,8 @@ export interface CanvasTemplateRepository {
    * 这条不变量管的是 `sections`，与元数据无关，见契约文件头完整论证。
    */
   updateMetadata(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly version: number;
@@ -297,6 +306,8 @@ export interface CanvasTemplateRepository {
    * `ProjectRepository.create` 那条「一个方法 = 事务边界属于实现」的理由。
    */
   publish(cmd: {
+    /** Authenticated application actor; omitted only by trusted host/bootstrap callers. */
+    readonly actorId?: string;
     readonly orgId: OrgId;
     readonly key: string;
     readonly version: number;
@@ -309,6 +320,7 @@ export interface CanvasTemplateRepository {
     key: string,
     version: number,
     next: TemplateVersionState,
+    actorId?: string,
   ): Promise<void>;
 
   /**

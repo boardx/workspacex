@@ -65,6 +65,20 @@ with tempfile.TemporaryDirectory(prefix="w08-structure-") as directory:
     )
     assert unsupported.returncode != 0
     assert not (Path(directory) / "unsupported.json").exists()
+    corrupted_formats = []
+    for kind, (_, media_type) in FILES.items():
+        original = Path(directory) / f"corrupt.{kind}"
+        original.write_bytes(b"synthetic corrupt document")
+        before_hash = digest(original)
+        output = Path(directory) / f"corrupt-{kind}.json"
+        failure = subprocess.run(
+            [sys.executable, str(PARSER), "--source", str(original), "--media-type", media_type, "--output", str(output)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        assert failure.returncode != 0
+        assert not output.exists()
+        assert digest(original) == before_hash
+        corrupted_formats.append(kind)
     print(json.dumps({
         "engines": {kind: value["engine"] for kind, value in parsed.items()},
         "pdfPages": [table["pageNumber"] for table in pdf["tables"]],
@@ -74,4 +88,5 @@ with tempfile.TemporaryDirectory(prefix="w08-structure-") as directory:
         "xlsxChunks": len(xlsx["chunks"]),
         "sourceBytesUnchanged": True,
         "unsupportedRejected": True,
+        "corruptFormatsRejectedWithoutPartialOutput": corrupted_formats,
     }, ensure_ascii=False))

@@ -51,14 +51,15 @@ export function useChatPopoverSlot(id: ChatPopoverId): [boolean, React.Dispatch<
   const [localOpen, setLocalOpen] = React.useState(false);
 
   const open = ctx ? ctx.activeId === id : localOpen;
+  const setActiveId = ctx?.setActiveId;
 
   const setOpen = React.useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
     (next) => {
-      if (!ctx) {
+      if (!setActiveId) {
         setLocalOpen(next);
         return;
       }
-      ctx.setActiveId((prevActiveId) => {
+      setActiveId((prevActiveId) => {
         const prevOpen = prevActiveId === id;
         const nextOpen = typeof next === "function" ? (next as (was: boolean) => boolean)(prevOpen) : next;
         if (nextOpen) return id;
@@ -67,7 +68,7 @@ export function useChatPopoverSlot(id: ChatPopoverId): [boolean, React.Dispatch<
         return prevActiveId === id ? null : prevActiveId;
       });
     },
-    [ctx, id],
+    [setActiveId, id],
   );
 
   return [open, setOpen];

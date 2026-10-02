@@ -102,9 +102,9 @@ test("issue #3347：拖文件到右栏「材料」→ 真实上传 → 随消息
   await page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
   await expect(page.getByTestId("chat-materials-upload-trigger")).toBeEnabled({ timeout: 60_000 });
   await expect(page.getByTestId("chat-materials-empty")).toBeVisible();
-  // 切回「进度」页签：下面要验证的一条是"拖到别的页签上也算数，并自动切到材料"。
-  await page.getByTestId("chat-task-workbench-inspector-tab-progress").click();
-  await expect(inspector).toHaveAttribute("data-active-tab", "progress");
+  // 「进度」已撤（计划只在消息流显示）；仍证明拖到另一真实页签会自动切到材料。
+  await page.getByTestId("chat-task-workbench-inspector-tab-run-details").click();
+  await expect(inspector).toHaveAttribute("data-active-tab", "run-details");
 
   /* ═══════ ① 拖进来的不是文件：明确说明，且没有发出任何上传请求 ═══════ */
   let uploads = 0;

@@ -17,6 +17,7 @@ import type {
   PlanRunStatusReader,
 } from "../../application/plan-control/ports";
 import type { OrgId } from "../../domain/org-id";
+import { PlanEditError } from "../../application/plan-control/plan-edit-errors";
 
 interface LedgerRow {
   revision: number;
@@ -150,15 +151,20 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
     readonly engineEpoch: number; readonly steps: PlanStep[]; readonly createdBy: string;
   }): Promise<{ revision: number }> {
     const revision = input.basedOnRevision + 1;
-    await session.query(
+    const inserted = await session.query<{ revision: number }>(
       `INSERT INTO chat_plan_ledgers
          (thread_id, org_id, revision, engine_epoch, origin, based_on_revision, steps, created_by)
-       VALUES ($1,$2,$3,$4,'user',$5,$6,$7)`,
+       VALUES ($1,$2,$3,$4,'user',$5,$6,$7)
+       ON CONFLICT (thread_id, revision) DO NOTHING
+       RETURNING revision`,
       [
         input.threadId, input.orgId, revision, input.engineEpoch, input.basedOnRevision,
         JSON.stringify(input.steps), input.createdBy,
       ],
     );
+    // The pre-read revision check can race with another append. Only this exact
+    // revision collision is a domain conflict; other database failures propagate.
+    if (inserted.rows.length === 0) throw new PlanEditError("PLAN_REVISION_CHANGED");
     return { revision };
   }
 
