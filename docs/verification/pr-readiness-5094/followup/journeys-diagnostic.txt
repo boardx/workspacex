@@ -1,0 +1,8 @@
+  ✓  1 [chromium] › e2e/board-final-acceptance.spec.ts:69:5 › Panel: drag 10 unparented objects inside, then move the whole container (14.3s)
+  ✓  2 [chromium] › e2e/board-final-acceptance.spec.ts:107:5 › Diagram: A->B->C via one-drag connections remain attached after each shape moves (10.1s)
+  ✓  3 [chromium] › e2e/board-final-acceptance.spec.ts:131:5 › Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arrow/Tile (7.1s)
+  3 passed (2.9m)
+[timing] pnpm --filter web exec playwright test --config e2e/board-journey-acceptance.config.ts --grep Panel:|Diagram:|Visual Research:
+  命令执行：2m52s
+  清理：1s
+  总计：2m53s
