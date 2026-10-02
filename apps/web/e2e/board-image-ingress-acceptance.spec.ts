@@ -1,3 +1,4 @@
+import {withImageOwnedCleanup} from './support/board-image-owned-cleanup';
 import {assertImageIngressProofs,type ImageIngressProof} from './support/board-image-ingress-proof';
 import {createHash,randomUUID} from 'node:crypto';
 import {expect,test} from '@playwright/test';
@@ -11,23 +12,26 @@ test.afterAll(()=>{assertImageIngressProofs(proofs,runtimeSourceIdentity());});
 
 // This is an actual HTTPS/CORS browser fixture, not page.fetch or asset-success mocking.
 test('HTTPS image entry rejects real CORS and malformed ranges then retries durable bytes',async({browser,request:api,baseURL},info)=>{
+ await withImageOwnedCleanup(async own=>{
+ let token:string|undefined,board:string|undefined;
+ own(async()=>{if(token&&board){const current=await(await call(api,token,'GET',`/whiteboards/${board}`)).json();if(!current.archived)await call(api,token,'PATCH',`/whiteboards/${board}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}});
  expect(baseURL).toBeTruthy();
  const {startImageFixture}=await import('../../../scripts/local-session/board-image-https-fixture.mts');
  const png=boardImagePngFixture(),fixture=await startImageFixture(png,new URL(baseURL!).origin);
+ own(()=>fixture.close());
  // Trust is confined to this owned certificate fixture context: all other HTTPS is denied.
  // The application/API are the existing HTTP loopback stack. This does not test public TLS trust.
- const context=await browser.newContext({baseURL,ignoreHTTPSErrors:true});
+ const context=await browser.newContext({baseURL,ignoreHTTPSErrors:true});own(()=>context.close());
  const fixtureOrigin=new URL(fixture.url).origin,blockedHttps:string[]=[];
  await context.route(/^https:\/\//,async route=>{
   if(new URL(route.request().url()).origin===fixtureOrigin)await route.continue();
   else{blockedHttps.push(route.request().url());await route.abort('blockedbyclient');}
  });
  const page=await context.newPage();await observe(page);
- const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);let token:string|undefined,board:string|undefined;
+ const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);
  const posts:string[]=[],failures:string[]=[];
  page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith(`/whiteboards/${board}/assets`))posts.push(request.url());});
  page.on('requestfailed',request=>{if(request.url()===fixture.url)failures.push(request.failure()?.errorText??'unknown');});
- try{
   token=await login(page);board=(await(await call(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`HTTPS image acceptance ${randomUUID()}`})).json()).id;
   await page.goto(`/studio/board/${board}`);await expect(page.getByText(/^已同步/)).toBeVisible();
   const before=(await canonical(api,token,board!)).objects;expect(before).toEqual([]);
@@ -56,18 +60,20 @@ test('HTTPS image entry rejects real CORS and malformed ranges then retries dura
   proofs.push({group:'https',runtime,png,persisted:persistedBytes!,canonicalBefore:before,canonicalAfter:(await canonical(api,token,board!)).objects,https:{certificateSha256:fixture.certificateSha256,blockedHttps,browserFailures:failures,requests:fixture.receipts}});
   await info.attach('image-ingress-raw-proof.json',{body:JSON.stringify(proofs.at(-1)),contentType:'application/json'});
   await info.attach('https-image-runtime.json',{body:JSON.stringify(runtime),contentType:'application/json'});
- }finally{
-  await context.close();await fixture.close();
-  if(token&&board){const current=await(await call(api,token,'GET',`/whiteboards/${board}`)).json();if(!current.archived)await call(api,token,'PATCH',`/whiteboards/${board}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}
- }
+ });
 });
 
 for(const cancellation of ['close','navigate','revoke'] as const)test(`real completed image upload cannot commit after ${cancellation}`,async({browser,request:api,baseURL},info)=>{
- const ownerContext=await browser.newContext({baseURL}),peerContext=await browser.newContext({baseURL}),owner=await ownerContext.newPage(),peer=await peerContext.newPage();
+ await withImageOwnedCleanup(async own=>{
+ let ownerToken:string|undefined,peerToken:string|undefined,board:string|undefined;
+ own(async()=>{if(ownerToken&&board){const current=await(await call(api,ownerToken,'GET',`/whiteboards/${board}`)).json();if(!current.archived)await call(api,ownerToken,'PATCH',`/whiteboards/${board}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}});
+ const ownerContext=await browser.newContext({baseURL});own(()=>ownerContext.close());
+ const peerContext=await browser.newContext({baseURL});own(()=>peerContext.close());
+ const owner=await ownerContext.newPage(),peer=await peerContext.newPage();
  await observe(owner);await observe(peer);
- const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(peer);let ownerToken:string|undefined,peerToken:string|undefined,board:string|undefined;
+ const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(peer);
  let release!:()=>void;const barrier=new Promise<void>(resolve=>{release=resolve;});let uploadedResolve!:(metadata:Record<string,unknown>)=>void,uploadedReject!:(error:unknown)=>void;const uploaded=new Promise<Record<string,unknown>>((resolve,reject)=>{uploadedResolve=resolve;uploadedReject=reject;});let finishedResolve!:()=>void;const finished=new Promise<void>(resolve=>{finishedResolve=resolve;});
- try{
+ own(()=>release());
   ownerToken=await login(owner);peerToken=await login(peer,true);board=(await(await call(api,ownerToken,'POST','/whiteboards',{requestId:randomUUID(),name:`Image cancellation ${cancellation} ${randomUUID()}`})).json()).id;
   await call(api,ownerToken,'PUT',`/whiteboards/${board}/members`,{userId:F.leadUserId,role:'editor'});await peer.goto(`/studio/board/${board}`);await expect(peer.getByText(/^已同步/)).toBeVisible();
   const initial=(await canonical(api,ownerToken,board!)).objects;expect(initial).toEqual([]);
@@ -105,8 +111,5 @@ for(const cancellation of ['close','navigate','revoke'] as const)test(`real comp
   proofs.push({group:cancellation,runtime,png:boardImagePngFixture(),persisted:persistedBytes,canonicalBefore:initial,canonicalAfter:afterCancellation,...(cancellation==='revoke'?{deniedStatuses}:{})});
   await info.attach('image-ingress-raw-proof.json',{body:JSON.stringify(proofs.at(-1)),contentType:'application/json'});
   await info.attach(`image-${cancellation}-runtime.json`,{body:JSON.stringify(runtime),contentType:'application/json'});
- }finally{
-  release();await ownerContext.close();await peerContext.close();
-  if(ownerToken&&board){const current=await(await call(api,ownerToken,'GET',`/whiteboards/${board}`)).json();if(!current.archived)await call(api,ownerToken,'PATCH',`/whiteboards/${board}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}
- }
+ });
 });
