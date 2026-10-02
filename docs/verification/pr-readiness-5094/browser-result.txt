@@ -1,0 +1,12 @@
+  ✓  1 [seeded] › e2e/whiteboard-live.spec.ts:46:5 › realtime presence field convergence (21.0s)
+  ✓  2 [seeded] › e2e/whiteboard-live.spec.ts:169:5 › comments anchor ACL (8.5s)
+  ✓  3 [seeded] › e2e/whiteboard-live.spec.ts:196:5 › undo offline reconnect recovery (6.8s)
+  ✓  4 [seeded] › e2e/whiteboard-live.spec.ts:224:5 › multi-user undo redo preserves the other editor and survives reload (10.4s)
+  4 passed (4.7m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --no-deps e2e/whiteboard-live.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4m42s
+  清理：1s
+  总计：4m43s
