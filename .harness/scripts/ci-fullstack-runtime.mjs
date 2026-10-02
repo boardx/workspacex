@@ -47,9 +47,13 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
     '--volume', '/var/run/docker.sock:/var/run/docker.sock', '--volume', `${tools}/bin/apt-get:/usr/bin/apt-get:ro`, '--volume', `${tools}/bin/apt-get:/usr/bin/apt:ro`,
     '--env', `HOME=${home}`, '--env', 'PATH=/wsx-ci-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
     '--env', `DOCKER_CONFIG=${home}/.docker`, '--env', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright'];
-  // Do not pass arbitrary runner env: GitHub credentials never enter the test container.
+  // Do not pass arbitrary runner env or runner/admin GitHub credentials.
   for (const key of ['CI', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FULLSTACK_E2E_SERVER_TIMEOUT_MS']) {
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
+  }
+  // Public-repository read credential only; Docker inherits the value without exposing it in argv.
+  if (!geometry && env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN) {
+    args.push('--env', 'WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN');
   }
   args.push(image, 'bash', '-euc',
     'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry).join(' '));
