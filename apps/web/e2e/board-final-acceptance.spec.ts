@@ -169,9 +169,9 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     const image = (await canonicalRows(page)).find(row => row.kind === 'image')!;
     await expect(page.getByTestId(`board-a11y-object-${image.id}`)).toHaveAttribute('aria-description', /图片已验证/, {timeout: 30_000});
     await metric('screenshot-paste-actions', 1, 1);
-    await page.keyboard.press('n'); await page.getByTestId('board-fabric-surface').click({position:{x:320,y:240}}); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
+    await page.keyboard.press('n'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:100,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
     await page.getByTestId('board-tool-select').focus();
-    await page.keyboard.press('t'); await page.getByTestId('board-fabric-surface').click({position:{x:600,y:240}}); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
+    await page.keyboard.press('t'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:400,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
     await page.getByTestId('board-add-more').click(); await page.getByTestId('board-content-tile').click();
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'card').length).toBe(1);

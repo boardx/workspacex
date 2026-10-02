@@ -74,11 +74,12 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       }
     });
     await test.step('merge concurrent geometry and text fields from the same synced base in both browser contexts',async()=>{
-      // Current N arms creation; complete the real canvas placement before editing.
-      await owner.keyboard.press('n');await owner.getByTestId('board-fabric-surface').click({position:{x:320,y:240}});
-      const createdEditor=owner.getByLabel('对象文字',{exact:true});
-      await expect(createdEditor).toBeFocused();
-      await createdEditor.fill('团队中文协作便签');await synced(owner);
+      await owner.getByTestId('board-tool-select').focus();
+      await owner.keyboard.press('n');
+      await expect(owner.getByLabel('对象文字',{exact:true})).toHaveCount(0);
+      await owner.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:200,y:200}});
+      await expect(owner.getByLabel('对象文字',{exact:true})).toBeFocused();
+      await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
       const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
       const objectId=(await editorNote.getAttribute('data-testid'))?.replace('board-a11y-object-','');expect(objectId).toBeTruthy();
       const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({tokenValue,currentBoardId,requestId,commandsValue})=>{
@@ -174,9 +175,12 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     const created=await request(api,ownerToken,'POST','/whiteboards',{requestId:randomUUID(),name:`Comment ACL ${randomUUID()}`});boardId=(await created.json() as {id:string}).id;
     await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
     await owner.goto(`/studio/board/${boardId}`);await commenter.goto(`/studio/board/${boardId}`);await Promise.all([synced(owner),synced(commenter)]);
-    await owner.keyboard.press('n');await owner.getByTestId('board-fabric-surface').click({position:{x:320,y:240}});
-    const anchorEditor=owner.getByLabel('对象文字',{exact:true});await expect(anchorEditor).toBeFocused();
-    await anchorEditor.fill('comment anchor target');await synced(owner);
+    await owner.getByTestId('board-tool-select').focus();
+    await owner.keyboard.press('n');
+    await expect(owner.getByLabel('对象文字',{exact:true})).toHaveCount(0);
+    await owner.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:200,y:200}});
+    await expect(owner.getByLabel('对象文字',{exact:true})).toBeFocused();
+    await owner.getByLabel('对象文字',{exact:true}).fill('comment anchor target');await synced(owner);
     const target=commenter.getByRole('button',{name:'图形：comment anchor target',exact:true});await expect(target).toBeVisible({timeout:20_000});await target.focus();await target.press('Enter');
     await expect(commenter.getByLabel('对象文字',{exact:true})).toHaveCount(0);await commenter.getByRole('button',{name:'评论',exact:true}).click();await commenter.getByLabel('评论内容').fill('object anchored by commenter');await commenter.getByRole('button',{name:'发布评论'}).click();
     await owner.reload();await synced(owner);const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();await expect(owner.getByText('object anchored by commenter')).toBeVisible();

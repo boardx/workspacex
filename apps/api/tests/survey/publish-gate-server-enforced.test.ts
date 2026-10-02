@@ -90,6 +90,30 @@ afterAll(async () => {
 });
 
 describe("server-enforced survey publish gate", () => {
+  it("returns image configuration blockers over HTTP and prepares the repaired draft", async () => {
+    const image = { id: "image-q", order: 1, chapterId: "general", title: "Choose an image",
+      type: "image_single", required: true, options: ["A", "B"], config: { optionIds: ["a", "b"] } };
+    const draft = { title: "Image gate regression", questions: [image], template: { id: "optional", title: "Report", sections: [] } };
+    const createdResponse = await request("/surveys", "POST", draft);
+    expect(createdResponse.status).toBe(201);
+    const created = await createdResponse.json();
+    const blocked = await request(`/surveys/${created.id}/prepare`, "POST", { expectedVersion: created.version });
+    expect(blocked.status).toBe(422);
+    expect(await blocked.json()).toMatchObject({ reasonCode: "SURVEY_PUBLISH_BLOCKED", blockers: [{
+      code: "QUESTION_CONFIG_INVALID", side: "question", subjectId: "image-q", missingFields: ["请为每个图片选项配置图片和替代文字"],
+    }] });
+    const saved = await request(`/surveys/${created.id}`, "PUT", { ...draft, expectedVersion: created.version,
+      questions: [{ ...image, config: { ...image.config, images: {
+        a: { url: "https://example.com/a.png", alt: "Image A" }, b: { url: "https://example.com/b.png", alt: "Image B" },
+      } } }],
+    });
+    expect(saved.status).toBe(200);
+    const version = (await saved.json()).version;
+    const prepared = await request(`/surveys/${created.id}/prepare`, "POST", { expectedVersion: version });
+    expect(prepared.status).toBe(201);
+    expect(await prepared.json()).toMatchObject({ status: "ready" });
+  });
+
   it("returns every blocker without changing status, then prepares only the repaired version", async () => {
     const createdResponse = await request("/surveys", "POST", blockedDraft);
     expect(createdResponse.status).toBe(201);
@@ -105,6 +129,7 @@ describe("server-enforced survey publish gate", () => {
         { code: "LEADING_QUESTION", subjectId: "q-leading" },
         { code: "MAPPING_INCOMPLETE", subjectId: "q-unmapped" },
         { code: "MAPPING_INCOMPLETE", subjectId: "section-empty" },
+        { code: "QUESTION_CONFIG_INVALID", subjectId: "q-optionless" },
         { code: "QUESTION_OPTIONS_EMPTY", subjectId: "q-optionless" },
       ],
     });
