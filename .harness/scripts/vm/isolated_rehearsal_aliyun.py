@@ -75,11 +75,11 @@ def run(operation,p):
   endpoints=[x for x in net if x.get('ConnectionString')==b['host'] and str(x.get('Port'))=='5432']
   if len(endpoints)!=1 or endpoints[0].get('IPAddress')!=b['peer']:raise ValueError('PROVIDER_PEER')
   ssl=rds('DescribeDBInstanceSSL')
-  if b['tls']['sslmode']=='disable' and ssl.get('SSLEnabled') not in ('No','Disabled'):raise ValueError('TLS_EXCEPTION_NOT_ACTUAL')
+  if b['tls']['sslmode']=='disable' and ssl.get('SSLEnabled') not in ('No','Disabled','off'):raise ValueError('TLS_EXCEPTION_NOT_ACTUAL')
   return dict(targetInstanceId=attrs[0]['DBInstanceId'],peer=endpoints[0]['IPAddress'],providerCreatedUtc=attrs[0]['CreationTime'],providerDescription=attrs[0]['DBInstanceDescription'],accountId=b['accountId'],regionId=b['regionId'],observedUtc=datetime.datetime.now(datetime.timezone.utc).isoformat(),host=endpoints[0]['ConnectionString'],port=int(endpoints[0]['Port']),attemptId=b['attemptId'],peerSha256=hashlib.sha256(endpoints[0]['IPAddress'].encode()).hexdigest(),providerVerified=True,engine=attrs[0].get('Engine'),engineVersion=attrs[0].get('EngineVersion'))
  if operation=='account-create':
   s=p['secret']
-  if s.get('user')!='migration_admin' or s.get('port')!=5432 or any(s.get(k)!=b[k] for k in ('targetInstanceId','attemptId','host','peer','tls')) or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{32}',s.get('password','')):raise ValueError('ACCOUNT_SECRET_BINDING')
+  if s.get('user')!='migration_admin' or s.get('port')!=5432 or any(s.get(k)!=b[k] for k in ('targetInstanceId','attemptId','host','peer','tls')) or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',s.get('password','')):raise ValueError('ACCOUNT_SECRET_BINDING')
   if rds('DescribeAccounts').get('Accounts',{}).get('DBInstanceAccount'):raise ValueError('ACCOUNT_NOT_EMPTY')
   s=p['secret'];rds('CreateAccount',{'AccountName':s['user'],'AccountPassword':s['password'],'AccountType':'Super','AccountDescription':'Isolated rehearsal '+b['attemptId']})
   return {'submitted':True,'targetInstanceId':target}
@@ -134,12 +134,12 @@ def run(operation,p):
    if len(attrs)!=1 or attrs[0]['DBInstanceId']!=target or attrs[0]['CreationTime']!=b['providerCreatedUtc'] or attrs[0].get('DBInstanceDescription')!=b['providerDescription']:raise ValueError('DELETE_ACTUAL_OWNERSHIP_FAILED')
    rds('DeleteDBInstance')
   except ProviderError as error:
-   if error.code!='InvalidDBInstanceId.NotFound':raise
+   if error.code not in ('InvalidDBInstanceId.NotFound','InvalidDBInstanceName.NotFound'):raise
   return {'deleteSubmitted':True,'targetInstanceId':target}
  if operation=='cleanup-readback-deleted':
   try:rds('DescribeDBInstanceAttribute')
   except ProviderError as error:
-   if error.code=='InvalidDBInstanceId.NotFound':return {'notFound':True,'targetInstanceId':target}
+   if error.code in ('InvalidDBInstanceId.NotFound','InvalidDBInstanceName.NotFound'):return {'notFound':True,'targetInstanceId':target}
    raise
   return {'notFound':False,'targetInstanceId':target}
  stage=b.get('stages',{}).get(operation)

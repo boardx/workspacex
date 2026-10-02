@@ -201,6 +201,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-03 | `TLS_EXCEPTION_NOT_ACTUAL` / RDS account password length / deleted instance readback | #5157：通过真实 adapter `observe` 验证精确 `No`、`Disabled`、`off`；其他值及目标/peer/创建时间错误仍拒绝。隔离密码固定 `Aa1!` + 21 随机字节的 28 字符 URL-safe tail（总长 32），生成、读回、账号提交与角色 SQL 消费校验同步；旧 36 字符密码不得静默截断。删除终态仅接受 `InvalidDBInstanceId.NotFound` 或 `InvalidDBInstanceName.NotFound` 精确错误码。发布前运行 `python3 .harness/scripts/vm/isolated_rehearsal_provider_contract_test.py` 及 `node .harness/scripts/vm/isolated_rehearsal_role_password_test.cjs`，并实测 ECS RPC 权限；本地密码反证不等于真实 account 失败唯一根因，未知 mutation 先读回。 |
 | 2026-09-15 | `ACR_AUTH_EXPIRED` | 临时凭据 + registry 鉴权 probe + 到期预算 |
 | 2026-09-15 | `RELEASE_LOCK_ORPHANED` | process-group 终止后枚举后代、确认 lock free |
 | 2026-09-15 | `PARTIAL_SOURCE_OBJECT_MISSING` | 完整离线 source artifact 和 object closure 校验；预检将裸仓缓存原子复制成 root:root 0700，验证 exact ref、无 `.promisor` pack 且 `GIT_NO_LAZY_FETCH=1 git fsck` 通过，Prepare 只从该缓存做 `--no-local` 克隆 |

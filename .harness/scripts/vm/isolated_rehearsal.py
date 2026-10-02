@@ -47,13 +47,13 @@ def credentials(root,b):
  if p.exists():s=private_json(p)
  else:
   s={k:b[k] for k in ('accountId','regionId','attemptId','targetInstanceId','host','peer','peerSha256','providerCreatedUtc')}
-  s.update(user='migration_admin',password='Aa1!'+secrets.token_urlsafe(24),port=5432,tls=b['tls'])
-  s['roles']={role:dict(s,user=role,password='Aa1!'+secrets.token_urlsafe(24)) for role in ('app_diag_ro','app_rw','graph_owner','memory_owner','memory_rw','migration_owner')}
+  s.update(user='migration_admin',password='Aa1!'+secrets.token_urlsafe(21),port=5432,tls=b['tls'])
+  s['roles']={role:dict(s,user=role,password='Aa1!'+secrets.token_urlsafe(21)) for role in ('app_diag_ro','app_rw','graph_owner','memory_owner','memory_rw','migration_owner')}
   exclusive(p,s)
- if any(s[k]!=b[k] for k in ('accountId','regionId','attemptId','targetInstanceId','host','peer','peerSha256','providerCreatedUtc')) or s.get('user')!='migration_admin' or s.get('port')!=5432 or s.get('tls')!=b['tls'] or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{32}',s.get('password','')):raise ValueError('SECRET_TARGET_MISMATCH')
+ if any(s[k]!=b[k] for k in ('accountId','regionId','attemptId','targetInstanceId','host','peer','peerSha256','providerCreatedUtc')) or s.get('user')!='migration_admin' or s.get('port')!=5432 or s.get('tls')!=b['tls'] or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',s.get('password','')):raise ValueError('SECRET_TARGET_MISMATCH')
  for role in ('app_diag_ro','app_rw','graph_owner','memory_owner','memory_rw','migration_owner'):
   r=s.get('roles',{}).get(role,{})
-  if r.get('user')!=role or r.get('port')!=5432 or r.get('tls')!=b['tls'] or any(r.get(k)!=b[k] for k in ('targetInstanceId','attemptId','host','peer','peerSha256','providerCreatedUtc')) or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{32}',r.get('password','')):raise ValueError('ROLE_SECRET_BINDING')
+  if r.get('user')!=role or r.get('port')!=5432 or r.get('tls')!=b['tls'] or any(r.get(k)!=b[k] for k in ('targetInstanceId','attemptId','host','peer','peerSha256','providerCreatedUtc')) or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',r.get('password','')):raise ValueError('ROLE_SECRET_BINDING')
  return s
 def trusted_bytes(path,digest):
  path=Path(path)
