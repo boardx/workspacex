@@ -13,7 +13,7 @@ describe("isolated rehearsal input and failure closure", () => {
       stdio: ["ignore", "pipe", "pipe"],
     });
     expect(output).toBe("");
-    for (const script of ["isolated_test_frozen_engine.cjs", "isolated_test_canvas_law.cjs"]) {
+    for (const script of ["isolated_test_frozen_engine.cjs", "isolated_test_canvas_law.cjs", "isolated_test_pending_attachment_law.cjs"]) {
       const result = execFileSync(process.execPath, [`${suite}/${script}`], { encoding: "utf8", timeout: 10_000 });
       expect(result).toContain("PASS");
     }
