@@ -174,6 +174,8 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   // creation inside an existing Frame.
   await page.getByTestId("board-sticky-square").dragTo(surface, { targetPosition: { x: 480, y: 300 } });
   await expect(outline).toHaveCount(2);
+  await exitCreationTool(page);
+  await openStickyTool(page);
   await surface.click({ position: { x: 1050, y: 500 } });
   await expect(outline).toHaveCount(3);
   await exitCreationTool(page);
@@ -348,6 +350,8 @@ test("selection transform locks", async ({ page, request }) => {
   // center note's identity before adding the dragged note so their roles cannot swap.
   const lockedId = await stickies.first().getAttribute("data-object-id");
   if (!lockedId) throw new Error("Created sticky is missing its canonical object ID");
+  await exitCreationTool(page);
+  await openStickyTool(page);
   await surface.click({ position: { x: 950, y: 470 } });
   await exitCreationTool(page);
   await expect(stickies).toHaveCount(2);

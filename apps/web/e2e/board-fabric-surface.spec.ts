@@ -113,7 +113,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await createSticky("circle", { x: 640, y: 250 }, 2);
   await createSticky("square", { x: 920, y: 250 }, 3);
   await page.getByTestId("board-add-text").click();
-  await surface.click({ position: { x: 720, y: 180 } });
+  await surface.click({position:{x:1040,y:450}});
   await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(4);
@@ -279,7 +279,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
 
   const objectsBeforeShape = await objectIds();
   await page.getByTestId("board-add-shape").click();
-  await surface.click({ position: { x: 480, y: 180 } });
+  await surface.click({position:{x:850,y:400}});
   const shapeObject = await expectCreatedObject(objectsBeforeShape, "shape", "Shape quick create");
   await selectObjectAndExpand(shapeObject);
   await expect(inspector).toContainText("形状");
@@ -290,7 +290,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
 
   const objectsBeforeText = await objectIds();
   await page.getByTestId("board-add-text").click();
-  await surface.click({ position: { x: 720, y: 180 } });
+  await surface.click({position:{x:1040,y:450}});
   await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
   await finishEditingAndSelect();
   const textObject = await expectCreatedObject(objectsBeforeText, "text", "Text quick create");

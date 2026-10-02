@@ -41,7 +41,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
 
    await page.getByTestId('board-tool-select').click();await page.getByTestId('board-add-draw').click();
    const drawPanel=page.getByTestId('board-draw-tool-panel');await expect(drawPanel).toBeVisible();const drawBounds=(await drawPanel.boundingBox())!;
-   expect(drawBounds.width).toBeGreaterThanOrEqual(740);expect(drawBounds.width).toBeLessThanOrEqual(762);expect(drawBounds.height).toBeGreaterThanOrEqual(128);expect(drawBounds.height).toBeLessThanOrEqual(140);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
+   expect(drawBounds.width).toBeLessThanOrEqual(640);expect(drawBounds.height).toBeGreaterThanOrEqual(110);expect(drawBounds.height).toBeLessThanOrEqual(180);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
    for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
    await expect(page.locator('[data-testid^="board-draw-opacity-"]')).toHaveCount(0);
    for(const choice of ['pen','marker','pencil','highlighter'])await expect(page.getByTestId(`board-draw-preview-${choice}`)).toBeVisible();
@@ -80,6 +80,11 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
   await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
   await page.keyboard.press('Escape');await page.setViewportSize({width:1536,height:1024});
+  // Hidden creation entries preserve selected-object handles and Escape dismissal.
+  await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
+  await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
   await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
   expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}

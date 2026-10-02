@@ -21,7 +21,7 @@ function FrameHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardFrameChoice,mod
 it("offers all drawing instruments and keeps stroke appearance controls stateful",()=>{
   const onChoice=vi.fn();
   render(<DrawHarness onChoice={onChoice}/>);
-  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("h-[8.5rem]","w-[min(47.5rem,calc(100vw-2rem))]","bg-card","border-border");
+  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(40rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","px-4","py-3");
   expect(screen.getByTestId("board-draw-tool-panel")).not.toHaveClass("bg-card/98","backdrop-blur");
   for(const name of ["Pen","Marker","Pencil","Highlighter","Eraser"]) expect(screen.getByRole("button",{name})).toBeVisible();
   fireEvent.click(screen.getByTestId("board-draw-pencil"));
@@ -31,6 +31,7 @@ it("offers all drawing instruments and keeps stroke appearance controls stateful
   expect(screen.queryByText("Opacity")).not.toBeInTheDocument();
   fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
   expect(screen.getByTestId("board-draw-stroke-8")).toHaveAttribute("aria-pressed","true");
+  expect(screen.getByTestId("board-draw-stroke-8").firstChild).toHaveStyle({height:"8px",backgroundColor:"#2563EB",opacity:"0.65"});
   expect(screen.getByTestId("board-draw-color-2563eb")).toHaveAttribute("aria-pressed","true");
   expect(screen.getByTestId("board-draw-preview-pencil")).toHaveStyle({backgroundColor:"#2563EB",height:"8px",opacity:.65});
 });

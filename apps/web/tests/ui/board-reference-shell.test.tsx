@@ -29,7 +29,7 @@ it('keeps the FigJam tool order and keeps Frame creation hidden',()=>{
  view.rerender(<BoardBottomDock connectorEnabled activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
  const dock=screen.getByTestId('board-creation-dock');
  expect(dock).toHaveClass('w-max','max-w-[calc(100vw-2rem)]');
- expect(dock.lastElementChild).toHaveClass('w-full','min-w-0','gap-0.5','p-1','xl:gap-1','xl:p-1.5');
+ expect(dock.lastElementChild).toHaveClass('w-max','max-w-full','gap-0.5','p-1','xl:gap-1','xl:p-1.5');
  const ordered=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-connector','board-add-draw','board-add-image','board-add-more'];
  const positions=ordered.map(id=>Array.from(dock.querySelectorAll('button')).indexOf(screen.getByTestId(id)));
  expect(positions).toEqual([...positions].sort((a,b)=>a-b));

@@ -150,10 +150,12 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
 
 it("keeps Frame creation hidden and ignores its former shortcut", async () => {
   const doc = await setup();
-  fireEvent.keyDown(window,{key:"f"});
+  for(const key of ["f","c"])fireEvent.keyDown(window,{key});
   expect(readObjects(doc)).toEqual([]);
   expect(screen.queryByTestId("board-frame-tool-panel")).toBeNull();
   expect(screen.queryByTestId("board-add-panel")).toBeNull();
+  expect(screen.queryByTestId("board-add-frame")).toBeNull();
+  expect(screen.queryByTestId("board-add-connector")).toBeNull();
   fireEvent.click(screen.getByTestId("canvas-click"));
   expect(readObjects(doc)).toEqual([]);
   doc.destroy();
@@ -481,6 +483,7 @@ it("rejects malformed partial responses before creating an image object", async 
 it("applies contextual color and duplicates with a 24px offset", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
+  expect(readObjects(doc)).toHaveLength(0);
   fireEvent.click(screen.getByTestId("canvas-click"));
   const source = readObjects(doc)[0]!;
   openAppearance();
@@ -532,4 +535,20 @@ it("exposes the import callback in the editor header",async()=>{
   const view=render(<CollaborativeEditor boardId="content-board" clientId="client" doc={doc} readOnly={false} title="Board" status="已连接" onImport={onImport}/>);
   fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
   const button=await screen.findByTestId('board-import-open');fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
+});
+
+it("places one Shape per gesture then returns to Select and remembers the variant",async()=>{
+ const doc=await setup();
+ fireEvent.click(screen.getByTestId("board-add-shape"));
+ expect(readObjects(doc)).toHaveLength(0);
+ fireEvent.click(screen.getByTestId("board-shape-diamond"));
+ fireEvent.click(screen.getByTestId("canvas-click"));
+ fireEvent.click(screen.getByTestId("canvas-click"));
+ expect(readObjects(doc)).toHaveLength(1);
+ expect(screen.getByTestId("board-tool-select")).toHaveAttribute("aria-pressed","true");
+ fireEvent.click(screen.getByTestId("board-add-shape"));
+ expect(screen.getByTestId("board-shape-diamond")).toHaveAttribute("aria-pressed","true");
+ const setData=vi.fn();fireEvent.dragStart(screen.getByTestId("board-add-shape"),{dataTransfer:{setData,effectAllowed:""}});
+ expect(setData).toHaveBeenCalledWith("application/x-workspacex-board-tool",JSON.stringify({kind:"shape",variant:"diamond"}));
+ doc.destroy();
 });
