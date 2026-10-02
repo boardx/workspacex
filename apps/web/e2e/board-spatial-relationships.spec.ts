@@ -204,7 +204,9 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await openInspector(page, true, true);
   const autoExpand = page.getByLabel("区域自动扩展", { exact: true });
   const clipContent = page.getByLabel("区域裁剪内容", { exact: true });
-  await autoExpand.evaluate((element: HTMLInputElement) => element.click());
+  // The existing Frame fixture explicitly starts with autoExpand:false.
+  // Establish the clipping precondition instead of toggling it to true.
+  await autoExpand.uncheck();
   await expect(autoExpand).not.toBeChecked();
   await expect(clipContent).toBeEnabled();
   await clipContent.evaluate((element: HTMLInputElement) => element.click());
