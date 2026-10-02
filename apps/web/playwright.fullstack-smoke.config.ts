@@ -176,9 +176,8 @@ const asrProviderEnv = {
   KERNEL_ASR_PROVIDER: "fullstack-loopback-asr",
   KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${asrProviderPort}`,
   KERNEL_ASR_API_KEY: "fullstack-smoke-loopback-asr-key-not-a-secret",
-  // 数字人实时语音（Chat「实时对话」）走同一个回环进程的 /omni-realtime 路径（确定性中文样例
-  // 转写 + 助手回复）。不配它会退回 KERNEL_ASR_BASE_URL，只有 ASR 调试串、没有助手回复。
-  KERNEL_OMNI_REALTIME_BASE_URL: `ws://127.0.0.1:${asrProviderPort}/omni-realtime`,
+  // Voice is explicitly injected by start-fullstack-smoke-api.ts using this
+  // isolated supplier port; production reads only the shared chat model config.
   KERNEL_ASR_MODEL: "loopback-transcribe",
   // 收尾等待：本地回环是毫秒级的，15 秒的生产默认值只会让失败等满 15 秒。
   KERNEL_ASR_FINISH_GRACE_MS: "5000",
@@ -753,7 +752,7 @@ export default defineConfig({
           ? `${compose} exec -T postgres pg_isready -h 127.0.0.1 -U postgres`
           : `${compose} up -d --wait postgres redis minio`,
         "pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts",
-        `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
+        `PGPORT=${apiPgPort} pnpm --filter @repo/api exec tsx scripts/start-fullstack-smoke-api.ts`,
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
       stdout: "pipe",

@@ -20,7 +20,7 @@ import { handleOmniRealtimeConnection } from "../../apps/api/scripts/loopback-om
 const repoRoot = process.cwd();
 const { WebSocketServer } = createRequire(join(repoRoot, "apps/api/package.json"))("ws") as typeof import("ws");
 const omni = new WebSocketServer({ port: 14328, host: "127.0.0.1" });
-omni.on("connection", handleOmniRealtimeConnection);
+omni.on("connection", (socket) => handleOmniRealtimeConnection(socket));
 const config = resolveLocalConfig({
   repoRoot,
   dataDir: process.env.VOICE_TRIAL_DATA_DIR ?? "/private/tmp/wsx-digital-voice-data",
@@ -47,14 +47,14 @@ try {
   await runOwnerSeeds(config, console.log);
   await db.stop();
   db = await startPgliteServer({ dataDir: paths.pgData(config), port: config.ports.postgres, username: DB_APP_ROLE });
-  const launch = tsxLaunch(repoRoot, ["src/main.ts"]);
+  const launch = tsxLaunch(repoRoot, ["scripts/start-fullstack-smoke-api.ts"]);
   const api = startManaged({
     name: "api", command: launch.command, args: launch.args,
     cwd: join(repoRoot, "apps/api"), logDir: paths.logs(config),
     env: {
       ...apiEnv(config), ...launch.env, WORKSPACEX_EDITION: "cloud",
-      KERNEL_OMNI_REALTIME_BASE_URL: "ws://127.0.0.1:14328",
-      KERNEL_OMNI_REALTIME_API_KEY: "local-test-only",
+      WORKSPACEX_API_PORT: String(config.ports.api),
+      WORKSPACEX_ASR_PROVIDER_PORT: "14328",
     },
   });
   children.push(api);

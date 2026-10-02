@@ -46,8 +46,8 @@ export const REALTIME_CONVERSATION_MODEL = "qwen3.8-omni-flash-realtime";
 
 export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): RealtimeModelConfig {
   return {
-    baseUrl: env.KERNEL_OMNI_REALTIME_BASE_URL ?? workspaceRealtimeUrl(env.KERNEL_MODEL_BASE_URL) ?? env.KERNEL_ASR_BASE_URL,
-    apiKey: env.KERNEL_OMNI_REALTIME_API_KEY ?? env.KERNEL_ASR_API_KEY ?? env.DASHSCOPE_API_KEY,
+    baseUrl: workspaceRealtimeUrl(env.KERNEL_MODEL_BASE_URL),
+    apiKey: env.KERNEL_MODEL_API_KEY?.trim() || undefined,
     model: REALTIME_CONVERSATION_MODEL,
     defaultVoice: env.KERNEL_OMNI_REALTIME_VOICE ?? DEFAULT_REALTIME_VOICE,
     voiceMap: parseRealtimeVoiceMap(env.KERNEL_OMNI_REALTIME_VOICE_MAP),
@@ -335,7 +335,8 @@ function workspaceRealtimeUrl(modelBaseUrl: string | undefined): string | undefi
   if (!modelBaseUrl) return undefined;
   try {
     const url = new URL(modelBaseUrl);
-    if (!url.hostname.endsWith(".maas.aliyuncs.com")) return undefined;
+    if (url.protocol !== "https:" || url.username || url.password) return undefined;
+    if (!url.hostname.endsWith(".maas.aliyuncs.com") && url.hostname !== "dashscope.aliyuncs.com") return undefined;
     url.protocol = "wss:";
     url.pathname = "/api-ws/v1/realtime";
     url.search = "";

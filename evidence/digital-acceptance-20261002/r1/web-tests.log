@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-acceptance-20261002/apps/web
+
+ ✓ tests/recording/live-recording-capture.test.ts (25 tests) 23ms
+ ✓ tests/live-omni-conversation-hangup.test.ts (6 tests) 227ms
+ ✓ tests/ui/realtime-voice-session.test.tsx (12 tests) 1022ms
+
+ Test Files  3 passed (3)
+      Tests  43 passed (43)
+   Start at  23:51:01
+   Duration  25.43s (transform 1.54s, setup 520ms, collect 2.49s, tests 1.27s, environment 22.54s, prepare 252ms)
+

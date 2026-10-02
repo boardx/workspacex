@@ -1,0 +1,28 @@
+{
+  "model": "qwen3.8-omni-flash-realtime",
+  "reason": "response.done",
+  "events": [
+    "ws.open",
+    "session.created",
+    "session.updated",
+    "input_audio_buffer.committed",
+    "conversation.item.created",
+    "response.created",
+    "response.output_item.added",
+    "response.content_part.added",
+    "response.audio_transcript.delta",
+    "conversation.item.input_audio_transcription.delta",
+    "conversation.item.input_audio_transcription.completed",
+    "response.audio.delta",
+    "response.audio_transcript.done",
+    "response.audio.done",
+    "response.content_part.done",
+    "response.output_item.done",
+    "response.done"
+  ],
+  "text": "收到，语音连接验证成功。",
+  "outputAudioBytes": 157440,
+  "inputAudioBytes": 87040,
+  "boundary": "Real vendor vendor-generated speech PCM input / real vendor audio output; no physical microphone or browser acceptance",
+  "at": "2026-10-02T15:53:09.403Z"
+}
