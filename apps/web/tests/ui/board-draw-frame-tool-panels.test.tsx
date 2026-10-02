@@ -4,6 +4,7 @@ import { expect, it, vi } from "vitest";
 import { BoardDrawToolPanel, type BoardDrawAppearance, type BoardDrawChoice } from "@/components/whiteboard/board-draw-tool-panel";
 import { BoardFrameToolPanel, type BoardFrameChoice, type BoardFrameDimensions } from "@/components/whiteboard/board-frame-tool-panel";
 import type { PanelMode } from "@repo/whiteboard-core";
+import { drawingChoiceStyle, drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 
 function DrawHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardDrawChoice)=>void}) {
   const [choice,setChoice]=useState<BoardDrawChoice>("pen");
@@ -30,8 +31,51 @@ it("offers all drawing instruments and keeps stroke appearance controls stateful
   expect(screen.queryByText("Opacity")).not.toBeInTheDocument();
   fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
   expect(screen.getByTestId("board-draw-stroke-8")).toHaveAttribute("aria-pressed","true");
-  expect(screen.getByTestId("board-draw-stroke-8").firstChild).toHaveStyle({height:"8px",backgroundColor:"#2563EB",opacity:"1"});
+  expect(screen.getByTestId("board-draw-stroke-8").firstChild).toHaveStyle({height:"8px",backgroundColor:"#2563EB",opacity:"0.65"});
   expect(screen.getByTestId("board-draw-color-2563eb")).toHaveAttribute("aria-pressed","true");
+  expect(screen.getByTestId("board-draw-preview-pencil")).toHaveStyle({backgroundColor:"#2563EB",height:"8px",opacity:.65});
+});
+
+it("uses the selected instrument defaults rather than inherited opaque pen state",()=>{
+  const onAppearance=vi.fn();
+  render(<BoardDrawToolPanel choice="pen" appearance={{width:3,opacity:1,color:"#18181B"}} readOnly={false} onChoiceChange={vi.fn()} onAppearanceChange={onAppearance} onSelect={vi.fn()} onClose={vi.fn()}/>);
+  fireEvent.click(screen.getByTestId("board-draw-highlighter"));
+  expect(onAppearance).toHaveBeenCalledWith({width:20,opacity:.35,color:"#FACC15"});
+  fireEvent.click(screen.getByTestId("board-draw-pencil"));
+  expect(onAppearance).toHaveBeenLastCalledWith({width:2,opacity:.65,color:"#52525B"});
+});
+
+it("previews the same instrument color and alpha that the recorder receives",()=>{
+  render(<DrawHarness/>);
+  for(const choice of ["pen","marker","pencil","highlighter"] as const){
+    const style=drawingChoiceStyle(choice);
+    expect(screen.getByTestId(`board-draw-preview-${choice}`)).toHaveStyle({backgroundColor:style.color,opacity:style.opacity});
+  }
+  expect(drawingChoiceStyle("highlighter")).toEqual(drawingToolStyle("highlighter"));
+  expect(new Set(["pen","marker","pencil","highlighter"].map(choice=>JSON.stringify(drawingChoiceStyle(choice as BoardDrawChoice)))).size).toBe(4);
+});
+
+it("keeps highlighter alpha when adjusting width/color and blocks read-only edits",()=>{
+  const onAppearance=vi.fn(),onChoice=vi.fn();
+  const props={choice:"highlighter" as const,appearance:drawingChoiceStyle("highlighter"),onAppearanceChange:onAppearance,onChoiceChange:onChoice,onSelect:vi.fn(),onClose:vi.fn()};
+  const {rerender}=render(<BoardDrawToolPanel {...props} readOnly={false}/>);
+  fireEvent.click(screen.getByTestId("board-draw-stroke-8"));
+  expect(onAppearance).toHaveBeenLastCalledWith({...props.appearance,width:8});
+  fireEvent.click(screen.getByTestId("board-draw-color-ef4444"));
+  expect(onAppearance).toHaveBeenLastCalledWith({...props.appearance,color:"#EF4444"});
+  onAppearance.mockClear();rerender(<BoardDrawToolPanel {...props} readOnly/>);
+  fireEvent.click(screen.getByTestId("board-draw-pen"));
+  fireEvent.click(screen.getByTestId("board-draw-stroke-3"));
+  fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
+  expect(onAppearance).not.toHaveBeenCalled();expect(onChoice).not.toHaveBeenCalled();
+});
+
+it("shows the renderer's fixed eraser width without offering ineffective width choices",()=>{
+  render(<BoardDrawToolPanel choice="eraser" appearance={drawingChoiceStyle("eraser")} readOnly={false} onChoiceChange={vi.fn()} onAppearanceChange={vi.fn()} onSelect={vi.fn()} onClose={vi.fn()}/>);
+  expect(screen.getByLabelText("Eraser width")).toHaveTextContent("24px");
+  expect(screen.queryByTestId("board-draw-stroke-3")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("board-draw-stroke-8")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("board-draw-stroke-20")).not.toBeInTheDocument();
 });
 
 it("maps frame choices to canonical modes and exposes preset and custom sizes",()=>{
