@@ -15,6 +15,28 @@ function auditFor(make: (context: any) => unknown): ReportAudit {
 const evaluate = (context: any) => ({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
   matches: context.questions.map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
 describe("verified report evidence coverage", () => {
+  it("extracts independent batches with a bound and preserves deterministic evidence order", async () => {
+    const state = fixture(24);
+    let active = 0, peak = 0;
+    let release!: () => void;
+    const slow = new Promise<void>((resolve) => { release = resolve; });
+    let thirdStarted!: () => void;
+    const third = new Promise<void>((resolve) => { thirdStarted = resolve; });
+    const operation = extractReportEvidence(state, config, async (input, validate) => {
+      const context = JSON.parse(input.user);
+      active++; peak = Math.max(peak, active);
+      if (context.batchIndex === 0) await slow;
+      if (context.batchIndex === 2) thirdStarted();
+      active--;
+      return validate(JSON.stringify(evaluate(context)));
+    });
+    try {
+      await Promise.race([third, new Promise((_, reject) => setTimeout(() => reject(new Error("serial evidence extraction")), 1000))]);
+      expect(peak).toBe(2);
+    } finally { release(); }
+    const result = await operation;
+    expect(result.matches.values().next().value?.map((item) => item.sourceId)).toEqual(state.sources.map((source) => source.id));
+  });
   it("evaluates all sources including later results and distributes relevant evidence across questions", async () => {
     const state = fixture(); const visited: string[] = [];
     const result = await extractReportEvidence(state, config, auditFor((context) => {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { exportInterviewReportPdf, exportInterviewReportWord } from "@/lib/interview-report-export";
 import type { InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 import { InterviewStepHeader } from "./interview-step-header";
+import { researchWorkspaceStyle } from "@/components/research-studio/research-workspace-style";
 
 /** The document is the sole body source; evidence remains server-controlled metadata. */
 export function InterviewReportStep({ document, expertsDocument, execution, legacySelectedExpertIds, legacyRuns, reportStatus, shareUrl, actions: extraActions }: {
@@ -61,7 +62,7 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
     </InterviewStepHeader>
     {exportError && <p role="alert" className="mb-4 text-sm text-destructive print:hidden">{exportError}</p>}
     {shareStatus && <p role="status" className="mb-4 text-sm text-muted-foreground print:hidden">{shareStatus}</p>}
-    <div className="grid min-w-0 items-start gap-8 bg-card text-card-foreground xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10">
+    <div className={researchWorkspaceStyle.report}>
       <nav aria-label="报告目录" className="min-w-0 border-b border-border pb-5 print:hidden xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:overflow-y-auto xl:border-b-0 xl:border-r xl:pr-5"><div className="mb-4 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">目录</h3><Button variant="ghost" size="sm" className="xl:hidden" aria-expanded={tocExpanded} aria-controls="itv-report-toc" onClick={() => setTocExpanded((value) => !value)}>{tocExpanded ? "收起目录" : "展开目录"}</Button></div><ol id="itv-report-toc" className={`space-y-2 ${tocExpanded ? "block" : "hidden"} xl:block`}>{projection.headings.map((heading) => <li key={heading.id}><a className="block break-words text-xs leading-relaxed text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" href={`#${heading.id}`}>{heading.text}</a></li>)}</ol></nav>
       <article id="itv-source-report-print" className="min-w-0">
         <div data-testid="itv-source-report-evidence-boundary" className="mb-6 text-sm leading-6 text-muted-foreground">

@@ -331,13 +331,13 @@ export function SurveyQuestionEditor({
         <div className="flex flex-wrap gap-2">
           {studioLayout && !locked && (
             <>
-              <Button type="button" variant="outline" onClick={() => { setTrialPage(0); setTrialMode(true); }}>
+              <Button type="button" variant="secondary" onClick={() => { setTrialPage(0); setTrialMode(true); }}>
                 试填问卷
               </Button>
-              <Button type="button" variant="outline" aria-label="撤销最近修改" disabled={!undoStack.length} onClick={undo}>
+              <Button type="button" variant="secondary" aria-label="撤销最近修改" disabled={!undoStack.length} onClick={undo}>
                 <Undo2 aria-hidden="true" className="h-4 w-4" />撤销
               </Button>
-              <Button type="button" variant="outline" aria-label="重做最近修改" disabled={!redoStack.length} onClick={redo}>
+              <Button type="button" variant="secondary" aria-label="重做最近修改" disabled={!redoStack.length} onClick={redo}>
                 <Redo2 aria-hidden="true" className="h-4 w-4" />重做
               </Button>
             </>
@@ -729,10 +729,10 @@ export function SurveyQuestionEditor({
                     </div>}
                   <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group border px-4 py-5 transition-colors sm:px-8 ${q.id === question?.id ? "border-ring" : "border-transparent hover:border-border"}` : ""}>
                     {studioLayout && <div className="mb-2 flex items-start gap-2">
-                      <span aria-hidden="true" className="min-w-4 pt-2 text-destructive">{q.required ? "*" : ""}</span>
-                      <span className="pt-2 text-16 font-semibold tabular-nums">{String(questionIndex + 1).padStart(2, "0")}</span>
+                      <span aria-hidden="true" className="min-w-4 shrink-0 pt-2 text-destructive">{q.required ? "*" : ""}</span>
+                      <span className="shrink-0 whitespace-nowrap pt-2 text-16 font-semibold tabular-nums">{String(questionIndex + 1).padStart(2, "0")}</span>
                       <InlineQuestionText key={`${q.id}-title`} label="问题内容" editLabel={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`} multiline disabled={locked || disabled}
-                        className="text-16 font-medium" value={q.title} onSelect={() => { setId(q.id); setPendingType(undefined); }} onChange={(title) => update({ ...q, title })} />
+                        className="min-w-0 flex-1 text-16 font-medium" value={q.title} onSelect={() => { setId(q.id); setPendingType(undefined); }} onChange={(title) => update({ ...q, title })} />
                     </div>}
                     {studioLayout && ["single", "multi", "dropdown"].includes(q.type) ? (
                       <fieldset disabled={locked || disabled} className="pl-10 text-13" aria-label={`编辑第 ${questionIndex + 1} 题`}>

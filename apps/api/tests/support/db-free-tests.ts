@@ -17,6 +17,18 @@ import { join, relative, sep } from "node:path";
 // Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
 // test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
 export const DB_FREE_TEST_PREFIXES = [
+  "tests/work-eval/machine-schema-vocabulary.test.ts",
+  "tests/agent/pending-skill-display-name.test.ts",
+  "tests/work-skill/manifest-frontmatter-lint.test.ts",
+  "tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts",
+  "tests/agent-runtime/workbench-skill-activity.test.ts",
+  "tests/agent-runtime/skill-script-idempotent-retry.test.ts",
+
+  "tests/work-eval/eval-all-skills-execution-error.test.ts",
+  "tests/agent-runtime/execute-run-progress.test.ts",
+  "tests/agent-runtime/workbench-message-queue.test.ts",
+  "tests/chat/agent-default-skill-loading.test.ts",
+  "tests/agent-run/runtime-profile-continuation.test.ts",
   "tests/support/fixture-ownership.test.ts",
   "tests/research/google-guided-search.test.ts",
   "tests/workflow/effect-projection.test.ts",
@@ -25,6 +37,10 @@ export const DB_FREE_TEST_PREFIXES = [
   "tests/agent/agent-directory-controller-http.test.ts",
   "tests/agent/agent-directory-repo-guard.test.ts",
   "tests/agent/list-agent-directory.test.ts",
+  "tests/agent/official-role-authorship.test.ts",
+  "tests/agent/official-role-skill-resolver-guard.test.ts",
+  "tests/agent/role-draft-repo-guard.test.ts",
+  "tests/agent/role-fields-tolerant-read.test.ts",
   "tests/work-eval/eval-report-baseline.test.ts",
   "tests/work-eval/eval-runner.test.ts",
   "tests/work-eval/gates-counterproof.test.ts",

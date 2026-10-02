@@ -1,3 +1,6 @@
+import { OFFICIAL_ROLE_UPGRADE_REPOSITORY } from "./application/agent-import/upgrade-official-roles";
+import { PgOfficialRoleUpgradeRepository } from "./infrastructure/agent/pg-official-role-upgrade-repository";
+import { OfficialRoleUpgradeController } from "./interface/controllers/official-role-upgrade.controller";
 import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
 import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
@@ -1197,6 +1200,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     McpRemoteDiscoveryController,
     McpServersController,
     AgentStarterImportController,
+    OfficialRoleUpgradeController,
     AgentSkillPinsController,
     SkillVersionEditController,
     SkillFileEditController,
@@ -1725,6 +1729,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         process.env.WORKFLOW_DEFINITIONS_ROOT?.trim()
         || fileURLToPath(new URL("../../../requirements/work-stack-v2/workflows/", import.meta.url)),
       ),
+    },
+    {
+      provide: OFFICIAL_ROLE_UPGRADE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOfficialRoleUpgradeRepository(db),
+      inject: [DATABASE_PORT],
     },
     {
       provide: OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY,

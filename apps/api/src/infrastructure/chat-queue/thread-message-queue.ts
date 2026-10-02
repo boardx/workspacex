@@ -1,3 +1,4 @@
+import { requiresAgentSkillPins } from "../../application/chat/agent-skill-scope";
 import { QueueNotVisibleError, QueueConflictError } from "../../application/chat/thread-message-queue";
 export { THREAD_MESSAGE_QUEUE } from "../../application/chat/thread-message-queue";
 import { randomUUID } from "node:crypto";
@@ -6,12 +7,12 @@ import type { QueuedMessage } from "@repo/contracts/thread-message-queue";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { DefaultAgentResolver } from "../../application/chat/message-command-ports";
 import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
-import { acceptHumanMessage, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError, MessageThreadArchivedError, MessageIdempotencyConflictError } from "../../application/chat/message-roundtrip";
+import { acceptHumanMessage, AgentSkillScopeViolationError, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError, MessageThreadArchivedError, MessageIdempotencyConflictError } from "../../application/chat/message-roundtrip";
 import { resolveVisibility } from "../../application/chat/resolve-visibility";
 import type { AcceptMessagePlanRunCreatorDeps } from "../plan-control/accept-message-plan-run-creator";
 import { toOrgId, type OrgId } from "../../domain/org-id";
 
-interface Row { id:string; client_request_id:string; body:string; agent_id:string; actor_id:string; thread_id:string; status:QueuedMessage["status"]; run_id:string|null; created_at:Date; error_code:string|null }
+interface Row { explicit_agent?:boolean|null; id:string; client_request_id:string; body:string; agent_id:string; actor_id:string; thread_id:string; status:QueuedMessage["status"]; run_id:string|null; created_at:Date; error_code:string|null }
 function project(row: Row): QueuedMessage { return { id:row.id, clientRequestId:row.client_request_id, text:row.body, agentId:row.agent_id, status:row.status, runId:row.run_id, createdAt:row.created_at.toISOString(), error:row.error_code }; }
 /** Durable next-turn queue. Acceptance remains the existing message/run transaction. */
 export class ThreadMessageQueue implements OnModuleInit, OnModuleDestroy {
@@ -36,7 +37,8 @@ export class ThreadMessageQueue implements OnModuleInit, OnModuleDestroy {
     const existing=await this.deps.db.withTenant(orgId,s=>s.query<Row>(`SELECT * FROM thread_message_queue WHERE org_id=$1 AND thread_id=$2 AND actor_id=$3 AND client_request_id=$4::uuid`,[orgId,threadId,userId,input.clientRequestId]));
     if(existing.rows[0]) {
       const row=existing.rows[0];
-      if(row.body!==input.text || (input.agentId && row.agent_id!==input.agentId)) throw new QueueConflictError();
+      if(row.body!==input.text || (input.agentId && row.agent_id!==input.agentId)
+        || (row.explicit_agent != null && row.explicit_agent !== Boolean(input.agentId))) throw new QueueConflictError();
       return project(row);
     }
     const agentId=input.agentId ?? await this.deps.defaultAgents.resolveDefaultAgentId(orgId);
@@ -48,9 +50,10 @@ export class ThreadMessageQueue implements OnModuleInit, OnModuleDestroy {
         const replay=await s.query(`SELECT id FROM thread_message_queue WHERE org_id=$1 AND thread_id=$2 AND actor_id=$3 AND client_request_id=$4::uuid`,[orgId,threadId,userId,input.clientRequestId]);
         if(!replay.rows.length) throw new QueueConflictError();
       }
-      await s.query(`INSERT INTO thread_message_queue(org_id,thread_id,actor_id,client_request_id,body,agent_id) VALUES($1,$2,$3,$4::uuid,$5,$6) ON CONFLICT(org_id,thread_id,actor_id,client_request_id) DO NOTHING`,[orgId,threadId,userId,input.clientRequestId,input.text,agentId]);
+      await s.query(`INSERT INTO thread_message_queue(org_id,thread_id,actor_id,client_request_id,body,agent_id,explicit_agent) VALUES($1,$2,$3,$4::uuid,$5,$6,$7) ON CONFLICT(org_id,thread_id,actor_id,client_request_id) DO NOTHING`,[orgId,threadId,userId,input.clientRequestId,input.text,agentId,Boolean(input.agentId)]);
       const row=(await s.query<Row>(`SELECT * FROM thread_message_queue WHERE org_id=$1 AND thread_id=$2 AND actor_id=$3 AND client_request_id=$4::uuid`,[orgId,threadId,userId,input.clientRequestId])).rows[0]!;
-      if(row.body!==input.text || (input.agentId && row.agent_id!==input.agentId)) throw new QueueConflictError();
+      if(row.body!==input.text || (input.agentId && row.agent_id!==input.agentId)
+        || (row.explicit_agent != null && row.explicit_agent !== Boolean(input.agentId))) throw new QueueConflictError();
       return project(row);
     });
     void this.pump(); return item;
@@ -87,10 +90,12 @@ export class ThreadMessageQueue implements OnModuleInit, OnModuleDestroy {
           try {
             await acceptHumanMessage(this.deps,{orgId,userId:row.actor_id,threadId:row.thread_id,
               clientMessageId:row.id,queuedMessageId:row.id,text:row.body,agentId:row.agent_id,
+              explicitAgent: requiresAgentSkillPins({ requestedExplicitAgent: row.explicit_agent ?? true, resolvedAgentId: row.agent_id,
+                serverDefaultAgentId: await this.deps.defaultAgents.resolveDefaultAgentId(orgId) }),
               onAccepted:()=>this.deps.executor.kick(orgId)});
           } catch(error) {
             if(error instanceof QueuedMessageNotReadyError) continue;
-            if(error instanceof AgentNotPublishedError || error instanceof MessageThreadNotVisibleError || error instanceof MessageNoWriteRoleError || error instanceof MessageThreadArchivedError || error instanceof MessageIdempotencyConflictError) {
+            if(error instanceof AgentSkillScopeViolationError || error instanceof AgentNotPublishedError || error instanceof MessageThreadNotVisibleError || error instanceof MessageNoWriteRoleError || error instanceof MessageThreadArchivedError || error instanceof MessageIdempotencyConflictError) {
               await this.deps.db.withTenant(orgId,s=>s.query(`UPDATE thread_message_queue SET status='failed',error_code='QUEUE_DELIVERY_REJECTED' WHERE org_id=$1 AND id=$2::uuid AND status='pending'`,[orgId,row.id]));
             } else this.deps.logger.error("queued message dispatch retry",{traceId:randomUUID(),orgId,err:"queue_delivery_failed"});
           }

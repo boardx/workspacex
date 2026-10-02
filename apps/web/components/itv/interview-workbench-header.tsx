@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Check, Loader2, MessageSquareText } from "lucide-react";
+import { ArrowLeft, MessageSquareText } from "lucide-react";
+import { researchWorkspaceStyle as workspace, ResearchWorkspaceStepIndicator } from "@/components/research-studio/research-workspace-style";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export const INTERVIEW_WORKBENCH_STEPS = [
@@ -58,9 +60,9 @@ export function InterviewWorkbenchHeader({
     window.addEventListener("resize", measure);
     return () => { observer?.disconnect(); window.removeEventListener("resize", measure); container.style.removeProperty("--itv-header-height"); };
   }, []);
-  return <header ref={headerRef} data-testid="itv-workbench-header" className="top-0 z-20 bg-background/95 backdrop-blur md:sticky">
-    <div className="border-b bg-card px-4 py-2 lg:px-8">
-    <div className="mx-auto max-w-[1440px]">
+  return <header ref={headerRef} data-testid="itv-workbench-header" className={workspace.header}>
+    <div className={workspace.brandBar}>
+    <div className={workspace.width}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <MessageSquareText aria-hidden className="size-9 shrink-0 rounded-lg bg-primary p-2 text-primary-foreground" />
@@ -77,17 +79,17 @@ export function InterviewWorkbenchHeader({
     </div>
     </div>
     </div>
-    <div className="mx-auto max-w-[1440px] px-4 pt-4 lg:px-8">
+    <div className={workspace.heading}>
     <h1 className="truncate text-2xl font-bold tracking-tight">{name}</h1>
     <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
-      <ol data-testid="itv-workbench-timeline" className="flex flex-wrap items-center gap-y-3 lg:flex-nowrap">{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; const executing = runningStep === step.id; return <li key={step.id} className="flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0">
-        <Button variant="ghost" size="sm" data-testid={`itv-workbench-step-${step.id}`} data-state={executing ? "running" : state} aria-busy={executing} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={`h-auto justify-start gap-2 bg-transparent p-1 text-left text-sm transition-colors hover:bg-transparent ${state === "current" || executing ? "font-bold" : ""}`}>
-          <span className={`flex size-8 shrink-0 items-center justify-center rounded-full border text-base ${executing || state !== "upcoming" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/30 text-muted-foreground"} ${state === "current" || executing ? "ring-2 ring-primary ring-offset-2" : ""}`}>{executing ? <Loader2 aria-hidden className="size-4 motion-safe:animate-spin" /> : state === "completed" ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
+      <ol data-testid="itv-workbench-timeline" className={workspace.timeline}>{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; const executing = runningStep === step.id; return <li key={step.id} className={workspace.step}>
+        <Button variant="ghost" size="sm" data-testid={`itv-workbench-step-${step.id}`} data-state={executing ? "running" : state} aria-busy={executing} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={cn(workspace.command, "text-background-foreground", (state === "current" || executing) && "font-bold")}>
+          <ResearchWorkspaceStepIndicator number={index + 1} active={state === "current"} completed={state === "completed"} running={executing} />
           <span className="truncate">{step.label}</span>
           {executing && <span role="status" className="sr-only">进行中</span>}
           <span className="sr-only">{step.detail}</span>
         </Button>
-        {index < steps.length - 1 && <span aria-hidden className="mx-2 hidden min-w-3 flex-1 border-t border-border lg:block" />}
+        {index < steps.length - 1 && <span aria-hidden className={workspace.connector} />}
       </li>; })}</ol>
     </nav>
     </div>

@@ -25,6 +25,7 @@ export class MessageThreadNotVisibleError extends Error {}
 export class MessageNoWriteRoleError extends Error {}
 export class MessageThreadArchivedError extends Error {}
 export class AgentNotPublishedError extends Error {}
+export class AgentSkillScopeViolationError extends Error {}
 export class MessageIdempotencyConflictError extends Error {}
 export class InvalidMessageCursorError extends Error {}
 /** #946 · V9-a F151：attachmentIds 有不属本线程/已挂过/不存在的 id。→ 控制器 422。 */
@@ -51,7 +52,9 @@ interface Deps extends ResolveVisibilityDeps, GenerateThreadTitleDeps {
 }
 
 /**
- * #2514（2026-09-02 人类裁决）—— run 要跑的 skill 版本的**唯一解析规则**：
+ * #4892（2026-10-01 人类裁决）：显式选择数字人只能使用其发布版本精确 pins；
+ * 空 pins 不回全组织，线程临时挂载越界版本在创建 run 前拒绝。
+ * 无显式数字人继续使用下面 #2514 的通用助手解析（历史规则）：
  *
  *     resolved = (agent 自带非空 ? agent 自带 : 组织全部已启用) ∪ 线程挂载
  *
@@ -71,10 +74,16 @@ interface Deps extends ResolveVisibilityDeps, GenerateThreadTitleDeps {
  * 的夹具 agent 自带恒为空，「覆盖」那条在 e2e 上证不到，单独钉住。
  */
 export function resolveRunSkillVersionIds(input: {
+  readonly explicitAgent?: boolean;
   readonly agentPinned: readonly string[];
   readonly orgEnabled: readonly string[];
   readonly mounted: readonly string[];
 }): readonly string[] {
+  if (input.explicitAgent) {
+    const allowed = new Set(input.agentPinned);
+    if (input.mounted.some(versionId => !allowed.has(versionId))) throw new AgentSkillScopeViolationError("AGENT_SKILL_SCOPE_VIOLATION");
+    return [...new Set(input.agentPinned)];
+  }
   const base = input.agentPinned.length > 0 ? input.agentPinned : input.orgEnabled;
   // 并集/去重/顺序三条语义只在 `withThreadMounts` 一处实现——这里只决定「底座是谁」。
   return withThreadMounts({ skillVersionIds: base } as PublishedAgentSnapshot, input.mounted).skillVersionIds;
@@ -127,6 +136,7 @@ function samePayload(
   accepted: AcceptedHumanMessage,
   input: { text: string; selectedAgentId: string },
 ): boolean {
+  // A replay retains its frozen server scope; client flags cannot change that run.
   return accepted.text === input.text && accepted.requestedAgentId === input.selectedAgentId;
 }
 
@@ -135,6 +145,8 @@ export async function acceptHumanMessage(
   input: {
     userId: string; orgId: OrgId; threadId: string; clientMessageId: string;
     text: string; agentId: string;
+    /** Legacy selection provenance; scope is always derived from the trusted published catalog. */
+    explicitAgent?: boolean;
     /** #946 · V9-a F151：挂到本消息的已上传 pending 附件 id（可选）。 */
     attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
@@ -191,6 +203,9 @@ export async function acceptHumanMessage(
 
   const agentSnapshot = await deps.publishedAgents.resolvePublished(input.orgId, input.agentId);
   if (agentSnapshot === null) throw new AgentNotPublishedError();
+  // Only persisted server catalog identity can grant the general skill pool.
+  const explicitAgent = agentSnapshot.skillScope !== "general";
+
   // #1559：挂载读在**判权之后、写 run 之前**——判权已在上面 `authorize` 做完，
   // 这里读的是同一条线程的挂载，不构成第二条取数越权面。
   const guardedMounts = await deps.threadMounts.activeMountedSkillVersionIds(input.orgId, {
@@ -200,7 +215,7 @@ export async function acceptHumanMessage(
   if (!isDisclosed(disclosedMounts)) throw new MessageThreadNotVisibleError();
   // #2514：agent 没钉 skill 时才需要全局列表；钉了就是覆盖，连这条读都省掉。
   let orgEnabled: readonly string[] = [];
-  if (agentSnapshot.skillVersionIds.length === 0) {
+  if (!explicitAgent && agentSnapshot.skillVersionIds.length === 0) {
     const guardedEnabled = await deps.enabledSkills.currentEnabledSkillVersionIds(input.orgId, {
       projectId: visibility.thread.projectId, threadId: input.threadId,
     });
@@ -210,7 +225,9 @@ export async function acceptHumanMessage(
   }
   const snapshot: PublishedAgentSnapshot = {
     ...agentSnapshot,
+    skillScope: !explicitAgent ? "general" : "agent_pins",
     skillVersionIds: resolveRunSkillVersionIds({
+      explicitAgent,
       agentPinned: agentSnapshot.skillVersionIds,
       orgEnabled,
       mounted: disclosedMounts.payload,

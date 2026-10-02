@@ -286,13 +286,32 @@ export const AgentDirectoryCard = z.object({
  * 不含授权详情（R5）：技能只给 ID（名字由成员可读的技能端点换），转交对象只列本组织目录里可见的角色。
  * `duty` 为空 = 未登记职责一句话（与名字/角色标签相同的占位值也视为空，不回显）。
  */
+export const PendingSkillBinding = z.object({
+  stableId: z.string().regex(/^S\d{3}$/),
+  stableName: z.string().min(1),
+  contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  reason: z.enum(["awaiting_verification", "missing_version"]),
+  skillId: z.string().min(1).optional(),
+  versionId: z.string().min(1).optional(),
+  displayName: z.string().min(1).optional(),
+}).strict();
+export type PendingSkillBinding = z.infer<typeof PendingSkillBinding>;
+export const AuthoredSkillBinding = PendingSkillBinding.pick({ stableId: true, stableName: true, contentDigest: true }).strict();
+export type AuthoredSkillBinding = z.infer<typeof AuthoredSkillBinding>;
+
 export const AgentDirectoryProfile = z.object({
   agentId: Id,
+  /** Trusted server catalog identity; newer clients treat absence as exact pins. */
+  skillScope: z.enum(["general", "agent_pins"]).optional(),
   duty: z.string().nullable(),
   /** Agent 行上直接挂载的技能（`agents.skill_mounts`）。 */
   mountedSkillIds: z.array(z.string()).max(64),
   /** 已发布版本钉住的技能版本（`agent_versions.skill_version_ids`）。 */
   pinnedSkillVersionIds: z.array(z.string()).max(64),
+  /** Exact published pins, including versions older than the catalog current version. */
+  pinnedSkills: z.array(z.object({ skillId: z.string(), versionId: z.string() }).strict()).max(64),
+  /** Unverified/missing declared capabilities are informational, never executable pins. */
+  pendingSkillBindings: z.array(PendingSkillBinding).max(64),
   /** 委派策略允许转交、且当前在目录中可见的角色。 */
   delegationTargets: z.array(z.object({
     agentId: Id,
@@ -346,12 +365,30 @@ export const OfficialRolePackOffer = z.object({
    * Workflow）。客户端按序调既有 `importSkillStarterPack`，再导入本角色包——启用后数字人即可用。
    */
   requiredSkillPacks: z.array(z.object({ packId: z.string(), packVersion: z.string() }).strict()),
+  /** Only untouched, provenance-checked official versions are offered for explicit admin upgrade. */
+  upgrades: z.array(z.object({ agentId: Id, expectedPublishedVersionId: Id, name: z.string(), currentVersion: z.string(), targetVersion: z.string(), readySkillCount: z.number().int().nonnegative(), pendingSkillCount: z.number().int().nonnegative() }).strict()).optional(),
 }).strict();
 export type OfficialRolePackOffer = z.infer<typeof OfficialRolePackOffer>;
 
 /* ── 六、operations ───────────────────────────────────────────────────── */
 
+export const OfficialRoleUpgradeInput = z.object({
+  packVersion: z.string().min(1).max(64),
+  expectedOrgId: Id,
+  selections: z.array(z.object({ agentId: Id, expectedPublishedVersionId: Id }).strict()).min(1).max(7)
+    .refine((items) => new Set(items.map((i) => i.agentId)).size === items.length, "duplicate agent selection"),
+  idempotencyKey: z.string().min(1).max(255),
+}).strict();
+export const OfficialRoleUpgradeResult = z.object({
+  packVersion: z.string(), agentIds: z.array(Id), versionIds: z.array(Id), upgradedAt: z.string(),
+}).strict();
+
 export const operations = {
+  upgradeOfficialRoles: {
+    method: "POST", path: "/admin/agents/official-role-upgrades", in: OfficialRoleUpgradeInput,
+    out: OfficialRoleUpgradeResult,
+    err: ["UNAUTHENTICATED", "VALIDATION_FAILED", "AGENT_STARTER_IMPORT_ADMIN_REQUIRED", "OFFICIAL_ROLE_UPGRADE_CONFLICT"] as const,
+  },
   /** AG04：成员目录。只返回已发布且 visibility 覆盖调用者的 Agent。 */
   listAgentDirectory: {
     method: "GET", path: "/agents/directory",

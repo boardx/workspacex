@@ -1,7 +1,7 @@
 """Pinned-image offline extractor. No credentials, no network, no SQL target."""
 import hashlib,json,os,stat,subprocess,sys,tempfile,uuid
 from pathlib import Path
-from isolated_conservation_supervisor import verified,capture,DOCKER
+from isolated_conservation_supervisor import verified,capture,DOCKER,install_termination_handler
 
 def produce(p):
  assert os.geteuid()==0 and set(p)=={'candidateSha','imageId','runtimeSourceSha','sourceManifest','extractor','runtimeExtractor','privateRoot','sourceFiles'}
@@ -38,5 +38,6 @@ def produce(p):
    results[name]={'path':str(out),'sha256':hashlib.sha256(result).hexdigest()}
  return {'candidateSha':p['candidateSha'],'sourceManifestSha256':hashlib.sha256(raw).hexdigest(),'imageId':image,'runtimeSourceSha':p['runtimeSourceSha'],'releaseSourceSha':p['candidateSha'],'proofRefs':results,'networkNone':True,'ownedCleanupVerified':True,'prepared':False}
 if __name__=='__main__':
+ install_termination_handler()
  try:print(json.dumps(produce(json.load(sys.stdin))))
  except BaseException:print('CANONICAL_EVIDENCE_PRODUCER_REJECTED',file=sys.stderr);sys.exit(1)
