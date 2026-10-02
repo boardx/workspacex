@@ -89,7 +89,8 @@ test('C05 distinct browser processes converge on Connector style path and concur
    for(const token of tokens.slice(0,2)){const snapshot=await canonicalBoardSnapshot(api,token,boardId);expect(snapshot.revision).toEqual(authoritative.head);expect(snapshot.objects).toEqual(authoritative.objects);}
    expect(await boardHead(api,tokens[2]!,boardId)).toEqual(authoritative.head);
    // Read the actual lower canvas. The cubic oracle is independent of production path helpers.
-   const relation=authoritative.edge.connector!;
+   const relation=authoritative.edge.connector!,label=relation.label;
+   if(typeof label!=='string'||!label.trim())throw new Error('Expected complete nonempty Connector label for local text and glyph verification');
    const anchor=(id:string,side:'right'|'left')=>{const node=authoritative.objects.find(item=>item.id===id)!;return {x:node.geometry.x+(side==='right'?node.geometry.width:0),y:node.geometry.y+node.geometry.height/2};};
    const start=relation.fromPoint??anchor(relation.from!,'right'),end=relation.toPoint??anchor(relation.to!,'left');
    expect(relation.type).toBe('curve');expect(relation.route?.kind).toBe('curve');
@@ -101,7 +102,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
     else {await page.getByTestId(`board-a11y-object-${edgeId}`).focus();await page.getByTestId(`board-a11y-object-${edgeId}`).press('Enter');}
     if(page!==viewer){
      await expect(page.getByTestId('board-connector-width-open')).toHaveText(String(relation.strokeWidth));
-     await page.getByTestId('board-connector-label-open').click();await expect(page.getByTestId('board-connector-label')).toHaveValue(relation.label);await page.keyboard.press('Escape');
+     await page.getByTestId('board-connector-label-open').click();await expect(page.getByTestId('board-connector-label')).toHaveValue(label);await page.keyboard.press('Escape');
      await page.getByTestId('board-connector-path-open').click();await expect(page.getByTestId('board-connector-curve')).toHaveAttribute('aria-pressed','true');await page.keyboard.press('Escape');
     }
     const viewport=await page.getByTestId('board-fabric-surface').evaluate(surface=>({zoom:Number((surface as HTMLElement).dataset.viewportZoom),x:Number((surface as HTMLElement).dataset.viewportPanX),y:Number((surface as HTMLElement).dataset.viewportPanY)}));
@@ -138,7 +139,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
       const rgba=context.getImageData(x,y,1,1).data,ink=rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255;if(ink)lineWidth++;scan.push({offset,ink});
      }
      return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale};
-    },{start,end,route,label:relation.label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!});
+    },{start,end,route,label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!});
     glyphProof(raster.label,raster.golden);
     strokeProof(raster.scan,raster.expectedWidth);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
