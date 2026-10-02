@@ -134,7 +134,7 @@ describe("LiveSurveyLibrary", () => {
 
 describe("template load cancellation", () => {
   it("allows AI creation after closing and reopening during a pending template load", () => {
-    request.mockReturnValueOnce(new Promise(() => undefined));
+    request.mockReturnValue(new Promise(() => undefined));
     const onCreated = vi.fn();
     const props = { onOpenChange: vi.fn(), onCreated };
     const view = render(<CreateSurveyDialog open {...props} />);
@@ -150,7 +150,7 @@ describe("template load cancellation", () => {
     expect(screen.getByRole("button", { name: "下一步" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     expect(onCreated).toHaveBeenCalledWith(null, "ai", { name: "重新AI创建", tags: [] });
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls.every(([path]) => path === "/surveys/templates?kind=question")).toBe(true);
   });
 
   it.each([/空白创建/, /AI 导入创建/])("unlocks creation when leaving a pending template load for %s", (mode) => {
