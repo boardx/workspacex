@@ -4,6 +4,7 @@ import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 import {connectionGestureMetric} from '../scripts/board-connection-gesture-metric.mjs';
+import {createNativeSticky,createNativeText,observeNativeStickyWrites} from './support/board-native-sticky-create';
 import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
@@ -146,6 +147,7 @@ test('Diagram: A->B->C via one-drag connections remain attached after each shape
 
 test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arrow/Tile', async ({page, request}) => {
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance visual research');
+  const updates=observeNativeStickyWrites(page,id);
   try {
     await openBoard(page, id, 0);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -163,9 +165,10 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     const image = (await canonicalRows(page)).find(row => row.kind === 'image')!;
     await expect(page.getByTestId(`board-a11y-object-${image.id}`)).toHaveAttribute('aria-description', /图片已验证/, {timeout: 30_000});
     await metric('screenshot-paste-actions', 1, 1);
-    await page.keyboard.press('n'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:100,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
+    const creationProof={api:request,token,boardId:id,updates};
+    await createNativeSticky(page,'Research insight',creationProof);
     await page.getByTestId('board-tool-select').focus();
-    await page.keyboard.press('t'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:400,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
+    await createNativeText(page,'Interview summary',creationProof);
     await page.getByTestId('board-add-more').click(); await page.getByTestId('board-content-tile').click();
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'card').length).toBe(1);
