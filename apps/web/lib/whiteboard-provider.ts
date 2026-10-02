@@ -244,6 +244,9 @@ export class WhiteboardProvider {
   retryNow() { if (this.stopped || this.state.phase === 'blocked') return; if (this.timer) clearTimeout(this.timer); this.retry = 0; this.socket?.close(); this.connect('MANUAL_RETRY'); }
   private block(reason: string, persistRevocation = ['ACCESS_REVOKED','ACCESS_DENIED','SESSION_REVOKED'].includes(reason)) {
     if (this.stopped) return;
+    // TEMP diagnostic instrumentation for #5007; remove before clean acceptance.
+    const diagnosticReasons=new Set(['ACK_CONFLICT','STALE_SEQUENCE','STALE_EPOCH','PROTOCOL_ERROR','WRITE_DENIED','OUTBOX_WRITE_FAILED','OUTBOX_CORRUPT','OUTBOX_REAUTHORIZATION_FAILED','OUTBOX_REVOKED','ACCESS_REVOKED','ACCESS_DENIED','SESSION_REVOKED','SESSION_CHANGED','BOARD_ARCHIVED','PENDING_LIMIT','FORBIDDEN','VALIDATION_FAILED','VALIDATOR_UNAVAILABLE','IDEMPOTENCY_CONFLICT','RATE_LIMITED','DEPENDENCY_UNAVAILABLE','INTEGRITY_FAILED','NOT_FOUND','ARCHIVED']);
+    if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('wsx-board-diagnostic-block',{detail:{reason:diagnosticReasons.has(reason)?reason:'UNLISTED_REASON',seq:this.seq,confirmedSeq:this.state.lastAckSequence,pending:this.pending.length}}));
     const token=this.token,outbox=this.outbox;
     this.close(!persistRevocation); if (persistRevocation) { this.pending = []; this.persisted.clear(); }
     // Hide and remove locally visible content after access loss; no clear update is sent.
