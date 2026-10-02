@@ -1,6 +1,6 @@
 # WebKit encrypted outbox compatibility (#5008)
 
-WebKit cannot structured-clone an AES CryptoKey on the tested Linux/macOS
+WebKit cannot structured-clone an AES CryptoKey on the tested
 Playwright port: direct, object and array containers, both extractability flags,
 fail before an IndexedDB transaction is involved. Chromium and Firefox retain
 the existing native CryptoKey storage path.
