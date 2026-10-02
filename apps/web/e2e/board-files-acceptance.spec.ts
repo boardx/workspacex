@@ -1,10 +1,10 @@
+import {expectBoardSynced} from './support/board-sync-status';
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile, writeFile} from 'node:fs/promises';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardApi, boardLogin, createAcceptanceBoard, archiveAcceptanceBoard, openBoard, boardHead} from './board-acceptance-support';
-import {expectBoardSynced} from './support/board-sync-status';
 import {fileAssetRows, fileWriteCounterproof, setFileFixtureOrgFrozen} from './support/board-files-storage';
 import {isBoardFileUploadResponse} from './support/board-file-upload-response';
 import {securityFixture} from './support/board-security-fixture';

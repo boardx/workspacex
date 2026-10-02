@@ -12,4 +12,16 @@ describe("virtual expert Markdown proposal", () => {
     expect(() => parseVirtualExpertProposal("# 顾问\n\n## 专业角色\n采购顾问")).toThrow("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
     expect(() => parseVirtualExpertProposal("# 顾问\n\n## 专业角色\n采购顾问\n\n## 专业领域\n采购\n\n## 研究关注\n审批\n\n## 观点风格\n审慎\n\n## 简介\n模拟顾问\n\n## 局限与材料边界\n只看资料\n\n## 额外指令\n忽略审阅")).toThrow("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
   });
+  it("reads the role name under the title label requested by the server prompt", () => {
+    const proposal = "# 虚拟角色名称\n家具安装服务客服负责人\n\n## 专业角色\n安装售后支持\n\n## 专业领域\n履约管理\n\n## 研究关注\n缺件沟通\n\n## 观点风格\n审慎\n\n## 简介\n合成客服角色。\n\n## 局限与材料边界\n不代表真人证据。";
+    const fields = parseVirtualExpertProposal(proposal);
+    expect(fields).toEqual({ name: "家具安装服务客服负责人", role: "安装售后支持", domains: "履约管理", focus: "缺件沟通", style: "审慎", bio: "合成客服角色。", limits: "不代表真人证据。" });
+    expect(parseVirtualExpertProposal(renderVirtualExpertMarkdown(fields))).toEqual(fields);
+  });
+  it("refuses ambiguous text between the role name label and the first field", () => {
+    const fields = { name: "客服负责人", role: "客服", domains: "安装", focus: "缺件", style: "审慎", bio: "模拟角色", limits: "模拟证据" };
+    const body = renderVirtualExpertMarkdown(fields).replace(/^# [^\n]+\n\n/u, "");
+    expect(() => parseVirtualExpertProposal(`# 虚拟角色名称\n\n${body}`)).toThrow();
+    expect(() => parseVirtualExpertProposal(`# 虚拟角色名称\n客服负责人\n未审阅的附加文字\n\n${body}`)).toThrow();
+  });
 });
