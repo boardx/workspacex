@@ -395,9 +395,17 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           return free / total;
         });
         expect(uncovered, "normal selection must leave at least 80% canvas uncovered").toBeGreaterThanOrEqual(.8);
-        for (const tool of ["sticky", "shape", "draw", "connector"]) {
+        for (const tool of ["sticky", "shape", "draw"]) {
           const button = page.getByTestId(`board-add-${tool}`);
           await expect(button).toBeVisible(); const target = await button.boundingBox();
+          expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
+        }
+        // Connector creation is reached through the selected object's actual handles.
+        await expect(page.getByTestId("board-add-connector")).toHaveCount(0); // testid-gate: absent Connector entry is intentionally hidden; selected-object handles remain available.
+        const handles = page.locator(`[data-testid^="connector-handle-${object.id}-"]`);
+        await expect(handles).toHaveCount(4);
+        for (const handle of await handles.all()) {
+          await expect(handle).toBeVisible(); const target = await handle.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
         const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);

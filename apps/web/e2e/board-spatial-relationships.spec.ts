@@ -205,6 +205,9 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await openInspector(page, true, true);
   const autoExpand = page.getByLabel("区域自动扩展", { exact: true });
   const clipContent = page.getByLabel("区域裁剪内容", { exact: true });
+  // Establish the enabled policy before exercising the original toggle-off contract.
+  await autoExpand.check();
+  await expect(autoExpand).toBeChecked();
   await autoExpand.evaluate((element: HTMLInputElement) => element.click());
   await expect(autoExpand).not.toBeChecked();
   await expect(clipContent).toBeEnabled();
