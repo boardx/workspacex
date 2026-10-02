@@ -35,9 +35,11 @@ flowchart TD
   class S1 done
   class S2 tested
   %% evidence S2: 创建/计数修复前失败测试已运行，实际验收见 #5056
-  class S3 done
-  class S4 doing
-  class S5 todo
+  class S3 tested
+  %% evidence S3: docs/verification/5056-research-fixes-verification.md；研究 API195项、组件33项通过，6cfcea193独立ACCEPT
+  class S4 blocked
+  %% blocked S4: 本次IAB Word未落盘，PDF原生打印使CDP超时；工具禁止操作Codex原生窗口，导出未验完。
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）

@@ -1,0 +1,4 @@
+ ✓ tests/recording/personal-transcription-persistence.test.ts (4 tests) 33387ms
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Duration  43.68s (transform 8.31s, setup 0ms, collect 2.40s, tests 33.39s, environment 0ms, prepare 98ms)

@@ -1,0 +1,71 @@
+ ✓ tests/agent-runtime/no-tool-run-writeback.test.ts (46 tests) 48555ms
+   ✓ executing a queued run > #3553: completed-run deletion retains read-only history, billing and append-only guards 770ms
+   ✓ executing a queued run > makes exactly one provider call and runs the ordered steps through to succeeded 349ms
+   ✓ executing a queued run > sends the pinned model, the credential, and the ordered Skill content 369ms
+   ✓ executing a queued run > re-ticking a completed run calls the provider once and leaves one message 392ms
+   ✓ executing a queued run > concurrent ticks claim the run once, so exactly one model call happens 490ms
+   ✓ a run sees the thread's prior turns, token-budget-aware > the SECOND message's model call includes the first turn's human text and reply 556ms
+   ✓ a run sees the thread's prior turns, token-budget-aware > a THIRD message's history carries both prior turns, oldest first 641ms
+   ✓ a run sees the thread's prior turns, token-budget-aware > a single-message thread's call is byte-identical to before #709 -- no empty history noise 706ms
+   ✓ the run executes its acceptance snapshot, not the current head > uses the pinned version after a NEW version becomes the published head 538ms
+   ✓ the run executes its acceptance snapshot, not the current head > #2529: disabled pinned skill before acceptance suppresses the whole prompt; re-enable restores the next run 547ms
+   ✓ the run executes its acceptance snapshot, not the current head > #2529: disabled pinned skill after acceptance suppresses the whole prompt; re-enable restores the next run 530ms
+   ✓ the run executes its acceptance snapshot, not the current head > #2529: disabled mounted skill before acceptance suppresses the whole prompt; re-enable restores the next run 548ms
+   ✓ the run executes its acceptance snapshot, not the current head > #2529: disabled mounted skill after acceptance suppresses the whole prompt; re-enable restores the next run 557ms
+   ✓ the run executes its acceptance snapshot, not the current head > non-default agents reject persisted mounts outside their exact pins before queuing a run 307ms
+   ✓ the run executes its acceptance snapshot, not the current head > gives a claimed run a terminal state when its snapshot is no longer resolvable 431ms
+   ✓ provider failure and single-provider discipline > reports a stable code and leaks nothing about the provider response 349ms
+   ✓ provider failure and single-provider discipline > closes the leak channel at the database: a free-text error code is refused 315ms
+   ✓ provider failure and single-provider discipline > fails rather than fabricating a reply when the provider returns no content 314ms
+   ✓ GET /agent-runs/:runId authorization > returns the run to the thread's authorized member 322ms
+   ✓ run steps are append-only in the database, not by convention > refuses UPDATE and DELETE as the role that serves traffic, while INSERT works 462ms
+   ✓ run steps are append-only in the database, not by convention > readRun 把共享 tool_call_id 的 in_progress 行与终态行折叠成一张卡片，不是两条 379ms
+   ✓ the run status machine is enforced, not merely described > refuses queued -> succeeded, and refuses leaving a terminal state 359ms
+   ✓ acceptance kicks execution when autostart is enabled > reaches the terminal succeeded state without any explicit tick 527ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > writes one assistant message linked to the run and the human message, then succeeds 359ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > keeps exactly one row when many writeback attempts race the same run 582ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > a retry over an already-written message adopts it instead of inserting a second 680ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > refuses at the database to mark a run succeeded with no assistant message 461ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > stays non-terminal for bounded retry, then fails with CHAT_WRITEBACK_FAILED 437ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > leaks nothing about the writeback failure through the client-facing read 388ms
+   ✓ the Chat writeback is exactly-once and terminal only after it commits > keeps the database's error vocabulary and the contract's enum as one fact 345ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > resets the SAME run instead of creating a second one for the input message 472ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > writes the answer the ONE model call already produced, without calling the model again 450ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > appends the retry's writeback step instead of rewriting the failed one 384ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > collapses concurrent writeback attempts within one retry generation to one row 470ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > refuses to retry a run that did not exhaust its writeback budget 527ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > refuses the reopening at the database, not only in the application 565ms
+   ✓ retrying a run whose writeback budget was exhausted (#519) > answers 404 for a retry nobody in this thread may see 396ms
+ ✓ tests/knowledge-graph/conflict-prompt.test.ts (40 tests) 22890ms
+   ✓ F16: 当轮出卡（V3） > 两条都留 ⇒ 都「你确认过」、各记一句适用条件、冲突结束；同样的话再说一遍不再出卡 989ms
+   ✓ F16: 当轮出卡（V3） > 忽略（V4）⇒ 两条保持「有矛盾」、卡消失；再提一次 10/1 不再出卡；换成 10/5 是新的一对，照样提醒 963ms
+   ✓ F16: 不该出卡的时候不出 > 旧条没人确认过 / 不同指标 / 助手自己说的 ⇒ 不出卡、不转冲突 657ms
+   ✓ F16: 不该出卡的时候不出 > 项目（共享）线程里说的，不拿所有者的个人空间来比 406ms
+   ✓ F16: 一轮至多一张（I-18 / R4 E3） > 一句话里两处冲突 ⇒ 两对都转「有矛盾」、开两张，但这一轮只出最要紧的一张（最近确认的那处） 1370ms
+   ✓ F16: 长期记忆里的旧说法 > 个人线程里与自己长期记忆冲突 ⇒ 出卡（旧条是个人空间那条）；以新的为准 ⇒ 长期记忆里旧的失效、记进新的 654ms
+   ✓ F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认 > 忘掉新的那条 ⇒ 卡结束、旧条回到「你确认过」；返回的版本号把连带的结束动作算进去 712ms
+   ✓ F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认 > 忘掉旧的那条 ⇒ 新条回到「AI 记下的」，可以确认 570ms
+   ✓ F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认 > 改写新的那条 ⇒ 旧条回到「你确认过」；改写旧的那条 ⇒ 新条可以确认 892ms
+   ✓ F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认 > 原话被删（F07）⇒ 新条失效、卡结束（行留着，message_id 置空），旧条回到「你确认过」 466ms
+   ✓ F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认 > 新条同时和两条旧的冲突：只结束一对时它仍在冲突里；两对都结束了才放回来 606ms
+   ✓ F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认 > 共用旧条：先忽略「10/1」，再对「10/5」以新的为准 ⇒ 忽略的那张也结束，「10/1」回到「AI 记下的」、可以确认 953ms
+   ✓ F16: 守卫 > 非所有者：看得到只读的卡（共享线程），点不动 ⇒ KG_NOT_OWNER（HTTP 403）；绕过应用层直调数据库同样拒 593ms
+   ✓ F16: 守卫 > 拿旧版本号 ⇒ KG_REVISION_CHANGED；别的会话的卡 ⇒ KG_PROMPT_NOT_FOUND；冻结的 org ⇒ KG_ORG_FROZEN；卡都还开着 548ms
+   ✓ F16: 守卫 > 一对里有一条已经被忘掉 ⇒ 卡不再出现、点它 ⇒ KG_PROMPT_NOT_FOUND；冲突随之结束，另一条回到「你确认过」 301ms
+   ✓ F16: 守卫 > 并发：两个标签页同时处理同一张卡 ⇒ 恰好一个成功，另一个 KG_REVISION_CHANGED；卡的结局与成功的那个一致 578ms
+   ✓ F16: 守卫 > 开卡函数复核每一对：旧条没人确认过 / 在别的会话 / 是不该拿来比的个人空间，新条不是这条消息抽的 ⇒ 一张不开、状态不变 1588ms
+   ✓ F16: 守卫 > 「标冲突」手工标过、但没人确认过的结论不算「你确认过」：不进候选、开卡函数也不收 449ms
+   ✓ F16: 守卫 > 并发（真的同时）：第一个处理还没提交，第二个在会话锁上等；提交后第二个看到版本号变了 ⇒ KG_REVISION_CHANGED 742ms
+   ✓ F16: 守卫 > 读卡时两条都得还活着（不只靠触发器）：绕过触发器把一条失效 ⇒ 这一轮不出卡 705ms
+   ✓ F16: 结束冲突不会跨会话死锁——拿不到锁就放进队列，worker 按正常顺序补上 > D2：甲在会话 A 忘掉一条（F07 级联让它的长期记忆副本 P 失效），乙已拿着会话 B 的锁、随后要锁 P ⇒ 两边都走完，没有死锁 1124ms
+   ✓ F16: 结束冲突不会跨会话死锁——拿不到锁就放进队列，worker 按正常顺序补上 > D1：甲对会话 B 的卡「以新的为准」（取代共用的旧条 P），乙拿着会话 C 的锁、随后处理会话 C 的卡 ⇒ 两边都走完；worker 排空后 C 的新条可以确认 901ms
+   ✓ F16: 结束冲突不会跨会话死锁——拿不到锁就放进队列，worker 按正常顺序补上 > 另一个事务正拿着那张卡这一行（排空 / 处理的前半段）⇒ 触发器入队不等，立刻返回；对方随后锁那条结论也不死锁 777ms
+   ✓ F16: 结束冲突不会跨会话死锁——拿不到锁就放进队列，worker 按正常顺序补上 > 排空失败的一行（这里：等锁超时）往后推，不挡住同一 org 后面的行；到期后再处理 2798ms
+{"level":"error","msg":"contract validation failed","traceId":"cd89f756-6a45-4cac-a33e-c4e865084a07","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/canvas/segment-skill-binding-http.test.ts (17 tests) 8565ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 引导师加挂一个 skill：响应过契约，且库里真有那一行 503ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 两种 runMode 都能落库，且是分别落在各自的环节上 495ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 同一环节重复绑同一个 skill：改 runMode，不是第二行，也不换 bindingId 324ms
+ Test Files  3 passed (3)
+      Tests  103 passed (103)
+   Duration  88.96s (transform 8.18s, setup 23ms, collect 2.99s, tests 80.01s, environment 0ms, prepare 190ms)

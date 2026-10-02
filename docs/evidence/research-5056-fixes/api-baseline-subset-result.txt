@@ -1,0 +1,45 @@
+{"level":"error","msg":"contract validation failed","traceId":"47f34f81-2b11-436c-9b74-24e1e9a672bc","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/private/tmp/research-5056-baseline-83462a/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/canvas/segment-skill-binding-http.test.ts (17 tests) 138433ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 引导师加挂一个 skill：响应过契约，且库里真有那一行 1441ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 两种 runMode 都能落库，且是分别落在各自的环节上 3789ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 同一环节重复绑同一个 skill：改 runMode，不是第二行，也不换 bindingId 1833ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 契约里没有的 runMode 值被拒 400，且库里没有留下任何行 1675ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 路径参数与 body 的 agendaSegmentId 打架 ⇒ 400，不静默挑一个 1448ms
+   ✓ #1468 · 绑定把 skill 真的写进库 > 绑一个当前不存在的 skillKey：成功，不发明 SKILL_NOT_FOUND 989ms
+   ✓ #1468 · 谁能加挂（uc-7-4 R7：组员不可自行加挂） > 组长加挂被拒 403 ROLE_INSUFFICIENT，且库里没有那一行 1929ms
+   ✓ #1468 · 谁能加挂（uc-7-4 R7：组员不可自行加挂） > 非项目成员加挂：同样是 403 ROLE_INSUFFICIENT，不另开一种拒绝 1085ms
+   ✓ #1468 · 谁能加挂（uc-7-4 R7：组员不可自行加挂） > 环节不存在 ⇒ 404；别的组织的环节走同一个出口，不泄露存在性 1625ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 没有任何绑定时回空数组，不编一条示例 skill 1229ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 绑定之后读得到：displayName 来自 skills 表，runMode 与绑定一致，lastRunAt 为 null 1213ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 白名单按环节各算各的：A 绑三条回三条，B 绑一条回一条 2168ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 绑定指向一个查不到名字的 skillKey：行仍在，displayName 退回 skillKey 2025ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 组长读得到白名单（读判 read.published，不是引导师） 1677ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 非项目成员读被拒 403 NO_PROJECT_ROLE 1131ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 跨组织读：另一个组织的环节 ⇒ 404，与「不存在」同一个出口 1406ms
+   ✓ #1468 · listSegmentSkills：绑了 → 刷新 → 还在 > 同名 skillKey 在两个组织各绑一条，互不可见 2407ms
+   × isolated whiteboard Yjs validator > runs commands and reads diffs in real disposable worker threads 410ms
+   × isolated whiteboard Yjs validator > accepts an offline edit after isolated raw update validation 279ms
+   × isolated whiteboard Yjs validator > returns only live object IDs through the isolated validator 263ms
+   × isolated whiteboard Yjs validator > rejects malformed binary and oversize inputs without leaking worker errors 379ms
+     → expected WhiteboardCollaborationError: VALIDATOR_U… { code: '…' } to match object { code: 'VALIDATION_FAILED' }
+   × isolated whiteboard Yjs validator > terminates timed-out workers and releases capacity for the next request 265ms
+   × bounded worker admission > bounds a fifty-request burst, drains rejected admissions and releases all capacity 10548ms
+   × bounded worker admission > drains fifty real initial-connect validations through four concurrent clients 241ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/whiteboard/update-validator.test.ts > isolated whiteboard Yjs validator > runs commands and reads diffs in real disposable worker threads
+ FAIL  tests/whiteboard/update-validator.test.ts > isolated whiteboard Yjs validator > accepts an offline edit after isolated raw update validation
+ FAIL  tests/whiteboard/update-validator.test.ts > isolated whiteboard Yjs validator > returns only live object IDs through the isolated validator
+ FAIL  tests/whiteboard/update-validator.test.ts > isolated whiteboard Yjs validator > terminates timed-out workers and releases capacity for the next request
+ FAIL  tests/whiteboard/update-validator.test.ts > bounded worker admission > bounds a fifty-request burst, drains rejected admissions and releases all capacity
+WhiteboardCollaborationError: VALIDATOR_UNAVAILABLE
+ FAIL  tests/whiteboard/update-validator.test.ts > isolated whiteboard Yjs validator > rejects malformed binary and oversize inputs without leaking worker errors
+AssertionError: expected WhiteboardCollaborationError: VALIDATOR_U… { code: '…' } to match object { code: 'VALIDATION_FAILED' }
+-   "code": "VALIDATION_FAILED",
+ FAIL  tests/whiteboard/update-validator.test.ts > bounded worker admission > drains fifty real initial-connect validations through four concurrent clients
+AssertionError: expected [ { status: 'rejected', …(1) }, …(1) ] to deeply equal []
++     "reason": [WhiteboardCollaborationError: VALIDATOR_UNAVAILABLE],
++     "reason": [WhiteboardCollaborationError: VALIDATOR_UNAVAILABLE],
+ Test Files  1 failed | 1 passed (2)
+      Tests  7 failed | 17 passed (24)
+   Duration  163.41s (transform 41.02s, setup 41ms, collect 3.30s, tests 150.82s, environment 1ms, prepare 302ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/canvas/segment-skill-binding-http.test.ts tests/whiteboard/update-validator.test.ts --maxWorkers=1 --minWorkers=1
