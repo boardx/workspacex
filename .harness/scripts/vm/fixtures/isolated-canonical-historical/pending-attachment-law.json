@@ -1,0 +1,46 @@
+{
+  "migrationName": "20261001170000_pending_attachment_cancellation.sql",
+  "sqlSha256": "15d7ac7bffdf0d3b69dae53e050e868d088781c2f8e0512cf135666de027434b",
+  "body": {
+    "kind": "pending-attachment-cancellation",
+    "relation": "public.chat_message_attachments",
+    "addedColumns": {
+      "uploaded_by": {
+        "type": "text",
+        "nullable": true,
+        "default": null
+      },
+      "cancelled_at": {
+        "type": "timestamp with time zone",
+        "nullable": true,
+        "default": null
+      }
+    },
+    "existingRows": "all original columns multiset unchanged; new columns null (no legacy actor fabrication)",
+    "constraint": {
+      "name": "chat_attachment_cancel_pending",
+      "type": "CHECK",
+      "validated": true,
+      "expression": "cancelled_at IS NULL OR message_id IS NULL"
+    },
+    "aclDelta": {
+      "app_rw": [
+        "DELETE"
+      ],
+      "otherGrants": "unchanged"
+    },
+    "deletePolicy": {
+      "name": "chat_attachment_delete_pending",
+      "permissive": false,
+      "command": "DELETE",
+      "roles": [
+        "app_rw"
+      ],
+      "using": "message_id IS NULL",
+      "withCheck": null
+    },
+    "existingTenantAndFreezePolicies": "remain unchanged; new restrictive policy is AND with existing policies",
+    "noBackfill": true
+  },
+  "lawSha256": "b36ffcf47c4b0167667511e21dbedf28f67d102d958a63b013ade20416680a46"
+}

@@ -17,6 +17,8 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
+    lockMovementX = false;
+    lockMovementY = false;
     source?: string;
     constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; if (typeof value === "string") this.source = value; Object.assign(this, options); }
     getObjects() { return this.children; }
@@ -183,6 +185,39 @@ describe("Board Fabric event-to-command boundary", () => {
     const restoredPath = restoredEdge.getObjects().find(item => item instanceof Path);
     expect(restoredPath).toBeInstanceOf(Path);
     expect((restoredPath as unknown as Path).path).toEqual([["M", 215, 90], ["L", 500, 100]]);
+  });
+
+  it("keeps real world path endpoints attached across a canonical-props React echo while held", async () => {
+    const actual = await vi.importActual<typeof import("fabric")>("fabric"), events = callbacks();
+    const edge: BoardFabricObject = { ...base, id: "edge", kind: "connector", orderKey: "b", geometry: { x: 210, y: 90, width: 290, height: 10, rotation: 0 }, connector: { from: base.id, fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 210, y: 90 }, end: { x: 500, y: 100 } } };
+    const mounted = render(surface([base, edge], events)), canvas = mountedCanvas();
+    const target = canvas.objects.find(item => item.data?.boardObjectId === base.id)!;
+    target.set({ left: 110, top: 110 });
+    act(() => canvas.emit("object:moving", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
+    const pathEndpoints = () => {
+      const group = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+      expect(group).toBeInstanceOf(actual.Group);
+      const path = group.getObjects().find(item => item instanceof actual.Path) as unknown as import("fabric").Path;
+      const start = path.path[0]!, end = path.path[1]!;
+      const world = (command: typeof start) => actual.util.transformPoint(new actual.Point(Number(command[1]) - path.pathOffset.x, Number(command[2]) - path.pathOffset.y), path.calcTransformMatrix());
+      return { start: world(start), end: world(end) };
+    };
+    expect(pathEndpoints()).toMatchObject({ start: { x: 310, y: 180 }, end: { x: 500, y: 100 } });
+    // The editor's chrome preview rerenders a newly allocated objects array
+    // with unchanged canonical data; this must not erase Fabric's held path.
+    mounted.rerender(surface([base, edge], events));
+    expect(target.left).toBe(110);expect(target.top).toBe(110);
+    expect(pathEndpoints()).toMatchObject({ start: { x: 310, y: 180 }, end: { x: 500, y: 100 } });
+    const held = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(held.lockMovementX).toBe(true);expect(held.lockMovementY).toBe(true);
+    expect(events.onObjectTransform).not.toHaveBeenCalled();
+    // A changed canonical input must still win, even when its revision collides
+    // with the local preview. The baseline identity is not a blanket freeze.
+    const remote: BoardFabricObject = { ...edge, geometry: { x: 210, y: 90, width: 410, height: 40, rotation: 0 }, style: { ...edge.style, stroke: "#E71D49" }, connector: { ...edge.connector!, end: { x: 620, y: 130 } } };
+    mounted.rerender(surface([base, remote], events));
+    expect(pathEndpoints()).toMatchObject({ start: { x: 210, y: 90 }, end: { x: 620, y: 130 } });
+    const latest = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect((latest.getObjects().find(item => item instanceof actual.Path) as unknown as import("fabric").Path).stroke).toBe("#E71D49");
   });
 
   it("reports rotated and scaled geometry and clears preview on native cancellation", () => {

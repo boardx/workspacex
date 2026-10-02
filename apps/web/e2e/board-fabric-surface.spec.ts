@@ -378,6 +378,7 @@ test("live drag attachments follow before one durable transform and survive undo
   const canonical = () => page.getByTestId("board-a11y-mirror").locator(`li[data-object-id="${a}"]`).getAttribute("data-geometry");
   const scenes = () => surface.evaluate(el => ({ items: JSON.parse(el.getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>, z: Number(el.getAttribute("data-viewport-zoom")), px: Number(el.getAttribute("data-viewport-pan-x")), py: Number(el.getAttribute("data-viewport-pan-y")), box: el.getBoundingClientRect().toJSON() as { x: number; y: number } }));
   const before = await canonical(), initial = await scenes(), note = initial.items.find(item => item.id === a)!;
+  const savedHead = await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json() as { epoch: number; seq: number };
   const x = initial.box.x + initial.px + (note.left + note.width / 2) * initial.z, y = initial.box.y + initial.py + (note.top + note.height / 2) * initial.z;
   await page.mouse.click(x, y);
   const toolbar = page.getByTestId("board-context-toolbar"), handle = page.getByTestId(`connector-handle-${a}-right`);
@@ -388,9 +389,29 @@ test("live drag attachments follow before one durable transform and survive undo
   expect(await canonical(), "live drag must not commit before pointer release").toBe(before);
   expect(Math.abs((await handle.boundingBox())!.x - handleBefore.x)).toBeGreaterThan(50);
   const current = await scenes(), moved = current.items.find(item => item.id === a)!, attached = current.items.find(item => item.id === edge)!;
+  const destination = current.items.find(item => item.id === b)!;
+  const endpoints = { start: { x: moved.left + moved.width, y: moved.top + moved.height / 2 }, end: { x: destination.left, y: destination.top + destination.height / 2 } };
+  // Bounding boxes include arrow/label/stroke bounds. Independently probe the
+  // actual Fabric ink on the live expected segment, away from the midpoint label.
+  const probes = await surface.locator('canvas.lower-canvas').evaluate((element, input) => {
+    const canvas = element as HTMLCanvasElement, context = canvas.getContext('2d')!, box = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / box.width, scaleY = canvas.height / box.height;
+    return [.08, .16, .24].map(t => {
+      const world = { x: input.endpoints.start.x + t * (input.endpoints.end.x - input.endpoints.start.x), y: input.endpoints.start.y + t * (input.endpoints.end.y - input.endpoints.start.y) };
+      const client = { x: input.current.box.x + input.current.px + world.x * input.current.z, y: input.current.box.y + input.current.py + world.y * input.current.z };
+      const x = Math.round((client.x - box.x) * scaleX), y = Math.round((client.y - box.y) * scaleY);
+      const rgba = context.getImageData(x - 3, y - 3, 7, 7).data; let ink = 0, alphaSum = 0;
+      for (let index = 0; index < rgba.length; index += 4) if (Math.abs(rgba[index]! - 41) <= 2 && Math.abs(rgba[index + 1]! - 38) <= 2 && Math.abs(rgba[index + 2]! - 30) <= 2 && rgba[index + 3]! > 0) { ink++; alphaSum += rgba[index + 3]!; }
+      return { t, world, client, ink, alphaSum };
+    });
+  }, { current, endpoints });
+  await info.attach("live-path-measurements", { body: JSON.stringify({ current, endpoints, probes, savedHead }), contentType: "application/json" });
+  expect(await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json(), "held pointer must not advance durable head").toEqual(savedHead);
+  for (const probe of probes) { expect(probe.ink, `actual Fabric path at ${probe.t}`).toBeGreaterThan(0); expect(probe.alphaSum).toBeGreaterThan(255); }
   expect(Math.abs(attached.left - moved.left - moved.width)).toBeLessThan(8);
   await info.attach("live-drag-attachments", { body: await page.screenshot(), contentType: "image/png" });
   await page.mouse.up(); await expect.poll(canonical).not.toBe(before); const after = await canonical();
+  await expect.poll(async () => (await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json()).seq).toBe(savedHead.seq + 1);
   await page.getByRole("button", { name: "撤销", exact: true }).click(); await expect.poll(canonical).toBe(before);
   await page.getByRole("button", { name: "重做", exact: true }).click(); await expect.poll(canonical).toBe(after);
   await expect(page.getByTestId("board-sync-status")).toHaveAttribute("aria-label", /已同步/);
