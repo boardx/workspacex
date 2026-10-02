@@ -1,0 +1,7 @@
+  ✓  1 [firefox] › e2e/board-visual-accessibility-acceptance.spec.ts:11:5 › visual and accessibility real object states, input and negative controls (58.0s)
+  ✓  2 [webkit] › e2e/board-visual-accessibility-acceptance.spec.ts:11:5 › visual and accessibility real object states, input and negative controls (54.5s)
+  2 passed (12.2m)
+[timing] pnpm --filter web exec playwright test --config e2e/board-visual-accessibility-acceptance.config.ts --project=firefox --project=webkit
+  命令执行：12m19s
+  清理：1s
+  总计：12m20s
