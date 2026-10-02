@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {assertTemporaryRuntimePaths} from './runtime-attestation.mjs';
+import {assertTemporaryRuntimePaths,assertRuntimeSourceFiles} from './runtime-attestation.mjs';
 const [planPath]=process.argv.slice(2);assert(planPath,'Private prepared plan required');
 const plan=JSON.parse(readFileSync(planPath)),{root,head,data,bin,database,isolation,marker,ports}=plan;
 assert(plan.prepared&&!plan.ready);assertTemporaryRuntimePaths(root,data);
@@ -13,7 +13,7 @@ assert.equal(execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'})
 const require=createRequire(join(root,'package.json'));require('tsx/cjs/api').register();require('tsx/esm/api').register();const load=path=>import(pathToFileURL(join(root,path)).href);
 const {verifyRuntimeManifest,runtimeSourceHashes,committedRuntimeSourceHashes,nativeAcceptanceOptions}=await import('./runtime-attestation.mjs');
 const acceptanceOptions=nativeAcceptanceOptions(plan);
-const sourceFiles=Object.keys(plan.sourceHashes);assert.deepEqual(runtimeSourceHashes(root,sourceFiles),plan.sourceHashes);assert.deepEqual(plan.sourceHashes,committedRuntimeSourceHashes(root,head,sourceFiles));
+const sourceFiles=Object.keys(plan.sourceHashes);assertRuntimeSourceFiles(root,sourceFiles);assert.deepEqual(runtimeSourceHashes(root,sourceFiles),plan.sourceHashes);assert.deepEqual(plan.sourceHashes,committedRuntimeSourceHashes(root,head,sourceFiles));
 const {resolveLocalConfig,apiEnv,webEnv,paths}=await load('packages/local-runtime/src/config.ts');
 const {startManaged,runToCompletion,waitForHttpOrExit,assertPortFree}=await load('packages/local-runtime/src/processes.ts');
 const {tsxLaunch,nextLaunch}=await load('packages/local-runtime/src/node-launch.ts');

@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {assertTemporaryRuntimePaths} from './runtime-attestation.mjs';
+import {assertTemporaryRuntimePaths,assertRuntimeSourceFiles} from './runtime-attestation.mjs';
 // Preparation only: no process, build or database is started by this file.
 const argv=process.argv.slice(2),arg=name=>argv[argv.indexOf(`--${name}`)+1];
 for(const name of ['root','head','data-dir','source-manifest'])assert(argv.includes(`--${name}`),`${name} required`);
@@ -14,6 +14,7 @@ assertTemporaryRuntimePaths(root,data);
 assert.equal(execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),head);
 assert.equal(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim(),'');
 const source=JSON.parse(readFileSync(arg('source-manifest'),'utf8'));assert.equal(realpathSync(source.root),root);assert.equal(source.head,head);
+assertRuntimeSourceFiles(root,source.sourceFiles);
 const require=createRequire(join(root,'package.json'));require('tsx/cjs/api').register();require('tsx/esm/api').register();
 const load=path=>import(pathToFileURL(join(root,path)).href);
 const {runtimeSourceHashes,committedRuntimeSourceHashes,nativeAcceptanceOptions}=await import('./runtime-attestation.mjs');
