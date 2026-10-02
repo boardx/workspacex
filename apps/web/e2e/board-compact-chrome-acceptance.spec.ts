@@ -2,10 +2,10 @@ import {randomUUID} from 'node:crypto';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {connectByHandles} from './board-acceptance-support';
+import {connectByHandles,seedExistingFrame} from './board-acceptance-support';
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
-const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-frame','board-add-more'] as const;
+const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-more'] as const;
 async function captureReference(page:Page,info:TestInfo,name:string){const path=info.outputPath(`${name}.png`);await page.screenshot({path,fullPage:false});await info.attach(name,{path,contentType:'image/png'});}
 const separated=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1;
 
@@ -45,10 +45,19 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-opacity-55','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
 
-   await page.getByTestId('board-add-frame').click();const framePanel=page.getByTestId('board-frame-tool-panel');await expect(framePanel).toBeVisible();const frameBounds=(await framePanel.boundingBox())!;
-   expect(frameBounds.width).toBeGreaterThanOrEqual(360);expect(frameBounds.width).toBeLessThanOrEqual(386);expect(frameBounds.height).toBeGreaterThanOrEqual(340);expect(frameBounds.height).toBeLessThanOrEqual(410);expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
-   for(const id of ['board-frame-rectangle','board-frame-rounded','board-frame-circle','board-frame-layout','board-frame-blank','board-frame-section','board-frame-grid','board-frame-timeline','board-frame-size-s','board-frame-size-m','board-frame-size-l','board-frame-size-custom'])await expect(page.getByTestId(id)).toBeVisible();
-   await captureReference(page,info,`reference-frame-panel-${label}`);await page.getByRole('button',{name:'Close frame tools'}).click();await expect(framePanel).toBeHidden();
+   // R04 hides the new Frame palette; retain its historical geometry reference
+   // in evidence and exercise all stored Frame properties through the visible UI.
+   await info.attach('legacy-frame-palette-reference',{body:Buffer.from(JSON.stringify({reachable:false,reason:'R04 draft hides new Frame creation; design approval remains pending',width:[360,386],height:[340,410],viewportMargin:16,bottomGap:2})),contentType:'application/json'});
+   const existingFrame=await seedExistingFrame(page,1800,1400);
+   await page.getByTestId(`board-a11y-object-${existingFrame}`).click();
+   await page.getByTestId('board-inspector-expand').click();
+   const frameInspector=page.getByTestId('board-context-toolbar');
+   await expect(page.getByTestId('board-frame-size-presets')).toBeVisible();
+   const frameBounds=(await frameInspector.boundingBox())!;
+   expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);
+   expect(frameBounds.y).toBeGreaterThanOrEqual(header.y+header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
+   for(const name of ['区域标题','区域布局'])await expect(page.getByLabel(name,{exact:true})).toBeVisible();
+   await captureReference(page,info,`reference-existing-frame-inspector-${label}`);await page.getByTestId('board-inspector-close').click();
 
    await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
    await expect(page.getByTestId('board-context-toolbar')).toBeVisible();

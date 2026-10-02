@@ -216,3 +216,30 @@ export async function assertReload(page: Page, boardId: string, expected: Canoni
   await openBoard(page, boardId, expected.length);
   await expect.poll(() => canonicalRows(page)).toEqual(expected);
 }
+
+/** Existing Frame fixture uses the real authenticated command API; creation is absent from the dock. */
+export async function seedExistingFrame(page: Page, x: number, y: number, width = 480, height = 320) {
+  const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token).toBeTruthy();
+  const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
+  const id = `existing-frame-${randomUUID()}`;
+  await boardApi(page.request, token!, 'POST', `/whiteboards/${boardId}/commands`, {
+    requestId: randomUUID(), epoch: 1, commands: createCommands([{...object(id, 'frame', x, y, 'Existing Frame', width, height), extensionData: {spatial: {version: 1, mode: 'freeform', autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: 'horizontal'}}}]),
+  });
+  await expect(page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${id}"]`)).toBeVisible();
+  return id;
+}
+
+/** Find a blank point from the real projected scenes; creation ignores object hits. */
+export async function clickBlankCanvas(page: Page) {
+  const surface=page.getByTestId('board-fabric-surface');
+  const point=await surface.evaluate(element=>{
+    const rect=element.getBoundingClientRect(),zoom=Number(element.getAttribute('data-viewport-zoom')),panX=Number(element.getAttribute('data-viewport-pan-x')),panY=Number(element.getAttribute('data-viewport-pan-y'));
+    const scenes=JSON.parse(element.getAttribute('data-object-scenes')??'[]') as Array<{left:number;top:number;width:number;height:number}>;
+    for(let y=100;y<Math.min(rect.height-180,420);y+=40)for(let x=40;x<rect.width-40;x+=40){
+      if(!scenes.some(scene=>x>=scene.left*zoom+panX-12&&x<=((scene.left+scene.width)*zoom+panX+12)&&y>=scene.top*zoom+panY-12&&y<=((scene.top+scene.height)*zoom+panY+12)))return{x,y};
+    }
+    throw new Error('No exposed blank canvas point available for actual placement');
+  });
+  await surface.click({position:point});
+}
