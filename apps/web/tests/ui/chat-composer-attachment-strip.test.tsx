@@ -25,6 +25,7 @@ const { upload } = vi.hoisted(() => ({ upload: vi.fn() }));
 vi.mock("@/lib/live-chat", async (original) => ({
   ...await original<typeof import("@/lib/live-chat")>(),
   uploadAttachment: upload,
+  cancelPendingAttachment: vi.fn(async () => undefined),
 }));
 
 import {

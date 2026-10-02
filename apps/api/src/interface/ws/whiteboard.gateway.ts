@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { WhiteboardAdmission } from './whiteboard-admission';
 import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Y from 'yjs';
@@ -8,7 +10,7 @@ import type { WhiteboardRepository } from '../../application/whiteboard/ports';
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardPresenceIdentityResolver } from '../../application/whiteboard/collaboration-ports';
 import type { Principal } from '../../domain/principal';
 
-type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
+type Peer = { ws: WebSocket; credentialKey: string; lifetime: AbortController; principal: Principal; boardId: string; token: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
 export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; identities?:WhiteboardPresenceIdentityResolver; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
@@ -17,6 +19,8 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   const wss = new WebSocketServer({ noServer: true, maxPayload: WHITEBOARD_SYNC.inboundFrameBytes, perMessageDeflate: false,
     handleProtocols: protocols => protocols.has(WHITEBOARD_SYNC.protocol) ? WHITEBOARD_SYNC.protocol : false });
   const peers = new Set<Peer>();
+  const admission = new WhiteboardAdmission();
+  const authentication = new WhiteboardAdmission();
   function send(ws: WebSocket, message: WhiteboardServerMessage) {
     if (ws.readyState !== ws.OPEN) return;
     if (ws.bufferedAmount > 2 * 1024 * 1024) { ws.close(1013, 'slow client'); return; }
@@ -37,17 +41,26 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   const upgrade = (request: import('node:http').IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => {
     const path=new URL(request.url ?? '/', 'http://localhost').pathname;
     const match=/^\/whiteboards\/([0-9a-f-]{36})\/sync$/i.exec(path); if (!match) return;
-    const refuse=(status:number) => { socket.write(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`); socket.destroy(); };
+    const refuse=(status:number) => { if (socket.destroyed) return; socket.write(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`); socket.destroy(); };
     const offered=String(request.headers['sec-websocket-protocol'] ?? '').split(',').map(s=>s.trim());
     const credential=offered.find(s=>s.startsWith(WHITEBOARD_SYNC.bearerSubprotocolPrefix));
     if (!credential || !offered.includes(WHITEBOARD_SYNC.protocol)) { refuse(401); return; }
+    const lifetime = new AbortController();
+    socket.once('close', () => lifetime.abort());
     const token=credential.slice(WHITEBOARD_SYNC.bearerSubprotocolPrefix.length), boardId=match[1]!;
     void (async()=>{
-      const principal=await deps.principals.resolve({authorization:`Bearer ${token}`}); if (!principal) { refuse(401); return; }
-      const [board,identity]=await Promise.all([deps.boards.get(principal,boardId),deps.identities?.resolve(principal)??Promise.resolve({displayName:principal.userId,avatarUrl:null,principalKind:'user' as const})]); if (!board) { refuse(404); return; }
+      const credentialKey=createHash('sha256').update(token).digest('hex');
+      const principal=await authentication.runShared(credentialKey, credentialKey, () => deps.principals.resolve({authorization:`Bearer ${token}`}), lifetime.signal); if (!principal) { refuse(401); return; }
+      const [board,identity]=await admission.run(principal.orgId, async () => {
+        const board = await deps.boards.get(principal,boardId);
+        lifetime.signal.throwIfAborted();
+        const identity = await (deps.identities?.resolve(principal) ?? Promise.resolve({displayName:principal.userId,avatarUrl:null,principalKind:'user' as const}));
+        return [board,identity] as const;
+      }, lifetime.signal); if (!board) { refuse(404); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
+      lifetime.signal.throwIfAborted();
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
+        const peer:Peer={ws,credentialKey,lifetime,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
         const deadline=setTimeout(()=>ws.close(4408,'handshake timeout'),10000);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -62,14 +75,15 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if (message.type==='hello') {
               if(peer.ready) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
               // Keep a server-only full mirror for cross-process catch-up, never trust client content.
-              const full=await deps.store.load(principal,boardId);
+              const full=await admission.run(principal.orgId, () => deps.store.load(principal,boardId), lifetime.signal);
+              if (ws.readyState!==ws.OPEN) return;
               if(message.resume) {
                 if(message.resume.epoch!==full.epoch) send(ws,{type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:full.epoch,seq:full.seq});
                 else if(message.resume.seq>full.seq) send(ws,{type:'recovery',code:'HISTORY_UNAVAILABLE',disposition:'reload-required',epoch:full.epoch,seq:full.seq});
                 else send(ws,{type:'recovery',code:'RESUME_OK',disposition:'resumed',epoch:full.epoch,seq:full.seq});
               }
               Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq;
-              const diff=await deps.store.load(principal,boardId,decoded(message.stateVector));
+              const diff={...full,update:Y.encodeStateAsUpdate(peer.mirror,decoded(message.stateVector))};
               Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.ready=true; peer.role=diff.role; peer.archived=diff.archived; clearTimeout(deadline);
               send(ws,{type:'sync',...diff,update:encoded(diff.update)}); presence(peer); return;
             }
@@ -105,7 +119,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
           }).catch(error=>failFromError(ws,error)).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());
-        ws.on('close',()=>{clearTimeout(deadline);peers.delete(peer);peer.mirror.destroy();presence(peer);});
+        ws.on('close',()=>{lifetime.abort();clearTimeout(deadline);peers.delete(peer);peer.mirror.destroy();presence(peer);});
       });
     })().catch(()=>refuse(503));
   };
@@ -116,14 +130,14 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       if(!peer.ready || peer.checking || peer.ws.readyState!==peer.ws.OPEN) continue;
       peer.checking=true;
       void (async()=>{
-        const current=await deps.principals.resolve({authorization:`Bearer ${peer.token}`});
+        const current=await authentication.run(peer.credentialKey,()=>deps.principals.resolve({authorization:`Bearer ${peer.token}`}),peer.lifetime.signal);
         if(!current || current.userId!==peer.principal.userId || current.orgId!==peer.principal.orgId) { fail(peer.ws,'ACCESS_REVOKED');return; }
-        const head=await deps.store.head(current,peer.boardId);
+        const head=await admission.run(current.orgId,()=>deps.store.head(current,peer.boardId),peer.lifetime.signal);
         const state=head;
         if(state.epoch!==peer.epoch) { fail(peer.ws,'STALE_EPOCH');return; }
         if(state.role!==peer.role || state.archived!==peer.archived) { fail(peer.ws,state.archived?'BOARD_ARCHIVED':'ACCESS_REVOKED');return; }
         if(peer.ws.readyState!==peer.ws.OPEN) return;
-        if(state.seq>peer.seq) { const diff=await deps.store.load(current,peer.boardId,Y.encodeStateVector(peer.mirror)); if(peer.ws.readyState!==peer.ws.OPEN) return; Y.applyUpdate(peer.mirror,diff.update);peer.seq=Math.max(peer.seq,diff.seq);send(peer.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)}); }
+        if(state.seq>peer.seq) { const diff=await admission.run(current.orgId,()=>deps.store.load(current,peer.boardId,Y.encodeStateVector(peer.mirror)),peer.lifetime.signal); if(peer.ws.readyState!==peer.ws.OPEN) return; Y.applyUpdate(peer.mirror,diff.update);peer.seq=Math.max(peer.seq,diff.seq);send(peer.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)}); }
       })().catch(error=>failFromError(peer.ws,error)).finally(()=>{peer.checking=false;});
     }
   },1000);

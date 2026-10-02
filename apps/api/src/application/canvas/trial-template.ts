@@ -42,6 +42,6 @@ export async function trialTemplate(
   const next = transition(current.state, "trial");
   if (!next.ok) throw new CanvasIllegalTransitionError(next.reason);
 
-  await deps.templates.setState(input.orgId, input.key, input.version, next.next);
+  await deps.templates.setState(input.orgId, input.key, input.version, next.next, input.userId);
   return { key: input.key, version: input.version, status: "trial" };
 }

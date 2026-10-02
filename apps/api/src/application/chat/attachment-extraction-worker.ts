@@ -31,7 +31,10 @@ export const MAX_EXTRACTION_ATTEMPTS = 5;
 export type ExtractionOutcome = "extracted" | "unsupported" | "failed" | "retry" | "gone";
 
 /** 抽取核心的依赖（不含 job/log）——worker 与内联路径共用。 */
+import type {PhysicalPurgePort} from "../files/physical-delete-ports";
+import {cleanupPendingAttachment} from "./pending-attachment-cleanup";
 export interface ExtractionCoreDeps {
+  readonly purge?:PhysicalPurgePort;
   readonly store: ObjectStore;
   readonly extraction: AttachmentExtractionStore;
   readonly converter: AttachmentToMarkdownPort;
@@ -75,6 +78,7 @@ export async function extractAttachment(
   }
   if (att === null) return "gone"; // 附件已删（thread/message 级联穿透）
 
+  if(await deps.extraction.isCancelled?.(orgId,attachmentId)){try{await cleanupPendingAttachment(deps,orgId,attachmentId);return "gone";}catch{return "retry";}}
   const plan = planExtraction(att.mime);
   if (plan.kind === "unsupported") {
     await deps.extraction.recordUnsupported(orgId, attachmentId);
@@ -117,13 +121,14 @@ export async function extractAttachment(
 
   // 落全文 markdown（putOnce 幂等：重放撞 ObjectExistsError 即视为已落，继续记状态）。
   const extractedRef = extractedObjectKey(orgId, attachmentId);
-  try {
-    await deps.store.putOnce(extractedRef, new TextEncoder().encode(markdown), "text/markdown");
-  } catch (e) {
-    if (!(e instanceof ObjectExistsError)) return "retry";
-    // 已落——重放，继续记状态。
-  }
-  await deps.extraction.recordExtracted(orgId, attachmentId, extractedRef, boundedExcerpt(markdown));
+  const write=async()=>{try{await deps.store.putOnce(extractedRef,new TextEncoder().encode(markdown),"text/markdown");}catch(e){if(!(e instanceof ObjectExistsError))throw e;}};
+  try{
+    if(deps.extraction.publishExtracted){
+      if(!await deps.extraction.publishExtracted(orgId,attachmentId,extractedRef,boundedExcerpt(markdown),write)){
+        if(await deps.extraction.isCancelled?.(orgId,attachmentId)){await cleanupPendingAttachment(deps,orgId,attachmentId);}return "gone";
+      }
+    }else{await write();await deps.extraction.recordExtracted(orgId,attachmentId,extractedRef,boundedExcerpt(markdown));}
+  }catch{return "retry";}
   return "extracted";
 }
 
@@ -145,7 +150,8 @@ async function processJob(
   orgId: OrgId,
   job: AttachmentExtractionJob,
 ): Promise<ExtractionOutcome> {
-  if (job.attempts > MAX_EXTRACTION_ATTEMPTS) {
+  const cancelled=await deps.extraction.isCancelled?.(orgId,job.attachmentId);
+  if (job.attempts > MAX_EXTRACTION_ATTEMPTS && !cancelled) {
     // 反复失败到上限：记 failed（malformed 兜底）并删 job，别把队列堵在一条死活上。
     await deps.extraction.recordFailed(orgId, job.attachmentId, "malformed");
     await deps.extraction.complete(orgId, job.jobId);

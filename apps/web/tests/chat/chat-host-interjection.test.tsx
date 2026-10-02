@@ -172,13 +172,14 @@ describe("/chat 宿主 · 在途 run 为 running ⇒ 主 composer 发送即插�
   it("status_change(running) 后：进度卡 data-run-id 为真实 runId，主 composer 发送走 interjectAgentRun，1 秒内页脚出 ack", async () => {
     mountHost();
 
+    // Deliver the authoritative status before waiting for its visible projection.
+    await waitFor(() => expect(sockets.length).toBe(1));
+    act(() => sockets[0]!.emit(statusChange("running")));
     const indicator = await screen.findByTestId("copilotkit-v2-running-indicator");
     // 消息流里不再有第二个输入框（两个 loading / 两个输入框的根因）。
     expect(screen.queryByTestId("interjection-input")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chat-host-interjection")).not.toBeInTheDocument();
 
-    await waitFor(() => expect(sockets.length).toBe(1));
-    act(() => sockets[0]!.emit(statusChange("running")));
     await waitFor(() => expect(indicator.getAttribute("data-run-id")).toBe(RUN_ID));
 
     const input = screen.getByTestId("copilotkit-v2-input");

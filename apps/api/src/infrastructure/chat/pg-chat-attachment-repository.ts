@@ -2,6 +2,8 @@
  * #946 · V9-a F150 —— `AttachmentCommandRepository` 的 PostgreSQL 实现。
  * 走 `DatabasePort.withTenant`（RLS 租户会话），与 pg-chat-message-command-repository 同一套。
  */
+import { AttachmentUploadError } from "../../application/chat/upload-attachment";
+import { checkAttachmentCount } from "../../domain/chat/attachment-upload";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
@@ -25,7 +27,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       const r = await s.query<{ n: number }>(
         `SELECT count(*)::int AS n
            FROM chat_message_attachments
-          WHERE org_id = $1 AND thread_id = $2 AND message_id IS NULL`,
+          WHERE org_id = $1 AND thread_id = $2 AND message_id IS NULL AND cancelled_at IS NULL`,
         [orgId, threadId],
       );
       return r.rows[0]?.n ?? 0;
@@ -34,13 +36,28 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
   }
 
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set；extracted_ref 恒 NULL=V9-a）。 */
-  async insertAttachment(row: AttachmentRow): Promise<void> {
+  async insertAttachment(row: AttachmentRow, writeObject: () => Promise<void>): Promise<void> {
     await this.db.withTenant(row.orgId, async (s) => {
+      // The thread row is the serialization point across API replicas; lock before
+      // counting so the next transaction sees the previous contender's committed row.
+      const thread = await s.query<{ id: string }>(
+        "SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE",
+        [row.orgId, row.threadId],
+      );
+      if (!thread.rows.length) throw new Error("attachment_thread_unavailable");
+      const pending = await s.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2 AND message_id IS NULL AND cancelled_at IS NULL",
+        [row.orgId, row.threadId],
+      );
+      if (checkAttachmentCount(pending.rows[0]?.n ?? 0)) {
+        throw new AttachmentUploadError("ATTACHMENT_LIMIT_EXCEEDED");
+      }
+      await writeObject();
       await s.query(
         `INSERT INTO chat_message_attachments
-           (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes, extracted_ref, created_at)
-         VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, NULL, $8::timestamptz)`,
-        [row.id, row.orgId, row.threadId, row.storageRef, row.filename, row.mime, row.bytes, row.createdAt],
+           (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes, extracted_ref, created_at, uploaded_by)
+         VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, NULL, $8::timestamptz, $9)`,
+        [row.id, row.orgId, row.threadId, row.storageRef, row.filename, row.mime, row.bytes, row.createdAt, row.uploadedBy ?? null],
       );
     });
   }
@@ -58,7 +75,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       }>(
         `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at
            FROM chat_message_attachments
-          WHERE org_id = $1 AND thread_id = $2 AND id = $3`,
+          WHERE org_id = $1 AND thread_id = $2 AND id = $3 AND cancelled_at IS NULL`,
         [orgId, threadId, attachmentId],
       );
       const hit = r.rows[0];
@@ -80,6 +97,16 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
    * 这里不重复披露判定，只做数据整形（同一个理由，这类"读端口先由上层判过权限
    * 才会被调用"的路径不在 `guard()` 覆盖范围内）。
    */
+  async cancelPending(orgId:OrgId,threadId:string,id:string,userId:string):Promise<"missing"|"cancelled"|"sent"|"denied"> {
+    return this.db.withTenant(orgId,async s=>{
+      await s.query('SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE',[orgId,threadId]);
+      const row=(await s.query<{message_id:string|null;uploaded_by:string|null}>('SELECT message_id,uploaded_by FROM chat_message_attachments WHERE org_id=$1 AND thread_id=$2 AND id=$3 FOR UPDATE',[orgId,threadId,id])).rows[0];
+      if(!row)return 'missing';if(row.message_id!==null)return 'sent';if(row.uploaded_by!==userId)return 'denied';
+      await s.query('UPDATE chat_message_attachments SET cancelled_at=COALESCE(cancelled_at,now()) WHERE org_id=$1 AND id=$2',[orgId,id]);
+      await s.query(`INSERT INTO chat_attachment_extraction_outbox(org_id,attachment_id) VALUES($1,$2) ON CONFLICT(attachment_id) DO UPDATE SET status='pending',locked_at=NULL`,[orgId,id]);
+      return 'cancelled';
+    });
+  }
   async listSentByThread(orgId: OrgId, threadId: string): Promise<readonly SentAttachmentRow[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{

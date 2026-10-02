@@ -60,7 +60,7 @@ describe("#468 隔离端口必须是向 OS 预留的，不是哈希猜出来的"
     const reservation = await reserveIsolationPorts(seed);
     const values = PORT_KEYS.map((key) => Number(reservation.ports[key]));
     expect(new Set(values).size, "每个角色一个互不相同的端口").toBe(PORT_KEYS.length);
-    await reservation.release();
+    await reservation.dispose();
     // 释放后应当能被别人绑上——证明刚才那些确实是我们持有的真实监听
     const servers = await Promise.all(values.map((port) => listen(port)));
     expect(servers.every(Boolean), "释放后端口应当可再次绑定").toBe(true);
@@ -79,8 +79,8 @@ describe("#468 隔离端口必须是向 OS 预留的，不是哈希猜出来的"
       const overlap = b.filter((port) => a.has(port));
       expect(overlap, `并发预留拿到了相同端口：${overlap.join(", ")}`).toEqual([]);
     } finally {
-      await first.release();
-      await second.release();
+      await first.dispose();
+      await second.dispose();
     }
   });
 
@@ -92,7 +92,7 @@ describe("#468 隔离端口必须是向 OS 预留的，不是哈希猜出来的"
     try {
       const reservation = await reserveIsolationPorts(seed);
       expect(Number(reservation.ports.PGPORT)).not.toBe(blocked);
-      await reservation.release();
+      await reservation.dispose();
     } finally {
       await close(squatter!);
     }
@@ -106,7 +106,7 @@ describe("#468 隔离端口必须是向 OS 预留的，不是哈希猜出来的"
       expect(port, key).toBeGreaterThanOrEqual(BANDS[key]);
       expect(port, key).toBeLessThan(BANDS[key] + BAND_WIDTH);
     }
-    await reservation.release();
+    await reservation.dispose();
   });
 });
 

@@ -1,12 +1,13 @@
 "use client";
 import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
-import { finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
+import { boardWheelDelta, finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
 import { ActiveSelection, Canvas, Circle, FabricImage, FixedLayout, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
 import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, rotatedAnchorPoint, localPointFromScene, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, type SnapResult } from "@repo/whiteboard-core";
 import { WHITEBOARD_CONNECTOR_LIMITS } from "@repo/contracts/whiteboard-document";
+
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
   clampBoardZoom,
@@ -549,6 +550,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
+  const appliedFitRef = React.useRef<{ request: number; width: number; height: number } | null>(null);
+  const [surfaceSize, setSurfaceSize] = React.useState({ width: 0, height: 0 });
   const registryRef = React.useRef(new Map<string, TaggedFabricObject>());
   const stackingOrderRef = React.useRef<string[]>([]);
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
@@ -560,8 +563,6 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
-  const [surfaceSize, setSurfaceSize] = React.useState({ width: 0, height: 0 });
-  const appliedFitRef = React.useRef<{ request: number; width: number; height: number } | null>(null);
   const cancelDrawingRef = React.useRef<() => void>(() => undefined);
   const cancelTransformRef = React.useRef<() => void>(() => undefined);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
@@ -723,6 +724,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         registryRef.current.set(object.id, replacement); previewedConnectors.add(object.id);
       }
       callbacksRef.current.onTransformPreview?.(items);
+      setObjectScenes([...registry].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
+      const active = canvas.getActiveObject();
+      if (active && members.length > 1) setSelectionScene({ bounds: active.getBoundingRect(), hitPoints: members.map(member => { const box = member.getBoundingRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }) });
       canvas.requestRenderAll();
     };
     const transformCompleted = (event: { target?: FabricObject }) => {
@@ -936,6 +940,43 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     cancelTransformRef.current = cancelOnBlur;
     inputWindow?.addEventListener("blur", cancelOnBlur);
     inputDocument.addEventListener("keydown", cancelOnEscape, true);
+    // Capture auxiliary mouse navigation before Fabric can start a selection or
+    // transform. Document listeners finish the drag even outside the canvas.
+    let auxiliaryPan: { last: FabricInput; start: typeof canvas.viewportTransform; button: number } | null = null;
+    const auxiliaryMouse = (event: MouseEvent) => {
+      if (event.type === "mousedown") {
+        if (auxiliaryPan || !host.contains(event.target as Node) || !(event.target instanceof HTMLCanvasElement) || ![1, 2].includes(event.button)) return;
+        const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
+        if (!input) return;
+        abortNativeInput(event);
+        auxiliaryPan = { last: input, start: [...canvas.viewportTransform], button: event.button };
+      } else if (!auxiliaryPan) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
+      if (!input || !auxiliaryPan) return;
+      const transform = panFabricViewport(canvas.viewportTransform, auxiliaryPan.last, input);
+      if (transform) canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
+      auxiliaryPan.last = input;
+      if (event.type === "mouseup" && event.button === auxiliaryPan.button) {
+        auxiliaryPan = null;
+        const transform = canvas.viewportTransform;
+        callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4], panY: transform[5] }, "pan");
+      }
+      canvas.requestRenderAll();
+    };
+    const cancelAuxiliaryPan = () => {
+      if (!auxiliaryPan) return;
+      canvas.setViewportTransform(auxiliaryPan.start);
+      auxiliaryPan = null;
+      canvas.requestRenderAll();
+    };
+    const cancelAuxiliaryKey = (event: KeyboardEvent) => { if (event.key === "Escape") cancelAuxiliaryPan(); };
+    const preventAuxiliaryMenu = (event: MouseEvent) => { if (event.target instanceof HTMLCanvasElement && host.contains(event.target)) event.preventDefault(); };
+    for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.addEventListener(type, auxiliaryMouse, true);
+    inputDocument.addEventListener("contextmenu", preventAuxiliaryMenu);
+    inputDocument.addEventListener("keydown", cancelAuxiliaryKey, true);
+    inputDocument.defaultView?.addEventListener("blur", cancelAuxiliaryPan);
     for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.addEventListener(type,nativePinch,{capture:true,passive:false});
     inputDocument.addEventListener("pointerdown", observePen, true);
     inputDocument.addEventListener("pointermove", observePen, true);
@@ -971,6 +1012,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
       }
       if (stateRef.current.tool !== "hand") return;
+      canvas._currentTransform = null;
       panning = true;
       panStart = [...canvas.viewportTransform];
       last = input;
@@ -1063,20 +1105,19 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const wheel = (event: TPointerEventInfo<WheelEvent>) => {
       event.e.preventDefault();
       event.e.stopPropagation();
-      if (![event.e.deltaX, event.e.deltaY].every(Number.isFinite)) return;
-      const deltaScale = event.e.deltaMode === 1 ? 16 : event.e.deltaMode === 2 ? canvas.getHeight() : 1;
-      if (!event.e.ctrlKey && !event.e.metaKey) {
-        const transform = [...canvas.viewportTransform] as typeof canvas.viewportTransform;
-        transform[4] -= event.e.deltaX * deltaScale;
-        transform[5] -= event.e.deltaY * deltaScale;
-        canvas.setViewportTransform(transform);
-        callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4], panY: transform[5] }, "pan");
-        return;
+      const delta = boardWheelDelta(event.e, canvas.getHeight());
+      if (!delta) return;
+      const nextZoom = delta.zoom ? clampBoardZoom(canvas.getZoom() * Math.pow(.998, delta.y)) : canvas.getZoom();
+      if (delta.zoom) {
+        const bounds = canvas.upperCanvasEl.getBoundingClientRect();
+        canvas.zoomToPoint(new Point(event.e.clientX - bounds.left, event.e.clientY - bounds.top), nextZoom);
+      } else {
+        const transform = [...canvas.viewportTransform];
+        transform[4]! -= delta.x; transform[5]! -= delta.y;
+        canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
       }
-      const nextZoom = clampBoardZoom(canvas.getZoom() * Math.pow(.998, event.e.deltaY * deltaScale));
-      canvas.zoomToPoint(new Point(event.e.offsetX, event.e.offsetY), nextZoom);
       const transform = canvas.viewportTransform;
-      callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: nextZoom, panX: transform[4], panY: transform[5] }, "wheel");
+      callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: nextZoom, panX: transform[4], panY: transform[5] }, delta.zoom ? "wheel" : "pan");
     };
     canvas.on("selection:created", selectionChanged);
     canvas.on("selection:updated", selectionChanged);
@@ -1094,6 +1135,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:out", () => callbacksRef.current.onObjectHoverChange?.(null));
     return () => {
       disposed = true;
+      for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.removeEventListener(type, auxiliaryMouse, true);
+      inputDocument.removeEventListener("contextmenu", preventAuxiliaryMenu);
+      inputDocument.removeEventListener("keydown", cancelAuxiliaryKey, true);
+      inputDocument.defaultView?.removeEventListener("blur", cancelAuxiliaryPan);
       cancelDrawingRef.current = () => undefined;
       cancelTransformRef.current = () => undefined;
       inputWindow?.removeEventListener("blur", cancelOnBlur);
@@ -1131,7 +1176,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const richProjectionChanged = Boolean(current && revisionChanged && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
         const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (revisionChanged || connectorAppearanceChanged));
         const replace = !current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged));
-        const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable === readOnly);
+        const interactive = !readOnly && stateRef.current.tool === "select" && !object.hidden && object.kind !== "placeholder";
+        const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable !== interactive || current?.evented !== interactive);
         return [object.id, { connectorRenderIdentity, failedAtThisRevision, replace, patch }] as const;
       }));
       // Preview echoes may replace the array without changing selected objects.
@@ -1181,6 +1227,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           }
         }
         const projected = registryRef.current.get(object.id);
+        if (projected) {
+          // Canonical refreshes must not reactivate object dragging under navigation or drawing tools.
+          const interactive = !readOnly && stateRef.current.tool === "select" && !rendered.hidden && rendered.kind !== "placeholder";
+          projected.set({ selectable: interactive, evented: interactive });
+        }
         if (projected?.data) projected.data.connectorRenderIdentity = connectorRenderIdentity;
         renderedRef.current.set(object.id, rendered);
         nextRendered.push(rendered);

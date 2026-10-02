@@ -32,7 +32,7 @@
  * 那一跳：**错误总线 → 横幅正文**。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
 vi.mock(copilotkitV2CssPath, () => ({}));
@@ -105,6 +105,7 @@ class SilentWebSocket extends EventTarget {
  * core 自己的 `createAgentErrorSubscriber` 收到 AG-UI `RUN_ERROR` 时调的正是它。
  */
 type ErrorBus = {
+  runAgent(input: unknown): Promise<void>;
   emitError(params: { error: Error; code: string; context?: Record<string, unknown> }): Promise<void>;
 };
 type AgentLike = { subscribers: Array<{ onCustomEvent?: (params: { event: unknown }) => void }> };
@@ -175,6 +176,31 @@ beforeEach(() => {
 });
 
 describe("issue #3261 —— 失败当场（活路径）的横幅必须说得出成因", () => {
+  it("does not offer an inert resend while the journal still owns a live run (#3371)", async () => {
+    mount();
+    await waitFor(() => expect(errorBus).not.toBeNull());
+    await waitFor(() => expect(Object.keys(agents).length).toBeGreaterThan(0));
+    const run = vi.spyOn(errorBus!, "runAgent").mockRejectedValue(new Error("MODEL_CALL_FAILED"));
+    const input = await screen.findByTestId("copilotkit-v2-input");
+    fireEvent.change(input, { target: { value: "retry this accepted message" } });
+    const send = screen.getByTestId("copilotkit-v2-send");
+    await waitFor(() => expect(send).not.toBeDisabled());
+    fireEvent.click(send);
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    await screen.findByTestId("copilotkit-v2-error");
+    await screen.findByTestId("copilotkit-v2-retry");
+    // A late journal read can still report a live task after transport failure.
+    // The send path refuses a second run in this state; the retry must agree.
+    await act(async () => { emitRunAccepted(RUN_ID); });
+    await screen.findByTestId("copilotkit-v2-running-indicator");
+    const inertRetry = screen.queryByTestId("copilotkit-v2-retry");
+    if (inertRetry) fireEvent.click(inertRetry);
+    expect(run).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-retry")).toBeNull());
+    expect(run).toHaveBeenCalledTimes(1);
+    run.mockRestore();
+  });
+
   it("AG-UI RUN_ERROR 到达时，横幅说的必须与刷新后权威读说的是同一句话", async () => {
     mount();
     await waitFor(() => expect(errorBus).not.toBeNull());

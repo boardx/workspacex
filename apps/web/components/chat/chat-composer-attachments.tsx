@@ -17,9 +17,9 @@ import {
   AlertCircle, File as FileIcon, FileImage, FileSpreadsheet, FileText, Loader2, Paperclip,
   Plus, Presentation, RotateCw, Trash2, UploadCloud, X, type LucideIcon,
 } from "lucide-react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import {
-  ATTACHMENT_LIMITS, ATTACHMENT_MIME_ALLOWLIST, uploadAttachment, type ChatAttachment,
+  ATTACHMENT_LIMITS, ATTACHMENT_MIME_ALLOWLIST, uploadAttachment, cancelPendingAttachment, type ChatAttachment,
 } from "@/lib/live-chat";
 import {
   formatBytes, iconKindForMime, WHITELIST_LABELS, type AttachmentIconKind,
@@ -50,6 +50,9 @@ export interface LiveAttachment {
   readonly bytes: number;
   readonly status: "uploading" | "uploaded" | "error";
   readonly serverId?: string;
+  readonly removalRequested?: boolean;
+  readonly removing?: boolean;
+  readonly removalError?: string;
   readonly error?: string;
   readonly retryable?: boolean;
   /** 上传已发送比例 0..1（XHR upload.onprogress）。用于真实进度条。 */
@@ -236,6 +239,9 @@ export function useChatAttachments(opts: {
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const previousThreadIdRef = React.useRef(threadId);
+  const uploads = React.useRef(new Map<string, {threadId: string; bearer?: string; serverId?: string}>());
+  const removals = React.useRef(new Set<string>());
+  const cancelling = React.useRef(new Set<string>());
   React.useEffect(() => {
     // 切线程：清空本地附件态（不影响服务端已落的 pending 行，那些随线程/未挂而存在）。
     // ⚠ "还没有线程"（空串）→ 按需解析出真实 id 不是切线程，是同一段对话刚刚有了
@@ -252,25 +258,45 @@ export function useChatAttachments(opts: {
     setAttachments((cur) => cur.map((a) => (a.localId === localId ? { ...a, ...next } : a)));
   }, []);
 
+  const cancelUploaded = React.useCallback(async (localId: string) => {
+    const origin = uploads.current.get(localId);
+    if (!origin?.serverId || cancelling.current.has(localId)) return;
+    cancelling.current.add(localId);
+    patch(localId, {removing: true, removalRequested: true, removalError: undefined});
+    try {
+      await cancelPendingAttachment(origin.threadId, origin.serverId, origin.bearer);
+      setAttachments(cur => cur.filter(a => a.localId !== localId));
+      uploads.current.delete(localId); removals.current.delete(localId);
+    } catch (error) {
+      const text = error instanceof ApiError && error.status === 409
+        ? "附件已随消息发送，无法移除。" : "移除未完成，请重试移除。";
+      patch(localId, {removing: false, removalError: text});
+    } finally { cancelling.current.delete(localId); }
+  }, [patch]);
+
   const doUpload = React.useCallback(async (localId: string, file: File) => {
     if (!canWriteRef.current) return;
     try {
       const targetThreadId = threadId !== "" ? threadId : await resolveThreadId?.();
       if (!canWriteRef.current) return;
       if (!targetThreadId) throw new Error("no thread to attach to");
+      const uploadBearer = bearer !== undefined ? bearer : getStoredSessionToken() ?? undefined;
+      uploads.current.set(localId, {threadId: targetThreadId, bearer: uploadBearer});
       const uploaded: ChatAttachment = await uploadAttachment(
-        targetThreadId, file, bearer,
+        targetThreadId, file, uploadBearer,
         (fraction) => patch(localId, { progress: fraction }),
       );
+      uploads.current.set(localId, {threadId: targetThreadId, bearer: uploadBearer, serverId: uploaded.id});
       patch(localId, {
         status: "uploaded", serverId: uploaded.id, bytes: uploaded.bytes, mime: uploaded.mime,
         progress: 1, remote: uploaded,
       });
+      if (removals.current.has(localId)) await cancelUploaded(localId);
     } catch (err) {
       const { text, retryable } = describeUploadError(err);
       patch(localId, { status: "error", error: text, retryable });
     }
-  }, [threadId, bearer, patch, resolveThreadId]);
+  }, [threadId, bearer, patch, resolveThreadId, cancelUploaded]);
 
   /**
    * 选择/拖入文件：客户端预检（数量/大小/类型，只为快反馈，服务端仍权威）→ 逐个并发上传。
@@ -336,10 +362,18 @@ export function useChatAttachments(opts: {
     queueMicrotask(() => void doUpload(localId, target.file!));
   }, [doUpload]);
 
-  const removeAttachment = React.useCallback((localId: string) => {
-    setAttachments((cur) => cur.filter((a) => a.localId !== localId));
+  const removeAttachment = React.useCallback(async (localId: string) => {
+    const target = attachmentsRef.current.find(a => a.localId === localId);
+    if (!target) return;
     setConfirmingId(null);
-  }, []);
+    removals.current.add(localId);
+    patch(localId, {removalRequested: true});
+    if (uploads.current.get(localId)?.serverId) await cancelUploaded(localId);
+    else if (target.status !== "uploading") {
+      setAttachments(cur => cur.filter(a => a.localId !== localId));
+      uploads.current.delete(localId); removals.current.delete(localId);
+    }
+  }, [cancelUploaded, patch]);
 
   const clear = React.useCallback(() => {
     setAttachments([]);
@@ -358,7 +392,7 @@ export function useChatAttachments(opts: {
    * 从它派生（同一事实不声明两处）。
    */
   const uploadedAttachments = React.useMemo(
-    () => attachments.filter((a) => a.status === "uploaded" && a.remote).map((a) => a.remote!),
+    () => attachments.filter((a) => a.status === "uploaded" && a.remote && !a.removalRequested).map((a) => a.remote!),
     [attachments],
   );
 
@@ -856,7 +890,7 @@ function AttachmentRow({
             type="button" size="icon" variant="ghost" className="h-6 w-6 rounded-md"
             data-testid={`${idPrefix}-remove-${att.localId}`}
             aria-label={`移除附件 ${att.filename}`}
-            title="移除附件"
+            title={att.removalError ?? "移除附件"}
             disabled={disabled}
             onClick={onAskRemove}
           >
@@ -1093,7 +1127,7 @@ function ComposerAttachmentChip({
   const isError = att.status === "error";
   const isUploading = att.status === "uploading";
   const percent = Math.round((att.progress ?? 0) * 100);
-  const statusWord = isUploading ? `上传中 ${percent}%` : isError ? `上传失败：${att.error ?? "未知原因"}` : "已就绪";
+  const statusWord = att.removalError ?? (att.removing ? "正在移除" : isUploading ? `上传中 ${percent}%` : isError ? `上传失败：${att.error ?? "未知原因"}` : "已就绪");
 
   return (
     <li
@@ -1186,15 +1220,16 @@ function ComposerAttachmentChip({
         <button
           type="button"
           onClick={onRemove}
-          disabled={disabled}
+          disabled={disabled || att.removing}
           aria-label={`移除附件 ${att.filename}`}
-          title="移除附件"
+          title={att.removalError ?? "移除附件"}
           data-testid={`${idPrefix}-remove-${att.localId}`}
           className="grid h-5 w-5 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X aria-hidden className="h-3 w-3" />
         </button>
       </span>
+      {att.removalError ? <span role="alert" className="text-10 text-destructive">{att.removalError}</span> : null}
     </li>
   );
 }

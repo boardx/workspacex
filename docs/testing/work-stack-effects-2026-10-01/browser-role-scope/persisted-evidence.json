@@ -1,0 +1,1539 @@
+{
+  "verification-boundary": [
+    {
+      "upstream": "existing fullstack loopback",
+      "browserApiAndDatabase": "real",
+      "realModelQuality": "BLOCKED: no model credentials",
+      "salesWorkflowAndCrm": "excluded by user authorization",
+      "roles": [
+        "D001",
+        "D002",
+        "D003",
+        "D005",
+        "D006",
+        "D007",
+        "D011"
+      ]
+    },
+    {
+      "browser": "Chromium native getUserMedia with fake-device flag",
+      "gatewayAndDatabase": "real Nest and PostgreSQL",
+      "upstream": "explicit localhost Omni protocol fixture with synthetic PCM tone",
+      "vendorAndDevapp": "BLOCKED: not tested"
+    },
+    {
+      "browserApiDatabase": "real",
+      "upstream": "existing fullstack loopback",
+      "realModelQuality": "BLOCKED: model credentials absent",
+      "triggerSchema": "v2 required rawInput",
+      "inputEvidence": "Real UI and observed POST; frozen database/stage input is covered separately by API integration tests",
+      "scope": "business input submission, workflow/grant/approval/output persistence; sales/CRM excluded"
+    }
+  ],
+  "published-role-direct-skill-references": [
+    [
+      {
+        "roleRef": "D001",
+        "stableIds": [
+          "S195",
+          "S008",
+          "S063",
+          "S012",
+          "S013",
+          "S020",
+          "S199",
+          "S198",
+          "S010",
+          "S196",
+          "S197",
+          "S007"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S195",
+              "stableName": "strategy-review",
+              "contentDigest": "ad12ceb564016f0518d5a1bdca02a1b7aff3411605baaa3113e6db5ba6a6869d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-31acc97d-64fe-465f-81ca-2b1de58977ba",
+              "versionId": "skill-version-f5ca4f5a-77bf-487c-8176-62914b5d3ddf",
+              "displayName": "战略复盘（S195）"
+            },
+            {
+              "stableId": "S008",
+              "stableName": "competitive-analysis",
+              "contentDigest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ed425542-1f74-4fc9-bc96-8ab782808fa1",
+              "versionId": "skill-version-0594baa5-f161-4d7c-adbb-074fee6a1b59",
+              "displayName": "竞品分析（S008）"
+            },
+            {
+              "stableId": "S063",
+              "stableName": "research-synthesis",
+              "contentDigest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-468d05f4-3202-414a-b7cc-f1453e735751",
+              "versionId": "skill-version-0e30e8c3-bb23-4611-8c46-2b22a6117e57",
+              "displayName": "研究综合（S063）"
+            },
+            {
+              "stableId": "S012",
+              "stableName": "decision-brief",
+              "contentDigest": "05f06cc280d748c586c9e768d3fed8029648c7c16df806db22e4814d4ce85fbf",
+              "reason": "awaiting_verification",
+              "skillId": "skill-821913b8-58e6-4a77-84c8-42ff1510145a",
+              "versionId": "skill-version-7fff5853-f56a-47a5-9007-68b376dc9b31",
+              "displayName": "决策简报（S012）"
+            },
+            {
+              "stableId": "S013",
+              "stableName": "scenario-analysis",
+              "contentDigest": "08ea63b63601e82a1405b4dbde0f4604b0d66b364bb58eff0f4c1ee6a36505b2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-467adc34-aae9-466a-a054-a2eeb636ada7",
+              "versionId": "skill-version-d78ad842-71ce-4edd-89ab-441d42f14725",
+              "displayName": "情景分析（S013）"
+            },
+            {
+              "stableId": "S020",
+              "stableName": "executive-briefing",
+              "contentDigest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-af7fd668-b0f5-4dfa-b135-8e433679e46c",
+              "versionId": "skill-version-72faee3f-9e15-4b75-9daf-d411c8441593",
+              "displayName": "高管简报（S020）"
+            },
+            {
+              "stableId": "S199",
+              "stableName": "business-model-analysis",
+              "contentDigest": "b3f82503b3d2c233f131f1b32f30cd8aaea7e4317225ff7e5aad9a6b64f6ce97",
+              "reason": "awaiting_verification",
+              "skillId": "skill-94d812f4-ce20-4453-b657-0d2821196805",
+              "versionId": "skill-version-443a5e9b-54ba-4cf3-8503-dd77cb0ed38a",
+              "displayName": "商业模式分析（S199）"
+            },
+            {
+              "stableId": "S198",
+              "stableName": "okr-alignment",
+              "contentDigest": "d2d25b73b08d39f89a725d9f5d3dd4e5a09ecf68bbabc2e34e6028a8e2b3878f",
+              "reason": "awaiting_verification",
+              "skillId": "skill-8f3d8024-8aca-4c0a-a914-eb471a2d4e8e",
+              "versionId": "skill-version-6274d973-7aae-4b1e-9068-20c7dd20f734",
+              "displayName": "OKR 对齐（S198）"
+            },
+            {
+              "stableId": "S010",
+              "stableName": "risk-assessment",
+              "contentDigest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946",
+              "reason": "awaiting_verification",
+              "skillId": "skill-b8eed15e-98a5-4121-8b94-c5b0c00313c5",
+              "versionId": "skill-version-3a4c7571-f378-45aa-b8f6-dca3196ac1b5",
+              "displayName": "风险评估（S010）"
+            },
+            {
+              "stableId": "S196",
+              "stableName": "board-meeting-preparation",
+              "contentDigest": "c0b599dce75f7cadff2aaa54d72e6d99f6d98bcae98c161aca12c5de16be1863",
+              "reason": "awaiting_verification",
+              "skillId": "skill-0b648c6e-5403-4595-825e-4fef41f09afc",
+              "versionId": "skill-version-f2da7014-46bc-4d44-84c3-37eec0c22470",
+              "displayName": "董事会会议准备（S196）"
+            },
+            {
+              "stableId": "S197",
+              "stableName": "decision-logging",
+              "contentDigest": "1098bed511a612d2fa7fabd0540818b7685bc642a7f184073da7c96cbcfc4fa5",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5604a422-8774-45d5-af5c-504ca995c07b",
+              "versionId": "skill-version-ae56a03c-30bc-4e8d-8572-05f29e63871c",
+              "displayName": "决策记账（S197）"
+            },
+            {
+              "stableId": "S007",
+              "stableName": "status-update",
+              "contentDigest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd",
+              "reason": "awaiting_verification",
+              "skillId": "skill-3089ee36-73e3-4b8b-b6eb-921057a8b702",
+              "versionId": "skill-version-c651404c-7dff-447f-9ee5-c4c7040e5d67",
+              "displayName": "状态更新（S007）"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D002",
+        "stableIds": [
+          "S003",
+          "S063",
+          "S171",
+          "S169",
+          "S172",
+          "S170",
+          "S016",
+          "S020",
+          "S168",
+          "S167"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S003",
+              "stableName": "enterprise-search",
+              "contentDigest": "180e71f8e550429926ae8aacd543de0404efdd6c76c2f3b54ff7ce34a36a0cf5",
+              "reason": "awaiting_verification",
+              "skillId": "skill-f8479f74-17e2-470e-acb2-6b63d3b3c7d5",
+              "versionId": "skill-version-e70c7f53-fe76-40ec-bae2-df5f0170fe47",
+              "displayName": "企业内部检索（S003）"
+            },
+            {
+              "stableId": "S063",
+              "stableName": "research-synthesis",
+              "contentDigest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-468d05f4-3202-414a-b7cc-f1453e735751",
+              "versionId": "skill-version-0e30e8c3-bb23-4611-8c46-2b22a6117e57",
+              "displayName": "研究综合（S063）"
+            },
+            {
+              "stableId": "S171",
+              "stableName": "evidence-review",
+              "contentDigest": "0a6364f0a8939fa83be1291685d1d79b9972135aec7baa0a299347de94a56ff0",
+              "reason": "awaiting_verification",
+              "skillId": "skill-bb5c9252-349f-4865-9bd7-294f02b3b03a",
+              "versionId": "skill-version-2aeed636-9a13-4f8a-a160-27ffbb68da6b",
+              "displayName": "证据评审（S171）"
+            },
+            {
+              "stableId": "S169",
+              "stableName": "knowledge-synthesis-review",
+              "contentDigest": "4c2802003b71663d045964899e3e0c62f003758ba8cf60cf79925e6e6d00c3c7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-25886d7e-8531-44cf-a866-28ebd556f2a6",
+              "versionId": "skill-version-b7366446-b71f-4c32-b1b7-ced5605ed9e7",
+              "displayName": "知识综合（S169）"
+            },
+            {
+              "stableId": "S172",
+              "stableName": "data-storytelling",
+              "contentDigest": "da9711447256ad318c6474be4003c53410099cc292a3d7b5697e193f629387a0",
+              "reason": "awaiting_verification",
+              "skillId": "skill-67595fb3-1d58-47bc-8015-eae3ae8a3823",
+              "versionId": "skill-version-8cf449b5-20c5-4bcc-b90d-dc82ab1bf323",
+              "displayName": "数据叙事（S172）"
+            },
+            {
+              "stableId": "S170",
+              "stableName": "scientific-research-planning",
+              "contentDigest": "61e8e694dfebf787648cbe72adf628d0085d80bd6484253497330418735b43c1",
+              "reason": "awaiting_verification",
+              "skillId": "skill-b5a4b8d0-833a-4ab6-8fd0-880a2c39cb56",
+              "versionId": "skill-version-f15b17d1-ab58-487f-b77a-4a7fef3d4112",
+              "displayName": "科研规划（S170）"
+            },
+            {
+              "stableId": "S016",
+              "stableName": "knowledge-capture",
+              "contentDigest": "b778a7c4edf65ebe6045a5af1e741b45278b6516dc5763c0a4aa838dfefc1833",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5280a0ea-3504-476e-90c8-7894a6d57345",
+              "versionId": "skill-version-ec83f9e6-41ef-4bb6-b802-85f113ec81dc",
+              "displayName": "知识捕获（S016）"
+            },
+            {
+              "stableId": "S020",
+              "stableName": "executive-briefing",
+              "contentDigest": "2acb4beb39672e03fb519a7e3d89c1349e4d8980320dded42f83426f17f1f3c7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-af7fd668-b0f5-4dfa-b135-8e433679e46c",
+              "versionId": "skill-version-72faee3f-9e15-4b75-9daf-d411c8441593",
+              "displayName": "高管简报（S020）"
+            },
+            {
+              "stableId": "S168",
+              "stableName": "trend-analysis",
+              "contentDigest": "5a868e9cf6094066580db66357b87379841ade2332701ddbff01055476f41bb0",
+              "reason": "awaiting_verification",
+              "skillId": "skill-66576d86-e1d6-4258-a4a5-e0c0c126b8d8",
+              "versionId": "skill-version-54ce1518-4a28-43b2-b1b7-0a9512cbaa70",
+              "displayName": "趋势分析（S168）"
+            },
+            {
+              "stableId": "S167",
+              "stableName": "market-sizing",
+              "contentDigest": "7a1ce55aa468b484f5b53358e58e98225804e6df9003e9d1014e09b6436629ce",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c21be5fd-99d4-4f57-a7ab-5c4de872babd",
+              "versionId": "skill-version-66e007dd-7b35-4970-808d-0068cefdd98a",
+              "displayName": "市场规模测算（S167）"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D003",
+        "stableIds": [
+          "S061",
+          "S009",
+          "S064",
+          "S065",
+          "S067",
+          "S068",
+          "S069",
+          "S070",
+          "S071",
+          "S072",
+          "S073",
+          "S074",
+          "S008",
+          "S075"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S061",
+              "stableName": "product-discovery",
+              "contentDigest": "216b22fa7cfe08cfaa912dadc810dc88918f96c2c394cc02c7d9b26dc2dfbe4f",
+              "reason": "awaiting_verification",
+              "skillId": "skill-571db44f-3cd0-4a18-b774-48cc153c7fc6",
+              "versionId": "skill-version-111bffdb-5343-48d4-a54f-4669943419c5",
+              "displayName": "产品探索（S061）"
+            },
+            {
+              "stableId": "S009",
+              "stableName": "customer-research",
+              "contentDigest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ce584a02-21af-489f-a034-383ce6a3f60a",
+              "versionId": "skill-version-250e90ad-e6ab-4203-a5d8-bd56a9a2737d",
+              "displayName": "客户研究（S009）"
+            },
+            {
+              "stableId": "S064",
+              "stableName": "problem-framing",
+              "contentDigest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d83e797e-b64c-4c61-ac9c-2331022e2896",
+              "versionId": "skill-version-a8b1322a-dcb1-4472-a0d0-1627fd558aba",
+              "displayName": "问题框定（S064）"
+            },
+            {
+              "stableId": "S065",
+              "stableName": "opportunity-mapping",
+              "contentDigest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-337534a1-0739-4359-85f1-87c38737233d",
+              "versionId": "skill-version-3c1b8da6-5b2c-4512-a42f-4efceacc1793",
+              "displayName": "机会地图（S065）"
+            },
+            {
+              "stableId": "S067",
+              "stableName": "prd-spec-writing",
+              "contentDigest": "585192c7c41ce9e21a5d00ba37469093749fee43512f28c5ac84aeda84ff0059",
+              "reason": "awaiting_verification",
+              "skillId": "skill-51ededd5-39a1-495d-a4bf-fd1402517226",
+              "versionId": "skill-version-c83755dc-4a65-48c3-b386-640faef2605e",
+              "displayName": "PRD 撰写（S067）"
+            },
+            {
+              "stableId": "S068",
+              "stableName": "prioritization",
+              "contentDigest": "909f5d5d2c64e58aac5f6e825eabf278e8599dd2fa46a99f14e55a2b92092512",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c08b9221-5bdf-4d6c-9372-7fc27c405de3",
+              "versionId": "skill-version-c47200e4-d289-4f3b-94af-72adc6de390d",
+              "displayName": "优先级排序（S068）"
+            },
+            {
+              "stableId": "S069",
+              "stableName": "roadmap-planning",
+              "contentDigest": "a380a8953b1831316fbf603e4d3d646d6dd1ab3c88022346439235501d449d8c",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d0f23ec3-3b01-455c-b72b-9fc677290416",
+              "versionId": "skill-version-62a6004a-911f-487e-a188-b7a911e4ecdd",
+              "displayName": "路线图规划（S069）"
+            },
+            {
+              "stableId": "S070",
+              "stableName": "sprint-planning",
+              "contentDigest": "632e67ca8acd667882939556996556c453dd1ae9885d84ec6852ba0fbe324bd8",
+              "reason": "awaiting_verification",
+              "skillId": "skill-aa8cdf41-4620-4bb9-bbb9-01096445215b",
+              "versionId": "skill-version-506efd86-33b7-406a-ac1b-8e3067f05667",
+              "displayName": "冲刺规划（S070）"
+            },
+            {
+              "stableId": "S071",
+              "stableName": "experiment-design",
+              "contentDigest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c4f27677-305b-4665-9ca9-41135b3d086a",
+              "versionId": "skill-version-1a590a27-4a70-45bb-89db-19ffe2203064",
+              "displayName": "实验设计（S071）"
+            },
+            {
+              "stableId": "S072",
+              "stableName": "metrics-review",
+              "contentDigest": "f850ffe15397672868545d86b71181a7ac619080cda8045e2de566db95d94273",
+              "reason": "awaiting_verification",
+              "skillId": "skill-8c5691d6-7838-406f-85dd-0659cc73edc0",
+              "versionId": "skill-version-de4ffa99-02cc-4512-88a8-f11d46cb47c8",
+              "displayName": "指标复盘（S072）"
+            },
+            {
+              "stableId": "S073",
+              "stableName": "product-launch",
+              "contentDigest": "8718a7f18432378f852d59689530403e5cc762dbe4630db810fa170cd10b3b62",
+              "reason": "awaiting_verification",
+              "skillId": "skill-2e92c1b5-18b8-4920-a58a-5a6a358cec8d",
+              "versionId": "skill-version-1ad73b57-432d-457a-ab6f-64e8cd46d03b",
+              "displayName": "产品发布（S073）"
+            },
+            {
+              "stableId": "S074",
+              "stableName": "user-activation",
+              "contentDigest": "e6938ceb5fbe4ca4ce52ec665e3afb6218b281d1c707cf359c986f628dc3e51c",
+              "reason": "awaiting_verification",
+              "skillId": "skill-64a6e25f-5e12-420a-9696-f4612e8c0868",
+              "versionId": "skill-version-81d3ccd1-56df-47c8-892e-15d9e04fc402",
+              "displayName": "用户激活分析（S074）"
+            },
+            {
+              "stableId": "S008",
+              "stableName": "competitive-analysis",
+              "contentDigest": "7d427460c3cb156dc22b2db0c9501dbc055639dc4d338ec16a06ee86ac4691d2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ed425542-1f74-4fc9-bc96-8ab782808fa1",
+              "versionId": "skill-version-0594baa5-f161-4d7c-adbb-074fee6a1b59",
+              "displayName": "竞品分析（S008）"
+            },
+            {
+              "stableId": "S075",
+              "stableName": "design-critique",
+              "contentDigest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5e399d45-cac6-43c8-9b80-4e6dd7421a62",
+              "versionId": "skill-version-0b482ac2-e7a5-4a73-a05e-3cd2b285e5a7",
+              "displayName": "设计评审（S075）"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D005",
+        "stableIds": [
+          "S021",
+          "S022",
+          "S023",
+          "S024",
+          "S025",
+          "S026",
+          "S005",
+          "S028",
+          "S029",
+          "S030",
+          "S031",
+          "S032",
+          "S034",
+          "S036"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S021",
+              "stableName": "customer-intelligence",
+              "contentDigest": "4be1b63753441394a11aa73f8913e1c65c10f2d9fc92a6458167dfd99494b73c",
+              "reason": "awaiting_verification",
+              "skillId": "skill-274e671c-0ddd-413c-9810-841b9e40f21d",
+              "versionId": "skill-version-093202cb-c292-45c3-97d9-5027acb7eef6",
+              "displayName": "客户情报（S021）"
+            },
+            {
+              "stableId": "S022",
+              "stableName": "account-tiering",
+              "contentDigest": "a0b4ec418875f21487fd610d1b6549a929585ff5cd47834ff79de89ebe05f2da",
+              "reason": "awaiting_verification",
+              "skillId": "skill-232ee5e0-eecf-473b-bd67-578a7d6add91",
+              "versionId": "skill-version-59bcad45-47e6-4682-95ef-06435ee2f9c1",
+              "displayName": "账户分层（S022）"
+            },
+            {
+              "stableId": "S023",
+              "stableName": "account-planning",
+              "contentDigest": "d84d112ea073779746627e0044a3b04e89f6b1f4df856fe5600a98c83d6cafe5",
+              "reason": "awaiting_verification",
+              "skillId": "skill-257a7cd7-9893-4e5d-8ebe-d5dacf3f3618",
+              "versionId": "skill-version-f2b96826-c11b-4a34-b2a4-f6ab28548345",
+              "displayName": "客户计划（S023）"
+            },
+            {
+              "stableId": "S024",
+              "stableName": "prospecting",
+              "contentDigest": "39e0042c534b3f67dc97ff6a7d0ca1aed0280621174b42366dc50b654dc6389e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-74fe0674-a8d3-4cfd-ad73-1d16538e35b0",
+              "versionId": "skill-version-1e80e357-8aa9-489e-a5c5-59a871f8e8a1",
+              "displayName": "拓客名单构建（S024）"
+            },
+            {
+              "stableId": "S025",
+              "stableName": "lead-triage",
+              "contentDigest": "c92bf1065cf41c6c3abb5f4dea0399f527de1526659327ed998a4b4eb706c87b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-abd2a439-135d-4800-9345-398850ae7534",
+              "versionId": "skill-version-4cfc5560-503d-4cc0-889b-a1627820b0bb",
+              "displayName": "线索分诊（S025）"
+            },
+            {
+              "stableId": "S026",
+              "stableName": "outreach",
+              "contentDigest": "e6dba3139d9c2ad201f3728d2291ec051a186141141b53b47d410ed03d97c722",
+              "reason": "awaiting_verification",
+              "skillId": "skill-0213d05f-a1bc-4377-8e41-4b727d9a99b5",
+              "versionId": "skill-version-97bd38bd-90f6-49b0-91a4-f6975e92cc45",
+              "displayName": "外联文案起草（S026）"
+            },
+            {
+              "stableId": "S005",
+              "stableName": "meeting-prep",
+              "contentDigest": "5ba2364bee638ac162cc49f246141cc7d021d6154d71c0cb37bbb8f35e506c68",
+              "reason": "awaiting_verification",
+              "skillId": "skill-01d8b769-3fdf-447f-a9cb-e5063e224659",
+              "versionId": "skill-version-9e000c59-917a-4b36-a3e4-db1bf6bb5bfe",
+              "displayName": "会前简报（S005）"
+            },
+            {
+              "stableId": "S028",
+              "stableName": "sales-call-summary",
+              "contentDigest": "d13240cbcd93d0ee56e7d5c039ec9e80f40e5c6974fb3a77b0ec7a02e7a9667d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-27ed0c42-0821-4f95-879a-28b96f605971",
+              "versionId": "skill-version-fb8d302d-ad7c-4ac2-85f3-d88c0e07d28e",
+              "displayName": "销售通话纪要（S028）"
+            },
+            {
+              "stableId": "S029",
+              "stableName": "opportunity-update",
+              "contentDigest": "a5335577bc9c3ad6958b8723821b814f2ed548d65e3c0a983d968927ae9c405e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e1ee1633-679f-4442-95ba-179abb285d6e",
+              "versionId": "skill-version-90f0e8b3-5088-4d82-86e9-6aa0464121b1",
+              "displayName": "商机更新（S029）"
+            },
+            {
+              "stableId": "S030",
+              "stableName": "pipeline-review",
+              "contentDigest": "e3b97fa6e103aa3d4818f97f37492c4956b16561486942cd760b23f50f9326b8",
+              "reason": "awaiting_verification",
+              "skillId": "skill-86d57994-4a1b-4be5-a8e8-46c5d81f662c",
+              "versionId": "skill-version-8e747fa0-63b5-4f29-af93-601efc4f7cca",
+              "displayName": "管道审阅（S030）"
+            },
+            {
+              "stableId": "S031",
+              "stableName": "forecasting",
+              "contentDigest": "cbe9cedf5deaec7ad224dbbb5ae0a35a80616d7e00423646900a78301f499c50",
+              "reason": "awaiting_verification",
+              "skillId": "skill-6f95a133-414b-487a-8ad9-f42a45850806",
+              "versionId": "skill-version-8ec5fa6e-d73f-49c1-bc07-189f8519ba79",
+              "displayName": "预测汇总（S031）"
+            },
+            {
+              "stableId": "S032",
+              "stableName": "close-plan",
+              "contentDigest": "e9b8dd35a1d8d92fdf1b3e1ddb3898b5f7d9656e8d2479bf0256ad4592fe2b12",
+              "reason": "awaiting_verification",
+              "skillId": "skill-bfd2b288-ed3d-441f-a600-e3ad4c0a9309",
+              "versionId": "skill-version-76088f76-e302-4731-a5bd-f8a324a1ffa3",
+              "displayName": "成交计划（S032）"
+            },
+            {
+              "stableId": "S034",
+              "stableName": "crm-hygiene",
+              "contentDigest": "575a56d201dfa4a7a635b5c43487c2bedc4117727e6e270ea2851e6d97568e95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-79b66240-4822-407f-8435-e259eae7f255",
+              "versionId": "skill-version-d21f80c4-e166-489a-9720-29e467592953",
+              "displayName": "CRM 卫生检查（S034）"
+            },
+            {
+              "stableId": "S036",
+              "stableName": "proposal-builder",
+              "contentDigest": "8246ce8c7a70a59b210c24fc7c78dfd5bb35c69874ddbb9162a41d1d88ce179d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-82d97eb7-27da-4ad5-8d51-016b4faca38d",
+              "versionId": "skill-version-7847c98e-c0fd-417f-b3b0-cd94f1252476",
+              "displayName": "方案/报价构建（S036）"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D006",
+        "stableIds": [
+          "S187",
+          "S188",
+          "S189",
+          "S190",
+          "S191",
+          "S192",
+          "S193",
+          "S194",
+          "S035",
+          "S007"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S187",
+              "stableName": "support-triage",
+              "contentDigest": "0d4a08985f23fd1bf94424a5effc9c4ec7e45940fc8e60171a617782e2fcd579",
+              "reason": "awaiting_verification",
+              "skillId": "skill-9379a764-fb3f-47d1-b431-1bef3177ab73",
+              "versionId": "skill-version-4f06e673-15f3-46c6-b420-644dcf8f0d1d",
+              "displayName": "支持分诊（S187）"
+            },
+            {
+              "stableId": "S188",
+              "stableName": "draft-support-response",
+              "contentDigest": "c8ea8706927de69d4cc64d4f015765ca8b5948703c2c573eb8a5c958fa112b31",
+              "reason": "awaiting_verification",
+              "skillId": "skill-9df3047b-7e38-46a3-8f7d-e4155a8fff35",
+              "versionId": "skill-version-fdc71a79-ff02-4c95-acac-918cd58e5322",
+              "displayName": "支持回复起草（S188）"
+            },
+            {
+              "stableId": "S189",
+              "stableName": "customer-escalation",
+              "contentDigest": "b64d5926da64bd8c91a142530299dbe4fa5aeab665a27991c94d384030131a0b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-022fc435-2907-4f95-b948-de5b5a24b979",
+              "versionId": "skill-version-d45eea32-32a8-429c-9fdd-6103bc5b5a48",
+              "displayName": "客户升级（S189）"
+            },
+            {
+              "stableId": "S190",
+              "stableName": "kb-article",
+              "contentDigest": "3e3b497e92f9742dfe94900d93d9b1f9361e97a65f0739c68fe062fb118f6449",
+              "reason": "awaiting_verification",
+              "skillId": "skill-3a96a4b6-476f-4fae-bf1b-c7af897e4efe",
+              "versionId": "skill-version-9a4fe8d3-dc97-4259-82df-547b844735ea",
+              "displayName": "知识库文章（S190）"
+            },
+            {
+              "stableId": "S191",
+              "stableName": "qbr-preparation",
+              "contentDigest": "89f6aae387178e22f9e968ff87b2acc3b1abb7a89cc277a657c7997b67e819b7",
+              "reason": "awaiting_verification",
+              "skillId": "skill-4d890975-2490-4597-8350-a940d4541db7",
+              "versionId": "skill-version-a8e6b2d5-a8be-44c9-ae93-16e46a739a83",
+              "displayName": "QBR 准备（S191）"
+            },
+            {
+              "stableId": "S192",
+              "stableName": "renewal-risk",
+              "contentDigest": "19962b9b97d1817a865d11fb3e602542e515ee139dd2c6b537702cd053a4e40e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d3de8530-1115-4787-8c7f-64acdf4863ad",
+              "versionId": "skill-version-d0aecddd-d34f-4d28-b0e9-ff3cd2383c6a",
+              "displayName": "续约风险挽留方案（S192）"
+            },
+            {
+              "stableId": "S193",
+              "stableName": "voice-of-customer",
+              "contentDigest": "35423581d5e9db6d2a04271a2d0520151f7fa4c3f476d913e5883761cb7d4132",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5fb22d3e-959d-458f-a524-03a5037c83d7",
+              "versionId": "skill-version-d9e9fdd7-eb29-4455-8c82-ae192374ba04",
+              "displayName": "客户声音（S193）"
+            },
+            {
+              "stableId": "S194",
+              "stableName": "support-operations",
+              "contentDigest": "b49002f631808f228a50f89ffbe32db3750ce7318c19b34a314fdb9a54e2bbb3",
+              "reason": "awaiting_verification",
+              "skillId": "skill-815b23c5-9103-4f7a-a54c-939c97608bed",
+              "versionId": "skill-version-b749b9cb-cadb-4013-899b-d0a073dc67e0",
+              "displayName": "支持运营（S194）"
+            },
+            {
+              "stableId": "S035",
+              "stableName": "customer-health",
+              "contentDigest": "d05222f972fec25dc18e3efa3f866683caf2549faf787fd0513272534b84e9c2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-bc6c6227-d53b-426e-862b-ec9d2830c135",
+              "versionId": "skill-version-da30c24c-4505-4eae-90fc-6fe1ba1174f8",
+              "displayName": "客户健康度（S035）"
+            },
+            {
+              "stableId": "S007",
+              "stableName": "status-update",
+              "contentDigest": "817a4e16708b36d0ab0cf26fb8484a66016cee66e555d632ecae7b4d798860cd",
+              "reason": "awaiting_verification",
+              "skillId": "skill-3089ee36-73e3-4b8b-b6eb-921057a8b702",
+              "versionId": "skill-version-c651404c-7dff-447f-9ee5-c4c7040e5d67",
+              "displayName": "状态更新（S007）"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D007",
+        "stableIds": [
+          "S141",
+          "S142",
+          "S143",
+          "S144",
+          "S145",
+          "S148",
+          "S153",
+          "S154",
+          "S155",
+          "S010"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S141",
+              "stableName": "project-planning",
+              "contentDigest": "769e48d30443807bcaefc75bf56bf003308a7ce77cd1aaabe970f82826d5e03b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-f91c2909-b223-4bda-87e8-ca4d7a153d7c",
+              "versionId": "skill-version-435e1c0a-efed-4b4e-8747-405e826717d9",
+              "displayName": "立项受理与项目章程（S141）"
+            },
+            {
+              "stableId": "S142",
+              "stableName": "work-item-management",
+              "contentDigest": "174d3883c59fffc49c1445eac45b4dc4ac1de1448f49d51c7f2e4f97268ebce6",
+              "reason": "awaiting_verification",
+              "skillId": "skill-f577a83c-4a01-43e4-b7dd-ec0bd0dd9818",
+              "versionId": "skill-version-8a74d953-a93a-4802-98d4-5e3eecd9e82a",
+              "displayName": "工作项管理（S142）"
+            },
+            {
+              "stableId": "S143",
+              "stableName": "status-reporting",
+              "contentDigest": "8302f978eb2a702935aafd416ec9ec439e8c78148ee89177da608df8d04e6544",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d7260cb0-e84e-49ff-a7c3-9a3bbbb664d4",
+              "versionId": "skill-version-6be4f727-c82f-436f-afde-f4c4abcf5ea0",
+              "displayName": "基线偏差状态汇报（S143）"
+            },
+            {
+              "stableId": "S144",
+              "stableName": "capacity-planning",
+              "contentDigest": "2689f7aa391becfa5734112c6da099478f43f14cca1a9f1368d7be82c94db83b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-4966d89d-06ae-40f5-a250-c9d713141824",
+              "versionId": "skill-version-b2e43dca-8749-4249-9243-77ac42202c4b",
+              "displayName": "容量规划（S144）"
+            },
+            {
+              "stableId": "S145",
+              "stableName": "change-request",
+              "contentDigest": "5b9113a8d791c2df1929cb9d5428a2af265e7b37649ff7de32cd844c6fc2e239",
+              "reason": "awaiting_verification",
+              "skillId": "skill-545a5875-de6a-4ce5-a460-6a7334289b8d",
+              "versionId": "skill-version-18da322e-0909-478f-a11d-7d295452eae1",
+              "displayName": "变更请求（S145）"
+            },
+            {
+              "stableId": "S148",
+              "stableName": "process-documentation",
+              "contentDigest": "8139453335ef2f7f8279867f11c501f2cd25df55135b850a9ac70b12e77d25bf",
+              "reason": "awaiting_verification",
+              "skillId": "skill-6cdb666e-91af-4ad0-968a-7fcce66c52e9",
+              "versionId": "skill-version-5d2a080f-ec6a-478d-8f23-d8247574988b",
+              "displayName": "流程说明文档（S148）"
+            },
+            {
+              "stableId": "S153",
+              "stableName": "meeting-facilitation",
+              "contentDigest": "9e53ead0152b1dfb7eeae68481dd2b7bc1afa882535f8389cb8483a74cd2e5a8",
+              "reason": "awaiting_verification",
+              "skillId": "skill-726391d5-5d8b-4885-9790-20ed093b1aaa",
+              "versionId": "skill-version-4f0971c4-d27c-4032-b2d9-9f82b3e59f1a",
+              "displayName": "会议主持与引导（S153）"
+            },
+            {
+              "stableId": "S154",
+              "stableName": "execution-plan",
+              "contentDigest": "8a41fdcc6d24eb125fb2ef4a203aff2d77ef0ff428acdb6dc6bdfd9f007fedfc",
+              "reason": "awaiting_verification",
+              "skillId": "skill-8636077f-8374-4094-9ba5-2e3a6763cbce",
+              "versionId": "skill-version-bb5a493a-ec63-4227-8947-70e67f00cbb9",
+              "displayName": "执行计划（S154）"
+            },
+            {
+              "stableId": "S155",
+              "stableName": "business-review",
+              "contentDigest": "874b1e7e9f6b4dc0c5b2b413b5ab848226bf0f9f04965af888ab3793ee095b22",
+              "reason": "awaiting_verification",
+              "skillId": "skill-dba16738-4c1e-401c-99dd-bb442f1eef6d",
+              "versionId": "skill-version-e44cf688-4035-4dbd-85c2-3d366d97dc54",
+              "displayName": "业务复盘（S155）"
+            },
+            {
+              "stableId": "S010",
+              "stableName": "risk-assessment",
+              "contentDigest": "070d089fb35253464496ee86a07dec5efb6596f4f3804faaf9e581858756b946",
+              "reason": "awaiting_verification",
+              "skillId": "skill-b8eed15e-98a5-4121-8b94-c5b0c00313c5",
+              "versionId": "skill-version-3a4c7571-f378-45aa-b8f6-dca3196ac1b5",
+              "displayName": "风险评估（S010）"
+            }
+          ]
+        }
+      },
+      {
+        "roleRef": "D011",
+        "stableIds": [
+          "S062",
+          "S009",
+          "S064",
+          "S065",
+          "S066",
+          "S071",
+          "S063",
+          "S075",
+          "S018"
+        ],
+        "scope": {
+          "pins": [],
+          "pending": [
+            {
+              "stableId": "S062",
+              "stableName": "user-interview-planning",
+              "contentDigest": "022b81bd1f7ce6e13171382a0e46fa4145340db2358beb8d4d6c881e30e5e971",
+              "reason": "awaiting_verification",
+              "skillId": "skill-e2fa4d8e-7afa-4e6c-85cb-8a0d33ad62c1",
+              "versionId": "skill-version-91839f2f-c575-447f-9b3d-ce90db79e682",
+              "displayName": "用户访谈规划（S062）"
+            },
+            {
+              "stableId": "S009",
+              "stableName": "customer-research",
+              "contentDigest": "d6e9401cab699c8c517dce1798ac53f9fad6cb16ec6b819c43a603d61ef1685d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-ce584a02-21af-489f-a034-383ce6a3f60a",
+              "versionId": "skill-version-250e90ad-e6ab-4203-a5d8-bd56a9a2737d",
+              "displayName": "客户研究（S009）"
+            },
+            {
+              "stableId": "S064",
+              "stableName": "problem-framing",
+              "contentDigest": "3138587d36650bc589506d2b15e3be032a687d41fd0597533a0e35289889941b",
+              "reason": "awaiting_verification",
+              "skillId": "skill-d83e797e-b64c-4c61-ac9c-2331022e2896",
+              "versionId": "skill-version-a8b1322a-dcb1-4472-a0d0-1627fd558aba",
+              "displayName": "问题框定（S064）"
+            },
+            {
+              "stableId": "S065",
+              "stableName": "opportunity-mapping",
+              "contentDigest": "de1e4ef8a4ca3564fb2d204c2348daa3b1bc080b10eba5cba78205ce2234c5c2",
+              "reason": "awaiting_verification",
+              "skillId": "skill-337534a1-0739-4359-85f1-87c38737233d",
+              "versionId": "skill-version-3c1b8da6-5b2c-4512-a42f-4efceacc1793",
+              "displayName": "机会地图（S065）"
+            },
+            {
+              "stableId": "S066",
+              "stableName": "product-brainstorming",
+              "contentDigest": "4df53895bfb6a3ad38387fdb6962b5f7b9201b8610c4f49d2280f91b28c1a96d",
+              "reason": "awaiting_verification",
+              "skillId": "skill-03574183-d3e4-44ac-9c54-69cdcc7d5fda",
+              "versionId": "skill-version-580a8b89-f2cc-4372-9790-6cb1d99c0040",
+              "displayName": "产品头脑风暴（S066）"
+            },
+            {
+              "stableId": "S071",
+              "stableName": "experiment-design",
+              "contentDigest": "2d9ef109b651b68614423a56754caad15686f8dc57364654f2197b6a7f54501e",
+              "reason": "awaiting_verification",
+              "skillId": "skill-c4f27677-305b-4665-9ca9-41135b3d086a",
+              "versionId": "skill-version-1a590a27-4a70-45bb-89db-19ffe2203064",
+              "displayName": "实验设计（S071）"
+            },
+            {
+              "stableId": "S063",
+              "stableName": "research-synthesis",
+              "contentDigest": "90f6b367d548d04cf0ecc7d462b661d109f9cb4fa4304bf1dd3f120e484a5d95",
+              "reason": "awaiting_verification",
+              "skillId": "skill-468d05f4-3202-414a-b7cc-f1453e735751",
+              "versionId": "skill-version-0e30e8c3-bb23-4611-8c46-2b22a6117e57",
+              "displayName": "研究综合（S063）"
+            },
+            {
+              "stableId": "S075",
+              "stableName": "design-critique",
+              "contentDigest": "4f8c53db49ecacfe83c2fe263a42da5f8d05a0b024934f96fc2205e70b8ae9b6",
+              "reason": "awaiting_verification",
+              "skillId": "skill-5e399d45-cac6-43c8-9b80-4e6dd7421a62",
+              "versionId": "skill-version-0b482ac2-e7a5-4a73-a05e-3cd2b285e5a7",
+              "displayName": "设计评审（S075）"
+            },
+            {
+              "stableId": "S018",
+              "stableName": "process-mapping",
+              "contentDigest": "c4450b0f829e0a61e1dc5a3740e950b09e95d7cfb1744c54b1665ea08d0e4c09",
+              "reason": "awaiting_verification",
+              "skillId": "skill-abfde299-99ab-41bf-95ed-0f955cc0a301",
+              "versionId": "skill-version-66fef458-c9cb-461b-a464-8a10605be625",
+              "displayName": "流程建模（S018）"
+            }
+          ]
+        }
+      }
+    ]
+  ],
+  "actual-import-receipts": [
+    [
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-research",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-product",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-operations",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-executive",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-customer-success",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-resolution",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-engineering",
+        "packVersion": "1.0.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/skills/starter-pack-imports",
+        "packId": "work-sales",
+        "packVersion": "1.1.0",
+        "status": 201
+      },
+      {
+        "path": "/admin/agents/starter-pack-imports",
+        "packId": "official-digitalhuman-roles",
+        "packVersion": "1.6.0",
+        "status": 201
+      }
+    ]
+  ],
+  "persisted-role-runs": [
+    [
+      {
+        "roleRef": "D001",
+        "threadId": "thr-2481f220-6144-405a-b07d-edd697eeac09",
+        "runId": "98a5fdcb-9829-429d-8b83-adcfda9bf7fd",
+        "resultMessageId": "b89dc2e7-b419-4c0c-8cf6-6c6fcd5241ca"
+      },
+      {
+        "roleRef": "D002",
+        "threadId": "thr-4f4fa4ac-68c8-4207-ac7e-31bc38bde613",
+        "runId": "011a4206-6e75-4673-9560-d292f8142582",
+        "resultMessageId": "56cc2881-a9ae-4204-90d1-a954b406ad8e"
+      },
+      {
+        "roleRef": "D003",
+        "threadId": "thr-e52d1780-85d8-42e3-a9cc-16fe17ba255e",
+        "runId": "7e201d9b-d45f-42f2-a3dd-bd23014e4e67",
+        "resultMessageId": "3e3ce771-0ae0-4f7e-a176-998e392e53db"
+      },
+      {
+        "roleRef": "D005",
+        "threadId": "thr-3f298430-a59f-4e01-b6e8-03a1eac23092",
+        "runId": "204ed524-cc58-4efc-94ef-3d3f20964751",
+        "resultMessageId": "798239d9-e5db-4788-86be-d677062c3562"
+      },
+      {
+        "roleRef": "D006",
+        "threadId": "thr-57327ab4-17ef-4489-a694-f9d17168dab8",
+        "runId": "a66fe6de-205d-4b47-b2f0-6e089db5ac7b",
+        "resultMessageId": "4c26dc10-0a00-48e1-8c84-7da1f0d3b63b"
+      },
+      {
+        "roleRef": "D007",
+        "threadId": "thr-b11140af-ffc9-4c64-900c-d94836fb3b26",
+        "runId": "fe1b7754-291c-4027-a9cd-3a40c8f6b81b",
+        "resultMessageId": "cbf9ec56-c919-424b-95fe-24fea7a52f13"
+      },
+      {
+        "roleRef": "D011",
+        "threadId": "thr-6fbace2a-7ace-4be4-8dd7-890f5a597b00",
+        "runId": "fc9876e9-7fa9-4b14-bc23-0c784d20ea3a",
+        "resultMessageId": "a8142554-3b0a-445c-942b-963c6fc32582"
+      }
+    ]
+  ],
+  "transport-audio-cleanup-evidence": [
+    {
+      "binaryFrames": 61,
+      "binaryBytes": 181292,
+      "media": {
+        "tracks": [
+          "ended",
+          "ended"
+        ],
+        "contexts": [
+          "closed",
+          "closed",
+          "closed",
+          "closed"
+        ],
+        "started": 12,
+        "stopped": 8,
+        "nonzero": 57408
+      },
+      "connections": [
+        {
+          "id": 1,
+          "model": "qwen3.8-omni-flash-realtime",
+          "closed": true,
+          "audioBytes": 62412,
+          "clientEvents": {
+            "session.update": 1,
+            "input_audio_buffer.append": 21,
+            "response.cancel": 1
+          },
+          "serverEvents": {
+            "session.updated": 1,
+            "input_audio_buffer.speech_started": 1,
+            "conversation.item.input_audio_transcription.text": 1,
+            "input_audio_buffer.speech_stopped": 1,
+            "conversation.item.input_audio_transcription.completed": 1,
+            "response.created": 1,
+            "response.audio_transcript.delta": 5,
+            "response.output_audio.delta": 5
+          }
+        },
+        {
+          "id": 2,
+          "model": "qwen3.8-omni-flash-realtime",
+          "closed": true,
+          "audioBytes": 62412,
+          "clientEvents": {
+            "session.update": 1,
+            "input_audio_buffer.append": 21
+          },
+          "serverEvents": {
+            "session.updated": 1,
+            "input_audio_buffer.speech_started": 1,
+            "conversation.item.input_audio_transcription.text": 1,
+            "input_audio_buffer.speech_stopped": 1,
+            "conversation.item.input_audio_transcription.completed": 1,
+            "response.created": 1,
+            "response.audio_transcript.delta": 5,
+            "response.output_audio.delta": 6
+          }
+        },
+        {
+          "id": 3,
+          "model": "qwen3.8-omni-flash-realtime",
+          "closed": true,
+          "audioBytes": 56468,
+          "clientEvents": {
+            "session.update": 1,
+            "input_audio_buffer.append": 19
+          },
+          "serverEvents": {
+            "session.updated": 1,
+            "input_audio_buffer.speech_started": 1,
+            "conversation.item.input_audio_transcription.text": 1,
+            "input_audio_buffer.speech_stopped": 1,
+            "conversation.item.input_audio_transcription.completed": 1,
+            "response.created": 1,
+            "response.audio_transcript.delta": 5,
+            "response.output_audio.delta": 6
+          }
+        }
+      ]
+    }
+  ],
+  "business-input-submission": [
+    {
+      "definitionVersion": 2,
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "rawInput"
+        ],
+        "properties": {
+          "rawInput": {
+            "type": "string",
+            "title": "产品问题或需求",
+            "maxLength": 2000,
+            "minLength": 1
+          }
+        }
+      },
+      "actualSubmittedInput": {
+        "rawInput": "团队反馈白板首次导入流程太复杂，请定义问题与PRD"
+      },
+      "status": "PASS: actual browser POST accepted the exact authored input",
+      "stageInputEvidence": "Separate real PostgreSQL/API integration test; instance projection does not expose private trigger input"
+    }
+  ],
+  "workflow-business-input-evidence": [
+    {
+      "instanceId": "7f3378af-b7fa-4077-b2ab-49aa7297c59f",
+      "approved": [
+        {
+          "gateId": "frame_gate-gate-1",
+          "stageId": "frame_gate",
+          "decidedBy": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599"
+        },
+        {
+          "gateId": "target_gate-gate-1",
+          "stageId": "target_gate",
+          "decidedBy": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599"
+        },
+        {
+          "gateId": "solution_gate-gate-1",
+          "stageId": "solution_gate",
+          "decidedBy": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599"
+        },
+        {
+          "gateId": "prd_gate-gate-1",
+          "stageId": "prd_gate",
+          "decidedBy": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599"
+        }
+      ],
+      "finishedProjection": {
+        "instanceId": "7f3378af-b7fa-4077-b2ab-49aa7297c59f",
+        "orgId": "org-fullstack-z0-e1aa25fb-04878d8e7599",
+        "workflowKey": "problem-to-prd",
+        "definitionVersion": 2,
+        "agentId": "agent-761eab13-7988-4d98-afc3-e430549fcb1e",
+        "agentVersionId": "agent-version-eba1996f-0f13-4d26-89e6-cb725df99bd1",
+        "initiatorUserId": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599",
+        "triggerKind": "manual",
+        "status": "succeeded",
+        "stateVersion": 62,
+        "reasonCode": null,
+        "goal": "团队反馈白板首次导入流程太复杂，请定义问题与PRD",
+        "stages": [
+          {
+            "stageId": "intake",
+            "title": "intake",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "531a183a-2a62-4952-9443-784bb1e20c75",
+                "label": "W029/intake",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=531a183a-2a62-4952-9443-784bb1e20c75"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:03.079Z",
+            "finishedAt": "2026-10-01T12:39:03.136Z"
+          },
+          {
+            "stageId": "frame",
+            "title": "frame",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "frame",
+                "stableId": "S064",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "344ec2b0-61b8-425d-a882-70eedb0057d2",
+                "label": "W029/frame",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=344ec2b0-61b8-425d-a882-70eedb0057d2"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:03.149Z",
+            "finishedAt": "2026-10-01T12:39:03.219Z"
+          },
+          {
+            "stageId": "frame_gate",
+            "title": "frame_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "43438a55-fd0e-4423-8ccd-e1fa394935d6",
+                "label": "W029/frame_gate",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=43438a55-fd0e-4423-8ccd-e1fa394935d6"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:04.457Z",
+            "finishedAt": "2026-10-01T12:39:04.508Z"
+          },
+          {
+            "stageId": "map",
+            "title": "map",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "map",
+                "stableId": "S065",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "11ee995d-fbdd-42ee-8d2f-8f872b03341a",
+                "label": "W029/map",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=11ee995d-fbdd-42ee-8d2f-8f872b03341a"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:04.529Z",
+            "finishedAt": "2026-10-01T12:39:04.590Z"
+          },
+          {
+            "stageId": "target_gate",
+            "title": "target_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "9ffb19ae-b187-456f-958f-25659307daeb",
+                "label": "W029/target_gate",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=9ffb19ae-b187-456f-958f-25659307daeb"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:05.451Z",
+            "finishedAt": "2026-10-01T12:39:05.495Z"
+          },
+          {
+            "stageId": "solutions_fill",
+            "title": "solutions_fill",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "solutions_fill",
+                "stableId": "S065",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "53782282-3e9b-4e06-81b0-1dfb521d7d83",
+                "label": "W029/solutions_fill",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=53782282-3e9b-4e06-81b0-1dfb521d7d83"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:05.514Z",
+            "finishedAt": "2026-10-01T12:39:05.564Z"
+          },
+          {
+            "stageId": "estimate",
+            "title": "estimate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "134ece6c-8766-4048-9c5d-75cf6aa9a5c5",
+                "label": "W029/estimate",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=134ece6c-8766-4048-9c5d-75cf6aa9a5c5"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:05.579Z",
+            "finishedAt": "2026-10-01T12:39:05.598Z"
+          },
+          {
+            "stageId": "prioritize",
+            "title": "prioritize",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "prioritize",
+                "stableId": "S068",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "f45a084f-3bb6-462a-82b4-cb0e6c739f68",
+                "label": "W029/prioritize",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=f45a084f-3bb6-462a-82b4-cb0e6c739f68"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:05.621Z",
+            "finishedAt": "2026-10-01T12:39:05.685Z"
+          },
+          {
+            "stageId": "solution_gate",
+            "title": "solution_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "cd65c062-cd43-4546-990b-cdbcfe1b3e39",
+                "label": "W029/solution_gate",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=cd65c062-cd43-4546-990b-cdbcfe1b3e39"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:06.431Z",
+            "finishedAt": "2026-10-01T12:39:06.479Z"
+          },
+          {
+            "stageId": "draft",
+            "title": "draft",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "draft",
+                "stableId": "S067",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "b56f2b78-b605-4e5f-8376-75631d0c9463",
+                "label": "W029/draft",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=b56f2b78-b605-4e5f-8376-75631d0c9463"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:06.494Z",
+            "finishedAt": "2026-10-01T12:39:06.538Z"
+          },
+          {
+            "stageId": "kpi",
+            "title": "kpi",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "kpi",
+                "stableId": "S162",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "456831f5-5c78-4b8e-85f7-52b417b9c06a",
+                "label": "W029/kpi",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=456831f5-5c78-4b8e-85f7-52b417b9c06a"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:06.558Z",
+            "finishedAt": "2026-10-01T12:39:06.579Z"
+          },
+          {
+            "stageId": "kpi_bind",
+            "title": "kpi_bind",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "14dc7852-35cc-4501-9437-a77886d2d9d9",
+                "label": "W029/kpi_bind",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=14dc7852-35cc-4501-9437-a77886d2d9d9"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:06.589Z",
+            "finishedAt": "2026-10-01T12:39:06.622Z"
+          },
+          {
+            "stageId": "revise",
+            "title": "revise",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [
+              {
+                "stageId": "revise",
+                "stableId": "S067",
+                "version": "1.0.0"
+              }
+            ],
+            "outputs": [
+              {
+                "outputId": "7d595099-da46-4fda-8cb7-b7011c3cd841",
+                "label": "W029/revise",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=7d595099-da46-4fda-8cb7-b7011c3cd841"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:06.639Z",
+            "finishedAt": "2026-10-01T12:39:06.696Z"
+          },
+          {
+            "stageId": "prd_gate",
+            "title": "prd_gate",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "83c9d61a-3930-40f3-aab3-584fa7fc88fe",
+                "label": "W029/prd_gate",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=83c9d61a-3930-40f3-aab3-584fa7fc88fe"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:07.567Z",
+            "finishedAt": "2026-10-01T12:39:07.591Z"
+          },
+          {
+            "stageId": "persist",
+            "title": "persist",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "248381fc-5262-40c3-a8fd-502921f01958",
+                "label": "W029/persist",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=248381fc-5262-40c3-a8fd-502921f01958"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:07.614Z",
+            "finishedAt": "2026-10-01T12:39:07.702Z"
+          },
+          {
+            "stageId": "notify",
+            "title": "notify",
+            "status": "succeeded",
+            "attempt": 1,
+            "pinnedSkills": [],
+            "outputs": [
+              {
+                "outputId": "cd7fb86d-b497-4a6a-a9c2-8e93f03f1142",
+                "label": "W029/notify",
+                "href": "/workflows/runs/7f3378af-b7fa-4077-b2ab-49aa7297c59f/result?output=cd7fb86d-b497-4a6a-a9c2-8e93f03f1142"
+              }
+            ],
+            "reasonCode": null,
+            "startedAt": "2026-10-01T12:39:07.728Z",
+            "finishedAt": "2026-10-01T12:39:07.805Z"
+          }
+        ],
+        "openGate": null,
+        "effects": [
+          {
+            "effectKey": "prd-50795e42c9b38a615cb0c7bf482b81c91a02f53b05bcadfc1d69f2e5a664656e",
+            "stageId": "persist",
+            "capabilityCategory": "artifact.write",
+            "status": "finalized",
+            "initiatorUserId": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599",
+            "agentId": "agent-761eab13-7988-4d98-afc3-e430549fcb1e",
+            "agentVersionId": "agent-version-eba1996f-0f13-4d26-89e6-cb725df99bd1",
+            "skillVersion": null,
+            "gateId": null,
+            "finalizedAt": null
+          },
+          {
+            "effectKey": "notify-/workflow-instances/7f3378af-b7fa-4077-b2ab-49aa7297c59f/output",
+            "stageId": "notify",
+            "capabilityCategory": "notify.inapp",
+            "status": "finalized",
+            "initiatorUserId": "user-fullstack-admin-z0-e1aa25fb-04878d8e7599",
+            "agentId": "agent-761eab13-7988-4d98-afc3-e430549fcb1e",
+            "agentVersionId": "agent-version-eba1996f-0f13-4d26-89e6-cb725df99bd1",
+            "skillVersion": null,
+            "gateId": null,
+            "finalizedAt": null
+          }
+        ],
+        "lastSeq": 62,
+        "viewerCapabilities": {
+          "canCancel": false,
+          "canRetryStage": false,
+          "canResume": false
+        },
+        "createdAt": "2026-10-01T12:39:02.958Z",
+        "updatedAt": "2026-10-01T12:39:07.821Z"
+      },
+      "output": {
+        "instanceId": "7f3378af-b7fa-4077-b2ab-49aa7297c59f",
+        "outcome": "complete",
+        "output": {
+          "kind": "prd",
+          "title": "需求评审提效 PRD",
+          "problem": {
+            "claimId": "problem",
+            "text": "团队在需求评审中反复返工，需要一份统一的问题定义与验收口径。",
+            "evidenceRefs": [
+              "loopback:frame"
+            ],
+            "confidence": "medium"
+          },
+          "requirements": [
+            {
+              "id": "R1",
+              "text": "支持在评审前自动汇总需求背景、影响范围与验收标准。",
+              "priority": "P0"
+            }
+          ],
+          "metrics": [
+            {
+              "name": "评审返工率",
+              "definition": "每个需求在评审中被退回修改的次数，目标下降 30%。"
+            }
+          ],
+          "digest": "50795e42c9b38a615cb0c7bf482b81c91a02f53b05bcadfc1d69f2e5a664656e"
+        },
+        "crmItems": [],
+        "manualChecklist": [],
+        "deferredProposals": []
+      },
+      "realModelQuality": "BLOCKED",
+      "submittedRawInput": "团队反馈白板首次导入流程太复杂，请定义问题与PRD",
+      "inputSubmission": "PASS: v2 real UI/POST",
+      "stageInputEvidence": "Separate PostgreSQL/API integration test",
+      "semanticQuality": "BLOCKED: loopback is not a real model quality evaluation"
+    }
+  ]
+}
