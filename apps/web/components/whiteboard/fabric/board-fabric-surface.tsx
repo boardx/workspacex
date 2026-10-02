@@ -309,8 +309,6 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       ...textOptionsFor(object, { fontSize: 24, alignment: "left" }),
     });
   } else if (object.kind === "ellipse") {
-    const label = new Textbox(object.content.text, textOptions);
-    label.set(stickyTextOptions(object, richText, label));
     projected = new Group([
       new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
