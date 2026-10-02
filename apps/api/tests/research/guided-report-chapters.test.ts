@@ -1,3 +1,4 @@
+import { research as C } from "@repo/contracts";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import { reportBasis, reportSourceAliases, canonicalReportText, aliasResolver } from "../../src/application/research/guided-report-checkpoint";
 import { GuidedRuntimeService, validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
@@ -637,4 +638,35 @@ describe("chapter-based report generation", () => {
     expect(f.state.reportQualityWarnings).toEqual([]);
   });
 
+});
+
+
+describe("post-research chapter structure saves (#5081)", () => {
+  it.each(["save_chapters", "save"])("%s keeps the appropriate invalidation boundary", async (action) => {
+    const f = fixture(); f.state.busy = false; f.state.availableNodes = ["brief", "directions", "outline", "research", "report"];
+    f.state.sources[1]!.decision = "excluded";
+    f.state.reportDraft = { title: "Old draft", summary: "Old", sections: [] };
+    const beforeSources = structuredClone(f.state.sources), beforeTasks = structuredClone(f.state.tasks);
+    const value = f.state.outline.map((item) => ({ ...item, title: `${item.title} edited`, questions: [...item.questions, "New unsupported question?"] }));
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const model: ModelCallPort = { complete: vi.fn(async () => { throw new Error("must not generate while saving"); }) };
+    const service = new GuidedRuntimeService(store, model, { search: vi.fn(async () => []) }, config);
+    const result = await service.execute({ sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor,
+      { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any,
+      { sessionId: "s", node: "outline", action, requestId: "chapter-save", expectedVersion: 4, draft: { node: "outline", value } } as any);
+    expect(result.errorCode).toBeNull(); expect(result.outline).toEqual(value); expect(result.reportDraft).toBeNull(); expect(result.completed).toBe(false);
+    expect(model.complete).not.toHaveBeenCalled();
+    if (action === "save_chapters") {
+      expect(result.sources).toEqual(beforeSources); expect(result.tasks).toEqual(beforeTasks); expect(result.availableNodes).toContain("research");
+      expect(result.currentNode).toBe("research"); expect(result.availableNodes).not.toContain("report");
+    } else { expect(result.sources).toEqual([]); expect(result.tasks).toEqual([]); expect(result.currentNode).toBe("outline"); }
+  });
+});
+
+it("rejects chapter saves without an explicit outline draft or in another node", () => {
+  const valid = { sessionId: "s", requestId: "save", expectedVersion: 4, node: "outline", action: "save_chapters", draft: { node: "outline", value: fixture().state.outline } };
+  expect(C.GuidedResearchRuntimeCommand.safeParse(valid).success).toBe(true);
+  for (const invalid of [{ ...valid, draft: undefined }, { ...valid, node: "research" }, { ...valid, message: "generate without evidence" }]) {
+    expect(C.GuidedResearchRuntimeCommand.safeParse(invalid).success).toBe(false);
+  }
 });
