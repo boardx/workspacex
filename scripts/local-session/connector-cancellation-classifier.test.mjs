@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {classifyStickyCancellations,classifyConnectorCdpCancellations} from './connector-cancellation-classifier.mjs';
+const url='http://127.0.0.1:3320/whiteboards/test/comments';
+const failed=id=>({id,url,method:'GET',reason:'net::ERR_ABORTED',at:200});
+const signal={kind:'abort-rejection',url,method:'GET',aborted:true,startedAt:100,at:200,abortStack:'collaborative-thinking-editor commitHookEffectCleanup'};
+const run=(failedRequests,requestLifecycles,fetchObservations=[signal],navigationActions=[])=>classifyStickyCancellations({failedRequests,requestLifecycles,fetchObservations,navigationActions,commentsUrl:url});
+test('one verified cleanup and one lifecycle is uniquely attributable, not labelled exact fetch id',()=>{const r=run([failed(1)],[{id:1,url,method:'GET',startedAt:100,endedAt:200}]);assert.equal(r.expected.length,1);assert.equal(r.unexpected.length,0);assert.equal(r.expected[0].attribution,'unique-lifecycle-overlap-not-exact-fetch-id');});
+test('two overlapping same URL requests and one signal exempt neither',()=>{const r=run([failed(1),failed(2)],[1,2].map(id=>({id,url,method:'GET',startedAt:100,endedAt:200})));assert.equal(r.expected.length,0);assert.equal(r.unexpected.length,2);});
+test('multiple eligible signal observations also fail closed',()=>{const r=run([failed(1)],[{id:1,url,method:'GET',startedAt:100,endedAt:200}],[signal,{...signal}]);assert.equal(r.expected.length,0);assert.equal(r.unexpected.length,1);});
+test('missing lifecycle or non-aborted signal does not exempt',()=>{assert.equal(run([failed(1)],[]).unexpected.length,1);assert.equal(run([failed(1)],[{id:1,url,method:'GET',startedAt:100,endedAt:200}],[{...signal,aborted:false}]).unexpected.length,1);});
+test('exact pending navigation request id can exempt only its own request',()=>{const r=run([failed(1),failed(2)],[],[],[{name:'reload',start:190,end:210,pending:[1]}]);assert.equal(r.expected.length,1);assert.equal(r.expected[0].id,1);assert.equal(r.unexpected[0].id,2);});
+test('wrong URL, method, reason and missing effect cause remain failures',()=>{for(const changed of [{url:url+'/other'},{method:'POST'},{reason:'net::ERR_FAILED'}])assert.equal(run([{...failed(1),...changed}],[]).expected.length,0);assert.equal(run([failed(1)],[{id:1,url,method:'GET',startedAt:100,endedAt:200}],[{...signal,abortStack:'unrelated abort'}]).expected.length,0);});
+const cdp=(requestId,fetchId,aborted=true)=>({requestId,fetchId,url,method:'GET',...(aborted?{failure:{errorText:'net::ERR_ABORTED',canceled:true}}:{})});
+const exact=(failedRequests,cdpRequests,fetchObservations)=>classifyConnectorCdpCancellations({failedRequests,cdpRequests,fetchObservations,commentsUrl:url});
+test('CDP exact fetch ID attributes aborted request beside simultaneous successful request',()=>{const r=exact([failed(1)],[cdp('network-1','fetch-1'),cdp('network-2','fetch-2',false)],[{...signal,fetchId:'fetch-1'}]);assert.equal(r.expected.length,1);assert.equal(r.unexpected.length,0);assert.equal(r.expected[0].requestId,'network-1');});
+test('CDP two aborted requests one signal cannot exempt either',()=>{const r=exact([failed(1),failed(2)],[cdp('n1','f1'),cdp('n2','f2')],[{...signal,fetchId:'f1'}]);assert.equal(r.expected.length,0);assert(r.unexpected.length>=2);});
+test('CDP missing or duplicated fetch ID fails closed',()=>{for(const networks of [[cdp('n1',null)],[cdp('n1','f1'),cdp('n2','f1',false)]]){const r=exact([failed(1)],networks,[{...signal,fetchId:'f1'}]);assert.equal(r.expected.length,0);assert(r.unexpected.length>0);}});
+test('CDP and Node failed-request counts must corroborate',()=>{const r=exact([failed(1),failed(2)],[cdp('n1','f1')],[{...signal,fetchId:'f1'}]);assert.equal(r.expected.length,0);assert.equal(r.nodeCorroboration.countMatched,false);});
+
