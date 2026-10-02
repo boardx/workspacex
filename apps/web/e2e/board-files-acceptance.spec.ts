@@ -58,7 +58,9 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     await expect(row).toHaveCount(1); await expect(row).toHaveAttribute('data-object-text', fileName);
     const outlineButton = row.getByRole('button'); await outlineButton.focus(); await outlineButton.press('Enter');
     const downloaded = page.waitForEvent('download'); await page.getByRole('button', {name: '下载', exact: true}).click();
-    const download = await downloaded; expect(download.suggestedFilename()).toBe(fileName);
+    // Chromium replaces unsafe filename characters (including ASCII quotes) with underscores.
+    // The API/metadata assertions above retain the original quoted UTF-8 filename.
+    const download = await downloaded; expect(download.suggestedFilename()).toBe('R09-报告 _原始名称_.txt');
     const downloadPath = await download.path(); expect(downloadPath).toBeTruthy(); expect(await readFile(downloadPath!)).toEqual(bytes);
     await page.screenshot({path: info.outputPath('R09-file-refreshed.png'), fullPage: true});
     // Distinct bytes ensure deduplication cannot hide a broken legacy filename fallback.
