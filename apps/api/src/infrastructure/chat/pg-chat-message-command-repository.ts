@@ -1,3 +1,5 @@
+import { agentSkillScopeForStableName } from "../../domain/agent/skill-scope";
+import { sameRunSkillScope } from "../../application/chat/agent-skill-scope";
 import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
 import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
@@ -15,11 +17,13 @@ import { AttachmentNotPendingError } from "../../application/chat/message-comman
 
 interface AcceptedDbRow {
   id: string; thread_id: string; author_id: string; body: string; client_message_id: string;
+  skill_scope: "agent_pins" | "general" | null;
   requested_agent_id: string; created_at: Date; agent_run_id: string; status: string;
 }
 
 function accepted(row: AcceptedDbRow): AcceptedHumanMessage {
   return {
+    skillScope: row.skill_scope,
     id: row.id, threadId: row.thread_id, authorId: row.author_id, text: row.body,
     clientMessageId: row.client_message_id, requestedAgentId: row.requested_agent_id,
     createdAt: row.created_at.toISOString(), agentRunId: row.agent_run_id, runStatus: "queued",
@@ -33,7 +37,7 @@ async function findAcceptedIn(
 ): Promise<AcceptedHumanMessage | null> {
   const result = await s.query<AcceptedDbRow>(
     `SELECT m.id, m.thread_id, m.author_id, m.body, m.client_message_id::text,
-            m.requested_agent_id, m.created_at, r.id AS agent_run_id, r.status
+            m.requested_agent_id, m.created_at, r.id AS agent_run_id, r.status, r.skill_scope
        FROM chat_messages m JOIN agent_runs r ON r.input_message_id=m.id AND r.org_id=m.org_id
       WHERE m.org_id=$1 AND m.thread_id=$2 AND m.author_id=$3 AND m.client_message_id=$4::uuid`,
     [orgId, input.threadId, input.actorId, input.clientMessageId],
@@ -72,7 +76,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key]);
       const replay = await findAcceptedIn(s, orgId, input);
       if (replay) {
-        return replay.text === input.text && replay.requestedAgentId === input.selectedAgentId
+        return replay.text === input.text && replay.requestedAgentId === input.selectedAgentId && sameRunSkillScope(replay.skillScope, input.snapshot.skillScope)
           ? { kind: "replay", accepted: replay }
           : { kind: "conflict" };
       }
@@ -98,11 +102,11 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       await s.query(
         `INSERT INTO agent_runs
            (id,org_id,thread_id,input_message_id,agent_id,agent_version_id,skill_version_ids,
-            model_provider,model_id,status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued')`,
+            model_provider,model_id,status,skill_scope)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10)`,
         [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
-          input.snapshot.modelProvider, input.snapshot.modelId],
+          input.snapshot.modelProvider, input.snapshot.modelId, input.snapshot.skillScope ?? null],
       );
       if (input.queuedMessageId) {
         await s.query(`UPDATE thread_message_queue SET status='dispatched',run_id=$3
@@ -152,7 +156,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           text: input.text, clientMessageId: input.clientMessageId,
           requestedAgentId: input.selectedAgentId,
           createdAt: inserted.rows[0]!.created_at.toISOString(),
-          agentRunId: input.runId, runStatus: "queued",
+          agentRunId: input.runId, runStatus: "queued", skillScope: input.snapshot.skillScope ?? null,
         },
       };
     });
@@ -256,10 +260,10 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
       if (!tables.rows[0]?.ready) return null;
       const result = await s.query<{
         agent_id: string; agent_version_id: string; skill_version_ids: unknown;
-        model_provider: string; model_id: string; instructions: string;
+        model_provider: string; model_id: string; instructions: string; stable_name: string | null;
       }>(
         `SELECT a.id AS agent_id, v.id AS agent_version_id, v.skill_version_ids,
-                v.model_provider, v.model_id, v.instructions
+                v.model_provider, v.model_id, v.instructions, a.stable_name
            FROM "${this.schema}".agents a JOIN "${this.schema}".agent_versions v
              ON ${PUBLISHED_AGENT_VERSION_MATCH}
           WHERE a.org_id=$1 AND a.id=$2 AND ${PUBLISHED_AGENT_ENABLED}`,
@@ -273,6 +277,7 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
         skillVersionIds: row.skill_version_ids as string[],
         modelProvider: row.model_provider, modelId: row.model_id,
         instructions: row.instructions,
+        skillScope: agentSkillScopeForStableName(row.stable_name),
       };
     });
   }

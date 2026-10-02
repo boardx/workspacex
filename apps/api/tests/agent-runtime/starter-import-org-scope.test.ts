@@ -3,6 +3,7 @@ import { ForbiddenException } from "@nestjs/common";
 import { AgentStarterImportController } from "../../src/interface/controllers/agent-starter-import.controller";
 import { SkillStarterImportController } from "../../src/interface/controllers/skill-starter-import.controller";
 import { operations } from "../../../../packages/contracts/src/wave2-runtime";
+import { OFFICIAL_ROLE_UPGRADE_REPOSITORY } from "../../src/application/agent-import/upgrade-official-roles";
 import { toOrgId } from "../../src/domain/org-id";
 const input = { packId: "official-role-pack", packVersion: "1.0.0", idempotencyKey: "enable-test", expectedOrgId: "org-a" };
 describe("starter import organization binding before dependencies", () => {
@@ -10,7 +11,7 @@ describe("starter import organization binding before dependencies", () => {
     const accessed = vi.fn();
     const dependency = new Proxy({}, { get: () => accessed });
     const controller = kind === "agent"
-      ? new AgentStarterImportController(dependency as never, dependency as never, dependency as never, dependency as never, dependency as never)
+      ? new AgentStarterImportController(dependency as never, dependency as never, dependency as never, dependency as never, dependency as never, dependency as never)
       : new SkillStarterImportController(dependency as never, dependency as never, dependency as never);
     // This is the immutable principal snapshot produced when the delayed HTTP request's
     // auth resolver runs AFTER switchCurrentOrganization updated the same session.
@@ -48,7 +49,7 @@ it.each(["/admin/skills/starter-pack-imports", "/admin/agents/starter-pack-impor
     providers: [
       { provide: APP_GUARD, useClass: PrincipalGuard },
       { provide: PRINCIPAL_RESOLVER_PORT, useValue: { resolve: async () => { began(); await paused; return { userId: "admin", orgId: toOrgId(currentOrg) }; } } },
-      ...[IDENTITY_REPOSITORY, AGENT_STARTER_IMPORT_REPOSITORY, AGENT_STARTER_PACK_SOURCE, OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY, WORKFLOW_DEFINITION_STORE, SKILL_STARTER_IMPORT_REPOSITORY, SKILL_STARTER_PACK_SOURCE].map((provide) => ({ provide, useValue: { findOrgMembership: access, load: access, findExisting: access, persistVerified: access, isRegistered: access } })),
+      ...[OFFICIAL_ROLE_UPGRADE_REPOSITORY, IDENTITY_REPOSITORY, AGENT_STARTER_IMPORT_REPOSITORY, AGENT_STARTER_PACK_SOURCE, OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY, WORKFLOW_DEFINITION_STORE, SKILL_STARTER_IMPORT_REPOSITORY, SKILL_STARTER_PACK_SOURCE].map((provide) => ({ provide, useValue: { findOrgMembership: access, load: access, findExisting: access, persistVerified: access, isRegistered: access } })),
     ],
   })
   class ImportScopeHttpModule {}

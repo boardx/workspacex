@@ -1,3 +1,4 @@
+import { agentDefaults } from "@repo/contracts";
 // @global-scope-fixture seeder:backfillPlatformSkills: 写 `org-platform` 名下的平台 skill 行。跨 org 可见是产品事实
 //   （`pg-skill-contract-repository` 的 `OR sk.org_id = PLATFORM_ORG_ID`），`resetOrgs(<自己的 org>)`
 //   碰不到它、`wave2_skill_immutable_trg` 又挡着删除 ⇒ **没有文件能收敛它**。断言侧一律按归属
@@ -218,7 +219,7 @@ describe("V2+V3 — 全新 org 能真的挂载平台 skill 到 thread 上，且�
       await c.query(
         `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
          VALUES ($1,$2,$3,$4,'enabled',$5,now(),now()) ON CONFLICT DO NOTHING`,
-        [AGENT, ORG, AGENT, AGENT, ACTOR],
+        [AGENT, ORG, agentDefaults.DEFAULT_AGENT_STABLE_NAME, AGENT, ACTOR],
       );
       await c.query(
         `INSERT INTO agent_versions

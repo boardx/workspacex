@@ -98,7 +98,7 @@ export function groundedModel() {
 
 /** 这一轮交给模型的那段【记忆】参考材料（没有 ⇒ null）。 */
 export function memoryOf(input: ModelCallInput): string | null {
-  return (input.history ?? []).find((m) => m.content.startsWith("【记忆】"))?.content ?? null;
+  return (input.history ?? []).find((m) => m.role === "user" && m.content.startsWith("【用户背景参考材料】") && m.content.includes("【记忆】"))?.content ?? null;
 }
 
 /* ───────────── 应用与 HTTP ───────────── */

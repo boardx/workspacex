@@ -414,6 +414,14 @@ export default defineConfig({
       fullyParallel: false,
     },
     {
+      name: "realtime-voice",
+      use: { actionTimeout: 30_000 },
+      testMatch: ["realtime-voice-journey.spec.ts"],
+      dependencies: ["official-digital-human"],
+      retries: 0,
+      workers: 1,
+    },
+    {
       name: "official-role-workflow",
       testMatch: ["w029-browser-journey.spec.ts"],
       dependencies: ["official-digital-human"],
@@ -483,7 +491,7 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow"],
+      dependencies: ["official-role-workflow", "realtime-voice"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.
@@ -675,6 +683,7 @@ export default defineConfig({
       env: {
         ...process.env,
         LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
+        LOOPBACK_OMNI_E2E_CONTROL: "1",
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
       },
     },

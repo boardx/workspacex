@@ -1,0 +1,42 @@
+
+ RUN  v2.1.9 /workspace/pending-skill-name-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/agent/pending-skill-display-name.test.ts (3 tests | 1 failed) 36ms
+   × replaces bare stable IDs with titles from exact immutable authored Skill bytes 25ms
+     → expected { stableId: 'S061', …(6) } to match object { displayName: '产品探索（S061）', …(1) }
+(5 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent/pending-skill-display-name.test.ts > replaces bare stable IDs with titles from exact immutable authored Skill bytes
+AssertionError: expected { stableId: 'S061', …(6) } to match object { displayName: '产品探索（S061）', …(1) }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "displayName": "产品探索（S061）",
++   "displayName": "S061",
+    "reason": "awaiting_verification",
+  }
+
+ ❯ tests/agent/pending-skill-display-name.test.ts:15:67
+     13|   const result = await resolve();
+     14|   expect(result.pins).toEqual([]);
+     15|   expect(result.pending.find(skill => skill.stableId === "S061")).toMa…
+       |                                                                   ^
+     16|   expect(result.pending.find(skill => skill.stableId === "S009")).toMa…
+     17| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  11:53:42
+   Duration  3.88s (transform 2.42s, setup 0ms, collect 2.87s, tests 36ms, environment 0ms, prepare 91ms)
+
+undefined
+/workspace/pending-skill-name-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent/pending-skill-display-name.test.ts

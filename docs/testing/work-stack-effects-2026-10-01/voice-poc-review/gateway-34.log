@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes
+
+[realtime-digital-human] upstream error: {"code":"InvalidApiKey","message":"secret detail"}
+ ✓ apps/api/tests/chat/realtime-digital-human-gateway.test.ts (21 tests) 3002ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > upstream close remains bounded when append never resolves, without a false persisted acknowledgement 2015ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted 628ms
+ ✓ apps/api/tests/chat/realtime-voice-session.test.ts (13 tests) 17ms
+
+ Test Files  2 passed (2)
+      Tests  34 passed (34)
+   Start at  11:39:10
+   Duration  7.76s (transform 2.18s, setup 0ms, collect 4.02s, tests 3.02s, environment 1ms, prepare 226ms)

@@ -1,3 +1,5 @@
+import { assertFrozenAgentSkillScope } from "./frozen-agent-skill-scope";
+import { requesterMemoryHistory } from "./requester-memory-context";
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
 import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
 import { withAttachmentNotice } from "./attachment-notice";
@@ -558,6 +560,7 @@ async function executeClaimed(
   // or a catalog for `isDeepAgentRun` -- see `buildSystemPrompt`'s own doc comment).
   const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
   try {
+    assertFrozenAgentSkillScope(run);
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
       // Fail closed. A run that quietly proceeds with two of its three pinned Skills has
@@ -917,7 +920,7 @@ async function executeClaimed(
   // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
   // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
   const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
-  history = [...notes.map((content) => ({ role: "assistant" as const, content })), ...history];
+  history = [...requesterMemoryHistory(notes), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
