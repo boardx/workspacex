@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type Ref, type ReactNode } from "react";
-import { Bold, Italic, AlignLeft, Copy, Trash2, Link2, MessageCircle, MoreHorizontal, Plus, Tag, X } from "lucide-react";
+import { Bold, Italic, AlignLeft, Copy, Trash2, Link2, MessageCircle, MoreHorizontal, Plus, Tag, X, Eye } from "lucide-react";
 import { STICKY_COLOR_PRESETS, type StickyVariant, type TextAttributes, type TextStylePreset, type WhiteboardObject } from "@repo/whiteboard-core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ interface ObjectContextToolbarProps {
   onExperienceChange: (experience: ObjectExperience) => void;
   onGeometryChange: (geometry: WhiteboardObject["geometry"]) => void;
   onClose: () => void;
+  onViewText?: () => void;
   onFutureAction: (kind: "comment" | "ai") => void;
 }
 
@@ -50,7 +51,7 @@ const STICKY_SIZE_PRESETS = [{ id: "s", label: "S", width: 144, height: 144 }, {
 
 const OBJECT_LABELS: Record<WhiteboardObject["kind"], string> = { sticky: "便利贴", text: "文字", rectangle: "形状", ellipse: "形状", frame: "Frame", group: "组合", connector: "连接线", image: "图片", drawing: "绘图", extension: "对象" };
 
-export function ObjectContextToolbar({ editing=false,object, readOnly, objectActionsDisabled=readOnly, actorId, onStickyChange, onTextChange, onStyleChange, onExperienceChange, onGeometryChange, onClose, onFutureAction, actions, onDuplicate, onDelete, panelRef, floatingStyle }: ObjectContextToolbarProps) {
+export function ObjectContextToolbar({ editing=false,object, readOnly, objectActionsDisabled=readOnly, actorId, onStickyChange, onTextChange, onStyleChange, onExperienceChange, onGeometryChange, onClose, onViewText, onFutureAction, actions, onDuplicate, onDelete, panelRef, floatingStyle }: ObjectContextToolbarProps) {
   const thinking = record(object.extensionData?.thinkingInput), sticky = record(thinking.sticky), text = record(thinking.text);
   const experience = readObjectExperience(object);
   const [tagDraft, setTagDraft] = useState(""), [linkUrl, setLinkUrl] = useState(experience.linkPreview?.url ?? ""), [linkTitle, setLinkTitle] = useState(experience.linkPreview?.title ?? ""), [linkDescription, setLinkDescription] = useState(experience.linkPreview?.description ?? "");
@@ -66,6 +67,7 @@ export function ObjectContextToolbar({ editing=false,object, readOnly, objectAct
   const overflowActions = actions ?? <BoardToolPopover label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4" /></Button>}><Button data-testid="board-properties-open" onClick={() => setExpandRequest((value) => value + 1)}>精确属性</Button></BoardToolPopover>;
   const compactActions = <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="flex min-w-max items-center gap-1 px-0.5 [&_button]:!min-h-[44px] [&_button]:!min-w-[44px] max-sm:[&_button]:!h-[44px] max-sm:[&_button]:!w-[44px]">
     {object.kind === "sticky" ? <div data-testid="board-widget-quick-format" className="flex items-center gap-1">
+      {onViewText&&<Button data-testid="board-sticky-text-view" size="icon" variant="ghost" className="h-11 w-11" aria-label="查看便利贴全文" title="查看便利贴全文" onClick={onViewText}><Eye className="h-4 w-4"/></Button>}
       <BoardToolPopover label="便利贴样式" trigger={<Button data-testid="board-sticky-style-open" size="icon" variant="ghost" className="h-11 w-11" aria-label="便利贴样式" title="便利贴样式"><span aria-hidden="true" className="h-5 w-5 rounded-full border border-border shadow-sm" style={{backgroundColor:typeof sticky.color === "string" ? sticky.color : STICKY_COLOR_PRESETS.yellow}} /></Button>}>
         <section data-testid="board-sticky-inspector-style" aria-label="便利贴快捷样式" className="space-y-3">
           <div role="group" aria-label="便利贴颜色" className="flex flex-wrap items-center gap-1">{Object.entries(STICKY_COLOR_PRESETS).slice(0, 7).map(([name, color]) => <button key={name} type="button" data-testid={`sticky-quick-color-${name}`} aria-label={`便利贴颜色 ${name}`} aria-pressed={sticky.color === color} disabled={locked} onClick={() => onStickyChange({ color })} className="h-11 w-11 shrink-0 rounded-xl border border-border/70 shadow-sm transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled" style={{ backgroundColor: color }} />)}</div>

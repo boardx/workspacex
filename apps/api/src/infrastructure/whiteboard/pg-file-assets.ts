@@ -7,20 +7,38 @@ import type { WhiteboardRepository } from '../../application/whiteboard/ports';
 import { discloseDecided, guard, isDisclosed } from '../../application/security/permission-filter';
 import { decideWhiteboardAccess } from '../../domain/whiteboard/access-decision';
 
+// PostgreSQL names this restrictive freeze policy in the actual INSERT denial.
+// SQLSTATE alone also includes unrelated permission failures: preserve those errors.
+function isFileOrgFreezeDenial(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const denial = error as Error & { code?: unknown; table?: unknown; schema?: unknown };
+  return denial.code === '42501'
+    && denial.message === 'new row violates row-level security policy "whiteboard_file_assets_org_frozen_ins" for table "whiteboard_file_assets"'
+    && (denial.table === undefined || denial.table === 'whiteboard_file_assets')
+    && (denial.schema === undefined || denial.schema === 'public');
+}
+
 export class PgBoardFileAssets implements BoardFileRepository {
   constructor(private readonly db: DatabasePort, private readonly boards: WhiteboardRepository) {}
   async save(p: Principal, boardId: string, record: BoardFileRecord) {
     const board = await this.boards.get(p, boardId);
     if (!board) throw new WhiteboardFileError('NOT_FOUND');
     if (board.archived || !['owner', 'editor'].includes(board.role)) throw new WhiteboardFileError('FORBIDDEN');
-    await this.db.withTenant(p.orgId, async session => {
-      await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
-        VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
-      [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
-      await session.query(`INSERT INTO whiteboard_file_assets(org_id,board_id,asset_id,object_key,metadata)
-        VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
-      [p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]);
-    });
+    try {
+      await this.db.withTenant(p.orgId, async session => {
+        await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
+          VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
+        [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
+        await session.query(`INSERT INTO whiteboard_file_assets(org_id,board_id,asset_id,object_key,metadata)
+          VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
+        [p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]);
+      });
+    } catch (error) {
+      // Translate outside the transaction callback: the denied INSERT must rollback
+      // its earlier asset-ref write, including a freeze racing the access checks.
+      if (isFileOrgFreezeDenial(error)) throw new WhiteboardFileError('FORBIDDEN');
+      throw error;
+    }
   }
   async get(p: Principal, boardId: string, assetId: string): Promise<BoardFileRecord | null> {
     const board = await this.boards.get(p, boardId);
