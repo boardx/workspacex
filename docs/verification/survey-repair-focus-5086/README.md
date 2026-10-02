@@ -15,3 +15,5 @@ Independent review rejected an earlier LEADING_QUESTION browser case because tha
 Validation: meaningful red regression failed before the fix (image_single selected instead of image_multi); after fix 92 UI tests passed across responsive designer and question types, affected ESLint passed, init quick passed, fresh production build passed. Browser evidence is the four adjacent screenshots. Full all-buttons acceptance and PR CI remain separate requirements; this evidence does not certify them complete.
 
 Local logs: `/private/tmp/pr5017-remaining/fix5086-red.log`, `fix5086-green.log`, `fix5086-lint.log`, `fix5086-runtime-status.md`. Database/Minio were preserved during rebuild.
+
+Evidence capture correction: the initial helper retained the old tab binding; the reviewer rejected those mismatched files. All four screenshots and accompanying DOM snapshots were captured directly from the actual regression tab 13 and replaced. Separate image hashes confirm the stages are distinct.
