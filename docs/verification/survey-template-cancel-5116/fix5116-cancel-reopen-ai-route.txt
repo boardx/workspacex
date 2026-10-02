@@ -1,0 +1,69 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-7n-c31495b5-0d6c23f263b1":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-7n-c31495b5-0d6c23f263b1
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - heading "导入内容" [level=1]
+    - paragraph: CURRENT 模板取消后AI复测5116 · AI 先生成 Markdown 提案，校对后才创建问卷。
+    - button "← 返回列表"
+    - navigation "问卷创建步骤":
+      - generic: 1 导入内容
+      - generic: 2 设计问卷
+      - generic: 3 发布与回收
+      - generic: 4 查看答卷
+    - region "AI 问卷生成":
+      - heading "AI 智能生成问卷" [level=2]
+      - paragraph: 描述目标与受众，AI 先生成 Markdown 提案，校对后再应用。不会自动发布。
+      - textbox "问卷需求":
+        - /placeholder: 研究目的、目标受众、关注内容、题型偏好…
+      - text: 上传文件
+      - button "上传问卷文件"
+      - paragraph: 支持 Markdown、TXT、PDF、Word（DOCX），最多 256 KB。
+      - button "选择已保存录音"
+      - link "开始录音":
+        - /url: /rec
+      - paragraph: 仅使用自己的已停止录音逐字稿；录音在现有录音页面完成，返回后选择。
+      - button "生成问卷" [disabled]

@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CreateSurveyDialog } from "@/components/survey/live/create-survey-dialog";
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 
 const request = vi.hoisted(() => vi.fn());
@@ -127,5 +128,57 @@ describe("LiveSurveyLibrary", () => {
     fireEvent.click(screen.getByRole("button", { name: /更多标签/ }));
     fireEvent.click(screen.getByRole("button", { name: /^标签8/ }));
     expect(screen.getByRole("link", { name: "客户满意度" })).toBeInTheDocument();
+  });
+});
+
+
+describe("template load cancellation", () => {
+  it("allows AI creation after closing and reopening during a pending template load", () => {
+    request.mockReturnValue(new Promise(() => undefined));
+    const onCreated = vi.fn();
+    const props = { onOpenChange: vi.fn(), onCreated };
+    const view = render(<CreateSurveyDialog open {...props} />);
+    fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "模板取消前" } });
+    fireEvent.click(screen.getByRole("radio", { name: /从模板创建/ }));
+    expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    view.rerender(<CreateSurveyDialog open={false} {...props} />);
+    view.rerender(<CreateSurveyDialog open {...props} />);
+    fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "重新AI创建" } });
+    fireEvent.click(screen.getByRole("radio", { name: /AI 导入创建/ }));
+    expect(screen.getByRole("button", { name: "下一步" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(onCreated).toHaveBeenCalledWith(null, "ai", { name: "重新AI创建", tags: [] });
+    expect(request.mock.calls.every(([path]) => path === "/surveys/templates?kind=question")).toBe(true);
+  });
+
+  it.each([/空白创建/, /AI 导入创建/])("unlocks creation when leaving a pending template load for %s", (mode) => {
+    request.mockReturnValueOnce(new Promise(() => undefined));
+    render(<CreateSurveyDialog open onOpenChange={vi.fn()} onCreated={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "切换模式" } });
+    fireEvent.click(screen.getByRole("radio", { name: /从模板创建/ }));
+    expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("radio", { name: mode }));
+    expect(screen.getByRole("button", { name: "下一步" })).toBeEnabled();
+  });
+
+  it("keeps a newer template request locked when the cancelled old request completes", async () => {
+    let finishOld!: (value: unknown) => void;
+    let finishNew!: (value: unknown) => void;
+    request.mockReturnValueOnce(new Promise(resolve => { finishOld = resolve; }))
+      .mockReturnValueOnce(new Promise(resolve => { finishNew = resolve; }));
+    render(<CreateSurveyDialog open onOpenChange={vi.fn()} onCreated={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "当前模板加载" } });
+    fireEvent.click(screen.getByRole("radio", { name: /从模板创建/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /AI 导入创建/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /从模板创建/ }));
+    await act(async () => { finishOld([]); });
+    expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "选择问卷模板" })).toBeDisabled();
+    await act(async () => { finishNew([]); });
+    expect(screen.getByRole("button", { name: "下一步" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "选择问卷模板" })).toBeEnabled();
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });
