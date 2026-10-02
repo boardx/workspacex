@@ -46,7 +46,7 @@ it('previews real colors, shapes and typography with submenu cues', () => {
     expect(screen.getByTestId('board-add-sticky').querySelector('[data-sticky-variant="circle"]')).toBeInTheDocument();
     expect(screen.getByTestId('board-sticky-square').querySelector('[data-sticky-variant="square"]')).toHaveStyle({ backgroundColor: '#C6DDFF' });
     fireEvent.click(screen.getByTestId('board-add-text'));
-    expect(parseFloat(screen.getByTestId('board-text-title').style.fontSize)).toBeGreaterThan(parseFloat(screen.getByTestId('board-text-body').style.fontSize));
+    expect(parseFloat(screen.getByTestId('board-text-title').querySelector('span')!.style.fontSize)).toBeGreaterThan(parseFloat(screen.getByTestId('board-text-body').querySelector('span')!.style.fontSize));
     fireEvent.click(screen.getByTestId('board-add-shape'));
     expect(screen.getByTestId('board-shape-circle').querySelector('svg circle')).toBeInTheDocument();
     expect(readObjects(doc)).toHaveLength(0);

@@ -137,7 +137,7 @@ it("guards shortcuts inside inputs and creates from N/T only when canvas context
   expect(readObjects(doc)).toHaveLength(0);
   fireEvent.keyDown(title,{key:"Escape"});
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
-  expect(readObjects(doc)).toHaveLength(0);
+  expect(readObjects(doc)).toHaveLength(1);
   fireEvent.click(screen.getByTestId("mock-canvas-click"));
   expect(readObjects(doc)).toHaveLength(1);
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "t" });

@@ -19,8 +19,9 @@ it("maps authoring shortcuts to canonical object creation and tool state without
   const doc = createWhiteboardDocument();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.keyDown(window, { key: "n" });
-  expect(readObjects(doc)).toHaveLength(0);
+  expect(readObjects(doc)).toHaveLength(1);
   fireEvent.click(screen.getByTestId("canvas-click"));
+  expect(readObjects(doc)).toHaveLength(1);
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.keyDown(window, { key: "t" });
   fireEvent.click(screen.getByTestId("canvas-click"));

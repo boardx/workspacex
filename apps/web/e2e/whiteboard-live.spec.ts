@@ -73,8 +73,12 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       }
     });
     await test.step('merge concurrent geometry and text fields from the same synced base in both browser contexts',async()=>{
-      await owner.keyboard.press('n');await owner.getByTestId('board-fabric-surface').click({position:{x:320,y:240}});
-      await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
+      // N creates immediately at the viewport center and focuses the real inline editor.
+      // A second blank-canvas click would dismiss that editor rather than place a note.
+      await owner.keyboard.press('n');
+      const createdEditor=owner.getByLabel('对象文字',{exact:true});
+      await expect(createdEditor).toBeFocused();
+      await createdEditor.fill('团队中文协作便签');await synced(owner);
       const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
       const objectId=(await editorNote.getAttribute('data-testid'))?.replace('board-a11y-object-','');expect(objectId).toBeTruthy();
       const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({tokenValue,currentBoardId,requestId,commandsValue})=>{
