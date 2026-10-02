@@ -38,6 +38,9 @@ export function worldStrokeToDrawingSpace(
   const scaleY = source.height / Math.max(1, geometry.height);
   return {
     ...stroke,
+    // A scalar width cannot undo anisotropic scaling. Bound its widest scene
+    // axis by the captured width; uniform scaling remains exact at any rotation.
+    width: stroke.width * Math.min(scaleX, scaleY),
     points: stroke.points.map((point) => {
       const dx = point.x - geometry.x, dy = point.y - geometry.y;
       const localX = dx * cosine + dy * sine;

@@ -4,8 +4,9 @@ import { boardWheelDelta, finishCancelledFabricTouch, panFabricViewport, readFab
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
-import { ActiveSelection, Canvas, Circle, FabricImage, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
-import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, rotatedAnchorPoint, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, type SnapResult } from "@repo/whiteboard-core";
+import { ActiveSelection, Canvas, Circle, FabricImage, FixedLayout, Group, Line, Path, Point, Rect, Textbox, Triangle, cache, util, type FabricObject, type TPointerEventInfo } from "fabric";
+import { fabricStickyTextMeasure, layoutStickyText, stickyMinimumFontSize, watchStickyFontLayouts } from "./sticky-text-layout";
+import { calculateRotationSnap, calculateSnapGuides, drawingEraserLayers, rotatedAnchorPoint, localPointFromScene, resolveConnectorPath, sampleConnectorPath, connectorLabelPlacement, connectorPathToSvg, type SnapResult } from "@repo/whiteboard-core";
 import { WHITEBOARD_CONNECTOR_LIMITS } from "@repo/contracts/whiteboard-document";
 
 import { BoardA11yMirror } from "./board-a11y-mirror";
@@ -23,6 +24,9 @@ import { BOARD_FABRIC_VISUAL, boardDotGridStyle } from "./board-fabric-visual";
 import { connectorInteraction } from "./connector-interaction";
 import { representableWorldGeometry } from "./fabric-transform";
 import { drawingToolStyle, type BoardDrawingToolStyle } from "../drawing-tool-style";
+import { drawingStrokePath } from "./drawing-stroke-path";
+import { preserveDrawingInkCache } from "./drawing-cache-bounds";
+import { drawingEraserTargets } from "./drawing-hit-test";
 import { drawingPointBounds } from "../drawing-coordinate-space";
 
 type TaggedFabricObject = FabricObject & {
@@ -68,7 +72,7 @@ export interface BoardFabricSurfaceProps {
   drawingAppearance?: BoardDrawingToolStyle;
   /** Keeps the selected object chrome visible while the DOM editor owns its glyphs. */
   editingObjectId?: string | null;
-  onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; appearance: BoardDrawingToolStyle; points: Array<{ x: number; y: number; pressure: number }> }) => void;
+  onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; appearance: BoardDrawingToolStyle; points: Array<{ x: number; y: number; pressure: number }>; targetObjectIds?: readonly string[] }) => void;
   onPanelHoverChange?: (panelId: string | null) => void;
   onObjectReparent?: (objectId: string, panelId: string | null) => void;
   onObjectHoverChange?: (objectId: string | null) => void;
@@ -90,7 +94,56 @@ function textOptionsFor(object: BoardFabricObject, defaults: { fontSize: number;
   };
 }
 
+function applyRotationControl(projected: FabricObject): void {
+  const rotation = projected.controls?.mtr;
+  if (rotation && typeof rotation === "object") {
+    if (Object.entries(BOARD_FABRIC_VISUAL.rotationControl).every(([key, value]) => Reflect.get(rotation, key) === value)) return;
+    projected.controls = { ...projected.controls, mtr: Object.assign(Object.create(Object.getPrototypeOf(rotation)), rotation, BOARD_FABRIC_VISUAL.rotationControl) };
+  }
+}
+
+function applyActiveSelectionChrome(selection: ActiveSelection): void {
+  selection.set(BOARD_FABRIC_VISUAL.selection);
+  applyRotationControl(selection);
+  selection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
+}
+
+export function snapFabricRotation(
+  target: FabricObject,
+  targets: Parameters<typeof calculateRotationSnap>[1],
+  pivotOrigin?: Pick<FabricObject, "originX" | "originY">,
+): void {
+  const origin = pivotOrigin ?? (target.centeredRotation
+    ? { originX: "center" as const, originY: "center" as const }
+    : { originX: target.originX, originY: target.originY });
+  const pivot = target.getPositionByOrigin(origin.originX, origin.originY);
+  const bounds = target.getBoundingRect();
+  const rotation = calculateRotationSnap({ x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height, rotation: target.angle }, targets, 4);
+  target.set({ angle: rotation.geometry.rotation });
+  target.setPositionByOrigin(pivot, origin.originX, origin.originY);
+  target.setCoords();
+}
+
+function stickyTextOptions(object: BoardFabricObject, options: ReturnType<typeof textOptionsFor>, label: Textbox) {
+  const layout = layoutStickyText({ text: object.content.text, width: object.geometry.width, height: object.geometry.height,
+    variant: object.sticky?.variant ?? "square", padding: BOARD_FABRIC_VISUAL.sticky.padding,
+    fontSize: options.fontSize, minimumFontSize: stickyMinimumFontSize(), verticalAlignment: object.style.verticalAlignment }, fabricStickyTextMeasure(options, label));
+  const clipPath = label.clipPath instanceof Rect ? label.clipPath : new Rect();
+  clipPath.set({ width: layout.width, height: layout.height, left: 0, top: -layout.top, originX: "center", originY: "center" });
+  return { width: layout.width, fontSize: layout.fontSize, top: layout.top,
+    clipPath,
+    data: { stickyTextOverflow: layout.overflow } };
+}
+
+function applyFixedContainerLayout(projected: Group, width: number, height: number): void {
+  if (projected.layoutManager && !(projected.layoutManager.strategy instanceof FixedLayout)) {
+    projected.layoutManager.strategy = new FixedLayout();
+    projected.layoutManager.performLayout({ type: "imperative", target: projected, overrides: { size: new Point(width, height), center: projected.getRelativeCenterPoint() } });
+  }
+}
+
 function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObject): void {
+  applyRotationControl(projected);
   const sticky = object.kind === "sticky" ? object.sticky : undefined;
   const autoSize = sticky?.sizingMode === "auto-size";
   const autoHeight = sticky?.sizingMode === "auto-height";
@@ -194,16 +247,23 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   } else if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
     const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
     const intrinsic = drawingPointBounds(object.boardContent.strokes.flatMap((stroke) => stroke.points));
-    projected = new Group(object.boardContent.strokes.flatMap((stroke) => stroke.points.slice(1).map((point, index) => {
-      const previous = stroke.points[index]!;
-      const path = `M ${previous.x - intrinsic.x} ${previous.y - intrinsic.y} L ${point.x - intrinsic.x} ${point.y - intrinsic.y}`;
-      const pressure = Math.max(.1, (previous.pressure + point.pressure) / 2);
-      return new Path(path, { fill: "", stroke: stroke.color, strokeWidth: stroke.width * (.35 + pressure * .65), opacity: stroke.opacity, strokeLineCap: "round", strokeLineJoin: "round", globalCompositeOperation: stroke.tool === "eraser" && eraserTargets.get(stroke.id)?.size ? "destination-out" : "source-over" });
-    })));
+    projected = new Group(object.boardContent.strokes.flatMap((stroke) => {
+      const path = drawingStrokePath(stroke.points, stroke.width, intrinsic);
+      return path ? [new Path(path, { fill: stroke.color, stroke: undefined, strokeWidth: 0, fillRule: "nonzero", opacity: stroke.opacity, globalCompositeOperation: stroke.tool === "eraser" && eraserTargets.get(stroke.id)?.size ? "destination-out" : "source-over" })] : [];
+    }), { objectCaching: true });
     // Fabric includes stroke thickness in a Group's natural bounds. Pin the
     // transform frame to vector coordinates so adding a thicker or extending
     // stroke cannot rescale and shift historical centrelines.
     projected.set({ width: intrinsic.width, height: intrinsic.height });
+    applyFixedContainerLayout(projected as Group, intrinsic.width, intrinsic.height);
+    for (const child of (projected as Group).getObjects()) {
+      if (child instanceof Path && child.pathOffset) {
+        // Ink thickness must never choose the centre of the vector frame.
+        child.set({ left: child.pathOffset.x - intrinsic.width / 2, top: child.pathOffset.y - intrinsic.height / 2, originX: "center", originY: "center" });
+        child.setCoords();
+      }
+    }
+    preserveDrawingInkCache(projected as Group);
   } else if (object.kind === "image" && object.boardContent?.type === "image") {
     if (object.boardContent.status === "ready" && object.imageAssetUrl) {
       const image = new Image();
@@ -269,16 +329,24 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
   } else if (object.kind === "group") {
     projected = new Rect({ width: object.geometry.width, height: object.geometry.height, fill: "transparent", stroke: "#6366F1", strokeWidth: 1, strokeDashArray: [5, 5] });
   } else if (object.kind === "sticky" && object.sticky?.variant === "circle") {
+    const label = new Textbox(object.content.text, textOptions);
+    label.set(stickyTextOptions(object, richText, label));
     projected = new Group([
       new Circle({ radius: Math.min(object.geometry.width, object.geometry.height) / 2, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, { ...textOptions, width: Math.max(24, Math.min(object.geometry.width, object.geometry.height) - BOARD_FABRIC_VISUAL.sticky.padding * 2) }),
+      label,
     ]);
   } else {
+    const label = new Textbox(object.content.text, textOptions);
+    if (object.kind === "sticky") label.set(stickyTextOptions(object, richText, label));
     const cornerRadius = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.radius : 12;
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, textOptions),
+      label,
     ]);
+  }
+  if (object.kind === "sticky" && projected instanceof Group) {
+    applyFixedContainerLayout(projected, object.geometry.width, object.geometry.height);
+    projected.set({ width: object.geometry.width, height: object.geometry.height });
   }
   projected.set({
     ...BOARD_FABRIC_VISUAL.selection,
@@ -381,10 +449,12 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
       label.set({ width: Math.max(24, object.geometry.width - inset), splitByGrapheme: true, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, angle: 0, flipX: false, flipY: false, left: 0, originX: "center", originY: "center" });
       const top = object.style.verticalAlignment === "top" ? -object.geometry.height / 2 + 16 + label.height / 2
         : object.style.verticalAlignment === "bottom" ? object.geometry.height / 2 - 16 - label.height / 2 : 0;
-      label.set({ top });
+      if (object.kind === "sticky" && label instanceof Textbox) label.set(stickyTextOptions(object, richText, label));
+      else label.set({ top });
       label.setCoords();
     }
     // Keep text overflow from changing the container's selection/transform box.
+    if (object.kind === "sticky") applyFixedContainerLayout(projected, object.geometry.width, object.geometry.height);
     projected.set({ width: object.geometry.width, height: object.geometry.height });
   }
   const naturalWidth = projected.width || object.geometry.width;
@@ -461,6 +531,15 @@ export function geometryFromFabric(projected: TaggedFabricObject, canonical?: Bo
     rotation: canonicalTransformNumber(projected.angle ?? 0),
   };
   if (canonical?.kind === "sticky") {
+    // Translating or rotating a legacy/imported Sticky is not a resize command.
+    // Its stored variant must not silently change the currently rendered frame.
+    const dimensionsUnchanged = Math.abs(geometry.width - canonical.geometry.width) <= .000001
+      && Math.abs(geometry.height - canonical.geometry.height) <= .000001;
+    if (dimensionsUnchanged) {
+      geometry.width = canonical.geometry.width;
+      geometry.height = canonical.geometry.height;
+      return geometry;
+    }
     if (canonical.sticky?.sizingMode === "auto-size") {
       geometry.width = canonical.geometry.width;
       geometry.height = canonical.geometry.height;
@@ -491,7 +570,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   return { x: canonicalTransformNumber(x), y: canonicalTransformNumber(y), width: canonicalTransformNumber(width), height: canonicalTransformNumber(height), rotation: canonicalTransformNumber(rotation) };
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onTransformPreview, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -508,11 +587,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
-  const clearTransformPreviewRef = React.useRef<() => void>(() => undefined);
   const cancelDrawingRef = React.useRef<() => void>(() => undefined);
-  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onTransformPreview, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
+  const cancelTransformRef = React.useRef<() => void>(() => undefined);
+  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
   const stateRef = React.useRef({ readOnly, tool, viewport, drawingAppearance });
-  callbacksRef.current = { onSelectionChange, onObjectTransform, onTransformPreview, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
+  callbacksRef.current = { onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
+  const clearTransformPreviewRef = React.useRef<() => void>(() => undefined);
   stateRef.current = { readOnly, tool, viewport, drawingAppearance };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
@@ -530,12 +610,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const registry = registryRef.current;
     const rendered = renderedRef.current;
     let disposed = false;
-    const canvas = new Canvas(element, { ...BOARD_FABRIC_VISUAL.marquee, selection: !stateRef.current.readOnly, preserveObjectStacking: true, uniformScaling: true });
+    const canvas = new Canvas(element, { ...BOARD_FABRIC_VISUAL.marquee, selection: !stateRef.current.readOnly, preserveObjectStacking: true, uniformScaling: true, fireMiddleClick: true, fireRightClick: true, stopContextMenu: true });
     canvasRef.current = canvas;
     const resize = () => {
-      const width = host.clientWidth || 1200, height = host.clientHeight || 720;
-      canvas.setDimensions({ width, height });
-      setSurfaceSize(current => current.width === width && current.height === height ? current : { width, height });
+      const dimensions = { width: host.clientWidth || 1200, height: host.clientHeight || 720 };
+      canvas.setDimensions(dimensions);
+      setSurfaceSize(previous => previous.width === dimensions.width && previous.height === dimensions.height ? previous : dimensions);
       canvas.requestRenderAll();
     };
     resize();
@@ -545,6 +625,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const selectionChanged = () => {
       if (reconcilingSelectionRef.current) return;
       const active = canvas.getActiveObject() as TaggedFabricObject | undefined;
+      if (active instanceof ActiveSelection) applyActiveSelectionChrome(active);
       const id = active?.data?.boardObjectId;
       if (id) { callbacksRef.current.onSelectionChange([id], "canvas"); return; }
       const nested = active && "getObjects" in active && typeof active.getObjects === "function" ? active.getObjects() as TaggedFabricObject[] : [];
@@ -567,7 +648,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
       return undefined;
     };
-    const previewSnap = (event: { target?: FabricObject; e?: Event }, mode: "move" | "scale" | "rotate" = "move") => {
+    const previewSnap = (event: { target?: FabricObject; e?: Event; transform?: Pick<NonNullable<Canvas["_currentTransform"]>, "target" | "originX" | "originY"> }, mode: "move" | "scale" | "rotate" = "move") => {
       const target = event.target as TaggedFabricObject | undefined;
       if ((event.e as MouseEvent | undefined)?.altKey) { setSnapPreview(null); return; }
       const id = target?.data?.boardObjectId;
@@ -575,6 +656,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const nested = target && !id && "getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : [];
       const nestedIds = new Set(nested.flatMap(object => object.data?.boardObjectId ? [object.data.boardObjectId] : []));
       if (!target || (!canonical && nested.length === 0) || canonical?.locked || stateRef.current.readOnly) { setSnapPreview(null); return; }
+      if (mode === "rotate") {
+        const targets = [...canonicalRef.current.values()].filter(candidate => candidate.id !== id && !nestedIds.has(candidate.id));
+        const transform = event.transform ?? canvas._currentTransform;
+        snapFabricRotation(target, targets, transform?.target === target ? { originX: transform.originX, originY: transform.originY } : undefined);
+        setSnapPreview(null);
+        canvas.requestRenderAll();
+        return;
+      }
       if (mode === "scale" && nested.length) {
         const uniformScale = Math.abs(target.scaleX - 1) >= Math.abs(target.scaleY - 1) ? target.scaleX : target.scaleY;
         target.set({ scaleX: uniformScale, scaleY: uniformScale });
@@ -602,68 +691,87 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           scaleX: target.scaleX * width / moving.width,
           scaleY: target.scaleY * height / moving.height,
         });
-      } else if (mode === "move") target.set({ left: target.left + result.delta.x, top: target.top + result.delta.y });
-      else {
-        const rotation = calculateRotationSnap({ ...moving, rotation: target.angle ?? moving.rotation }, targets, 4);
-        target.set({ angle: rotation.geometry.rotation, left: target.left + result.delta.x, top: target.top + result.delta.y });
-      }
+      } else target.set({ left: target.left + result.delta.x, top: target.top + result.delta.y });
       target.setCoords();
       setSnapPreview(result.guides.length || result.measurements.length ? result : null);
       canvas.requestRenderAll();
     };
-    let previewIds = new Set<string>();
-    const patchAttachedConnectors = (geometries: Map<string, BoardFabricGeometry>) => {
-      for (const canonical of canonicalRef.current.values()) {
-        const connection = canonical.connector;
-        if (!connection || ![connection.from, connection.to].some(id => id && previewIds.has(id))) continue;
-        const endpoint = (id: string | undefined, anchor: typeof connection.fromAnchor, offset: typeof connection.fromOffset, fallback: { x: number; y: number }) => {
-          const object = id ? canonicalRef.current.get(id) : undefined;
-          return object ? rotatedAnchorPoint({ geometry: geometries.get(id!) ?? object.geometry }, anchor, offset) : fallback;
-        };
-        const start = endpoint(connection.from, connection.fromAnchor, connection.fromOffset, connection.start);
-        const end = endpoint(connection.to, connection.toAnchor, connection.toOffset, connection.end);
-        const old = registry.get(canonical.id);
-        if (!old) continue;
-        const index = canvas.getObjects().indexOf(old);
-        const preview = { ...canonical, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 }, connector: { ...connection, start, end } };
-        const next = createFabricObject(preview);
-        applyCanonicalObject(next, preview, stateRef.current.readOnly);
-        // The held Fabric projection owns these endpoints until release. A
-        // chrome-only React echo has the same canonical input identity; an
-        // actual remote/canonical change still differs and must reproject.
-        next.data = { ...next.data, connectorRenderIdentity: connectorRenderIdentityFor(canonical) };
-        canvas.remove(old); canvas.add(next); canvas.moveObjectTo(next, index); registry.set(canonical.id, next);
+    const previewedConnectors = new Set<string>();
+    const previewedMembers = new Set<TaggedFabricObject>();
+    const cancelledTargets = new WeakSet<FabricObject>();
+    const restoreConnectorPreviews = () => {
+      for (const id of previewedConnectors) {
+        const original = canonicalRef.current.get(id), existing = registryRef.current.get(id);
+        if (!original || !existing) continue;
+        const replacement = createFabricObject(original);
+        applyCanonicalObject(replacement, original, stateRef.current.readOnly);
+        replacement.data = { ...replacement.data, connectorRenderIdentity: connectorRenderIdentityFor(original) };
+        const index = canvas.getObjects().indexOf(existing);
+        canvas.remove(existing); canvas.add(replacement); canvas.moveObjectTo(replacement, index);
+        registryRef.current.set(id, replacement);
       }
+      previewedConnectors.clear();
     };
-    const clearTransformPreview = () => {
-      if (!previewIds.size) return;
-      patchAttachedConnectors(new Map());
-      previewIds = new Set();
-      callbacksRef.current.onTransformPreview?.([]);
-      canvas.requestRenderAll();
-    };
-    clearTransformPreviewRef.current = clearTransformPreview;
-    const previewTransform = (event: { target?: FabricObject }) => {
+    const publishTransformPreview = (event: { target?: FabricObject }) => {
       const target = event.target as TaggedFabricObject | undefined;
-      if (!target || stateRef.current.readOnly) return;
+      if (!target || stateRef.current.readOnly || cancelledTargets.has(target)) return;
       const members = target.data?.boardObjectId ? [target] : ("getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : []);
+      target.setCoords();
       const items = members.flatMap(member => {
         const id = member.data?.boardObjectId, canonical = id ? canonicalRef.current.get(id) : undefined;
-        return id && canonical && !canonical.locked && canonical.kind !== "connector" ? [{ id, geometry: members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical) }] : [];
+        if (!id || !canonical || canonical.locked) return [];
+        previewedMembers.add(member);
+        member.setCoords();
+        return [{ id, geometry: members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical) }];
       });
-      previewIds = new Set(items.map(item => item.id));
-      patchAttachedConnectors(new Map(items.map(item => [item.id, item.geometry])));
+      const geometries = new Map(items.map(item => [item.id, item.geometry]));
+      for (const object of canonicalRef.current.values()) {
+        const edge = object.connector;
+        if (object.kind !== "connector" || !edge || !(edge.from && geometries.has(edge.from) || edge.to && geometries.has(edge.to))) continue;
+        const endpoint = (id: string | undefined, anchor: typeof edge.fromAnchor, point: { x: number; y: number }) => {
+          const original = id ? canonicalRef.current.get(id) : undefined, geometry = id ? geometries.get(id) : undefined;
+          if (!original || !geometry) return point;
+          // Derive the canonical local offset from its already-resolved scene
+          // endpoint. It must rotate with the object, rather than remain a world
+          // delta when the gesture changes rotation.
+          const base = localPointFromScene(original.geometry, rotatedAnchorPoint(original, anchor));
+          const attached = localPointFromScene(original.geometry, point);
+          return rotatedAnchorPoint({ geometry }, anchor, { x: attached.x - base.x, y: attached.y - base.y });
+        };
+        const start = endpoint(edge.from, edge.fromAnchor, edge.start), end = endpoint(edge.to, edge.toAnchor, edge.end);
+        const preview = { ...object, geometry: { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x-start.x)), height: Math.max(1, Math.abs(end.y-start.y)), rotation: 0 }, connector: { ...edge, start, end } };
+        const existing = registryRef.current.get(object.id);
+        if (!existing) continue;
+        const replacement = createFabricObject(preview);
+        applyCanonicalObject(replacement, preview, stateRef.current.readOnly);
+        replacement.data = { ...replacement.data, connectorRenderIdentity: connectorRenderIdentityFor(object) };
+        const index = canvas.getObjects().indexOf(existing);
+        canvas.remove(existing); canvas.add(replacement); canvas.moveObjectTo(replacement, index);
+        registryRef.current.set(object.id, replacement); previewedConnectors.add(object.id);
+      }
       callbacksRef.current.onTransformPreview?.(items);
+      updatePreviewScenes(members);
+      canvas.requestRenderAll();
+    };
+    const updatePreviewScenes = (members: TaggedFabricObject[] = []) => {
       setObjectScenes([...registry].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
       const active = canvas.getActiveObject();
       if (active && members.length > 1) setSelectionScene({ bounds: active.getBoundingRect(), hitPoints: members.map(member => { const box = member.getBoundingRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }) });
+    };
+    const clearTransformPreview = () => {
+      restoreConnectorPreviews();
+      callbacksRef.current.onTransformPreview?.([]);
+      updatePreviewScenes();
       canvas.requestRenderAll();
     };
+    clearTransformPreviewRef.current = clearTransformPreview;
     const transformCompleted = (event: { target?: FabricObject }) => {
       clearTransformPreview();
       setSnapPreview(null);
       const target = event.target as TaggedFabricObject | undefined;
       if (!target) return;
+      if (cancelledTargets.has(target)) return;
+      previewedMembers.clear();
       const capturedDuplicate = duplicateGesture && !duplicateGesture.handled ? duplicateGesture : null;
       const capturedMembers = capturedDuplicate?.ids.flatMap((id) => { const member = registryRef.current.get(id); return member ? [member] : []; });
       const members = capturedMembers?.length ? capturedMembers : target.data?.boardObjectId ? [target] : ("getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : []);
@@ -692,6 +800,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       });
       const restoreCanonicalGeometry = () => {
         if (disposed) return;
+        restoreConnectorPreviews();
         // A delayed result must never mutate a replacement projection. When the
         // object still exists, restore the latest canonical revision so remote
         // updates that arrived while the command was pending are preserved.
@@ -750,11 +859,13 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let penSample: FabricInput | null = null;
     let drawing: { tool: DrawingTool; appearance: BoardDrawingToolStyle; points: Array<{ x: number; y: number; pressure: number }> } | null = null;
     let drawingPreview: TaggedFabricObject[] = [];
-    const exposeDrawingPreviewCount = () => { host.dataset.drawingPreviewSegments = String(drawingPreview.length); };
+    let drawingPreviewSegments = 0;
+    const exposeDrawingPreviewCount = () => { host.dataset.drawingPreviewSegments = String(drawingPreviewSegments); };
     const clearDrawingPreview = () => {
       if (!drawingPreview.length) return;
       for (const segment of drawingPreview) canvas.remove(segment);
       drawingPreview = [];
+      drawingPreviewSegments = 0;
       exposeDrawingPreviewCount();
       canvas.requestRenderAll();
     };
@@ -781,8 +892,28 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     const pressureOf = (input: FabricInput) => input.id === "mouse" && penSample && penSample.x === input.x && penSample.y === input.y ? penSample.pressure : input.pressure;
     const cancelInput = (restorePan = true) => {
-      if (restorePan && panning && panStart) { canvas.setViewportTransform(panStart); canvas.requestRenderAll(); }
+      setSnapPreview(null);
+      if (restorePan && panning && panStart) {
+        canvas.setViewportTransform(panStart);
+        callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: panStart[4], panY: panStart[5] }, "pan");
+        canvas.requestRenderAll();
+      }
       panning = false;
+      const activeTarget = canvas._currentTransform?.target ?? canvas.getActiveObject();
+      if (activeTarget && previewedMembers.size) cancelledTargets.add(activeTarget);
+      withCanonicalProjectionBatch(previewedMembers, () => {
+        for (const member of previewedMembers) {
+          cancelledTargets.add(member);
+          const id = member.data?.boardObjectId;
+          const canonical = id ? canonicalRef.current.get(id) : undefined;
+          if (canonical && registryRef.current.get(id!) === member) applyCanonicalObject(member, canonical, stateRef.current.readOnly);
+        }
+      });
+      previewedMembers.clear();
+      canvas._currentTransform = null;
+      restoreConnectorPreviews();
+      callbacksRef.current.onTransformPreview?.([]);
+      updatePreviewScenes();
       cancelDrawing();
       duplicateGesture = null;
       activeInput = null;
@@ -841,6 +972,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (event.touches.length === 0) {pinch = null;suppressTouch = false;}
     };
     const inputDocument = element.ownerDocument;
+    const inputWindow = inputDocument.defaultView;
+    const cancelOnBlur = () => abortNativeInput(new Event("blur"));
+    const cancelOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") abortNativeInput(event); };
+    cancelTransformRef.current = cancelOnBlur;
+    inputWindow?.addEventListener("blur", cancelOnBlur);
+    inputDocument.addEventListener("keydown", cancelOnEscape, true);
     // Capture auxiliary mouse navigation before Fabric can start a selection or
     // transform. Document listeners finish the drag even outside the canvas.
     let auxiliaryPan: { last: FabricInput; start: typeof canvas.viewportTransform; button: number } | null = null;
@@ -885,8 +1022,17 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     inputDocument.addEventListener("pointercancel", nativeCancel, true);
     const pointerDown = (event: TPointerEventInfo) => {
       if (activeInput || suppressTouch) return;
-      const input = readFabricInput(event.e);
+      const navigationButton = "button" in event.e && (event.e.button === 1 || event.e.button === 2);
+      const input = readFabricInput(event.e, null, navigationButton);
       if (!input) return;
+      const downTarget = event.target;
+      if (downTarget) cancelledTargets.delete(downTarget);
+      if (navigationButton) {
+        event.e.preventDefault();
+        panning = true; panStart = [...canvas.viewportTransform]; last = input; activeInput = input.id;
+        canvas._currentTransform = null;
+        return;
+      }
       const point = canvas.getScenePoint(event.e);
       if (![point.x, point.y].every(Number.isFinite)) return;
       activeInput = input.id;
@@ -904,6 +1050,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
       }
       if (stateRef.current.tool !== "hand") return;
+      canvas._currentTransform = null;
       panning = true;
       panStart = [...canvas.viewportTransform];
       last = input;
@@ -926,17 +1073,17 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (duplicateGesture && !duplicateGesture.handled) { const point = canvas.getScenePoint(event.e); duplicateGesture.current = { x: point.x, y: point.y }; }
       if (drawing) {
         const pointer = canvas.getScenePoint(event.e);
-        const previous = drawing.points.at(-1)!;
         const next = { x: pointer.x, y: pointer.y, pressure: pressureOf(input) };
         drawing.points.push(next);
+        if (drawing.tool === "eraser") return;
         const style = drawing.appearance;
-        const pressure = Math.max(.1, (previous.pressure + next.pressure) / 2);
-        const segment = new Path(`M ${previous.x} ${previous.y} L ${next.x} ${next.y}`, {
-          fill: "", stroke: style.color, strokeWidth: style.width * (.35 + pressure * .65), opacity: style.opacity,
-          strokeLineCap: "round", strokeLineJoin: "round", selectable: false, evented: false,
+        const segment = new Path(drawingStrokePath(drawing.points, style.width), {
+          fill: style.color, stroke: undefined, strokeWidth: 0, opacity: style.opacity, fillRule: "nonzero", selectable: false, evented: false,
         }) as TaggedFabricObject;
         segment.data = { drawingPreview: true };
-        drawingPreview.push(segment);
+        for (const previous of drawingPreview) canvas.remove(previous);
+        drawingPreview = [segment];
+        drawingPreviewSegments = drawing.points.length - 1;
         canvas.add(segment);
         exposeDrawingPreviewCount();
         canvas.requestRenderAll();
@@ -948,12 +1095,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (!transform) { cancelInput(); return; }
       last = input;
       canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
+      callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4]!, panY: transform[5]! }, "pan");
     };
     const pointerUp = (event: TPointerEventInfo) => {
       if (!activeInput || !readFabricInput(event.e, activeInput)) return;
       if (event.e.type === "touchcancel" || event.e.type === "pointercancel") { cancelInput(); return; }
       const scene = canvas.getScenePoint(event.e);
       if (![scene.x, scene.y].every(Number.isFinite)) { cancelInput(); return; }
+      setSnapPreview(null);
       activeInput = null;
       last = null;
       panStart = null;
@@ -982,7 +1131,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (drawing) {
         const completed = drawing; drawing = null;
         clearDrawingPreview();
-        if (completed.points.length > 1) callbacksRef.current.onDrawingComplete?.({ tool: completed.tool, appearance: completed.appearance, points: completed.points });
+        if (completed.points.length > 1) callbacksRef.current.onDrawingComplete?.({ tool: completed.tool, appearance: completed.appearance, points: completed.points, ...(completed.tool === "eraser" ? { targetObjectIds: drawingEraserTargets(canonicalRef.current.values(), completed.points, completed.appearance.width) } : {}) });
         return;
       }
       if (!panning) return;
@@ -1006,15 +1155,15 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
       }
       const transform = canvas.viewportTransform;
-      callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: nextZoom, panX: transform[4], panY: transform[5] }, "wheel");
+      callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: nextZoom, panX: transform[4], panY: transform[5] }, delta.zoom ? "wheel" : "pan");
     };
     canvas.on("selection:created", selectionChanged);
     canvas.on("selection:updated", selectionChanged);
     canvas.on("selection:cleared", selectionChanged);
     canvas.on("object:modified", transformCompleted);
-    canvas.on("object:moving", event => { moving(event); previewSnap(event, "move"); previewTransform(event); });
-    canvas.on("object:scaling", event => { previewSnap(event, "scale"); previewTransform(event); });
-    canvas.on("object:rotating", event => { previewSnap(event, "rotate"); previewTransform(event); });
+    canvas.on("object:moving", event => { moving(event); previewSnap(event, "move"); publishTransformPreview(event); });
+    canvas.on("object:scaling", event => { previewSnap(event, "scale"); publishTransformPreview(event); });
+    canvas.on("object:rotating", event => { previewSnap(event, "rotate"); publishTransformPreview(event); });
     canvas.on("mouse:down", pointerDown);
     canvas.on("mouse:move", pointerMove);
     canvas.on("mouse:up", pointerUp);
@@ -1030,6 +1179,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       inputDocument.defaultView?.removeEventListener("blur", cancelAuxiliaryPan);
       clearTransformPreviewRef.current = () => undefined;
       cancelDrawingRef.current = () => undefined;
+      cancelTransformRef.current = () => undefined;
+      inputWindow?.removeEventListener("blur", cancelOnBlur);
+      inputDocument.removeEventListener("keydown", cancelOnEscape, true);
       for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.removeEventListener(type,nativePinch,true);
       inputDocument.removeEventListener("pointerdown", observePen, true);
       inputDocument.removeEventListener("pointermove", observePen, true);
@@ -1047,13 +1199,48 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   }, []);
 
   React.useEffect(() => {
+    const canvas = canvasRef.current, fonts = document.fonts;
+    if (!canvas || !fonts) return;
+    const refresh = () => {
+      cache.clearFontCache();
+      for (const [id, projected] of registryRef.current) {
+        const canonical = canonicalRef.current.get(id);
+        if (canonical?.kind === "sticky") applyCanonicalObject(projected, canonical, stateRef.current.readOnly);
+      }
+      canvas.requestRenderAll();
+    };
+    return watchStickyFontLayouts(fonts, canvas, refresh);
+  }, []);
+
+  React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const wasReconcilingSelection = reconcilingSelectionRef.current;
     reconcilingSelectionRef.current = true;
     try {
-      withCanonicalProjectionBatch(registryRef.current.values(), () => {
       const incoming = new Map(objects.map((object) => [object.id, object]));
+      const plans = new Map(objects.map((object) => {
+        const current = registryRef.current.get(object.id);
+        const connectorRenderIdentity = connectorRenderIdentityFor(object);
+        const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
+        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
+        const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
+        const revisionChanged = current?.data?.renderedRevision !== object.revision;
+        const richProjectionChanged = Boolean(current && revisionChanged && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
+        const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (revisionChanged || connectorAppearanceChanged));
+        const replace = !current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged));
+        const interactive = !readOnly && stateRef.current.tool === "select" && !object.hidden && object.kind !== "placeholder";
+        const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable !== interactive || current?.evented !== interactive);
+        return [object.id, { connectorRenderIdentity, failedAtThisRevision, replace, patch }] as const;
+      }));
+      // Preview echoes may replace the array without changing selected objects.
+      // Detach only projections being patched, preserving a held group transform.
+      const patchedMembers = [...registryRef.current].flatMap(([id, projected]) => {
+        const plan = plans.get(id);
+        const changed = !plan || plan.replace || plan.patch;
+        return changed ? [projected] : [];
+      });
+      withCanonicalProjectionBatch(patchedMembers, () => {
       for (const [id, projected] of registryRef.current) {
         if (!incoming.has(id)) {
           canvas.remove(projected);
@@ -1070,21 +1257,16 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       for (const object of orderedObjects) {
         const current = registryRef.current.get(object.id);
         // Render identity stays local; canonical and preview revision numbers can collide.
-        const connectorRenderIdentity = connectorRenderIdentityFor(object);
-        const connectorAppearanceChanged = object.kind === "connector" && current?.data?.connectorRenderIdentity !== connectorRenderIdentity;
-        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision && !connectorAppearanceChanged;
+        const { connectorRenderIdentity, failedAtThisRevision, replace, patch } = plans.get(object.id)!;
         let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
-        const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
-        const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
-        const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (current.data?.renderedRevision !== object.revision || connectorAppearanceChanged));
-        if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged))) {
+        if (replace) {
           if (current) canvas.remove(current);
           const entry = createProjectionEntry(object, readOnly);
           rendered = entry.rendered;
           registryRef.current.set(object.id, entry.projected);
           canvas.add(entry.projected);
           stackingOrderDirty = true;
-        } else if (!failedAtThisRevision && (current.data?.renderedRevision !== object.revision || current.selectable === readOnly)) {
+        } else if (patch && current) {
           try {
             applyCanonicalObject(current, object, readOnly);
           } catch {
@@ -1098,6 +1280,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           }
         }
         const projected = registryRef.current.get(object.id);
+        if (projected) {
+          // Canonical refreshes must not reactivate object dragging under navigation or drawing tools.
+          const interactive = !readOnly && stateRef.current.tool === "select" && !rendered.hidden && rendered.kind !== "placeholder";
+          projected.set({ selectable: interactive, evented: interactive });
+        }
         if (projected?.data) projected.data.connectorRenderIdentity = connectorRenderIdentity;
         renderedRef.current.set(object.id, rendered);
         nextRendered.push(rendered);
@@ -1139,6 +1326,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     if (!canvas) return;
     clearTransformPreviewRef.current();
     cancelDrawingRef.current();
+    cancelTransformRef.current();
     canvas.selection = tool === "select" && !readOnly;
     canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
     for (const [id, projected] of registryRef.current) {
@@ -1163,9 +1351,17 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     // Fabric transform boundary previews and moves only the unlocked subset.
     reconcilingSelectionRef.current = true;
     try {
-      if (projected.length > 1 && transformable.length > 1) {
+      const current = canvas.getActiveObject() as TaggedFabricObject | undefined;
+      if (current instanceof ActiveSelection) applyActiveSelectionChrome(current);
+      const currentMembers = current instanceof ActiveSelection ? current.getObjects() as TaggedFabricObject[] : current ? [current] : [];
+      const desired = projected.length > 1 && transformable.length ? transformable : projected.slice(0, 1);
+      const alreadyBound = currentMembers.length === desired.length && currentMembers.every((member, index) => member === desired[index]);
+      // React selection/presence updates must not replace Fabric's in-flight
+      // ActiveSelection: its transform still refers to that precise instance.
+      if (alreadyBound) { /* Keep the gesture-owned projection instance. */ }
+      else if (projected.length > 1 && transformable.length > 1) {
         const activeSelection = new ActiveSelection(transformable, { canvas, ...BOARD_FABRIC_VISUAL.selection });
-        activeSelection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
+        applyActiveSelectionChrome(activeSelection);
         canvas.setActiveObject(activeSelection);
       }
       else if (projected.length > 1 && transformable[0]) canvas.setActiveObject(transformable[0]);
@@ -1195,8 +1391,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     if (!canvas || viewport.fitRequest === 0) return;
     const width = canvas.getWidth(), height = canvas.getHeight();
     const applied = appliedFitRef.current;
-    // Selection chrome must not replay a completed Fit during a pointer gesture.
-    // A new request or an actual canvas resize still recomputes the viewport.
+    // Changing selection chrome cannot replay a completed Fit gesture. A real
+    // surface resize can still recompute its fit with the existing request.
     if (applied?.request === viewport.fitRequest && applied.width === width && applied.height === height) return;
     const currentViewport = stateRef.current.viewport;
     const fitMode = currentViewport.fitMode ?? "board";

@@ -177,9 +177,9 @@ test("fabric surface viewport", async ({ page, request: api }) => {
         throw new Error("No exposed Fabric canvas point for wheel zoom");
       });
       await page.mouse.move(point.x, point.y);
-      await page.keyboard.down("ControlOrMeta");
-      await page.mouse.wheel(0, deltaY);
-      await page.keyboard.up("ControlOrMeta");
+      await page.keyboard.down('Control');
+      try { await page.mouse.wheel(0, deltaY); }
+      finally { await page.keyboard.up('Control'); }
       await page.waitForTimeout(75);
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     }

@@ -19,13 +19,15 @@ import {PgBoardImageAssets} from '../../src/infrastructure/whiteboard/pg-image-a
 import {toOrgId} from '../../src/domain/org-id';
 const roots:string[]=[];afterEach(async()=>{await Promise.all(roots.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
 const base=(id:string):WhiteboardObject=>({id,schemaVersion:1,kind:'sticky',text:'中文 + English',style:{fill:'#FFF4A3'},parentId:null,orderKey:id,geometry:{x:10,y:20,width:180,height:120,rotation:17}});
-async function fixture(templateOnly=false,includeShape=false){
+async function fixture(templateOnly=false,includeShape=false,includeFile:boolean|"template"=false){
  const root=await mkdtemp(join(tmpdir(),'portable-board-'));roots.push(root);const objects=new FsObjectStore(root),verifier=new SharpBoardImageVerifier(),source=randomUUID(),target=randomUUID();
  const p={orgId:toOrgId('source-tenant'),userId:'owner'},targetP={orgId:toOrgId('target-tenant'),userId:'target-owner'};
  const png=await sharp({create:{width:64,height:48,channels:4,background:'#ff3300'}}).png().toBuffer(),asset=await verifier.verify(png,'image/png');
  const image:WhiteboardObject={...base('image'),kind:'image',text:'',extensionData:{contentObject:{version:1,type:'image',status:'ready',...asset.metadata,sourceUrl:null,crop:{x:.1,y:.2,width:.7,height:.6},opacity:.8,borderColor:'#112233',borderWidth:2,cornerRadius:6,fileName:'real.png',replacementOf:null,failureCode:null}}};
  const sourceDoc=createWhiteboardDocument();executeCommands(sourceDoc,[{type:'create',object:{...base('frame'),kind:'frame'}},{type:'create',object:{...base('note'),parentId:'frame',locked:true}},{type:'create',object:image},{type:'create',object:{...base('edge'),kind:'connector',connector:{from:'note',to:'image',type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'connect'}}}],{});
  if(includeShape)executeCommands(sourceDoc,[{type:'create',object:{...base('diamond'),kind:'rectangle',extensionData:{contentObject:{version:1,type:'shape',variant:'diamond',fill:'#ffffff',borderColor:'#000000',borderWidth:1,borderStyle:'solid',opacity:1,radius:0,textColor:'#000000',horizontalAlign:'center',verticalAlign:'middle'}}}}],{});
+ if(includeFile)executeCommands(sourceDoc,[{type:'create',object:{...base('file'),kind:'extension',text:'notes.txt',extensionData:{contentObject:{version:1,type:'tile',tileType:'file',title:'notes.txt',description:'',icon:null,coverAssetId:null,fields:[{key:'assetId',label:'',value:`board-file-${'a'.repeat(64)}`}],tags:[],link:null,status:'ready',actions:['download']}}}}],{});
+ if(includeFile==="template"){const child=readObjects(sourceDoc).find(object=>object.id==="file")!;executeCommands(sourceDoc,[{type:"delete",id:child.id},{type:"create",object:{...base("file-template"),kind:"extension",text:"File template",extensionData:{contentObject:{version:1,type:"template",templateId:"file-fixture",name:"File template",versionId:"v1",parameters:{},objects:[{localId:"file",geometry:child.geometry,content:child.extensionData!.contentObject}]}}}}],{}); }
  if(templateOnly){executeCommands(sourceDoc,[{type:'delete',id:'image'},{type:'create',object:{...base('template'),kind:'extension',text:'Reusable image',extensionData:{contentObject:{version:1,type:'template',templateId:'fixture',name:'Reusable image',versionId:'v1',parameters:{},objects:[{localId:'photo',geometry:image.geometry,content:image.extensionData!.contentObject}]}}}}],{});}
  let targetDoc=createWhiteboardDocument(),seq=0,fail=false,allowed=true,revokeAtLock=false;const queries:string[]=[];const receipts=new Map<string,any>(),publishedAssets:any[]=[];
  const sourceKey=`whiteboards/tenants/${portableHash(p.orgId).slice(0,32)}/boards/${source}/assets/${asset.metadata.contentDigest.slice(7)}`;await objects.putOnce(sourceKey,png,'image/png');
@@ -46,6 +48,9 @@ async function fixture(templateOnly=false,includeShape=false){
  return{service,p,targetP,source,target,objects,png,sourceKey,publishedAssets,sourceObjects:readObjects(sourceDoc),getTarget:()=>readObjects(targetDoc),queries,revokeWhileWaitingForBoardLock:()=>{revokeAtLock=true;},failCommit:()=>{fail=true;},deny:()=>{allowed=false;}};
 }
 const upload=(body:unknown)=>{const bytes=Buffer.from(JSON.stringify(body));return{sizeBytes:bytes.length,sha256:portableHash(bytes),contentBase64:bytes.toString('base64')};};
+it.each([true, 'template'] as const)('refuses file references %s before exporting an unreadable portable bundle',async mode=>{
+ const f=await fixture(false,false,mode);await expect(f.service.export(f.p,f.source)).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});expect(f.publishedAssets).toHaveLength(0);
+});
 it('round-trips canonical geometry, hierarchy, connector and real image bytes across tenants',async()=>{
  const f=await fixture(),exported=await f.service.export(f.p,f.source),bundle=JSON.parse(Buffer.from(exported.contentBase64,'base64').toString()),requestId=randomUUID();
  expect(JSON.stringify(bundle)).not.toContain('whiteboards/tenants/');expect(bundle.media[0].path).toBe(`images/${portableHash(f.png)}`);
