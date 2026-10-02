@@ -38,6 +38,11 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  if(!proxyUrl||!controlSecret||controlSecret.length<32)throw new Error('Explicit private scoped transport fixture required');
  const proxyOrigin=new URL(proxyUrl);
  if(proxyOrigin.hostname!=='127.0.0.1'||proxyOrigin.protocol!=='http:'||proxyOrigin.pathname!=='/'||proxyOrigin.search||proxyOrigin.hash||proxyOrigin.username||proxyOrigin.password)throw new Error('Invalid isolated proxy origin');
+ const actualProxyBindings:boolean[]=[];
+ for(const page of [origin,peer])page.on('websocket',socket=>{
+  const url=new URL(socket.url());if(url.pathname!==`/v1/whiteboards/${boardId}/sync`)return;
+  actualProxyBindings.push(url.protocol==='ws:'&&url.hostname===proxyOrigin.hostname&&url.port===proxyOrigin.port&&!url.search&&!url.hash&&!url.username&&!url.password);
+ });
  const proxyControl=async(command:string)=>{
   const response=await api.post(`${proxyOrigin.origin}/__board_fault/${command}`,{headers:{'x-board-fault-control':controlSecret}});
   expect(response.status()).toBe(200);
@@ -83,6 +88,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
    await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(1);
   }
   expect(peer.context()).toBe(context);expect((await peer.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))===token).toBe(true);
+  expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);
   const runtimeBefore=await verifyRuntimeIdentity(api,sourceSha,await chunks()),before=await canonicalBoardSnapshot(api,token,boardId);
   runtimeStarted=true;
   await cloudProof('synced','cloud-initial');
@@ -140,7 +146,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   expect(faultAfter.objects).toEqual(faultBefore.objects.map(object=>({...object,text:'Recovered after real 503'})));
   const attempts=faultReceipt.requests.slice(receiptBefore.requests.length).filter(event=>event.event==='upgrade');
   expect(attempts.map(event=>event.status)).toEqual([503,101]);
-  const faultAcks=transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='received'&&event.type==='ack'&&faultIds.includes(event.updateId??''));expect(faultAcks).toHaveLength(1);
+  const faultAcks=transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='received'&&event.type==='ack'&&typeof event.updateId==='string'&&faultIds.includes(event.updateId));expect(faultAcks).toHaveLength(1);
   expect(performance.now()-faultStarted).toBeLessThanOrEqual(45_000);
   await info.attach('peer-real-503-recovered',{body:await peer.screenshot(),contentType:'image/png'});
   observations.push({phase:'real-503-recovery',before:faultBefore.revision,after:faultAfter.revision,receipt:faultReceipt,elapsedMs:performance.now()-faultStarted});
@@ -165,6 +171,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   try{await peer.close();}catch(error){cleanupErrors.push(error);}
   if(ownedProxy)try{await ownedProxy.dispose();}catch(error){cleanupErrors.push(error);}
   if(verifyProxySources)try{await verifyProxySources();}catch(error){cleanupErrors.push(error);}
+  try{expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);}catch(error){cleanupErrors.push(error);}
   if(runtimeStarted)try{observations.push({phase:'post-cleanup-runtime',proof:await verifyRuntimeIdentity(api,sourceSha,await chunks())});}catch(error){cleanupErrors.push(error);}
   try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,status:failure||cleanupErrors.length?'failed':'passed',viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
  }
