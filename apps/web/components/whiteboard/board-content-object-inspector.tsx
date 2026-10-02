@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { CanonicalContentObject, WhiteboardObject } from "@repo/whiteboard-core";
 import type { ReactNode } from "react";
 import { getBoardSessionImageAsset } from "./board-session-image-assets";
+import { boardFileMetadata } from "./board-file-upload";
 
 type Props = {
   object: WhiteboardObject;
@@ -15,13 +16,15 @@ type Props = {
   onEditStructured: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onDownloadFile?: () => void;
   imageDownloadUrl?: string;
   actions?: ReactNode;
 };
 
 /** Type-specific properties stay close to the selected object, with a compact common action footer. */
-export function BoardContentObjectInspector({ object, content, readOnly, onChange, onReplaceImage, onEditText, onEditStructured, onDuplicate, onDelete, imageDownloadUrl, actions }: Props) {
+export function BoardContentObjectInspector({ object, content, readOnly, onChange, onReplaceImage, onEditText, onEditStructured, onDuplicate, onDelete, onDownloadFile, imageDownloadUrl, actions }: Props) {
   const disabled = readOnly || object.locked === true;
+  const file = boardFileMetadata(content);
   return <div className="space-y-3" data-testid="board-widget-content-actions">
     {content.type === "shape" ? <section data-testid="board-shape-properties" className="space-y-3">
       <div><h3 className="text-12 font-semibold">形状</h3><p className="mt-0.5 text-10 text-muted-foreground">填充、边框与透明度</p></div>
@@ -54,7 +57,7 @@ export function BoardContentObjectInspector({ object, content, readOnly, onChang
 
     {content.type === "drawing" ? <section data-testid="board-drawing-properties" className="space-y-4"><div><h3 className="text-13 font-semibold">矢量笔迹</h3><p className="mt-1 text-11 text-muted-foreground">{content.strokes.length} 条笔画 · 保持矢量可编辑</p></div><label className="grid gap-2 text-12">笔迹透明度<span className="flex items-center gap-3"><input aria-label="笔迹透明度" type="range" min="0.1" max="1" step="0.05" disabled={disabled} value={content.strokes.find((stroke) => stroke.tool !== "eraser")?.opacity ?? 1} onChange={(event) => onChange({ ...content, strokes: content.strokes.map((stroke) => stroke.tool === "eraser" ? stroke : { ...stroke, opacity: Number(event.target.value) }) })} className="min-w-0 flex-1" /></span></label></section> : null}
 
-    {content.type === "tile" || content.type === "web-tile" || content.type === "table" || content.type === "icon" || content.type === "template" ? <section data-testid="board-structured-content-properties" className="space-y-3"><h3 className="text-13 font-semibold">结构化内容</h3><p className="text-12 text-muted-foreground">编辑标题、说明和元数据字段</p><Button variant="secondary" disabled={disabled} onClick={onEditStructured}>编辑字段</Button></section> : null}
+    {file ? <section data-testid="board-file-properties" className="space-y-3"><h3 className="truncate text-13 font-semibold">{file.fileName}</h3><p className="break-words text-12 text-muted-foreground">{content.type === 'tile' ? content.description : ''}</p><Button data-testid="board-file-download" variant="secondary" disabled={!onDownloadFile} onClick={onDownloadFile}>下载文件</Button></section> : content.type === "tile" || content.type === "web-tile" || content.type === "table" || content.type === "icon" || content.type === "template" ? <section data-testid="board-structured-content-properties" className="space-y-3"><h3 className="text-13 font-semibold">结构化内容</h3><p className="text-12 text-muted-foreground">编辑标题、说明和元数据字段</p><Button variant="secondary" disabled={disabled} onClick={onEditStructured}>编辑字段</Button></section> : null}
 
     <div className="flex flex-wrap items-center gap-1 border-t border-border/70 pt-2"><Button size="sm" variant="ghost" disabled={disabled} onClick={onEditText}>编辑文字</Button><Button size="sm" variant="ghost" disabled={disabled} onClick={onDuplicate}>复制</Button><Button size="sm" variant="ghost" className="text-destructive" disabled={disabled} onClick={onDelete}>删除</Button>{actions}</div>
   </div>;

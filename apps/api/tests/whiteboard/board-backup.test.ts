@@ -2,7 +2,7 @@ import { describe,it,expect } from 'vitest';
 import * as Y from 'yjs';
 import { randomUUID } from 'node:crypto';
 import { CommentBodyStorage } from '../../src/infrastructure/whiteboard/comment-body-storage';
-import { createWhiteboardDocument,executeCommands,WhiteboardCommentService } from '@repo/whiteboard-core';
+import { createWhiteboardDocument,executeCommands,readObjects,WhiteboardCommentService } from '@repo/whiteboard-core';
 import { BoardBackupService,backupHash,backupTenant,validateBackupManifest,type BoardBackupManifest,type BoardBackupRepository,type BackupRecord } from '../../src/application/whiteboard/board-backup';
 import { ObjectExistsError } from '../../src/application/artifact/ports';
 import { toOrgId } from '../../src/domain/org-id';
@@ -24,6 +24,12 @@ async function withComment(f:ReturnType<typeof fixture>,objectId='note'){
   f.manifest.comments.push({id:thread.id,objectId:thread.objectId,status:thread.status,revision:thread.revision,...stored});return stored;
 }
 describe('Board joint metadata and body backup',()=>{
+  it.each([false,true])('refuses a snapshot with file references nested=%s before publishing a verified archive',async nested=>{
+    const f=fixture(),doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'file',schemaVersion:1,kind:'extension',text:'notes.txt',parentId:null,orderKey:'a',style:{},geometry:{x:0,y:0,width:200,height:120,rotation:0},extensionData:{contentObject:{version:1,type:'tile',tileType:'file',title:'notes.txt',description:'',icon:null,coverAssetId:null,fields:[{key:'assetId',label:'',value:`board-file-${'a'.repeat(64)}`}],tags:[],link:null,status:'ready',actions:['download']}}}}],'test');
+    if (nested) { const child = readObjects(doc)[0]!; executeCommands(doc, [{ type: "delete", id: child.id }, { type: "create", object: { ...child, id: "file-template", text: "File template", extensionData: { contentObject: { version: 1, type: "template", templateId: "fixture", name: "File template", versionId: "v1", parameters: {}, objects: [{ localId: "file", geometry: child.geometry, content: child.extensionData!.contentObject }] } } } }], "test"); }
+    const bytes=Y.encodeStateAsUpdate(doc);doc.destroy();f.manifest.snapshot.hash=backupHash(bytes);f.manifest.snapshot.bytes=bytes.length;f.primary.values.set(f.manifest.snapshot.key,{bytes,mime:'application/vnd.yjs-update'});
+    await expect(f.service.backup(p,board,backup)).rejects.toThrow('UNSUPPORTED_ASSET_REFERENCE');expect(f.secondary.values.size).toBe(0);expect(f.record.status).toBe('failed_pending_cleanup');
+  });
   it('keeps comment text out of the manifest and copies verified body bytes to the restored board',async()=>{const f=fixture();const c=await withComment(f);expect(JSON.stringify(f.manifest)).not.toContain('PRIVATE COMMENT BODY');await f.service.backup(p,board,backup);f.primary.values.clear();await f.service.restore(p,backup,restore);const key=`whiteboards/tenants/${backupTenant(p.orgId)}/boards/${restore}/comment-bodies/${c.blob.hash}.json`;expect(Buffer.from((await f.primary.get(key))!).toString()).toContain('PRIVATE COMMENT BODY');expect(f.published).toBe(1);});
   it('rejects live comments anchored to an absent object before publishing an archive',async()=>{const f=fixture();await withComment(f,'missing');await expect(f.service.backup(p,board,backup)).rejects.toThrow('COMMENT_OBJECT_MISSING');expect(f.secondary.values.size).toBe(0);});
   it('rejects comment body sneaked into bodyless PG metadata',async()=>{const f=fixture();await withComment(f);const raw=structuredClone(f.manifest) as any;raw.comments[0].metadata.comments[0].body='hidden';expect(()=>validateBackupManifest(raw)).toThrow();});

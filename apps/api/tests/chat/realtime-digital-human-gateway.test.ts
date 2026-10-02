@@ -205,6 +205,44 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     ws.close();
   });
 
+  it("upstream close drains a deferred assistant append before notifying the client", async () => {
+    let releaseAppend!: () => void;
+    let appendEntered = false;
+    const appendGate = new Promise<void>((resolve) => { releaseAppend = resolve; });
+    voice.append = async (_session, turn) => {
+      appendEntered = true;
+      await appendGate;
+      voice.appended.push(turn);
+      return "m-deferred";
+    };
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    const up = upstreamSockets[0]!;
+    up.send(JSON.stringify({ type: "response.audio_transcript.delta", delta: "关闭前最后回答" }));
+    up.close();
+    await until(() => appendEntered);
+    releaseAppend();
+    await closed;
+    expect(voice.appended).toEqual([{ role: "assistant", text: "关闭前最后回答" }]);
+    expect(frames.slice(-2)).toEqual([
+      { type: "turn.persisted", role: "assistant", messageId: "m-deferred" },
+      { type: "session.closed" },
+    ]);
+  });
+
+  it("upstream close remains bounded when append never resolves, without a false persisted acknowledgement", async () => {
+    voice.append = async () => new Promise<string>(() => {});
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    upstreamSockets[0]!.send(JSON.stringify({ type: "response.audio_transcript.delta", delta: "无法确认保存" }));
+    upstreamSockets[0]!.close();
+    await closed;
+    expect(frames.at(-1)).toEqual({ type: "session.closed" });
+    expect(frames.some((frame) => frame.type === "turn.persisted")).toBe(false);
+  }, 3_500);
+
   it("hangup mid-sentence (server VAD upstream): commits the open speech, persists the last user turn, THEN closes", async () => {
     // 真实形状的假上游：session.updated → VAD speech_started → 客户端挂断 → 收到 commit 才回转写。
     upstream.on("connection", (socket) => {
@@ -263,6 +301,45 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     await closed;
     expect(voice.appended).toEqual([{ role: "user", text: "收到 640 字节" }]);
     expect(frames.some((f) => f.type === "turn.persisted")).toBe(true);
+  });
+
+  it("commits a short utterance buffered before the upstream handshake completes", async () => {
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    let acceptUpgrade: (() => void) | undefined;
+    upstream = new WebSocketServer({
+      port: 0, host: "127.0.0.1",
+      verifyClient: (_info, accept) => { acceptUpgrade = () => accept(true); },
+    });
+    const events: string[] = [];
+    upstream.on("connection", (socket) => {
+      upstreamSockets.push(socket);
+      let bytes = 0;
+      socket.on("message", (raw) => {
+        const event = JSON.parse(String(raw)) as { type: string; audio?: string };
+        events.push(event.type);
+        if (event.type === "session.update") socket.send(JSON.stringify({ type: "session.updated" }));
+        if (event.type === "input_audio_buffer.append") bytes += Buffer.from(event.audio ?? "", "base64").byteLength;
+        if (event.type === "input_audio_buffer.commit") socket.send(JSON.stringify({
+          type: "conversation.item.input_audio_transcription.completed", transcript: `缓冲语音 ${bytes} 字节`,
+        }));
+      });
+    });
+    config = { ...config, baseUrl: `ws://127.0.0.1:${await listen(upstream)}/realtime` };
+    const { ws, frames, closed } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));
+    await until(() => acceptUpgrade !== undefined);
+    // Pong proves the gateway consumed the preceding binary frame while upstream is CONNECTING.
+    const consumed = new Promise<void>((resolve) => ws.once("pong", () => resolve()));
+    ws.send(Buffer.alloc(640));
+    ws.ping();
+    await consumed;
+    acceptUpgrade!();
+    await until(() => frames.some((frame) => frame.type === "session.ready") && events.includes("input_audio_buffer.append"));
+    ws.send(JSON.stringify({ type: "session.stop" }));
+    await closed;
+    expect(events.filter((event) => event === "input_audio_buffer.commit")).toHaveLength(1);
+    expect(voice.appended).toEqual([{ role: "user", text: "缓冲语音 640 字节" }]);
+    expect(frames.some((frame) => frame.type === "turn.persisted")).toBe(true);
   });
 
   it("hangup with nothing said: no commit, closes promptly, nothing persisted", async () => {
@@ -328,6 +405,55 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     expect(parsed.defaultVoice).toBe("Maia");
     expect(parsed.model).toBe("qwen3.8-omni-flash-realtime");
     expect(parsed.voiceMap).toEqual({ research: "Cherry" });
+  });
+
+  it("pins the POC realtime model despite unrelated deployment model overrides", async () => {
+    config = readRealtimeModelConfig({
+      KERNEL_OMNI_REALTIME_BASE_URL: config.baseUrl,
+      KERNEL_OMNI_REALTIME_API_KEY: config.apiKey,
+      KERNEL_OMNI_REALTIME_MODEL: "wrong-omni-model",
+      KERNEL_MODEL_NAME: "qwen-plus",
+      KERNEL_ASR_MODEL: "qwen3-asr-flash-realtime",
+    });
+    expect(config.model).toBe("qwen3.8-omni-flash-realtime");
+    const { ws, frames } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    expect(upstreamUrls[0]).toBe("/realtime?model=qwen3.8-omni-flash-realtime Bearer sk-test");
+    expect(frames.find((frame) => frame.type === "session.ready")).toEqual({
+      type: "session.ready", model: "qwen3.8-omni-flash-realtime",
+    });
+    ws.close();
+  });
+
+  it("explicit browser loopback keeps a finite PCM stream actionable and cancels its next chunk", async () => {
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    let emittedAudio = 0;
+    let cancelReceived = false;
+    upstream = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    upstream.on("connection", (socket) => {
+      upstreamSockets.push(socket);
+      handleOmniRealtimeConnection(socket as never, {
+        holdAudioMs: 800,
+        clientEvent: (type) => { if (type === "response.cancel") cancelReceived = true; },
+        serverEvent: (type) => { if (type === "response.output_audio.delta") emittedAudio += 1; },
+        audioBytes: () => {},
+      });
+    });
+    config = { ...config, baseUrl: `ws://127.0.0.1:${await listen(upstream)}/omni-realtime` };
+    const { ws, frames } = await connect(port);
+    ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+    await until(() => frames.some((frame) => frame.type === "session.ready"));
+    ws.send(JSON.stringify({ type: "conversation.text", text: "测试真实音频窗口" }));
+    await until(() => frames.some((frame) => frame.type === "assistant.transcript" && String(frame.text).includes("简要建议")));
+    expect(emittedAudio).toBeGreaterThan(0);
+    expect(frames.some((frame) => frame.type === "assistant.audio_done")).toBe(false);
+    ws.send(JSON.stringify({ type: "response.cancel" }));
+    await until(() => cancelReceived);
+    const audioAtCancel = emittedAudio;
+    await new Promise((resolve) => setTimeout(resolve, 250)); // Cross the next real 200 ms streaming tick.
+    expect(emittedAudio).toBe(audioAtCancel);
+    ws.close();
   });
 
   it("loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted", async () => {

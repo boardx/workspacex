@@ -8,7 +8,7 @@ const path=()=>resolveConnectorPath({start:relationship.fromPoint!,end:relations
 const props=()=>({viewport:{panX:7,panY:9,zoom:2,fitRequest:0},path:path(),relationship,color:'#123456',canEdit:true,active:false,onPointerDown:vi.fn(),onPointerMove:vi.fn(),onPointerUp:vi.fn(),onPointerCancel:vi.fn(),onLostPointerCapture:vi.fn()});
 it('projects shared endpoints, route controls and arc label with fixed screen hit dimensions',()=>{
  render(<BoardConnectorHandles {...props()}/>);
- const start=screen.getByTestId('board-connector-handle-from');expect(start).toHaveStyle({left:'27px',top:'49px'});expect(start).toHaveClass('h-11','w-11');
+ const start=screen.getByTestId('board-connector-handle-from');expect(start).toHaveStyle({left:'27px',top:'49px'});expect(start).toHaveClass('h-[45px]','w-[45px]');
  expect(screen.getByTestId('board-connector-handle-curve-start')).toHaveStyle({left:'87px',top:'49px'});
  expect(screen.getByTestId('board-connector-handle-label')).toHaveStyle({left:'27px',top:'107px'});
  expect(screen.getByTestId('board-connector-handle-leader-label')).toHaveAttribute('x1','27');

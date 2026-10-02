@@ -44,8 +44,9 @@ export function boardBackupBlobs(m:BoardBackupManifest):BackupBlob[]{return[m.sn
 function verifyCanonical(bytes:Uint8Array,m:BoardBackupManifest):void{
   const doc=createWhiteboardDocument();try{Y.applyUpdate(doc,bytes);validateDocument(doc);const referenced=new Set<string>();
     for(const object of readObjects(doc)){const content=readContentObject(object);
+      if(content?.type==='tile'&&content.tileType==='file'&&content.fields.some(field=>field.key==='assetId'&&field.value.startsWith('board-file-')))fail('UNSUPPORTED_ASSET_REFERENCE');
       if(content?.type==='tile'&&content.coverAssetId)fail('UNSUPPORTED_ASSET_REFERENCE');
-      if(content?.type==='template'&&content.objects?.some(item=>item.content.type==='image'||(item.content.type==='tile'&&item.content.coverAssetId)))fail('UNSUPPORTED_ASSET_REFERENCE');
+      if(content?.type==='template'&&content.objects?.some(item=>item.content.type==='image'||(item.content.type==='tile'&&(item.content.coverAssetId||item.content.fields.some(field=>field.key==='assetId'&&field.value.startsWith('board-file-'))))))fail('UNSUPPORTED_ASSET_REFERENCE');
       if(object.kind!=='image')continue;
       if(!content||content.type!=='image'||content.status!=='ready'||content.persistence!=='durable'||!content.assetId||content.sourceUrl)fail();
       const image=m.images.find(i=>i.metadata.assetId===content.assetId);if(!image||image.metadata.contentDigest!==content.contentDigest||image.metadata.byteSize!==content.byteSize||image.metadata.mimeType!==content.mimeType||image.metadata.intrinsicWidth!==content.intrinsicWidth||image.metadata.intrinsicHeight!==content.intrinsicHeight)fail();referenced.add(content.assetId);

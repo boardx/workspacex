@@ -1,3 +1,4 @@
+import {signRecoveryPhase,verifyRecoveryPhase,type SoakRecovery,type RecoveryAck} from './support/board-soak-recovery-phase';
 import {createSoakWriterNote} from './support/board-soak-canvas-create';
 import {expect, test, type BrowserContext} from '@playwright/test';
 import {createHash} from 'node:crypto';
@@ -21,11 +22,12 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
   if (!baseURL) throw new Error('SOAK_BASE_URL_REQUIRED');
   const contexts: BrowserContext[] = [], clients: BoardSoakClient[] = [], samples: BoardSoakSample[] = [];
   const projectionEvidence: Array<{clientId: string; at: string; observedAt: string; projectionHash: string; revision: number}> = [];
-  const recoveries: Array<{clientId: string; disconnectedAt: string; reconnectedAt?: string; beforeRevision: number; afterRevision?: number}> = [];
+  const recoveries: SoakRecovery[] = [];
   let actors: SoakIdentity[] = [], boardId: string | undefined, ownerToken: string | undefined;
   let startedAt: string | undefined, finishedAt: string | undefined, elapsedMonotonicMs = 0;
   let completed = false;
   try {
+    process.stdout.write('BOARD_SOAK_PHASE initial-sync\n');
     actors = await seedBoardSoakIdentities();
     expect(new Set(actors.map(actor => actor.userId)).size).toBe(50);
     expect(new Set(actors.map(actor => actor.email)).size).toBe(50);
@@ -67,19 +69,12 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
     const baselineRevision = observer.revision;
     for (const client of clients) client.assertHealthy();
     const runtimeBefore = await verifyRuntimeIdentity(request, sha, await finishChunks!());
+    process.stdout.write('BOARD_SOAK_PHASE measurement\n');
     const startedWall = Date.now(), startedMono = performance.now();
     startedAt = new Date(startedWall).toISOString();
-    let round = 0, nextRecoveryAt = 8 * 60_000;
+    let round = 0;
     while (Date.now() - startedWall < BOARD_SOAK_REQUIREMENTS.durationMs || performance.now() - startedMono < BOARD_SOAK_REQUIREMENTS.durationMs) {
       const roundStart = performance.now();
-      let recovering: BoardSoakClient | undefined;
-      if (roundStart - startedMono >= nextRecoveryAt && recoveries.length < 3) {
-        recovering = clients[20 + recoveries.length]!;
-        recoveries.push({clientId: recovering.actor.userId, disconnectedAt: new Date().toISOString(), beforeRevision: recovering.revision});
-        await recovering.page.context().setOffline(true);
-        await expect.poll(() => recovering!.connected, {timeout: 10_000}).toBe(false);
-        nextRecoveryAt += 8 * 60_000;
-      }
       const priorAcks = writers.map(client => client.acknowledgements.length);
       await Promise.all(writers.map(async (client, index) => {
         await client.page.getByLabel('对象文字', {exact: true}).fill(`Soak writer ${index}: round ${round}`);
@@ -88,12 +83,6 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
       const roundAcks = writers.flatMap((client, index) => client.acknowledgements.slice(priorAcks[index]));
       const lastAck = [...roundAcks].sort((a, b) => b.revision - a.revision)[0]!;
       await expect.poll(() => observer.revision, {timeout: 20_000, intervals: [20, 50, 100]}).toBe(lastAck.revision);
-      if (recovering) {
-        await recovering.page.context().setOffline(false);
-        await expect.poll(() => recovering!.connected && recovering!.revision === lastAck.revision, {timeout: 20_000, intervals: [50, 100]}).toBe(true);
-        Object.assign(recoveries.at(-1)!, {reconnectedAt: new Date().toISOString(), afterRevision: recovering.revision});
-        expect(recovering.revision).toBeGreaterThan(recoveries.at(-1)!.beforeRevision);
-      }
       const firstSendAt = Math.min(...roundAcks.map(ack => Date.parse(ack.sentAt)));
       const expectedHash = canonicalHash(observer.doc), expectedProjection = soakHash(projectedRows(observer.doc));
       await Promise.all(clients.map(async client => {
@@ -117,6 +106,7 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
       round++;
       await delay(Math.max(0, 10_000 - (performance.now() - roundStart)));
     }
+    process.stdout.write('BOARD_SOAK_PHASE verification\n');
     finishedAt = new Date().toISOString(); elapsedMonotonicMs = performance.now() - startedMono;
     expect(elapsedMonotonicMs).toBeGreaterThanOrEqual(BOARD_SOAK_REQUIREMENTS.durationMs);
     const rawAcks: RawAck[] = writers.flatMap(client => client.acknowledgements).filter(ack => ack.revision > baselineRevision).sort((a, b) => Date.parse(a.acknowledgedAt) - Date.parse(b.acknowledgedAt));
@@ -133,14 +123,40 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
     const ledger = signBoardSoakLedger({version: 2, sha, buildSha: runtimeAfter.buildSha, startedAt, finishedAt,
       durationMs: Date.parse(finishedAt) - Date.parse(startedAt), clients: clients.length, writers: writers.length,
       convergenceP95Ms: latencies[Math.ceil(latencies.length * .95) - 1]!, finalStateHash: canonicalHash(observer.doc), samples, acknowledgements}, key);
-    expect(recoveries).toHaveLength(3);
-    expect(verifyBoardSoakLedger(ledger, key), 'Real run must satisfy duration, samples, all writers ACK coverage, state and measured p95').toBe(true);
-    const disconnects = clients.flatMap(client => client.events).filter(event => event.type === 'disconnect' && Date.parse(event.at) >= startedWall && Date.parse(event.at) <= Date.parse(finishedAt!));
-    expect(disconnects).toHaveLength(recoveries.length);
-    for (const event of disconnects) expect(recoveries.some(recovery => recovery.clientId === event.clientId && Date.parse(event.at) >= Date.parse(recovery.disconnectedAt) && Date.parse(event.at) <= Date.parse(recovery.reconnectedAt!))).toBe(true);
+    expect(verifyBoardSoakLedger(ledger, key), 'The unchanged full-presence30-minute measurement must pass before recovery').toBe(true);
+    const measurementDisconnects=clients.flatMap(client=>client.events).filter(event=>event.type==='disconnect'&&Date.parse(event.at)>=startedWall&&Date.parse(event.at)<=Date.parse(finishedAt!));
+    expect(measurementDisconnects).toHaveLength(0);
+    process.stdout.write('BOARD_SOAK_PHASE recovery\n');
+    const recoveryStartedAt=new Date().toISOString();
+    for(let gap=0;gap<5;gap++){
+      const recovering=clients[20+gap]!,beforeRevision=observer.revision,disconnectedAt=new Date().toISOString();
+      await recovering.page.context().setOffline(true);
+      await expect.poll(()=>recovering.connected,{timeout:10000}).toBe(false);
+      const offlineStarted=performance.now(),acknowledgements:RecoveryAck[]=[];
+      let burst=0;
+      while(performance.now()-offlineStarted<30000){
+        const counts=writers.map(client=>client.acknowledgements.length);
+        await Promise.all(writers.map((client,index)=>client.page.getByLabel('对象文字',{exact:true}).fill(`Recovery ${gap} writer ${index} burst ${burst}`)));
+        await expect.poll(()=>writers.every((client,index)=>client.acknowledgements.length>counts[index]!),{timeout:20000}).toBe(true);
+        const acks=writers.flatMap((client,index)=>client.acknowledgements.slice(counts[index])).sort((a,b)=>a.revision-b.revision);
+        await expect.poll(()=>observer.revision,{timeout:20000}).toBe(acks.at(-1)!.revision);
+        for(const ack of acks){const stateHash=observer.serverHashes.get(ack.revision);if(!stateHash)throw new Error('RECOVERY_ACK_WITHOUT_OBSERVER_HASH');acknowledgements.push({operationId:ack.operationId,actorId:ack.actorId,revision:ack.revision,stateHash,sentAt:ack.sentAt,acknowledgedAt:ack.acknowledgedAt});}
+        burst++;await delay(Math.min(10000,Math.max(0,30000-(performance.now()-offlineStarted))));
+      }
+      const offlineMonotonicMs=performance.now()-offlineStarted;
+      await recovering.page.context().setOffline(false);
+      await expect.poll(()=>clients.every(client=>client.connected&&client.revision===observer.revision&&canonicalHash(client.doc)===canonicalHash(observer.doc)),{timeout:20000}).toBe(true);
+      const observerHash=canonicalHash(observer.doc),expectedProjection=soakHash(projectedRows(observer.doc));
+      for(const client of clients){client.assertHealthy();await expect.poll(async()=>soakHash(JSON.parse((await projectionSnapshot(client.page)).serialized)),{timeout:20000}).toBe(expectedProjection);}
+      recoveries.push({clientId:recovering.actor.userId,disconnectedAt,reconnectedAt:new Date().toISOString(),beforeRevision,afterRevision:observer.revision,offlineMonotonicMs,observerHash,peerHashes:clients.map(client=>({clientId:client.actor.userId,revision:client.revision,stateHash:canonicalHash(client.doc)})),acknowledgements});
+    }
+    const recoveryPhase=signRecoveryPhase({version:1,sha,measurementSignature:ledger.signature,startedAt:recoveryStartedAt,finishedAt:new Date().toISOString(),recoveries},key);
+    expect(verifyRecoveryPhase(recoveryPhase,key,sha,ledger.signature,finishedAt!,Math.max(...ledger.acknowledgements.map(ack=>ack.revision)),actors)).toBe(true);
+    const recoveryRuntimeAfter=await verifyRuntimeIdentity(request,sha,await finishChunks!());
+    process.stdout.write('BOARD_SOAK_PHASE verification\n');
     await writeFile(testInfo.outputPath('board-soak-ledger.json'), JSON.stringify(ledger, null, 2));
     await writeFile(testInfo.outputPath('board-soak-runtime.json'), JSON.stringify({runtimeBefore, runtimeAfter, elapsedMonotonicMs, round,
-      identities: actors.map(({userId, role}) => ({userId, role})), projectionEvidence, recoveries,
+      identities: actors.map(({userId, role}) => ({userId, role})), projectionEvidence, recoveries, recoveryPhase, recoveryRuntimeAfter,
       transport: clients.flatMap(client => client.events), acknowledgementTimings: rawAcks}, null, 2));
     await testInfo.attach('board-soak-ledger', {path: testInfo.outputPath('board-soak-ledger.json'), contentType: 'application/json'});
     await testInfo.attach('board-soak-runtime', {path: testInfo.outputPath('board-soak-runtime.json'), contentType: 'application/json'});

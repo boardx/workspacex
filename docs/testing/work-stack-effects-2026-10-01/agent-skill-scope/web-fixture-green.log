@@ -1,0 +1,10 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /workspace/agent-skill-scope-fixes/apps/web
+
+ ✓ tests/ui/agent-detail.test.tsx (8 tests) 479ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:53:00
+   Duration  5.19s (transform 1.83s, setup 201ms, collect 2.88s, tests 479ms, environment 948ms, prepare 82ms)

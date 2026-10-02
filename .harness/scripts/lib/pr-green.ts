@@ -28,8 +28,8 @@
 //
 // 不倒查存量：规则生效前关闭的 issue 一律 not-applicable（同 spec_ref 门对历史 feature
 // 的处理；引入门控当天把所有 PR 打红只会让门被绕过，#848 / #2485 的教训）。
-import { classifyChecks, statusContextToCheck, type RequiredCheck, type CheckPolicy } from "./pr-queue";
-import { queueEvidenceFailure, type QueueMergeEvidence } from "./merge-queue";
+import { classifyChecks, statusContextToCheck, type RequiredCheck, type CheckPolicy } from "./pr-queue.ts";
+import { queueEvidenceFailure, type QueueMergeEvidence } from "./merge-queue.ts";
 
 /** 第 7 条生效时刻 = 规则 PR（#2541）开出的时刻。此前关闭的 issue 不判。 */
 export const PR_GREEN_RULE_EFFECTIVE_FROM = "2026-09-02T17:40:00Z";

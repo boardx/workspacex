@@ -10,6 +10,7 @@ import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import { InlineTagEditor } from "@/components/ui/inline-tag-editor";
 import { aggregateTags, matchesQuery, matchesTags, searchPlaceholder } from "@/lib/tag-utils";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { StateShell } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
@@ -53,7 +54,7 @@ export function ProjectsScreen() {
   const orgId = session.currentOrgId;
 
   const [projects, setProjects] = React.useState<ProjectListItem[] | null>(null);
-  const [listError, setListError] = React.useState<string | null>(null);
+  const [listError, setListError] = React.useState<boolean>(false);
   const [listBusy, setListBusy] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -79,12 +80,12 @@ export function ProjectsScreen() {
   const refresh = React.useCallback(async (org: string) => {
     if (org === "") return;
     setListBusy(true);
-    setListError(null);
+    setListError(false);
     try {
       const out = await listProjects(org);
       setProjects([...out]);
-    } catch (e) {
-      setListError(describeError(e));
+    } catch {
+      setListError(true);
       setProjects(null);
     } finally {
       setListBusy(false);
@@ -185,25 +186,16 @@ export function ProjectsScreen() {
         </div>
       ) : null}
 
-      {listError !== null ? (
-        <div
-          role="alert"
-          data-testid="projects-list-error"
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-13 font-medium text-destructive">项目列表暂时读不出来</p>
-            <p className="mt-0.5 text-12 text-muted-foreground">你的项目没有丢，稍后重试即可。{" "}
-              <span className="font-mono text-11" data-testid="projects-list-error-code">{listError}</span>
-            </p>
-          </div>
-          <Button size="sm" variant="outline" disabled={listBusy} onClick={() => void refresh(orgId)} data-testid="projects-list-error-retry">
-            {listBusy ? "重试中…" : "重试"}
-          </Button>
+      {listError ? (
+        <div data-testid="projects-list-error">
+          <StateShell
+            state="dep-failed"
+            depFailure={{ what: "项目列表暂时读不出来，请稍后重试。", retry: () => void refresh(orgId) }}
+          >{null}</StateShell>
         </div>
       ) : null}
 
-      {projects === null && listError !== null ? null : projects === null ? (
+      {projects === null && listError ? null : projects === null ? (
         <div
           data-testid="projects-list-empty-state"
           className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
@@ -509,12 +501,6 @@ function describeArchiveError(e: unknown): string {
 
 function describeTagsError(e: unknown): string {
   if (e instanceof ApiError) return e.reasonCode ?? `操作失败（HTTP ${e.status}）`;
-  if (e instanceof Error) return e.message;
-  return "未知错误";
-}
-
-function describeError(e: unknown): string {
-  if (e instanceof ApiError) return e.reasonCode ?? `HTTP ${e.status}`;
   if (e instanceof Error) return e.message;
   return "未知错误";
 }

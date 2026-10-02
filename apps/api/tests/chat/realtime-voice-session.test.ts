@@ -23,7 +23,7 @@ function thread(over: Partial<ThreadFacts> = {}): ThreadFacts {
 }
 
 const ROW: AgentDirectoryRow = {
-  agentId: "agent-dh-01", versionId: "v1", name: "研究员小周", roleLabel: "行业研究与竞品分析",
+  agentId: "agent-dh-01", versionId: "v1", instructions: "PUBLISHED-BACKGROUND 产品研发经历与需求分析方法", name: "研究员小周", roleLabel: "行业研究与竞品分析",
   avatar: { kind: "illustration", key: "dh-01-researcher" as never, alt: "小周" }, roleCategory: "research",
   tags: ["竞品", "市场"], catalogSource: "official" as never, workflowAllowlist: [], toolPolicyLength: 0,
 } as unknown as AgentDirectoryRow;
@@ -52,9 +52,20 @@ function deps(opts: { facts?: ThreadFacts | null; row?: AgentDirectoryRow | null
 }
 
 describe("openRealtimeVoiceSession", () => {
-  it("builds instructions from the published role (name, duty, tags) and says tools are out of scope", async () => {
+  it("fails closed when the visible published role has no instructions", async () => {
+    for (const instructions of [undefined, null, "   "]) {
+      const { d } = deps({ row: { ...ROW, instructions } });
+      await expect(openRealtimeVoiceSession(d, {
+        orgId: ORG, userId: "u-1", threadId: "t-1", agentId: ROW.agentId,
+      })).rejects.toBeInstanceOf(RealtimeVoiceAgentUnavailableError);
+    }
+  });
+
+  it("preserves published instructions and version, then appends voice-only boundaries", async () => {
     const { d } = deps();
     const session = await openRealtimeVoiceSession(d, { orgId: ORG, userId: "u-1", threadId: "t-1", agentId: "agent-dh-01" });
+    expect(session.agentVersionId).toBe("v1");
+    expect(session.instructions).toContain("PUBLISHED-BACKGROUND 产品研发经历与需求分析方法");
     expect(session.role.name).toBe("研究员小周");
     expect(session.instructions).toContain("研究员小周");
     expect(session.instructions).toContain("行业研究与竞品分析");

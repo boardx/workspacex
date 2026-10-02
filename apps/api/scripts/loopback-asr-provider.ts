@@ -41,7 +41,7 @@
  * 事件类型，不是改已有 completed 事件的形状，向后兼容。
  */
 import { createServer } from "node:http";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 import { handleOmniRealtimeConnection } from "./loopback-omni-realtime";
 
 const port = Number(process.env.LOOPBACK_ASR_PROVIDER_PORT ?? "");
@@ -52,7 +52,28 @@ const TRANSCRIPT_PREFIX = process.env.LOOPBACK_ASR_TRANSCRIPT_PREFIX;
 if (!TRANSCRIPT_PREFIX) throw new Error("LOOPBACK_ASR_TRANSCRIPT_PREFIX is required");
 const EMIT_DELTA = process.env.LOOPBACK_ASR_EMIT_DELTA === "1";
 
+// Explicit local test observation only. This process itself binds 127.0.0.1.
+const OMNI_CONTROL = process.env.LOOPBACK_OMNI_E2E_CONTROL === "1";
+let nextOmniId = 0;
+const omniConnections = new Map<number, {
+  socket: WebSocket; model: string | null; closed: boolean; audioBytes: number;
+  clientEvents: Record<string, number>; serverEvents: Record<string, number>;
+}>();
 const server = createServer((req, res) => {
+  const url = new URL(req.url ?? "/", "http://127.0.0.1");
+  const local = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
+  if (OMNI_CONTROL && local && url.pathname === "/__omni_e2e") {
+    if (req.method === "GET") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ connections: [...omniConnections].map(([id, { socket: _socket, ...state }]) => ({ id, ...state })) }));
+      return;
+    }
+    if (req.method === "POST" && url.searchParams.get("action") === "close") {
+      const entry = omniConnections.get(Number(url.searchParams.get("id")));
+      if (entry && !entry.closed) { entry.socket.close(1011, "explicit loopback E2E disconnect"); res.writeHead(204); res.end(); return; }
+      res.writeHead(404); res.end(); return;
+    }
+  }
   if (req.url === "/healthz") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
@@ -68,7 +89,19 @@ wss.on("connection", (ws, req) => {
   // 同一进程/端口再挂一条确定性 OMNI 实时上游（`KERNEL_OMNI_REALTIME_BASE_URL=ws://…/omni-realtime`）：
   // 数字人语音网关走它，用户会看到可读的中文转写 + 助手回复，而不是下面 ASR 的调试串。
   if ((req.url ?? "").startsWith("/omni-realtime")) {
-    handleOmniRealtimeConnection(ws);
+    const id = ++nextOmniId;
+    const entry = {
+      socket: ws, model: new URL(req.url ?? "/", "http://127.0.0.1").searchParams.get("model"),
+      closed: false, audioBytes: 0, clientEvents: {} as Record<string, number>, serverEvents: {} as Record<string, number>,
+    };
+    if (OMNI_CONTROL) omniConnections.set(id, entry);
+    ws.on("close", () => { entry.closed = true; });
+    handleOmniRealtimeConnection(ws, OMNI_CONTROL ? {
+      holdAudioMs: 8_000,
+      clientEvent: (type) => { entry.clientEvents[type] = (entry.clientEvents[type] ?? 0) + 1; },
+      serverEvent: (type) => { entry.serverEvents[type] = (entry.serverEvents[type] ?? 0) + 1; },
+      audioBytes: (count) => { entry.audioBytes += count; },
+    } : undefined);
     return;
   }
   // #802 hotfix -- this loopback used to accept `transcription_session.update` and never

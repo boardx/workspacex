@@ -3,6 +3,8 @@ import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 
 export interface PublishedAgentSnapshot {
+  /** Server catalog identity only: general is the system default stable name, never a client flag. */
+  readonly skillScope?: "agent_pins" | "general";
   readonly agentId: string;
   readonly agentVersionId: string;
   readonly skillVersionIds: readonly string[];
@@ -137,6 +139,7 @@ export interface EnabledSkillVersionReader {
 export const ENABLED_SKILL_VERSION_READER = Symbol("EnabledSkillVersionReader");
 
 export interface AcceptedHumanMessage {
+  readonly skillScope?: "agent_pins" | "general" | null;
   readonly id: string;
   readonly threadId: string;
   readonly authorId: string;

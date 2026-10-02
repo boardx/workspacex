@@ -1,8 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { mergeResearchProgress, type GuidedResearchRuntime, type ResearchRuntimeProgress } from "@/lib/guided-research-api";
+import { runtimeFixture } from "../guided-runtime-fixture";
 const current = { sessionId: "s", version: 2, reportStream: { requestId: "r", sequence: 1, text: "first", status: "streaming" } } as GuidedResearchRuntime;
 const progress = { sessionId: "s", version: 2, stream: { requestId: "r", sequence: 2, offset: 5, delta: "second", status: "streaming" } } as ResearchRuntimeProgress;
 describe("report progress cursor", () => {
+  it("merges research source metadata while preserving previously downloaded evidence", () => {
+    const state = { ...runtimeFixture("research"), busy: true };
+    const update = { sessionId: state.sessionId, version: state.version, busy: true, currentNode: "research",
+      stream: null, research: { cursor: "a".repeat(64), tasks: [{ ...state.tasks[0]!, status: "failed", errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }],
+        sources: [{ id: "source1", taskId: "t1", title: "Updated title", url: "https://example.org/policy", retrievedAt: "now", decision: "accepted" }, { id: "new", taskId: "t1", title: "New policy", url: "https://example.org/new", retrievedAt: "now", decision: "accepted" }] },
+    } as ResearchRuntimeProgress;
+    const next = mergeResearchProgress(state, update);
+    expect(next.tasks[0]?.errorCode).toBe("RESEARCH_SEARCH_UNAVAILABLE");
+    expect(next.sources.map((source) => source.title)).toEqual(["Updated title", "New policy"]);
+    expect(next.sources[0]?.content).toBe("Retrieved evidence");
+    expect(mergeResearchProgress(next, { ...update, research: { ...update.research!, sources: undefined } }).sources).toEqual(next.sources);
+    expect(mergeResearchProgress(next, { ...update, research: { ...update.research!, sources: [] } }).sources).toEqual([]);
+  });
   it("appends once and tolerates an SSE delta arriving before the progress response", () => {
     const next = mergeResearchProgress(current, progress);
     expect(next.reportStream?.text).toBe("firstsecond");
