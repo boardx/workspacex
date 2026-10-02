@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, realpathSync,existsSync } from 'node:fs';
+import { readFileSync, realpathSync,existsSync,readlinkSync } from 'node:fs';
 import { join,resolve,relative,isAbsolute,dirname,basename } from 'node:path';
 import {tmpdir} from 'node:os';
 import {identityOperation} from './native-startup-receipt.mjs';
@@ -70,6 +70,12 @@ export function verifyRuntimeManifest({manifestPath,root,base,origin,sourceFiles
   return identityOperation('IDENTITY_SOURCE',()=>verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}));
 }
 
+export function runtimeProcessCwd(pid,{platform=globalThis.process.platform,readlink=readlinkSync,exec=execFileSync}={}) {
+  assert(Number.isInteger(pid)&&pid>0,'runtime child pid required');
+  if(platform==='linux')return readlink(`/proc/${pid}/cwd`);
+  return exec('lsof',['-a','-p',String(pid),'-d','cwd','-Fn'],{encoding:'utf8'}).split('\n').find(line=>line.startsWith('n'))?.slice(1);
+}
+
 function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
   assert(manifestPath,'Explicit candidate runtime manifest required');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
@@ -92,8 +98,8 @@ function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
     assert(process&&Number.isInteger(process.pid)&&process.pid>0,'runtime child pid required');
     try{globalThis.process.kill(process.pid,0);identityCwd.pidAlive=true;}catch(error){if(error.code==='ESRCH')identityCwd.pidAlive=false;}
     let cwd;
-    try{cwd=execFileSync('lsof',['-a','-p',String(process.pid),'-d','cwd','-Fn'],{encoding:'utf8'}).split('\n').find(line=>line.startsWith('n'))?.slice(1);identityCwd.commandExit=0;}
-    catch(error){identityCwd.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
+    try{cwd=runtimeProcessCwd(process.pid);if(globalThis.process.platform!=='linux')identityCwd.commandExit=0;}
+    catch(error){if(globalThis.process.platform!=='linux')identityCwd.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
     identityCwd.pathPresent=Boolean(cwd);
     assert(cwd,'runtime process must still exist');
     identityCwd.pathEqual=realpathSync(cwd)===realpathSync(process.cwd);
