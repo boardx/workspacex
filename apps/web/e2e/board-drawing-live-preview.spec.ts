@@ -151,8 +151,9 @@ test("Eraser hits only unlocked drawings in one undo step and survives peer relo
       for (const protectedObject of [locked, sticky]) {
         const row = mirror.locator(`li[data-object-id="${protectedObject.id}"]`);
         await expect(row).toBeVisible();
-        await expect(row).toHaveAttribute("data-geometry", JSON.stringify(protectedObject.geometry));
-        await expect(row).toHaveAttribute("data-object-text", protectedObject.content.text);
+        await expect.poll(async () => JSON.parse(await row.getAttribute("data-geometry") ?? "null"))
+          .toEqual(protectedObject.geometry);
+        await expect(row).toHaveAttribute("data-object-text", protectedObject.text ?? "");
       }
       await expect(tab.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
       await expect.poll(() => paintedStrokePixels(tab)).toBe(0);
