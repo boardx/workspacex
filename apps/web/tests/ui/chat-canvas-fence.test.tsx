@@ -12,7 +12,7 @@
  * **分段 / 分派 / 闸门 / 错误态 / 取数**，画布像素属浏览器 e2e。
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { __resetFenceTemplateCache } from "@/lib/canvas/fence-template-resolver";
 
@@ -69,6 +69,12 @@ function orgTemplate(key: string, over: Record<string, unknown> = {}) {
   };
 }
 
+async function resolvedCanvas(source: "builtin" | "org-generated") {
+  const el = await screen.findByTestId("chat-canvas-fabric");
+  await waitFor(() => expect(el.getAttribute("data-template-source")).toBe(source));
+  return el;
+}
+
 beforeEach(() => {
   __resetFenceTemplateCache();
   listCanvasTemplates.mockReset();
@@ -79,6 +85,27 @@ beforeEach(() => {
 });
 
 describe("工作坊画布模板围栏在 chat 里被渲染（不再是代码块）", () => {
+  it("模板库读取未完成时，画布外壳出现不代表来源已解析", async () => {
+    let resolveTemplates!: (value: { templates: unknown[] }) => void;
+    listCanvasTemplates.mockReturnValueOnce(new Promise((resolve) => { resolveTemplates = resolve; }));
+    render(<MarkdownMessage text={PERSONA_FENCE} />);
+    let settled = false;
+    const ready = resolvedCanvas("builtin").then(
+      (el) => { settled = true; return { el, error: undefined }; },
+      (error: unknown) => { settled = true; return { el: undefined, error }; },
+    );
+    const pending = await screen.findByTestId("chat-canvas-fabric");
+    await act(async () => { await Promise.resolve(); });
+    expect(listCanvasTemplates).toHaveBeenCalled();
+    expect(pending.getAttribute("data-template-source")).toBeNull();
+    expect(settled).toBe(false);
+    await act(async () => { resolveTemplates({ templates: [] }); });
+    const result = await ready;
+    expect(result.error).toBeUndefined();
+    expect(result.el).toHaveAttribute("data-template-source", "builtin");
+    expect(screen.queryByTestId("chat-canvas-error")).toBeNull();
+  });
+
   it("```canvas + 内置 persona 模板 → 走 fabric 画布分支，不落代码块、不落错误态", async () => {
     let resolveTemplates!: (value: { templates: never[] }) => void;
     listCanvasTemplates.mockReturnValueOnce(new Promise<{ templates: never[] }>(resolve => { resolveTemplates = resolve; }));
@@ -144,7 +171,7 @@ describe("组织自建模板 → 自动布局", () => {
     const fence = ["```canvas", "模板: retro-x1", "## 做得好", "- 上线没炸", "```"].join("\n");
     render(<MarkdownMessage text={fence} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
-    expect(el.getAttribute("data-template-source")).toBe("org-generated");
+    await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("org-generated"));
     expect(listCanvasTemplates).toHaveBeenCalledWith({ orgId: "org-personal-1" });
   });
 
@@ -238,7 +265,7 @@ describe("个人对话可用性", () => {
     const fence = ["```canvas", "模板: retro-personal", "## 做得好", "- a", "```"].join("\n");
     render(<MarkdownMessage text={fence} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
-    expect(el.getAttribute("data-template-source")).toBe("org-generated");
+    await waitFor(() => expect(el.getAttribute("data-template-source")).toBe("org-generated"));
     // 取数只带 orgId——没有 projectId 这一栏，谈不上「意外依赖」
     expect(listCanvasTemplates).toHaveBeenCalledWith({ orgId: "org-personal-1" });
   });

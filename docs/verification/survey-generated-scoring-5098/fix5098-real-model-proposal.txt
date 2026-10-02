@@ -1,0 +1,88 @@
+- alert
+- link:
+  - /url: "#wsx-main-content"
+  - text: 跳到主要内容
+- navigation "主导航":
+  - button:
+    - generic: o
+  - link:
+    - /url: /home
+    - generic: 首页
+  - link:
+    - /url: /chat
+    - generic: 对话
+  - link:
+    - /url: /projects
+    - generic: 项目
+  - link:
+    - /url: /research
+    - generic: 研究
+  - link:
+    - /url: /itv
+    - generic: 访谈
+  - link:
+    - /url: /brain
+    - generic: 大脑
+  - link:
+    - /url: /tasks
+    - generic: 任务
+  - link:
+    - /url: /workflows
+    - generic: 工作流
+  - link:
+    - /url: /admin
+    - generic: 组织后台
+  - button:
+    - generic: 更多
+  - button:
+    - generic: 提醒
+  - generic: 0 条未读
+  - button:
+    - generic: 反馈
+  - button:
+    - generic: F
+- banner:
+  - generic: org org-fullstack-7n-c31495b5-0d6c23f263b1
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - heading [level=1]: 导入内容
+    - paragraph: CURRENT 真实评分配置复测 5098 · AI 先生成 Markdown 提案，校对后才创建问卷。
+    - button: ← 返回列表
+    - navigation:
+      - generic: 1 导入内容
+      - generic: 2 设计问卷
+      - generic: 3 发布与回收
+      - generic: 4 查看答卷
+    - region:
+      - heading [level=2]: AI 智能生成问卷
+      - paragraph: 描述目标与受众，AI 先生成 Markdown 提案，校对后再应用。不会自动发布。
+      - textbox:
+        - /placeholder: 研究目的、目标受众、关注内容、题型偏好…
+        - text: 客户产品体验调查，共三题：第一题必须使用 rating 五级星级评分，询问总体满意度；第二题必须使用 nps 0到10净推荐分，询问推荐意愿；第三题使用 open 询问改进建议。只返回支持的问卷Markdown。
+      - text: 上传文件
+      - button
+      - paragraph: 支持 Markdown、TXT、PDF、Word（DOCX），最多 256 KB。
+      - button: 选择已保存录音
+      - link:
+        - /url: /rec
+        - text: 开始录音
+      - paragraph: 仅使用自己的已停止录音逐字稿；录音在现有录音页面完成，返回后选择。
+      - button: 生成问卷
+- dialog "Markdown 预览与校对":
+  - heading "Markdown 预览与校对" [level=2]
+  - paragraph: AI 提案尚未应用。检查内容并修改，确认后应用到问卷。
+  - paragraph: dashscope / qwen3.8-max · 来源：text
+  - textbox "AI 提案 Markdown" [active]: "# 客户产品体验调查 ## overall_satisfaction [rating] 请为您对本产品的总体满意度进行评分（1星为非常不满意，5星为非常满意）。 ## recommend_likelihood [nps] 您有多大可能将本产品推荐给您的朋友或同事？（0分表示完全不可能，10分表示极有可能） ## improvement_suggestions [open] 请问您认为本产品在哪些方面可以进一步改进？"
+  - region "AI 题目预览":
+    - heading "客户产品体验调查" [level=2]
+    - article:
+      - heading "1. 请为您对本产品的总体满意度进行评分（1星为非常不满意，5星为非常满意）。" [level=3]
+    - article:
+      - heading "2. 您有多大可能将本产品推荐给您的朋友或同事？（0分表示完全不可能，10分表示极有可能）" [level=3]
+    - article:
+      - heading "3. 请问您认为本产品在哪些方面可以进一步改进？" [level=3]
+  - button "返回输入"
+  - button "应用到问卷"
+  - button "关闭":

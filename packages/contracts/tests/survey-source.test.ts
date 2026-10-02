@@ -7,7 +7,33 @@ import {
   sourceContentHash,
 } from "../src/survey-source";
 
+import { createSurveyQuestion, validateSurveyQuestion } from "../src/survey-question-types";
+
 describe("survey Markdown source compiler", () => {
+  it.each(["rating", "nps", "slider"] as const)("compiles %s without metadata into a usable scoring question", (type) => {
+    const result = parseSurveyDesignMarkdown(`# 调查\n\n## score [${type}, required]\n请评分\n`);
+    if (!result.ok) throw new Error("expected successful parse");
+    const question = result.draft.questions[0]!;
+    expect(validateSurveyQuestion(question)).toEqual([]);
+    expect(question.config).toEqual(createSurveyQuestion(type, "score", 1).config);
+    const roundTrip = parseSurveyDesignMarkdown(serializeSurveyDesignMarkdown(result.draft));
+    expect(roundTrip).toMatchObject({ ok: true, draft: { questions: [question] } });
+  });
+
+  it("rejects explicit null scoring configuration instead of treating it as absent", () => {
+    expect(parseSurveyDesignMarkdown('# 调查\n\n## score [rating]\n请评分\n\n```survey-question\n{"config":null}\n```\n')).toMatchObject({ ok: false });
+  });
+
+  it("preserves explicit scoring ranges and exposes invalid ranges for validation", () => {
+    for (const config of [{ min: 2, max: 7, step: 1 }, { min: 3, max: 3, step: 1 }, {}]) {
+      const result = parseSurveyDesignMarkdown(`# 调查\n\n## score [rating]\n请评分\n\n\`\`\`survey-question\n${JSON.stringify({ config })}\n\`\`\`\n`);
+      if (!result.ok) throw new Error("expected successful parse");
+      const question = result.draft.questions[0]!;
+      expect(question.config).toEqual(config);
+      expect(validateSurveyQuestion(question).length === 0).toBe("max" in config && config.max !== config.min);
+    }
+  });
+
   it("compiles bounded unique survey tags from the Markdown source", () => {
     expect(parseSurveyDesignMarkdown('# 调查\n\n```survey-tags\n["客户调研","产品"]\n```\n\n## q1 [open]\n意见\n')).toMatchObject({ok:true,draft:{tags:['客户调研','产品']}});
     expect(parseSurveyDesignMarkdown('# 调查\n\n```survey-tags\n["重复","重复"]\n```\n')).toMatchObject({ok:false});

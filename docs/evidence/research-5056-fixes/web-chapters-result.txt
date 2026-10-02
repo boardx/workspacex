@@ -1,0 +1,11 @@
+ ✓ tests/ui/guided-research-progress.test.ts (8 tests) 7ms
+ ✓ tests/ui/research-formal-report.test.tsx (5 tests) 847ms
+   ✓ formal research report > renders a numbered reading document and exports the same ordered synthesis and references 390ms
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 1339ms
+   ✓ human confirmation in the durable model-backed workflow > keeps generated directions out of the topic step and advances with the saved server draft 711ms
+   ✓ human confirmation in the durable model-backed workflow > rejects an empty outline and confirms a complete edited outline 473ms
+ ✓ tests/ui/guided-research-live.test.tsx (17 tests) 2446ms
+   ✓ live research workspace > shows a readable reason for each failed search without restoring plan cards 497ms
+ Test Files  4 passed (4)
+      Tests  33 passed (33)
+   Duration  8.92s (transform 5.01s, setup 1.55s, collect 13.70s, tests 4.64s, environment 5.57s, prepare 431ms)

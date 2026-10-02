@@ -30,7 +30,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
   const builtins=React.useMemo(()=>getBuiltinSurveyTemplates("question"),[]);
   React.useEffect(()=>{if(open){setName("");setTags([]);setPendingTag("");setMode("blank");setSelected("");setError("");}},[open]);
   React.useEffect(()=>{
-    if(!open || mode!=="template")return;
+    if(!open || mode!=="template"){setLoading(false);return;}
     let active=true;setLoading(true);setError("");
     void surveyRequest("/surveys/templates?kind=question").then(value=>{
       const rows=SurveyLibraryTemplateSchema.array().parse(value);
