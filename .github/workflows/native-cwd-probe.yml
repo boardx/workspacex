@@ -1,5 +1,9 @@
 name: Native CWD Mechanics Probe
 on:
+  pull_request:
+    paths:
+      - .github/workflows/native-cwd-probe.yml
+      - apps/web/scripts/probe-native-cwd.mjs
   workflow_dispatch:
 permissions:
   contents: read
