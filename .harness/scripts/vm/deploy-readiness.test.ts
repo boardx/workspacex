@@ -108,7 +108,8 @@ function runGate(
   rootMode: "success" | "smoke-failure" | "early-failure" | "forged-marker",
 ) {
   const files = fixture(sequence);
-  const result = spawnSync("bash", [GATE, "v-test"], {
+  // The read-only source preflight needs a real committed ref, not a synthetic release tag.
+  const result = spawnSync("bash", [GATE, "HEAD"], {
     cwd: ROOT,
     encoding: "utf8",
     env: {
