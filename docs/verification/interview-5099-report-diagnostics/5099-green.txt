@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-diagnostics.test.ts (12 tests) 11ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  22:06:30
+   Duration  1.56s (transform 851ms, setup 0ms, collect 1.33s, tests 11ms, environment 0ms, prepare 70ms)
+

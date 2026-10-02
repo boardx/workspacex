@@ -2711,14 +2711,15 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         decisions: import("./application/identity/ports").DecisionIdFactory,
         reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
         model: ModelCallPort,
+        debugTrace: import("./application/ports/debug-trace.port").DebugTracePort,
       ) => {
         const config = readDigitalInterviewModelConfig();
-        const deps = { repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId };
+        const deps = { repo, scope, decisions, reader, model, debugTrace, modelProvider: config.provider, modelId: config.modelId };
         return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
           generateInterviewMarkdown(deps, input),
           previewVirtualExpert: (input: Parameters<typeof previewVirtualExpertMarkdown>[1]) => previewVirtualExpertMarkdown(deps, input) };
       },
-      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT, DEBUG_TRACE_PORT],
     },
     {
       provide: INTERVIEW_MARKDOWN_EXECUTION,

@@ -1,0 +1,170 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts (12 tests | 12 failed) 29ms
+   × report diagnostics without research or credential disclosure > distinguishes empty_output while preserving the public error 11ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > distinguishes cancelled while preserving the public error 2ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > distinguishes paused while preserving the public error 1ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > distinguishes interrupted while preserving the public error 1ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > distinguishes truncated while preserving the public error 1ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > distinguishes invalid_format while preserving the public error 1ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > distinguishes quality_rejected while preserving the public error 1ms
+     → expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+   × report diagnostics without research or credential disclosure > reports provider code without detail or message 1ms
+     → expected undefined to match object { data: { …(2) } }
+   × report diagnostics without research or credential disclosure > records missing quality dimensions 2ms
+     → expected undefined to match object { data: { missing: [ …(4) ] } }
+   × report diagnostics without research or credential disclosure > reports all timings and persists successful output once 3ms
+     → AI_GENERATION_UNAVAILABLE
+   × report diagnostics without research or credential disclosure > keeps storage CAS errors intact 2ms
+     → expected Error: AI_GENERATION_UNAVAILABLE { code: '…' } to be Error: CONCURRENT_MODIFICATION { …(1) } // Object.is equality
+   × report diagnostics without research or credential disclosure > a broken diagnostic sink cannot fail generation 1ms
+     → promise rejected "Error: AI_GENERATION_UNAVAILABLE { code: '…' }" instead of resolving
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes empty_output while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes cancelled while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes paused while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes interrupted while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes truncated while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes invalid_format while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes quality_rejected while preserving the public error
+AssertionError: expected undefined to match object { traceId: 'http-trace-diag', …(1) }
+
+- Expected: 
+Object {
+  "data": Object {
+    "modelCalls": 1,
+    "outputCharacters": 0,
+    "reason": "empty_output",
+  },
+  "traceId": "http-trace-diag",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:28:21
+     26|  ])("distinguishes %s while preserving the public error", async (reaso…
+     27|  complete.mockResolvedValue(response); await expect(generateInterviewM…
+     28|  expect(terminal()).toMatchObject({ traceId: input.traceId, data: { re…
+       |                     ^
+     29|  expect(JSON.stringify(events)).not.toContain(PRIVATE);
+     30|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > reports provider code without detail or message
+AssertionError: expected undefined to match object { data: { …(2) } }
+
+- Expected: 
+Object {
+  "data": Object {
+    "providerCode": "MODEL_CALL_FAILED",
+    "reason": "provider_error",
+  },
+}
+
++ Received: 
+undefined
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:34:21
+     32|  complete.mockRejectedValue(new ModelCallError("MODEL_CALL_FAILED", PR…
+     33|  await expect(generateInterviewMarkdown(deps(), input)).rejects.toThro…
+     34|  expect(terminal()).toMatchObject({ data: { reason: "provider_error", …
+       |                     ^
+     35|  });
+     36|  it("records missing quality dimensions", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records missing quality dimensions
+AssertionError: expected undefined to match object { data: { missing: [ …(4) ] } }
+
+- Expected: 
+Object {
+  "data": Object {
+    "missing": Array [
+      "cross_answer_synthesis",
+      "decision_implication",
+      "boundary_or_counterevidence",
+      "verifiable_action",
+    ],
+  },
+}
+
++ Received: 
+undefined
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:38:21
+     36|  it("records missing quality dimensions", async () => {
+     37|  complete.mockResolvedValue({ text: PRIVATE }); await expect(generateI…
+     38|  expect(terminal()).toMatchObject({ data: { missing: ["cross_answer_sy…
+       |                     ^
+     39|  });
+     40|  it("reports all timings and persists successful output once", async (…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > reports all timings and persists successful output once
+Error: AI_GENERATION_UNAVAILABLE
+ ❯ Module.generateInterviewMarkdown src/application/interview/generate-interview-markdown.ts:177:13
+    175|     }
+    176|     if (input.step === "report" && !assessInterviewReportAnalysis(mark…
+    177|       throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILAB…
+       |             ^
+    178|     }
+    179|   } catch (error) {
+ ❯ tests/itv/interview-report-diagnostics.test.ts:41:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > keeps storage CAS errors intact
+AssertionError: expected Error: AI_GENERATION_UNAVAILABLE { code: '…' } to be Error: CONCURRENT_MODIFICATION { …(1) } // Object.is equality
+
+- Expected
++ Received
+
+- [Error: CONCURRENT_MODIFICATION]
++ [Error: AI_GENERATION_UNAVAILABLE]
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:46:2
+     44|  it("keeps storage CAS errors intact", async () => {
+     45|  const error = new DigitalInterviewWorkflowError("CONCURRENT_MODIFICAT…
+     46|  await expect(generateInterviewMarkdown(deps(), input)).rejects.toBe(e…
+       |  ^
+     47|  });
+     48|  it("a broken diagnostic sink cannot fail generation", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > a broken diagnostic sink cannot fail generation
+AssertionError: promise rejected "Error: AI_GENERATION_UNAVAILABLE { code: '…' }" instead of resolving
+ ❯ tests/itv/interview-report-diagnostics.test.ts:49:128
+     47|  });
+     48|  it("a broken diagnostic sink cannot fail generation", async () => {
+     49|  recorder.record.mockImplementation(() => { throw new Error(PRIVATE); …
+       |                                                                                                                                ^
+     50|  });
+     51| });
+
+Caused by: Error: AI_GENERATION_UNAVAILABLE
+ ❯ Module.generateInterviewMarkdown src/application/interview/generate-interview-markdown.ts:177:13
+ ❯ tests/itv/interview-report-diagnostics.test.ts:49:75
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'AI_GENERATION_UNAVAILABLE' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ Test Files  1 failed (1)
+      Tests  12 failed (12)
+   Start at  22:02:29
+   Duration  1.74s (transform 1.00s, setup 0ms, collect 1.52s, tests 29ms, environment 0ms, prepare 55ms)
+
