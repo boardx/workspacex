@@ -1,0 +1,125 @@
+{
+  "sessionId": "grs_5d4754b1f4084156944e9adbd04b6ea2",
+  "version": 13,
+  "revision": 18,
+  "currentNode": "report",
+  "availableNodes": [
+    "brief",
+    "directions",
+    "outline",
+    "research",
+    "report"
+  ],
+  "busy": true,
+  "leaseUntil": "2026-10-02T13:10:02.955Z",
+  "errorCode": null,
+  "completed": false,
+  "progress": {
+    "stage": "writing",
+    "completed": 0,
+    "total": 2,
+    "sectionId": "acabbd3e-ca77-4793-8084-a810060be5f5"
+  },
+  "reportTimeline": [
+    {
+      "id": "evidence",
+      "stage": "evidence",
+      "status": "warning",
+      "attempts": 25,
+      "completed": 14,
+      "total": 14,
+      "startedAt": "2026-10-02T12:54:01.609Z",
+      "finishedAt": "2026-10-02T13:00:02.819Z",
+      "reasonCode": "RESEARCH_CONTENT_REFERENCE_INVALID"
+    },
+    {
+      "id": "chapter:acabbd3e-ca77-4793-8084-a810060be5f5",
+      "stage": "chapter",
+      "sectionId": "acabbd3e-ca77-4793-8084-a810060be5f5",
+      "status": "running",
+      "attempts": 1,
+      "startedAt": "2026-10-02T13:00:02.955Z"
+    },
+    {
+      "id": "review:acabbd3e-ca77-4793-8084-a810060be5f5",
+      "stage": "review",
+      "sectionId": "acabbd3e-ca77-4793-8084-a810060be5f5",
+      "status": "pending",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:conformance-certification-wcag22",
+      "stage": "chapter",
+      "sectionId": "conformance-certification-wcag22",
+      "status": "pending",
+      "attempts": 0
+    },
+    {
+      "id": "review:conformance-certification-wcag22",
+      "stage": "review",
+      "sectionId": "conformance-certification-wcag22",
+      "status": "pending",
+      "attempts": 0
+    },
+    {
+      "id": "synthesis",
+      "stage": "synthesis",
+      "status": "pending",
+      "attempts": 0
+    },
+    {
+      "id": "validation",
+      "stage": "validation",
+      "status": "pending",
+      "attempts": 0
+    }
+  ],
+  "reportPartial": true,
+  "reportSourceAliases": [
+    {
+      "alias": "S1",
+      "sourceId": "c3bb7a81-aea1-4ab4-89cd-b125deeb443f"
+    },
+    {
+      "alias": "S2",
+      "sourceId": "63a2e2ba-561c-4f36-9000-fd123a55d384"
+    },
+    {
+      "alias": "S3",
+      "sourceId": "c6b3cb16-4be0-452b-8bbe-8747c2227656"
+    },
+    {
+      "alias": "S4",
+      "sourceId": "7bdee9bc-c522-4ebd-a2fb-80b40e632bfa"
+    },
+    {
+      "alias": "S5",
+      "sourceId": "76c82a53-8eca-4199-9bc1-a21e6b3063e6"
+    },
+    {
+      "alias": "S6",
+      "sourceId": "ab6fcae0-70c7-4bb7-a0b7-4c330ff2527a"
+    },
+    {
+      "alias": "S7",
+      "sourceId": "54266fb9-6c23-4ee1-808c-8e785bd62d45"
+    },
+    {
+      "alias": "S8",
+      "sourceId": "6378004e-e79b-4357-a645-a1094b3fdd45"
+    },
+    {
+      "alias": "S9",
+      "sourceId": "a03aae04-312f-4d35-b94e-4ced32f8498c"
+    }
+  ],
+  "reportQualityWarnings": [],
+  "reportSavedChapterCount": 0,
+  "stream": {
+    "requestId": "5b99a599-286a-4f2e-ac05-c836f3baa8c0",
+    "sequence": 0,
+    "offset": 0,
+    "delta": "",
+    "status": "streaming"
+  }
+}

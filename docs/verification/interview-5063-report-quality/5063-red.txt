@@ -1,0 +1,52 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ❯ tests/interview-markdown.test.ts (15 tests | 2 failed) 21ms
+   × formatted report quality > accepts bold analysis labels and concrete validation sections from provider Markdown 4ms
+     → expected { ok: false, missing: [ …(2) ] } to deeply equal { ok: true, missing: [] }
+   × formatted report quality > does not accept formatting-only labels or quoted code as analysis evidence 1ms
+     → expected [] to include 'boundary_or_counterevidence'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > accepts bold analysis labels and concrete validation sections from provider Markdown
+AssertionError: expected { ok: false, missing: [ …(2) ] } to deeply equal { ok: true, missing: [] }
+
+- Expected
++ Received
+
+  Object {
+-   "missing": Array [],
+-   "ok": true,
++   "missing": Array [
++     "boundary_or_counterevidence",
++     "verifiable_action",
++   ],
++   "ok": false,
+  }
+
+ ❯ tests/interview-markdown.test.ts:112:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > does not accept formatting-only labels or quoted code as analysis evidence
+AssertionError: expected [] to include 'boundary_or_counterevidence'
+ ❯ tests/interview-markdown.test.ts:116:59
+    114|   it("does not accept formatting-only labels or quoted code as analysi…
+    115|     const report = "## 跨回答综合\n\n共同模式：信息对齐失效。\n\n决策…
+    116|     expect(assessInterviewReportAnalysis(report).missing).toContain("b…
+       |                                                           ^
+    117|     expect(assessInterviewReportAnalysis(report).missing).toContain("v…
+    118|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+   Start at  19:53:37
+   Duration  281ms (transform 78ms, setup 0ms, collect 161ms, tests 21ms, environment 0ms, prepare 30ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/interview-markdown.test.ts --maxWorkers=1 --minWorkers=1

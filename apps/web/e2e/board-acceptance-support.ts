@@ -127,6 +127,8 @@ async function surfaceSnapshot(page: Page, x: number, y: number) {
   }, {x,y});
 }
 export async function dragObject(page: Page, id: string, dx: number, dy: number, header = false, expectedParentId?: string, maxSceneError = 1) {
+  // The next real gesture must start from an acknowledged canonical state.
+  await expectBoardSynced(page,30_000);
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
   await page.getByTestId('board-zoom-fit-board').click();
   const before = (await canonicalRows(page)).find(row => row.id === id)!;
@@ -148,6 +150,7 @@ export async function dragObject(page: Page, id: string, dx: number, dy: number,
   // the pre-drop absolute target is not stable across that container update.
   if (expectedParentId !== undefined) {
     await expect.poll(async () => (await canonicalRows(page)).find(row => row.id === id)?.parentId).toBe(expectedParentId);
+    await expectBoardSynced(page,30_000);
     return;
   }
   // Fabric converts between viewport and scene coordinates while dragging.
@@ -158,6 +161,7 @@ export async function dragObject(page: Page, id: string, dx: number, dy: number,
     if (!geometry) return Number.POSITIVE_INFINITY;
     return Math.max(Math.abs(geometry.x - before.geometry.x - dx), Math.abs(geometry.y - before.geometry.y - dy));
   }).toBeLessThanOrEqual(maxSceneError);
+  await expectBoardSynced(page,30_000);
 }
 export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
   const sorted = [...rows].sort((a, b) => a.geometry.y - b.geometry.y || a.geometry.x - b.geometry.x);

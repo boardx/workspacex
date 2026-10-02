@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ✓ tests/interview-markdown.test.ts (15 tests) 54ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  19:54:08
+   Duration  675ms (transform 209ms, setup 0ms, collect 456ms, tests 54ms, environment 0ms, prepare 49ms)
+
