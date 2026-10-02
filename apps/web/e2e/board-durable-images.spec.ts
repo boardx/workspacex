@@ -22,6 +22,8 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
    if(route.request().method()==='POST'&&rejectedUploads++===0){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'temporary upload unavailable'})});return;}
    await route.continue();
   });
+  await owner.getByTestId('board-add-image').click();
+  await expect(owner.getByRole('dialog',{name:'添加图片',exact:true})).toBeVisible();
   await owner.getByTestId('board-image-input').setInputFiles({name:'durable-evidence.png',mimeType:'image/png',buffer:png});
   await expect(owner.getByTestId('board-image-retry')).toBeVisible();
   expect((await canonical(api,token,source)).objects.filter(object=>object.kind==='image')).toHaveLength(0);
