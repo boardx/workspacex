@@ -40,8 +40,9 @@ test('HTTPS image entry rejects real CORS and malformed ranges then retries dura
    fixture.setMode(mode);const beforePosts=posts.length;
    await page.getByRole('button',{name:'图片，快捷键 I'}).click();await expect(page.getByRole('dialog',{name:'添加图片'})).toBeVisible();
    await page.getByLabel('HTTPS 图片地址').fill(fixture.url);await page.getByTestId('board-image-url-apply').click();
-   await expect(page.getByTestId('board-image-error')).toHaveText('图片未添加。请检查文件、HTTPS 地址或跨域权限后重试。');
-   await expect(page.getByRole('button',{name:'重试',exact:true})).toBeEnabled();
+   const errorAlert=page.getByTestId('board-image-error');await expect(errorAlert).toHaveAttribute('role','alert');
+   await expect(errorAlert.locator(':scope > span')).toHaveText('图片未添加。请检查文件、HTTPS 地址或跨域权限后重试。');
+   await expect(errorAlert.getByRole('button',{name:'重试',exact:true})).toBeEnabled();
    expect((await canonical(api,token,board!)).objects).toHaveLength(expectedObjects);expect(posts).toHaveLength(beforePosts);
    expect(fixture.receipts.some(receipt=>receipt.mode===mode&&receipt.method==='GET'&&receipt.status===206)).toBe(true);
    if(mode==='no-cors')expect(failures.length).toBeGreaterThan(0);
