@@ -1,3 +1,4 @@
+import { assertFrozenAgentSkillScope } from "./frozen-agent-skill-scope";
 import { requesterMemoryHistory } from "./requester-memory-context";
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
 import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
@@ -559,9 +560,7 @@ async function executeClaimed(
   // or a catalog for `isDeepAgentRun` -- see `buildSystemPrompt`'s own doc comment).
   const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
   try {
-    if (run.skillScope === "agent_pins" && (!run.agentPinnedSkillVersionIds || run.skillVersionIds.some(id => !run.agentPinnedSkillVersionIds!.includes(id)))) {
-      throw new ModelCallError("SKILL_VERSION_UNAVAILABLE", "AGENT_SKILL_SCOPE_VIOLATION: run skills exceed the frozen agent version pins");
-    }
+    assertFrozenAgentSkillScope(run);
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
       // Fail closed. A run that quietly proceeds with two of its three pinned Skills has

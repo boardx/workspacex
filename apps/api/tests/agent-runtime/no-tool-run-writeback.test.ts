@@ -45,6 +45,7 @@ import { addChatThread } from "../support/chat-db";
 import {
   AGENT_RUN_EXECUTOR, type AgentRunExecutorPort,
 } from "../../src/application/agent-run/ports";
+import { DEFAULT_AGENT_STABLE_NAME } from "../../src/application/agent/ensure-default-agent";
 import { toOrgId } from "../../src/domain/org-id";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
@@ -647,8 +648,11 @@ describe("the run executes its acceptance snapshot, not the current head", () =>
     ["mounted", "after acceptance"],
   ] as const)("#2529: disabled %s skill %s suppresses the whole prompt; re-enable restores the next run", async (source, timing) => {
     if (source === "mounted") {
-      // A stays enabled and pinned; B enters ONLY through the persisted thread mount.
-      // This catches silently dropping the disabled mount and running with A alone.
+      // The trusted default assistant accepts organization mounts beyond its own pins.
+      // A stays pinned; B enters ONLY through the persisted thread mount.
+      await asApp(ORG, c => c.query(
+        "UPDATE agents SET stable_name=$2 WHERE org_id=$1 AND id=$3",
+        [ORG, DEFAULT_AGENT_STABLE_NAME, AGENT]));
       await addAgentVersion({
         versionId: V2, skillVersionIds: [SV_A], modelId: MODEL_V1,
         instructions: "You are the mounted-skill agent.",
@@ -687,6 +691,29 @@ describe("the run executes its acceptance snapshot, not the current head", () =>
     expect(system).toContain("# Skill A\nordered first");
     expect(system).toContain("# Skill B\nordered second");
     expect((await readRun(queued.agentRunId)).status).toBe("failed");
+  });
+
+  it("non-default agents reject persisted mounts outside their exact pins before queuing a run", async () => {
+    await addAgentVersion({
+      versionId: V2, skillVersionIds: [SV_A], modelId: MODEL_V1,
+      instructions: "You are the exact-pins agent.",
+    });
+    await asApp(ORG, c => c.query(
+      `INSERT INTO thread_skill_mounts
+         (mount_id,org_id,thread_id,skill_id,version_id,mounted_at,removed_at)
+       VALUES ($1,$2,$3,$4,$5,now(),NULL)`,
+      [randomUUID(), ORG, THREAD, SKILL_B, SV_B]));
+    const response = await fetch(`${BASE}/chat/threads/${THREAD}/messages`, {
+      method: "POST", headers: principal(ACTOR, ORG),
+      body: JSON.stringify({ clientMessageId: randomUUID(), text: "No cross-pin mounts", agentId: AGENT }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ error: "unprocessable" });
+    await tick();
+    expect(calls).toHaveLength(0);
+    const rows = await asApp(ORG, c => c.query(
+      "SELECT id FROM agent_runs WHERE org_id=$1 AND thread_id=$2", [ORG, THREAD]));
+    expect(rows.rows).toHaveLength(0);
   });
 
   it("fails closed when a pinned Skill version is unreachable, rather than dropping it", async () => {
