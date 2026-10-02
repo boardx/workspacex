@@ -5,6 +5,18 @@ import { readFileSync, realpathSync,existsSync } from 'node:fs';
 import { join,resolve,relative,isAbsolute,dirname,basename } from 'node:path';
 import {tmpdir} from 'node:os';
 
+export function listRuntimeSourceFiles(root) {
+  const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
+  const rootFiles=['package.json','pnpm-lock.yaml','pnpm-workspace.yaml','turbo.json','.nvmrc','scripts/local-session/board-acceptance-runtime.mjs'];
+  return tracked.filter(path=>/^(apps\/(?:api|web)\/|packages\/)/.test(path)||rootFiles.includes(path)).sort();
+}
+
+export function assertRuntimeSourceFiles(root,sourceFiles) {
+  assert(Array.isArray(sourceFiles)&&sourceFiles.every(path=>typeof path==='string'),'runtime source files must be explicit paths');
+  assert.equal(new Set(sourceFiles).size,sourceFiles.length,'duplicate runtime source file');
+  assert.deepEqual([...sourceFiles].sort(),listRuntimeSourceFiles(root),'complete tracked runtime source closure required');
+}
+
 export function assertTemporaryRuntimePaths(root,data) {
   const physical=path=>{let ancestor=resolve(path);const suffix=[];while(!existsSync(ancestor)){suffix.unshift(basename(ancestor));ancestor=dirname(ancestor);}return join(realpathSync(ancestor),...suffix);};
   const within=(parent,path)=>{const difference=relative(physical(parent),physical(path));return difference!==''&&!difference.startsWith('..')&&!isAbsolute(difference);};
@@ -57,6 +69,10 @@ export function verifyRuntimeManifest({manifestPath,root,base,origin,sourceFiles
   assert(manifestPath,'Explicit candidate runtime manifest required');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
   const canonical=realpathSync(root);
+  assertRuntimeSourceFiles(canonical,sourceFiles);
+  assert.deepEqual([...manifest.sourceFiles].sort(),[...sourceFiles].sort(),'startup manifest must contain full runtime closure');
+  assert.equal(new Set(manifest.sourceFiles).size,manifest.sourceFiles.length,'duplicate startup source file');
+  assert.deepEqual(Object.keys(manifest.sourceHashes).sort(),[...sourceFiles].sort(),'startup source hashes must cover exact runtime closure');
   assert.equal(realpathSync(manifest.webRoot),canonical);
   assert.equal(realpathSync(manifest.apiRoot),canonical);
   assert.equal(new URL(manifest.webBase).origin,new URL(base).origin);
