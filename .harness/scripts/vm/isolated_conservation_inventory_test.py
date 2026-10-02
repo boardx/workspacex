@@ -11,6 +11,12 @@ class Inventory(unittest.TestCase):
  def test_one_sql_missing(self):
   self.ob['files'].pop()
   with self.assertRaises(ValueError):verify_final_sql_inventory(self.plan,self.ob)
+ def test_attachment_validator_missing_rejects_before_runtime(self):
+  self.plan.update(schemaVersion=1,prepared=True,frozen=True,force=False,seed=False)
+  name='20261001170000_pending_attachment_cancellation.sql';self.plan['fullSqlChecksums']={name:'b'*64};self.plan['migrationLawBindings']={name:dict(sqlSha256='b'*64,reviewed=True,lawSha256='c'*64)}
+  with self.assertRaisesRegex(ValueError,'ATTACHMENT_VALIDATOR_CLOSURE_REQUIRED'):validate_plan(self.plan,{'candidateSha':self.plan['candidateSha']})
+  self.plan['pendingAttachmentValidatorSha256']='bad'
+  with self.assertRaisesRegex(ValueError,'ATTACHMENT_VALIDATOR_CLOSURE_REQUIRED'):validate_plan(self.plan,{'candidateSha':self.plan['candidateSha']})
  def test_draft_never_ready(self):
   with self.assertRaisesRegex(ValueError,'FROZEN_CONSERVATION_PLAN_REQUIRED'):validate_plan(self.plan,{'candidateSha':self.plan['candidateSha']})
 if __name__=='__main__':unittest.main()

@@ -5,6 +5,7 @@ import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardApi, boardLogin, createAcceptanceBoard, archiveAcceptanceBoard, openBoard, boardHead, BOARD_SYNCED_STATUS} from './board-acceptance-support';
 import {fileAssetRows, fileWriteCounterproof, setFileFixtureOrgFrozen} from './support/board-files-storage';
+import {isBoardFileUploadResponse} from './support/board-file-upload-response';
 import {securityFixture} from './support/board-security-fixture';
 import {observeRuntimeChunks, runtimeSourceIdentity, verifyRuntimeIdentity} from './board-runtime-evidence';
 
@@ -25,7 +26,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     await openBoard(page, board, 0);
     const runtimeBefore = await verifyRuntimeIdentity(request, sha, await chunks());
     const fileName = 'R09-报告 "原始名称".txt', bytes = Buffer.from(`ordinary file ${randomUUID()}`), digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-    const uploadResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${apiOrigin()}/whiteboards/${board}/files`);
+    const uploadResponse = page.waitForResponse(response => isBoardFileUploadResponse(response.request().method(), response.url(), board, apiOrigin(), baseURL));
     const transfer = await page.evaluateHandle(({name, data}) => {
       const value = new DataTransfer(); value.items.add(new File([new Uint8Array(data)], name, {type: 'text/plain'})); return value;
     }, {name: fileName, data: [...bytes]});
