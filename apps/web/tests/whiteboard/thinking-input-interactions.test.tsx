@@ -137,9 +137,12 @@ it("guards shortcuts inside inputs and creates from N/T only when canvas context
   expect(readObjects(doc)).toHaveLength(0);
   fireEvent.keyDown(title,{key:"Escape"});
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
+  expect(readObjects(doc)).toHaveLength(0);
+  fireEvent.click(screen.getByTestId('mock-canvas-click'));
   expect(readObjects(doc)).toHaveLength(1);
   fireEvent.click(screen.getByTestId("mock-canvas-click"));
   expect(readObjects(doc)).toHaveLength(1);
+  expect(screen.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed','true');
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "t" });
   expect(readObjects(doc)).toHaveLength(1);
   doc.destroy();

@@ -77,7 +77,15 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
         for (const [key, value] of Object.entries(item.extensionData)) {
           // This canonical envelope is a typed value, not a board-object reference.
           // Validate its exact schema and still inspect its fields for opaque references.
-          if (key === 'contentObject') assertNoOpaqueReference(parseContentObject(value), sourceIds);
+          if (key === 'contentObject') {
+            const content = parseContentObject(value);
+            if (content.type === 'image') {
+              // replacementOf is a declared board-object reference, unlike opaque
+              // extension fields. Validate it before remapping in the copy.
+              if (content.replacementOf !== null && !sourceIds.has(content.replacementOf)) throw new Error('INVALID_DUPLICATE_REFERENCE');
+              assertNoOpaqueReference({...content, replacementOf: null}, sourceIds);
+            } else assertNoOpaqueReference(content, sourceIds);
+          }
           else if (key === 'thinkingInput' && isKnownThinkingInputMetadata(value)) continue;
           else assertNoOpaqueReference(value, sourceIds, key);
         }
@@ -90,6 +98,12 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
       // The receipt carries source Board/version provenance. Keeping an object-level
       // restoredFrom would leave a dangling source identity in the independent target.
       delete copy.restoredFrom;
+      if (copy.extensionData?.contentObject) {
+        const content = parseContentObject(copy.extensionData.contentObject);
+        if (content.type === 'image' && content.replacementOf !== null) {
+          copy.extensionData.contentObject = {...content, replacementOf: mapping.get(content.replacementOf)!};
+        }
+      }
       return WhiteboardObject.parse({
         ...copy, id: mapping.get(item.id),
         parentId: item.parentId === null ? null : mapping.get(item.parentId),

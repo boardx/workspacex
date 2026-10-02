@@ -1,4 +1,5 @@
 import {strict as assert} from 'node:assert';
+import {expectBoardSynced} from './board-sync-status';
 import {createHash,randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
@@ -42,7 +43,7 @@ export async function produceVendorMigrationEvidence(input:{api:APIRequestContex
  const sharp=createRequire(resolve(__dirname,'../../../api/package.json'))('sharp') as (bytes:Uint8Array)=>{raw():{toBuffer(options:{resolveWithObject:true}):Promise<{data:Buffer;info:{width:number;height:number;channels:number}}>}};
  for(const media of f.media??[]){const object=document.objects.find((o:any)=>o.extensionData?.import?.sourceId===media.sourceId),asset=object?.extensionData?.contentObject as {status?:string;assetId?:string}|undefined;assert(asset);assert.equal(asset.status,'ready');const response=await call('GET',`/whiteboards/${board.id}/assets/${asset.assetId}/content`),bytes=await response.body();assert.equal(hash(bytes),media.sha256);const pixels=await sharp(bytes).raw().toBuffer({resolveWithObject:true});assert.equal(pixels.info.width,media.width);assert.equal(pixels.info.height,media.height);let probe=0;for(let i=0;i<pixels.data.length;i+=pixels.info.channels)if(media.pixelProbe.every((value,index)=>pixels.data[i+index]===value))probe++;assert(probe>100,'pixel probe must occur in the actual source image');images.push({assetId:asset.assetId,sha256:media.sha256,pixelHash:hash(pixels.data)});}
  await call('PUT',`/whiteboards/${board.id}/members`,{userId:input.peerUserId,role:'editor'});
- const verifyPage=async(page:Page,expected:WhiteboardObject[])=>{await expect(page.getByTestId('collaborative-editor')).toBeVisible();await expect(page.getByText(/^已同步/)).toBeVisible();await page.getByTestId('board-zoom-fit-board').click();
+ const verifyPage=async(page:Page,expected:WhiteboardObject[])=>{await expect(page.getByTestId('collaborative-editor')).toBeVisible();await expectBoardSynced(page);await page.getByTestId('board-zoom-fit-board').click();
  // Observe this page's local rendered model, never refetch the server as a substitute.
  await expect(async()=>assertVendorLocalObjects(await readVendorLocalObjects(page),expected)).toPass({timeout:15_000});
  for(const media of f.media??[])await expect.poll(()=>page.locator('canvas.lower-canvas').evaluateAll((elements,rgb)=>elements.some(element=>{const c=element as HTMLCanvasElement,ctx=c.getContext('2d');if(!ctx)return false;const bytes=ctx.getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<bytes.length;i+=4)if(bytes[i]===rgb[0]&&bytes[i+1]===rgb[1]&&bytes[i+2]===rgb[2]&&bytes[i+3]===255)n++;return n>100;}),media.pixelProbe)).toBe(true);};

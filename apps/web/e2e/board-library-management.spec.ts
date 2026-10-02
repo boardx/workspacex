@@ -1,4 +1,4 @@
-import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
+import {expectBoardSynced} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -98,13 +98,13 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await apiJson<Board>(api, token, "PATCH", `/whiteboards/${oneTag.id}`, { tagIds: [alpha.id], expectedTagsRevision: oneTag.tagsRevision });
 
   await page.goto(`/studio/board/${source.id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await page.getByTestId("board-add-sticky").click();
   await page.getByTestId("board-sticky-square").click();
   await page.getByTestId("board-fabric-surface").click({ position: { x: 300, y: 220 } });
   await page.getByTestId("board-thinking-editor").press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const retryId = randomUUID(), retryPayload = { requestId: retryId, targetName: `RetryCopy-${suffix}` };
   const firstRetry = await apiJson<{ board: Board; receipt: { requestId: string; objectCount: number } }>(api, token, "POST", `/whiteboards/${source.id}/duplicates`, retryPayload);
@@ -140,17 +140,17 @@ test("production Board library manages, duplicates, filters and deletes durable 
   cleanupBoards.add(copy.id);
 
   await page.goto(`/studio/board/${copy.id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
   await page.goto(`/studio/board/${source.id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await page.getByTestId("board-add-sticky").click();
   await page.getByTestId("board-sticky-square").click();
   await page.getByTestId("board-fabric-surface").click({ position: { x: 540, y: 220 } });
   await page.getByTestId("board-thinking-editor").press("Escape");
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(2);
   await page.goto(`/studio/board/${copy.id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
 
   await page.goto("/studio/board");
@@ -193,7 +193,7 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await page.screenshot({ path: testInfo.outputPath("board-library-with-navigation.png") });
   await page.getByTestId(`board-open-${board.id}`).click();
   await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("rail-more")).not.toBeVisible();
   await expect(async () => {
     const region = page.getByTestId("board-editor-region");
@@ -202,6 +202,7 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
     const editor = await page.getByTestId("collaborative-editor").boundingBox();
     expect(shell).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
     await expect(page.getByTestId("board-sync-banner")).toBeHidden(); // testid-gate: absent Header cloud replaces the removed standalone sync banner.
+    await expect(page.getByTestId("board-editor-header").getByTestId("board-sync-status")).toHaveAttribute("data-sync-phase", "synced");
     expect(bounds).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
     expect(editor).toEqual(bounds);
   }).toPass({ timeout: 5000 });

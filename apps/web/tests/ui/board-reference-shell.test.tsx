@@ -36,6 +36,7 @@ it('keeps the FigJam tool order and keeps Frame creation hidden',()=>{
  expect(screen.queryByTestId('board-add-frame')).toBeNull();
  expect(creation).not.toHaveBeenCalled();
  expect(screen.getByTestId('board-add-connector')).toBeInTheDocument();
+ expect(screen.getByTestId('board-add-connector')).toBeVisible();
  fireEvent.click(screen.getByTestId('board-add-more'));
  expect(screen.queryByTestId('board-add-panel')).toBeNull();
 });

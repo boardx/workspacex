@@ -140,6 +140,8 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
   openProperties();
   expect(screen.getByLabelText("语义关系")).toBeDisabled();
+  expect(screen.queryByTestId("board-connector-toolbar")).toBeNull();
+  expect(screen.queryByTestId("board-connector-color")).toBeNull();
   doc.destroy();
 });
 
