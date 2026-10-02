@@ -28,6 +28,7 @@
  * 整轮红在这里，而不是退化成 22 个 spec 各自超时的噪声。
  */
 import { revokeAllStandingToolGrants } from "./standing-tool-grant-cleanup";
+import { warmChatRoute } from "./support/chat-route-warmup";
 
 const WEB_PORT = process.env.WORKSPACEX_WEB_PORT;
 
@@ -48,32 +49,14 @@ const ROUTES = [
   "/projects",
 ];
 
-const WARMUP_BUDGET_MS = 300_000;
-
 export default async function warmUpChatRoutes(): Promise<void> {
   if (!WEB_PORT) {
     throw new Error("WORKSPACEX_WEB_PORT is required; run through the root #74 isolation wrapper (pnpm run verify:chat-read)");
   }
   const base = `http://127.0.0.1:${WEB_PORT}`;
   for (const route of ROUTES) {
-    const deadline = Date.now() + WARMUP_BUDGET_MS;
-    let lastOutcome = "never attempted";
-    for (;;) {
-      try {
-        const response = await fetch(`${base}${route}`, { redirect: "manual" });
-        // 2xx 与 3xx 都算编译完成：`/chat/copilotkit-v2` 那类薄 redirect 返回 307，
-        // 未登录的 `/chat` 由客户端壳层跳 `/login`（服务端仍是 200）。只有网络层
-        // 失败或 5xx 才说明这一轮还没编译好。
-        if (response.status < 500) break;
-        lastOutcome = `HTTP ${response.status}`;
-      } catch (failure) {
-        lastOutcome = failure instanceof Error ? failure.message : String(failure);
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(`[chat-route-warmup] ${route} 在 ${WARMUP_BUDGET_MS}ms 内没有编译就绪：${lastOutcome}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-    }
+    console.log(`[chat-route-warmup] compiling ${route}`);
+    await warmChatRoute(`${base}${route}`);
   }
 
   /**
