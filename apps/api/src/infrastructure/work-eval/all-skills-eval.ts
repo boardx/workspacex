@@ -34,6 +34,11 @@ export class FsBatchEntityEvaluator implements BatchEntityEvaluator {
     const quiet = () => {};
     const log = this.opts.err ?? quiet;
     const run = await runEvalCommand({ repoRoot: this.opts.repoRoot, entity: stableId, evalsRoot: this.opts.evalsRoot, baseline: o.baseline, out: quiet, err: l => log(`  ${stableId}: ${l}`) });
+    // No report means this invocation never evaluated the subject. Do not substitute
+    // historical gate state for the failed current execution.
+    if (run.report === null || run.reportPath === null) {
+      return { status: null, reportPath: null, error: `${stableId}: evaluation did not produce a report (exit ${run.exitCode})` };
+    }
     const gates = runWorkStackGates({ repoRoot: this.opts.repoRoot, evalsRoot: this.opts.evalsRoot, entity: stableId, out: quiet, err: quiet });
     const judgement = gates.judgements[0] ?? null;
     return {

@@ -1,3 +1,4 @@
+import { OFFICIAL_ROLE_UPGRADE_REPOSITORY, type OfficialRoleUpgradeRepository } from "../../application/agent-import/upgrade-official-roles";
 import { Body, ConflictException, Controller, ForbiddenException, Get, HttpStatus, Inject, NotFoundException, Post, Res, UnprocessableEntityException } from "@nestjs/common";
 import type { Response } from "express";
 import { agentRole as R, wave2Runtime as C } from "@repo/contracts";
@@ -20,12 +21,13 @@ export class AgentStarterImportController {
     @Inject(AGENT_STARTER_IMPORT_REPOSITORY) private readonly imports: AgentStarterImportRepository,
     @Inject(WORKFLOW_DEFINITION_STORE) private readonly workflows: WorkflowDefinitionStore,
     @Inject(OFFICIAL_AGENT_ROLE_PACK_IMPORT_REPOSITORY) private readonly officialImports: OfficialAgentRolePackImportRepository,
+    @Inject(OFFICIAL_ROLE_UPGRADE_REPOSITORY) private readonly upgrades: OfficialRoleUpgradeRepository,
   ) {}
   /** 官方数字人待启用要约：成员可读（只展示），管理员据 `canEnable` 一键启用（走下方 POST）。 */
   @Get(R.operations.getOfficialRolePackOffer.path)
   async officialRolePackOffer(@CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);
-    const offer = await getOfficialRolePackOffer({ identities: this.identities, imports: this.officialImports }, { actorId: principal.userId, orgId: principal.orgId });
+    const offer = await getOfficialRolePackOffer({ identities: this.identities, imports: this.officialImports, upgrades: this.upgrades }, { actorId: principal.userId, orgId: principal.orgId });
     return R.operations.getOfficialRolePackOffer.out.parse(offer);
   }
 

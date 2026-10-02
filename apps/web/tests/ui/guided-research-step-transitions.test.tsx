@@ -2,10 +2,10 @@ import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
-import { getResearchRuntime, executeResearchRuntime } from "@/lib/guided-research-api";
+import { getResearchRuntime, getResearchRuntimeProgress, executeResearchRuntime } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
 
-vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
+vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(), executeResearchRuntime: vi.fn() }));
 afterEach(() => vi.useRealTimers());
 beforeEach(() => { vi.resetAllMocks(); window.history.replaceState({}, "", "/research/grs-live/import"); });
 
@@ -45,6 +45,7 @@ describe("step-aligned research transitions", () => {
     fireEvent.click(screen.getByRole("button", { name: /研究计划/ }));
     await screen.findByTestId("guided-research-plan-panel");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...state, busy: false, leaseUntil: null });
+    vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ ...state, busy: false, leaseUntil: null, stream: null });
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByTestId("guided-research-plan-panel")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/research/grs-live/plan");

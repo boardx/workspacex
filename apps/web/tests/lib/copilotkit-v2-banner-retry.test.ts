@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { shouldOfferBannerRetry } from "@/lib/copilotkit-v2-banner-retry";
 
-const base = { hasResendableMessage: true, agentIsRunning: false, planStepRecoveryOffered: false };
+const base = { hasResendableMessage: true, sendIsBlocked: false, planStepRecoveryOffered: false };
 
 describe("shouldOfferBannerRetry", () => {
   it("计划面板已给出「重试该步」时，横幅不再给第二个重试", () => {
@@ -18,6 +18,6 @@ describe("shouldOfferBannerRetry", () => {
 
   it("没有可重发的消息、或已有一轮在跑时不给重试（既有行为，一字未动）", () => {
     expect(shouldOfferBannerRetry({ ...base, hasResendableMessage: false })).toBe(false);
-    expect(shouldOfferBannerRetry({ ...base, agentIsRunning: true })).toBe(false);
+    expect(shouldOfferBannerRetry({ ...base, sendIsBlocked: true })).toBe(false);
   });
 });

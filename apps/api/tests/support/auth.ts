@@ -24,7 +24,12 @@ const COMPOSE = [
 
 function redisReady(): boolean {
   try {
-    const out = execFileSync("docker", [...COMPOSE, "exec", "-T", "redis", "redis-cli", "PING"], {
+    const native = process.env.WORKSPACEX_NATIVE_REDIS === "1";
+    const command = native ? "redis-cli" : "docker";
+    const args = native
+      ? ["-h", process.env.REDIS_HOST ?? "127.0.0.1", "-p", process.env.REDIS_PORT ?? "56379", "PING"]
+      : [...COMPOSE, "exec", "-T", "redis", "redis-cli", "PING"];
+    const out = execFileSync(command, args, {
       stdio: "pipe",
       encoding: "utf8",
     });
@@ -45,6 +50,11 @@ function redisReady(): boolean {
  */
 export function ensureRedis(): void {
   if (redisReady()) return;
+  // An explicitly owned native Redis is a real store, not permission to start
+  // Docker or fall back to an in-memory session implementation.
+  if (process.env.WORKSPACEX_NATIVE_REDIS === "1") {
+    throw new Error("WORKSPACEX_NATIVE_REDIS=1 but Redis at REDIS_HOST:REDIS_PORT is not reachable (redis-cli PING failed)");
+  }
   try {
     execFileSync("docker", [...COMPOSE, "up", "-d", "redis"], { stdio: "pipe" });
   } catch (e) {

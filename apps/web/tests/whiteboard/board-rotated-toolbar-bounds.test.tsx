@@ -40,7 +40,7 @@ it.each([30, 90])('uses rotated entity bounds for single and mixed-child menus d
     act(() => harness.props!.onSelectionChange(['a', 'b'], 'canvas'));
     expect(vi.mocked(useBoardToolbarPosition).mock.calls.at(-2)![0]).toEqual(union([preview, objects[1]!]));
     expect(readObjects(doc)).toEqual(canonical);
-    act(() => harness.props!.onTransformPreview?.(null));
+    act(() => harness.props!.onTransformPreview?.([]));
     expect(vi.mocked(useBoardToolbarPosition).mock.calls.at(-2)![0]).toEqual(union(objects));
   } finally { cleanup(); doc.destroy(); }
 });

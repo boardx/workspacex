@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-run/runtime-profile-continuation.test.ts (6 tests) 27ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  10:57:57
+   Duration  7.13s (transform 4.21s, setup 0ms, collect 5.30s, tests 27ms, environment 0ms, prepare 217ms)

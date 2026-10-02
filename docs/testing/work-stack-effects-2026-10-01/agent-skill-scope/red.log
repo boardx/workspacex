@@ -1,0 +1,132 @@
+
+ RUN  v2.1.9 /workspace/agent-skill-scope-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/agent/list-agent-directory.test.ts (16 tests | 1 failed) 22ms
+   × profile exposes exact old-version pins without substituting catalog current versions 9ms
+     → expected undefined to deeply equal [ { skillId: 'catalog-skill', …(1) } ]
+ ❯ tests/agent-run/runtime-profile-continuation.test.ts (6 tests | 1 failed) 25ms
+   × a new role-scoped run cannot execute a tampered skill version beyond the frozen agent pins 10ms
+     → expected "readPinnedSkills" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st readPinnedSkills call:
+
+    Array [
+      "org-runtime-profile",
+      Array [
+        "new-version",
+      ],
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/chat/agent-default-skill-loading.test.ts (7 tests | 2 failed) 16ms
+   × explicit agent with no pins has no skills and cannot inherit the organization pool 7ms
+     → expected [ 'other' ] to deeply equal []
+   × explicit agent rejects an unmounted skill and another version of its mounted skill 3ms
+     → expected [Function] to throw an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent/list-agent-directory.test.ts > profile exposes exact old-version pins without substituting catalog current versions
+AssertionError: expected undefined to deeply equal [ { skillId: 'catalog-skill', …(1) } ]
+
+- Expected:
+Array [
+  Object {
+    "skillId": "catalog-skill",
+    "versionId": "old-version",
+  },
+]
+
++ Received:
+undefined
+
+ ❯ tests/agent/list-agent-directory.test.ts:193:32
+    191|   const d = deps({ found: row({ skillVersionIds: ["old-version"], pinn…
+    192|   const profile = await getAgentDirectoryProfile({ orgId: ORG, actorId…
+    193|   expect(profile.pinnedSkills).toEqual([{ skillId: "catalog-skill", ve…
+       |                                ^
+    194| });
+    195|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/agent-run/runtime-profile-continuation.test.ts > a new role-scoped run cannot execute a tampered skill version beyond the frozen agent pins
+AssertionError: expected "readPinnedSkills" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st readPinnedSkills call:
+
+    Array [
+      "org-runtime-profile",
+      Array [
+        "new-version",
+      ],
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/agent-run/runtime-profile-continuation.test.ts:119:20
+    117|   const complete = vi.fn(async () => ({ text: "must not execute" }));
+    118|   await executeQueuedRuns(deps(store, { complete }), { orgId: ORG });
+    119|   expect(read).not.toHaveBeenCalled();
+       |                    ^
+    120|   expect(complete).not.toHaveBeenCalled();
+    121|   expect(store.failRun).toHaveBeenCalledWith(ORG, run.runId, "SKILL_VE…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/chat/agent-default-skill-loading.test.ts > explicit agent with no pins has no skills and cannot inherit the organization pool
+AssertionError: expected [ 'other' ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "other",
++ ]
+
+ ❯ tests/chat/agent-default-skill-loading.test.ts:66:115
+     64|
+     65| it("explicit agent with no pins has no skills and cannot inherit the o…
+     66|   expect(resolveRunSkillVersionIds({ explicitAgent: true, agentPinned:…
+       |                                                                                                                   ^
+     67| });
+     68| it("explicit agent rejects an unmounted skill and another version of i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/chat/agent-default-skill-loading.test.ts > explicit agent rejects an unmounted skill and another version of its mounted skill
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/chat/agent-default-skill-loading.test.ts:70:142
+     68| it("explicit agent rejects an unmounted skill and another version of i…
+     69|   for (const version of ["other-skill-v1", "curated-v2"]) {
+     70|     expect(() => resolveRunSkillVersionIds({ explicitAgent: true, agen…
+       |                                                                                                                                              ^
+     71|   }
+     72|   expect(resolveRunSkillVersionIds({ explicitAgent: true, agentPinned:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  3 failed (3)
+      Tests  4 failed | 25 passed (29)
+   Start at  09:27:55
+   Duration  7.18s (transform 3.92s, setup 0ms, collect 5.07s, tests 62ms, environment 2ms, prepare 248ms)
+
+undefined
+/workspace/agent-skill-scope-fixes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/chat/agent-default-skill-loading.test.ts tests/agent-run/runtime-profile-continuation.test.ts tests/agent/list-agent-directory.test.ts

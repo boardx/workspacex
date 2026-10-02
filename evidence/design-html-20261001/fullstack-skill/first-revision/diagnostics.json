@@ -1,0 +1,261 @@
+{
+  "outer": [
+    {
+      "tag": "IFRAME",
+      "class": "absolute inset-0 h-full w-full border-0",
+      "width": 938.6124267578125,
+      "height": 558.5562133789062,
+      "display": "block",
+      "position": "absolute",
+      "minHeight": "0px",
+      "flex": "0 1 auto"
+    },
+    {
+      "tag": "DIV",
+      "class": "relative min-h-0 w-full flex-1",
+      "width": 938.6124267578125,
+      "height": 558.5562133789062,
+      "display": "block",
+      "position": "relative",
+      "minHeight": "0px",
+      "flex": "1 1 0%"
+    },
+    {
+      "tag": "DIV",
+      "class": "relative flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1 [&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40 [&_[data-selected=true]]:outline [&_[data-selected=true]]:outline-2 [&_[data-selected=true]]:outline-primary [&_[data-selected=true]]:outline-offset-1 [&_[data-changed=true]]:outline-dashed [&_[data-changed=true]]:outline-2 [&_[data-changed=true]]:outline-success [&_[data-changed=true]]:outline-offset-1",
+      "width": 950.512451171875,
+      "height": 570.4562377929688,
+      "display": "flex",
+      "position": "relative",
+      "minHeight": "0px",
+      "flex": "1 1 0%"
+    },
+    {
+      "tag": "DIV",
+      "class": "relative flex shrink-0 flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-lg dark",
+      "width": 952,
+      "height": 595,
+      "display": "flex",
+      "position": "relative",
+      "minHeight": "0px",
+      "flex": "0 0 auto"
+    },
+    {
+      "tag": "DIV",
+      "class": "",
+      "width": 952,
+      "height": 595,
+      "display": "block",
+      "position": "static",
+      "minHeight": "0px",
+      "flex": "0 1 auto"
+    },
+    {
+      "tag": "DIV",
+      "class": "",
+      "width": 952,
+      "height": 595,
+      "display": "block",
+      "position": "static",
+      "minHeight": "auto",
+      "flex": "0 1 auto"
+    },
+    {
+      "tag": "DIV",
+      "class": "flex min-h-0 flex-1 justify-center overflow-auto p-4",
+      "width": 984,
+      "height": 979,
+      "display": "flex",
+      "position": "static",
+      "minHeight": "0px",
+      "flex": "1 1 0%"
+    },
+    {
+      "tag": "DIV",
+      "class": "relative min-w-0 flex-1 overflow-hidden bg-background flex flex-col",
+      "width": 984,
+      "height": 979,
+      "display": "flex",
+      "position": "relative",
+      "minHeight": "auto",
+      "flex": "1 1 0%"
+    }
+  ],
+  "inner": {
+    "viewport": {
+      "width": 1262,
+      "height": 751
+    },
+    "text": "生产排班\n2024-06-12 周三\n已排批次\n设备冲突 09:30–10:00\n机台\n08:00\n08:30\n09:00\n09:30\n10:00\n10:30\n11:00\n11:30\n12:00\n12:30\n13:00\n13:30\n14:00\n14:30\n15:00\n15:30\n1号机\nR0612-",
+    "nodes": [
+      {
+        "class": "page",
+        "width": 1262,
+        "height": 751,
+        "y": 0,
+        "clientHeight": 751,
+        "scrollHeight": 751,
+        "overflow": "visible",
+        "display": "flex",
+        "visibility": "visible",
+        "fontSize": "14px"
+      },
+      {
+        "class": "schedule-grid",
+        "width": 1212,
+        "height": 232,
+        "y": 113,
+        "clientHeight": 232,
+        "scrollHeight": 232,
+        "overflow": "visible",
+        "display": "grid",
+        "visibility": "visible",
+        "fontSize": "14px"
+      },
+      {
+        "class": "batch-btn track-a",
+        "width": 417,
+        "height": 40,
+        "y": 152,
+        "clientHeight": 38,
+        "scrollHeight": 38,
+        "overflow": "visible",
+        "display": "flex",
+        "visibility": "visible",
+        "fontSize": "14px"
+      },
+      {
+        "class": "batch-id",
+        "width": 399,
+        "height": 14.296875,
+        "y": 153,
+        "clientHeight": 14,
+        "scrollHeight": 14,
+        "overflow": "visible",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "11px"
+      },
+      {
+        "class": "batch-bean",
+        "width": 399,
+        "height": 5.40625,
+        "y": 169.296875,
+        "clientHeight": 5,
+        "scrollHeight": 17,
+        "overflow": "hidden",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "12px"
+      },
+      {
+        "class": "batch-meta",
+        "width": 399,
+        "height": 14.296875,
+        "y": 176.703125,
+        "clientHeight": 14,
+        "scrollHeight": 14,
+        "overflow": "visible",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "11px"
+      },
+      {
+        "class": "batch-btn track-b",
+        "width": 556,
+        "height": 40,
+        "y": 198,
+        "clientHeight": 38,
+        "scrollHeight": 38,
+        "overflow": "visible",
+        "display": "flex",
+        "visibility": "visible",
+        "fontSize": "14px"
+      },
+      {
+        "class": "batch-id",
+        "width": 538,
+        "height": 14.296875,
+        "y": 199,
+        "clientHeight": 14,
+        "scrollHeight": 14,
+        "overflow": "visible",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "11px"
+      },
+      {
+        "class": "batch-bean",
+        "width": 538,
+        "height": 5.40625,
+        "y": 215.296875,
+        "clientHeight": 5,
+        "scrollHeight": 17,
+        "overflow": "hidden",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "12px"
+      },
+      {
+        "class": "batch-meta",
+        "width": 538,
+        "height": 14.296875,
+        "y": 222.703125,
+        "clientHeight": 14,
+        "scrollHeight": 14,
+        "overflow": "visible",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "11px"
+      },
+      {
+        "class": "batch-btn track-c",
+        "width": 347.5,
+        "height": 40,
+        "y": 252,
+        "clientHeight": 38,
+        "scrollHeight": 38,
+        "overflow": "visible",
+        "display": "flex",
+        "visibility": "visible",
+        "fontSize": "14px"
+      },
+      {
+        "class": "batch-id",
+        "width": 329.5,
+        "height": 14.296875,
+        "y": 253,
+        "clientHeight": 14,
+        "scrollHeight": 14,
+        "overflow": "visible",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "11px"
+      },
+      {
+        "class": "batch-bean",
+        "width": 329.5,
+        "height": 5.40625,
+        "y": 269.296875,
+        "clientHeight": 5,
+        "scrollHeight": 17,
+        "overflow": "hidden",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "12px"
+      },
+      {
+        "class": "batch-meta",
+        "width": 329.5,
+        "height": 14.296875,
+        "y": 276.703125,
+        "clientHeight": 14,
+        "scrollHeight": 14,
+        "overflow": "visible",
+        "display": "block",
+        "visibility": "visible",
+        "fontSize": "11px"
+      }
+    ]
+  }
+}

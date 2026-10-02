@@ -1,0 +1,4 @@
+
+> @repo/api@0.0.0 typecheck /private/tmp/wsx-design-html-acceptance/apps/api
+> tsc --noEmit
+

@@ -123,15 +123,16 @@ export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand
 }
 
 export type ResearchRuntimeProgress = z.infer<typeof research.GuidedResearchRuntimeProgress>;
-export async function getResearchRuntimeProgress(sessionId: string, stream?: GuidedResearchRuntime["reportStream"]): Promise<ResearchRuntimeProgress> {
+export async function getResearchRuntimeProgress(sessionId: string, stream?: GuidedResearchRuntime["reportStream"], sourceCursor?: string): Promise<ResearchRuntimeProgress> {
   const op = research.operations.getGuidedResearchRuntimeProgress;
   const digest = stream ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stream.text)))).map((byte) => byte.toString(16).padStart(2, "0")).join("") : "";
   const query = new URLSearchParams(stream ? { requestId: stream.requestId, offset: String(stream.text.length), digest } : {});
+  if (sourceCursor) query.set("sourceCursor", sourceCursor);
   return op.out.parse(await apiRequest(`${op.path.replace(":sessionId", encodeURIComponent(sessionId))}?${query}`));
 }
 export function mergeResearchProgress(current: GuidedResearchRuntime, update: ResearchRuntimeProgress): GuidedResearchRuntime {
   if (current.sessionId !== update.sessionId || update.version < current.version || (update.version === current.version && !current.busy && update.busy)) return current;
-  const { stream, ...metadata } = update;
+  const { stream, research: researchUpdate, ...metadata } = update;
   const isNewReportAttempt = update.busy && update.currentNode === "report"
     && (update.version > current.version || Boolean(stream && current.reportStream && stream.requestId !== current.reportStream.requestId));
   let reportStream = current.reportStream;
@@ -147,6 +148,14 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
   return {
     ...current,
     ...metadata,
+    ...(researchUpdate ? { tasks: researchUpdate.tasks,
+      sources: researchUpdate.sources?.map((source) => ({
+        ...current.sources.find((previous) => previous.id === source.id),
+        ...source,
+        // Only a display fallback for newly discovered metadata. Evidence bodies
+        // remain server-owned and are reloaded once execution reaches terminal state.
+        content: current.sources.find((previous) => previous.id === source.id)?.content ?? source.presentation?.summary ?? source.title,
+      })) ?? current.sources } : {}),
     ...(update.busy && update.currentNode === "report"
       ? { report: null, reportDraft: null, ...(isNewReportAttempt ? { reportCheckpoint: null } : {}) }
       : {}),

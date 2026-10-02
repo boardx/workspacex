@@ -87,9 +87,28 @@ describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段�
     const err = await screen.findByTestId("projects-list-error");
     expect(err).toHaveTextContent("项目列表暂时读不出来");
     expect(screen.queryByTestId("projects-list-empty-state")).toBeNull();
-    fireEvent.click(screen.getByTestId("projects-list-error-retry"));
+    fireEvent.click(screen.getByTestId("dep-failed-retry"));
     expect(await screen.findByTestId("projects-card-p-real-1-name")).toHaveTextContent("真实项目一号");
     expect(screen.queryByTestId("projects-list-error")).toBeNull();
+  });
+
+  it.each([
+    new Response("<!DOCTYPE html><html>projects page</html>", { status: 200 }),
+    new Error("fetch failed: internal upstream address"),
+  ])("protocol/network failure uses dependency shell without raw diagnostics", async (failure) => {
+    fetchMock.mockImplementationOnce(async () => {
+      if (failure instanceof Error) throw failure;
+      return failure;
+    });
+    render(<ProjectsScreen />);
+    const shell = await screen.findByTestId("dep-failed");
+    expect(shell).toHaveAttribute("role", "alert");
+    expect(shell).toHaveTextContent("项目列表暂时读不出来，请稍后重试。");
+    expect(shell).not.toHaveTextContent(/Unexpected|HTTP 200|fetch failed|upstream|DOCTYPE/);
+    expect(screen.queryByTestId("projects-list-empty-state")).toBeNull();
+    fireEvent.click(screen.getByTestId("dep-failed-retry"));
+    expect(await screen.findByTestId("projects-card-p-real-1-name")).toHaveTextContent("真实项目一号");
+    expect(screen.queryByTestId("dep-failed")).toBeNull();
   });
 
   it("R8 标签：重复的标签就地提示「已经有这个标签了」（不再静默吞），输入框有 40 字上限", async () => {

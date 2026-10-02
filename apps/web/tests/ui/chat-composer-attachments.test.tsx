@@ -26,6 +26,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   listMessages,
   createMessage,
   uploadAttachment,
+  cancelPendingAttachment: vi.fn(async () => undefined),
   landAsArtifact: vi.fn(),
 }));
 vi.mock("@/lib/agent-run", async (importOriginal) => ({

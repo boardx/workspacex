@@ -25,7 +25,8 @@
     "ci:board:api-ws-objectstore": "node scripts/run-board-ci-lane.mjs api-ws-objectstore -- pnpm --filter web exec playwright test --config playwright.board-api-ws-objectstore-acceptance.config.ts",
     "ci:board:performance": "node scripts/run-board-ci-lane.mjs performance -- pnpm --filter web exec playwright test --config e2e/board-performance-acceptance.config.ts",
     "ci:board:collaboration-50": "node scripts/run-board-ci-lane.mjs collaboration-50 -- pnpm --filter web exec playwright test --config playwright.board-soak-acceptance.config.ts",
-    "ci:board:meeting-room": "node scripts/run-board-ci-lane.mjs meeting-room -- pnpm --filter web exec playwright test --config playwright.board-meeting-room-acceptance.config.ts"
+    "ci:board:meeting-room": "node scripts/run-board-ci-lane.mjs meeting-room -- pnpm --filter web exec playwright test --config playwright.board-meeting-room-acceptance.config.ts",
+    "verify:outbox-browser": "node scripts/verify-whiteboard-outbox-browser.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",

@@ -176,6 +176,15 @@ const SLOW_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SLOW_TRIGGER;
 const SLOW_HOLD_MS = Number(process.env.LOOPBACK_DEEP_AGENT_SLOW_HOLD_MS ?? "12000");
 const SCROLL_ACCEPTANCE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER;
 const SCROLL_ACCEPTANCE_REPLY = "十份文档已经逐一读取，十步滚动验收执行完成。";
+// Only an explicitly armed F2 execution is gated; ordinary scroll/S8 scripts retain their behavior.
+const f2Gates = new Map<string, { readonly userText: string; released: boolean }>();
+function isScrollText(text: string): boolean {
+  return SCROLL_ACCEPTANCE_TRIGGER !== undefined && (text === SCROLL_ACCEPTANCE_TRIGGER || [...f2Gates.values()].some((gate) => gate.userText === text));
+}
+function f2Held(text: string): boolean {
+  return [...f2Gates.values()].some((gate) => gate.userText === text && !gate.released);
+}
+
 /**
  * UX-9 D4 前端接入取证（gap 清单第 3 条）—— 对这句触发词，第一次到达状态阈值时回
  * `status: "interrupted"` 而不是 `"success"`：`DeepAgentModelProvider.completeWithProgress`
@@ -1216,6 +1225,24 @@ interface CreateRunBody {
 const server = createServer((req, res) => {
   const url = req.url ?? "";
 
+  if (req.method === "POST" && SCROLL_ACCEPTANCE_TRIGGER !== undefined && (url === "/__test/f2/arm" || url === "/__test/f2/release")) {
+    void readBody(req).then((raw) => {
+      let input: { gateId?: string; userText?: string };
+      try { input = JSON.parse(raw); } catch { sendJson(res, 400, { error: "invalid json" }); return; }
+      if (typeof input.gateId !== "string" || input.gateId.length === 0) { sendJson(res, 400, { error: "gateId required" }); return; }
+      if (url.endsWith("/arm")) {
+        if (typeof input.userText !== "string" || !input.userText.startsWith(`${SCROLL_ACCEPTANCE_TRIGGER}:F2:`) || f2Gates.has(input.gateId)) { sendJson(res, 400, { error: "unique F2 turn required" }); return; }
+        f2Gates.set(input.gateId, { userText: input.userText, released: false });
+      } else {
+        const gate = f2Gates.get(input.gateId);
+        if (!gate) { sendJson(res, 404, { error: "unknown gate" }); return; }
+        gate.released = true;
+      }
+      sendJson(res, 200, { released: url.endsWith("/release") });
+    });
+    return;
+  }
+
   if (req.method === "GET" && url === "/healthz") {
     sendJson(res, 200, { status: "ok" });
     return;
@@ -1327,7 +1354,7 @@ const server = createServer((req, res) => {
         started: true,
         userText: lastUserText,
         userMessageId: lastUserId,
-        scrollExecutionId: SCROLL_ACCEPTANCE_TRIGGER !== undefined && lastUserText === SCROLL_ACCEPTANCE_TRIGGER ? randomUUID() : undefined,
+        scrollExecutionId: isScrollText(lastUserText) ? randomUUID() : undefined,
         scrollHalfStep: 0,
         statusPolls: 0,
         decision: null,
@@ -1410,6 +1437,7 @@ const server = createServer((req, res) => {
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     void (async () => {
     record.statusPolls += 1;
+    if (f2Held(record.userText)) { sendJson(res, 200, { status: "pending" }); return; }
     /*
      * issue #3303 —— **模型边界**：一次运行控制回读。
      *
@@ -1471,7 +1499,7 @@ const server = createServer((req, res) => {
       // 路径矩阵 F5/C8 —— 见 `SUBTASK_HOLD_POLLS` 头注。排在最前：子任务的正文不会
       // 逐字等于任何一个触发词，但把它排在后面只会让人误以为次序无关。
       ? Math.max(STATUS_POLLS_BEFORE_DONE, SUBTASK_HOLD_POLLS!)
-      : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+      : isScrollText(record.userText)
       ? Math.max(STATUS_POLLS_BEFORE_DONE, 20)
       : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? Math.max(STATUS_POLLS_BEFORE_DONE, MULTISTEP_MIN_STATUS_POLLS)
@@ -1583,9 +1611,9 @@ const server = createServer((req, res) => {
     const isChoosing = isChooseOption(record);
     const isTwoInterruptTurn = isTwoInterrupt(record);
     const isTwoApprovalTurn = isTwoApproval(record);
-    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : escalateReason(record) !== null ? `escalate-${threadId}:${record.decision === null ? "pending" : "final"}` : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
+    const streamMessageId = startWorkflowTarget(record) !== null ? `${serverComputedToolScript(record)!.idPrefix}-${threadId}:${record.decision === null ? "pending" : "final"}` : escalateReason(record) !== null ? `escalate-${threadId}:${record.decision === null ? "pending" : "final"}` : isScrollText(record.userText) ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
     const isStartWorkflow = startWorkflowTarget(record) !== null;
-    const reply = isStartWorkflow ? startWorkflowReply(record) : escalateReason(record) !== null ? escalateReply(record) : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+    const reply = isStartWorkflow ? startWorkflowReply(record) : escalateReason(record) !== null ? escalateReply(record) : isScrollText(record.userText)
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       /*
@@ -1628,14 +1656,16 @@ const server = createServer((req, res) => {
         res.destroy();
         return;
       }
-      if (idx >= pieces.length) {
+      const gatedScroll = [...f2Gates.values()].some((gate) => gate.userText === record.userText);
+      if (gatedScroll && record.scrollHalfStep >= SCROLL_TOTAL_HALF_STEPS && f2Held(record.userText)) return;
+      if (idx >= pieces.length || (gatedScroll && record.scrollHalfStep < SCROLL_TOTAL_HALF_STEPS)) {
         // 十步滚动剧本：正文发完**流不结束**——真实 LangGraph 的 join 流在图还在跑
         // 工具节点时保持打开，工具落地逐个以 `event: updates` 的 `{"tools": ...}` patch
         // 发出来（形状锚点见 `deep-agent-model-provider.ts` `tryStreamRun` 头注引用的
         // `01-sse-stream.txt` 实测采集）。此前这里直接 EOF + 把 `statusPolls` 推到
         // MAX，十对调用于是全落到流后那一次兜底 state 读里一次性出现——见
         // `SCROLL_STEP_MS` 头注。
-        if (SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+        if (isScrollText(record.userText)
           && record.scrollHalfStep < SCROLL_TOTAL_HALF_STEPS) {
           if (Date.now() < streamOpenedAt + holdMs + (record.scrollHalfStep + 1) * SCROLL_STEP_MS) return;
           record.scrollHalfStep += 1;
@@ -1650,6 +1680,7 @@ const server = createServer((req, res) => {
           res.write(`event: updates\ndata: ${JSON.stringify({ tools: { messages: [message] } })}\n\n`);
           return;
         }
+        if (gatedScroll && idx < pieces.length) return;
         clearInterval(timer);
         // LangGraph's join stream closes only after the remote run has settled. Mirror that
         // contract: the provider performs one authoritative status read immediately after
@@ -1781,7 +1812,7 @@ const server = createServer((req, res) => {
       });
       return;
     }
-    if (SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER) {
+    if (isScrollText(record.userText)) {
       // Protocol-level fixture, like the three-step fixture below: production
       // polling, journal persistence and rendering must observe every receipt.
       const messages: unknown[] = [{ type: "human", content: record.userText }];
@@ -1794,7 +1825,7 @@ const server = createServer((req, res) => {
         if (record.scrollHalfStep >= index * 2 + 1) messages.push({ type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] });
         if (record.scrollHalfStep >= index * 2 + 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
       }
-      if (record.scrollHalfStep >= SCROLL_TOTAL_HALF_STEPS) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
+      if (record.scrollHalfStep >= SCROLL_TOTAL_HALF_STEPS && !f2Held(record.userText)) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
       sendJson(res, 200, { values: { messages } });
       return;
     }

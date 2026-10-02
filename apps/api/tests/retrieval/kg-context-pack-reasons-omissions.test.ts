@@ -116,11 +116,11 @@ describe("F08: 记忆真的进了模型的输入（executeQueuedRuns）", () => 
       return calls.at(-1)!;
     };
     const call = await runOnce("run-kg-f08-1", port);
-    const memory = (call.history ?? []).find((m) => m.content.startsWith("【记忆】"));
+    const memory = (call.history ?? []).find((m) => m.role === "user" && m.content.startsWith("【用户背景参考材料】") && m.content.includes("【记忆】"));
     expect(memory?.content).toContain("张三决定下周一上线 v2");
 
     const broken: KnowledgeRecallPort = { recordTurn: async () => undefined, candidates: async () => { throw new Error("db down"); }, graphNeighbors: async () => [] };
     const call2 = await runOnce("run-kg-f08-2", broken);
-    expect((call2.history ?? []).some((m) => m.content.startsWith("【记忆】"))).toBe(false);
+    expect((call2.history ?? []).some((m) => m.role === "user" && m.content.startsWith("【用户背景参考材料】") && m.content.includes("【记忆】"))).toBe(false);
   });
 });

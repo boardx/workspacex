@@ -47,6 +47,7 @@ export async function updateTemplateMetadata(
   await requireTemplateAdmin({ identity: deps.identity }, input);
 
   const outcome = await deps.templates.updateMetadata({
+    actorId: input.userId,
     orgId: input.orgId,
     key: input.key,
     version: input.version,

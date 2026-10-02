@@ -55,6 +55,7 @@ export async function publishTemplate(
 
   // 归档旧版与置本版为 published 是**一个事务**，边界在仓储里（见 `template-ports.ts`）。
   const outcome = await deps.templates.publish({
+    actorId: input.userId,
     orgId: input.orgId,
     key: input.key,
     version: input.version,

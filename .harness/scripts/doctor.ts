@@ -866,10 +866,7 @@ function checkIssueClosed(
  * 判据用 feature_list 的 status（权威），不用 label（投影，且 #1676 之前会残留）。
  * NOT_PLANNED 关闭是人类明确放弃，不算漂移。
  *
- * ⚠ 级别：**两种模式都是 WARN**，不是 strict-FAIL。2026-09-02 引入时实测 main 上已有
- *   ≥5 条 in_progress feature 的 issue 处于 CLOSED（01/F34 #87、01/F50 #121、
- *   01/F195 #1433、04/F06 #2447、11/F04 #1649），直接 FAIL 会让每一条 PR 当场红。
- *   先把它变成看得见的东西；清完存量后再升 FAIL（与 ②③ 对齐），那一步另开 issue。
+ * #2485：全量盘点并处置存量后，pre-push WARN，CI --strict FAIL。
  */
 export function judgeClosedIssueDrift(
   f: Pick<Feature, "id" | "status">,
@@ -885,9 +882,9 @@ export function judgeClosedIssueDrift(
   );
 }
 
-function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue[], findings: Finding[]): void {
+export function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue[], findings: Finding[], level: "FAIL" | "WARN"): void {
   const msg = judgeClosedIssueDrift(f, findIssue(issues, phaseId, f));
-  if (msg) findings.push({ level: "WARN", phase: phaseId, msg });
+  if (msg) findings.push({ level, phase: phaseId, msg });
 }
 
 /**
@@ -1213,7 +1210,7 @@ export function doctor(args: Args): void {
       if (issues) {
         checkIssueExists(id, f, issues, findings);
         checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
-        checkIssueClosedButNotDone(id, f, issues, findings);
+        checkIssueClosedButNotDone(id, f, issues, findings, strict ? "FAIL" : "WARN");
         checkClosingPrGreen(id, f, issues, findings, strict ? "FAIL" : "WARN", repo);
       }
     }
