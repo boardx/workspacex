@@ -10,6 +10,7 @@ import {securityFixture} from './support/board-security-fixture';
 import {connectorAuthorityTransport} from './support/connector-authority-transport';
 import {connectorDurableState} from './support/connector-authority-storage';
 import {deniedConnectorWrite,cancelledConnectorGesture} from './support/connector-c06-oracle.mjs';
+import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 
 const connector:WhiteboardConnector={from:'c06-a',to:'c06-b',fromAnchor:'right',toAnchor:'left',type:'curve',startStyle:'circle',endStyle:'diamond',lineStyle:'dashed',strokeWidth:7,label:'C06 authority',semanticRelation:'depends_on',route:{kind:'curve',startOffset:{x:140,y:70},endOffset:{x:-140,y:-40}},labelPosition:{t:.6,normalOffset:25}};
@@ -21,7 +22,9 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
  const contexts:BrowserContext[]=[],pages:Page[]=[],transport=connectorAuthorityTransport(),identities=new Map<Page,string>();let editor!:Page,viewer!:Page,commenter!:Page,outsider!:Page;
  const boards:Array<{id:string;name:string}>=[],records:unknown[]=[],screenshots:unknown[]=[],cleanup:unknown[]=[],cleanupErrors:unknown[]=[],raceProofs:Array<{id:string;durable:Awaited<ReturnType<typeof connectorDurableState>>;frameOffset:number}>=[];let foreign:Awaited<ReturnType<typeof securityFixture>>|undefined,ownerToken='',failure:unknown;
  const capture=async(phase:string,page=editor)=>{const path=info.outputPath(`${phase}.png`),bytes=await page.screenshot({path});screenshots.push({phase,path,sha256:sha256(bytes)});};
+ let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
+  manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
   foreign=await securityFixture();
   for(let index=0;index<4;index++){const context=await browser.newContext({baseURL,viewport:{width:1440,height:900}});contexts.push(context);pages.push(await context.newPage());}
   [editor,viewer,commenter,outsider]=pages as [Page,Page,Page,Page];const chunks=[owner,...pages].map(observeRuntimeChunks);transport.observe(editor,'original',()=>identities.get(editor)!);transport.observe(owner,'peer',()=>identities.get(owner)!);
@@ -90,6 +93,7 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
   for(const board of boards){try{cleanup.push(await deleteOwnedConnectorFixture(api,ownerToken,board.id,F.userId,board.name));}catch(error){cleanupErrors.push(error);}}
   for(const context of contexts){try{await context.close();}catch(error){cleanupErrors.push(error);}}
   if(foreign){try{await foreign.cleanup();}catch(error){cleanupErrors.push(error);}}
+  try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector authority execution/cleanup failures');
   const path=info.outputPath('connector-authority-result.json');await writeFile(path,JSON.stringify({source,status:failure?'failed':'C06-authority-subcases-passed',requiredRoundComplete:false,records,screenshots,cleanup,pending:['actual production runtime execution and independent visual review','C07 history','C08 interchange','390px authority cases']},null,2),{mode:0o600});await info.attach('connector-authority-result',{path,contentType:'application/json'});
  }

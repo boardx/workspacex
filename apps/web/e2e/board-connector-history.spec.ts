@@ -8,6 +8,7 @@ import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixtur
 import {retainedConnector,cubicSamples} from './support/connector-c05-oracle.mjs';
 import {cancelledConnectorGesture} from './support/connector-c06-oracle.mjs';
 import {restoredConnectorHistory} from './support/connector-c07-oracle.mjs';
+import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
 test('C07 UI deletion history restores complete Connector without overwriting peer endpoint movement',async({browser,page:owner,request:api,baseURL},info)=>{
  test.setTimeout(180_000);expect(baseURL).toBeTruthy();const source=runtimeSourceIdentity(),transport=connectorAuthorityTransport(),records:unknown[]=[],screenshots:unknown[]=[],cleanupErrors:unknown[]=[];
@@ -15,7 +16,9 @@ test('C07 UI deletion history restores complete Connector without overwriting pe
  const title='C07 Connector history with surviving remote endpoint';
  const capture=async(phase:string)=>{for(const [index,page] of [owner,editor!].entries()){const path=info.outputPath(`${phase}-${index}.png`),bytes=await page.screenshot({path});screenshots.push({phase,index,path,sha256:sha256(bytes)});}};
  const synced=async(page:Page)=>{await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','synced');};
+ let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
+  manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
   context=await browser.newContext({baseURL,viewport:{width:1440,height:900}});editor=await context.newPage();const peers=[owner,editor],chunks=peers.map(observeRuntimeChunks);
   const login=async(page:Page,email:string,password:string,userId:string)=>{const response=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST'),token=await boardLogin(page,email,password),authenticated=await response;expect(authenticated.ok()).toBe(true);const body=await authenticated.json();expect(body.userId).toBe(userId);expect(body.sessionToken).toBe(token);return token;};
   ownerToken=await login(owner,F.email,F.password,F.userId);const editorToken=await login(editor,F.adminEmail,F.adminPassword,F.adminUserId);transport.observe(owner,'original',()=>F.userId);transport.observe(editor,'peer',()=>F.adminUserId);
@@ -71,7 +74,9 @@ test('C07 UI deletion history restores complete Connector without overwriting pe
  }catch(error){failure=error;}
  finally{
   if(boardId&&ownerToken){try{records.push({phase:'cleanup',...await deleteOwnedConnectorFixture(api,ownerToken,boardId,F.userId,title)});}catch(error){cleanupErrors.push(error);}}
-  if(context){try{await context.close();}catch(error){cleanupErrors.push(error);}}if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector history execution/cleanup failures');
+  if(context){try{await context.close();}catch(error){cleanupErrors.push(error);}}
+  try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
+  if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector history execution/cleanup failures');
   const path=info.outputPath('connector-history-result.json');await writeFile(path,JSON.stringify({source,status:failure?'failed':'C07-history-subcases-passed',requiredRoundComplete:false,records,screenshots,pending:['actual browser and independent visual review','C08 complete interchange','390px history']},null,2),{mode:0o600});await info.attach('connector-history-result',{path,contentType:'application/json'});
  }
  if(failure)throw failure;

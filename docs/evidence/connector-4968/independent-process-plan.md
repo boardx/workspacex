@@ -13,6 +13,18 @@ Use an already-running isolated production API/Web candidate, fresh production
 build, source/marker/chunk identity and clean Git source. Set `BOARD_CONNECTOR_WEB_URL`,
 `WHITEBOARD_API_URL`, `BOARD_ACCEPTANCE_SHA`, `BOARD_ACCEPTANCE_RUNTIME_MARKER`,
 `BOARD_ACCEPTANCE_RUNTIME_STARTED_AT` and the actual matching `WORKSPACEX_ISOLATION_ID`.
+`BOARD_CONNECTOR_RUNTIME_MANIFEST` must point to the actual ready startup manifest;
+`BOARD_CONNECTOR_RUNTIME_VERIFIER` supplies the frozen independently reviewed single
+`verifyRuntimeManifest` implementation, whose byte digest is pinned in the wrapper.
+Both are mandatory, including when an existing-runtime config has no webServer.
+The startup manifest must include every tracked API/Web/package source and test,
+root build/lock inputs and runtime helper; its entire source list is verified, not
+a selected subset. All seven cases verify this manifest before and after, including
+live service PID/cwd/listener ownership, committed/current/startup source equality,
+explicit source/marker/start-time binding and unchanged startup manifest bytes.
+Without the real producer/manifest the cases fail; no CI or discovery exemption is
+used. The existing served-chunk/build-time checks supplement this proof, rather than
+turning the current Git SHA into a claim about an unrelated server's build source.
 Provide the standard fresh fullstack identities through the runtime's existing seed;
 never invent sessions or parallel-login a seed account in another suite.
 The configuration does not start Docker, services, migration or reset.

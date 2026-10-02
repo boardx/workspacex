@@ -7,6 +7,7 @@ import {boardLogin,boardApi,apiOrigin,boardHead,canonicalBoardSnapshot,createAcc
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {exactInterchangeObjects,portableExportProof,portableObjectExpectation} from './support/connector-c08-oracle.mjs';
+import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
 for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08 actual portable and legacy standard HTTP interchange at ${viewport.width}px preserves complete bound and free Connector fields`,async({page,request:api},info)=>{
  test.setTimeout(240_000);await page.setViewportSize(viewport);const source=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page),records:unknown[]=[],screenshots:unknown[]=[],owned:Array<{id:string;title:string}>=[],cleanupErrors:unknown[]=[];let token='',failure:unknown;
@@ -19,7 +20,9 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08
   await page.reload();await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','synced');exactInterchangeObjects(expected,(await canonicalBoardSnapshot(api,token,id)).objects);
   expect((await canonicalBoardSnapshot(api,token,id)).revision).toEqual(before.revision);
  };
+ let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
+  manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
   const loginResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');token=await boardLogin(page);const login=await (await loginResponse).json();expect(login.userId).toBe(F.userId);expect(login.sessionToken).toBe(token);
   for(const type of ['straight','elbow','curve'] as const){
    const sourceId=await make(`C08 ${type} source`),sourceObjects=[object('c08-a','sticky',150,180,'A',140,100),object('c08-b','sticky',850,420,'B',140,100)];
@@ -50,6 +53,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08
  }catch(error){failure=error;}
  finally{
   for(const board of owned){try{records.push({phase:'cleanup',...await deleteOwnedConnectorFixture(api,token,board.id,F.userId,board.title)});}catch(error){cleanupErrors.push(error);}}
+  try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector interchange execution/cleanup failures');
   const path=info.outputPath('connector-interchange-result.json');await writeFile(path,JSON.stringify({source,viewport,status:failure?'failed':'C08-HTTP-interchange-subcases-passed',requiredC08Complete:false,requiredRoundComplete:false,records,screenshots,pending:['actual runtime and independent screenshot review','separate UI copy/default driver execution']},null,2),{mode:0o600});await info.attach('connector-interchange-result',{path,contentType:'application/json'});
  }

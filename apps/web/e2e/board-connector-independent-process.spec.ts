@@ -5,6 +5,7 @@ import {boardLogin,boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoa
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
+import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
 const edgeId='c05-edge',ink='#E11D48';
 async function synced(page:Page){
@@ -24,12 +25,14 @@ async function moveHandle(page:Page,id:string,dx:number,dy:number,held=false){
 test('C05 distinct browser processes converge on Connector style path and concurrent endpoint edits',async({request:api,baseURL},info)=>{
  test.setTimeout(240_000);
  expect(baseURL,'An existing isolated production runtime URL is required').toBeTruthy();
- const sha=runtimeSourceIdentity(),browsers:Browser[]=[],pages:Page[]=[],records:unknown[]=[],cleanup:unknown[]=[],processIds:number[]=[],browserErrors:string[]=[];
+ const sha=runtimeSourceIdentity(),browsers:Browser[]=[],pages:Page[]=[],records:unknown[]=[],cleanup:unknown[]=[],cleanupErrors:unknown[]=[],processIds:number[]=[],browserErrors:string[]=[];
  let boardId='',ownerToken='',failure:unknown;
  const screenshots:Array<{phase:string;process:number;path:string;sha256:string}>=[];
  const traffic:Array<Array<{direction:'sent'|'received';type:string;updateId?:string;gestureId?:string;epoch?:number;seq?:number;code?:string}>>=[[],[],[]];
  const capture=async(phase:string)=>{for(let index=0;index<pages.length;index++){const path=info.outputPath(`${phase}-process-${index}.png`),bytes=await pages[index]!.screenshot({path});screenshots.push({phase,process:index,path,sha256:sha256(bytes)});}};
+ let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
+  manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
   // Each launch creates a separate browser process, not two contexts of one browser.
   for(let index=0;index<3;index++){
    const browser=await chromium.launch();browsers.push(browser);
@@ -196,8 +199,10 @@ test('C05 distinct browser processes converge on Connector style path and concur
   expect(browserErrors).toEqual([]);records.push({runtimeBefore,runtimeAfter,identities,processIds,traffic,independentBrowserLaunches:browsers.length,engines:browsers.map(browser=>browser.version())});
  }catch(error){failure=error;}
  finally{
-  if(boardId&&ownerToken){try{cleanup.push(await deleteOwnedConnectorFixture(api,ownerToken,boardId,F.userId,'C05 independent Connector processes'));}catch(error){failure??=error;}}
-  for(const browser of browsers){try{await browser.close();}catch(error){failure??=error;}}
+  if(boardId&&ownerToken){try{cleanup.push(await deleteOwnedConnectorFixture(api,ownerToken,boardId,F.userId,'C05 independent Connector processes'));}catch(error){cleanupErrors.push(error);}}
+  for(const browser of browsers){try{await browser.close();}catch(error){cleanupErrors.push(error);}}
+  try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
+  if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector process execution/cleanup/provenance failures');
   const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
  }
  if(failure)throw failure;

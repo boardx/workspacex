@@ -8,13 +8,16 @@ import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256}
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {exactInterchangeObjects} from './support/connector-c08-oracle.mjs';
 import {copiedSubgraphProof} from './support/connector-copy-oracle.mjs';
+import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
 for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08 real UI copy/paste, board duplicate and old Connector defaults at ${viewport.width}px`,async({page,request:api},info)=>{
  test.setTimeout(180_000);await page.setViewportSize(viewport);const source=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page),owned:Array<{id:string;title:string}>=[],records:unknown[]=[],screenshots:unknown[]=[],cleanupErrors:unknown[]=[];let token='',failure:unknown;
  const make=async(title:string)=>{const id=await createAcceptanceBoard(api,token,title);owned.push({id,title});return id;};
  const synced=async()=>{await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','synced');};
  const capture=async(phase:string)=>{const path=info.outputPath(`${phase}.png`),bytes=await page.screenshot({path});screenshots.push({phase,path,sha256:sha256(bytes)});};
+ let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
+  manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
   const loginResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');token=await boardLogin(page);const login=await (await loginResponse).json();expect(login.userId).toBe(F.userId);expect(login.sessionToken).toBe(token);
   const boardId=await make(`C08 UI copy ${viewport.width}`),seed=[object('c08-copy-a','sticky',120,180,'A',140,100),object('c08-copy-b','sticky',600,400,'B',140,100)];
   for(const type of ['straight','elbow','curve'] as const){const route=type==='curve'?{kind:'curve' as const,startOffset:{x:100,y:-70},endOffset:{x:-80,y:25}}:type==='elbow'?{kind:'elbow' as const,waypoints:[{x:420,y:230},{x:420,y:450}]}:undefined;seed.push({...object(`c08-copy-${type}`,'connector',260,230,`C08 ${type}`,340,220),style:{stroke:'#E11D48'},connector:{from:'c08-copy-a',to:'c08-copy-b',fromAnchor:'right',toAnchor:'left',type,route,strokeWidth:12,label:`C08 ${type}`,semanticRelation:'depends_on',labelPosition:{t:.73,normalOffset:-29},startStyle:'circle',endStyle:'diamond',lineStyle:'dotted'}});}
@@ -35,6 +38,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08
  }catch(error){failure=error;}
  finally{
   for(const board of owned){try{records.push({phase:'cleanup',...await deleteOwnedConnectorFixture(api,token,board.id,F.userId,board.title)});}catch(error){cleanupErrors.push(error);}}
+  try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector copy/default execution/cleanup failures');const path=info.outputPath('connector-copy-defaults-result.json');await writeFile(path,JSON.stringify({source,viewport,status:failure?'failed':'C08-UI-copy-default-subcases-passed',requiredC08Complete:false,records,screenshots,pending:['actual runtime and independent screenshots','portable interchange at mobile viewport']},null,2),{mode:0o600});await info.attach('connector-copy-defaults-result',{path,contentType:'application/json'});
  }
  if(failure)throw failure;
