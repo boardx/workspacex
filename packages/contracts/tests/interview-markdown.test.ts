@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown } from "../src/interview-markdown";
+import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis } from "../src/interview-markdown";
 import { DigitalInterviewArtifact } from "../src/interview";
 
 const markdown = "# 教育研究\r\n\r\n## 核心发现\r\n\r\n| 用户 | 观点 |\r\n| --- | --- |\r\n| 学生 | 保留 **自主性** |\r\n\r\n```md\r\n## 不是章节\r\n```\r\n";
@@ -102,5 +102,18 @@ describe("访谈 Markdown 正文单源", () => {
     const raw = "## 核心发现\n\n- 发现\n  - 证据\n    - 证据细节\n\n### 其他发现\n\n1. 第二项";
     expect(parseInterviewMarkdown({ ...document, markdown: raw }).entries.map(({ listDepth }) => listDepth)).toEqual([1, 2, 3, 1]);
     expect(raw).toContain("  - 证据");
+  });
+});
+
+
+describe("formatted report quality", () => {
+  it("accepts bold analysis labels and concrete validation sections from provider Markdown", () => {
+    const report = "## 跨回答综合\n\n共同模式：信息对齐失效。\n\n- **决策影响**：应优先验证安装前确认，暂缓扩展功能。\n- **边界与反例**：标准鞋柜无需增加表单，置信度中等。\n\n## 下一步验证建议\n\n1. **执行三角验证深度访谈**：独立访谈五起延期事件中的用户、师傅和客服，对比三方证据。\n2. **A/B测试**：采集实验组与对照组的返工率和下单转化率。";
+    expect(assessInterviewReportAnalysis(report)).toEqual({ ok: true, missing: [] });
+  });
+  it("does not accept formatting-only labels or quoted code as analysis evidence", () => {
+    const report = "## 跨回答综合\n\n共同模式：信息对齐失效。\n\n决策影响：暂缓扩展功能，因为需要证据。\n\n## 下一步验证建议\n\n建议优化产品。\n\n```md\n边界与反例：仍待验证。\nP0：验证真实任务完成时长。\n```";
+    expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
+    expect(assessInterviewReportAnalysis(report).missing).toContain("verifiable_action");
   });
 });
