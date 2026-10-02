@@ -1,0 +1,77 @@
+name: Native Board Acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: board-native-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  native-board:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      NATIVE_POSTGRES_TOOL_ROOT: /private/tmp/wsx-pg16.15
+      BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Prepare owned private native paths
+        run: |
+          sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex libreadline-dev zlib1g-dev libssl-dev libicu-dev lsof
+      - name: Build exact native PostgreSQL and vector extension
+        run: |
+          mkdir /private/tmp/wsx-native-tool-source
+          cd /private/tmp/wsx-native-tool-source
+          curl --fail --location --output postgresql.tar.bz2 https://ftp.postgresql.org/pub/source/v16.15/postgresql-16.15.tar.bz2
+          echo 'c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed  postgresql.tar.bz2' | sha256sum --check
+          tar -xjf postgresql.tar.bz2
+          cd postgresql-16.15
+          ./configure --prefix="$NATIVE_POSTGRES_TOOL_ROOT"
+          make -j2
+          make install
+          cd ..
+          curl --fail --location --output pgvector.tar.gz https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.6.tar.gz
+          echo '10bf9938906e5d643bbc4a7eea104b6f57ba4898e5b76b20e60484ea1d5a7f8f  pgvector.tar.gz' | sha256sum --check
+          tar -xzf pgvector.tar.gz
+          cd pgvector-0.8.6
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
+      - name: Create exact connector source checkout
+        run: |
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-connectors
+          git -C /private/tmp/wsx-native-connectors checkout --detach "$(git rev-parse HEAD)"
+          cd /private/tmp/wsx-native-connectors
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run complete native connector acceptance
+        working-directory: /private/tmp/wsx-native-connectors
+        run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts
+      - name: Create exact ordinary-file source checkout
+        if: always()
+        run: |
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-files
+          git -C /private/tmp/wsx-native-files checkout --detach "$(git rev-parse HEAD)"
+          cd /private/tmp/wsx-native-files
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run complete native ordinary-file acceptance
+        if: always()
+        working-directory: /private/tmp/wsx-native-files
+        run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-files-completion.config.ts
+      - name: Retain bounded statistics and screenshots without private runtime credentials
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-native-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /private/tmp/wsx-native-public-evidence/
+          if-no-files-found: error
