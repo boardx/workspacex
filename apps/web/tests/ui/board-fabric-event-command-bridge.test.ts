@@ -151,7 +151,7 @@ describe("Board Fabric event-to-command boundary", () => {
     expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*285[ ,]200/);
     act(() => canvas.emit("object:modified", { target }));
     expect(events.onObjectTransform).toHaveBeenCalledTimes(1);
-    expect(events.onTransformPreview).toHaveBeenLastCalledWith(null);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
     expect(target.left).toBe(base.geometry.x);
     expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*215[ ,]90/);
   });
@@ -166,7 +166,7 @@ describe("Board Fabric event-to-command boundary", () => {
     act(() => canvas.emit("mouse:down", { target, e: new MouseEvent("mousedown", { clientX: 20, clientY: 30 }) }));
     const cancel = new Event("pointercancel", { bubbles: true }); Object.assign(cancel, { pointerType: "mouse", isPrimary: true });
     fireEvent(screen.getByTestId("board-fabric-canvas"), cancel);
-    expect(events.onTransformPreview).toHaveBeenLastCalledWith(null);
+    expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
     expect(events.onObjectTransform).not.toHaveBeenCalled();
   });
 
