@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {expectBoardSynced} from './support/board-sync-status';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +41,7 @@ async function archiveBoard(api: APIRequestContext, token: string, boardId: stri
   const current = await (await request(api, token, 'GET', `/whiteboards/${boardId}`)).json() as {archived: boolean; lifecycleRevision: number};
   if (!current.archived) await request(api, token, 'PATCH', `/whiteboards/${boardId}`, {archived: true, expectedLifecycleRevision: current.lifecycleRevision});
 }
-async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 序列 \d+)?(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
+async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expectBoardSynced(page,30_000,true);}
 
 test('realtime presence field convergence',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});

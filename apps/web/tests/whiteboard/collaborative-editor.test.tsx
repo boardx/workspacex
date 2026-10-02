@@ -277,13 +277,26 @@ it('commenter can start another discussion on an already commented object while 
  view.unmount();doc.destroy();
 });
 
-it.each([744,680])('uses measured frame height %i for keyboard creation and viewport presence',height=>{
+it.each([744,680])('uses measured frame height %i for viewport presence and arms one canvas placement',height=>{
  const bounds=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({width:1200,height,x:0,y:768-height,top:768-height,left:0,right:1200,bottom:768,toJSON(){}} as DOMRect);
  const doc=createWhiteboardDocument(),awareness=vi.fn();
  try{
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="Board" status="online" onAwareness={awareness}/>);
   expect(awareness.mock.calls.at(-1)?.[3].viewport).toMatchObject({centerX:600,centerY:height/2});
   fireEvent.keyDown(window,{key:'n'});
-  const note=readObjects(doc)[0]!;expect(note.geometry.x+note.geometry.width/2).toBe(600);expect(note.geometry.y+note.geometry.height/2).toBe(height/2);
+  expect(readObjects(doc)).toHaveLength(0);fireEvent.click(screen.getByTestId('fabric-place'));
+  const note=readObjects(doc)[0]!;expect(note.geometry.x+note.geometry.width/2).toBe(400);expect(note.geometry.y+note.geometry.height/2).toBe(300);
+  expect(screen.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed','true');
+  fireEvent.keyDown(screen.getByLabelText('对象文字'),{key:'Escape'});fireEvent.click(screen.getByTestId('fabric-place'));expect(readObjects(doc)).toHaveLength(1);
  }finally{cleanup();doc.destroy();bounds.mockRestore();}
+});
+
+it.each(['connecting','pending','offline','synced'] as const)('projects actual editor sync phase %s into the header',phase=>{
+ const doc=createWhiteboardDocument(),retry=vi.fn();
+ render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="Board" status={phase==='synced'?'已同步 · 序列 12':phase==='pending'?'2 项修改等待服务器确认':phase==='offline'?'连接中断':'正在连接服务器'} syncPhase={phase} onRetrySync={retry}/>);
+ const status=screen.getByTestId('board-sync-status');expect(status).toHaveAttribute('data-sync-phase',phase);expect(status.querySelector('svg')).not.toBeNull();
+ expect(status.querySelector('svg')).toHaveClass(...(phase==='pending'||phase==='connecting'?['motion-safe:animate-spin']:['shrink-0']));
+ if(phase==='offline'){fireEvent.click(screen.getByTestId('board-retry-sync'));expect(retry).toHaveBeenCalledOnce();}
+ else expect(screen.queryByTestId('board-retry-sync')).toBeNull();
+ doc.destroy();
 });
