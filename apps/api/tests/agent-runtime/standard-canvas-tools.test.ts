@@ -53,7 +53,7 @@ it('journals actual standard canvas input/output with identity, principal contex
   nativeSessions:{provision:async()=>({bindingId:randomUUID(),profile:'native-v1',policy:'native-v1'}),resolve:async()=>{throw new Error('not used');},releaseForRun:async()=>{},release:async()=>{}},
   nativeOutputs:{stage:async()=>{throw new Error('not used');},listFiles:async()=>[]},
   model:{complete:async()=>{throw new Error('progress required');},completeWithProgress:async(input,progress)=>{
-   const args={canvasId},summary=JSON.stringify({...args,apiKey:'trace-secret'});
+   const args={canvasId},summary=JSON.stringify({...args,apiKey:'FAKE'});
    await progress({toolName:'wx_canvas_read',toolCallId,phase:'in_progress',toolArgsSummary:summary,toolResultSummary:null,planningNote:null});
    const response=await fetch(`${base}/internal/agent-runs/${traceRun}/standard-canvas/invoke`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':'canvas-test-key'},body:JSON.stringify({orgId:org,attemptId:input.executionAttemptId,leaseEpoch:input.executionLeaseEpoch,toolCallId,toolName:'wx_canvas_read',toolArgs:args})});
    expect(response.status).toBe(200);actual=CanvasReadOutput.parse(await response.json());
@@ -80,7 +80,10 @@ it('journals actual standard canvas input/output with identity, principal contex
  expect(JSON.parse(evidence.steps[1].tool_result_summary)).toEqual(actual);
  expect(tools[0].payload.sourceToolCallId).toBe(toolCallId);expect(tools[1].payload.sourceToolCallId).toBe(toolCallId);
  expect(tools[1].payload.attemptId).toBe(tools[0].payload.attemptId);
- expect(JSON.stringify(evidence)).not.toContain('trace-secret');expect(JSON.stringify(evidence)).not.toContain('canvas-test-key');
+ expect(JSON.stringify(evidence)).not.toContain('FAKE');expect(JSON.stringify(logs)).not.toContain('FAKE');
+ expect(tools[0].payload.args.apiKey).toBe('[REDACTED]');
+ for(const step of evidence.steps){expect(JSON.parse(step.tool_args_summary).apiKey).toBe('[REDACTED]');}
+ expect(JSON.stringify(evidence)).not.toContain('canvas-test-key');
 });
 it('writes require actual tool authorization; concurrent same-key executes once and conflicts do not overwrite',async()=>{
  const args={canvasId,expectedRevision:1,changes:{kind:'replace-source',markdown:'# Evidence\n\n```mermaid\ngraph TD\n A-->B\n```\n'},idempotencyKey:'operation-1'};
