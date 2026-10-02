@@ -156,6 +156,10 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     await follower!.getByTestId('board-tool-hand').click(); const box = await follower!.getByTestId('board-fabric-surface').boundingBox(); expect(box).not.toBeNull();
     await follower!.mouse.move(box!.x + 400, box!.y + 300); await follower!.mouse.down(); await follower!.mouse.move(box!.x + 510, box!.y + 340, {steps: 12}); await follower!.mouse.up();
     await expect.poll(async () => (await state()).followers).not.toContain(F.userId); record('manual-pan-leave', current.revision, (await state()).revision, await readRoomViewport(follower!));
+    for (const page of [follower!, owner!, display!]) {
+      await expect.poll(() => canonicalRows(page), {message: 'Hand panning over a sticky must preserve every canonical object'}).toEqual(canonicalContent);
+      expect(roomHash(await canonicalRows(page))).toBe(contentHash);
+    }
     await boardApi(api, ownerToken, 'DELETE', `/whiteboards/${boardId}/members/${encodeURIComponent(F.userId)}`);
     await expect(follower!.getByTestId('denied')).toBeVisible({timeout: 30_000}); await expect(follower!.getByTestId('collaborative-editor')).toHaveCount(0);
     current = await state(); record('revoke', current.revision, current.revision, {actorId: F.userId});

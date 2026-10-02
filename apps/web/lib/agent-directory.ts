@@ -187,3 +187,18 @@ export function agentChatHref(agentId: string, prefill?: string): string {
   if (prefill) q.set("prefill", prefill);
   return `/chat?${q.toString()}`;
 }
+
+/** Explicit selected-role upgrade; frozen org/session scope matches the import path. */
+export async function upgradeOfficialRoleSelections(
+  offer: OfficialRolePackOffer,
+  selections: readonly { agentId: string; expectedPublishedVersionId: string }[],
+  idempotencyKey: string,
+  scope: OfficialRoleImportScope,
+): Promise<void> {
+  if (scope.signal.aborted || !scope.isCurrent()) throw new Error("official_role_upgrade_scope_changed");
+  const op = agentRole.operations.upgradeOfficialRoles;
+  const result = await apiRequest<unknown>(op.path, { method: "POST", sessionToken: scope.sessionToken, signal: scope.signal,
+    body: { packVersion: offer.packVersion, expectedOrgId: scope.orgId, selections, idempotencyKey } });
+  op.out.parse(result);
+  if (scope.signal.aborted || !scope.isCurrent()) throw new Error("official_role_upgrade_scope_changed");
+}

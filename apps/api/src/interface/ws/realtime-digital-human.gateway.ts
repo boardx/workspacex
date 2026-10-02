@@ -41,11 +41,14 @@ export interface RealtimeModelConfig {
   readonly transcriptionModel?: string;
 }
 
+/** 固定沿用 #4549 POC 的 Omni 协议模型；文字/ASR/部署覆盖不能更换实时对话协议。 */
+export const REALTIME_CONVERSATION_MODEL = "qwen3.8-omni-flash-realtime";
+
 export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): RealtimeModelConfig {
   return {
     baseUrl: env.KERNEL_OMNI_REALTIME_BASE_URL ?? workspaceRealtimeUrl(env.KERNEL_MODEL_BASE_URL) ?? env.KERNEL_ASR_BASE_URL,
     apiKey: env.KERNEL_OMNI_REALTIME_API_KEY ?? env.KERNEL_ASR_API_KEY ?? env.DASHSCOPE_API_KEY,
-    model: env.KERNEL_OMNI_REALTIME_MODEL ?? "qwen3.8-omni-flash-realtime",
+    model: REALTIME_CONVERSATION_MODEL,
     defaultVoice: env.KERNEL_OMNI_REALTIME_VOICE ?? DEFAULT_REALTIME_VOICE,
     voiceMap: parseRealtimeVoiceMap(env.KERNEL_OMNI_REALTIME_VOICE_MAP),
     transcriptionModel: env.KERNEL_OMNI_REALTIME_TRANSCRIPTION_MODEL ?? "gummy-realtime-v1",
@@ -157,6 +160,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       }));
       for (const audio of pendingAudio.splice(0)) {
         socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: audio.toString("base64") }));
+        audioSent = true;
       }
     });
     socket.on("message", (message) => {
@@ -183,10 +187,16 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
     });
     socket.on("error", () => fail("UPSTREAM_FAILED"));
     socket.on("close", () => {
-      if (upstream !== socket) return;
+      if (upstream !== socket || hangingUp) return;
+      hangingUp = true;
       flushAssistant();
-      send({ type: "session.closed" });
-      client.close();
+      // 上游断开仍须让最后一轮完成落库并发出 turn.persisted，再通知客户端刷新线程。
+      // append 卡住时有界结束；未落库的轮次不会伪造 persisted 确认。
+      void Promise.race([persistChain, delay(HANGUP_PERSIST_WAIT_MS)]).finally(() => {
+        close();
+        send({ type: "session.closed" });
+        client.close();
+      });
     });
   };
 

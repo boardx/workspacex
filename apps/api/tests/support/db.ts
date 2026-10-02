@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { migrate } from "../../src/infrastructure/db/migrator";
 import { appConfig, migrationConfig } from "../../src/infrastructure/db/pg-config";
+import { trackSeededOrganization } from "./fixture-ownership";
+export { cleanupSeededOrganizations } from "./fixture-ownership";
 
 const API_DIR = fileURLToPath(new URL("../..", import.meta.url));
 const COMPOSE = [
@@ -229,8 +231,11 @@ export async function resetOrgs(first: string | readonly string[], ...rest: stri
   const c = new pg.Client(migrationConfig());
   await c.connect();
   // ON DELETE CASCADE carries teams / projects / groups / memberships / bindings with it.
-  await c.query("DELETE FROM organizations WHERE id = ANY($1::text[])", [orgIds]);
-  await c.end();
+  try {
+    await c.query("DELETE FROM organizations WHERE id = ANY($1::text[])", [orgIds]);
+  } finally {
+    await c.end();
+  }
 }
 
 export async function migrateOnce(): Promise<void> {
@@ -369,6 +374,7 @@ export async function seedOrg(opts: {
     }
   });
 
+  trackSeededOrganization(orgId, () => resetOrgs(orgId));
   return { orgId, teams, projectId, groups };
 }
 

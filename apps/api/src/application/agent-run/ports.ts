@@ -128,6 +128,9 @@ export interface ClaimedAgentRun {
   readonly agentId: string;
   readonly agentVersionId: string;
   readonly instructions: string;
+  /** null/absent is a historical immutable snapshot, not retrospectively constrained. */
+  readonly skillScope?: "agent_pins" | "general" | null;
+  readonly agentPinnedSkillVersionIds?: readonly string[];
   /** In the snapshot's order. The order is part of the pinned fact, not a set. */
   readonly skillVersionIds: readonly string[];
   readonly modelProvider: string;

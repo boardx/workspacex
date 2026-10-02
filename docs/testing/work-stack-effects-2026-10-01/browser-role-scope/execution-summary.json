@@ -1,0 +1,53 @@
+{
+  "sourceSha": "ec3e4ae73033afe98c755eb312a1711644ab0778",
+  "environment": "real Chromium, production Next, Nest, isolated PostgreSQL/Redis",
+  "upstream": "explicit deterministic loopback; real model quality BLOCKED",
+  "salesCRM": "DEFERRED by user",
+  "stats": {
+    "startTime": "2026-10-01T12:28:37.610Z",
+    "duration": 634682.388,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "cases": [
+    {
+      "title": "official roles: administrator enables dependencies; member checks seven role skill scopes and runs independent persisted chats",
+      "file": "digital-human-journey.spec.ts",
+      "project": "work-stack-digital-human",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 87544
+        }
+      ]
+    },
+    {
+      "title": "real voice audio, interrupt, persisted hangup and remote disconnect cleanup/retry",
+      "file": "realtime-voice-journey.spec.ts",
+      "project": "work-stack-realtime-voice",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 16833
+        }
+      ]
+    },
+    {
+      "title": "W029 direct role launch: real grants, four real approval confirmations, persisted PRD and reload",
+      "file": "w029-browser-journey.spec.ts",
+      "project": "work-stack-workflow",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 17154
+        }
+      ]
+    }
+  ],
+  "rawTracePolicy": "ignored/local only; never published"
+}

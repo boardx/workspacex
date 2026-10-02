@@ -98,6 +98,7 @@ export async function mintTemplateVersion(
   }
 
   const outcome = await deps.templates.mintVersion({
+    actorId: input.userId,
     orgId: input.orgId,
     key: input.key,
     displayName: input.displayName,

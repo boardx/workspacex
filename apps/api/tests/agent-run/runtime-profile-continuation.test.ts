@@ -109,3 +109,21 @@ it("disabled admission keeps a first claim legacy even with a draining native ow
   await executeQueuedRuns({...deps(store,{complete}),nativeSessions:owner,nativeRuntimeEnabled:false},{orgId:ORG});
   expect(complete).toHaveBeenCalledTimes(1);expect(owner.provision).not.toHaveBeenCalled();expect(store.failRun).not.toHaveBeenCalled();
 });
+
+it("a new role-scoped run cannot execute a tampered skill version beyond the frozen agent pins", async () => {
+  const run = baseRun({ skillScope: "agent_pins", agentPinnedSkillVersionIds: ["old-pin"], skillVersionIds: ["new-version"] });
+  const store = fakeStore(run);
+  const read = vi.spyOn(store, "readPinnedSkills");
+  const complete = vi.fn(async () => ({ text: "must not execute" }));
+  await executeQueuedRuns(deps(store, { complete }), { orgId: ORG });
+  expect(read).not.toHaveBeenCalled();
+  expect(complete).not.toHaveBeenCalled();
+  expect(store.failRun).toHaveBeenCalledWith(ORG, run.runId, "SKILL_VERSION_UNAVAILABLE");
+});
+it.each([null, "general"] as const)("%s scope retains its frozen empty skill snapshot", async skillScope => {
+  const run = baseRun({ skillScope, agentPinnedSkillVersionIds: ["not-selected"], skillVersionIds: [] });
+  const store = fakeStore(run);
+  const complete = vi.fn(async () => ({ text: "allowed" }));
+  await executeQueuedRuns(deps(store, { complete }), { orgId: ORG });
+  expect(complete).toHaveBeenCalledTimes(1);
+});

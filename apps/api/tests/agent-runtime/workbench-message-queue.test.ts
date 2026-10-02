@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../../src/application/chat/resolve-visibility",()=>({resolveVisibility:async()=>({kind:"allow",actor:{},thread:{}})}));
-vi.mock("../../src/application/chat/message-roundtrip",()=>({acceptHumanMessage:vi.fn(),AgentNotPublishedError:class extends Error{},MessageThreadNotVisibleError:class extends Error{},MessageNoWriteRoleError:class extends Error{},MessageThreadArchivedError:class extends Error{},MessageIdempotencyConflictError:class extends Error{}}));
+vi.mock("../../src/application/chat/message-roundtrip",()=>({acceptHumanMessage:vi.fn(),AgentSkillScopeViolationError:class extends Error{},AgentNotPublishedError:class extends Error{},MessageThreadNotVisibleError:class extends Error{},MessageNoWriteRoleError:class extends Error{},MessageThreadArchivedError:class extends Error{},MessageIdempotencyConflictError:class extends Error{}}));
 import { acceptHumanMessage, MessageNoWriteRoleError } from "../../src/application/chat/message-roundtrip";
 import { ThreadMessageQueue } from "../../src/infrastructure/chat-queue/thread-message-queue";
 import { EnqueueMessage } from "@repo/contracts/thread-message-queue";
 const row={id:"12345678-1234-4234-8234-123456789abc",client_request_id:"12345678-1234-4234-8234-123456789abc",body:"next",agent_id:"agent",actor_id:"actor",thread_id:"thread",status:"pending",run_id:null,created_at:new Date(),error_code:null};
-function fixture() {
-  const query=vi.fn(async(sql:string)=>({rows:sql.includes("SELECT q.*")?[row]:[]}));
+function fixture(explicitAgent: boolean | null = null, serverDefaultAgentId = "agent") {
+  const query=vi.fn(async(sql:string)=>({rows:sql.includes("SELECT q.*")?[{...row,explicit_agent:explicitAgent}]:[]}));
   const kick=vi.fn();
-  const deps={db:{withoutTenant:async(fn:Function)=>fn({query:async()=>({rows:[{org_id:"org"}]})}),withTenant:async(_org:string,fn:Function)=>fn({query})},executor:{kick},logger:{error:vi.fn()}};
+  const deps={defaultAgents:{resolveDefaultAgentId:async()=>serverDefaultAgentId},db:{withoutTenant:async(fn:Function)=>fn({query:async()=>({rows:[{org_id:"org"}]})}),withTenant:async(_org:string,fn:Function)=>fn({query})},executor:{kick},logger:{error:vi.fn()}};
   return {queue:new ThreadMessageQueue(deps as unknown as ConstructorParameters<typeof ThreadMessageQueue>[0]),query,kick};
 }
 describe("durable next-turn queue dispatcher",()=>{
@@ -29,4 +29,10 @@ describe("durable next-turn queue dispatcher",()=>{
     const f=fixture();await f.queue.pump();
     expect(f.query.mock.calls.some(([sql])=>sql.includes("status='failed'"))).toBe(true);
   });
+});
+
+it.each([{ explicit: false, defaultId: "agent", expected: false }, { explicit: false, defaultId: "another-default", expected: true }, { explicit: true, defaultId: "agent", expected: true }, { explicit: null, defaultId: "agent", expected: true }])("queue dispatch keeps server-checked selection scope %j", async ({ explicit, defaultId, expected }) => {
+  vi.mocked(acceptHumanMessage).mockClear().mockResolvedValue({} as never);
+  await fixture(explicit, defaultId).queue.pump();
+  expect(acceptHumanMessage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ agentId: "agent", explicitAgent: expected }));
 });

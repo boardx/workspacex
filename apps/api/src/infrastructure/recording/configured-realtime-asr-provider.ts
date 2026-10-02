@@ -432,7 +432,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
             if (finishResolve) { finishResolve = null; resolve(); }
           }, FINISH_GRACE_MS);
         });
-        if (!(manual ? sessionFinished : finalSeen) && !closed) {
+        // A drained server-VAD buffer may produce no new event on stop. Keep the
+        // grace period for a possible tail, but retain already delivered session finals.
+        // Manual mode still requires its explicit session.finished acknowledgement.
+        if (!(manual ? sessionFinished : finalSeen || finalSeenEver) && !closed) {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
         socket.close();

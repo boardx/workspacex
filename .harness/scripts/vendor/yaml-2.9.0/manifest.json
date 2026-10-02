@@ -1,0 +1,12 @@
+{
+  "upstream": "https://registry.npmjs.org/yaml/-/yaml-2.9.0.tgz",
+  "version": "2.9.0",
+  "license": "ISC",
+  "upstreamIntegrity": "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==",
+  "upstreamArchiveSha256": "008fa204cb1ba700e0272ba045abbf09a6ffe63456e8146ba97cac6c2ad1ef91",
+  "upstreamDistSha256": "0a83eb10619d068d7a481cd2301f51a42f5d48d98e1b2db74d6b1a8e4d3d57fd",
+  "licenseSha256": "5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869",
+  "generator": "esbuild",
+  "generatorVersion": "0.28.1",
+  "bundleSha256": "93881a0ec94ca31f415f4c81cdecff2e66f1a3e0a5a4d523cb8c321f825d6ddd"
+}

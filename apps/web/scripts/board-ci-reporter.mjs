@@ -1,3 +1,4 @@
+import {boardSoakDiagnostics} from './board-soak-diagnostics.mjs';
 import {writeFileSync,readFileSync,mkdirSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {createHash} from 'node:crypto';
@@ -7,6 +8,7 @@ const pngNames=new Set(['owner-after-refresh.png','independent-peer.png','roundt
 /** Deliberately omit config/env, test titles, stdout and raw error text from artifacts. */
 export function boardCiErrorReason(error){
  const message=error instanceof Error?error.message:typeof error?.message==='string'?error.message:'';
+ if(/timeout exceeded when trying to connect|POOL_CHECKOUT_TIMEOUT/i.test(message))return'POOL_CHECKOUT_TIMEOUT';
  if(/Timed out waiting \d+ms from config\.webServer/i.test(message))return'WEB_SERVER_TIMEOUT';
  if(/Process from config\.webServer was not able to start/i.test(message))return'WEB_SERVER_PROCESS_FAILED';
  if(/No tests found/i.test(message))return'NO_TESTS_FOUND';
@@ -15,6 +17,7 @@ export function boardCiErrorReason(error){
 }
 export default class BoardCiReporter{
  tests=new Map();errors=[];
+ onStdOut(chunk){for(const phase of boardSoakDiagnostics(chunk,'',0).phases)process.stdout.write(`BOARD_SOAK_PHASE ${phase}\n`);}
  onTestEnd(test,result){
   const row=this.tests.get(test.id)??{expectedStatus:test.expectedStatus,status:'unexpected',results:[]};
   const attachments=[];

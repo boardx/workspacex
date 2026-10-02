@@ -1,3 +1,4 @@
+import type { PendingSkillBinding } from "@repo/contracts/agent-role";
 import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 /**
  * AG01（契约束 agent-role，ADR-116 #3）—— `agent_versions` 的**唯一**插入语句。
@@ -84,6 +85,7 @@ export interface AgentVersionInsert {
   readonly instructionDigest: string;
   readonly instructions: string;
   readonly skillVersionIds: readonly string[];
+  readonly pendingSkillBindings?: readonly PendingSkillBinding[];
   readonly modelProvider: string;
   readonly modelId: string;
   /** 已是 JSON 可序列化的值；本函数负责 stringify。 */
@@ -106,19 +108,19 @@ export async function insertAgentVersionFromDraft(
   const draftCols = Object.values(AGENT_ROLE_COLUMN_OF).map((c) => `d.${c}`).join(", ");
   const inserted = await session.query<{ id: string }>(
     `INSERT INTO agent_versions
-       (${BOOTSTRAP_WRITE_COLUMNS.version.join(", ")}, ${AGENT_ROLE_COLUMNS})
+       (${BOOTSTRAP_WRITE_COLUMNS.version.join(", ")}, ${AGENT_ROLE_COLUMNS}, pending_skill_bindings)
      SELECT $1::text, $2::text, $3::text, $4::text, $5::text, $6::text,
             $7::text[], $8::text, $9::text, $10::jsonb, $11::text,
-            $12::timestamptz, $12::timestamptz, ${draftCols}
+            $12::timestamptz, $12::timestamptz, ${draftCols}, ${v.roleFromVersionId === undefined ? "COALESCE($13::jsonb, '[]'::jsonb)" : "COALESCE($13::jsonb, d.pending_skill_bindings)"}
        FROM ${v.roleFromVersionId === undefined ? "agents" : "agent_versions"} d
       WHERE ${v.roleFromVersionId === undefined
         ? "d.id = $3 AND d.org_id = $2"
-        : "d.id = $13 AND d.org_id = $2 AND d.agent_id = $3"}
+        : "d.id = $14 AND d.org_id = $2 AND d.agent_id = $3"}
   RETURNING id`,
     [
       v.versionId, v.orgId, v.agentId, v.semanticLabel, v.instructionDigest, v.instructions,
       [...v.skillVersionIds], v.modelProvider, v.modelId, JSON.stringify(v.toolPolicy), v.creatorId,
-      v.at,
+      v.at, v.pendingSkillBindings === undefined ? null : JSON.stringify(v.pendingSkillBindings),
       ...(v.roleFromVersionId === undefined ? [] : [v.roleFromVersionId]),
     ],
   );

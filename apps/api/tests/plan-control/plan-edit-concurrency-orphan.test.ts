@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { addPlanConstraint } from "../../src/application/plan-control/add-plan-constraint";
 import { deletePlanStep } from "../../src/application/plan-control/delete-plan-step";
 import { reorderPlanStep } from "../../src/application/plan-control/reorder-plan-step";
@@ -89,24 +89,46 @@ describe("I-5：并发两次编辑同一 basedOnRevision，第二次必须拒绝
     const { revision, planStepIds } = await seedTwoSteps();
     const before = await countLedgerRows();
 
-    const first = reorderPlanStep(deps, provenance, {
-      orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR,
-      basedOnRevision: revision, planStepId: planStepIds[0]!, toIndex: 1,
-    });
-    const second = reorderPlanStep(deps, provenance, {
-      orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR,
-      basedOnRevision: revision, planStepId: planStepIds[1]!, toIndex: 0,
+    // Force both real transactions to read the same revision before either
+    // inserts, so this tests the database race rather than lucky scheduling.
+    const readLatest = repo.getLatestWithin.bind(repo);
+    let readers = 0;
+    let release!: () => void;
+    const bothRead = new Promise<void>((resolve) => { release = resolve; });
+    const readSpy = vi.spyOn(repo, "getLatestWithin").mockImplementation(async (...args) => {
+      try {
+        const latest = await readLatest(...args);
+        if (++readers === 2) release();
+        await bothRead;
+        return latest;
+      } catch (error) {
+        release();
+        throw error;
+      }
     });
 
-    const results = await Promise.allSettled([first, second]);
-    const fulfilled = results.filter((r) => r.status === "fulfilled");
-    const rejected = results.filter((r) => r.status === "rejected");
-    expect(fulfilled).toHaveLength(1);
-    expect(rejected).toHaveLength(1);
-    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: "PLAN_REVISION_CHANGED" });
+    try {
+      const first = reorderPlanStep(deps, provenance, {
+        orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR,
+        basedOnRevision: revision, planStepId: planStepIds[0]!, toIndex: 1,
+      });
+      const second = reorderPlanStep(deps, provenance, {
+        orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR,
+        basedOnRevision: revision, planStepId: planStepIds[1]!, toIndex: 0,
+      });
 
-    // 账本只多一行——不是静默覆盖出两行 racing 的结果，也不是丢失了那次成功的写入。
-    expect(await countLedgerRows()).toBe(before + 1);
+      const results = await Promise.allSettled([first, second]);
+      const fulfilled = results.filter((r) => r.status === "fulfilled");
+      const rejected = results.filter((r) => r.status === "rejected");
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: "PLAN_REVISION_CHANGED" });
+
+      // 账本只多一行——不是静默覆盖出两行 racing 的结果，也不是丢失了那次成功的写入。
+      expect(await countLedgerRows()).toBe(before + 1);
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 
   it("basedOnRevision 落后于当前最大 revision（陈旧提交）-> PLAN_REVISION_CHANGED，不静默覆盖", async () => {

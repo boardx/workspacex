@@ -1,3 +1,5 @@
+import { officialRoleSkillDisplayName } from "../../domain/agent/official-role-packs";
+import type { PendingSkillBinding } from "@repo/contracts/agent-role";
 /**
  * AG04 / UC-4（契约束 `agent-role`，`listAgentDirectory` / `getAgentDirectoryCard`）——
  * 成员 Agent 目录：按 `roleCategory` 分组的官方角色卡片。
@@ -37,8 +39,11 @@ export class AgentDirectoryError extends Error {
 
 /** 一行「已发布且组织可见」的 Agent 投影——落库形状，不是契约 DTO（后者在用例里拼）。 */
 export interface AgentDirectoryRow {
+  readonly skillScope?: "general" | "agent_pins";
   readonly agentId: string;
   readonly versionId: string;
+  /** 内部使用的当前发布快照指令；目录 DTO 不暴露。 */
+  readonly instructions?: string | null;
   readonly name: string;
   readonly roleLabel: string;
   readonly avatar: AgentAvatar | null;
@@ -54,6 +59,8 @@ export interface AgentDirectoryRow {
   readonly roleRef: string | null;
   readonly skillMountIds: readonly string[];
   readonly skillVersionIds: readonly string[];
+  readonly pendingSkillBindings?: readonly PendingSkillBinding[];
+  readonly pinnedSkills?: readonly { readonly skillId: string; readonly versionId: string }[];
   readonly delegationTargetRefs: readonly string[];
   readonly requireApprovalForHandoff: boolean;
 }
@@ -176,10 +183,13 @@ export async function getAgentDirectoryCard(
 }
 
 export interface AgentDirectoryProfileOut {
+  readonly skillScope?: "general" | "agent_pins";
   readonly agentId: string;
   readonly duty: string | null;
   readonly mountedSkillIds: readonly string[];
   readonly pinnedSkillVersionIds: readonly string[];
+  readonly pendingSkillBindings: readonly PendingSkillBinding[];
+  readonly pinnedSkills: readonly { readonly skillId: string; readonly versionId: string }[];
   readonly delegationTargets: readonly {
     readonly agentId: string;
     readonly name: string;
@@ -224,9 +234,16 @@ export async function getAgentDirectoryProfile(
     }));
   return {
     agentId: row.agentId,
+    skillScope: row.skillScope ?? "agent_pins",
     duty: meaningfulDuty(row),
     mountedSkillIds: [...new Set(row.skillMountIds)],
     pinnedSkillVersionIds: [...new Set(row.skillVersionIds)],
+    pendingSkillBindings: (row.pendingSkillBindings ?? []).map(binding => {
+      if (binding.displayName?.trim() !== binding.stableId) return binding;
+      const displayName = officialRoleSkillDisplayName(binding);
+      return displayName ? { ...binding, displayName } : binding;
+    }),
+    pinnedSkills: (row.pinnedSkills ?? []).filter(pin => row.skillVersionIds.includes(pin.versionId)),
     delegationTargets,
     requireApprovalForHandoff: row.requireApprovalForHandoff,
   };

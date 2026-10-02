@@ -1,0 +1,32 @@
+[stack-admission] load1=0.09 cores=5 perCore=0.02 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mupevpy9-39e3431f-42bae49677d0 db=wsx_42bae49677d04b60c047 compose=wsx-42bae49677d04b60c047 pg=20470 redis=21470 api=24470 web=25470 sandbox=26470 model=27470 deep-agent=28470 asr=29470 vision=30470 loopback-sandbox=31470 mail=19470
+ Network wsx-42bae49677d04b60c047_default  Creating
+ Network wsx-42bae49677d04b60c047_default  Created
+ Container wsx-42bae49677d04b60c047-postgres-1  Creating
+ Container wsx-42bae49677d04b60c047-postgres-1  Created
+ Container wsx-42bae49677d04b60c047-postgres-1  Starting
+ Container wsx-42bae49677d04b60c047-postgres-1  Started
+ Container wsx-42bae49677d04b60c047-postgres-1  Waiting
+ Container wsx-42bae49677d04b60c047-postgres-1  Healthy
+
+ RUN  v2.1.9 /workspace/workstack-effect-fixes/apps/api
+
+[db-isolation] db=wsx_42bae49677d04b60c047 capacity=100 current=6 required=32
+ ✓ tests/agent-run/runtime-profile-claim.test.ts (9 tests) 20621ms
+   ✓ message acceptance persists server snapshot general scope 356ms
+ ✓ tests/agent-runtime/workbench-message-queue.test.ts (8 tests) 13ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  10:48:57
+   Duration  32.43s (transform 6.63s, setup 0ms, collect 9.32s, tests 20.63s, environment 0ms, prepare 304ms)
+
+[db-isolation] db=wsx_42bae49677d04b60c047 peak_connections=3
+[timing] bash /tmp/workstack-scope-db-tests.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：41s
+  清理：1s
+  总计：42s

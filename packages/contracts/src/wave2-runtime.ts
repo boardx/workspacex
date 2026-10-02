@@ -8,7 +8,7 @@ import { ChildCancellationStatus } from "./run-control";
  */
 import { z } from "zod";
 import { RestorableInterrupt } from "./agent-interrupts";
-import { AgentRoleImportError, AgentRolePackEntryExtension, StarterPackToolPolicy } from "./agent-role";
+import { AuthoredSkillBinding, AgentRoleImportError, AgentRolePackEntryExtension, StarterPackToolPolicy } from "./agent-role";
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const PackCoordinate = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -260,6 +260,7 @@ const { toolPolicy: _officialToolPolicyOmitted, ...officialRoleEntryShape } = Ag
 export const OfficialAgentStarterPackEntry = z.object({
   ...AgentStarterPackEntry.shape,
   ...officialRoleEntryShape,
+  authoredSkillBindings: z.array(AuthoredSkillBinding).max(64).optional(),
 }).strict();
 
 export const UnsignedOfficialAgentStarterPack = UnsignedAgentStarterPack.extend({
