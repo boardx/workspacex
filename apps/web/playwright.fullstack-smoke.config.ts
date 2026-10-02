@@ -10,9 +10,8 @@ function required(name: string): string {
   return value;
 }
 
-// One fresh marker for the shared production stack and image HTTP evidence.
-const imageRuntimeMarker = process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER ?? randomUUID();
-process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER = imageRuntimeMarker;
+// Bind acceptance receipts to this config's fresh build and API process.
+process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER ??= randomUUID();
 process.env.BOARD_ACCEPTANCE_RUNTIME_STARTED_AT ??= new Date().toISOString();
 
 const apiPort = required("WORKSPACEX_API_PORT");
@@ -502,6 +501,8 @@ export default defineConfig({
         // Draw preview/cancellation remains in smoke. The 30-minute meeting-room
         // acceptance runs in its dedicated Board CI lane with a private ledger key.
         "board-drawing-live-preview.spec.ts",
+        // R09 owns disposable Boards/tenant and shares this existing isolated stack.
+        "board-files-acceptance.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
@@ -771,6 +772,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env, ...fixtureEnv, ...modelProviderEnv, ...mailProviderEnv,
+        WORKSPACEX_DEPLOYMENT_MARKER: process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER,
         // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
         // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。
         ...(process.env.CORE_LOOP_COUNTERPROOF_7 === "no-asr-provider" ? {} : asrProviderEnv),
@@ -799,7 +801,6 @@ export default defineConfig({
         // 也会默认到这里（`resolveSkillStarterPackRoot`），显式下发是为了让本地栈的配置可读、
         // 不依赖 NODE_ENV——漏配时 `/admin/skills/starter-pack-imports` 恒 404。
         SKILL_STARTER_PACK_ROOT: path.resolve(__dirname, "../../skills/starter-packs"),
-        WORKSPACEX_DEPLOYMENT_MARKER: imageRuntimeMarker,
         PORT: apiPort,
       },
     },
