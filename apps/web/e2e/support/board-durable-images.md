@@ -63,3 +63,24 @@ prove browser CORS or application persistence. Delayed cancellation cases forwar
 the real API upload, hold its actual response, and explicitly record a durable
 server asset if it completed before the client cancelled; client abort is not
 evidence that such an unreferenced asset was deleted.
+
+New HTTPS and cancellation groups live in `board-image-ingress-acceptance.spec.ts`
+and are selected only by this fresh local three-engine configuration. They do not
+change the canonical storage lane's original five cases or four runtime receipts.
+Shared browser helpers contain no test registrations, so importing them cannot
+secretly expand canonical lane counts.
+
+The supplemental ingress file also runs in the existing unconditional fullstack
+`seeded-github-import` dependency closure, as the separate `board-image-ingress`
+project (four cases, Chromium in CI). It reuses the existing stack/build/installers.
+The fresh local configuration additionally runs all three engines; those results
+are pending and must not be inferred from Chromium CI.
+
+The HTTPS fixture owns its short-lived localhost certificate. Its dedicated
+browser context trusts that certificate only within a boundary which denies every
+other HTTPS origin; the application and API remain the existing HTTP loopback stack.
+The receipt includes fixture origin, certificate SHA256, actual server requests,
+CORS failures and blocked-origin list (required empty). This proves browser CORS
+and Range processing, not public certificate-chain validity. No production TLS
+policy is changed. New helper/config and this trust boundary require independent
+source review before use as acceptance evidence.

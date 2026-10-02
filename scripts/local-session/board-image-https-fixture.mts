@@ -1,4 +1,5 @@
 import { createServer, type Server } from 'node:https';
+import { createHash, X509Certificate } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -42,6 +43,7 @@ export async function startImageFixture(png: Buffer, allowedOrigin: string) {
     if (!address || typeof address === 'string') throw new Error('HTTPS_FIXTURE_ADDRESS_INVALID');
     return {
       url: `https://127.0.0.1:${address.port}/image.png`, receipts,
+      certificateSha256: createHash('sha256').update(new X509Certificate(readFileSync(join(directory,'cert.pem'))).raw).digest('hex'),
       setMode(next: ImageFixtureMode) { mode = next; },
       async close() { try { server!.closeAllConnections(); await new Promise<void>((resolve, reject) => server!.close(error => error ? reject(error) : resolve())); } finally { rmSync(directory, { recursive: true, force: true }); } },
     };

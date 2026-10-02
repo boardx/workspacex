@@ -11,7 +11,7 @@ export default defineConfig({ ...fullstack, testDir: '..', workers: 1, retries: 
   // The canonical board-storage CI config remains its existing Chromium project.
   projects: (['chromium','firefox','webkit'] as const).map(browserName => ({
     name:`durable-images-${browserName}`, use:{browserName},
-    testMatch:['board-durable-images.spec.ts','board-portable-real.spec.ts'],
+    testMatch:['board-durable-images.spec.ts','board-portable-real.spec.ts','board-image-ingress-acceptance.spec.ts'],
   })),
   timeout:120_000, expect:{timeout:30_000},
   use:{...fullstack.use,viewport:{width:1440,height:1000},trace:'retain-on-failure'},

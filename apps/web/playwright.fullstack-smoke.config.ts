@@ -1,4 +1,5 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
 import { FULLSTACK_E2E, MAIL_LOOPBACK } from "./e2e/fullstack-smoke-fixture";
@@ -8,6 +9,11 @@ function required(name: string): string {
   if (!value) throw new Error(`${name} is required; run through the root #74 isolation wrapper`);
   return value;
 }
+
+// One fresh marker for the shared production stack and image HTTP evidence.
+const imageRuntimeMarker = process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER ?? randomUUID();
+process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER = imageRuntimeMarker;
+process.env.BOARD_ACCEPTANCE_RUNTIME_STARTED_AT ??= new Date().toISOString();
 
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
@@ -430,6 +436,15 @@ export default defineConfig({
       fullyParallel: false,
     },
     {
+      name: "board-image-ingress",
+      testMatch: ["board-image-ingress-acceptance.spec.ts"],
+      dependencies: ["official-role-workflow", "realtime-voice"],
+      workers: 1,
+      fullyParallel: false,
+      retries: 0,
+      timeout: 120_000,
+    },
+    {
       /**
        * 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
        * 这条用户旅程的验收线**不能**并进上面的 `seeded`（尽管它同样要用种子里的组织
@@ -491,7 +506,7 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow", "realtime-voice"],
+      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.
@@ -784,6 +799,7 @@ export default defineConfig({
         // 也会默认到这里（`resolveSkillStarterPackRoot`），显式下发是为了让本地栈的配置可读、
         // 不依赖 NODE_ENV——漏配时 `/admin/skills/starter-pack-imports` 恒 404。
         SKILL_STARTER_PACK_ROOT: path.resolve(__dirname, "../../skills/starter-packs"),
+        WORKSPACEX_DEPLOYMENT_MARKER: imageRuntimeMarker,
         PORT: apiPort,
       },
     },
