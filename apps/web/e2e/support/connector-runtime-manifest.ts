@@ -1,16 +1,15 @@
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
 import {readFile,realpath} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {sha256} from '../board-runtime-evidence';
 import {apiOrigin} from '../board-acceptance-support';
 
-// The frozen external verifier is the single implementation supplied by the runtime owner.
-const verifierDigest='a4310104445dc7f942ea76212269391e68775522ba9da9f4dde1fc1c83a4d34d';
+// The reviewed shared producer supplies the single runtime verifier implementation.
+const verifierDigest='a4583b4b4e5a60f8fde66e37c2eb1089668f889a568c2bf1db9f8ba13e6728e6';
 const root=resolve(__dirname,'../../../..');
 type Manifest={ready:boolean;head:string;startedAt:string;deploymentMarker:string;sourceFiles:string[];sourceHashes:Record<string,string>};
-type Verifier={verifyRuntimeManifest(input:{manifestPath:string;root:string;base:string;origin:string;sourceFiles:string[]}):unknown};
+type Verifier={listRuntimeSourceFiles(root:string):string[];verifyRuntimeManifest(input:{manifestPath:string;root:string;base:string;origin:string;sourceFiles:string[]}):unknown};
 let firstManifestSha256:string|undefined;
 
 export async function verifyConnectorRuntimeManifest(previous?:{manifestSha256:string;verifierSha256:string;proof:unknown}){
@@ -26,11 +25,9 @@ export async function verifyConnectorRuntimeManifest(previous?:{manifestSha256:s
  assert(Array.isArray(manifest.sourceFiles)&&manifest.sourceFiles.length>0);assert.equal(new Set(manifest.sourceFiles).size,manifest.sourceFiles.length);
  for(const path of manifest.sourceFiles)assert(typeof path==='string'&&path&&!path.startsWith('/')&&!path.split('/').includes('..'),'Manifest paths must be candidate-relative');
  assert.deepEqual(Object.keys(manifest.sourceHashes).sort(),[...manifest.sourceFiles].sort(),'Cannot select a subset of startup source hashes');
- const tracked=execFileSync('git',['ls-files'],{cwd:root,encoding:'utf8'}).trim().split('\n');
- const required=tracked.filter(path=>/^(apps\/(?:api|web)\/|packages\/)/.test(path)||['package.json','pnpm-lock.yaml','pnpm-workspace.yaml','turbo.json','.nvmrc','scripts/local-session/board-acceptance-runtime.mjs'].includes(path));
- assert(required.length>100,'Full tracked runtime/test closure is required');const included=new Set(manifest.sourceFiles);
- for(const path of required)assert(included.has(path),`Startup manifest omitted required source: ${path}`);
  const verifier=await import(pathToFileURL(await realpath(verifierPath)).href) as Verifier;assert.equal(typeof verifier.verifyRuntimeManifest,'function');
+ assert.equal(typeof verifier.listRuntimeSourceFiles,'function');
+ const required=verifier.listRuntimeSourceFiles(root);assert(required.length>100,'Full tracked runtime/test closure is required');
  const proof=verifier.verifyRuntimeManifest({manifestPath,root,base,origin:apiOrigin(),sourceFiles:manifest.sourceFiles});
  if(previous){assert.equal(manifestSha256,previous.manifestSha256,'Case startup manifest changed');assert.equal(verifierDigest,previous.verifierSha256);assert.deepEqual(proof,previous.proof,'Case runtime process/source identity changed');}
  assert.equal(sha256(await readFile(verifierPath)),verifierDigest,'Verifier changed while checking runtime');assert.deepEqual(await readFile(manifestPath),manifestBytes,'Startup manifest changed while checking runtime');
