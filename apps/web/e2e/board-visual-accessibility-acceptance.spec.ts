@@ -50,9 +50,23 @@ test('visual and accessibility real object states, input and negative controls',
       await page.setViewportSize(viewport);await page.getByTestId('board-zoom-fit-board').click();
       captures.push(await captureVisual(page,info,`mixed-${viewport.width}`));
       for(const row of rows){
+        const beforeConnectorSelection=row.id==='visual-connector'?await canonicalSnapshot(request,token,boardId):null;
         const outline=page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${row.id}"] button`);
         await outline.focus();await page.keyboard.press('Enter');
         await expect(page.getByTestId('board-a11y-selection-announcement')).toContainText('1');
+        if(row.id==='visual-connector'){
+          const layout=()=>page.evaluate(()=>{
+            const bounds=(id:string)=>{const element=document.querySelector(`[data-testid="${id}"]`);if(!element)throw new Error(`Missing ${id}`);const rect=element.getBoundingClientRect();return{x:rect.x,y:rect.y,width:rect.width,height:rect.height};};
+            const from=bounds('board-connector-handle-from'),to=bounds('board-connector-handle-to'),menu=bounds('board-context-toolbar');
+            return{menu,path:{x:(from.x+from.width/2+to.x+to.width/2)/2,y:Math.min(from.y+from.height/2,to.y+to.height/2)},maxGap:Math.max(from.height,to.height)/2+16};
+          });
+          await expect.poll(async()=>{const {menu,path}=await layout();return path.y-menu.y-menu.height;}).toBeGreaterThanOrEqual(0);
+          await expect.poll(async()=>{const {menu,path,maxGap}=await layout();return path.y-menu.y-menu.height-maxGap;}).toBeLessThanOrEqual(0);
+          const measured=await layout();
+          expect(Math.abs(measured.menu.x+measured.menu.width/2-measured.path.x)).toBeLessThanOrEqual(measured.menu.width/2+16);
+          await info.attach(`connector-menu-layout-${viewport.width}`,{body:Buffer.from(JSON.stringify(measured)),contentType:'application/json'});
+          expect(await canonicalSnapshot(request,token,boardId)).toEqual(beforeConnectorSelection);
+        }
         captures.push(await captureVisual(page,info,`${row.kind}-${row.id}-${viewport.width}`));
         if(row.id==='visual-shape'){
           if(await page.getByLabel('对象文字',{exact:true}).isVisible())await page.keyboard.press('Escape');
