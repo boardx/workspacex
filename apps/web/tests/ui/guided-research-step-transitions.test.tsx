@@ -166,14 +166,23 @@ describe("step-aligned research transitions", () => {
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
 
-  it("aligns the route with the plan when saving chapter edits invalidates downstream research", async () => {
-    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("research"));
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("outline"), version: 5 });
+  it("keeps edited chapters selected and retrieved evidence available after saving", async () => {
+    const state = runtimeFixture("research");
+    const outline = state.outline.map((section) => ({ ...section, title: "新的政策章节" }));
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: 5, outline });
     render(<GuidedResearchLive sessionId="grs-live" initialNode="report" visualStage="chapters" onBack={vi.fn()} />);
     fireEvent.change(await screen.findByRole("textbox", { name: "章节标题" }), { target: { value: "新的政策章节" } });
     fireEvent.click(screen.getByRole("button", { name: "保存章节结构" }));
-    await screen.findByTestId("guided-research-plan-panel");
-    expect(window.location.pathname).toBe("/research/grs-live/plan");
-    expect(screen.queryByTestId("research-chapters-workspace")).not.toBeInTheDocument();
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      node: "outline", action: "save_chapters", draft: { node: "outline", value: outline },
+    })));
+    expect(screen.getByTestId("research-chapters-workspace")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/research/grs-live/chapters");
+    expect(screen.queryByTestId("guided-research-plan-panel")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "章节标题" })).toHaveValue("新的政策章节");
+    fireEvent.click(screen.getByRole("button", { name: /资料研究/ }));
+    expect(await screen.findByTestId("guided-research-source-workspace")).toHaveTextContent("Official policy");
+    expect(window.location.pathname).toBe("/research/grs-live/research");
   });
 });

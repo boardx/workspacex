@@ -33,3 +33,7 @@
 收尾 verify:quick 默认并发将本机load推至83，已核对cwd后SIGTERM仅本会话wrapper；退出143，**未通过**。之前限2worker全web及研究定向、契约、类型lint证据仍有效。原main归档失败为固定83462a时点事实，远端后来合入的白板修复不可据此断言当前main仍失败。
 
 证据已整理至 `docs/evidence/research-5056-fixes/acceptance.md`。同一分支由协调者同步main至694d4f6c0；未创建第二worktree。CI待最新head的classifyChecks实际无阻塞/无待跑才可称绿。未合并，#5056保持open。
+
+人类最新调整（主会话2026-10-02）：导出不需要验证，已从本轮完成门禁移除；仍保留未测记录，不写PASS。下一步质量与速度优化分独立issue/PR，不扩大#5087。
+
+8a40e6bf6 CI真实结果：verify-control-plane、verify-full-compile、merge-gate通过；verify-affected 835文件/7001测试通过，仅1个研究旧跳转断言失败（仍要求保存章节后回计划/失效研究）。定向red复现1失败12通过，更新为save_chapters后保留章节、来源、研究路由；全部guided research组件24文件229项通过。fullstack-smoke 101通过1失败1跳过38未运行，唯一失败是whiteboard-live.spec.ts:78等待对象文字；已由公共#5094/PR#5096跟踪，不在研究PR修改白板，等待真实main同步。

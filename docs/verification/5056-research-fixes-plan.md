@@ -5,7 +5,7 @@
 > 改完 `check` 一遍；不要手改 classDef 颜色。
 
 ## 我理解的目标
-- **目标**：修复 #5057 长需求创建失败、#5068 持久章节计数滞后与 #5081 章节保存清空检索，调查报告及导出边界；一个汇总 PR，交主会话独立验收。
+- **目标**：修复 #5057 长需求创建失败、#5068 持久章节计数滞后与 #5081 章节保存清空检索，调查报告质量边界（人类已排除导出验收）；一个汇总 PR，交主会话独立验收。
 - **完成判据**：失败测试→通过；web/API/contracts 类型与回归、受影响 lint；真实浏览器复验缺陷及研究恢复旅程；PR CI 全绿。
 - **不做什么**：不移除质量门、不造来源，不改访谈或问卷；不自行合并。
 - **假设与待确认**：本次按直接交办处理；已 fetch main 83462a88ef49d0983fc1f0e02a6ee3190d409f18，独立唯一 worktree。
@@ -37,9 +37,10 @@ flowchart TD
   %% evidence S2: 创建/计数修复前失败测试已运行，实际验收见 #5056
   class S3 tested
   %% evidence S3: docs/verification/5056-research-fixes-verification.md；研究 API195项、组件33项通过，6cfcea193独立ACCEPT
-  class S4 blocked
-  %% blocked S4: 本次IAB Word未落盘，PDF原生打印使CDP超时；工具禁止操作Codex原生窗口，导出未验完。
-  class S5 doing
+  class S4 tested
+  %% evidence S4: docs/evidence/research-5056-fixes/acceptance.md；真实provider计数及章节保留已验，导出已由人类移出验收范围。
+  class S5 blocked
+  %% blocked S5: 旧章节跳转断言已更新待新SHA CI；白板fullstack公共失败待#5094/#5096实际进入main后复验。
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
