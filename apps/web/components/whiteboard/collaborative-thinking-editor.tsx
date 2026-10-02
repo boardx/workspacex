@@ -134,7 +134,6 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const mounted = useRef(true);
   const imageRequestGeneration = useRef(0);
   const imageAbort = useRef<AbortController | null>(null);
-  const [imageRetry,setImageRetry]=useState<ImageRequest|null>(null);
   const fileAbort = useRef<AbortController | null>(null);
   const [fileUpload, setFileUpload] = useState<{ file: File; point: Point; busy: boolean; error: string | null } | null>(null);
   const [imageRetry,setImageRetry]=useState<ImageRequest|null>(null);
