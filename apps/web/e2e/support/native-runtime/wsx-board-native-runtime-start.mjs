@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {writeStartupFailure} from './native-startup-receipt.mjs';
-let phase='BOOTSTRAP',data,sourceHead=null,stopRuntime=async()=>{};
+let phase='BOOTSTRAP',data,sourceHead=null,stopRuntime=async()=>{},cwdChildState=()=>null;
 try{
 const [planPath]=process.argv.slice(2);assert(planPath,'Private prepared plan required');
 const plan=JSON.parse(readFileSync(planPath)),{root,head,data:runtimeData,bin,database,isolation,marker,ports}=plan;
@@ -33,6 +33,7 @@ const startedAt=new Date().toISOString(),manifestPath=join(data,'runtime-manifes
 const manifest={webRoot:root,apiRoot:root,head,sourceFiles,sourceHashes:plan.sourceHashes,webBase:`http://127.0.0.1:${ports.web}`,apiBase:`http://127.0.0.1:${ports.api}`,helperPid:process.pid,processes:[],ready:false,startedAt,nativeDatabase:{version:'16.15',vectorVersion:'0.8.6',name:database,port:ports.postgres},deploymentMarker:marker};
 const save=()=>writeFileSync(manifestPath,JSON.stringify(manifest,null,2),{mode:0o600});save();
 const children=[];let postgresRunning=false,stopping=false;
+cwdChildState=service=>{const managed=children.find(item=>item.name===`native-board-${service}`);assert(managed,'Owned identity child required');return{childExitCode:managed.child.exitCode,childSignal:managed.child.signalCode};};
 const nativeEnv={...process.env,PATH:`${bin}:${process.env.PATH??''}`,PGHOST:'127.0.0.1',PGPORT:String(ports.postgres),PGDATABASE:database,PGSSLMODE:'disable',APP_DB_USER:'app_rw',APP_DB_PASSWORD:secrets.appPassword,MIGRATION_DB_USER:'postgres',MIGRATION_DB_PASSWORD:secrets.ownerPassword,DIAG_DB_USER:'app_rw',DIAG_DB_PASSWORD:secrets.appPassword,WORKSPACEX_NATIVE_POSTGRES:'1',WORKSPACEX_DB:database,WORKSPACEX_ISOLATION_ID:isolation,WORKSPACEX_API_PORT:String(ports.api),WORKSPACEX_WEB_PORT:String(ports.web),WORKSPACEX_MODEL_PROVIDER_PORT:'36327',WORKSPACEX_DEEP_AGENT_PROVIDER_PORT:'36328',WORKSPACEX_LOOPBACK_SANDBOX_PORT:'36329',WORKSPACEX_ASR_PROVIDER_PORT:'36330',WORKSPACEX_MAIL_PROVIDER_PORT:'36331',COMPOSE_PROJECT_NAME:`unused-${isolation}`,BOARD_ACCEPTANCE_SHA:head,BOARD_ACCEPTANCE_RUNTIME_MARKER:marker,BOARD_ACCEPTANCE_RUNTIME_STARTED_AT:startedAt,WORKSPACEX_DEPLOYMENT_MARKER:marker,WORKSPACEX_EDITION:'cloud'};
 const stop=async()=>{if(stopping)return;stopping=true;const failures=[];for(const child of children.reverse())try{await child.stop();}catch(error){failures.push(error);}if(postgresRunning)try{execFileSync(join(bin,'pg_ctl'),['-D',pgData,'-m','fast','-w','stop'],{env:nativeEnv,stdio:'pipe'});postgresRunning=false;}catch(error){failures.push(error);}manifest.ready=false;try{save();}catch(error){failures.push(error);}if(failures.length)throw new AggregateError(failures,'Owned native runtime cleanup failed');};
 stopRuntime=stop;
@@ -70,6 +71,6 @@ const run=async(name,launch,cwd,env)=>{const result=await runToCompletion({name,
  verifyRuntimeManifest({manifestPath,root,base:manifest.webBase,origin:manifest.apiBase,sourceFiles});manifest.ready=true;save();writeFileSync(join(data,'native-runner-environment.json'),JSON.stringify(apiEnvironment),{mode:0o600,flag:'wx'});console.log(`NATIVE_BOARD_RUNTIME_READY ${manifestPath}`);
 }
 }catch(error){
- try{if(data)writeStartupFailure({data,phase,sourceHead,error});}catch{ /* Missing receipt is not a successful startup. */ }
+ try{if(data){const context=error.identityCwd;const identityCwd=context?{...context,...cwdChildState(context.service)}:undefined;writeStartupFailure({data,phase,sourceHead,error,identityCwd});}}catch{ /* Missing receipt is not a successful startup. */ }
  try{await stopRuntime();}catch(cleanupError){throw new AggregateError([error,cleanupError],'Native runtime startup and cleanup failed',{cause:error});}throw error;
 }
