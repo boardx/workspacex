@@ -23,6 +23,27 @@ function fixture() {
 }
 const bytes = new TextEncoder().encode('ordinary file bytes');
 describe('durable board files', () => {
+  it.each(['42501', '08006'])('preserves persistence failure %s at the HTTP boundary', async code => {
+    const databaseError = Object.assign(new Error('private database diagnostic'), { code });
+    const boards = { get: async () => ({ role: 'owner', archived: false }) } as unknown as WhiteboardRepository;
+    const db = { withTenant: async (_org: string, run: (session: unknown) => Promise<unknown>) => run({
+      query: async (sql: string) => {
+        if (sql.includes('INSERT INTO whiteboard_file_assets')) throw databaseError;
+        return { rows: [] };
+      },
+    }) } as unknown as DatabasePort;
+    const blobs = new Map<string, Uint8Array>();
+    const service = new WhiteboardFileAssets(boards, new PgBoardFileAssets(db, boards), {
+      putOnce: async (key, content) => { blobs.set(key, content); },
+      get: async key => blobs.get(key) ?? null,
+      head: async key => { const content = blobs.get(key); return content ? { sizeBytes: content.length, mime: 'application/octet-stream' } : null; },
+    });
+    const upload = new WhiteboardFilesController(service).upload(principal, boardId, {
+      buffer: Buffer.from(bytes), originalname: 'denied.txt', mimetype: 'text/plain',
+    } as Express.Multer.File);
+    if (code === '42501') await expect(upload).rejects.toMatchObject({ status: 403, response: { statusCode: 403, message: 'Forbidden' } });
+    else await expect(upload).rejects.toBe(databaseError);
+  });
   it.each([
     [Buffer.from('普通便利贴.txt', 'utf8').toString('latin1'), '普通便利贴.txt'],
     [Buffer.from('café.txt', 'utf8').toString('latin1'), 'café.txt'],

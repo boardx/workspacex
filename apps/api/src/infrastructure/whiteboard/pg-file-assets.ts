@@ -13,14 +13,20 @@ export class PgBoardFileAssets implements BoardFileRepository {
     const board = await this.boards.get(p, boardId);
     if (!board) throw new WhiteboardFileError('NOT_FOUND');
     if (board.archived || !['owner', 'editor'].includes(board.role)) throw new WhiteboardFileError('FORBIDDEN');
-    await this.db.withTenant(p.orgId, async session => {
-      await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
-        VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
-      [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
-      await session.query(`INSERT INTO whiteboard_file_assets(org_id,board_id,asset_id,object_key,metadata)
-        VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
-      [p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]);
-    });
+    try {
+      await this.db.withTenant(p.orgId, async session => {
+        await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
+          VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
+        [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
+        await session.query(`INSERT INTO whiteboard_file_assets(org_id,board_id,asset_id,object_key,metadata)
+          VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
+        [p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]);
+      });
+    } catch (error) {
+      // RLS can reject a write after the Board role check, including an organization freeze.
+      if (error && typeof error === 'object' && 'code' in error && error.code === '42501') throw new WhiteboardFileError('FORBIDDEN');
+      throw error;
+    }
   }
   async get(p: Principal, boardId: string, assetId: string): Promise<BoardFileRecord | null> {
     const board = await this.boards.get(p, boardId);
