@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThinkingInputEditor } from "@/components/whiteboard/thinking-input-editor";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
+import { scenePointFromLocal } from "@repo/whiteboard-core";
 
 const viewport: BoardViewport = { zoom: 1.5, panX: 10, panY: 20, fitRequest: 0 };
 
@@ -15,15 +16,48 @@ function object(kind: "sticky" | "text"): BoardFabricObject {
 }
 
 describe("ThinkingInputEditor", () => {
+  it.each([
+    { rotation: 0, left: "196px", top: "318.05px" },
+    { rotation: 90, left: "41.95px", top: "236px" },
+  ])("places the inset middle-aligned editor at independent fixed coordinates for $rotation degrees", ({ rotation, left, top }) => {
+    const note = object("sticky");
+    note.geometry.rotation = rotation;
+    render(<ThinkingInputEditor object={note} initialValue="短文字" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={vi.fn(() => true)} onCancel={vi.fn()} onContinue={vi.fn()} />);
+    // Fabric's one-line 20px glyph box measures 22.6px; centered local y is 78.7.
+    expect(screen.getByTestId("board-thinking-editor")).toHaveStyle({ left, top, width: "198px", height: "33.9px", padding: "0px", transformOrigin: "0 0" });
+  });
+  it.each(["top", "middle", "bottom"] as const)("limits rotated %s-aligned editing to the real text content box", alignment => {
+    const note = object("sticky");
+    note.style.verticalAlignment = alignment;
+    render(<ThinkingInputEditor object={note} initialValue="短文字" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={vi.fn(() => true)} onCancel={vi.fn()} onContinue={vi.fn()} />);
+    const input = screen.getByTestId("board-thinking-editor");
+    const top = alignment === "top" ? 24 : alignment === "bottom" ? 133.4 : 78.7;
+    const position = scenePointFromLocal(note.geometry, { x: 24, y: top });
+    expect(parseFloat(input.style.left)).toBeCloseTo(position.x * 1.5 + 10, 8);
+    expect(parseFloat(input.style.top)).toBeCloseTo(position.y * 1.5 + 20, 8);
+    expect(input).toHaveStyle({ width: "198px", height: "33.9px", padding: "0px", transformOrigin: "0 0" });
+    expect(input.style.pointerEvents).not.toBe("none");
+  });
+
+  it("keeps long-text scrolling inside the inset content rectangle without discarding text", () => {
+    const long = "long text ".repeat(200);
+    render(<ThinkingInputEditor object={object("sticky")} initialValue={long} viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={vi.fn(() => true)} onCancel={vi.fn()} onContinue={vi.fn()} />);
+    const input = screen.getByTestId("board-thinking-editor");
+    expect(input).toHaveValue(long);
+    expect(input).toHaveStyle({ width: "198px", height: "198px", overflow: "auto", padding: "0px" });
+  });
   it("edits a sticky in place without replacing its paper with form chrome", async () => {
     const onCommit = vi.fn(() => true);
     render(<ThinkingInputEditor object={object("sticky")} initialValue="原位编辑" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={onCommit} onCancel={vi.fn()} onContinue={vi.fn()} />);
     const input = screen.getByTestId("board-thinking-editor");
     await waitFor(() => expect(input).toHaveFocus());
     expect(input).toHaveClass("appearance-none", "bg-transparent", "border-0", "outline-none", "resize-none", "p-0", "shadow-none");
-    expect(input).toHaveStyle({ left: "160px", top: "200px", width: "270px", height: "270px", transform: "rotate(17deg)", color: "#123456" });
-    expect(input.style.paddingLeft).toBe("36px");
-    expect(input.style.paddingRight).toBe("36px");
+    const position = scenePointFromLocal(object("sticky").geometry, { x: 24, y: 78.7 });
+    expect(parseFloat(input.style.left)).toBeCloseTo(position.x * viewport.zoom + viewport.panX, 8);
+    expect(parseFloat(input.style.top)).toBeCloseTo(position.y * viewport.zoom + viewport.panY, 8);
+    expect(input).toHaveStyle({ width: "198px", height: "33.9px", transform: "rotate(17deg)", color: "#123456" });
+    expect(input.style.paddingLeft).toBe("0px");
+    expect(input.style.paddingRight).toBe("0px");
     expect(input.style.fontFamily).toBe('"Noto Serif SC"');
     expect(input.style.fontSize).toBe("30px");
     expect(input.style.fontWeight).toBe("700");
