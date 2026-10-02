@@ -1,10 +1,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ConnectorRelationship } from '@repo/whiteboard-core';
 import { BoardConnectorToolbar } from '@/components/whiteboard/board-connector-toolbar';
 
 const relationship: ConnectorRelationship = { from: 'a', to: 'b', fromAnchor: 'right', toAnchor: 'left', type: 'curve', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: 'canonical', semanticRelation: '' };
-afterEach(cleanup);
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 100, top: 400, bottom: 444, right: 144, x: 100, y: 400, width: 44, height: 44, toJSON: () => ({}) });
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 function setup() {
   const onRelationshipChange = vi.fn(), props = { relationship, color: '#123456', disabled: false, onRelationshipChange, onColorChange: vi.fn() };
   const view = render(<BoardConnectorToolbar {...props} />);

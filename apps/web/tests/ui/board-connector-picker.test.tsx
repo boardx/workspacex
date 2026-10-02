@@ -20,7 +20,7 @@ it('does not offer mutation for readonly or locked users',()=>{
  for(const type of ['straight','elbow','curve']){const button=screen.getByTestId(`board-connector-${type}`);expect(button).toBeDisabled();fireEvent.click(button);}
  expect(change).not.toHaveBeenCalled();
 });
-it('exposes the connector only through explicit integration gate while Frame creation stays hidden',()=>{
+it('exposes the connector only through explicit integration gate while preserving the current hidden Frame creation entry',()=>{
  const change=vi.fn(),props={activeTool:'select' as const,creationTool:null,readOnly:false,onToolChange:vi.fn(),onCreationToolChange:change,onQuickCreate:vi.fn(),onBulkSticky:vi.fn(),onImageRequest:vi.fn()};
  const view=render(<BoardBottomDock {...props}/>);expect(screen.queryByTestId('board-add-connector')).toBeNull();
  view.rerender(<BoardBottomDock {...props} connectorEnabled/>);fireEvent.click(screen.getByTestId('board-add-connector'));expect(change).toHaveBeenCalledWith({kind:'connector',connectorType:'straight'});expect(screen.queryByTestId('board-add-frame')).toBeNull();

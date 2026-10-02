@@ -50,13 +50,15 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
    const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);expect(ids).toEqual(expect.arrayContaining(createdIds));createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
   }
   await page.keyboard.press('Escape');
-  await expect(objectRows(page)).toHaveCount(8);
-  mark('stickies-created');
-  const title=page.getByLabel('对象文字',{exact:true});
+  await expect(objectRows(page)).toHaveCount(8);mark('stickies-created');
   for(const id of createdIds){
-   const outline=page.getByTestId(`board-a11y-object-${id}`);await outline.focus();await outline.press('Enter');
-   await title.fill(`Sticky ${id} queued`);await expect.poll(async()=>(await rows(page)).find(row=>row.id===id)?.text).toBe(`Sticky ${id} queued`);
-   await title.fill(`Sticky ${id} shared-tab-proof`);await expect.poll(async()=>(await rows(page)).find(row=>row.id===id)?.text).toBe(`Sticky ${id} shared-tab-proof`);
+   for(const suffix of ['queued','shared-tab-proof']){
+    const outline=page.getByTestId(`board-a11y-object-${id}`);await outline.focus();await outline.press('Enter');
+    const title=page.getByRole('textbox',{name:'对象文字',exact:true});
+    await title.fill(`Sticky ${id} ${suffix}`);await title.press('ControlOrMeta+Enter');
+    await expect(title).toHaveCount(0);
+    await expect(outline.locator('..')).toHaveAttribute('data-object-text',`Sticky ${id} ${suffix}`);
+   }
   }
   const pending=page.getByTestId('board-sync-status');await expect(pending).toHaveAttribute('aria-label',/^\d+ 项修改等待服务器确认$/);evidence.pendingBeforePeer=await pending.getAttribute('aria-label');
   mark('local-updates-queued');

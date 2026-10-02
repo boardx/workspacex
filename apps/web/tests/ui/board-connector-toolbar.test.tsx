@@ -1,9 +1,27 @@
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
-import {afterEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import type {ConnectorRelationship} from '@repo/whiteboard-core';
 import {WHITEBOARD_CONNECTOR_LIMITS} from '@repo/contracts/whiteboard-document';
 import {BoardConnectorToolbar} from '@/components/whiteboard/board-connector-toolbar';
-afterEach(cleanup);
+beforeEach(()=>{vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({left:100,top:400,bottom:444,right:144,x:100,y:400,width:44,height:44,toJSON:()=>({})});});
+afterEach(()=>{cleanup();vi.restoreAllMocks();});
+it('anchors connector inspectors above their own trigger instead of the fixed side panel',()=>{
+ mount();vi.spyOn(screen.getByTestId('board-connector-width-open'),'getBoundingClientRect').mockReturnValue({left:100,top:400,bottom:444,right:144,x:100,y:400,width:44,height:44,toJSON:()=>({})});fireEvent.click(screen.getByTestId('board-connector-width-open'));
+ expect(screen.getByRole('dialog')).toHaveAttribute('data-board-popover-placement','above');
+ expect(screen.getByRole('dialog')).toHaveStyle({transform:'translateY(-100%)'});
+});
+it.each([90,220.5])('keeps a restricted-space trigger %s above with a scrollable height limit',top=>{
+ mount();vi.spyOn(screen.getByTestId('board-connector-width-open'),'getBoundingClientRect').mockReturnValue({left:100,top,bottom:top+44,right:144,x:100,y:top,width:44,height:44,toJSON:()=>({})});fireEvent.click(screen.getByTestId('board-connector-width-open'));
+ const dialog=screen.getByRole('dialog');expect(dialog).toHaveAttribute('data-board-popover-placement','above');expect(dialog).toHaveStyle({top:`${top-8}px`,maxHeight:`${top-80}px`,transform:'translateY(-100%)'});expect(dialog.className).toContain('overflow-y-auto');
+});
+it('clamps the inspector within the viewport and follows trigger movement without changing content',()=>{
+ const{change}=mount();const trigger=screen.getByTestId('board-connector-width-open');
+ let left=1400,top=500;const measure=vi.spyOn(trigger,'getBoundingClientRect').mockImplementation(()=>({left,top,right:left+44,bottom:top+44,width:44,height:44,x:left,y:top,toJSON:()=>({})}));
+ fireEvent.click(trigger);const panel=screen.getByRole('dialog');
+ expect(panel).toHaveStyle({left:`${Math.max(16,window.innerWidth-336)}px`,top:'492px',maxHeight:'420px'});
+ left=100;top=400;fireEvent(window,new Event('resize'));
+ expect(panel).toHaveStyle({left:'100px',top:'392px',maxHeight:'320px'});expect(change).not.toHaveBeenCalled();measure.mockRestore();
+});
 const relationship:ConnectorRelationship={from:'a',to:'b',fromAnchor:'right',toAnchor:'left',type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'before',semanticRelation:''};
 const mount=(disabled=false)=>{const change=vi.fn(),color=vi.fn();render(<BoardConnectorToolbar relationship={relationship} color="#123456" disabled={disabled} onRelationshipChange={change} onColorChange={color}/>);return{change,color};};
 it('shows canonical width on the line-weight trigger, not an uncommitted numeric draft',()=>{

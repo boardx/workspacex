@@ -40,7 +40,7 @@ function mount() {
 }
 
 function createPanelAndSticky(doc:Y.Doc) {
-  // Frames remain editable; the creation dock intentionally no longer exposes them.
+  // Existing Frames remain editable; current UX hides their creation entry.
   act(()=>new SpatialRelationshipCommandPort(doc).dispatch({boardId:"spatial-board",clientId:"fixture",gestureId:crypto.randomUUID(),command:{type:"create-panel",id:crypto.randomUUID(),geometry:{x:0,y:0,width:400,height:300,rotation:0},panel:{version:1,mode:"freeform",autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:"horizontal"}}}));
   fireEvent.keyDown(window,{key:"n"});
   fireEvent.click(screen.getByTestId("mock-canvas-click"));
