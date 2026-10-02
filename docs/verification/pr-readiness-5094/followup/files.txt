@@ -1,0 +1,6 @@
+  ✓  1 [seeded-github-import] › e2e/board-files-acceptance.spec.ts:13:5 › R09 real file drop, multipart filenames, durable refresh download and tenant ACL (14.8s)
+  1 passed (2.5m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps e2e/board-files-acceptance.spec.ts
+  命令执行：2m30s
+  清理：1s
+  总计：2m30s
