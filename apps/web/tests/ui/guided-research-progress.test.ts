@@ -64,7 +64,7 @@ it("does not rewind saved count when an older stream response arrives after SSE"
 it("rejects an older durable revision even when stream sequence has not changed", () => {
   const state = { ...current, busy: true, revision: 10, reportSavedChapterCount: 3 };
   const delayed = { ...progress, busy: true, revision: 9, reportSavedChapterCount: 2,
-    stream: { ...progress.stream!, sequence: state.reportStream.sequence } };
+    stream: { ...progress.stream!, sequence: state.reportStream!.sequence } };
   expect(mergeResearchProgress(state, delayed)).toBe(state);
   const newAttempt = mergeResearchProgress(state, { ...delayed, version: state.version + 1, revision: 11,
     currentNode: "report", reportSavedChapterCount: 0, stream: { ...delayed.stream, requestId: "new", sequence: 0, offset: 0, delta: "" } });
