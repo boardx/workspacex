@@ -40,7 +40,7 @@ export function boardToolbarPosition(geometry: Geometry, viewport: BoardViewport
   return { left: position.x, top: position.y, maxWidth, maxHeight: Math.max(1, windowSize.height - minTop - EDGE) };
 }
 
-export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport: BoardViewport) {
+export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport: BoardViewport, controlLayoutKey?: string) {
   const ref = useRef<HTMLElement>(null);
   const [windowSize, setWindowSize] = useState<Size>({ width: 1024, height: 768 });
   const [chrome, setChrome] = useState<Rect[]>([]);
@@ -51,7 +51,9 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
       const parent = ref.current?.offsetParent ?? ref.current?.closest('[data-testid="collaborative-editor"]');
       const frame = parent?.getBoundingClientRect();
       setWindowSize({ width: frame?.width || window.innerWidth, height: frame?.height || window.innerHeight });
-      const boundsInFrame = Array.from(document.querySelectorAll<HTMLElement>("[data-board-chrome]")).map((element) => { const rect = element.getBoundingClientRect(); return { x: rect.left - (frame?.left ?? 0), y: rect.top - (frame?.top ?? 0), width: rect.width, height: rect.height }; }).filter((rect) => rect.width > 0 && rect.height > 0);
+      const controlRoot = ref.current?.closest('[data-testid="collaborative-editor"]') ?? parent;
+      const controls = controlLayoutKey ? Array.from(controlRoot?.querySelectorAll<HTMLElement>("[data-testid^='board-connector-handle-'][data-handle-kind]") ?? []) : [];
+      const boundsInFrame = [...Array.from(document.querySelectorAll<HTMLElement>("[data-board-chrome]")), ...controls].map((element) => { const rect = element.getBoundingClientRect(); return { x: rect.left - (frame?.left ?? 0), y: rect.top - (frame?.top ?? 0), width: rect.width, height: rect.height }; }).filter((rect) => rect.width > 0 && rect.height > 0);
       setChrome((current) => JSON.stringify(current) === JSON.stringify(boundsInFrame) ? current : boundsInFrame);
       const bounds = ref.current?.getBoundingClientRect();
       if (bounds && bounds.width > 0 && bounds.height > 0) setToolbarSize((current) => current.width === bounds.width && current.height === bounds.height ? current : { width: bounds.width, height: bounds.height });
@@ -60,8 +62,9 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
     if (ref.current) observer?.observe(ref.current);
     document.querySelectorAll("[data-board-chrome]").forEach((element) => observer?.observe(element));
+    if (controlLayoutKey) (ref.current?.closest('[data-testid="collaborative-editor"]') ?? ref.current?.offsetParent)?.querySelectorAll("[data-testid^='board-connector-handle-'][data-handle-kind]").forEach(element => observer?.observe(element));
     window.addEventListener("resize", update);
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
-  }, [hasGeometry]);
+  }, [hasGeometry, controlLayoutKey]);
   return { ref, style: geometry ? boardToolbarPosition(geometry, viewport, windowSize, toolbarSize, chrome) : undefined };
 }
