@@ -57,6 +57,17 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "AI 助手", exact: true }).click();
   await expect(page.getByTestId("research-skill-messages")).toContainText("请检查研究方向");
   await page.getByRole("button", { name: "AI 助手", exact: true }).click();
+  const autosavedTopic = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
+    && response.request().method() === "POST" && response.request().postDataJSON()?.node === "brief"
+    && response.request().postDataJSON()?.action === "save");
+  // Keep the goal sentinel that injects one invalid evidence response below.
+  await page.getByTestId("research-topic-information").getByRole("textbox", { name: "其它", exact: true }).fill("政策实施约束");
+  expect((await autosavedTopic).ok()).toBe(true);
+  await expect(page.getByTestId("research-topic-information").getByRole("status")).toHaveText("已保存");
+  await expect(page).toHaveURL(/\/research\/[^/]+\/topic$/);
+  await page.reload();
+  await expect(page).toHaveURL(/\/research\/[^/]+\/topic$/);
+  await expect(page.getByTestId("research-topic-information").getByRole("textbox", { name: "其它", exact: true })).toHaveValue("政策实施约束");
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
     await expect(page.getByRole("heading", { name: researchName, exact: true })).toBeVisible();
     await expect(page.getByTestId(expectedTitle === "研究方向" ? "guided-research-topic-panel" : "guided-research-plan-panel")).toHaveAttribute(
