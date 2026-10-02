@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ✓ tests/ui/interview-markdown-intake.test.tsx (9 tests) 1385ms
+   ✓ keeps import and next-step controls together above the demand editor 455ms
+ ✓ tests/ui/interview-markdown-create.test.tsx (4 tests) 4039ms
+   ✓ creates project-scoped identity metadata and saves the research body only as canonical Markdown on continue 2056ms
+   ✓ confirms the saved Markdown version before generating analysis and opening its route 506ms
+   ✓ retry after failed analysis keeps the same interview and confirmed original text 1139ms
+   ✓ file upload first saves editable Markdown then appends only the server saved draft, without confirming 335ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  19:12:43
+   Duration  30.36s (transform 3.93s, setup 2.01s, collect 10.46s, tests 5.42s, environment 8.86s, prepare 686ms)
+
