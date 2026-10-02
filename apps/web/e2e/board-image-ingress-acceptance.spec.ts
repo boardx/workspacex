@@ -16,7 +16,7 @@ test('HTTPS image entry rejects real CORS and malformed ranges then retries dura
  let token:string|undefined,board:string|undefined;
  own(async()=>{if(token&&board){const current=await(await call(api,token,'GET',`/whiteboards/${board}`)).json();if(!current.archived)await call(api,token,'PATCH',`/whiteboards/${board}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}});
  expect(baseURL).toBeTruthy();
- const {startImageFixture}=await import('../../../scripts/local-session/board-image-https-fixture.mts');
+ const {startImageFixture}=await import('../../../scripts/local-session/board-image-https-fixture.mjs');
  const png=boardImagePngFixture(),fixture=await startImageFixture(png,new URL(baseURL!).origin);
  own(()=>fixture.close());
  // Trust is confined to this owned certificate fixture context: all other HTTPS is denied.
