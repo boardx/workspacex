@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/pr-readiness-files/workspacex/apps/api
+
+ ✓ tests/whiteboard/file-assets.test.ts (29 tests) 55ms
+ ✓ tests/whiteboard/file-multipart-http.test.ts (29 tests) 805ms
+
+ Test Files  2 passed (2)
+      Tests  58 passed (58)
+   Start at  20:43:28
+   Duration  10.05s (transform 2.78s, setup 0ms, collect 8.22s, tests 860ms, environment 0ms, prepare 284ms)

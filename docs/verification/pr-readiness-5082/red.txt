@@ -1,0 +1,44 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/pr-readiness-files/workspacex/apps/api
+
+ ❯ tests/whiteboard/file-assets.test.ts (29 tests | 1 failed) 22ms
+   × durable board files > preserves persistence failure 42501 at the HTTP boundary 10ms
+     → expected Error: private database diagnostic { code: '…' } to match object { status: 403, response: { …(2) } }
+(1 matching property omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/file-assets.test.ts > durable board files > preserves persistence failure 42501 at the HTTP boundary
+AssertionError: expected Error: private database diagnostic { code: '…' } to match object { status: 403, response: { …(2) } }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "response": Object {
+-     "message": "Forbidden",
+-     "statusCode": 403,
+-   },
+-   "status": 403,
+- }
++ [Error: private database diagnostic]
+
+ ❯ tests/whiteboard/file-assets.test.ts:44:27
+     42|       buffer: Buffer.from(bytes), originalname: 'denied.txt', mimetype…
+     43|     } as Express.Multer.File);
+     44|     if (code === '42501') await expect(upload).rejects.toMatchObject({…
+       |                           ^
+     45|     else await expect(upload).rejects.toBe(databaseError);
+     46|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+   Start at  20:41:29
+   Duration  2.00s (transform 913ms, setup 0ms, collect 1.77s, tests 22ms, environment 0ms, prepare 63ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/pr-readiness-files/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/file-assets.test.ts
