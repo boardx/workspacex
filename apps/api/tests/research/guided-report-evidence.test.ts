@@ -13,7 +13,7 @@ function auditFor(make: (context: any) => unknown): ReportAudit {
   return async (input, validate) => validate(JSON.stringify(make(JSON.parse(input.user))));
 }
 const evaluate = (context: any) => ({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
-  matches: context.questions.map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
+  matches: context.questions.map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
 describe("verified report evidence coverage", () => {
   it("extracts independent batches with a bound and preserves deterministic evidence order", async () => {
     const state = fixture(24);
@@ -76,8 +76,8 @@ describe("verified report evidence coverage", () => {
     expect(canonicalEvidenceSources(state).map((source) => source.id)).toEqual(["s0"]);
     const batches: any[] = [];
     await extractReportEvidence(state, config, auditFor((context) => { batches.push(context); return evaluate(context); }));
-    expect(batches.flatMap((batch) => batch.chunks).reduce((sum, chunk) => sum + chunk.content.length, 0)).toBe(30000);
-    expect(batches.every((batch) => batch.chunks.length <= 8 && batch.chunks.reduce((sum: number, chunk: any) => sum + chunk.content.length, 0) <= 24000)).toBe(true);
+    expect(batches.flatMap((batch) => batch.chunks).reduce((sum, chunk) => sum + (chunk.content ?? chunk.quoteOptions.map((option: any) => option.text).join("")).length, 0)).toBe(30000);
+    expect(batches.every((batch) => batch.chunks.length <= 8 && batch.chunks.reduce((sum: number, chunk: any) => sum + (chunk.content ?? chunk.quoteOptions.map((option: any) => option.text).join("")).length, 0) <= 24000)).toBe(true);
     expect(batches.flatMap((batch) => batch.chunks).every((chunk) => chunk.contentKind === "search_excerpt")).toBe(true);
   });
   it("does not present context-only snippets as direct answers", async () => {

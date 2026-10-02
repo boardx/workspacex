@@ -6,7 +6,7 @@ function fixture(count = 3): ResearchRuntime {
     outline: [{ id: "chapter", title: "Policy", order: 0, enabled: true, questions: ["What is supported?"] }], tasks: [], sources: Array.from({ length: count }, (_, index) => ({ id: `s${index}`, taskId: `t${index}`, title: `Source ${index}`, content: `Verbatim evidence for source ${index}.`, url: `https://example.com/${index}`, retrievedAt: "2026-09-07", decision: "accepted" })), report: null, completed: false, busy: true, leaseUntil: null, errorCode: null, generatedNodes: [], messages: [], proposal: null, modelCalls: [] };
 }
 const config = { provider: "fixture", id: "fixture" };
-const evaluate = (c: any) => ({ evaluations: c.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: c.questions[0].id, quote: chunk.content, insight: "Supported fact.", relevance: "direct" }] })) });
+const evaluate = (c: any) => ({ evaluations: c.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: c.questions[0].id, quote: chunk.quoteOptions[0].text, insight: "Supported fact.", relevance: "direct" }] })) });
 function setup(make: (c: any, index: number) => unknown) {
   const calls: any[] = []; const diagnostics: any[] = [];
   const audit: ReportAudit = async (input, validate) => { const c = JSON.parse(input.user); calls.push(c); const value = make(c, calls.length - 1); return validate(typeof value === "string" ? value : JSON.stringify(value)); };

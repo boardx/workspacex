@@ -1,3 +1,4 @@
+import { materializeQuoteReferences } from "./guided-report-quote-references";
 import { research as C } from "@repo/contracts";
 import type { VerifiedEvidence } from "./guided-report-evidence";
 export interface EvidenceChunk { sourceId: string; chunkId: string; content: string }
@@ -30,7 +31,7 @@ export function collectChunkEvidence(text: string, chunks: readonly EvidenceChun
     if (!chunk) { fail("unknown_source_or_chunk"); isolateClaimedChunk(); wholeBatch = true; continue; }
     if (seen.has(chunk.chunkId)) { fail("duplicate_chunk"); rejected.add(chunk.chunkId); valid.delete(chunk.chunkId); rejectedValues.push(value); continue; }
     seen.add(chunk.chunkId);
-    const parsed = C.GuidedResearchEvidenceModelOutput.shape.evaluations.element.safeParse(value);
+    const parsed = C.GuidedResearchEvidenceModelOutput.shape.evaluations.element.safeParse(materializeQuoteReferences(identity, chunk));
     if (!parsed.success) { fail("invalid_evaluation"); rejected.add(chunk.chunkId); rejectedValues.push(value); continue; }
     if (parsed.data.irrelevant !== (parsed.data.matches.length === 0)) { fail("inconsistent_irrelevance"); rejected.add(chunk.chunkId); rejectedValues.push(value); continue; }
     const candidates: EvidenceCandidate[] = [];
