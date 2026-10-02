@@ -7,7 +7,8 @@ const matches = (url: string, method = 'POST') => isBoardFileUploadResponse(meth
 describe('R09 upload response identity', () => {
   it('accepts the actual web proxy POST and the direct API POST for this board', () => {
     const proxyUrl = `${web}/__fullstack_api${path}`;
-    expect(proxyUrl === `${api}${path}`, 'the original exact API URL predicate misses the successful proxied upload').toBe(false);
+    const originalMatches = (url: string) => url === `${api}${path}`;
+    expect(originalMatches(proxyUrl), 'the original exact API URL predicate misses the successful proxied upload').toBe(false);
     expect(matches(proxyUrl)).toBe(true);
     expect(matches(`${api}${path}`)).toBe(true);
   });
