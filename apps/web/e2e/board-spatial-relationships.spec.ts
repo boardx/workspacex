@@ -467,7 +467,16 @@ test("contextual controls availability", async ({ page, request }) => {
   // Locked objects retain viewable style controls; every mutation stays unavailable.
   const readonlyTools = page.getByRole("complementary", { name: "便利贴快捷工具" });
   await expect(readonlyTools).toBeVisible();
-  await page.getByTestId("board-sticky-style-open").click();
+  // Finish the actions dialog before opening the sibling style inspector.
+  // Outside-dismiss focus restoration can otherwise close the new popover.
+  const actionsDialog = page.getByRole("dialog", { name: "更多操作", exact: true });
+  await actionsDialog.getByRole("button", { name: "关闭更多操作", exact: true }).click();
+  await expect(actionsDialog).toBeHidden();
+  const styleTrigger = page.getByTestId("board-sticky-style-open");
+  await expect(styleTrigger).toBeEnabled();
+  await styleTrigger.click();
+  await expect(styleTrigger).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("dialog", { name: "便利贴样式", exact: true })).toBeVisible();
   const shape = page.getByTestId("context-sticky-circle");
   const color = page.getByTestId("sticky-quick-color-yellow");
   await expect(shape).toBeDisabled();
