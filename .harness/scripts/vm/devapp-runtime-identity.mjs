@@ -38,9 +38,10 @@ export function verifySourceBytes(app,source,execute=run) {
  const output=execute('git',[...args,'ls-tree','-r','-z',source]);
  const tracked=new Set();
  for(const item of output.split('\0').filter(Boolean)) {
-  const [metadata,rel]=item.split('\t'),[mode,type,id]=metadata.split(' ');
+  const separator=item.indexOf('\t'),metadata=item.slice(0,separator),rel=item.slice(separator+1),[mode,type,id]=metadata.split(' ');
+  if(separator<0||rel.startsWith('/')||rel.includes('\\')||/[\x00-\x1f\x7f]/.test(rel)||rel.split('/').some(segment=>segment===''||segment==='.'||segment==='..'))fail('RUNTIME_SOURCE_UNSAFE');
   if(!(/^(apps\/(api|web)\/|packages\/)/.test(rel)||['pnpm-lock.yaml','package.json','turbo.json'].includes(rel)))continue;
-  if(type!=='blob'||mode==='120000'||rel.includes('..'))fail('RUNTIME_SOURCE_UNSAFE');
+  if(type!=='blob'||mode==='120000')fail('RUNTIME_SOURCE_UNSAFE');
   tracked.add(rel);
   const bytes=fs.readFileSync(path.join(app,rel));
   const object=createHash('sha1').update(Buffer.from('blob '+bytes.length+'\0')).update(bytes).digest('hex');
@@ -140,8 +141,12 @@ function rootDir(p) {
 }
 function writeExclusive(p,value) {fs.writeFileSync(p,JSON.stringify(value),{mode:0o600,flag:'wx'});}
 function main() {
- if(process.getuid?.()!==0)fail('RUNTIME_ROOT_REQUIRED');
  const [kind,source,app='/opt/workspacex/app',buildFile]=process.argv.slice(2);
+ if(kind==='verify-source') {
+  if(process.argv.length!==5)fail('RUNTIME_COMMAND');
+  verifySourceBytes(app,source);console.log('DEVAPP_RUNTIME_SOURCE_VERIFIED');return;
+ }
+ if(process.getuid?.()!==0)fail('RUNTIME_ROOT_REQUIRED');
  const base='/etc/workspacex-devapp';rootDir(base);
  if(kind==='build') {
   verifySourceBytes(app,source);
