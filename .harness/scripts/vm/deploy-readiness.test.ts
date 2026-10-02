@@ -1,7 +1,7 @@
-import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdtempSync, mkdirSync, realpathSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { execFile, spawnSync } from "node:child_process";
+import { execFile, execFileSync, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
@@ -103,13 +103,36 @@ esac
   return { temp, counterFile, commandLog };
 }
 
+function committedGateSource(temp: string) {
+  // Keep the source preflight real and independent of this checkout's HEAD or dirt.
+  // The gate and all byte-matched helpers live in a committed fixture repository.
+  const sourceRoot = realpathSync(join(temp, "."));
+  const sourceVm = join(sourceRoot, ".harness/scripts/vm");
+  for (const rel of [".harness/scripts/vm", "apps/api/src", "packages", "apps/web/app/api/copilotkit/[[...slug]]"]) {
+    mkdirSync(join(sourceRoot, rel), { recursive: true });
+  }
+  writeFileSync(join(sourceRoot, "apps/api/src/main.ts"), "export {};\n");
+  writeFileSync(join(sourceRoot, "apps/web/app/api/copilotkit/[[...slug]]/route.ts"), "export {};\n");
+  for (const name of ["deploy-gate.sh", "deploy.sh", "deploy-readiness.sh", "deep-agent-lib.sh", "devapp-runtime-identity.mjs"]) {
+    copyFileSync(join(VM_DIR, name), join(sourceVm, name));
+  }
+  const git = (...args: string[]) => execFileSync("git", ["-C", sourceRoot, ...args], { encoding: "utf8" });
+  git("init", "--quiet");
+  git("add", "apps", "packages", ".harness");
+  git("-c", "user.name=Readiness Fixture", "-c", "user.email=fixture@example.test", "commit", "--quiet", "-m", "committed readiness source");
+  const sourceRef = git("rev-parse", "HEAD").trim();
+
+  return { sourceRoot, sourceRef, gate: join(sourceVm, "deploy-gate.sh") };
+}
+
 function runGate(
   sequence: string[],
   rootMode: "success" | "smoke-failure" | "early-failure" | "forged-marker",
 ) {
   const files = fixture(sequence);
-  const result = spawnSync("bash", [GATE, "v-test"], {
-    cwd: ROOT,
+  const source = committedGateSource(files.temp);
+  const result = spawnSync("bash", [source.gate, source.sourceRef], {
+    cwd: source.sourceRoot,
     encoding: "utf8",
     env: {
       ...process.env,
@@ -279,6 +302,7 @@ describe("#448 post-restart readiness", () => {
 
   it("preserves a trusted root deploy failure before smoke without probing healthy old services", () => {
     const result = runGate(["trusted", "trusted", "trusted"], "early-failure");
+    expect(result.stdout).toContain("DEVAPP_RUNTIME_SOURCE_VERIFIED");
     expect(result.status).toBe(9);
     expect(result.count).toBe(0);
     expect(result.stderr).toContain("root-owned invocation status contract was absent or invalid");
@@ -294,6 +318,7 @@ describe("#448 post-restart readiness", () => {
   it("fails closed when a repository-controlled pre-smoke command forges the old stdout marker", () => {
     const result = runGate(["trusted", "trusted", "trusted"], "forged-marker");
     expect(result.stdout).toContain("forged by repository command");
+    expect(result.stdout).toContain("DEVAPP_RUNTIME_SOURCE_VERIFIED");
     expect(result.status).toBe(9);
     expect(result.count).toBe(0);
     expect(result.stderr).toContain("root-owned invocation status contract was absent or invalid");

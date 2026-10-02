@@ -13,10 +13,10 @@
  * ⚠ 门控刻意**不自动安装**新副本：runner 用户能改仓库文件，让它把仓库脚本装进
  *   /usr/local/bin 等于任何一个 PR 都能拿到 root。安装是人的动作，这一点不能优化掉。
  */
-import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdtempSync, mkdirSync, realpathSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync,execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 
 const VM_DIR = resolve(import.meta.dirname);
@@ -63,6 +63,16 @@ function runDriftCheck(mutate?: (installedDeploy: string) => void): {
 }
 
 describe("部署前先确认「要跑的那份脚本」就是本次提交里的那份", () => {
+  it("actual Git source preflight precedes sudo and rejects byte drift before any deployment", () => {
+    const temp=realpathSync(mkdtempSync(join(tmpdir(),"deploy-source-gate-")));temps.push(temp);
+    for(const rel of ["apps/api/src","packages","apps/web/app/api/copilotkit/[[...slug]]",".harness/scripts/vm"])mkdirSync(join(temp,rel),{recursive:true});
+    writeFileSync(join(temp,"apps/api/src/main.ts"),"original");writeFileSync(join(temp,"apps/web/app/api/copilotkit/[[...slug]]/route.ts"),"route");
+    copyFileSync(join(VM_DIR,"devapp-runtime-identity.mjs"),join(temp,".harness/scripts/vm/devapp-runtime-identity.mjs"));
+    const git=(...args:string[])=>execFileSync("git",["-C",temp,...args],{encoding:"utf8"});git("init","--quiet");git("add",".");git("-c","user.name=Fixture","-c","user.email=fixture@example.test","commit","--quiet","-m","actual source");const revision=git("rev-parse","HEAD").trim();
+    const run=()=>spawnSync("bash",["-c",'source "$1"; SCRIPT_DIR="$2/.harness/scripts/vm"; assert_trusted_copies_match_repo(){ :; }; sudo(){ echo ROOT_DEPLOY_INVOKED; }; run_post_restart_smoke(){ :; }; deploy_gate_main "$3"',"fixture",GATE,temp,revision],{encoding:"utf8"});
+    const success=run();expect(success.status).toBe(0);expect(success.stdout).toContain("DEVAPP_RUNTIME_SOURCE_VERIFIED");expect(success.stdout).toContain("ROOT_DEPLOY_INVOKED");
+    writeFileSync(join(temp,"apps/api/src/main.ts"),"drift");const failure=run();expect(failure.status).not.toBe(0);expect(failure.stdout).not.toContain("ROOT_DEPLOY_INVOKED");expect(failure.stderr).toContain("DEVAPP_RUNTIME_IDENTITY_NOT_READY");
+  });
   it("三份都与仓库一致 ⇒ 放行", () => {
     const { status } = runDriftCheck();
     expect(status).toBe(0);

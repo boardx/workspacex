@@ -28,6 +28,7 @@ def validate_plan(plan,binding):
   law=laws[filename]
   if not isinstance(law,dict) or law.get('sqlSha256')!=digest or law.get('reviewed') is not True or not re.fullmatch('[a-f0-9]{64}',law.get('lawSha256','')):reject('UNREVIEWED_MIGRATION_LAW')
  if '20261001170000_pending_attachment_cancellation.sql' in sql and not re.fullmatch('[a-f0-9]{64}',plan.get('pendingAttachmentValidatorSha256','')):reject('ATTACHMENT_VALIDATOR_CLOSURE_REQUIRED')
+ if any(name in sql for name in ['20261001094500_official_role_pending_skill_bindings.sql','20261001095000_agent_run_skill_scope.sql']) and not re.fullmatch('[a-f0-9]{64}',plan.get('roleScopeValidatorSha256','')):reject('ROLE_SCOPE_VALIDATOR_CLOSURE_REQUIRED')
  if plan.get('sourceInstanceId')!=binding['sourceInstanceId']:reject('PRODUCTION_SOURCE_PLAN_BINDING')
  pending=plan.get('pendingSqlChecksums');count=plan.get('expectedLedgerCount');canonical=plan.get('canonicalSchemaPlanHashes')
  if not isinstance(pending,dict) or not pending or any(sql.get(n)!=h for n,h in pending.items()) or not isinstance(count,int) or isinstance(count,bool) or count<1:reject('ACTUAL_LEDGER_PLAN_REQUIRED')

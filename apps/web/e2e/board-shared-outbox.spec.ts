@@ -38,30 +38,31 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expectSynced(page);mark('board-opened');
+  const existingFrame=await seedExistingFrame(page,100,100,320,240);
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
-  await page.getByTestId('board-add-frame').click();
-  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
   const createdIds:string[]=[];
   for(let index=0;index<8;index++){
+   await page.getByTestId('board-tool-select').click();
+   await page.keyboard.press('n');
    await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
-   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
-   const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
+   await expect(objectRows(page),`Sticky gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
+   const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='sticky')).toBe(true);
    const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);expect(ids).toEqual(expect.arrayContaining(createdIds));createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
   }
-  await page.getByRole('button',{name:'Close frame tools'}).click();
-  await expect(objectRows(page)).toHaveCount(8);mark('panels-created');
-  const panelOutline=objectRows(page).last().getByRole('button');await panelOutline.focus();await panelOutline.press('Enter');
-  await page.getByTestId('board-inspector-expand').click();
-  const title=page.getByRole('textbox',{name:'区域标题',exact:true});
+  await page.keyboard.press('Escape');
+  await expect(objectRows(page)).toHaveCount(8);
+  mark('stickies-created');
+  const title=page.getByLabel('对象文字',{exact:true});
   for(const id of createdIds){
    const outline=page.getByTestId(`board-a11y-object-${id}`);await outline.focus();await outline.press('Enter');
-   await title.fill(`Frame ${id} queued`);await title.fill(`Frame ${id} shared-tab-proof`);
+   await title.fill(`Sticky ${id} queued`);await expect.poll(async()=>(await rows(page)).find(row=>row.id===id)?.text).toBe(`Sticky ${id} queued`);
+   await title.fill(`Sticky ${id} shared-tab-proof`);await expect.poll(async()=>(await rows(page)).find(row=>row.id===id)?.text).toBe(`Sticky ${id} shared-tab-proof`);
   }
   const pending=page.getByTestId('board-sync-status');await expect(pending).toHaveAttribute('aria-label',/^\d+ 项修改等待服务器确认$/);evidence.pendingBeforePeer=await pending.getAttribute('aria-label');
   mark('local-updates-queued');
-  const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='panel')).toBe(true);expect(expected.map(row=>row.id)).toEqual([...createdIds].sort());expect(expected.every(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
+  const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='sticky')).toBe(true);expect(expected.map(row=>row.id)).toEqual([...createdIds].sort());expect(expected.every(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
