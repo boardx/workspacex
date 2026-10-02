@@ -35,7 +35,7 @@
  */
 import {
   type ArgumentsHost, BadRequestException, Catch, ConflictException, Controller, type ExceptionFilter,
-  ForbiddenException, Get, Header, HttpCode, HttpStatus, Inject, NotFoundException, Optional, Param,
+  ForbiddenException, Delete, Get, Header, HttpCode, HttpStatus, Inject, NotFoundException, Optional, Param,
   PayloadTooLargeException, Post, Query, Res, ServiceUnavailableException, UnprocessableEntityException,
   UnsupportedMediaTypeException, UploadedFile, UseFilters, UseInterceptors,
 } from "@nestjs/common";
@@ -51,6 +51,8 @@ import {
   uploadAttachment,
   type AttachmentCommandRepository,
 } from "../../application/chat/upload-attachment";
+import {cancelPendingAttachment,AttachmentAlreadySentError} from "../../application/chat/cancel-pending-attachment";
+import {PHYSICAL_PURGE_PORT,type PhysicalPurgePort} from "../../application/files/physical-delete-ports";
 import { listThreadAttachments } from "../../application/chat/list-thread-attachments";
 import { ThreadNotVisibleError } from "../../application/chat/get-thread";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
@@ -154,6 +156,7 @@ export class ChatAttachmentController {
     @Inject(ATTACHMENT_EXTRACTION_EXECUTOR) private readonly executor: AttachmentExtractionExecutorPort,
     // E3：第一个价值时刻埋点（fire-and-forget）。可选注入：手工构造的控制器没有它时即 no-op。
     @Optional() @Inject(FIRST_VALUE_RECORDER) private readonly firstValue?: FirstValueRecorder,
+    @Optional() @Inject(PHYSICAL_PURGE_PORT) private readonly purge?:PhysicalPurgePort,
   ) {}
 
   private get deps() {
@@ -164,10 +167,23 @@ export class ChatAttachmentController {
       clock: { now: () => this.clock.now().toISOString() },
       // F153：接上抽取子系统。
       extraction: this.extraction, converter: this.converter, vision: this.vision,
-      executor: this.executor,
+      executor: this.executor,purge:this.purge,
     };
   }
 
+  @Delete('/chat/threads/:threadId/attachments/:attachmentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async cancel(@CurrentPrincipal() principal:Principal,@Param('threadId') threadId:string,@Param('attachmentId') attachmentId:string){
+    assertPrincipal(principal);
+    try{await cancelPendingAttachment(this.deps,{orgId:toOrgId(principal.orgId),userId:principal.userId,threadId,attachmentId});}
+    catch(e){
+      if(e instanceof ThreadNotVisibleError)throw new NotFoundException();
+      if(e instanceof AttachmentAlreadySentError)throw new ConflictException({reasonCode:'ATTACHMENT_NOT_PENDING'});
+      if(e instanceof AuthzUnavailableError)throw new ServiceUnavailableException({reasonCode:'AUTHZ_UNAVAILABLE'});
+      if(e instanceof AttachmentUploadError){if(e.code==='NO_WRITE_ROLE')throw new ForbiddenException({reasonCode:e.code});throw new ServiceUnavailableException({reasonCode:e.code});}
+      throw e;
+    }
+  }
   @HttpCode(HttpStatus.CREATED)
   @Post("/chat/threads/:threadId/attachments")
   @UseFilters(AttachmentTooLargeFilter)

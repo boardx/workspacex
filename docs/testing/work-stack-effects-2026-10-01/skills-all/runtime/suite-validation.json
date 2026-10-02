@@ -1,0 +1,353 @@
+[
+  {
+    "stableId": "S003",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S003"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S003: 10 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S011",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S011"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S011: 14 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S013",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S013"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S013: 17 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S015",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S015"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S015: 14 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S141",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S141"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S141: 8 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S143",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S143"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S143: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S144",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S144"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S144: 10 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S145",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S145"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S145: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S148",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S148"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S148: 8 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S153",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S153"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S153: 8 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S154",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S154"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S154: 8 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S156",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S156"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S156: 11 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S177",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S177"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S177: 8 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S179",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S179"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S179: 11 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S187",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S187"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S187: 10 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S188",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S188"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S188: 10 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S189",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S189"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S189: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S190",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S190"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S190: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S191",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S191"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S191: 10 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S192",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S192"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S192: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S193",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S193"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S193: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S194",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S194"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S194: 10 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S195",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S195"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S195: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S196",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S196"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S196: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S197",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S197"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S197: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S198",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S198"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S198: 9 cases\n",
+    "stderr": ""
+  },
+  {
+    "stableId": "S199",
+    "command": [
+      "node",
+      "--import",
+      "tsx",
+      "packages/contracts/scripts/validate-work-eval-suite.ts",
+      "evals/work-stack/S199"
+    ],
+    "exitCode": 0,
+    "stdout": "OK S199: 10 cases\n",
+    "stderr": ""
+  }
+]

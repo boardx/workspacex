@@ -4,7 +4,7 @@
  * 1. `openRealtimeVoiceSession` —— 会话开始前的判权与人设解析。线程必须对调用者可见且可写
  *    （非观察者、未归档）；所选 Agent 必须是本组织已发布、可见的角色（`AgentDirectoryRepository.
  *    findVisible`，与 `/agent` 目录同一条 fail-closed 规则）。任一不满足即抛错，网关拒绝开会话。
- *    指令与音色都在服务端推导（`domain/chat/realtime-voice-persona.ts`），客户端无权指定。
+ *    指令保留同一已发布版本的真实 instructions，再追加语音模式边界；音色在服务端推导，客户端无权指定。
  * 2. `appendRealtimeVoiceTurn` —— 一轮说完后把转写落成普通 Chat 消息，挂断后线程里能看到整段对话。
  */
 import { randomUUID } from "node:crypto";
@@ -43,6 +43,7 @@ export interface RealtimeVoiceSession {
   readonly threadId: string;
   readonly role: RealtimeVoiceRole;
   readonly instructions: string;
+  readonly agentVersionId?: string | null;
   readonly voice: string;
 }
 
@@ -59,9 +60,13 @@ export async function openRealtimeVoiceSession(
   if (visibility.actor.projectRole === "observer" || visibility.thread.archived) throw new RealtimeVoiceThreadUnavailableError();
 
   let role: RealtimeVoiceRole = genericRealtimeVoiceRole();
+  let publishedInstructions: string | null = null;
+  let agentVersionId: string | null = null;
   if (input.agentId !== null) {
     const row = await deps.directory.findVisible(input.orgId, input.agentId);
-    if (row === null) throw new RealtimeVoiceAgentUnavailableError();
+    if (row === null || !row.instructions?.trim() || !row.versionId.trim()) throw new RealtimeVoiceAgentUnavailableError();
+    publishedInstructions = row.instructions.trim();
+    agentVersionId = row.versionId;
     role = {
       agentId: row.agentId,
       name: row.name.trim() || row.agentId,
@@ -76,7 +81,10 @@ export async function openRealtimeVoiceSession(
     userId: input.userId,
     threadId: input.threadId,
     role,
-    instructions: buildRealtimeVoiceInstructions(role),
+    agentVersionId,
+    instructions: publishedInstructions === null
+      ? buildRealtimeVoiceInstructions(role)
+      : `${publishedInstructions}\n\n${buildRealtimeVoiceInstructions(role)}`,
     voice: resolveRealtimeVoice(role, deps.voiceMap, deps.defaultVoice),
   };
 }

@@ -105,7 +105,7 @@ const LEGACY = new Map([
   // #4615：原 new-project-flow.tsx 的工作坊向导整体改名搬到这里（同一处存量，不是新增）；
   // 新的默认 new-project-flow.tsx 已不上屏内部码。
   ["apps/web/components/project/workshop-project-flow.tsx", 1],
-  ["apps/web/components/projects/projects-screen.tsx", 3],
+  ["apps/web/components/projects/projects-screen.tsx", 2],
   ["apps/web/components/skill/skill-catalog-live.tsx", 1],
   ["apps/web/components/tpl-designer/blueprint-designer-page-live.tsx", 1],
   ["apps/web/components/tpl/blueprint-list-screen-live.tsx", 1],

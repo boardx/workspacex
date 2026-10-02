@@ -1,0 +1,11 @@
+# Selected role and recalled user identity
+
+Goal: keep the selected executive strategy partner (or product manager) authoritative while preserving the requester's personal memory. This change fixes context attribution; it does not establish that a real model obeys the role.
+
+- [x] Trace fresh production input: frozen `run.instructions` enters `buildSystemPrompt`; `ROLE_CONTEXT_GUIDANCE` follows; `DeepAgentModelProvider` forwards system/history/current user messages. The native graph consumes these input messages. Existing per-turn message pruning prevents old gateway turns from accumulating as an alternative system identity.
+- [x] Reproduce attribution defect through `executeQueuedRuns` and actual personal-profile recall assembly: both identity and attachment-analysis requests sent the recalled first-person identity as an **assistant** utterance. The two new tests failed against unchanged production source (`expected assistant to be user`).
+- [x] Preserve recalled memory as explicitly labeled **user background reference**, before actual history/current task, below pinned system instructions. No rolepack, Skill filtering, memory storage, permissions or API contracts change.
+- [x] Verify executor input and actual LangChain model requests. API executor suite: 15 passed. Python graph/middleware captures: 8 passed (native/legacy × product-manager/executive-strategy × capability/attachment questions), preserving the system role and representing synthetic personal claims as HumanMessage, never AIMessage. Architecture dependency lint and diff check passed.
+- [ ] Real model identity/capability/attachment relevance acceptance: BLOCKED pending real model credentials and authorized online evidence. No production screenshot/session content was copied into this report; all test claims are synthetic. No real model quality PASS is claimed.
+
+The API test captures a production application boundary using fake persistence/model ports. The Python tests invoke real graph/middleware but stop at a capturing fake model before generation. These are complementary protocol checks, not a single fully connected deployed end-to-end run. The existing checkpoint-resume branch continues to use the original checkpoint input; it does not send new role instructions and is not modified by this patch.

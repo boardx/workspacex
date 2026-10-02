@@ -6,7 +6,7 @@
  * 原型部分是组件树的**缩进大纲**，不是 JSON dump：给工程/评审看的是结构与文案，
  * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
  */
-import { designPrototype } from "@repo/contracts";
+import { designHtmlPage, designPrototype } from "@repo/contracts";
 import { exportFileStem, type Romanize } from "./export-file-name";
 import { localDateStamp, localTimeStamp } from "./prototype-export-html";
 import { PROJECT_TEMPLATE_LABEL, type DesignProject, type PrototypeNode } from "./live-design-workbench";
@@ -85,6 +85,7 @@ export function describeNode(n: PrototypeNode): string {
     case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
     case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
     // design-delta `prototype-board`：把画布上写了什么、谁连着谁说全——工程据此判断要做的是白板 / 流程图。
+    case "html": return `整页版面（自由排版）：${designHtmlPage.htmlPageVisibleText(n.props.html).slice(0, 160)}`;
     case "board": {
       const items = n.props.items.map((it) => `${it.kind === "sticky" ? "便签" : it.kind === "shape" ? "形状" : "文字"}「${it.text}」${it.author !== undefined ? `（${it.author}）` : ""}`);
       const links = (n.props.links ?? []).filter((l) => l.from < n.props.items.length && l.to < n.props.items.length)

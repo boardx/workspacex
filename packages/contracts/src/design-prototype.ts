@@ -33,6 +33,7 @@
  * （逐字段判的粒度是字段，不是页：半套原型比没有更糟）。
  */
 import { z } from "zod";
+import { HTML_PAGE_MAX_CHARS, htmlPageLinks, sanitizeHtmlPage } from "./design-html-page";
 
 export const PROTOTYPE_MAX_DEPTH = 8;
 export const PROTOTYPE_MAX_NODES = 300;
@@ -51,6 +52,8 @@ export const PrototypeNodeType = z.enum([
   "section", "footer",
   // design-delta `prototype-board`（2026-09-27）：自由画布——白板 / 思维导图 / 流程图 / 看板这类产品的主画面
   "board",
+  // HTML 页：模型直接写的一整页 HTML+CSS（沙箱 iframe 渲染），见 `design-html-page.ts`。一页的 root 就是它一个节点。
+  "html",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -364,6 +367,15 @@ const BoardProps = BoardPropsBase.refine(
   { message: "links must reference two different existing items", path: ["links"] },
 );
 
+/**
+ * HTML 页的载荷。**必须是清洗过的**（`sanitizeHtmlPage` 幂等，所以「清洗后等于自己」就是「已经干净」）：
+ * 契约在这里拒绝任何带脚本 / 外链 / 事件处理器的写入，无论它来自模型、补丁还是别的入口。
+ */
+const HtmlPropsBase = z.object({
+  html: z.string().min(1).max(HTML_PAGE_MAX_CHARS),
+}).strict();
+const HtmlProps = HtmlPropsBase.refine((p) => sanitizeHtmlPage(p.html).html === p.html, { message: "html must be sanitized (see sanitizeHtmlPage)", path: ["html"] });
+
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("navbar"), props: NavbarProps }).strict(),
@@ -390,6 +402,7 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("radio"), props: RadioProps }).strict(),
   z.object({ id: Id, type: z.literal("footer"), props: FooterProps }).strict(),
   z.object({ id: Id, type: z.literal("board"), props: BoardProps }).strict(),
+  z.object({ id: Id, type: z.literal("html"), props: HtmlProps }).strict(),
 ]);
 
 export type PrototypeNode =
@@ -507,7 +520,7 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
   bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
   stat: StatProps, hero: HeroProps, grid: GridProps, table: TableProps, chart: ChartProps,
   select: SelectProps, radio: RadioPropsBase, overlay: OverlayProps, section: SectionProps, footer: FooterProps,
-  board: BoardPropsBase,
+  board: BoardPropsBase, html: HtmlPropsBase,
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
 /**
@@ -655,6 +668,8 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
     F("items", "画布上的便签与形状", "structured"), F("links", "连线", "structured"), F("cursors", "协作者光标", "structured"),
     F("grid", "点状网格", "bool"), F("height", "高度", "enum", BoardPropsBase.shape.height.unwrap().options),
   ],
+  // 一整页 HTML：属性面板不开编辑框（把一坨 HTML 端到 PM 面前没有意义），只指向对话——与 board 同一处理。
+  html: [F("html", "这一页的版面", "structured")],
   select: [F("label", "标题", "text"), F("options", "选项（一行一项）", "lines"), F("value", "当前值", "text"), F("placeholder", "占位提示", "text")],
   radio: [F("label", "标题", "text"), F("options", "选项（一行一项，2–8）", "lines"), F("selected", "选中第几项（从 0 起）", "number")],
   overlay: [F("kind", "叠层样式", "enum", OverlayProps.shape.kind.unwrap().options), F("title", "标题", "text")],
@@ -782,6 +797,9 @@ export const PROTOTYPE_NAVBAR_ITEMS = 2;
 
 function findNode(root: PrototypeNode, id: string): PrototypeNode | null {
   if (root.id === id) return root;
+  // HTML 页里的可点元素没有自己的节点：它们的 id 是清洗时写进 HTML 的 `data-link`，跳转的「从」就是它。
+  // 命中时返回承载它的 html 节点（对 `linkSlotsOf` 而言 = 单目标，不带 item）。
+  if (root.type === "html" && htmlPageLinks(root.props.html).some((l) => l.from === id)) return root;
   if (isPrototypeContainer(root)) for (const c of root.children) { const hit = findNode(c, id); if (hit !== null) return hit; }
   return null;
 }
@@ -993,7 +1011,7 @@ export function applyPrototypePatch<T extends { readonly root?: PrototypeNode; r
           if (v === null) delete props[k];
           else props[k] = v;
         }
-        const merged = { ...n, props };
+        const merged = coercePrototypeRaw({ ...n, props });
         const parsed = PrototypeNode.safeParse(merged);
         if (!parsed.success) throw new PrototypePatchError(i, "INVALID_NODE", `setProps on ${op.id} yields invalid node: ${parsed.error.issues[0]?.message ?? "invalid"}`, op.id);
         return parsed.data;
@@ -1110,6 +1128,7 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "radio": return `单选（${n.props.options.join("/")}）`;
     case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
     case "chart": return n.props.title !== undefined ? `图表「${n.props.title}」` : `${n.props.kind === "line" ? "折线图" : "柱状图"}（${n.props.values.length} 个点）`;
+    case "html": return "整页版面";
     case "board": return `画布（${n.props.items.length} 个元素${(n.props.links ?? []).length > 0 ? `、${(n.props.links ?? []).length} 条连线` : ""}）`;
   }
 }
@@ -1126,7 +1145,7 @@ export const PROTOTYPE_NODE_TYPE_LABEL: Readonly<Record<PrototypeNodeType, strin
   image: "图片", list: "列表", divider: "分隔线", spacer: "留白", tabs: "标签页", badge: "标记",
   avatar: "头像", bottomnav: "底部导航", switch: "开关", checkbox: "复选", chip: "筛选",
   progress: "进度", stat: "指标", hero: "头图", grid: "网格", table: "表格", chart: "图表",
-  select: "下拉", radio: "单选", overlay: "叠层", section: "分区", footer: "页脚", board: "画布",
+  select: "下拉", radio: "单选", overlay: "叠层", section: "分区", footer: "页脚", board: "画布", html: "整页版面",
 };
 
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
@@ -1155,6 +1174,10 @@ export function coercePrototypeRaw(raw: unknown): unknown {
     delete n.children;
   }
   if (n.type === "divider" && "props" in n) delete n.props;
+  // HTML 页：无论来自模型还是补丁，进契约前先清洗（契约本身只认「已经干净」的值）。
+  if (n.type === "html" && n.props !== null && typeof n.props === "object" && typeof (n.props as { html?: unknown }).html === "string") {
+    n.props = { ...(n.props as Record<string, unknown>), html: sanitizeHtmlPage((n.props as { html: string }).html).html };
+  }
   if (n.props !== null && typeof n.props === "object" && !Array.isArray(n.props)) {
     const props = { ...(n.props as Record<string, unknown>) };
     for (const k of NUMERIC_PROPS[String(n.type)] ?? []) {
@@ -1226,6 +1249,8 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "x/y 是元素中心相对画布的百分比坐标，元素之间留出空隙别叠在一起；便签写真实内容（「首次打开找不到入口」而不是「便签1」）；" +
   "links 每项 [from:items 下标, to:items 下标, label?]；多人协作的页用 cursors 每项 [name, x, y] 画出别人的光标；" +
   `≤ ${PROTOTYPE_BOARD_MAX_ITEMS} 个元素、≤ ${PROTOTYPE_BOARD_MAX_LINKS} 条连线；工具栏、成员头像这些仍用普通原语放在 board 外面）。` +
+  // HTML 页：只有「整页版面」模式的生成才会用，组件树模式不要主动画它（详见 design-html-page.ts）。
+  "html{html}（**整页 HTML**，由整页版面模式的生成使用；组件树模式不要主动画它，服务端会清洗掉脚本与外链）。" +
   // 迭代 16（#3773 R4）：图标是闭集，写在这里让模型知道它能用哪些——
   // 不列出来，模型要么不用（全文字界面，一眼是线框图），要么编一个渲染不了的名字。
   PROTOTYPE_ICON_ROSTER +

@@ -1,0 +1,764 @@
+{
+  "schedule": [
+    {
+      "text": "生产排班",
+      "class": "page-title",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "20px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "2024-06-12 周三",
+      "class": "page-date",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "设备冲突：08:30–09:30 1号机 R0612-01 与 R0612-02 时段重叠",
+      "class": "",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "已排批次",
+      "class": "",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "存在冲突",
+      "class": "",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "机台",
+      "class": "corner-cell",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "08:00",
+      "class": "time-header th-1",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "08:30",
+      "class": "time-header th-2",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "09:00",
+      "class": "time-header th-3",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "09:30",
+      "class": "time-header th-4",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "10:00",
+      "class": "time-header th-5",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "10:30",
+      "class": "time-header th-6",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "11:00",
+      "class": "time-header th-7",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "11:30",
+      "class": "time-header th-8",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "12:00",
+      "class": "time-header th-9",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "12:30",
+      "class": "time-header th-10",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "13:00",
+      "class": "time-header th-11",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "13:30",
+      "class": "time-header th-12",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "14:00",
+      "class": "time-header th-13",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "14:30",
+      "class": "time-header th-14",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "15:00",
+      "class": "time-header th-15",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "15:30",
+      "class": "time-header th-16",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "1号机",
+      "class": "machine-label ml-1",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        196,
+        181,
+        157,
+        0.12
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 6.5865670861571814,
+      "ok": true
+    },
+    {
+      "text": "R0612-01",
+      "class": "batch-id",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "埃塞耶加雪菲水洗 12kg",
+      "class": "batch-bean",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "林烘 · 浅焙",
+      "class": "batch-meta",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "08:00 – 09:30",
+      "class": "batch-time",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "R0612-02",
+      "class": "batch-id",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "巴西黄波旁 18kg",
+      "class": "batch-bean",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "陈澄 · 中深焙",
+      "class": "batch-meta",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "08:30 – 11:00",
+      "class": "batch-time",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "2号机",
+      "class": "machine-label ml-2",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        196,
+        181,
+        157,
+        0.12
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 6.5865670861571814,
+      "ok": true
+    },
+    {
+      "text": "R0612-03",
+      "class": "batch-id",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "云南花果山 15kg",
+      "class": "batch-bean",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "林烘 · 中焙",
+      "class": "batch-meta",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    },
+    {
+      "text": "09:30 – 11:00",
+      "class": "batch-time",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        244,
+        235,
+        216
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 11.176643413978336,
+      "ok": true
+    }
+  ],
+  "batch": [
+    {
+      "text": "R0612-01",
+      "class": "detail-batch-id",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "埃塞耶加雪菲水洗",
+      "class": "detail-title",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "24px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "2024-06-12 · 林烘负责",
+      "class": "detail-meta",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "生豆信息",
+      "class": "info-group-title",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "产地处理法",
+      "class": "info-label",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "埃塞俄比亚 耶加雪菲 水洗",
+      "class": "info-value",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "入炉重量",
+      "class": "info-label",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "12.0 kg",
+      "class": "info-value info-value-mono",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "目标烘焙度",
+      "class": "info-label",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "浅焙（一爆密集后 30 秒出炉）",
+      "class": "info-value",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "排产计划",
+      "class": "info-group-title",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "使用机台",
+      "class": "info-label",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "1号机",
+      "class": "info-value",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "烘焙时段",
+      "class": "info-label",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "08:00 – 09:30",
+      "class": "info-value info-value-mono",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "交付时间",
+      "class": "info-label",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "14px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "12:00 前",
+      "class": "info-value info-value-mono",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    },
+    {
+      "text": "本批次 R0612-01 在 1 号机的烘焙时段（08:00–09:30）与同机台批次 R0612-02 的计划时段（08:30–09:30）存在 60 分钟重叠，同一机台无法同时执行两个批次。请将 R0612-02 调整至 09:30 之后启动，或更换至其他空闲机台。",
+      "class": "conflict-text",
+      "foreground": "rgb(59, 45, 35)",
+      "background": [
+        232,
+        217,
+        188
+      ],
+      "opacity": 1,
+      "fontSize": "13px",
+      "ratio": 9.512239771157159,
+      "ok": true
+    }
+  ]
+}

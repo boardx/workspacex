@@ -1,0 +1,106 @@
+{
+  "url": "http://127.0.0.1:3192/studio/design-workbench/5a6c2934-3964-48cf-bb3d-72be90e74012",
+  "method": "375px iframe containing persisted model HTML; no saved data edits",
+  "viewport375": {
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "internalScrollers": [
+      {
+        "class": "schedule-wrapper",
+        "clientWidth": 325,
+        "scrollWidth": 840,
+        "overflowX": "auto"
+      },
+      {
+        "class": "schedule-grid",
+        "clientWidth": 720,
+        "scrollWidth": 840,
+        "overflowX": "visible"
+      },
+      {
+        "class": "machine-row",
+        "clientWidth": 48,
+        "scrollWidth": 54,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-btn b1",
+        "clientWidth": 8,
+        "scrollWidth": 44,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-id",
+        "clientWidth": 0,
+        "scrollWidth": 40,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-bean",
+        "clientWidth": 0,
+        "scrollWidth": 116,
+        "overflowX": "hidden"
+      },
+      {
+        "class": "batch-meta",
+        "clientWidth": 0,
+        "scrollWidth": 11,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-btn b2",
+        "clientWidth": 10,
+        "scrollWidth": 44,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-id",
+        "clientWidth": 2,
+        "scrollWidth": 40,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-bean",
+        "clientWidth": 2,
+        "scrollWidth": 83,
+        "overflowX": "hidden"
+      },
+      {
+        "class": "batch-meta",
+        "clientWidth": 2,
+        "scrollWidth": 11,
+        "overflowX": "visible"
+      },
+      {
+        "class": "machine-row",
+        "clientWidth": 48,
+        "scrollWidth": 63,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-btn b3",
+        "clientWidth": 13,
+        "scrollWidth": 44,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-id",
+        "clientWidth": 5,
+        "scrollWidth": 40,
+        "overflowX": "visible"
+      },
+      {
+        "class": "batch-bean",
+        "clientWidth": 5,
+        "scrollWidth": 83,
+        "overflowX": "hidden"
+      },
+      {
+        "class": "batch-meta",
+        "clientWidth": 5,
+        "scrollWidth": 11,
+        "overflowX": "visible"
+      }
+    ]
+  }
+}

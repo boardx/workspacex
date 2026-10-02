@@ -346,6 +346,9 @@ function node(n: Node, depth: number, ctx: Ctx): string {
       ];
       return el(depth, "div", `role="img" aria-label=${str(`画布：${p.items.map((i) => i.text).join("、")}`.slice(0, 200))} ${cls(`relative w-full overflow-hidden rounded-lg border ${H}`, pal.border)}${p.grid === false ? "" : ` style={{ backgroundImage: "radial-gradient(hsl(var(--border)) 1px, transparent 1px)", backgroundSize: "12px 12px" }}`}`, kids);
     }
+    // HTML 页：导出成一个不带脚本的沙箱 iframe（sandbox="" 连脚本都不给），版面原样保留。
+    case "html":
+      return `${pad(depth)}<iframe title="页面" sandbox="" className="h-[640px] w-full flex-1 border-0" srcDoc=${str(n.props.html)} />`;
     case "select": {
       const p = n.props;
       return el(depth, "label", cls("flex flex-col gap-1"), [

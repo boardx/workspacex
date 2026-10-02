@@ -107,6 +107,22 @@ describe("isScrolledNearBottom —— 纯函数阈值判定", () => {
 });
 
 describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
+  it("sending after reading history restores bottom-follow mode (#3032)", async () => {
+    mount();
+    const container = await screen.findByTestId("copilotkit-v2-messages");
+    await screen.findByTestId("chat-user-message-text");
+    const scrollToSpy = stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
+    fireEvent.scroll(container);
+    await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
+    fireEvent.change(screen.getByTestId("copilotkit-v2-input"), { target: { value: "show my new turn" } });
+    const send = screen.getByTestId("copilotkit-v2-send");
+    await waitFor(() => expect(send).not.toBeDisabled());
+    scrollToSpy.mockClear();
+    fireEvent.click(send);
+    await waitFor(() => expect(scrollToSpy).toHaveBeenCalledWith({ top: 2000, behavior: "auto" }));
+    await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull());
+  });
+
   it("贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
