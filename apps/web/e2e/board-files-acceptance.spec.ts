@@ -102,7 +102,9 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     expect([403, 404]).toContain(frozenUpload.status()); expect(await fileAssetRows(foreign.orgId, frozenBoard)).toEqual(beforeFreeze);
     await setFileFixtureOrgFrozen(foreign.orgId, false);
     const runtimeAfter = await verifyRuntimeIdentity(request, sha, runtimeBefore.chunks);
-    await writeFile(info.outputPath('R09-files-result.json'), JSON.stringify({sha, runtimeBefore, runtimeAfter, boardId: board, metadata, legacyMetadata, persistedRows: firstRows, beforeDeniedHead, positiveWrites, deniedWrites, frozenWrites, observations, viewerUploadStatus: viewerWrite.status(), foreignUploadStatus: foreignWrite.status(), revokedStatus: revoked.status(), archivedUploadStatus: archivedUpload.status(), frozenUploadStatus: frozenUpload.status(), approved: false}, null, 2), {mode: 0o600});
+    const resultPath = info.outputPath('R09-files-result.json');
+    await writeFile(resultPath, JSON.stringify({sha, runtimeBefore, runtimeAfter, boardId: board, metadata, legacyMetadata, persistedRows: firstRows, beforeDeniedHead, positiveWrites, deniedWrites, frozenWrites, observations, viewerUploadStatus: viewerWrite.status(), foreignUploadStatus: foreignWrite.status(), revokedStatus: revoked.status(), archivedUploadStatus: archivedUpload.status(), frozenUploadStatus: frozenUpload.status(), approved: false}, null, 2), {mode: 0o600});
+    await info.attach('R09-files-result.json', {path: resultPath, contentType: 'application/json'});
   } finally {
     const errors: unknown[] = [];
     const clean = async (action: () => Promise<unknown>) => { try { await action(); } catch (error) { errors.push(error); } };
