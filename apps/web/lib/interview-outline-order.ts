@@ -28,5 +28,9 @@ export function moveOutlineGroup(document: InterviewMarkdownDocument, headingId:
   // Only adjacent sibling subtrees may be swapped; never consume another owner.
   if (first.end !== second.start) return null;
   const raw = document.markdown;
-  return raw.slice(0, first.start) + raw.slice(second.start, second.end) + raw.slice(first.start, first.end) + raw.slice(second.end);
+  const movedFirst = raw.slice(second.start, second.end);
+  // A final subtree need not end with a newline. Once moved before another
+  // heading it must still terminate its last question on a separate line.
+  const separator = movedFirst.endsWith("\n") ? "" : raw.includes("\r\n") ? "\r\n" : "\n";
+  return raw.slice(0, first.start) + movedFirst + separator + raw.slice(first.start, first.end) + raw.slice(second.end);
 }

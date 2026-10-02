@@ -1,0 +1,14 @@
+ ✓ tests/research/guided-report-chapters.test.ts (61 tests) 2000ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 504ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 504ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 503ms
+ ✓ tests/research/guided-source-relevance.test.ts (31 tests) 84ms
+ ✓ tests/research/guided-search-recovery.test.ts (24 tests) 75ms
+ ✓ tests/research/google-guided-search.test.ts (42 tests) 1057ms
+ ✓ tests/research/guided-report-evidence.test.ts (14 tests) 18ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 26ms
+ ✓ tests/research/guided-research-trust.test.ts (10 tests) 7ms
+ ✓ tests/research/guided-runtime-progress.test.ts (5 tests) 8ms
+ Test Files  8 passed (8)
+      Tests  195 passed (195)
+   Duration  9.33s (transform 1.58s, setup 0ms, collect 4.81s, tests 3.28s, environment 1ms, prepare 372ms)
