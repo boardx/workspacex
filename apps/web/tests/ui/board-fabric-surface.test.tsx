@@ -714,6 +714,20 @@ describe("BoardFabricSurface", () => {
     ], { duplicate: false });
   });
 
+  it("bridges a bordered Shape move using logical dimensions in one mounted batch", () => {
+    const shape: BoardFabricObject = { ...OBJECTS[1]!, id: "bordered-shape", kind: "shape", geometry: { x: 180, y: 195, width: 65, height: 55, rotation: -21 }, style: { ...OBJECTS[1]!.style, stroke: "#111111" }, content: { text: "" }, boardContent: { version: 1, type: "shape", variant: "rectangle", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" } };
+    const onObjectsTransform = vi.fn(() => true);
+    const onObjectTransform = vi.fn();
+    renderSurface({ objects: [OBJECTS[0]!, shape], selectedObjectIds: ["s-1", shape.id], onObjectsTransform, onObjectTransform });
+    const projected = probe.objects.find(object => object.data?.boardObjectId === shape.id)!;
+    expect(projected.children![0]!.strokeWidth).toBe(1);
+    projected.left += 20; projected.top += 30;
+    act(() => probe.handlers.get("object:modified")?.({ target: probe.active! }));
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: shape.id, geometry: { x: 200, y: 225, width: 65, height: 55, rotation: -21 } })]), { duplicate: false });
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
   it("exposes read-only per-object Fabric scene bounds for pointer acceptance probes", () => {
     renderSurface();
     const scenes = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
