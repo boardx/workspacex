@@ -35,7 +35,8 @@ flowchart TD
   class S1 done
   class S2 done
   class S3 done
-  class S4 doing
+  class S4 tested
+  %% evidence S4: 58 focused tests; 775 diagnostic suite tests; typecheck/lint; R09 browser exit 0 and ledger
   class S5 todo
 ```
 

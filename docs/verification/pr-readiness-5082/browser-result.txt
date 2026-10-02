@@ -1,0 +1,11 @@
+Node 22.23.2
+Command: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps --timeout=120000 e2e/board-files-acceptance.spec.ts
+Exit code: 0
+1 passed (5.9m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps --timeout=120000 e2e/board-files-acceptance.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：2m36s
+  命令执行：5m56s
+  清理：1s
+  总计：8m33s
