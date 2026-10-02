@@ -1,13 +1,19 @@
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
 import {BoardBottomDock} from '@/components/whiteboard/board-bottom-dock';
-afterEach(cleanup);
-it('bounds the sticky popup independently of dock width without shrinking touch controls or losing bulk creation',()=>{
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+it.each([1440,390])('bounds the sticky popup independently of dock width without shrinking touch controls or losing bulk creation at %i pixels',width=>{
+ vi.stubGlobal('innerWidth',width);
  const bulk=vi.fn();
  render(<BoardBottomDock activeTool="select" creationTool={{kind:'sticky',variant:'square'}} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={bulk} onImageRequest={vi.fn()}/>);
  fireEvent.click(screen.getByTestId('board-add-sticky'));
- expect(screen.getByTestId('board-tool-picker').style.width).toBe('420px');
- expect(screen.getByTestId('board-tool-picker').style.maxWidth).toBe('calc(100vw - 2rem)');
+ expect(screen.getByTestId('board-tool-picker').style.width).toBe(`${Math.min(420,width-32)}px`);
+ const popup=screen.getByTestId('board-tool-picker');
+ expect(parseFloat(popup.style.width)).toBeLessThanOrEqual(window.innerWidth-32);
+ expect(parseFloat(popup.style.left)).toBeGreaterThanOrEqual(16);
+ expect(parseFloat(popup.style.left)+parseFloat(popup.style.width)).toBeLessThanOrEqual(window.innerWidth-16);
+ fireEvent(window,new Event('resize'));
+ expect(popup.style.bottom).toBe('100%');
  const picker=screen.getByTestId('board-sticky-picker');expect(picker).toHaveClass('w-full','min-w-0','space-y-1');
  const colors=picker.querySelectorAll('[data-testid^="board-sticky-default-"]');expect(colors).toHaveLength(8);
  for(const color of colors)expect(color).toHaveClass('h-11','w-11');

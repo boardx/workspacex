@@ -3,7 +3,7 @@ import {writeFile} from 'node:fs/promises';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {apiOrigin,canonicalBoardSnapshot,connectByHandles} from './board-acceptance-support';
+import {apiOrigin,canonicalBoardSnapshot,connectByHandles,seedExistingFrame} from './board-acceptance-support';
 import {compactBlankPoints} from './support/board-compact-blank';
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
@@ -23,12 +23,13 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
  const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);expect(token).toBeTruthy();
  const call=async(method:string,path:string,data?:unknown)=>{const response=await request.fetch(`${api}${path}`,{method,data,headers:{Authorization:`Bearer ${token}`}});expect(response.ok(),`${method} ${path}: ${response.status()}`).toBe(true);return response.json();};
  const board=await call('POST','/whiteboards',{requestId:randomUUID(),name:'Thirty notes · compact controls'});
- let sentUpdates=0;
+ let sentUpdates=0;const existingFrameIds:string[]=[];
  page.on('websocket',socket=>{if(socket.url().includes(`/whiteboards/${board.id}/sync`))socket.on('framesent',frame=>{
   try{if(JSON.parse(frame.payload.toString()).type==='update')sentUpdates++;}catch{/* Non-JSON protocol frames are not document updates. */}
  });});
  try{
   await call('POST',`/v1/whiteboards/${board.id}/operations`,{apiVersion:'2026-09-01',requestId:randomUUID(),boardId:board.id,expectedRevision:{epoch:1,seq:0},actor:{kind:'human',actorId:F.adminUserId,orgId:F.orgId,role:'owner',scopes:['board:read','board:write'],delegatedBy:null},provenance:{source:'public-api',model:null,skill:null,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:[]},commands:Array.from({length:30},(_,i)=>({type:'create',object:{id:`idea-${i}`,schemaVersion:1,kind:'sticky',geometry:{x:100+(i%6)*204,y:100+Math.floor(i/6)*164,width:180,height:140,rotation:0},text:`想法 ${i+1}`,style:{fill:['#FFE99A','#C6DDFF','#FBC9DF'][i%3]},parentId:null,orderKey:String(i).padStart(2,'0')}}))});
+  const seededSnapshot=await canonicalBoardSnapshot(request,token!,board.id);expect(seededSnapshot.objects).toHaveLength(30);
   await page.goto(`/studio/board/${board.id}`);await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',/已同步/);
   for(const viewport of referenceViewports){
    const {width,height}=viewport,label=`${width}x${height}`;
@@ -54,8 +55,27 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    const drawPanel=page.getByTestId('board-draw-tool-panel');await expect(drawPanel).toBeVisible();const drawBounds=(await drawPanel.boundingBox())!;
    expect(drawBounds.width).toBeLessThanOrEqual(640);expect(drawBounds.height).toBeGreaterThanOrEqual(110);expect(drawBounds.height).toBeLessThanOrEqual(180);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
    for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
-   await expect(drawPanel.getByRole('button',{name:'Opacity 55%',exact:true})).toHaveCount(0);
+   await expect(page.locator('[data-testid^="board-draw-opacity-"]')).toHaveCount(0);
+   for(const choice of ['pen','marker','pencil','highlighter'])await expect(page.getByTestId(`board-draw-preview-${choice}`)).toBeVisible();
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
+
+   // R04 hides the new Frame palette; retain its historical geometry reference
+   // in evidence and exercise all stored Frame properties through the visible UI.
+   await info.attach('legacy-frame-palette-reference',{body:Buffer.from(JSON.stringify({reachable:false,reason:'R04 draft hides new Frame creation; design approval remains pending',width:[360,386],height:[340,410],viewportMargin:16,bottomGap:2})),contentType:'application/json'});
+   const existingFrame=await seedExistingFrame(page,100,100);
+   existingFrameIds.push(existingFrame);
+   const frameOutline=page.getByTestId(`board-a11y-object-${existingFrame}`);
+   await frameOutline.focus();await frameOutline.press('Enter');
+   await expect(frameOutline).toHaveAttribute('aria-pressed','true');
+   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 1 个对象');
+   await page.getByTestId('board-inspector-expand').click();
+   const frameInspector=page.getByTestId('board-context-toolbar');
+   await expect(page.getByTestId('board-frame-size-presets')).toBeVisible();
+   const frameBounds=(await frameInspector.boundingBox())!;
+   expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);
+   expect(frameBounds.y).toBeGreaterThanOrEqual(header.y+header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
+   for(const name of ['区域标题','区域布局'])await expect(page.getByLabel(name,{exact:true})).toBeVisible();
+   await captureReference(page,info,`reference-existing-frame-inspector-${label}`);await page.getByTestId('board-inspector-close').click();
 
    await page.getByTestId('board-a11y-object-idea-1').focus();await page.getByTestId('board-a11y-object-idea-1').press('Enter');
    await expect(page.getByTestId('board-a11y-object-idea-1')).toHaveAttribute('aria-pressed','true');
@@ -83,7 +103,10 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   // Hidden creation entries do not remove selected-object connection handles.
   const before=await canonicalBoardSnapshot(request,token!,board.id);
   const beforeHead=await call('GET',`/v1/whiteboards/${board.id}/head`);
-  expect(before.objects).toHaveLength(30);const updatesBefore=sentUpdates;
+  expect(before.objects.filter(object=>object.kind==='sticky')).toHaveLength(30);
+  expect(before.objects.filter(object=>object.kind==='sticky').sort((a,b)=>a.id.localeCompare(b.id))).toEqual([...seededSnapshot.objects].sort((a,b)=>a.id.localeCompare(b.id)));
+  expect(before.objects.filter(object=>object.kind==='frame').map(object=>object.id).sort()).toEqual([...existingFrameIds].sort());
+  expect(before.objects).toHaveLength(30+existingFrameIds.length);const updatesBefore=sentUpdates;
   const note=page.getByTestId('board-a11y-object-idea-1');await note.focus();await note.press('Enter');
   await expect(note).toHaveAttribute('aria-pressed','true');
   await expect(page.getByTestId('board-thinking-editor')).toBeVisible();

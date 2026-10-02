@@ -6,11 +6,11 @@ afterEach(cleanup);
 it.each([false,true])('keeps the sticky paper explicitly sized with an unchanged accessible hit target (selected=%s)',selected=>{
  const change=vi.fn();
  render(<BoardBottomDock activeTool="select" creationTool={selected?{kind:'sticky',variant:'square'}:null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={change} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
- const button=screen.getByTestId('board-add-sticky'),paper=button.querySelector('[aria-hidden="true"]');
+ const button=screen.getByTestId('board-add-sticky'),paper=button.querySelector('[data-sticky-variant="square"]');
  // A plain inline span ignores width/height and previously became a thin border.
  // Browser screenshots validate actual pixels; this guards the CSS sizing contract.
- expect(paper).toHaveClass('block','h-6','w-6','shrink-0','shadow-sm');
- expect(paper).toHaveStyle({backgroundColor:STICKY_COLOR_PRESETS.yellow});
+ expect(paper).toHaveClass('block','shrink-0','shadow-sm');
+ expect(paper).toHaveStyle({backgroundColor:STICKY_COLOR_PRESETS.yellow,width:'24px',height:'24px'});
  expect(button).toHaveClass('shrink-0');
  expect(button).toHaveStyle({minHeight:'56px',minWidth:'56px'});
  expect(button).toHaveAccessibleName('便利贴，快捷键 N');

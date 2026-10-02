@@ -53,3 +53,28 @@ it('does not submit ordinary-file uploads from a read-only board', () => {
   const { props, view } = fixture(); view.rerender(<CollaborativeThinkingEditor {...props} readOnly />); drop();
   expect(mocks.upload).not.toHaveBeenCalled();
 });
+it.each(['board', 'document', 'user'] as const)('aborts a pending upload across a %s scope change and rejects its late result', async scope => {
+  let resolve!: (value: typeof content) => void;
+  mocks.upload.mockImplementation(() => new Promise<typeof content>(done => { resolve = done; }));
+  const { doc, props, view } = fixture(); drop();
+  const signal = mocks.upload.mock.calls[0]![2] as AbortSignal;
+  const peerDoc = createWhiteboardDocument();
+  const next = scope === 'board' ? { ...props, boardId: 'other-board' } : scope === 'document' ? { ...props, doc: peerDoc } : { ...props, currentUserId: 'other-user' };
+  view.rerender(<CollaborativeThinkingEditor {...next} />);
+  expect(signal.aborted).toBe(true);
+  await act(async () => { resolve(content); });
+  expect(readObjects(doc)).toHaveLength(0);
+  expect(readObjects(peerDoc)).toHaveLength(0);
+  expect(screen.queryByTestId('board-file-upload-status')).toBeNull();
+  view.unmount(); doc.destroy(); peerDoc.destroy();
+});
+it('aborts a pending ordinary-file upload on unmount and rejects its late result', async () => {
+  let resolve!: (value: typeof content) => void;
+  mocks.upload.mockImplementation(() => new Promise<typeof content>(done => { resolve = done; }));
+  const { doc, view } = fixture(); drop();
+  const signal = mocks.upload.mock.calls[0]![2] as AbortSignal;
+  view.unmount();
+  expect(signal.aborted).toBe(true);
+  await act(async () => { resolve(content); });
+  expect(readObjects(doc)).toHaveLength(0); doc.destroy();
+});
