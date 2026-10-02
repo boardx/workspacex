@@ -23,9 +23,10 @@ name: devapp-install-trusted-scripts
 on:
   workflow_dispatch:
 
-# 同一时刻只允许一次，避免两次运行交叉写同一批文件。
+# 与部署共享 Devapp 目标互斥；字面量镜像由 devapp-operation-mutex.test.ts 校验。
+# 权威：.harness/devapp-operation-policy.json；取消运行中写操作必须保持关闭。
 concurrency:
-  group: workspacex-install-trusted-scripts
+  group: workspacex-devapp-deploy
   cancel-in-progress: false
 
 jobs:

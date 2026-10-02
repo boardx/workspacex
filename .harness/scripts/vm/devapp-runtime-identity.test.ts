@@ -1,13 +1,15 @@
 import { describe,it,expect,afterEach } from 'vitest';
 import { mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join,dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { artifactDigest,verifySourceBytes,systemdIdentity,dockerIdentity,collectMixedRuntime,composeContainerName,assertStartedAfterBuild } from './devapp-runtime-identity.mjs';
 const source='a'.repeat(40),image='sha256:'+'b'.repeat(64),dirs:string[]=[];
 afterEach(()=>{for(const p of dirs.splice(0))rmSync(p,{recursive:true,force:true})});
 function fixture(){const p=mkdtempSync(join(tmpdir(),'runtime-identity-'));dirs.push(p);for(const n of ['apps/api/src','apps/web/.next/server','apps/web/.next/cache','apps/web/public','packages/foo/src','packages/foo/dist'])mkdirSync(join(p,n),{recursive:true});for(const n of ['apps/api/src/main.ts','apps/api/package.json','apps/web/.next/BUILD_ID','apps/web/.next/server/app.js','apps/web/package.json','package.json','pnpm-lock.yaml','packages/foo/src/index.ts','packages/foo/dist/index.js'])writeFileSync(join(p,n),'original');return p}
+function committedFixture(){const p=fixture(),git=(...args:string[])=>execFileSync('git',['-C',p,...args],{encoding:'utf8'});git('init','--quiet');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','--allow-empty','--quiet','-m','fixture base');return {p,git,commit:()=>{git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','--quiet','-m','fixture source');return git('rev-parse','HEAD').trim()}}}
 function processPorts(kind='api'){
  const unit='workspacex-'+kind,app='/opt/workspacex/app',cwd=kind==='api'?app:app+'/apps/web';
  const files:any={
@@ -22,6 +24,25 @@ function processPorts(kind='api'){
 }
 function dockerRun(){return (bin:string,args:string[])=>JSON.stringify(args[0]==='inspect'?[{Id:'container',Image:image,State:{Running:true,StartedAt:'2026-10-01T00:00:00Z'}}]:[{Id:image,Config:{Labels:{'org.opencontainers.image.revision':source}}}])}
 describe('Devapp runtime identity actual mixed topology',()=>{
+ it('accepts a real committed Next catch-all route and readonly CLI before build, then rejects actual byte drift',()=>{
+  const {p,commit}=committedFixture();const dir=join(p,'apps/web/app/api/copilotkit/[[...slug]]');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'route.ts'),'export const POST = 1');const revision=commit();
+  expect(()=>verifySourceBytes(p,revision)).not.toThrow();
+  const module=join(dirname(fileURLToPath(import.meta.url)),'devapp-runtime-identity.mjs');
+  expect(execFileSync(process.execPath,[module,'verify-source',revision,p],{encoding:'utf8'})).toBe('DEVAPP_RUNTIME_SOURCE_VERIFIED\n');
+  writeFileSync(join(dir,'route.ts'),'changed');expect(()=>verifySourceBytes(p,revision)).toThrow('RUNTIME_SOURCE_BYTES_DRIFT');
+ });
+ it('rejects actual committed symlink and Git submodule records',()=>{
+  const a=committedFixture();symlinkSync('/tmp/outside',join(a.p,'apps/web/public/link'));expect(()=>verifySourceBytes(a.p,a.commit())).toThrow('RUNTIME_SOURCE_UNSAFE');
+  const b=committedFixture();b.commit();const revision=b.git('rev-parse','HEAD').trim();b.git('update-index','--add','--cacheinfo','160000,'+revision+',packages/gitlink');b.git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','--quiet','-m','gitlink');
+  expect(()=>verifySourceBytes(b.p,b.git('rev-parse','HEAD').trim())).toThrow('RUNTIME_SOURCE_UNSAFE');
+ });
+ it('rejects malicious ls-tree path records before reading outside the checkout',()=>{
+  const p=fixture();for(const rel of ['apps/api/../escape.ts','/apps/api/escape.ts','apps/api/./escape.ts','apps/api//escape.ts','apps/api/back\\slash.ts','apps/api/tab\tname.ts']){
+   const execute=()=>`100644 blob ${'a'.repeat(40)}\t${rel}\0`;
+   // Git refuses traversal tree entries itself; this adversarial response port tests that boundary.
+   expect(()=>verifySourceBytes(p,source,execute)).toThrow('RUNTIME_SOURCE_UNSAFE');
+  }
+ });
  it('binds API source, package generated output, and Next output; mutable cache does not replace identity',()=>{const p=fixture(),a=artifactDigest(p);writeFileSync(join(p,'apps/web/.next/cache/transient'),'cache');expect(artifactDigest(p)).toBe(a);writeFileSync(join(p,'packages/foo/dist/index.js'),'changed');expect(artifactDigest(p)).not.toBe(a);writeFileSync(join(p,'apps/web/.next/server/app.js'),'changed');expect(artifactDigest(p)).not.toBe(a)});
  it('rejects executable artifact symlink instead of hashing a movable target',()=>{const p=fixture();symlinkSync('/tmp/other',join(p,'apps/api/src/extra.ts'));expect(()=>artifactDigest(p)).toThrow('RUNTIME_ARTIFACT_SYMLINK')});
  it('verifies runtime source bytes against Git blobs, not checkout HEAD',()=>{const p=fixture(),bytes=Buffer.from('original'),id=createHash('sha1').update(Buffer.from('blob '+bytes.length+'\0')).update(bytes).digest('hex');const run=(_b:string,args:string[])=>args.includes('ls-tree')?`100644 blob ${id}\tapps/api/src/main.ts\0`+`100644 blob ${id}\tpackages/foo/src/index.ts\0`:'';expect(()=>verifySourceBytes(p,source,run)).not.toThrow();writeFileSync(join(p,'apps/api/src/main.ts'),'wrong');expect(()=>verifySourceBytes(p,source,run)).toThrow('RUNTIME_SOURCE_BYTES_DRIFT')});
