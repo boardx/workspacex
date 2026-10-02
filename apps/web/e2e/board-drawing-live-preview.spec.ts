@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import {expectBoardSynced} from './support/board-sync-status';
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { archiveAcceptanceBoard, boardLogin, canonicalBoardSnapshot, createAcceptanceBoard, openBoard, boardApi, createCommands, object } from "./board-acceptance-support";
 
@@ -163,7 +164,7 @@ test("Eraser hits only unlocked drawings in one undo step and survives peer relo
           .toEqual(protectedObject.geometry);
         await expect(row).toHaveAttribute("data-object-text", protectedObject.text ?? "");
       }
-      await expect(tab.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+      await expectBoardSynced(tab);
       await expect.poll(() => paintedStrokePixels(tab)).toBe(0);
     }
     expect(await current()).toEqual(erased);

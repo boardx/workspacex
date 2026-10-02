@@ -6,6 +6,7 @@ import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { produceImageStorageEvidence } from './support/board-durable-images-storage';
 import {WhiteboardErrorCode} from '@repo/contracts/whiteboard';
 import {boardImagePngFixture} from './support/board-image-fixture';
+import {expectBoardSynced} from './support/board-sync-status';
 function origin(){const value=process.env.WHITEBOARD_API_URL??(process.env.WORKSPACEX_API_PORT?`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`:undefined);if(!value)throw new Error('WHITEBOARD_API_URL required');return value;}
 async function call(api:APIRequestContext,token:string,method:string,path:string,data?:unknown){const r=await api.fetch(`${origin()}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});const code=r.ok()?undefined:WhiteboardErrorCode.safeParse((await r.json().catch(()=>({}))).reasonCode);expect(r.ok(),`${method} ${path}: ${r.status()} ${code?.success?code.data:''}`).toBe(true);return r;}
 async function login(page:Page,peer=false){await page.goto('/login');await page.getByTestId('login-email').fill(peer?F.leadEmail:F.adminEmail);await page.getByTestId('login-password').fill(peer?F.leadPassword:F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/(?:home|projects)$/);return(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;}
@@ -22,7 +23,7 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
  const archive=async(id:string)=>{const b=await(await call(api,token!,'GET',`/whiteboards/${id}`)).json();return b.archived?b:(await call(api,token!,'PATCH',`/whiteboards/${id}`,{archived:true,expectedLifecycleRevision:b.lifecycleRevision})).json();};
  try{
   token=await login(owner);const peerToken=await login(peer,true);source=(await(await call(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Durable images ${randomUUID()}`})).json()).id as string;
-  await call(api,token,'PUT',`/whiteboards/${source}/members`,{userId:F.leadUserId,role:'editor'});await owner.goto(`/studio/board/${source}`);await expect(owner.getByTestId('collaborative-editor')).toBeVisible();await expect(owner.getByText(/^已同步/)).toBeVisible();
+  await call(api,token,'PUT',`/whiteboards/${source}/members`,{userId:F.leadUserId,role:'editor'});await owner.goto(`/studio/board/${source}`);await expect(owner.getByTestId('collaborative-editor')).toBeVisible();await expectBoardSynced(owner);
   const png=boardImagePngFixture(),digest=`sha256:${createHash('sha256').update(png).digest('hex')}`;
   // Fail exactly the first transport attempt; retry then reaches the real authenticated API.
   let rejectedUploads=0;
@@ -64,8 +65,8 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
   const peerUrls=await peer.evaluate(()=>(window as unknown as {__images:Evidence}).__images.loaded.map(image=>image.url));expect(peerUrls.length).toBeGreaterThan(0);
   // Reload and peer hydration can publish new canonical image metadata.
   // Capture the current acknowledged version, retaining the server's conflict guard.
-  await expect(owner.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
-  await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await expectBoardSynced(owner);
+  await expectBoardSynced(peer);
   const copySnapshot=await canonical(api,token,source);
   expect(copySnapshot.objects.find(object=>object.kind==='image')?.extensionData?.contentObject).toMatchObject({...metadata,type:'image',status:'ready',sourceUrl:null,failureCode:null});
   const duplicate=await(await call(api,token,'POST',`/whiteboards/${source}/duplicates`,{requestId:randomUUID(),targetName:`Image copy ${randomUUID()}`,expectedSource:{epoch:copySnapshot.board.epoch,seq:copySnapshot.board.seq}})).json();target=duplicate.board.id;expect(duplicate.receipt.assetCount).toBe(1);

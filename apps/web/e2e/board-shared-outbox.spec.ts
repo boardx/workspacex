@@ -1,3 +1,5 @@
+import { seedExistingFrame } from "./board-acceptance-support";
+import {expectBoardSynced} from './support/board-sync-status';
 import {randomUUID} from 'node:crypto';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
@@ -28,27 +30,28 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
  const objectRows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
  const rows=(tab:Page)=>objectRows(tab).evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
- const synced=(tab:Page)=>tab.getByText(/^已同步(?: · 序列 \d+)?$/);
  try{
   await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
-  await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
-  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
+  await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);mark('board-opened');
+  const existingFrame=await seedExistingFrame(page,100,100,320,240);
+  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(1);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down("ControlOrMeta");await page.mouse.wheel(0,100_000);await page.keyboard.up("ControlOrMeta");await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
-  await page.getByTestId('board-add-frame').click();
-  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
+  await page.getByTestId(`board-a11y-object-${existingFrame}`).evaluate((element:HTMLElement)=>element.click());
   const createdIds:string[]=[];
-  for(let index=0;index<8;index++){
-   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
-   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
+  // Duplicate an existing Frame through real keyboard commands; each copy enters the shared outbox.
+  for(let index=1;index<8;index++){
+   await page.keyboard.press('ControlOrMeta+d');
+   await expect(objectRows(page),`Frame copy ${index} must create exactly one object`).toHaveCount(index+1);
    const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
    const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
   }
-  await page.getByRole('button',{name:'Close frame tools'}).click();
   await expect(objectRows(page)).toHaveCount(8);
   mark('panels-created');
+  // Select a concrete persisted Frame after duplication before opening its inspector.
+  await page.getByTestId(`board-a11y-object-${existingFrame}`).evaluate((element:HTMLElement)=>element.click());
   await page.getByTestId('board-inspector-expand').click();
   const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.fill(`${await title.inputValue()}shared-tab-proof`);
   const pending=page.getByText(/^\d+ 项修改等待服务器确认$/);await expect(pending).toBeVisible();evidence.pendingBeforePeer=await pending.textContent();
@@ -57,7 +60,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
-  await expect(synced(page)).toBeVisible({timeout:remaining()});await expect(synced(testPeer)).toBeVisible({timeout:remaining()});
+  await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
   mark('peer-converged');
   evidence.drainMs=performance.now()-started;expect(evidence.drainMs).toBeLessThanOrEqual(DRAIN_SLA_MS);
@@ -66,7 +69,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
   await Promise.all([page.reload(),testPeer.reload()]);
   mark('both-reloaded');
-  for(const tab of [page,testPeer]){await expect(synced(tab)).toBeVisible({timeout:10_000});await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
+  for(const tab of [page,testPeer]){await expectBoardSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';

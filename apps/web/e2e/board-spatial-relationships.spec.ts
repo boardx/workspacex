@@ -1,3 +1,5 @@
+import { seedExistingFrame } from "./board-acceptance-support";
+import {expectBoardSynced} from './support/board-sync-status';
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -160,18 +162,11 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const created = await apiCall(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Spatial ${randomUUID()}` });
   const boardId = (await created.json() as { id: string }).id; cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   const surface = page.getByTestId("board-fabric-surface");
-  await page.getByTestId("board-add-frame").click();
-  await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
-  await page.getByTestId("board-frame-size-s").click();
-  // The Frame panel occupies the lower center of the editor. Use an exposed
-  // canvas point so the real Fabric mouse event, rather than panel chrome, owns it.
-  // The S size also keeps the whole Frame inside the later real marquee gesture.
-  await surface.click({ position: { x: 360, y: 320 } });
-  await page.getByRole("button", { name: "Close frame tools" }).click();
+  await seedExistingFrame(page,200,200,320,240);
   await expect(outline).toHaveCount(1);
   await openStickyTool(page);
   // A click on the Frame targets the existing Fabric object, so creation-on-blank
@@ -179,6 +174,8 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   // creation inside an existing Frame.
   await page.getByTestId("board-sticky-square").dragTo(surface, { targetPosition: { x: 480, y: 300 } });
   await expect(outline).toHaveCount(2);
+  await exitCreationTool(page);
+  await openStickyTool(page);
   await surface.click({ position: { x: 1050, y: 500 } });
   await expect(outline).toHaveCount(3);
   await exitCreationTool(page);
@@ -308,19 +305,19 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
   // Verify persisted convergence, not another tab replaying the same IndexedDB outbox.
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   const peerContext = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
   const peer = await peerContext.newPage();
   transportMetadata.observe(peer, "peer");
   try {
   await login(peer);
-  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  await peer.goto(`/studio/board/${boardId}`); await expectBoardSynced(peer);
   await expect.poll(() => boardRows(peer)).toEqual(await boardRows(page));
 
   const expectedRows = await boardRows(page);
   await expect.poll(() => boardRows(peer)).toEqual(expectedRows);
 
-  await page.reload(); await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await page.reload(); await expectBoardSynced(page,30_000);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
@@ -333,7 +330,7 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
   const boardId = (await created.json() as { id: string }).id;
   cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   return boardId;
 }
 
@@ -348,6 +345,8 @@ test("selection transform locks", async ({ page, request }) => {
   // center note's identity before adding the dragged note so their roles cannot swap.
   const lockedId = await stickies.first().getAttribute("data-object-id");
   if (!lockedId) throw new Error("Created sticky is missing its canonical object ID");
+  await exitCreationTool(page);
+  await openStickyTool(page);
   await surface.click({ position: { x: 950, y: 470 } });
   await exitCreationTool(page);
   await expect(stickies).toHaveCount(2);
