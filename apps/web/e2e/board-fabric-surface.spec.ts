@@ -125,6 +125,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     expect(bounds).not.toBeNull();
     // Header sync state overlays the editor; pending/ACK transitions must never
     // resize the canvas or change its pointer coordinate origin.
+    await expect(page.getByTestId("board-sync-banner")).toHaveCount(0); // testid-gate: absent Sync feedback belongs in the header, never in a standalone canvas banner.
     const header = page.getByTestId("board-editor-header");
     await expect(header.getByTestId("board-sync-status")).toBeVisible();
     const headerBounds = await header.boundingBox();
@@ -180,9 +181,8 @@ test("fabric surface viewport", async ({ page, request: api }) => {
         throw new Error("No exposed Fabric canvas point for wheel zoom");
       });
       await page.mouse.move(point.x, point.y);
-      await page.keyboard.down('Control');
-      try { await page.mouse.wheel(0, deltaY); }
-      finally { await page.keyboard.up('Control'); }
+      await page.keyboard.down("ControlOrMeta");
+      try { await page.mouse.wheel(0, deltaY); } finally { await page.keyboard.up("ControlOrMeta"); }
       await page.waitForTimeout(75);
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     }
