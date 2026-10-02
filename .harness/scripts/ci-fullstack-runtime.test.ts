@@ -41,6 +41,18 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(args).toContain('DOCKER_CONFIG=/runner/temp/home/.docker');
     expect(args).not.toContain('DOCKER_CONFIG=/wsx-ci-tools');
   });
+  it('passes only the optional public import credential by name, never its value or other tokens', () => {
+    const key = 'WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN';
+    const env = { ...inputs.env, [key]: 'FAKE', ADMIN_TOKEN: 'ADMIN' };
+    const args = runtimeArgs({ ...inputs, env });
+    expect(args).toContain(key);
+    expect(args.join(' ')).not.toContain('FAKE');
+    expect(args.join(' ')).not.toContain('ADMIN');
+    expect(args.join(' ')).not.toContain('must-not-enter');
+    expect(runtimeArgs(inputs)).not.toContain(key);
+    expect(runtimeArgs({ ...inputs, env: { ...env, [key]: '' } })).not.toContain(key);
+    expect(runtimeArgs({ ...inputs, env, geometry: true })).not.toContain(key);
+  });
   it('requires the workflow explicit canonical command and refuses partial or altered coverage', () => {
     expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).not.toThrow();
     expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'])).not.toThrow();
@@ -58,6 +70,8 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(lane).toContain('timeout-minutes: 20');
     expect(lane).toContain('persist-credentials: false');
     expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
+    expect(lane).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');
+    expect(lane).not.toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ github.token }}');
     expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs run');
     expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs geometry');
     expect(lane).not.toContain('playwright install');
