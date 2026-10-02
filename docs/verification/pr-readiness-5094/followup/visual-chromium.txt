@@ -1,0 +1,12 @@
+  ✓  1 [chromium] › e2e/board-compact-chrome-acceptance.spec.ts:12:5 › real thirty-note Board keeps compact chrome and intentional connection handles (12.3s)
+  ✓  2 [chromium] › e2e/board-visual-accessibility-acceptance.spec.ts:11:5 › visual and accessibility real object states, input and negative controls (22.1s)
+  ✘  3 [firefox] › e2e/board-visual-accessibility-acceptance.spec.ts:11:5 › visual and accessibility real object states, input and negative controls (1ms)
+  ✘  4 [webkit] › e2e/board-visual-accessibility-acceptance.spec.ts:11:5 › visual and accessibility real object states, input and negative controls (1ms)
+    Error: browserType.launch: Executable doesn't exist at /Users/shenyangjun/Library/Caches/ms-playwright/firefox-1538/firefox/Nightly.app/Contents/MacOS/firefox
+    Error: browserType.launch: Executable doesn't exist at /Users/shenyangjun/Library/Caches/ms-playwright/webkit-2336/pw_run.sh
+  2 failed
+  2 passed (4.9m)
+[timing] pnpm --filter web exec playwright test --config e2e/board-visual-accessibility-acceptance.config.ts
+  命令执行：4m55s
+  清理：1s
+  总计：4m56s
