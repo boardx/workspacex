@@ -51,7 +51,7 @@
     "verify:release": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw",
     "verify:quick": "pnpm exec tsx .harness/scripts/verify-quick.ts",
     "verify:work-stack-browser": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:work-stack-browser:raw",
-    "verify:work-stack-browser:raw": "pnpm --filter web exec playwright test --config playwright.work-stack-browser.config.ts --project=work-stack-workflow",
+    "verify:work-stack-browser:raw": "pnpm --filter web exec playwright test --config playwright.work-stack-browser.config.ts --project=work-stack-workflow --project=work-stack-realtime-voice",
     "verify:fullstack-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:fullstack-smoke:raw",
     "verify:fullstack-smoke:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import",
     "verify:prototype-audit": "tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.prototype-audit.config.ts",

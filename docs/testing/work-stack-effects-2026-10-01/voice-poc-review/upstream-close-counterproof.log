@@ -1,0 +1,46 @@
+
+ RUN  v2.1.9 /workspace/voice-config-fixes
+
+[realtime-digital-human] upstream error: {"code":"InvalidApiKey","message":"secret detail"}
+ ❯ apps/api/tests/chat/realtime-digital-human-gateway.test.ts (20 tests | 1 failed) 969ms
+   × WS /chat/realtime-digital-human — Chat 语音模式 > upstream close drains a deferred assistant append before notifying the client 32ms
+     → expected [ Array(2) ] to deeply equal [ …(2) ]
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted 627ms
+ ✓ apps/api/tests/chat/realtime-voice-session.test.ts (13 tests) 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/tests/chat/realtime-digital-human-gateway.test.ts > WS /chat/realtime-digital-human — Chat 语音模式 > upstream close drains a deferred assistant append before notifying the client
+AssertionError: expected [ Array(2) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "messageId": "m-deferred",
+-     "role": "assistant",
+-     "type": "turn.persisted",
++     "final": false,
++     "text": "关闭前最后回答",
++     "type": "assistant.transcript",
+    },
+    Object {
+      "type": "session.closed",
+    },
+  ]
+
+ ❯ apps/api/tests/chat/realtime-digital-human-gateway.test.ts:228:30
+    226|     await closed;
+    227|     expect(voice.appended).toEqual([{ role: "assistant", text: "关闭前…
+    228|     expect(frames.slice(-2)).toEqual([
+       |                              ^
+    229|       { type: "turn.persisted", role: "assistant", messageId: "m-defer…
+    230|       { type: "session.closed" },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 32 passed (33)
+   Start at  11:37:35
+   Duration  6.23s (transform 2.50s, setup 0ms, collect 4.38s, tests 988ms, environment 0ms, prepare 233ms)

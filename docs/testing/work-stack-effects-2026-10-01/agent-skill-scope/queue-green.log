@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /workspace/agent-skill-scope-fixes/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/workbench-message-queue.test.ts (8 tests) 12ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:52:43
+   Duration  1.03s (transform 542ms, setup 0ms, collect 93ms, tests 12ms, environment 0ms, prepare 90ms)

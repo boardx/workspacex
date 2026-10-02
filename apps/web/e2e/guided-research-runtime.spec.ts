@@ -45,7 +45,12 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByRole("button", { name: "AI 助手", exact: true })).toHaveAttribute("aria-expanded", "true");
   await page.getByLabel("研究对话").fill("请检查研究方向");
   await page.getByRole("button", { name: "发送研究消息" }).click();
+  // Applying is a persisted command: wait for its acknowledgement before navigation.
+  // A click followed immediately by reload can abort the request and restore the old proposal.
+  const appliedSuggestion = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
+    && response.request().method() === "POST" && response.request().postDataJSON()?.action === "apply");
   await page.getByRole("button", { name: "应用建议" }).click();
+  expect((await appliedSuggestion).ok()).toBe(true);
   await page.reload();
   await expect(page).toHaveURL(/\/research\/[^/]+\/topic$/);
   await expect(page.getByTestId("research-topic-information").getByRole("textbox", { name: /^研究目标/ })).toHaveValue("核对储能并网政策");
