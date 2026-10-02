@@ -1,6 +1,7 @@
 # R03 Independent-Process And Authority Acceptance
 
-Scope: issue #4968, existing PR #5002. This adds an acceptance lane, not a product
+Scope: [acceptance issue #5092](https://github.com/boardx/workspacex/issues/5092),
+following approved feature #4968 and historically merged PR #5002. This adds an acceptance lane, not a product
 contract or a passing claim. Behavior is maintained in
 [C05-C08](https://github.com/boardx/workspacex/issues/4968).
 The original same-browser/generic-Sticky authority template is not independent
@@ -20,6 +21,8 @@ The configuration does not start Docker, services, migration or reset.
 node --test apps/web/e2e/support/connector-c05-oracle.test.mjs
 node --test apps/web/e2e/support/connector-c06-oracle.test.mjs
 node --test apps/web/e2e/support/connector-c07-oracle.test.mjs
+node --test apps/web/e2e/support/connector-c08-oracle.test.mjs
+node --test apps/web/e2e/support/connector-copy-oracle.test.mjs
 pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts --list
 PLAYWRIGHT_JSON_OUTPUT_FILE=<fresh-output>/report.json pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts --reporter=json --output=<fresh-output>/test-results
 ```
