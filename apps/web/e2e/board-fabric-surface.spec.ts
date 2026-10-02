@@ -92,7 +92,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     const region = page.getByTestId("board-editor-region");
     const shellBounds = await region.locator("..").boundingBox();
     const regionBounds = await region.boundingBox();
-    await expect(page.getByTestId("board-sync-banner")).toHaveCount(0);
+    await expect(page.getByTestId("board-sync-banner")).toHaveCount(0); // testid-gate: absent Sync feedback belongs in the header, never in a standalone canvas banner.
     const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
