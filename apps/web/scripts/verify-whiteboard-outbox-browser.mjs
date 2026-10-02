@@ -26,6 +26,11 @@ try{
   const browser=await engine.launch();
   try{
    const context=await browser.newContext(),page=await context.newPage();await page.goto(origin);await page.addScriptTag({content:code});
+   const nativeKeyClone=await page.evaluate(async()=>{
+    const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    const db=await new Promise((resolveReady,reject)=>{const open=indexedDB.open('outbox-native-key-capability');open.onupgradeneeded=()=>open.result.createObjectStore('keys');open.onsuccess=()=>resolveReady(open.result);open.onerror=()=>reject(open.error);});
+    try{await new Promise((resolveWrite,reject)=>{const tx=db.transaction('keys','readwrite');tx.oncomplete=resolveWrite;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);try{tx.objectStore('keys').put(key,'probe');}catch(error){tx.abort();reject(error);}});return true;}catch(error){if(error?.name!=='DataCloneError')throw error;return false;}finally{db.close();}
+   });
    const baseline=await page.evaluate(async()=>{
     const box=new Outbox.IndexedDbEncryptedWhiteboardOutbox('baseline'),intent={type:'update',epoch:1,updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),update:'AAA='};
     const initial=await box.restore('source-fixture-token');await box.persist('source-fixture-token',intent);box.close();
@@ -53,8 +58,8 @@ try{
     try{const meta=await read('meta'),rows=await read('updates');return {rowsEncrypted:rows.every(row=>row.ciphertext instanceof ArrayBuffer&&!('update' in row)&&!('token' in row)&&!('key' in row)),noRawTokens:!JSON.stringify(meta).includes('fixture-token'),native:meta.some(item=>item instanceof CryptoKey),wrapped:meta.some(item=>item?.version===1&&item?.envelopes)};}finally{db.close();}
    });
    for(const value of [...Object.values(baseline),...Object.values(reload),...Object.values(crash),race,...Object.values(revoke),privacy.rowsEncrypted,privacy.noRawTokens])assert.equal(value,true,`${browserName} native outbox counterproof failed`);
-   assert.equal(privacy.wrapped,browserName==='webkit');assert.equal(privacy.native,browserName!=='webkit');
-   reports.push({browserName,baseline,reload,crash,race,revoke,privacy});await context.close();
+   assert.equal(privacy.wrapped,!nativeKeyClone,'stored mode must match real native CryptoKey capability');assert.equal(privacy.native,nativeKeyClone);
+   reports.push({browserName,nativeKeyClone,baseline,reload,crash,race,revoke,privacy});await context.close();
   }finally{await browser.close();}
  }
  for(const input of inputs)assert.equal(hash(readFileSync(resolve(process.cwd(),input.path))),input.sha256,'compiled source changed during browser verification');
