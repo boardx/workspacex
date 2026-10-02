@@ -1,7 +1,17 @@
 """Actual immutable Docker execution adapted from reviewed conservation launcher."""
-import hashlib,json,os,stat,subprocess,sys,tempfile,uuid
+import hashlib,json,os,signal,stat,subprocess,sys,tempfile,uuid
 from pathlib import Path
 DOCKER='/usr/bin/docker'
+class OwnedTermination(BaseException):pass
+def install_termination_handler():
+ # First termination interrupts work so finally runs; subsequent termination cannot
+ # interrupt owned cleanup. The parent still enforces a finite SIGKILL deadline.
+ def terminate(signum,frame):
+  signal.signal(signal.SIGTERM,signal.SIG_IGN)
+  signal.signal(signal.SIGINT,signal.SIG_IGN)
+  raise OwnedTermination()
+ signal.signal(signal.SIGTERM,terminate)
+ signal.signal(signal.SIGINT,terminate)
 def capture(args,timeout=15,check=True):
  r=subprocess.run([DOCKER,*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=timeout,env={'PATH':'/usr/bin:/bin','LANG':'C','LC_ALL':'C'})
  if check and r.returncode:raise ValueError('DOCKER_REJECTED')
@@ -36,8 +46,6 @@ def main(p):
    sslproof=tls.get('providerSslEvidence',{});assert tls.get('sslmode')=='disable' and tls.get('approvedException')=='aliyun-postgresql-serverless-no-tls' and sslproof.get('targetInstanceId')==b['targetInstanceId'] and sslproof.get('providerCreatedUtc')==b['providerCreatedUtc'] and sslproof.get('sslEnabled') is False
   oldsecret={'instanceId':s['targetInstanceId'],'attemptId':s['attemptId'],'host':s['host'],'port':s['port'],'user':s['user'],'password':s['password'],'sslmode':tls['sslmode'],**({'tlsCaPem':ca.decode(),'tlsCaSha256':tls['ca']['sha256']} if ca else {'transportException':'aliyun-postgresql-serverless-no-tls'})}
   planbytes=json.dumps(p['plan'],separators=(',',':'),ensure_ascii=False)
-  request=dict(p['request']);request.update({'targetCaSha256':tls['ca']['sha256']} if ca else {'tlsExceptionVerified':True})
-  payload={'request':request,'secret':oldsecret,'baseline':p['baseline'],'before':p['before'],'canonicalPlan':p.get('canonicalPlan'),'frozenPlanBytes':planbytes,'frozenPlanSha256':hashlib.sha256(planbytes.encode()).hexdigest()}
   runtime=[*[DOCKER,'run','--rm','--pull=never','--name',owner,'--label','wsx.rehearsal.owner='+owner,'-i','--network',network,'--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=0:0','--cpus=1','--memory=768m','--pids-limit=128','--tmpfs','/run/wsx:rw,noexec,nosuid,nodev,size=256m,mode=0700','--env','WSX_CONSERVATION_RUN=1','--entrypoint','node',image,'-e',code] ]
   if e['language']=='python':
    temporary=tempfile.TemporaryDirectory(prefix='wsx-canonical-mounts-',dir='/run')
@@ -63,6 +71,9 @@ def main(p):
    payload={'binding':b,'plan':p['plan'],'sourceSha':b['candidateSha'],'provider':provider,'memoryOwner':role('memory_owner'),'memoryRuntime':role('memory_rw'),'checkpointOwner':role('graph_owner'),'canonicalSetupSourceSha256':resources['probe']['canonical-source-manifest.json']['sha256'],'canonicalMigrationExtractorReceiptSha256':resources['probe']['canonical-extractor.json']['sha256'],'pythonRuntimeManifestSha256':resources['probe']['python-runtime-manifest.json']['sha256'],'canonicalMigrationExtractorInvokeId':e['canonicalMigrationExtractorInvokeId'],'dependencyImageId':image}
    # Preserve all immutable isolation flags; add readonly exact sources/evidence only.
    runtime=runtime[:runtime.index('--entrypoint')]+['--mount','type=bind,src='+str(exact)+',dst=/exact,readonly','--mount','type=bind,src='+str(probe)+',dst=/probe,readonly','--entrypoint','python',image,'-I','/probe/engine.py']
+  else:
+   request=dict(p['request']);request.update({'targetCaSha256':tls['ca']['sha256']} if ca else {'tlsExceptionVerified':True})
+   payload={'request':request,'secret':oldsecret,'baseline':p['baseline'],'before':p['before'],'canonicalPlan':p.get('canonicalPlan'),'frozenPlanBytes':planbytes,'frozenPlanSha256':hashlib.sha256(planbytes.encode()).hexdigest()}
   proc=subprocess.Popen(runtime,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env={'PATH':'/usr/bin:/bin','LANG':'C','LC_ALL':'C'})
   raw,_=proc.communicate(json.dumps(payload).encode(),timeout=e['timeoutSeconds']);assert proc.returncode==0 and len(raw)<1048576
   proof=json.loads(raw);assert ((proof.get('readOnly') and proof.get('rollbackComplete')) if e['language']=='node' else (proof.get('allCanonicalSetupsAccepted') and proof.get('connectionPeerIdentityChecks',0)>=4)) and proof['targetInstanceId']==b['targetInstanceId'] and proof['candidateSha']==b['candidateSha'] and proof['attemptId']==b['attemptId']
@@ -72,12 +83,19 @@ def main(p):
   if found.returncode==0:
    c=json.loads(found.stdout);assert len(c)==1 and c[0]['Config']['Labels'].get('wsx.rehearsal.owner')==owner;capture(['rm','-f',c[0]['Id']],30)
   assert not capture(['ps','-aq','--filter','name=^/'+owner+'$']).stdout.strip()
-  if network:
-   n=json.loads(capture(['network','inspect',network]).stdout)[0];assert n['Id']==network and n['Labels'].get('wsx.rehearsal.owner')==owner and not n.get('Containers');capture(['network','rm',network]);assert not capture(['network','ls','-q','--no-trunc','--filter','id='+network]).stdout.strip()
+  # Signal can arrive after create succeeds but before its ID is assigned. Reconcile
+  # only this run's random owner, then prove ownership before any removal.
+  found_network=capture(['network','inspect',network or owner],check=False)
+  if found_network.returncode==0:
+   networks=json.loads(found_network.stdout);assert len(networks)==1
+   n=networks[0];assert (network is None or n['Id']==network) and n['Labels'].get('wsx.rehearsal.owner')==owner and not n.get('Containers')
+   capture(['network','rm',n['Id']]);assert not capture(['network','ls','-q','--no-trunc','--filter','id='+n['Id']]).stdout.strip()
+  assert not capture(['network','ls','-q','--no-trunc','--filter','name=^'+owner+'$']).stdout.strip()
   if temporary:temporary.cleanup()
  assert proof is not None
  proof.update(engineSha256=e['sha256'],ownedCleanupVerified=True,actualSqlPeerVerified=True)
  return proof
 if __name__=='__main__':
+ install_termination_handler()
  try:print(json.dumps(main(json.load(sys.stdin))))
  except BaseException:print('CONSERVATION_SUPERVISOR_REJECTED',file=sys.stderr);sys.exit(1)
