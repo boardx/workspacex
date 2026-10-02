@@ -1,4 +1,4 @@
-# R03 C05 Independent-Process Acceptance
+# R03 Independent-Process And Authority Acceptance
 
 Scope: issue #4968, existing PR #5002. This adds an acceptance lane, not a product
 contract or a passing claim. Behavior is maintained in
@@ -18,6 +18,7 @@ The configuration does not start Docker, services, migration or reset.
 
 ```bash
 node --test apps/web/e2e/support/connector-c05-oracle.test.mjs
+node --test apps/web/e2e/support/connector-c06-oracle.test.mjs
 pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts --list
 PLAYWRIGHT_JSON_OUTPUT_FILE=<fresh-output>/report.json pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts --reporter=json --output=<fresh-output>/test-results
 ```
@@ -46,7 +47,7 @@ Listing and pure tests are preparation, not actual browser acceptance.
   before sampling; verify sampling itself leaves canonical state unchanged.
 - Actual local editor controls verify width, label and path; independent scene
   coordinates verify route/endpoint/label handles. All three actual canvases,
-  including the viewer with no editing toolbar, must paint centered continuous ink
+  including the viewer with disabled mutation controls and no editable handles, must paint centered continuous ink
   at the expected stroke width and native-Canvas golden label glyphs at the
   independent arc-length position. Cross-process raster equality alone is not proof:
   blank, stale label, all-red and wrong-width negative cases must fail.
@@ -58,7 +59,9 @@ Listing and pure tests are preparation, not actual browser acceptance.
   All processes must converge on the authoritative outcome and survive reload.
 - Screenshots are saved as real paths with SHA256 for each process/phase. Save both
   success and failure evidence through the JSON reporter, not list-only body attachments.
-- Archive the owned fixture, assert head404, close every launched browser even on
+- Verify exact fixture owner/name, archive with the current lifecycle revision,
+  permanently delete through the signed DELETE contract and assert board-detail404.
+  Archive alone does not imply head404. Close every launched browser even on
   failure; any cleanup error makes this run fail.
 
 This bounded lane reports `requiredC05Complete=false` and `requiredRoundComplete=false`
@@ -66,3 +69,29 @@ until actual execution and independent visual review establish its scope. C06 fu
 and held-gesture authority races, C07 concurrent history, C08 complete interchange,
 390px and native hardware remain separate required work; C05's scoped result does
 not close the round. Source-only or pure/list green cannot replace actual runtime.
+
+## C06 Authority Implementation
+
+The authority runner uses the actual
+[operation schema](../../../packages/contracts/src/whiteboard-operation.ts),
+[Connector command schema](../../../packages/contracts/src/whiteboard-document.ts)
+and [lifecycle DELETE contract](../../../packages/contracts/src/whiteboard.ts).
+The same complete Connector commands must first succeed for the owner before
+viewer/commenter denial and a real separately seeded foreign user's hidden-resource
+denial can count. Login response identities and server-returned board roles are
+observed, not inferred from seed constants. Canonical and isolated app-role durable
+manifest/update-log state must remain unchanged after denials.
+
+Five separate fresh owned boards exercise a held curve-handle gesture interrupted
+by lock, hide, Connector deletion, membership revocation and archive. Release waits
+for actual authority UI changes, repaint settlement and fresh reload/transport
+state, then reads the durable counterproof. At the end of the entire runner, every
+case is checked again against its own board-ID-attributed full transport tail and
+durable state, including archived or revoked cases whose normal API read is blocked.
+Cleanup uses the actual owner/title and lifecycle CAS contract and attempts every
+owned resource; combined errors preserve the original failure and cleanup failures.
+
+Pure oracle green proves denial/cancellation assertions reject invalid statuses,
+changed manifests/logs and late submissions/ACKs. It does not establish that the
+browser, native database or permission behavior has passed. C07 and C08 remain
+unimplemented in this runner and are not counted as accepted by either result.

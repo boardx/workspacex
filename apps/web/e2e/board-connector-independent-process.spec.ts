@@ -1,9 +1,10 @@
 import {test,expect,chromium,type Page,type Browser} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,archiveAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
+import {boardLogin,boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
+import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 
 const edgeId='c05-edge',ink='#E11D48';
 async function synced(page:Page){
@@ -190,12 +191,12 @@ test('C05 distinct browser processes converge on Connector style path and concur
   retainedConnector({...beforeRace.edge.connector!,from:undefined,to:undefined,fromPoint:{x:290+fromDelta.x,y:270+fromDelta.y},toPoint:{x:1050+toDelta.x,y:470+toDelta.y}},raced.edge.connector!);
   for(const page of pages)await page.reload();expect((await stable('all-processes-reloaded')).objects).toEqual(raced.objects);
   await viewer.getByTestId(`board-a11y-object-${edgeId}`).focus();await viewer.getByTestId(`board-a11y-object-${edgeId}`).press('Enter');
-  await expect(viewer.getByTestId('board-connector-toolbar')).toHaveCount(0);await expect(viewer.getByTestId('board-connector-handle-from')).toHaveCount(0);
+  await expect(viewer.getByTestId('board-connector-width-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-label-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-handle-from')).toHaveCount(0);
   const runtimeAfter=await Promise.all(chunkReaders.map(async read=>verifyRuntimeIdentity(api,sha,await read())));
   expect(browserErrors).toEqual([]);records.push({runtimeBefore,runtimeAfter,identities,processIds,traffic,independentBrowserLaunches:browsers.length,engines:browsers.map(browser=>browser.version())});
  }catch(error){failure=error;}
  finally{
-  if(boardId&&ownerToken){try{await archiveAcceptanceBoard(api,ownerToken,boardId);const response=await api.get(`${process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`}/v1/whiteboards/${boardId}/head`,{headers:{authorization:`Bearer ${ownerToken}`}});expect(response.status()).toBe(404);cleanup.push({archived:true,headStatus:404});}catch(error){failure??=error;}}
+  if(boardId&&ownerToken){try{cleanup.push(await deleteOwnedConnectorFixture(api,ownerToken,boardId,F.userId,'C05 independent Connector processes'));}catch(error){failure??=error;}}
   for(const browser of browsers){try{await browser.close();}catch(error){failure??=error;}}
   const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
  }
