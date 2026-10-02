@@ -5,10 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fabricHarness = vi.hoisted(() => {
   type Handler = (event: { target?: MockFabricObject; e?: unknown }) => void;
-  const state = { canvases: [] as MockCanvas[] };
+  const state = { canvases: [] as MockCanvas[], realGroup: null as typeof import("fabric").Group | null };
   class MockFabricObject {
     data?: { boardObjectId?: string; adapterKind?: string; renderedRevision?: number };
-    source?: string;
     left = 0;
     top = 0;
     width = 100;
@@ -18,7 +17,7 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
-    constructor(value?: unknown, options: Record<string, unknown> = {}) { if (typeof value === "string") this.source = value; this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
+    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
     getObjects() { return this.children; }
     private children: MockFabricObject[] = [];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
@@ -45,6 +44,7 @@ const fabricHarness = vi.hoisted(() => {
 
 vi.mock("fabric", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fabric")>();
+  fabricHarness.state.realGroup = actual.Group;
   const MockFabricObject = fabricHarness.MockFabricObject;
   type Handler = (event: { target?: InstanceType<typeof MockFabricObject>; e?: unknown }) => void;
   class Canvas {
@@ -81,14 +81,20 @@ vi.mock("fabric", async (importOriginal) => {
     discardActiveObject() { this.active = undefined; }
     getActiveObject() { return this.active; }
   }
+  // Connector paths and tips need Fabric's real fit-content layout. Other
+  // fixtures retain the existing lightweight object transform boundary.
+  const Group = function (children: InstanceType<typeof MockFabricObject>[], options: Record<string, unknown>) {
+    return children.some(child => child instanceof actual.Path)
+      ? new actual.Group(children as unknown as import("fabric").FabricObject[], options)
+      : new MockFabricObject(children, options);
+  };
+  Group.prototype = MockFabricObject.prototype;
   return {
     ...actual,
     Canvas,
     Line: MockFabricObject,
-    Path: MockFabricObject,
-    Triangle: MockFabricObject,
     Circle: MockFabricObject,
-    Group: MockFabricObject,
+    Group,
     Point: MockFabricObject,
     Rect: MockFabricObject,
     Textbox: MockFabricObject,
@@ -99,6 +105,7 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
 import { BoardFabricSurface } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { Path } from "fabric";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 const base: BoardFabricObject = {
@@ -161,12 +168,20 @@ describe("Board Fabric event-to-command boundary", () => {
     act(() => canvas.emit("object:moving", { target, e: new MouseEvent("mousemove", { altKey: true }) }));
     expect(events.onTransformPreview).toHaveBeenLastCalledWith([{ id: base.id, geometry: { x: 80, y: 130, width: 200, height: 140, rotation: 0 } }]);
     expect(events.onObjectTransform).not.toHaveBeenCalled();
-    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*285[ ,]200\s*L\s*500[ ,]100$/);
+    const heldEdge = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(heldEdge).toBeInstanceOf(fabricHarness.state.realGroup);
+    const heldPath = heldEdge.getObjects().find(item => item instanceof Path);
+    expect(heldPath).toBeInstanceOf(Path);
+    expect((heldPath as unknown as Path).path).toEqual([["M", 285, 200], ["L", 500, 100]]);
     act(() => canvas.emit("object:modified", { target }));
     expect(events.onObjectTransform).toHaveBeenCalledTimes(1);
     expect(events.onTransformPreview).toHaveBeenLastCalledWith([]);
     expect(target.left).toBe(base.geometry.x);
-    expect(canvas.objects.find(item => item.data?.boardObjectId === "edge")?.getObjects()[0]?.source).toMatch(/^M\s*215[ ,]90\s*L\s*500[ ,]100$/);
+    const restoredEdge = canvas.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(restoredEdge).toBeInstanceOf(fabricHarness.state.realGroup);
+    const restoredPath = restoredEdge.getObjects().find(item => item instanceof Path);
+    expect(restoredPath).toBeInstanceOf(Path);
+    expect((restoredPath as unknown as Path).path).toEqual([["M", 215, 90], ["L", 500, 100]]);
   });
 
   it("reports rotated and scaled geometry and clears preview on native cancellation", () => {
