@@ -6,7 +6,6 @@ import {BoardStickyPicker} from "./board-sticky-picker";
 import {STICKY_COLOR_PRESETS} from "@repo/whiteboard-core";
 import { BoardConnectorPicker } from "./board-connector-picker";
 import { ConnectorToolPreview } from "./board-connector-preview";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ConnectorType, PanelMode, StickyVariant, TextStylePreset } from "@repo/whiteboard-core";
 import type { BoardShapeVariant, BoardStructuredKind } from "./board-content-adapter";

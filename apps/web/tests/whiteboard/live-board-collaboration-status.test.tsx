@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSea
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { userId: "owner-1" } }) }));
 vi.mock("@/lib/live-whiteboard", () => ({ getBoard: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000007", name: "协作板", ownerId: "owner-1", role: "owner", archived: false, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" })) }));
 vi.mock("@/lib/whiteboard-provider", () => ({ WhiteboardProvider: class { constructor(_doc: unknown, _id: string, callback: (value: WhiteboardConnectionState) => void) { harness.state = callback; } awareness() {} retryNow = harness.retry; close = harness.close; } }));
-vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { dockExtension?:React.ReactNode;status:string;commentsReadOnly:boolean;organizeFitRequest?:unknown;followViewport:unknown;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status" data-comments-readonly={String(props.commentsReadOnly)}>{props.status}{props.dockExtension}</div>;} }));
+vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { syncPhase?:string;syncDetails?:string;onRetrySync?:()=>void;dockExtension?:React.ReactNode;status:string;commentsReadOnly:boolean;organizeFitRequest?:unknown;followViewport:unknown;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status" data-comments-readonly={String(props.commentsReadOnly)} data-sync-phase={props.syncPhase}>{props.status}<span>{props.syncDetails}</span>{props.syncPhase==='offline'?<button data-testid="board-retry-sync" onClick={props.onRetrySync}>立即重连</button>:null}{props.dockExtension}</div>;} }));
 vi.mock("@/components/whiteboard/board-organize-controls",()=>({BoardOrganizeControls:({onProposal,undo,onUndone}:{onProposal:(value:unknown)=>void;undo:unknown;onUndone:()=>void})=>{harness.organizeUndo=undo;harness.organizeOnUndone=onUndone;return <button onClick={()=>onProposal({proposalId:'local-proposal'})}>Generate test proposal</button>;}}));
 vi.mock("@/components/whiteboard/board-presentation-controls",()=>({BoardPresentationControls:()=>null}));
 vi.mock("@/lib/whiteboard-operation-client",()=>({readPresentation:vi.fn(async()=>({revision:3,presenterId:'presenter',followers:['owner-1'],viewport:{x:300,y:200,zoom:2}})),updatePresentation:(...args:unknown[])=>harness.update(...args),readAIProposal:vi.fn(),joinBoardRoom:vi.fn(),readBoardUndoReceipt:(...args:unknown[])=>harness.readUndo(...args),clearBoardUndoReceipt:(...args:unknown[])=>harness.clearUndo(...args),recordBoardUndoReceipt:(...args:unknown[])=>harness.recordUndo(...args),confirmAIProposal:(...args:unknown[])=>harness.confirm(...args),cancelAIProposal:vi.fn()}));
@@ -21,19 +21,21 @@ beforeEach(() => { const undo={boardId:'00000000-0000-4000-8000-000000000007',pr
 it("makes pending, retry and duplicate ACK recovery state visible and actionable", async () => {
   render(<LiveBoard boardId="00000000-0000-4000-8000-000000000007" />);
   await waitFor(() => expect(harness.state).not.toBeNull());
-  expect(screen.getByTestId("board-sync-banner")).toHaveClass("absolute","inset-x-0","top-16","max-h-[30vh]","overflow-y-auto");
+  expect(screen.queryByTestId("board-sync-banner")).toBeNull();
+  expect(screen.getByTestId("editor-status")).toHaveAttribute("data-sync-phase","connecting");
   expect(screen.getByTestId("board-editor-region")).toHaveClass("relative","overflow-hidden");
-  expect(screen.getByTestId("board-sync-banner")).toHaveTextContent("加密保存在此浏览器");
+  expect(screen.getByTestId("editor-status")).toHaveTextContent("加密保存在此浏览器");
   act(()=>harness.state?.(online));
   await waitFor(()=>expect(screen.queryByTestId("board-sync-banner")).toBeNull());
   act(()=>harness.state?.({...online,pending:2}));
-  expect(await screen.findByTestId("board-sync-banner")).toHaveTextContent("2 项修改等待服务器确认");
-  expect(screen.getByTestId("board-sync-banner")).toHaveClass("pointer-events-none");
+  expect(await screen.findByTestId("editor-status")).toHaveTextContent("2 项修改等待服务器确认");
+  expect(screen.getByTestId("editor-status")).toHaveAttribute("data-sync-phase","pending");
   expect(screen.queryByTestId("board-retry-sync")).toBeNull();
   act(()=>harness.state?.({ ...online, phase: "offline", pending: 3, reason: "CONNECTION_LOST", retryAttempt: 2, duplicateAcks: 1 }));
   expect(await screen.findByTestId("editor-status")).toHaveTextContent("第 2 次重连 · 3 项修改待确认");
-  expect(screen.getByTestId("board-duplicate-ack")).toHaveTextContent("已忽略 1 个重复确认");
-  expect(screen.getByTestId("board-sync-banner")).toHaveClass("pointer-events-auto");
+  expect(screen.getByTestId("editor-status")).toHaveTextContent("已忽略 1 个重复确认");
+  expect(screen.queryByTestId("board-sync-banner")).toBeNull();
+  expect(screen.getByTestId("editor-status")).toHaveAttribute("data-sync-phase","offline");
   fireEvent.click(screen.getByTestId("board-retry-sync")); expect(harness.retry).toHaveBeenCalledOnce();
   expect(screen.getByTestId("editor-status")).toHaveAttribute("data-comments-readonly","true");
   act(()=>harness.state?.({ ...online, role:"commenter", pending: 0 }));
