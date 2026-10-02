@@ -175,7 +175,7 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const expectedRows = await canonicalRows(page);
   const expectedIds = expectedRows.map(object => object.id).sort();
   expect(expectedIds).toContain(from); expect(expectedIds).toContain(to);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
+  await expectBoardSynced(page, 30_000);
   await expect.poll(async () => {
     const persisted = await canonicalBoardSnapshot(page.request, token!, boardId);
     return persisted.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id));
@@ -234,7 +234,7 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const after = await canonicalBoardSnapshot(page.request, token!, boardId);
   expect(after.objects).toHaveLength(before.objects.length + 1);
   expect(after.objects.filter(object => object.kind === 'connector' && object.connector?.from === from && object.connector?.to === to)).toHaveLength(1);
-  await page.reload(); await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
+  await page.reload(); await expectBoardSynced(page, 30_000);
   expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(after);
   return 1;
 }
