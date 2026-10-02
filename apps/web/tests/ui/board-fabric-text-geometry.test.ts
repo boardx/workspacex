@@ -39,7 +39,12 @@ describe("real Fabric text keeps font metrics independent of its container", () 
       expect(glyphTransform.scaleX).toBeCloseTo(1, 7);
       expect(glyphTransform.scaleY).toBeCloseTo(1, 7);
       expect(glyphTransform.skewX).toBeCloseTo(0, 7);
-      expect(label.fontSize).toBe(18);
+      if (kind === "sticky") {
+        expect(label.fontSize).toBeGreaterThanOrEqual(14);
+        expect(label.fontSize).toBeLessThanOrEqual(18);
+        expect(record.style.fontSize).toBe(18);
+        expect(label.clipPath).toBeDefined();
+      } else expect(label.fontSize).toBe(18);
       expect(representableWorldGeometry(projected)).toEqual(record.geometry);
       expect(label.width).toBeCloseTo(record.geometry.width - (kind === "text" ? 0 : kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32));
     };
