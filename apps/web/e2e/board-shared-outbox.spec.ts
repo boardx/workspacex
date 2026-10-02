@@ -1,14 +1,14 @@
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
-import {sharedOutboxPanelCommands} from './support/board-shared-outbox-fixture';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
-// Eight existing panels + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
+// Eight real UI panel creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
@@ -19,7 +19,9 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  page.setDefaultNavigationTimeout(15_000);
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
- const metadata=createSpatialWsMetadataRecorder();
+ const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
+ const chunks:Array<{path:string;sha256:string;bytes:number}>=[],chunkReads:Array<Promise<void>>=[];
+ page.on('response',response=>{const path=new URL(response.url()).pathname;if(path.startsWith('/_next/static/')&&path.endsWith('.js')&&response.status()===200)chunkReads.push(response.body().then(body=>{chunks.push({path,sha256:createHash('sha256').update(body).digest('hex'),bytes:body.length});}).catch(()=>undefined));});
  const http:Array<{method:string;path:string;status:number}>=[];
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
@@ -36,17 +38,20 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expectSynced(page);mark('board-opened');
-  const empty=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(empty.manifest.seq).toBe(0);
-  const createdIds=Array.from({length:8},()=>randomUUID());
-  await call('POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:empty.manifest.epoch,commands:sharedOutboxPanelCommands(createdIds)});
-  await expect(objectRows(page)).toHaveCount(8);await expectSynced(page);
-  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.epoch).toBe(empty.manifest.epoch);expect(initial.manifest.seq).toBe(empty.manifest.seq+1);mark('existing-panels-seeded');
-  metadata.observe(page,'original');
-  await page.reload();await expectSynced(page);await expect(objectRows(page)).toHaveCount(8);
+  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
-  await expect(objectRows(page)).toHaveCount(8);
-  mark('panels-rendered');
+  await page.getByTestId('board-add-frame').click();
+  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
+  const createdIds:string[]=[];
+  for(let index=0;index<8;index++){
+   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
+   const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
+   const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);expect(ids).toEqual(expect.arrayContaining(createdIds));createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
+  }
+  await page.getByRole('button',{name:'Close frame tools'}).click();
+  await expect(objectRows(page)).toHaveCount(8);mark('panels-created');
   const panelOutline=objectRows(page).last().getByRole('button');await panelOutline.focus();await panelOutline.press('Enter');
   await page.getByTestId('board-inspector-expand').click();
   const title=page.getByRole('textbox',{name:'区域标题',exact:true});
@@ -65,8 +70,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   mark('peer-converged');
   evidence.drainMs=performance.now()-started;expect(evidence.drainMs).toBeLessThanOrEqual(DRAIN_SLA_MS);
   const final=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(final.manifest.epoch).toBe(initial.manifest.epoch);
-  expect(final.manifest.seq-initial.manifest.seq).toBe(16);
-  evidence.seedCommands=8;evidence.uiEdits=16;
+  expect(final.manifest.seq-initial.manifest.seq).toBe(24);
+  evidence.uiCreates=8;evidence.uiEdits=16;
   const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq)).toEqual([]);
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
   await Promise.all([page.reload(),testPeer.reload()]);
@@ -74,11 +79,15 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   for(const tab of [page,testPeer]){await expectSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
+  await Promise.all(chunkReads);expect(chunks.some(chunk=>chunk.path.includes('/app/studio/board/'))).toBe(true);
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';
   await testPeer.close();peer=undefined;
  }finally{
   await peer?.close().catch(()=>undefined);
   if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
-  await info.attach('same-browser-outbox-evidence',{body:Buffer.from(JSON.stringify({...evidence,transport:metadata.snapshot()})),contentType:'application/json'});
+  await Promise.all(chunkReads);evidence.browserChunks=chunks;
+  const evidencePath=info.outputPath('same-browser-outbox-evidence.json');
+  await writeFile(evidencePath,JSON.stringify({...evidence,transport:metadata.snapshot()},null,2));
+  await info.attach('same-browser-outbox-evidence',{path:evidencePath,contentType:'application/json'});
  }
 });
