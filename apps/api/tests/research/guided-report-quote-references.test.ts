@@ -66,3 +66,25 @@ it.each(["unknown_question", "unknown_field", "empty_insight"])("does not let a 
   expect(result.valid.has(chunks[0]!.chunkId)).toBe(false);
   expect(result.retryIds).toContain(chunks[0]!.chunkId);
 });
+
+it.each(["json", ""])("accepts one complete %s code fence through the existing research JSON codec", (language) => {
+  const output = JSON.stringify({ evaluations: [evaluation(0, [match("source:official/chunk:0#quote:0")]), evaluation(1, [match("source:official/chunk:1#quote:0")])] });
+  const result = collectChunkEvidence("```" + language + "\n" + output + "\n```", chunks, new Set(["question"]), []);
+  expect(result.retryIds).toEqual([]);
+  expect(result.valid.get(chunks[0]!.chunkId)?.[0]?.evidence.quote).toBe(chunks[0]!.content);
+});
+it.each(["preface", "trailing_prose", "truncated", "multiple_blocks"])("rejects %s without salvaging arbitrary JSON substrings", (fault) => {
+  const output = JSON.stringify({ evaluations: [evaluation(0, [match("source:official/chunk:0#quote:0")])] });
+  const fenced = "```json\n" + output + "\n```";
+  const text = fault === "preface" ? "Here is evidence:\n" + fenced : fault === "trailing_prose" ? fenced + "\nExtra explanation" : fault === "truncated" ? "```json\n" + output.slice(0, -5) + "\n```" : fenced + "\n" + fenced;
+  const result = collectChunkEvidence(text, chunks, new Set(["question"]), []);
+  expect(result.wholeBatch).toBe(true);
+  expect(result.valid.size).toBe(0);
+  expect(result.reasonCounts.invalid_json).toBe(1);
+});
+it("still rejects foreign quote references inside a valid code fence", () => {
+  const text = "```json\n" + JSON.stringify({ evaluations: [evaluation(0, [match("source:official/chunk:1#quote:0")])] }) + "\n```";
+  const result = collectChunkEvidence(text, chunks, new Set(["question"]), []);
+  expect(result.valid.has(chunks[0]!.chunkId)).toBe(false);
+  expect(result.retryIds).toContain(chunks[0]!.chunkId);
+});

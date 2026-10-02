@@ -1,3 +1,4 @@
+import { extractJson } from "./guided-structured-json";
 import { materializeQuoteReferences } from "./guided-report-quote-references";
 import { research as C } from "@repo/contracts";
 import type { VerifiedEvidence } from "./guided-report-evidence";
@@ -14,7 +15,7 @@ export function collectChunkEvidence(text: string, chunks: readonly EvidenceChun
   const fail = (reason: EvidenceFailureReason) => { reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1; };
   const whole = (reason: EvidenceFailureReason) => { fail(reason); return { valid, retryIds: chunks.map((chunk) => chunk.chunkId), wholeBatch: true, reasonCounts, repairOutput: text.slice(0, 100000) }; };
   let raw: unknown;
-  try { raw = JSON.parse(text); } catch { return whole("invalid_json"); }
+  try { raw = extractJson(text); } catch { return whole("invalid_json"); }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return whole("invalid_envelope");
   const { evaluations, ...envelope } = raw as Record<string, unknown>;
   if (!Array.isArray(evaluations) || !C.GuidedResearchEvidenceModelOutput.omit({ evaluations: true }).safeParse(envelope).success) return whole("invalid_envelope");

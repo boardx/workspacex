@@ -36,9 +36,8 @@ flowchart TD
   class S2 tested
   %% evidence S2: /private/tmp/research-5133-red.log: 2 expected failures; /private/tmp/research-5133-regression.log: 106 PASS
   class S3 tested
-  %% evidence S3: research-suite-summary.log: 34 files 423 PASS; typecheck.log: exit 0; real-model-result.json: 22 matches 2 calls
-  class S4 tested
-  %% evidence S4: review.md: ACCEPT fa80bd496; browser regression pending S5; 423 tests and real evidence extraction passed
+  %% evidence S3: fence-red.log: 2 expected failures; fence-research-suite-summary.log: 430 PASS; captured-production-replay.log: both captured responses validate 4 blocks/13matches
+  class S4 doing
   class S5 doing
 ```
 
