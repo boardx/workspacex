@@ -102,6 +102,24 @@ it('color and ordinary picker controls do not become creation pointer sources', 
   expect(quickCreate).not.toHaveBeenCalled();
 });
 
+it('native HTML drag takeover does not mistake pointercancel for an abandoned tool gesture', () => {
+  render(<Controlled/>);
+  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  const source = screen.getByTestId('board-sticky-circle');
+  pointer(source, 'pointerdown');
+  const payload = new Map<string, string>();
+  fireEvent.dragStart(source, {dataTransfer: {
+    get types() {return [...payload.keys()];},
+    setData: (type: string, value: string) => payload.set(type, value),
+  }});
+  expect(payload.has('application/x-workspacex-board-tool')).toBe(true);
+  pointer(source, 'pointercancel', 7, 0);
+  expect(screen.getByTestId('board-add-sticky')).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByTestId('board-tool-picker')).toBeVisible();
+  expect(source.isConnected).toBe(true);
+  expect(quickCreate).not.toHaveBeenCalled();
+});
+
 for (const cancelled of ['pointercancel', 'lostpointercapture']) {
   it(`${cancelled} leaves actual document and unarmed canvas click unchanged`, () => {
     const doc = createWhiteboardDocument(), updates = vi.fn();
