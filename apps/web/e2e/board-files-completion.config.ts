@@ -2,7 +2,7 @@ import {defineConfig} from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: ['board-files-boundaries.spec.ts', 'board-files-filenames.spec.ts', 'board-files-placement.spec.ts'],
+  testMatch: ['board-files-boundaries.spec.ts', 'board-files-filenames.spec.ts', 'board-files-placement.spec.ts', 'board-files-retry.spec.ts'],
   workers: 1,
   retries: 0,
   timeout: 180_000,

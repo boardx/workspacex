@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {Board, DeleteBoard, DeleteBoardReceipt} from '@repo/contracts/whiteboard';
 import {WHITEBOARD_FILE_LIMITS, WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {apiOrigin, boardApi, boardLogin, boardHead, createAcceptanceBoard} from './board-acceptance-support';
+import {apiOrigin, boardApi, boardLogin, boardHead, createAcceptanceBoard, canonicalBoardSnapshot} from './board-acceptance-support';
 import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-storage';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -27,12 +27,14 @@ test('R09 missing, empty, oversized and revoked file writes leave no asset or bo
     const editor = await boardLogin(await context.newPage(), F.leadEmail, F.leadPassword);
     await boardApi(request, owner, 'PUT', `/whiteboards/${board}/members`, {userId: F.leadUserId, role: 'editor'});
     const initial = await boardHead(request, owner, board);
+    const canonical = await canonicalBoardSnapshot(request, owner, board);
     const upload = (token: string, bytes: Buffer, fileName: string) => request.post(`${apiOrigin()}/whiteboards/${board}/files`, {
       headers: {authorization: `Bearer ${token}`}, multipart: {fileName, file: {name: fileName, mimeType: 'application/octet-stream', buffer: bytes}},
     });
     const unchanged = async () => {
       expect(await boardHead(request, owner, board)).toEqual(initial);
       expect(await fileAssetRows(F.orgId, board)).toEqual([]);
+      expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(canonical);
     };
     const missing = await request.post(`${apiOrigin()}/whiteboards/${board}/files`, {
       headers: {authorization: `Bearer ${owner}`}, multipart: {fileName: 'missing.bin'},
@@ -50,12 +52,16 @@ test('R09 missing, empty, oversized and revoked file writes leave no asset or bo
     const validBytes = Buffer.from(`revocation ${randomUUID()}`), validName = 'permission-positive.bin';
     const positive = await upload(editor, validBytes, validName); expect(positive.status()).toBe(201);
     const metadata = WhiteboardFileMetadata.parse(await positive.json());
+    const positiveRead = await boardApi(request, owner, 'GET', `/whiteboards/${board}/files/${metadata.assetId}/content`);
+    expect(await positiveRead.body()).toEqual(validBytes);
+    expect(metadata.contentDigest).toBe(`sha256:${createHash('sha256').update(validBytes).digest('hex')}`);
     const rows = await fileAssetRows(F.orgId, board); expect(rows).toHaveLength(1);
     expect(rows[0]?.metadata).toEqual(metadata); expect(await boardHead(request, owner, board)).toEqual(initial);
     await boardApi(request, owner, 'DELETE', `/whiteboards/${board}/members/${F.leadUserId}`);
     const denied = await upload(editor, validBytes, validName);
     expect([403, 404]).toContain(denied.status()); observations.push({case: 'revoked-identical-valid-request', status: denied.status()});
     expect(await fileAssetRows(F.orgId, board)).toEqual(rows); expect(await boardHead(request, owner, board)).toEqual(initial);
+    expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(canonical);
     const evidence = {observations, nativeDatabase, oversizedBytes: oversized.length, inaccessibleAssetStatus: inaccessible.status(), requiredSuiteComplete: false, nativeOsDragVerified: false};
     await info.attach('R09 boundary HTTP evidence', {body: JSON.stringify(evidence, null, 2), contentType: 'application/json'});
   } catch (error) { failures.push(error); }
