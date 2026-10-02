@@ -562,6 +562,15 @@ export class GuidedRuntimeService {
     if (command.allowPartialResearch !== undefined && (node !== "research" || !["confirm", "complete"].includes(action))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
     if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }
+    if (action === "save_chapters") {
+      if (node !== "outline" || command.draft?.node !== "outline" || !state.availableNodes.includes("research")) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+      validateRuntimeDraft(state, command.draft);
+      // Chapter edits reuse retrieved facts. The next report must reassess the
+      // edited questions through the existing evidence and quality pipeline.
+      invalidate(state, "research");
+      state.outline = command.draft.value.map((item, order) => ({ ...item, order }));
+      return;
+    }
     if (action === "save") {
       if (!command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       const editingTopic = command.draft.node === "brief" && state.currentNode !== "brief";
