@@ -1,0 +1,30 @@
+[stack-admission] load1=2.25 cores=10 perCore=0.22 running=0/2
+[test-isolation] id=run-mur4rcx4-1f93e643-c1c1ba73f764 db=wsx_c1c1ba73f7645d884bd8 compose=wsx-c1c1ba73f7645d884bd8 pg=20867 redis=21867 api=24867 web=25867 sandbox=26867 model=27867 deep-agent=28867 asr=29867 vision=30867 loopback-sandbox=31867 mail=19867
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_c1c1ba73f7645d884bd8 capacity=100 current=6 required=32
+ ✓ tests/research/guided-report-chapters.test.ts (60 tests) 1742ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 504ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 505ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 504ms
+ ✓ tests/research/guided-report-partial-coverage.test.ts (28 tests) 9ms
+ ✓ tests/research/guided-report-evidence.test.ts (14 tests) 13ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (4 tests) 24ms
+ ✓ tests/research/guided-research-trust.test.ts (10 tests) 5ms
+ ✓ tests/research/guided-report-quality.test.ts (2 tests) 2ms
+ ✓ tests/research/guided-runtime-formal-validation.test.ts (4 tests) 2ms
+
+ Test Files  7 passed (7)
+      Tests  122 passed (122)
+   Start at  23:41:02
+   Duration  6.30s (transform 543ms, setup 17ms, collect 1.65s, tests 1.80s, environment 0ms, prepare 162ms)
+
+[db-isolation] db=wsx_c1c1ba73f7645d884bd8 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-report-partial-coverage.test.ts tests/research/guided-report-quality.test.ts tests/research/guided-report-chapters.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-runtime-formal-validation.test.ts tests/research/guided-research-trust.test.ts tests/research/guided-runtime-orchestration.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：7s
