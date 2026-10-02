@@ -68,6 +68,18 @@ jobs:
         if: always()
         working-directory: /private/tmp/wsx-native-files
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-files-completion.config.ts
+      - name: Create exact sync lifecycle source checkout
+        if: always()
+        run: |
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-sync
+          git -C /private/tmp/wsx-native-sync checkout --detach "$(git rev-parse HEAD)"
+          cd /private/tmp/wsx-native-sync
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run complete native sync lifecycle acceptance
+        if: always()
+        working-directory: /private/tmp/wsx-native-sync
+        run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-peer-existing-runtime.config.ts
       - name: Retain bounded statistics and screenshots without private runtime credentials
         if: always()
         uses: actions/upload-artifact@v6

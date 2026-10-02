@@ -9,7 +9,23 @@ import {createHash,randomUUID} from 'node:crypto';
 const suites={
   'e2e/board-connector-existing-runtime.config.ts':{count:7,files:['board-connector-authority.spec.ts','board-connector-copy-defaults.spec.ts','board-connector-history.spec.ts','board-connector-independent-process.spec.ts','board-connector-interchange.spec.ts']},
   'e2e/board-files-completion.config.ts':{count:6,files:['board-files-boundaries.spec.ts','board-files-filenames.spec.ts','board-files-placement.spec.ts','board-files-retry.spec.ts']},
+  'e2e/board-peer-existing-runtime.config.ts':{metadata:'apps/web/e2e/support/r08/r08-native-suite.json'},
 };
+
+export function suiteDefinition(config,root=resolve(process.cwd())){
+  const descriptor=suites[config];assert(descriptor);
+  if(!descriptor.metadata)return descriptor;
+  const metadata=JSON.parse(readFileSync(join(root,descriptor.metadata),'utf8'));
+  assert.equal(metadata.config,config);assert.equal(metadata.files.length,2);assert.equal(new Set(metadata.files).size,2);
+  assert(metadata.files.every(file=>/^board-[a-z-]+\.spec\.ts$/.test(file)));
+  assert.equal(metadata.projects.length,2);assert.equal(new Set(metadata.projects.map(project=>project.name)).size,2);
+  assert.deepEqual(metadata.projects.map(project=>project.viewport.width).sort((a,b)=>a-b),[390,1440]);
+  assert(metadata.projects.every(project=>typeof project.name==='string'&&project.name.length>0));
+  assert(Array.isArray(metadata.requiredScreenshotNames)&&metadata.requiredScreenshotNames.length>0);
+  assert.equal(new Set(metadata.requiredScreenshotNames).size,metadata.requiredScreenshotNames.length);
+  assert(metadata.requiredScreenshotNames.every(name=>/^[a-z-]+$/.test(name)));
+  return{files:metadata.files,projects:metadata.projects.map(project=>project.name),screenshots:metadata.projects.flatMap(project=>metadata.requiredScreenshotNames.map(name=>`${name}-${project.viewport.width}.png`)),count:metadata.files.length*metadata.projects.length};
+}
 
 export function acceptanceCommand(args){
   assert.equal(args[0],'--');const command=args.slice(1);
@@ -19,24 +35,31 @@ export function acceptanceCommand(args){
   assert.equal(command.length,8,'Only the complete signed suite may run');return command;
 }
 
-export function suiteResult(config,report){
-  const {files,count:expected}=suites[config],seen=new Set();let count=0;
-  const visit=suite=>{for(const spec of suite.specs??[]){seen.add(basename(spec.file));assert.equal(spec.ok,true);for(const test of spec.tests??[]){count++;assert.equal(test.status,'expected');assert.equal(test.results.length,1);assert.equal(test.results[0].status,'passed');}}for(const nested of suite.suites??[])visit(nested);};
+export function suiteResult(config,report,root=resolve(process.cwd())){
+  const {files,projects,count:expected}=suiteDefinition(config,root),seen=new Set(),pairs=[];let count=0;
+  const visit=suite=>{for(const spec of suite.specs??[]){seen.add(basename(spec.file));assert.equal(spec.ok,true);for(const test of spec.tests??[]){count++;if(projects)pairs.push(`${basename(spec.file)}:${test.projectName}`);assert.equal(test.status,'expected');assert.equal(test.results.length,1);assert.equal(test.results[0].status,'passed');}}for(const nested of suite.suites??[])visit(nested);};
   for(const suite of report.suites??[])visit(suite);
   assert.deepEqual([...seen].sort(),[...files].sort());assert.equal(count,expected);
+  if(projects)assert.deepEqual(pairs.sort(),files.flatMap(file=>projects.map(project=>`${file}:${project}`)).sort());
   assert.equal(report.errors?.length??0,0);assert.equal(report.stats?.expected,expected);
   for(const key of ['unexpected','flaky','skipped'])assert.equal(report.stats?.[key],0);
   return{expected,unexpected:0,flaky:0,skipped:0};
 }
 
-export function suitePresent(config,tracked){
-  const {files}=suites[config],paths=new Set(tracked),hasConfig=paths.has(`apps/web/${config}`),present=files.filter(file=>paths.has(`apps/web/e2e/${file}`));
+export function suitePresent(config,tracked,root=resolve(process.cwd())){
+  const paths=new Set(tracked),descriptor=suites[config];
+  if(descriptor.metadata&&!paths.has(descriptor.metadata)){
+    assert(!paths.has(`apps/web/${config}`)&&!tracked.some(path=>path.startsWith('apps/web/e2e/support/r08/')||/^apps\/web\/e2e\/board-(peer-|sync-lifecycle)/.test(path)),'Partial R08 suite requires its metadata');return false;
+  }
+  const {files}=suiteDefinition(config,root),hasConfig=paths.has(`apps/web/${config}`),present=files.filter(file=>paths.has(`apps/web/e2e/${file}`));
+  if(descriptor.metadata)assert(hasConfig,'R08 metadata requires its complete config');
   if(!hasConfig&&present.length===0)return false;
   assert(hasConfig,'Existing native specs require their complete config');assert.equal(present.length,files.length,'Partial native suite is not an absent feature');return true;
 }
 
 export function runtimeExitProof(code,signal,wasAlive){assert.equal(wasAlive,true,'Runtime exited before owned stop');assert.equal(signal,null);assert.equal(code,0);}
 export function runtimeSpawnState(child){const state={failed:false};child.on('error',()=>{state.failed=true;});return state;}
+export function sameRuntimeProof(before,after){assert.deepEqual(after,before);}
 
 export function safeStartupDiagnostics(log){
   const known=['native-migrate','native-fullstack-seed','native-web-build'];
@@ -50,21 +73,22 @@ export function startupFailureProof(diagnostics,data,head){
   return receipt;
 }
 
-export function screenshotProof(config,screenshots){
+export function screenshotProof(config,screenshots,root=resolve(process.cwd())){
   for(const item of screenshots){assert(Number.isInteger(item.bytes)&&item.bytes>24);assert(Number.isInteger(item.width)&&item.width>0);assert(Number.isInteger(item.height)&&item.height>0);}
   assert(screenshots.length>0);assert(screenshots.some(item=>item.width===1440));assert(screenshots.some(item=>item.width===390));
   if(config.includes('files'))for(const name of ['R09-placement-1440.png','R09-reloaded-1440.png','R09-placement-390.png','R09-reloaded-390.png','R09-real-backend-503.png','R09-real-backend-retry-refreshed.png',...Array.from({length:7},(_,index)=>`R09-native-download-${index}.png`)])assert(screenshots.some(item=>item.originalName===name),`Missing required screenshot: ${name}`);
+  if(config.includes('peer'))for(const name of suiteDefinition(config,root).screenshots)assert(screenshots.some(item=>item.originalName===name),`Missing required screenshot: ${name}`);
 }
 
-async function run(){
-  const command=acceptanceCommand(process.argv.slice(2)),root=resolve(process.cwd());
+export async function run(args=process.argv.slice(2)){
+  const command=acceptanceCommand(args),root=resolve(process.cwd());
   const toolRoot=process.env.NATIVE_POSTGRES_TOOL_ROOT,publicRoot=process.env.BOARD_NATIVE_EVIDENCE;
   assert(toolRoot&&publicRoot,'Explicit native toolchain and safe evidence paths required');
   assert.equal(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim(),'');
   const head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
   const support=join(root,'apps/web/e2e/support/native-runtime');
   const authority=await import(pathToFileURL(join(support,'runtime-attestation.mjs')).href);
-  const privateRoot=join('/private/tmp',`wsx-native-ci-${randomUUID()}`),safeRoot=join(publicRoot,command[7].includes('files')?'files':'connectors');
+  const isPeer=command[7].includes('peer'),privateRoot=join('/private/tmp',`wsx-native-ci-${randomUUID()}`),safeRoot=join(publicRoot,isPeer?'sync':command[7].includes('files')?'files':'connectors');
   assert(!existsSync(privateRoot)&&!existsSync(safeRoot));mkdirSync(safeRoot,{recursive:true,mode:0o700});
   const sourceFiles=authority.listRuntimeSourceFiles(root);
   if(!suitePresent(command[7],sourceFiles)){
@@ -75,14 +99,15 @@ async function run(){
   writeFileSync(manifestInput,JSON.stringify({root,head,sourceFiles}),{mode:0o600,flag:'wx'});
   const build=join(root,'apps/web/.next-fullstack-e2e');assert(!existsSync(build),'Owned fresh production build required');
   const privateLog=join(privateRoot,'execution.log'),fd=openSync(privateLog,'wx',0o600);
-  let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE';
+  let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE',adapter,adapterState,runtimeBefore;
   const cleanupFailures=[];
   const execute=async(executable,args,environment=process.env)=>{
     const child=spawn(executable,args,{cwd:root,env:environment,stdio:['ignore',fd,fd]});
     const [code,signal]=await once(child,'exit');assert.equal(signal,null);assert.equal(code,0);
   };
   try{
-    await execute(process.execPath,[join(support,'wsx-board-native-runtime-prepare.mjs'),'--root',root,'--head',head,'--data-dir',data,'--source-manifest',manifestInput,'--postgres-tool-root',toolRoot,...(command[7].includes('files')?['--file-storage-attestation']:[])]);
+    if(isPeer)adapter=await import(pathToFileURL(join(root,'apps/web/e2e/support/r08/r08-native-adapter.mjs')).href);
+    await execute(process.execPath,[join(support,'wsx-board-native-runtime-prepare.mjs'),'--root',root,'--head',head,'--data-dir',data,'--source-manifest',manifestInput,'--postgres-tool-root',toolRoot,...(command[7].includes('files')?['--file-storage-attestation']:[]),...(adapter?adapter.prepareArguments({proxyPort:36322}):[])]);
     phase='STARTUP';
     runtime=spawn(process.execPath,[join(support,'wsx-board-native-runtime-start.mjs'),join(data,'native-runtime-plan.json')],{cwd:root,env:process.env,stdio:['ignore',fd,fd]});
     runtimeState=runtimeSpawnState(runtime);
@@ -94,9 +119,12 @@ async function run(){
       assert(Date.now()<deadline,'Native startup deadline exceeded');await new Promise(resolve=>setTimeout(resolve,1000));
     }
     const manifest=JSON.parse(readFileSync(manifestPath,'utf8')),environment=JSON.parse(readFileSync(join(data,'native-runner-environment.json'),'utf8'));
+    const proof=()=>({manifestDigest:createHash('sha256').update(readFileSync(manifestPath)).digest('hex'),identity:authority.verifyRuntimeManifest({manifestPath,root,base:manifest.webBase,origin:manifest.apiBase,sourceFiles})});
+    runtimeBefore={proof,before:proof()};
+    if(adapter){const adapterRoot=join(data,'r08-acceptance');mkdirSync(adapterRoot,{mode:0o700});adapterState=await adapter.prepareEnvironment({root,privateRoot:adapterRoot,planPath:join(data,'native-runtime-plan.json'),manifestPath});assert.equal(adapterState.proxyPort,36322);}
     phase='ACCEPTANCE';
     const report=join(privateRoot,'playwright-report.json');
-    const env={...process.env,...environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
+    const env={...process.env,...environment,...adapterState?.environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
     const test=spawn(command[0],[...command.slice(1),'--reporter=json','--output',join(privateRoot,'artifacts')],{cwd:root,env,stdio:['ignore',fd,fd]});
     const [code,signal]=await once(test,'exit');exitCode=code;assert.equal(signal,null);assert.equal(typeof code,'number');
     if(code!==0)failureReason='ACCEPTANCE_FAILED';
@@ -109,6 +137,8 @@ async function run(){
     suiteResult(command[7],parsed);screenshotProof(command[7],screenshots);
   }catch{failureReason=failureReason??'NATIVE_RUN_FAILED';}
   finally{
+    if(adapterState)try{await adapterState.verifyEnd();}catch{cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
+    if(runtimeBefore)try{sameRuntimeProof(runtimeBefore.before,runtimeBefore.proof());}catch{cleanupFailures.push('END_RUNTIME_IDENTITY_CHANGED');}
     try{
       if(runtime){
         assert.equal(runtimeState.failed,false,'Owned runtime spawn failed');
@@ -118,7 +148,7 @@ async function run(){
         runtimeExitProof(runtimeExit.code,runtimeExit.signal,runtimeExit.wasAlive);
       }
     }catch{cleanupFailures.push('OWNED_RUNTIME_STOP_FAILED');}
-    for(const port of [36317,36320,36321])try{
+    for(const port of [36317,36320,36321,...(isPeer?[36322]:[])])try{
       const check=spawn('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN'],{stdio:['ignore',fd,fd]});const [code,signal]=await once(check,'exit');assert.equal(signal,null);assert.equal(code,1,`Owned runtime port not released: ${port}`);
     }catch{cleanupFailures.push(`OWNED_PORT_NOT_RELEASED:${port}`);}
     try{
