@@ -81,3 +81,17 @@ it("does not mistake a question about risk for an insight heading or invent list
   expect(screen.getAllByRole("heading", { name: "争议点与风险（1）" })).toHaveLength(1);
   expect(screen.getByText("这是普通回答。")).toBeVisible();
 });
+
+it("keeps provider top-level headings inside the attributed expert and repeated segments", () => {
+  const markdown = "## [护理角色](#expert-nurse-7)\n\n# 模拟访谈\n\n护理原始回答。\n\n## 关键观点\n\n- 护理交接待核实。\n\n## [医生角色](#expert-doctor-8)\n\n# 医生模拟访谈\n\n医生原始回答。\n\n## 核心发现\n\n- 医生分诊待核实。\n\n## [护理角色](#expert-nurse-7)\n\n## 续答\n\n护理续答。";
+  render(<InterviewRunsStep runs={[
+    { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
+    { expertId: "doctor-8", displayName: "医生角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
+  ]} document={{ documentId: "runs-provider-headings", step: "runs", version: 1, contentHash: "f".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
+  fireEvent.click(screen.getByRole("tab", { name: "护理角色" }));
+  expect(screen.getByText("护理原始回答。")).toBeVisible();
+  expect(screen.getByText("护理续答。")).toBeVisible();
+  expect(screen.queryByText("医生原始回答。")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "核心发现（1）" })).not.toBeInTheDocument();
+});
