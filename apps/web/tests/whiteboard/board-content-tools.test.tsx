@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin } from "@repo/whiteboard-core";
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { drawingEraserTargets } from "@/components/whiteboard/fabric/drawing-hit-test";
@@ -25,6 +25,9 @@ vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
     <button data-testid="resize-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, width: 80, height: 20 } }])}>resize</button>
     <button data-testid="rotate-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, rotation: 90 } }])}>rotate</button>
     <button data-testid="erase-stroke" onClick={() => { const points = [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }]; onDrawingComplete?.({ tool: "eraser", points, targetObjectIds: drawingEraserTargets(objects, points, 24) }); }}>erase</button>
+    <button data-testid="erase-no-ids" onClick={()=>onDrawingComplete?.({tool:'eraser',points:[{x:0,y:100,pressure:.5},{x:100,y:0,pressure:.5}]})}>erase precise without hints</button>
+    <button data-testid="erase-empty" onClick={()=>onDrawingComplete?.({tool:'eraser',points:[{x:300,y:300,pressure:.5},{x:400,y:400,pressure:.5}]})}>erase empty</button>
+    <button data-testid="erase-restricted" onClick={()=>onDrawingComplete?.({tool:'eraser',points:[{x:0,y:100,pressure:.5},{x:100,y:0,pressure:.5}],targetObjectIds:['first']})}>erase first only</button>
     <button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 200, y: 220 })}>canvas</button>
   </div>,
 }));
@@ -138,6 +141,23 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
   doc.destroy();
+});
+
+it('erases precise no-hint geometry once while preserving non-drawing, hidden and locked objects through undo/redo',async()=>{
+ const doc=await setup();const stroke:DrawingStroke={id:'vector',tool:'pen',color:'#18181B',width:3,opacity:1,points:[{x:0,y:0,pressure:.5},{x:100,y:100,pressure:.5}]};
+ act(()=>executeCommands(doc,['first','second','spoof','hidden','locked'].map(id=>({type:'create' as const,object:{id,schemaVersion:1,kind:id==='spoof'?'sticky' as const:'drawing' as const,geometry:{x:0,y:0,width:100,height:100,rotation:0},style:{},text:'',parentId:null,orderKey:'',hidden:id==='hidden',locked:id==='locked',extensionData:{contentObject:{version:1,type:'drawing',strokes:[stroke]}}}})),'fixture'));
+ const baseline=readObjects(doc),transactions:unknown[]=[];doc.on('afterTransaction',transaction=>{if(transaction.origin instanceof WhiteboardCommandOrigin)transactions.push(transaction);});
+ fireEvent.click(screen.getByTestId('erase-empty'));expect(readObjects(doc)).toEqual(baseline);expect(transactions).toHaveLength(0);
+ fireEvent.click(screen.getByTestId('erase-no-ids'));const erased=readObjects(doc);expect(transactions).toHaveLength(1);
+ for(const id of ['first','second'])expect(erased.find(object=>object.id===id)?.extensionData?.contentObject).toMatchObject({strokes:[stroke,{tool:'eraser',erases:['vector']}]});
+ for(const id of ['spoof','hidden','locked'])expect(erased.find(object=>object.id===id)).toEqual(baseline.find(object=>object.id===id));
+ fireEvent.click(screen.getByRole('button',{name:/^撤销$/}));expect(readObjects(doc)).toEqual(baseline);fireEvent.click(screen.getByRole('button',{name:/^重做$/}));expect(readObjects(doc)).toEqual(erased);
+ fireEvent.click(screen.getByRole('button',{name:/^撤销$/}));fireEvent.click(screen.getByTestId('erase-restricted'));expect(readObjects(doc).find(object=>object.id==='second')).toEqual(baseline.find(object=>object.id==='second'));expect(readObjects(doc).find(object=>object.id==='first')).not.toEqual(baseline.find(object=>object.id==='first'));doc.destroy();
+});
+
+it('blocked editing rejects geometric erase even when the callback omits target hints',async()=>{
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'blocked',schemaVersion:1,kind:'drawing',geometry:{x:0,y:0,width:100,height:100,rotation:0},style:{},text:'',parentId:null,orderKey:'',extensionData:{contentObject:{version:1,type:'drawing',strokes:[{id:'vector',tool:'pen',width:3,opacity:1,color:'#18181B',points:[{x:0,y:0,pressure:.5},{x:100,y:100,pressure:.5}]}]}}}}],'fixture');
+ render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly title="Read only" status="已连接"/>);const baseline=readObjects(doc),transactions:unknown[]=[];doc.on('afterTransaction',transaction=>transactions.push(transaction));fireEvent.click(screen.getByTestId('erase-no-ids'));expect(readObjects(doc)).toEqual(baseline);expect(transactions).toHaveLength(0);doc.destroy();
 });
 
 it("hides legacy Arrow/Frame creation and shortcuts without creating objects", async () => {
@@ -516,6 +536,79 @@ it("exposes the import callback in the editor header",async()=>{
   const view=render(<CollaborativeEditor boardId="content-board" clientId="client" doc={doc} readOnly={false} title="Board" status="已连接" onImport={onImport}/>);
   fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
   const button=await screen.findByTestId('board-import-open');fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
+});
+
+it("retries a failed canvas drop at its original coordinates with the original file", async()=>{
+ const doc=await setup();const transport=fetch;let fail=true;
+ vi.stubGlobal('fetch',vi.fn((url:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'&&fail?(fail=false,Promise.resolve(new Response(null,{status:503}))):transport(url,init)));
+ const file=new File([byteBuffer(png(40,30))],'retry-drop.png',{type:'image/png'}),drop=createEvent.drop(screen.getByTestId('collaborative-editor'));
+ Object.defineProperties(drop,{clientX:{value:300},clientY:{value:240},dataTransfer:{value:{files:[file],items:[{kind:'file'}]}}});
+ fireEvent(screen.getByTestId('collaborative-editor'),drop);
+ await screen.findByTestId('board-image-retry');expect(readObjects(doc)).toHaveLength(0);
+ fireEvent.click(screen.getByTestId('board-image-retry'));
+ await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));
+ expect(readObjects(doc)[0]).toMatchObject({geometry:{x:140,y:120},extensionData:{contentObject:{fileName:'retry-drop.png',intrinsicWidth:40,intrinsicHeight:30}}});
+ expect(screen.queryByTestId('board-image-retry')).toBeNull();doc.destroy();
+});
+
+it("does not cancel the first upload when another entrypoint fires while it is busy",async()=>{
+ const {doc}=await setupView();let finish!:(value:unknown)=>void;
+ const decode=vi.fn(()=>new Promise(resolve=>{finish=resolve;}));vi.stubGlobal('createImageBitmap',decode);
+ const input=screen.getByTestId('board-image-input');const file=new File([byteBuffer(png())],'first.png',{type:'image/png'});
+ fireEvent.change(input,{target:{files:[file]}});
+ await waitFor(()=>expect(decode).toHaveBeenCalledTimes(1));
+ fireEvent.paste(screen.getByTestId('collaborative-editor'),{clipboardData:{files:[new File([byteBuffer(png())],'second.png',{type:'image/png'})],getData:()=>''}});
+ expect(decode).toHaveBeenCalledTimes(1);expect(input).toBeDisabled();
+ await act(async()=>finish({width:32,height:24,close:vi.fn()}));
+ await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));
+ expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({fileName:'first.png'});doc.destroy();
+});
+
+it("does not upload or commit after readonly changes during image decoding",async()=>{
+ const {doc,rerender}=await setupView();let finish!:(value:unknown)=>void;
+ vi.stubGlobal('createImageBitmap',vi.fn(()=>new Promise(resolve=>{finish=resolve;})));
+ fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'revoked.png',{type:'image/png'})]}});
+ await waitFor(()=>expect(finish).toBeDefined());
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+ rerender(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly title="内容板" status="只读"/>);
+ await act(async()=>finish({width:32,height:24,close:vi.fn()}));
+ expect(readObjects(doc)).toHaveLength(0);
+ expect(vi.mocked(fetch).mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+ expect(screen.getByTestId('board-image-input')).toBeDisabled();doc.destroy();
+});
+
+it("accepts a modal file drop through the durable image upload path",async()=>{
+ const doc=await setup();fireEvent.click(screen.getByTestId('board-add-image'));
+ const dialog=screen.getByRole('dialog');const drop=createEvent.drop(dialog);
+ Object.defineProperty(drop,'dataTransfer',{value:{files:[new File([byteBuffer(png())],'dialog-drop.png',{type:'image/png'})],types:['Files']}});
+ fireEvent(dialog,drop);await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));
+ expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({fileName:'dialog-drop.png',persistence:'durable'});doc.destroy();
+});
+
+it("erases only hit unlocked drawings in one undo/redo gesture without selecting them",async()=>{
+ const doc=await setup();
+ const content={version:1,type:'drawing',strokes:[{id:'ink',tool:'pen',width:3,color:'#18181B',opacity:1,points:[{x:10,y:20,pressure:.5},{x:50,y:60,pressure:.5}]}]};
+ act(()=>executeCommands(doc,[0,1,2].map(index=>({type:'create' as const,object:{id:`drawing-${index}`,schemaVersion:1 as const,kind:'drawing' as const,geometry:{x:10+index*5,y:20+index*5,width:40,height:40,rotation:0},text:'',style:{},parentId:null,orderKey:String(index),locked:index===2,extensionData:{contentObject:content}}})),'seed'));
+ fireEvent.click(screen.getByTestId('erase-stroke'));
+ const strokes=(index:number)=>(readObjects(doc).find(object=>object.id===`drawing-${index}`)!.extensionData!.contentObject as {strokes:unknown[]}).strokes;
+ expect(strokes(0)).toHaveLength(2);expect(strokes(1)).toHaveLength(2);expect(strokes(2)).toHaveLength(1);
+ fireEvent.click(screen.getByRole('button',{name:'撤销'}));
+ expect(strokes(0)).toHaveLength(1);expect(strokes(1)).toHaveLength(1);expect(strokes(2)).toHaveLength(1);
+ fireEvent.click(screen.getByRole('button',{name:'重做'}));
+ expect(strokes(0)).toHaveLength(2);expect(strokes(1)).toHaveLength(2);expect(strokes(2)).toHaveLength(1);doc.destroy();
+});
+
+it("retains the original replacement target when retrying after the image dialog closes",async()=>{
+ const doc=await setup(),input=screen.getByTestId('board-image-input');
+ fireEvent.change(input,{target:{files:[new File([byteBuffer(png())],'original.png',{type:'image/png'})]}});
+ await waitFor(()=>expect(readObjects(doc)).toHaveLength(1));const original=readObjects(doc)[0]!;
+ openAppearance();fireEvent.click(screen.getByRole('button',{name:'替换'}));
+ const transport=fetch;let fail=true;vi.stubGlobal('fetch',vi.fn((url:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'&&fail?(fail=false,Promise.resolve(new Response(null,{status:503}))):transport(url,init)));
+ fireEvent.change(input,{target:{files:[new File([byteBuffer(png(64,48))],'replacement-retry.png',{type:'image/png'})]}});
+ await screen.findByTestId('board-image-retry');fireEvent.click(screen.getByTestId('board-image-close'));
+ fireEvent.click(screen.getByTestId('board-image-retry'));
+ await waitFor(()=>expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({fileName:'replacement-retry.png',intrinsicWidth:64}));
+ expect(readObjects(doc)).toHaveLength(1);expect(readObjects(doc)[0]!.id).toBe(original.id);expect(readObjects(doc)[0]!.geometry).toEqual(original.geometry);doc.destroy();
 });
 
 it("places one Shape per gesture then returns to Select and remembers the variant",async()=>{

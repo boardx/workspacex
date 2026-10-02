@@ -22,7 +22,19 @@ it('does not offer mutation for readonly or locked users',()=>{
 });
 it('exposes the connector only through explicit integration gate while preserving the current hidden Frame creation entry',()=>{
  const change=vi.fn(),props={activeTool:'select' as const,creationTool:null,readOnly:false,onToolChange:vi.fn(),onCreationToolChange:change,onQuickCreate:vi.fn(),onBulkSticky:vi.fn(),onImageRequest:vi.fn()};
- const view=render(<BoardBottomDock {...props}/>);expect(screen.queryByTestId('board-add-connector')).toBeNull();
- view.rerender(<BoardBottomDock {...props} connectorEnabled/>);fireEvent.click(screen.getByTestId('board-add-connector'));expect(change).toHaveBeenCalledWith({kind:'connector',connectorType:'straight'});expect(screen.queryByTestId('board-add-frame')).toBeNull();
+ const view=render(<BoardBottomDock {...props}/>);expect(screen.queryAllByTestId('board-add-connector')).toHaveLength(0);
+ view.rerender(<BoardBottomDock {...props} connectorEnabled/>);expect(screen.getAllByTestId('board-add-connector')).toHaveLength(1);fireEvent.click(screen.getByTestId('board-add-connector'));expect(change).toHaveBeenCalledWith({kind:'connector',connectorType:'straight'});expect(screen.queryByTestId('board-add-frame')).toBeNull();
  view.rerender(<BoardBottomDock {...props} connectorEnabled creationTool={{kind:'connector',connectorType:'curve'}}/>);expect(screen.getByTestId('board-connector-curve')).toHaveAttribute('aria-pressed','true');expect(screen.getByTestId('board-add-connector').querySelector('[data-connector-preview="curve"]')).not.toBeNull();
+});
+it('keeps one gated connector after image without replacing the other dock entries',()=>{
+ const props={activeTool:'select' as const,creationTool:null,readOnly:false,onToolChange:vi.fn(),onCreationToolChange:vi.fn(),onQuickCreate:vi.fn(),onBulkSticky:vi.fn(),onImageRequest:vi.fn()};
+ const view=render(<BoardBottomDock {...props} connectorEnabled/>);
+ const ids=['board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-connector','board-add-more'];
+ for(const id of ids)expect(screen.getAllByTestId(id)).toHaveLength(1);
+ const entries=ids.map(id=>screen.getByTestId(id));
+ for(let index=1;index<entries.length;index++)expect(entries[index-1]!.compareDocumentPosition(entries[index]!)&Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+ expect(screen.getByTestId('board-add-connector').querySelector('svg.lucide-chevron-up')).not.toBeNull();
+ view.rerender(<BoardBottomDock {...props} connectorEnabled={false}/>);
+ expect(screen.queryAllByTestId('board-add-connector')).toHaveLength(0);
+ for(const id of ids.filter(id=>id!=='board-add-connector'))expect(screen.getAllByTestId(id)).toHaveLength(1);
 });
