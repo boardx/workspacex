@@ -971,6 +971,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
       }
       if (stateRef.current.tool !== "hand") return;
+      canvas._currentTransform = null;
       panning = true;
       panStart = [...canvas.viewportTransform];
       last = input;
@@ -1131,7 +1132,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const richProjectionChanged = Boolean(current && revisionChanged && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
         const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (revisionChanged || connectorAppearanceChanged));
         const replace = !current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged));
-        const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable === readOnly);
+        const interactive = !readOnly && stateRef.current.tool === "select" && !object.hidden && object.kind !== "placeholder";
+        const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable !== interactive || current?.evented !== interactive);
         return [object.id, { connectorRenderIdentity, failedAtThisRevision, replace, patch }] as const;
       }));
       // Preview echoes may replace the array without changing selected objects.
@@ -1181,6 +1183,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           }
         }
         const projected = registryRef.current.get(object.id);
+        if (projected) {
+          // Canonical refreshes must not reactivate object dragging under navigation or drawing tools.
+          const interactive = !readOnly && stateRef.current.tool === "select" && !rendered.hidden && rendered.kind !== "placeholder";
+          projected.set({ selectable: interactive, evented: interactive });
+        }
         if (projected?.data) projected.data.connectorRenderIdentity = connectorRenderIdentity;
         renderedRef.current.set(object.id, rendered);
         nextRendered.push(rendered);
