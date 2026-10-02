@@ -10,6 +10,7 @@ import {
   type SurveyWorkflowQuestion,
   type SurveyAnswerValue,
 } from "@repo/contracts/survey-question-types";
+import { surveyQuestionsContentSignature } from "@repo/contracts/survey-source";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,7 +80,7 @@ export function SurveyQuestionEditor({
   >({});
   const [draggingType, setDraggingType] = React.useState<SurveyQuestionType | null>(null);
   const lastEmittedSignature = React.useRef<string | null>(null);
-  const questionsSignature = JSON.stringify(questions);
+  const questionsSignature = surveyQuestionsContentSignature(questions);
   React.useEffect(() => {
     if (lastEmittedSignature.current === questionsSignature) {
       lastEmittedSignature.current = null;
@@ -98,7 +99,7 @@ export function SurveyQuestionEditor({
     all.map((q, i) => ({ ...q, order: i + 1 }));
   const snapshot = (all: SurveyWorkflowQuestion[]) => structuredClone(all);
   const emit = (all: SurveyWorkflowQuestion[]) => {
-    lastEmittedSignature.current = JSON.stringify(all);
+    lastEmittedSignature.current = surveyQuestionsContentSignature(all);
     onChange(all);
   };
   const change = (all: SurveyWorkflowQuestion[], recordHistory = true) => {
