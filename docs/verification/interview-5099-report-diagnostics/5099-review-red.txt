@@ -1,0 +1,49 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts (13 tests | 2 failed) 24ms
+   × report diagnostics without research or credential disclosure > distinguishes invalid_format while preserving the public error 8ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { data: { stage: 'validation', …(1) } }
+(9 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > distinguishes invalid_format while preserving the public error 2ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { data: { stage: 'validation', …(1) } }
+(9 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes invalid_format while preserving the public error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > distinguishes invalid_format while preserving the public error
+AssertionError: expected { traceId: 'http-trace-diag', …(5) } to match object { data: { stage: 'validation', …(1) } }
+(9 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "data": Object {
+-     "stage": "validation",
++     "stage": "model",
+      "timings": Object {
+        "validation": Any<Number>,
+      },
+    },
+  }
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:31:87
+     29|  expect(terminal()).toMatchObject({ traceId: input.traceId, data: { re…
+     30|  expect(JSON.stringify(events)).not.toContain(PRIVATE);
+     31|  if (reason === "invalid_format" || reason === "quality_rejected") exp…
+       |                                                                                       ^
+     32|  });
+     33|  it("reports provider code without detail or message", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+   Start at  22:10:18
+   Duration  2.19s (transform 1.20s, setup 0ms, collect 1.95s, tests 24ms, environment 0ms, prepare 62ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /private/tmp/wsx-interview-5019-acceptance/diagnostics-unit.config.mjs

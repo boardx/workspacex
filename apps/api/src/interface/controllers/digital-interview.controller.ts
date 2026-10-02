@@ -1,5 +1,6 @@
+import { traceIdOf } from "../middleware/trace";
 import { updateDigitalInterviewMetadata, deleteDigitalInterview } from "../../application/interview/manage-digital-interview";
-import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, Optional, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, Optional, NotFoundException, Param, Post, Query, Req, Res, ServiceUnavailableException } from "@nestjs/common";
 import { INTERVIEW_MARKDOWN_READER, initializeInterviewMarkdown, readInterviewMarkdown, saveInterviewMarkdownDraft, confirmInterviewMarkdownDraft, branchInterviewMarkdownRevision, type InterviewMarkdownReader } from "../../application/interview/read-interview-markdown";
 import { INTERVIEW_MARKDOWN_GENERATOR, type InterviewMarkdownGenerator } from "../../application/interview/generate-interview-markdown";
 import { INTERVIEW_MARKDOWN_EXECUTION, type InterviewMarkdownExecutionRuntime } from "../../application/interview/interview-markdown-execution.port";
@@ -123,13 +124,13 @@ export class DigitalInterviewController {
   }
 
   @Post("/:interviewId/markdown/:step/generate")
-  async generateMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
+  async generateMarkdown(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
     assertPrincipal(principal);
     const input = this.parse(interviewMarkdown.GenerateInterviewMarkdown, body);
     const generationStep = this.parse(interviewMarkdown.InterviewMarkdownGenerationStep, step);
     if (!this.markdownGenerator) throw new ServiceUnavailableException();
     try {
-      return await this.markdownGenerator.generate({ ...input, step: generationStep,
+      return await this.markdownGenerator.generate({ ...input, step: generationStep, traceId: traceIdOf(req),
         orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId,
       });
     } catch (error) { return this.translate(error); }

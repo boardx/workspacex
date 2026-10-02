@@ -77,6 +77,13 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
     onCreationToolChange(null);
     onToolChange('select');
   };
+  const transferToolPointerToDrag = (event: React.DragEvent<HTMLElement>) => {
+    const source = event.target instanceof Element ? event.target.closest('[data-board-create-tool]') : null;
+    if (source && dockRef.current?.contains(source) && Array.from(event.dataTransfer.types ?? []).includes('application/x-workspacex-board-tool')) {
+      // Native HTML drag owns this gesture and may emit pointercancel on takeover.
+      heldToolPointer.current = null;
+    }
+  };
   // React portals retain this component ancestry even though their DOM lives
   // outside nav. Do not unmount an extension before its portal receives a click
   // or before Dialog restores focus after Escape.
@@ -98,7 +105,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
   const panelOpen = creationTool?.kind === "panel";
   return (
     <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={startToolPointer} onPointerUpCapture={finishToolPointer} onPointerCancel={cancelToolPointer} onLostPointerCapture={cancelToolPointer} onKeyDownCapture={capturePortalEvent}
-      onDragStart={(event) => { toolDragActive.current = Boolean(dockRef.current?.contains(event.target as Node) && Array.from(event.dataTransfer.types ?? []).includes("application/x-workspacex-board-tool")); }}
+      onDragStart={(event) => { transferToolPointerToDrag(event); toolDragActive.current = Boolean(dockRef.current?.contains(event.target as Node) && Array.from(event.dataTransfer.types ?? []).includes("application/x-workspacex-board-tool")); }}
       onDragEnd={() => {
         if (!toolDragActive.current) return;
         toolDragActive.current = false;
