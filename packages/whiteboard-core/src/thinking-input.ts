@@ -17,8 +17,10 @@ export const STICKY_COLOR_PRESETS = {
 
 export type StickyColorPreset = keyof typeof STICKY_COLOR_PRESETS;
 export type StickyColor = { preset: StickyColorPreset } | { custom: string };
-export type StickyVariant = 'square' | 'rectangle' | 'circle';
-export type StickySizingMode = 'auto-height' | 'fixed' | 'auto-size';
+export const STICKY_VARIANTS = ['square', 'rectangle', 'circle'] as const;
+export const STICKY_SIZING_MODES = ['auto-height', 'fixed', 'auto-size'] as const;
+export type StickyVariant = typeof STICKY_VARIANTS[number];
+export type StickySizingMode = typeof STICKY_SIZING_MODES[number];
 export type TextStylePreset = 'title' | 'heading' | 'subheading' | 'body' | 'caption';
 export type TextAlignment = 'left' | 'center' | 'right';
 export type TextListStyle = 'none' | 'bullet' | 'number';
@@ -117,6 +119,30 @@ export function validateTextAttributes(input: TextAttributes): CanonicalTextAttr
     list,
     link,
   };
+}
+
+/** Only validated non-reference metadata can bypass opaque reference checks. */
+export function isKnownThinkingInputMetadata(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const metadata = value as Record<string, unknown>;
+  if (!Object.keys(metadata).length || Object.keys(metadata).some(key => !['sticky', 'text'].includes(key))) return false;
+  try {
+    if (metadata.sticky !== undefined) {
+      if (!metadata.sticky || typeof metadata.sticky !== 'object' || Array.isArray(metadata.sticky)) return false;
+      const sticky = metadata.sticky as Record<string, unknown>;
+      if (Object.keys(sticky).some(key => !['variant', 'sizing', 'color'].includes(key))) return false;
+      if (!STICKY_VARIANTS.includes(sticky.variant as StickyVariant) || !STICKY_SIZING_MODES.includes(sticky.sizing as StickySizingMode) || typeof sticky.color !== 'string') return false;
+      resolveStickyColor({ custom: sticky.color });
+    }
+    if (metadata.text !== undefined) {
+      if (!metadata.text || typeof metadata.text !== 'object' || Array.isArray(metadata.text)) return false;
+      const text = metadata.text as Record<string, unknown>;
+      if (['bold', 'italic', 'underline'].some(key => text[key] !== undefined && typeof text[key] !== 'boolean')) return false;
+      const parsed = validateTextAttributes(text as unknown as TextAttributes);
+      if (Object.entries(text).some(([key, field]) => !Object.hasOwn(parsed, key) || parsed[key as keyof typeof parsed] !== field)) return false;
+    }
+    return true;
+  } catch { return false; }
 }
 
 export interface TextInputIntent {
@@ -246,8 +272,8 @@ export function createStickyBatchEnvelope(input: StickyBatchInput): BoardCommand
   if (ids.some(id => !OBJECT_ID.test(id)) || new Set(ids).size !== ids.length) throw new Error('STICKY_ID_INVALID');
   const variant = input.variant ?? 'square';
   const sizing = input.sizing ?? 'auto-height';
-  if (!(['square', 'rectangle', 'circle'] as const).includes(variant)) throw new Error('STICKY_VARIANT_INVALID');
-  if (!(['auto-height', 'fixed', 'auto-size'] as const).includes(sizing)) throw new Error('STICKY_SIZING_INVALID');
+  if (!STICKY_VARIANTS.includes(variant)) throw new Error('STICKY_VARIANT_INVALID');
+  if (!STICKY_SIZING_MODES.includes(sizing)) throw new Error('STICKY_SIZING_INVALID');
   const color = resolveStickyColor(input.color ?? { preset: 'yellow' });
   const text = validateTextAttributes(input.text ?? { preset: 'body' });
 

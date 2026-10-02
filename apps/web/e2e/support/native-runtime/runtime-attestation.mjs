@@ -87,13 +87,19 @@ function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
   assert.deepEqual(manifest.sourceHashes,committedRuntimeSourceHashes(root,manifest.head,sourceFiles),'runtime source must match exact attested commit, not matching dirty source');
   for(const kind of ['web','api']) {
     const process=manifest.processes.find(item=>item.kind===kind);
+    const identityCwd={service:kind,pidAlive:null,commandExit:null,pathPresent:false,pathEqual:false,childExitCode:null,childSignal:null};
     identityOperation('IDENTITY_CWD',()=>{
     assert(process&&Number.isInteger(process.pid)&&process.pid>0,'runtime child pid required');
-    const cwd=execFileSync('lsof',['-a','-p',String(process.pid),'-d','cwd','-Fn'],{encoding:'utf8'}).split('\n').find(line=>line.startsWith('n'))?.slice(1);
+    try{globalThis.process.kill(process.pid,0);identityCwd.pidAlive=true;}catch(error){if(error.code==='ESRCH')identityCwd.pidAlive=false;}
+    let cwd;
+    try{cwd=execFileSync('lsof',['-a','-p',String(process.pid),'-d','cwd','-Fn'],{encoding:'utf8'}).split('\n').find(line=>line.startsWith('n'))?.slice(1);identityCwd.commandExit=0;}
+    catch(error){identityCwd.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
+    identityCwd.pathPresent=Boolean(cwd);
     assert(cwd,'runtime process must still exist');
+    identityCwd.pathEqual=realpathSync(cwd)===realpathSync(process.cwd);
     assert.equal(realpathSync(cwd),realpathSync(process.cwd));
     assert(realpathSync(cwd).startsWith(canonical+'/'),'runtime must execute within candidate');
-    });
+    },identityCwd);
     const url=new URL(kind==='web'?base:origin),port=url.port|| (url.protocol==='https:'?'443':'80');
     identityOperation('IDENTITY_LISTENER',()=>{
     const listeners=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'}).trim().split('\n').map(Number);
