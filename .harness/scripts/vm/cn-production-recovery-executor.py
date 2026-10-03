@@ -70,6 +70,11 @@ def main(args):
  finally:os.close(directory)
  executor.guard();journal.record('receipt-durable',receiptSha256=sha(raw))
  return {'schemaVersion':1,'kind':'production-recovery-completed','identity':identity,'receiptSha256':sha(raw),'writesHeld':True,'ready':False}
+def cli(args):
+ try:return 0,main(args)
+ except BaseException:
+  # A prior guard is not a fresh post-failure observation. Bootstrap, auth,
+  # capability and first-guard failures may occur without any held proof.
+  return 1,{'error':'PRODUCTION_RECOVERY_REJECTED','writesHeld':None,'writeState':'unproven','ready':False}
 if __name__=='__main__':
- try:print(json.dumps(main(sys.argv[1:]),sort_keys=True))
- except BaseException:print(json.dumps({'error':'PRODUCTION_RECOVERY_REJECTED','writesHeld':True,'ready':False}));sys.exit(1)
+ code,value=cli(sys.argv[1:]);print(json.dumps(value,sort_keys=True));sys.exit(code)

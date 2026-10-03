@@ -1,6 +1,6 @@
 """Fixed maintenance probes. No caller-selected executables or privileged actions on import."""
 import os,json,time,pathlib,hashlib,re,urllib.request
-from writer_fence import require,digest,DATABASES,Journal
+from writer_fence import require,digest,DATABASES,Journal,validate_admission_plan
 HOLD_HELPER='/usr/local/lib/workspacex-cn/cn_maintenance_hold.py'
 HOLD_DIRECTORY='/var/lib/workspacex-cn/runtime'
 PROFILE='/etc/workspacex-cn/trusted-tool-binding.json'
@@ -22,6 +22,7 @@ def classify_processes(plan,processes,self_pid):
  return unknown
 
 def validate_roles(plan,db,observation):
+ validate_admission_plan(plan)
  require(observation['peer']==plan['databasePeers'][db] and observation['tls']['ssl'] is True,'ROLE_PEER_TLS')
  require(observation['currentRole']==plan['diagnosticRole'] and all(v is False for v in observation['diagnosticPrivileges'].values()) and set(observation['diagnosticPrivileges'])=={'databaseWrite','schemaWrite','tableWrite','sequenceWrite','definerExecute','privilegedMembership'},'DIAGNOSTIC_EFFECTIVE_WRITE_PRIVILEGE')
  roles=observation['roles'];require(len({r['name'] for r in roles})==len(roles),'ROLE_INVENTORY_DUPLICATE')
@@ -88,7 +89,7 @@ class FixedProbes:
   spec=self.plan['acceptanceEvidence'];raw=private(spec['path']);require(hashlib.sha256(raw).hexdigest()==spec['sha256'],'ACCEPTANCE_RECEIPT_PIN');value=json.loads(raw)
   require(value['identity']==self.plan['identity'],'ACCEPTANCE_IDENTITY');return value
  def mutate_admission(self,action):
-  t=self.transport;p=self.plan;t.require_lock();h=self.hold();require(h['state']=='held' and h['identity']==p['identity'] and h['generation']==p['holdGeneration'],'LOGIN_HELD_IDENTITY')
+  t=self.transport;p=self.plan;validate_admission_plan(p);t.require_lock();h=self.hold();require(h['state']=='held' and h['identity']==p['identity'] and h['generation']==p['holdGeneration'],'LOGIN_HELD_IDENTITY')
   actual,observations=self.admission();require(actual==action['before'],'LOGIN_ADMISSION_CAS')
   require(action['after'] in (p['closedAdmission'],p['originalAdmission']),'LOGIN_AFTER_AUTHORITY')
   journal=Journal(p['journalDirectory'],p['identity'])

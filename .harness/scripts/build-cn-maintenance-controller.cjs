@@ -8,7 +8,7 @@ const check=process.argv.slice(2).join(' ')==='--check';
 if(process.argv.length>2&&!check)throw Error('BUILD_USAGE');
 function build(source,target,banner){
  const artifact=path.join(root,target);
- const result=esbuild.buildSync({entryPoints:[path.join(root,source)],outfile:artifact,write:false,bundle:true,platform:'node',format:'cjs',target:'node20',legalComments:'none',banner:{js:banner}});
+ const result=esbuild.buildSync({entryPoints:[path.join(root,source)],outfile:artifact,write:false,bundle:true,absWorkingDir:root,minify:true,platform:'node',format:'cjs',target:'node20',legalComments:'none',banner:{js:banner}});
  const bytes=result.outputFiles[0].contents;
  if(check){if(!fs.existsSync(artifact)||!Buffer.from(bytes).equals(fs.readFileSync(artifact)))throw Error('COMMITTED_TOOL_BUNDLE_DRIFT:'+target);}
  else fs.writeFileSync(artifact,bytes);

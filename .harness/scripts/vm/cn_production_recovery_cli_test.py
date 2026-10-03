@@ -18,7 +18,13 @@ class BootstrapTests(unittest.TestCase):
  def test_development_checkout_refused_with_only_redacted_json(self):
   result=subprocess.run([sys.executable,'-B',str(ROOT/'cn-production-recovery-executor.py'),'--preflight-capability','/not/read'],capture_output=True,text=True)
   self.assertEqual(result.returncode,1);self.assertEqual(result.stderr,'')
-  self.assertEqual(json.loads(result.stdout),{'error':'PRODUCTION_RECOVERY_REJECTED','writesHeld':True,'ready':False})
+  self.assertEqual(json.loads(result.stdout),{'error':'PRODUCTION_RECOVERY_REJECTED','writesHeld':None,'writeState':'unproven','ready':False})
+ def test_bootstrap_authorization_capability_and_guard_failures_never_claim_held(self):
+  module=load('bootstrap_failure_state','cn-production-recovery-executor.py')
+  for failure in ('BOOTSTRAP_CLOSURE','AUTHORIZATION_REJECTED','CAPABILITY_REJECTED','FIRST_GUARD_REJECTED','POST_MUTATION_GUARD_REJECTED'):
+   with self.subTest(failure=failure),mock.patch.object(module,'main',side_effect=RuntimeError(failure)):
+    code,value=module.cli(['--execute-production-recovery','/unused'])
+    self.assertEqual(code,1);self.assertIsNone(value['writesHeld']);self.assertEqual(value['writeState'],'unproven');self.assertFalse(value['ready'])
 class ProviderIdentityTests(unittest.TestCase):
  def setUp(self):self.module=load('provider_identity','cn-production-rds-identity-probe.py')
  def response(self,items,code=0):return subprocess.CompletedProcess([],code,json.dumps({'Items':{'DBInstanceAttribute':items}}).encode(),b'private')

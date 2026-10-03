@@ -84,11 +84,9 @@ def actual_api(plan,side):
  return actual[0]
 
 def live_drain(plan):
- # Pinned existing deploy route, strengthened to block paused/HITL run states.
- actual_api(plan,'baseline')
- code=installed_code('cn-maintenance-drain.cjs').decode()+"\nmodule.exports.run(process.env,require('pg').Client).then(v=>process.stdout.write(JSON.stringify(v))).catch(()=>process.exit(1));"
- result=json.loads(invoke(plan,'docker',['exec','workspacex-cn-api-1','node','-e',code]))
- require(set(result)=={'queued','running','writebackPending'} and all(type(v) is int and v>=0 for v in result.values()),'LIVE_DRAIN_SCHEMA');return result
+ # Held drain is consumed through the sealed diagnostic session in the parent
+ # writer server. Never unpause API or establish a container/new DB connection.
+ raise RuntimeError('SEALED_DIAGNOSTIC_DRAIN_REQUIRED')
 
 def api_job(plan,script):
  require(script in ('scripts/data-readiness.ts','scripts/cloud-service-readiness.ts'),'FIXED_CANONICAL_SCRIPT')

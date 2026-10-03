@@ -56,7 +56,7 @@ export async function createProductionConsumers(plan:EntryPlan,profile:any,fixtu
   return lifecycle.invoke(cb as typeof writerCallbacks[number],plan.identity);
  };
 
- const activation=io.activation(activationBinding);
+ const activation={...io.activation(activationBinding),drainRuns:()=>lifecycle.readRunDrain(plan.identity)};
  const manifest=io.readBytes(v.prepared.manifest.path,v.prepared.manifest.sha256);
  const inputs:ProtectedOperationInputs={lane:'maintenance',preparedReceipt:io.readJson(v.prepared.receipt.path,v.prepared.receipt.sha256),preparedManifest:manifest,
  verifyOfflineArtifacts:verifyOfflineManifest(plan.identity,manifest,v.prepared.manifest.sha256,v.dockerRuntime),migration:migrationInputs,migrationTransport:io.migration(migrationInputs,boundMigration,runWriter,{migrateExactPlan:identity=>lifecycle.migrateExactPlan(identity),readDiagnosticLedger:identity=>lifecycle.readDiagnosticLedger(identity),recordMigrationCompletion:(identity,stage,receipt)=>lifecycle.recordMigrationCompletion(identity,stage,receipt)}),activation,

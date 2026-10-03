@@ -1,3 +1,4 @@
+import { rejectLegacyHeldPreflight } from './acceptance_contract';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import { type TrustedExecutable, type CommandRunner, protectedPrivateJson } from './fixed_transport';
 
@@ -21,8 +22,9 @@ export function productionDynamicActions(collector: TrustedExecutable, verifier:
   return {
     verifyProductionDynamic: async (identity: MaintenanceIdentity) => {
       if (!/^[a-f0-9]{40}$/.test(identity.sourceRevision) || !/^[a-zA-Z0-9-]{1,128}$/.test(identity.attemptId)) throw new Error('DYNAMIC_IDENTITY_INVALID');
-      await runBash(collector, ['--maintenance', 'preactivate', identity.sourceRevision, release, identity.attemptId]);
-      collectedIdentity = { ...identity };
+      // Legacy collector starts a bootstrap container/new connections. Never
+      // run it while every ordinary writer is held or call its result held PASS.
+      rejectLegacyHeldPreflight();
     },
     verifyPreactivate: async (identity: MaintenanceIdentity) => {
       if (!collectedIdentity || JSON.stringify(collectedIdentity) !== JSON.stringify(identity)) throw new Error('DYNAMIC_GATE_NOT_COLLECTED');

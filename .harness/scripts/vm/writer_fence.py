@@ -6,6 +6,24 @@ DATABASES=('workspacex','workspacex_agent','workspacex_memory')
 def require(ok,code):
  if not ok:raise RuntimeError(code)
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+def validate_admission_plan(plan):
+ roles=plan.get('databaseWriterRoles')
+ require(type(roles) is dict and set(roles)==set(DATABASES),'WRITER_ROLE_DATABASE_CLOSURE')
+ for mode in ('closedAdmission','originalAdmission'):
+  value=plan.get(mode)
+  require(type(value) is dict and set(value)=={'kind','login'} and value['kind']=='role-login-v1' and type(value['login']) is dict and set(value['login'])==set(DATABASES),'ROLE_ADMISSION_SCHEMA')
+  for db in DATABASES:
+   targets=roles[db];login=value['login'][db]
+   require(type(targets) is list and targets and all(type(r) is str and r for r in targets) and len(set(targets))==len(targets) and plan['diagnosticRole'] not in targets,'WRITER_ROLE_TARGETS')
+   require(type(login) is dict and set(login)==set(targets) and all(type(v) is bool for v in login.values()),'ROLE_ADMISSION_TARGET_CLOSURE')
+   if mode=='closedAdmission':require(all(v is False for v in login.values()),'CLOSED_WRITER_ROLE_LOGIN_ENABLED')
+ # PostgreSQL roles are cluster-wide: per-database views must not disagree.
+ for i,db in enumerate(DATABASES):
+  for other in DATABASES[:i]:
+   a,b=plan['databasePeers'][db],plan['databasePeers'][other]
+   if a.get('systemIdentifier') is not None and a.get('systemIdentifier')==b.get('systemIdentifier'):
+    require(set(roles[db])==set(roles[other]) and all(plan[m]['login'][db]==plan[m]['login'][other] for m in ('closedAdmission','originalAdmission')),'CLUSTER_ROLE_ADMISSION_DIVERGENCE')
+
 class Journal:
  def __init__(self,directory,identity,uid=0,boundary=None):
   self.directory=pathlib.Path(directory);self.uid=uid
@@ -52,6 +70,7 @@ class Journal:
 class WriterFenceAdapter:
  def __init__(self,identity,plan,transport,journal):
   self.identity=identity;self.plan=plan;self.transport=transport;self.journal=journal
+  validate_admission_plan(plan)
   require(plan['identity']==identity and plan['sourceEvidenceSha256'] and plan['host']['instanceId'],'PLAN_IDENTITY')
   require(set(plan['databasePeers'])==set(DATABASES),'THREE_DATABASE_PLAN')
   require({f for b in plan['writers'] for f in b['families']}==set(FAMILIES),'WRITER_FAMILY_CLOSURE')
@@ -62,6 +81,7 @@ class WriterFenceAdapter:
  def hold(self):
   h=self.transport.read_hold();require(h['identity']==self.identity and h['generation']==self.plan['holdGeneration'] and h['state']=='held','HOLD_NOT_PROVEN');return h
  def observe(self,expected_admission=None):
+  validate_admission_plan(self.plan)
   s=self.transport.observe(self.plan)
   require(s['host']==self.plan['host'] and 0<=time.time()-s['observedAt']<=30,'OBSERVATION_IDENTITY_FRESHNESS')
   require(set(s['scopes'])=={'host-proc','all-docker-containers','systemd-writer-units','three-db-sessions','database-admission'},'OBSERVATION_INCOMPLETE')
@@ -72,6 +92,8 @@ class WriterFenceAdapter:
   for b in self.plan['writers']:require(s['writers'][b['key']]['binding']==b['binding'],'WRITER_LIVE_IDENTITY_DRIFT')
   return s
  def assert_blocked(self,s):
+  validate_admission_plan(self.plan)
+  require(s['admission']==self.plan['closedAdmission'] and all(v is False for login in s['admission']['login'].values() for v in login.values()),'LIVE_WRITER_ROLE_LOGIN_ENABLED')
   require(all(v['state'] in ('paused','stopped') for v in s['writers'].values()),'WRITER_STILL_RUNNING')
   require(s['automationUnits']=={u:'masked' for u in self.plan['automationUnits']},'COMPETING_AUTOMATION_ENABLED')
   for db,value in s['databases'].items():

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real host command transport; no command runs at import. Explicit reviewed entry only."""
 import os,json,stat,pathlib,hashlib,subprocess,signal,time,re
-from writer_fence import require,DATABASES,digest
+from writer_fence import require,DATABASES,digest,validate_admission_plan
 SAFE_ENV={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','HOME':'/nonexistent','LC_ALL':'C'}
 DB_SQL="""BEGIN TRANSACTION READ ONLY; SELECT json_build_object('peer',json_build_object('database',current_database(),'serverAddr',inet_server_addr()::text,'serverPort',inet_server_port(),'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system())), 'sessions',coalesce((SELECT json_agg(json_build_object('role',usename,'clientAddr',client_addr::text,'pid',pid,'backendStart',backend_start,'xactStart',xact_start,'backendType',backend_type,'applicationName',application_name,'state',state,'ssl',(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_stat_activity.pid))) FROM pg_stat_activity WHERE datname=current_database()),'[]'::json), 'preparedTransactions',coalesce((SELECT json_agg(json_build_object('gid',gid,'owner',owner,'database',database)) FROM pg_prepared_xacts WHERE database=current_database()),'[]'::json)); ROLLBACK;"""
 def private(path,mode=0o600):
@@ -15,9 +15,20 @@ def proc_binding(pid):
  require(type(pid) is int and pid>1,'PROCESS_PID')
  p=pathlib.Path('/proc')/str(pid);raw=(p/'stat').read_text();tail=raw[raw.rfind(')')+2:].split();exe=os.readlink(p/'exe');require(exe.startswith('/') and not exe.endswith(' (deleted)'),'PROCESS_EXE')
  return {'kind':'process','uid':p.stat().st_uid,'pid':pid,'startTicks':int(tail[19]),'processGroup':int(tail[2]),'exe':exe,'exeSha256':hashlib.sha256(pathlib.Path(exe).read_bytes()).hexdigest(),'cgroup':(p/'cgroup').read_text().strip(),'state':tail[0]}
+def aggregate_run_drain(rows):
+ require(type(rows) is list,'DRAIN_ROWS');counts={'queued':0,'running':0,'writebackPending':0};seen=set()
+ terminal={'succeeded','failed','cancelled'};states=terminal|{'queued','running','writeback_pending','paused','awaiting_tool_permission'}
+ for row in rows:
+  require(type(row) is dict and set(row)=={'status','count'} and row['status'] in states and row['status'] not in seen and type(row['count']) is str and re.fullmatch('[0-9]+',row['count']),'DRAIN_STATUS')
+  seen.add(row['status']);n=int(row['count']);require(n<=9007199254740991,'DRAIN_COUNT')
+  if row['status'] in terminal:continue
+  key='queued' if row['status']=='queued' else 'writebackPending' if row['status']=='writeback_pending' else 'running';counts[key]+=n;require(counts[key]<=9007199254740991,'DRAIN_COUNT')
+ return counts
+
 class HostTransport:
  def __init__(self,plan,manifest_sha,authorization):
   require(os.geteuid()==0 and authorization=='apply-reviewed-all-writer-fence','EXPLICIT_PRODUCTION_ACTION_REQUIRED')
+  validate_admission_plan(plan)
   self.plan=plan;self.manifest_sha=manifest_sha
  def database_json(self,db,sql):
   from fixed_probes import ROLE_SQL
@@ -149,8 +160,9 @@ class HostTransport:
   require(hashlib.sha256(private(plan['fixedProbeSource']['path'],0o700)).hexdigest()==plan['fixedProbeSource']['sha256'],'FIXED_PROBE_SOURCE_PIN')
   evidence=plan['sourceEvidence'];raw=private(evidence['path']);require(hashlib.sha256(raw).hexdigest()==plan['sourceEvidenceSha256']==evidence['sha256'] and json.loads(raw)['revision']==plan['identity']['sourceRevision'],'FROZEN_WRITER_EVIDENCE')
   private(plan['databaseProbe']['serviceFile']);private(plan['databaseProbe']['caFile'],0o644)
-  require(set(plan['databaseWriterRoles'])==set(DATABASES) and plan['closedAdmission']!=plan['originalAdmission'],'ADMISSION_PLAN_REQUIRED')
+  validate_admission_plan(plan)
  def apply(self,action,plan):
+  validate_admission_plan(plan)
   require(plan==self.plan,'HOST_PLAN_DRIFT');self.require_lock();held=self.read_hold();require(held['identity']==plan['identity'] and held['generation']==plan['holdGeneration'] and held['state']=='held','ACTION_HOLD_NOT_PROVEN')
   kind=action['kind']
   if kind in ('close-database-admission','restore-database-admission'):
@@ -260,6 +272,11 @@ def serve_reviewed_fence(source_path,source_sha):
       require(journal.value.get('migrationCompletionIntent')==receipt,'MIGRATION_COMPLETION_INTENT_REQUIRED');require(hashlib.sha256(private(receipt['path'])).hexdigest()==receipt['sha256'],'MIGRATION_COMPLETION_DURABLE_PIN');journal.value['migrationCompletionReceipt']=receipt
      journal.record('migration-completion-'+stage,receipt=receipt,holdGeneration=transport.plan['holdGeneration'],planSha256=digest(transport.plan))
      print(json.dumps({'sequence':sequence,'ok':True,'value':{'identity':plan['identity'],'stage':stage,'receipt':receipt,'ready':False}}),flush=True);continue
+    if request['operation']=='read-run-drain':
+     require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity'])
+     connection=transport.diagnostic_connections['workspacex'];value=connection.query('run-drain')
+     counts=aggregate_run_drain(value['rows']);adapter.verifyWritesBlocked(plan['identity'])
+     print(json.dumps({'sequence':sequence,'ok':True,'value':dict(counts,connection=connection.binding,observedAt=time.time(),identity=plan['identity'],holdGeneration=plan['holdGeneration'],writesHeld=True)}),flush=True);continue
     if request['operation']=='read-diagnostic-ledger':
      require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity'])
      connection=transport.diagnostic_connections['workspacex'];value=connection.query('migration-ledger');require(value['rowCount']==len(value['ledger']),'MIGRATION_LEDGER_COUNT')

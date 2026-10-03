@@ -5,11 +5,12 @@ import { offlinePreparedAction, exactMigrationAction } from './reused_actions';
 const identity = { sourceRevision: 'a'.repeat(40), baselineRevision: 'b'.repeat(40), migrationPlanSha256: 'c'.repeat(64), attemptId: 'attempt-1' };
 const collector = { path: '/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh', sha256: '1'.repeat(64) };
 const verifier = { path: '/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh', sha256: '2'.repeat(64) };
-test('dynamic adapter uses fixed existing maintenance commands then independent readback', async () => {
+test('held dynamic adapter rejects legacy bootstrap before any command or readback', async () => {
   const events: unknown[] = [];
-  const adapter = productionDynamicActions(collector, verifier, '1.2.3', async (cmd, args) => { events.push([cmd.path, args]); return { stdout: 'arbitrary stdout is not an admission flag' }; }, async () => { events.push('readback'); });
-  await adapter.verifyProductionDynamic(identity); await adapter.verifyPreactivate(identity);
-  assert.deepEqual(events, [[collector.path, ['--maintenance', 'preactivate', identity.sourceRevision, '1.2.3', 'attempt-1']], [verifier.path, ['--maintenance', 'preactivate', identity.sourceRevision, '1.2.3', 'attempt-1']], 'readback']);
+  const adapter = productionDynamicActions(collector, verifier, '1.2.3', async (cmd, args) => { events.push([cmd.path, args]); return { stdout: 'ready=true' }; }, async () => { events.push('readback'); });
+  await assert.rejects(adapter.verifyProductionDynamic(identity), { message: 'MAINTENANCE_HELD_PREFLIGHT_CONSUMER_NOT_IMPLEMENTED' });
+  await assert.rejects(adapter.verifyPreactivate(identity), { message: 'DYNAMIC_GATE_NOT_COLLECTED' });
+  assert.deepEqual(events, []);
 });
 test('preactivation cannot skip dynamic collection', async () => {
   let calls = 0;

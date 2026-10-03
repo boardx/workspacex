@@ -37,4 +37,8 @@ class Tests(unittest.TestCase):
  def test_arbitrary_or_mutating_canonical_job_is_forbidden(self):
   for script in ('src/infrastructure/db/migrate-cli.ts','scripts/provision-admin.ts','scripts/cloud-business-probe.ts'):
    with self.assertRaisesRegex(RuntimeError,'FIXED_CANONICAL_SCRIPT'):m.api_job({},script)
+ def test_held_drain_never_executes_or_unpauses_baseline_api(self):
+  with patch.object(m,'actual_api') as api,patch.object(m,'invoke') as command:
+   with self.assertRaisesRegex(RuntimeError,'SEALED_DIAGNOSTIC_DRAIN_REQUIRED'):m.live_drain({'ready':True})
+   api.assert_not_called();command.assert_not_called()
 if __name__=='__main__':unittest.main()

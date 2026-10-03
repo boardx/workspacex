@@ -147,3 +147,14 @@ with tempfile.TemporaryDirectory() as temp:
 `;
  const result=spawnSync('/usr/bin/python3',['-c',script],{encoding:'utf8',timeout:10000});assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/pure-shared-completion-journal-pass/);
 });
+test('held drain reuses the sealed diagnostic connection and rejects stale or foreign proof',async()=>{
+ for(const bad of ['none','session','generation','stale','unheld','unsafe']){
+  const f=fixture();f.spec.sourcePlan.holdGeneration='9'.repeat(32);f.sealed.runtimePlan.holdGeneration=f.spec.sourcePlan.holdGeneration;f.sealed.sourcePlanCanonicalSha256=runtimeDigest(f.spec.sourcePlan);f.sealed.runtimePlan.runtimeSourcePlanSha256=f.sealed.sourcePlanCanonicalSha256;f.sealed.runtimePlanSha256=runtimeDigest(f.sealed.runtimePlan);
+  const value:any={queued:0,running:0,writebackPending:0,connection:f.sealed.runtimePlan.diagnosticSessions.workspacex,identity:f.spec.identity,holdGeneration:f.spec.sourcePlan.holdGeneration,writesHeld:true,observedAt:Date.now()/1000};
+  if(bad==='session')value.connection={pid:999};if(bad==='generation')value.holdGeneration='8'.repeat(32);if(bad==='stale')value.observedAt-=31;if(bad==='unheld')value.writesHeld=false;if(bad==='unsafe')value.running=-1;
+  f.driver.request=async m=>{assert.equal(m.operation,'read-run-drain');return {value};};
+  const life=createPersistentWriterLifecycle(f.spec);await life.start();
+  if(bad==='none'){assert.deepEqual(await life.readRunDrain(f.spec.identity),{queued:0,running:0,writebackPending:0});assert.equal(f.counts().starts,1);}
+  else{await assert.rejects(life.readRunDrain(f.spec.identity),/DRAIN_READBACK/);assert.equal(f.counts().retains,1);}
+ }
+});
