@@ -6,6 +6,7 @@ import type { UiState } from "@/lib/ui-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useRecScreenHref } from "./use-rec-screen-href";
 import {
   AI_MOMENTS, RESEARCH_QUESTIONS, TRANSCRIPT, EVIDENCE_NATURE_LABEL, isQuotable,
   speakerDisplay, isReadOnlyRec, canWriteRec,
@@ -19,6 +20,7 @@ import {
  *     [看洞察] 依据出口、三出口（确认/编辑后确认/忽略）、依据被撤回则自动失效。
  */
 export function QuoteAnnotate({ state, view }: { state: UiState; view: RecView }) {
+  const reviewHref = useRecScreenHref("assign");
   const readOnly = isReadOnlyRec(view);
   const canWrite = canWriteRec(view) && !readOnly;
 
@@ -78,7 +80,7 @@ export function QuoteAnnotate({ state, view }: { state: UiState; view: RecView }
                 <span className="font-mono text-10 text-muted-foreground">{s.anchor.tc}</span>
                 <Badge tone="warning">{s.status === "partial" ? "正在识别" : s.status === "low-confidence" ? "待校对" : "待人工指派"}</Badge>
                 <span className="text-10 text-warning">标记时被拒绝：不确定的文本不可成为证据。</span>
-                <Button asChild size="xs" variant="outline"><a href="?screen=assign">去校对 →</a></Button>
+                <Button asChild size="xs" variant="outline"><a href={reviewHref}>去校对 →</a></Button>
               </div>
             ))}
           </section>
