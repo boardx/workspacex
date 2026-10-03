@@ -8,6 +8,7 @@
  * A4：检索无材料或评审后无站得住的结论 → 产出数据需求说明，实例 `succeeded` + outcome `with_holds`
  * （I-C9：不新增实例状态），不开门、不发布。
  */
+import { researchMaterials as asMaterials, researchClaims as asClaims } from "./research-stage-content";
 import type { WorkflowInstanceStatus, WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
 import type { z } from "zod";
 import type { WorkContentOutcome } from "@repo/contracts/work-content";
@@ -20,7 +21,6 @@ import {
   type DataNeedsOutput,
   type DraftClaim,
   type ResearchBriefOutput,
-  type ResearchMaterial,
 } from "../../domain/work-content/research-brief";
 import { W001 } from "../../domain/work-content/definitions/W001";
 import type { EffectGateway } from "../workflow/effect-gateway";
@@ -82,22 +82,6 @@ class Halt extends Error {
   constructor(readonly status: WorkflowInstanceStatus) {
     super(`research-to-brief halted: ${status}`);
   }
-}
-
-function asMaterials(v: unknown): ResearchMaterial[] {
-  if (!Array.isArray(v)) return [];
-  return v.filter((m): m is ResearchMaterial => typeof m?.ref === "string" && typeof m?.text === "string");
-}
-
-function asClaims(v: unknown): DraftClaim[] {
-  if (!Array.isArray(v)) return [];
-  return v
-    .filter((c) => typeof c?.text === "string" && Array.isArray(c?.evidenceRefs))
-    .map((c) => ({
-      text: c.text as string,
-      evidenceRefs: (c.evidenceRefs as unknown[]).filter((r): r is string => typeof r === "string"),
-      confidence: c.confidence === "high" || c.confidence === "low" ? c.confidence : "medium",
-    }));
 }
 
 export async function runResearchToBrief(
