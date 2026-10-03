@@ -6,7 +6,7 @@ export type RuntimeCommand = z.infer<typeof C.GuidedResearchRuntimeCommand>;
 export type RuntimeDraft = z.infer<typeof C.GuidedResearchRuntimeDraft>;
 export interface RuntimeActor { orgId: OrgId; userId: string; sessionId: string }
 export class ResearchRuntimeError extends Error {
-  constructor(readonly reasonCode: string) { super(reasonCode); }
+  constructor(readonly reasonCode: string, options?: ErrorOptions) { super(reasonCode, options); }
 }
 export interface GuidedRuntimeStore {
   read(actor: RuntimeActor, initial: ResearchRuntime): Promise<ResearchRuntime>;

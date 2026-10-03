@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { runtimeProgress } from "./guided-research-progress";
-import type { Response } from "express";
+import type { Request, Response } from "express";
+import { traceIdOf } from "../middleware/trace";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Put, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Put, Query, Req, Res, ServiceUnavailableException } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
   GUIDED_RESEARCH_SESSION_REPOSITORY,
@@ -58,17 +59,17 @@ export class GuidedResearchController {
   }
 
   @Post(C.operations.executeGuidedResearchRuntime.path)
-  async executeRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
+  async executeRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown, @Req() request: Request) {
     assertPrincipal(principal);
     const input = C.GuidedResearchRuntimeCommand.safeParse({ ...(raw as object), sessionId });
     if (!input.success) throw new BadRequestException();
     const session = await this.current(principal, sessionId);
-    try { return await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data); }
+    try { return await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data, undefined, traceIdOf(request)); }
     catch (error) { this.runtimeError(error); }
   }
 
   @Post(C.operations.streamGuidedResearchRuntime.path)
-  async streamRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown, @Res() response: Response) {
+  async streamRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown, @Res() response: Response, @Req() request: Request) {
     assertPrincipal(principal);
     const input = C.GuidedResearchRuntimeCommand.safeParse({ ...(raw as object), sessionId });
     if (!input.success) throw new BadRequestException();
@@ -100,7 +101,7 @@ export class GuidedResearchController {
       }
     };
     const heartbeat = setInterval(() => { if (connected && !response.destroyed) response.write(": keepalive\n\n"); }, 15000);
-    try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data, send); }
+    try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data, send, traceIdOf(request)); }
     catch (error) { send({ type: "error", reasonCode: error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE" }); }
     finally { clearInterval(heartbeat); response.off("close", detach); if (!response.destroyed) response.end(); }
   }
