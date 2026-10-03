@@ -90,8 +90,10 @@ export function LiveSurveyWorkspace({
   const [error, setError] = React.useState("");
   const [retryable, setRetryable] = React.useState(false);
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
+  const [templateAutosaveDraft, setTemplateAutosaveDraft] = React.useState<string | null>(null);
   const setDraft = React.useCallback((next: SurveyDraftInput | null) => {
     setBlockers([]);
+    setTemplateAutosaveDraft(null);
     updateDraft(next);
   }, []);
   const [notice, setNotice] = React.useState("");
@@ -306,7 +308,7 @@ export function LiveSurveyWorkspace({
     if (surveyId !== "new") window.history.pushState(null, "", withProjectId(surveyPath(surveyId, next as SurveyDestination), projectId));
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
-  const autosaveEligible = !!draft && ((!runtime?.publication && step === "design") || step === "template") && dirty &&
+  const autosaveEligible = !!draft && ((!runtime?.publication && step === "design") || (step === "template" && templateAutosaveDraft === JSON.stringify(draft))) && dirty &&
     !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
     () => execute(async () => { await save(); }, "saving"));
@@ -507,7 +509,10 @@ export function LiveSurveyWorkspace({
             </fieldset>
           </>)}
           {step === "template" && (<>
-            <SurveyTemplateActions kind="report" draft={draft} onApply={setDraft} disabled={busy} />
+            <SurveyTemplateActions kind="report" draft={draft} onApply={(next, action) => {
+              setDraft(next);
+              if (action === "unbind" || action === "undo-unbind") setTemplateAutosaveDraft(JSON.stringify(next));
+            }} disabled={busy} />
             {repairQuestionId && (
               <p
                 data-testid="survey-mapping-repair-target"

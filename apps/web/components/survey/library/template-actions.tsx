@@ -29,7 +29,7 @@ import {
 type Props = {
   kind: "question" | "report";
   draft: SurveyDraftInput;
-  onApply: (draft: SurveyDraftInput) => void;
+  onApply: (draft: SurveyDraftInput, action?: "unbind" | "undo-unbind") => void;
   locked?: boolean;
   disabled?: boolean;
   saveOnly?: boolean;
@@ -206,14 +206,14 @@ export function SurveyTemplateActions({
             if (disabled || busy || locked) return;
             const cleared = { id: crypto.randomUUID(), title: draft.title.trim(), sections: [] };
             setUnbound({ previous: structuredClone(draft.template), cleared });
-            onApply({ ...draft, template: cleared });
+            onApply({ ...draft, template: cleared }, "unbind");
             setNotice("已不使用报告模板，可撤销解绑。修改将自动保存。");
           }}>不使用报告模板</Button>
         )}
         {kind === "report" && !saveOnly && canUndoUnbind && (
           <Button variant="outline" disabled={disabled || busy || locked} onClick={() => {
             if (disabled || busy || locked || !unbound) return;
-            onApply({ ...draft, template: structuredClone(unbound.previous) });
+            onApply({ ...draft, template: structuredClone(unbound.previous) }, "undo-unbind");
             setUnbound(null);
             setNotice("已恢复报告模板。修改将自动保存。");
           }}>撤销解绑</Button>
