@@ -32,3 +32,14 @@ describe("research authenticated stream client", () => {
     await expect(streamResearchCommand(command, vi.fn())).rejects.toMatchObject({ reasonCode: "RESEARCH_TASKS_INCOMPLETE" });
   });
 });
+
+it("reconstructs streamed field patches and report deltas without replacing unchanged steps", async () => {
+  const baseline = { ...runtime, version: 7, revision: 1 };
+  const patch = { type: "patch", sessionId: "session", version: 8, revision: 2, changes: { busy: true, reportStream: { requestId: "request", sequence: 0, text: "", status: "streaming" } }, removed: [] };
+  const result = { ...patch, revision: 3, changes: { busy: false } };
+  respond(`data: ${JSON.stringify({ type: "patch", state: patch })}\n\ndata: ${JSON.stringify({ type: "report_delta", sessionId: "session", requestId: "request", version: 8, sequence: 1, delta: "报告正文" })}\n\ndata: ${JSON.stringify({ type: "result_patch", state: result })}\n\n`);
+  const state = await streamResearchCommand(command, vi.fn(), undefined, baseline);
+  expect(state.brief).toEqual(baseline.brief);
+  expect(state.busy).toBe(false);
+  expect(state.reportStream?.text).toBe("报告正文");
+});

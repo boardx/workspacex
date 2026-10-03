@@ -174,7 +174,7 @@ describe("step-aligned research transitions", () => {
     render(<GuidedResearchLive sessionId="grs-live" initialNode="report" visualStage="chapters" onBack={vi.fn()} />);
     fireEvent.change(await screen.findByRole("textbox", { name: "章节标题" }), { target: { value: "新的政策章节" } });
     fireEvent.click(screen.getByRole("button", { name: "保存章节结构" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({
       node: "outline", action: "save_chapters", draft: { node: "outline", value: outline },
     })));
     await waitFor(() => expect(screen.queryByRole("button", { name: "保存章节结构" })).not.toBeInTheDocument());

@@ -1,7 +1,8 @@
 "use client";
 import { GuidedResearchReportTimeline } from "./guided-research-report-timeline";
 import * as React from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
 import { research as C } from "@repo/contracts";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ function requestError(error: unknown): string {
 }
 type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
 export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+  const cacheScope = getStoredSessionToken();
   const [chaptersOpen, setChaptersOpen] = React.useState(routeStage === "chapters");
   const [state, setState] = React.useState<Runtime | null>(null);
   const [node, setNode] = React.useState<Command["node"]>("brief");
@@ -149,7 +151,8 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     bootstrapStarted.current = false; browsingRef.current = false; setBrowsing(false);
     sourceCursor.current = undefined;
     setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setPendingNode(null); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
-    getResearchRuntime(sessionId).then((next) => {
+    const cached = loadAttempt === 0 ? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
+    (cached ? getResearchRuntimeProgress(sessionId, cached.reportStream, undefined, cached).then((update) => mergeResearchProgress(cached, update)) : getResearchRuntime(sessionId)).then((next) => {
       if (!active) return;
       const startingTopic = initialNode === "directions" && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
       const preparingChapters = routeStage === "chapters" && next.availableNodes.includes("research");
@@ -159,7 +162,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       snapshotRef.current = next; setState(next); setNode(target); setDraft(draftOf(next, target));
     }).catch((cause: unknown) => { if (active) setError(requestError(cause)); });
     return () => { active = false; sessionGeneration.current += 1; streamController.current?.abort(); };
-  }, [sessionId, initialNode, routeStage, loadAttempt]);
+  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope]);
+  React.useEffect(() => {
+    if (state?.sessionId === sessionId && snapshotRef.current === state) writeResearchMemory(sessionId, { runtime: state }, cacheScope);
+  }, [state, sessionId, cacheScope]);
   const expired = Boolean(state?.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   React.useEffect(() => {
     if ((!pending && (!state?.busy || expired)) || (!state?.busy && (state?.version ?? -1) >= commandVersion.current && pending)) return;
@@ -171,12 +177,12 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       inFlight = true;
       const epoch = responseEpoch.current; const ticket = ++pollIssued.current;
       const baseline = snapshotRef.current;
-      let incomingSourceCursor: string | undefined;
-      const read = baseline && ["report", "research"].includes(baseline.currentNode)
-        ? getResearchRuntimeProgress(sessionId, baseline.reportStream, sourceCursor.current).then(async (update) => {
-          if (!update.busy) return getResearchRuntime(sessionId);
-          incomingSourceCursor = update.research?.cursor;
-          return mergeResearchProgress(snapshotRef.current ?? baseline, update);
+      let incomingSourceCursor = sourceCursor.current;
+      const read = baseline
+        ? getResearchRuntimeProgress(sessionId, baseline.reportStream, sourceCursor.current, baseline).then(async (update) => {
+          if ("research" in update && update.research) incomingSourceCursor = update.research.cursor;
+          // The patch describes changes relative to this request, not a newer SSE snapshot.
+          return mergeResearchProgress(baseline, update);
         }) : getResearchRuntime(sessionId);
       read.then((next) => {
         const current = snapshotRef.current;
@@ -223,10 +229,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     topicSaveCompletion.current = resolveSaved;
     responseEpoch.current += 1; setPending(true); commandVersion.current = state.version + 1;
     try {
-      const next = await Promise.race([durableResult, executeResearchRuntime({ sessionId, node: "brief", action: "save", draft: { node: "brief", value }, requestId: crypto.randomUUID(), expectedVersion: state.version })]);
+      const next = await Promise.race([durableResult, executeResearchRuntime({ sessionId, node: "brief", action: "save", draft: { node: "brief", value }, requestId: crypto.randomUUID(), expectedVersion: state.version }, undefined, undefined, state)]);
       if (sessionGeneration.current !== generation) return false;
       snapshotRef.current = next; setState(next); setDraft(draftOf(next, "directions")); setError(null);
-      return !next.errorCode && JSON.stringify(next.brief) === JSON.stringify(value);
+      return !next.errorCode && Object.entries(value).every(([key, field]) => next.brief[key as keyof Runtime["brief"]] === field);
     } catch {
       // Synchronize an ambiguous write before permitting a new explicit save.
       try {
@@ -238,7 +244,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           if (sessionGeneration.current !== generation) return false;
         }
         snapshotRef.current = latest; setState(latest); setDraft(draftOf(latest, "directions"));
-        return !latest.busy && JSON.stringify(latest.brief) === JSON.stringify(value);
+        return !latest.busy && Object.entries(value).every(([key, field]) => latest.brief[key as keyof Runtime["brief"]] === field);
       } catch { return false; }
     } finally { if (topicSaveCompletion.current === resolveSaved) topicSaveCompletion.current = null; if (sessionGeneration.current === generation) setPending(false); }
   }
@@ -291,7 +297,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           const next = { ...current, reportStream: { ...previous, sequence: event.sequence, text: previous.text + event.delta } };
           snapshotRef.current = next; setState(next);
         }
-      }, controller!.signal) : await executeResearchRuntime(input);
+      }, controller!.signal, recoveryState) : await executeResearchRuntime(input, undefined, undefined, recoveryState);
       if (!isCurrent()) return;
       // Confirmation and following generation share a durable server request.
       // Never dispatch a second command from a response or a recovered snapshot.
