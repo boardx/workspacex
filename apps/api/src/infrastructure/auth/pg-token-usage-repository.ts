@@ -11,12 +11,9 @@
  * ⇒ `tests/auth/token-usage-single-write-path.test.ts` 扫描 `apps/api/src` 全部源码，
  *   断言那条 INSERT 的字面量只出现在本文件里。这段注释不做门控，那个测试做。
  *
- * ## 为什么不做重试
- *
- * 写失败时调用方（`execute-run.ts` 的 `meter()`）记一行错误日志然后放行——这次调用的
- * 用量就永久少记了。具名缺口 `GAP-USAGE-WRITE-RETRY`。之所以现在不修：重试队列要么
- * 落库（那就是另一张需要签核的表），要么在内存里（进程一重启就丢，比不重试更假）。
- * 与其做一个看起来在兜底、实际兜不住的东西，不如让缺口带名字、可被查。
+ * Bounded retries reuse the receipt id, so a lost commit acknowledgement cannot double
+ * count. Exhausted retries still surface the existing metering failure signal. This is
+ * not a durable outbox: process crashes and sustained database outages remain gaps.
  */
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
@@ -27,27 +24,37 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
   constructor(private readonly db: DatabasePort) {}
 
   async record(orgId: OrgId, usage: TokenUsageRecord): Promise<void> {
-    await this.db.withTenant(orgId, async (s) => {
-      await s.query(
-        `INSERT INTO token_usage_events
+    const eventId = usage.eventId ?? randomUUID();
+    // Validate before SQL: NaN/Infinity/unsafe integers must never become a ledger fact.
+    const count = (value: number): number => {
+      if (!Number.isSafeInteger(value) || value < 0) throw new Error("invalid token usage count");
+      return value;
+    };
+    const params = [eventId, orgId, usage.userId, usage.runId, usage.modelProvider, usage.modelId,
+      count(usage.tokensTotal),
+      usage.promptTokens === null ? null : count(usage.promptTokens),
+      usage.completionTokens === null ? null : count(usage.completionTokens), usage.outcome,
+      usage.totalSource ?? "legacy", usage.projectId ?? null, usage.threadId ?? null, usage.agentId ?? null, usage.callPurpose ?? null];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.db.withTenant(orgId, async (s) => {
+          await s.query(
+            `INSERT INTO token_usage_events
            (id, org_id, user_id, run_id, model_provider, model_id,
-            tokens_total, tokens_prompt, tokens_completion, outcome)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          randomUUID(),
-          orgId,
-          usage.userId,
-          usage.runId,
-          usage.modelProvider,
-          usage.modelId,
-          // ⚠ 不再按 outcome 归零（coord-main 裁决②修正）：失败的调用上游也可能真的
-          // 计了 prompt tokens。这里只做「非负整数」的归一，不替上游决定它该报多少。
-          Math.max(0, Math.trunc(usage.tokensTotal)),
-          usage.promptTokens === null ? null : Math.max(0, Math.trunc(usage.promptTokens)),
-          usage.completionTokens === null ? null : Math.max(0, Math.trunc(usage.completionTokens)),
-          usage.outcome,
-        ],
-      );
-    });
+            tokens_total, tokens_prompt, tokens_completion, outcome,
+            total_source, project_id, thread_id, agent_id, call_purpose)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         ON CONFLICT (id) DO NOTHING`,
+            params,
+          );
+        });
+        return;
+      } catch (error) {
+        // Retry only transient PG/connection errors; missing migrations and permissions
+        // must fail immediately. Each attempt opens a fresh tenant transaction.
+        const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+        if (attempt === 2 || !["40001", "40P01", "08006", "08003", "ECONNRESET", "ETIMEDOUT"].includes(code)) throw error;
+      }
+    }
   }
 }

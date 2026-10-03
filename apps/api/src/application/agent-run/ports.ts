@@ -1480,6 +1480,15 @@ export interface AgentRunExecutorPort {
  * provider 未必报。填 0 会让「没报」在报表上等于「一个 prompt token 都没用过」。
  */
 export interface TokenUsageRecord {
+  /** Unique receipt identity; reuse only when retrying this same accounting write. */
+  readonly eventId?: string;
+  /** Trusted execution context, never inferred from provider output or historical data. */
+  readonly projectId?: string | null;
+  readonly threadId?: string | null;
+  readonly agentId?: string | null;
+  /** Legacy records omit this; new writes explicitly distinguish missing total usage. */
+  readonly totalSource?: "reported" | "unknown";
+  readonly callPurpose?: "primary" | "history-summary" | "script-retry";
   readonly userId: string;
   readonly runId: string;
   readonly modelProvider: string;

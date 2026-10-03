@@ -20,6 +20,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { toOrgId } from "../../src/domain/org-id";
+import { meterModelCompletion } from "../../src/application/agent-run/meter-model-completion";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import type {
@@ -102,11 +103,11 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
 
     await executeQueuedRuns(deps(fakeStore(baseRun()), model, meter), { orgId: ORG });
 
-    expect(meter.written).toEqual([{
+    expect(meter.written).toEqual([expect.objectContaining({
       userId: "user-linke", runId: "run-1",
       modelProvider: "test-provider", modelId: "test-model",
       tokensTotal: 1234, promptTokens: null, completionTokens: null, outcome: "succeeded",
-    }]);
+    })]);
   });
 
   it("上游报了 prompt/completion 拆分就如实记（OpenAI 兼容 usage 本来就带这两个字段）", async () => {
@@ -156,7 +157,7 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     await executeQueuedRuns(deps(fakeStore(baseRun()), model, meter), { orgId: ORG });
 
     expect(meter.written).toHaveLength(1);
-    expect(meter.written[0]).toMatchObject({ tokensTotal: 0, outcome: "succeeded" });
+    expect(meter.written[0]).toMatchObject({ tokensTotal: 0, totalSource: "unknown", outcome: "succeeded" });
   });
 
   it("失败的调用 ⇒ 也有一行（failed / 0）——「失败就没有用量」会让流水与 run 行数对不上", async () => {
@@ -169,11 +170,11 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     await executeQueuedRuns(deps(store, model, meter), { orgId: ORG });
 
     expect(store.failedWith).toBe("MODEL_CALL_FAILED");
-    expect(meter.written).toEqual([{
+    expect(meter.written).toEqual([expect.objectContaining({
       userId: "user-linke", runId: "run-1",
       modelProvider: "test-provider", modelId: "test-model",
       tokensTotal: 0, promptTokens: null, completionTokens: null, outcome: "failed",
-    }]);
+    })]);
   });
 
   it("计量写失败不拖垮这次 run，但**大声留痕**（静默吞才是那个会骗人的错法）", async () => {
@@ -221,5 +222,100 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     );
     const statements = src.match(/\b(SELECT|UPDATE|DELETE)\b/gi) ?? [];
     expect(statements).toEqual([]);
+  });
+});
+
+
+describe("ledger receipt execution boundaries", () => {
+  it("records trusted attribution and distinguishes a reported zero", async () => {
+    const usage = recordingMeter();
+    await executeQueuedRuns(deps(fakeStore(baseRun()), { complete: async () => ({ text: "reply", tokens: 0 }) }, usage), { orgId: ORG });
+    expect(usage.written[0]).toMatchObject({
+      eventId: expect.any(String), totalSource: "reported", tokensTotal: 0,
+      projectId: "proj-1", threadId: "thread-1", agentId: "agent-1", callPurpose: "primary",
+    });
+  });
+  it("records a cancelled provider envelope before checkpoint return", async () => {
+    const usage = recordingMeter();
+    let invoked = false;
+    const store = { ...fakeStore(baseRun()), cancelAtCheckpoint: async () => invoked };
+    const model: ModelCallPort = { complete: async () => { invoked = true; return { text: "", tokens: 17, cancelled: true }; } };
+    await executeQueuedRuns(deps(store, model, usage), { orgId: ORG });
+    expect(usage.written).toHaveLength(1);
+    expect(usage.written[0]).toMatchObject({ tokensTotal: 17, totalSource: "reported", outcome: "failed" });
+  });
+  it("retains usage when successful provider output is empty", async () => {
+    const usage = recordingMeter();
+    await executeQueuedRuns(deps(fakeStore(baseRun()), { complete: async () => ({ text: "", tokens: 19 }) }, usage), { orgId: ORG });
+    expect(usage.written).toHaveLength(1);
+    expect(usage.written[0]).toMatchObject({ tokensTotal: 19, outcome: "failed" });
+  });
+  it("does not double count when downstream audit persistence fails after completion", async () => {
+    const usage = recordingMeter();
+    const store = fakeStore(baseRun());
+    const append = store.appendStep;
+    store.appendStep = async (orgId, step) => {
+      if (step.kind === "model_called" && step.outputDigest !== null) throw new Error("audit unavailable");
+      return append(orgId, step);
+    };
+    expect(await executeQueuedRuns(deps(store, { complete: async () => ({ text: "reply", tokens: 23 }) }, usage), { orgId: ORG })).toBe(1);
+    expect(store.failedWith).toBe("MODEL_CALL_FAILED");
+    expect(usage.written).toHaveLength(1);
+    expect(usage.written[0]?.tokensTotal).toBe(23);
+  });
+});
+
+
+describe("auxiliary model call receipts", () => {
+  it("counts summary and script retries independently under the same user/org", async () => {
+    const usage = recordingMeter();
+    const d = deps(fakeStore(baseRun()), { complete: async () => ({ text: "reply" }) }, usage);
+    for (const purpose of ["history-summary", "script-retry"] as const) {
+      await meterModelCompletion(d, ORG, baseRun(), purpose, async () => ({ text: "result", tokens: 31 }));
+    }
+    expect(usage.written.map(r => r.callPurpose)).toEqual(["history-summary", "script-retry"]);
+    expect(new Set(usage.written.map(r => r.eventId)).size).toBe(2);
+    expect(usage.written.reduce((sum, r) => sum + r.tokensTotal, 0)).toBe(62);
+  });
+  it("counts failed auxiliary requests with provider usage and rethrows the original error", async () => {
+    const usage = recordingMeter();
+    const d = deps(fakeStore(baseRun()), { complete: async () => ({ text: "reply" }) }, usage);
+    const error = new ModelCallError("MODEL_CALL_FAILED", "failure", { total: 11 });
+    await expect(meterModelCompletion(d, ORG, baseRun(), "script-retry", async () => { throw error; })).rejects.toBe(error);
+    expect(usage.written[0]).toMatchObject({ tokensTotal: 11, outcome: "failed", callPurpose: "script-retry" });
+  });
+  it("meters a paused envelope without declaring it a failed call", async () => {
+    const usage = recordingMeter();
+    const store = { ...fakeStore(baseRun()), pauseAtCheckpoint: async () => "paused" as const };
+    await executeQueuedRuns(deps(store, { complete: async () => ({ text: "", tokens: 7, paused: true }) }, usage), { orgId: ORG });
+    expect(usage.written).toHaveLength(1);
+    expect(usage.written[0]).toMatchObject({ tokensTotal: 7, outcome: "succeeded" });
+  });
+});
+
+
+describe("execution preparation and actual history summary integration", () => {
+  it("does not create a usage receipt when dispatch capability validation fails before invocation", async () => {
+    const usage = recordingMeter();
+    const complete = vi.fn(async () => ({ text: "reply", tokens: 5 }));
+    const model: ModelCallPort = {
+      complete, completeWithProgress: complete,
+      supportsProgress: () => { throw new Error("dispatch unavailable"); },
+    };
+    await executeQueuedRuns(deps(fakeStore(baseRun()), model, usage), { orgId: ORG });
+    expect(complete).not.toHaveBeenCalled();
+    expect(usage.written).toHaveLength(0);
+  });
+  it("meters history compaction separately from the primary model envelope", async () => {
+    const usage = recordingMeter();
+    const store = fakeStore(baseRun());
+    store.readThreadHistory = async () => Array.from({ length: 20 }, (_, i) => ({
+      id: `history-${i}`, role: "user" as const, content: "history ".repeat(2000),
+    }));
+    const complete = vi.fn(async () => ({ text: "summary or reply", tokens: 13 }));
+    await executeQueuedRuns(deps(store, { complete }, usage), { orgId: ORG });
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(usage.written.map(r => r.callPurpose)).toEqual(["history-summary", "primary"]);
+    expect(new Set(usage.written.map(r => r.eventId)).size).toBe(2);
   });
 });

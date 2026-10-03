@@ -179,3 +179,31 @@ describe("F159 token_usage_events —— 账的落库行为", () => {
     ).rejects.toThrow();
   });
 });
+
+
+describe("receipt context and replay (requires migrated PostgreSQL)", () => {
+  it("replays a receipt once and retains trustworthy context plus reported-zero quality", async () => {
+    const receipt = {
+      eventId: "evt-replayed", userId: ACTOR, runId: RUN, modelProvider: "test-provider", modelId: "test-model",
+      tokensTotal: 0, promptTokens: 0, completionTokens: 0, outcome: "succeeded" as const,
+      totalSource: "reported" as const, projectId: PROJECT, threadId: THREAD, agentId: "agent-f159", callPurpose: "primary" as const,
+    };
+    await repo.record(toOrgId(ORG), receipt);
+    await repo.record(toOrgId(ORG), receipt);
+    const rows = await asApp(ORG, c => c.query(
+      "SELECT id, total_source, project_id, thread_id, agent_id, call_purpose FROM token_usage_events WHERE org_id=$1", [ORG],
+    ).then(r => r.rows));
+    expect(rows).toEqual([{
+      id: "evt-replayed", total_source: "reported", project_id: PROJECT, thread_id: THREAD,
+      agent_id: "agent-f159", call_purpose: "primary",
+    }]);
+    expect(await asApp(OTHER_ORG, c => c.query("SELECT id FROM token_usage_events").then(r => r.rowCount))).toBe(0);
+  });
+  it("does not infer historical total source or project attribution", async () => {
+    await write(0);
+    const rows = await asApp(ORG, c => c.query(
+      "SELECT total_source, project_id, thread_id, agent_id FROM token_usage_events WHERE org_id=$1", [ORG],
+    ).then(r => r.rows));
+    expect(rows).toEqual([{ total_source: "legacy", project_id: null, thread_id: null, agent_id: null }]);
+  });
+});
