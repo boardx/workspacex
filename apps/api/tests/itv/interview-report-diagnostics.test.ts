@@ -1,3 +1,6 @@
+import { interviewMarkdown } from "@repo/contracts";
+import type { z } from "zod";
+import type { InterviewMarkdownReader } from "../../src/application/interview/read-interview-markdown";
 import { toOrgId } from "../../src/domain/org-id";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateInterviewMarkdown } from "../../src/application/interview/generate-interview-markdown";
@@ -16,8 +19,14 @@ function deps() { return { reader: { saveDraft: save }, model: { complete }, mod
 function terminal() { return events.find(event => event.kind === "interview.report_generation.failed" || event.kind === "interview.report_generation.completed"); }
 beforeEach(() => {
  events.length = 0; vi.clearAllMocks(); recorder.record.mockImplementation(event => { events.push(event); });
- read.mockResolvedValue({ version: 7, documents: [{ documentId: "md-runs", step: "runs", version: 3, markdown: PRIVATE, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }], states: [{ documentId: "md-runs", status: "completed" }] });
- complete.mockResolvedValue({ text: VALID, tokens: 1 }); save.mockResolvedValue(undefined);
+ const state: z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope> = { interviewId: input.interviewId, execution: null, review: null, revisionId: "rev-diag", version: 7, documents: [{ documentId: "md-runs", step: "runs", version: 3, markdown: PRIVATE, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }], states: [{ documentId: "md-runs", status: "completed", failure: null }] };
+ read.mockImplementation(async () => structuredClone(state));
+ complete.mockResolvedValue({ text: VALID, tokens: 1 });
+ save.mockImplementation(async (value: Parameters<InterviewMarkdownReader["saveDraft"]>[0]) => {
+   state.version++;
+   state.documents = [...state.documents.filter(document => document.step !== "report"), { documentId: "md-report", step: "report", version: value.expectedDocumentVersion + 1, markdown: value.markdown, contentHash: "a".repeat(64), evidenceMode: "simulated", references: value.references ?? [] }];
+   state.states = [...state.states.filter(state => state.documentId !== "md-report"), { documentId: "md-report", status: value.failure ? "failed" : "draft", failure: value.failure ?? null }];
+ });
 });
 describe("report diagnostics without research or credential disclosure", () => {
  it.each([
@@ -26,7 +35,7 @@ describe("report diagnostics without research or credential disclosure", () => {
  ["invalid_format", { text: JSON.stringify({ body: PRIVATE }) }], ["invalid_format", { text: "```json\n{}\n```" }], ["quality_rejected", { text: PRIVATE }],
  ])("distinguishes %s while preserving the public error", async (reason, response) => {
  complete.mockResolvedValue(response); await expect(generateInterviewMarkdown(deps(), input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
- expect(terminal()).toMatchObject({ traceId: input.traceId, data: { reason, modelCalls: 1, outputCharacters: response.text.length } });
+ expect(terminal()).toMatchObject({ traceId: input.traceId, data: { reason, modelCalls: reason === "quality_rejected" ? 2 : 1, outputCharacters: response.text.length } });
  expect(JSON.stringify(events)).not.toContain(PRIVATE);
  if (reason === "invalid_format" || reason === "quality_rejected") expect(terminal()).toMatchObject({ data: { stage: "validation", timings: { validation: expect.any(Number) } } });
  });
