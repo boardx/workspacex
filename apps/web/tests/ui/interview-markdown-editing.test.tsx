@@ -449,3 +449,28 @@ it("does not let a delayed initial read clear newly generated questions", async 
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认问题并开始访谈" })).toBeEnabled());
   expect(screen.getByDisplayValue("新生成问题？")).toBeVisible();
 });
+
+it("confirms generated questions and continues directly to interviewing after expert confirmation", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const expert = { ...source, markdown: "## [护理专家](#expert-nurse)\n\n专业角色：护理" };
+  const outline = { ...source, documentId: "auto-questions", step: "outline" as const, markdown: "## [护理专家](#expert-nurse)\n\n1. 最近一次发生了什么？" };
+  let current = { interviewId: "itv-direct-start", revisionId: "rev-direct", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }] };
+  const questionConfirmations: unknown[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) current = { ...current, version: 2, states: [{ documentId: expert.documentId, status: "confirmed", failure: null }] };
+    if (url.endsWith("/outline/generate")) current = { ...current, version: 3, documents: [expert, outline], states: [...current.states, { documentId: outline.documentId, status: "draft", failure: null }] };
+    if (url.endsWith("/outline/confirm")) {
+      questionConfirmations.push(JSON.parse(String(init.body)));
+      current = { ...current, version: 4, states: current.states.map(state => ({ ...state, status: "confirmed" })) };
+    }
+    return new Response(JSON.stringify(current));
+  });
+  const continueStep = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-direct-start" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={continueStep} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  await vi.waitFor(() => expect(continueStep).toHaveBeenLastCalledWith("runs"));
+  expect(continueStep.mock.calls).toEqual([["outline"], ["runs"]]);
+  expect(questionConfirmations).toEqual([{ expectedVersion: 3, expectedDocumentVersion: 1 }]);
+});
