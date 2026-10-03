@@ -53,7 +53,7 @@ async function copyOnExistingClient(client,Query,sql,chunks,budget){
   throw error;
  }
 }
-async function restoreExistingSession({client,Query,identity,binding,transactionStatus,operations,verifyOperation,verifyDecoderCompletion,verifyWithinTransaction,maxCopyBytes}){
+async function restoreExistingSession({client,Query,identity,binding,transactionStatus,operations,verifyOperation,verifyDecoderCompletion,verifyWithinTransaction,maxCopyBytes,abortDecoder}){
  proof(client&&typeof client.query==='function'&&typeof identity==='function'&&typeof transactionStatus==='function'&&typeof verifyOperation==='function'&&typeof verifyDecoderCompletion==='function'&&typeof verifyWithinTransaction==='function','RESTORE_HOST_CONTRACT');
  proof(Number.isSafeInteger(maxCopyBytes)&&maxCopyBytes>0&&maxCopyBytes<=8*1024*1024*1024,'RESTORE_TOTAL_BOUND');
  proof(transactionStatus()==='I'&&canonical(await identity())===canonical(binding),'RESTORE_EXISTING_SESSION_REQUIRED');
@@ -81,10 +81,14 @@ async function restoreExistingSession({client,Query,identity,binding,transaction
   proof(transactionStatus()==='I'&&canonical(await identity())===canonical(binding),'RESTORE_POSTCOMMIT_BINDING');
   return {statements,copyBytes:budget.bytes,existingSession:true};
  }catch(error){
+  // The host must cancel blocked plaintext reads and join both offline processes
+  // before rollback. Unknown cleanup cannot release the writer fence.
+  let decoderCleanupConfirmed=abortDecoder===undefined;
+  if(abortDecoder){try{await abortDecoder();decoderCleanupConfirmed=true;}catch{}}
   let rollbackConfirmed=false;
   if(!committed){try{await client.query('ROLLBACK');rollbackConfirmed=transactionStatus()==='I'&&canonical(await identity())===canonical(binding);}catch{}}
   // Never embed SQL, COPY bytes, provider errors, or credentials in this evidence.
-  const failure=Error('RESTORE_EXISTING_SESSION_FAILED');failure.recovery={committed,commitAttempted,commitOutcomeUnknown:commitAttempted&&!committed,rollbackConfirmed,holdMustRemain:true};throw failure;
+  const failure=Error('RESTORE_EXISTING_SESSION_FAILED');failure.recovery={committed,commitAttempted,commitOutcomeUnknown:commitAttempted&&!committed,rollbackConfirmed,decoderCleanupConfirmed,holdMustRemain:true};throw failure;
  }
 }
 async function verifyCatalogOnExistingRestore(client,{sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256,targetBinding,recoveryIdentity,databaseMapping,requiredRoles,transactionStatus}){

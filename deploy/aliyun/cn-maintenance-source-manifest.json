@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "35f28167304a595dc399eb55cc3879b444bdc31b69c05c4e350c5e8852ae83ff",
+  "sourceInventorySha256": "ea1e24aba25df16b3eb24829f3ecdb5be056f1f4ad9c9c430ba0e3a282a8f2f8",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "b0357cdbdfb4437839bd4be9371c5a440458b21aed601a73ae44b19f786ad5d9",
-      "bytes": 1297
+      "sha256": "3a909df4eb097a48c66b8af97dcdf5c80b6e561a9f244c5feb98a8125eae9401",
+      "bytes": 1333
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
@@ -313,8 +313,8 @@
     },
     {
       "path": ".harness/scripts/vm/existing_session_restore.cjs",
-      "sha256": "5ccc55eaa2f3d9140e1de87b890bf3ea48ddff55259bd26937eaca077db5f948",
-      "bytes": 8548
+      "sha256": "092a977b16a159fd895d070a5072624c2189fc3d7948a2feb67fccee547398ff",
+      "bytes": 8877
     },
     {
       "path": ".harness/scripts/vm/existing_session_restore_test.cjs",
@@ -345,6 +345,16 @@
       "path": ".harness/scripts/vm/host_transport.py",
       "sha256": "6addcdc186cae60441c6a1e610999399184007266147fb6da0d85973c8f48e84",
       "bytes": 27809
+    },
+    {
+      "path": ".harness/scripts/vm/offline_restore_pipeline.cjs",
+      "sha256": "d141fe23da1ec1b9cdf220bdd7374731dba39f08e4c88454b41b88de4bf64839",
+      "bytes": 5313
+    },
+    {
+      "path": ".harness/scripts/vm/offline_restore_pipeline_test.cjs",
+      "sha256": "3839b82a2d57d14cf196aac4cff673236db19ae41c6d642b58eda060a41bcd0a",
+      "bytes": 4480
     },
     {
       "path": ".harness/scripts/vm/prepare-cn-tool-install.py",
@@ -438,8 +448,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "057c8dd8fd6217d1bd1721c88857aae549e5401b4b8c77bcd68571987a354fd8",
-      "bytes": 9285
+      "sha256": "96bd0ece846a1795f2f4bb198f4c626d5b096f06237176b609308e18cb4b613d",
+      "bytes": 10052
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
