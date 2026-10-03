@@ -113,6 +113,16 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       const proposal = await previewVirtualExpertMarkdown(interviewId, { description, expectedVersion: current.version });
       return proposal.markdown;
     },
+    onSaveExpert: async (nextMarkdown: string) => {
+      if (immutable || pending) throw new Error("CONFIRMED_SOURCE_READ_ONLY");
+      setPending(true);
+      try {
+        const current = source ?? await loadInterviewMarkdown(interviewId);
+        const savedExperts = current.documents.find((item) => item.step === "experts");
+        receive(await saveInterviewMarkdown(interviewId, "experts", { markdown: nextMarkdown, expectedVersion: current.version, expectedDocumentVersion: savedExperts?.version ?? 0 }));
+        setMarkdown(nextMarkdown); dirty.current = false; callbacks.current.onDirtyChange(false);
+      } finally { setPending(false); }
+    },
     onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }),
     onConfirm: () => void action(confirm, step === "experts" ? "outline" : null),
     onGenerate: () => {

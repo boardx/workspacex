@@ -343,3 +343,60 @@ it("regenerates an existing empty outline from confirmed experts before navigati
   await vi.waitFor(() => expect(onContinue).toHaveBeenCalledWith("outline"));
   expect(generatedBodies).toEqual([{ expectedVersion: 5, expectedDocumentVersion: 3 }]);
 });
+
+const editableVirtualFields = { name: "林知远（虚拟）", role: "安装研究顾问", domains: "家居", focus: "安装异常", style: "审慎", bio: "合成角色，不代表真人。", limits: "仅用于模拟研究，无真人证据。" };
+function fillVirtualExpert() {
+  for (const [field, label] of [["name", "专家名称"], ["role", "专业角色"], ["domains", "专业领域"], ["focus", "研究关注"], ["style", "观点风格"], ["bio", "简介"], ["limits", "局限与材料边界"]] as const) {
+    fireEvent.change(screen.getByRole("textbox", { name: label }), { target: { value: editableVirtualFields[field] } });
+  }
+  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+}
+it("awaits expert persistence before closing the dialog and keeps fields when saving fails", async () => {
+  let rejectSave!: (error: Error) => void;
+  const persist = vi.fn(() => new Promise<void>((_, reject) => { rejectSave = reject; }));
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onConfirm={vi.fn()} onSaveExpert={persist} />);
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" })); fillVirtualExpert();
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  expect(persist).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("dialog")).toBeVisible();
+  rejectSave(new Error("network"));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("保存未完成"));
+  expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
+});
+it("edits a saved virtual expert without replacing its stable ID and clears save-first avatar guidance", async () => {
+  const { renderVirtualExpertSelection } = await import("@/lib/interview-virtual-expert");
+  const markdown = `# 专家\n\n## [林知远（虚拟）](#expert-virtual-stable)\n\n${renderVirtualExpertSelection(editableVirtualFields)}\n`;
+  const persist = vi.fn().mockResolvedValue(undefined);
+  render(<InterviewExpertsStep document={{ ...source, markdown }} directory={[]} pending={false} onChange={vi.fn()} onConfirm={vi.fn()} onSaveExpert={persist} savedExpertIds={["virtual-stable"]} avatarContext={{ interviewId: "study", revisionId: "revision" }} />);
+  const avatar = screen.getByRole("button", { name: "修改林知远（虚拟）头像" });
+  expect(avatar).toBeEnabled(); expect(avatar).not.toHaveAttribute("title", "请先保存专家草稿，再修改虚拟专家头像。");
+  fireEvent.click(screen.getByRole("button", { name: "编辑专家 林知远（虚拟）" }));
+  expect(screen.getByRole("textbox", { name: "专业角色" })).toHaveValue(editableVirtualFields.role);
+  fireEvent.change(screen.getByRole("textbox", { name: "专家名称" }), { target: { value: "陈书宁（虚拟）" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存专家修改" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  const saved = persist.mock.calls[0]![0] as string;
+  expect(saved).toContain("## [陈书宁（虚拟）](#expert-virtual-stable)");
+  expect(saved.match(/#expert-virtual-stable/gu)).toHaveLength(1);
+  expect(saved).not.toContain("林知远（虚拟）");
+});
+it("persisted add refreshes the source and enables avatar editing without confirming experts", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  let saved = { ...source }; let version = 1; const mutations: string[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (init.method === "POST" && url.endsWith("/markdown/experts")) { mutations.push(url); const body = JSON.parse(init.body as string); saved = { ...source, markdown: body.markdown, version: 2 }; version++; }
+    return new Response(JSON.stringify({ interviewId: "itv-save-expert", revisionId: "rev-save-expert", version, documents: [saved], states: [{ documentId: saved.documentId, status: "draft", failure: null }] }));
+  });
+  const view = render(<InterviewMarkdownEditingStep interviewId="itv-save-expert" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "添加虚拟专家" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" })); fillVirtualExpert(); fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  await waitFor(() => expect(mutations).toHaveLength(1));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByRole("button", { name: "修改林知远（虚拟）头像" })).toBeEnabled();
+  view.unmount();
+  render(<InterviewMarkdownEditingStep interviewId="itv-save-expert" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "编辑专家 林知远（虚拟）" })).toBeEnabled());
+  expect(mutations[0]).toContain("/markdown/experts");
+});
