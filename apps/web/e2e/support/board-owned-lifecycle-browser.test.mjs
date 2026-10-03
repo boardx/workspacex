@@ -4,12 +4,44 @@ import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {parseOwnedShellLocation,validateOwnedExecutable,releaseOwnedProcess,connectOwnedDefaultContext,requireOwnedDeadline} from './board-owned-lifecycle-browser.mjs';
+import {EventEmitter} from 'node:events';
+import {parseOwnedShellLocation,validateOwnedExecutable,releaseOwnedProcess,connectOwnedDefaultContext,requireOwnedDeadline,decodeOwnedShellFailure,ownedSetupDiagnostic,observeOwnedChild,createOwnedShellDecoder} from './board-owned-lifecycle-browser.mjs';
 const require=createRequire(import.meta.url);
 const pins=JSON.parse(readFileSync(join(dirname(require.resolve('playwright-core/package.json')),'browsers.json'),'utf8'));
 const pin=pins.browsers.find(value=>value.name==='chromium-headless-shell');
 const location=`/owned/chromium_headless_shell-${pin.revision}`;
 const output=`${pin.title} ${pin.browserVersion} (playwright ${pin.name} v${pin.revision})\n  Install location:    ${location}\n  Download url:        ignored`;
+test('setup diagnostic accepts only fixed codes and bounded numeric facts',()=>{
+ assert.deepEqual(ownedSetupDiagnostic(new Error('OWNED_BROWSER_START_FAILED'),{stage:'endpoint',shell:'NONE',childExit:1,childClosed:1,groupGone:1,cleanupFailed:0}),{code:'OWNED_BROWSER_START_FAILED',stage:'endpoint',shell:'NONE',childExit:1,childClosed:1,groupGone:1,cleanupFailed:0});
+ const safe=ownedSetupDiagnostic(new Error('secret https://private.invalid /private/profile'),{stage:'secret',shell:'private text',childExit:Infinity,childClosed:2,groupGone:-2,cleanupFailed:NaN});
+ assert.deepEqual(safe,{code:'OWNED_BROWSER_UNKNOWN',stage:'unknown',shell:'NONE',childExit:-1,childClosed:-1,groupGone:-1,cleanupFailed:-1});assert.doesNotMatch(JSON.stringify(safe),/secret|private|https/);
+});
+test('diagnostic never evaluates accessors or exposes unknown raw causes',()=>{
+ let calls=0;const error={},facts={};
+ for(const [object,keys] of [[error,['message']],[facts,['stage','shell','childExit','childClosed','groupGone','cleanupFailed']]])for(const key of keys)Object.defineProperty(object,key,{get(){calls++;throw new Error('secret');}});
+ assert.equal(ownedSetupDiagnostic(error,facts).code,'OWNED_BROWSER_UNKNOWN');assert.equal(calls,0);
+ assert.equal(ownedSetupDiagnostic(new Error('OWNED_BROWSER_START_FAILED secret'),{}).code,'OWNED_BROWSER_UNKNOWN');
+});
+test('shell stderr maps only recognized failures within an 8KiB prefix',()=>{
+ assert.equal(decodeOwnedShellFailure('private path: No usable sandbox! token'),'SANDBOX_UNAVAILABLE');
+ assert.equal(decodeOwnedShellFailure('Running as root without --no-sandbox is not supported'),'ROOT_SANDBOX_REJECTED');
+ assert.equal(decodeOwnedShellFailure('Failed to move to new namespace: private'),'NAMESPACE_REJECTED');
+ assert.equal(decodeOwnedShellFailure('secret unknown'),'NONE');assert.equal(decodeOwnedShellFailure('x'.repeat(8192)+'No usable sandbox!'),'NONE');
+});
+test('stderr pipeline preserves split recognized code and drops suffix/private text',()=>{
+ const decoder=createOwnedShellDecoder();decoder.push(Buffer.from('private /tmp/path No usable '));decoder.push(Buffer.from('sandbox! secret'));decoder.push(Buffer.from('unknown trailing private'));assert.equal(decoder.read(),'SANDBOX_UNAVAILABLE');decoder.clear();assert.equal(decoder.read(),'SANDBOX_UNAVAILABLE');
+ const capped=createOwnedShellDecoder();capped.push(Buffer.alloc(8192,120));capped.push(Buffer.from('No usable sandbox!'));assert.equal(capped.read(),'NONE');
+ const cleared=createOwnedShellDecoder();cleared.push(Buffer.from('secret'));cleared.clear();cleared.push(Buffer.from('No usable sandbox!'));assert.equal(cleared.read(),'NONE');
+});
+test('child error and cancellation do not fabricate exit or close proof',()=>{
+ const child=new EventEmitter(),owner={closed:false,spawnFailed:false,childExit:-1};observeOwnedChild(child,owner);
+ child.emit('error',new Error('secret'));assert.equal(owner.spawnFailed,true);assert.equal(owner.closed,false);
+ child.emit('exit',null,'SIGTERM');assert.equal(owner.childExit,-1);assert.equal(owner.closed,false);
+ child.emit('close',null,'SIGTERM');assert.equal(owner.closed,true);
+});
+test('normal child exit is bounded and close remains independent',()=>{
+ const child=new EventEmitter(),owner={closed:false,spawnFailed:false,childExit:-1};observeOwnedChild(child,owner);child.emit('exit',1,null);assert.equal(owner.childExit,1);assert.equal(owner.closed,false);child.emit('close',1,null);assert.equal(owner.closed,true);
+});
 test('discovery binds installed shell pin and platform executable',()=>{
  assert.deepEqual(parseOwnedShellLocation(output,pins,'linux','x64'),{executable:join(location,'chrome-headless-shell-linux64','chrome-headless-shell'),version:pin.browserVersion});
 });
