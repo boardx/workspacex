@@ -11,19 +11,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
         "SELECT run_id,subtask_id,execution_attempt_id,execution_lease_epoch,model_id,call_purpose,started_at FROM model_request_starts WHERE id=$1",[input.requestId]);
       const replay=existing.rows[0];
       if(replay){if((replay.subtask_id??replay.run_id)!==runId||replay.execution_attempt_id!==input.attemptId||Number(replay.execution_lease_epoch)!==input.leaseEpoch||replay.model_id!==input.modelId||replay.call_purpose!==input.callPurpose||replay.started_at.toISOString()!==new Date(input.startedAt).toISOString())throw new RuntimeUsageOwnershipDenied();return;}
-      // Metadata columns only: model/browser arguments cannot choose user/project ownership.
-      const root=await s.query<{user_id:string;project_id:string;thread_id:string;agent_id:string;root_run_id:string;subtask_id:string|null}>(`SELECT m.author_id AS user_id,t.project_id,r.thread_id,r.agent_id,r.id AS root_run_id,NULL::text AS subtask_id
-        FROM agent_runs r JOIN chat_threads t ON t.org_id=r.org_id AND t.id=r.thread_id
-        JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id
-        WHERE r.org_id=$1 AND r.id=$2 AND r.status='running' AND r.cancel_requested_at IS NULL
-          AND r.lease_epoch=$3 AND r.lease_expires_at>now()
-          AND ($4=(SELECT r.id||':'||(s.seq-1)::text FROM agent_run_steps s WHERE s.org_id=r.org_id AND s.run_id=r.id AND s.kind='context_built' AND s.started_at>=r.started_at ORDER BY s.seq DESC LIMIT 1) OR ($5 IN ('history-summary','script-retry') AND $4=r.id||':lease:'||$3::text||':'||$5))
-        FOR SHARE OF r`,[orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose]);
-      const owner=root.rows[0]??(await s.query<typeof root.rows[number]>(`SELECT m.author_id AS user_id,t.project_id,p.thread_id,p.agent_id,p.id AS root_run_id,c.id AS subtask_id
-        FROM subtask_runs c JOIN agent_runs p ON p.org_id=c.org_id AND p.id=c.parent_run_id
-        JOIN chat_threads t ON t.org_id=p.org_id AND t.id=p.thread_id JOIN chat_messages m ON m.org_id=p.org_id AND m.id=p.input_message_id
-        WHERE c.org_id=$1 AND c.id=$2 AND c.status='running' AND c.cancel_requested_at IS NULL AND p.cancel_requested_at IS NULL
-          AND c.lease_epoch=$3 AND c.execution_attempt_id=$4 FOR SHARE OF p,c`,[orgId,runId,input.leaseEpoch,input.attemptId])).rows[0];
+      const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
       if(!owner?.user_id)throw new RuntimeUsageOwnershipDenied();
       await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,executionAttemptId:input.attemptId,
         projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:provider,
@@ -58,4 +46,31 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
    if(!replay.rows.length)throw new RuntimeUsageOwnershipDenied();
   }
  }
+}
+
+export interface RuntimeModelOwner {
+ readonly user_id:string;readonly project_id:string;readonly thread_id:string;readonly agent_id:string;
+ readonly root_run_id:string;readonly subtask_id:string|null;
+}
+/** Shared metadata-only authority for private accounting and admission. Caller content
+ * cannot supply requester, project or parent ownership. Must run inside a tenant transaction.
+ * Row locks fence root/child cancellation and lease changes until the caller persists intent.
+ */
+export async function resolveRuntimeModelOwner(s:TenantSession,orgId:OrgId,runId:string,
+ leaseEpoch:number,attemptId:string,callPurpose:string):Promise<RuntimeModelOwner|undefined>{
+      const root=await s.query<RuntimeModelOwner>(`SELECT m.author_id AS user_id,t.project_id,r.thread_id,r.agent_id,r.id AS root_run_id,NULL::text AS subtask_id
+        FROM agent_runs r JOIN chat_threads t ON t.org_id=r.org_id AND t.id=r.thread_id
+        JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id
+        WHERE r.org_id=$1 AND r.id=$2 AND r.status='running' AND r.cancel_requested_at IS NULL
+          AND r.lease_epoch=$3 AND r.lease_expires_at>now()
+          AND ($4=(SELECT r.id||':'||(s.seq-1)::text FROM agent_run_steps s WHERE s.org_id=r.org_id AND s.run_id=r.id AND s.kind='context_built' AND s.started_at>=r.started_at ORDER BY s.seq DESC LIMIT 1) OR ($5 IN ('history-summary','script-retry') AND $4=r.id||':lease:'||$3::text||':'||$5))
+        FOR SHARE OF r`,[orgId,runId,leaseEpoch,attemptId,callPurpose]);
+      const owner=root.rows[0]??(await s.query<typeof root.rows[number]>(`SELECT m.author_id AS user_id,t.project_id,p.thread_id,p.agent_id,p.id AS root_run_id,c.id AS subtask_id
+        FROM subtask_runs c JOIN agent_runs p ON p.org_id=c.org_id AND p.id=c.parent_run_id
+        JOIN chat_threads t ON t.org_id=p.org_id AND t.id=p.thread_id JOIN chat_messages m ON m.org_id=p.org_id AND m.id=p.input_message_id
+        WHERE c.org_id=$1 AND c.id=$2 AND c.status='running' AND c.cancel_requested_at IS NULL AND p.cancel_requested_at IS NULL
+          AND c.lease_epoch=$3 AND c.execution_attempt_id=$4 FOR SHARE OF p,c`,[orgId,runId,leaseEpoch,attemptId])).rows[0];
+      if(!owner?.user_id)return undefined;
+      return {user_id:owner.user_id,project_id:owner.project_id,thread_id:owner.thread_id,
+        agent_id:owner.agent_id,root_run_id:owner.root_run_id,subtask_id:owner.subtask_id};
 }

@@ -2,7 +2,7 @@ import {readFileSync} from "node:fs";
 import {describe,it,expect,vi,afterEach} from "vitest";
 import {RuntimeModelUsageController} from "../../src/interface/controllers/runtime-model-usage.controller";
 import {RuntimeModelRequestStart} from "@repo/contracts/runtime-model-usage";
-import {PgRuntimeModelUsageRepository} from "../../src/infrastructure/auth/pg-runtime-model-usage-repository";
+import {PgRuntimeModelUsageRepository,resolveRuntimeModelOwner} from "../../src/infrastructure/auth/pg-runtime-model-usage-repository";
 import {runtimeUsageObserver} from "../../src/application/agent-run/runtime-model-usage";
 import {toOrgId} from "../../src/domain/org-id";
 const org=toOrgId("tenant-a"),requestId="aa945fbd-9383-428d-b80b-b339fc49ea27";
@@ -18,6 +18,15 @@ describe("runtime request trusted ownership",()=>{
   expect(source).not.toMatch(/SELECT\s+\*|\b(?:m|t|r|p|c|s)\.(?:body|content|instructions|input_full_content|output_full_content)\b/i);
   expect(source).not.toMatch(/return\s+\w+\.rows/);
   expect(source).toContain("FOR SHARE OF r");expect(source).toContain("FOR SHARE OF p,c");
+ });
+ it("shared owner resolver exposes only the bounded projection inside the caller tenant transaction",async()=>{
+  const row={user_id:"trusted",project_id:"p",thread_id:"t",agent_id:"a",root_run_id:"r",subtask_id:null,secret:"must not escape"};
+  const query=vi.fn().mockResolvedValue({rows:[row]});
+  expect(await resolveRuntimeModelOwner({query} as never,org,"r",2,"r:1","primary")).toEqual({user_id:"trusted",project_id:"p",thread_id:"t",agent_id:"a",root_run_id:"r",subtask_id:null});
+  expect(query).toHaveBeenCalledOnce();expect(query.mock.calls[0]?.[1]).toEqual([org,"r",2,"r:1","primary"]);
+  const child=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[{...row,subtask_id:"child"}]});
+  expect(await resolveRuntimeModelOwner({query:child} as never,org,"child",3,"child:3","primary")).toMatchObject({user_id:"trusted",root_run_id:"r",subtask_id:"child"});
+  expect(child.mock.calls[1]?.[1]).toEqual([org,"child",3,"child:3"]);
  });
  it("private service key and strict metadata reject browsers and caller-chosen user identity",async()=>{
   vi.stubEnv("DEEP_AGENT_SERVICE_INTERNAL_KEY","test-key");const startRuntimeRequest=vi.fn(),terminalRuntimeRequest=vi.fn();
