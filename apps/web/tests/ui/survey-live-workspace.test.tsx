@@ -426,3 +426,12 @@ describe('report template unbinding persistence',()=>{
   expect(screen.queryByText(/当前展示上次生成的报告/)).not.toBeInTheDocument();
  });
 });
+
+it('keeps ordinary report template title edits unsaved until explicit save',async()=>{
+ request.mockResolvedValueOnce(runtime());
+ render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+ fireEvent.change(await screen.findByLabelText('报告标题'),{target:{value:'仅预览的新标题'}});
+ await flushAutosave();
+ expect(request).toHaveBeenCalledTimes(1);
+ expect(screen.getByLabelText('报告标题')).toHaveValue('仅预览的新标题');
+});
