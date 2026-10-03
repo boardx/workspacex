@@ -11,6 +11,7 @@ export class PlatformOrganizationError extends Error {
 }
 /** Only called after PlatformOperatorGuard; catalog DB is separate from app_rw. */
 export interface PlatformOrganizationRepository {
+  auditUsageAccess(orgId:OrgId,actorId:string):Promise<void>;
   list(input: OrganizationListInput, actorId: string): Promise<OrganizationList>;
   detail(orgId: OrgId, actorId: string): Promise<OrganizationDetail>;
   setPlan(orgId: OrgId, input: PlanInput, actorId: string): Promise<PlanState>;

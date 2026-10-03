@@ -26,10 +26,10 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
   async startRequest(orgId: OrgId, input: Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1]): Promise<void> {
     await this.db.withTenant(orgId, async s => {
       await s.query(`INSERT INTO model_request_starts
-        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(id) DO NOTHING`,
+        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING`,
         [input.requestId, orgId, input.userId, input.runId, input.executionAttemptId,
-          input.projectId, input.modelProvider, input.modelId, input.startedAt]);
+          input.projectId, input.modelProvider, input.modelId, input.startedAt, input.threadId ?? null, input.agentId ?? null, input.callPurpose ?? null]);
     });
   }
 

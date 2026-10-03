@@ -1548,6 +1548,7 @@ export interface TokenUsageMeterPort {
     readonly requestId: string; readonly userId: string; readonly runId: string;
     readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;
     readonly executionAttemptId: string | null; readonly projectId: string | null;
+    readonly threadId?: string | null; readonly agentId?: string | null; readonly callPurpose?: TokenUsageRecord["callPurpose"];
   }): Promise<void>;
   record(orgId: OrgId, usage: TokenUsageRecord): Promise<void>;
 }

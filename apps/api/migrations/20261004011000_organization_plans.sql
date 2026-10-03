@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS organization_plan_changes (
 );
 -- Platform audit belongs to the existing platform container; INSERT-only for app_rw.
 CREATE TABLE IF NOT EXISTS platform_organization_access_events (
-  id text PRIMARY KEY, org_id text NOT NULL, actor_id text NOT NULL, action text NOT NULL CHECK(action IN ('list','detail')),
+  id text PRIMARY KEY, org_id text NOT NULL, actor_id text NOT NULL, action text NOT NULL CHECK(action IN ('list','detail','usage')),
   target_org_id text NULL, occurred_at timestamptz NOT NULL DEFAULT now()
 );
 DO $$ DECLARE t text; BEGIN

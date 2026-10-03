@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { BrainCircuit, LogOut, User } from "lucide-react";
+import { BarChart3, BrainCircuit, LogOut, User } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,9 @@ export function PersonalMenu({
             <BrainCircuit aria-hidden className="h-3.5 w-3.5" />
             个人 Brain
           </Link>
+        </MenuItem>
+        <MenuItem asChild data-testid="personal-menu-usage-item">
+          <Link href="/usage" className="gap-2"><BarChart3 aria-hidden className="h-3.5 w-3.5"/>我的 AI 用量</Link>
         </MenuItem>
         <MenuSeparator />
         <MenuItem asChild onSelect={(e) => e.preventDefault()}>

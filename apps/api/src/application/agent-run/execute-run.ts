@@ -1084,7 +1084,7 @@ async function executeClaimed(
           if (event.phase === "started") {
             await deps.usage!.startRequest!(orgId, { requestId: event.requestId, startedAt: event.startedAt,
               userId: run.requesterUserId, runId: run.runId, executionAttemptId,
-              projectId: run.projectId, modelProvider: run.modelProvider, modelId: run.modelId });
+              projectId: run.projectId, threadId:run.threadId, agentId:run.agentId, callPurpose:"primary", modelProvider: run.modelProvider, modelId: run.modelId });
           } else {
             await meter(deps, orgId, run, event.usage ?? {}, event.outcome ?? "failed", "primary", {
               eventId: event.requestId, requestStartedAt: event.startedAt, requestEndedAt: event.endedAt, executionAttemptId,

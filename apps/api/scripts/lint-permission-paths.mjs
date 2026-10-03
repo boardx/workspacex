@@ -260,6 +260,10 @@ const ALLOWLIST = new Map([
     "组织首页配置（ad-hoc feature，契约 home-config，Refs #4634）：`org_home_configs` 一行一组织，存的是横幅文案/快捷入口开关/推荐 Agent·Skill 的展示名快照，没有 `ObjectRef` 能表达的 Artifact/Segment 对象——同 `pg-org-profile-repository.ts` 条目的论证（组织自己的配置项，不是 acl_bindings 治理的内容）。`get()` 对任意组织成员开放，`upsert()` 仅组织 admin：两条路由的门都在 controller（`home-config.controller.ts` 的 `requireAdminRole`/`requireOrgAdmin`）里、先于本仓储被触达，同 `pg-org-profile-repository.ts` 的 `listMembers`/`updateOrganization` 同一顺序。⚠ 豁免仅在（a）本文件只出现 `org_home_configs` 与 `org_home_banner_artifacts`（横幅图片归属登记，形状同 `org_avatar_artifacts`；`get()`/`readBannerBytes` 对任意成员开放，`upsert()`/`storeBanner()` 仅组织 admin，门都在 controller）两张租户表，（b）从不调用 `withoutTenant`，（c）两条路由的 admin 判定仍在 controller 层先于本仓储时有效：tests/home/home-config-authorization.test.ts 逐条反证（非成员读 → NO_ORG_MEMBERSHIP，非 admin 写 → FORBIDDEN 且库内未变）。该测试若被删除，本条目必须一并删除。",
   ],
   [
+    "src/infrastructure/auth/pg-ai-usage-repository.ts",
+    "Same-ledger metadata/usage only; no prompt/content or credential rows. Org member routes resolve scopeAiUsage before any query (members self only; admins own-org), platform routes share PlatformOperatorGuard and formal-org access audit. All reads are withTenant with the authorized org/user predicate, finite window and bounded groups/pages. ai-usage-scope and ai-usage-repository enforce negative roles/tenants and aggregate-detail parity; adding content fields invalidates this exemption.",
+  ],
+  [
     "src/infrastructure/auth/pg-ai-admission-repository.ts",
     "AI admission uses identity/entitlement/accounting facts only to decide a trusted provider request; returns decision/replay, never raw budget/member/usage/content rows. Every query is withTenant and subject/window scoped. It is not registered or exposed to client input yet; trusted requester derivation is a runtime activation gate. Real negative/concurrency/replay tests in ai-admission-repository.test.ts must remain; adding content returns or withoutTenant invalidates this exemption.",
   ],

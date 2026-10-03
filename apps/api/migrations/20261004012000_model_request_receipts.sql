@@ -2,7 +2,8 @@
 CREATE TABLE IF NOT EXISTS model_request_starts (
  id text PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  user_id text NOT NULL, run_id text NOT NULL, execution_attempt_id text NULL,
- project_id text NULL, model_provider text NOT NULL, model_id text NOT NULL,
+ project_id text NULL, thread_id text NULL, agent_id text NULL, call_purpose text NULL,
+ occurred_at timestamptz NOT NULL DEFAULT now(), model_provider text NOT NULL, model_id text NOT NULL,
  started_at timestamptz NOT NULL
 );
 ALTER TABLE model_request_starts ENABLE ROW LEVEL SECURITY;

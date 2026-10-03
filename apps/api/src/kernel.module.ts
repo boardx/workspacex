@@ -1,3 +1,6 @@
+import { AiUsageController } from "./interface/controllers/ai-usage.controller";
+import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
+import { PgAiUsageRepository } from "./infrastructure/auth/pg-ai-usage-repository";
 import { PlatformOrganizationController } from "./interface/controllers/platform-organization.controller";
 import { PLATFORM_ORGANIZATION_REPOSITORY } from "./application/system/platform-organization-ports";
 import { PgPlatformOrganizationRepository } from "./infrastructure/system/pg-platform-organization-repository";
@@ -1243,6 +1246,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     PlatformAccessController,
     PlatformMemberController,
     PlatformOrganizationController,
+    AiUsageController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
     ArtifactFileVersionsController,
@@ -2949,6 +2953,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     // member-role-management delta：平台级名册只读端口；改角色复用上面的 ORG_MEMBER_REPOSITORY。
+    { provide: AI_USAGE_REPOSITORY, useFactory:(db:DatabasePort)=>new PgAiUsageRepository(db), inject:[DATABASE_PORT] },
     {
       provide: PLATFORM_ORGANIZATION_REPOSITORY,
       useFactory: (db: DatabasePort) => { const cfg = platformOrgCatalogConfig(); return new PgPlatformOrganizationRepository(db, cfg ? new PgDatabase(cfg) : null); },

@@ -18,7 +18,7 @@ export async function meterModelCompletion<T extends {
     if (event.phase === "started") {
       await deps.usage!.startRequest!(orgId, { requestId: event.requestId, startedAt: event.startedAt,
         userId: run.requesterUserId, runId: run.runId, modelProvider: run.modelProvider,
-        modelId: run.modelId, projectId: run.projectId, executionAttemptId: null });
+        modelId: run.modelId, projectId: run.projectId, threadId:run.threadId, agentId:run.agentId, callPurpose, executionAttemptId: null });
     } else await meter(deps, orgId, run, event.usage ?? {}, event.outcome ?? "failed", callPurpose,
       { eventId: event.requestId, requestStartedAt: event.startedAt, requestEndedAt: event.endedAt });
   } : undefined;

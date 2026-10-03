@@ -177,3 +177,7 @@ Real PG catalog/RLS/concurrency/audit tests are authored for isolated CI only. N
 Owner lightweight API suite passed 53/53 (real loopback HTTP with sandbox escalation, no external provider calls); API typecheck passes. Reviewer independently passed 32 tests; its 16 HTTP cases were not executed due sandbox listen EPERM, so independent full-suite success is not claimed. Reviewer confirmed request lifecycle source boundary; terminal recovery/all-provider coverage remains absent.
 
 Admission review found row-lock permissions, held-receipt double counting and incomplete settlement context; corrected using canonical advisory locks, one conservative hold and provider/model/window matching. Real PG admission and start-receipt tests are authored, not locally run. Existing isolated CI on f0a98af26 failed RLS audit for platform access table; corrected source is pending push/rerun. No production SQL, role provisioning, migrations or budget activation occurred.
+
+## Analytics source checkpoint
+
+Owner focused API 57/57 and UI fixtures 20/20 pass; API/web typecheck and lint pass. Independent source review checked query parameter/alias/authorization paths and bounded output, no confirmed blocker. Real PG report parity/filter/cursor/RLS tests are authored, not locally executed. Browser/live endpoint/screenshots remain unverified. asOf is a timestamp cutoff, not strict cross-request MVCC; late commits can change pages. Partial coverage and group truncation are explicit.

@@ -50,6 +50,12 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
     return result;
   }
 
+  async auditUsageAccess(orgId:OrgId,actorId:string):Promise<void>{
+    const valid=await this.db.withTenant(orgId,async s=>(await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization'",[orgId])).rows[0]);
+    if(!valid) throw new PlatformOrganizationError("ORGANIZATION_NOT_FOUND");
+    await this.auditAccess(actorId,"usage",orgId);
+  }
+
   async setPlan(orgId: OrgId, input: PlanInput, actorId: string): Promise<PlanState> {
     return this.db.withTenant(orgId, async s => {
       // Lock the existing org, including initially unconfigured plans: no missing-row race.
@@ -87,7 +93,7 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
     if (roles.rows[0]?.safe !== true) throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAVAILABLE");
   }
 
-  private async auditAccess(actorId: string, action: "list" | "detail", orgId: OrgId | null): Promise<void> {
+  private async auditAccess(actorId: string, action: "list" | "detail" | "usage", orgId: OrgId | null): Promise<void> {
     await this.db.withTenant(toOrgId(PLATFORM_ORG_ID), s => s.query(`INSERT INTO platform_organization_access_events (id,org_id,actor_id,action,target_org_id)
       VALUES ($1,$2,$3,$4,$5)`, [randomUUID(), PLATFORM_ORG_ID, actorId, action, orgId]));
   }
