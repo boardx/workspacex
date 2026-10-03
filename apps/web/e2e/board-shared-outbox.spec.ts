@@ -30,6 +30,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
  let ownerLifecycle:CDPSession|undefined,ownerFrozen=false,primaryFailed=false;
  let primaryFailure:unknown;
+ let ownerWindow:{windowId:number;bounds:{left?:number;top?:number;width?:number;height?:number;windowState:'normal'|'minimized'|'maximized'|'fullscreen'}}|undefined,ownerWindowChanged=false,ownerHiddenObserved=false;
+ let nativeVisibility:{state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number}|undefined;
  let lifecycleReady=0,nativeCountsCaptured=false;
  const captureNativeCounts=async()=>{
   if(!ownerLifecycle)throw new Error("OWNED_LIFECYCLE_SESSION_MISSING");
@@ -45,6 +47,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const recordVisibility=(stage:'before-freeze'|'native-visibilitychange'|'after-active',value:{state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number}|undefined)=>{
   if(!value||!['visible','hidden'].includes(value.state??'')||![0,1].includes(value.sameDocument??-1))return;
   if(!['trustedChanges','untrustedChanges'].every(key=>{const n=value[key as 'trustedChanges'|'untrustedChanges'];return Number.isSafeInteger(n)&&n!>=0&&n!<=1_000_000;}))return;
+  nativeVisibility=value;
+  if(value.state==='hidden'&&value.sameDocument===1&&(value.trustedChanges??0)>0)ownerHiddenObserved=true;
   const safe={stage,state:value.state,trustedChanges:value.trustedChanges,untrustedChanges:value.untrustedChanges,sameDocument:value.sameDocument};
   console.info('OWNED_LIFECYCLE_VISIBILITY',JSON.stringify(safe));
   const samples=(evidence.ownerVisibilitySamples??=[]) as unknown[];samples.push(safe);
@@ -59,6 +63,19 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect([0,1]).toContain(value?.sameDocument);
   recordVisibility(stage,value);
   expect(value!.sameDocument,'Lifecycle observation must remain on the original document').toBe(1);
+ };
+
+ const restoreOwnerWindow=async(timeout:number)=>{
+  if(!ownerWindowChanged)return;
+  if(!ownerLifecycle||!ownerWindow)throw new Error('OWNED_WINDOW_IDENTITY_MISSING');
+  await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState:'normal'}});
+  const {left,top,width,height,windowState}=ownerWindow.bounds;
+  await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{left,top,width,height}});
+  if(windowState!=='normal')await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState}});
+  expect((await ownerLifecycle.send('Browser.getWindowBounds',{windowId:ownerWindow.windowId})).bounds).toEqual(ownerWindow.bounds);
+  if(!ownerHiddenObserved&&!ownerFrozen)await captureVisibility('after-active');
+  await expect.poll(()=>nativeVisibility?.state==='visible'&&nativeVisibility.sameDocument===1&&(!ownerHiddenObserved||(nativeVisibility.trustedChanges??0)>=2),{timeout,message:'Owned window must restore genuine visible lifecycle on the original document'}).toBe(true);
+  ownerWindowChanged=false;
  };
 
  const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
@@ -136,7 +153,23 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   evidence.lifecycleObserverReady=lifecycleReady;
   // Freeze only this page's lifecycle. Debugger.pause can stop sibling pages in
   // the same renderer, making peer lease recovery impossible to exercise.
-  await captureVisibility('before-freeze');ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
+  await captureVisibility('before-freeze');
+  expect(nativeVisibility?.state,'Owned window must initially be visible').toBe('visible');
+  const observedWindow=await ownerLifecycle.send('Browser.getWindowForTarget');
+  const originalState=observedWindow.bounds.windowState;
+  if(originalState!=='normal'&&originalState!=='maximized'&&originalState!=='fullscreen')throw new Error('OWNED_WINDOW_STATE_UNSUPPORTED');
+  ownerWindow={windowId:observedWindow.windowId,bounds:{...observedWindow.bounds,windowState:originalState}};
+  expect(Number.isSafeInteger(ownerWindow.windowId)).toBe(true);
+  expect(['normal','maximized','fullscreen']).toContain(ownerWindow.bounds.windowState);
+  for(const key of ['left','top','width','height'] as const)expect(Number.isFinite(ownerWindow.bounds[key])).toBe(true);
+  // Chromium 151 headless owns one window per target. Minimize through the
+  // browser, then require its trusted hidden transition before native freeze.
+  ownerWindowChanged=true;
+  if(ownerWindow.bounds.windowState==='fullscreen')await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState:'normal'}});
+  await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState:'minimized'}});
+  expect((await ownerLifecycle.send('Browser.getWindowBounds',{windowId:ownerWindow.windowId})).bounds.windowState).toBe('minimized');
+  await expect.poll(()=>nativeVisibility?.state==='hidden'&&nativeVisibility.sameDocument===1&&(nativeVisibility.trustedChanges??0)>=1,{timeout:remaining(),message:'Owned window must genuinely hide on the original document before freeze'}).toBe(true);
+  ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
   await expect.poll(()=>lifecycleEvents.freeze,{timeout:remaining(),message:'Original page must emit a trusted native freeze event'}).toBe(1);
   evidence.ownerLifecycleControl='page-frozen';mark('original-tab-paused');
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
@@ -151,6 +184,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
   await ownerLifecycle.send('Page.setWebLifecycleState',{state:'active'});
   await expect.poll(()=>lifecycleEvents.resume,{timeout:remaining(),message:'Original page must emit a trusted native resume event'}).toBe(1);ownerFrozen=false;mark('original-tab-resumed');
+  await restoreOwnerWindow(remaining());
   await captureVisibility('after-active');
   evidence.ownerLifecycleEvents={...lifecycleEvents};
   evidence.ackGate={updateId:ackGate.updateId,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
@@ -174,13 +208,17 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await testPeer.close();peer=undefined;
  }catch(error){primaryFailed=true;primaryFailure=error;throw error;}finally{
   const lifecycleCleanupErrors:string[]=[];
+  const restoreVisibilityNeeded=ownerFrozen||ownerWindowChanged;
   if(ownerFrozen){
    try{await ownerLifecycle?.send('Page.setWebLifecycleState',{state:'active'});await expect.poll(()=>lifecycleEvents.resume,{timeout:5000,message:'Owned frozen page must actually resume during cleanup'}).toBe(1);ownerFrozen=false;}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
-   try{if(!ownerFrozen)await captureVisibility('after-active');}catch(error){lifecycleCleanupErrors.push(`visibility-after-restore: ${String(error)}`);}
   }
+  try{await restoreOwnerWindow(5000);}catch(error){lifecycleCleanupErrors.push(`window-restore: ${String(error)}`);}
+  try{if(restoreVisibilityNeeded&&ownerLifecycle&&!ownerFrozen&&!ownerWindowChanged)await captureVisibility('after-active');}catch(error){lifecycleCleanupErrors.push(`visibility-after-restore: ${String(error)}`);}
   try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
-  try{if(ownerLifecycle&&!nativeCountsCaptured)await captureNativeCounts();}catch(error){lifecycleCleanupErrors.push(`counts: ${String(error)}`);}
-  try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
+  if(ownerFrozen)lifecycleCleanupErrors.push('counts: OWNER_STILL_FROZEN_NOT_READ');
+  else try{if(ownerLifecycle&&!nativeCountsCaptured)await captureNativeCounts();}catch(error){lifecycleCleanupErrors.push(`counts: ${String(error)}`);}
+  if(ownerFrozen)lifecycleCleanupErrors.push('listeners: OWNER_STILL_FROZEN_NOT_REMOVED');
+  else try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
   try{await ownerLifecycle?.send('Runtime.removeBinding',{name:lifecycleBinding});}catch(error){lifecycleCleanupErrors.push(`binding: ${String(error)}`);}
   try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
   evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;evidence.ownerLifecycleEvents={...lifecycleEvents};

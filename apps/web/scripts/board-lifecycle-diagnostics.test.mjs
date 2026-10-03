@@ -23,7 +23,12 @@ test('staged lifecycle ordering keeps Runtime diagnostics outside frozen interva
  assert.ok(!text.slice(frozen,active).includes("send('Runtime.evaluate'"));
  const cleanup=text.slice(text.indexOf('const lifecycleCleanupErrors:string[]=[];'));
  assert.ok(cleanup.indexOf("send('Page.setWebLifecycleState',{state:'active'})")<cleanup.indexOf("captureVisibility('after-active')"));
- assert.ok(cleanup.includes("if(!ownerFrozen)await captureVisibility('after-active')"));
+ assert.ok(cleanup.includes("ownerLifecycle&&!ownerFrozen&&!ownerWindowChanged)await captureVisibility('after-active')"));
+ assert.ok(cleanup.includes("if(ownerFrozen)lifecycleCleanupErrors.push('counts: OWNER_STILL_FROZEN_NOT_READ');\n  else try"));
+ assert.ok(cleanup.includes("if(ownerFrozen)lifecycleCleanupErrors.push('listeners: OWNER_STILL_FROZEN_NOT_REMOVED');\n  else try"));
+ assert.ok(cleanup.indexOf("restoreOwnerWindow(5000)")<cleanup.indexOf("captureVisibility('after-active')"));
+ assert.ok(text.includes("if(!ownerHiddenObserved&&!ownerFrozen)await captureVisibility('after-active')"));
+ assert.ok(text.includes("!ownerHiddenObserved||(nativeVisibility.trustedChanges??0)>=2"));
  assert.ok(!cleanup.includes("captureVisibility('before-active')"));
  assert.ok(text.includes("notify(JSON.stringify({type:'visibilitychange',state:document.visibilityState"));
 });
