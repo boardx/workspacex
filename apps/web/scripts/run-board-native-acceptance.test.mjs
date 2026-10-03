@@ -232,6 +232,16 @@ test('fixed listener probe stages survive end receipts without exposing causes o
  const cause=Object.assign(new Error('private kernel path'),{nativeListenerFailure:{stage:'LIST_DESCRIPTORS',cause:'ENOENT'}});
  const error=Object.assign(new Error('private wrapper',{cause}),{code:'IDENTITY_LISTENER'});
  assert.deepEqual(safeEndRuntimeFailure(error).nativeListenerFailure,{stage:'LIST_DESCRIPTORS',cause:'ENOENT'});
+ const extended={stage:'LIST_DESCRIPTORS',cause:'EACCES',relation:'DESCENDANT',state:'Z',uidEqual:true};
+ cause.nativeListenerFailure=extended;
+ assert.deepEqual(safeEndRuntimeFailure(error).nativeListenerFailure,extended);
+ for(const invalid of [{...extended,relation:'PRIVATE'},{...extended,state:'PRIVATE'},{...extended,uidEqual:1000},{...extended,pid:100},{...extended,uid:1000},{...extended,path:'/private'},{...extended,command:'secret'}]){
+  cause.nativeListenerFailure=invalid;assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);
+ }
+ for(const field of Object.keys(extended)){
+  let reads=0;const details={...extended};Object.defineProperty(details,field,{enumerable:true,get(){reads++;return 'private';}});
+  cause.nativeListenerFailure=details;assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);assert.equal(reads,0);
+ }
  for(const invalid of [{stage:'PRIVATE',cause:'ENOENT'},{stage:'LIST_DESCRIPTORS',cause:'PRIVATE'},{stage:'LIST_DESCRIPTORS',cause:'ENOENT',path:'/private'}]){
   cause.nativeListenerFailure=invalid;assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);
  }

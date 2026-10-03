@@ -3,14 +3,22 @@ import {readFileSync,readdirSync,readlinkSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 
 const stages=new Set(['READ_SOCKET_TABLE','PARSE_SOCKET_TABLE','SOCKET_PRESENT','READ_ANCESTRY','PARSE_ANCESTRY','MANAGED_PROCESS_PRESENT','LIST_DESCRIPTORS','PROBE_EXITED_DESCENDANT','READ_DESCRIPTOR','ALL_LISTENERS_OWNED','OWNED_LISTENER_PRESENT']);
+const relations=new Set(['ROOT','DESCENDANT','UNKNOWN']);
+const states=new Set(['R','S','D','T','t','Z','X','x','K','W','P','I','UNKNOWN']);
 const causes=new Set(['ENOENT','ESRCH','EACCES','EPERM','ERR_ASSERTION','ERR_CHILD_PROCESS_STDIO_MAXBUFFER','UNKNOWN']);
 export function parseNativeListenerFailure(value){
   assert(value&&typeof value==='object'&&!Array.isArray(value));
   const descriptors=Object.getOwnPropertyDescriptors(value);
-  assert.deepEqual(Object.keys(descriptors).sort(),['cause','stage']);
+  const keys=Object.keys(descriptors).sort();
+  const extended=keys.length===5;
+  assert.deepEqual(keys,extended?['cause','relation','stage','state','uidEqual']:['cause','stage']);
   assert(Object.values(descriptors).every(item=>Object.hasOwn(item,'value')));
   const stage=descriptors.stage.value,cause=descriptors.cause.value;
-  assert(stages.has(stage)&&causes.has(cause));return{stage,cause};
+  assert(stages.has(stage)&&causes.has(cause));
+  if(!extended)return{stage,cause};
+  const relation=descriptors.relation.value,state=descriptors.state.value,uidEqual=descriptors.uidEqual.value;
+  assert(relations.has(relation)&&states.has(state));assert(uidEqual===null||typeof uidEqual==='boolean');
+  return{stage,cause,relation,state,uidEqual};
 }
 
 // Kernel socket inodes are the authority on Linux. Every matching listener must
@@ -19,6 +27,7 @@ export function linuxRuntimeListeners(pid,port,{read=readFileSync,list=readdirSy
   assert(Number.isInteger(pid)&&pid>0);assert(Number.isInteger(port)&&port>0&&port<=65535);
   assert.equal(typeof descendsFrom,'function');
   let stage='READ_SOCKET_TABLE';
+  let diagnostic={relation:'UNKNOWN',state:'UNKNOWN',uidEqual:null};
   try{
   const inodes=new Set();
   for(const protocol of ['tcp','tcp6']){
@@ -39,14 +48,27 @@ export function linuxRuntimeListeners(pid,port,{read=readFileSync,list=readdirSy
   const owners=new Set(),observed=new Set();
   for(const candidate of parents.keys()){
     if(!descendsFrom(candidate,pid,parent=>parents.get(parent)))continue;
+    diagnostic={relation:'UNKNOWN',state:'UNKNOWN',uidEqual:null};
     let descriptors;stage='LIST_DESCRIPTORS';
     try{descriptors=list(`/proc/${candidate}/fd`);}catch(error){
+      // Only this already-proven descendant is observed. These facts never
+      // supply ownership, excuse EACCES, or replace the primary failure.
+      diagnostic={relation:candidate===pid?'ROOT':'DESCENDANT',state:'UNKNOWN',uidEqual:null};
+      try{
+        const status=read(`/proc/${candidate}/status`,'utf8');
+        if(typeof status==='string'&&status.length<=65536){
+          const state=/^State:\s+([A-Za-z])(?:\s|$)/m.exec(status)?.[1];
+          if(states.has(state))diagnostic.state=state;
+          const uid=/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(status);
+          if(uid&&uid.slice(1).every(value=>Number.isSafeInteger(Number(value)))&&typeof process.geteuid==='function')diagnostic.uidEqual=Number(uid[2])===process.geteuid();
+        }
+      }catch{}
       // ps is a snapshot. Only a demonstrably exited non-root descendant may
       // disappear between that snapshot and fd enumeration. Its descriptors
       // never supply ownership; every required inode still needs live proof.
       if(Object.getOwnPropertyDescriptor(error,'code')?.value!=='ENOENT'||candidate===pid)throw error;
       stage='PROBE_EXITED_DESCENDANT';
-      try{kill(candidate,0);}catch(probe){if(Object.getOwnPropertyDescriptor(probe,'code')?.value==='ESRCH')continue;throw probe;}
+      try{kill(candidate,0);}catch(probe){if(Object.getOwnPropertyDescriptor(probe,'code')?.value==='ESRCH'){diagnostic={relation:'UNKNOWN',state:'UNKNOWN',uidEqual:null};continue;}throw probe;}
       throw error;
     }
     for(const fd of descriptors){
@@ -56,11 +78,12 @@ export function linuxRuntimeListeners(pid,port,{read=readFileSync,list=readdirSy
       if(match&&inodes.has(match[1])){observed.add(match[1]);owners.add(candidate);}
     }
   }
+  diagnostic={relation:'UNKNOWN',state:'UNKNOWN',uidEqual:null};
   stage='ALL_LISTENERS_OWNED';assert([...inodes].every(inode=>observed.has(inode)),'every kernel listener must belong to managed process tree');
   stage='OWNED_LISTENER_PRESENT';assert(owners.size>0,'owned listener required');return [...owners];
   }catch(cause){
     const code=Object.getOwnPropertyDescriptor(cause??{},'code')?.value;
     const error=new Error('NATIVE_LISTENER_PROBE_FAILED',{cause});
-    error.nativeListenerFailure={stage,cause:causes.has(code)?code:'UNKNOWN'};throw error;
+    error.nativeListenerFailure={stage,cause:causes.has(code)?code:'UNKNOWN',...diagnostic};throw error;
   }
 }

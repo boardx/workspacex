@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {linuxRuntimeListeners} from './native-process-listeners.mjs';
+import {linuxRuntimeListeners,parseNativeListenerFailure} from './native-process-listeners.mjs';
 import {descendsFrom} from './runtime-attestation.mjs';
 const row=(port,inode,state='0A')=>`0: 0100007F:${port.toString(16).padStart(4,'0')} 00000000:0000 ${state} 0:0 0:0 0 1000 0 ${inode}`;
 function fixture({rows=[row(1234,'77')],parents='100 1\n101 100\n999 1',fds={'100':['/owned/file'],'101':['socket:[77]']}}={}){
@@ -72,7 +72,49 @@ test('gone owner cannot supply a required socket inode or hide partial ownership
 test('probe failure exports only a fixed stage and code while retaining original cause',()=>{
  const deps=fixture(),original=Object.assign(new Error('private kernel path'),{code:'PRIVATE_CODE'});deps.read=()=>{throw original;};
  assert.throws(()=>linuxRuntimeListeners(100,1234,deps),error=>{
-  assert.equal(error.cause,original);assert.deepEqual(error.nativeListenerFailure,{stage:'READ_SOCKET_TABLE',cause:'UNKNOWN'});
+  assert.equal(error.cause,original);assert.deepEqual(error.nativeListenerFailure,{stage:'READ_SOCKET_TABLE',cause:'UNKNOWN',relation:'UNKNOWN',state:'UNKNOWN',uidEqual:null});
   assert.ok(!JSON.stringify(error.nativeListenerFailure).includes('private'));return true;
  });
+});
+
+const ancestry=(pid,root,parent)=>{const seen=new Set();while(pid>1&&!seen.has(pid)){if(pid===root)return true;seen.add(pid);pid=parent(pid);}return false;};
+function failure(candidate,status){
+  const paths=[];const error=Object.assign(new Error('private denial'),{code:'EACCES'});
+  const deps={descendsFrom:ancestry,exec:()=> '100 1\n101 100\n999 1',
+    read:path=>{paths.push(path);if(path.endsWith('/status')){if(status instanceof Error)throw status;return status;}return `header\n${path.endsWith('/tcp')?'0: 0100007F:04D2 00000000:0000 0A 0:0 0:0 0 1000 0 77':''}\n`;},
+    list:path=>{const pid=Number(path.split('/')[2]);assert.notEqual(pid,999);if(pid===candidate)throw error;return ['0'];},link:()=> 'socket:[77]'};
+  try{linuxRuntimeListeners(100,1234,deps);assert.fail('denial must never pass');}catch(actual){assert.equal(actual.cause,error);return {details:parseNativeListenerFailure(actual.nativeListenerFailure),paths};}
+}
+test('owned root/descendant diagnostic retains primary denial and exports only enum/boolean facts',()=>{
+  for(const candidate of [100,101]){
+    const {details,paths}=failure(candidate,`Name:\tprivate secret\nState:\tZ (zombie)\nUid:\t${process.geteuid()}\t${process.geteuid()}\t${process.geteuid()}\t${process.geteuid()}\n`);
+    assert.deepEqual(details,{stage:'LIST_DESCRIPTORS',cause:'EACCES',relation:candidate===100?'ROOT':'DESCENDANT',state:'Z',uidEqual:true});
+    assert(paths.includes(`/proc/${candidate}/status`));assert(!paths.some(path=>path.includes('/999/')));assert(!JSON.stringify(details).includes('private'));
+  }
+});
+test('unavailable/oversized/malformed owned status remains UNKNOWN and hard blocked',()=>{
+  for(const status of [new Error('private read denial'),'State: secret\nUid: x\n','x'.repeat(65537)]){
+    assert.deepEqual(failure(101,status).details,{stage:'LIST_DESCRIPTORS',cause:'EACCES',relation:'DESCENDANT',state:'UNKNOWN',uidEqual:null});
+  }
+});
+test('uid comparison false is diagnostic only and never exempts denied descriptors',()=>{
+  assert.equal(failure(101,'State:\tS (sleeping)\nUid:\t999999\t999999\t999999\t999999\n').details.uidEqual,false);
+});
+test('decoder rejects unknown fields, private strings and accessors without evaluation; legacy remains valid',()=>{
+  const good={stage:'LIST_DESCRIPTORS',cause:'EACCES',relation:'ROOT',state:'S',uidEqual:null};
+  assert.deepEqual(parseNativeListenerFailure({stage:'LIST_DESCRIPTORS',cause:'EACCES'}),{stage:'LIST_DESCRIPTORS',cause:'EACCES'});
+  for(const bad of [{...good,pid:100},{...good,path:'/private'},{...good,relation:'private'},{...good,state:'private'},{...good,uidEqual:100}])assert.throws(()=>parseNativeListenerFailure(bad));
+  let reads=0;const accessor={...good};Object.defineProperty(accessor,'state',{get(){reads++;return 'S';},enumerable:true});assert.throws(()=>parseNativeListenerFailure(accessor));assert.equal(reads,0);
+});
+test('a safely skipped gone child cannot label a later descriptor failure or missing inode',()=>{
+  for(const laterFailure of [true,false]){
+    const deps={descendsFrom:ancestry,exec:()=> '100 1\n101 100\n102 100',
+      read:path=>path.endsWith('/status')?`State:\tZ (zombie)\nUid:\t${process.geteuid()}\t${process.geteuid()}\t${process.geteuid()}\t${process.geteuid()}\n`:`header\n${path.endsWith('/tcp')?'0: 0100007F:04D2 00000000:0000 0A 0:0 0:0 0 1000 0 77':''}\n`,
+      list:path=>{if(path==='/proc/101/fd')throw Object.assign(new Error('gone'),{code:'ENOENT'});return path==='/proc/102/fd'?['0']:[];},
+      link:()=>{if(laterFailure)throw Object.assign(new Error('private later denial'),{code:'EACCES'});return '/non-socket';},
+      kill:()=>{throw Object.assign(new Error('gone'),{code:'ESRCH'});}};
+    assert.throws(()=>linuxRuntimeListeners(100,1234,deps),error=>{
+      assert.deepEqual(parseNativeListenerFailure(error.nativeListenerFailure),{stage:laterFailure?'READ_DESCRIPTOR':'ALL_LISTENERS_OWNED',cause:laterFailure?'EACCES':'ERR_ASSERTION',relation:'UNKNOWN',state:'UNKNOWN',uidEqual:null});return true;
+    });
+  }
 });
