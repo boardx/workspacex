@@ -40,7 +40,7 @@ it("streams changed snapshots and does not resend report text after token deltas
   const { vi } = await import("vitest");
   const stream = { requestId: "r", sequence: 0, text: "", status: "streaming" as const };
   const busy = { ...state, version: 3, revision: 2, busy: true, reportStream: stream };
-  const execute = vi.fn(async (_scope, _session, _command, send) => {
+  const execute = vi.fn(async (_scope, _session, _command, send, _traceId?: string) => {
     send({ type: "snapshot", state: busy });
     send({ type: "report_delta", sessionId: "s", requestId: "r", version: 3, sequence: 1, delta: "正文" });
     send({ type: "result", state: { ...busy, busy: false, reportStream: { ...stream, sequence: 1, text: "正文" } } });
