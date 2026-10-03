@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 
 const PROJECT = 'workspacex-home';
@@ -24,11 +25,24 @@ export async function cutover({ env = process.env, fetchImpl = fetch, run = spaw
   if (!previous?.id || previous.latest_stage?.status !== 'success') throw new Error('no successful production deployment to retain for rollback');
   const evidence = { commit: env.GITHUB_SHA, project: PROJECT, previous_deployment: previous.id, started_at: new Date().toISOString() };
   record(evidence);
+  // Wrangler 4.40.0 writes the actual response ID as a pages-deploy NDJSON entry.
+  // A fresh file belongs only to this invocation; do not infer ownership from SHA.
+  const temporary = mkdtempSync(join(tmpdir(), 'home-pages-'));
+  const wranglerOutput = join(temporary, 'output.ndjson');
+  let ownId;
   try {
-    const result = run('npm', ['exec', '--yes', '--package=wrangler@4.40.0', '--', 'wrangler', 'pages', 'deploy', output, '--project-name', PROJECT, '--branch', 'main', '--commit-hash', env.GITHUB_SHA, '--commit-dirty=false'], { env, stdio: 'inherit', timeout: 300000 });
+    const result = run('npm', ['exec', '--yes', '--package=wrangler@4.40.0', '--', 'wrangler', 'pages', 'deploy', output, '--project-name', PROJECT, '--branch', 'main', '--commit-hash', env.GITHUB_SHA, '--commit-dirty=false'], { env: { ...env, WRANGLER_OUTPUT_FILE_PATH: wranglerOutput }, stdio: 'inherit', timeout: 300000 });
+    let entries;
+    try { entries = readFileSync(wranglerOutput, 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(entry => entry.type === 'pages-deploy'); }
+    catch { throw new Error('own deployment ID unavailable; refusing automatic rollback'); }
+    const entry = entries.length === 1 ? entries[0] : null;
+    if (entry?.version !== 1 || entry.pages_project !== PROJECT || !/^[a-f0-9-]{36}$/.test(entry.deployment_id ?? '')) throw new Error('own deployment ID unavailable; refusing automatic rollback');
+    ownId = entry.deployment_id;
+    Object.assign(evidence, { deployment_id: ownId, deployment_url: entry.url });
+    record(evidence);
     if (result.error || result.status !== 0) throw new Error('Wrangler deploy failed');
     const current = (await request()).canonical_deployment;
-    if (current?.deployment_trigger?.metadata?.commit_hash !== env.GITHUB_SHA || current.latest_stage?.status !== 'success' || current.id === previous.id) throw new Error('new successful production deployment not confirmed');
+    if (current?.id !== ownId || current.deployment_trigger?.metadata?.commit_hash !== env.GITHUB_SHA || current.latest_stage?.status !== 'success' || current.id === previous.id) throw new Error('own successful production deployment not confirmed');
     Object.assign(evidence, { deployment_id: current.id, deployment_url: current.url, created_on: current.created_on });
     record(evidence);
     const smoke = run(process.execPath, ['apps/home/scripts/live-check.mjs'], { env, stdio: 'inherit', timeout: 120000 });
@@ -44,14 +58,16 @@ export async function cutover({ env = process.env, fetchImpl = fetch, run = spaw
     evidence.status = 'failed';
     record(evidence);
     // Only roll back our own cutover. Never reverse another publisher's deployment.
-    const current = (await request()).canonical_deployment;
-    if (current?.id !== previous.id && current?.deployment_trigger?.metadata?.commit_hash === env.GITHUB_SHA) {
+    const current = ownId ? (await request()).canonical_deployment : null;
+    if (ownId && current?.id === ownId && current.id !== previous.id && current.deployment_trigger?.metadata?.commit_hash === env.GITHUB_SHA) {
       await request(`/deployments/${encodeURIComponent(previous.id)}/rollback`, 'POST');
       if ((await request()).canonical_deployment?.id !== previous.id) throw new Error('rollback was not confirmed');
       evidence.rollback = previous.id;
     }
     record(evidence);
     throw error;
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
   }
 }
 
