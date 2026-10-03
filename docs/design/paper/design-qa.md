@@ -27,8 +27,8 @@ Home preserves organization logo palette extraction, configured quick actions/se
 - After scoped destructive-hover preservation, theme suite rerun: 4/4 passed.
 - Token contrast: 48 foreground/background pairs including explicit hover states passed. This does not certify user-authored arbitrary palette colors.
 - Generated light scope: 53 tokens match root.
-- Scoped design-system lint: passed; `git diff --check`: passed.
-- Marketing generated CSS and static CSS compatibility checks: passed. Actual 1024×600 screenshot retained.
+- Full design-system lint: passed after correcting one login link's legacy numeric duration; `git diff --check`: passed.
+- Marketing: all 16 static gates passed after necessary source-dependent resource generation. CI initially detected stale derivatives; commands and source SHA are in `marketing-generation.md`. Actual 1024×600 screenshot refreshed after generation.
 - Exact-diff independent review: no actionable regressions in initial source review; final additive review recorded separately.
 
 Dev gallery console reports an existing ThemeToggle Radix Slot/function-component ref warning. This file was not modified. Theme toggling and Dialog focus return succeeded, but the warning is not hidden or claimed fixed.
