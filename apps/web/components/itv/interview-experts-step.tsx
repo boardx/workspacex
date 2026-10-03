@@ -76,7 +76,9 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
       if (onSaveExpert) await onSaveExpert(next);
       else onChange(next);
       setOpen(false);
-    } catch { setSuggestError("保存未完成，已保留画像和审阅状态，请重试。"); }
+    } catch (cause) { setSuggestError(cause instanceof Error && cause.message === "EXPERT_DRAFT_CONFLICT"
+      ? "专家已在其他位置更新。当前选择和画像已保留，请取消并重新审阅并发修改后再保存。"
+      : "保存未完成，已保留画像和审阅状态，请重试。"); }
     finally { setSavingExpert(false); }
   }
   const normalizedQuery = query.trim().toLocaleLowerCase();
