@@ -1,0 +1,38 @@
+{
+  "productionSha": "f7a1ff880ce3414338f1a2b5ddfa7f203ea4a6da",
+  "unit": {
+    "files": 8,
+    "passed": 215,
+    "log": "/private/tmp/research-5179-unit.log"
+  },
+  "full": {
+    "files": 36,
+    "passed": 492,
+    "log": "/private/tmp/research-5179-final-full-suite.log",
+    "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research"
+  },
+  "typecheck": {
+    "exitCode": 0,
+    "log": "/private/tmp/research-5179-typecheck.log"
+  },
+  "real": {
+    "model": "qwen3.7-plus",
+    "calls": 7,
+    "durationMs": 338382,
+    "directory": "/private/tmp/research-5179-public-report",
+    "formalPromotionVerified": false,
+    "overallSemanticPassed": false
+  },
+  "replay": {
+    "passed": true,
+    "log": "/private/tmp/research-5179-captured-replay.log"
+  },
+  "promotion": {
+    "errorCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+    "report": null,
+    "completed": false,
+    "modelCalls": 0,
+    "productionPersistenceVerified": false,
+    "log": "/private/tmp/research-5179-promotion-proof.log"
+  }
+}

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { EvidenceChunk } from "./guided-report-evidence-validation";
 const matchSchema = C.GuidedResearchEvidenceModelOutput.shape.evaluations.element.shape.matches.element;
-const referenceMatchSchema = matchSchema.omit({ quote: true }).extend({ quoteRef: z.string().min(1) }).strict();
+export const quoteReferenceMatchSchema = matchSchema.omit({ quote: true }).extend({ quoteRef: z.string().min(1) }).strict();
 const quoteLimit = (zodToJsonSchema(matchSchema.shape.quote, { $refStrategy: "none" }) as { maxLength: number }).maxLength;
 export function quoteOptions(chunk: EvidenceChunk) {
   const options: { quoteRef: string; text: string }[] = [];
@@ -25,7 +25,7 @@ export function materializeQuoteReferences(value: Record<string, unknown>, chunk
   if (!Array.isArray(value.matches)) return value;
   const options = new Map(quoteOptions(chunk).map((option) => [option.quoteRef, option.text]));
   return { ...value, matches: value.matches.map((match) => {
-    const parsed = referenceMatchSchema.safeParse(match);
+    const parsed = quoteReferenceMatchSchema.safeParse(match);
     if (!parsed.success) return match;
     const quote = options.get(parsed.data.quoteRef);
     if (!quote) return match; // Unknown or foreign references fail the authoritative strict schema.

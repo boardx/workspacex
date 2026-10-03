@@ -42,6 +42,7 @@ import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
 import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
+import { evaluateSurveyForPublish } from "@repo/contracts/survey-publish-readiness";
 import { WorkflowTimeline } from "./workflow-timeline";
 const STEPS = [
   ["design", "设计问卷"],
@@ -81,7 +82,7 @@ export function LiveSurveyWorkspace({
 }) {
   const router = useRouter();
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
-  const [draft, setDraft] = React.useState<SurveyDraftInput | null>(null);
+  const [draft, updateDraft] = React.useState<SurveyDraftInput | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [operation, setOperation] = React.useState<"idle" | "saving" | "processing">("idle");
   const [generatingReport, setGeneratingReport] = React.useState(false);
@@ -89,6 +90,10 @@ export function LiveSurveyWorkspace({
   const [error, setError] = React.useState("");
   const [retryable, setRetryable] = React.useState(false);
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
+  const setDraft = React.useCallback((next: SurveyDraftInput | null) => {
+    setBlockers([]);
+    updateDraft(next);
+  }, []);
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
@@ -118,7 +123,7 @@ export function LiveSurveyWorkspace({
       questions: value.questions,
       template: value.template,
     });
-  }, []);
+  }, [setDraft]);
   React.useEffect(() => {
     setStep(initialStep);
   }, [initialStep]);
@@ -142,7 +147,7 @@ export function LiveSurveyWorkspace({
     return () => {
       active = false;
     };
-  }, [surveyId, accept]);
+  }, [surveyId, accept, setDraft]);
   const dirty =
     publicationMarkdown !== (runtime?.publication?.sourceSnapshot?.documents.publication.markdown ?? runtime?.source?.documents.publication.markdown ?? '# 发布与回收\n') ||
     markdown !== savedMarkdown ||
@@ -167,7 +172,7 @@ export function LiveSurveyWorkspace({
     try {
       await action();
     } catch (e) {
-      if (e instanceof SurveyPublishBlockedError) setBlockers(e.blockers);
+      if (e instanceof SurveyPublishBlockedError) { setBlockers(e.blockers); selectStep("design"); }
       else {
         setConflicted(e instanceof SurveyConflictError);
         setError(e instanceof Error ? e.message : "操作失败，请重试");
@@ -227,7 +232,8 @@ export function LiveSurveyWorkspace({
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
     const current = dirty ? await save() : runtime;
     if (!current) throw new Error("请先保存问卷");
-    const next = await surveyRequest(`/surveys/${current.id}/${name}`, {
+    const action = name === "begin-collection" ? current.status === "ready" ? "start-collection" : "publish" : name;
+    const next = await surveyRequest(`/surveys/${current.id}/${action}`, {
         method: "POST",
         body: { expectedVersion: current.version, ...extra },
       }, SurveyRuntimeSchema);
@@ -266,9 +272,10 @@ export function LiveSurveyWorkspace({
         )
       : null;
   }, [draft, runtime?.responses]);
+  const designBlockers = React.useMemo(() => blockers.length ? blockers : draft ? evaluateSurveyForPublish(draft) : [], [draft, blockers]);
   const readiness = React.useMemo(
-    () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers }),
-    [draft?.questions, blockers],
+    () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers: designBlockers }),
+    [draft?.questions, designBlockers],
   );
   const reportIsStale = !!runtime?.report && (dirty || runtime.reportBasisVersion !== runtime.version - 1 || runtime.reportBasisAnswerRevision !== runtime.answerRevision);
   const reportShareBlockedReason = runtime?.report
@@ -385,9 +392,9 @@ export function LiveSurveyWorkspace({
             <Button
               className="mt-3"
               variant="outline"
-              onClick={() => void execute(() => command("prepare"))}
+              onClick={() => void execute(() => command("begin-collection", expires ? { expiresAt: new Date(expires).toISOString() } : {}))}
             >
-              重试发布检查
+              重试发布
             </Button>
           )}
         </div>
@@ -442,6 +449,49 @@ export function LiveSurveyWorkspace({
             </details>
             <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
           </section>)}
+          {(step === "design" || step === "template") && (<>
+            {!designBlockers.length && <section aria-label="设计检查" className="border-b border-success/30 px-5 py-2 text-12 text-success">设计检查通过</section>}
+            {designBlockers.length > 0 && (
+              <section aria-label="设计检查" className="rounded-md border border-warning/40 bg-warning/5 p-4">
+                <h2 className="text-14 font-semibold">发现 {designBlockers.length} 项设计问题</h2>
+                <div data-testid="survey-design-readiness" className="mt-3 grid gap-2 rounded-md border border-border bg-card p-3 text-12 sm:grid-cols-3">
+                  <p><span className="text-muted-foreground">质量评分 </span>{readiness.qualityScore ?? "未知"}{readiness.qualityScore !== null && " / 100"}</p>
+                  <p><span className="text-muted-foreground">预计填写时间 </span>{readiness.estimatedSeconds === null ? "未知" : `${Math.ceil(readiness.estimatedSeconds / 60)} 分钟`}</p>
+                  <p><span className="text-muted-foreground">预计完成率 </span>{readiness.predictedCompletionRate === null ? "未知" : `${readiness.predictedCompletionRate}%`}</p>
+                </div>
+                <ul className="mt-3 space-y-2 text-12">
+                  {readiness.recommendations.map((blocker) => (
+                    <li key={`${blocker.code}:${blocker.side}:${blocker.subjectId}`}>
+                      <strong>{BLOCKER_MESSAGES[blocker.code]}</strong>
+                      <span className="ml-2 text-muted-foreground">{draft.questions.find((q) => q.id === blocker.subjectId)?.title ?? draft.template.sections.find((section) => section.id === blocker.subjectId)?.title ?? "问卷"}</span>
+                      {(blocker.code === "QUESTION_CONFIG_INVALID" || blocker.code === "LOGIC_INVALID") && blocker.missingFields.length > 0 && (
+                        <p className="mt-1 text-muted-foreground">{blocker.missingFields.join("；")}</p>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="ml-2"
+                        aria-label={`定位并修复：${blocker.label}`}
+                        onClick={() => {
+                          const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
+                          const targetQuestionId = blocker.side === "question"
+                            ? blocker.subjectId
+                            : undefined;
+                          selectStep(
+                            templateRepair ? "template" : "design",
+                            targetQuestionId,
+                          );
+                        }}
+                      >
+                        定位并修复
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>)}
           {step === "design" && (<>
             <fieldset disabled={!projectedInSync} className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
@@ -475,73 +525,23 @@ export function LiveSurveyWorkspace({
           </>)}
           {step === "publish" && (
             <section className="mx-auto max-w-screen-2xl space-y-5 p-5 sm:p-7 lg:p-10">
-              <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">检查问卷、设置回收方式，发布后分享链接并查看真实答卷。</p></div>
+              <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">设置回收状态与时间，发布后分享链接并查看真实答卷。</p></div>
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
               <div className="space-y-5">
               <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
-                <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "发布准备"}</p>
-                <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
-                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
+                <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "回收设置"}</p>
+                <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : "问卷尚未开始回收"}</h2>
+                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "设置回收时间后开始回收。开始回收后题目与匿名方式固定。"}</p>
                 {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{selectedPublication.version}</p>}
                 {selectedPublication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {selectedResponseCount} 份答卷</p>}
                 {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
               </section>
-              {runtime?.status === "draft" ? (
-                <>
-                  <Button
-                    onClick={() => void execute(() => command("prepare"))}
-                  >
-                    检查发布条件
-                  </Button>
-                  {blockers.length > 0 && (
-                    <section aria-label="发布阻断项" className="rounded-md border border-warning/40 bg-warning/5 p-4">
-                      <h2 className="text-14 font-semibold">发现 {blockers.length} 项发布阻断</h2>
-                      <div data-testid="survey-publish-readiness" className="mt-3 grid gap-2 rounded-md border border-border bg-card p-3 text-12 sm:grid-cols-3">
-                        <p><span className="text-muted-foreground">质量评分 </span>{readiness.qualityScore ?? "未知"}{readiness.qualityScore !== null && " / 100"}</p>
-                        <p><span className="text-muted-foreground">预计填写时间 </span>{readiness.estimatedSeconds === null ? "未知" : `${Math.ceil(readiness.estimatedSeconds / 60)} 分钟`}</p>
-                        <p><span className="text-muted-foreground">预计完成率 </span>{readiness.predictedCompletionRate === null ? "未知" : `${readiness.predictedCompletionRate}%`}</p>
-                      </div>
-                      <ul className="mt-3 space-y-2 text-12">
-                        {readiness.recommendations.map((blocker) => (
-                          <li key={`${blocker.code}:${blocker.side}:${blocker.subjectId}`}>
-                            <strong>{BLOCKER_MESSAGES[blocker.code]}</strong>
-                            <span className="ml-2 text-muted-foreground">{blocker.side} · {blocker.subjectId}</span>
-                            {blocker.missingFields.map((field) => (
-                              <span key={field} className="ml-2 text-muted-foreground">
-                                {field}
-                              </span>
-                            ))}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="ml-2"
-                              aria-label={`定位并修复：${blocker.label}`}
-                              onClick={() => {
-                                const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
-                                const targetQuestionId = blocker.side === "question" &&
-                                  (blocker.code === "MAPPING_INCOMPLETE" || blocker.code === "LOGIC_INVALID" || blocker.code === "QUESTION_CONFIG_INVALID")
-                                  ? blocker.subjectId
-                                  : undefined;
-                                selectStep(
-                                  templateRepair ? "template" : "design",
-                                  targetQuestionId,
-                                );
-                              }}
-                            >
-                              定位并修复
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  )}
-                </>
-              ) : runtime?.status === "ready" ? (
+              {runtime && (runtime.status === "draft" || runtime.status === "ready") ? (
                 <section className="space-y-4 rounded-md border border-success/40 bg-success/5 p-4">
                   <div>
-                    <h2 className="text-16 font-semibold">发布准备已完成</h2>
-                    <p className="mt-1 text-12 text-muted-foreground">服务端已确认当前版本满足发布条件。你仍可返回编辑，或设置截止时间后开始回收。</p>
+                    <h2 className="text-16 font-semibold">回收设置</h2>
+                    <p className="mt-1 text-12 text-muted-foreground">设计阶段自动检查问卷。设置截止时间后即可开始回收。</p>
+                    {designBlockers.length > 0 && <p className="mt-2 text-12 text-warning">请返回设计，处理 {designBlockers.length} 项问题后开始回收。</p>}
                   </div>
                   <label className="block text-12">
                     截止时间（默认 30 天）
@@ -553,11 +553,12 @@ export function LiveSurveyWorkspace({
                     />
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => void execute(() => command("withdraw"))}>
+                    <Button variant="outline" onClick={() => selectStep("design")}>
                       返回编辑
                     </Button>
                     <Button
-                      onClick={() => void execute(() => command("start-collection", expires ? { expiresAt: new Date(expires).toISOString() } : {}))}
+                      disabled={designBlockers.length > 0}
+                      onClick={() => void execute(() => command("begin-collection", expires ? { expiresAt: new Date(expires).toISOString() } : {}))}
                     >
                       开始回收
                     </Button>

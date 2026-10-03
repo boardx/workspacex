@@ -7,7 +7,7 @@ import { InterviewStepHeader } from "@/components/itv/interview-step-header";
 const { push, load, branch } = vi.hoisted(() => ({ push: vi.fn(), load: vi.fn(), branch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/interview-markdown-api", () => ({ loadInterviewMarkdown: load, branchInterviewMarkdown: branch }));
-vi.mock("@/components/itv/interview-markdown-planning-step", () => ({ InterviewMarkdownPlanningStep: ({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => void }) => <><InterviewStepHeader title="导入需求" /><button onClick={() => onDirtyChange(true)}>修改原文</button></> }));
+vi.mock("@/components/itv/interview-markdown-planning-step", () => ({ InterviewMarkdownPlanningStep: ({ onDirtyChange, onRunningStepChange }: { onDirtyChange: (dirty: boolean) => void; onRunningStepChange: (step: string | null) => void }) => <><InterviewStepHeader title="导入需求" /><button onClick={() => onDirtyChange(true)}>修改原文</button><button onClick={() => onRunningStepChange("analysis")}>开始处理</button></> }));
 vi.mock("@/components/itv/interview-markdown-editing-step", () => ({ InterviewMarkdownEditingStep: () => <div /> }));
 vi.mock("@/components/itv/interview-markdown-results-step", () => ({ InterviewMarkdownResultsStep: () => <div /> }));
 const identity: DigitalInterviewWorkflowView = {
@@ -49,4 +49,14 @@ it("creates a new revision with the freshly read aggregate version, preserving t
   await waitFor(() => expect(branch).toHaveBeenCalledWith("itv-route-7", { expectedVersion: 8, fromStep: "intake" }));
   expect(confirmed.documents[0]?.markdown).toBe("# 原文");
   expect(push).not.toHaveBeenCalled();
+});
+
+it("blocks revision creation while generation is active", async () => {
+  load.mockResolvedValue({ documents: [{ documentId: "intake-old", step: "intake" }], states: [{ documentId: "intake-old", status: "confirmed" }] });
+  render(<InterviewMarkdownWorkbench identity={identity} step="intake" />);
+  const revise = await screen.findByRole("button", { name: "创建新修订并修改" });
+  fireEvent.click(screen.getByRole("button", { name: "开始处理" }));
+  expect(revise).toBeDisabled();
+  fireEvent.click(revise);
+  expect(branch).not.toHaveBeenCalled();
 });

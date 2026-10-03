@@ -16,6 +16,8 @@ interface MockProjectedObject {
   matrix?: number[];
   text?: string; stroke?: string; strokeWidth?: number; opacity?: number;
   calcTransformMatrix: () => number[];
+  getCoords: () => Array<{ x: number; y: number }>;
+  getBoundingRect: () => { left: number; top: number; width: number; height: number };
 }
 
 const probe = vi.hoisted(() => ({
@@ -54,6 +56,7 @@ vi.mock("fabric", async () => {
     getPositionByOrigin() { return new actual.Point(this.left, this.top); }
     setPositionByOrigin(point: { x: number; y: number }) { this.left = point.x; this.top = point.y; }
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
+    getCoords() { const {left,top,width,height}=this.getBoundingRect(); return [{x:left,y:top},{x:left+width,y:top},{x:left+width,y:top+height},{x:left,y:top+height}]; }
     getTotalAngle() { return this.angle; }
     calcTransformMatrix() {
       if (this.matrix) return this.matrix;
@@ -714,11 +717,36 @@ describe("BoardFabricSurface", () => {
     ], { duplicate: false });
   });
 
-  it("exposes read-only per-object Fabric scene bounds for pointer acceptance probes", () => {
-    renderSurface();
+  it("bridges a bordered Shape move using logical dimensions in one mounted batch", () => {
+    const shape: BoardFabricObject = { ...OBJECTS[1]!, id: "bordered-shape", kind: "shape", geometry: { x: 180, y: 195, width: 65, height: 55, rotation: -21 }, style: { ...OBJECTS[1]!.style, stroke: "#111111" }, content: { text: "" }, boardContent: { version: 1, type: "shape", variant: "rectangle", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" } };
+    const onObjectsTransform = vi.fn(() => true);
+    const onObjectTransform = vi.fn();
+    renderSurface({ objects: [OBJECTS[0]!, shape], selectedObjectIds: ["s-1", shape.id], onObjectsTransform, onObjectTransform });
+    const projected = probe.objects.find(object => object.data?.boardObjectId === shape.id)!;
+    expect(projected.children![0]!.strokeWidth).toBe(1);
+    projected.left += 20; projected.top += 30;
+    act(() => probe.handlers.get("object:modified")?.({ target: probe.active! }));
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: shape.id, geometry: { x: 200, y: 225, width: 65, height: 55, rotation: -21 } })]), { duplicate: false });
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it("exposes and refreshes read-only Fabric scene observations without emitting commands", async () => {
+    const onObjectsTransform = vi.fn(() => true);
+    const onObjectTransform = vi.fn();
+    renderSurface({ onObjectsTransform, onObjectTransform });
     const scenes = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
-    expect(scenes.find(value => value.id === "s-1")).toEqual({ id: "s-1", left: 40, top: 60, width: expect.closeTo(220), height: 180 });
-    expect(scenes.find(value => value.id === "r-1")).toEqual({ id: "r-1", left: 360, top: 80, width: 240, height: 140 });
+    expect(scenes.find(value => value.id === "s-1")).toEqual({ id: "s-1", left: 40, top: 60, width: expect.closeTo(220), height: 180, transformMatrix: probe.objects[0]!.calcTransformMatrix(), worldCorners: probe.objects[0]!.getCoords() });
+    expect(scenes.find(value => value.id === "r-1")).toEqual({ id: "r-1", left: 360, top: 80, width: 240, height: 140, transformMatrix: probe.objects[1]!.calcTransformMatrix(), worldCorners: probe.objects[1]!.getCoords() });
+    const target = probe.objects[0]!;
+    target.left += 40;
+    act(() => probe.handlers.get("object:moving")?.({ target }));
+    await waitFor(() => {
+      const refreshed = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!);
+      expect(refreshed.find((value: { id: string }) => value.id === "s-1")).toEqual({ id: "s-1", ...target.getBoundingRect(), transformMatrix: target.calcTransformMatrix(), worldCorners: target.getCoords() });
+    });
+    expect(onObjectsTransform).not.toHaveBeenCalled();
+    expect(onObjectTransform).not.toHaveBeenCalled();
   });
 
   it("shows guides for resize and ActiveSelection, with Alt bypass", async () => {

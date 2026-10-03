@@ -716,7 +716,7 @@ _ACTION_VERBS = (
 # issue #2836：连接词路径要求共现的「工作动词」——把纯讲解类动词（回复/回答/解释/说明/
 # 介绍）排除在外。它们在 `_ACTION_VERBS` 里是为枚举路径（"生成 X，说明 Y"两侧各有动词）
 # 服务的；单独作为"这句话里有要执行的动作"的证据时，"并简要说明""各自怎么解释"这类
-# 纯问答会被判成多步任务。枚举路径不变。
+# 纯问答会被判成多步任务。枚举路径也要求至少一个工作动词，纯介绍不算执行。
 _EXPLANATORY_VERBS = ("回复", "回答", "解释", "说明", "介绍")
 _MULTI_STEP_WORK_VERBS = tuple(v for v in _ACTION_VERBS if v not in _EXPLANATORY_VERBS)
 
@@ -725,6 +725,10 @@ def _has_enumerated_multi_action(text: str) -> bool:
     """逗号/顿号并列的两个动作是否两侧都各自带动词（见上方模块注释）。只看
     第一个命中的分隔符两侧——前两段都有动词已经足以确认"至少两个动作被串起来"
     这件事，不需要处理任意多段的情况。"""
+    # Two explanations (role background + capabilities) remain a read-only answer.
+    # Mixed actions such as "generate a PDF, explain it" still require planning.
+    if not any(verb in text for verb in _MULTI_STEP_WORK_VERBS):
+        return False
     for marker in _MULTI_STEP_ENUMERATION_MARKERS:
         if marker not in text:
             continue

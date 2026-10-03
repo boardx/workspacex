@@ -1,0 +1,128 @@
+Browser tab: 8, Title: "WorkspaceX", URL: "https://devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5".
+0 AXWebArea WorkspaceX, URL: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5
+	1 container
+		2 link Description: 跳到主要内容, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5#wsx-main-content
+		3 container 主导航
+			4 pop up button (collapsed) Description: 组织菜单，当前：Workspace, Help: Workspace, ID: radix-:r0:, Secondary Actions: Expand
+			5 container
+				6 link Description: 首页, Value: devapp.boardx.us/home
+				7 link Description: 对话, Value: devapp.boardx.us/chat
+				8 link Description: 项目, Value: devapp.boardx.us/projects
+				9 link Description: 研究, Value: devapp.boardx.us/research
+				10 link Description: 访谈, Value: devapp.boardx.us/itv
+				11 link Description: 大脑, Value: devapp.boardx.us/brain
+				12 link Description: 任务, Value: devapp.boardx.us/tasks
+				13 link Description: 工作流, Value: devapp.boardx.us/workflows
+				14 link Description: 组织后台, Value: devapp.boardx.us/admin
+				15 link Description: 平台后台, Value: devapp.boardx.us/platform-admin
+			16 pop up button (collapsed) Description: 更多, ID: radix-:rb:, Secondary Actions: Expand
+			17 container
+				18 pop up button (collapsed) Description: 任务提醒，306 条未读, Secondary Actions: Expand
+					19 image
+					20 text 提醒
+				21 text 306  条未读
+			22 button 提交反馈
+			23 pop up button (collapsed) Description: 个人菜单, ID: radix-:rd:, Secondary Actions: Expand
+		24 text Workspace
+		25 text 管理员
+		26 splitter Description: 调整左栏宽度, Value: 272
+		27 button 收起左栏
+		28 container 工作流
+			29 text 工作流
+			30 link Description: 我的运行, Value: devapp.boardx.us/workflows/runs
+			31 link Description: 待我审批, Value: devapp.boardx.us/workflows/approvals
+			32 link Description: 运行看板, Value: devapp.boardx.us/workflows/board
+		33 container
+			34 heading 实验闭环, Value: 2
+				35 text 实验闭环
+			36 text 等待审批 实时
+			37 definition list
+				38 container 发起人
+					39 text 发起人
+				40 text usamshen（我）
+				41 container 开始时间
+					42 text 开始时间
+				43 text 2026-10-03 13:00
+				44 container 最近更新
+					45 text 最近更新
+				46 text 2026-10-03 13:00
+				47 container 目标
+					48 text 目标
+				49 text pre-registration-approval
+			50 content list 运行步骤
+				51 container workflow-stage-intake
+					52 text 1 . 接收需求 已完成
+					53 content list
+						54 link Description: 查看「接收需求」的产出, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=f6da4e2f-6fd6-4b83-a37e-69eecc168cf4
+				55 container workflow-stage-activation_define
+					56 text 2 . 定义激活指标 已完成
+					57 content list
+						58 link Description: 查看「定义激活指标」的产出, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=5d54323e-5f5a-4df0-a53f-cbfdf64bc54e
+				59 container workflow-stage-diagnose
+					60 text 3 . 问题诊断 已完成
+					61 content list
+						62 link Description: 查看「问题诊断」的产出, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=1a288c90-633b-431d-87fc-7acb3247d163
+				63 container workflow-stage-metric_audit
+					64 text 4 . 指标核查 已完成
+					65 content list
+						66 link Description: 查看「指标核查」的产出, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=da8294b4-c0e6-487d-a03b-a9b28f97a1ed
+				67 container workflow-stage-design
+					68 text 5 . 设计方案 已完成
+					69 content list
+						70 link Description: 查看「设计方案」的产出, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=1914b5ff-d1df-4716-ad26-9d918c779c3a
+				71 container workflow-stage-preregister
+					72 text 6 . 实验预注册 等待审批
+				73 container workflow-stage-launch_attest
+					74 text 7 . 上线确认 未开始
+				75 container workflow-stage-health_check
+					76 text 8 . 健康检查 未开始
+				77 container workflow-stage-data_lock
+					78 text 9 . 锁定数据 未开始
+				79 container workflow-stage-precheck
+					80 text 10 . 前置检查 未开始
+				81 container workflow-stage-analyze
+					82 text 11 . 分析数据 未开始
+				83 container workflow-stage-readout
+					84 text 12 . 结果解读 未开始
+				85 container workflow-stage-decide
+					86 text 13 . 做出决策 未开始
+				87 container workflow-stage-record
+					88 text 14 . 记录 未开始
+				89 container workflow-stage-retention_followup
+					90 text 15 . 留存跟进 未开始
+			91 container 实验预注册
+				92 container
+					93 heading 实验预注册, Value: 3, ID: workflow-approval-title-preregister-gate-1
+						94 text 实验预注册
+					95 text 待处理 所属工作流： 实验闭环
+				96 container 审批概要
+					97 definition list
+						98 container 操作对象
+							99 text 操作对象
+						100 text 本次工作流运行
+						101 container 需要的能力
+							102 text 需要的能力
+						103 text 写入实验记录
+						104 container 发起人
+							105 text 发起人
+						106 text usamshen（我）
+						107 container 执行者
+							108 text 执行者
+						109 text 本工作流的智能体
+				110 container 批准后会发生什么
+					111 heading 批准后会发生什么, Value: 4
+						112 text 批准后会发生什么
+					113 definition list
+						114 container 影响范围
+							115 text 影响范围
+						116 text 会在本组织内新建或修改内容
+				117 button 批准
+				118 button 驳回
+				119 button (collapsed) 技术详情, Secondary Actions: Expand
+					120 text 技术详情
+			121 button 取消运行
+			122 content list 运行日志
+			123 button (collapsed) 技术详情, Secondary Actions: Expand
+				124 text 技术详情
+
+The focused UI element is 0 AXWebArea WorkspaceX, URL: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5
