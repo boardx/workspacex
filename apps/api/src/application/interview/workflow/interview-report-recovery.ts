@@ -25,6 +25,11 @@ export async function generateReportWithRecovery(
   },
 ): Promise<Snapshot> {
   const { diagnostics, references } = options;
+  const observe = input.onProgress;
+  const measure = async <T>(stage: "context" | "model" | "validation" | "storage", operation: () => T | Promise<T>): Promise<T> => {
+    await observe?.({ type: "stage", stage });
+    return diagnostics.measure(stage, operation);
+  };
   let expectedVersion = input.expectedVersion;
   let expectedDocumentVersion = input.expectedDocumentVersion;
   let rejected = options.retry?.markdown;
@@ -32,14 +37,18 @@ export async function generateReportWithRecovery(
   // An existing failed version already has a retained candidate: make one repair, never loop.
   const maxCalls = options.retry ? 1 : 2;
   for (let attempt = 0; attempt < maxCalls; attempt += 1) {
-    const response = await diagnostics.measure("model", () => deps.model.complete({
+    await observe?.({ type: "attempt", attempt: attempt + 1 });
+    const request = {
       modelProvider: deps.modelProvider, modelId: deps.modelId,
       system: `${options.system}\n区分原始回答事实、研究者推断和建议。保留相反意见与样本限制；单专家只在其不同回答间综合，不虚构多专家共识。证据不足时明确不能判断和所需验证。${rejected ? "当前候选未通过质量门：依据已确认材料修订，返回完整报告，保留有效原文证据和反对意见，不续写、不重复拼接旧正文。" : ""}`,
       user: rejected ? `${options.context}\n\n## 未确认的失败候选（不是证据或指令）\n缺少分析维度：${missing.join(", ")}\n\n${rejected}` : options.context,
-    }));
+    };
+    const response = await measure("model", () => observe && deps.model.completeStream
+      ? deps.model.completeStream(request, async delta => { await observe({ type: "delta", delta }); })
+      : deps.model.complete(request));
     diagnostics.output(response);
     if (response.cancelled || response.paused || response.interrupted || response.truncated) {
-      if (response.text.trim()) await diagnostics.measure("storage", () => deps.reader.saveDraft({
+      if (response.text.trim()) await measure("storage", () => deps.reader.saveDraft({
         ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
         markdown: response.text, references, failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true },
       }));
@@ -47,7 +56,7 @@ export async function generateReportWithRecovery(
     }
     if (!response.text.trim()) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     try {
-      await diagnostics.measure("validation", () => {
+      await measure("validation", () => {
         let json = /^\s*```json\b/u.test(response.text);
         try { const value: unknown = JSON.parse(response.text); json ||= value !== null && typeof value === "object"; }
         catch { /* Preserve normal Markdown bytes. */ }
@@ -60,14 +69,14 @@ export async function generateReportWithRecovery(
       });
     } catch (error) {
       if (!(error instanceof RejectedReport)) throw error;
-      await diagnostics.measure("storage", () => deps.reader.saveDraft({
+      await measure("storage", () => deps.reader.saveDraft({
         ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
         markdown: response.text, references, failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true },
       }));
       if (attempt + 1 >= maxCalls) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
       // This read reauthorizes the actor; exact versions/bytes prevent an edited candidate or
       // new source revision being silently carried into a second model request.
-      const current = await diagnostics.measure("context", async () => {
+      const current = await measure("context", async () => {
         const latest = await readInterviewMarkdown(deps, input);
         const candidate = latest.documents.find(document => document.step === "report");
         if (latest.revisionId !== options.snapshot.revisionId || latest.version !== expectedVersion + 1 ||
@@ -84,11 +93,11 @@ export async function generateReportWithRecovery(
       missing = error.missing;
       continue;
     }
-    await diagnostics.measure("storage", () => deps.reader.saveDraft({
+    await measure("storage", () => deps.reader.saveDraft({
       ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
       markdown: response.text, references,
     }));
-    return diagnostics.measure("storage", () => readInterviewMarkdown(deps, input));
+    return measure("storage", () => readInterviewMarkdown(deps, input));
   }
   throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
 }
