@@ -1,9 +1,9 @@
-来源正文与片段引用修复 #5142，当前仍在验证。TDD：11测试中5失败6通过；实现后11通过。研究单元lane9文件202测试通过，API typecheck通过。第一次完整回归3个旧编排夹具失败且数据库hook超时；夹具已修正。第二次35文件440通过、1持久化测试超时，当前单独复查该测试。没有改断言或扩大超时。
+来源正文与片段引用修复 #5142：最终集成生产 SHA 07542505c12b7491a7527babb900c5842175c678，独立 reviewer ACCEPT。依赖 #5130 的 53ccbbb2d3e21d1d5368b1861d5d8c94aba6f070，包含外部合入的 #5134 引用协议与 main 更新；本会话未合并 main。
 
-公开官方来源真实模型复测两次均提供方失败（ModelCallError / MODEL_CALL_FAILED），没有返回可验证模型输出；941545ms和985946ms观测墙钟与90/180s配置不一致，不据此归因或声称性能提升。不继续无界重复调用；所有输出只写公开fixture临时目录，无凭据。尚不能宣称真实来源筛选通过、正式报告质量通过或提速。
+TDD 5失败/6通过 → 11通过。最终研究单元9文件211测试通过，API typecheck退出0。完整研究回归37文件488测试全部通过（44.08s；隔离环境总45s、清理0s）。原先440通过/1超时及初始化超时是历史失败，保留其记录，最新回归已覆盖持久化测试。命令：pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research。原始日志 /private/tmp/research-5170-final-research-suite.log、research-5170-final-unit.log、research-5170-final-typecheck.log。
 
-前五修复最新已按classifyChecks全绿：#5130当前e91c1a10588bad401626348ad45a3518181101fa独立合并解决审查ACCEPT，#5134当前730837238c4c4efaa24377054556b7e0ff9979be。#5087/#5110已外部合并，本会话未合并。整体#5056仍未验收。
+真实公开来源 qwen3.7-plus 筛选：接受1来源，3调用113846ms，14个合法块内引用；两批输入 quoteOptions 共45510字符。结果 contentCharacters=125 是保留的搜索片段长度，不是模型所读正文长度。首调用返回schema envelope，第二调用整批修复成功，第三调用处理后半正文。目录 /private/tmp/research-5170-source-screen-real-final/。
 
-单独复查持久化失败：初始化hook再次超时，44测试未执行，15m42s含清理1s；没有PASS。最终API typecheck退出0。完整研究suite尚未绿，下一步独立代码review与环境失败分诊；不要扩大超时掩盖问题。
+语义检查 FAIL：保存的问题前提把 WCAG 2.4.11 与2.4.13错置，模型仍将真实2.4.13引文标为错误2.4.11问题的直接证据，且混淆1.4.3/1.4.11。引用合法不等于问题回答正确。仅诊断的前提纠正提示实验仍失败（3调用113972ms），未部署该提示。目录 /private/tmp/research-5170-source-premise-experiment/。不能宣称报告质量或整体速度PASS。早先两次provider失败亦保留，不推断唯一原因。
 
-最新集成生产 SHA 7d3ff60d8895c7cfd78d9ea961967a8dc27193c2，父3285ea8f0 +5c3f76d4d，独立代码ACCEPT。新main原作用域消失时回退当前问题的逻辑保留；夹具同时保留quoteOptions和question.sectionId。9文件208单元PASS、typecheck退出0。纯测试transform墙钟499s、测试3.24s；不把异常运行计时作为性能或唯一因果证明。创建Draft PR以暴露实现与未验证边界，不认证完整回归或真实来源质量。#5134依赖已推送5c3f76d4d，197单元/typecheck/推送前9检查通过，新CI待检。
+Draft PR #5170 需同步当前提交、改依赖至 #5130 并刷新CI；当前源码验证与语义限制已明确。下一项 #5179：无证据章节跳过写作，结论仅接收质量审核通过的正文。#5056仍未整体验收。
