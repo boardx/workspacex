@@ -1,0 +1,77 @@
+'use strict';
+// Inert execution primitive. No Client factory, credentials, decoder, or executable entrypoint.
+// The host must supply a hash-verified offline decoder and independently verified authority.
+// This is not yet reachable from the production recovery transport.
+const { once } = require('node:events');
+const { createHash } = require('node:crypto');
+const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
+function proof(ok,code){if(!ok)throw Error(code);}
+function boundedSql(sql){
+ proof(typeof sql==='string'&&Buffer.byteLength(sql)>0&&Buffer.byteLength(sql)<=16*1024*1024&&!sql.includes('\0'),'RESTORE_SQL_BOUND');
+ // A decoder must provide exactly one complete statement, validated by the host.
+ // These checks additionally refuse operations that invalidate an existing-session lane.
+ const prefix=sql.replace(/^(?:\s|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)+/,'').toUpperCase();
+ proof(!/^(?:BEGIN|START|COMMIT|END|ROLLBACK|SAVEPOINT|RELEASE|PREPARE|DO|CALL|VACUUM|DISCARD|\\)\b/.test(prefix),'RESTORE_TRANSACTION_ESCAPE');
+ proof(!/^(?:CREATE|DROP|ALTER)\s+(?:DATABASE|ROLE|USER|TABLESPACE|SYSTEM)\b/.test(prefix)&&!/^SET\s+(?:SESSION\s+AUTHORIZATION|ROLE)\b/.test(prefix),'RESTORE_CLUSTER_OPERATION');
+ return sql;
+}
+async function copyOnExistingClient(client,Query,sql,chunks,budget){
+ proof(typeof Query==='function'&&client.connection&&typeof client.connection.sendCopyFromChunk==='function'&&typeof client.connection.endCopyFrom==='function'&&typeof client.connection.sendCopyFail==='function','RESTORE_COPY_RUNTIME');
+ let readyResolve,readyReject,doneResolve,doneReject,copyStarted=false;
+ const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});
+ const done=new Promise((resolve,reject)=>{doneResolve=resolve;doneReject=reject;});
+ // Both promises have handlers even if server error precedes CopyInResponse.
+ done.catch(()=>{});ready.catch(()=>{});
+ const query=new Query({text:sql},(error,result)=>{if(error){readyReject(error);doneReject(error);}else {if(!copyStarted)readyReject(Error('RESTORE_COPY_RESPONSE'));doneResolve(result);}});
+ query.handleCopyInResponse=connection=>{if(connection!==client.connection){const e=Error('RESTORE_COPY_CONNECTION_CHANGED');readyReject(e);connection.sendCopyFail('restore binding rejected');return;}copyStarted=true;readyResolve();};
+ client.query(query);
+ try{
+  await ready;
+  for await(const chunk of chunks){
+   proof(Buffer.isBuffer(chunk)&&chunk.length>0&&chunk.length<=65536,'RESTORE_COPY_CHUNK_BOUND');
+   budget.bytes+=chunk.length;proof(budget.bytes<=budget.limit,'RESTORE_COPY_TOTAL_BOUND');budget.hash.update(chunk);
+   client.connection.sendCopyFromChunk(chunk);
+   // pg 8.22 sendCopyFromChunk does not return stream.write's boolean.
+   if(client.connection.stream?.writableNeedDrain)await Promise.race([once(client.connection.stream,'drain'),done.then(()=>{throw Error('RESTORE_COPY_EARLY_DONE');})]);
+  }
+  client.connection.endCopyFrom();await done;
+ }catch(error){
+  if(copyStarted){try{client.connection.sendCopyFail('restore source rejected');await done;}catch{}}
+  throw error;
+ }
+}
+async function restoreExistingSession({client,Query,identity,binding,transactionStatus,operations,verifyOperation,verifyDecoderCompletion,verifyWithinTransaction,maxCopyBytes}){
+ proof(client&&typeof client.query==='function'&&typeof identity==='function'&&typeof transactionStatus==='function'&&typeof verifyOperation==='function'&&typeof verifyDecoderCompletion==='function'&&typeof verifyWithinTransaction==='function','RESTORE_HOST_CONTRACT');
+ proof(Number.isSafeInteger(maxCopyBytes)&&maxCopyBytes>0&&maxCopyBytes<=8*1024*1024*1024,'RESTORE_TOTAL_BOUND');
+ proof(transactionStatus()==='I'&&canonical(await identity())===canonical(binding),'RESTORE_EXISTING_SESSION_REQUIRED');
+ const budget={bytes:0,limit:maxCopyBytes,hash:createHash('sha256')};const hash=createHash('sha256');let statements=0,committed=false,commitAttempted=false;
+ try{
+  await client.query('BEGIN');proof(transactionStatus()==='T','RESTORE_TRANSACTION_REQUIRED');
+  for await(const operation of operations){
+   proof(operation&&['sql','copy'].includes(operation.kind)&&Object.keys(operation).every(k=>['kind','sql','chunks'].includes(k)),'RESTORE_OPERATION_SCHEMA');
+   const sql=boundedSql(operation.sql);await verifyOperation(operation);
+   proof(++statements<=1000000,'RESTORE_STATEMENT_BOUND');hash.update(JSON.stringify({kind:operation.kind,sql})+'\n');
+   if(operation.kind==='copy'){
+    proof(/^COPY\s[\s\S]+\sFROM\s+stdin;\s*$/i.test(sql)&&operation.chunks?.[Symbol.asyncIterator],'RESTORE_COPY_COMMAND');
+    await copyOnExistingClient(client,Query,sql,operation.chunks,budget);
+   }else{proof(!/^\s*COPY\b/i.test(sql)&&!Object.hasOwn(operation,'chunks'),'RESTORE_SQL_OPERATION');await client.query(sql);}
+   proof(transactionStatus()==='T','RESTORE_TRANSACTION_CHANGED');
+  }
+  // Completion must attest decrypt + decoder success and full EOF, not just TOC exit.
+  await verifyDecoderCompletion({statements,copyBytes:budget.bytes,statementSha256:hash.digest('hex'),copySha256:budget.hash.digest('hex')});
+  proof(canonical(await identity())===canonical(binding)&&transactionStatus()==='T','RESTORE_CONNECTION_CHANGED');
+  // Host checks catalog/data/sequence conservation and diagnostic effective write privileges
+  // before commit. It must not open a replacement connection or enable LOGIN.
+  await verifyWithinTransaction(client);
+  proof(canonical(await identity())===canonical(binding)&&transactionStatus()==='T','RESTORE_PRECOMMIT_BINDING');
+  commitAttempted=true;await client.query('COMMIT');committed=true;
+  proof(transactionStatus()==='I'&&canonical(await identity())===canonical(binding),'RESTORE_POSTCOMMIT_BINDING');
+  return {statements,copyBytes:budget.bytes,existingSession:true};
+ }catch(error){
+  let rollbackConfirmed=false;
+  if(!committed){try{await client.query('ROLLBACK');rollbackConfirmed=transactionStatus()==='I'&&canonical(await identity())===canonical(binding);}catch{}}
+  // Never embed SQL, COPY bytes, provider errors, or credentials in this evidence.
+  const failure=Error('RESTORE_EXISTING_SESSION_FAILED');failure.recovery={committed,commitAttempted,commitOutcomeUnknown:commitAttempted&&!committed,rollbackConfirmed,holdMustRemain:true};throw failure;
+ }
+}
+module.exports={restoreExistingSession,copyOnExistingClient,boundedSql};

@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "e1e73901a637ac75f65b9bbb225f6f150e93a8affe1bab2129dcef771d1e8798",
+  "sourceInventorySha256": "2ae0a6716aefdca931dc0a0af45cc508f8daaf813f09cce94840d91c7d93c1d8",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "e43534fa049d5a02f2d48958604b8bb1959a3b8b9304abfcb374c0d8cc56e827",
-      "bytes": 1194
+      "sha256": "34af79dd1cddef1235531447689c6c36e856519deab4dd4fb2f660ebc131dc0c",
+      "bytes": 1230
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
@@ -307,6 +307,16 @@
       "bytes": 24725
     },
     {
+      "path": ".harness/scripts/vm/existing_session_restore.cjs",
+      "sha256": "080ced6cdeb27602b2a57053b36b55951cdee4525281358b61661b24fb7a5585",
+      "bytes": 6528
+    },
+    {
+      "path": ".harness/scripts/vm/existing_session_restore_test.cjs",
+      "sha256": "be00cc778310e6969821f81febd39e0a37dbb0f7a6428009a9606ce73d5c8d8c",
+      "bytes": 3905
+    },
+    {
       "path": ".harness/scripts/vm/fixed_probes.py",
       "sha256": "c8dc5bc2ad4ed02b1e00e5fa7a9701a203a207aa093ac019a1ff087b20a34ea7",
       "bytes": 11399
@@ -413,8 +423,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "124295d5786aeb15f65d5aa154eb1fca88732b3622c94580e1e000d2a7bb4e2f",
-      "bytes": 5465
+      "sha256": "3db38837bf060c167cc7a58c45ab27ece57f2dc6096fd638081c3bb7f2cba448",
+      "bytes": 6577
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -639,7 +649,8 @@
   "remainingImplementation": [
     "maintenance acceptance ordering/writer-lane design and implementation (startup rejects before mutation)",
     "prehold common-snapshot/full-object/retained full-catalog proof collectors and independent validators remain incomplete",
-    "held diagnostic preactivate consumer: legacy bootstrap collector is rejected before invocation"
+    "held diagnostic preactivate consumer: legacy bootstrap collector is rejected before invocation",
+    "NOLOGIN recovery: inert existing-session transaction/COPY primitive only; offline decoder/authorization/host wiring/fidelity still incomplete"
   ],
   "remainingExecution": [
     "exact reviewed merged tool revision and fresh complete host/runtime inventory",
