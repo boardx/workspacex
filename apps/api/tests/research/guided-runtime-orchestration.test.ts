@@ -10,7 +10,7 @@ function fixture() {
   state.currentNode = "research"; state.availableNodes = ["brief", "directions", "outline", "research"];
   state.outline = [{ id: "o", title: "Policy", questions: ["Which policy?"], enabled: true, order: 0 }];
   const writes: ResearchRuntime[] = [];
-  const store: GuidedRuntimeStore = { read: async () => state, claim: async () => { state.errorCode = null; state.busy = true; return { state, replay: false }; }, write: async (_a, _r, value) => { state = structuredClone(value); writes.push(structuredClone(value)); } };
+  const store: GuidedRuntimeStore = { read: async () => state, claim: async () => { state.errorCode = null; state.busy = true; return { state, replay: false }; }, write: async (_a, _r, value) => { state = C.GuidedResearchRuntime.parse(structuredClone(value)); writes.push(structuredClone(value)); } };
   const actor = { orgId: toOrgId("org"), userId: "owner", sessionId: session.sessionId };
   return { session, actor, store, writes, state, latest: () => state };
 }
@@ -32,6 +32,26 @@ describe("durable research orchestration", () => {
     expect(result.sources.filter((source) => source.decision === "accepted" && source.document)).toHaveLength(3);
     expect(search.mock.calls.slice(1).every(([query]) => query.includes("Grid") && query.includes("EU"))).toBe(true);
     expect(search.mock.calls.some(([query]) => query.includes("Which policy?"))).toBe(true);
+  });
+
+  it.each(["task", "question"])("keeps long %s supplemental queries valid through strict persistence", async (field) => {
+    const f = fixture();
+    f.state.brief.topic = "题".repeat(200); f.state.brief.region = "区".repeat(200);
+    f.state.tasks = [{ id: "t", sectionId: "o", query: field === "task" ? "查".repeat(1000) : "Grid policy", status: "pending", attempts: 0, errorCode: null }];
+    if (field === "question") f.state.outline[0]!.questions = ["问".repeat(1000)];
+    const search = vi.fn(async (_query: string) => [{ title: "Policy", url: "https://example.org/policy", content: "Grid policy requires permits." }]);
+    const model = { complete: vi.fn(async (input: { user: string }) => {
+      const context = JSON.parse(input.user);
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; quoteOptions: { text: string; quoteRef: string }[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: context.questions[0].id, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Policy evidence", relevance: "direct" }] })) }) };
+    }) };
+    const service = new GuidedRuntimeService(f.store, model, { search, read: async () => ({ text: "Grid policy requires permits.", contentKind: "text", truncated: false }) }, { provider: "test", id: "test" });
+    const result = await service.execute(f.actor, f.session, { sessionId: "session", node: "research", action: "retry", requestId: "long-query", expectedVersion: 0 });
+    expect(result.busy).toBe(false);
+    expect(result.errorCode).toBeNull();
+    expect(search.mock.calls.length).toBeGreaterThan(1);
+    expect(search.mock.calls.every((args) => (args[0] as string).length <= 1000)).toBe(true);
+    expect(result.tasks[0]!.query).toBe(f.state.tasks[0]!.query);
+    expect(() => C.GuidedResearchRuntime.parse(result)).not.toThrow();
   });
 
   it("loads authorized internal artifacts into the evidence pipeline", async () => {

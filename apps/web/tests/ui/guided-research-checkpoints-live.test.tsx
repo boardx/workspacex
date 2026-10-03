@@ -15,7 +15,7 @@ describe("human confirmation in the durable model-backed workflow", () => {
     expect(screen.queryByText("研究方向（可选调整）")).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue("政策方向")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "下一步：研究计划" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 4, draft: { node: "directions", value: [expect.objectContaining({ title: "政策方向" })] } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 4, draft: { node: "directions", value: [expect.objectContaining({ title: "政策方向" })] } })));
     expect(await screen.findByRole("list", { name: "研究计划" })).toHaveTextContent("政策章节");
   });
   it("still blocks confirmation when the saved direction draft is invalid", async () => {
@@ -40,10 +40,10 @@ describe("human confirmation in the durable model-backed workflow", () => {
     expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "保存计划" }));
     fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "save", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ node: "outline", action: "save", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
     await waitFor(() => expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "开始研究" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "confirm", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ node: "outline", action: "confirm", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
     expect(await screen.findByRole("button", { name: /搜索资料|继续搜索|更新资料/ })).toBeInTheDocument();
   });
 });

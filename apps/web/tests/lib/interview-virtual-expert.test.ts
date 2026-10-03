@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseVirtualExpertProposal, renderVirtualExpertMarkdown } from "@/lib/interview-virtual-expert";
+import { parseVirtualExpertProposal, parseVirtualExpertSelection, renderVirtualExpertSelection, renderVirtualExpertMarkdown } from "@/lib/interview-virtual-expert";
 
 describe("virtual expert Markdown proposal", () => {
   it("round-trips editable fields without inventing credentials or an independent source", () => {
@@ -24,4 +24,10 @@ describe("virtual expert Markdown proposal", () => {
     expect(() => parseVirtualExpertProposal(`# 虚拟角色名称\n\n${body}`)).toThrow();
     expect(() => parseVirtualExpertProposal(`# 虚拟角色名称\n客服负责人\n未审阅的附加文字\n\n${body}`)).toThrow();
   });
+});
+
+it("round-trips a saved expert selection with a synthetic name and multiline limits", () => {
+  const fields = { name: "林知远（虚拟）", role: "安装顾问", domains: "家居", focus: "返工", style: "审慎", bio: "合成画像", limits: "不代表真人。\n没有独立访谈证据。" };
+  const block = `## [${fields.name}](#expert-virtual-stable)\n\n${renderVirtualExpertSelection(fields)}\n`;
+  expect(parseVirtualExpertSelection(fields.name, block)).toEqual(fields);
 });

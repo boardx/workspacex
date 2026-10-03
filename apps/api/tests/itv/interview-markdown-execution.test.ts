@@ -44,6 +44,8 @@ describe("Markdown task execution", () => {
         modelCalls++;
         expect(request.user).toContain("采购否决链路");
         expect(request.system).toContain("Markdown");
+        expect(request.system).toContain("合成中文姓名");
+        expect(request.system).toContain("不代表真实存在的人");
         return { text: proposal };
       } },
     };
