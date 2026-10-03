@@ -58,7 +58,7 @@ it('immediately previews the active Shape and retains Shape and Text choices', (
   render(<ControlledDock />);
   fireEvent.click(screen.getByTestId('board-add-shape'));
   fireEvent.click(screen.getByTestId('board-shape-circle'));
-  expect(screen.getByTestId('board-add-shape').querySelector('ellipse')).toBeTruthy();
+  expect(screen.getByTestId('board-add-shape').querySelector('circle')).toBeTruthy();
   fireEvent.click(screen.getByTestId('board-tool-select'));
   fireEvent.click(screen.getByTestId('board-add-shape'));
   expect(screen.getByTestId('board-shape-circle')).toHaveAttribute('aria-pressed', 'true');
@@ -67,4 +67,20 @@ it('immediately previews the active Shape and retains Shape and Text choices', (
   fireEvent.click(screen.getByTestId('board-tool-select'));
   fireEvent.click(screen.getByTestId('board-add-text'));
   expect(screen.getByTestId('board-text-heading')).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('preserves the selected Sticky color and variant in picker and Dock drag payloads', () => {
+  render(<ControlledDock />);
+  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  fireEvent.click(screen.getByTestId('board-sticky-default-pink'));
+  fireEvent.click(screen.getByTestId('board-sticky-rectangle'));
+  for (const testId of ['board-sticky-rectangle', 'board-add-sticky']) {
+    const setData = vi.fn();
+    fireEvent.dragStart(screen.getByTestId(testId), { dataTransfer: { setData } });
+    expect(setData).toHaveBeenCalledOnce();
+    const [mime, payload] = setData.mock.calls[0];
+    expect(mime).toBe('application/x-workspacex-board-tool');
+    expect(JSON.parse(payload)).toEqual({ kind: 'sticky', variant: 'rectangle', color: STICKY_COLOR_PRESETS.pink });
+  }
+  expect(quickCreate).not.toHaveBeenCalled();
 });
