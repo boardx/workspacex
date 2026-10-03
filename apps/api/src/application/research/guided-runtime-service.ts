@@ -1,3 +1,4 @@
+import { supplementQuery } from "./guided-supplement-query";
 import type { DebugTracePort } from "../ports/debug-trace.port";
 import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
@@ -462,10 +463,10 @@ export class GuidedRuntimeService {
       const seenSupplement = new Set(task.searchAttempts.map((attempt) => attempt.query.trim().toLowerCase()));
       const scope = [state.brief.topic, state.brief.region].filter(Boolean).join(" ");
       const queries = [...new Set([
-        `${scope} ${task.query} primary source`,
-        ...section.questions.map((question) => `${scope} ${question}`),
-        `${scope} ${section.title} official report`,
-        `${scope} ${section.title} data study`,
+        supplementQuery(scope, task.query, "primary source"),
+        ...section.questions.map((question) => supplementQuery(scope, question)),
+        supplementQuery(scope, section.title, "official report"),
+        supplementQuery(scope, section.title, "data study"),
       ])].slice(0, 6);
       for (const query of queries) {
         if (count() >= 3) break;
