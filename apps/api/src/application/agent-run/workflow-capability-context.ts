@@ -1,3 +1,4 @@
+import { ROLE_CONTEXT_GUIDANCE } from "./role-context-guidance";
 import { contentWorkflowIdOf } from "../../domain/agent/workflow-allowlist";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
@@ -34,4 +35,14 @@ export async function workflowCapabilityContext(
     "availability=unknown 表示就绪性未确认，不能把它说成没有白名单；availability=checked 且 runnable 为空表示当前没有可发起的已发布流程。",
     JSON.stringify({ allowedIds: allowed, availability, runnable }),
   ].join("\n");
+}
+
+
+export async function appendRoleCapabilityContext(
+  system: string,
+  deps: { runs: AgentRunStore; workflowStarts?: AgentWorkflowStartPort },
+  orgId: OrgId,
+  run: ClaimedAgentRun,
+): Promise<string> {
+  return [system, ROLE_CONTEXT_GUIDANCE, await workflowCapabilityContext(deps, orgId, run)].filter(Boolean).join("\n\n");
 }

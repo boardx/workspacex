@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildOfficialAgentRolePack } from "../../src/domain/agent/official-role-packs";
 import { AGENT_ROLE_COLUMN_OF } from "../../src/infrastructure/agent/agent-version-insert";
-import { PgOfficialRoleUpgradeRepository } from "../../src/infrastructure/agent/pg-official-role-upgrade-repository";
+import { officialRoleBindingLabel, PgOfficialRoleUpgradeRepository } from "../../src/infrastructure/agent/pg-official-role-upgrade-repository";
 
 const pack = buildOfficialAgentRolePack();
 const target = pack.agents.find((role) => role.roleRef === "D002")!;
@@ -28,6 +28,11 @@ function fixture() {
 }
 
 describe("official role Skill binding refresh after verification", () => {
+  it("binding labels are unique, order independent and do not mutate the pack version", () => {
+    expect(officialRoleBindingLabel("1.6.0", ["a", "b"])).toBe(officialRoleBindingLabel("1.6.0", ["b", "a"]));
+    expect(officialRoleBindingLabel("1.6.0", ["a"])).not.toBe("1.6.0");
+    expect(officialRoleBindingLabel("1.6.0", ["a"])).not.toBe(officialRoleBindingLabel("1.6.0", ["a", "b"]));
+  });
   it("offers a new immutable binding version when an authored pending Skill becomes verified", async () => {
     const f = fixture();
     expect(await f.offers()).toEqual([{ agentId: "research", expectedPublishedVersionId: "current", name: target.name,
@@ -41,15 +46,17 @@ describe("official role Skill binding refresh after verification", () => {
   });
   it("adds only newly verified authored pins while retaining existing exact pins", async () => {
     const f = fixture(); f.role.skill_version_ids = ["verified-first"];
+    f.role.semantic_label = officialRoleBindingLabel(target.semanticVersion, f.role.skill_version_ids);
     f.skills.set(second.stableName, { skill_id: "skill-second", version_id: "verified-second", name: "综合", published: true, channel: "verified" });
     expect((await f.offers())[0]?.readySkillCount).toBe(2);
   });
-  it.each(["custom-pins", "custom-role", "custom-model", "wrong-provenance", "unpublished"])("rejects %s without granting bindings", async (change) => {
+  it.each(["custom-pins", "custom-role", "custom-model", "wrong-provenance", "unpublished", "forged-binding-label"])("rejects %s without granting bindings", async (change) => {
     const f = fixture();
     if (change === "custom-pins") f.role.skill_version_ids = ["foreign-pin"];
     if (change === "custom-role") Object.assign(f.role.draft, { tags: ["custom"] });
     if (change === "custom-model") f.role.model_id = "custom";
     if (change === "wrong-provenance") f.ledger.pack_digest = "not-the-signed-pack";
+    if (change === "forged-binding-label") f.role.semantic_label = `${target.semanticVersion}+bindings.forged`;
     if (change === "unpublished") f.skills.get(first.stableName)!.published = false;
     expect(await f.offers()).toEqual([]);
   });

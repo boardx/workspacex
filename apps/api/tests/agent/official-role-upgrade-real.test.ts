@@ -97,6 +97,7 @@ describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
   const now=await versions();expect(now).toHaveLength(3);
   for(const prior of frozen) expect(now.find(v=>v.id===prior.id)).toEqual(prior);
   const latest=now.find(v=>v.id===refreshed.versionIds[0])!;
+  expect(latest.semantic_label).toMatch(/^1\.6\.0\+bindings\.[a-f0-9]{64}$/);
   expect(latest.skill_version_ids).toEqual([verifiedId]);expect(latest.pending_skill_bindings).toHaveLength(13);
   expect((await offer()).upgrades).toEqual([]);
   const replay=await post(agentRole.operations.upgradeOfficialRoles.path,request);expect(replay.status).toBe(201);expect(await replay.json()).toEqual(refreshed);

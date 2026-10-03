@@ -7,6 +7,9 @@ import { resolveOfficialRoleSkillRefs, type ResolvedOfficialRoleSkills } from ".
 import { AGENT_ROLE_COLUMN_OF, insertAgentVersionFromDraft } from "./agent-version-insert";
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+/** Immutable binding revisions keep the signed pack version and a deterministic unique label. */
+export const officialRoleBindingLabel = (version: string, pins: readonly string[]) =>
+  `${version}+bindings.${sha256(JSON.stringify([...pins].sort()))}`;
 const ROLE_FIELDS = Object.values(AGENT_ROLE_COLUMN_OF);
 interface RoleRow { id: string; stable_name: string; name: string; published_version_id: string; semantic_label: string; instruction_digest: string; instructions: string; model_provider: string; model_id: string; skill_version_ids: string[]; draft: Record<string, unknown>; published: Record<string, unknown>; }
 interface Ledger { pack_version: string; pack_digest: string; result_json: { agentIds: string[]; versionIds: string[] }; }
@@ -25,7 +28,9 @@ async function eligible(session: TenantSession, orgId: string, pack: OfficialAge
   return roles.rows.filter((row) => {
     const target = pack.agents.find((a) => a.stableName === row.stable_name);
     if (!target || row.instruction_digest !== sha256(row.instructions)) return false;
-    const refreshBindings = row.semantic_label === target.semanticVersion;
+    const sourceVersion = row.semantic_label.split("+")[0]!;
+    if (row.semantic_label !== sourceVersion && row.semantic_label !== officialRoleBindingLabel(sourceVersion, row.skill_version_ids)) return false;
+    const refreshBindings = sourceVersion === target.semanticVersion;
     const resolvedPins = refs.get(row.stable_name)?.pins ?? [];
     // Same-version refresh is additive only, after exact authored Skills become verified.
     // Existing/custom pins cannot be silently replaced or removed.
@@ -41,7 +46,7 @@ async function eligible(session: TenantSession, orgId: string, pack: OfficialAge
     return imports.rows.some((ledger) => {
       const index = ledger.result_json.agentIds.indexOf(row.id);
       return index >= 0 && ledger.result_json.versionIds[index] === row.published_version_id
-        && ledger.pack_version === row.semantic_label
+        && ledger.pack_version === sourceVersion
         && (refreshBindings
           ? ledger.pack_digest === pack.packDigest && row.instruction_digest === target.instructionDigest
           : historicalOfficialRoleInstructionDigests(ledger.pack_version)[row.stable_name] === row.instruction_digest);
@@ -56,7 +61,7 @@ export class PgOfficialRoleUpgradeRepository implements OfficialRoleUpgradeRepos
       const refs = await resolveOfficialRoleSkillRefs(session,orgId,pack);
       const candidates = await eligible(session, orgId, pack, refs);
       return candidates.map((r) => ({ agentId:r.id, expectedPublishedVersionId:r.published_version_id, name:r.name,
-        currentVersion:r.semantic_label,targetVersion:pack.packVersion, readySkillCount:refs.get(r.stable_name)?.pins.length ?? 0,
+        currentVersion:r.semantic_label.split("+")[0]!,targetVersion:pack.packVersion, readySkillCount:refs.get(r.stable_name)?.pins.length ?? 0,
         pendingSkillCount:refs.get(r.stable_name)?.pending.length ?? 0 }));
     });
   }
@@ -86,7 +91,8 @@ export class PgOfficialRoleUpgradeRepository implements OfficialRoleUpgradeRepos
         const target = selectedPack.agents.find((a)=>a.stableName===current.stable_name)!;
         const versionId = `agent-version-${randomUUID()}`;
         // Deliberately retain draft role/name/status and frozen role fields from the old published version.
-        await insertAgentVersionFromDraft(session,{ versionId,orgId:input.orgId,agentId:current.id,semanticLabel:target.semanticVersion,
+        await insertAgentVersionFromDraft(session,{ versionId,orgId:input.orgId,agentId:current.id,semanticLabel:current.semantic_label.split("+")[0] === target.semanticVersion
+          ? officialRoleBindingLabel(target.semanticVersion, skills.get(target.stableName)?.pins ?? []) : target.semanticVersion,
           instructionDigest:target.instructionDigest,instructions:target.instructions,skillVersionIds:skills.get(target.stableName)?.pins ?? [], pendingSkillBindings:skills.get(target.stableName)?.pending ?? [],
           modelProvider:target.modelProvider,modelId:target.modelId,toolPolicy:target.toolPolicy,creatorId:input.actorId,at:importedAt,roleFromVersionId:current.published_version_id });
         await session.query("UPDATE agents SET published_version_id=$3,updated_at=$4 WHERE org_id=$1 AND id=$2 AND published_version_id=$5", [input.orgId,current.id,versionId,importedAt,current.published_version_id]);
