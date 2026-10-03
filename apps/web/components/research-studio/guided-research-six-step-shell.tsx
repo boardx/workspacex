@@ -79,8 +79,10 @@ export function GuidedResearchSixStepShell({
   return (
     <div className="min-h-dvh min-w-0 bg-muted/20" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop" data-reference-layout="prototype-desktop">
       <header className={workspace.header} data-testid="research-workspace-header">
-        <div className={workspace.brandBar}><div className={cn(workspace.width, "flex items-center justify-between gap-3")}><div className="flex items-center gap-3"><Search className="size-9 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-xl font-bold">Deep Research</span>{current !== "import" && <span className="hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block">智能研究平台</span>}</div>{onBack && <Button variant="primary" className="h-8 text-sm" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}</div></div>
-        <div className={workspace.heading}><h1 className="text-2xl font-bold tracking-tight">{researchName?.trim() || "新建研究"}</h1>
+        <div className={workspace.brandBar}><div className={cn(workspace.width, "flex items-center gap-3")}><Search className="size-9 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-xl font-bold">Deep Research</span>{current !== "import" && <span className="hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block">智能研究平台</span>}</div></div>
+        <div className={workspace.heading}>
+          {onBack && <Button variant="primary" className="mb-4 h-10 text-sm" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}
+          <h1 className="text-2xl font-bold tracking-tight">{researchName?.trim() || "新建研究"}</h1>
           <nav aria-label="研究步骤" data-testid="research-flow-progress" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
           <ol className={workspace.timeline}>
             {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
