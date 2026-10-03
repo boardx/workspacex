@@ -6,6 +6,7 @@ import { join,resolve,relative,isAbsolute,dirname,basename } from 'node:path';
 import {tmpdir} from 'node:os';
 import {identityOperation} from './native-startup-receipt.mjs';
 import {linuxRuntimeListeners} from './native-process-listeners.mjs';
+import {nativeRuntimePorts} from './native-runtime-ports.mjs';
 
 export function listRuntimeSourceFiles(root) {
   const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
@@ -32,7 +33,8 @@ export function nativeAcceptanceOptions(plan) {
   const proxyPort=plan.proxyWebSocketPort;
   if(proxyPort!==undefined){
     assert(Number.isInteger(proxyPort)&&proxyPort>=1024&&proxyPort<=65535,'valid loopback proxy port required');
-    assert(!Object.values(plan.ports).includes(proxyPort),'proxy must not reuse a runtime service port');
+    assert(!Object.entries(plan.ports).some(([key,value])=>key!=='proxyWebSocket'&&value===proxyPort),'proxy must not reuse a runtime service port');
+    if(plan.ports.proxyWebSocket!==undefined)assert.equal(plan.ports.proxyWebSocket,proxyPort,'proxy option must derive from sole port map');
   }
   const storagePath='apps/web/e2e/support/file-storage-runtime.mjs';
   if(plan.fileStorageAttestation===true)assert(/^[a-f0-9]{64}$/.test(plan.sourceHashes?.[storagePath]??''),'storage adapter must belong to attested source closure');
@@ -82,6 +84,11 @@ export function listenerObservationCount(output){assert.equal(typeof output,'str
 function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
   assert(manifestPath,'Explicit candidate runtime manifest required');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
+  assert(manifest.ports,'startup manifest requires complete runtime ports');
+  const ports=nativeRuntimePorts(manifest.ports);
+  assert.equal(new URL(manifest.webBase).origin,`http://127.0.0.1:${ports.web}`);
+  assert.equal(new URL(manifest.apiBase).origin,`http://127.0.0.1:${ports.api}`);
+  assert.equal(manifest.nativeDatabase.port,ports.postgres);
   const canonical=realpathSync(root);
   assertRuntimeSourceFiles(canonical,sourceFiles);
   assert.deepEqual([...manifest.sourceFiles].sort(),[...sourceFiles].sort(),'startup manifest must contain full runtime closure');
