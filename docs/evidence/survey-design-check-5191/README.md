@@ -10,6 +10,7 @@ Implementation moves the existing evaluator unchanged into the public contracts 
 - New automatic-design/direct-publish tests first failed before implementation: 2 failed, 12 skipped. After implementation: 2 passed, 12 skipped.
 - Independent source review identified ready + unsaved template edits returning to draft during save. The command now resolves the operation after saving; ready-template-edit and rejection-after-save regressions now pass.
 
+- Full survey frontend suite: 37 files, 353 tests passed.
 - Affected browser-unit suite: 77 tests passed across `survey-live-publishing`, `survey-live-workspace`, `survey-workflow-shell` and `publish-readiness`.
 - API publish gate domain suite: 8 tests passed; this is domain validation, not HTTP evidence.
 - Web, API and contracts typechecks: exit 0. Affected web ESLint, API lint and contracts lint: exit 0.
