@@ -128,3 +128,14 @@ it("preserves substantive statements and fenced examples in the display projecti
   expect(display).toContain("回答：身份声明：");
   expect(interviewTranscriptDisplay("# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。", false)).toBe("# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。");
 });
+it.each([
+  "> **身份声明**：本内容为基于模拟画像库生成的专家视角推演，需真人验证。",
+  "**声明**：以下所有回答均基于提供的模拟研究计划与材料生成的定性推演，需真人验证。",
+  "> **身份声明**：本内容为基于模拟画像库生成的专家视角推演，\n> 需真人验证。",
+])("only hides formatted boilerplate in leading metadata (%s)", (notice) => {
+  const markdown = `## [护理角色](#expert-nurse)\n\n${notice}\n\n### 回答\n\n先保留有意义的回答。\n\n${notice}\n\n## [医生角色](#expert-doctor)\n\n${notice}\n\n### 回答\n\n医生的回答。`;
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display.split(notice)).toHaveLength(2);
+  expect(display).toContain(`先保留有意义的回答。\n\n${notice}`);
+  expect(display).toContain("医生的回答。");
+});
