@@ -53,7 +53,7 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
       data-banner-source={hasImage ? "image" : customColor !== null ? "custom" : "preset"}
       style={style}
       className={cn(
-        "relative overflow-hidden rounded-container px-6 py-10 sm:px-10 sm:py-12 shadow-sm",
+        "relative overflow-hidden rounded-container px-6 py-8 sm:px-10 sm:py-10",
         !hasImage && customColor === null && presetMeta.className,
         textClass,
         className,
@@ -70,10 +70,10 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
         {/* eslint-disable-next-line @next/next/no-img-element -- authenticated organization logo */}
         {logo ? <img src={logo} alt="组织 Logo" className="hidden h-24 w-24 shrink-0 object-contain sm:block" /> : null}
         <div>
-        <p className="max-w-lg text-[36px] sm:text-[44px] font-semibold leading-tight tracking-tight">{title}</p>
-        <h1 className="mt-2 max-w-lg text-13 font-medium leading-tight" data-testid="home-greeting">{greeting}</h1>
+        <p className="max-w-lg text-30 sm:text-40 font-semibold leading-tight tracking-tight">{title}</p>
+        <h1 className="mt-2 max-w-lg text-14 font-medium leading-relaxed" data-testid="home-greeting">{greeting}</h1>
         <h2 className={cn("mt-3 max-w-lg text-20 font-medium leading-snug", subtle)}>{headline}</h2>
-        {tagline.length > 0 ? <p className={cn("mt-1 max-w-md text-11", subtle)}>{tagline}</p> : null}
+        {tagline.length > 0 ? <p className={cn("mt-1 max-w-md text-13 leading-relaxed", subtle)}>{tagline}</p> : null}
         </div>
       </div>
     </section>

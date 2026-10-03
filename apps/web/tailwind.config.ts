@@ -32,6 +32,9 @@ const config: Config = {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))", hover: "hsl(var(--primary-hover))" },
         disabled: { DEFAULT: "hsl(var(--disabled))", foreground: "hsl(var(--disabled-foreground))" },
+        "destructive-hover": "hsl(var(--destructive-hover))",
+        "ai-tint-hover": "hsl(var(--ai-tint-hover))",
+        "brand-ink": { DEFAULT: "hsl(var(--brand-ink))", foreground: "hsl(var(--brand-ink-foreground))" },
         destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
         success: { DEFAULT: "hsl(var(--success))", foreground: "hsl(var(--success-foreground))" },
         warning: { DEFAULT: "hsl(var(--warning))", foreground: "hsl(var(--warning-foreground))" },
@@ -55,9 +58,9 @@ const config: Config = {
         // 三档语义圆角（F19）：control（控件/按钮/输入框）/ card（消息气泡/列表项/面板）/
         // container（弹层/Dialog/大卡片）。数值只在这里定义一次，globals.css 顶部注释
         // 只记选值依据，不重复写字面量（同一事实不得声明在两处，见 AGENTS.md）。
-        control: "6px",
-        card: "10px",
-        container: "14px",
+        control: "8px",
+        card: "12px",
+        container: "16px",
         // issue #2130 —— 人类导入新 UX 设计裁决：命名的胶囊圆角 token。composer
         // 里那类「小圆胶囊按钮/chip」（Agent 选择器、麦克风设备菜单、附件按钮…）
         // 之前各自写字面量 `rounded-full`（99999px，视觉上与 99px 等效但不是

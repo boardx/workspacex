@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
  */
 const buttonVariants = cva(
   "inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium " +
-    "transition-all duration-200 ease-in-out " +
+    "transition-colors duration-base ease-in-out motion-reduce:transition-none " +
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
     "disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent",
   {
@@ -35,15 +35,15 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98]",
         outline: "border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98]",
         ghost: "text-muted-foreground hover:bg-muted hover:text-background-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98]",
-        ai: "bg-ai-tint text-ai-tint-foreground hover:bg-ai-tint/80 border border-ai/20",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98]",
+        ai: "bg-ai-tint text-ai-tint-foreground hover:bg-ai-tint-hover border border-border",
       },
       size: {
         // 24px 最小命中区由 base 的 `min-h-6` 统一承担（见上方头注），这里不再重复声明。
         xs: "h-6 px-2 text-11",
         sm: "h-7 px-2.5 text-12",
-        md: "h-8 px-3 text-13",
-        lg: "h-10 px-4 text-14",
+        md: "h-9 px-3.5 text-13",
+        lg: "h-11 px-5 text-14",
         icon: "h-8 w-8 p-0",
       },
     },
