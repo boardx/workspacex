@@ -56,6 +56,10 @@ import type { ReportedUsage } from "../../application/agent-run/ports";
 import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
 import { isLoopbackBaseUrl } from "./loopback-provider-aliases";
 
+// Independently documented reasoning_effort=none capability; enable_thinking support is not sufficient.
+// https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
+const BAILIAN_REASONING_NONE_MODELS = new Set(["qwen3.8-max", "qwen3.8-max-0902", "qwen3.8-flash", "qwen3.8-2.4t-a95b", "qwen3.8-27b", "qwen3.8-omni-flash"]);
+
 export interface ConfiguredModelProviderConfig {
   /** The one provider name that runs may pin. Empty means: this deployment has none. */
   readonly provider: string;
@@ -459,9 +463,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 不够。这里不是"超时还不够长"——继续调大超时只是把用户等待的时间挪个地方，思考
    * 阶段本身对 pptx/大纲这类结构化生成任务没有必要，显式关闭它而不是继续加长预算。
    *
-   * 只在 `stream` 为 false 时关：流式路径（`streamEnabled`，默认关闭，见类头注）会把
-   * 思考过程边生成边吐给调用方，不是本 issue 命中的"整段等待"场景，改它属于另一个
-   * 决策，不在这次修复范围内。
+   * 缺省仅非流式关闭；可信研究任务显式 `thinkingMode: "off"` 时，流式也关闭。
+   * 流式 adapter 仅转发正文 content，不转发 reasoning_content，因此隐藏思考仍会
+   * 延迟页面首段。两维兼容门保持不变，未指定任务策略的流式调用保持原行为。
    *
    * ⚠ #2700 —— `apps/deep-agent-service` 的 deep-agent 主聊天路径是一套完全独立的
    * Python/LangGraph 代码（不复用这个 TS adapter），命中同一个根因（`ChatOpenAI` 默认
@@ -501,13 +505,15 @@ export class ConfiguredModelProvider implements ModelCallPort {
           model: input.modelId,
           stream,
           messages: buildMessages(input),
-          ...(!stream
+          ...((!stream || input.thinkingMode === "off")
             && this.config.bailianExtensionsEnabled
             && this.config.thinkingDisableModelIds.has(input.modelId)
             ? { enable_thinking: false }
             : {}),
           ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
-          ...(this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
+          ...(input.thinkingMode === "off" && this.config.bailianExtensionsEnabled && this.config.thinkingDisableModelIds.has(input.modelId) && BAILIAN_REASONING_NONE_MODELS.has(input.modelId)
+            ? { reasoning_effort: "none" }
+            : this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
           ...(this.config.jsonSchemaEnabled && input.responseSchema
             ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema } } }
             : {}),

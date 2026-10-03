@@ -1,3 +1,4 @@
+import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { research as C } from "@repo/contracts";
 import { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
@@ -39,7 +40,7 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
     private readonly model: ModelCallPort,
     private readonly modelProvider = guidedModelConfig().provider,
     private readonly modelId = guidedModelConfig().id,
-  ) {}
+  ) { this.model = withGuidedThinkingPolicy(model); }
 
   async generate(input: {
     readonly sessionId: string;
