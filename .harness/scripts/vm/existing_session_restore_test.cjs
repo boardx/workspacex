@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const {restoreExistingSession,boundedSql}=require('./existing_session_restore.cjs');
+const {decodeSql}=require('./restore_sql_stream.cjs');
 class Query{constructor(config,callback){this.text=config.text;this.callback=callback;}}
 const binding={database:'workspacex',pid:41,backendStart:'fixed',tls:true};
 function fixture(fault){let status='I',copies=[],queries=[],copyQuery,identityCalls=0;const stream=new EventEmitter();stream.writableNeedDrain=false;
@@ -17,5 +18,6 @@ function fixture(fault){let status='I',copies=[],queries=[],copyQuery,identityCa
  const oversized=fixture();oversized.options.maxCopyBytes=1;await assert.rejects(restoreExistingSession(oversized.options),e=>e.recovery.holdMustRemain);assert(!oversized.queries.includes('COMMIT'));count++;
  const initial=fixture();initial.options.identity=async()=>({...binding,pid:42});await assert.rejects(restoreExistingSession(initial.options),/EXISTING_SESSION_REQUIRED/);assert.equal(initial.queries.length,0);count++;
  const commit=fixture('commit-ack');await assert.rejects(restoreExistingSession(commit.options),e=>e.recovery.commitOutcomeUnknown===true&&e.recovery.holdMustRemain===true);count++;
+ for(const truncated of [false,true]){const streamed=fixture();async function* raw(){yield Buffer.from('CREATE TABLE public.t (name text,n int);\nCOPY public.t (name,n) FROM stdin;\none\t1\n'+(truncated?'':'\\.\n'));}streamed.options.operations=decodeSql(raw());if(truncated){await assert.rejects(restoreExistingSession(streamed.options),e=>e.recovery.holdMustRemain&&!e.recovery.committed);assert(!streamed.queries.includes('COMMIT'));}else{const result=await restoreExistingSession(streamed.options);assert.equal(result.copyBytes,6);assert.equal(result.statements,2);}count++;}
  console.log(`${count} existing-session restore assertions PASS; mock only; production adapter/decoder authorization/real PG NOT RUN`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
