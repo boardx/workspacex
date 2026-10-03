@@ -28,3 +28,7 @@ These are one consolidated dependency set, not repeated requests for the origina
 ## Release boundary
 
 This online backup produces three independent database snapshots. Its receipt keeps currentEpochVerified=false and productionReleaseReady=false. It does not prove a held common epoch. Full A-route production adapter/current-epoch snapshot and isolated restore/fidelity/six-flow producer, candidate actual startup/writer activation and production public acceptance remain incomplete. Migration with contraction is not authorized by backup approval; container-only rollback is insufficient. Release completion still requires actual production commit, health, login and core-flow verification.
+
+## Consolidated delta decision
+
+The Chinese [bounded delta decision package](cn-release-9b25-delta-decision.md) separates decidable certificate/PUBLIC policy from unresolved password-state proof, bound-profile installation and isolated-target inputs. It lists all 52 source-derived installation targets and recovery boundaries. It does not authorize execution or migration.

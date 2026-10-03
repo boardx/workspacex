@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "2a37eb6c1009090b386e726f6aab0bbdcf395ad406f817e7070d8232eba4f9a7",
+  "sourceInventorySha256": "d6f1f9792b5aceb5c45947537e7b1f32ef82ddcb101fdfc291d5b777db6e1b4c",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -623,8 +623,13 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "6d6e6634a2efcb1af42c35c14a888e096df1a614f6ad834d34f6fbda94d5a244",
-      "bytes": 22369
+      "sha256": "e2de74d989001d625c120a19607f9799890d4c13892b99d01d7b2cd350869405",
+      "bytes": 22964
+    },
+    {
+      "path": "deploy/aliyun/cn-release-9b25-delta-decision.md",
+      "sha256": "fa3851cac8026acc160ec8fbaaab65cbfa5b95e82a52ff8fc6347ba56443f10a",
+      "bytes": 22444
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -648,8 +653,8 @@
     },
     {
       "path": "deploy/aliyun/cn-release-backup-execution-package.md",
-      "sha256": "166da38ce1e2eab289b3407962602858f2e85d99531a578a8719acdd1045db32",
-      "bytes": 7972
+      "sha256": "1cf4d627d89a9987d431b8072f84829d6dc0d3869a27443a3a24fa04a7fc257a",
+      "bytes": 8347
     },
     {
       "path": "deploy/aliyun/cn-release-backup-public-acl-detail.json",
