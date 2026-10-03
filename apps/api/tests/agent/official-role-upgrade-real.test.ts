@@ -1,7 +1,7 @@
 import { createHash,randomUUID } from "node:crypto";
 import { mkdtempSync,mkdirSync,writeFileSync,rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { agentRole,wave2Runtime } from "@repo/contracts";
 import { afterAll,beforeAll,beforeEach,describe,expect,it } from "vitest";
@@ -24,6 +24,7 @@ function legacyPack(){
 beforeAll(async()=>{
  process.env.KERNEL_ALLOW_TEST_PRINCIPAL="1";process.env.KERNEL_QUIET="1";
  root=mkdtempSync(join(tmpdir(),"official-upgrade-"));process.env.AGENT_STARTER_PACK_ROOT=root;
+ process.env.SKILL_STARTER_PACK_ROOT=resolve("../../skills/starter-packs");
  mkdirSync(join(root,"official-digitalhuman-roles"));writeFileSync(join(root,"official-digitalhuman-roles","1.5.0.json"),JSON.stringify(legacyPack()));
  ensureDatabase();await migrateOnce();const {createApp}=await import("../../src/main");app=await createApp();await app.listen(0,"127.0.0.1");
  const address=app.getHttpServer().address();base=`http://127.0.0.1:${typeof address==="object"&&address?address.port:0}`;
@@ -37,7 +38,7 @@ async function imported(){
  const result=await response.json() as {agentIds:string[],versionIds:string[]};return {agentId:result.agentIds[0]!,expectedPublishedVersionId:result.versionIds[0]!};
 }
 const body=(selection:{agentId:string;expectedPublishedVersionId:string})=>({expectedOrgId:ORG,packVersion:buildOfficialAgentRolePack().packVersion,selections:[selection],idempotencyKey:randomUUID()});
-async function versions(){return asApp(ORG,async(s)=>(await s.query("SELECT id,instructions,instruction_digest,skill_version_ids,pending_skill_bindings FROM agent_versions WHERE org_id=$1 ORDER BY id",[ORG])).rows);}
+async function versions(){return asApp(ORG,async(s)=>(await s.query("SELECT id,semantic_label,instructions,instruction_digest,skill_version_ids,pending_skill_bindings FROM agent_versions WHERE org_id=$1 ORDER BY id",[ORG])).rows);}
 describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
  it("creates a new version, freezes pending refs honestly, preserves old version and disabled status, replays identical request",async()=>{
   const selection=await imported();const old=await versions();await asApp(ORG,s=>s.query("UPDATE agents SET status='disabled' WHERE org_id=$1 AND id=$2",[ORG,selection.agentId]));
@@ -69,4 +70,38 @@ describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
   const input={...body(selection),selections:[selection,{agentId:"other-agent",expectedPublishedVersionId:"other-version"}]};
   expect((await post(agentRole.operations.upgradeOfficialRoles.path,input)).status).toBe(409);expect(await versions()).toEqual(original);
  });
+ it("refreshes same-version bindings only after exact Skill verification, preserving prior versions and rejecting stale/cross-org selections",async()=>{
+  const legacy=await imported();
+  const initialResponse=await post(agentRole.operations.upgradeOfficialRoles.path,body(legacy));
+  expect(initialResponse.status).toBe(201);
+  const initial=agentRole.OfficialRoleUpgradeResult.parse(await initialResponse.json());
+  const frozen=await versions();
+  const current={agentId:legacy.agentId,expectedPublishedVersionId:initial.versionIds[0]!};
+  const offer=async()=>agentRole.OfficialRolePackOffer.parse(await (await fetch(`${base}/agents/official-role-pack/offer`,{headers:auth()})).json());
+  expect((await offer()).upgrades).toEqual([]);
+  const skillImport=await post("/admin/skills/starter-pack-imports",{packId:"work-product",packVersion:"1.0.0",idempotencyKey:randomUUID()});
+  expect(skillImport.status).toBe(201);await skillImport.json();
+  expect((await offer()).upgrades).toEqual([]); // Published candidates do not grant role pins.
+  // Test fixture certification only: this does not claim real-model Skill quality or promote live data.
+  const verifiedId=await asApp(ORG,async s=>{
+    const row=(await s.query<{skill_id:string;version_id:string}>("SELECT s.id AS skill_id,v.id AS version_id FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id WHERE s.org_id=$1 AND s.stable_name='customer-research' AND v.published=true",[ORG])).rows[0]!;
+    await s.query("UPDATE skill_catalog_entries SET channel='verified' WHERE org_id=$1 AND skill_id=$2",[ORG,row.skill_id]);return row.version_id;
+  });
+  expect((await offer()).upgrades).toContainEqual(expect.objectContaining({...current,currentVersion:"1.6.0",targetVersion:"1.6.0",readySkillCount:1}));
+  const request=body(current);
+  expect((await post(agentRole.operations.upgradeOfficialRoles.path,request,MEMBER)).status).toBe(403);
+  expect((await post(agentRole.operations.upgradeOfficialRoles.path,request,ADMIN,OTHER)).status).toBe(403);
+  expect((await post(agentRole.operations.upgradeOfficialRoles.path,body(legacy))).status).toBe(409);
+  const response=await post(agentRole.operations.upgradeOfficialRoles.path,request);expect(response.status).toBe(201);
+  const refreshed=agentRole.OfficialRoleUpgradeResult.parse(await response.json());
+  const now=await versions();expect(now).toHaveLength(3);
+  for(const prior of frozen) expect(now.find(v=>v.id===prior.id)).toEqual(prior);
+  const latest=now.find(v=>v.id===refreshed.versionIds[0])!;
+  expect(latest.semantic_label).toMatch(/^1\.6\.0\+bindings\.[a-f0-9]{64}$/);
+  expect(latest.skill_version_ids).toEqual([verifiedId]);expect(latest.pending_skill_bindings).toHaveLength(13);
+  expect((await offer()).upgrades).toEqual([]);
+  const replay=await post(agentRole.operations.upgradeOfficialRoles.path,request);expect(replay.status).toBe(201);expect(await replay.json()).toEqual(refreshed);
+  expect(await versions()).toHaveLength(3);
+ });
+
 });

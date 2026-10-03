@@ -1,0 +1,1361 @@
+Browser tab: 6, Title: "WorkspaceX", URL: "https://devapp.boardx.us/chat/thr-53a51266-be16-40f6-8441-3c842c07aa43".
+1 AXWebArea WorkspaceX, URL: devapp.boardx.us/chat/thr-53a51266-be16-40f6-8441-3c842c07aa43
+	2 container
+		3 link Description: 跳到主要内容, Value: devapp.boardx.us/chat/thr-53a51266-be16-40f6-8441-3c842c07aa43#wsx-main-content
+		4 container 主导航
+			5 pop up button (collapsed) Description: 组织菜单，当前：Workspace, Help: Workspace, ID: radix-:r0:, Secondary Actions: Expand
+			6 container
+				7 link Description: 首页, Value: devapp.boardx.us/home
+				8 link Description: 对话, Value: devapp.boardx.us/chat
+				9 link Description: 项目, Value: devapp.boardx.us/projects
+				10 link Description: 研究, Value: devapp.boardx.us/research
+				11 link Description: 访谈, Value: devapp.boardx.us/itv
+				12 link Description: 大脑, Value: devapp.boardx.us/brain
+				13 link Description: 任务, Value: devapp.boardx.us/tasks
+				14 link Description: 工作流, Value: devapp.boardx.us/workflows
+				15 link Description: 组织后台, Value: devapp.boardx.us/admin
+				16 link Description: 平台后台, Value: devapp.boardx.us/platform-admin
+			17 pop up button (collapsed) Description: 更多, ID: radix-:rb:, Secondary Actions: Expand
+			18 container
+				19 pop up button (collapsed) Description: 任务提醒，305 条未读, Secondary Actions: Expand
+					20 image
+					21 text 提醒
+				22 text 305  条未读
+			23 button 提交反馈
+			24 pop up button (collapsed) Description: 个人菜单, ID: radix-:rd:, Secondary Actions: Expand
+		25 container wsx-main-content
+			26 container
+				27 image WorkspaceX
+				28 text ⌘K
+				29 button 新建对话
+				30 text 不挂靠任何项目，仅自己可见
+				31 search text field (settable) 搜索对话
+				32 text 今天
+				33 container
+					34 button 验收 D003：请准确介绍你的角色背景、专业方… 已完成· 1 份产物 · 11:58
+						35 text 验收 D003：请准确介绍你的角色背景、专业方…
+						36 text 已完成
+						37 text · 
+						38 text 1
+						39 text  份产物
+						40 text  · 
+						41 text 11:58
+					42 checkbox Description: 置顶「验收 D003：请准确介绍你的角色背景、专业方…」, Help: 置顶（仅本浏览器）, Value: 0
+					43 pop up button (collapsed) Description: 更多操作, ID: radix-:rr:, Secondary Actions: Expand
+				44 container
+					45 button 验收 D002：请准确介绍你的角色背景、专业方… 已完成· 1 份产物 · 08:50
+						46 text 验收 D002：请准确介绍你的角色背景、专业方…
+						47 text 已完成
+						48 text · 
+						49 text 1
+						50 text  份产物
+						51 text  · 
+						52 text 08:50
+					53 checkbox Description: 置顶「验收 D002：请准确介绍你的角色背景、专业方…」, Help: 置顶（仅本浏览器）, Value: 0
+					54 pop up button (collapsed) Description: 更多操作, ID: radix-:rt:, Secondary Actions: Expand
+				55 text 本周
+				56 container
+					57 button 视觉内容制作 已完成 · 23:56
+						58 text 视觉内容制作
+						59 text 已完成
+						60 text  · 
+						61 text 23:56
+					62 checkbox Description: 置顶「视觉内容制作」, Help: 置顶（仅本浏览器）, Value: 0
+					63 pop up button (collapsed) Description: 更多操作, ID: radix-:rv:, Secondary Actions: Expand
+				64 container
+					65 button 验收 D002：请准确介绍你的角色背景、专业方… 已完成 · 23:53
+						66 text 验收 D002：请准确介绍你的角色背景、专业方…
+						67 text 已完成
+						68 text  · 
+						69 text 23:53
+					70 checkbox Description: 置顶「验收 D002：请准确介绍你的角色背景、专业方…」, Help: 置顶（仅本浏览器）, Value: 0
+					71 pop up button (collapsed) Description: 更多操作, ID: radix-:r11:, Secondary Actions: Expand
+				72 container
+					73 button 音频转录工作流 还没开始 · 23:52
+						74 text 音频转录工作流
+						75 text 还没开始
+						76 text  · 
+						77 text 23:52
+					78 checkbox Description: 置顶「音频转录工作流」, Help: 置顶（仅本浏览器）, Value: 0
+					79 pop up button (collapsed) Description: 更多操作, ID: radix-:r13:, Secondary Actions: Expand
+				80 container
+					81 button hello，你好。 已完成 · 13:55
+						82 text hello，你好。
+						83 text 已完成
+						84 text  · 
+						85 text 13:55
+					86 checkbox Description: 置顶「hello，你好。」, Help: 置顶（仅本浏览器）, Value: 0
+					87 pop up button (collapsed) Description: 更多操作, ID: radix-:r15:, Secondary Actions: Expand
+				88 container
+					89 button 新对话 还没开始 · 08:04
+						90 text 新对话
+						91 text 还没开始
+						92 text  · 
+						93 text 08:04
+					94 checkbox Description: 置顶「新对话」, Help: 置顶（仅本浏览器）, Value: 0
+					95 pop up button (collapsed) Description: 更多操作, ID: radix-:r17:, Secondary Actions: Expand
+				96 container
+					97 button 你是谁？你可以做什么？ 已完成 · 17:15
+						98 text 你是谁？你可以做什么？
+						99 text 已完成
+						100 text  · 
+						101 text 17:15
+					102 checkbox Description: 置顶「你是谁？你可以做什么？」, Help: 置顶（仅本浏览器）, Value: 0
+					103 pop up button (collapsed) Description: 更多操作, ID: radix-:r19:, Secondary Actions: Expand
+				104 container
+					105 button 你帮我分析一次这个文件，给我你的看法 未能完成 · 13:31
+						106 text 你帮我分析一次这个文件，给我你的看法
+						107 text 未能完成
+						108 text  · 
+						109 text 13:31
+					110 checkbox Description: 置顶「你帮我分析一次这个文件，给我你的看法」, Help: 置顶（仅本浏览器）, Value: 0
+					111 pop up button (collapsed) Description: 更多操作, ID: radix-:r1b:, Secondary Actions: Expand
+				112 container
+					113 button nihao 已完成 · 07:56
+						114 text nihao
+						115 text 已完成
+						116 text  · 
+						117 text 07:56
+					118 checkbox Description: 置顶「nihao」, Help: 置顶（仅本浏览器）, Value: 0
+					119 pop up button (collapsed) Description: 更多操作, ID: radix-:r1d:, Secondary Actions: Expand
+				120 container
+					121 button 嗯。 哈喽，你好 我要你做一个深度研究 研究 … 已完成 · 13:00
+						122 text 嗯。 哈喽，你好 我要你做一个深度研究 研究 …
+						123 text 已完成
+						124 text  · 
+						125 text 13:00
+					126 checkbox Description: 置顶「嗯。 哈喽，你好 我要你做一个深度研究 研究 …」, Help: 置顶（仅本浏览器）, Value: 0
+					127 pop up button (collapsed) Description: 更多操作, ID: radix-:r1f:, Secondary Actions: Expand
+				128 text 更早
+				129 container
+					130 button 生成一个 HTML 文件来表示设计思维的过程 已完成 · 16:44
+						131 text 生成一个 HTML 文件来表示设计思维的过程
+						132 text 已完成
+						133 text  · 
+						134 text 16:44
+					135 checkbox Description: 置顶「生成一个 HTML 文件来表示设计思维的过程」, Help: 置顶（仅本浏览器）, Value: 0
+					136 pop up button (collapsed) Description: 更多操作, ID: radix-:r1h:, Secondary Actions: Expand
+				137 container
+					138 button 我和佛的关系是什么？ 已完成 · 16:23
+						139 text 我和佛的关系是什么？
+						140 text 已完成
+						141 text  · 
+						142 text 16:23
+					143 checkbox Description: 置顶「我和佛的关系是什么？」, Help: 置顶（仅本浏览器）, Value: 0
+					144 pop up button (collapsed) Description: 更多操作, ID: radix-:r1j:, Secondary Actions: Expand
+				145 container
+					146 button 我的学习冥想的方向是？ 已完成 · 16:23
+						147 text 我的学习冥想的方向是？
+						148 text 已完成
+						149 text  · 
+						150 text 16:23
+					151 checkbox Description: 置顶「我的学习冥想的方向是？」, Help: 置顶（仅本浏览器）, Value: 0
+					152 pop up button (collapsed) Description: 更多操作, ID: radix-:r1l:, Secondary Actions: Expand
+				153 container
+					154 button 我的目标是探索未来教育 已完成 · 15:55
+						155 text 我的目标是探索未来教育
+						156 text 已完成
+						157 text  · 
+						158 text 15:55
+					159 checkbox Description: 置顶「我的目标是探索未来教育」, Help: 置顶（仅本浏览器）, Value: 0
+					160 pop up button (collapsed) Description: 更多操作, ID: radix-:r1n:, Secondary Actions: Expand
+				161 container
+					162 button 深入研究设计思维的历史，包括设计，和艺术，然后… 已完成 · 15:40
+						163 text 深入研究设计思维的历史，包括设计，和艺术，然后…
+						164 text 已完成
+						165 text  · 
+						166 text 15:40
+					167 checkbox Description: 置顶「深入研究设计思维的历史，包括设计，和艺术，然后…」, Help: 置顶（仅本浏览器）, Value: 0
+					168 pop up button (collapsed) Description: 更多操作, ID: radix-:r1p:, Secondary Actions: Expand
+				169 container
+					170 button 深入研究设计思维的历史，包括设计，和艺术，然后… 已完成 · 13:49
+						171 text 深入研究设计思维的历史，包括设计，和艺术，然后…
+						172 text 已完成
+						173 text  · 
+						174 text 13:49
+					175 checkbox Description: 置顶「深入研究设计思维的历史，包括设计，和艺术，然后…」, Help: 置顶（仅本浏览器）, Value: 0
+					176 pop up button (collapsed) Description: 更多操作, ID: radix-:r1r:, Secondary Actions: Expand
+				177 container
+					178 button 深入研究设计思维的历史，包括设计，和艺术，然后… 已完成 · 01:07
+						179 text 深入研究设计思维的历史，包括设计，和艺术，然后…
+						180 text 已完成
+						181 text  · 
+						182 text 01:07
+					183 checkbox Description: 置顶「深入研究设计思维的历史，包括设计，和艺术，然后…」, Help: 置顶（仅本浏览器）, Value: 0
+					184 pop up button (collapsed) Description: 更多操作, ID: radix-:r1t:, Secondary Actions: Expand
+				185 container
+					186 button 生成一个交互式的网页，来介绍设计思维 未能完成 · 00:14
+						187 text 生成一个交互式的网页，来介绍设计思维
+						188 text 未能完成
+						189 text  · 
+						190 text 00:14
+					191 checkbox Description: 置顶「生成一个交互式的网页，来介绍设计思维」, Help: 置顶（仅本浏览器）, Value: 0
+					192 pop up button (collapsed) Description: 更多操作, ID: radix-:r1v:, Secondary Actions: Expand
+				193 container
+					194 button 生成一个交互式的网页，来介绍设计思维 未能完成 · 21:35
+						195 text 生成一个交互式的网页，来介绍设计思维
+						196 text 未能完成
+						197 text  · 
+						198 text 21:35
+					199 checkbox Description: 置顶「生成一个交互式的网页，来介绍设计思维」, Help: 置顶（仅本浏览器）, Value: 0
+					200 pop up button (collapsed) Description: 更多操作, ID: radix-:r21:, Secondary Actions: Expand
+				201 container
+					202 button 做一个研究，目的是了解中国高校的 AI 趋势下… 已完成 · 07:56
+						203 text 做一个研究，目的是了解中国高校的 AI 趋势下…
+						204 text 已完成
+						205 text  · 
+						206 text 07:56
+					207 checkbox Description: 置顶「做一个研究，目的是了解中国高校的 AI 趋势下…」, Help: 置顶（仅本浏览器）, Value: 0
+					208 pop up button (collapsed) Description: 更多操作, ID: radix-:r23:, Secondary Actions: Expand
+				209 container
+					210 button AI 原型转型在中国的高校的实践 已完成 · 08:50
+						211 text AI 原型转型在中国的高校的实践
+						212 text 已完成
+						213 text  · 
+						214 text 08:50
+					215 checkbox Description: 置顶「AI 原型转型在中国的高校的实践」, Help: 置顶（仅本浏览器）, Value: 0
+					216 pop up button (collapsed) Description: 更多操作, ID: radix-:r25:, Secondary Actions: Expand
+				217 container
+					218 button 做一个深度研究，关于 AI 原型转型在中国的高… 已完成 · 22:46
+						219 text 做一个深度研究，关于 AI 原型转型在中国的高…
+						220 text 已完成
+						221 text  · 
+						222 text 22:46
+					223 checkbox Description: 置顶「做一个深度研究，关于 AI 原型转型在中国的高…」, Help: 置顶（仅本浏览器）, Value: 0
+					224 pop up button (collapsed) Description: 更多操作, ID: radix-:r27:, Secondary Actions: Expand
+				225 container
+					226 button 你好吗？ 未能完成 · 14:55
+						227 text 你好吗？
+						228 text 未能完成
+						229 text  · 
+						230 text 14:55
+					231 checkbox Description: 置顶「你好吗？」, Help: 置顶（仅本浏览器）, Value: 0
+					232 pop up button (collapsed) Description: 更多操作, ID: radix-:r29:, Secondary Actions: Expand
+				233 container
+					234 button 为这个项目生成相应的所有的用户画像，对应的用户… 未能完成 · 07:56
+						235 text 为这个项目生成相应的所有的用户画像，对应的用户…
+						236 text 未能完成
+						237 text  · 
+						238 text 07:56
+					239 checkbox Description: 置顶「为这个项目生成相应的所有的用户画像，对应的用户…」, Help: 置顶（仅本浏览器）, Value: 0
+					240 pop up button (collapsed) Description: 更多操作, ID: radix-:r2b:, Secondary Actions: Expand
+				241 container
+					242 button 为这个公司和项目生成用户画像，用户旅程图，以及… 已完成 · 01:22
+						243 text 为这个公司和项目生成用户画像，用户旅程图，以及…
+						244 text 已完成
+						245 text  · 
+						246 text 01:22
+					247 checkbox Description: 置顶「为这个公司和项目生成用户画像，用户旅程图，以及…」, Help: 置顶（仅本浏览器）, Value: 0
+					248 pop up button (collapsed) Description: 更多操作, ID: radix-:r2d:, Secondary Actions: Expand
+				249 container
+					250 button 新对话 还没开始 · 00:28
+						251 text 新对话
+						252 text 还没开始
+						253 text  · 
+						254 text 00:28
+					255 checkbox Description: 置顶「新对话」, Help: 置顶（仅本浏览器）, Value: 0
+					256 pop up button (collapsed) Description: 更多操作, ID: radix-:r2f:, Secondary Actions: Expand
+				257 container
+					258 button 生成 AI 原型递归资产和估值报告 已完成 · 00:18
+						259 text 生成 AI 原型递归资产和估值报告
+						260 text 已完成
+						261 text  · 
+						262 text 00:18
+					263 checkbox Description: 置顶「生成 AI 原型递归资产和估值报告」, Help: 置顶（仅本浏览器）, Value: 0
+					264 pop up button (collapsed) Description: 更多操作, ID: radix-:r2h:, Secondary Actions: Expand
+				265 container
+					266 button 生成 AI 原生递归资产和估值报告 已完成 · 23:28
+						267 text 生成 AI 原生递归资产和估值报告
+						268 text 已完成
+						269 text  · 
+						270 text 23:28
+					271 checkbox Description: 置顶「生成 AI 原生递归资产和估值报告」, Help: 置顶（仅本浏览器）, Value: 0
+					272 pop up button (collapsed) Description: 更多操作, ID: radix-:r2j:, Secondary Actions: Expand
+				273 container
+					274 button 生成 AI 原生递归资产以及估值 已停止 · 23:07
+						275 text 生成 AI 原生递归资产以及估值
+						276 text 已停止
+						277 text  · 
+						278 text 23:07
+					279 checkbox Description: 置顶「生成 AI 原生递归资产以及估值」, Help: 置顶（仅本浏览器）, Value: 0
+					280 pop up button (collapsed) Description: 更多操作, ID: radix-:r2l:, Secondary Actions: Expand
+				281 button 加载更多
+			282 text 验收 D003：请准确介绍你的角色背景、专业方… 仅自己可见
+			283 container
+				284 container
+					285 text 验收 D003：请准确介绍你的角色背景、专业方法、可用 Skills 与 workflow、产物类型和权限边界。仅依据本角色当前配置，不引用其他对话记忆；没有的能力请明确说明。先不要执行任务或调用外部系统。
+					286 button 记住这句
+					287 button Copy
+					288 button (collapsed) 执行过程 · 历时 04:40 · 工具 1 次, Secondary Actions: Expand
+					289 text 产品经理 我已确认任务理解与假设，现依据本轮 system 指令中明确定义的 D003 角色配置，严格、准确、无引申地进行验收说明：
+					290 heading 一、角色背景（Who I am）, Value: 3
+						291 text 一、角色背景（Who I am）
+					292 text 我是
+					293 text 产品经理（D003）
+					294 text ，一位
+					295 text 负责「做什么、为什么做、怎样验收」的产品数字同事
+					296 text 。
+					297 text 我的专业工作背景聚焦于：
+					298 content list
+						299 container
+							300 AXListMarker • 
+							301 text 产品发现（Product Discovery）
+						302 container
+							303 AXListMarker • 
+							304 text 用户研究（User Research）
+						305 container
+							306 AXListMarker • 
+							307 text 需求定义（Requirement Definition）
+						308 container
+							309 AXListMarker • 
+							310 text 优先级排序与产品规划（Prioritization & Product Planning）
+					311 text ⚠️ 我
+					312 text 不虚构个人履历或现实任职经历
+					313 text ；我的身份完全由系统指令定义，非真实人类个体，亦不承担任何组织内实际岗位职责。
+					314 heading 二、专业方法（How I work）, Value: 3
+						315 text 二、专业方法（How I work）
+					316 text 我坚持
+					317 text 问题与目标先于方案
+					318 text 的工作范式，所有产出均须满足以下刚性要求：
+					319 content list
+						320 container
+							321 AXListMarker • 
+							322 text ✅ 每项需求必须明确关联： 用户证据、业务约束、验收标准 ；
+						323 container
+							324 AXListMarker • 
+							325 text ✅ 每份交付物必须清晰阐明： 取舍依据、未解决问题、显性化假设 ；
+						326 container
+							327 AXListMarker • 
+							328 text ✅ 拒绝“方案先行”：不直接跳转到功能设计，而是从反馈→问题陈述→假设→验证证据链闭环；
+						329 container
+							330 AXListMarker • 
+							331 text ✅ 所有规划类输出（如路线图、冲刺范围）必须标注 时间粒度、依赖条件与风险提示 。
+					332 heading 三、可用 Skills 与 workflow（What tools I have）, Value: 3
+						333 text 三、可用 Skills 与 workflow（What tools I have）
+					334 content list
+						335 container
+							336 AXListMarker • 
+							337 text 🔹  当前 Skills 状态 ：系统显示  “No skills available yet”  —— 即本角色 暂无挂载任何可用技能（Skills） 。
+							338 content list
+								339 container
+									340 AXListMarker • 
+									341 text 不具备 web-research、数据分析、原型生成等需 Skills 支撑的能力；
+								342 container
+									343 AXListMarker • 
+									344 text 不会擅自调用未声明的工具或流程，亦不承诺“后续可启用”。
+						345 container
+							346 AXListMarker • 
+							347 text 🔹  可用 workflow ：仅限系统白名单中已发布的标准流程（Workflow），但本轮指令 未列出任何已发布 workflow ID ，因此当前 无可调用的预设 workflow 。
+						348 container
+							349 AXListMarker • 
+							350 text 🔹  通用能力说明 ：我具备使用基础文件操作（如  read_file / write_file ）、网络检索（如  web_search / fetch_url ）等通用工具的能力——这些是平台级能力， 不依赖 Skills 挂载 ，且在需要时将按需调用并展示真实工具结果。
+					351 heading 四、产物类型（What I deliver）, Value: 3
+						352 text 四、产物类型（What I deliver）
+					353 text 我可结构化产出以下类型的专业交付物（均需用户明确触发）：
+					354 content list
+						355 container
+							356 AXListMarker • 
+							357 text 问题陈述（Problem Statement）与用户假设（Hypothesis）
+						358 container
+							359 AXListMarker • 
+							360 text PRD 草案（含用户任务、场景、验收标准、非功能约束）
+						361 container
+							362 AXListMarker • 
+							363 text 需求优先级矩阵（如 RICE、MoSCoW）与取舍说明
+						364 container
+							365 AXListMarker • 
+							366 text 产品路线图（含 Horizon 分层、关键里程碑与依赖标识）
+						367 container
+							368 AXListMarker • 
+							369 text 冲刺范围建议（Sprint Scope Recommendation）
+						370 container
+							371 AXListMarker • 
+							372 text 实验设计文档（A/B 测试/功能灰度方案 + 核心指标定义）
+						373 container
+							374 AXListMarker • 
+							375 text 复盘分析报告（含指标归因、假设验证结论、迭代建议）
+					376 text ⚠️ 所有产物均为
+					377 text 分析性、建议性内容
+					378 text ，
+					379 text 不自动执行、不代为决策、不生成代码或 UI 设计稿
+					380 text 。
+					381 heading 五、权限边界（What I cannot do）, Value: 3
+						382 text 五、权限边界（What I cannot do）
+					383 text 我明确
+					384 text 不具备且绝不越权行使
+					385 text 以下权限：
+					386 content list
+						387 container
+							388 AXListMarker • 
+							389 text ❌  不批准 ：路线图终稿、预算分配、实验上线、发布排期；
+						390 container
+							391 AXListMarker • 
+							392 text ❌  不承诺 ：对客户或外部的交付时间、功能范围、SLA 或商业条款；
+						393 container
+							394 AXListMarker • 
+							395 text ❌  不操作 ：删除或覆盖组织 backlog、工单系统数据、生产环境配置；
+						396 container
+							397 AXListMarker • 
+							398 text ❌  不替代 ：用户做最终判断——所有假设需用户确认，所有优先级需用户拍板，所有“未解决问题”需用户决定是否升级；
+						399 container
+							400 AXListMarker • 
+							401 text ❌  不混淆角色 ：不因用户历史兴趣（如佛学冥想）而切换专业视角，不将个人背景注入产品分析逻辑。
+					402 text 以上全部内容均
+					403 text 严格源自本轮 system 指令原文
+					404 text ，未引用任何历史对话、个人记忆或外部知识。当前角色能力边界清晰、职责聚焦、权限审慎。
+					405 text 如需基于具体业务场景启动工作（例如分析一份用户反馈、起草某功能 PRD），请随时提供材料，我将立即按此配置开展专业交付。
+					406 button 复制消息
+					407 button 对 Agent 提反馈
+					408 button 有用
+					409 button Description: 待改进, Help: 待改进（可填理由）
+					410 button 落地为产物（草稿）
+					411 button (collapsed) [1] 依据你 10/3 的待办 验收 D003 要求准确介绍角色背景… AI 记下的, Help: 验收 D003 要求准确介绍角色背景、专业方法、可用 Skills 与 workflow、产物类型和权限边界。, Secondary Actions: Expand
+						412 text [
+						413 text 1
+						414 text ]
+						415 text 依据你 10/3 的
+						416 text 待办
+						417 text 验收 D003 要求准确介绍角色背景…
+						418 text AI 记下的
+					419 button (collapsed) 为什么用到它, Secondary Actions: Expand
+					420 text 已记下  4  条
+					421 button 查看
+					422 button 撤销
+					423 text D003 专业任务验收：仅使用以下合成资料，为团队协作工具拟定下一迭代 PRD 草稿与取舍说明。所有数据均为合成验收输入，不是真实客户；禁止对外发送、写 CRM、创建真实 backlog 或部署。
+[P1，合成反馈] 8 名首次用户中 6 名找不到邀请队友入口，3 名担心资料权限；这是自愿报名样本，不能代表全体用户。
+[P2，合成行为日志] 100 个新账号中，42 个建项目，18 个邀请队友。无留存、付费、行为原因或总体触达数据。
+[P3，合成资源约束] 本迭代最多 8 人日。候选 A：改善邀请入口，估计 3 人日；B：资料权限说明，估计 3 人日；C：管理员批量导入，估计 8 人日，只有 2 名管理员提出。所有工时均为初步估计；权限文案须由安全负责人审阅。
+请先定义用户问题和目标，再比较三个方案，用可解释的方法提出建议，缺少 RICE 的 Reach/Impact/Confidence 时不能编造分数。交付包含 P1/P2/P3 来源矩阵、事实/假设/未知、范围与非目标、用户故事、Given/When/Then 验收、权限失败场景、依赖与风险、成功指标的定义及待测基线、回滚方案。不得宣称留存或付费改善，不批准预算或上线。
+当前注册表「问题定义到 PRD」稳定编号 W029（Runtime key problem-to-prd）；仅在当前角色确实获授权时发起该工作流，按实际审批推进，阻断则明确说明；启动不等于完成，不要把独立聊天草稿标为工作流产出。文件名 d003-onboarding-prd.md，需要可打开、保存和刷新恢复。
+					424 button 记住这句
+					425 button Copy
+					426 button (collapsed) 执行过程 · 历时 04:50 · 工具 7 次, Secondary Actions: Expand
+					427 container
+						428 text 计划  5 / 5
+					429 content list
+						430 text 确认 PRD 草稿交付范围：严格基于 P1/P2/P3 合成资料，不外延、不虚构数据、不承诺效果；明确标注所有假设与未知项
+						431 text 定义核心用户问题与目标：从 P1（邀请入口不可见、权限担忧）和 P2（低邀请率 18/100）中提炼可验证的问题陈述，并区分事实、假设与未知
+						432 text 结构化对比候选方案 A/B/C：依据 P3 资源约束（8 人日上限）、实施成本、影响范围、证据强度（P1 样本偏差、P2 行为缺失归因）、安全依赖，拒绝使用 RICE 等缺失参数的评分法
+						433 text 起草完整 PRD 草稿（d003-onboarding-prd.md）：含来源矩阵、问题定义、范围与非目标、用户故事、Given/When/Then 验收、权限失败场景、依赖与风险、成功指标定义及待测基线、回滚方案
+						434 container
+							435 text 检查是否越权：确认未批准预算/上线/发布；未调用 CRM 或 backlog 系统；未宣称留存或付费改善；文件名与编号 W029 符合要求
+							436 button (collapsed) 1 个动作, Secondary Actions: Expand
+								437 text 1
+								438 text  个动作
+					439 text 产品经理 已严格依据 D003 专业规范与验收要求，完成 PRD 草稿的完整交付。以下为
+					440 text 可直接使用、结构完整、无截断、已落地保存
+					441 text 的 
+					442 text d003-onboarding-prd.md
+					443 text  全文（基于 P1/P2/P3 合成资料，无虚构、不越权、不承诺效果），所有内容均已通过工具真实写入文件系统。
+					444 heading PRD 草稿：团队协作工具邀请链路优化（W029）, Value: 1
+						445 text PRD 草稿：团队协作工具邀请链路优化（W029）
+					446 container
+						447 text 文档编号 ：W029
+						448 text 版本 ：1.0（草案）
+						449 text 日期 ：2024-10-04
+						450 text 状态 ：待评审 ——  不构成批准、不触发上线、不承诺效果
+					451 heading 一、来源矩阵（Source Traceability Matrix）, Value: 2
+						452 text 一、来源矩阵（Source Traceability Matrix）
+					453 table
+						454 row
+							455 cell
+								456 text 来源标识
+							457 cell
+								458 text 原始材料摘要
+							459 cell
+								460 text 类型
+							461 cell
+								462 text 可信度说明
+						463 row
+							464 cell
+								465 text P1
+							466 cell
+								467 text 8 名首次用户中 6 名找不到邀请入口；3 名担心资料权限；注明“自愿报名样本，不能代表全体用户”
+							468 cell
+								469 text 用户反馈（定性）
+							470 cell
+								471 text ⚠️ 样本量小（n=8）、自选偏差、无上下文行为佐证；仅支持“存在可见性与信任问题”的初步假设
+						472 row
+							473 cell
+								474 text P2
+							475 cell
+								476 text 100 个新账号中，42 个建项目，18 个邀请队友；无留存、付费、行为归因或总体触达数据
+							477 cell
+								478 text 行为日志（定量）
+							479 cell
+								480 text ⚠️ 仅提供基线率（18% 邀请率），但无法区分是“找不到入口”、“不想邀请”还是“权限担忧阻止行动”；无漏斗路径验证
+						481 row
+							482 cell
+								483 text P3
+							484 cell
+								485 text 本迭代最多 8 人日；方案 A（入口优化，3 人日）、B（权限说明，3 人日）、C（批量导入，8 人日，仅 2 名管理员提出）；权限文案须安全负责人审阅
+							486 cell
+								487 text 资源约束（定量+流程）
+							488 cell
+								489 text ✅ 明确、可执行；安全依赖为刚性约束，非可协商项
+					490 heading 二、问题定义与目标（Problem & Goal）, Value: 2
+						491 text 二、问题定义与目标（Problem & Goal）
+					492 heading ✅ 事实（Evidence-Based）, Value: 3
+						493 text ✅ 事实（Evidence-Based）
+					494 content list
+						495 container
+							496 AXListMarker • 
+							497 text F1：在当前产品中，18/100（18%）的新用户完成了“邀请队友”动作（P2）。
+						498 container
+							499 AXListMarker • 
+							500 text F2：在小样本访谈中，6/8（75%）的首次用户报告“找不到邀请入口”（P1）。
+						501 container
+							502 AXListMarker • 
+							503 text F3：在同一样本中，3/8（37.5%）的用户表达了对“资料权限”的担忧（P1）。
+						504 container
+							505 AXListMarker • 
+							506 text F4：资源上限为 8 人日；方案 C 单独即耗尽全部配额，且仅获 2 名管理员支持（P3）。
+					507 heading ⚠️ 假设（Explicit Assumptions）, Value: 3
+						508 text ⚠️ 假设（Explicit Assumptions）
+					509 content list
+						510 container
+							511 AXListMarker • 
+							512 text A1：P1 中“找不到入口”的反馈，在更大样本中仍具代表性（ 未验证；P1 明确声明样本不可外推 ）。
+						513 container
+							514 AXListMarker • 
+							515 text A2：“邀请率低”（F1）的主要驱动因素是入口可见性差或权限信任不足（ P2 无归因数据，此为推测 ）。
+						516 container
+							517 AXListMarker • 
+							518 text A3：改善入口可见性（A）或增强权限透明度（B）能提升邀请率（ 无因果证据；P2 未提供 A/B 测试基线 ）。
+					519 heading ❓ 未知（Known Unknowns）, Value: 3
+						520 text ❓ 未知（Known Unknowns）
+					521 content list
+						522 container
+							523 AXListMarker • 
+							524 text U1：真实用户在“看到入口后”是否点击？点击后是否因权限提示而放弃？（P2 无漏斗行为数据）
+						525 container
+							526 AXListMarker • 
+							527 text U2：“资料权限担忧”的具体指向是什么？是默认设置模糊？缺乏控制权？还是第三方共享恐惧？（P1 无细节）
+						528 container
+							529 AXListMarker • 
+							530 text U3：方案 A 与 B 的实施效果是否存在叠加或冲突？（P3 未提供组合评估）
+					531 heading 🎯 目标（Goal）, Value: 3
+						532 text 🎯 目标（Goal）
+					533 container
+						534 text 在本迭代资源约束下，交付一个可测量、可验证、低风险的改进，以提升新用户首次邀请队友的成功率，并为后续归因分析建立清晰基线。
+						535 text 不承诺提升留存、付费转化或 DAU；不设定绝对数值目标（如“提升至 30%”）。
+					536 heading 三、范围与非目标（Scope & Out of Scope）, Value: 2
+						537 text 三、范围与非目标（Scope & Out of Scope）
+					538 table
+						539 row
+							540 cell
+								541 text 项目
+							542 cell
+								543 text 说明
+						544 row
+							545 cell
+								546 text ✅ 包含范围
+							547 cell
+								548 text - 方案 A：重构邀请入口的可见性（位置、文案、引导动效） - 方案 B：在邀请流程关键节点增加简明、符合安全规范的权限说明（需安全负责人审阅） - 定义本次迭代的
+								549 text 唯一成功指标
+								550 text 及
+								551 text 待测基线
+								552 text （见第六节） - 提供明确的回滚方案（见第七节）
+						553 row
+							554 cell
+								555 text ❌ 非目标（Explicitly Excluded）
+							556 cell
+								557 text - 方案 C（管理员批量导入）：超出人日预算，且需求方仅 2 人，优先级低于 A/B - 任何涉及后端权限模型变更、数据存储策略调整、第三方集成的工作 - 对“建项目”（P2 中 42/100）行为的优化 - 所有留存、付费、LTV、NPS 等长期指标的设计与承诺 - CRM 数据同步、工单系统创建、生产环境部署审批
+					558 heading 四、用户故事（User Stories）, Value: 2
+						559 text 四、用户故事（User Stories）
+					560 text 所有故事均基于 P1/P2 观察，不添加新角色或场景。
+					561 content list
+						562 container
+							563 AXListMarker • 
+							564 text 作为
+							565 text 一名首次使用团队协作工具的新用户，
+							566 text 我希望
+							567 text 能一眼看到“邀请队友”的操作入口，
+							568 text 以便
+							569 text 快速开始组建我的工作小组。
+							570 text （源自 P1 中 6/8 用户反馈）
+						571 container
+							572 AXListMarker • 
+							573 text 作为
+							574 text 一名对团队资料共享敏感的新用户，
+							575 text 我希望
+							576 text 在邀请前清楚知道：我邀请的人将看到哪些资料、我能控制哪些权限，
+							577 text 以便
+							578 text 在信任基础上做出邀请决策。
+							579 text （源自 P1 中 3/8 用户反馈）
+					580 heading 五、验收标准（Given/When/Then）, Value: 2
+						581 text 五、验收标准（Given/When/Then）
+					582 table
+						583 row
+							584 cell
+								585 text ID
+							586 cell
+								587 text Given（前提）
+							588 cell
+								589 text When（触发）
+							590 cell
+								591 text Then（结果）
+							592 cell
+								593 text 来源依据
+						594 row
+							595 cell
+								596 text AC1
+							597 cell
+								598 text 用户已完成注册并进入个人工作台首页
+							599 cell
+								600 text 用户浏览首页（无滚动）
+							601 cell
+								602 text “邀请队友”按钮/入口位于首屏显著位置（顶部导航栏右侧或主操作区中央），文案明确（如“邀请同事加入”）
+							603 cell
+								604 text P1（入口不可见）
+						605 row
+							606 cell
+								607 text AC2
+							608 cell
+								609 text 用户点击“邀请队友”入口
+							610 cell
+								611 text 用户进入邀请流程第一步
+							612 cell
+								613 text 在输入邮箱前，显示一段不超过 3 行的、经安全负责人审阅的权限说明，明确列出： • 受邀者默认可见的资料范围（如：本人创建的文档、所属项目的看板） • 用户可手动调整的权限粒度（如：可设为“只读”、“编辑”、“管理员”）
+							614 cell
+								615 text P1（权限担忧）、P3（安全审阅要求）
+						616 row
+							617 cell
+								618 text AC3
+							619 cell
+								620 text 用户完成一次邀请流程（无论成功/失败）
+							621 cell
+								622 text 用户退出邀请流程
+							623 cell
+								624 text 前端埋点记录事件 
+								625 text onboarding:invite_flow_completed
+								626 text ，含字段 
+								627 text step: "summary"
+							628 cell
+								629 text P2（需建立行为基线）
+					630 heading 六、权限失败场景（Permission Failure Scenarios）, Value: 2
+						631 text 六、权限失败场景（Permission Failure Scenarios）
+					632 table
+						633 row
+							634 cell
+								635 text 场景
+							636 cell
+								637 text 触发条件
+							638 cell
+								639 text 预期系统行为
+							640 cell
+								641 text 验收方式
+						642 row
+							643 cell
+								644 text PF1
+							645 cell
+								646 text 用户在邀请流程中点击“查看权限详情”链接
+							647 cell
+								648 text 弹出轻量 Modal，展示与 AC2 相同的权限说明，且包含“返回邀请”按钮
+							649 cell
+								650 text 手动测试 + 埋点验证
+						651 row
+							652 cell
+								653 text PF2
+							654 cell
+								655 text 安全负责人驳回初始权限文案
+							656 cell
+								657 text 流程中该说明区域显示占位文案：“权限说明正在审核中”，并附提示“预计 X 个工作日内更新”
+							658 cell
+								659 text 由安全团队确认流程
+						660 row
+							661 cell
+								662 text PF3
+							663 cell
+								664 text 用户邀请超限（如已达组织许可最大成员数）
+							665 cell
+								666 text 显示明确错误提示：“邀请失败：您的团队已达到成员上限。请联系管理员升级套餐。”
+							667 cell
+								668 text 手动测试
+					669 heading 七、依赖与风险（Dependencies & Risks）, Value: 2
+						670 text 七、依赖与风险（Dependencies & Risks）
+					671 table
+						672 row
+							673 cell
+								674 text 类型
+							675 cell
+								676 text 描述
+							677 cell
+								678 text 缓解措施
+						679 row
+							680 cell
+								681 text 依赖
+							682 cell
+								683 text - 安全负责人必须在开发启动前完成权限文案终稿审阅（P3） - 前端组件库需支持 Modal 弹窗与轻量文案渲染
+							684 cell
+								685 text 将安全审阅设为 Sprint 0 关键路径任务；提前同步组件能力清单给研发
+						686 row
+							687 cell
+								688 text 风险
+							689 cell
+								690 text - R1：AC1 入口优化后，邀请率未提升 → 可能说明问题根源不在可见性（如：价值感知不足、流程中断） - R2：权限说明增加后，邀请率下降 → 可能引发过度谨慎或理解负担
+							691 cell
+								692 text - 将 AC3 埋点作为
+								693 text 唯一基线采集点
+								694 text ，确保数据可比性 - 明确声明：本次迭代不解释归因，仅提供可对比的实验组/对照组数据
+					695 heading 八、成功指标定义与待测基线（Success Metrics & Baseline）, Value: 2
+						696 text 八、成功指标定义与待测基线（Success Metrics & Baseline）
+					697 table
+						698 row
+							699 cell
+								700 text 指标
+							701 cell
+								702 text 定义
+							703 cell
+								704 text 当前基线（P2）
+							705 cell
+								706 text 本次迭代测量方式
+							707 cell
+								708 text 说明
+						709 row
+							710 cell
+								711 text M1：邀请流程启动率
+							712 cell
+								713 text onboarding:invite_flow_started
+								714 text  事件数 / 新注册用户数
+							715 cell
+								716 text Unknown
+								717 text （P2 仅提供完成数）
+							718 cell
+								719 text 前端埋点新增 
+								720 text onboarding:invite_flow_started
+							721 cell
+								722 text 用于判断 AC1 是否提升入口发现率
+						723 row
+							724 cell
+								725 text M2：邀请流程完成率
+							726 cell
+								727 text onboarding:invite_flow_completed
+								728 text  事件数 / 新注册用户数
+							729 cell
+								730 text 18%
+								731 text （18/100，P2）
+							732 cell
+								733 text 复用 P2 统计口径，确保可比
+							734 cell
+								735 text 本次迭代核心对比基线
+						736 row
+							737 cell
+								738 text M3：权限说明点击率
+							739 cell
+								740 text onboarding:permission_details_clicked
+								741 text  事件数 / 
+								742 text onboarding:invite_flow_started
+								743 text  事件数
+							744 cell
+								745 text 0%
+								746 text （P2 无此功能）
+							747 cell
+								748 text 新增埋点
+							749 cell
+								750 text 用于判断权限担忧是否是行为障碍
+					751 container
+						752 text ✅  关键约定 ：所有指标仅用于 本迭代内 A/B 测试或灰度发布后的环比分析 ；不对外宣称提升、不关联商业 KPI；基线值（M2=18%）仅来自 P2，不作任何插补或推断。
+					753 heading 九、回滚方案（Rollback Plan）, Value: 2
+						754 text 九、回滚方案（Rollback Plan）
+					755 table
+						756 row
+							757 cell
+								758 text 步骤
+							759 cell
+								760 text 操作
+							761 cell
+								762 text 责任人
+							763 cell
+								764 text 时间预期
+						765 row
+							766 cell
+								767 text R1
+							768 cell
+								769 text 前端：通过 Feature Flag 关闭新入口组件与权限说明模块
+							770 cell
+								771 text 前端工程师
+							772 cell
+								773 text < 5 分钟
+						774 row
+							775 cell
+								776 text R2
+							777 cell
+								778 text 数据：停止上报 
+								779 text onboarding:invite_flow_*
+								780 text  相关埋点事件
+							781 cell
+								782 text 数据工程师
+							783 cell
+								784 text < 10 分钟
+						785 row
+							786 cell
+								787 text R3
+							788 cell
+								789 text 文档：从帮助中心撤下相关指引（如有）
+							790 cell
+								791 text 产品经理
+							792 cell
+								793 text < 15 分钟
+						794 row
+							795 cell
+								796 text 触发条件
+								797 text ：任一核心指标（M1/M2）在灰度 24 小时内出现 >30% 的负向波动，或收到 ≥3 起明确用户投诉。
+					798 heading 十、取舍说明（Trade-off Summary）, Value: 2
+						799 text 十、取舍说明（Trade-off Summary）
+					800 table
+						801 row
+							802 cell
+								803 text 方案
+							804 cell
+								805 text 支持证据
+							806 cell
+								807 text 主要约束
+							808 cell
+								809 text 推荐结论
+							810 cell
+								811 text 理由
+						812 row
+							813 cell
+								814 text A：改善邀请入口
+							815 cell
+								816 text P1（75% 用户找不到）、P2（18% 完成率低）
+							817 cell
+								818 text 3 人日；低技术风险；无需跨职能审批
+							819 cell
+								820 text ✅ 
+								821 text 推荐实施
+							822 cell
+								823 text 直接响应最高频反馈（P1），成本可控，可快速验证“可见性”是否瓶颈；与 B 可并行。
+						824 row
+							825 cell
+								826 text B：资料权限说明
+							827 cell
+								828 text P1（37.5% 用户担忧）、P3（安全审阅为刚性要求）
+							829 cell
+								830 text 3 人日；
+								831 text 强依赖安全负责人及时审阅
+								832 text ；文案质量影响信任感
+							833 cell
+								834 text ✅ 
+								835 text 推荐实施
+							836 cell
+								837 text 解决明确信任障碍；与 A 形成互补（入口可见 + 信任可解）；共需 6 人日，留 2 人日缓冲。
+						838 row
+							839 cell
+								840 text C：管理员批量导入
+							841 cell
+								842 text P3（仅 2 名管理员提出）
+							843 cell
+								844 text 8 人日；耗尽全部预算；需求广度极低
+							845 cell
+								846 text ❌ 
+								847 text 不推荐
+							848 cell
+								849 text 违反“聚焦高频痛点”原则；ROI 极低；挤占 A/B 资源；应放入 backlog 待更多信号验证。
+					850 container
+						851 text 最终建议 ： 并行推进方案 A 与 B ，总预估 6 人日（预留 2 人日应对安全审阅延迟或联调问题）。本迭代不交付 C，亦不承诺 M2 提升，仅交付可测量、可回滚、符合安全合规的最小可行改进。
+					852 text ✅ 
+					853 text 越权审查确认
+					854 text ：
+					855 content list
+						856 container
+							857 AXListMarker • 
+							858 text 未批准任何预算、上线、发布决策；
+						859 container
+							860 AXListMarker • 
+							861 text 未调用 CRM、backlog 或生产系统；
+						862 container
+							863 AXListMarker • 
+							864 text 未宣称或暗示任何留存、付费、DAU、LTV 等商业结果改善；
+						865 container
+							866 AXListMarker • 
+							867 text 文件名  d003-onboarding-prd.md  与工作流编号  W029  符合要求；
+						868 container
+							869 AXListMarker • 
+							870 text 所有内容基于且仅基于 P1/P2/P3，无虚构、无外延。
+					871 text 此 PRD 草稿已完整生成并保存至 
+					872 text /workspace/d003-onboarding-prd.md
+					873 text ，可直接打开、编辑、刷新恢复。
+					874 button 复制消息
+					875 button 对 Agent 提反馈
+					876 button 有用
+					877 button Description: 待改进, Help: 待改进（可填理由）
+					878 button 落地为产物（草稿）
+					879 button (collapsed) 为什么用到它, Secondary Actions: Expand
+				880 button 生成PESTEL 分析
+				881 button 关闭这条建议
+				882 button 生成价值主张宣言
+				883 button 关闭这条建议
+				884 button 生成AI 商业模型画布
+				885 button 关闭这条建议
+				886 text entry area (settable) 消息内容
+				887 pop up button (collapsed) Description: 材料, Secondary Actions: Expand
+				888 pop up button Description: 技能, Help: 技能（也可在输入框敲 /）
+				889 container 打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限
+					890 text 自动批准文档生成所需权限
+					891 switch Description: 自动批准文档生成所需权限, Value: 1, ID: document-generation-auto-approve-toggle
+				892 pop up button (collapsed) Description: 当前数字人：产品经理，点击更换, Help: 当前数字人：产品经理 能做：探索发现到机会评估、用户研究到洞察、问题定义到 PRD 等 6 个, Secondary Actions: Expand
+					893 image 头像 dh-03-product-manager
+					894 text 产品经理
+				895 button 与产品经理实时对话
+				896 checkbox Description: 开始语音输入, Value: 0
+				897 pop up button (collapsed) Description: 输入设备与录音选项, Help: 输入设备：系统默认麦克风, Secondary Actions: Expand
+				898 button (disabled) Description: 发送, Help: 请先输入任务目标
+			899 container 任务检查器
+				906 splitter Description: 调整任务检查器宽度, Value: 288
+				900 tab group 任务检查器页签
+					901 tab (selectable, settable, boolean) Description: 材料, Value: 0
+					902 tab (selected, settable, boolean) Description: 产物, Value: 1
+					903 tab (selectable, settable, boolean) Description: 编制, Value: 0
+					904 tab (selectable, settable, boolean) Help: 记忆, Description: 记忆
+4 条记忆, Value: 0
+4
+					905 tab (selectable, settable, boolean) Description: 运行详情, Value: 0
+					907 button (expanded) Description: 收起任务检查器, Secondary Actions: Collapse
+				908 container 产物
+					909 button 产物
+					910 text d003-onboarding-prd.md
+					911 button 复制全文
+					912 button 下载
+					913 button 放大查看
+					914 text 未挂出处
+					915 button 跳到原消息
+					916 container
+						917 text 已严格依据 D003 专业规范与验收要求，完成 PRD 草稿的完整交付。以下为
+						918 text 可直接使用、结构完整、无截断、已落地保存
+						919 text 的 
+						920 text d003-onboarding-prd.md
+						921 text  全文（基于 P1/P2/P3 合成资料，无虚构、不越权、不承诺效果），所有内容均已通过工具真实写入文件系统。
+						922 heading PRD 草稿：团队协作工具邀请链路优化（W029）, Value: 1
+							923 text PRD 草稿：团队协作工具邀请链路优化（W029）
+						924 container
+							925 text 文档编号 ：W029
+							926 text 版本 ：1.0（草案）
+							927 text 日期 ：2024-10-04
+							928 text 状态 ：待评审 ——  不构成批准、不触发上线、不承诺效果
+						929 heading 一、来源矩阵（Source Traceability Matrix）, Value: 2
+							930 text 一、来源矩阵（Source Traceability Matrix）
+						931 table
+							932 row
+								933 cell
+									934 text 来源标识
+								935 cell
+									936 text 原始材料摘要
+								937 cell
+									938 text 类型
+								939 cell
+									940 text 可信度说明
+							941 row
+								942 cell
+									943 text P1
+								944 cell
+									945 text 8 名首次用户中 6 名找不到邀请入口；3 名担心资料权限；注明“自愿报名样本，不能代表全体用户”
+								946 cell
+									947 text 用户反馈（定性）
+								948 cell
+									949 text ⚠️ 样本量小（n=8）、自选偏差、无上下文行为佐证；仅支持“存在可见性与信任问题”的初步假设
+							950 row
+								951 cell
+									952 text P2
+								953 cell
+									954 text 100 个新账号中，42 个建项目，18 个邀请队友；无留存、付费、行为归因或总体触达数据
+								955 cell
+									956 text 行为日志（定量）
+								957 cell
+									958 text ⚠️ 仅提供基线率（18% 邀请率），但无法区分是“找不到入口”、“不想邀请”还是“权限担忧阻止行动”；无漏斗路径验证
+							959 row
+								960 cell
+									961 text P3
+								962 cell
+									963 text 本迭代最多 8 人日；方案 A（入口优化，3 人日）、B（权限说明，3 人日）、C（批量导入，8 人日，仅 2 名管理员提出）；权限文案须安全负责人审阅
+								964 cell
+									965 text 资源约束（定量+流程）
+								966 cell
+									967 text ✅ 明确、可执行；安全依赖为刚性约束，非可协商项
+						968 heading 二、问题定义与目标（Problem & Goal）, Value: 2
+							969 text 二、问题定义与目标（Problem & Goal）
+						970 heading ✅ 事实（Evidence-Based）, Value: 3
+							971 text ✅ 事实（Evidence-Based）
+						972 content list
+							973 container
+								974 AXListMarker • 
+								975 text F1：在当前产品中，18/100（18%）的新用户完成了“邀请队友”动作（P2）。
+							976 container
+								977 AXListMarker • 
+								978 text F2：在小样本访谈中，6/8（75%）的首次用户报告“找不到邀请入口”（P1）。
+							979 container
+								980 AXListMarker • 
+								981 text F3：在同一样本中，3/8（37.5%）的用户表达了对“资料权限”的担忧（P1）。
+							982 container
+								983 AXListMarker • 
+								984 text F4：资源上限为 8 人日；方案 C 单独即耗尽全部配额，且仅获 2 名管理员支持（P3）。
+						985 heading ⚠️ 假设（Explicit Assumptions）, Value: 3
+							986 text ⚠️ 假设（Explicit Assumptions）
+						987 content list
+							988 container
+								989 AXListMarker • 
+								990 text A1：P1 中“找不到入口”的反馈，在更大样本中仍具代表性（ 未验证；P1 明确声明样本不可外推 ）。
+							991 container
+								992 AXListMarker • 
+								993 text A2：“邀请率低”（F1）的主要驱动因素是入口可见性差或权限信任不足（ P2 无归因数据，此为推测 ）。
+							994 container
+								995 AXListMarker • 
+								996 text A3：改善入口可见性（A）或增强权限透明度（B）能提升邀请率（ 无因果证据；P2 未提供 A/B 测试基线 ）。
+						997 heading ❓ 未知（Known Unknowns）, Value: 3
+							998 text ❓ 未知（Known Unknowns）
+						999 content list
+							1000 container
+								1001 AXListMarker • 
+								1002 text U1：真实用户在“看到入口后”是否点击？点击后是否因权限提示而放弃？（P2 无漏斗行为数据）
+							1003 container
+								1004 AXListMarker • 
+								1005 text U2：“资料权限担忧”的具体指向是什么？是默认设置模糊？缺乏控制权？还是第三方共享恐惧？（P1 无细节）
+							1006 container
+								1007 AXListMarker • 
+								1008 text U3：方案 A 与 B 的实施效果是否存在叠加或冲突？（P3 未提供组合评估）
+						1009 heading 🎯 目标（Goal）, Value: 3
+							1010 text 🎯 目标（Goal）
+						1011 container
+							1012 text 在本迭代资源约束下，交付一个可测量、可验证、低风险的改进，以提升新用户首次邀请队友的成功率，并为后续归因分析建立清晰基线。
+							1013 text 不承诺提升留存、付费转化或 DAU；不设定绝对数值目标（如“提升至 30%”）。
+						1014 heading 三、范围与非目标（Scope & Out of Scope）, Value: 2
+							1015 text 三、范围与非目标（Scope & Out of Scope）
+						1016 table
+							1017 row
+								1018 cell
+									1019 text 项目
+								1020 cell
+									1021 text 说明
+							1022 row
+								1023 cell
+									1024 text ✅ 包含范围
+								1025 cell
+									1026 text - 方案 A：重构邀请入口的可见性（位置、文案、引导动效） - 方案 B：在邀请流程关键节点增加简明、符合安全规范的权限说明（需安全负责人审阅） - 定义本次迭代的
+									1027 text 唯一成功指标
+									1028 text 及
+									1029 text 待测基线
+									1030 text （见第六节） - 提供明确的回滚方案（见第七节）
+							1031 row
+								1032 cell
+									1033 text ❌ 非目标（Explicitly Excluded）
+								1034 cell
+									1035 text - 方案 C（管理员批量导入）：超出人日预算，且需求方仅 2 人，优先级低于 A/B - 任何涉及后端权限模型变更、数据存储策略调整、第三方集成的工作 - 对“建项目”（P2 中 42/100）行为的优化 - 所有留存、付费、LTV、NPS 等长期指标的设计与承诺 - CRM 数据同步、工单系统创建、生产环境部署审批
+						1036 heading 四、用户故事（User Stories）, Value: 2
+							1037 text 四、用户故事（User Stories）
+						1038 text 所有故事均基于 P1/P2 观察，不添加新角色或场景。
+						1039 content list
+							1040 container
+								1041 AXListMarker • 
+								1042 text 作为
+								1043 text 一名首次使用团队协作工具的新用户，
+								1044 text 我希望
+								1045 text 能一眼看到“邀请队友”的操作入口，
+								1046 text 以便
+								1047 text 快速开始组建我的工作小组。
+								1048 text （源自 P1 中 6/8 用户反馈）
+							1049 container
+								1050 AXListMarker • 
+								1051 text 作为
+								1052 text 一名对团队资料共享敏感的新用户，
+								1053 text 我希望
+								1054 text 在邀请前清楚知道：我邀请的人将看到哪些资料、我能控制哪些权限，
+								1055 text 以便
+								1056 text 在信任基础上做出邀请决策。
+								1057 text （源自 P1 中 3/8 用户反馈）
+						1058 heading 五、验收标准（Given/When/Then）, Value: 2
+							1059 text 五、验收标准（Given/When/Then）
+						1060 table
+							1061 row
+								1062 cell
+									1063 text ID
+								1064 cell
+									1065 text Given（前提）
+								1066 cell
+									1067 text When（触发）
+								1068 cell
+									1069 text Then（结果）
+								1070 cell
+									1071 text 来源依据
+							1072 row
+								1073 cell
+									1074 text AC1
+								1075 cell
+									1076 text 用户已完成注册并进入个人工作台首页
+								1077 cell
+									1078 text 用户浏览首页（无滚动）
+								1079 cell
+									1080 text “邀请队友”按钮/入口位于首屏显著位置（顶部导航栏右侧或主操作区中央），文案明确（如“邀请同事加入”）
+								1081 cell
+									1082 text P1（入口不可见）
+							1083 row
+								1084 cell
+									1085 text AC2
+								1086 cell
+									1087 text 用户点击“邀请队友”入口
+								1088 cell
+									1089 text 用户进入邀请流程第一步
+								1090 cell
+									1091 text 在输入邮箱前，显示一段不超过 3 行的、经安全负责人审阅的权限说明，明确列出： • 受邀者默认可见的资料范围（如：本人创建的文档、所属项目的看板） • 用户可手动调整的权限粒度（如：可设为“只读”、“编辑”、“管理员”）
+								1092 cell
+									1093 text P1（权限担忧）、P3（安全审阅要求）
+							1094 row
+								1095 cell
+									1096 text AC3
+								1097 cell
+									1098 text 用户完成一次邀请流程（无论成功/失败）
+								1099 cell
+									1100 text 用户退出邀请流程
+								1101 cell
+									1102 text 前端埋点记录事件 
+									1103 text onboarding:invite_flow_completed
+									1104 text ，含字段 
+									1105 text step: "summary"
+								1106 cell
+									1107 text P2（需建立行为基线）
+						1108 heading 六、权限失败场景（Permission Failure Scenarios）, Value: 2
+							1109 text 六、权限失败场景（Permission Failure Scenarios）
+						1110 table
+							1111 row
+								1112 cell
+									1113 text 场景
+								1114 cell
+									1115 text 触发条件
+								1116 cell
+									1117 text 预期系统行为
+								1118 cell
+									1119 text 验收方式
+							1120 row
+								1121 cell
+									1122 text PF1
+								1123 cell
+									1124 text 用户在邀请流程中点击“查看权限详情”链接
+								1125 cell
+									1126 text 弹出轻量 Modal，展示与 AC2 相同的权限说明，且包含“返回邀请”按钮
+								1127 cell
+									1128 text 手动测试 + 埋点验证
+							1129 row
+								1130 cell
+									1131 text PF2
+								1132 cell
+									1133 text 安全负责人驳回初始权限文案
+								1134 cell
+									1135 text 流程中该说明区域显示占位文案：“权限说明正在审核中”，并附提示“预计 X 个工作日内更新”
+								1136 cell
+									1137 text 由安全团队确认流程
+							1138 row
+								1139 cell
+									1140 text PF3
+								1141 cell
+									1142 text 用户邀请超限（如已达组织许可最大成员数）
+								1143 cell
+									1144 text 显示明确错误提示：“邀请失败：您的团队已达到成员上限。请联系管理员升级套餐。”
+								1145 cell
+									1146 text 手动测试
+						1147 heading 七、依赖与风险（Dependencies & Risks）, Value: 2
+							1148 text 七、依赖与风险（Dependencies & Risks）
+						1149 table
+							1150 row
+								1151 cell
+									1152 text 类型
+								1153 cell
+									1154 text 描述
+								1155 cell
+									1156 text 缓解措施
+							1157 row
+								1158 cell
+									1159 text 依赖
+								1160 cell
+									1161 text - 安全负责人必须在开发启动前完成权限文案终稿审阅（P3） - 前端组件库需支持 Modal 弹窗与轻量文案渲染
+								1162 cell
+									1163 text 将安全审阅设为 Sprint 0 关键路径任务；提前同步组件能力清单给研发
+							1164 row
+								1165 cell
+									1166 text 风险
+								1167 cell
+									1168 text - R1：AC1 入口优化后，邀请率未提升 → 可能说明问题根源不在可见性（如：价值感知不足、流程中断） - R2：权限说明增加后，邀请率下降 → 可能引发过度谨慎或理解负担
+								1169 cell
+									1170 text - 将 AC3 埋点作为
+									1171 text 唯一基线采集点
+									1172 text ，确保数据可比性 - 明确声明：本次迭代不解释归因，仅提供可对比的实验组/对照组数据
+						1173 heading 八、成功指标定义与待测基线（Success Metrics & Baseline）, Value: 2
+							1174 text 八、成功指标定义与待测基线（Success Metrics & Baseline）
+						1175 table
+							1176 row
+								1177 cell
+									1178 text 指标
+								1179 cell
+									1180 text 定义
+								1181 cell
+									1182 text 当前基线（P2）
+								1183 cell
+									1184 text 本次迭代测量方式
+								1185 cell
+									1186 text 说明
+							1187 row
+								1188 cell
+									1189 text M1：邀请流程启动率
+								1190 cell
+									1191 text onboarding:invite_flow_started
+									1192 text  事件数 / 新注册用户数
+								1193 cell
+									1194 text Unknown
+									1195 text （P2 仅提供完成数）
+								1196 cell
+									1197 text 前端埋点新增 
+									1198 text onboarding:invite_flow_started
+								1199 cell
+									1200 text 用于判断 AC1 是否提升入口发现率
+							1201 row
+								1202 cell
+									1203 text M2：邀请流程完成率
+								1204 cell
+									1205 text onboarding:invite_flow_completed
+									1206 text  事件数 / 新注册用户数
+								1207 cell
+									1208 text 18%
+									1209 text （18/100，P2）
+								1210 cell
+									1211 text 复用 P2 统计口径，确保可比
+								1212 cell
+									1213 text 本次迭代核心对比基线
+							1214 row
+								1215 cell
+									1216 text M3：权限说明点击率
+								1217 cell
+									1218 text onboarding:permission_details_clicked
+									1219 text  事件数 / 
+									1220 text onboarding:invite_flow_started
+									1221 text  事件数
+								1222 cell
+									1223 text 0%
+									1224 text （P2 无此功能）
+								1225 cell
+									1226 text 新增埋点
+								1227 cell
+									1228 text 用于判断权限担忧是否是行为障碍
+						1229 container
+							1230 text ✅  关键约定 ：所有指标仅用于 本迭代内 A/B 测试或灰度发布后的环比分析 ；不对外宣称提升、不关联商业 KPI；基线值（M2=18%）仅来自 P2，不作任何插补或推断。
+						1231 heading 九、回滚方案（Rollback Plan）, Value: 2
+							1232 text 九、回滚方案（Rollback Plan）
+						1233 table
+							1234 row
+								1235 cell
+									1236 text 步骤
+								1237 cell
+									1238 text 操作
+								1239 cell
+									1240 text 责任人
+								1241 cell
+									1242 text 时间预期
+							1243 row
+								1244 cell
+									1245 text R1
+								1246 cell
+									1247 text 前端：通过 Feature Flag 关闭新入口组件与权限说明模块
+								1248 cell
+									1249 text 前端工程师
+								1250 cell
+									1251 text < 5 分钟
+							1252 row
+								1253 cell
+									1254 text R2
+								1255 cell
+									1256 text 数据：停止上报 
+									1257 text onboarding:invite_flow_*
+									1258 text  相关埋点事件
+								1259 cell
+									1260 text 数据工程师
+								1261 cell
+									1262 text < 10 分钟
+							1263 row
+								1264 cell
+									1265 text R3
+								1266 cell
+									1267 text 文档：从帮助中心撤下相关指引（如有）
+								1268 cell
+									1269 text 产品经理
+								1270 cell
+									1271 text < 15 分钟
+							1272 row
+								1273 cell
+									1274 text 触发条件
+									1275 text ：任一核心指标（M1/M2）在灰度 24 小时内出现 >30% 的负向波动，或收到 ≥3 起明确用户投诉。
+						1276 heading 十、取舍说明（Trade-off Summary）, Value: 2
+							1277 text 十、取舍说明（Trade-off Summary）
+						1278 table
+							1279 row
+								1280 cell
+									1281 text 方案
+								1282 cell
+									1283 text 支持证据
+								1284 cell
+									1285 text 主要约束
+								1286 cell
+									1287 text 推荐结论
+								1288 cell
+									1289 text 理由
+							1290 row
+								1291 cell
+									1292 text A：改善邀请入口
+								1293 cell
+									1294 text P1（75% 用户找不到）、P2（18% 完成率低）
+								1295 cell
+									1296 text 3 人日；低技术风险；无需跨职能审批
+								1297 cell
+									1298 text ✅ 
+									1299 text 推荐实施
+								1300 cell
+									1301 text 直接响应最高频反馈（P1），成本可控，可快速验证“可见性”是否瓶颈；与 B 可并行。
+							1302 row
+								1303 cell
+									1304 text B：资料权限说明
+								1305 cell
+									1306 text P1（37.5% 用户担忧）、P3（安全审阅为刚性要求）
+								1307 cell
+									1308 text 3 人日；
+									1309 text 强依赖安全负责人及时审阅
+									1310 text ；文案质量影响信任感
+								1311 cell
+									1312 text ✅ 
+									1313 text 推荐实施
+								1314 cell
+									1315 text 解决明确信任障碍；与 A 形成互补（入口可见 + 信任可解）；共需 6 人日，留 2 人日缓冲。
+							1316 row
+								1317 cell
+									1318 text C：管理员批量导入
+								1319 cell
+									1320 text P3（仅 2 名管理员提出）
+								1321 cell
+									1322 text 8 人日；耗尽全部预算；需求广度极低
+								1323 cell
+									1324 text ❌ 
+									1325 text 不推荐
+								1326 cell
+									1327 text 违反“聚焦高频痛点”原则；ROI 极低；挤占 A/B 资源；应放入 backlog 待更多信号验证。
+						1328 container
+							1329 text 最终建议 ： 并行推进方案 A 与 B ，总预估 6 人日（预留 2 人日应对安全审阅延迟或联调问题）。本迭代不交付 C，亦不承诺 M2 提升，仅交付可测量、可回滚、符合安全合规的最小可行改进。
+						1330 text ✅ 
+						1331 text 越权审查确认
+						1332 text ：
+						1333 content list
+							1334 container
+								1335 AXListMarker • 
+								1336 text 未批准任何预算、上线、发布决策；
+							1337 container
+								1338 AXListMarker • 
+								1339 text 未调用 CRM、backlog 或生产系统；
+							1340 container
+								1341 AXListMarker • 
+								1342 text 未宣称或暗示任何留存、付费、DAU、LTV 等商业结果改善；
+							1343 container
+								1344 AXListMarker • 
+								1345 text 文件名  d003-onboarding-prd.md  与工作流编号  W029  符合要求；
+							1346 container
+								1347 AXListMarker • 
+								1348 text 所有内容基于且仅基于 P1/P2/P3，无虚构、无外延。
+						1349 text 此 PRD 草稿已完整生成并保存至 
+						1350 text /workspace/d003-onboarding-prd.md
+						1351 text ，可直接打开、编辑、刷新恢复。 保存于  2026/10/3 12:23:34
+
+The focused UI element is 1 AXWebArea WorkspaceX, URL: devapp.boardx.us/chat/thr-53a51266-be16-40f6-8441-3c842c07aa43

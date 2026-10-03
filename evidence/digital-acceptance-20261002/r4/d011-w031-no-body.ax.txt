@@ -1,0 +1,97 @@
+Browser tab: 8, Title: "WorkspaceX", URL: "https://devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=1914b5ff-d1df-4716-ad26-9d918c779c3a".
+1 AXWebArea WorkspaceX, URL: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=1914b5ff-d1df-4716-ad26-9d918c779c3a
+	2 container
+		3 link Description: 跳到主要内容, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=1914b5ff-d1df-4716-ad26-9d918c779c3a#wsx-main-content
+		4 container 主导航
+			5 pop up button (collapsed) Description: 组织菜单，当前：Workspace, Help: Workspace, ID: radix-:r0:, Secondary Actions: Expand
+			6 container
+				7 link Description: 首页, Value: devapp.boardx.us/home
+				8 link Description: 对话, Value: devapp.boardx.us/chat
+				9 link Description: 项目, Value: devapp.boardx.us/projects
+				10 link Description: 研究, Value: devapp.boardx.us/research
+				11 link Description: 访谈, Value: devapp.boardx.us/itv
+				12 link Description: 大脑, Value: devapp.boardx.us/brain
+				13 link Description: 任务, Value: devapp.boardx.us/tasks
+				14 link Description: 工作流, Value: devapp.boardx.us/workflows
+				15 link Description: 组织后台, Value: devapp.boardx.us/admin
+				16 link Description: 平台后台, Value: devapp.boardx.us/platform-admin
+			17 pop up button (collapsed) Description: 更多, ID: radix-:rb:, Secondary Actions: Expand
+			18 container
+				19 pop up button (collapsed) Description: 任务提醒，306 条未读, Secondary Actions: Expand
+					20 image
+					21 text 提醒
+				22 text 306  条未读
+			23 button 提交反馈
+			24 pop up button (collapsed) Description: 个人菜单, ID: radix-:rd:, Secondary Actions: Expand
+		25 text Workspace
+		26 text 管理员
+		27 splitter Description: 调整左栏宽度, Value: 272
+		28 button 收起左栏
+		29 container 工作流
+			30 text 工作流
+			31 link Description: 我的运行, Value: devapp.boardx.us/workflows/runs
+			32 link Description: 待我审批, Value: devapp.boardx.us/workflows/approvals
+			33 link Description: 运行看板, Value: devapp.boardx.us/workflows/board
+		34 container
+			35 link Description: 返回运行详情, Value: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5
+			36 heading 实验闭环, Value: 2
+				37 text 实验闭环
+			38 text 部分待处理
+			39 container
+				40 text 流程定义版本 v 1
+			41 text 你点开的是「 设计方案 」阶段的产出 。阶段产出会汇总进本次运行的最终产出，以下为最终产出全文。 这次运行还没有生成产出。运行完成后产出会出现在这里。
+			42 heading 版本信息, Value: 3
+				43 text 版本信息
+			44 definition list
+				45 container 流程
+					46 text 流程
+				47 container
+					48 text 实验闭环  · 第  1  版
+				49 container 定义激活指标
+					50 text 定义激活指标
+				51 container
+					52 text 用户激活  · v 1.0.0
+				53 container 问题诊断
+					54 text 问题诊断
+				55 container
+					56 text 用户激活  · v 1.0.0
+				57 container 指标核查
+					58 text 指标核查
+				59 container
+					60 text 指标复盘  · v 1.0.0
+				61 container 设计方案
+					62 text 设计方案
+				63 container
+					64 text 实验设计  · v 1.0.0
+				65 container 健康检查
+					66 text 健康检查
+				67 container
+					68 text 数据探索  · v 1.0.0
+				69 container 前置检查
+					70 text 前置检查
+				71 container
+					72 text 数据探索  · v 1.0.0
+				73 container 分析数据
+					74 text 分析数据
+				75 container
+					76 text 统计分析  · v 1.0.0
+				77 container 结果解读
+					78 text 结果解读
+				79 container
+					80 text 用户激活  · v 1.0.0
+				81 container 留存跟进
+					82 text 留存跟进
+				83 container
+					84 text 数据探索  · v 1.0.0
+				85 container 留存跟进
+					86 text 留存跟进
+				87 container
+					88 text 统计分析  · v 1.0.0
+				89 container 留存跟进
+					90 text 留存跟进
+				91 container
+					92 text 用户激活  · v 1.0.0
+			93 button (collapsed) 技术详情, Secondary Actions: Expand
+				94 text 技术详情
+
+The focused UI element is 1 AXWebArea WorkspaceX, URL: devapp.boardx.us/workflows/runs/31bad958-d014-4724-92ff-2497c3631cd5/result?output=1914b5ff-d1df-4716-ad26-9d918c779c3a
