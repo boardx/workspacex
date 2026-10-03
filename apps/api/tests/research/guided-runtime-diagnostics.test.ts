@@ -72,6 +72,25 @@ describe("traceable research execution failures", () => {
     expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE PROVIDER|SECRET/);
   });
 
+  it.each(["RESEARCH_WORKFLOW_PAUSED", "RESEARCH_NODE_STATE_INVALID", "RESEARCH_SEARCH_UNAVAILABLE"])("records the public research reason %s without a nested cause", async (reasonCode) => {
+    const f = fixture();
+    const error = new ResearchRuntimeError(reasonCode);
+    vi.mocked(f.store.claim).mockRejectedValue(error);
+    await expect(f.service.execute(f.actor, f.session, f.command, undefined, f.traceId)).rejects.toBe(error);
+    expect(f.record.mock.calls[0]![0].data.errors).toEqual([{ type: "ResearchRuntimeError", reasonCode }]);
+    expect(f.state.reportCheckpoint).toEqual(f.saved);
+    expect(f.write).not.toHaveBeenCalled();
+  });
+
+  it("omits private research reason strings outside the public contract", async () => {
+    const f = fixture();
+    const error = new ResearchRuntimeError("PRIVATE RESEARCH MATERIAL SECRET");
+    vi.mocked(f.store.claim).mockRejectedValue(error);
+    await expect(f.service.execute(f.actor, f.session, f.command, undefined, f.traceId)).rejects.toBe(error);
+    expect(f.record.mock.calls[0]![0].data.errors).toEqual([{ type: "ResearchRuntimeError" }]);
+    expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE|SECRET/);
+  });
+
   it("bounds cyclic causes and omits unallowlisted names and codes", async () => {
     const f = fixture();
     const error = { name: "PRIVATE CLASS", code: "SECRET", status: 999, cause: undefined as unknown };
