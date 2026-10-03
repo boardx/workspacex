@@ -1,0 +1,22 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+
+ ✓ tests/ui/survey-live-publishing.test.tsx (21 tests) 1111ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  10:16:06
+   Duration  3.12s (transform 598ms, setup 88ms, collect 1.13s, tests 1.11s, environment 476ms, prepare 35ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+
+ ✓ tests/ui/survey-live-publishing.test.tsx (21 tests) 1111ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  10:16:06
+   Duration  3.12s (transform 598ms, setup 88ms, collect 1.13s, tests 1.11s, environment 476ms, prepare 35ms)
+

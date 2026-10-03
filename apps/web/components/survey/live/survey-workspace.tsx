@@ -7,6 +7,8 @@ import { projectResearchHref, withProjectId } from "@/components/project/project
 import { linkProjectResource } from "@/lib/live-project-resources";
 import { survey } from "@repo/contracts";
 import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
+import { surveyCollectionAccessError } from "@repo/contracts/survey-collection-window";
+import { CollectionScheduleFields, collectionScheduleInput } from "./collection-schedule";
 import {
   SurveyRuntimeSchema,
   SurveyDraftInputSchema,
@@ -58,6 +60,10 @@ const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTION_CONFIG_INVALID: "题目配置不完整或无效",
   LOGIC_INVALID: "条件显示或跳转规则无效",
 };
+function collectionStatusLabel(publication: SurveyRuntime["publication"], now: number): string {
+  const state = publication ? surveyCollectionAccessError(publication, now) : null;
+  return state === "closed" ? "已停止回收" : state === "expired" ? "已到截止时间" : state === "not_started" ? "等待开始" : "正在回收";
+}
 function emptyDraft(): SurveyDraftInput {
   return {
     title: "未命名问卷",
@@ -98,6 +104,8 @@ export function LiveSurveyWorkspace({
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
+  const [starts, setStarts] = React.useState("");
+  const [collectionClock, setCollectionClock] = React.useState(0);
   const [selectedBatchId, setSelectedBatchId] = React.useState<string | null>(null);
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
@@ -252,6 +260,20 @@ export function LiveSurveyWorkspace({
   const selectedBatch = collectionBatches.find((batch) => batch.id === selectedBatchId) ??
     collectionBatches.find((batch) => batch.id === activeBatchId) ?? null;
   const selectedPublication = selectedBatch ?? runtime?.publication ?? null;
+  const collectionBoundaries = React.useMemo(() => [
+    ...(runtime?.collectionBatches ?? []), ...(runtime?.publication ? [runtime.publication] : []),
+  ].filter(publication => publication.status === "collecting").flatMap(publication => [publication.startsAt, publication.expiresAt])
+    .filter((value): value is string => !!value).map(Date.parse), [runtime?.collectionBatches, runtime?.publication]);
+  React.useEffect(() => {
+    const now = Date.now();
+    const boundaries = collectionBoundaries.filter(value => value > now);
+    if (!boundaries.length) return;
+    const timer = window.setTimeout(() => setCollectionClock(clock => clock + 1), Math.min(Math.min(...boundaries) - now + 1, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [collectionBoundaries, collectionClock]);
+  React.useEffect(() => {
+    if (runtime?.publication?.token) { setStarts(""); setExpires(""); }
+  }, [runtime?.publication?.token]);
   const selectedIsActive = !selectedBatch || selectedBatch.id === activeBatchId;
   const selectedResponseCount = runtime?.responses.filter((response) =>
     !selectedBatch ||
@@ -296,10 +318,11 @@ export function LiveSurveyWorkspace({
     window.addEventListener("popstate", restoreStep);
     return () => window.removeEventListener("popstate", restoreStep);
   }, [surveyId]);
-  const collectionExpired = !!selectedPublication && new Date(selectedPublication.expiresAt).getTime() <= Date.now();
-  const collectionLabel = selectedPublication?.status === "closed"
-    ? "已停止回收"
-    : collectionExpired ? "已到截止时间" : "正在回收";
+  const collectionNow = Date.now();
+  const collectionAccessError = selectedPublication ? surveyCollectionAccessError(selectedPublication, collectionNow) : null;
+  const collectionExpired = collectionAccessError === "expired";
+  const collectionPending = collectionAccessError === "not_started";
+  const collectionLabel = collectionStatusLabel(selectedPublication, collectionNow);
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
@@ -392,7 +415,7 @@ export function LiveSurveyWorkspace({
             <Button
               className="mt-3"
               variant="outline"
-              onClick={() => void execute(() => command("begin-collection", expires ? { expiresAt: new Date(expires).toISOString() } : {}))}
+              onClick={() => void execute(() => command("begin-collection", collectionScheduleInput(starts, expires)))}
             >
               重试发布
             </Button>
@@ -531,7 +554,7 @@ export function LiveSurveyWorkspace({
               <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
                 <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "回收设置"}</p>
                 <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : "问卷尚未开始回收"}</h2>
-                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "设置回收时间后开始回收。开始回收后题目与匿名方式固定。"}</p>
+                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : collectionPending ? "回收尚未开始；受访者可在开始时间后填写，开始前不接受答卷或上传。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "设置回收时间后开始回收。开始回收后题目与匿名方式固定。"}</p>
                 {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{selectedPublication.version}</p>}
                 {selectedPublication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {selectedResponseCount} 份答卷</p>}
                 {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
@@ -540,25 +563,17 @@ export function LiveSurveyWorkspace({
                 <section className="space-y-4 rounded-md border border-success/40 bg-success/5 p-4">
                   <div>
                     <h2 className="text-16 font-semibold">回收设置</h2>
-                    <p className="mt-1 text-12 text-muted-foreground">设计阶段自动检查问卷。设置截止时间后即可开始回收。</p>
+                    <p className="mt-1 text-12 text-muted-foreground">设计阶段自动检查问卷。设置开始和截止时间，可立即回收或预约开始。</p>
                     {designBlockers.length > 0 && <p className="mt-2 text-12 text-warning">请返回设计，处理 {designBlockers.length} 项问题后开始回收。</p>}
                   </div>
-                  <label className="block text-12">
-                    截止时间（默认 30 天）
-                    <Input
-                      aria-label="截止时间"
-                      type="datetime-local"
-                      value={expires}
-                      onChange={(e) => setExpires(e.target.value)}
-                    />
-                  </label>
+                  <CollectionScheduleFields starts={starts} expires={expires} onStartChange={setStarts} onEndChange={setExpires} disabled={busy} />
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={() => selectStep("design")}>
                       返回编辑
                     </Button>
                     <Button
                       disabled={designBlockers.length > 0}
-                      onClick={() => void execute(() => command("begin-collection", expires ? { expiresAt: new Date(expires).toISOString() } : {}))}
+                      onClick={() => void execute(() => command("begin-collection", collectionScheduleInput(starts, expires)))}
                     >
                       开始回收
                     </Button>
@@ -570,7 +585,7 @@ export function LiveSurveyWorkspace({
                   <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-5">
                     <div>
                       <h2 className="text-16 font-semibold">分享问卷</h2>
-                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。截止 {new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}。</p>
+                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。{selectedPublication.startsAt && <>开始 {new Date(selectedPublication.startsAt).toLocaleString("zh-CN")}；</>}截止 {new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}。</p>
                     </div>
                     <Input aria-label="答题链接" readOnly value={link} />
                     <div className="flex flex-wrap items-center gap-4">
@@ -614,9 +629,13 @@ export function LiveSurveyWorkspace({
                       </Button>
                     )}
                   {selectedIsActive && selectedPublication.status === "closed" && (
-                    <Button onClick={() => void execute(() => command("republish"))}>
-                      再次发布
-                    </Button>
+                    <section aria-label="再次发布设置" className="space-y-4 rounded-lg border border-border bg-card p-4">
+                      <h2 className="text-16 font-semibold">再次发布</h2>
+                      <CollectionScheduleFields starts={starts} expires={expires} onStartChange={setStarts} onEndChange={setExpires} disabled={busy} />
+                      <Button disabled={busy} onClick={() => void execute(() => command("republish", collectionScheduleInput(starts, expires)))}>
+                        再次发布
+                      </Button>
+                    </section>
                   )}
                 </>
               ) : (
@@ -648,11 +667,11 @@ export function LiveSurveyWorkspace({
                   <label className="block rounded-lg border border-border bg-card p-5 text-13">
                     回收批次
                     <select aria-label="回收批次" className="mt-3 h-9 w-full rounded-md border border-border bg-background px-3" value={selectedBatch?.id ?? activeBatchId ?? ""} onChange={(event) => setSelectedBatchId(event.target.value)}>
-                      {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {batch.status === "collecting" ? "正在回收" : "已停止回收"} · {new Date(batch.createdAt).toLocaleString("zh-CN")}</option>)}
+                      {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {collectionStatusLabel(batch, collectionNow)} · {new Date(batch.createdAt).toLocaleString("zh-CN")}</option>)}
                     </select>
                   </label>
                 )}
-                {selectedPublication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+                {selectedPublication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">开始时间：{selectedPublication.startsAt ? new Date(selectedPublication.startsAt).toLocaleString("zh-CN") : "发布后立即开始"}</p><p className="mt-2">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
                 {runtime && selectedPublication && <RecentCollectionActivity runtime={runtime} batchId={selectedBatch?.id} />}
               </aside>
               </div>

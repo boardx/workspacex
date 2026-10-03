@@ -409,6 +409,45 @@ it("expired upload session cannot claim or upload and cleanup preserves claimed 
       .get(`survey-attachments/${attachmentId}`),
   ).toBeNull();
 });
+async function withScheduledPublication(startsAt: string, expiresAt: string, verify: () => Promise<void>) {
+  const db = app.get<DatabasePort>(DATABASE_PORT);
+  const original = await db.withTenant(toOrgId(ORG), session => session.query<{ document: object }>("SELECT document FROM survey_workspaces WHERE org_id=$1 AND id=$2", [ORG, surveyId]));
+  try {
+    await db.withTenant(toOrgId(ORG), session => session.query("UPDATE survey_workspaces SET document=jsonb_set(jsonb_set(document,'{model,publication,startsAt}',to_jsonb($3::text)),'{model,publication,expiresAt}',to_jsonb($4::text)) WHERE org_id=$1 AND id=$2", [ORG, surveyId, startsAt, expiresAt]));
+    await verify();
+  } finally {
+    await db.withTenant(toOrgId(ORG), session => session.query("UPDATE survey_workspaces SET document=$3 WHERE org_id=$1 AND id=$2", [ORG, surveyId, original.rows[0]!.document]));
+  }
+}
+
+it("future collection refuses upload-session creation before issuing a capability", async () => {
+  await withScheduledPublication(new Date(Date.now() + 3600000).toISOString(), new Date(Date.now() + 7200000).toISOString(), async () => {
+    const response = await fetch(`${base}/public/surveys/${token}/upload-sessions`, { method: "POST", headers: { ...publicHeaders(), "content-type": "application/json" }, body: JSON.stringify({ submissionId: "future-upload-session" }) });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reasonCode: "SURVEY_NOT_STARTED" });
+  });
+});
+
+it("existing and forged upload capabilities cannot bypass a future collection start", async () => {
+  const capability = await session("before-future-start");
+  await withScheduledPublication(new Date(Date.now() + 3600000).toISOString(), new Date(Date.now() + 7200000).toISOString(), async () => {
+    for (const secret of [capability, "forged-capability"]) {
+      const response = await upload(secret);
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ reasonCode: "SURVEY_NOT_STARTED" });
+    }
+  });
+});
+
+it("upload opens after the selected start and closes at the exclusive end", async () => {
+  await withScheduledPublication(new Date(Date.now() - 1000).toISOString(), new Date(Date.now() + 3600000).toISOString(), async () => {
+    const capability = await session("started-window-upload");
+    expect((await upload(capability)).status).toBe(201);
+    await app.get<DatabasePort>(DATABASE_PORT).withTenant(toOrgId(ORG), session => session.query("UPDATE survey_workspaces SET document=jsonb_set(document,'{model,publication,expiresAt}',to_jsonb($3::text)) WHERE org_id=$1 AND id=$2", [ORG, surveyId, new Date(Date.now()).toISOString()]));
+    expect((await upload(capability)).status).toBe(410);
+  });
+});
+
 it("invalid capability refused before multipart parsing and closed publication refuses upload", async () => {
   expect((await upload("wrong")).status).toBe(404);
   const a = await session("closed-test");

@@ -1,0 +1,20 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api
+
+ ✓ tests/survey/survey-collection-schedule.test.ts (12 tests) 15ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  10:08:26
+   Duration  749ms (transform 419ms, setup 0ms, collect 645ms, tests 15ms, environment 0ms, prepare 25ms)
+
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api
+
+ ✓ tests/survey/survey-collection-schedule.test.ts (12 tests) 15ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  10:08:26
+   Duration  749ms (transform 419ms, setup 0ms, collect 645ms, tests 15ms, environment 0ms, prepare 25ms)
+
