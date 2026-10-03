@@ -44,7 +44,7 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
   useEffect(() => { const closeOthers = (event: Event) => { if (isOpen && (event as CustomEvent<string>).detail !== id) { setLocalOpen(false); onOpenChange?.(false); } }; window.addEventListener("board-inspector-open", closeOthers); return () => window.removeEventListener("board-inspector-open", closeOthers); }, [id, isOpen, onOpenChange]);
   return <Dialog.Root modal={false} open={isOpen} onOpenChange={updateOpen}>
     <Dialog.Trigger ref={triggerRef} asChild>{trigger ?? <Button data-testid={`board-inspector-${({ "更多操作": "actions", "布局": "layout", "外观": "appearance", "便利贴样式": "sticky", "文字样式": "text", "标签与链接": "metadata" } as Record<string, string>)[label] ?? "open"}`} variant="ghost" className="min-h-11 shrink-0 px-3">{label}</Button>}</Dialog.Trigger>
-    <Dialog.Portal><Dialog.Content data-board-popover-preferred-placement={placement} data-board-popover-placement={placement === "above" ? anchor.side : placement} style={placement === "above" ? {
+    <Dialog.Portal><Dialog.Content data-testid="board-tool-popover" data-board-popover-preferred-placement={placement} data-board-popover-placement={placement === "above" ? anchor.side : placement} style={placement === "above" ? {
       left: anchor.left,
       top: anchor.top,
       transform: "translateY(-100%)",
