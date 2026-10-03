@@ -25,8 +25,8 @@ export const PR_QUEUE_STATES = [
 
 export type PrQueueState = (typeof PR_QUEUE_STATES)[number];
 
-/** coord-main 的两种执行模式。`unattended` = `/loop` 定时唤醒、人类不在场。 */
-export type CoordMode = "attended" | "unattended";
+/** 执行模式：显式自动合并授权不代表人类在场；默认无人值守仍拒绝。 */
+export type CoordMode = "attended" | "unattended" | "authorized-unattended";
 
 /** GitHub check 的结论取值（GraphQL `conclusion`，pending 时为 null）。 */
 export interface RequiredCheck {
@@ -498,36 +498,25 @@ export interface MergeAuthorization {
 }
 
 /**
- * 合并授权判定。**本函数不合并任何东西**——它只回答"现在允许人去点合并吗"。
- *
- * 两条 fail-closed：
- * 1. `unattended`（`/loop` 定时唤醒、人类不在场）**永远** false，哪怕状态是
- *    READY_TO_MERGE。铁律 12 的原话是 "NEVER attempt to merge a PR yourself"。
- * 2. mode 无法确定时按 `unattended` 处理（见 resolveCoordMode）——默认不授权。
- *
- * 真正的 `gh pr merge` 由人类执行：CLI 只把命令打印出来。这是
- * loop-design-principles「破坏性动作永远在 loop 之外」的直接落地，不是保守。
+ * 只读授权判定。自动合并授权必须来自用户明确指令（coordinator-sop 铁律 12），
+ * 调用方通过 --auto-merge-authorized 表达；缺省/未知模式均拒绝。
+ * 授权不改变 classifyPr 的任何门禁，真正合并仍由 coord-main 执行。
  */
 export function mergeAuthorization(state: PrQueueState, mode: CoordMode): MergeAuthorization {
-  if (mode !== "attended") {
-    return {
-      allowed: false,
-      reason:
-        "无人值守模式（unattended）下一律不授权合并——只推进到 READY_TO_MERGE 并汇报，" +
-        "等人类在场处理（coordinator-sop.md 铁律 12）",
-    };
+  if (mode !== "attended" && mode !== "authorized-unattended") {
+    return { allowed: false, reason: "无人值守未获显式自动合并授权——推进到 READY_TO_MERGE 后等待授权（coordinator-sop.md 铁律 12）" };
   }
   if (state !== "READY_TO_MERGE") {
     return { allowed: false, reason: `状态是 ${state}，不是 READY_TO_MERGE——机械门禁未全绿` };
   }
-  return { allowed: true, reason: "机械门禁全绿且人类在场：可由 coord-main 执行合并" };
+  return { allowed: true, reason: mode === "authorized-unattended"
+    ? "机械门禁全绿且用户已显式授权自动合并：可由 coord-main 执行合并"
+    : "机械门禁全绿且人类在场：可由 coord-main 执行合并" };
 }
 
-/**
- * 模式解析，fail-closed：**只有**显式 `--attended` 才算人类在场。
- * 缺省、拼错、环境变量说了别的——一律 unattended（不授权合并）。
- */
+/** 仅识别显式标志；自动授权与是否在场是不同事实。 */
 export function resolveCoordMode(flags: Record<string, boolean>): CoordMode {
+  if (flags["auto-merge-authorized"] === true) return "authorized-unattended";
   return flags["attended"] === true ? "attended" : "unattended";
 }
 
