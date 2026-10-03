@@ -35,3 +35,15 @@
 源码 `acceptance_contract.ts` 校验以上边界，不能执行恢复写入，也不能签发通过证据。当前顶层缺能力拒绝保留。旧 maintenance preactivate collector 会启动 bootstrap 容器和新连接，现已在调用前拒绝；它不能通过普通 provision fallback 填补维护验收。
 
 反馈关联 use case 自身不落库，但其认证 API 在全停写 fence 中也被暂停；当前不得仅凭已有会话将该产品 GET 放入 held 阶段。认证 session store 是 Redis 写入面，登录真实提交也不是三库 SQL 只读探测。held 阶段目前只允许固定 sealed 诊断消费者读回，不允许 unpause 普通 API 来补 UI 证据。
+
+Frozen 9b auth correction: validate-session.ts calls sessions.touch when last-active is due; login.ts records attempts and issueAuthenticatedSession issues a Redis session. Therefore even the authenticated feedback GET journey may write session state. Its business use case being read-only does not make the full journey read-only. All six product journeys are excluded from the all-writer-held phase.
+
+## Common epoch and admission order
+
+An independent prior rehearsal proves recovery capability, not current rollback data. Production may have written after that rehearsal; using its old snapshot for migration failure recovery can lose those writes. A separate approved capture-quiescence phase must therefore establish the canonical lock and exhaustive writer/object/DDL/GC fence, capture all three databases and objects in one interval, and retain quiescence through same-epoch independent restore proof, migration and acceptance state transition. Calling capture-quiescence a different attempt does not make it downtime-free. Admission must distinguish recovery-capability proof before quiescence from fresh current-epoch proof before DDL; demanding fresh proof before the very fence needed to create it is a startup cycle. Existing release state machine has not silently been reordered to skip either proof. An alternative requires actual WAL/PITR plus OSS change-log catch-up to the final cutover epoch, which has no current evidence. Neither historical CMS files nor equal snapshotId strings suffice.
+
+## Frozen 9b controlled-lane limitations (source review only)
+
+The source cannot authorize B through a profile alone: pg-database.inTx sets caller-controlled app.current_org; credentials/login_attempts have no tenant RLS; validate-session touches Redis; OSS prefix concatenation does not constrain broad ECS credentials; Agent checkpointer setup can execute startup DDL; native sessions add socket/container writers. A production B lane needs actual immutable user/tenant role restrictions including global auth paths, scoped Redis ACL and OSS STS, no unapproved startup DDL, and exact API/Agent/sandbox/child-container leases. These require source capabilities plus individual runtime/permission approval and real negative validation. Do not silently relabel fixed 9b or claim all-writes-held while any acceptance writer exists.
+
+A is the smallest option preserving the frozen application: isolated three databases, scoped Redis/OSS and sandbox for six journeys; separate approved production resume and public acceptance. A/B has not been selected in this execution thread. Both options still require fresh same-epoch recovery artifacts before destructive migration.

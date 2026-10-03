@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "d40f9490c5f34b03101f5d5eb165ca36bfa4b718421740e49a5280632584ef59",
+  "sourceInventorySha256": "70d5b35da2427d96fef1919a2c533b444e59136557b234920232335ce7ba1597",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-acceptance-decision.md",
-      "sha256": "bf4387001afd3abe5840ecf31b27d589d005e0cc40c84a1e8b08e1a6d97c8b4e",
-      "bytes": 4633
+      "sha256": "50f3016041ea38ff59eff5b27ddd8fbb540b8a2a62c76cf958c513aacdbf6ba7",
+      "bytes": 7313
     },
     {
       "path": "deploy/aliyun/cn-maintenance-recovery-collection-plan.md",
@@ -428,8 +428,8 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts",
-      "sha256": "9fa938173213f2ce1a728e534e5b374d71c3021b515d99a475bb1a4517b5f160",
-      "bytes": 2264
+      "sha256": "7c388c30f8569127c9cd9f23463dd48671c3d61b84f26ee5161cd1b84bbf17c8",
+      "bytes": 2126
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/actions_test.ts",
@@ -593,8 +593,8 @@
     },
     {
       "path": "packages/cloud-deploy/test/cn-maintenance-acceptance-contract.test.ts",
-      "sha256": "0895a628bfd26d890ddd8998af9588da2b965d048fd463ac99cc2ee00099ecaa",
-      "bytes": 2278
+      "sha256": "27eb8c01b9a982f9d143a273c7ac4154a6dc0ada444cfe289dfc29a735542e52",
+      "bytes": 2290
     },
     {
       "path": "packages/cloud-deploy/test/cn-maintenance-activation-transport.test.ts",
