@@ -126,6 +126,16 @@ describe("reference research workflow", () => {
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
   });
+  it("explains a search budget stop and keeps sources and next actions available", async () => {
+    const initial = { ...runtimeFixture("research"), errorCode: "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" };
+    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("3 分钟上限");
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "确认并继续" })).toBeEnabled();
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", initial.sources[0]!.url);
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
   it("shows only searched source descriptions while research is busy", async () => {
     const initial = runtimeFixture("research");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, status: "succeeded", title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }, ...Array.from({ length: 4 }, (_, index) => ({ ...initial.tasks[0]!, id: `extra-${index}`, status: index === 0 ? "succeeded" as const : "pending" as const }))] });
