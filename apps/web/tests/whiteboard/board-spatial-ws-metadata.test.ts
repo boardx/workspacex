@@ -1,3 +1,6 @@
+import {boardProviderReceiptBuild} from '../../e2e/support/board-provider-receipt-build.mjs';
+import {createWhiteboardReceiptObserver as privateReceiptAdapter} from '../../e2e/support/board-provider-receipt-adapter';
+import {createWhiteboardReceiptObserver as defaultReceiptObserver} from '../../lib/whiteboard-provider-observer';
 import {expect,it,vi} from 'vitest';
 import {sharedOutboxProof} from '../../e2e/support/board-shared-outbox-proof';
 import {spatialFrameMetadata,createSpatialWsMetadataRecorder,nativeSocketErrorCode,nativeSocketMessageClass,installNativeSocketCloseObserver} from '../../e2e/support/board-spatial-ws-metadata';
@@ -59,7 +62,7 @@ it('CDP observations filter actual board sockets and remove only owned listeners
  handlers.get('Network.webSocketFrameError')!({requestId:'private-request',errorMessage:'private url net::ERR_CONNECTION_RESET'});
  handlers.get('Network.webSocketClosed')!({requestId:'private-request'});
  handlers.get('Network.webSocketFrameError')!({requestId:'foreign-request',errorMessage:'private'});stop();
- expect(off).toHaveLength(3);expect(recorder.snapshot().events.map(({elapsedMs,...event})=>event)).toEqual([{client:'original',socketOrdinal:1,direction:'cdp-socketerror',code:'ERR_CONNECTION_RESET',messageClass:'UNKNOWN'},{client:'original',socketOrdinal:1,direction:'cdp-close'}]);
+ expect(off).toHaveLength(3);expect(recorder.snapshot().events.map(({elapsedMs,...event})=>event)).toEqual([{client:'original',socketOrdinal:1,observationBoundary:'native',direction:'cdp-socketerror',code:'ERR_CONNECTION_RESET',messageClass:'UNKNOWN'},{client:'original',socketOrdinal:1,observationBoundary:'native',direction:'cdp-close'}]);
  expect(JSON.stringify(recorder.snapshot())).not.toContain('private');
 });
 
@@ -94,8 +97,75 @@ it('retains fixed CDP classes without changing native close metadata or the TRAN
  recorder.nativeClose('original',{socketOrdinal:1,code:1006,wasClean:false});socketHandlers.get('socketerror')!();stop();
  const events=recorder.snapshot().events;
  expect(events.filter(event=>event.direction==='cdp-socketerror').map(({code,messageClass})=>({code,messageClass}))).toEqual([...fixedMessageClasses.map(([,messageClass])=>({code:'UNKNOWN',messageClass})),{code:'UNKNOWN',messageClass:'EMPTY'},{code:'UNKNOWN',messageClass:'UNKNOWN'},{code:'UNKNOWN',messageClass:'UNKNOWN'}]);
- expect(events.find(event=>event.direction==='nativeclose')).toEqual({elapsedMs:expect.any(Number),client:'original',socketOrdinal:1,direction:'nativeclose',code:1006,wasClean:false});
+ expect(events.find(event=>event.direction==='nativeclose')).toEqual({elapsedMs:expect.any(Number),client:'original',socketOrdinal:1,observationBoundary:'native',direction:'nativeclose',code:1006,wasClean:false});
  expect(events.every(event=>!Object.hasOwn(event,'errorMessage')&&!Object.hasOwn(event,'url'))).toBe(true);expect(JSON.stringify(events)).not.toContain('private');
  const valid=[{client:'original',direction:'sent',type:'update',updateId:'one'},{client:'peer',direction:'sent',type:'update',updateId:'one'},{client:'original',direction:'received',type:'ack',updateId:'one',seq:1},{client:'peer',direction:'received',type:'ack',updateId:'one',seq:1}];
  expect(sharedOutboxProof(valid,0,1)).toEqual([]);expect(sharedOutboxProof([...valid,...events],0,1)).toEqual(['TRANSPORT_ERROR']);
+});
+
+it('bounded Chromium classes never export dynamic reason data',()=>{
+ const cases=[['Invalid frame header','INVALID_FRAME_HEADER'],['One or more reserved bits are on: reserved1 = 1, reserved2 = 0, reserved3 = 0','RESERVED_BITS'],['Unrecognized frame opcode: 15','UNKNOWN_OPCODE'],['Ping received after close','FRAME_AFTER_CLOSE'],['Failed to load Blob: error code = 12','BLOB_LOAD_FAILED']];
+ for(const [message,category] of cases)expect(nativeSocketMessageClass(message)).toBe(category);
+ for(const message of ['Invalid frame header private','Unrecognized frame opcode: 16','Unrecognized frame opcode: 015','Failed to load Blob: error code = 1000','Ping received after close private','One or more reserved bits are on: reserved1 = 2, reserved2 = 0, reserved3 = 0'])expect(nativeSocketMessageClass(message)).toBe('UNKNOWN');
+ let reads=0;const accessor={get message(){reads++;return 'private';}};expect(nativeSocketMessageClass(accessor)).toBe('UNKNOWN');expect(reads).toBe(0);
+});
+it('routed native metadata explicitly labels upstream observation',()=>{
+ const listeners=new Map<string,Function>();const page={on:(_name:string,handler:Function)=>handler({url:()=> 'ws://localhost/whiteboards/private/sync',on:(name:string,handler:Function)=>listeners.set(name,handler)})};
+ const recorder=createSpatialWsMetadataRecorder();recorder.observe(page as never,'original','route-upstream');listeners.get('framereceived')!({payload:JSON.stringify({type:'ack',seq:1,token:'private',message:'private'})});
+ expect(recorder.snapshot().events.every(event=>event.observationBoundary==='route-upstream')).toBe(true);expect(JSON.stringify(recorder.snapshot())).not.toContain('private');expect(recorder.elapsedMs()).toBeGreaterThanOrEqual(0);
+});
+
+it('upstream route ACK cannot satisfy strict per-sending-client receipts',()=>{
+ const updateId='00000000-0000-0000-0000-000000000001';const events=[{client:'original',direction:'sent',type:'update',updateId,observationBoundary:'route-upstream'},{client:'original',direction:'received',type:'ack',updateId,seq:1,observationBoundary:'route-upstream'},{client:'peer',direction:'sent',type:'update',updateId},{client:'peer',direction:'received',type:'ack',updateId,seq:1}];
+ expect(sharedOutboxProof(events,0,1)).toEqual(['CLIENT_ACK_MISSING']);
+ expect(sharedOutboxProof([...events,{client:'original',direction:'received',type:'ack',updateId,seq:1,observationBoundary:'provider-accepted'}],0,1)).toEqual([]);
+});
+
+it('prototype inspection cannot recover a provider mock from a proxy installed before routing',()=>{
+ class Native extends EventTarget{url:string;constructor(url:string){super();this.url=url;}}
+ const seen:EventTarget[]=[];const NativeProxy=new Proxy(Native,{construct(target,args,newTarget){const socket=Reflect.construct(target,args,newTarget);seen.push(socket);return socket;}});
+ // Playwright captures the constructor at route installation, then owns the provider-facing mock.
+ class Mock extends EventTarget{native:Native;constructor(url:string){super();this.native=new NativeProxy(url);}}
+ const providerSocket=new Mock('ws://localhost/whiteboards/fixture/sync');
+ expect(seen).toEqual([providerSocket.native]);expect(seen).not.toContain(providerSocket);
+ expect(Object.getPrototypeOf(seen[0])).toBe(Native.prototype);
+});
+it('a constructor observer after routing sees downstream only when installation ordering is proven',()=>{
+ class Native extends EventTarget{url:string;constructor(url:string){super();this.url=url;}}
+ class Mock extends EventTarget{native:Native;constructor(url:string){super();this.native=new Native(url);}}
+ const seen:EventTarget[]=[];const MockProxy=new Proxy(Mock,{construct(target,args,newTarget){const socket=Reflect.construct(target,args,newTarget);seen.push(socket);return socket;}});
+ const providerSocket=new MockProxy('ws://localhost/whiteboards/fixture/sync');
+ expect(seen).toEqual([providerSocket]);expect(seen).not.toContain(providerSocket.native);
+ // Synthetic dispatch and provider acceptance are still distinct even in this ordering.
+ const accepted:string[]=[];providerSocket.addEventListener('message',()=>{accepted.push('dispatched');});providerSocket.dispatchEvent(new Event('message'));
+ expect(accepted).toEqual(['dispatched']);
+});
+
+it('provider receipts reject accessors foreign markers and extra private fields without reading them',()=>{
+ const recorder=createSpatialWsMetadataRecorder(),id='00000000-0000-0000-0000-000000000001',marker='owned-run';const receipt={adapter:'board-provider-receipt-v1',marker,providerInstance:id,socketGeneration:1,updateId:id,gestureId:id,seq:1};
+ recorder.providerReceipt('original',receipt,marker);
+ let reads=0;const accessor={...receipt};Object.defineProperty(accessor,'seq',{enumerable:true,get(){reads++;return 1;}});
+ for(const value of [accessor,{...receipt,marker:'foreign'},{...receipt,token:'private'},{...receipt,socketGeneration:0},{...receipt,providerInstance:'private'}])recorder.providerReceipt('original',value,marker);
+ expect(reads).toBe(0);expect(recorder.snapshot().events).toHaveLength(1);expect(recorder.snapshot().events[0]).toMatchObject({client:'original',observationBoundary:'provider-accepted',socketGeneration:1,seq:1});expect(JSON.stringify(recorder.snapshot())).not.toContain('owned-run');expect(JSON.stringify(recorder.snapshot())).not.toContain('private');
+});
+
+it('normal host has no observer and opt-in adapter never reads a global accessor',()=>{
+ expect(defaultReceiptObserver()).toBeUndefined();const binding='boardProviderReceipt'+ 'a'.repeat(32);let reads=0;
+ vi.stubEnv('WSX_BOARD_RECEIPT_BINDING',binding);vi.stubEnv('WSX_BOARD_RECEIPT_MARKER','owned-marker');Object.defineProperty(globalThis,binding,{configurable:true,get(){reads++;throw new Error('private');}});
+ try{expect(privateReceiptAdapter()).toBeUndefined();expect(reads).toBe(0);}finally{delete (globalThis as unknown as Record<string,unknown>)[binding];vi.unstubAllEnvs();}
+});
+it('opt-in adapter emits actual bounded receipt only to the owned build binding',async()=>{
+ const binding='boardProviderReceipt'+ 'b'.repeat(32),notify=vi.fn().mockResolvedValue(undefined),id='00000000-0000-0000-0000-000000000001';
+ vi.stubEnv('WSX_BOARD_RECEIPT_BINDING',binding);vi.stubEnv('WSX_BOARD_RECEIPT_MARKER','owned-marker');vi.stubGlobal(binding,notify);
+ try{const observer=privateReceiptAdapter();expect(observer).toBeTypeOf('function');await observer!({providerInstance:id,socketGeneration:1,updateId:id,gestureId:id,seq:1});expect(notify).toHaveBeenCalledWith({adapter:'board-provider-receipt-v1',marker:'owned-marker',providerInstance:id,socketGeneration:1,updateId:id,gestureId:id,seq:1});}finally{vi.unstubAllGlobals();vi.unstubAllEnvs();}
+});
+it('strict routed proof requires provider accepted receipts from both sending clients',()=>{
+ const updateId='00000000-0000-0000-0000-000000000001',events=[{client:'original',direction:'sent',type:'update',updateId},{client:'peer',direction:'sent',type:'update',updateId},{client:'original',direction:'received',type:'ack',updateId,seq:1,observationBoundary:'provider-accepted'},{client:'peer',direction:'received',type:'ack',updateId,seq:1,observationBoundary:'native'}];
+ expect(sharedOutboxProof(events,0,1,'shared','provider-accepted')).toEqual(['CLIENT_ACK_MISSING']);expect(sharedOutboxProof([...events,{client:'peer',direction:'received',type:'ack',updateId,seq:1,observationBoundary:'provider-accepted'}],0,1,'shared','provider-accepted')).toEqual([]);
+});
+
+it('private build observer is absent by default and fails closed outside the isolated lane',()=>{
+ const env={FULLSTACK_E2E_BOARD_RECEIPTS:'1',WORKSPACEX_ISOLATION_ID:'board-fixture-0123456789ab',BOARD_ACCEPTANCE_RUNTIME_MARKER:'00000000-0000-0000-0000-000000000001',FULLSTACK_E2E_API_ORIGIN:'http://127.0.0.1:25001'};
+ expect(boardProviderReceiptBuild({})).toBeUndefined();expect(boardProviderReceiptBuild({...env,FULLSTACK_E2E_BOARD_RECEIPTS:'0',WORKSPACEX_RELEASE_BUILD:'1'})).toBeUndefined();expect(boardProviderReceiptBuild(env)).toEqual({marker:env.BOARD_ACCEPTANCE_RUNTIME_MARKER,binding:'boardProviderReceipt00000000000000000000000000000001'});expect(boardProviderReceiptBuild({...env,WORKSPACEX_RELEASE_BUILD:'0'})).toEqual(boardProviderReceiptBuild(env));
+ for(const bad of [{WORKSPACEX_RELEASE_BUILD:'1'},{WORKSPACEX_RELEASE_BUILD:'yes'},{WORKSPACEX_RELEASE_BUILD:'true'},{WORKSPACEX_RELEASE_BUILD:'garbage'},{WORKSPACEX_RELEASE_BUILD:''},{WORKSPACEX_ISOLATION_ID:undefined},{WORKSPACEX_ISOLATION_ID:'unknown'},{BOARD_ACCEPTANCE_RUNTIME_MARKER:undefined},{BOARD_ACCEPTANCE_RUNTIME_MARKER:'private'},{FULLSTACK_E2E_API_ORIGIN:'https://example.com'},{FULLSTACK_E2E_API_ORIGIN:'http://user:private@127.0.0.1:25001'},{FULLSTACK_E2E_API_ORIGIN:'http://127.0.0.1:25001/path?private'},{FULLSTACK_E2E_API_ORIGIN:'not-a-url'},{FULLSTACK_E2E_BOARD_RECEIPTS:'yes'}])expect(()=>boardProviderReceiptBuild({...env,...bad})).toThrow('ISOLATED_RECEIPT_OBSERVER_BUILD_REQUIRED');
 });

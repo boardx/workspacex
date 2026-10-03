@@ -37,19 +37,27 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const boardUrl=(path:string)=>new URL(path,info.project.use.baseURL).href;
  page.setDefaultTimeout(15_000);
  page.setDefaultNavigationTimeout(15_000);
- const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
+ const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original','route-upstream');
+ const receiptMarker=process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER;
+ if(!receiptMarker||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(receiptMarker))throw new Error('PROVIDER_RECEIPT_BUILD_MARKER_REQUIRED');
+ const receiptBinding='boardProviderReceipt'+receiptMarker.replaceAll('-','');
+ const observeProviderReceipts=async(tab:Page,client:'original'|'peer')=>{
+  await tab.exposeBinding(receiptBinding,(source,value)=>{if(source.page===tab&&source.frame===tab.mainFrame())metadata.providerReceipt(client,value,receiptMarker);});
+ };
+ await observeProviderReceipts(page,'original');
+
  const socketBinding=`boardSocketClose${randomUUID().replaceAll('-','')}`,socketStateKey=socketBinding+'State';
- await page.exposeBinding(socketBinding,(_source,value)=>metadata.nativeClose('original',value));
+ await page.exposeBinding(socketBinding,(_source,value)=>metadata.nativeClose('original',value,'route-upstream'));
  await page.addInitScript(installNativeSocketCloseObserver,{binding:socketBinding,stateKey:socketStateKey});
- const socketSession=await page.context().newCDPSession(page),stopSocketObservation=metadata.observeCdp(socketSession,'original');
+ const socketSession=await page.context().newCDPSession(page),stopSocketObservation=metadata.observeCdp(socketSession,'original','route-upstream');
  await socketSession.send('Network.enable');
  let nextRouteSocketOrdinal=0;
 
  const chunks:Array<{path:string;sha256:string;bytes:number}>=[],chunkReads:Array<Promise<void>>=[];
  page.on('response',response=>{const path=new URL(response.url()).pathname;if(path.startsWith('/_next/static/')&&path.endsWith('.js')&&response.status()===200)chunkReads.push(response.body().then(body=>{chunks.push({path,sha256:createHash('sha256').update(body).digest('hex'),bytes:body.length});}).catch(()=>undefined));});
  const http:Array<{method:string;path:string;status:number}>=[];
- const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
- const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
+ const milestones:Array<{name:string;elapsedMs:number}>=[];
+ const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(metadata.elapsedMs())});
  let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
  let ownerLifecycle:CDPSession|undefined,ownerFrozen=false,primaryFailed=false;
  let primaryFailure:unknown;
@@ -72,7 +80,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   if(!['trustedChanges','untrustedChanges'].every(key=>{const n=value[key as 'trustedChanges'|'untrustedChanges'];return Number.isSafeInteger(n)&&n!>=0&&n!<=1_000_000;}))return;
   nativeVisibility=value;
   if(value.state==='hidden'&&value.sameDocument===1&&(value.trustedChanges??0)>0)ownerHiddenObserved=true;
-  const safe={stage,state:value.state,trustedChanges:value.trustedChanges,untrustedChanges:value.untrustedChanges,sameDocument:value.sameDocument};
+  const safe={elapsedMs:Math.round(metadata.elapsedMs()),stage,state:value.state,trustedChanges:value.trustedChanges,untrustedChanges:value.untrustedChanges,sameDocument:value.sameDocument};
   console.info('OWNED_LIFECYCLE_VISIBILITY',JSON.stringify(safe));
   const samples=(evidence.ownerVisibilitySamples??=[]) as unknown[];samples.push(safe);
  };
@@ -168,7 +176,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
    try{const observed=JSON.parse(event.payload) as {type?:string;trusted?:boolean;state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number};
     if(observed.type==='visibilitychange'){recordVisibility('native-visibilitychange',observed);return;}
     if(observed.type==='ready'){lifecycleReady++;return;}
-    if(observed.trusted===true&&(observed.type==='freeze'||observed.type==='resume'))lifecycleEvents[observed.type]++;
+    if(observed.trusted===true&&(observed.type==='freeze'||observed.type==='resume')){lifecycleEvents[observed.type]++;mark(`native-${observed.type}-observed`);}
    }catch{/* Unknown payload is never lifecycle proof. */}
   });
   const installedLifecycle=await ownerLifecycle.send('Runtime.evaluate',{expression:`globalThis[${JSON.stringify(lifecycleBinding+'Counts')}] = {freeze:0,resume:0,untrusted:0};globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}]={document,trustedChanges:0,untrustedChanges:0};globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}] = Object.fromEntries(['freeze','resume','visibilitychange'].map(type=>{const notify=globalThis[${JSON.stringify(lifecycleBinding)}];const listener=event=>{const counts=globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];if(type==='visibilitychange'){const visibility=globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];if(event.isTrusted)visibility.trustedChanges++;else visibility.untrustedChanges++;notify(JSON.stringify({type:'visibilitychange',state:document.visibilityState,trustedChanges:visibility.trustedChanges,untrustedChanges:visibility.untrustedChanges,sameDocument:visibility.document===document?1:0}));return;}if(event.isTrusted)counts[event.type]++;else counts.untrusted++;notify(JSON.stringify({type:event.type,trusted:event.isTrusted}));};document.addEventListener(type,listener);return [type,listener];}));globalThis[${JSON.stringify(lifecycleBinding)}](JSON.stringify({type:'ready'}));`});
@@ -190,13 +198,15 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   // browser, then require its trusted hidden transition before native freeze.
   ownerWindowChanged=true;
   if(ownerWindow.bounds.windowState==='fullscreen')await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState:'normal'}});
-  await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState:'minimized'}});
+  mark('minimize-requested');
+  await ownerLifecycle.send('Browser.setWindowBounds',{windowId:ownerWindow.windowId,bounds:{windowState:'minimized'}});mark('minimize-completed');
   expect((await ownerLifecycle.send('Browser.getWindowBounds',{windowId:ownerWindow.windowId})).bounds.windowState).toBe('minimized');
   await expect.poll(()=>nativeVisibility?.state==='hidden'&&nativeVisibility.sameDocument===1&&(nativeVisibility.trustedChanges??0)>=1,{timeout:remaining(),message:'Owned window must genuinely hide on the original document before freeze'}).toBe(true);
-  ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
+  mark('trusted-hidden-confirmed');
+  ownerFrozen=true;mark('freeze-requested');await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});mark('freeze-completed');
   await expect.poll(()=>lifecycleEvents.freeze,{timeout:remaining(),message:'Original page must emit a trusted native freeze event'}).toBe(1);
   evidence.ownerLifecycleControl='page-frozen';mark('original-tab-paused');
-  const testPeer=await page.context().newPage();peer=testPeer;if(info.project.use.viewport)await testPeer.setViewportSize(info.project.use.viewport);testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(boardUrl(`/studio/board/${boardId}`));mark('peer-opened');
+  const testPeer=await page.context().newPage();peer=testPeer;if(info.project.use.viewport)await testPeer.setViewportSize(info.project.use.viewport);testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);await observeProviderReceipts(testPeer,'peer');metadata.observe(testPeer,'peer');await testPeer.goto(boardUrl(`/studio/board/${boardId}`));mark('peer-opened');
   await expect.poll(()=>metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='received'&&event.type==='sync'),{timeout:remaining(),message:'Peer must independently execute and receive authoritative sync while original page is frozen'}).toBe(true);
   await expect.poll(()=>{
    const id=ackGate.updateId;
@@ -219,14 +229,14 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const final=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(final.manifest.epoch).toBe(initial.manifest.epoch);
   expect(final.manifest.seq-initial.manifest.seq).toBe(24);
   evidence.uiCreates=8;evidence.uiEdits=16;
-  const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq)).toEqual([]);
+  const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq,'shared','provider-accepted')).toEqual([]);
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
   await captureNativeCounts();
   await Promise.all([page.reload(),testPeer.reload()]);
   mark('both-reloaded');
   for(const tab of [page,testPeer]){await expectBoardSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
-  expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
+  expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq,'shared','provider-accepted')).toEqual([]);
   await Promise.all(chunkReads);expect(chunks.some(chunk=>chunk.path.includes('/app/studio/board/'))).toBe(true);
   ownedBrowser.assertLive();
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';

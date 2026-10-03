@@ -729,3 +729,30 @@ it.each([false,true])('replays delete undo redo in durable order after restart (
  await vi.advanceTimersByTimeAsync(0);expect(state.pending).toBe(0);
  restarted.close();undo.destroy();doc.destroy();restartedDoc.destroy();server.destroy();
 });
+
+it.each(['throw','reject'] as const)('private receipt observer %s cannot break sync or export private fields',async(mode)=>{
+ const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;const receipts:unknown[]=[];
+ const provider=new WhiteboardProvider(doc,'observer-private-board',value=>{state=value;},null,receipt=>{receipts.push(receipt);if(mode==='reject')return Promise.reject(new Error('private diagnostic failure'));throw new Error('private diagnostic failure');});
+ try{
+  const socket=Socket.sockets[0]!;sync(socket,server);executeCommands(doc,[{type:'create',object:sticky('observer')}],'local');
+  const frame=updates(socket)[0]!;socket.message({type:'ack',updateId:frame.updateId,gestureId:frame.gestureId,seq:1});await Promise.resolve();
+  expect(state?.phase).toBe('online');expect(state?.pending).toBe(0);expect(receipts).toHaveLength(1);
+  const receipt=receipts[0] as Record<string,unknown>;expect(Object.keys(receipt).sort()).toEqual(['gestureId','providerInstance','seq','socketGeneration','updateId']);expect(receipt).toMatchObject({socketGeneration:1,updateId:frame.updateId,gestureId:frame.gestureId,seq:1});expect(Object.isFrozen(receipt)).toBe(true);
+  expect(JSON.stringify(receipt)).not.toContain('test-session');expect(JSON.stringify(receipt)).not.toContain('observer-private-board');
+ }finally{provider.close();doc.destroy();server.destroy();}
+});
+it('private observer ignores stale socket ACKs and identifies actual reconnect receipt generation',async()=>{
+ const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),receipts:Record<string,unknown>[]=[];
+ const provider=new WhiteboardProvider(doc,'observer-reconnect',()=>{},null,receipt=>{receipts.push(receipt);});
+ try{
+  const old=Socket.sockets[0]!;sync(old,server);executeCommands(doc,[{type:'create',object:sticky('reconnect-observer')}],'local');const first=updates(old)[0]!;
+  old.onclose?.({code:1000});await vi.advanceTimersByTimeAsync(500);const current=Socket.sockets[1]!;sync(current,server);
+  old.message({type:'ack',updateId:first.updateId,gestureId:first.gestureId,seq:1});expect(receipts).toEqual([]);
+  current.message({type:'ack',updateId:first.updateId,gestureId:first.gestureId,seq:1});expect(receipts).toHaveLength(1);expect(receipts[0]).toMatchObject({socketGeneration:2,updateId:first.updateId,seq:1});
+ }finally{provider.close();doc.destroy();server.destroy();}
+});
+it('private observer cannot turn mismatched gesture ACK into an accepted receipt',()=>{
+ const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),observe=vi.fn();let state:WhiteboardConnectionState|undefined;
+ const provider=new WhiteboardProvider(doc,'observer-guard',value=>{state=value;},null,observe);
+ try{const socket=Socket.sockets[0]!;sync(socket,server);executeCommands(doc,[{type:'create',object:sticky('guard-observer')}],'local');const frame=updates(socket)[0]!;socket.message({type:'ack',updateId:frame.updateId,gestureId:crypto.randomUUID(),seq:1});expect(observe).not.toHaveBeenCalled();expect(state?.phase).toBe('blocked');expect(state?.reason).toBe('ACK_CONFLICT');}finally{provider.close();doc.destroy();server.destroy();}
+});

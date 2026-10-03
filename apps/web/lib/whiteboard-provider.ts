@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage, type WhiteboardPendingMessage } from '@repo/contracts/whiteboard-sync';
 import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
+import type {WhiteboardReceiptObserver} from './whiteboard-provider-observer';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
   role: 'owner' | 'editor' | 'commenter' | 'viewer'; archived: boolean; epoch?: number | null;
@@ -17,6 +18,8 @@ export function base64ToBytes(value: string): Uint8Array { return Uint8Array.fro
 /** Authenticated realtime transport with an encrypted, bounded IndexedDB outbox when available. */
 export class WhiteboardProvider {
   private socket: WebSocket | null = null;
+  private readonly observationInstance:string|null;
+  private socketGeneration=0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private handshake: ReturnType<typeof setTimeout> | null = null;
   private sessionTimer: ReturnType<typeof setInterval>;
@@ -47,7 +50,8 @@ export class WhiteboardProvider {
   private reconcileQueued=false;
   private reconcileRequested=false;
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, epoch: null, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
-  constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
+  constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null, private readonly receiptObserver?:WhiteboardReceiptObserver) {
+    this.observationInstance=receiptObserver?crypto.randomUUID():null;
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
     this.subscribeOutbox();
     this.peerTimer=setInterval(()=>{
@@ -148,6 +152,11 @@ export class WhiteboardProvider {
       this.publish({ pending: this.pending.length }); this.connect(restored.updates.length ? 'RESTORED_OUTBOX' : null);
     } catch { this.block('OUTBOX_CORRUPT', false); }
   }
+  private observeAcceptedReceipt(receipt:{updateId:string;gestureId:string;seq:number},socketGeneration:number){
+    if(!this.receiptObserver||!this.observationInstance)return;
+    // Observation cannot enter the protocol-error catch or change synchronization.
+    try{void Promise.resolve(this.receiptObserver(Object.freeze({providerInstance:this.observationInstance,socketGeneration,updateId:receipt.updateId,gestureId:receipt.gestureId,seq:receipt.seq}))).catch(()=>undefined);}catch{/* Private optional diagnostics never affect sync. */}
+  }
   private publish(patch: Partial<WhiteboardConnectionState>) { this.state = { ...this.state, ...patch, pending: this.pending.length }; this.onState(this.state); }
   private onUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === REMOTE || this.stopped) return;
@@ -239,7 +248,7 @@ export class WhiteboardProvider {
     this.awaitingReceipt.clear();
     this.ready = false; this.inFlight.clear(); this.publish({ phase: this.epoch ? 'offline' : 'connecting', reason, retryAttempt: this.retry });
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
-    this.socket = socket;
+    this.socket = socket;const socketGeneration=++this.socketGeneration;
     const handshake=setTimeout(()=>{if(!this.stopped&&this.socket===socket)socket.close();},10000);this.handshake=handshake;
     socket.onopen = () => {if(this.stopped||this.socket!==socket)return;socket.send(JSON.stringify({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), ...(this.epoch && this.seq !== null ? { resume: { epoch: this.epoch, seq: this.seq } } : {}) }));};
     let reauthorizing=false,cancelled=false,deferredBytes=0;const deferredMessages:MessageEvent[]=[];
@@ -298,6 +307,7 @@ export class WhiteboardProvider {
               this.acked.add(receiptKey);
               while(this.acked.size>WHITEBOARD_SYNC.pendingUpdates)this.acked.delete(this.acked.values().next().value!);
               this.publish({lastAckSequence:message.seq,lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq}});
+              this.observeAcceptedReceipt(message,socketGeneration);
               return;
             }
             if (this.acked.has(receiptKey)) { this.publish({ duplicateAcks: this.state.duplicateAcks + 1 }); return; }
@@ -308,6 +318,7 @@ export class WhiteboardProvider {
           if (this.outbox) void this.queuePersistence(async()=>{const token=this.token;if(!token)throw new Error('SESSION_CHANGED');await this.outbox!.acknowledge(token,message.updateId);}).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
           while (this.acked.size > WHITEBOARD_SYNC.pendingUpdates) this.acked.delete(this.acked.values().next().value!);
           this.publish({ lastAckSequence: message.seq, lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq} });
+          this.observeAcceptedReceipt(message,socketGeneration);
           this.drain(); if (!this.pending.length) this.schedulePresence();
         } else if (message.type === 'recovery') {
           if (message.disposition === 'access-revoked') { this.block('ACCESS_REVOKED'); return; }

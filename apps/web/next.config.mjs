@@ -1,3 +1,4 @@
+import {boardProviderReceiptBuild} from './e2e/support/board-provider-receipt-build.mjs';
 import { cpSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,6 +86,13 @@ export default {
    * （`globals.css` 已引入的那份，见其头注）是完全独立的另一个包/文件，不受影响。
    */
   webpack(config, { webpack, isServer }) {
+    const receiptBuild=boardProviderReceiptBuild(process.env);
+    if(receiptBuild){
+      // Replace only the no-op observer dependency; actual provider/host code remains unchanged.
+      config.plugins.push(new webpack.NormalModuleReplacementPlugin(/^\.\.\/\.\.\/lib\/whiteboard-provider-observer$/,join(__dirname,'e2e/support/board-provider-receipt-adapter.ts')));
+      config.plugins.push(new webpack.DefinePlugin({'process.env.WSX_BOARD_RECEIPT_BINDING':JSON.stringify(receiptBuild.binding),'process.env.WSX_BOARD_RECEIPT_MARKER':JSON.stringify(receiptBuild.marker)}));
+    }
+
     /**
      * #2926: `@copilotkit/runtime/v2` currently depends on
      * `@ai-sdk/google-vertex@3.x`, whose latest compatible
