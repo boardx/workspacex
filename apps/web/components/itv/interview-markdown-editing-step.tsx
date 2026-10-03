@@ -156,6 +156,14 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
         const savedExperts = current.documents.find((item) => item.step === "experts");
         receive(await saveInterviewMarkdown(interviewId, "experts", { markdown: nextMarkdown, expectedVersion: current.version, expectedDocumentVersion: savedExperts?.version ?? 0 }));
         setMarkdown(nextMarkdown); dirty.current = false; callbacks.current.onDirtyChange(false);
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 409) {
+          // Keep the dialog fields, but rebase its next explicit save on the
+          // current canonical selection and CAS versions, not the stale draft.
+          const latest = receive(await loadInterviewMarkdown(interviewId));
+          setMarkdown(latest.documents.find((item) => item.step === "experts")?.markdown ?? "");
+        }
+        throw cause;
       } finally { setPending(false); }
     },
     onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }),
