@@ -52,16 +52,26 @@ function verifyCaptureArtifact(raw,expected,artifactSha256,factsSha256){
  return {capture,facts:verifyCapture(capture,expected,factsSha256)};
 }
 function compare(source,target,expected){assert(expected&&expected.source.side==='source'&&expected.target.side==='target'&&expected.source.attemptId===expected.target.attemptId&&expected.source.backupReceiptSha256===expected.target.backupReceiptSha256&&expected.source.instanceId!==expected.target.instanceId,'PAIR_BINDING');const mapping=expected.databaseMapping;assert(mapping&&mapping.source===expected.source.database&&mapping.target===expected.target.database,'DATABASE_MAPPING');const s=verifyCapture(source,expected.source,expected.sourceCatalogSha256),t=verifyCapture(target,expected.target,expected.targetCatalogSha256);assert(JSON.stringify(s)===JSON.stringify(t),'MISMATCH');return {schemaVersion:1,scope:'restore-catalog-only',attemptId:expected.source.attemptId,backupReceiptSha256:expected.source.backupReceiptSha256,sourceBindingSha256:source.bindingSha256,targetBindingSha256:target.bindingSha256,sourceCatalogSha256:source.catalogSha256,targetCatalogSha256:target.catalogSha256,sqlSha256,catalogEquivalent:true,rowDataVerified:false,productionMutationAuthorized:false};}
-async function captureExistingRestoreTransaction(client,expected,requiredRoles,transactionStatus){
+async function verifyBorrowedTransport(client,expected,verifyTransport){
+ const peer=client.connection?.stream;
+ assert(peer&&hash(String(peer.remoteAddress).replace(/^::ffff:/,''))===expected.peerSha256&&peer.remotePort===expected.port,'RESTORE_TRANSPORT_PEER');
+ if(peer.encrypted===true&&peer.authorized===true)return;
+ // Only the existing host-owned callback can revalidate the protected profile,
+ // configuration/provider inputs and this same actual socket. No request flag.
+ assert(typeof verifyTransport==='function','RESTORE_EXISTING_TRANSPORT_AUTHORITY');
+ const bound=await verifyTransport();
+ assert(bound?.tls?.ssl===false&&bound.transport?.sslMode==='disable'&&/^[a-f0-9]{64}$/.test(bound.transport.configurationSha256)&&/^[a-f0-9]{64}$/.test(bound.transport.providerEvidenceSha256)&&bound.role===expected.username&&bound.peer.database===expected.database&&bound.socket.remoteAddress===peer.remoteAddress&&bound.socket.remotePort===peer.remotePort&&bound.socket.localAddress===peer.localAddress&&peer.localAddress==='192.168.100.40'&&bound.socket.encrypted===false&&bound.socket.authorized===false&&peer.encrypted!==true&&peer.authorized!==true,'RESTORE_EXISTING_TRANSPORT_PROOF');
+}
+async function captureExistingRestoreTransaction(client,expected,requiredRoles,transactionStatus,verifyTransport){
  const b=binding(expected);assert(b.side==='target','RESTORE_TARGET_BINDING');
  assert(typeof transactionStatus==='function'&&transactionStatus()==='T','RESTORE_TRANSACTION_REQUIRED');
  assert(Array.isArray(requiredRoles)&&requiredRoles.length>0&&requiredRoles.every(r=>typeof r==='string'&&r.length>0),'ROLE_SCOPE');
- const peer=client.connection?.stream;assert(peer&&peer.encrypted===true&&peer.authorized===true&&hash(String(peer.remoteAddress).replace(/^::ffff:/,''))===b.peerSha256&&peer.remotePort===b.port,'RESTORE_TLS_TRANSPORT');
- const check=async()=>{const rows=(await client.query(identitySql)).rows;assert(rows.length===1&&rows[0].database===b.database&&rows[0].username===b.username&&rows[0].readonly==='off'&&rows[0].isolation==='repeatable read'&&transactionStatus()==='T','RESTORE_SQL_IDENTITY');};
+ await verifyBorrowedTransport(client,b,verifyTransport);
+ const check=async()=>{await verifyBorrowedTransport(client,b,verifyTransport);const rows=(await client.query(identitySql)).rows;assert(rows.length===1&&rows[0].database===b.database&&rows[0].username===b.username&&rows[0].readonly==='off'&&rows[0].isolation==='repeatable read'&&transactionStatus()==='T','RESTORE_SQL_IDENTITY');};
  await check();await client.query("SET LOCAL search_path='pg_catalog'");
  const facts=await collectFacts(client,requiredRoles);await check();
  // This capture deliberately does not BEGIN/ROLLBACK/COMMIT or close the borrowed client.
  // It is not an independent read-only capture receipt and cannot enter verifyCapture().
  return {schemaVersion:1,kind:'existing-restore-transaction-catalog',binding:b,bindingSha256:hash(JSON.stringify(b)),sqlSha256,facts,catalogSha256:hash(JSON.stringify(facts)),readOnlyQueries:true,transactionOwner:'existing-session-restore',rollbackComplete:false};
 }
-module.exports={QUERIES,identitySql,sqlSha256,capture,captureExistingRestoreTransaction,compare,canonical,hash,binding,verifyCaptureArtifact};
+module.exports={verifyBorrowedTransport,QUERIES,identitySql,sqlSha256,capture,captureExistingRestoreTransaction,compare,canonical,hash,binding,verifyCaptureArtifact};

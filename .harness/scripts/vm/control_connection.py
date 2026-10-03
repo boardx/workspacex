@@ -1,8 +1,17 @@
-"""Persistent TLS control helper protocol; import has no side effects.
+"""Persistent protected-transport control helper protocol; import has no side effects.
 Helper must retain one PostgreSQL client until close and report connection identity.
 """
 import json,hashlib,subprocess,selectors,time
 from writer_fence import require
+def verify_bound_transport(plan,db,mode,binding):
+ """Check a source-plan-bound helper result; only the pinned Node helper proves provider/config/socket authority."""
+ auth=plan.get('connectionTransportAuthorizations',{}).get(db,{}).get(mode)
+ if auth is None:
+  require(binding.get('tls',{}).get('ssl') is True,'BOUND_SESSION_TLS');return True
+ source=auth.get('source',{});socket=binding.get('socket',{});now=time.time()
+ require(auth.get('identity')==plan['identity'] and auth.get('toolRevision')==plan['toolRevision'] and auth.get('kind')=='existing-production-maintenance-transport' and source.get('database')==db and source.get('user')==binding.get('role') and source.get('sslMode')=='disable' and type(auth.get('notBefore')) in (int,float) and type(auth.get('expiresAt')) in (int,float) and auth['notBefore']<=now<auth['expiresAt'] and auth['expiresAt']-auth['notBefore']<=3600,'BOUND_SESSION_AUTHORITY')
+ require(binding.get('tls',{}).get('ssl') is False and binding.get('transport')=={'sslMode':'disable','configurationSha256':source.get('configurationSha256'),'providerEvidenceSha256':source.get('providerEvidenceSha256')} and socket.get('encrypted') is False and socket.get('authorized') is False and socket.get('localAddress')=='192.168.100.40' and hashlib.sha256(socket.get('remoteAddress','').encode()).hexdigest()==source.get('clientPeerAddressSha256') and socket.get('remotePort')==source.get('clientPeerPort'),'BOUND_SESSION_OBSERVED_PROOF')
+ return False
 class PersistentControlConnection:
  def __init__(self,plan,db,spawn=None,read_private=None,runtime_inventory=None,mode="control",bootstrap=False):
   from host_transport import private,SAFE_ENV
@@ -11,7 +20,16 @@ class PersistentControlConnection:
   require(hashlib.sha256(raw).hexdigest()==spec['sha256'],'CONTROL_HELPER_PIN')
   require(db in plan['databasePeers'],'CONTROL_DATABASE')
   require(mode in ('control','diagnostic'),'CONNECTION_MODE');self.mode=mode;probe=plan['controlProbe' if mode=='control' else 'databaseProbe']
-  read_private(probe['serviceFile']);read_private(probe['caFile'],0o644)
+  auth=plan.get('connectionTransportAuthorizations',{}).get(db,{}).get(mode)
+  if plan.get('connectionTransportAuthorizations') is not None:
+   require(set(plan['connectionTransportAuthorizations'])==set(plan['databasePeers']) and all(set(v)=={'control','diagnostic'} for v in plan['connectionTransportAuthorizations'].values()),'CONTROL_TRANSPORT_DATABASE_MODE_CLOSURE')
+   require(auth and auth.get('identity')==plan['identity'] and auth.get('toolRevision')==plan.get('toolRevision') and auth.get('source',{}).get('database')==db and auth.get('source',{}).get('sslMode')=='disable','CONTROL_TRANSPORT_PLAN_BINDING')
+  read_private(probe['serviceFile'])
+  if auth is None:read_private(probe['caFile'],0o644)
+  else:
+   require(auth.get('configurationPath')=='/etc/workspacex-cn/maintenance-host/'+plan['identity']['sourceRevision']+'/'+plan['identity']['attemptId']+'/approved-baseline-deployment.json','CONTROL_TRANSPORT_CONFIG_PATH')
+   require(hashlib.sha256(read_private(auth['configurationPath'])).hexdigest()==auth.get('configurationSha256')==auth['source'].get('configurationSha256'),'CONTROL_TRANSPORT_CONFIG_PIN')
+   require(hashlib.sha256(read_private('/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs',0o700)).hexdigest()==auth.get('librarySha256'),'CONTROL_TRANSPORT_LIBRARY_PIN')
   self.plan=plan;self.db=db;self.sequence=0;self.binding=None;self.read_private=read_private
   runtime=plan['controlRuntime'];node=read_private(runtime['nodePath'],0o755)
   require(hashlib.sha256(node).hexdigest()==runtime['nodeSha256'],'CONTROL_NODE_PIN')
@@ -35,9 +53,13 @@ class PersistentControlConnection:
    os.fstat(9);recovery_descriptors=(9,)
   self.process=(spawn or subprocess.Popen)([runtime['nodePath'],spec['path'],'--persistent-control-json'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,pass_fds=recovery_descriptors)
   try:
-   hello=self.request({'operation':'connect','toolRevision':plan.get('toolRevision'),'migrationAuthorization':plan.get('migrationAuthorization'),'recoveryAuthorization':plan.get('recoveryAuthorization'),'diagnosticRole':plan['diagnosticRole'],'roleTargets':plan['databaseWriterRoles'][db],'database':db,'mode':mode,'serviceFile':probe['serviceFile'],'caFile':probe['caFile'],'sslMode':'verify-full','applicationName':'wsx-maintenance-'+mode+'-'+plan['identity']['attemptId'],'identity':plan['identity']},bind=False)
+   hello=self.request({'operation':'connect','toolRevision':plan.get('toolRevision'),'migrationAuthorization':plan.get('migrationAuthorization'),'recoveryAuthorization':plan.get('recoveryAuthorization'),'diagnosticRole':plan['diagnosticRole'],'roleTargets':plan['databaseWriterRoles'][db],'database':db,'mode':mode,'serviceFile':probe['serviceFile'],'caFile':probe['caFile'],'sslMode':'disable' if auth else 'verify-full',**({'connectionTransport':auth} if auth else {}),'applicationName':'wsx-maintenance-'+mode+'-'+plan['identity']['attemptId'],'identity':plan['identity']},bind=False)
    binding=hello['connection'];expected=plan['controlSessions' if mode=='control' else 'diagnosticSessions'][db] if not bootstrap else binding
-   require(binding==expected and binding['peer']==plan['databasePeers'][db] and binding['tls']['ssl'] is True and (binding['role'] in plan['databaseWriterRoles'][db] if mode=='control' else binding['role']==plan['diagnosticRole']) and type(binding['pid']) is int and binding['pid']>1,'CONTROL_CONNECTION_IDENTITY')
+   require(binding==expected and binding['peer']==plan['databasePeers'][db] and binding['tls']['ssl'] is (auth is None) and (binding['role'] in plan['databaseWriterRoles'][db] if mode=='control' else binding['role']==plan['diagnosticRole']) and type(binding['pid']) is int and binding['pid']>1,'CONTROL_CONNECTION_IDENTITY')
+   if auth:
+    source=auth['source'];socket=binding.get('socket',{})
+    require(binding.get('transport')=={'sslMode':'disable','configurationSha256':source['configurationSha256'],'providerEvidenceSha256':source['providerEvidenceSha256']} and socket.get('encrypted') is False and socket.get('authorized') is False and socket.get('localAddress')=='192.168.100.40' and hashlib.sha256(socket.get('remoteAddress','').encode()).hexdigest()==source['clientPeerAddressSha256'] and socket.get('remotePort')==source['clientPeerPort'],'CONTROL_TRANSPORT_OBSERVED_BINDING')
+   verify_bound_transport(plan,db,mode,binding)
    if mode=='control':require(hello.get('capabilities')=={'catalogLockAuthority':True,'alterRoleAuthority':True},'CONTROL_ROLE_CAS_CAPABILITY')
    self.binding=binding
   except BaseException:self.close();raise
@@ -61,7 +83,7 @@ class PersistentControlConnection:
    return value
   finally:selector.close()
  def query(self,query_id):
-  require(self.mode=='diagnostic' and query_id in ('roles','sessions','migration-ledger'),'DIAGNOSTIC_QUERY_AUTHORITY')
+  require(self.mode=='diagnostic' and query_id in ('roles','sessions','migration-ledger','run-drain'),'DIAGNOSTIC_QUERY_AUTHORITY')
   return self.request({'operation':'query','queryId':query_id})['value']
  def migrate_exact_plan(self,identity):
   require(self.mode=='control' and identity==self.plan['identity'],'MIGRATION_EXISTING_SESSION_IDENTITY')

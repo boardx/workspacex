@@ -91,12 +91,12 @@ async function restoreExistingSession({client,Query,identity,binding,transaction
   const failure=Error('RESTORE_EXISTING_SESSION_FAILED');failure.recovery={committed,commitAttempted,commitOutcomeUnknown:commitAttempted&&!committed,rollbackConfirmed,decoderCleanupConfirmed,holdMustRemain:true};throw failure;
  }
 }
-async function verifyCatalogOnExistingRestore(client,{sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256,targetBinding,recoveryIdentity,databaseMapping,requiredRoles,transactionStatus}){
+async function verifyCatalogOnExistingRestore(client,{sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256,targetBinding,recoveryIdentity,databaseMapping,requiredRoles,transactionStatus,verifyTransport}){
  proof(recoveryIdentity?.sourceRevision==='9b25bfa65662b96c0826fe67506b562ea46aa6d0'&&recoveryIdentity?.baselineRevision==='ba6343199f3c834d6a198f83d0c771614292c82b'&&recoveryIdentity?.attemptId===targetBinding.attemptId,'RESTORE_CATALOG_RECOVERY_IDENTITY');
  const catalog=require('./cn-production-recovery-catalog.cjs');
  const source=catalog.verifyCaptureArtifact(sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256);
  proof(databaseMapping?.source===sourceBinding.database&&databaseMapping?.target===targetBinding.database&&sourceBinding.side==='source'&&targetBinding.side==='target'&&sourceBinding.backupReceiptSha256===targetBinding.backupReceiptSha256,'RESTORE_CATALOG_PAIR_BINDING');
- const target=await catalog.captureExistingRestoreTransaction(client,targetBinding,requiredRoles,transactionStatus);
+ const target=await catalog.captureExistingRestoreTransaction(client,targetBinding,requiredRoles,transactionStatus,verifyTransport);
  proof(canonical(source.facts)===canonical(target.facts),'RESTORE_CATALOG_MISMATCH');
  return {scope:'existing-restore-transaction-catalog-only',sourceCatalogSha256,targetCatalogSha256:target.catalogSha256,catalogEquivalent:true,rowDataVerified:false,transactionStillOpen:true,productionMutationAuthorized:false};
 }

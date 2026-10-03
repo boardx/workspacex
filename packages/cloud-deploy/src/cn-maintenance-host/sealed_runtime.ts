@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { closeSync, fstatSync } from 'node:fs';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import { protectedPrivateJson, protectedExecutable, type TrustedExecutable, type CommandResult } from './fixed_transport';
+import { verifyExistingMaintenanceTransport } from './migration_library';
 import { writerCallbacks, type HostBinding } from './controller';
 const databases = ['workspacex','workspacex_agent','workspacex_memory'];
 function requireProof(ok: unknown,code: string): asserts ok { if(!ok)throw new Error(code); }
@@ -10,6 +11,16 @@ const asciiJson=(value:unknown):string=>JSON.stringify(value).replace(/[\u007f-\
 function canonical(value: any): string {if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>asciiJson(k)+':'+canonical(value[k])).join(',')+'}';return asciiJson(value);}
 export const runtimeDigest=(value: unknown): string=>createHash('sha256').update(canonical(value)).digest('hex');
 const equal=(a:unknown,b:unknown)=>canonical(a)===canonical(b);
+/** A sealed plaintext session is valid only through the protected per-session
+ * authority already enforced by the pinned helper, never a TLS boolean opt-out. */
+export function verifySealedSessionTransport(session:any,authority:any,identity:MaintenanceIdentity,toolRevision:string):void {
+ if(authority===undefined){requireProof(session.tls?.ssl===true,'SEALED_RUNTIME_SESSION_TLS');return;}
+ const now=Date.now()/1000;
+ requireProof(authority.schemaVersion===1&&authority.kind==='existing-production-maintenance-transport'&&equal(authority.identity,identity)&&authority.toolRevision===toolRevision&&authority.source?.sslMode==='disable'&&authority.configurationPath===`/etc/workspacex-cn/maintenance-host/${identity.sourceRevision}/${identity.attemptId}/approved-baseline-deployment.json`&&authority.configurationSha256===authority.source.configurationSha256&&Number.isFinite(authority.notBefore)&&Number.isFinite(authority.expiresAt)&&authority.expiresAt-authority.notBefore<=3600&&authority.notBefore<=now&&now<authority.expiresAt,'SEALED_RUNTIME_TRANSPORT_AUTHORITY');
+ requireProof(session.tls?.ssl===false&&session.socket?.localAddress==='192.168.100.40','SEALED_RUNTIME_SESSION_TRANSPORT');
+ const proof=verifyExistingMaintenanceTransport(authority,{database:session.peer.database,user:session.role,serverAddress:session.peer.serverAddr,serverPort:session.peer.serverPort,...session.socket});
+ requireProof(equal(session.transport,proof),'SEALED_RUNTIME_TRANSPORT_PROOF');
+}
 export interface RuntimeExpected {
  identity: MaintenanceIdentity; toolRevision: string; sourcePlanPath: string; sourcePlanSha256: string; sourcePlan: Record<string,any>;
 }
@@ -33,7 +44,7 @@ export function parseProtectedRuntimePlan(value:unknown,expected:RuntimeExpected
  if(expected.sourcePlan.holdGenerationPolicy==='bind-held-at-runtime')delete base.holdGeneration;
  requireProof(equal(source,base),'SEALED_RUNTIME_UNAPPROVED_CHANGE');
  for(const mode of ['control','diagnostic'] as const){const sessions=p[mode+'Sessions'];requireProof(sessions&&Object.keys(sessions).sort().join(',')===[...databases].sort().join(','),'SEALED_RUNTIME_DATABASE_SET');
-  for(const db of databases){const session=sessions[db];requireProof(session&&equal(session.peer,expected.sourcePlan.databasePeers[db])&&session.tls?.ssl===true&&Number.isSafeInteger(session.pid)&&session.pid>1&&typeof session.backendStart==='string'&&session.backendStart.length>0&&typeof session.clientAddr==='string','SEALED_RUNTIME_SESSION_IDENTITY');requireProof(mode==='diagnostic'?session.role===expected.sourcePlan.diagnosticRole:expected.sourcePlan.databaseWriterRoles[db].includes(session.role),'SEALED_RUNTIME_SESSION_ROLE');if(mode==='diagnostic')requireProof(session.clientAddr===p.diagnosticClientAddress,'SEALED_RUNTIME_DIAGNOSTIC_ADDRESS');}
+  for(const db of databases){const session=sessions[db];requireProof(session&&equal(session.peer,expected.sourcePlan.databasePeers[db])&&Number.isSafeInteger(session.pid)&&session.pid>1&&typeof session.backendStart==='string'&&session.backendStart.length>0&&typeof session.clientAddr==='string','SEALED_RUNTIME_SESSION_IDENTITY');verifySealedSessionTransport(session,expected.sourcePlan.connectionTransportAuthorizations?.[db]?.[mode],expected.identity,expected.toolRevision);requireProof(mode==='diagnostic'?session.role===expected.sourcePlan.diagnosticRole:expected.sourcePlan.databaseWriterRoles[db].includes(session.role),'SEALED_RUNTIME_SESSION_ROLE');if(mode==='diagnostic')requireProof(session.clientAddr===p.diagnosticClientAddress,'SEALED_RUNTIME_DIAGNOSTIC_ADDRESS');}
  }
  requireProof(v.sessionsSha256===runtimeDigest({control:p.controlSessions,diagnostic:p.diagnosticSessions}),'SEALED_RUNTIME_SESSION_DIGEST');
  const process=v.processIdentity;requireProof(process?.kind==='process'&&process.uid===0&&Number.isSafeInteger(process.pid)&&process.pid>1&&Number.isSafeInteger(process.startTicks)&&process.startTicks>0&&typeof process.exe==='string'&&process.exe.startsWith('/')&&/^[a-f0-9]{64}$/.test(process.exeSha256),'SEALED_RUNTIME_PROCESS_IDENTITY');

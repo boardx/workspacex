@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "3ca447abe64bf01b6c3899b4758fa3290c379c0cac16da95696d5096bcf784bf",
+  "sourceInventorySha256": "4c469518a12fe3182baa57d9f203063048ae22ce73c3ef3f62f74646ba4cad84",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,13 +13,18 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "ecf2b01ce84b088cd4f4cfa84a2b40a1828474075953c1819f584e0b617cac0e",
-      "bytes": 1541
+      "sha256": "f52c57bc9be8080d4e1cbbf5488c40a652bf26810dd8395b9e9160b9aed08b3d",
+      "bytes": 1578
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
       "sha256": "98c9b635ae61b8401aa10e26be5ba50a43a4dfe3db47932a26da065731f2bbb7",
       "bytes": 8771
+    },
+    {
+      "path": ".harness/scripts/vm/candidate_writer.py",
+      "sha256": "e0ff42cc6e6c46f584cb26e80bde4c7814d4b14a305ec70cac7ce38b107f9a64",
+      "bytes": 19009
     },
     {
       "path": ".harness/scripts/vm/cn-build-tool-identity.py",
@@ -73,8 +78,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-host-controller.cjs",
-      "sha256": "639efaea1be6d6b4de9f964a93934ca08c3e3051bb4cc4e4d56579bd7a14a6b5",
-      "bytes": 232076
+      "sha256": "9d6e5a5bc9285c35bc0449596884084f7de5ea3b7c98beea3ae09164b44ac876",
+      "bytes": 237529
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-host-launcher.py",
@@ -93,8 +98,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-migration-snapshot-query.cjs",
-      "sha256": "c1b4e4c4d3ebb9faf1478b310ea00f18f53442c3520b841ecf3d19f7786e480e",
-      "bytes": 188919
+      "sha256": "30e68ac46cafaa973c88fc9f5e08e17e3457dd7844912c744bff26ac4244bc71",
+      "bytes": 192828
     },
     {
       "path": ".harness/scripts/vm/cn-production-bootstrap.test.ts",
@@ -108,8 +113,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-production-recovery-catalog.cjs",
-      "sha256": "a6335ac0da144827a3a58708408bc57dfdcceed52316638a502d11370522376a",
-      "bytes": 16841
+      "sha256": "5e7c86740531ba675f886aaacc793e5f69445160411644ead81b3a082fb9363d",
+      "bytes": 17973
     },
     {
       "path": ".harness/scripts/vm/cn-production-recovery-executor.py",
@@ -118,8 +123,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-production-recovery-fidelity.cjs",
-      "sha256": "0c2031f505a9f7929f3102a8a96f69cdde1373633cc88bba6e3d87afc4391180",
-      "bytes": 14604
+      "sha256": "f8936775460d233871e5453c20deb32f7740f690c152a95bc152ce345e745afd",
+      "bytes": 15004
     },
     {
       "path": ".harness/scripts/vm/cn-production-recovery-readback.cjs",
@@ -238,8 +243,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn_restore_catalog_test.cjs",
-      "sha256": "c7c3ed503e9c06100df55e8ec840770f26ab80f35e4b809f4e950251c4fca15d",
-      "bytes": 12373
+      "sha256": "0c8fa3e7c33685abf262577e3745a4fd70aa8f81008c74cd6bef5dcf4f9dd6f5",
+      "bytes": 13491
     },
     {
       "path": ".harness/scripts/vm/cn_restore_objects.cjs",
@@ -288,8 +293,8 @@
     },
     {
       "path": ".harness/scripts/vm/control_connection.cjs",
-      "sha256": "6409dc0ca1f99a4060f59b73cd07c4fbb26c4e7837ef445720c4d84a07e04394",
-      "bytes": 21261
+      "sha256": "50c6487594643602ffc3f135bf710be534143c827ae7469e1b183c9178c12dea",
+      "bytes": 25925
     },
     {
       "path": ".harness/scripts/vm/control_connection.d.cts",
@@ -298,8 +303,8 @@
     },
     {
       "path": ".harness/scripts/vm/control_connection.py",
-      "sha256": "0f111b27182c22d64f43e7125400f1b837d94f142bc55a02ec2267c902873b39",
-      "bytes": 7181
+      "sha256": "b2286f77c538bd484944c87a8bc5ff28369e0b42b075f4729092c2c53b0af8ef",
+      "bytes": 10605
     },
     {
       "path": ".harness/scripts/vm/deploy-cn-production.sh",
@@ -308,13 +313,13 @@
     },
     {
       "path": ".harness/scripts/vm/existing_fidelity_session_test.cjs",
-      "sha256": "2a4b2e68c6941e23c8a1a3076355469f1556bbf597df23f5d577bc89a2f23409",
-      "bytes": 4939
+      "sha256": "da24f0447b36ae8fd61c4cc69c6549cd4c1cbe19371cdbc8f92be60d60787cdc",
+      "bytes": 6035
     },
     {
       "path": ".harness/scripts/vm/existing_session_restore.cjs",
-      "sha256": "092a977b16a159fd895d070a5072624c2189fc3d7948a2feb67fccee547398ff",
-      "bytes": 8877
+      "sha256": "e37aa2a690f38a8030a4c9a13baf8b98bce813174411dc595ffb3da24a996bb9",
+      "bytes": 8909
     },
     {
       "path": ".harness/scripts/vm/existing_session_restore_test.cjs",
@@ -323,8 +328,8 @@
     },
     {
       "path": ".harness/scripts/vm/fixed_probes.py",
-      "sha256": "c8dc5bc2ad4ed02b1e00e5fa7a9701a203a207aa093ac019a1ff087b20a34ea7",
-      "bytes": 11399
+      "sha256": "a670b78924663f6e9cb9ac049cb32194dabc302f547f318fc10ff8d74357f5ff",
+      "bytes": 12153
     },
     {
       "path": ".harness/scripts/vm/fixtures/collect-cn-release-preflight.merge64cc.json",
@@ -378,13 +383,18 @@
     },
     {
       "path": ".harness/scripts/vm/retained_session_recovery.cjs",
-      "sha256": "7c48966a9da3dc02b112649478760548a8ee280bae507113cc0cbe1033ba055d",
-      "bytes": 16981
+      "sha256": "bfc0e3f8530b8b2b0481d29edfe151a92517be5ef121ac4ad89e6d916d9700a0",
+      "bytes": 17651
     },
     {
       "path": ".harness/scripts/vm/retained_session_recovery_test.cjs",
-      "sha256": "c28d881c2aff4585f8720516867d2e8929dff5973f6eae45e2e0d475e7f9990f",
-      "bytes": 9960
+      "sha256": "e693aa0c0cce4499847dd02dcabf6047345f65a00553eea64da473c36363157a",
+      "bytes": 11079
+    },
+    {
+      "path": ".harness/scripts/vm/test_candidate_writer.py",
+      "sha256": "e6d01e12ab4f51946c526ad1ff135b6dae81270b5f10724e364db76ae4faeabb",
+      "bytes": 13391
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.cjs",
@@ -393,13 +403,18 @@
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.py",
-      "sha256": "fced8bf659dfe6cc43e99a81d304a9e8c69f9a9da1a4b8542ba7d8aad05c78f4",
-      "bytes": 2892
+      "sha256": "23e59d6f72e7839f97081f0d30e7771dee5ff9b8024e97146a5d4d70a018e780",
+      "bytes": 5493
+    },
+    {
+      "path": ".harness/scripts/vm/test_control_transport.cjs",
+      "sha256": "0983248ec53da98f7563018f7431a12b66e563d9da7982a25655e3b7c37147a7",
+      "bytes": 6352
     },
     {
       "path": ".harness/scripts/vm/test_fixed_probes.py",
-      "sha256": "30717b147084168ba860a8fcf07ede86ae1d38a2ca4bd06d490ebca2b65b4ac9",
-      "bytes": 6722
+      "sha256": "17c4b4b9c4399e21966542aeb2ac59d61a6b21711f5bd1eddd9ad6c504a71b97",
+      "bytes": 9307
     },
     {
       "path": ".harness/scripts/vm/test_host_transport.py",
@@ -463,8 +478,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "f532faee970ec7d41e3c9ff9cc1a109e0f7eac23503ca61592a65082c6b93d61",
-      "bytes": 14092
+      "sha256": "e1fa4677697e8cf28b4cf3a93388f35071041bddb309bb44cec7542c0ba3b72b",
+      "bytes": 17179
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -473,13 +488,23 @@
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-read-access-approval.md",
-      "sha256": "db990b3945abb0638873777441c214551d6466343567479bc15f601ff04503af",
-      "bytes": 7156
+      "sha256": "8f5f1c14610527457117ba042512b365fccc54eafb09bb89d35831e8080cadd7",
+      "bytes": 9975
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-source-inventory.json",
       "sha256": "7a55ceece6e53a64482b6587ec2e47b26d98acce07f5d653325d80e10cc609eb",
       "bytes": 89048
+    },
+    {
+      "path": "deploy/aliyun/cn-release-backup-authority-preflight.json",
+      "sha256": "edde4d30956c6cafad35ddaddfc04f348e77ef2d759a1972e878b81ef1ada268",
+      "bytes": 3736
+    },
+    {
+      "path": "deploy/aliyun/cn-release-backup-public-acl-detail.json",
+      "sha256": "b64e3164d64ce91cddc7601ccf028aa72ee7dc89e4a5ab98485b915167f100d7",
+      "bytes": 3311
     },
     {
       "path": "deploy/aliyun/cn-release-existing-backup-capability.json",
@@ -563,8 +588,8 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/maintenance_transport_test.ts",
-      "sha256": "170178b8bad1b27a6198f6c58da973cab4f362781f7b94130d675e1af4169d77",
-      "bytes": 3711
+      "sha256": "8bcd243799793b006da50be760f4d86d0a41aaf6767e3def4a8f51b8cc036d6a",
+      "bytes": 5422
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/migration_library.ts",
@@ -658,8 +683,8 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime.ts",
-      "sha256": "9173fcb9823be79ec67b27735185ce158310135036d5f8b9d9b92ddfb48efe77",
-      "bytes": 17267
+      "sha256": "aa8b420bde47573c8736d453080a0bb0a85cff42d5d4f92af6113df1d7b38cff",
+      "bytes": 18946
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime_test.ts",
@@ -732,11 +757,12 @@
   "newToolRevision": null,
   "ready": false,
   "remainingImplementation": [
-    "production A-route adapter/current-epoch producer and candidate writer activation remain incomplete",
-    "backup identity exact effective readonly/RLS privileges require user decision and fresh exact grant/revoke plan",
-    "existing Serverless protected exception compatibility consumers remain unwired and fail closed",
-    "held diagnostic preactivate consumer remains incomplete",
-    "real current-epoch isolated restore and candidate core-flow acceptance are unexecuted"
+    "full protected production A-route adapter and current-epoch snapshot/restore/acceptance producer remain incomplete",
+    "exact protected existingProductionTransport descriptor preparation and installation binding remain incomplete",
+    "candidate host proof/reopen/reblock callbacks and dynamic backend identity sealing remain incomplete",
+    "backup role is approved but original strict no-TEMP scope is incompatible with existing PUBLIC ACL; no role/grants/credentials created",
+    "five PUBLIC SECURITY DEFINER runtime bodies require exact capability verification",
+    "held preactivate/candidate startup and true production acceptance remain incomplete"
   ],
   "remainingExecution": [
     "exact reviewed merged tool revision and fresh complete host/runtime inventory",

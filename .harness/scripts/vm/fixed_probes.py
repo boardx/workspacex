@@ -1,6 +1,7 @@
 """Fixed maintenance probes. No caller-selected executables or privileged actions on import."""
 import os,json,time,pathlib,hashlib,re,urllib.request
 from writer_fence import require,digest,DATABASES,Journal,validate_admission_plan
+from control_connection import verify_bound_transport
 HOLD_HELPER='/usr/local/lib/workspacex-cn/cn_maintenance_hold.py'
 HOLD_DIRECTORY='/var/lib/workspacex-cn/runtime'
 PROFILE='/etc/workspacex-cn/trusted-tool-binding.json'
@@ -23,7 +24,11 @@ def classify_processes(plan,processes,self_pid):
 
 def validate_roles(plan,db,observation):
  validate_admission_plan(plan)
- require(observation['peer']==plan['databasePeers'][db] and observation['tls']['ssl'] is True,'ROLE_PEER_TLS')
+ expected_tls=True
+ if plan.get('connectionTransportAuthorizations') is not None:
+  bound=plan['diagnosticSessions'][db];expected_tls=verify_bound_transport(plan,db,'diagnostic',bound)
+  require(observation['selfPid']==bound['pid'] and observation['currentRole']==bound['role'],'ROLE_EXISTING_SESSION_BINDING')
+ require(observation['peer']==plan['databasePeers'][db] and observation['tls']['ssl'] is expected_tls,'ROLE_PEER_TLS')
  require(observation['currentRole']==plan['diagnosticRole'] and all(v is False for v in observation['diagnosticPrivileges'].values()) and set(observation['diagnosticPrivileges'])=={'databaseWrite','schemaWrite','tableWrite','sequenceWrite','definerExecute','privilegedMembership'},'DIAGNOSTIC_EFFECTIVE_WRITE_PRIVILEGE')
  roles=observation['roles'];require(len({r['name'] for r in roles})==len(roles),'ROLE_INVENTORY_DUPLICATE')
  writers=set(plan['databaseWriterRoles'][db]);allnames={r['name'] for r in roles};require(writers<=allnames and plan['diagnosticRole'] not in writers,'ROLE_TARGET_CLOSURE')
@@ -37,7 +42,11 @@ def classify_sessions(plan,observation,role_observation):
  require(observation['peer']==role_observation['peer'],'SESSION_PEER_BINDING');sessions=[]
  for s in observation['sessions']:
   value=dict(s);role=s['role']
-  require(s.get('ssl') is True,'SESSION_TLS_UNPROVEN')
+  if plan.get('connectionTransportAuthorizations') is None:require(s.get('ssl') is True,'SESSION_TLS_UNPROVEN')
+  else:
+   mode='control' if s['pid']==plan['controlSessions'][db]['pid'] else 'diagnostic'
+   bound=plan[mode+'Sessions'][db];expected_tls=verify_bound_transport(plan,db,mode,bound)
+   require(s.get('ssl') is expected_tls and (expected_tls or s['clientAddr']==bound['socket']['localAddress']),'SESSION_TRANSPORT_UNPROVEN')
   if role==plan['diagnosticRole']:
    bound=plan['diagnosticSessions'][db]
    require(s['pid']==bound['pid'] and s['backendStart']==bound['backendStart'] and s['pid']==role_observation['selfPid'],'DIAGNOSTIC_SESSION_EXACT_BINDING')

@@ -59,5 +59,14 @@ for(const drift of [false,true]){
  if(!drift){const prior=clone(p.source);prior.binding.attemptId='prior-capture';prior.binding=c.binding(prior.binding);prior.bindingSha256=c.hash(JSON.stringify(prior.binding));const priorRaw=Buffer.from(JSON.stringify(prior));assert.equal((await verifyCatalogOnExistingRestore(borrowed,{...input,sourceRaw:priorRaw,sourceBinding:prior.binding,sourceArtifactSha256:c.hash(priorRaw)})).catalogEquivalent,true);}
  assert(!borrowed.calls.some(x=>/^(BEGIN|ROLLBACK|COMMIT)/.test(x.sql)));pass();
 }
+// Plaintext is available only to a borrowed source-owned authority callback.
+const stream={remoteAddress:'192.168.100.44',remotePort:5432,localAddress:'192.168.100.40',encrypted:false,authorized:false};
+const borrowedClient={connection:{stream}},target={peerSha256:c.hash(stream.remoteAddress),port:5432,username:'migration_admin',database:'workspacex'};
+const bound={role:target.username,peer:{database:target.database},tls:{ssl:false},transport:{sslMode:'disable',configurationSha256:'c'.repeat(64),providerEvidenceSha256:'d'.repeat(64)},socket:{...stream}};
+await assert.rejects(c.verifyBorrowedTransport(borrowedClient,target),/AUTHORITY/);pass();
+await assert.rejects(c.verifyBorrowedTransport(borrowedClient,target,async()=>true),/PROOF/);pass();
+await c.verifyBorrowedTransport(borrowedClient,target,async()=>bound);pass();
+await assert.rejects(c.verifyBorrowedTransport(borrowedClient,target,async()=>{throw Error('pinned profile changed');}),/profile changed/);pass();
+stream.localAddress='192.168.100.41';await assert.rejects(c.verifyBorrowedTransport(borrowedClient,target,async()=>bound),/PROOF/);pass();
 console.log(`catalog fixed-query mock + ${tests} positive/fault assertions PASS; real DB execution NOT RUN; no row-data/READY proof`);
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

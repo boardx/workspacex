@@ -79,3 +79,29 @@ class AdmissionClosureTests(unittest.TestCase):
   adapter=object.__new__(WriterFenceAdapter);adapter.plan=p
   snapshot={'admission':{'kind':'role-login-v1','login':{current:({'app':False,'admin':False} if current!=db else login) for current in DATABASES}},'writers':{},'databases':{current:{'sessions':[]} for current in DATABASES}}
   with self.assertRaisesRegex(RuntimeError,'LIVE_WRITER_ROLE_LOGIN_ENABLED'):adapter.assert_blocked(snapshot)
+
+class ProtectedTransportProbeTests(unittest.TestCase):
+ def protected_fixture(self):
+  import time,hashlib
+  p,o,db=AdmissionClosureTests().fixture();p['identity']={'attemptId':'source-fixture'};p['toolRevision']='b'*40;p['diagnosticClientAddress']='192.168.100.40';p['diagnosticClientIdentity']='diag-bound'
+  p['connectionTransportAuthorizations']={};p['diagnosticSessions']={};p['controlSessions']={}
+  for current in p['databasePeers']:
+   p['connectionTransportAuthorizations'][current]={}
+   for mode,role,pid in [('diagnostic','diag',10),('control','admin',11)]:
+    source={'database':current,'user':role,'sslMode':'disable','configurationSha256':'c'*64,'providerEvidenceSha256':'d'*64,'clientPeerAddressSha256':hashlib.sha256(b'192.168.100.44').hexdigest(),'clientPeerPort':5432}
+    p['connectionTransportAuthorizations'][current][mode]={'kind':'existing-production-maintenance-transport','identity':p['identity'],'toolRevision':p['toolRevision'],'notBefore':time.time()-10,'expiresAt':time.time()+600,'source':source}
+    p[mode+'Sessions'][current]={'role':role,'pid':pid,'backendStart':'fixture','tls':{'ssl':False},'transport':{'sslMode':'disable','configurationSha256':'c'*64,'providerEvidenceSha256':'d'*64},'socket':{'localAddress':'192.168.100.40','remoteAddress':'192.168.100.44','remotePort':5432,'encrypted':False,'authorized':False}}
+  o['tls']={'ssl':False};return p,o,db
+ def test_readonly_role_probe_accepts_only_bound_plaintext_session(self):
+  from fixed_probes import validate_roles
+  p,o,db=self.protected_fixture();self.assertEqual(validate_roles(p,db,o),{'app':True,'admin':True})
+  for edit in [lambda p:p['diagnosticSessions'][db]['socket'].update(localAddress='192.168.100.41'),lambda p:p['diagnosticSessions'][db].pop('transport'),lambda p:p['connectionTransportAuthorizations'][db]['diagnostic'].update(expiresAt=1)]:
+   q=copy.deepcopy(p);edit(q)
+   with self.assertRaises(RuntimeError):validate_roles(q,db,o)
+ def test_diagnostic_socket_identity_and_no_unknown_plaintext_source(self):
+  from fixed_probes import classify_sessions
+  p,o,db=self.protected_fixture();session={'role':'diag','pid':10,'backendStart':'fixture','applicationName':'wsx-maintenance-diagnostic-source-fixture','clientAddr':'192.168.100.40','backendType':'client backend','ssl':False}
+  observation={'database':db,'peer':o['peer'],'sessions':[session]}
+  self.assertEqual(classify_sessions(p,observation,o)[0]['clientIdentity'],'diag-bound')
+  session['clientAddr']='192.168.100.41'
+  with self.assertRaisesRegex(RuntimeError,'TRANSPORT'):classify_sessions(p,observation,o)

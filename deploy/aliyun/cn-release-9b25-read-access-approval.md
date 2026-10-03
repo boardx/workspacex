@@ -1,6 +1,6 @@
 # 固定 9b25 发布：备份读取批准包与 TLS 纠正
 
-状态：仅准备，未批准、未执行。归属同一 source iteration PR #5247。
+状态：用户已明确批准指定临时备份身份的创建/使用；仍受本包最小权限及撤权条件约束。尚未创建角色、授权或凭据；无使用/失效时间，最长一小时窗口尚未开始。归属同一 source iteration PR #5247。
 应用 9b25bfa65662b96c0826fe67506b562ea46aa6d0；baseline ba6343199f3c834d6a198f83d0c771614292c82b。
 
 ## 请求用户决定的唯一新增安全动作：专用备份读取身份
@@ -38,3 +38,15 @@
 ## 与完整发布批准分开
 
 本包仅请求备份读取安全决策；当前 epoch producer/候选 writer 适配器仍须完成源码、失败反例和独审。实际停写、加密备份数据搬运、既有隔离目标恢复/六流程、精确生产迁移、候选 writer 恢复和公开验收仍各按 bounded 执行包批准；不从备份角色许可推断这些许可。
+
+## 批准后的实际前置核验：PUBLIC 权限仍阻止原方案执行
+
+授权来源：parent thread 01a100c9-f7e1-7125-971f-0790077400da 转交用户对原精确方案的 👍、回复 ok 及“那个备份方案我同意了,继续...推进吧”。不再请求重复批准；不将本项扩成停写、迁移、删除或切流许可。
+
+18:27:34–35 UTC 实际 readonly invocation t-sh06yy72rt49iww（command c-sh06yy72rswrtvk）Success/exit0/Dropped0。三库 SQL audit 证实 migration_admin 有 CREATEROLE/BYPASSRLS，并具有目标 schema/table/sequence SELECT 的 grant options 及 CONNECT grant option；目标临时角色不存在。三库对象清单仅在查询内生成并计算 SHA，不输出对象名称或业务行：main 238 objects/3 schemas/12 sequences，SHA33cbd811bee8d15f2cdf731c1e9af3dbfad125a1b5ca67da624f916e1f12424d；agent 7/1/1，SHA5719dc1bff4f0368bd16c3f662e80622fb6a3e04f3daa8dde5b0e08579ac7df9；memory 2/2/0，SHAc4996b9d25803881f3cb29429d8066c41104db99497f2a1b9af56c1d8eb85ec1。没有 large objects。实际 mutation attempt/固定时间/私有 exact GRANT 与 REVOKE 执行包仍未冻结，不能把这些 hash 冒充已执行授权。
+
+真正已证实的前置不符：三库 PUBLIC 都拥有 TEMPORARY。新角色即使 NOINHERIT，也自动获得 PUBLIC 权限；仅 REVOKE TEMP FROM wsx_release_backup_ro 不能否定 PUBLIC 继承。故原包“无 database CREATE/TEMP”目前无法成立。没有擅自全局 REVOKE PUBLIC；也没有创建一个已知不满足原包的角色。[PostgreSQL 16 REVOKE](https://www.postgresql.org/docs/16/sql-revoke.html)
+
+18:31:55 UTC 精确 readonly ACL follow-up t-sh06yy7gpqarym8（command c-sh06yy7gpptao74）Success/exit0/Dropped0：之前 tableWrite=1 全部是 pg_catalog.pg_settings 的 UPDATE，不是已发现的业务表写入；不能把粗计数当成业务写权。main 的五个 PUBLIC SECURITY DEFINER EXECUTE 目标已列签名/返回类型/definition MD5，见 cn-release-backup-public-acl-detail.json；它们需要逐个核对实际 body，不能仅因 SECURITY DEFINER 就断言会改业务数据，也不能未核对就声明没有写/锁定路径。
+
+下一步必须保持已批准范围：先澄清严格无 TEMP 条件及这五个函数的实际能力；如果需要修改共享 PUBLIC ACL 或扩大临时身份能力，须提交精确对象/角色影响、ACL 回退与额外决策，不能从本次批准推导。现有 API 不含 migration credential；这只说明身份分离，不能推断 root 私有 migrationSecretRef 缺失，更不能要求用户把密码发进聊天。所有秘密仍仅允许既有受信私有引用。
