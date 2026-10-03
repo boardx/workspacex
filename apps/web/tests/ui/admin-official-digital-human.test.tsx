@@ -116,6 +116,15 @@ describe("官方角色显式选中升级",()=>{
   fireEvent.click(screen.getByRole("button",{name:"升级所选官方数字人"}));await waitFor(()=>expect(mocks.upgrade).toHaveBeenCalledTimes(2));
   expect(mocks.upgrade.mock.calls[0]![2]).toBe(mocks.upgrade.mock.calls[1]![2]);
  });
+ it("offers an explicit same-version verified-Skill refresh without implying a new role release",async()=>{
+  const offer={...upgradeOffer,upgrades:[{agentId:"research",expectedPublishedVersionId:"research-v1.6",name:"研究与知识分析师",currentVersion:"1.6.0",targetVersion:"1.6.0",readySkillCount:1,pendingSkillCount:9}]};
+  mocks.get.mockResolvedValue(offer);render(<OfficialDigitalHumanPanel onEnabled={mocks.refresh}/>);
+  const selection=await screen.findByRole("checkbox",{name:/研究与知识分析师：1.6.0（补齐已验证技能）/});
+  expect(screen.queryByText(/1.6.0 → 1.6.0/)).toBeNull();
+  const button=screen.getByRole("button",{name:"升级所选官方数字人"});expect(button).toBeDisabled();
+  fireEvent.click(selection);fireEvent.click(screen.getByRole("checkbox",{name:/确认仅升级/}));fireEvent.click(button);
+  await waitFor(()=>expect(mocks.upgrade).toHaveBeenCalledWith(offer,[{agentId:"research",expectedPublishedVersionId:"research-v1.6"}],expect.any(String),expect.objectContaining({orgId:"org-a"})));
+ });
  it("members see pending state but cannot select or upgrade",async()=>{
   mocks.get.mockResolvedValue({...upgradeOffer,canEnable:false});render(<OfficialDigitalHumanPanel onEnabled={mocks.refresh}/>);
   await screen.findByText("请联系组织管理员升级。");expect(screen.getByRole("checkbox",{name:/产品经理/})).toBeDisabled();

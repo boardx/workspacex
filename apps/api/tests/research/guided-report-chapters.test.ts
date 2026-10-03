@@ -53,7 +53,7 @@ describe("report conversation regeneration", () => {
     const f = setup(message); const result = await f.run();
     expect(result.errorCode).toBeNull(); expect(result.report?.title).toBe("Evidence-based findings"); expect(result.proposal).toBeNull();
     expect(f.contexts.some((c) => !c.reportStage && !c.researchStage)).toBe(false);
-    expect(f.contexts.map((c) => c.reportStage).filter(Boolean)).toEqual(["evidence", "chapter", "quality", "chapter", "quality", "synthesis"]);
+    expect(f.contexts.map((c) => c.reportStage).filter(Boolean)).toEqual(["evidence", "chapter", "chapter", "quality", "quality", "synthesis"]);
     expect(result.messages.some((entry) => entry.role === "user" && entry.text === message)).toBe(true);
     expect(result.reportPrevious?.report).toEqual(f.old);
     expect(result.reportTimeline?.every((stage) => stage.status === "completed")).toBe(true);
@@ -119,11 +119,12 @@ describe("chapter-based report generation", () => {
     const model: ModelCallPort = { complete, completeStream: async (input, delta) => {
       const context = JSON.parse(input.user); contexts.push(context); inputs.push(input.system);
       const latest = [...f.events].reverse().find((event) => event.type === "snapshot");
-      expect(latest?.type === "snapshot" && latest.state.reportTimeline?.some((item) => item.status === "running" && item.id === (context.reportStage === "synthesis" ? "synthesis" : `chapter:${context.section.id}`))).toBe(true);
+      if (context.section?.id === "a") expect(latest?.type === "snapshot" && latest.state.reportTimeline?.find((item) => item.id === "chapter:a")?.status).toBe("pending");
+      else expect(latest?.type === "snapshot" && latest.state.reportTimeline?.some((item) => item.status === "running" && item.id === (context.reportStage === "synthesis" ? "synthesis" : `chapter:${context.section.id}`))).toBe(true);
       const text = JSON.stringify(answer(context)); await delta(text.slice(0, 24)); await delta(text.slice(24)); return { text };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
-    expect(contexts.map((c) => c.reportStage)).toEqual(["evidence", "chapter", "quality", "chapter", "quality", "synthesis"]);
+    expect(contexts.map((c) => c.reportStage)).toEqual(["evidence", "chapter", "chapter", "quality", "quality", "synthesis"]);
     expect(contexts.filter((c) => c.reportStage === "chapter").map((c) => c.section.title)).toEqual(["Second specified title", "First specified title"]);
     expect(contexts[1]!.sources[0]).toMatchObject({ id: "source-b", contentKind: "verified_search_excerpt" });
     expect(contexts[1]!.section.questions).toEqual(["What does b establish?"]);
@@ -145,7 +146,7 @@ describe("chapter-based report generation", () => {
     } };
     const generating = generateReportChapters(f.state, model, config, f.persist); const rejection = expect(generating).rejects.toThrow("chapter provider failed");
     await waiting;
-    expect(f.writes.some((snapshot) => snapshot.reportStream?.text.includes('"sectionId":"b"'))).toBe(true);
+    await vi.waitFor(() => expect(f.writes.some((snapshot) => snapshot.reportStream?.text.includes('"sectionId":"b"'))).toBe(true));
     expect(f.state.report).toBeNull(); expect(f.state.modelCalls[0]?.status).toBe("succeeded");
     release(); await rejection;
     expect(calls).toBe(2); expect(f.state.reportStream?.status).toBe("failed"); expect(f.state.report).toBeNull();
@@ -176,7 +177,7 @@ describe("chapter-based report generation", () => {
     const f = fixture(); let calls = 0;
     const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }), completeStream: async (input, delta) => {
       const text = JSON.stringify(answer(JSON.parse(input.user))); calls++;
-      if (calls !== 2) await delta(text);
+      if (JSON.parse(input.user).section?.id !== "b") await delta(text);
       return { text };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
@@ -481,7 +482,7 @@ describe("chapter-based report generation", () => {
       return { text: "unreachable" };
     } };
     await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBe(failure);
-    expect(calls).toBe(1);
+    expect(calls).toBeLessThanOrEqual(2);
   });
 
   it.each([[503, 2], [401, 1]])("bounds provider HTTP %s attempts at %s", async (status, expected) => {
@@ -919,6 +920,108 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
       for (let j = 0; j < part.questions.length; j++) expect(prose).toContain(`Question ${part.id.split("-")[1]}/${j}:`);
     }
     expect(gap).toContain("omitted"); expect(f.state.outline).toEqual(before);
+  });
+
+  it("computes at most two chapters concurrently and commits in confirmed order", async () => {
+    const f = fixture(); let release!: () => void; let second!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const secondStarted = new Promise<void>((resolve) => { second = resolve; });
+    let active = 0, peak = 0;
+    const model: ModelCallPort = { complete: async (input) => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "chapter") { active++; peak = Math.max(peak, active); if (c.section.id === "b") await gate; else second(); active--; }
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    const generating = generateReportChapters(f.state, model, config, f.persist);
+    try {
+      await Promise.race([secondStarted, new Promise((_, reject) => setTimeout(() => reject(new Error("chapters remain serial")), 100))]);
+      expect(f.state.reportCheckpoint?.chapters).toEqual([]);
+      expect(f.state.reportQualityWarnings).toEqual([]);
+    } finally { release(); }
+    const report = await generating;
+    expect(peak).toBe(2); expect(report.sections.map((c) => c.sectionId)).toEqual(["b", "a"]);
+    expect(f.writes.filter((s) => s.reportCheckpoint?.chapters.length).every((s) => s.reportCheckpoint!.chapters[0]!.sectionId === "b")).toBe(true);
+  });
+
+  it("promotes the running prefetched chapter before its model call completes", async () => {
+    const f = fixture();
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const backgroundStarted = new Promise<void>((resolve) => { started = resolve; });
+    const model: ModelCallPort = { complete: async (input) => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "chapter" && c.section.id === "a") { started(); await gate; }
+      if (c.reportStage === "chapter" && c.section.id === "b") await backgroundStarted;
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    const generating = generateReportChapters(f.state, model, config, f.persist);
+    try {
+      await backgroundStarted;
+      await expect.poll(() => f.writes.some((s) => s.reportCheckpoint?.chapters.length === 1)).toBe(true);
+      await expect.poll(() => f.writes.at(-1)?.reportTimeline?.find((item) => item.id === "chapter:a")?.status).toBe("running");
+      expect(f.writes.at(-1)?.progress).toMatchObject({ sectionId: "a", completed: 1 });
+      expect(f.state.reportCheckpoint?.chapters.map((chapter) => chapter.sectionId)).toEqual(["b"]);
+      expect(f.state.reportQualityWarnings).toEqual([]);
+    } finally { release(); await generating; }
+  });
+  it("never publishes prefetched tokens or warnings before the preceding checkpoint", async () => {
+    const f = fixture(); let release!: () => void; let ready!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; }); const laterDone = new Promise<void>((resolve) => { ready = resolve; });
+    const model: ModelCallPort = { complete: async (input) => {
+      const c = JSON.parse(input.user); const value: any = answer(c);
+      if (c.reportStage === "quality" && c.section.id === "a") { value.supported = false; value.issues = ["Background warning"]; if (f.state.modelCalls.length >= 5) ready(); }
+      return { text: JSON.stringify(value) };
+    }, completeStream: async (input, emit) => {
+      const c = JSON.parse(input.user); const value = answer(c);
+      if (c.section?.id === "b") await gate;
+      const text = JSON.stringify(value); await emit(text); return { text };
+    } };
+    const generating = generateReportChapters(f.state, model, config, f.persist);
+    try {
+      await laterDone;
+      expect(f.state.reportQualityWarnings).toEqual([]); expect(f.state.reportCheckpoint?.chapters).toEqual([]);
+      expect(f.events.filter((e) => e.type === "report_delta")).toEqual([]);
+      expect(f.state.reportTimeline?.find((i) => i.id === "review:a")?.status).toBe("pending");
+    } finally { release(); }
+    const report = await generating;
+    expect(report.sections.map((c) => c.sectionId)).toEqual(["b", "a"]);
+    expect(f.state.reportQualityWarnings?.[0]?.sectionId).toBe("a");
+    expect(f.events.filter((e) => e.type === "report_delta").every((e) => e.type !== "report_delta" || !e.delta.includes('"sectionId":"a"'))).toBe(true);
+  });
+  it("drains started work before returning a front failure without committing a later chapter", async () => {
+    const f = fixture(); let release!: () => void; let ready!: () => void; let drained = false;
+    const gate = new Promise<void>((resolve) => { release = resolve; }); const started = new Promise<void>((resolve) => { ready = resolve; });
+    const failure = new Error("front failure");
+    const model: ModelCallPort = { complete: async (input) => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "chapter" && c.section.id === "a") { ready(); await gate; drained = true; }
+      if (c.reportStage === "chapter" && c.section.id === "b") { await started; throw failure; }
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    let settled = false;
+    const generating = generateReportChapters(f.state, model, config, f.persist).finally(() => { settled = true; });
+    const rejection = expect(generating).rejects.toBe(failure);
+    await started; await Promise.resolve(); expect(settled).toBe(false);
+    release(); await rejection; expect(drained).toBe(true);
+    expect(f.state.reportCheckpoint?.chapters).toEqual([]);
+    const writes = f.writes.length; await Promise.resolve(); await Promise.resolve(); expect(f.writes).toHaveLength(writes);
+  });
+  it("bounds more than two chapters and serializes stream and checkpoint persistence", async () => {
+    const f = fixture(); f.state.outline = Array.from({ length: 5 }, (_, index) => section(String(index), `Section ${index}`, index));
+    f.state.tasks = f.state.outline.map((s) => ({ id: `task-${s.id}`, sectionId: s.id, query: s.title, status: "succeeded", attempts: 1, errorCode: null }));
+    f.state.sources = f.state.outline.map((s) => ({ id: `source-${s.id}`, taskId: `task-${s.id}`, title: s.title, content: `Evidence for ${s.id}`, url: `https://example.com/${s.id}`, retrievedAt: "now", decision: "accepted" }));
+    let active = 0, peak = 0, writing = 0, writePeak = 0; const perSection = new Set<string>();
+    const persist: RuntimePersistence = Object.assign(async () => { writing++; writePeak = Math.max(writePeak, writing); await new Promise((resolve) => setTimeout(resolve, 1)); f.writes.push(structuredClone(f.state)); writing--; }, { requestId: "bounded-chapters", observe: f.persist.observe });
+    const compute = async (input: any) => {
+      const c = JSON.parse(input.user); if (c.section) { expect(perSection.has(c.section.id)).toBe(false); perSection.add(c.section.id); active++; peak = Math.max(peak, active); await new Promise((resolve) => setTimeout(resolve, 2)); active--; perSection.delete(c.section.id); }
+      return { text: JSON.stringify(answer(c)) };
+    };
+    const model: ModelCallPort = { complete: compute, completeStream: async (input, emit) => { const output = await compute(input); await emit(output.text); return output; } };
+    const report = await generateReportChapters(f.state, model, config, persist);
+    expect(peak).toBe(2); expect(writePeak).toBe(1);
+    expect(report.sections.map((c) => c.sectionId)).toEqual(["0", "1", "2", "3", "4"]);
+    for (const snapshot of f.writes) expect(snapshot.reportCheckpoint?.chapters.map((c) => c.sectionId)).toEqual(["0", "1", "2", "3", "4"].slice(0, snapshot.reportCheckpoint?.chapters.length ?? 0));
   });
 
 });

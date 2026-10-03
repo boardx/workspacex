@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-03T05:24:13.937Z",
+  "modelId": "qwen3.8-max",
+  "roleVersion": "1.6.0",
+  "roleDigest": "69cd6fc437870e0198308849678556f64682c1eb946c89719cc9a4297bdbed42",
+  "fixtureHistoryCount": 1,
+  "modelHistoryCount": 0,
+  "elapsedMs": 40106,
+  "checks": {
+    "roleIdentityPresent": true,
+    "irrelevantProfileNotRepeated": true
+  },
+  "boundary": "Real Qwen via unchanged ConfiguredModelProvider and shared Chat env; direct text-context probe only, not native tool routing, browser acceptance or verified Skills/workflow execution."
+}

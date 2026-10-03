@@ -23,8 +23,8 @@ describe("durable research orchestration", () => {
     const read = vi.fn(async () => ({ text: "Grid EU policy requires permits.", contentKind: "text" as const, truncated: false }));
     const model = { complete: vi.fn(async (input: { user: string }) => {
       const context = JSON.parse(input.user);
-      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
-        matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Policy evidence", relevance: "direct" }] })) }) };
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; quoteOptions: {text: string; quoteRef: string}[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
+        matches: [{ questionId: context.questions[0].id, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Policy evidence", relevance: "direct" }] })) }) };
     }) };
     const service = new GuidedRuntimeService(f.store, model, { search, read }, { provider: "test", id: "test" });
     const result = await service.execute(f.actor, f.session, { sessionId: "session", node: "research", action: "start", requestId: "scoped-coverage", expectedVersion: 0 });
@@ -61,9 +61,9 @@ describe("durable research orchestration", () => {
     const search = vi.fn(async () => []);
     const model = { complete: vi.fn(async (input: { user: string }) => {
       const context = JSON.parse(input.user);
-      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; quoteOptions: {text: string; quoteRef: string}[] }) => ({
         sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
-        matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Internal policy evidence", relevance: "direct" }],
+        matches: [{ questionId: context.questions[0].id, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Internal policy evidence", relevance: "direct" }],
       })) }) };
     }) };
     const access = {
@@ -91,8 +91,8 @@ describe("durable research orchestration", () => {
     const model = { complete: vi.fn(async (input: { user: string }) => {
       const context = JSON.parse(input.user);
       expect(context.researchStage).toBe("source_relevance");
-      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
-        matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Controlled policy evidence", relevance: "direct" }] })) }) };
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; quoteOptions: {text: string; quoteRef: string}[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
+        matches: [{ questionId: context.questions[0].id, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Controlled policy evidence", relevance: "direct" }] })) }) };
     }) };
     const service = new GuidedRuntimeService(f.store, model, { search }, { provider: "test", id: "test" });
     const execute = (action: "start" | "retry") => service.execute(f.actor, f.session, { sessionId: "session", node: "research", action, requestId: action, expectedVersion: f.latest().version });

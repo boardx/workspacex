@@ -48,9 +48,9 @@ const model: ModelCallPort = { complete: async (input) => {
   if (context.researchStage === "source_relevance") {
     relevanceCalls++;
     if (malformedRelevanceOnce) { malformedRelevanceOnce = false; return { text: '{"evaluations":[' }; }
-    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string; questionIds: string[]; taskId: string }) => {
-      const irrelevant = chunk.content.includes("Unrelated Acura vehicle inventory") || chunk.taskId === rejectRelevanceTaskId;
-      return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quote: chunk.content.slice(0, 500), insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
+    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content?: string; quoteOptions: { text: string; quoteRef: string }[]; questionIds: string[]; taskId: string }) => {
+      const irrelevant = chunk.quoteOptions.map((option) => option.text).join(" ").includes("Unrelated Acura vehicle inventory") || chunk.taskId === rejectRelevanceTaskId;
+      return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
     }) }) };
   }
   const node = input.system.includes('Create a concrete web research plan') ? "research" : /Generate the (\w+) step/.exec(input.system)?.[1] ?? context.targetNode;

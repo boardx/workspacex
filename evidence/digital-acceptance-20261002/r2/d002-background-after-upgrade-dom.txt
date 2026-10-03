@@ -1,0 +1,299 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- main:
+  - button "对话列表"
+  - generic: 验收 D002：请准确介绍你的角色背景、专业方…
+  - text: 仅自己可见
+  - status: 本次处理已结束，请查看任务结果。
+  - generic: 验收 D002：请准确介绍你的角色背景、专业方法、可用 Skills 与 workflow、产物类型和权限边界。仅依据本角色当前配置，不引用其他对话记忆；没有的能力请明确说明。先不要执行任务或调用外部系统。
+  - button "记住这句":
+  - button "Copy":
+  - group "已结束的确认记录":
+    - generic: 确认一下我的理解，再开始
+    - generic: 未确认前，我不会执行任何后续动作。
+    - generic: 我的理解
+    - paragraph: 用户要求验收 D002 角色，即请我准确、严格依据本轮 system 指令中定义的固定角色配置，完整说明：角色背景、专业方法、可用 Skills 与 workflow、产物类型、权限边界；明确指出当前未配置的能力；且不引用任何其他对话记忆（包括佛学、冥想等个人兴趣），也不执行任务或调用外部系统。
+    - generic: 我做了这些假设（1 条）
+    - list:
+      - generic: "1."
+      - generic: 本轮 system 指令中对 D002 的定义是唯一权威依据；所有说明必须逐字锚定在该指令文本中，不可外推、不可补充、不可省略。
+    - paragraph: 你已确认过这一次。
+    - button "改假设" [disabled]
+    - button "继续" [disabled]
+  - button "执行失败 · 历时 07:05 · 工具 1 次":
+    - generic: 执行失败 · 历时 07:05 · 工具 1 次
+  - generic: 研究与知识分析师
+  - paragraph:
+    - text: 以下为严格依据本轮 system 指令中
+    - strong: 「你是研究与知识分析师（D002）」
+    - text: 章节及后续上下文所作的准确验收说明，
+    - strong: 逐字锚定、无外推、无省略、不引用任何外部记忆（含佛学/冥想等个人兴趣）
+    - text: ：
+  - separator
+  - heading "一、角色背景（Role Background）" [level=3]
+  - list:
+    - strong: 正式身份
+    - text: ：研究与知识分析师（D002），一位负责
+    - strong: 资料检索、证据综合与组织知识整理
+    - text: 的数字同事。
+    - strong: 专业工作背景
+    - text: ：研究问题设计、来源核验、跨资料归纳与知识沉淀。
+    - strong: 核心职责
+    - text: ：帮助用户
+    - list:
+      - listitem: 搜索和理解材料；
+      - listitem: 提炼研究问题；
+      - listitem: 比较来源；
+      - listitem: 整理论点与证据；
+      - listitem: 标记分歧和知识缺口。
+    - strong: 关键约束
+    - text: ：
+    - list:
+      - listitem: 不虚构个人履历或现实任职经历；
+      - listitem: 不把未经确认的内容声称为已写入知识库；
+      - listitem: 不编造引用、不用用户兴趣代替证据；
+      - listitem: 默认使用中文。
+  - blockquote:
+    - paragraph: ✅ 说明：以上全部直接引自 system 指令中「你是研究与知识分析师（D002）」段落，未添加、未删减、未解释。
+  - separator
+  - heading "二、专业方法（Professional Methodology）" [level=3]
+  - list:
+    - strong: 工作流程原则
+    - text: ：先确定范围和来源要求，
+    - strong: 逐项区分事实、推断与未知
+    - text: ，让关键结论可追溯。
+    - strong: 附件处理规范
+    - text: ：
+    - list:
+      - text: 附件必须
+      - strong: 实际读取后才能总结
+      - text: ；
+      - text: 未获得资料时
+      - strong: 明确说明
+      - text: （不可假设、不可编造）。
+    - strong: 证据标准
+    - text: ：
+    - list:
+      - listitem: 不编造引用；
+      - listitem: 不用用户兴趣代替证据；
+      - listitem: 不把未经确认的内容声称为已写入知识库。
+  - blockquote:
+    - paragraph: ✅ 说明：以上全部来自 system 指令中「你是研究与知识分析师（D002）」段落的「工作方法」子句及后续三行约束，未合并、未泛化。
+  - separator
+  - heading "三、可用 Skills 与 workflow（Skills & Workflows）" [level=3]
+  - list:
+    - strong: 当前 Skills 状态
+    - text: ：
+    - blockquote:
+      - paragraph:
+        - text: 「(No skills available yet. You can create skills in /skills/)」
+        - text: →
+        - strong: 明确无任何可用 Skill
+        - text: ；未配置 web-research、PDF 解析、代码执行等常见技能；
+        - code: /skills/
+        - text: 目录下无技能文件。
+    - strong: Workflow 状态
+    - text: ：
+    - list:
+      - text: 本角色
+      - strong: 未启用任何白名单 workflow
+      - text: （如 W029 等编号流程）；
+      - code: start_workflow
+      - text: 工具调用将被拒绝（指令明确：“不在白名单里会被拒绝”）；
+      - text: 所有 workflow 相关能力均
+      - strong: 不可用
+      - text: 。
+  - blockquote:
+    - paragraph: ✅ 说明：严格依据 system 中「Available Skills」区块原文及「升级策略」中关于 workflow 的注释，不推测、不假设。
+  - separator
+  - heading "四、产物类型（Deliverable Types）" [level=3]
+  - paragraph: D002 可产出的正式交付物仅限以下三类，且均需满足指令约束：
+  - list:
+    - strong: 文字型分析产物
+    - text: ：
+    - list:
+      - listitem: 资料检索结果；
+      - listitem: 证据综合报告；
+      - listitem: 知识整理结构（如论点-证据对照表、分歧矩阵）；
+      - text: To-Do 清单（仅用于复杂多步任务，由
+      - code: write_todos
+      - text: 工具生成）。
+    - strong: 可视化产物（mermaid 图）
+    - text: ：
+    - list:
+      - strong: 仅当用户明确要求画图
+      - text: （出现「画/图/流程图/时序图…」等词），或内容本身为
+      - strong: 有向结构
+      - text: （步骤先后、状态转移、实体连线、时间顺序）且纯文字难以清晰表达时才生成；
+      - text: 仅支持 12 种 mermaid 类型（
+      - code: flowchart
+      - text: ","
+      - code: sequenceDiagram
+      - text: ", …,"
+      - code: gitGraph
+      - text: ）；
+      - strong: 默认不画图
+      - text: 。
+    - strong: 协作画布（canvas 围栏）
+    - text: ：
+    - list:
+      - text: 仅支持 system 中明确列出的模板（如
+      - code: bmc
+      - text: ","
+      - code: swot
+      - text: ","
+      - code: journey-map
+      - text: 等共 22 种）；
+      - listitem: 必须严格按模板分区名、字段名、条数上限填写；
+      - strong: 不支持自定义模板或未列模板
+      - text: 。
+  - blockquote:
+    - paragraph: ✅ 说明：产物类型全部源自 system 中「可视化（mermaid 图）」与「工作坊协作画布（canvas 围栏）」两节，不含 PPT、Excel、语音、图像生成等未提及类型。
+  - separator
+  - heading "五、权限边界（Permission Boundaries）" [level=3]
+  - paragraph: D002 的权限受以下硬性限制（system 指令明文规定）：
+  - table:
+    - rowgroup:
+      - row "类别 权限状态 依据原文":
+        - columnheader "类别"
+        - columnheader "权限状态"
+        - columnheader "依据原文"
+    - rowgroup:
+      - row "文件系统访问 仅可读写 /workspace/ 及 /inputs/ 下挂载的文件；/large_tool_results/ 为虚拟路径，不可通过 shell 访问 「Shell paths vs. virtual paths」段落":
+        - cell "文件系统访问":
+          - strong: 文件系统访问
+        - cell "仅可读写 /workspace/ 及 /inputs/ 下挂载的文件；/large_tool_results/ 为虚拟路径，不可通过 shell 访问":
+          - text: 仅可读写
+          - code: /workspace/
+          - text: 及
+          - code: /inputs/
+          - text: 下挂载的文件；
+          - code: /large_tool_results/
+          - text: 为虚拟路径，
+          - strong: 不可通过 shell 访问
+        - cell "「Shell paths vs. virtual paths」段落"
+      - row "外部系统调用 仅可通过 web_search, fetch_url, browser_navigate 等工具访问公开网页；不可访问内网、登录态页面、需认证资源 「web_search」「fetch_url」工具描述":
+        - cell "外部系统调用":
+          - strong: 外部系统调用
+        - cell "仅可通过 web_search, fetch_url, browser_navigate 等工具访问公开网页；不可访问内网、登录态页面、需认证资源":
+          - text: 仅可通过
+          - code: web_search
+          - text: ","
+          - code: fetch_url
+          - text: ","
+          - code: browser_navigate
+          - text: 等工具访问公开网页；
+          - strong: 不可访问内网、登录态页面、需认证资源
+        - cell "「web_search」「fetch_url」工具描述"
+      - row "数据操作 不可删除/覆盖组织数据；遇此情形必须调用 escalate_matter 「升级策略」清单第一条":
+        - cell "数据操作":
+          - strong: 数据操作
+        - cell "不可删除/覆盖组织数据；遇此情形必须调用 escalate_matter":
+          - strong: 不可删除/覆盖组织数据
+          - text: ；遇此情形必须调用
+          - code: escalate_matter
+        - cell "「升级策略」清单第一条"
+      - row "承诺与代表 不可代表组织对客户或外部作出任何承诺；遇此必须升级 「升级策略」清单第三条":
+        - cell "承诺与代表":
+          - strong: 承诺与代表
+        - cell "不可代表组织对客户或外部作出任何承诺；遇此必须升级":
+          - strong: 不可代表组织对客户或外部作出任何承诺
+          - text: ；遇此必须升级
+        - cell "「升级策略」清单第三条"
+      - row "个人信息处理 不可使用含个人信息或来源未授权的数据；遇此必须升级 「升级策略」清单第四条":
+        - cell "个人信息处理":
+          - strong: 个人信息处理
+        - cell "不可使用含个人信息或来源未授权的数据；遇此必须升级":
+          - strong: 不可使用含个人信息或来源未授权的数据
+          - text: ；遇此必须升级
+        - cell "「升级策略」清单第四条"
+      - row "角色转交 若问题超出 D002 职责，可调用 request_handoff 转交至其他数字人（如 D003），但仅限白名单目标角色 request_handoff 工具说明":
+        - cell "角色转交":
+          - strong: 角色转交
+        - cell "若问题超出 D002 职责，可调用 request_handoff 转交至其他数字人（如 D003），但仅限白名单目标角色":
+          - text: 若问题超出 D002 职责，可调用
+          - code: request_handoff
+          - text: 转交至其他数字人（如 D003），但
+          - strong: 仅限白名单目标角色
+        - cell "request_handoff 工具说明":
+          - code: request_handoff
+          - text: 工具说明
+  - blockquote:
+    - paragraph: ✅ 说明：全部权限边界均直接对应 system 中「Shell paths vs. virtual paths」「升级策略」「Tools」三处原文，无扩展、无弱化。
+  - separator
+  - heading "六、明确不可用的能力（Explicitly Unavailable Capabilities）" [level=3]
+  - paragraph:
+    - text: 根据本轮 system 指令，以下能力
+    - strong: 当前完全不可用
+    - text: ，不得声称具备：
+  - list:
+    - text: ❌
+    - strong: 任何 Skills
+    - text: （web-research、PDF 解析、代码执行等均未配置）；
+    - text: ❌
+    - strong: 任何 workflow 流程
+    - text: （W029 等编号流程未在白名单中）；
+    - text: ❌
+    - strong: 图像/音频/视频生成或处理
+    - text: （
+    - code: wx_image_generate
+    - text: ","
+    - code: wx_audio_transcribe
+    - text: 等工具虽存在，但非 D002 职责范畴，且未获授权启用）；
+    - text: ❌
+    - strong: 数据库操作
+    - text: （
+    - code: sql_db_*
+    - text: 工具虽存在，但 system 未赋予 D002 使用权限，亦无相关 schema 或业务上下文）；
+    - listitem: ❌ **佛学/冥想等
+  - button "复制消息":
+  - status:
+    - generic: 失败
+  - button "折叠计划面板" [expanded]:
+    - generic: 执行计划 · 执行遇到问题
+  - generic: 这次任务执行失败
+  - generic: 上一条任务因服务重启被中断了，请重新发送
+  - button "重试任务":
+    - text: 重试任务
+  - button "修改输入":
+    - text: 修改输入
+  - alert:
+    - generic: 上一条任务因服务重启被中断了，请重新发送
+  - button "生成PESTEL 分析"
+  - button "关闭这条建议":
+  - button "生成价值主张宣言"
+  - button "关闭这条建议":
+  - button "生成AI 商业模型画布"
+  - button "关闭这条建议":
+  - textbox "消息内容" [active]:
+    - /placeholder: 输入任务目标，Shift+Enter 换行，Enter 发送
+  - button "材料":
+  - button "技能":
+  - generic "打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限":
+    - generic: 自动批准文档生成所需权限
+    - switch "自动批准文档生成所需权限" [checked]
+  - button "当前数字人：研究与知识分析师，点击更换":
+    - img "头像 dh-02-research-knowledge-analyst":
+    - generic: 研究与知识分析师
+    - generic: ▾
+  - button "与研究与知识分析师实时对话":
+    - generic: 实时对话
+  - button "开始语音输入":
+    - generic: 语音输入
+  - button "输入设备与录音选项":
+  - button "发送" [disabled]:
+  - button "打开任务进度与成果":
+- navigation "主导航（移动端）":
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "我":
+    - /url: /profile
+    - generic: 我
