@@ -1151,3 +1151,19 @@ it("resumes an unchanged report basis without re-screening already prepared sour
   expect(read).not.toHaveBeenCalled();
   expect(contexts.every((c) => !c.researchStage)).toBe(true);
 });
+
+ it.each(["Investigar energía solar", "太陽光発電を調査", "태양광 발전 조사"])("preserves user language for chapter and synthesis prompts (%s)", async (topic) => {
+  const f = fixture(); f.state.brief = { ...f.state.brief, topic, goal: "", focus: "" };
+  const prompts: string[] = [];
+  const model: ModelCallPort = { complete: async (input) => {
+    const context = JSON.parse(input.user);
+    if (["chapter", "synthesis"].includes(context.reportStage)) prompts.push(input.system);
+    return { text: JSON.stringify(answer(context)) };
+  } };
+  await generateReportChapters(f.state, model, config, f.persist);
+  expect(prompts).toHaveLength(3);
+  for (const prompt of prompts) {
+    expect(prompt).toContain("Preserve the user's language");
+    expect(prompt).not.toMatch(/prose only in (Chinese|English)/);
+  }
+});
