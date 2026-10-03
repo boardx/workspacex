@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 import {dirname,join} from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {parseOwnedShellLocation,validateOwnedExecutable,releaseOwnedProcess,connectOwnedDefaultContext,requireOwnedDeadline} from './board-owned-lifecycle-browser.mjs';
 const require=createRequire(import.meta.url);
 const pins=JSON.parse(readFileSync(join(dirname(require.resolve('playwright-core/package.json')),'browsers.json'),'utf8'));
@@ -52,4 +53,14 @@ test('child close without group gone kills only owned group and retains profile'
 });
 test('profile removed only when actual child close and group gone agree',async()=>{
  const fake=fakeCleanup({groupGone:true,childClosed:true});await releaseOwnedProcess(fake.owner,fake.io);assert.equal(fake.removed(),1);
+});
+test('actual Playwright CommonJS suite discovers owned fixture without starting a browser',()=>{
+ const env={...process.env,COMPOSE_PROJECT_NAME:'owned-fixture-discovery-no-services'};
+ const ports=['WORKSPACEX_API_PORT','WORKSPACEX_WEB_PORT','WORKSPACEX_MODEL_PROVIDER_PORT','WORKSPACEX_DEEP_AGENT_PROVIDER_PORT','WORKSPACEX_LOOPBACK_SANDBOX_PORT','WORKSPACEX_ASR_PROVIDER_PORT','WORKSPACEX_MAIL_PROVIDER_PORT','PGPORT'];
+ ports.forEach((name,index)=>{env[name]=String(19000+index);});
+ let output;
+ try{output=execFileSync('pnpm',['exec','playwright','test','--config','playwright.board-api-ws-objectstore-acceptance.config.ts','--list'],{cwd:join(import.meta.dirname,'../..'),env,timeout:20000,maxBuffer:262144,encoding:'utf8',stdio:['ignore','pipe','pipe']});}
+ catch{assert.fail('OWNED_FIXTURE_PLAYWRIGHT_DISCOVERY_FAILED');}
+ assert.match(output,/same-browser tabs drain a shared durable outbox without duplicate commits/);
+ assert.doesNotMatch(output,/Cannot use 'import\.meta' outside a module/);
 });

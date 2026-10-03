@@ -6,7 +6,7 @@ import {constants} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename,dirname,isAbsolute,join} from 'node:path';
 
-const require=createRequire(import.meta.url),runFile=promisify(execFile);
+const runFile=promisify(execFile);
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const fail=code=>{throw new Error(code);};
 const bounded=async(promise,ms)=>{let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('OWNED_BROWSER_OPERATION_EXPIRED')),ms);})]);}finally{clearTimeout(timer);}};
@@ -54,11 +54,14 @@ export async function connectOwnedDefaultContext(chromium,endpoint,version){
 export function requireOwnedDeadline(expired){if(expired)fail('OWNED_BROWSER_DEADLINE_EXPIRED');}
 export async function createOwnedLifecycleBrowser(chromium,{testBudgetMs,teardownBudgetMs}){
  if(!Number.isSafeInteger(testBudgetMs)||testBudgetMs<=0||!Number.isSafeInteger(teardownBudgetMs)||teardownBudgetMs<=0||teardownBudgetMs>10000)fail('OWNED_BROWSER_BUDGET_INVALID');
+ // The public pnpm --filter web runner executes in the web package. Avoid
+ // import.meta: Playwright transforms helpers imported by this CommonJS suite.
+ const webDirectory=process.cwd(),projectPackage=join(webDirectory,'package.json');
  let pins;
- try{const packageDirectory=dirname(require.resolve('playwright-core/package.json'));pins=JSON.parse(await readFile(join(packageDirectory,'browsers.json'),'utf8'));}
+ try{const project=JSON.parse(await readFile(projectPackage,'utf8'));if(project.name!=='web')fail('OWNED_BROWSER_PROJECT_INVALID');const require=createRequire(projectPackage);const packageDirectory=dirname(require.resolve('playwright-core/package.json'));pins=JSON.parse(await readFile(join(packageDirectory,'browsers.json'),'utf8'));}
  catch{fail('OWNED_BROWSER_PIN_UNREADABLE');}
  let output;
- try{output=(await runFile('pnpm',['exec','playwright','install','--dry-run','chromium-headless-shell'],{cwd:join(import.meta.dirname,'../..'),timeout:5000,maxBuffer:65536})).stdout;}
+ try{output=(await runFile('pnpm',['exec','playwright','install','--dry-run','chromium-headless-shell'],{cwd:webDirectory,timeout:5000,maxBuffer:65536})).stdout;}
  catch{fail('OWNED_BROWSER_DISCOVERY_FAILED');}
  const {executable,version}=parseOwnedShellLocation(output,pins);
  await validateOwnedExecutable(executable);
