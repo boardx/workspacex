@@ -1072,10 +1072,20 @@ export const GuidedResearchRuntime = z.object({
   proposal: z.object({ id: z.string(), version: z.number().int(), draft: GuidedResearchRuntimeDraft, action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional() }).strict().nullable(),
   modelCalls: z.array(z.object({ id: z.string(), node: ResearchNode, modelId: z.string(), status: z.enum(["succeeded", "failed"]), createdAt: z.string() }).strict()),
 }).strict();
+// Field fingerprints describe the client's in-memory snapshot, never authority.
+const GuidedResearchRuntimeMutable = GuidedResearchRuntime.omit({ sessionId: true, version: true, revision: true });
+export const GuidedResearchRuntimeKnownFields = z.record(GuidedResearchRuntimeMutable.keyof(), z.string().regex(/^[a-f0-9]{64}$/));
+export const GuidedResearchRuntimePatch = z.object({
+  type: z.literal("patch"), sessionId: z.string(),
+  version: z.number().int().nonnegative(), revision: z.number().int().positive(),
+  changes: GuidedResearchRuntimeMutable.partial(),
+  removed: z.array(GuidedResearchRuntimeMutable.keyof()),
+}).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
   action: z.enum(["save", "save_chapters", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
+  knownFields: GuidedResearchRuntimeKnownFields.optional(),
   expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
   intent: GuidedResearchIntent.optional(), sourcePolicy: GuidedResearchSourcePolicy.optional(),
   draft: GuidedResearchRuntimeDraft.optional(), message: z.string().trim().min(1).max(10000).optional(),
@@ -1129,6 +1139,8 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
 }).strict();
 
 export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("patch"), state: GuidedResearchRuntimePatch }).strict(),
+  z.object({ type: z.literal("result_patch"), state: GuidedResearchRuntimePatch }).strict(),
   z.object({ type: z.literal("snapshot"), state: GuidedResearchRuntime }).strict(),
   z.object({ type: z.literal("progress"), state: GuidedResearchRuntimeProgress }).strict(),
   z.object({ type: z.literal("report_delta"), sessionId: z.string(), requestId: z.string(), version: z.number().int().nonnegative(), sequence: z.number().int().positive(), delta: z.string().max(1048576) }).strict(),
@@ -1139,8 +1151,8 @@ export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
 export const operations = {
   getGuidedResearchRuntimeProgress: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime/progress",
-    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional() }).strict(),
-    out: GuidedResearchRuntimeProgress, err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
+    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional(), knownFields: z.string().max(8192).transform((value, ctx) => { try { return JSON.parse(value); } catch { ctx.addIssue({ code: "custom", message: "Invalid field fingerprints" }); return z.NEVER; } }).pipe(GuidedResearchRuntimeKnownFields).optional() }).strict(),
+    out: z.union([GuidedResearchRuntimePatch, GuidedResearchRuntimeProgress]), err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
   },
   streamGuidedResearchRuntime: {
     method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands/stream",
@@ -1153,7 +1165,7 @@ export const operations = {
   },
   executeGuidedResearchRuntime: {
     method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands",
-    in: GuidedResearchRuntimeCommand, out: GuidedResearchRuntime, err: guidedWorkflowErrors,
+    in: GuidedResearchRuntimeCommand, out: z.union([GuidedResearchRuntimePatch, GuidedResearchRuntime]), err: guidedWorkflowErrors,
   },
   runGuidedResearchSkillTurn: {
     method: "POST",

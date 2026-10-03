@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
-import { executeResearchRuntime, getResearchRuntime, type GuidedResearchRuntime } from "@/lib/guided-research-api";
-vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
+import { executeResearchRuntime, getResearchRuntime, getResearchRuntimeProgress, type GuidedResearchRuntime } from "@/lib/guided-research-api";
+vi.mock("@/lib/guided-research-api", async (original) => ({ ...await original<typeof import("@/lib/guided-research-api")>(), executeResearchRuntime: vi.fn(), getResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn() }));
 const initial: GuidedResearchRuntime = {
   sessionId: "session-live", version: 7, revision: 1, currentNode: "brief", availableNodes: ["brief"],
   brief: { topic: "Storage", goal: "Entry strategy", timeRange: "2026", region: "Europe", focus: "Grid" },
@@ -36,7 +36,7 @@ describe("live research workspace", () => {
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     fireEvent.change(await screen.findByRole("textbox", { name: "研究需求" }), { target: { value: "Updated scope" } });
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "confirm", draft: { node: "brief", value: { ...initial.brief, goal: "Updated scope" } } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "confirm", draft: { node: "brief", value: { ...initial.brief, goal: "Updated scope" } } })));
   });
   it("keeps the import page focused on the brief without secondary Markdown controls", async () => {
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
@@ -49,26 +49,30 @@ describe("live research workspace", () => {
   it("serializes slow polls and stops after receiving the terminal snapshot", async () => {
     const busy = { ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z" };
     let finishPoll!: (value: GuidedResearchRuntime) => void;
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(busy)
-      .mockImplementationOnce(() => new Promise((resolve) => { finishPoll = resolve; }))
-      .mockResolvedValue({ ...busy, busy: false, brief: { ...initial.brief, topic: "Newer progress" } });
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(busy);
+    vi.mocked(getResearchRuntimeProgress)
+      .mockImplementationOnce(() => new Promise((resolve) => { finishPoll = (value) => resolve({ type: "patch", sessionId: value.sessionId, version: value.version, revision: value.revision, changes: value, removed: [] }); }))
+      .mockResolvedValue({ type: "patch", sessionId: busy.sessionId, version: busy.version, revision: busy.revision, changes: { busy: false, brief: { ...initial.brief, topic: "Newer progress" } }, removed: [] });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
     expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-    expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+    expect(getResearchRuntime).toHaveBeenCalledTimes(1);
+    expect(getResearchRuntimeProgress).toHaveBeenCalledTimes(1);
     await act(async () => { finishPoll(busy); });
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByDisplayValue("Newer progress")).toBeInTheDocument();
     expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-    expect(getResearchRuntime).toHaveBeenCalledTimes(3);
+    expect(getResearchRuntime).toHaveBeenCalledTimes(1);
+    expect(getResearchRuntimeProgress).toHaveBeenCalledTimes(2);
   });
   it("keeps a newer collaborator snapshot when an older command response arrives late", async () => {
     let finish!: (value: GuidedResearchRuntime) => void;
     vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
     const newer = { ...initial, version: 9, brief: { ...initial.brief, topic: "Collaborator update" } };
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue(newer);
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial);
+    vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ type: "patch", sessionId: newer.sessionId, version: newer.version, revision: newer.revision, changes: newer, removed: [] });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
@@ -90,12 +94,12 @@ describe("live research workspace", () => {
     fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "Focus on storage" } });
     fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
     await screen.findByText("Proposed update");
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "session-live", expectedVersion: 7, node: "brief", action: "message", message: "Focus on storage" }));
+    expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ sessionId: "session-live", expectedVersion: 7, node: "brief", action: "message", message: "Focus on storage" }));
     expect(screen.getByDisplayValue("Revised storage")).toBeInTheDocument();
     expect(screen.getByTestId("research-conversation-draft")).toHaveTextContent("尚未应用");
     fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
     await screen.findByDisplayValue("Revised storage");
-    expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ action: "apply", proposalId: "proposal-1", expectedVersion: 8 }));
+    expect(vi.mocked(executeResearchRuntime).mock.lastCall?.[0]).toEqual(expect.objectContaining({ action: "apply", proposalId: "proposal-1", expectedVersion: 8 }));
   });
   it("shows search URLs and retries failed tasks without source management controls", async () => {
     const research: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"], generatedNodes: ["brief", "directions", "outline", "research"],
@@ -112,7 +116,7 @@ describe("live research workspace", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "删除来源 Official source" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 7 })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 7 })));
   });
   it("shows one concise acquisition status while research is running", async () => {
     const research: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"], generatedNodes: ["brief", "directions", "outline", "research"], busy: true, leaseUntil: "2099-01-01T00:00:00.000Z",
@@ -133,7 +137,7 @@ describe("live research workspace", () => {
     const resume = await screen.findByRole("button", { name: "继续研究" });
     expect(screen.queryByRole("button", { name: "搜索资料" })).not.toBeInTheDocument();
     fireEvent.click(resume);
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({
       action: "resume", node: "research", expectedVersion: 7, expectedRevision: 3, idempotencyKey: expect.any(String),
     })));
     expect(await screen.findByRole("button", { name: "搜索资料" })).toBeEnabled();
@@ -172,7 +176,7 @@ describe("research request recovery", () => {
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     fireEvent.click(resume);
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ expectedVersion: 9, draft: { node: "brief", value: { ...initial.brief, goal: "My unsaved topic" } } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.lastCall?.[0]).toEqual(expect.objectContaining({ expectedVersion: 9, draft: { node: "brief", value: { ...initial.brief, goal: "My unsaved topic" } } })));
   });
   it("requires a successful recovery read before submitting again, and can adopt the server draft", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockRejectedValueOnce(new Error("offline"))
@@ -231,7 +235,7 @@ it("saves post-research chapter edits without returning to the research plan (#5
   render(<GuidedResearchLive sessionId="grs-live" visualStage="chapters" onBack={vi.fn()} />);
   fireEvent.change(await screen.findByRole("textbox", { name: "章节标题" }), { target: { value: "Edited chapter title" } });
   fireEvent.click(screen.getByRole("button", { name: "保存章节结构" }));
-  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "save_chapters" })));
+  await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ node: "outline", action: "save_chapters" })));
   expect(await screen.findByRole("textbox", { name: "章节标题" })).toHaveValue("Edited chapter title");
   expect(screen.queryByRole("button", { name: "开始研究" })).not.toBeInTheDocument();
 });
