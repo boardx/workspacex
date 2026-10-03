@@ -61,6 +61,11 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-10-02：W1 general 迁移删除旧 subtype/member 表并改 kind；旧生产代码实际引用这些表，
+  镜像回滚不能恢复 schema。发布必须绑定 exact baseline/target/pending plan 的旧新读写证据；
+  局部 SQL fixture 检出不兼容不能冒充 restored runtime 验收。见
+  [兼容发布说明](docs/deployment/cn-project-migration-compatibility.md)（出处：[issue #5097](https://github.com/boardx/workspacex/issues/5097)）。
+
 - 2026-10-01：空前缀同源代理的 `GET /projects` 与静态页面同名，`afterFiles`
   到不了 API；仅对 `Accept: application/json` 在 `beforeFiles` 代理集合端点，
   HTML 导航与 RSC 请求仍走项目页面。列表失败统一用 `StateShell dep-failed`，
