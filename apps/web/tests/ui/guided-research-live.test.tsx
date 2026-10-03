@@ -14,6 +14,11 @@ const initial: GuidedResearchRuntime = {
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(structuredClone(initial)); });
 afterEach(() => vi.useRealTimers());
 describe("live research workspace", () => {
+  it("uses the current research topic instead of stale imported session text in the header", async () => {
+    render(<GuidedResearchLive sessionId="session-live" researchName="Long imported source paragraph" onBack={vi.fn()} />);
+    expect(await screen.findByRole("heading", { name: "Storage", level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Long imported source paragraph" })).not.toBeInTheDocument();
+  });
   it("shows a readable reason for each failed search without restoring plan cards", async () => {
     const state = runtimeFixture("research");
     state.tasks = [{ ...state.tasks[0]!, status: "failed", errorCode: "RESEARCH_SEARCH_UNAVAILABLE", title: "政策资料" }];
