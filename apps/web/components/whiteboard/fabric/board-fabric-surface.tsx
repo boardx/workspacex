@@ -26,6 +26,7 @@ import { representableWorldGeometry } from "./fabric-transform";
 import { drawingToolStyle, type BoardDrawingToolStyle } from "../drawing-tool-style";
 import { drawingStrokePath } from "./drawing-stroke-path";
 import { preserveDrawingInkCache } from "./drawing-cache-bounds";
+import { ShapeProjectionGroup } from "./shape-projection-group";
 import { drawingEraserTargets } from "./drawing-hit-test";
 import { drawingPointBounds } from "../drawing-coordinate-space";
 
@@ -307,7 +308,7 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
         ? new Path(shapePath(variant, w, h), { fill: object.style.fill, stroke: object.style.stroke, strokeWidth: shapeStrokeWidth(object.style), strokeUniform: true, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
         : new Rect({ width: w, height: h, rx: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 16 : 0), ry: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 16 : 0), fill: object.style.fill, stroke: object.style.stroke, strokeWidth: shapeStrokeWidth(object.style), strokeUniform: true, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" });
     const labelTop = object.style.verticalAlignment === "top" ? -h / 2 + 24 : object.style.verticalAlignment === "bottom" ? h / 2 - 24 : 0;
-    projected = new Group([shape, new Textbox(object.content.text, { ...textOptions, top: labelTop })]);
+    projected = new ShapeProjectionGroup([shape, new Textbox(object.content.text, { ...textOptions, top: labelTop })]);
   } else if (object.kind === "placeholder") {
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 8, ry: 8, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: 2, strokeDashArray: [8, 6], originX: "center", originY: "center" }),
