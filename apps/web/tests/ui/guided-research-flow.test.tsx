@@ -114,7 +114,7 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" />);
     fireEvent.change(await screen.findByRole("textbox", { name: "研究需求" }), { target: { value: "新的政策研究" } });
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "confirm", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ goal: "新的政策研究" }) } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "confirm", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ goal: "新的政策研究" }) } })));
     await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
   it.each(["directions", "outline"] as const)("keeps generated %s aligned to the current-step presentation", async (node) => {
@@ -153,7 +153,7 @@ describe("guided research session routing and lifecycle", () => {
     const retry = screen.getByRole("button", { name: "继续重试" });
     expect(retry).toBeEnabled();
     fireEvent.click(retry);
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
     expect(screen.getByRole("button", { name: "继续重试" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
@@ -170,7 +170,7 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
     expect(await screen.findByRole("alert")).toHaveTextContent("上次执行已中断");
     fireEvent.click(screen.getByRole("button", { name: "继续重试" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");
@@ -181,7 +181,7 @@ describe("guided research session routing and lifecycle", () => {
     expect(screen.getByRole("link", { name: "Official policy" })).toHaveAttribute("href", "https://example.org/policy");
     fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
     expect(await screen.findByText("研究报告 · 质量待评估")).toBeInTheDocument();
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "complete", node: "report" }));
+    expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "complete", node: "report" }));
   });
   it("does not fabricate a report or citations when generation failed", async () => {
     const state = runtimeFixture("report"); state.report = null; state.errorCode = "RESEARCH_CONTENT_REFERENCE_INVALID";

@@ -2,9 +2,9 @@ import * as React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
-import { executeResearchRuntime, getResearchRuntime } from "@/lib/guided-research-api";
+import { executeResearchRuntime, getResearchRuntime, getResearchRuntimeProgress } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
-vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
+vi.mock("@/lib/guided-research-api", async (original) => ({ ...await original<typeof import("@/lib/guided-research-api")>(), getResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(), executeResearchRuntime: vi.fn() }));
 const base = runtimeFixture("brief");
 const proposal = { id: "pending", version: base.version, action: "save" as const, draft: { node: "brief" as const, value: { ...base.brief, topic: "德国储能市场", goal: "比较进入机会" } } };
 afterEach(() => vi.useRealTimers());
@@ -17,7 +17,7 @@ it("restores the conversation draft on the right and uses it for the next messag
   expect(executeResearchRuntime).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "再增加法国" } });
   fireEvent.keyDown(screen.getByLabelText("研究对话"), { key: "Enter" });
-  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "message", message: "再增加法国", draft: proposal.draft, expectedVersion: 4 })));
+  await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "message", message: "再增加法国", draft: proposal.draft, expectedVersion: 4 })));
 });
 it("does not apply an old suggestion after the right-hand draft was edited", async () => {
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
@@ -82,11 +82,12 @@ it("previews report content and requires applying it before completing research"
   fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
   fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
   fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
-  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "apply", proposalId: "report" })));
+  await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ action: "apply", proposalId: "report" })));
 });
 
 it("retains the submitted conversation draft when polling discovers failure before the POST returns", async () => {
   vi.mocked(getResearchRuntime).mockResolvedValueOnce({ ...base, proposal }).mockResolvedValue({ ...base, version: 5, proposal: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
+  vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ type: "patch", sessionId: base.sessionId, version: 5, revision: 2, changes: { proposal: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE", busy: false }, removed: [] });
   vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => {}));
   vi.useFakeTimers();
   await act(async () => { render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />); });

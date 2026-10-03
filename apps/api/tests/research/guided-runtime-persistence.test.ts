@@ -1,6 +1,6 @@
 import { GUIDED_RUNTIME_SERVICE } from "../../src/application/research/guided-runtime-ports";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -102,6 +102,30 @@ async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeComma
 }
 async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("confirm"); expect(state.errorCode).toBeNull(); } }
 describe("durable research runtime with real PostgreSQL and controlled provider doubles", () => {
+  it("uses full state for restoration and changed fields for commands and polling", async () => {
+    const path = `${base}/research/guided-sessions/${actor.sessionId}/runtime`;
+    const headers = { "content-type": "application/json", "x-kernel-test-principal": `${userId}:${orgId}` };
+    const restored = C.GuidedResearchRuntime.parse(await (await fetch(path, { headers })).json());
+    const knownFields = Object.fromEntries(C.GuidedResearchRuntimeKnownFields.keySchema.options.map((key) => [key, createHash("sha256").update(JSON.stringify(restored[key]) ?? "undefined").digest("hex")]));
+    const unchanged = await fetch(`${path}/progress?${new URLSearchParams({ knownFields: JSON.stringify(knownFields) })}`, { headers });
+    expect(unchanged.status).toBe(200);
+    const unchangedPatch = C.GuidedResearchRuntimePatch.parse(await unchanged.json());
+    expect(unchangedPatch.changes).toEqual({});
+    const command = { sessionId: actor.sessionId, node: "brief", action: "save", requestId: randomUUID(), expectedVersion: restored.version, draft: { node: "brief", value: { ...restored.brief, goal: "Updated scope" } } };
+    const saved = await fetch(`${path}/commands`, { method: "POST", headers, body: JSON.stringify({ ...command, knownFields }) });
+    expect(saved.status).toBe(201);
+    const patch = C.GuidedResearchRuntimePatch.parse(await saved.json());
+    expect(patch.changes.brief?.goal).toBe("Updated scope");
+    expect(patch.changes).not.toHaveProperty("sources");
+    expect(patch.changes).not.toHaveProperty("outline");
+    const replay = await fetch(`${path}/commands`, { method: "POST", headers, body: JSON.stringify({ ...command, knownFields: {} }) });
+    expect(replay.status).toBe(201);
+    const refreshed = C.GuidedResearchRuntime.parse(await (await fetch(path, { headers })).json());
+    expect(refreshed.brief.goal).toBe("Updated scope");
+    expect(refreshed.version).toBe(patch.version);
+    console.info(`research-delta-bytes snapshot=${Buffer.byteLength(JSON.stringify(refreshed))} unchanged=${Buffer.byteLength(JSON.stringify(unchangedPatch))} command=${Buffer.byteLength(JSON.stringify(patch))}`);
+  });
+
   it("persists empty-query recovery and continues to a real report without replaying successful searches", async () => {
     recoverEmptySearch = true;
     await reachResearch();
