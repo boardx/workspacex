@@ -99,7 +99,7 @@ export function TaskWorkbenchEmptyState({
   return (
     <div
       data-testid="copilotkit-v2-empty"
-      className="flex h-full flex-col items-center justify-center gap-8 px-4 py-12 text-center sm:px-6"
+      className="flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"
     >
       {/*
         两级视觉层次（大标题 + 小字说明），对齐参照图。`data-testid` 挂在外层
@@ -114,14 +114,14 @@ export function TaskWorkbenchEmptyState({
         </p>
       </div>
       {briefing}
-      <div className="grid w-full max-w-xl grid-cols-1 gap-0">
+      <div className="grid w-full max-w-xl grid-cols-2 gap-x-3">
         {TASK_WORKBENCH_TEMPLATES.map((template) => (
           <button
             key={template.id}
             type="button"
             data-testid={template.id}
             onClick={() => onUseTemplate(template.goal)}
-            className="flex items-center gap-3 border-b border-border-subtle bg-card px-3 py-4 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               aria-hidden="true"

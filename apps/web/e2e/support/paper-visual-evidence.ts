@@ -30,6 +30,22 @@ export async function capturePaperMatrix(page: Page, label: string, anchor: stri
       await page.setViewportSize(viewport);
       await expect(page.getByTestId(anchor).last()).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      if (label === "chat-empty") {
+        // Visibility alone accepts partially clipped headings. Require the
+        // whole opening prompt and every real template inside the message pane.
+        const pane = page.getByTestId("copilotkit-v2-messages");
+        const targets = page.locator('[data-testid="chat-task-workbench-goal-headline"], [data-testid^="chat-task-workbench-template-"]');
+        await expect(targets).toHaveCount(5);
+        for (const target of await targets.all()) {
+          await expect.poll(async () => {
+            const frame = await pane.boundingBox();
+            const box = await target.boundingBox();
+            return Boolean(frame && box && box.y >= frame.y - 1
+              && box.y + box.height <= frame.y + frame.height + 1
+              && box.x >= frame.x - 1 && box.x + box.width <= frame.x + frame.width + 1);
+          }, { message: "PAPER opening prompt and all templates must be fully visible on the first screen" }).toBe(true);
+        }
+      }
       if (scrollMessages) {
         const messages = page.getByTestId("copilotkit-v2-messages");
         await expect.poll(() => messages.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
