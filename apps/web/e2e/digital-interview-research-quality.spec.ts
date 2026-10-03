@@ -241,7 +241,11 @@ test("virtual-expert model proposal stays unsaved until structured human review"
     body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
       orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
   await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(view) }));
-  await mockCanonicalSource(page);
+  let current = source;
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/experts", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify({ items: [] }) }));
   let proposals = 0;
   let writes = 0;
   await page.route("**/interviews/digital/itv-quality-e2e/markdown/virtual-expert/preview", (route) => {
@@ -250,7 +254,22 @@ test("virtual-expert model proposal stays unsaved until structured human review"
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ markdown:
       "# 夜班护理顾问\n\n## 专业角色\n护理顾问\n\n## 专业领域\n护理管理\n\n## 研究关注\n交接流程\n\n## 观点风格\n审慎\n\n## 简介\n只基于已知材料模拟\n\n## 局限与材料边界\n不代表真人受访者" }) });
   });
-  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => { writes++; return route.abort(); });
+  let savedId = "";
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => {
+    writes++;
+    expect(route.request().method()).toBe("POST");
+    const input = route.request().postDataJSON() as { markdown: string; expectedVersion: number; expectedDocumentVersion: number };
+    expect(input.expectedVersion).toBe(current.version);
+    expect(input.expectedDocumentVersion).toBe(current.documents.find((doc) => doc.step === "experts")!.version);
+    const id = input.markdown.match(/#expert-(virtual-[^)]+)/u)?.[1];
+    expect(id).toBeTruthy();
+    if (savedId) expect(id).toBe(savedId);
+    savedId = id!;
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: current.version + 1,
+      documents: current.documents.map((doc) => doc.step === "experts" ? { ...doc, version: doc.version + 1,
+        markdown: input.markdown, contentHash: createHash("sha256").update(input.markdown).digest("hex") } : doc) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
   await page.goto("/itv/itv-quality-e2e/experts", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "添加虚拟专家" }).click();
   const dialog = page.getByRole("dialog", { name: "添加虚拟专家" });
@@ -262,7 +281,19 @@ test("virtual-expert model proposal stays unsaved until structured human review"
   await dialog.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
   await dialog.getByRole("button", { name: "保存并添加专家" }).click();
   await expect(page.getByRole("button", { name: "移除专家 夜班护理顾问" })).toBeVisible();
-  expect(writes).toBe(0);
+  expect(writes).toBe(1);
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "编辑专家 夜班护理顾问" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "修改夜班护理顾问头像" })).toBeEnabled();
+  await page.getByRole("button", { name: "编辑专家 夜班护理顾问" }).click();
+  const editing = page.getByRole("dialog", { name: "编辑虚拟专家" });
+  await editing.getByRole("textbox", { name: "专家名称" }).fill("夜班护理顾问（修订）");
+  await editing.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
+  await editing.getByRole("button", { name: "保存专家修改" }).click();
+  await expect(editing).not.toBeVisible();
+  expect(writes).toBe(2);
+  expect(current.documents.find((doc) => doc.step === "experts")!.markdown.split(`#expert-${savedId}`).length - 1).toBe(1);
 });
 
 test("a failed report keeps its partial content and exposes retry in a real browser", async ({ page }) => {

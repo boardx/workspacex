@@ -86,9 +86,15 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     setMarkdown(persistedMarkdown);
     dirty.current = false; callbacks.current.onDirtyChange(false); return next;
   }
-  async function generateStep(targetStep: "experts" | "outline", current?: InterviewMarkdownEnvelope) {
+  async function generateStep(targetStep: "experts" | "outline", current?: InterviewMarkdownEnvelope, confirmGenerated = false) {
     const latest = current ?? source ?? await loadInterviewMarkdown(interviewId);
-    const operation = () => generateInterviewMarkdown(interviewId, targetStep, { expectedVersion: latest.version, expectedDocumentVersion: latest.documents.find((doc) => doc.step === targetStep)?.version ?? 0 });
+    const operation = async () => {
+      const next = await generateInterviewMarkdown(interviewId, targetStep, { expectedVersion: latest.version, expectedDocumentVersion: latest.documents.find((doc) => doc.step === targetStep)?.version ?? 0 });
+      if (!confirmGenerated) return next;
+      const questions = next.documents.find(doc => doc.step === "outline");
+      if (!questions) throw new Error("QUESTIONS_REQUIRED");
+      return confirmInterviewMarkdown(interviewId, "outline", { expectedVersion: next.version, expectedDocumentVersion: questions.version });
+    };
     const next = receive(await (targetStep === "outline" ? runInterviewGeneration(interviewId, "outline", operation, { revisionId: latest.revisionId, version: latest.version }) : operation()));
     if (targetStep === step) {
       setMarkdown(next.documents.find((doc) => doc.step === targetStep)?.markdown ?? "");
@@ -106,7 +112,13 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       const hasExpertQuestions = outline ? interviewMarkdown.parseInterviewMarkdown(outline).blocks.some((block) =>
         block.links.some((link) => /^#expert-[^\s#]+$/u.test(link.url))) : false;
       callbacks.current.onContinue("outline");
-      if (!hasExpertQuestions) await generateStep("outline", confirmed);
+      const ready = !hasExpertQuestions ? await generateStep("outline", confirmed, true) : await runInterviewGeneration(interviewId, "outline", async () => {
+        const questions = outline!;
+        const status = confirmed.states.find(item => item.documentId === questions.documentId)?.status;
+        return status === "confirmed" || status === "completed" ? confirmed : confirmInterviewMarkdown(interviewId, "outline", { expectedVersion: confirmed.version, expectedDocumentVersion: questions.version });
+      }, { revisionId: confirmed.revisionId, version: confirmed.version });
+      receive(ready);
+      callbacks.current.onContinue("runs");
       return;
     }
     callbacks.current.onContinue("runs");
@@ -117,6 +129,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const document: InterviewMarkdownDocument = { ...(saved ?? { documentId: `unsaved-${step}`, step, version: 1, contentHash: "0".repeat(64), evidenceMode: "simulated" as const, references: [] }), markdown };
   React.useEffect(() => {
     if (step !== "outline" || session?.step !== "outline" || (source && session.revisionId && session.revisionId !== source.revisionId)) return;
+    if (session.status === "failed" && source && session.revisionId === source.revisionId) { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
     if (session.status === "running") { observedGeneration.current = true; setPending(true); setGenerating(true); }
     else if (observedGeneration.current) {
       observedGeneration.current = false;
