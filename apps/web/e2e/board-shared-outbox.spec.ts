@@ -28,7 +28,18 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
  let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
- let ownerLifecycle:CDPSession|undefined,ownerFrozen=false;
+ let ownerLifecycle:CDPSession|undefined,ownerFrozen=false,primaryFailed=false;
+ let primaryFailure:unknown;
+ let lifecycleReady=0,nativeCountsCaptured=false;
+ const captureNativeCounts=async()=>{
+  if(!ownerLifecycle)throw new Error("OWNED_LIFECYCLE_SESSION_MISSING");
+  const observed=await ownerLifecycle.send("Runtime.evaluate",{expression:`globalThis[${JSON.stringify(lifecycleBinding+"Counts")}]`,returnByValue:true});
+  expect(observed.exceptionDetails,"Owned native lifecycle counts must be readable").toBeUndefined();
+  const counts=observed.result.value as Record<string,unknown>|undefined;
+  expect(counts,"Owned native lifecycle counts must exist").toBeDefined();
+  for(const key of ["freeze","resume","untrusted"]){expect(typeof counts?.[key]).toBe("number");expect(Number.isSafeInteger(counts?.[key])).toBe(true);expect(counts?.[key]).toBeGreaterThanOrEqual(0);}
+  evidence.ownerNativeLifecycleCounts={freeze:counts!.freeze,resume:counts!.resume,untrusted:counts!.untrusted};nativeCountsCaptured=true;
+ };
  const lifecycleBinding=`boardOutboxLifecycle${randomUUID().replaceAll('-','')}`;
  const lifecycleEvents={freeze:0,resume:0};
  const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
@@ -95,11 +106,14 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   ownerLifecycle.on('Runtime.bindingCalled',event=>{
    if(event.name!==lifecycleBinding)return;
    try{const observed=JSON.parse(event.payload) as {type?:string;trusted?:boolean};
+    if(observed.type==='ready'){lifecycleReady++;return;}
     if(observed.trusted===true&&(observed.type==='freeze'||observed.type==='resume'))lifecycleEvents[observed.type]++;
    }catch{/* Unknown payload is never lifecycle proof. */}
   });
-  const installedLifecycle=await ownerLifecycle.send('Runtime.evaluate',{expression:`globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}] = Object.fromEntries(['freeze','resume'].map(type=>{const listener=event=>globalThis[${JSON.stringify(lifecycleBinding)}](JSON.stringify({type:event.type,trusted:event.isTrusted}));document.addEventListener(type,listener);return [type,listener];}));`});
+  const installedLifecycle=await ownerLifecycle.send('Runtime.evaluate',{expression:`globalThis[${JSON.stringify(lifecycleBinding+'Counts')}] = {freeze:0,resume:0,untrusted:0};globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}] = Object.fromEntries(['freeze','resume'].map(type=>{const notify=globalThis[${JSON.stringify(lifecycleBinding)}];const listener=event=>{const counts=globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];if(event.isTrusted)counts[event.type]++;else counts.untrusted++;notify(JSON.stringify({type:event.type,trusted:event.isTrusted}));};document.addEventListener(type,listener);return [type,listener];}));globalThis[${JSON.stringify(lifecycleBinding)}](JSON.stringify({type:'ready'}));`});
   expect(installedLifecycle.exceptionDetails,'Owned lifecycle observers must actually install').toBeUndefined();
+  await expect.poll(()=>lifecycleReady,{timeout:remaining(),message:'Owned lifecycle binding must prove readiness before freezing'}).toBe(1);
+  evidence.lifecycleObserverReady=lifecycleReady;
   // Freeze only this page's lifecycle. Debugger.pause can stop sibling pages in
   // the same renderer, making peer lease recovery impossible to exercise.
   ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
@@ -128,6 +142,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   evidence.uiCreates=8;evidence.uiEdits=16;
   const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq)).toEqual([]);
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
+  await captureNativeCounts();
   await Promise.all([page.reload(),testPeer.reload()]);
   mark('both-reloaded');
   for(const tab of [page,testPeer]){await expectBoardSynced(tab,10_000);await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
@@ -136,20 +151,21 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await Promise.all(chunkReads);expect(chunks.some(chunk=>chunk.path.includes('/app/studio/board/'))).toBe(true);
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';
   await testPeer.close();peer=undefined;
- }finally{
+ }catch(error){primaryFailed=true;primaryFailure=error;throw error;}finally{
   const lifecycleCleanupErrors:string[]=[];
   try{if(ownerFrozen){await ownerLifecycle?.send('Page.setWebLifecycleState',{state:'active'});await expect.poll(()=>lifecycleEvents.resume,{timeout:5000,message:'Owned frozen page must actually resume during cleanup'}).toBe(1);ownerFrozen=false;}}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
   try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
-  try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
+  try{if(ownerLifecycle&&!nativeCountsCaptured)await captureNativeCounts();}catch(error){lifecycleCleanupErrors.push(`counts: ${String(error)}`);}
+  try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
   try{await ownerLifecycle?.send('Runtime.removeBinding',{name:lifecycleBinding});}catch(error){lifecycleCleanupErrors.push(`binding: ${String(error)}`);}
   try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
   evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;evidence.ownerLifecycleEvents={...lifecycleEvents};
-  await peer?.close().catch(()=>undefined);
+  try{await peer?.close();}catch(error){lifecycleCleanupErrors.push(`peer: ${String(error)}`);}
   if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
-  await Promise.all(chunkReads);evidence.browserChunks=chunks;
+  try{await Promise.all(chunkReads);}catch(error){lifecycleCleanupErrors.push(`chunks: ${String(error)}`);}evidence.browserChunks=chunks;
   const evidencePath=info.outputPath('same-browser-outbox-evidence.json');
-  await writeFile(evidencePath,JSON.stringify({...evidence,transport:metadata.snapshot()},null,2));
-  await info.attach('same-browser-outbox-evidence',{path:evidencePath,contentType:'application/json'});
-  expect(lifecycleCleanupErrors,'Owned tab lifecycle cleanup must complete').toEqual([]);
+  try{await writeFile(evidencePath,JSON.stringify({...evidence,transport:metadata.snapshot()},null,2));}catch(error){lifecycleCleanupErrors.push(`evidence: ${String(error)}`);}
+  try{await info.attach('same-browser-outbox-evidence',{path:evidencePath,contentType:'application/json'});}catch(error){lifecycleCleanupErrors.push(`attachment: ${String(error)}`);}
+  if(lifecycleCleanupErrors.length){const cleanupFailure=new Error('OWNED_TAB_LIFECYCLE_CLEANUP_FAILED');throw primaryFailed?new AggregateError([primaryFailure,cleanupFailure],'PRIMARY_AND_OWNED_TAB_CLEANUP_FAILED'):cleanupFailure;}
  }
 });

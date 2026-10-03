@@ -443,7 +443,8 @@
           "path": "apps/web/e2e/support/board-editor-connector-entry.ts",
           "source_blob": "fecf7aa03b0ef7840556454010a418a56b5031c0",
           "candidate_blob": "fecf7aa03b0ef7840556454010a418a56b5031c0",
-          "status": "ABSENT"
+          "status": "INHERITED_EXTERNAL_MAIN_NEWER_HEAD",
+          "initial_snapshot_status": "ABSENT"
         },
         {
           "path": "apps/web/tests/whiteboard/board-content-tools.test.tsx",
@@ -455,13 +456,15 @@
           "path": "apps/web/tests/whiteboard/board-production-connector-entry.node.test.mjs",
           "source_blob": "76f800b2b07cd070846bebe6c81c1ed1e7d70e79",
           "candidate_blob": "76f800b2b07cd070846bebe6c81c1ed1e7d70e79",
-          "status": "ABSENT"
+          "status": "INHERITED_EXTERNAL_MAIN_NEWER_HEAD",
+          "initial_snapshot_status": "ABSENT"
         },
         {
           "path": "apps/web/tests/whiteboard/board-production-connector-entry.test.tsx",
           "source_blob": "4562a376d024529bbda50c46b8a8fe1b889e5b47",
           "candidate_blob": "4562a376d024529bbda50c46b8a8fe1b889e5b47",
-          "status": "ABSENT"
+          "status": "INHERITED_EXTERNAL_MAIN_NEWER_HEAD",
+          "initial_snapshot_status": "ABSENT"
         },
         {
           "path": "apps/web/tests/whiteboard/connector-menu-resolved-bounds.test.tsx",
