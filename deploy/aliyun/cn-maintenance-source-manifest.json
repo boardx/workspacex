@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "acd2041da9772d3467f10df6a949ef46b0f6f4fe79462093a6b1ebe9a29439cb",
+  "sourceInventorySha256": "64ce7166cbbe2851e0d89937bf92db0132a0123975c4e685867ffe571433fe3d",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -73,8 +73,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-host-controller.cjs",
-      "sha256": "7a73b640eb1a0e2802da84baa08b2c3c928fe303d18ba4ab3b39fb83713904fd",
-      "bytes": 229452
+      "sha256": "47b600b7407efb27c3c0261853cee6bc50d7f6df5b8ec60f3be32bdc4663b963",
+      "bytes": 231971
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-host-launcher.py",
@@ -463,8 +463,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "96bd0ece846a1795f2f4bb198f4c626d5b096f06237176b609308e18cb4b613d",
-      "bytes": 10052
+      "sha256": "71108b9e2118bae3af06a26901d8eb87dbd98cb00389e5a2f5679baa4754b6e2",
+      "bytes": 10943
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -485,6 +485,16 @@
       "path": "packages/cloud-deploy/package.json",
       "sha256": "07ea07848b1e55b168409e894739938a2faaaad316e987df9964cdce7d8da9d1",
       "bytes": 1571
+    },
+    {
+      "path": "packages/cloud-deploy/src/cn-maintenance-host/a_route.ts",
+      "sha256": "0d5cc2cf1a8f78cc2e9e57d7f659035b89ed02977a775bbc3c8e8fa2c25ca4e8",
+      "bytes": 5916
+    },
+    {
+      "path": "packages/cloud-deploy/src/cn-maintenance-host/a_route_test.ts",
+      "sha256": "7be8322837d07c627fe9d109dfda51cb82f223e26e2243d414804493909570b0",
+      "bytes": 4413
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts",
@@ -640,6 +650,11 @@
       "path": "packages/cloud-deploy/src/cn-maintenance-host/typed_operations_test.ts",
       "sha256": "ea7ac362e03e7103889c524ef6fdcc878a191119b9f650e63616f5942a042f94",
       "bytes": 892
+    },
+    {
+      "path": "packages/cloud-deploy/src/cn-maintenance-release.ts",
+      "sha256": "4034341391ee8559b1417f78d731f5ee953513befc6ce2dcacd69bb1f62727dc",
+      "bytes": 6297
     },
     {
       "path": "packages/cloud-deploy/src/cn-migration-completion-cli.ts",
