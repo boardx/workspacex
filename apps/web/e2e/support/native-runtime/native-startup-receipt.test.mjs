@@ -69,3 +69,30 @@ test('reader rejects public data directories, ancestor aliases and receipt symli
     const target=join(data,'other.json');writeFileSync(target,bytes,{mode:0o600});symlinkSync(target,path);assert.throws(()=>readStartupFailure(data));
   }finally{rmSync(root,{recursive:true});}
 });
+
+test('listener diagnostics remain bounded and preserve command and ancestry failures',()=>{
+  const legacy={phase:'IDENTITY',code:'IDENTITY_LISTENER',status:'failed',sourceHead:'a'.repeat(40)};
+  const context={service:'web',pidAlive:true,commandExit:1,listenerCount:null,ancestryVerified:null,childExitCode:null,childSignal:null};
+  const original=Object.assign(new Error('private pid port path stderr token'),{status:1});
+  let failure;try{identityOperation('IDENTITY_SOURCE',()=>identityOperation('IDENTITY_LISTENER',()=>{throw original;},undefined,context));}catch(error){failure=error;}
+  assert.equal(failure.cause,original);assert.deepEqual(failure.identityListener,context);
+  const receipt=parseStartupReceipt({...legacy,identityListener:failure.identityListener});
+  assert.equal(JSON.stringify(receipt).includes('private'),false);
+  assert.deepEqual(parseStartupReceipt(legacy),legacy);
+  for(const invalid of [{...context,pid:123},{...context,port:9999},{...context,path:'/secret'},{...context,stderr:'secret'},{...context,service:'secret'},{...context,pidAlive:'true'},{...context,commandExit:256},{...context,listenerCount:4097},{...context,listenerCount:-1},{...context,listenerCount:1.5},{...context,ancestryVerified:1},{...context,childSignal:'secret'}])assert.throws(()=>parseStartupReceipt({...legacy,identityListener:invalid}));
+  assert.throws(()=>parseStartupReceipt({...legacy,code:'IDENTITY_CWD',identityListener:context}));
+  let ancestry;try{identityOperation('IDENTITY_LISTENER',()=>identityOperation('IDENTITY_ANCESTRY',()=>{throw original;},undefined,{...context,commandExit:0,listenerCount:1}),undefined,context);}catch(error){ancestry=error;}
+  assert.equal(ancestry.code,'IDENTITY_ANCESTRY');assert.equal(ancestry.cause,original);assert.equal(ancestry.identityListener.listenerCount,1);
+  assert.equal(parseStartupReceipt({...legacy,code:ancestry.code,identityListener:ancestry.identityListener}).identityListener.ancestryVerified,null);
+  let invalid;try{identityOperation('IDENTITY_LISTENER',()=>{throw original;},undefined,{...context,port:9999});}catch(error){invalid=error;}
+  assert.equal(invalid.cause,original);assert.equal(invalid.identityListener,undefined);
+});
+
+test('real private listener receipt survives safe serialization without weakening failure',()=>{
+  const data=realpathSync(mkdtempSync(join(tmpdir(),'wsx-native-listener-')));chmodSync(data,0o700);
+  try{
+    const identityListener={service:'api',pidAlive:true,commandExit:0,listenerCount:1,ancestryVerified:false,childExitCode:null,childSignal:null};
+    writeStartupFailure({data,phase:'IDENTITY',sourceHead:'b'.repeat(40),error:Object.assign(new Error('private listener'),{code:'IDENTITY_LISTENER'}),identityListener});
+    assert.deepEqual(readStartupFailure(data),{phase:'IDENTITY',code:'IDENTITY_LISTENER',status:'failed',sourceHead:'b'.repeat(40),identityListener});
+  }finally{rmSync(data,{recursive:true});}
+});

@@ -5,6 +5,7 @@ import { readFileSync, realpathSync,existsSync,readlinkSync } from 'node:fs';
 import { join,resolve,relative,isAbsolute,dirname,basename } from 'node:path';
 import {tmpdir} from 'node:os';
 import {identityOperation} from './native-startup-receipt.mjs';
+import {linuxRuntimeListeners} from './native-process-listeners.mjs';
 
 export function listRuntimeSourceFiles(root) {
   const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
@@ -107,11 +108,19 @@ function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
     assert(realpathSync(cwd).startsWith(canonical+'/'),'runtime must execute within candidate');
     },identityCwd);
     const url=new URL(kind==='web'?base:origin),port=url.port|| (url.protocol==='https:'?'443':'80');
+    const identityListener={service:kind,pidAlive:null,commandExit:null,listenerCount:null,ancestryVerified:null,childExitCode:null,childSignal:null};
     identityOperation('IDENTITY_LISTENER',()=>{
-    const listeners=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'}).trim().split('\n').map(Number);
-    const parentOf=pid=>identityOperation('IDENTITY_ANCESTRY',()=>Number(execFileSync('ps',['-o','ppid=','-p',String(pid)],{encoding:'utf8'}).trim()));
-    assert(listeners.length>0&&listeners.every(pid=>descendsFrom(pid,process.pid,parentOf)),`${kind} listener must belong to attested service process`);
-    });
+    try{globalThis.process.kill(process.pid,0);identityListener.pidAlive=true;}catch(error){if(error.code==='ESRCH')identityListener.pidAlive=false;}
+    let listeners;
+    try{
+      if(globalThis.process.platform==='linux')listeners=linuxRuntimeListeners(process.pid,Number(port),{descendsFrom});
+      else{const output=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'});identityListener.commandExit=0;listeners=output.trim().split('\n').map(Number);}
+    }catch(error){if(globalThis.process.platform!=='linux')identityListener.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
+    identityListener.listenerCount=listeners.length;
+    const parentOf=pid=>identityOperation('IDENTITY_ANCESTRY',()=>Number(execFileSync('ps',['-o','ppid=','-p',String(pid)],{encoding:'utf8'}).trim()),undefined,identityListener);
+    identityListener.ancestryVerified=listeners.length>0&&listeners.every(pid=>descendsFrom(pid,process.pid,parentOf));
+    assert(identityListener.ancestryVerified,`${kind} listener must belong to attested service process`);
+    },undefined,identityListener);
   }
   return {head:manifest.head,webRoot:canonical,apiRoot:canonical,processes:manifest.processes,sourceHashes:manifest.sourceHashes};
 }
