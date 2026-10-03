@@ -5,6 +5,8 @@ export type InterviewGenerationSession = Readonly<{
   step: "outline" | "report";
   status: "running" | "completed" | "failed";
   source?: InterviewMarkdownEnvelope;
+  revisionId?: string;
+  sourceVersion?: number;
   error?: unknown;
   stage?: "context" | "model" | "validation" | "storage";
   markdown?: string;
@@ -22,10 +24,10 @@ function updateInterviewGeneration(key: string, patch: Partial<InterviewGenerati
   listeners.forEach(listener => listener());
 }
 /** Keep an authorized request alive when its route changes; never restart on subscription. */
-export async function runInterviewGeneration(id: string, step: InterviewGenerationSession["step"], operation: (update: (patch: Partial<InterviewGenerationSession>) => void) => Promise<InterviewMarkdownEnvelope>) {
+export async function runInterviewGeneration(id: string, step: InterviewGenerationSession["step"], operation: (update: (patch: Partial<InterviewGenerationSession>) => void) => Promise<InterviewMarkdownEnvelope>, origin?: { revisionId: string; version: number }) {
   const key = sessionKey(id);
   if (sessions.get(key)?.status === "running") throw new Error("GENERATION_ALREADY_RUNNING");
-  sessions.set(key, { step, status: "running", stage: "context", markdown: "", attempt: 0 });
+  sessions.set(key, { step, revisionId: origin?.revisionId, sourceVersion: origin?.version, status: "running", stage: "context", markdown: "", attempt: 0 });
   listeners.forEach(listener => listener());
   try {
     const source = await operation(patch => updateInterviewGeneration(key, patch));
