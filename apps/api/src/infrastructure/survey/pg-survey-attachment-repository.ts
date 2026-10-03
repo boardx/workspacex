@@ -1,3 +1,4 @@
+import { surveyCollectionAccessError } from "@repo/contracts/survey-collection-window";
 import { createHash, timingSafeEqual } from "node:crypto";
 import type {
   DatabasePort,
@@ -128,11 +129,8 @@ export class PgSurveyAttachmentRepository implements AttachmentRepository {
         !publication
       )
         throw new SurveyAttachmentError("not_found");
-      if (
-        publication.status !== "collecting" ||
-        Date.parse(publication.expiresAt) <= Date.now()
-      )
-        throw new SurveyAttachmentError("closed");
+      const accessError = surveyCollectionAccessError(publication);
+      if (accessError) throw new SurveyAttachmentError(accessError === "not_started" ? "not_started" : "closed");
       return work({ s, orgId, surveyId, publication });
     });
   }
