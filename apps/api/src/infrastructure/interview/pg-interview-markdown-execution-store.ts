@@ -93,9 +93,18 @@ export class PgInterviewMarkdownExecutionStore implements InterviewMarkdownExecu
       }
       if(input.results.some(result=>result.failed)) row.status="failed";
       else if(row.tasks.every(t=>t.status==="completed")) row.status="completed";
-      const previous=(await session.query<{markdown:string;version:number}>(`SELECT markdown,version_number AS version FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id])).rows[0];
-      const appended=input.results.filter(result=>result.markdown.trim()).map(result=>`## [${result.expertId}](#expert-${result.expertId})\n\n${result.markdown}`).join("\n\n");
-      if(appended) await appendInterviewMarkdownDocument(session,{orgId:input.orgId,interviewId:input.interviewId,revisionId:header.revision_id,step:"runs",title:"模拟访谈回答",markdown:`${previous?.markdown??"# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。"}\n\n${appended}`,evidenceMode:"simulated",references:sources.map((d,i)=>({anchor:`source-${i+1}`,documentId:d.documentId,version:d.version})),expectedVersion:previous?.version??0,status:row.status==="completed"?"completed":row.status==="failed"?"failed":"draft",failure:row.status==="failed"?{code:"AI_GENERATION_UNAVAILABLE",retryable:true}:null});
+      const previous=(await session.query<{markdown:string;version:number;answer_spans:interviewMarkdown.InterviewMarkdownDocument["answerSpans"]}>(`SELECT markdown,answer_spans,version_number AS version FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id])).rows[0];
+      let markdown = previous?.markdown ?? "# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。";
+      const answerSpans = [...(previous?.answer_spans ?? [])];
+      const results = input.results.filter(result => result.markdown.trim());
+      for (const result of results) {
+        markdown += `\n\n## [${result.expertId}](#expert-${result.expertId})\n\n`;
+        const start = markdown.length;
+        markdown += result.markdown;
+        answerSpans.push({ taskKey: `${header.revision_id}/${result.expertId}`, expertId: result.expertId,
+          start, end: markdown.length, contentHash: interviewMarkdownContentHash(result.markdown) });
+      }
+      if(results.length) await appendInterviewMarkdownDocument(session,{orgId:input.orgId,interviewId:input.interviewId,revisionId:header.revision_id,step:"runs",title:"模拟访谈回答",markdown,answerSpans,evidenceMode:"simulated",references:sources.map((d,i)=>({anchor:`source-${i+1}`,documentId:d.documentId,version:d.version})),expectedVersion:previous?.version??0,status:row.status==="completed"?"completed":row.status==="failed"?"failed":"draft",failure:row.status==="failed"?{code:"AI_GENERATION_UNAVAILABLE",retryable:true}:null});
       const claimFinished=!row.tasks.some(task=>task.status==="running");
       await session.query(`UPDATE interview_markdown_execution SET status=$3,tasks=$4::jsonb,claim_id=$5,claim_expires_at=$6,updated_at=now() WHERE org_id=$1 AND revision_id=$2`,[input.orgId,header.revision_id,row.status,JSON.stringify(row.tasks),claimFinished?null:input.claimId,claimFinished?null:row.claim_expires_at]);
       await this.bump(session,input);

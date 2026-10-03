@@ -52,7 +52,17 @@ export function InterviewReportMarkdown({ markdown, testId, document, longForm =
       data-testid={testId}
       className={`chat-markdown mt-6 leading-7 text-card-foreground ${longForm ? "interview-report-markdown" : "text-sm"}`}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={{ ...components, a: ({ node: _node, href, children, ...props }) => {
+          const anchor = href?.startsWith("#") ? href.slice(1) : undefined;
+          const located = document?.references.some(reference => reference.anchor === anchor && reference.locator);
+          return <a {...props} href={located ? `#itv-source-${anchor}` : href} onClick={located ? (event) => {
+            const target = window.document.getElementById(`itv-source-${anchor}`);
+            if (!target) return;
+            event.preventDefault();
+            target.scrollIntoView({ block: "start" });
+            target.focus({ preventScroll: true });
+          } : undefined}>{children}</a>;
+        } }}>
         {markdown}
       </ReactMarkdown>
     </div>

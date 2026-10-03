@@ -9,6 +9,7 @@ import {
   Get,
   GoneException,
   Inject,
+  ConflictException,
   NotFoundException,
   Param,
   PayloadTooLargeException,
@@ -38,6 +39,7 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
   } catch (e) {
     if (!(e instanceof SurveyAttachmentError)) throw e;
     if (e.code === "not_found") throw new NotFoundException();
+    if (e.code === "not_started") throw new ConflictException({ reasonCode: "SURVEY_NOT_STARTED" });
     if (e.code === "closed") throw new GoneException();
     if (e.code === "limit_exceeded") throw new PayloadTooLargeException();
     throw new BadRequestException(e.code);

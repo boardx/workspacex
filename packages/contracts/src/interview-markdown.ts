@@ -5,6 +5,19 @@ import remarkGfm from "remark-gfm";
 import { DigitalInterviewArtifact, DigitalInterviewArtifactStep } from "./interview";
 import { InterviewMarkdownReportReview } from "./interview-markdown-report-review";
 
+/** Offsets use JavaScript UTF-16 code units into the preserved runs Markdown. */
+export const InterviewAnswerSpan = z.object({
+  taskKey: z.string().min(1), expertId: z.string().regex(/^[a-zA-Z0-9_-]+$/u),
+  start: z.number().int().nonnegative(), end: z.number().int().positive(),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/u),
+}).strict().refine(span => span.end > span.start, "answer span must be nonempty");
+export const InterviewEvidenceLocator = z.object({
+  sourceHash: z.string().regex(/^[a-f0-9]{64}$/u),
+  start: z.number().int().nonnegative(), end: z.number().int().positive(),
+  quote: z.string().min(1), taskKey: z.string().nullable(), expertId: z.string().nullable(),
+  evidenceMode: DigitalInterviewArtifact.innerType().shape.evidenceMode,
+}).strict().refine(locator => locator.end > locator.start, "locator must be nonempty");
+
 /** Research body is kept verbatim; references are controlled metadata, not model claims. */
 export const InterviewMarkdownDocument = z.object({
   documentId: z.string().min(1).refine((value) => value.trim().length > 0, "documentId cannot be blank"),
@@ -17,7 +30,9 @@ export const InterviewMarkdownDocument = z.object({
     anchor: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/u),
     documentId: z.string().min(1).refine((value) => value.trim().length > 0, "documentId cannot be blank"),
     version: z.number().int().positive(),
+    locator: InterviewEvidenceLocator.optional(),
   }).strict()),
+  answerSpans: z.array(InterviewAnswerSpan).optional(),
 }).strict().superRefine((document, context) => {
   const anchors = new Set<string>();
   document.references.forEach((reference, index) => {
@@ -260,4 +275,36 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
     anchors: Object.freeze(document.references.map((reference) => Object.freeze({ ...reference }))),
     blocks: Object.freeze(blocks.map((block) => Object.freeze(block))),
   });
+}
+
+/** Parse explicit Markdown citations, excluding escaped syntax and code examples. */
+export function parseInterviewEvidenceLinks(markdown: string): ReadonlyArray<{ text: string; url: string }> {
+  const links: Array<{ text: string; url: string }> = [];
+  function visit(node: MarkdownNode): void {
+    if (node.type === "link" && node.url) links.push({text: plainText(node), url: node.url});
+    node.children?.forEach(visit);
+  }
+  visit(parser.parse(markdown) as MarkdownNode);
+  return links;
+}
+
+/** Visible assertion prose excludes quoted links and code; paragraph scope binds attribution. */
+export function parseInterviewReportAssertions(markdown: string): ReadonlyArray<{text:string;links:ReadonlyArray<{text:string;url:string}>}> {
+  const assertions: Array<{text:string;links:Array<{text:string;url:string}>}> = [];
+  function prose(node:MarkdownNode):string {
+    if (["link","code","inlineCode","html","image"].includes(node.type)) return "";
+    return node.value ?? node.children?.map(prose).join("") ?? "";
+  }
+  function visit(node:MarkdownNode):void {
+    if (["paragraph", "heading", "tableCell"].includes(node.type)) {
+      const links:Array<{text:string;url:string}>=[];
+      function collect(child:MarkdownNode):void {
+        if(child.type==="link"&&child.url) links.push({text:plainText(child),url:child.url});
+        child.children?.forEach(collect);
+      }
+      collect(node); assertions.push({text:prose(node),links});
+    } else node.children?.forEach(visit);
+  }
+  visit(parser.parse(markdown) as MarkdownNode);
+  return assertions;
 }

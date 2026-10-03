@@ -18,7 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
    later and every gate here silently ignored it, which is the failure mode of
    any check that names its input instead of discovering it. Generated pages
    (zh/) are excluded: build-i18n.mjs already guarantees they match. */
-const SOURCES = ['index.html', 'privacy.html', '404.html'];
+const SOURCES = ['index.html', 'privacy.html', '404.html', 'manual/index.html'];
 const problems = [];
 let html = '';
 const lineOf = (index) => html.slice(0, index).split('\n').length;
@@ -126,7 +126,9 @@ for (const file of ['zh/index.html', 'zh/privacy.html']) {
   for (const m of body.matchAll(/<a\b[^>]*>/g)) {
     if (m[0].includes('langswitch__btn')) continue;
     const href = m[0].match(/href="(\/[^"]*)"/)?.[1];
-    if (href && !href.startsWith('/zh/')) {
+    // The single Chinese-only manual is deliberately shared by both homepages.
+    const chineseManual = href === '/manual/' && /<html lang="zh-Hans"/.test(readFileSync(join(root, 'manual/index.html'), 'utf8'));
+    if (href && !href.startsWith('/zh/') && !chineseManual) {
       problems.push(`${file}:${body.slice(0, m.index).split('\n').length}: links to ${href}, outside its own language`);
     }
   }

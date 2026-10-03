@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { interviewMarkdown } from "@repo/contracts";
 import type { z } from "zod";
 import type { InterviewMarkdownReader } from "../../src/application/interview/read-interview-markdown";
@@ -9,7 +10,7 @@ import { DigitalInterviewWorkflowError } from "../../src/application/interview/w
 import type { DebugEventInput } from "../../src/application/ports/debug-trace.port";
 const read = vi.hoisted(() => vi.fn());
 vi.mock("../../src/application/interview/read-interview-markdown", () => ({ readInterviewMarkdown: read }));
-const VALID = "## 跨回答综合\n\n两条回答共同指向流程割裂。\n\n## 决策影响\n\n应优先验证统一入口。\n\n## 边界与反例：\n\n当前仅覆盖两类角色，仍需真人验证。\n\n## 建议行动\n\nP0：用真实任务验证统一入口，成功信号为完成时长下降。";
+const VALID = "证据：[PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG](#answer-1)\n\n## 跨回答综合\n\n两条回答共同指向流程割裂。\n\n## 决策影响\n\n应优先验证统一入口。\n\n## 边界与反例：\n\n当前仅覆盖两类角色，仍需真人验证。\n\n## 建议行动\n\nP0：用真实任务验证统一入口，成功信号为完成时长下降。";
 const PRIVATE = "PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG";
 const input = { orgId: toOrgId("org-report-diag"), viewerUserId: "actor", interviewId: "itv-diag", step: "report" as const, expectedVersion: 7, expectedDocumentVersion: 0, traceId: "http-trace-diag" };
 const events: DebugEventInput[] = [];
@@ -19,7 +20,7 @@ function deps() { return { reader: { saveDraft: save }, model: { complete }, mod
 function terminal() { return events.find(event => event.kind === "interview.report_generation.failed" || event.kind === "interview.report_generation.completed"); }
 beforeEach(() => {
  events.length = 0; vi.clearAllMocks(); recorder.record.mockImplementation(event => { events.push(event); });
- const state: z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope> = { interviewId: input.interviewId, execution: null, review: null, revisionId: "rev-diag", version: 7, documents: [{ documentId: "md-runs", step: "runs", version: 3, markdown: PRIVATE, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }], states: [{ documentId: "md-runs", status: "completed", failure: null }] };
+ const state: z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope> = { interviewId: input.interviewId, execution: null, review: null, revisionId: "rev-diag", version: 7, documents: [{ documentId: "md-runs", step: "runs", version: 3, markdown: PRIVATE, contentHash: createHash("sha256").update(PRIVATE).digest("hex"), evidenceMode: "simulated", references: [] }], states: [{ documentId: "md-runs", status: "completed", failure: null }] };
  read.mockImplementation(async () => structuredClone(state));
  complete.mockResolvedValue({ text: VALID, tokens: 1 });
  save.mockImplementation(async (value: Parameters<InterviewMarkdownReader["saveDraft"]>[0]) => {
