@@ -20,3 +20,5 @@ The report view shows the exact saved quotation, answer version and trusted expe
 ## Review and compatibility
 
 Independent review found an omitted legacy-gap issue; it was fixed and regression tested. Final exact-SHA review/CI are required. Metadata fields are optional for reading old records; old strict compiled clients require the matching updated web/API. Apply the migration before the matching runtime update. No merge or deployment is authorized in this task.
+
+Locator IDs are identifiers, not the ordinal of a displayed citation card. The fixture contains references `answer-2` (installation quote, first displayed card) and `answer-3` (counterexample, second displayed card); `answer-1` is an uncited body heading. `citation-dom.json` records the real rendered IDs, link text and positions. Do not infer a locator ID from screenshot order.
