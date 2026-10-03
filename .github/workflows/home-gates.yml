@@ -101,3 +101,11 @@ jobs:
           name: home-webkit-screenshots
           path: apps/home/test-results/webkit/
           if-no-files-found: ignore
+
+      - name: upload manual browser and print evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: home-manual-evidence
+          path: apps/home/test-results/manual/
+          if-no-files-found: ignore
