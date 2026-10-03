@@ -495,8 +495,8 @@ it.each(["catalog", "unavailable"])("frozen workflow authority reaches the execu
   const listRunnable = vi.fn(async () => {
     if (mode === "unavailable") throw new Error("catalog unavailable");
     return { items: [
-      { key: "W001", title: "研究到简报", version: 1, inputSchema: { type: "object" } },
-      { key: "W029", title: "OTHER_ROLE_WORKFLOW", version: 1, inputSchema: {} },
+      { key: "research-to-brief", title: "研究到简报", version: 1, inputSchema: { type: "object" } },
+      { key: "unregistered-foreign-workflow", title: "OTHER_ROLE_WORKFLOW", version: 1, inputSchema: {} },
     ] };
   });
   const start = vi.fn();
@@ -504,7 +504,7 @@ it.each(["catalog", "unavailable"])("frozen workflow authority reaches the execu
   expect(received?.system).toContain('"allowedIds":["W001"]');
   expect(received?.system).not.toContain("OTHER_ROLE_WORKFLOW");
   expect(received?.system).toContain(`"availability":"${mode === "catalog" ? "checked" : "unknown"}"`);
-  if (mode === "catalog") expect(received?.system).toContain('"key":"W001","title":"研究到简报","version":1');
+  if (mode === "catalog") expect(received?.system).toContain('"workflowId":"W001","key":"research-to-brief","title":"研究到简报","version":1');
   expect(listRunnable).toHaveBeenCalledWith(ORG, run.requesterUserId, run.agentId);
   expect(start).not.toHaveBeenCalled();
 });
