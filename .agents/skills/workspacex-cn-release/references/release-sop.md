@@ -201,6 +201,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-03 | `TLS_EXCEPTION_NOT_ACTUAL` / RDS account password length / deleted instance readback | #5157：通过真实 adapter `observe` 验证精确 `No`、`Disabled`、`off`；其他值及目标/peer/创建时间错误仍拒绝。隔离密码固定 `Aa1!` + 21 随机字节的 28 字符 URL-safe tail（总长 32），生成、读回、账号提交与角色 SQL 消费校验同步；旧 36 字符密码不得静默截断。删除终态仅接受 `InvalidDBInstanceId.NotFound` 或 `InvalidDBInstanceName.NotFound` 精确错误码。发布前运行 `python3 .harness/scripts/vm/isolated_rehearsal_provider_contract_test.py` 及 `node .harness/scripts/vm/isolated_rehearsal_role_password_test.cjs`，并实测 ECS RPC 权限；本地密码反证不等于真实 account 失败唯一根因，未知 mutation 先读回。 provider 非零退出仅传播固定白名单错误码至 root600 私有日志，OOS/account catch 在 mandatory readback 前记录稳定码；真实子进程反证须证明最终 `READBACK_NOT_READY` 仍保留诊断且 mutation 仅调用一次，响应正文或未知错误不泄露。 |
 | 2026-09-15 | `ACR_AUTH_EXPIRED` | 临时凭据 + registry 鉴权 probe + 到期预算 |
 | 2026-09-15 | `RELEASE_LOCK_ORPHANED` | process-group 终止后枚举后代、确认 lock free |
 | 2026-09-15 | `PARTIAL_SOURCE_OBJECT_MISSING` | 完整离线 source artifact 和 object closure 校验；预检将裸仓缓存原子复制成 root:root 0700，验证 exact ref、无 `.promisor` pack 且 `GIT_NO_LAZY_FETCH=1 git fsck` 通过，Prepare 只从该缓存做 `--no-local` 克隆 |
@@ -259,3 +260,14 @@ prepare/promote 的 Checks、Statuses、Actions、Deployments 读取权限必须
 
 
 本地发布修复验证必须使用候选 checkout 自己的依赖布局：运行 `pnpm install --frozen-lockfile --prefer-offline` 复用 store，再执行验证；若明确只需要静态验证，可加 `--ignore-scripts` 并记录边界。不得将其他 workspace 的 `node_modules` 链入候选，因为 workspace 包可能解析到其他版本的源码；即使 lockfile 相同，也不能用这种结果证明候选通过。PR CI 的冻结安装和 exact head 检查仍是权威。
+
+
+### 国内缓存准备路径（#5069）
+
+`prepare-cn-release.yml` 从 root 验证完整缓存导出 exact candidate 与 main-cn bundle，
+在一次性 runner workspace 本地 clone、fsck 和 ancestry 校验，不执行 GitHub HTTPS checkout。
+runner 仅获得 `workspacex-cn-export-source` 的只读参数能力；缓存写入 helper 不能加入 sudoers。
+受控安装必须同时安装 export wrapper 与 stage helper，并校验 root 所有权及字节身份。
+缺对象、promisor、alternates、baseline 不一致或发布锁忙时立即 NOT_READY，不回退公网下载。
+这条路径只消费已校验的国内缓存；它不等同于新版本 OSS/OIDC 自动运输已经部署或验收。
+独立记录 workflow SHA、source SHA 和 attempt，完整运输仍需另外验收。

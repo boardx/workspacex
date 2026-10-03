@@ -16,6 +16,10 @@ describe("GitHub-based CN production promotion", () => {
     const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-checkout-offline.selftest.mjs"], { encoding: "utf8" });
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
+  it("executes domestic Git export and runner capability failure fixtures", () => {
+    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-domestic-checkout.selftest.mjs"], { encoding: "utf8", timeout: 30000 });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+  }, 35000);
   it("accepts only an exact SHA and an explicit compare-and-swap baseline", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("release_sha:");
@@ -52,12 +56,12 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("/opt/workspacex-cn/release-origin-cache.git");
     expect(workflow).not.toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
     expect(workflow).toContain("CN_FROZEN_RELEASE_OFFLINE_SOURCE_NOT_READY");
-    expect(candidateWorkflow).toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
+    expect(candidateWorkflow).not.toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
     expect(workflow).toContain("GIT_NO_LAZY_FETCH=1");
-    expect(candidateWorkflow).toContain("actions/checkout@v5");
-    expect(candidateWorkflow).toContain("persist-credentials: false");
-    expect(candidateWorkflow).toContain("git rev-parse --verify origin/main");
-    expect(candidateWorkflow).toContain("CN_SOURCE_CACHE_REVISION_MISMATCH");
+    expect(candidateWorkflow).not.toContain("actions/checkout@v5");
+    expect(candidateWorkflow).toContain("workspacex-cn-export-source");
+    expect(candidateWorkflow).toContain("git merge-base --is-ancestor");
+    expect(candidateWorkflow).toContain("CN_DOMESTIC_SOURCE_NOT_READY");
     expect(candidateWorkflow).toContain("CN_TRUSTED_ENTRYPOINT_DRIFT");
   });
 
@@ -121,6 +125,6 @@ describe("GitHub-based CN production promotion", () => {
   it("installs the verifier only through the controlled root bootstrap", () => {
     expect(bootstrap).toContain("TRUSTED_PROMOTION_BIN");
     expect(bootstrap).toContain('install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"');
-    expect(bootstrap).toContain('"$TRUSTED_PROMOTION_BIN" > "$sudoers_temp"');
+    expect(bootstrap).toContain('"$TRUSTED_PROMOTION_BIN" "$TRUSTED_EXPORT_BIN" > "$sudoers_temp"');
   });
 });

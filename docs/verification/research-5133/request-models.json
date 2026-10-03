@@ -1,0 +1,14 @@
+{
+  "oldProtocolDiagnostic": {
+    "provider": "dashscope",
+    "modelId": "qwen3.8-max"
+  },
+  "newProtocolDiagnostic": {
+    "provider": "dashscope",
+    "modelId": "qwen3.8-max"
+  },
+  "capturedBrowserRuntime": {
+    "modelId": "qwen3.7-plus"
+  },
+  "source": "captured ModelCallInput modelId and runtime modelCalls; no credential data"
+}

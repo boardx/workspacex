@@ -1,0 +1,27 @@
+[stack-admission] load1=5.15 cores=10 perCore=0.52 running=2/2
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 20s
+[test-isolation] id=run-mur8zbyx-686136f6-c762e47daa90 db=wsx_c762e47daa906fed2f1b compose=wsx-c762e47daa906fed2f1b pg=20005 redis=21005 api=24005 web=25005 sandbox=26005 model=27005 deep-agent=28005 asr=29005 vision=30005 loopback-sandbox=31005 mail=19005
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_c762e47daa906fed2f1b capacity=100 current=6 required=32
+ ✓ tests/research/guided-search-recovery.test.ts (24 tests) 31ms
+ ✓ tests/research/guided-report-quote-references.test.ts (11 tests) 6ms
+
+ Test Files  2 passed (2)
+      Tests  35 passed (35)
+   Start at  01:39:32
+   Duration  4.27s (transform 718ms, setup 16ms, collect 1.17s, tests 37ms, environment 0ms, prepare 80ms)
+
+[db-isolation] db=wsx_c762e47daa906fed2f1b peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/research/guided-report-quote-references.test.ts tests/research/guided-search-recovery.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：20s
+  命令执行：5s
+  清理：0s
+  总计：25s

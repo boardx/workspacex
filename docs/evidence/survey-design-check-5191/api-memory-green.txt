@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api
+
+ ✓ tests/survey/survey-runtime.test.ts (14 tests) 102ms
+ ✓ tests/survey/survey-source-lifecycle.test.ts (10 tests) 20ms
+ ✓ tests/survey/publish-gate-domain.test.ts (8 tests) 9ms
+ ✓ tests/survey/state-machine-four.test.ts (6 tests) 1ms
+
+ Test Files  4 passed (4)
+      Tests  38 passed (38)
+   Start at  09:47:00
+   Duration  1.20s (transform 394ms, setup 0ms, collect 754ms, tests 134ms, environment 0ms, prepare 90ms)
+

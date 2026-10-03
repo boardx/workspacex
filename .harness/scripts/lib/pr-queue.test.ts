@@ -203,11 +203,30 @@ describe("#451 PR 队列状态机", () => {
     }
   });
 
-  it("反证 8：无人值守 heartbeat 即便面对 READY_TO_MERGE 也一律拒绝合并", () => {
+  it("反证 8：未获显式授权的无人值守 heartbeat 即便面对 READY_TO_MERGE 也拒绝合并", () => {
     const ready = classifyPr(greenFacts());
     expect(ready.state).toBe("READY_TO_MERGE");
     expect(mergeAuthorization(ready.state, "unattended").allowed).toBe(false);
     expect(mergeAuthorization(ready.state, "attended").allowed).toBe(true);
+  });
+
+  it("显式自动授权仅允许READY_TO_MERGE，所有其它状态拒绝", () => {
+    expect(resolveCoordMode({ "auto-merge-authorized": true })).toBe("authorized-unattended");
+    expect(resolveCoordMode({ "auto-merge-authorized": true, attended: true })).toBe("authorized-unattended");
+    expect(resolveCoordMode({ "auto-merge-authorised": true })).toBe("unattended");
+    expect(resolveCoordMode({ "auto-merge-authorized": false })).toBe("unattended");
+    for (const state of PR_QUEUE_STATES) {
+      expect(mergeAuthorization(state, "authorized-unattended").allowed, state).toBe(state === "READY_TO_MERGE");
+    }
+    // 显式授权不能让真实CI回归、draft或缺失issue变成可合并。
+    for (const facts of [
+      { ...greenFacts(), isDraft: true },
+      { ...greenFacts(), closesIssues: [], refsIssues: [] },
+      { ...greenFacts(), checks: [] },
+      { ...greenFacts(), verdictLabels: ["review:changes"] },
+    ]) {
+      expect(mergeAuthorization(classifyPr(facts).state, "authorized-unattended").allowed).toBe(false);
+    }
   });
 
   it("模式解析 fail-closed：只有显式 --attended 才算人类在场", () => {
