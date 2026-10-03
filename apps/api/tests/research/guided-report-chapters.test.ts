@@ -853,8 +853,21 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     expect(f.contexts.some((c) => c.reportStage.startsWith("synthesis"))).toBe(false);
     expect(report.summary + report.introduction + report.conclusion).not.toContain("UNSUPPORTED_SENTINEL");
     expect(report.summary).toContain("unverified");
+    expect(report.title).toBe("Policy — Research report");
+    expect(report.title + report.summary + report.introduction + report.conclusion).not.toMatch(/\p{Script=Han}/u);
     expect(f.state.reportQualityWarnings).toHaveLength(2);
     expect(f.state.report).toBeNull(); expect(f.state.completed).toBe(false);
+  });
+  it("names an unverified Chinese report after its topic without bilingual framing", async () => {
+    const f = runCase("all-warn");
+    f.state.brief.topic = "Node.js 运行时环境及基础 Web 服务器开发";
+    const report = await f.run();
+    expect(report.title).toBe("Node.js 运行时环境及基础 Web 服务器开发研究报告");
+    expect(report.summary).toContain("尚未通过核验");
+    expect(report.summary + report.introduction + report.conclusion).not.toMatch(/[a-z]/i);
+    expect(f.state.report).toBeNull();
+    expect(f.state.completed).toBe(false);
+    expect(f.state.reportQualityWarnings).toHaveLength(2);
   });
   it("keeps evidence-free resume warnings and reuses later trusted chapters", async () => {
     const f = runCase("empty"); await f.run(); f.contexts.length = 0;

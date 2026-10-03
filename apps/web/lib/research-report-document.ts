@@ -27,7 +27,17 @@ export function researchReferenceUrl(value: string): string | null {
 }
 
 /** One numbering pass shared by final rendering, provisional rendering and export. */
-export function researchReportDocument(report: ReportContent, sources: Source[], outline: GuidedResearchRuntime["outline"], options: { provisional?: boolean; aliases?: { alias: string; sourceId: string }[] } = {}): ReportDocument {
+export function researchReportDocument(report: ReportContent, sources: Source[], outline: GuidedResearchRuntime["outline"], options: { provisional?: boolean; aliases?: { alias: string; sourceId: string }[]; brief?: GuidedResearchRuntime["brief"] } = {}): ReportDocument {
+  // Repair only the old deterministic framing, never rewrite authored report prose.
+  if (options.brief && report.title === "尚未验证的研究草稿 / Unverified research draft") {
+    const framing = C.guidedResearchReportFraming(options.brief);
+    const zh = C.guidedResearchReportFraming({ topic: "主题", goal: "", focus: "" });
+    const en = C.guidedResearchReportFraming({ topic: "Topic", goal: "", focus: "" });
+    report = { ...report, title: framing.title };
+    for (const field of ["summary", "introduction", "conclusion"] as const) {
+      if (report[field] === zh[field] + en[field]) report[field] = framing[field];
+    }
+  }
   const accepted = new Map(sources.filter((source) => source.decision === "accepted").map((source) => [source.id, source]));
   const aliases = new Map<string, string | null>();
   for (const item of options.provisional ? options.aliases ?? [] : []) {

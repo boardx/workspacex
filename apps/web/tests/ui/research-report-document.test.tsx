@@ -2,6 +2,7 @@ import * as React from "react";
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
+import { research as C } from "@repo/contracts";
 import { GuidedResearchReportDocument } from "@/components/research-studio/guided-research-report-document";
 import { GuidedResearchReportPreview } from "@/components/research-studio/guided-research-report-preview";
 import { runtimeFixture } from "../guided-runtime-fixture";
@@ -15,6 +16,20 @@ const sources = [source,
   { ...source, id: "unsafe", url: "javascript:alert(1)" },
 ];
 describe("research chapter document", () => {
+  it.each(["Node.js 运行时", "Node.js runtime"])("names and localizes saved legacy draft framing (%s)", (topic) => {
+    const brief = { ...runtime.brief, topic, goal: "", focus: "" };
+    const zh = C.guidedResearchReportFraming({ topic: "主题", goal: "", focus: "" });
+    const en = C.guidedResearchReportFraming({ topic: "Topic", goal: "", focus: "" });
+    const original = { title: "尚未验证的研究草稿 / Unverified research draft", summary: zh.summary + en.summary, introduction: zh.introduction + en.introduction, conclusion: zh.conclusion + en.conclusion, sections: [{ sectionId: "o1", body: "Preserved evidence [[source:source1]]", sourceIds: ["source1"] }] };
+    const document = researchReportDocument(original, sources, runtime.outline, { brief });
+    const framing = C.guidedResearchReportFraming(brief);
+    expect(document).toMatchObject({ title: framing.title, summary: framing.summary, introduction: framing.introduction, conclusion: framing.conclusion });
+    expect(document.sections[0]!.body).toContain("Preserved evidence");
+    expect(document.references).toHaveLength(1);
+    expect(original.title).toContain("Unverified research draft");
+    const authored = { ...original, title: "My named report", summary: "Authored summary" };
+    expect(researchReportDocument(authored, sources, runtime.outline, { brief })).toMatchObject({ title: authored.title, summary: authored.summary });
+  });
   it("numbers first appearance in reader order and shares a number across normalized duplicate URLs", () => {
     const document = researchReportDocument({ title: "报告", summary: "摘要[[source:second]]", sections: [{ sectionId: "o1", body: "结论[[source:source1]]，补充[[source:alias]]。再述[[source:second]]", sourceIds: ["source1", "alias", "second"] }] }, sources, runtime.outline);
     expect(document.references.map((item) => [item.number, item.url])).toEqual([[1, "https://example.org/second"], [2, "https://example.org/policy"]]);
