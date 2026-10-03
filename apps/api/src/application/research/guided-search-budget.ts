@@ -1,6 +1,7 @@
 import { ResearchRuntimeError } from "./guided-runtime-ports";
 export const GUIDED_SEARCH_BUDGET_MS = 180_000;
 export const GUIDED_PLAN_BUDGET_MS = 55_000;
+export const GUIDED_REPORT_PREPARATION_BUDGET_MS = 180_000;
 export const GUIDED_REPORT_MODEL_BUDGET_MS = 90_000;
 export class SearchBudget {
   private readonly abort = new AbortController();

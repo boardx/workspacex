@@ -1084,5 +1084,21 @@ it("publishes confirmed report destination before reading sources and does not r
   await service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor, { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
     { sessionId: "s", node: "research", action: "complete", requestId: "advance", expectedVersion: 4 }, (event) => f.events.push(event));
   expect(read).toHaveBeenCalledTimes(1);
-  expect(read).toHaveBeenCalledWith("https://example.com/a");
+  expect(read).toHaveBeenCalledWith("https://example.com/a", { signal: expect.any(AbortSignal) });
+});
+
+it("finalizes stalled report source preparation after three minutes", async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async () => {} };
+    const service = new GuidedRuntimeService(store, { complete: async () => new Promise(() => {}) }, { search: async () => [] }, config);
+    const operation = service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor,
+      { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
+      { sessionId: "s", node: "report", action: "generate", requestId: "deadline", expectedVersion: 4 });
+    await vi.advanceTimersByTimeAsync(180_000);
+    const result = await operation;
+    expect(result.busy).toBe(false);
+    expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
+  } finally { vi.useRealTimers(); }
 });
