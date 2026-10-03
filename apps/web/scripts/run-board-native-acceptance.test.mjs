@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
-import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof} from './run-board-native-acceptance.mjs';
+import {acceptanceCommand,suiteDefinition,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof,r01ResultSummary,r01ReportReceipts} from './run-board-native-acceptance.mjs';
 import * as startupReceipts from '../e2e/support/native-runtime/native-startup-receipt.mjs';
 test('startup failure uses sole parser and rejects missing, malformed and foreign-source receipts',()=>{
   const head='a'.repeat(40);
@@ -21,7 +21,7 @@ test('before/end sole runtime identity and manifest digest cannot drift',()=>{
 });
 test('each workflow suite has its own exact checkout without discarding failed build evidence',()=>{
   const workflow=readFileSync(new URL('../../../.github/workflows/board-native-acceptance.yml',import.meta.url),'utf8');
-  for(const suite of ['connectors','files','sync']){
+  for(const suite of ['r01','connectors','files','sync']){
     assert(workflow.includes(`git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-${suite}`));
     assert(workflow.includes(`git -C /private/tmp/wsx-native-${suite} checkout --detach "$(git rev-parse HEAD)"`));
     assert(workflow.includes(`working-directory: /private/tmp/wsx-native-${suite}`));
@@ -69,17 +69,42 @@ test('only wholly absent suite is ABSENT; partial config or orphan specs must fa
   assert.equal(suitePresent(config,[]),false);assert.equal(suitePresent(config,complete),true);
   for(const partial of [complete.slice(1),complete.slice(0,1),complete.slice(0,-1),complete.slice(1,2)])assert.throws(()=>suitePresent(config,partial));
 });
-test('actual coverage resolver recognizes all three unconditional literal CI configurations',()=>{
+test('actual coverage resolver recognizes all four unconditional literal CI configurations',()=>{
   const root=mkdtempSync('/private/tmp/wsx-native-route-pure-');
   try{
     mkdirSync(join(root,'.github/workflows'),{recursive:true});mkdirSync(join(root,'apps/web/e2e'),{recursive:true});
     writeFileSync(join(root,'apps/web/package.json'),JSON.stringify({name:'web',scripts:{}}));
     writeFileSync(join(root,'.github/workflows/board-native-acceptance.yml'),readFileSync(new URL('../../../.github/workflows/board-native-acceptance.yml',import.meta.url)));
-    for(const config of ['board-connector-existing-runtime.config.ts','board-files-completion.config.ts','board-peer-existing-runtime.config.ts'])writeFileSync(join(root,'apps/web/e2e',config),'');
+    for(const config of ['board-connector-existing-runtime.config.ts','board-files-completion.config.ts','board-peer-existing-runtime.config.ts','board-r01-existing-runtime.config.ts'])writeFileSync(join(root,'apps/web/e2e',config),'');
     const routes=resolveInvokedConfigs(root);
-    assert.deepEqual(routes.map(route=>route.configPath).sort(),['apps/web/e2e/board-connector-existing-runtime.config.ts','apps/web/e2e/board-files-completion.config.ts','apps/web/e2e/board-peer-existing-runtime.config.ts']);
+    assert.deepEqual(routes.map(route=>route.configPath).sort(),['apps/web/e2e/board-connector-existing-runtime.config.ts','apps/web/e2e/board-files-completion.config.ts','apps/web/e2e/board-peer-existing-runtime.config.ts','apps/web/e2e/board-r01-existing-runtime.config.ts']);
     assert(routes.every(route=>route.unconditional===true));
   }finally{rmSync(root,{recursive:true});}
+});
+test('R01 requires eight distinct signed title-project cases, not a repeated passing count',()=>{
+ const config='e2e/board-r01-existing-runtime.config.ts',definition=suiteDefinition(config);
+ acceptanceCommand([...base,config]);
+ const report={suites:[{specs:definition.titles.map(title=>({file:definition.files[0],title,ok:true,tests:definition.projects.map(projectName=>({projectName,status:'expected',results:[{status:'passed'}]}))}))}],errors:[],stats:{expected:8,unexpected:0,flaky:0,skipped:0}};
+ suiteResult(config,report);
+ for(const mutate of [r=>r.suites[0].specs.pop(),r=>r.suites[0].specs[1].title=r.suites[0].specs[0].title,r=>r.suites[0].specs[0].tests[1].projectName='r01-native-1440',r=>r.stats.skipped=1]){const invalid=structuredClone(report);mutate(invalid);assert.throws(()=>suiteResult(config,invalid));}
+ assert.throws(()=>screenshotProof(config,[{originalName:'any.png',width:1440,height:900,bytes:100},{originalName:'any-mobile.png',width:390,height:844,bytes:100}]));
+ const names=[...['middle','right'].flatMap(button=>['release','escape','pointercancel','blur'].map(finish=>`${button}-${finish}-held`)),...['Control','Meta'].flatMap(modifier=>[`pointer-zoom-${modifier}`,`pointer-zoom-out-${modifier}`]),'multi-erase-held','multi-erase-protected','multi-erase-refreshed',...['move','rotate','scale'].flatMap(gesture=>[`multi-${gesture}-cancel-held`,`multi-${gesture}-commit-held`,`multi-${gesture}-canceled`,`multi-${gesture}-refreshed`])],images=[1440,390].flatMap(width=>names.flatMap(name=>Array.from({length:name.startsWith('multi-')&&!name.startsWith('multi-erase-')?2:1},()=>({originalName:`${name}-${width}.png`,width,height:900,bytes:100}))));
+ screenshotProof(config,images);assert.throws(()=>screenshotProof(config,images.slice(1)));assert.throws(()=>screenshotProof(config,[...images,images[0]]));assert.throws(()=>screenshotProof(config,images.filter((image,index)=>!(image.originalName==='multi-scale-refreshed-390.png'&&index===images.length-1))));
+});
+test('R01 final projection never publishes private fields or treats preserved boards and hardware as completed',()=>{
+ const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),head='a'.repeat(40),proof={identity:{head},manifestHash:'1'.repeat(64),verifierHash:'2'.repeat(64),selectorHash:'3'.repeat(64)},receipts=definition.titles.flatMap(title=>definition.projects.map(project=>({source:head,testIdentity:{title,project},status:'functional-cases-passed',completed:false,cleanupPending:true,hardwareTrackpad:'unverified',boardId:'private-id',title:'private-title',beforeProof:structuredClone(proof),afterProof:structuredClone(proof)})));
+ assert.deepEqual(r01ResultSummary(receipts,head),{functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
+ for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head));
+ for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head));}
+});
+test('R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths',()=>{
+ const directory=mkdtempSync('/private/tmp/wsx-r01-report-'),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
+ try{
+  const specs=definition.titles.map((title,index)=>({title,tests:definition.projects.map((projectName,project)=>{const path=join(directory,`${index}-${project}`);mkdirSync(path);const receiptPath=join(path,'r01-result.json');writeFileSync(receiptPath,JSON.stringify({source:head,testIdentity:{title,project:projectName}}));return{projectName,results:[{attachments:[{name:'r01-result',path:receiptPath}]}]};})})),report={suites:[{specs}]};
+  assert.equal(r01ReportReceipts(report,directory,head).length,8);
+  for(const mutate of [r=>r.suites[0].specs[0].tests[0].results[0].attachments=[],r=>r.suites[0].specs[1].tests[0].results[0].attachments=r.suites[0].specs[0].tests[0].results[0].attachments,r=>r.suites[0].specs[0].tests[0].results[0].attachments[0].path='/etc/hosts',r=>r.suites[0].specs[0].tests[0].projectName='foreign']){const invalid=structuredClone(report);mutate(invalid);assert.throws(()=>r01ReportReceipts(invalid,directory,head));}
+  assert.throws(()=>r01ReportReceipts(report,directory,'b'.repeat(40)));
+ }finally{rmSync(directory,{recursive:true});}
 });
 test('early runtime exit, failed stop and signal cannot prove cleanup',()=>{
   runtimeExitProof(0,null,true);
