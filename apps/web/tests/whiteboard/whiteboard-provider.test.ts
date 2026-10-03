@@ -93,23 +93,65 @@ const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) 
 const updates = (socket: Socket) => messages(socket).filter((value): value is { type: 'update'; updateId: string; gestureId: string } => value.type === 'update' && typeof value.updateId === 'string');
 const sync = (socket: Socket, server: Y.Doc, epoch = 1, seq = 0) => socket.message({ type: 'sync', epoch, seq, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: 'editor', archived: false });
 const burst = (doc: Y.Doc, count: number) => { for (let index = 0; index < count; index++) executeCommands(doc, [{ type: 'create', object: sticky(`note-${index}`) }], 'local'); };
-it('already-open peer automatically reconciles persisted origin writes after origin closes without reload',async()=>{
-  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
+// Real IDB/BroadcastChannel remain active; only delivery of peer wakeups is controlled.
+it.each(['notification','timer'] as const)('offline origin without a claim permits peer takeover by %s before close',async wake=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);vi.stubGlobal('window',new EventTarget());
+  const intervals:Array<()=>void>=[],realInterval=globalThis.setInterval;
+  vi.spyOn(globalThis,'setInterval').mockImplementation(((callback:()=>void,ms?:number,...args:unknown[])=>{
+    if(ms===2000){intervals.push(callback);return realInterval(callback,2147483647);}
+    return realInterval(callback,ms,...args);
+  }) as typeof setInterval);
   const a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1'),inspect=new IndexedDbEncryptedWhiteboardOutbox('board-1');
-  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();let peerState!:WhiteboardConnectionState;
+  let notification:(()=>void)|undefined,received=false,deliver=false;
+  const subscribe=b.subscribe.bind(b);
+  vi.spyOn(b,'subscribe').mockImplementation((token,listener)=>subscribe(token,()=>{received=true;notification=listener;if(deliver)listener();}));
+  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();
+  let peerState!:WhiteboardConnectionState;
   const first=new WhiteboardProvider(origin,'board-1',()=>{},a),second=new WhiteboardProvider(peer,'board-1',state=>{peerState=state;},b);
   try{
     await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));const originSocket=Socket.sockets[0]!,peerSocket=Socket.sockets[1]!;
     sync(originSocket,server);sync(peerSocket,server);originSocket.onclose?.({code:1006});
     executeCommands(origin,[{type:'create',object:sticky('closed-origin-one')}],'local');executeCommands(origin,[{type:'create',object:sticky('closed-origin-two')}],'local');
     await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toHaveLength(2));
-    expect(peerState.pending).toBe(0);expect(updates(peerSocket)).toEqual([]);first.close();
-    await vi.waitFor(()=>expect(updates(peerSocket)).toHaveLength(2),{timeout:3500});
+    await vi.waitFor(()=>expect(received).toBe(true));expect(peerState.pending).toBe(0);expect(updates(peerSocket)).toEqual([]);
+    // The origin remains open but offline and has no lease. Either real notification
+    // delivery or the existing 2s timer is a legitimate takeover wakeup.
+    if(wake==='notification'){deliver=true;expect(notification).toBeDefined();notification?.();}else{expect(intervals).toHaveLength(2);intervals[1]!();}
+    await vi.waitFor(()=>expect(updates(peerSocket)).toHaveLength(2));
     expect(Socket.sockets).toHaveLength(2);expect(readObjects(peer).map(item=>item.id).sort()).toEqual(['closed-origin-one','closed-origin-two']);
     const sent=updates(peerSocket);expect(new Set(sent.map(item=>item.updateId)).size).toBe(2);
     for(const [index,item] of sent.entries())peerSocket.message({type:'ack',updateId:item.updateId,gestureId:item.gestureId,seq:index+1});
     await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));expect(peerState.pending).toBe(0);
-  }finally{first.close();second.close();inspect.close();origin.destroy();peer.destroy();server.destroy();}
+  }finally{first.close();second.close();inspect.close();origin.destroy();peer.destroy();server.destroy();vi.restoreAllMocks();}
+});
+it('already-open peer waits for the actual origin claim then drains after close releases it without reload',async()=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);vi.stubGlobal('window',new EventTarget());
+  const intervals:Array<()=>void>=[],realInterval=globalThis.setInterval;
+  vi.spyOn(globalThis,'setInterval').mockImplementation(((callback:()=>void,ms?:number,...args:unknown[])=>{
+    if(ms===2000){intervals.push(callback);return realInterval(callback,2147483647);}
+    return realInterval(callback,ms,...args);
+  }) as typeof setInterval);
+  const a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1'),inspect=new IndexedDbEncryptedWhiteboardOutbox('board-1');
+  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();let peerState!:WhiteboardConnectionState;
+  let peerDenied=false;const claim=b.claim.bind(b);vi.spyOn(b,'claim').mockImplementation(async(...args)=>{const granted=await claim(...args);if(!granted)peerDenied=true;return granted;});
+  const first=new WhiteboardProvider(origin,'board-1',()=>{},a);let second:WhiteboardProvider|undefined;
+  try{
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(1));const originSocket=Socket.sockets[0]!;sync(originSocket,server);
+    executeCommands(origin,[{type:'create',object:sticky('closed-origin-one')}],'local');executeCommands(origin,[{type:'create',object:sticky('closed-origin-two')}],'local');
+    await vi.waitFor(()=>expect(updates(originSocket)).toHaveLength(2)); // send follows actual durable claim
+    const denied=await inspect.claim('test-session',updates(originSocket)[0]!.updateId,'independent-counterproof',10000);expect(denied).toBe(false);
+    second=new WhiteboardProvider(peer,'board-1',state=>{peerState=state;},b);
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));const peerSocket=Socket.sockets[1]!;sync(peerSocket,server);
+    await vi.waitFor(()=>expect(peerState.pending).toBe(2));await vi.waitFor(()=>expect(peerDenied).toBe(true));expect(updates(peerSocket)).toEqual([]);
+    first.close();
+    // close queues durable lease release; drive the existing timer until that real
+    // asynchronous operation completes, without waiting for lease expiry.
+    await vi.waitFor(()=>{intervals[1]!();expect(updates(peerSocket)).toHaveLength(2);});
+    expect(Socket.sockets).toHaveLength(2);expect(readObjects(peer).map(item=>item.id).sort()).toEqual(['closed-origin-one','closed-origin-two']);
+    const sent=updates(peerSocket);expect(new Set(sent.map(item=>item.updateId)).size).toBe(2);
+    for(const [index,item] of sent.entries())peerSocket.message({type:'ack',updateId:item.updateId,gestureId:item.gestureId,seq:index+1});
+    await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));expect(peerState.pending).toBe(0);
+  }finally{first.close();second?.close();inspect.close();origin.destroy();peer.destroy();server.destroy();vi.restoreAllMocks();}
 });
 it.each(['current','replacement','reauthorized'] as const)('attributes a delayed original ACK only on its %s socket after shared durable peer drain',async socketScope=>{
   vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
